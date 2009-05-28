@@ -1,0 +1,4 @@
+version = "@VERSION@"
+description = "XenStore RPC"
+archive(byte) = "xsrpc.cma"
+archive(native) = "xsrpc.cmxa"

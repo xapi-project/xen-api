@@ -1,0 +1,4 @@
+version = "@VERSION@"
+description = "Sha1 hash functions"
+archive(byte) = "sha1.cma"
+archive(native) = "sha1.cmxa"

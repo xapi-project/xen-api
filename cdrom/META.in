@@ -1,0 +1,4 @@
+version = "@VERSION@"
+description = "Cdrom extension"
+archive(byte) = "cdrom.cma"
+archive(native) = "cdrom.cmxa"

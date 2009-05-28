@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "Stdext - Common stdlib extensions"
+requires = "unix,uuid"
+archive(byte) = "stdext.cma"
+archive(native) = "stdext.cmxa"
