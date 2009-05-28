@@ -1,16 +1,10 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006-2007 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * All rights reserved.
  */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -41,7 +35,9 @@
 #include <caml/callback.h>
 #include <caml/fail.h>
 
-#define EVENTCHN_PATH "/dev/xen/evtchn"
+#define EVENTCHN_PATH "/dev/xen/eventchn"
+#define EVENTCHN_MAJOR 10
+#define EVENTCHN_MINOR 63
 
 #define WITH_INJECTION_CAPABILITY
 #include "eventchn_injection.c"
@@ -71,7 +67,11 @@ int eventchn_do_open(void)
 	pre_eventchn_open();
 
 	fd = open(EVENTCHN_PATH, O_RDWR);
-
+	if (fd == -1 && errno == ENOENT) {
+		mkdir("/dev/xen", 0640);
+		mknod(EVENTCHN_PATH, S_IFCHR | 0640, makedev(10, 63));
+		fd = open(EVENTCHN_PATH, O_RDWR);
+	}
 	return fd;
 }
 

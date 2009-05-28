@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module String = struct include String
 
 let of_char c = String.make 1 c
@@ -89,7 +76,7 @@ let escaped ?rules string = match rules with
 		concat "" (fold_right aux string [])
 
 (** Take a predicate and a string, return a list of strings separated by
-runs of characters where the predicate was true (excluding those characters from the result) *)
+runs of characters where the predicate was true *)
 let split_f p str =
 	let not_p = fun x -> not (p x) in
 	let rec split_one p acc = function

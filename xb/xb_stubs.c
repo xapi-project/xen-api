@@ -1,16 +1,10 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * All rights reserved.
  */
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -29,13 +23,6 @@
 #include <xenctrl.h>
 #define u32 uint32_t
 #include <xen/io/xs_wire.h>
-
-/* XS_RESTRICT is defined in 
-   http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/restrict_xenstored */
-#include "../include/config.h"
-#if !HAVE_DECL_XS_RESTRICT
-#define XS_RESTRICT 128
-#endif
 
 CAMLprim value stub_get_internal_offset(void)
 {

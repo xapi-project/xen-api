@@ -1,24 +1,13 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2006 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  */
 
 #include <syslog.h>
-#include <string.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/custom.h>
-#include <caml/signals.h>
 
 static int __syslog_level_table[] = {
 	LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING,
@@ -57,15 +46,11 @@ value stub_openlog(value ident, value option, value facility)
 value stub_syslog(value facility, value level, value msg)
 {
 	CAMLparam3(facility, level, msg);
-	const char *c_msg = strdup(String_val(msg));
-	int c_facility = __syslog_facility_table[Int_val(facility)]
-	               | __syslog_level_table[Int_val(level)];
+	int c_facility;
 
-	caml_enter_blocking_section();
-	syslog(c_facility, "%s", c_msg);
-	caml_leave_blocking_section();
-	
-	free(c_msg);
+	c_facility = __syslog_facility_table[Int_val(facility)]
+	           | __syslog_level_table[Int_val(level)];
+	syslog(c_facility, "%s", String_val(msg));
 	CAMLreturn(Val_unit);
 }
 

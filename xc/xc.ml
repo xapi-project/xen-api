@@ -1,15 +1,6 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2006-2007 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *)
 
 (** *)
@@ -64,10 +55,6 @@ type sched_control =
 	cap    : int;
 }
 
-type physinfo_cap_flag =
-	| CAP_HVM
-	| CAP_DirectIO
-
 type physinfo =
 {
 	nr_cpus          : int;
@@ -80,7 +67,6 @@ type physinfo =
 	free_pages       : nativeint;
 	scrub_pages      : nativeint;
 	(* XXX hw_cap *)
-	capabilities     : physinfo_cap_flag list;
 }
 
 type version =
@@ -156,7 +142,7 @@ external _domain_getinfolist: handle -> domid -> int -> domaininfo list
        = "stub_xc_domain_getinfolist"
 
 let domain_getinfolist handle first_domain =
-	let nb = 100 in
+	let nb = 2 in
 	let last_domid l = (List.hd l).domid + 1 in
 	let rec __getlist from =
 		let l = _domain_getinfolist handle from nb in
@@ -246,15 +232,9 @@ external domain_test_assign_device: handle -> domid -> (int * int * int * int) -
 external domain_suppress_spurious_page_faults: handle -> domid -> unit
        = "stub_xc_domain_suppress_spurious_page_faults"
 
-external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xc_domain_set_timer_mode"
-external domain_set_hpet: handle -> domid -> int -> unit = "stub_xc_domain_set_hpet"
-external domain_set_vpt_align: handle -> domid -> int -> unit = "stub_xc_domain_set_vpt_align"
-
-external domain_send_s3resume: handle -> domid -> unit = "stub_xc_domain_send_s3resume"
 external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
 
-external domain_trigger_power: handle -> domid -> unit = "stub_xc_domain_trigger_power"
-external domain_trigger_sleep: handle -> domid -> unit = "stub_xc_domain_trigger_sleep"
+external domain_send_s3resume: handle -> domid -> unit = "stub_xc_domain_send_s3resume"
 
 (** check if some hvm domain got pv driver or not *)
 external hvm_check_pvdriver: handle -> domid -> bool
@@ -269,9 +249,6 @@ external version_capabilities: handle -> string =
 
 external watchdog : handle -> int -> int32 -> int
   = "stub_xc_watchdog"
-
-external get_boot_cpufeatures: handle ->
-	(int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) = "stub_xc_get_boot_cpufeatures"
 
 (* core dump structure *)
 type core_magic = Magic_hvm | Magic_pv

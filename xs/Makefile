@@ -1,10 +1,11 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g -I ../xb/
 OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes -I ../xb/
 
@@ -18,8 +19,6 @@ PRELIBS = $(foreach obj, $(PREOBJS),$(obj).cmo) $(foreach obj,$(PREOJBS),$(obj).
 OBJS = queueop xsraw xst xs
 INTF = xsraw.cmi xst.cmi xs.cmi
 LIBS = xs.cma xs.cmxa
-
-DOCDIR = /myrepos/xen-api-libs.hg/doc
 
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -49,18 +48,12 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xs META $(INTF) xs.mli xst.mli xsraw.mli $(LIBS) *.a *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore xs META $(INTF) xs.mli xst.mli xsraw.mli $(LIBS) *.a *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xs
-
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xs" "package" "$(OBJS)" "." "xb" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

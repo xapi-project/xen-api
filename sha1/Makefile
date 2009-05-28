@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(XEN_ROOT)/usr/include -I../mmap -I./
-OCAMLC = ocamlc -g -I ../mmap -I ../uuid
+OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
-OCAMLOPTFLAGS = -g -dtypes -I ../mmap -I ../uuid
+OCAMLOPTFLAGS = -g -dtypes -I ./
 
 LDFLAGS = -cclib -L./
 
@@ -13,9 +13,11 @@ OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
-OBJS = xc
-INTF = xc.cmi
-LIBS = xc.cma xc.cmxa
+OBJS = sha1
+INTF = sha1.cmi
+LIBS = sha1.cma sha1.cmxa
+
+PROGRAMS =
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -23,24 +25,27 @@ bins: $(PROGRAMS)
 
 libs: $(LIBS)
 
-xc.cmxa: libxc_stubs.a $(foreach obj,$(OBJS),$(obj).cmx)
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lxc_stubs $(foreach obj,$(OBJS),$(obj).cmx)
+sha1.cmxa: libsha1_stubs.a $(foreach obj,$(OBJS),$(obj).cmx)
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lsha1_stubs $(foreach obj,$(OBJS),$(obj).cmx)
 
-xc.cma: $(foreach obj,$(OBJS),$(obj).cmo)
-	$(OCAMLC) -a -dllib dllxc_stubs.so -cclib -lxc_stubs -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
+sha1.cma: $(foreach obj,$(OBJS),$(obj).cmo)
+	$(OCAMLC) -a -dllib dllsha1_stubs.so -cclib -lsha1_stubs -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
-xc_stubs.a: xc_lib.o xc_stubs.o
-	ocamlmklib -o xc_stubs $+
+sha1_stubs.a: sha1_stubs.o
+	ocamlmklib -o sha1_stubs $+
 
-libxc_stubs.a: xc_lib.o xc_stubs.o
+libsha1_stubs.a: sha1_stubs.o
 	ar rcs $@ $+
-	ocamlmklib -o xc_stubs $+
+	ocamlmklib -o sha1_stubs $+
 
 %.cmo: %.ml
 	$(OCAMLC) -c -o $@ $<
 
 %.cmi: %.mli
 	$(OCAMLC) -c -o $@ $<
+
+%.mli: %.ml
+	$(OCAMLC) -i $< > $@
 
 %.cmx: %.ml
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -o $@ $<
@@ -53,11 +58,11 @@ META: META.in
 
 .PHONY: install
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore xc META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore sha1 META $(INTF) $(LIBS) *.a *.so *.cmx
 
 .PHONY: uninstall
 uninstall:
-	ocamlfind remove xc
+	ocamlfind remove sha1
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS) $(INTF)

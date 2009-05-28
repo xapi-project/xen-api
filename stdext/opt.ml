@@ -1,25 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-
-(* Perhaps it's better to use `option' from the ocaml-extlib extension
- * to the standard library instead?  (Although it would not suffice,
- * since it's not a super-set of our `opt'.)
- * (http://code.google.com/p/ocaml-extlib/)
- *)
-
-open Pervasiveext
-
 let iter f = function
 	| Some x -> f x
 	| None -> ()
@@ -52,8 +30,3 @@ let fold_right f opt accu =
 	match opt with
 	| Some x -> f x accu
 	| None -> accu
-
-let join = function
-    | Some (Some a) -> Some a
-    | _ -> None
-

@@ -1,15 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2006 XenSource Ltd.
+ * Author: Vincent Hanquez <vincent@xensource.com>
+ * Author: Anil Madhavapeddy <anil@xensource.com>
  *)
 
 module Mutex = struct
@@ -162,9 +154,3 @@ module Delay = struct
 	 | None -> x.signalled <- true 	 (* If the wait hasn't happened yet then store up the signal *)
       )
 end
-
-let keep_alive () =
-	while true do
-		Thread.delay 20000.
-	done
-	
