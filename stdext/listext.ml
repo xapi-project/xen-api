@@ -1,17 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-open Fun
 module List = struct include List
 
 (** Turn a list into a set *)
@@ -23,7 +9,6 @@ let subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1)
 let set_equiv s1 s2 = (subset s1 s2) && (subset s2 s1)
 
 let iteri f list = ignore (fold_left (fun i x -> f i x; i+1) 0 list)
-let iteri_right f list = ignore (fold_right (fun x i -> f i x; i+1) list 0)
 
 let rec inv_assoc k = function
 	| [] -> raise Not_found
@@ -147,9 +132,18 @@ let unrle l =
 let inner fold_left2 base f l1 l2 g =
 	fold_left2 (fun accu e1 e2 -> g accu (f e1 e2)) base l1 l2
 
-let rec is_sorted compare list =
+let filter_map f list =
+	List.fold_right
+		begin
+			fun element list -> match (f element) with
+				| Some x -> x :: list
+				| None -> list
+		end
+		list []
+
+let rec is_sorted compare list = 
 	match list with
-		| x :: y :: list ->
+		| x :: y :: list -> 
 			if compare x y <= 0
 				then is_sorted compare (y :: list)
 				else false
@@ -162,51 +156,4 @@ let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 let assoc_default k l d =
   if List.mem_assoc k l then List.assoc k l else d
-
-let map_assoc_with_key op al =
-	List.map (fun (k, v1) -> (k, op k v1)) al
-
-(* Like the Lisp cons *)
-let cons a b = a :: b
-
-(* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
-(* ToDo: This is complicated enough to warrant a test. *)
-(* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
-   Pro: Would mask fewer bugs.
-   Con: Less robust.
-*)
-let take n list =
-	let rec helper i acc list =
-	if i <= 0 || list = []
-	then acc
-	else helper (i-1)  (List.hd list :: acc) (List.tl list)
-	in List.rev $ helper n [] list
-
-(* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
-let rec tails = function
-	| [] -> [[]]
-	| (_::xs) as l -> l :: tails xs
-
-let safe_hd = function
-	| a::_ -> Some a
-	| [] -> None
-
-let rec replace_assoc key new_value = function
-	| [] -> []
-	| (k, _) as p :: tl ->
-		if k = key then
-			(key, new_value) :: tl
-		else
-			p :: replace_assoc key new_value tl
-
-let make_assoc op l = map (fun key -> key, op key) l
-
-let unbox_list a = List.map Opt.unbox (List.filter Opt.is_boxed a)
-
-let filter_map f list =
-	(unbox_list +++ map) f list
-
-let restrict_with_default default keys al =
-	make_assoc (fun k -> assoc_default k al default) keys
-
 end

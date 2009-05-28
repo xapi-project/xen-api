@@ -1,18 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** A collection of extensions to the [Unix] module. *)
-
 external _exit : int -> unit = "unix_exit"
 val unlink_safe : string -> unit
 val mkdir_safe : string -> Unix.file_perm -> unit
@@ -22,19 +7,10 @@ val pidfile_read : string -> int option
 val daemonize : unit -> unit
 val with_file : string -> Unix.open_flag list -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
-
-(** Folds function [f] over every line in the file at [file_path] using the
-starting value [start]. *)
-val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
-
-(** Applies function [f] to every line in the file at [file_path]. *)
-val file_lines_iter : (string -> unit) -> string -> unit
-
-(** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
 val read_whole_file : int -> int -> Unix.file_descr -> string
 val read_whole_file_to_string : string -> string
-val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
+val atomic_write_to_file : string -> (Unix.file_descr -> 'a) -> 'a
 val write_string_to_file : string -> string -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
@@ -68,7 +44,6 @@ val make_endpoint : Unix.file_descr -> endpoint
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> string -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
-val really_read_bigbuffer : Unix.file_descr -> Bigbuffer.t -> int64 -> unit
 val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
 exception Timeout
@@ -83,16 +58,28 @@ external set_tcp_nodelay : Unix.file_descr -> bool -> unit
   = "stub_unixext_set_tcp_nodelay"
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
-external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
-
 val int_of_file_descr : Unix.file_descr -> int
 val file_descr_of_int : int -> Unix.file_descr
 val close_all_fds_except : Unix.file_descr list -> unit
+val get_process_output : ?handler:(string -> int -> string) -> string -> string
 val resolve_dot_and_dotdot : string -> string
 
 val seek_to : Unix.file_descr -> int -> int
 val seek_rel : Unix.file_descr -> int -> int
 val current_cursor_pos : Unix.file_descr -> int
+
+type statfs_t = {
+	statfs_type: int64;
+	statfs_bsize: int;
+	statfs_blocks: int64;
+	statfs_bfree: int64;
+	statfs_bavail: int64;
+	statfs_files: int64;
+	statfs_ffree: int64;
+	statfs_namelen: int;
+}
+
+val statfs: string -> statfs_t
 
 module Fdset : sig
 	type t
@@ -108,12 +95,7 @@ module Fdset : sig
 	val select_wo : t -> float -> t
 end
 
-val wait_for_path : string -> (float -> unit) -> int -> unit
-
 (** Download a file via an HTTP GET *)
 val http_get: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
 (** Upload a file via an HTTP PUT *)
 val http_put: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
-
-external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
-external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"

@@ -1,15 +1,6 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (c) 2007 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  */
 
 #ifdef WITH_INJECTION_CAPABILITY
@@ -19,8 +10,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-
-#define HYPCALLcmd "hypcall"
 
 static int fake_interface_open(void)
 {
@@ -73,10 +62,9 @@ static int fake_xen_domctl(int handle, struct xen_domctl *domctl)
 		marshall_command(handle, "%s,%d,%d\n", DOMCTLcmd, domctl->cmd, domctl->domain);
 		return unmarshall_return(handle);
 	case XEN_DOMCTL_createdomain: /* W ssidref */
-		marshall_command(handle, "%s,%d,%d,%d," DOMAINHANDLE "\n", DOMCTLcmd,
+		marshall_command(handle, "%s,%d,%d," DOMAINHANDLE "\n", DOMCTLcmd,
 		                 domctl->cmd,
-		                 (domctl->u.createdomain.flags|XEN_DOMCTL_CDF_hvm_guest)?1:0,
-		                 (domctl->u.createdomain.flags|XEN_DOMCTL_CDF_hap)?1:0,
+		                 domctl->u.createdomain.flags,
 		                 domctl->u.createdomain.handle[0],
 		                 domctl->u.createdomain.handle[1],
 		                 domctl->u.createdomain.handle[2],
@@ -332,11 +320,7 @@ static int fake_xen_schedop(int handle, unsigned long cmd, sched_remote_shutdown
 {
 	switch (cmd) {
 	case SCHEDOP_remote_shutdown:
-		marshall_command(handle, "%s,%d,%d,%d\n", HYPCALLcmd,
-						 1, 
-		                 arg->domain_id,
-						 arg->reason);
-		return unmarshall_return(handle);
+		return 0;
 	default:
 		return -EINVAL;
 	}

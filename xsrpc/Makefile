@@ -5,6 +5,7 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes -I ../xb/ -I ../xs/
 
@@ -15,8 +16,6 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OBJS = xsrpc
 INTF = xsrpc.cmi
 LIBS = xsrpc.cma xsrpc.cmxa
-
-DOCDIR = /myrepos/xen-api-libs.hg/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -46,19 +45,13 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xsrpc META $(INTF) $(LIBS) *.a *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore xsrpc META $(INTF) $(LIBS) *.a *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xsrpc
-	
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xsrpc" "package" "$(OBJS)" "." "xb,xs" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot META $(LIBS) $(PROGRAMS)
 

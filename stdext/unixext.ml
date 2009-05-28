@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext
 
 exception Unix_error of int
@@ -85,31 +72,18 @@ let daemonize () =
 		end
 	| _ -> exit 0
 
-let file_lines_fold f start file_path =
-	let input = open_in file_path in
-	let rec fold accumulator =
-		let line =
-			try Some (input_line input)
-			with End_of_file -> None in
-		match line with
-			| Some line -> fold (f accumulator line)
-			| None -> accumulator in
-	finally
-		(fun () -> fold start)
-		(fun () -> close_in input)
-
-let file_lines_iter f file_path =
-	let input = open_in file_path in
+(** Run a function over every line in a file *)
+let readfile_line fn fname =
+	let fin = open_in fname in
 	try
 		while true do
-			let line = input_line input in
-			f line
-		done
+			let line = input_line fin in
+			fn line
+		done;
+		close_in fin;
 	with
-		| End_of_file -> close_in input
-		| exn -> close_in input; raise exn
-
-let readfile_line = file_lines_iter
+	| End_of_file -> close_in fin
+	| exn -> close_in fin; raise exn
 
 (** open a file, and make sure the close is always done *)
 let with_file file mode perms f =
@@ -151,12 +125,11 @@ let read_whole_file_to_string fname =
 
 (** Opens a temp file, applies the fd to the function, when the function completes, renames the file
     as required. *)
-let atomic_write_to_file fname perms f =
+let atomic_write_to_file fname f =
   let tmp = Filenameext.temp_file_in_dir fname in
-  Unix.chmod tmp perms;
   Pervasiveext.finally
     (fun () ->
-      let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
+      let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
       let result = Pervasiveext.finally
 	(fun () -> f fd)
 	(fun () -> Unix.close fd) in
@@ -167,7 +140,7 @@ let atomic_write_to_file fname perms f =
 
 (** Atomically write a string to a file *)
 let write_string_to_file fname s =
-  atomic_write_to_file fname 0o644 (fun fd ->
+  atomic_write_to_file fname (fun fd ->
     let len = String.length s in
     let written = Unix.write fd s 0 len in
     if written <> len then (failwith "Short write occured!"))
@@ -201,7 +174,7 @@ let copy_file ?limit ifd ofd =
 		let num64 = Int64.of_int num in
 
 		limit := Opt.map (fun x -> Int64.sub x num64) !limit;
-		ignore_int (Unix.write ofd buffer 0 num);
+		Unix.write ofd buffer 0 num;
 		total_bytes := Int64.add !total_bytes num64;
 		finished := num = 0 || !limit = Some 0L;
 	done;
@@ -347,18 +320,6 @@ let really_read_string fd length =
   really_read fd buf 0 length;
   buf
 
-let really_read_bigbuffer fd bigbuf n =
-	let chunk = 4096 in
-	let s = String.make chunk '\000' in
-	let written = ref 0L in
-	while !written < n do
-		let remaining = Int64.sub n !written in
-		let to_write = min remaining (Int64.of_int chunk) in
-		really_read fd s 0 (Int64.to_int to_write);
-		Bigbuffer.append_substring bigbuf s 0 (Int64.to_int to_write);
-		written := Int64.add !written to_write;
-	done
-
 let really_write fd string off n =
 	let written = ref 0 in
 	while !written < n
@@ -460,7 +421,6 @@ let double_fork f =
 external set_tcp_nodelay : Unix.file_descr -> bool -> unit = "stub_unixext_set_tcp_nodelay"
 
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
-external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
 
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 
@@ -486,6 +446,27 @@ let close_all_fds_except (fds: Unix.file_descr list) =
     if not(List.mem i fds') then close' i
   done
 
+exception Process_output_error of string
+let get_process_output ?(handler) cmd : string =
+	let inchan = Unix.open_process_in cmd in
+
+	let buffer = Buffer.create 1024
+	and buf = String.make 1024 '\000' in
+	
+	let rec read_until_eof () =
+		let rd = input inchan buf 0 1024 in
+		if rd = 0 then
+			()
+		else (
+			Buffer.add_substring buffer buf 0 rd;
+			read_until_eof ()
+		) in
+	(* Make sure an exception doesn't prevent us from waiting for the child process *)
+	(try read_until_eof () with _ -> ());
+	match (Unix.close_process_in inchan), handler with
+	| Unix.WEXITED 0, _ -> Buffer.contents buffer
+	| Unix.WEXITED n, Some handler -> handler cmd n
+	| _ -> raise (Process_output_error cmd)
 
 (** Remove "." and ".." from paths (NB doesn't attempt to resolve symlinks) *)
 let resolve_dot_and_dotdot (path: string) : string = 
@@ -526,6 +507,19 @@ let current_cursor_pos fd =
   (* 'seek' to the current position, exploiting the return value from Unix.lseek as the new cursor position *)
   Unix.lseek fd 0 Unix.SEEK_CUR 
 
+type statfs_t = {
+	statfs_type: int64;
+	statfs_bsize: int;
+	statfs_blocks: int64;
+	statfs_bfree: int64;
+	statfs_bavail: int64;
+	statfs_files: int64;
+	statfs_ffree: int64;
+	statfs_namelen: int;
+}
+
+external statfs: string -> statfs_t = "stub_unixext_statfs"
+
 module Fdset = struct
 	type t
 	external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
@@ -541,18 +535,6 @@ module Fdset = struct
 	let select_ro r t = _select_ro r t
 	let select_wo w t = _select_wo w t
 end
-
-let wait_for_path path delay timeout =
-  let rec inner ttl =
-    if ttl=0 then failwith "No path!";
-    try 
-      ignore(Unix.stat path)
-    with _ ->
-      delay 0.5;
-      inner (ttl - 1)
-  in
-  inner (timeout * 2)
-	
 
 let _ = Callback.register_exception "unixext.unix_error" (Unix_error (0))
 
@@ -668,6 +650,3 @@ end
 
 let http_get = Http.get
 let http_put = Http.put
-
-external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
-external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"

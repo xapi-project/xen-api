@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 type domid = int
 type vcpuinfo = {
   online : bool;
@@ -49,7 +36,6 @@ type domaininfo = {
   handle : int array;
 }
 type sched_control = { weight : int; cap : int; }
-type physinfo_cap_flag = CAP_HVM | CAP_DirectIO
 type physinfo = {
   nr_cpus : int;
   threads_per_core : int;
@@ -60,7 +46,6 @@ type physinfo = {
   total_pages : nativeint;
   free_pages : nativeint;
   scrub_pages : nativeint;
-  capabilities : physinfo_cap_flag list;
 }
 type version = { major : int; minor : int; extra : string; }
 type compile_info = {
@@ -158,18 +143,9 @@ external domain_deassign_device: handle -> domid -> (int * int * int * int) -> u
 external domain_test_assign_device: handle -> domid -> (int * int * int * int) -> bool
        = "stub_xc_domain_test_assign_device"
 
-external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xc_domain_set_timer_mode"
-external domain_set_hpet: handle -> domid -> int -> unit = "stub_xc_domain_set_hpet"
-external domain_set_vpt_align: handle -> domid -> int -> unit = "stub_xc_domain_set_vpt_align"
-
+external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
 external domain_send_s3resume: handle -> domid -> unit
   = "stub_xc_domain_send_s3resume"
-external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
-
-external domain_trigger_power: handle -> domid -> unit
-  = "stub_xc_domain_trigger_power"
-external domain_trigger_sleep: handle -> domid -> unit
-  = "stub_xc_domain_trigger_sleep"
 
 external hvm_check_pvdriver : handle -> domid -> bool
   = "stub_xc_hvm_check_pvdriver"
@@ -212,7 +188,4 @@ external domain_cpuid_apply: handle -> domid -> bool -> unit
        = "stub_xc_domain_cpuid_apply"
 external cpuid_check: (int64 * (int64 option)) -> string option array -> (bool * string option array)
        = "stub_xc_cpuid_check"
-
-external get_boot_cpufeatures: handle ->
-	(int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) = "stub_xc_get_boot_cpufeatures"
 

@@ -1,15 +1,6 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (c) 2006-2007 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  */
 
 #include <stdint.h>
@@ -44,12 +35,6 @@
 	struct xen_sysctl sysctl = {	\
 		.cmd = _cmd,		\
 		.interface_version = XEN_SYSCTL_INTERFACE_VERSION, \
-	}
-
-#define DECLARE_PLATFORM(_cmd)		\
-	struct xen_platform_op platform = { \
-		.cmd = _cmd,		\
-		.interface_version = XENPF_INTERFACE_VERSION, \
 	}
 
 #define DECLARE_HYPERCALL2(_cmd, _arg0, _arg1)	\
@@ -212,24 +197,6 @@ static int do_sysctl(int handle, struct xen_sysctl *sysctl)
 	return ret;
 }
 
-static int do_platform(int handle, struct xen_platform_op *platform)
-{
-	int ret;
-	DECLARE_HYPERCALL1(__HYPERVISOR_platform_op, platform);
-
-	if (mlock(platform, sizeof(*platform)) != 0) {
-		xc_error_set("mlock failed: %s", strerror(errno));
-		return -1;
-	}
-
-	ret = do_xen_hypercall(handle, &hypercall);
-	if (ret < 0)
-		xc_error_hypercall(hypercall, ret);
-
-	munlock(platform, sizeof(*platform));
-	return ret;
-}
-
 static int do_evtchnctl(int handle, int cmd, void *arg, size_t arg_size)
 {
 	DECLARE_HYPERCALL2(__HYPERVISOR_event_channel_op, cmd, arg);
@@ -329,7 +296,7 @@ static int xc_set_hvm_param(int handle, unsigned int domid,
 	};
 	DECLARE_HYPERCALL2(__HYPERVISOR_hvm_op, HVMOP_set_param, (unsigned long) &arg);
 	int ret;
-
+	
 	if (mlock(&arg, sizeof(arg)) == -1) {
 		xc_error_set("mlock failed: %s", strerror(errno));
 		return -1;
@@ -1515,38 +1482,10 @@ out:
 	return ret;
 }
 
-#ifndef HVM_PARAM_HPET_ENABLED
-#define HVM_PARAM_HPET_ENABLED 11
-#endif
-
-#ifndef HVM_PARAM_ACPI_S_STATE
-#define HVM_PARAM_ACPI_S_STATE 14
-#endif
-
-#ifndef HVM_PARAM_VPT_ALIGN
-#define HVM_PARAM_VPT_ALIGN 16
-#endif
-
 int xc_domain_send_s3resume(int handle, unsigned int domid)
 {
 	#define HVM_PARAM_ACPI_S_STATE 14
 	return xc_set_hvm_param(handle, domid, HVM_PARAM_ACPI_S_STATE, 0);
-}
-
-int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode)
-{
-	return xc_set_hvm_param(handle, domid,
-	                        HVM_PARAM_TIMER_MODE, (unsigned long) mode);
-}
-
-int xc_domain_set_hpet(int handle, unsigned int domid, int hpet)
-{
-	return xc_set_hvm_param(handle, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) hpet);
-}
-
-int xc_domain_set_vpt_align(int handle, unsigned int domid, int vpt_align)
-{
-	return xc_set_hvm_param(handle, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) vpt_align);
 }
 
 int xc_domain_get_acpi_s_state(int handle, unsigned int domid)
@@ -1571,61 +1510,6 @@ int xc_domain_suppress_spurious_page_faults(int xc, uint32_t domid)
 		xc_error_dom_set(domid, "suppress spurious page faults");
 #endif
 	return rc;
-}
-
-int xc_domain_trigger_power(int handle, unsigned int domid)
-{
-    int ret;
-
-    DECLARE_DOMCTL(XEN_DOMCTL_sendtrigger, domid);
-    domctl.u.sendtrigger.trigger = XEN_DOMCTL_SENDTRIGGER_POWER;
-
-	ret = do_domctl(handle, &domctl);
-	if (ret != 0)
-		xc_error_set("power button failed: %s", xc_error_get());
-    return ret;
-}
-
-int xc_domain_trigger_sleep(int handle, unsigned int domid)
-{
-    int ret;
-
-    DECLARE_DOMCTL(XEN_DOMCTL_sendtrigger, domid);
-    domctl.u.sendtrigger.trigger = XEN_DOMCTL_SENDTRIGGER_SLEEP;
-
-	ret = do_domctl(handle, &domctl);
-	if (ret != 0)
-		xc_error_set("sleep button failed: %s", xc_error_get());
-    return ret;
-}
-
-int xc_get_boot_cpufeatures(int handle,
-                            uint32_t *base_ecx, uint32_t *base_edx,
-                            uint32_t *ext_ecx, uint32_t *ext_edx,
-                            uint32_t *masked_base_ecx, 
-                            uint32_t *masked_base_edx,
-                            uint32_t *masked_ext_ecx, 
-                            uint32_t *masked_ext_edx)
-{
-	int ret = -EINVAL;
-#ifdef XENPF_get_cpu_features 
-	DECLARE_PLATFORM(XENPF_get_cpu_features);
-
-	ret = do_platform(handle, &platform);
-	if (ret != 0)
-		xc_error_set("getting boot cpu features failed: %s", xc_error_get());
-	else {
-		*base_ecx = platform.u.cpu_features.base_ecx;
-		*base_edx = platform.u.cpu_features.base_edx;
-		*ext_ecx = platform.u.cpu_features.ext_ecx;
-		*ext_edx = platform.u.cpu_features.ext_edx;
-		*masked_base_ecx = platform.u.cpu_features.masked_base_ecx;
-		*masked_base_edx = platform.u.cpu_features.masked_base_edx;
-		*masked_ext_ecx = platform.u.cpu_features.masked_ext_ecx;
-		*masked_ext_edx = platform.u.cpu_features.masked_ext_edx;
-	}
-#endif
-	return ret;
 }
 
 /*

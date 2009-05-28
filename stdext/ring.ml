@@ -1,20 +1,13 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * All rights reserved.
  *)
 
 type 'a t = { size: int; mutable current: int; data: 'a array; }
 
-(** create a ring structure with size record. records inited to initval *)
+(** create a ring structure with @size record. records inited to @initval *)
 let make size initval =
 	{ size = size; current = size - 1; data = Array.create size initval; }
 
@@ -28,7 +21,7 @@ let push ring e =
 		ring.current <- 0;
 	ring.data.(ring.current) <- e
 
-(** get the ith old element from the ring *)
+(** get the @ith old element from the ring *)
 let peek ring i =
 	if i >= ring.size then
 		raise (Invalid_argument "peek: index");
@@ -57,7 +50,7 @@ let raw_iter ring f =
 (** iterate over all element of the ring, starting from the top *)
 let iter ring f = iter_nb ring f (ring.size)
 
-(** get array of latest nb value *)
+(** get array of latest #nb value *)
 let get_nb ring nb =
 	if nb > ring.size then
 		raise (Invalid_argument "get_nb: nb");

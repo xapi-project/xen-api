@@ -1,16 +1,4 @@
-/*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- */
+/* Copyright (c) 2005-2006 XenSource Inc. */
 
 #define _XOPEN_SOURCE 600
 #include <stdlib.h>
@@ -546,7 +534,7 @@ CAMLprim value stub_xc_send_debug_keys(value xc_handle, value keys)
 CAMLprim value stub_xc_physinfo(value xc_handle)
 {
 	CAMLparam1(xc_handle);
-	CAMLlocal3(physinfo, cap_list, tmp);
+	CAMLlocal1(physinfo);
 	xc_physinfo_t c_physinfo;
 	int r;
 
@@ -557,17 +545,7 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 	if (r)
 		failwith_xc();
 
-	tmp = cap_list = Val_emptylist;
-	for (r = 0; r < 2; r++) {
-		if ((c_physinfo.capabilities >> r) & 1) {
-			tmp = caml_alloc_small(2, Tag_cons);
-			Field(tmp, 0) = Val_int(r);
-			Field(tmp, 1) = cap_list;
-			cap_list = tmp;
-		}
-	}
-
-	physinfo = caml_alloc_tuple(10);
+	physinfo = caml_alloc_tuple(9);
 	Store_field(physinfo, 0, Val_int(COMPAT_FIELD_physinfo_get_nr_cpus(c_physinfo)));
 	Store_field(physinfo, 1, Val_int(c_physinfo.threads_per_core));
 	Store_field(physinfo, 2, Val_int(c_physinfo.cores_per_socket));
@@ -577,7 +555,6 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 	Store_field(physinfo, 6, caml_copy_nativeint(c_physinfo.total_pages));
 	Store_field(physinfo, 7, caml_copy_nativeint(c_physinfo.free_pages));
 	Store_field(physinfo, 8, caml_copy_nativeint(c_physinfo.scrub_pages));
-	Store_field(physinfo, 9, cap_list);
 
 	CAMLreturn(physinfo);
 }
@@ -1143,13 +1120,13 @@ CAMLprim value stub_xc_domain_deassign_device(value xc_handle, value domid, valu
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xc_watchdog(value handle, value domid, value timeout)
+CAMLprim value stub_xc_watchdog(value handle, value id, value timeout)
 {
-	CAMLparam3(handle, domid, timeout);
+	CAMLparam3(handle, id, timeout);
 	int ret;
 	unsigned int c_timeout = Int32_val(timeout);
 
-	ret = xc_domain_watchdog(_H(handle), _D(domid), c_timeout);
+	ret = xc_domain_watchdog(_H(handle), Int_val(id), c_timeout);
 	if (ret < 0)
 		failwith_xc();
 
@@ -1173,78 +1150,6 @@ CAMLprim value stub_xc_domain_send_s3resume(value handle, value domid)
 	CAMLparam2(handle, domid);
 	xc_domain_send_s3resume(_H(handle), _D(domid));
 	CAMLreturn(Val_unit);
-}
-
-
-CAMLprim value stub_xc_domain_set_timer_mode(value handle, value id, value mode)
-{
-	CAMLparam3(handle, id, mode);
-	int ret;
-
-	ret = xc_domain_set_timer_mode(_H(handle), _D(id), Int_val(mode));
-	if (ret < 0)
-		failwith_xc();
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xc_domain_set_hpet(value handle, value id, value mode)
-{
-	CAMLparam3(handle, id, mode);
-	int ret;
-
-	ret = xc_domain_set_hpet(_H(handle), _D(id), Int_val(mode));
-	if (ret < 0)
-		failwith_xc();
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xc_domain_set_vpt_align(value handle, value id, value mode)
-{
-	CAMLparam3(handle, id, mode);
-	int ret;
-
-	ret = xc_domain_set_vpt_align(_H(handle), _D(id), Int_val(mode));
-	if (ret < 0)
-		failwith_xc();
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xc_domain_trigger_power(value handle, value domid)
-{
-	CAMLparam2(handle, domid);
-	xc_domain_trigger_power(_H(handle), _D(domid));
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xc_domain_trigger_sleep(value handle, value domid)
-{
-	CAMLparam2(handle, domid);
-	xc_domain_trigger_sleep(_H(handle), _D(domid));
-	CAMLreturn(Val_unit);
-}
-
-CAMLprim value stub_xc_get_boot_cpufeatures(value handle)
-{
-	CAMLparam1(handle);
-	CAMLlocal1(v);
-	uint32_t a, b, c, d, e, f, g, h;
-	int ret;
-
-	ret = xc_get_boot_cpufeatures(_H(handle), &a, &b, &c, &d, &e, &f, &g, &h);
-	if (ret < 0)
-		failwith_xc();
-	
-	v = caml_alloc_tuple(8);
-	Store_field(v, 0, caml_copy_int32(a));
-	Store_field(v, 1, caml_copy_int32(b));
-	Store_field(v, 2, caml_copy_int32(c));
-	Store_field(v, 3, caml_copy_int32(d));
-	Store_field(v, 4, caml_copy_int32(e));
-	Store_field(v, 5, caml_copy_int32(f));
-	Store_field(v, 6, caml_copy_int32(g));
-	Store_field(v, 7, caml_copy_int32(h));
-
-	CAMLreturn(v);
 }
 
 /*

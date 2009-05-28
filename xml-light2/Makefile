@@ -1,4 +1,3 @@
-IPROG=install -m 755 -o root -g root
 OCAMLPACKS = xmlm
 
 CC = gcc
@@ -12,7 +11,7 @@ OCAMLOPT = $(OCAMLFIND) ocamlopt $(OCAMLFINDFLAGS)
 
 LDFLAGS = -cclib -L./
 
-LIBEXEC  = "/opt/xensource/libexec"
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -23,18 +22,12 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OBJS = xml
 INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
-PROGRAMS = xmlpp
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
-
-all: $(INTF) $(LIBS)
+all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
 
 libs: $(LIBS)
-
-xmlpp: xmlpp.ml all
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../stdext stdext.cmxa xml-light2.cmxa -linkpkg -o $@ $<
 
 xml-light2.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)
@@ -58,29 +51,13 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xml-light2 META $(INTF) $(LIBS) *.a *.cmx
-
-.PHONY: bininstall
-bininstall: path = $(DESTDIR)$(LIBEXEC)
-bininstall: all
-	mkdir -p $(path)
-	$(IPROG) $(PROGRAMS) $(path)
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore xml-light2 META $(INTF) $(LIBS) *.a *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xml-light2
 
-.PHONY: binuninstall
-binuninstall:
-	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
-
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xml-light2" "package" "$(OBJS)" "." "stdext,xmlm" ""
-	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 

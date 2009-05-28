@@ -1,15 +1,6 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (c) 2006 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  */
 
 #define __XEN_TOOLS__
@@ -19,7 +10,7 @@
 #include <xen/sysctl.h>
 #include <xen/domctl.h>
 #include <xen/sched.h>
-#include <xen/platform.h>
+#include <xen/sysctl.h>
 #if XEN_SYSCTL_INTERFACE_VERSION < 4
 #include <xen/linux/privcmd.h>
 #else
@@ -177,18 +168,9 @@ int xc_domain_cpuid_set(int xc, unsigned int domid, int hvm,
 int xc_domain_cpuid_apply(int xc, unsigned int domid, int hvm);
 int xc_cpuid_check(uint32_t input, uint32_t optsubinput,
                    char *config[4], char *config_out[4]);
-int xc_domain_suppress_spurious_page_faults(int xc, uint32_t domid);
-
 int xc_domain_send_s3resume(int handle, unsigned int domid);
-int xc_domain_set_vpt_align(int handle, unsigned int domid, int vpt_align);
-int xc_domain_set_hpet(int handle, unsigned int domid, int hpet);
-int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode);
-int xc_domain_get_acpi_s_state(int handle, unsigned int domid);
-int xc_domain_trigger_power(int handle, unsigned int domid);
-int xc_domain_trigger_sleep(int handle, unsigned int domid);
 
-int xc_get_boot_cpufeatures(int handle, uint32_t *, uint32_t *, uint32_t *,
-	uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
+int xc_domain_suppress_spurious_page_faults(int xc, uint32_t domid);
 
 #if XEN_SYSCTL_INTERFACE_VERSION >= 6
 #define SAFEDIV(a, b)					(((b) >= 0) ? (a) / (b) : (a))

@@ -1,15 +1,6 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2007 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *)
 
 type t = {
@@ -23,13 +14,6 @@ let default_array_len = 16
 let make () = { cells = Array.make default_array_len None; index = 0L }
 
 let length bigbuf = bigbuf.index
-
-let get bigbuf n =
-	let array_offset = Int64.to_int (Int64.div n (Int64.of_int cell_size)) in
-	let cell_offset = Int64.to_int (Int64.rem n (Int64.of_int cell_size)) in
-	match bigbuf.cells.(array_offset) with
-	| None -> "".[0]
-	| Some buf -> buf.[cell_offset]
 
 let rec append_substring bigbuf s offset len =
 	let array_offset = Int64.to_int (Int64.div bigbuf.index (Int64.of_int cell_size)) in
@@ -59,8 +43,6 @@ let rec append_substring bigbuf s offset len =
 	);
 	()
 
-let append_string b s = append_substring b s 0 (String.length s)
-
 let to_fct bigbuf f =
 	let array_offset = Int64.to_int (Int64.div bigbuf.index (Int64.of_int cell_size)) in
 	let cell_offset = Int64.to_int (Int64.rem bigbuf.index (Int64.of_int cell_size)) in
@@ -69,17 +51,16 @@ let to_fct bigbuf f =
 	for i = 0 to array_offset - 1
 	do
 		match bigbuf.cells.(i) with
-		| None      -> (* should never happen *) ()
+		| None      -> (* ?!?!? *) ()
 		| Some cell -> f cell
 	done;
 
-	if(cell_offset > 0) then
-	  (* copy last cell *)
-	  begin match bigbuf.cells.(array_offset) with
-	    | None      -> (* Should never happen (any more) *) ()
-	    | Some cell -> f (String.sub cell 0 cell_offset)
-	  end
-
+	(* copy last cell *)
+	begin match bigbuf.cells.(array_offset) with
+	| None      -> (* ?!?!?! *) ()
+	| Some cell -> f (String.sub cell 0 cell_offset)
+	end;
+	()
 
 let to_string bigbuf =
 	if bigbuf.index > (Int64.of_int Sys.max_string_length) then
@@ -93,19 +74,6 @@ let to_string bigbuf =
 		destoff := !destoff + len
 	);
 	dest
-
-
-let test max =
-  let rec inner n =
-    if n>max then () else begin
-      let bb = make () in
-      let s = String.create n in
-      append_substring bb s 0 n;
-      assert ((to_string bb)=s);
-      inner (n+1)
-    end
-  in 
-  inner 0
 
 let to_stream bigbuf outchan =
 	to_fct bigbuf (fun s -> output_string outchan s)

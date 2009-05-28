@@ -1,11 +1,11 @@
 CC = gcc
-OCAMLLOC := $(shell ocamlc -where)
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(OCAMLLOC)
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc
 OCAMLOPT = ocamlopt 
 
 LDFLAGS = -cclib -L./
 
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLCFLAGS = -g -dtypes -thread -I ../stdext
 OCAMLOPTFLAGS = -g -dtypes -thread -I ../stdext
@@ -15,11 +15,9 @@ OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
-OBJS = syslog log logs debug
-INTF = log.cmi logs.cmi syslog.cmi debug.cmi
+OBJS = syslog log logs
+INTF = log.cmi logs.cmi syslog.cmi
 LIBS = log.cma log.cmxa
-
-DOCDIR = /myrepos/xen-api-libs.hg/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -40,39 +38,40 @@ libsyslog_stubs.a: syslog_stubs.o
 	ar rcs $@ $+
 	ocamlmklib -o syslog_stubs $+
 
+%.cmo: %.ml
+	$(OCAMLC) -c $(OCAMLCFLAGS) -o $@ $<
+
 %.cmi: %.mli
 	$(OCAMLC) -c $(OCAMLCFLAGS) -o $@ $<
 
-%.cmo: %.ml %.cmi
-	$(OCAMLC) -c $(OCAMLCFLAGS) -thread -o $@ $<
-
-%.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
+%.cmx: %.ml
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+logs.mli : logs.ml
+	$(OCAMLC) -i $(OCAMLCFLAGS) $< > $@
+
+syslog.mli : syslog.ml
+	$(OCAMLC) -i $< > $@
 
 META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 #dependency:
-log.cmi: syslog.cmi
-logs.cmi: log.cmi
-debug.cmi: logs.cmi
+log.cmo: syslog.cmo log.cmi 
+log.cmx: syslog.cmx log.cmi 
+logs.cmo: log.cmi 
+logs.cmx: log.cmx 
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore log META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore log META $(INTF) $(LIBS) *.a *.so *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove log
 
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "log" "package" "$(OBJS)" "." "stdext" ""
-	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

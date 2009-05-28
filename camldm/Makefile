@@ -1,12 +1,12 @@
+
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
 
-FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
-
 LDFLAGS = -cclib -L./
 
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -18,11 +18,6 @@ OBJS = camldm
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = camldm.cma camldm.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
-
-OCAMLFLAGS = -pp '${FEPP}' -I ../rpc-light
-
-
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -30,10 +25,10 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 camldm.cmxa: libcamldm_stubs.a $(foreach obj,$(OBJS),$(obj).cmx)
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -a -o $@ -cclib -lcamldm_stubs -cclib -ldevmapper $(foreach obj,$(OBJS),$(obj).cmx)
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lcamldm_stubs -cclib -ldevmapper $(foreach obj,$(OBJS),$(obj).cmx)
 
 camldm.cma: $(foreach obj,$(OBJS),$(obj).cmo)
-	$(OCAMLC) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -a -dllib dllcamldm_stubs.so -cclib -lcamldm_stubs -cclib -ldevmapper -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
+	$(OCAMLC) -a -dllib dllcamldm_stubs.so -cclib -lcamldm_stubs -cclib -ldevmapper -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 camldm_stubs.a: camldm_stubs.o
 	ocamlmklib -o camldm_stubs -ldevmapper $+
@@ -43,13 +38,13 @@ libcamldm_stubs.a: camldm_stubs.o
 	ocamlmklib -o camldm_stubs -ldevmapper $+
 
 %.cmo: %.ml
-	$(OCAMLC) $(OCAMLFLAGS) -c -o $@ $<
+	$(OCAMLC) -c -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) $(OCAMLFLAGS) -c -o $@ $<
+	$(OCAMLC) -c -o $@ $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -58,18 +53,12 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore camldm META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore camldm META $(INTF) $(LIBS) *.a *.so *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove camldm
-
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "camldm" "package" "$(OBJS)" "." "" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

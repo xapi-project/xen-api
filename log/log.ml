@@ -1,27 +1,10 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2006 XenSource LTD
+ * Author: Vincent Hanquez <vincent@xensource.com>
  *)
 
 open Printf
-
-module Mutex = struct
-    include Mutex
-    let execute lock f =
-    	Mutex.lock lock;
-    	let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
-    	Mutex.unlock lock;
-    	r
-end
+open Threadext
 
 exception Unknown_level of string
 
@@ -71,12 +54,6 @@ let mkdir_rec dir perm =
 	p_mkdir dir
 
 type t = { output: output; mutable level: level; }
-
-let get_strings t = match t.output with
-	| String s -> !s
-	| _ -> []
-
-let get_level t = t.level
 
 let make output level = { output = output; level = level; }
 
@@ -148,7 +125,7 @@ let close t =
 	| String _      -> ()
 
 (** create a string representating the parameters of the logger *)
-let to_string t =
+let string_of_logger t =
 	match t.output with
 	| Nil           -> "nil"
 	| Syslog k      -> sprintf "syslog:%s" k
@@ -162,7 +139,7 @@ let to_string t =
 	    end
 
 (** parse a string to a logger *)
-let of_string s : t =
+let logger_of_string s : t =
 	match s with
 	| "nil"    -> opennil ()
 	| "stderr" -> openerr Debug
@@ -216,9 +193,9 @@ let set t level = t.level <- level
 
 let gettimestring () =
 	let time = Unix.gettimeofday () in
-	let tm = Unix.gmtime time in
+	let tm = Unix.localtime time in
         let msec = time -. (floor time) in
-	sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ|" (1900 + tm.Unix.tm_year)
+	sprintf "%d%.2d%.2d %.2d:%.2d:%.2d.%.3d|" (1900 + tm.Unix.tm_year)
 	        (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 	        tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 	        (int_of_float (1000.0 *. msec))
@@ -228,8 +205,7 @@ let gettimestring () =
 let filesize = ref 0 
 let mutex = Mutex.create ()
 
-let output_common t ?(raw=false) ?(syslog_time=false) ?(key="") ?(extra="") priority (message: string) =
-  let result_string = ref "" in
+let output t ?(key="") ?(extra="") priority (message: string) =
   let construct_string withtime =
 		(*let key = if key = "" then [] else [ key ] in
 		let extra = if extra = "" then [] else [ extra ] in
@@ -238,14 +214,8 @@ let output_common t ?(raw=false) ?(syslog_time=false) ?(key="") ?(extra="") prio
 		  @ [ sprintf "%5s" (string_of_level priority) ] @ extra @ key @ [ message ] in
 (*		let items = !extra_hook items in*)
 		String.concat " " items*)
-		result_string := (
-			if raw
-			then Printf.sprintf "%s" message
-			else
     Printf.sprintf "[%s%.5s|%s] %s" 
       (if withtime then gettimestring () else "") (string_of_level priority) extra message
-    );
-    !result_string
 	in
 	(* Keep track of how much we write out to streams, so that we can *)
 	(* log-rotate at appropriate times *)
@@ -257,15 +227,14 @@ let output_common t ?(raw=false) ?(syslog_time=false) ?(key="") ?(extra="") prio
         in
 
 	if String.length message > 0 then
-	(match t.output with
+	match t.output with
 	| Syslog k      ->
 		let sys_prio = match priority with
 		| Debug -> Syslog.Debug
 		| Info  -> Syslog.Info
 		| Warn  -> Syslog.Warning
 		| Error -> Syslog.Err in
-		let facility = try Syslog.facility_of_string k with _->Syslog.Daemon in
-		Syslog.log facility sys_prio ((construct_string syslog_time) ^ "\n")
+		Syslog.log Syslog.Daemon sys_prio ((construct_string false) ^ "\n")
 	| Stream s -> Mutex.execute s.mutex 
 	    (fun () -> 
 	      match !(s.channel) with
@@ -273,14 +242,6 @@ let output_common t ?(raw=false) ?(syslog_time=false) ?(key="") ?(extra="") prio
 		| None -> ())
 	| Nil           -> ()
 	| String s      -> (s := (construct_string true)::!s)
-	);
-	!result_string
-
-let output t ?(key="") ?(extra="") priority (message: string) =
-	ignore(output_common t ~key ~extra priority message)
-
-let output_and_return t ?(raw=false) ~syslog_time ?(key="") ?(extra="") priority (message: string) =
-	output_common t ~raw ~syslog_time ~key ~extra priority message
 
 let log t level (fmt: ('a, unit, string, unit) format4): 'a =
 	let b = (int_of_level t.level) <= (int_of_level level) in
