@@ -1,0 +1,79 @@
+#! /bin/bash
+#
+# xapi          Start/Stop xen services
+#
+# chkconfig: 2345 21 78
+# description: Xen services required by xapi
+# processname: xenstored
+# config: /etc/xensource/rio.conf
+# pidfile: /var/run/xenstored.pid
+
+# Source function library.
+. /etc/init.d/functions
+ 
+start() {
+	echo -n $"Starting xiu: "
+	rm -f /var/xapi/xiu-xc /var/xapi/xiu-xs
+	/opt/xensource/bin/xiu /var/xapi/xiu 2>/dev/null 1>/dev/null &
+
+        # wait for unix domain socket to appear 
+        RETRIES=180
+        while [ ${RETRIES} -ne 0 ]; do
+		[ -e /var/xapi/xiu-xc ] && break
+		RETRIES=$(( ${RETRIES} - 1 ))
+		sleep 1
+		echo -n .
+	done
+
+	echo "[   OK   ]"
+
+	export XIU=/var/xapi/xiu
+	echo -n $"Starting xenstored: "
+	/opt/xensource/bin/xenstored 2>/dev/null 1>/dev/null &
+	echo "[   OK   ]"
+	sleep 1
+	
+	echo 
+	touch /var/lock/subsys/xen;
+	return $RETVAL
+}
+
+stop() {
+	echo -n $"Action not supported"
+	failure $"Action not supported"
+	echo 
+	return 1;
+}	
+
+rhstatus() {
+	status xapi
+}	
+
+restart() {
+	echo -n $"Action not supported"
+	failure $"Action not supported"
+	echo 
+	return 1;
+}	
+
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart)
+  	restart
+	;;
+  status)
+  	rhstatus
+	;;
+  condrestart)
+  	[ -f /var/lock/subsys/xapi ] && restart || :
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	exit 1
+esac
+

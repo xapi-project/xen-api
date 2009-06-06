@@ -1,19 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Virtual-Machine Management
- *)
+(* (C) XenSource 2006-2007 *)
+
 open Client
 open Pervasiveext
 
@@ -21,20 +7,19 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let delete_disks rpc session_id disks =
-	List.iter (fun (vbd,vdi,on_error_delete) ->
-				   if on_error_delete
-				   then try Client.VDI.destroy rpc session_id vdi with _ -> ()
-				   else debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
-			  ) disks
+	List.iter (fun (vbd,vdi) -> try Client.VDI.destroy rpc session_id vdi with _ -> ()) disks
 
 let wait_for_clone ?progress_minmax ~__context task =
-	Helpers.call_api_functions ~__context (fun rpc session ->
-	let refresh_session = Xapi_session.consider_touching_session rpc session in
+	let rpc = Helpers.make_rpc ~__context in
+	let session = Context.get_session_id __context in
+	let refresh_session = Xapi_session.consider_touching_session (Helpers.make_rpc ~__context) session in
 	let main_task = Context.get_task_id __context in
 
 	let cancel_task () =
 		(* Signal the VDI copy sub-task to cancel *)
 		Db_actions.DB_Action.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of main_task, `cancel)];
+		(* Now we're safe to die *)
+		raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
 	in
 
 	(* Listen for status and progress events on the task *)
@@ -91,14 +76,13 @@ let wait_for_clone ?progress_minmax ~__context task =
 
 	let result = Db_actions.DB_Action.Task.get_result ~__context ~self:task in
 	let vdiref = API.From.ref_VDI "" (Xml.parse_string result) in
-	vdiref)
+	vdiref  
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
 	| Disk_op_clone 
 	| Disk_op_copy of API.ref_SR option
 	| Disk_op_snapshot
-	| Disk_op_checkpoint
 
 let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_params = 
 	let task = 
@@ -110,7 +94,7 @@ let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_pa
 			Client.Async.VDI.copy rpc session_id vdi sr
 		| Disk_op_copy (Some other_sr) ->
 			Client.Async.VDI.copy rpc session_id vdi other_sr
-		| Disk_op_snapshot | Disk_op_checkpoint ->
+		| Disk_op_snapshot ->
 			Client.Async.VDI.snapshot rpc session_id vdi driver_params
 	in
 	(* This particular clone takes overall progress from startprogress to endprogress *)
@@ -133,58 +117,38 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 
 	let fold_function (acc,done_so_far) (vbd,size) =
 		try
-			if TaskHelper.is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled, []));
 			let vbd_r = Client.VBD.get_record rpc session_id vbd in
 			(* If the VBD is empty there is no VDI to copy. *)
 			(* If the VBD is a CD then eject it (we cannot make copies of ISOs: they're identified *)
 			(* by their filename unlike other VDIs) *)
-			let newvdi, on_error_delete = 
+			let newvdi = 
 				if vbd_r.API.vBD_empty
-				then Ref.null, false
+				then Ref.null
 				else if vbd_r.API.vBD_type = `CD
-				then vbd_r.API.vBD_VDI, false (* don't delete the original CD *)
-				else clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id disk_op ~__context vbd_r.API.vBD_VDI driver_params, true (* do delete newly created VDI *)
+				then vbd_r.API.vBD_VDI
+				else clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id disk_op ~__context vbd_r.API.vBD_VDI driver_params
 			in
-			((vbd,newvdi,on_error_delete)::acc, (Int64.add done_so_far size))
+			((vbd,newvdi)::acc, (Int64.add done_so_far size))
 		with e ->
-			debug "Error in safe_clone_disks: %s" (Printexc.to_string e);
+			debug "Error in safe_clone_disks";
 			delete_disks rpc session_id acc; (* Delete those cloned so far *)
 			raise e
 	in
 	fst (List.fold_left fold_function ([],0L) sizes)
 
-let power_state_at_snapshot = "power-state-at-snapshot"
-let disk_snapshot_type = "disk-snapshot-type"
-let crash_consistent = "crash_consistent"
-let quiesced = "quiesced"
-
-let snapshot_info ~power_state ~is_a_snapshot =
-	let power_state_info = [power_state_at_snapshot, Record_util.power_state_to_string power_state] in
-	if is_a_snapshot then
-		(disk_snapshot_type, crash_consistent) :: power_state_info
-	else
-		[]
-
-let snapshot_metadata ~vm ~is_a_snapshot =
-	if is_a_snapshot then
-		Helpers.vm_to_string vm
-	else
-		""
-
 (* return a new VM record, in appropriate power state and having the good metrics. *)
-let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
+let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
 	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
+	let is_a_snapshot = disk_op = Disk_op_snapshot in
 	let current_op =
 		match disk_op with
 		| Disk_op_clone -> `clone
 		| Disk_op_copy _-> `copy
 		| Disk_op_snapshot -> `snapshot
-		| Disk_op_checkpoint -> `checkpoint
 	in
 	(* replace VM mac seed on clone *)
 	let rec replace_seed l =
@@ -212,12 +176,13 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	in
 	(* Copy the old metrics if available, otherwise generate a fresh one *)
 	let m =
-		if Db.is_valid_ref all.Db_actions.vM_metrics
+		if Db_cache.DBCache.is_valid_ref (Ref.string_of all.Db_actions.vM_metrics)
 		then Some (Db.VM_metrics.get_record_internal ~__context ~self:all.Db_actions.vM_metrics)
 		else None
 	in
 	let metrics = Ref.make ()
 	and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let vCPUs_utilisation = [(0L, 0.)] in
 	Db.VM_metrics.create ~__context
 		~ref:metrics 
 		~uuid:metrics_uuid
@@ -233,40 +198,11 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
 		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m));	
 
-	let guest_metrics = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm in
-
-	(* compute the parent VM *)
-	let parent =
-		match disk_op with
-		| Disk_op_clone | Disk_op_copy _-> vm
-		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
-
-	(* update the VM's parent field in case of snapshot. *)
-	begin match disk_op with
-		| Disk_op_clone | Disk_op_copy _-> ()
-		| Disk_op_snapshot | Disk_op_checkpoint -> Db.VM.set_parent ~__context ~self:vm ~value:ref
-	end;
-
-  (* verify if this action is happening due to a VM protection policy *)
-  let is_snapshot_from_vmpp =
-    (try
-      is_a_snapshot &&
-      (let session = Context.get_session_id __context in
-       let uname = Db.Session.get_auth_user_name ~__context ~self:session in
-       let is_lsu = Db.Session.get_is_local_superuser ~__context ~self:session in
-       is_lsu && (uname = Xapi_vmpp.vmpr_username)
-      )
-		with e ->
-      debug "Error obtaining is_snapshot_from_vmpp: %s" (Printexc.to_string e);
-      false
-    )
-	in
-
 	(* create a new VM *)
 	Db.VM.create ~__context 
 		~ref
 		~uuid:(Uuid.to_string uuid)
-		~power_state:new_power_state
+		~power_state:`Halted
 		~allowed_operations:[]
 		~blocked_operations:[]
 		~name_label:new_name
@@ -277,14 +213,10 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~is_a_snapshot: is_a_snapshot
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
-		~snapshot_info:(snapshot_info ~power_state ~is_a_snapshot)
-		~snapshot_metadata:(snapshot_metadata ~vm ~is_a_snapshot)
 		~transportable_snapshot_id:""
-		~parent
 		~resident_on:Ref.null
 		~scheduled_to_be_resident_on:Ref.null
 		~affinity:all.Db_actions.vM_affinity
-		~memory_overhead:all.Db_actions.vM_memory_overhead
 		~memory_target:all.Db_actions.vM_memory_target
 		~memory_static_max:all.Db_actions.vM_memory_static_max
 		~memory_dynamic_max:all.Db_actions.vM_memory_dynamic_max
@@ -315,17 +247,13 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~is_control_domain:all.Db_actions.vM_is_control_domain
 		~metrics
 		~blobs:[]
-		~guest_metrics:guest_metrics
+		~guest_metrics:Ref.null
 		~last_booted_record:all.Db_actions.vM_last_booted_record
 		~recommendations:all.Db_actions.vM_recommendations
 		~xenstore_data:all.Db_actions.vM_xenstore_data
 		~ha_restart_priority:all.Db_actions.vM_ha_restart_priority
 		~ha_always_run:false
-		~tags:all.Db_actions.vM_tags
-		~bios_strings:all.Db_actions.vM_bios_strings
-		~protection_policy:Ref.null
-		~is_snapshot_from_vmpp
-	;
+		~tags:all.Db_actions.vM_tags;
 
 	ref, uuid
 
@@ -345,14 +273,13 @@ let clone disk_op ~__context ~vm ~new_name =
 		(* Otherwise, we keep the same power-state as the initial VM          *)
 		let new_power_state =
 			match disk_op, power_state with
-			| Disk_op_checkpoint, (`Running | `Suspended) -> `Suspended
 			| (Disk_op_clone|Disk_op_copy _), `Suspended  -> `Suspended
 			| _ -> `Halted
 		in
 
-		let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
+		let is_a_snapshot = disk_op = Disk_op_snapshot in
 
-		(* driver params to be passed to storage backend clone operations. *)
+		(* driver params to be passed to storage backend clone operations *)
 		let driver_params = make_driver_params () in
 
 		(* backend cloning operations first *)
@@ -361,7 +288,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		begin try 
 			
 			(* create the VM record *)
-			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
+			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name in
 				
 			(* copy every VBD using the new VDI as backend                                *)
 			(* if this fails halfway through, delete the VM and the VDIs, but don't worry *)
@@ -370,7 +297,8 @@ let clone disk_op ~__context ~vm ~new_name =
 				
 				(* copy VBDs *)
 				let new_vbds : [`VBD] Ref.t list =
-					List.map (fun (vbd, newvdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in				
+					List.map (fun (vbd, newvdi) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in
+				
 				(* copy VIFs *)
 				let new_vifs : [`VIF] Ref.t list =
 					List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm:ref ~preserve_mac_address:is_a_snapshot vif) vifs in
@@ -382,8 +310,6 @@ let clone disk_op ~__context ~vm ~new_name =
 							 let original = Db.VM.get_suspend_VDI ~__context ~self:vm in
 							 if original = Ref.null || disk_op = Disk_op_snapshot
 							 then Ref.null
-							 else if disk_op = Disk_op_checkpoint && power_state = `Runnning
-							 then original
 							 else clone_single_vdi rpc session_id disk_op ~__context original driver_params) in
 				
 				Db.VM.set_suspend_VDI ~__context ~self:ref ~value:suspend_VDI;

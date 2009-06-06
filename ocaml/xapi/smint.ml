@@ -1,20 +1,4 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Storage
- *)
- 
+(* *)
 open Pervasiveext
 
 module D=Debug.Debugger(struct let name="smint" end)
@@ -32,25 +16,20 @@ let make_vdi_info ~location ?uuid () =
 
 (** Very primitive first attempt at a set of backend capabilities *)
 type capability =
-    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
-	| Sr_supports_local_caching
+    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
     | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
     | Vdi_update | Vdi_introduce 
     | Vdi_resize_online
     | Vdi_generate_config
-	| Vdi_reset_on_boot
 
 let all_capabilities =
   [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
-    Sr_supports_local_caching; 
     Vdi_create; Vdi_delete; Vdi_attach; Vdi_detach;
     Vdi_clone; Vdi_resize; Vdi_activate; Vdi_deactivate;
     Vdi_update; Vdi_introduce;
     Vdi_resize_online
   ]
-
-type sm_type = Executable | Daemon
 
 type sr_driver_info = {
         sr_driver_filename: string;
@@ -63,7 +42,6 @@ type sr_driver_info = {
 	sr_driver_capabilities: capability list;
 	sr_driver_text_capabilities: string list;
 	sr_driver_configuration: (string * string) list;
-	sr_driver_type : sm_type;
 }
 
 exception Backend_missing_field of string

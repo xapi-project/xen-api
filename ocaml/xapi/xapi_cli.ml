@@ -1,20 +1,4 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Command-Line Interface (CLI)
- *)
- 
+
 open Stringext
 open Pervasiveext
 open Cli_frontend
@@ -81,7 +65,7 @@ let with_session ~local rpc u p session f =
       | false, None -> 
 	  Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Xapi_globs.api_version_string, true
       | true, None ->
-	  Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u ~pwd:p, true
+	  Client.Client.Session.slave_local_login ~rpc ~psecret:(!Xapi_globs.pool_secret), true
       | _, Some session -> session, false in
   let do_logout () =
     if logout then begin
@@ -154,13 +138,8 @@ let exec_command req is_compat cmd s session args =
   let rpc = Helpers.get_rpc () req s in
   Cli_frontend.populate_cmdtable rpc Ref.null;
   (* Log the actual CLI command to help diagnose failures like CA-25516 *)
-  let cmd_name = get_cmdname cmd in
-  if String.startswith "secret-" cmd_name
-	then
-		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
-	else
-		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-  if cmd_name = "help"
+  debug "xe %s %s" (get_cmdname cmd) (String.concat " " (List.map (fun (k, v) -> let v' = if k = "password" then "(omitted)" else v in k ^ "=" ^ v') params));
+  if get_cmdname cmd = "help"
   then do_help is_compat cmd minimal s 
   else do_rpcs req s u p minimal is_compat cmd session args
 	

@@ -82,29 +82,14 @@ OCAMLDOC = ocamldoc
 #
 # Generation of documentation from .ml or .mli files
 #
-OCamlDoc(name, modules, type) =
-    private.CMIFILES = $(addsuffix .cmi, $(modules))
+OCamlDoc(dir, filenames) =
+    private.MODULES = $(removesuffix $(filenames))
+    private.CMIFILES = $(addsuffix .cmi, $(MODULES))
+
     .PHONY: doc
-    dir = $(ROOT)/ocaml/doc
-    doc: $(CMIFILES) $(ROOT)/ocaml/doc/odoc_json.cma
-        python $(ROOT)/ocaml/doc/doc.py $(dir) $(name) $(type) "$(modules)" "$(OCAMLINCLUDES)" "$(OCAMLPACKS)" "$(OCAML_LIBS)"
-
-OCamlDocProgram(name, modules) =
-	OCamlDoc($(name), $(modules), "program")
-	
-OCamlDocLibrary(name, modules) =
-	OCamlDoc($(name), $(modules), "library")
-
-#
-# Use Camlp4
-#
-UseCamlp4(packs, files) =
-       OCAMLPACKS     += $(packs)
-       OCAMLFINDFLAGS += -syntax camlp4o
-       $(addsuffix .cmx, $(files)):
-       $(addsuffix .o, $(files)):
-       $(addsuffix .cmi, $(files)):
-       $(addsuffix .cmo, $(files)):
+    doc: $(CMIFILES)
+        mkdir -p $(dir)
+        $(OCAMLFIND) $(OCAMLDOC) $(LAZY_OCAMLFINDFLAGS) $(PREFIXED_OCAMLPACKS) $(PREFIXED_OCAMLINCLUDES) -I +threads -html -d $(dir) -sort $(filenames)
 
 #
 # Include the OMakefile in this directory.

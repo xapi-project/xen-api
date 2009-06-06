@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Code to convert ocaml exceptions into XAPI exceptions *)
 
 (* XXX: need to push some of this into the datamodel *)
@@ -31,7 +18,7 @@ let error_of_exn e =
     | Db_exn.DBCache_NotFound ("missing reference", tblname, reference) ->
 	(* whenever a reference has been destroyed *)
 	handle_invalid, [tblname; reference ]
-    | Db_cache.Too_many_values(tbl, objref, uuid) ->
+    | Db_access.DB_Access.Too_many_values(tbl, objref, uuid) ->
 	(* Very bad: database has duplicate references or UUIDs *)
 	internal_error, [ sprintf "duplicate objects in database: tbl='%s'; object_ref='%s'; uuid='%s'" tbl objref uuid ]
     | Db_action_helper.Db_set_or_map_parse_fail s ->
@@ -44,7 +31,7 @@ let error_of_exn e =
 	end
     | Db_exn.Duplicate_key (tbl,fld,uuid,key) ->
 	map_duplicate_key, [ tbl; fld; uuid; key ]
-    | Db_cache.Read_missing_uuid (tbl,ref,uuid) ->
+    | Db_access.DB_Access.Read_missing_uuid (tbl,ref,uuid) ->
 	uuid_invalid, [ tbl; uuid ]
 	  
     | Db_actions.DM_to_String.StringEnumTypeError s ->

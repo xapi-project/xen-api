@@ -1,16 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+(** Copyright (C) XenSource 2007 *)
+
 open Http
 open Pervasiveext
 open Forkhelpers
@@ -28,5 +17,6 @@ let logs_download_handler (req: request) s =
       
       debug "send the http headers";
       let fd = string_of_int (Unixext.int_of_file_descr Unix.stdout) in
-      let pid = safe_close_and_exec None (Some s) None [] logs_download [] in
-      waitpid_fail_if_bad_exit pid)
+      let pid = safe_close_and_exec [ Dup2(s, Unix.stdout) ] 
+	[ Unix.stdout ] logs_download [] in
+      waitpid pid)

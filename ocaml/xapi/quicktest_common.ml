@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Stringext
 open Pervasiveext
 open Forkhelpers
@@ -93,8 +80,6 @@ let all_tests = Hashtbl.create 10
 let make_test name indent = { name = name; indent = indent; status = Pending }
 
 let rec failed (test: test_description) msg = 
-  if not (Hashtbl.mem all_tests test.name)
-  then failwith (Printf.sprintf "Test not started: %s" test.name);
   if Hashtbl.mem all_tests test.name then Hashtbl.remove all_tests test.name;
   test.status <- Failed;
   debug test msg;
@@ -121,9 +106,6 @@ and debug (test: test_description) msg =
   flush stdout
 
 let success (test: test_description) = 
-  if not (Hashtbl.mem all_tests test.name)
-  then failwith (Printf.sprintf "Test not started: %s" test.name);
-
   if Hashtbl.mem all_tests test.name then Hashtbl.remove all_tests test.name;
   if test.status = Pending then begin
     incr total_passed;
@@ -164,10 +146,10 @@ let get_pool session_id =
   if List.length pool <> 1 then (failwith "Number of pools isn't zero!");
   List.hd pool
 
-let vm_template = "Debian Etch"
+let debian_etch = "Debian Etch"
 let other = "Other install media"
 
-exception Unable_to_find_suitable_vm_template
+exception Unable_to_find_suitable_debian_template
 
 let find_template session_id startswith = 
   let vms = Client.VM.get_all !rpc session_id in
@@ -175,7 +157,7 @@ let find_template session_id startswith =
 		       (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
 		       && (Client.VM.get_is_a_template !rpc session_id self)
 		    ) vms with
-  | [] -> raise Unable_to_find_suitable_vm_template
+  | [] -> raise Unable_to_find_suitable_debian_template
   | x :: _ ->
       (* Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x); *)
 	x 
@@ -209,7 +191,12 @@ let template_uninstall test session_id vm =
 
 let vm_uninstall test session_id vm =
   let uuid = Client.VM.get_uuid !rpc session_id vm in
-  ignore(cli_cmd test [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ])
+  let snapshots = Client.VM.get_snapshots !rpc session_id vm in
+  ignore(cli_cmd test [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ]);
+  if snapshots <> [] then begin
+    debug test "Uninstalling snapshots";
+    List.iter (template_uninstall test session_id) snapshots;
+  end
 
 let vm_export ?(metadata_only=false) test session_id vm filename = 
   let uuid = Client.VM.get_uuid !rpc session_id vm in
@@ -217,17 +204,16 @@ let vm_export ?(metadata_only=false) test session_id vm filename =
   let args = if metadata_only then args @ [ "metadata=true" ] else args in
   ignore(cli_cmd test args)
 
-let vm_import ?(metadata_only=false) ?(preserve=false) ?sr test session_id filename = 
+let vm_import ?(metadata_only=false) ?sr test session_id filename = 
   let sr_uuid = Opt.map (fun sr -> Client.SR.get_uuid !rpc session_id sr) sr in
   let args = [ "vm-import"; "filename=" ^ filename ] in
   let args = args @ (Opt.default [] (Opt.map (fun x -> [ "sr-uuid=" ^ x ]) sr_uuid)) in
   let args = if metadata_only then args @ [ "metadata=true" ] else args in
-  let args = if preserve then args @ [ "preserve=true" ] else args in
-  let newvm_uuids = String.split ',' (cli_cmd test args) in
-  List.map (fun uuid -> Client.VM.get_by_uuid !rpc session_id uuid) newvm_uuids
+  let newvm_uuid = cli_cmd test args in
+  Client.VM.get_by_uuid !rpc session_id newvm_uuid 
 
-let install_vm test session_id = 
-  let t = find_template session_id vm_template in
+let install_debian test session_id = 
+  let t = find_template session_id debian_etch in
   let uuid = Client.VM.get_uuid !rpc session_id t in
   debug test (Printf.sprintf "Template has uuid: %s%!" uuid);
   let vm = vm_install test session_id uuid "quicktest" in

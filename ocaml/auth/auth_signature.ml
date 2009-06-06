@@ -1,42 +1,13 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
+
+(* 
  * Interface for External Authentication Plugin component
- * @group Access Control
- *)
- 
-(*
  * v1 22Oct08
  *
 *)
 
 exception Auth_failure of string
-type auth_service_error_tag = E_GENERIC|E_LOOKUP|E_DENIED|E_CREDENTIALS|E_UNAVAILABLE|E_INVALID_OU
-exception Auth_service_error of auth_service_error_tag * string
+exception Auth_service_error of string
 exception Subject_cannot_be_resolved
-
-let suffix_of_tag errtag =
-	match errtag with
-		| E_GENERIC -> ""
-		| E_LOOKUP -> Api_errors.auth_suffix_domain_lookup_failed
-		| E_DENIED -> Api_errors.auth_suffix_permission_denied
-		| E_CREDENTIALS -> Api_errors.auth_suffix_wrong_credentials
-		| E_UNAVAILABLE -> Api_errors.auth_suffix_unavailable
-    | E_INVALID_OU -> Api_errors.auth_suffix_invalid_ou
-
-(* required fields in subject.other_config *)
-let subject_information_field_subject_name = "subject-name"
 
 type t =
     {

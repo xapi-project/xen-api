@@ -1,18 +1,8 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006,2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Common definitions and functions shared between the import and export code.
- * @group Import and Export
+ * Common definitions and functions shared between the import and export code
  *)
 
 (** Represents a database record (the reference gets converted to a small string) *)
@@ -132,12 +122,9 @@ let header_of_xmlrpc x =
     objects   = XMLRPC.From.array obj_of_xmlrpc (find _objects);
   }
 
-(* This function returns true when the VM record was created pre-ballooning. *)
-let vm_exported_pre_dmc (x: obj) = 
-  let structure = XMLRPC.From.structure x.snapshot in
-  (* The VM.parent field was added in rel_midnight_ride, at the same time as ballooning.
-     XXX: Replace this with something specific to the ballooning feature if possible. *)
-  not(List.mem_assoc "parent" structure)
+(* Used to make API calls *)
+let rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" 
+  ~filename:Xapi_globs.unix_domain_socket ~path:"/" xml 
 
 open Client
 
@@ -204,7 +191,7 @@ type cleanup_stack = (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> un
 let cleanup (x: cleanup_stack) = 
   (* Always perform the cleanup with a fresh login + context to prevent problems with
      any user-supplied one being invalidated *)
-  Server_helpers.exec_with_new_task "VM.import (cleanup)" ~task_in_database:true
+  Server_helpers.exec_with_new_task "cleaning up after failed VM import" ~task_in_database:true
     (fun __context ->
        Helpers.call_api_functions ~__context
 	 (fun rpc session_id ->
@@ -212,4 +199,3 @@ let cleanup (x: cleanup_stack) =
 			 Helpers.log_exn_continue "executing cleanup action" (action __context rpc) session_id) x
 	 )
     )
-

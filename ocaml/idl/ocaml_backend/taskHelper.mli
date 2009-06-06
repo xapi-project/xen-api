@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* task constructor is hidden : it us used internally by context.ml*)
 val string_of_task: string -> API.ref_task -> string
 val operate_on_db_task :
@@ -26,11 +13,8 @@ val set_result_on_task :
 val set_result : __context:Context.t -> Xml.xml list -> unit
 val complete : __context:Context.t -> Xml.xml list -> unit
 val set_cancellable : __context:Context.t -> unit
-val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool
 val exn_if_cancelling : __context:Context.t -> unit
 val cancel : __context:Context.t -> unit
 val failed : __context:Context.t -> string * string list -> unit
 val init : unit -> unit
-val rbac_assert_permission_fn : (__context:Context.t -> permission:Db_actions.role_t -> unit) option ref
-val assert_can_destroy :  ?ok_if_no_session_in_context:bool -> __context:Context.t ->  [ `task ] Ref.t -> unit

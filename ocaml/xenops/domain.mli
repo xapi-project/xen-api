@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** High-level domain management functions *)
 
 open Device_common
@@ -25,17 +12,12 @@ exception Xenguest_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
-type create_info = {
-	ssidref: int32;
-	hvm: bool;
-	hap: bool;
-	name: string;
-	xsdata: (string * string) list;
-	platformdata: (string * string) list;
-	bios_strings: (string * string) list;
-}
-
 type build_hvm_info = {
+	pae: bool;
+	apic: bool;
+	acpi: bool;
+	nx: bool;
+	viridian: bool;
 	shadow_multiplier: float;
 	timeoffset: string;
 }
@@ -64,10 +46,12 @@ val domarch_of_string : string -> domarch
 val hvmloader : string
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xc.handle -> xs:Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
+val make: xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?name:string ->
+          ?xsdata:((string * string) list) ->
+          ?platformdata:((string * string) list) -> [`domain] Uuid.t -> domid
 
 (** 'types' of shutdown request *)
-type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
+type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | Unknown of int
 
 (** string versions of the shutdown_reasons, suitable for writing into control/shutdown *)
 val string_of_shutdown_reason : shutdown_reason -> string
@@ -78,14 +62,11 @@ val shutdown_reason_of_int : int -> shutdown_reason
 (** Immediately force shutdown the domain with reason 'shutdown_reason' *)
 val hard_shutdown: xc:Xc.handle -> domid -> shutdown_reason -> unit
 
-(** Thrown if the domain has disappeared *)
-exception Domain_does_not_exist
-
 (** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an ack *)
 val shutdown: xs:Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** Tell the domain to shutdown with reason ''shutdown_reason', waiting for an ack *)
-val shutdown_wait_for_ack: ?timeout:float -> xc:Xc.handle -> xs:Xs.xsh -> domid -> shutdown_reason -> unit
+val shutdown_ack: ?timeout:float -> xc:Xc.handle -> xs:Xs.xsh -> domid -> shutdown_reason -> bool
 
 (** send a domain a sysrq *)
 val sysrq: xs:Xs.xsh -> domid -> char -> unit
@@ -106,15 +87,16 @@ val unpause: xc: Xc.handle -> domid -> unit
 (* val create_channels : xc:Xc.handle -> domid -> int * int *)
 
 (** Builds a linux guest in a fresh domain created with 'make' *)
-val build_linux: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
-              -> target_kib:Int64.t -> kernel:string -> cmdline:string
+val build_linux: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
+              -> mem_target_kib:Int64.t -> kernel:string -> cmdline:string
               -> ramdisk:string option -> vcpus:int -> domid
               -> domarch
 
 (** build an hvm domain in a fresh domain created with 'make' *)
-val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
-            -> target_kib:Int64.t -> shadow_multiplier:float
+val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
+            -> mem_target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
+            -> pae:bool -> apic:bool -> acpi:bool -> nx:bool -> viridian:bool
             -> timeoffset:string -> domid
             -> domarch
 
@@ -122,23 +104,20 @@ val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
 val build: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> domarch
 
 (** resume a domain either cooperative or not *)
-val resume: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
+val resume: xc: Xc.handle -> xs: Xs.xsh -> cooperative: bool -> domid -> unit
 
 (** restore a PV domain into a fresh domain created with 'make' *)
-val pv_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t 
-          -> target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
+val restore: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t 
+          -> mem_target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
           -> unit
 
 (** restore an HVM domain from the file descriptor into a fresh domain created
  *  with 'make' *)
-val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
-             -> target_kib:Int64.t -> shadow_multiplier:float
-             -> vcpus:int -> timeoffset:string
+val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
+             -> mem_target_kib:Int64.t -> shadow_multiplier:float
+             -> vcpus:int -> pae:bool -> viridian:bool -> timeoffset:string
              -> domid -> Unix.file_descr
              -> unit
-
-(** Restore a domain using the info provided *)
-val restore: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
 
 type suspend_flag = Live | Debug
 
@@ -151,12 +130,6 @@ val suspend: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> domid
 (** send a s3resume event to a domain *)
 val send_s3resume: xc: Xc.handle -> domid -> unit
 
-(** send a power button push to a domain *)
-val trigger_power: xc: Xc.handle -> domid -> unit
-
-(** send a sleep button push to a domain *)
-val trigger_sleep: xc: Xc.handle -> domid -> unit
-
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 val vcpu_affinity_set: xc: Xc.handle -> domid -> int -> bool array -> unit
 
@@ -166,8 +139,15 @@ val vcpu_affinity_get: xc: Xc.handle -> domid -> int -> bool array
 (** Get the uuid from a specific domain *)
 val get_uuid: xc: Xc.handle -> Xc.domid -> [`domain] Uuid.t
 
-(** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
-val set_memory_dynamic_range: xs: Xs.xsh -> min:int -> max:int -> domid -> unit
+(** Write values (host,port,session,vmref) to grant API access to domain domid *)
+val grant_api_access: xs: Xs.xsh -> domid -> string
+                   -> string -> int -> string -> string -> unit
+
+(** Get the API parameters that has been granted by domain 0 in the specified domain *)
+val get_api_access: xs: Xs.xsh -> domid -> string * int * string * string
+
+(** Get the API parameters that has been granted by domain 0 in domain U *)
+val guest_get_api_access: xs: Xs.xsh -> string * int * string * string
 
 (** Grant a domain access to a range of IO ports *)
 val add_ioport: xc: Xc.handle -> domid -> int -> int -> unit

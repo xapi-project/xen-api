@@ -17,7 +17,6 @@ import tempfile
 import traceback
 import syslog
 from xml.dom import minidom
-from xml.sax.saxutils import unescape
 from xml.parsers.expat import ExpatError
 from socket import getfqdn
 
@@ -27,15 +26,13 @@ mailhub=@MAILHUB@
 FromLineOverride=YES
 """
 
-ma_username="__dom0__mail_alarm"
-
 def log_err(err):
     print >>sys.stderr, err
     syslog.syslog(syslog.LOG_USER | syslog.LOG_ERR, "%s: %s" % (sys.argv[0], err))
 
 def get_pool_name():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password("", "")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         pool_name = session.xenapi.pool.get_name_label(opaque_ref)
@@ -50,35 +47,16 @@ def get_pool_name():
 
 def get_pool_other_config():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password("", "")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         return session.xenapi.pool.get_other_config(opaque_ref)
     finally:
         session.xenapi.session.logout()
 
-def get_vmpp_alarm_config(uuid):
-    session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
-    try:
-        opaque_ref = session.xenapi.VMPP.get_by_uuid(uuid)
-        vmpp_alarm_config = session.xenapi.VMPP.get_alarm_config(opaque_ref)
-        vmpp_is_alarm_enabled = session.xenapi.VMPP.get_is_alarm_enabled(opaque_ref)
-        try:
-            vmpp_smtp_server=vmpp_alarm_config['smtp_server']
-            vmpp_smtp_port=vmpp_alarm_config['smtp_port']
-            vmpp_email_address=vmpp_alarm_config['email_address']
-        except:
-            log_err("VMPP uuid=%s: not sending email alert due to incomplete configuration" % uuid)
-            sys.exit(1)
-        other_config = {'ssmtp-mailhub':"%s %s" % (vmpp_smtp_server,vmpp_smtp_port),'mail-destination':vmpp_email_address}
-        return vmpp_is_alarm_enabled,other_config
-    finally:
-        session.xenapi.session.logout()
-
 def get_VM_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password("", "")
     try:
         try:
             opaque_ref = session.xenapi.VM.get_by_uuid(uuid)
@@ -90,7 +68,7 @@ def get_VM_params(uuid):
 
 def get_host_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password(ma_username, "")
+    session.xenapi.login_with_password("", "")
     try:
         try:
             opaque_ref = session.xenapi.host.get_by_uuid(uuid)
@@ -287,25 +265,6 @@ class HAHostFailedETG(EmailTextGenerator):
             'This alarm is set to be triggered when a host belonging to a high availability pool fails.' \
             '\n' % self.text
 
-class VmppETG(EmailTextGenerator):
-    def __init__(self, msg):
-        self.msg = msg
-
-    def generate_subject(self):
-        msg = self.msg
-        return "[%s] XenServer Message: %s %s %s" % (msg.pool_name, msg.cls, msg.obj_uuid, msg.name)
-
-    def generate_body(self):
-        msg = self.msg
-        try:
-            return \
-            "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
-            "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t\t%s\n" % \
-            (msg.name,msg.priority,msg.cls,msg.obj_uuid,msg.timestamp,msg.uuid,msg.pool_name,msg.body)
-        except:
-            log_err("Badly formatted XML, or missing field")
-            sys.exit(1)
-
 class XapiMessage:
     def __init__(self, xml):
         "Parse message XML"
@@ -331,20 +290,12 @@ class XapiMessage:
     def get_priority(self):
         return int(self.priority)
 
-    def get_cls(self):
-        return self.cls
-
-    def get_obj_uuid(self):
-        return self.obj_uuid
-
     def __get_email_text_generator(self):
         """Returns an EmailTextGenerator object appropriate to this XapiMessage or None if none found"""
         if hasattr(self,'cached_etg'):
             return self.cached_etg
 
-        if self.cls == 'VMPP':
-            etg = VmppETG(self)
-        elif self.name == 'ALARM':
+        if self.name == 'ALARM':
             # Extract the current level of the variable
             # (this will raise an exception if the 1st line of <body> is not in the correct format, namely "value: %f\n")
             value_line = self.body.split("\n",2)[0]
@@ -420,18 +371,11 @@ def main():
     # We only mail messages with level min_priority or higher
     if msg.get_priority() < min_priority:
         return 0
-
-    if msg.get_cls() == "VMPP":
-        config = default_config
-        vmpp_is_alarm_enabled, other_config = get_vmpp_alarm_config(msg.get_obj_uuid())
-        if not vmpp_is_alarm_enabled:
-          return 0
-    else:        
-        config = get_config_file()
-
+    
+    config = get_config_file()
     search_replace = get_search_replace(other_config)
     destination = get_destination(other_config)
-
+    
     if not destination:
         log_err("pool:other-config:mail-destination not specified")
         return 1
@@ -447,16 +391,13 @@ def main():
         os.close(fd)
 
         # Run ssmtp to send mail
-        chld_stdin, chld_stdout = os.popen2(["/usr/sbin/ssmtp", "-C%s" % fname, destination])
-        chld_stdin.write("From: noreply@%s\n" % getfqdn().encode('utf-8'))
-        chld_stdin.write('Content-Type: text/plain; charset="utf-8"\n')
-        chld_stdin.write("To: %s\n" % destination.encode('utf-8'))
-        chld_stdin.write("Subject: %s\n" % msg.generate_email_subject().encode('utf-8'))
-        chld_stdin.write("\n")
-        chld_stdin.write(msg.generate_email_body().encode('utf-8'))
-        chld_stdin.close()
-        chld_stdout.close()
-        os.wait()
+        pipe = os.popen("/usr/sbin/ssmtp -C%s %s" % (fname, destination), "w")
+        pipe.write("From: noreply@%s\n" % getfqdn())
+        pipe.write("To: %s\n" % destination)
+        pipe.write("Subject: %s\n" % msg.generate_email_subject())
+        pipe.write("\n")
+        pipe.write(msg.generate_email_body())
+        pipe.close()
 
     finally:
         os.unlink(fname)

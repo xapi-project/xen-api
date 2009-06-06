@@ -1,21 +1,15 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Virtual-Machine Management
- *)
 
-(** Here we define a template to be a VM with 'is_a_template = true' which,
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2007 Xensource Inc
+
+   Contacts: David Scott     <dave.scott@xensource.com>
+
+   Code to deal with VM 'templates'
+
+   ------------------------------------------------------------------- *)
+
+(* Here we define a template to be a VM with 'is_a_template = true' which,
    when initially booted after having been cloned, inspects its own
    configuration (stored by the UI/CLI in VM.other_config) and uses the API
    to provision disks, make filesystems, perform any install steps and then
@@ -58,7 +52,6 @@ let vdi_type2string v =
     | `crashdump -> "crashdump"
     | `ha_statefile -> "HA statefile"
     | `metadata -> "metadata"
-    | `redo_log -> "redo log"
 
 let xml_of_disk disk = 
   Element("disk", [ "device", disk.device;

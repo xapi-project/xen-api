@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Access Control
- *)
- 
 open Db_actions
 open Auth_signature
 
@@ -23,10 +6,6 @@ open D
 
 exception Unknown_extauth_type of string
 exception Extauth_is_disabled
-
-let auth_type_NONE = ""
-let auth_type_AD_Likewise = "AD"
-let auth_type_PAM = "PAM"
 
 module Ext_auth =
 struct
@@ -80,7 +59,6 @@ let event_name_after_subject_remove = "after-subject-remove"
 let event_name_after_xapi_initialize = "after-xapi-initialize"
 let event_name_before_extauth_disable = "before-extauth-disable"
 let event_name_after_extauth_enable = "after-extauth-enable"
-let event_name_after_roles_update = "after-roles-update"
 let get_event_params ~__context host =
 	let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
 	let service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in

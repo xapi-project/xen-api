@@ -1,17 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Wrapper around gpg *)
+
+(* Copyright (C) XenSource 2007 *)
 
 open Stringext
 open Pervasiveext
@@ -23,14 +12,16 @@ open D
 let filename = ref ""
 
 let gpg_binary_path = "/usr/bin/gpg"
+let gpg_limiter_path = "/opt/xensource/libexec/gpg-limiter.sh"
 let gpg_homedir = "/opt/xensource/gpg/"
 let gpg_pub_keyring = gpg_homedir^"pubring.gpg"
 let allowed_gpg_checksum =
-	[ "be00ee82bffad791edfba477508d5d84"; (* centos52 version *)
-	  "08690c3d1a43d920a1b278cb57ed97ba"; (* centos53/54 version *)
+	[ "be00ee82bffad791edfba477508d5d84"; (* product version *)
 	  "f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
 	  "aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
 	  "044d1327ea42400ac590195e0ec1e7e6"; ]
+
+let allowed_limiter_checksum = ["2cc874e5610243f86470639104f56c92"]
 
 exception InvalidSignature
 
@@ -58,7 +49,6 @@ let common ty filename signature size f =
   Unix.unlink tmp_file; 
   (* no need to close the 'tmp_oc' -> closing the fd is enough *)
   let status_out, status_in = Unix.pipe() in
-  let status_in_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   (* from the parent's PoV *)
   let fds_to_close = ref [ result_out; result_in; status_out; status_in ] in
   let close' fd = 
@@ -71,7 +61,7 @@ let common ty filename signature size f =
 		  "--homedir"; gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; status_in_uuid;
+		  "--status-fd"; string_of_int (Unixext.int_of_file_descr status_in);
 		  "--decrypt"; filename
 		]
     | `detached_signature ->
@@ -80,23 +70,37 @@ let common ty filename signature size f =
 		  "--homedir"; gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; status_in_uuid;
+		  "--status-fd"; string_of_int (Unixext.int_of_file_descr status_in);
 		  "--verify"; signature
 		]
   in
   (* Let's check the checksums of gpg and its helper script for oem *)
   let gpg_binary_sum = simple_checksum gpg_binary_path in
+  let gpg_limiter_sum = simple_checksum gpg_limiter_path in
   if not (List.mem gpg_binary_sum allowed_gpg_checksum) then
     raise InvalidSignature;
+  if not (List.mem gpg_limiter_sum allowed_limiter_checksum) then
+    raise InvalidSignature;
 
-  let gpg_path = gpg_binary_path in
+  let gpg_path = 
+    match ty with
+      | `signed_cleartext -> gpg_binary_path
+      | `detached_signature -> gpg_limiter_path
+  in
 
   finally  (* make sure I close all my open fds in the end *)
     (fun () ->
+       Forkhelpers.with_dev_null (* open /dev/null *)
+	 (fun dev_null ->
 	    (* Capture stderr output for logging *)
 	    match Forkhelpers.with_logfile_fd "gpg"
 	      (fun log_fd ->
-		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)] 
+		 let pid = Forkhelpers.safe_close_and_exec
+		   [ Forkhelpers.Dup2(result_in, Unix.stdout);
+		     Forkhelpers.Dup2(log_fd, Unix.stderr);
+		     Forkhelpers.Close(result_out);
+		     Forkhelpers.Close(status_out) ]
+		   [ Unix.stdout; Unix.stderr; status_in ] (* close all but these *)
 		   gpg_path gpg_args in
 		 (* parent *)
 		 List.iter close' [ result_in; status_in ];
@@ -105,14 +109,14 @@ let common ty filename signature size f =
 		      let gpg_status = Unixext.read_whole_file 500 500 status_out in
 		      let fingerprint = parse_gpg_status gpg_status in
 		      f fingerprint result_out)
-		   (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)) with
+		   (fun () -> Forkhelpers.waitpid pid)) with
 	      | Forkhelpers.Success(_, x) -> debug "gpg subprocess succeeded"; x
 	      | Forkhelpers.Failure(log, Forkhelpers.Subprocess_failed 2) ->
 		  (* Happens when gpg cannot find a readable signature *)
 		  raise InvalidSignature
 	      | Forkhelpers.Failure(log, exn) ->
 		  debug "Error from gpg: %s" log;
-		  raise exn)
+		  raise exn))
     (fun () -> List.iter Unix.close !fds_to_close)
 
 let with_signed_cleartext filename f =

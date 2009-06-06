@@ -1,36 +1,11 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAMLPACKS += xmlm xml-light2 xc
+OCAMLINCLUDES += ../http
+#OCAMLINCLUDES += ../sexpr ../uuid ../idl ../idl/ocaml_backend ../log \
+OCAMLINCLUDES += ../xapi ../gpg
 
-IEXE=install -m 755 -o root -g root
-
-V6FILES = \
-	../xapi/xapi_inventory \
-	v6alert \
-	fakev6 \
-	v6xmlrpc \
-	v6daemon
-
-# Name of daemon to install in dom0:
-V6D = v6testd
-
-OCamlProgram(v6testd, $(V6FILES) v6testd)
-OCamlProgram(v6d-reopen-logs, v6d_reopen_logs)
-
-OCamlDocProgram(v6d, $(V6FILES) v6testd)
-
-.PHONY: install
-install: $(V6D)
-	mkdir -p $(LIBEXEC)
-	$(IPROG) $(V6D) $(LIBEXEC)/v6d
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	$(IPROG) v6d-reopen-logs $(DESTDIR)/opt/xensource/bin
-
-.PHONY: sdk-install
-sdk-install: install
 
 .PHONY: clean
-
 clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o v6d v6testd v6d-reopen-logs
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
 
+# keyring is stored in dom0.hg

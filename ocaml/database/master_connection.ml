@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Manages persistent connection from slave->master over which the db is accessed.
 
    The state of this connection is used by the slave to determine whether it can see its
@@ -38,7 +25,7 @@ let force_connection_reset () =
   match !my_connection with
     None -> ()
   | Some st_proc ->
-      Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
+      Unix.kill st_proc.Stunnel.pid Sys.sigterm
 	
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
@@ -112,19 +99,15 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
   let write_ok = ref false in
   let result = ref (Xml.PCData "") in
   let surpress_no_timeout_logs = ref false in
-  let backoff_delay = ref 2.0 in (* initial delay = 2s *)
-  let update_backoff_delay () =
-    backoff_delay := !backoff_delay *. 2.0;
-    if !backoff_delay < 2.0 then backoff_delay := 2.0 
-    else if !backoff_delay > 256.0 then backoff_delay := 256.0
-  in  
   while (not !write_ok)
   do
     begin
       try
 	let req_string = Xml.to_string_fmt req in
 	let headers = Xmlrpcclient.xmlrpc_headers ~version:"1.1" host path (String.length req_string + 0) in
-	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
+	(* The database actually puts the pool_secret in the xmlrpc calls; we stick it here because the remote_stats_url
+	   (soon to be deprecated) also requires authentication.. Once we have totally deprecated the remote_stats_url
+	   then we can remove this line: *)
 	let headers = headers @ ["Cookie: pool_secret="^(!Xapi_globs.pool_secret)] in
 	match !my_connection with
 	  None -> raise Goto_handler
@@ -139,14 +122,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 	    write_ok := true;
 	    result := res (* yippeee! return and exit from while loop *)
       with
-      (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
-      | Xmlrpcclient.Http_error (http_code,err_msg) ->
-	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg Xapi_globs.permanent_master_failure_retry_timeout;
-	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
-	  exit Xapi_globs.restart_return_code
-      |	_ ->
+	_ ->
 	  begin
-	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
+	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s *)
 	    begin
 	      match !my_connection with
 		None -> ()
@@ -182,9 +160,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 		    raise Cannot_connect_to_master
 		  end
 	      end;
-	    debug "Sleeping %f seconds before retrying master connection..." !backoff_delay;
-	    Thread.delay !backoff_delay;
-	    update_backoff_delay ();
+	    Thread.delay 2.0;
 	    try
 	      open_secure_connection()
 	    with _ -> () (* oh well, maybe nextime... *)

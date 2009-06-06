@@ -1,7 +1,6 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client /opt/xensource/lib/ocaml/toplevellib
-OCAMLINCLUDES = ../idl/ocaml_backend/
-OCAMLPACKS    = xml-light2 stdext uuid
-
+OCAML_LIBS+=../util/encodings ../idl/ocaml_backend/common ../idl/ocaml_backend/client /opt/xensource/lib/ocaml/toplevellib
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http 
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 COMPILE_NATIVE=no
 section
 	OCAMLFLAGS+=-linkall

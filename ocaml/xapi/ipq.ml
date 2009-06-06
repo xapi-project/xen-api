@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Imperative priority queue *)
 
 type 'a event = { ev: 'a;
@@ -87,18 +74,12 @@ let remove h s =
 
 let find h ev =
   let rec iter n =
-    if n < 0 then -1
-    else if ev = h.data.(n).ev then n else iter (n-1)
+    match n with
+      -1 -> -1
+    | m -> if ev = h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
-  
-let find_p h f =
-  let rec iter n =
-    if n < 0 then -1
-    else if f h.data.(n).ev then n else iter (n-1)
-  in
-  iter (h.size-1)
-  
+
 let pop_maximum h = let m = maximum h in remove h 0; m
   
 let iter f h = 

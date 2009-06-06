@@ -1,19 +1,4 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Monitor the xapi server process itself, periodically log stats.
- * @group Performance Monitoring
- *)
+(* Monitor the xapi server process itself, periodically log stats *)
 
 module D=Debug.Debugger(struct let name="monitor" end)
 open D
@@ -110,7 +95,8 @@ let one () =
   let db = summarise_db_size () in
   let mi = string_of_meminfo (meminfo ()) in
   debug "Process: %s; Database: %s" (string_of_process_memory_info pmi) db;
-  debug "System: %s" mi
+  debug "System: %s" mi;
+  debug "Load avg: %.2f" (Mutex.execute Xapi_globs.loadavg_m (fun () -> !Xapi_globs.loadavg))
     
 let last_log = ref 0.
 let log_interval = 60.

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Generate default implementation of the Custom actions signature *)
 
 (* open Api_lowlevel *)
@@ -35,18 +22,7 @@ let _task_id = "task_id"
 *)
 
 
-let operation_requires_side_effect ({ msg_tag = tag } as msg) = 
-  (match msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
-    with None -> false | Some (mode) -> 
-      if mode=RW then true (*RW=force both setters and getters into custom_actions *)
-      else (*{Static/Dynamic}RO=force only getters into custom_actions *)
-        (match msg with
-        | { msg_tag = FromField((Setter|Add|Remove), _) } -> false
-        | { msg_tag = FromObject(Make|Delete) } -> false
-        | _ -> true)
-  )
-  ||
-  match tag with
+let operation_requires_side_effect ({ msg_tag = tag } as msg) = match tag with
   | FromField(Setter, fld) -> fld.DT.field_has_effect
   | FromObject(GetRecord | GetByUuid | GetByLabel | GetAll | GetAllRecordsWhere | GetAllRecords) -> false
   | FromObject(_) -> true

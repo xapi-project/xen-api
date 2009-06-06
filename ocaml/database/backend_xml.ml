@@ -1,29 +1,15 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
 
-open Db_cache_types
 open Db_backend
 open Pervasiveext
 
 (** Given a fresh cache, update ref/uuid/name_label indices *)
 let update_index tables =
-  iter_over_tables 
+  Hashtbl.iter
     (fun name table ->
-       iter_over_rows
+       Hashtbl.iter
 	 (fun rf row ->
 	    let uuid = lookup_field_in_row row uuid_fname in
 	    let name_label = try Some (lookup_field_in_row row name_label_fname) with _ -> None in
@@ -58,10 +44,10 @@ let populate_and_read_manifest dbconn =
   debug "finished parsing xml";
   (* version_check manifest; *) 
   update_index unmarshalled_db;
-  iter_over_tables (fun name table -> set_table_in_cache cache name table) unmarshalled_db;
+  Hashtbl.iter (fun name table -> set_table_in_cache name table) unmarshalled_db;
   manifest
 
-let populate dbconn =
+let populate dbconn tbls =
   ignore (populate_and_read_manifest dbconn)
 
 let atomically_write_to_db_file filename marshall =
@@ -78,7 +64,7 @@ let atomically_write_to_db_file filename marshall =
 let flush_db_to_redo_log cache_to_flush =
   if Redo_log.is_enabled () then begin
     (* Atomically read the generation count and take a deep copy of the cache *)
-    let (gen_count, cache_copy) = Db_lock.with_lock (fun () -> Generation.read_generation(), Db_cache_types.snapshot cache_to_flush) in
+    let (gen_count, cache_copy) = Db_lock.with_lock (fun () -> Generation.read_generation(), Db_backend.snapshot cache_to_flush) in
     debug "Flushing cache to redo-log";
     let db_cache_manifest = Db_cache_types.gen_manifest gen_count in
     let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd (db_cache_manifest, cache_copy)) in
@@ -150,7 +136,7 @@ let flush_dirty dbconn =
 	 List.iter
 	   (fun tbl_name ->
 	      Db_dirty.clear_my_dirty_table_status dbconn tbl_name;
-	      let tbl = lookup_table_in_cache cache tbl_name in
+	      let tbl = lookup_table_in_cache tbl_name in
 	      let rows = get_rowlist tbl in
 	      List.iter
 		(fun row ->
@@ -170,11 +156,6 @@ let flush_dirty dbconn =
 let force_flush_all dbconn optional_cache =
   flush_common dbconn optional_cache
   
-(* Does nothing. This is just a hook (left over from the sqlite days) in case we
- * ever want to be notified of an object's deletion. *)
-let notify_delete dbconn tblname objref =
-  ()
-
 let read_schema_vsn dbconn =
   (* inefficient to read whole db file just to parse schema vsn; but since this fn is
      only called at startup I don't think we care.. *)
@@ -182,8 +163,9 @@ let read_schema_vsn dbconn =
   manifest.Db_cache_types.schema_major_vsn, manifest.Db_cache_types.schema_minor_vsn
     
 let create_empty_db dbconn =
-  let empty_cache = create_empty_cache () in
-  List.iter (fun tbl -> set_table_in_cache empty_cache tbl (create_empty_table ())) db_table_names;
+  let empty_cache = Hashtbl.create 20 in
+  let empty_row = Hashtbl.create 1 in
+  List.iter (fun tbl -> Hashtbl.replace empty_cache tbl empty_row) db_table_names;
   let manifest = Db_cache_types.gen_manifest 0L (* new gen count *) in
   let marshall filename = Db_lock.with_lock (fun () -> Db_xml.To.file filename (manifest, empty_cache)) in
   atomically_write_to_db_file dbconn.Parse_db_conf.path marshall;

@@ -1,8 +1,8 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../xapi ../idl/ocaml_backend ../autogen ../idl
+OCAMLPACKS = stdext xmlm xml-light2 uuid log
 
-OCamlProgram(graph, graph ../idl/datamodel ../idl/datamodel_utils ../idl/dm_api)
+OCamlProgram(graph, graph ../idl/datamodel ../idl/datamodel_utils ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser ../idl/dm_api)
 
 .PHONY: clean
 clean:

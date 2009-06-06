@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
@@ -23,16 +10,8 @@ let with_local_lock f = Mutex.execute local_m f
 
 let interface_reconfigure_script = "/opt/xensource/libexec/interface-reconfigure"
 
-(* Make sure inventory file has all current interfaces on the local host, so
- * they will all be brought up again at start up. *)
-let update_inventory ~__context =
-  let pifs = List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif && 
-    Db.PIF.get_host ~__context ~self:pif = Helpers.get_localhost ~__context) (Db.PIF.get_all ~__context) in
-  let get_netw pif = Db.PIF.get_network ~__context ~self:pif in
-  let bridges = List.map (fun pif -> Db.Network.get_bridge ~__context ~self:(get_netw pif)) pifs in
-  Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
-
-(* Call the interface reconfigure script. For development ignore the exn if it doesn't exist *)
+(** Call the interface reconfigure script.
+    For development ignore the exn if it doesn't exist *)
 let reconfigure_pif ~__context (pif: API.ref_PIF) args = 
   try
     Helpers.call_api_functions ~__context
@@ -45,6 +24,9 @@ let reconfigure_pif ~__context (pif: API.ref_PIF) args =
       raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [ Ref.string_of pif; stderr ]))
 
 
+(* The management_interface argument determines whether this PIF is _going_ to become the management
+   interface in the future.
+*)
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
   with_local_lock 
     (fun () ->
@@ -53,28 +35,26 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
        (* In the case of the management interface since we need to call out just to 
 	  refresh the default gateway device setting *)
        if currently_attached = false || management_interface then begin
-		 debug "PIF %s has currently_attached set to %s%s; bringing up now" uuid
-		   (string_of_bool currently_attached) 
-		   (if management_interface then " and this is to be the new management interface" else "");
-		 let args = "up" :: (if management_interface then [ "--management" ] else []) in
-		 reconfigure_pif ~__context pif args;
-		 
-		 if management_interface then begin
-		   warn "About to kill cached stunnels and the master database connection";
-		   (* The master_connection would otherwise try to take a broken stunnel from the cache *)
-		   Stunnel_cache.flush (); 
-		   Master_connection.force_connection_reset ()
-		 end;
-	
-		 Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
-		 if Db.PIF.get_management ~__context ~self:pif then begin
-		   debug "PIF %s is an existing management interface: rebinding and restarting server thread" uuid;
-		   Xapi_mgmt_iface.rebind ()
-		 end;
-		 
-		Xapi_mgmt_iface.on_dom0_networking_change ~__context;
-		
-		update_inventory ~__context
+	 debug "PIF %s has currently_attached set to %s%s; bringing up now" uuid
+	   (string_of_bool currently_attached) 
+	   (if management_interface then " and this is to be the new management interface" else "");
+	 let args = "up" :: (if management_interface then [ "--management" ] else []) in
+	 reconfigure_pif ~__context pif args;
+	 
+	 if management_interface then begin
+	   warn "About to kill cached stunnels and the master database connection";
+	   (* The master_connection would otherwise try to take a broken stunnel from the cache *)
+	   Stunnel_cache.flush (); 
+	   Master_connection.force_connection_reset ()
+	 end;
+
+	 Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
+	 if Db.PIF.get_management ~__context ~self:pif then begin
+	   debug "PIF %s is an existing management interface: rebinding and restarting server thread" uuid;
+	   Xapi_mgmt_iface.rebind ()
+	 end;
+	 
+	 Xapi_mgmt_iface.on_dom0_networking_change ~__context;
        end
     )
 
@@ -83,14 +63,19 @@ let bring_pif_down ~__context (pif: API.ref_PIF) =
     (fun () ->
        (* Check that the PIF is not in-use *)
        let uuid = Db.PIF.get_uuid ~__context ~self:pif in
+       (* XXX: temporarily remove to fix firstboot scripts
+       if Db.PIF.get_management ~__context ~self:pif then begin
+	 warn "PIF %s is a management interface: refusing to bring down" uuid;
+	 raise (Api_errors.Server_error(Api_errors.pif_is_management_iface, [ Ref.string_of pif ]))
+       end;
+       *)
        let network = Db.PIF.get_network ~__context ~self:pif in
        Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost()) ~network;
        Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context pif;
        if Db.PIF.get_currently_attached ~__context ~self:pif = true then begin
-		 debug "PIF %s has currently_attached set to true; bringing down now" uuid;
-		 reconfigure_pif ~__context pif [ "down" ];
-		 Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
-		
-		update_inventory ~__context
+	 debug "PIF %s has currently_attached set to true; bringing down now" uuid;
+	 reconfigure_pif ~__context pif [ "down" ];
+	 Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
        end
     )
+

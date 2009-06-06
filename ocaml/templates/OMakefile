@@ -1,3 +1,7 @@
+
+OCAMLPACKS+=stdext
+OCAMLINCLUDES+=../util
+
 OCamlGeneratedFiles(templateLexer.ml templateParser.mli)
 OCamlProgram(test, template templateLexer templateParser test)
 OCamlLibrary(template, template templateLexer templateParser)

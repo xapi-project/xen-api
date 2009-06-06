@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Stringext
 open Threadext
 open Pervasiveext
@@ -93,7 +80,7 @@ module Secret_Auth_fails = struct (* {{{1 *)
 		"Tests that invalid pool secrets are rejected."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_error _ -> true | _ -> false)
+				(function Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
 				(fun () -> http invalid_pool_secret "" (fun _ _ _ -> ()))
 		end
 
@@ -101,7 +88,7 @@ module Secret_Auth_fails = struct (* {{{1 *)
 		"Tests that invalid basic authentication fails."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_error _ -> true | Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
+				(function Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
 				(fun () -> http invalid_basicauth "" (fun _ _ _ -> ()))
 		end
 

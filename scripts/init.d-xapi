@@ -2,7 +2,7 @@
 #
 # xapi          Start/Stop the XAPI server
 #
-# chkconfig: 2345 23 77
+# chkconfig: 2345 22 77
 # description: XenServer server
 # processname: xapi
 # config: /etc/xensource/xapi.conf

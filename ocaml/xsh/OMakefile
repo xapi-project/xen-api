@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../util/
-OCAMLPACKS    = xml-light2 stdext uuid stunnel http-svr
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http 
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 COMPILE_NATIVE=no
 section
 	OCAMLFLAGS+=-linkall
@@ -10,8 +10,8 @@ section
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	cp -f xsh $(DESTDIR)/opt/xensource/bin
+        mkdir -p $(DIST)/staging/opt/xensource/bin
+        cp -f xsh $(DIST)/staging/opt/xensource/bin
 
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o

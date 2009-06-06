@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Utility functions *)
 
 open Pervasiveext
@@ -70,7 +57,6 @@ let run_command_with_timeout cmd timeout =
     Some (!result,rc)
 
 type pwspec =
-    | NoPassword
     | Password of string
     | PasswordFile of string
 
@@ -86,29 +72,28 @@ let cli_with_pwspec ?(dolog=true) is_offhost cmd params pwspec =
 	  " -h "^(!host) else "")
     ^" "
     ^(match pwspec with
-	| NoPassword -> ""
-	| Password s -> "-u "^user^" -pw "^s
-	| PasswordFile s -> "-pwf "^s)
+	Password s -> "-u "^user^" -pw "^s
+      | PasswordFile s -> "-pwf "^s)
     ^" "^param_str in
     run_command ~dolog cli_base_string
 
-let cli_offhost_with_pwspec ?dolog cmd params pwspec =
-  cli_with_pwspec ?dolog true cmd params pwspec
+let cli_offhost_with_pwspec ?(dolog=true) cmd params pwspec =
+  cli_with_pwspec ~dolog true cmd params pwspec
 
-let cli_onhost ?dolog cmd params =
-  cli_with_pwspec ?dolog false cmd params (NoPassword)
+let cli_onhost cmd params =
+  cli_with_pwspec false cmd params (Password "ignore")
 
-let cli_onhost_with_pwd ?dolog pwd cmd params =
-  cli_with_pwspec ?dolog false cmd params (Password pwd)
+let cli_onhost_with_pwd pwd cmd params =
+  cli_with_pwspec false cmd params (Password pwd)
 
-let cli_offhost_with_pwd ?dolog pwd cmd params =
-  cli_offhost_with_pwspec ?dolog cmd params (Password pwd)
+let cli_offhost_with_pwd ?(dolog=true) pwd cmd params =
+  cli_offhost_with_pwspec ~dolog cmd params (Password pwd)
 
-let cli_offhost_with_pwf ?dolog pwf cmd params =
-  cli_offhost_with_pwspec ?dolog cmd params (PasswordFile pwf)
+let cli_offhost_with_pwf pwf cmd params =
+  cli_offhost_with_pwspec cmd params (PasswordFile pwf)
 
-let cli_offhost ?dolog cmd params =
-  cli_offhost_with_pwd ?dolog password cmd params
+let cli_offhost ?(dolog=true) cmd params =
+  cli_offhost_with_pwd ~dolog password cmd params
 
   
 

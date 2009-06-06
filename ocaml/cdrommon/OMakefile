@@ -4,8 +4,8 @@ OCamlProgram(cdrommon, cdrommon)
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	cp -f cdrommon $(DESTDIR)/opt/xensource/libexec
+	mkdir -p $(DIST)/staging/opt/xensource/libexec
+	cp -f cdrommon $(DIST)/staging/opt/xensource/libexec
 
 .PHONY: clean
 clean:

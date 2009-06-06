@@ -5,20 +5,18 @@
 /opt/likewise/bin/domainjoin-cli configure --disable nsswitch
 /opt/likewise/bin/domainjoin-cli configure --disable krb5
 /etc/init.d/lsassd stop
-/etc/init.d/lwiod stop
 /etc/init.d/netlogond stop
+/etc/init.d/npcmuxd stop
+/etc/init.d/gpagentd stop
+/etc/init.d/lwmgmtd stop
 /etc/init.d/eventlogd stop
 /etc/init.d/dcerpcd stop
-#/etc/init.d/lwregd stop
-#/etc/init.d/lwsmd stop
 chkconfig --del lsassd
-chkconfig --del lwiod
 chkconfig --del netlogond
+chkconfig --del npcmuxd
+chkconfig --del gpagentd
+chkconfig --del lwmgmtd
 chkconfig --del eventlogd
 chkconfig --del dcerpcd
-#chkconfig --del lwregd
-#chkconfig --del lwsmd
-#rm -f /var/lib/likewise/db/*
-#rm -f /var/lib/likewise/.registry-initialized
-
+rm -f /var/lib/likewise/db/*.db
 

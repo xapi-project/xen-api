@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Queues of jobs to perform, represented as unit -> unit thunks *)
 
 open Threadext
@@ -39,19 +26,16 @@ let normal_vm_queue = Thread_queue.make ~name:"vm_lifecycle_op" vm_lifecycle_que
 (** Resynchronising dom0 VBDs and VIFs are handled here. *)
 let dom0_device_resync_queue = Thread_queue.make ~name:"dom0_device_resync" (fun f -> f ())
 
-(** Internal reboots and shutdowns are queued here *)
-let domU_internal_shutdown_queue = Thread_queue.make ~name:"domU_internal_shutdown" (fun f -> f())
-
 open Pervasiveext
 open Threadext
 
 (** Join a given queue and execute the function 'f' when its our turn. Actually perform the computation in
     this thread so we can return a result. *)
-let wait_in_line q description f = 
+let wait_in_line q f = 
   let m = Mutex.create () in
   let c = Condition.create () in
   let state = ref `Pending in
-  let ok = q description
+  let ok = q
     (fun () ->
        (* Signal the mothership to run the computation now *)
        Mutex.execute m

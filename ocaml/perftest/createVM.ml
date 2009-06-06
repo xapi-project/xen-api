@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Scenario
 open Perfutil
 open Client
@@ -84,10 +71,10 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
 				ignore(Client.VIF.create ~rpc ~session_id ~device:(string_of_int device) ~network:networks.(device)
 					~vM:clone ~mAC:"" ~mTU:1500L ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[])
 			done;
-			Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone ~value:16777216L;
-			Client.VM.set_memory_dynamic_min ~rpc ~session_id ~self:clone ~value:16777216L;
-			Client.VM.set_memory_dynamic_max ~rpc ~session_id ~self:clone ~value:16777216L;
 			Client.VM.set_memory_static_max ~rpc ~session_id ~self:clone ~value:16777216L;
+			Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone ~value:16777216L;
+			Client.VM.set_memory_dynamic_max ~rpc ~session_id ~self:clone ~value:16777216L;
+			Client.VM.set_memory_dynamic_min ~rpc ~session_id ~self:clone ~value:16777216L;
 			if vm.has_affinity && Array.length storages = Array.length host_refs
 			then Client.VM.set_affinity ~rpc ~session_id ~self:clone ~value:host_refs.(i);
 		done

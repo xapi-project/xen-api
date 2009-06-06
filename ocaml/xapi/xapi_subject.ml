@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for Subject objects
- * @group XenAPI functions
- *)
- 
 module D = Debug.Debugger(struct let name="xapi_subject" end)
 open D
 
@@ -60,23 +43,15 @@ let create ~__context ~subject_identifier ~other_config =
 	(* add the new subject to the db *)
 	let ref=Ref.make() in 
 	let uuid=Uuid.to_string (Uuid.make_uuid()) in
-	
-	(* CP-1224: Free Edition: Newly created subjects will have the Pool Administrator role. *)
-	(* CP-1224: Paid-for Edition: Newly created subjects will have an empty role. *)
-	let default_roles =
-		if (Features.is_enabled ~__context Features.RBAC)
-		then (* paid-for edition: we can only create a subject with no roles*)
-			[]
-		else (*free edition: one fixed role of pool-admin only*)
-			Rbac_static.get_refs [Rbac_static.role_pool_admin]
-	in
-
-	Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config
-		~roles:default_roles;
+	Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config;
 	
 	(* CP-709: call extauth hook-script after subject.add *)
 	(* we fork this call in a new thread so that subject.add *)
 	(* does not have to wait for the script to finish in all hosts of the pool *)
+	let host = Helpers.get_localhost ~__context in
+	let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+	let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
+	let service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in
 	(* optimization to minimize number of concurrent runs of idempotent functions *)
 	At_least_once_more.again asynchronously_run_hook_script_after_subject_add;
 	
@@ -103,6 +78,10 @@ let destroy ~__context ~self =
 	(* CP-709: call extauth hook-script after subject.remove *)
 	(* we fork this call in a new thread so that subject.add *)
 	(* does not have to wait for the script to finish in all hosts of the pool *)
+	let host = Helpers.get_localhost ~__context in
+	let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+	let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
+	let service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in
 	(* optimization to minimize number of concurrent runs of idempotent functions *)
 	At_least_once_more.again asynchronously_run_hook_script_after_subject_remove
 
@@ -138,103 +117,4 @@ let update_all_subjects ~__context =
 			(* ignore this exception e, do not raise it again *)
 		end
 	) subjects
-
-(* This function returns all permissions associated with a subject *)
-let get_permissions_name_label ~__context ~self =
-	(* for each role in subject.roles:
-	  fold get_all_permissions ~__context ~role
-	  setify
-	*)
-	Listext.List.setify
-		(List.fold_left 
-			(fun accu role -> 
-				List.rev_append 
-					(Xapi_role.get_permissions_name_label ~__context ~self:role)
-					accu
-			)
-			[]
-			(Db.Subject.get_roles ~__context ~self)
-		)
-
-let run_hook_script_after_subject_roles_update () =
-	(* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
-	(* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
-	(* potentially create different sshd configuration files in different hosts of the pool. *)
-	Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
-		ignore (Server_helpers.exec_with_new_task "run_hook_script_after_subject_roles_update"
-			(fun __context -> 
-			Extauth.call_extauth_hook_script_in_pool ~__context Extauth.event_name_after_roles_update
-			)
-		)
-	)
-let asynchronously_run_hook_script_after_subject_roles_update =
-	At_least_once_more.make
-		"running after-subject-roles-update hook script"
-		run_hook_script_after_subject_roles_update
-
-
-let add_to_roles ~__context ~self ~role =
-	
-	(* CP-1224: Free Edition: Attempts to add or remove roles *)
-	(* will fail with a LICENSE_RESTRICTION error.*)
-	if (not (Features.is_enabled ~__context Features.RBAC)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	else
-
-	if (Xapi_role.is_valid_role ~__context ~role)
-	then
-		begin
-			if (List.mem role (Db.Subject.get_roles ~__context ~self))
-			then
-				begin
-					debug "subject %s already has role %s"
-						(Db.Subject.get_subject_identifier
-							~__context
-							~self
-						)
-						(Ref.string_of role); 
-					raise (Api_errors.Server_error
-						(Api_errors.role_already_exists, []))
-				end
-			else
-				begin
-					Db.Subject.add_roles ~__context ~self ~value:role;
-					(* CP-710: call extauth hook-script after subject.add_roles *)
-					At_least_once_more.again
-						asynchronously_run_hook_script_after_subject_roles_update
-				end
-		end
-	else
-		begin
-			debug "role %s is not valid" (Ref.string_of role);
-			raise (Api_errors.Server_error(Api_errors.role_not_found, []))
-		end
-
-
-let remove_from_roles ~__context ~self ~role =
-
-	(* CP-1224: Free Edition: Attempts to add or remove roles *)
-	(* will fail with a LICENSE_RESTRICTION error.*)
-	if not (Features.is_enabled ~__context Features.RBAC) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	else
-
-	if (List.mem role (Db.Subject.get_roles ~__context ~self))
-	then
-		begin
-			Db.Subject.remove_roles ~__context ~self ~value:role;
-			(* CP-710: call extauth hook-script after subject.remove_roles *)
-			At_least_once_more.again
-				asynchronously_run_hook_script_after_subject_roles_update
-		end
-	else
-		begin
-			debug "subject %s does not have role %s"
-				(Db.Subject.get_subject_identifier
-					~__context
-					~self
-				)
-				(Ref.string_of role); 
-			raise (Api_errors.Server_error (Api_errors.role_not_found, []))
-		end
 

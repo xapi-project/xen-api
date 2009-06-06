@@ -1,6 +1,7 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr
+
+OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES += ../idl/ocaml_backend ../autogen ../idl ../util
+OCAMLPACKS = stdext, xmlm, xml-light2, log
 
 OCamlProgram(vncproxy, vncproxy)
 

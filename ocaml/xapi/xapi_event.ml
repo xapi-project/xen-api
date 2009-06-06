@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Printf
 open Threadext
 open Listext
@@ -154,6 +141,9 @@ let event_add ?snapshot ty op reference  =
       end
 
 
+(* This calls through autogen/db_action, through the Db_int module included in there (which is
+     actually ocaml/idl/sql_backend/autogen_helpers/db_action_helper.ml), into Internal module
+     in that file and finally into events_register. Nice! ;) *)
 let register_hooks () =
 	Db_action_helper.events_register event_add
 
@@ -175,7 +165,7 @@ let assert_subscribed ~__context =
 	Mutex.execute event_lock
 	(fun () ->
 	   if not(Hashtbl.mem subscriptions session) 
-	   then raise (Api_errors.Server_error(Api_errors.session_not_registered, [ Context.trackid_of_session (Some session) ])))
+	   then raise (Api_errors.Server_error(Api_errors.session_not_registered, [ Ref.string_of session ])))
 
 (** Register an interest in events generated on objects of class <class_name> *)
 let register ~__context ~classes = 
@@ -280,15 +270,12 @@ let heartbeat ~__context =
   try
     Db_lock.with_lock 
       (fun () ->
-		   (* We must hold the database lock since we are sending an update for a real object
-			  and we don't want to accidentally transmit an older snapshot. *)
-		   let pool = try Some (Helpers.get_pool ~__context) with _ -> None in
-		   match pool with
-		   | Some pool ->
-				 let pool_r = Db.Pool.get_record ~__context ~self:pool in
-				 let pool_xml = API.To.pool_t pool_r in
-				 event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
-		   | None -> () (* no pool object created during initial boot *)
+	 (* We must hold the database lock since we are sending an update for a real object
+	    and we don't want to accidentally transmit an older snapshot. *)
+	 let pool = Helpers.get_pool ~__context in
+	 let pool_r = Db.Pool.get_record ~__context ~self:pool in
+	 let pool_xml = API.To.pool_t pool_r in
+	 event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
       )
   with e ->
     error "Caught exception sending event heartbeat: %s" (ExnHelper.string_of_exn e)

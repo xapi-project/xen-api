@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** 
- * @group Command-Line Interface (CLI)
- *)
- 
 module D = Debug.Debugger(struct let name = "cli" end)
 open D
 
@@ -91,10 +74,7 @@ let track_http_operation ?use_existing_task fd rpc session_id (make_command: API
 	 (* would need to use this mechanism if we want to check for it here. For now a  *)
 	 (* delay of 1 will do... *)
 	     let params = Client.Task.get_error_info rpc session_id task_id in
-		 if params = [] then
-			 raise (Api_errors.Server_error(Api_errors.client_error, []))
-		 else
-			 raise (Api_errors.Server_error(List.hd params, List.tl params));
+	     raise (Api_errors.Server_error(List.hd params, List.tl params));
        end)
     (fun () ->
        (* if we created our own task then destroy it again; if the task was supplied to us then don't destroy it --
@@ -147,14 +127,9 @@ let get_server_error code params =
   try
     let error = Hashtbl.find Datamodel.errors code in
     (* There ought to be a bijection between parameters mentioned in
-       datamodel.ml and those in the exception but this is unchecked and 
-       false in some cases, defined here. *)
-    let required = 
-      if code = Api_errors.vms_failed_to_cooperate
-      then List.map (fun _ -> "VM") params
-      else error.Datamodel_types.err_params in
-
-    (* For the rest we attempt to pretty-print the list even when it's short/long *)
+       datamodel.ml and those in the exception but this is unchecked.
+       For now we attempt to pretty-print the list even when it's short/long *)
+    let required = error.Datamodel_types.err_params in
     let rec pp_params = function
       | t::ts, v::vs -> (t ^ ": " ^ v) :: (pp_params (ts, vs))
       | [],    v::vs -> ("<extra>: " ^ v) :: (pp_params ([], vs))

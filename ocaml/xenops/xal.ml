@@ -1,17 +1,9 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Xen/Xenstored Abstraction Layer
  *)
-(* Xen/Xenstored Abstraction Layer *)
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
@@ -28,17 +20,21 @@ exception Timeout
 
 type dev_event =
 	(* devices : backend / type / devid *)
-	| DevEject of string
+	| DevNew of bool * string * string
+	| DevWorking of bool * string * string
+	| DevClosing of bool * string * string
+	| DevClosed of bool * string * string
+	| DevError of string * string * string
+	| DevEject of string * string
 	(* device thread start : type / devid / pid *)
-	| DevThread of string * int
+	| DevThread of string * string * int
 	(* blkback and blktap now provide an explicit flush signal (type / devid) *)
 	| DevShutdownDone of string * string
 	(* uuid, data *)
 	| ChangeRtc of string * string
 	(* uuid, name, priority, data *)
 	| Message of string * string * int64 * string
-	| HotplugChanged of string * string option * string option
-	| ChangeUncooperative of bool
+	| HotplugChanged of bool * string * string * string option * string option
 
 type xs_dev_state =
 	| Connecting
@@ -52,10 +48,11 @@ type internal_dev_event =
 	| BackEject
 	| BackShutdown
 	| Frontend of xs_dev_state
+	| Error of string
 	| Rtc of string * string (* uuid, data *)
 	| IntMessage of string * string * int64 * string (* uuid, name, priority, body *)
 	| HotplugBackend of string option
-	| Uncooperative of bool
+	| HotplugFrontend of string option
 
 let string_of_dev_state = function
 	| Connecting -> "Connecting"
@@ -67,22 +64,30 @@ let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
 	let string_of_b b = if b then "B" else "F" in
 	match ev with
-	| DevEject i ->
-		sprintf "device eject {%s}" i
-	| DevThread (i, pid) ->
-		sprintf "device thread {%s} pid=%d" i pid
+	| DevNew (b, s, i) ->
+		sprintf "device new {%s,%s,%s}" (string_of_b b) s i
+	| DevWorking (b, s, i) ->
+		sprintf "device working {%s,%s,%s}" (string_of_b b) s i
+	| DevClosing (b, s, i) ->
+		sprintf "device closing {%s,%s,%s}" (string_of_b b) s i
+	| DevClosed (b, s, i) ->
+		sprintf "device closed {%s,%s,%s}" (string_of_b b) s i
+	| DevError (s, i, e) ->
+		sprintf "device error {%s,%s} \"%s\"" s i e
+	| DevEject (s, i) ->
+		sprintf "device eject {%s,%s}" s i
+	| DevThread (s, i, pid) ->
+		sprintf "device thread {%s,%s} pid=%d" s i pid
 	| DevShutdownDone (s, i) ->
 		sprintf "device shutdown {%s,%s}" s i
 	| ChangeRtc (uuid, data) ->
 		sprintf "change rtc {%s,%s}" uuid data
 	| Message (uuid, name, priority, body) ->
 	        sprintf "message {%s,%Ld,%s}" name priority body
-	| HotplugChanged (i, old, n) ->
-		sprintf "HotplugChanged on %s {%s->%s}" i
+	| HotplugChanged (b, s, i, old, n) ->
+		sprintf "HotplugChanged on %s %s %s {%s->%s}" (string_of_b b) s i
 		        (string_of_string_opt old)
 		        (string_of_string_opt n)
-	| ChangeUncooperative b ->
-		sprintf "ChangeUncooperative %b" b
 
 type died_reason =
 	| Crashed
@@ -126,7 +131,6 @@ type ctx = {
 	mutable callback_release: ctx -> domid -> unit;
 	mutable callback_devices: ctx -> domid -> dev_event -> unit;
 	mutable callback_guest_agent: ctx -> domid -> unit;
-	mutable callback_memory_target: ctx -> domid -> unit;
 	monitor_devices: bool;
 	mutable currents: (domid * state) list;
 	tbl: (domid, domstate) Hashtbl.t;
@@ -310,8 +314,6 @@ let domain_update ctx =
 		[ sprintf "/xapi/%d" domid;
 		  sprintf "/local/domain/%d/data/updated" domid; (* guest agent *)
 		  sprintf "/local/domain/%d/messages" domid; (* messages *)
-		  sprintf "/local/domain/%d/memory/target" domid;
-		  sprintf "/local/domain/%d/memory/uncooperative" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
@@ -337,20 +339,9 @@ let domain_update ctx =
 	let domain_set_dead domid reason =
 		let domev = get_domstate ctx domid in
 		domev.dead_reason <- Some reason;
-		if reason <> Suspended then begin
-			del_domain_watch domid;
-			deads := domid :: !deads;
-		end in
-	let domain_resume domid =
-		let domev = get_domstate ctx domid in
-		domev.dead_reason <- None
+		del_domain_watch domid;
+		deads := domid :: !deads;
 		in
-		
-	(* search for resumed domains *)
-	List.iter (fun (domid, state, dom) ->
-				if state = Running && List.mem_assoc domid olddoms && List.assoc domid olddoms = Dead
-				then domain_resume domid)
-		doms;
 
 	(* search for new domains first *)
 	List.iter (fun (domid, state, dom) ->
@@ -390,8 +381,7 @@ let domain_update ctx =
  * The valid watch event have the following format :
  *    1      2       3       4       5       6       7      8
  * /local/domain /0       /backend/<type> /<domid>/<devid>/state
- * /local/domain /0       /backend/vbd    /<domid>/<devid>/kthread-pid
- * /local/domain /0       /backend/tap    /<domid>/<devid>/tapdisk-pid
+ * /local/domain /0       /backend/<type> /<domid>/<devid>/kthread-pid
  * /local/domain /0       /backend/<type> /<domid>/<devid>/shutdown-done
  * /local/domain /0       /backend/<type> /<domid>/<devid>/type
  * /local/domain /<domid> /device /<type> /<devid>/state
@@ -413,26 +403,19 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Backend xsds, ty, devid)
-	| "" :: "local" :: "domain" :: "0" :: "backend" :: "vbd" :: domid :: devid :: [ "kthread-pid" ] ->
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "kthread-pid" ] ->
 		begin try
 			let kthread_pid = int_of_string (xs.Xs.read w) in
-			Some (int_of_string domid, BackThread kthread_pid, "", devid)
-		with _ ->
-			None
-		end
-	| "" :: "local" :: "domain" :: "0" :: "backend" :: "tap" :: domid :: devid :: [ "tapdisk-pid" ] ->
-		begin try
-			let tapdisk_pid = int_of_string (xs.Xs.read w) in
-			Some (int_of_string domid, BackThread tapdisk_pid, "", devid)
+			Some (int_of_string domid, BackThread kthread_pid, ty, devid)
 		with _ ->
 			None
 		end
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "shutdown-done" ] ->
 		Some (int_of_string domid, BackShutdown, ty, devid)
-	| "" :: "local" :: "domain" :: "0" :: "backend" :: ( "vbd" | "tap" ) :: domid :: devid :: [ "params" ] ->
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "params" ] ->
 		begin try
 			if xs.Xs.read w = "" then
-				Some (int_of_string domid, BackEject, "", devid)
+				Some (int_of_string domid, BackEject, ty, devid)
 			else
 				None
 		with _ ->
@@ -441,15 +424,18 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: domid :: "device" :: ty :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
-	| "" :: "xapi" :: domid :: "hotplug" :: "vif" :: devid :: [ "hotplug" ] ->
+	| "" :: "local" :: "domain" :: domid :: "error" :: "device" :: ty :: devid :: [ "error" ] ->
+		let error = try xs.Xs.read w with Xb.Noent -> "" in
+		Some (int_of_string domid, Error error, ty, devid)
+	| "" :: "xapi" :: domid :: "hotplug" :: ty :: devid :: [ "hotplug" ] ->
 		let extra = try Some (xs.Xs.read w) with _ -> None in
-		Some (int_of_string domid, (HotplugBackend extra), "", devid)
+		Some (int_of_string domid, (HotplugBackend extra), ty, devid)
+	| "" :: "xapi" :: domid :: "frontend" :: ty :: devid :: [ "hotplug" ] ->
+		let extra = try Some (xs.Xs.read w) with _ -> None in
+		Some (int_of_string domid, (HotplugFrontend extra), ty, devid)
 	| "" :: "vm" :: uuid :: "rtc" :: [ "timeoffset" ] ->
 		let data = xs.Xs.read w in
 		Some (-1, (Rtc (uuid, data)), "", "")
-	| "" :: "local" :: "domain" :: domid :: "memory" :: [ "uncooperative" ] ->
-		let uncooperative = try ignore (xs.Xs.read w); true with Xb.Noent -> false in
-		Some (int_of_string domid, Uncooperative uncooperative, "", "")
 (* disabled for CA-22306
 	| "" :: "local" :: "domain" :: domid :: "messages" :: id :: name :: priority :: [ "body" ] ->
 	    begin
@@ -511,7 +497,6 @@ let init ?(callback_introduce = callback_dom_null)
          ?(callback_release = callback_dom_null)
          ?(callback_devices = callback_dev_null)
 	 ?(callback_guest_agent = callback_dom_null)
-	 ?(callback_memory_target = callback_dom_null)
          ?(monitor_devices = false) () =
 	(* Make sure if this function fails to close any opened descriptors *)
 	let xs = Xs.daemon_open () in	
@@ -525,7 +510,6 @@ let init ?(callback_introduce = callback_dom_null)
 				callback_release = callback_release;
 				callback_devices = callback_devices;
 				callback_guest_agent = callback_guest_agent;
-				callback_memory_target = callback_memory_target;
 				monitor_devices = monitor_devices;
 				currents = [];
 				tbl = Hashtbl.create 20;
@@ -554,19 +538,41 @@ let close ctx =
   	(try Xc.interface_close ctx.xc 
 	 with e -> error "Caught exception: %s while closing xc" (Printexc.to_string e))
 
+let diff_device_state backend ty devid oldstate newstate =
+	let working () = DevWorking (backend, ty, devid)
+	and closing () = DevClosing (backend, ty, devid)
+	and closed () = DevClosed (backend, ty, devid)
+	and _new () = DevNew (backend, ty, devid) in
+	if oldstate <> newstate then
+		match oldstate, newstate with
+		| Connecting, Connected  -> [ working () ]
+		| Connecting, Closing    -> [ closing () ]
+		| Connecting, Closed     -> [ closing (); closed () ]
+		| Connected,  Closing    -> [ closed () ]
+		| Connected,  Closed     -> [ closing (); closed () ]
+		| Closing,    Closed     -> [ closed () ]
+		| Closed,     Connecting -> [ _new () ]
+		| Closed,     Connected  -> [ _new (); working () ]
+		| Closed,     Closing    -> [ _new (); closing () ]
+		(* those should not happen *)
+		| Closing,    Connecting -> []
+		| Closing,    Connected  -> []
+		| Connected,  Connecting -> []
+		| _                      -> []
+	else
+		[]
+
 let domain_device_event ctx w v =
 	match other_watch ctx.xs w v with
 	| None                        -> ()
 	| Some (_, Rtc (uuid, value), _, _) ->
 		ctx.callback_devices ctx (-1) (ChangeRtc (uuid, value))
-	| Some (domid, Uncooperative x, _, _) ->
-		ctx.callback_devices ctx domid (ChangeUncooperative x)
 	| Some (_, IntMessage (uuid, name, priority, body), _, _) ->
 	        ctx.callback_devices ctx (-1) (Message (uuid, name, priority, body))
-	| Some (domid, BackThread (pid), _, devid) ->
-		ctx.callback_devices ctx domid (DevThread (devid, pid))
-	| Some (domid, BackEject, _, devid) ->
-		ctx.callback_devices ctx domid (DevEject (devid))
+	| Some (domid, BackThread (pid), ty, devid) ->
+		ctx.callback_devices ctx domid (DevThread (ty, devid, pid))
+	| Some (domid, BackEject, ty, devid) ->
+		ctx.callback_devices ctx domid (DevEject (ty, devid))
 	| Some (domid, ev, ty, devid) -> (
 		let devstate = get_devstate ctx domid ty devid in
 
@@ -575,16 +581,30 @@ let domain_device_event ctx w v =
 		| Backend state  ->
 			let oldstate = devstate.backstate in
 			devstate.backstate <- state;
+			let evs = diff_device_state true ty devid oldstate state in
+			List.iter (fun ev -> ctx.callback_devices ctx domid ev)
+			          evs
 		| Frontend state ->
 			let oldstate = devstate.frontstate in
 			devstate.frontstate <- state;
+			let evs = diff_device_state false ty devid oldstate state in
+			List.iter (fun ev -> ctx.callback_devices ctx domid ev)
+			          evs
+		| Error error ->
+			devstate.error <- (Some error);
+			ctx.callback_devices ctx domid (DevError (ty, devid, error))
 		| BackShutdown ->
 			ctx.callback_devices ctx domid (DevShutdownDone (ty, devid))
 		| HotplugBackend extra  ->
 			let old = devstate.hotplug in
 			devstate.hotplug <- extra;
 			ctx.callback_devices ctx domid
-			               (HotplugChanged (devid, old, extra))
+			               (HotplugChanged (true, ty, devid, old, extra))
+		| HotplugFrontend extra ->
+			let old = devstate.hotplug in
+			devstate.hotplug <- extra;
+			ctx.callback_devices ctx domid
+			               (HotplugChanged (false, ty, devid, old, extra))
 	)
 
 (** Internal helper function which wraps the Xs.read_watchevent with
@@ -615,10 +635,6 @@ let process ?timeout ctx =
 		(* guest agent has updated state in xenstore *)
 		let domid = int_of_string (String.sub v 4 (String.length v - 4)) in
 		ctx.callback_guest_agent ctx domid
-	| x when String.endswith "/memory/target" x ->
-		(* someone has given the guest a new balloon target *)
-		let domid = int_of_string (String.sub v 4 (String.length v - 4)) in
-		ctx.callback_memory_target ctx domid
 	| _ ->
 		(* we should not come here if we don't monitor devices, just be careful *)
 		if ctx.monitor_devices then
@@ -672,9 +688,9 @@ let wait_release ctx ?timeout domid =
 				raise Timeout
 	)
 
-let loop ?callback_introduce ?callback_release ?callback_devices ?callback_guest_agent ?callback_memory_target () =
+let loop ?callback_introduce ?callback_release ?callback_devices ?callback_guest_agent () =
 	let ctx = init ?callback_introduce ?callback_release
-	               ?callback_devices ?callback_guest_agent ?callback_memory_target ~monitor_devices:true () in
+	               ?callback_devices ?callback_guest_agent ~monitor_devices:true () in
 
 	try
 		while true

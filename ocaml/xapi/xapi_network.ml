@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Threadext
 open Xapi_network_types
 open Client
@@ -20,27 +7,26 @@ open D
 
 open Db_filter
 
-(* REMOVE: unused function that does not return anything useful anyway
 let get_allowed_messages ~__context ~self = []
-*)
 
-let create_internal_bridge ~bridge ~uuid =
-  debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
-  let current = Netdev.network.Netdev.list () in
-  if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
-  if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
-
+(* Instantiate the Network (ie bridge) on this host provided it wouldn't 
+   destroy existing Networks (e.g. slaves of a bond) in use by something (VIF
+   or management interface). 
+   Note special-case handling of new management interfaces: we skip the 
+   check for the existing management interface (essential otherwise switching
+   from a bond slave to a bond master would fail) and we make sure to call
+   Nm.bring_pif_up with the management_interface argument so it can make sure
+   the default gateway is set up correctly *)
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost () in
   let shafted_pifs, local_pifs = 
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check:management_interface in
 
+  (* Ensure bridge exists and is up *)
   let bridge = Db.Network.get_bridge ~__context ~self in
-  let uuid = Db.Network.get_uuid ~__context ~self in
-
-  (* Ensure internal bridge exists and is up. external bridges will be
-     brought up by call to interface-reconfigure. *)
-  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge ~uuid;
+  let current = Netdev.Bridge.list () in
+  if not(List.mem bridge current) then Netdev.Bridge.add bridge;
+  if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge;
 
   (* Check if we're a guest-installer network: *)
   let other_config = Db.Network.get_other_config ~__context ~self in
@@ -65,19 +51,22 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
        debug "Trying to attach PIF: %s" uuid;
        Nm.bring_pif_up ~__context ~management_interface pif
     ) local_pifs
+  
 
+	  
 let detach bridge_name = 
   Xapi_network_real.maybe_shutdown_guest_installer_network bridge_name;
-  if Netdev.network.Netdev.exists bridge_name then begin
+  if Netdev.Bridge.exists bridge_name then begin
     List.iter (fun iface ->
 		 D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
 		 Netdev.Link.down iface;
-		 Netdev.network.Netdev.intf_del bridge_name iface
-	      ) (Netdev.network.Netdev.intf_list bridge_name);
+		 Netdev.Bridge.intf_del bridge_name iface
+	      ) (Netdev.Bridge.intf_list bridge_name);
     Netdev.Link.down bridge_name;
-    Netdev.network.Netdev.del bridge_name
+    Netdev.Bridge.del bridge_name
   end
 
+(** Network.attach external call *)
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
 
 let counter = ref 0
@@ -87,7 +76,7 @@ let stem = "xapi"
 let do_bridge_gc rpc session_id =
   let all_networks = Client.Network.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let db_bridge_names = List.map (fun r->r.API.network_bridge) (List.map snd all_networks) in
-  let my_bridges = Netdev.network.Netdev.list () in
+  let my_bridges = Netdev.Bridge.list () in
     List.iter
       (fun mybridge -> if not (List.mem mybridge db_bridge_names) then detach mybridge)
       my_bridges
@@ -114,18 +103,19 @@ let network_gc_func() =
 	debug "Skipping network GC")
     
 
-let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
+(** Internal fn used by slave to create new network records on master during pool join operation *)
+let pool_introduce ~__context ~name_label ~name_description ~other_config ~bridge =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
-    ~name_label ~name_description ~mTU ~bridge ~other_config ~blobs:[] ~tags:[];
+    ~name_label ~name_description ~bridge ~other_config ~blobs:[] ~tags:[];
   r
   
-let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
+(** Attempt to create a bridge with a unique name *)
+let create ~__context ~name_label ~name_description ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
 		let networks = Db.Network.get_all ~__context in
 		let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
-		let mTU = if mTU <= 0L then 1500L else mTU in
 		let rec loop () = 
 			let name = stem ^ (string_of_int !counter) in
 			incr counter;
@@ -134,10 +124,12 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 				let r = Ref.make () and uuid = Uuid.make_uuid () in
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
 				  ~current_operations:[] ~allowed_operations:[]
-				  ~name_label ~name_description ~mTU ~bridge:name ~other_config ~blobs:[] ~tags;
+				  ~name_label ~name_description ~bridge:name ~other_config ~blobs:[] ~tags;
 				r in
 		loop ()) 
 
+(** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
+    here without being really sure *)
 let destroy ~__context ~self =
 	let vifs = Db.Network.get_VIFs ~__context ~self in
 	let connected = List.filter 

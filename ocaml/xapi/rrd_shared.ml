@@ -1,19 +1,4 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Shared RRD data
- * @group Performance Monitoring
- *)
+(** Shared RRD data *)
 
 (* This module contains all of the data that is shared between 
  * the monitor_rrds module and the monitor_dbcalls module
@@ -34,12 +19,6 @@ type rrd_info = {
 (* strings are uuids *)
 type ds_type = VM of string | Host | SR of string
 
-(* Mutex to protect the shared data.
- *
- * Warning: Do not do any DB calls with this mutex held! A possible side effect
- * of a DB call will be resetting the 'dirty' status below, requiring acquisition
- * of this lock, resulting in a deadlock! 
- *) 
 let mutex = Mutex.create ()
 
 (* RRDs *)		  

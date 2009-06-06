@@ -1,20 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2006-2007 XenSource Ltd.
  *)
-(**
- * @group Performance Monitoring
- *)
- 
+
 open Listext
 open Threadext
 open Monitor_types
@@ -26,7 +13,7 @@ open D
 let set_vm_metrics ~__context ~vm ~memory ~cpus =
 	(* if vm metrics don't exist then make one *)
 	let metrics = Db.VM.get_metrics ~__context ~self:vm in
-	if not (Db.is_valid_ref metrics) then
+	if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
 	  begin
 	    let ref = Ref.make() in
 	    Db.VM_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -69,7 +56,7 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 
 			   (* if vif metrics don't exist then make one *)
 			   let metrics = Db.VIF.get_metrics ~__context ~self in
-			   if not (Db.is_valid_ref metrics) then
+			   if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
 			     begin
 			       let ref = Ref.make() in
 			       Db.VIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -96,7 +83,7 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 
 			  (* if vbd metrics don't exist then make one *)
 			   let metrics = Db.VBD.get_metrics ~__context ~self in
-			   if not (Db.is_valid_ref metrics) then
+			   if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
 			     begin
 			       let ref = Ref.make() in
 			       Db.VBD_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -199,7 +186,7 @@ let update_pifs ~__context host pifs =
 		        let pif_stats=List.find (fun p -> p.pif_name = real_device_name) pifs in
 			let metrics = Db.PIF.get_metrics ~__context ~self:pifdev in
 			(* if PIF metrics don't exist then create one: *)
-			if not (Db.is_valid_ref metrics) then
+			if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
 			  begin
 			    let ref = Ref.make() in
 			    Db.PIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~carrier:false
@@ -212,7 +199,7 @@ let update_pifs ~__context host pifs =
 			
 			let metrics = Db.PIF.get_metrics ~__context ~self:pifdev in
 			let pmr = Db.PIF_metrics.get_record ~__context ~self:metrics in
-			let speed_db = Int64.of_int (Netdev.Link.int_of_speed pif_stats.pif_speed) in
+			let speed_db = Int64.of_int pif_stats.pif_speed in
 			let duplex_db = match pif_stats.pif_duplex with
 			  | Netdev.Link.Duplex_full    -> true
 			  | Netdev.Link.Duplex_half    -> false
@@ -221,6 +208,18 @@ let update_pifs ~__context host pifs =
 			  ~vendor:pif_stats.pif_vendor_id ~device:pif_stats.pif_device_id ~carrier:pif_stats.pif_carrier
 			  ~speed:speed_db ~duplex:duplex_db
 			  ~pcibuspath:pif_stats.pif_pci_bus_path ~io_write:pif_stats.pif_tx ~io_read:pif_stats.pif_rx pmr;
+
+			(* If it's DHCP, then set the IP and netmask *)
+			if Db.PIF.get_ip_configuration_mode ~__context ~self:pifdev = `DHCP then
+			  begin
+			    match pif_stats.pif_bridge_info with
+			      | Some (addr,nm) ->
+				  let addr_str = Unix.string_of_inet_addr addr in
+				  let nm_str = Unix.string_of_inet_addr nm in
+				  Db.PIF.set_IP ~__context ~self:pifdev ~value:addr_str;
+				  Db.PIF.set_netmask ~__context ~self:pifdev ~value:nm_str
+			      | None -> ()			      
+			  end
 			  
 		with Not_found -> ()) pifdevs
 

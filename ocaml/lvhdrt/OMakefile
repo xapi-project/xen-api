@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 
 IEXE=install -m 755 -o root -g root
 
@@ -15,6 +15,6 @@ clean:
 install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) lvhdrt $(DEBUGDIST)
-	$(IEXE) lvhdrt-helper $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-helper
-	$(IEXE) lvhdrt-trash-vdi $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-trash-vdi 
+	$(IEXE) lvhdrt-helper $(DIST)/staging/etc/xapi.d/plugins/lvhdrt-helper
+	$(IEXE) lvhdrt-trash-vdi $(DIST)/staging/etc/xapi.d/plugins/lvhdrt-trash-vdi 
 

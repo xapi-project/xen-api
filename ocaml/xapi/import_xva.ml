@@ -1,18 +1,8 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006, 2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Import code specific to Zurich/Geneva-style XVA VM exports
- * @group Import and Export
+ * Import code specific to Zurich/Geneva-style XVA VM exports
  *)
 
 open Stringext
@@ -26,7 +16,7 @@ open D
 open Client
 
 (** Connect to an XAPI server on host:port and construct the VMs *)
-let make __context rpc session_id srid (vms, vdis) = 
+let make __context session_id srid (vms, vdis) = 
   let task_id = Ref.string_of (Context.get_task_id __context) in
   
   (* On error, destroy all objects we have created *)
@@ -36,7 +26,7 @@ let make __context rpc session_id srid (vms, vdis) =
     let vdi_refs = List.map (fun vdi ->
 			       let vdi = Client.VDI.create ~rpc ~session_id ~name_label:vdi.vdi_name
 				 ~name_description:"" ~sR:srid ~virtual_size:vdi.size 
-				 ~_type:(vdi.variety:>API.vdi_type) ~sharable:false ~read_only:false ~xenstore_data:[] 
+				 ~_type:vdi.variety ~sharable:false ~read_only:false ~xenstore_data:[] 
 				 ~sm_config:[] ~other_config:[] ~tags:[] in
 			       clean_up_stack := 
 				 (fun _ rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: !clean_up_stack;
@@ -66,7 +56,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~memory_static_max:memory_b
 				~memory_dynamic_max:memory_b
 				~memory_target:memory_b
-				~memory_dynamic_min:memory_b
+				~memory_dynamic_min:(Memory.bytes_of_mib 16L)
 				~memory_static_min:(Memory.bytes_of_mib 16L)
 				~vCPUs_max:1L ~vCPUs_at_startup:1L
 				~vCPUs_params:[]
@@ -82,7 +72,6 @@ let make __context rpc session_id srid (vms, vdis) =
 				~pV_args:""
 				~pCI_bus:"" ~other_config:[] ~xenstore_data:[] ~recommendations:""
 				~ha_always_run:false ~ha_restart_priority:"" ~tags:[]
-				~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
 			      in
 
                  TaskHelper.operate_on_db_task ~__context
@@ -135,7 +124,7 @@ let from_xml refresh_session s __context rpc session_id srid xml =
   let vms, vdis = of_xml xml in
   let total_size = total_size_of_disks vdis in
 	      
-  let (vms,vdis,clean_up_stack) = make __context rpc session_id srid (vms, vdis) in
+  let (vms,vdis,clean_up_stack) = make __context session_id srid (vms, vdis) in
   try
     (* signal to GUI that object have been created and they can now go off and remapp networks *)
     TaskHelper.add_to_other_config ~__context "object_creation" "complete";

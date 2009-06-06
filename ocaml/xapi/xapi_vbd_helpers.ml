@@ -1,19 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Common code between the fake and real servers for dealing with VBDs
- * @group Storage
- *)
+(** Common code between the fake and real servers for dealing with VBDs *)
+
+(* (C) XenSource 2006-2007 *)
 
 open Threadext
 open Stringext
@@ -110,18 +97,13 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   | _, _ -> 
       let actual = Record_util.power_to_string power_state in
       let expected = Record_util.power_to_string `Running in
-	  (* If not Running, always block these operations: *)
-	  let bad_ops = [ `plug; `unplug; `unplug_force ] in
-	  (* However allow VBD pause and unpause if the VM is paused: *)
-	  let bad_ops' = if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops in
-      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] bad_ops');
+      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug; `unplug_force; `pause; `unpause ]);
       
   (* HVM guests only support plug/unplug IF they have recent PV drivers *)
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
-  let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm then begin
-    (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
+    (match Xapi_pv_driver_version.up_to_date_error ~__context ~vm ~self:vm_gm with
      | Some(code, params) -> set_errors code params [ `plug; `unplug; `unplug_force ]
      | None -> ());
     if record.Db_actions.vBD_type = `CD
@@ -137,8 +119,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     then set_errors Api_errors.vdi_not_managed [ _ref ] all_ops;
 
     if vdi_record.Db_actions.vDI_current_operations <> [] then begin
-      debug "VBD operation %s not allowed because VDI.current-operations = [ %s ]"
-	(String.concat ";" (List.map vbd_operation_to_string current_ops))
+      debug "VBD operation not allowed because VDI.current-operations = [ %s ]"
 	(String.concat "; " 
 	   (List.map (fun (task, op) -> task ^ " -> " ^ (vdi_operation_to_string op)) vdi_record.Db_actions.vDI_current_operations));
       let concurrent_op = snd (List.hd vdi_record.Db_actions.vDI_current_operations) in
@@ -343,8 +324,7 @@ let destroy  ~__context ~self =
 	
 	(* Force the user to unplug first *)
 	if r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved
-	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
-		[Printf.sprintf "VBD '%s' still attached to '%s'" r.Db_actions.vBD_uuid (Db.VM.get_uuid __context vm)]));
+	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VBD still attached to a running VM"]));
 
 	let metrics = Db.VBD.get_metrics ~__context ~self in
 	(* Don't let a failure to destroy the metrics stop us *)

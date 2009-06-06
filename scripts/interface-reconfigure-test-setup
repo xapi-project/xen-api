@@ -4,8 +4,8 @@ set -e
 
 . /etc/xensource-inventory
 
-names=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false params=device VLAN=-1 --minimal | sed -e 's/,/+/g')
-pifs=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false VLAN=-1 --minimal)
+names=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false params=device --minimal | sed -e 's/,/+/g')
+pifs=$(xe pif-list host-uuid="$INSTALLATION_UUID" management=false --minimal)
 
 echo "Creating network associated with $names"
 BOND_NET=$(xe network-create name-label="Pool-wide network associated with $names")

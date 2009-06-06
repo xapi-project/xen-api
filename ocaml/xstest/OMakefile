@@ -1,4 +1,4 @@
-OCAMLPACKS    += threads xc xs
+OCAMLPACKS    += threads uuid mmap xc xb xs
 OCAMLFLAGS    += -thread
 
 OCamlProgram(xstest, xstest common)

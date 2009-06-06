@@ -1,22 +1,9 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Printf
 open Stringext
 open Hashtblext
 open Pervasiveext
 
-type kind = Vif | Vbd | Tap | Pci | Vfb | Vkbd
+type kind = Vif | Vbd | Tap | Pci
 
 type devid = int
 (** Represents one end of a device *)
@@ -43,9 +30,9 @@ open D
 open Printf
 
 let string_of_kind = function
-  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci" | Vfb -> "vfb" | Vkbd -> "vkbd"
+  | Vif -> "vif" | Vbd -> "vbd" | Tap -> "tap" | Pci -> "pci"
 let kind_of_string = function
-  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci | "vfb" -> Vfb | "vkbd" -> Vkbd
+  | "vif" -> Vif | "vbd" -> Vbd | "tap" -> Tap | "pci" -> Pci
   | x -> raise (Unknown_device_type x)
 
 let string_of_endpoint (x: endpoint) =
@@ -108,7 +95,8 @@ let device_of_backend (backend: endpoint) (domu: Xc.domid) =
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
 			   | Vbd | Tap -> Vbd
-			   | _ -> backend.kind);
+			   | Vif -> Vif
+			   | Pci -> Pci);
 		   devid = backend.devid } in
   { backend = backend; frontend = frontend }
 

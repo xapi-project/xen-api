@@ -1,29 +1,31 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xs
-OCAML_LIBS    =  ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
-	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
-OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
-	../autogen ../database/ \
-	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg
-
-
+OCAMLPACKS += unix xmlm xml-light2 sqlite3 uuid cdrom
+OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory_constraints \
+		../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
+		../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
+OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
+                 ../autogen ../idl/sql_backend/ ../database/ \
+                 ../http/ ../xenops ../muxdemux ../xva \
+		 ../netdev ../auth ../license ../client_records ../rfb ../gpg
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
 # Since the section didn't work, link against the xen libs for everything if we are building
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
-# (the same holds for OCaml packages)
-XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
+XEN_OCAML_LIBS = ../netdev/netdev ../xenops/xenops ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xc xs cpuid
+XEN_OCAMLPACKS = mmap xc xb xs
 OCAML_CLIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_CLIBS) $(OCAML_CLIBS), $(OCAML_CLIBS)) 
 OCAML_LINK_FLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS), $(OCAML_LINK_FLAGS))
 CFLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_CFLAGS) $(CFLAGS), $(CFLAGS))
 OCAMLINCLUDES = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES), $(OCAMLINCLUDES))
 # xc.cma depends on uuid.cma
 OCAML_LIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_LIBS) $(XEN_OCAML_LIBS), $(OCAML_LIBS)) 
-OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLPACKS) $(OCAMLPACKS), $(OCAMLPACKS))
+OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAMLPACKS) $(XEN_OCAMLPACKS), $(OCAMLPACKS))
+
+
+OCamlDoc(../../doc/xapi, redo_log_usage.mli xapi_globs.ml)
+
 
 # -----------------------------------------------------------------------
 # Build the server
@@ -32,8 +34,6 @@ OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLPACKS) $(OCAMLPA
 #OCAML_CLIBS += stubs
 
 OCamlProgram(http_test, http_test)
-OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
-OCamlProgram(show_bat, show_bat)
 
 COMMON = \
 	xapi_templates \
@@ -43,15 +43,17 @@ COMMON = \
 	xapi_mgmt_iface \
 	smint \
 	../gpg/gpg \
-	../license/license \
+        ../license/license \
 	helpers \
+	helper_hostname \
+	helper_process \
 	at_least_once_more \
 	create_templates \
 	fileserver
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings)
 OCamlProgram(stresstest, stresstest)
 OCamlProgram(fakeguestagent, fakeguestagent)
 
@@ -59,8 +61,9 @@ OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
 OCamlProgram(rrddump, rrddump rrd)
 
-XAPI_MODULES = $(COMMON) \
+OCamlProgram(xapi, $(COMMON) \
 	local_work_queue \
+	../muxdemux/tar \
 	../xva/xva \
 	../idl/ocaml_backend/json \
 	../rfb/rfb \
@@ -74,7 +77,6 @@ XAPI_MODULES = $(COMMON) \
 	console \
 	xen_helpers \
 	importexport \
-	sparse_encoding \
 	create_storage \
 	create_networks \
 	xapi_fist \
@@ -108,15 +110,10 @@ XAPI_MODULES = $(COMMON) \
 	../auth/extauth_plugin_ADlikewise \
 	../auth/parse_likewise \
 	xapi_subject \
-	xapi_role \
-	audit_log \
-	xapi_vmpp \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
-	xapi_vm_snapshot \
-	vm_placement \
-	xapi_vm_placement \
 	xapi_vm_helpers \
+	xmlrpc_sexpr \
 	memory_check \
 	xapi_vm_memory_constraints \
 	xapi_vbd_helpers \
@@ -125,7 +122,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_hooks \
 	xapi_bond \
 	xapi_vlan \
-	xapi_tunnel \
 	xapi_sr \
 	xapi_sm \
 	xapi_pbd \
@@ -135,12 +131,11 @@ XAPI_MODULES = $(COMMON) \
 	config_file_sync \
 	config_file_io \
 	slave_backup \
+	restrictions \
 	sm_fs_ops \
-	sparse_dd_wrapper \
 	vmopshelpers \
 	vm_config \
 	vmops \
-	memory_control \
 	vbdops \
 	attach_helpers \
 	message_forwarding \
@@ -182,70 +177,55 @@ XAPI_MODULES = $(COMMON) \
 	cli_printer \
 	ipq \
 	xapi_periodic_scheduler \
-	xapi_periodic_scheduler_init \
-	dbsync \
-	dbsync_slave \
-	dbsync_master \
-	sync_networking \
-	storage_access \
-	events \
-	import_xva \
-	import \
-	import_raw_vdi \
-	export \
-	stream_vdi \
-	fileupload \
-	smint \
-	sm_exec \
-	sm \
-	startup \
-	system_status \
-	license_check \
-	xapi_vm \
-	xapi_sr \
-	xapi_vdi \
-	xapi_vbd \
-	xapi_vif \
-	xapi_pif \
-	xapi_pbd \
-	xapi_user \
-	xapi_host_cpu \
-	xapi_task \
-	xapi_vm_migrate \
-	mtc \
-	xapi_crashdump \
-	xapi_templates_install \
-	xapi_host_backup \
-	xapi_logs_download \
-	xapi_vncsnapshot \
-	xapi_pool \
-	xapi_upgrade \
-	xapi_blob \
-	xapi_message \
-	debug_populate \
-	ds \
-	xapi_remotecmd \
-	redo_log_usage \
-	redo_log_alert \
-	xapi \
-	workload_balancing \
-	wlb_reports \
-	remote_requests \
-	xapi_secret \
-	../database/db_hiupgrade \
-	certificates \
-	../license/v6client \
-	bios_strings \
-	xapi_config \
-	../license/grace_retry \
-	../license/v6alert \
-	../license/edition \
-	../license/features \
-	../license/license_file \
-	../license/license_init
-
-OCamlProgram(xapi, $(XAPI_MODULES))
-OCamlDocProgram(xapi, $(XAPI_MODULES))
+		dbsync \
+		dbsync_slave \
+		dbsync_master \
+		storage_access \
+		events \
+		import_xva \
+		import \
+		import_raw_vdi \
+		export \
+		stream_vdi \
+		fileupload \
+		../util/config \
+		smint \
+		sm_exec \
+		sm \
+		startup \
+		system_status \
+		license_check \
+		xapi_vm \
+		xapi_sr \
+		xapi_vdi \
+		xapi_vbd \
+		xapi_vif \
+		xapi_pif \
+		xapi_pbd \
+		xapi_user \
+		xapi_host_cpu \
+		xapi_task \
+		xapi_vm_migrate \
+		mtc \
+		xapi_crashdump \
+		xapi_templates_install \
+		xapi_host_backup \
+		xapi_logs_download \
+		xapi_vncsnapshot \
+		xapi_pool \
+		xapi_upgrade \
+		xapi_blob \
+		xapi_message \
+		debug_populate \
+		ds \
+		xapi_remotecmd \
+		redo_log_usage \
+		redo_log_alert \
+		xapi \
+		workload_balancing \
+		wlb_reports \
+		remote_requests \
+		certificates)
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 
@@ -257,20 +237,23 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	cp -f xapi $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	cp -f xapi $(DIST)/staging/opt/xensource/bin
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) quicktest $(DEBUGDIST)
 	cp -f quicktestbin $(DEBUGDIST)
-	$(IPROG) rrddump $(DEBUGDIST)
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) sparse_dd $(DESTDIR)/opt/xensource/libexec
 
 .PHONY: sdk-install
 sdk-install: install
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	cp fakeguestagent $(DESTDIR)/opt/xensource/libexec/
+	mkdir -p $(DIST)/staging/opt/xensource/libexec
+	cp fakeguestagent $(DIST)/staging/opt/xensource/libexec/
 
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
+	rm -f quicktest_encodings_module.ml
+
+.PHONY: copy_quicktest_modules
+copy_quicktest_modules:
+	/bin/cp -uf ../util/encodings.ml quicktest_encodings_module.ml
+	/bin/chmod -w quicktest_encodings_module.ml

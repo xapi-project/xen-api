@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Main Loop and Start-up
- *)
- 
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 
@@ -25,19 +8,14 @@ open Client
 
 (* create pool record (if master and not one already there) *)
 let create_pool_record ~__context =
-	let pools = Db.Pool.get_all ~__context in
-	if pools=[] then
-		Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.make_uuid()))
-			~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
-			~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null
-			~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
-			~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] 
-			~wlb_url:"" ~wlb_username:"" ~wlb_password:Ref.null ~wlb_enabled:false ~wlb_verify_cert:false
-			~redo_log_enabled:false ~redo_log_vdi:Ref.null ~vswitch_controller:"" ~restrictions:[]
-			~other_config:[
-				Xapi_globs.memory_ratio_hvm;
-				Xapi_globs.memory_ratio_pv;
-			]
+  let pools = Db.Pool.get_all ~__context in
+  if pools=[] then
+    Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.make_uuid()))
+      ~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
+      ~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null ~other_config:[]
+      ~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
+      ~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] 
+      ~wlb_url:"" ~wlb_username:"" ~wlb_password:"" ~wlb_enabled:false ~wlb_verify_cert:false
 
 let set_master_ip ~__context =
   let ip =
@@ -48,26 +26,10 @@ let set_master_ip ~__context =
   let host = Helpers.get_localhost ~__context in
     Db.Host.set_address ~__context ~self:host ~value:ip
 
-(* NB the master doesn't use the heartbeat mechanism to track its own liveness so we
-   must make sure that live starts out as true because it will never be updated. *)
-let set_master_live ~__context = 
-  let host = Helpers.get_localhost ~__context in
-  let metrics = Db.Host.get_metrics ~__context ~self:host in
-  debug "Setting Host_metrics.live to true for localhost";
-  Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
 
 let set_master_pool_reference ~__context =
   let pool = List.hd (Db.Pool.get_all ~__context) in
     Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context) 
-    
-let set_pool_defaults ~__context =
-	(* If Pool.other_config has no cpuid_feature_mask_key yet, fill in the default. *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
-	if not (List.mem_assoc Xapi_globs.cpuid_feature_mask_key other_config) then
-		Db.Pool.add_to_other_config ~__context ~self:pool
-			~key:Xapi_globs.cpuid_feature_mask_key
-			~value:Xapi_globs.cpuid_default_feature_mask
 
 (** Look at all running VMs, examine their consoles and regenerate the console URLs.
     This catches the case where the IP address changes but the URLs still point to the wrong
@@ -90,7 +52,7 @@ let refresh_console_urls ~__context =
 let reset_vms_running_on_missing_hosts ~__context =
   List.iter (fun vm ->
 	       let vm_r = Db.VM.get_record ~__context ~self:vm in
-	       let valid_resident_on = Db.is_valid_ref vm_r.API.vM_resident_on in
+	       let valid_resident_on = Db_cache.DBCache.is_valid_ref (Ref.string_of vm_r.API.vM_resident_on) in
 	       if not valid_resident_on then begin
 		 if vm_r.API.vM_is_control_domain then begin
 		   info "Deleting control domain VM uuid '%s' ecause VM.resident_on refers to a Host which is nolonger in the Pool" vm_r.API.vM_uuid;
@@ -149,7 +111,24 @@ let create_missing_vlan_records ~__context =
 		   end
 	       end) all_pifs
 
-let create_tools_sr __context = 
+(** During rolling upgrade the Rio hosts require host metrics to exist. The persistence changes
+    in Miami resulted in these not being created by default. We recreate them here for compatability *)
+let create_host_metrics ~__context =
+  List.iter 
+    (fun self ->
+       let m = Db.Host.get_metrics ~__context ~self in
+       let exists = try ignore(Db.Host_metrics.get_uuid ~__context ~self:m); true with _ -> false in
+       if not(exists) then begin
+	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
+	 let r = Ref.make () in
+	 Db.Host_metrics.create ~__context ~ref:r
+	   ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+	   ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
+	 Db.Host.set_metrics ~__context ~self ~value:r
+       end) (Db.Host.get_all ~__context)
+
+
+let create_tools_sr ~__context = 
   Helpers.call_api_functions ~__context (fun rpc session_id ->
     (* Creates a new SR and PBD record *)
     (* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there 
@@ -190,36 +169,7 @@ let create_tools_sr __context =
 	"XenServer Tools ISOs"]
 	true)
 
-let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
-let clear_uncooperative_flags __context = 
-  List.iter (fun vm -> Helpers.set_vm_uncooperative ~__context ~self:vm ~value:false) (Db.VM.get_all ~__context)
-
-let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "clearing uncooperative flags" clear_uncooperative_flags __context
-
-let ensure_vm_metrics_records_exist __context = 
-  List.iter (fun vm ->
-				 let m = Db.VM.get_metrics ~__context ~self:vm in
-				 if not(Db.is_valid_ref m) then begin
-				   info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
-				   let m = Ref.make () in
-				   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-				   Db.VM_metrics.create ~__context ~ref:m ~uuid
-					   ~vCPUs_number:0L
-					   ~vCPUs_utilisation:[] ~memory_actual:0L
-					   ~vCPUs_CPU:[]
-					   ~vCPUs_params:[]
-					   ~vCPUs_flags:[]
-					   ~start_time:Date.never
-					   ~install_time:Date.never
-					   ~state: []
-					   ~last_updated:(Date.of_float 0.)
-					   ~other_config:[];
-				   Db.VM.set_metrics ~__context ~self:vm ~value:m
-				 end
-			) (Db.VM.get_all __context)
-
-let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "ensuring VM_metrics flags exist" ensure_vm_metrics_records_exist __context
 
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
@@ -231,8 +181,6 @@ let update_env __context =
   create_pool_record ~__context;
   set_master_pool_reference ~__context;
   set_master_ip ~__context;
-  set_master_live ~__context;
-  set_pool_defaults ~__context;
 
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
@@ -250,9 +198,6 @@ let update_env __context =
   Xapi_sm.resync_plugins ~__context;
 
   create_missing_vlan_records ~__context;
-  create_tools_sr_noexn __context;
-
-  clear_uncooperative_flags_noexn __context;
-  
-  ensure_vm_metrics_records_exist_noexn __context
+  create_host_metrics ~__context;
+  create_tools_sr ~__context
     

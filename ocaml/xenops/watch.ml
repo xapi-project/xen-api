@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Helper functions for handling common types of xenstore watches *)
 
 module D = Debug.Debugger(struct let name = "xenops" end)
@@ -45,28 +32,29 @@ let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
   let time_taken () = Unix.gettimeofday () -. start_time in
 
   let callback (path, _) = 
+    debug "watch: fired on %s" path; 
     match x.evaluate ~xs with
     | KeepWaiting -> false
     | Result x -> result := Some x; true in
   try
-	let paths = Listext.List.setify x.paths in
-    debug "watch: watching xenstore paths: [ %s ] with timeout %f seconds" (String.concat "; " paths) timeout;
+    debug "watch: watching xenstore paths: [ %s ] with timeout %f seconds" (String.concat "; " x.paths) timeout;
     (* If the list of paths is empty then we don't receive /any/ watch events and so
        we'll always block until the timeout. If the condition depends on no xenstore paths
        then we can consider it to be vacuously true (or a bug if the condition fn evaluates
        to false). Note this code is required in order to migrate diskless VMs: CA-15011 *)
     if x.paths = [] 
     then ignore(callback ("/", "X"))
-    else Xs.monitor_paths xs (List.map (fun path -> path, "X") paths) timeout callback;
+    else Xs.monitor_paths xs (List.map (fun path -> path, "X") x.paths) timeout callback;
       begin match !result with
       | Some x -> 
+	  debug "watch: Successfully finished watching xenstore after %f seconds" (time_taken ());
 	  x
       | None -> 
 	  (* should never happen *) 
 	  failwith "internal error in Watch.wait: perhaps the list of paths was empty but the condition reports false?"
       end
   with Xs.Timeout -> 
-    error "watch: timeout while watching xenstore after %f seconds" timeout;
+    debug "watch: timeout while watching xenstore after %f seconds" timeout;
     (* Extra debugging to see if we've missed a watch somewhere *)
     (match x.evaluate ~xs with
      | KeepWaiting -> raise (Timeout timeout)
@@ -80,7 +68,7 @@ let value_to_appear (path: path): string t =
     evaluate = fun ~xs -> 
       try 
 	let v = xs.Xs.read path in
-	(*debug "watch: value has appeared: %s = %s" path v;*)
+	debug "watch: value has appeared: %s = %s" path v;
 	Result v
       with Xb.Noent -> KeepWaiting }
 
@@ -91,7 +79,7 @@ let key_to_disappear (path: path) : unit t =
       try 
 	ignore(xs.Xs.read path); KeepWaiting 
       with Xb.Noent ->
-	(*debug "watch: key has disappeared: %s" path;*)
+	debug "watch: key has disappeared: %s" path;
 	Result () 
   }
 
@@ -102,7 +90,7 @@ let value_to_become (path: path) (v: string) : unit t =
       try 
 	if xs.Xs.read path = v 
 	then begin
-	  (*debug "watch: value has become: %s = %s" path v;*)
+	  debug "watch: value has become: %s = %s" path v;
 	  Result () 
 	end else KeepWaiting 
       with Xb.Noent -> KeepWaiting }

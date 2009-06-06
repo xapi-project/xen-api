@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Virtual-Machine Management
- *)
- 
 open Pervasiveext
 open Client
 open Forkhelpers
@@ -24,23 +7,8 @@ open Attach_helpers
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let allowed_dom0_directory_for_provision_scripts =
-  "/opt/xensource/packages/post-install-scripts/"
-
-let is_whitelisted script =
-  let safe_char = function 'a'..'z'-> true |'-'->true |'/'->true |_ -> false in
-  let safe_str str = List.fold_left (&&) true (List.map safe_char (Stringext.String.explode str)) in
-  (* make sure the script prefix is the allowed dom0 directory *)
-  (Stringext.String.startswith allowed_dom0_directory_for_provision_scripts script)
-  (* avoid ..-style attacks and other weird things *)
-  &&(safe_str script)
-let assert_script_is_whitelisted script =
-  if not (is_whitelisted script) then
-    raise (Api_errors.Server_error (Api_errors.permission_denied, [
-      (Printf.sprintf "illegal provision script %s" script)]))
-
 (** Execute the post install script of 'vm' having attached all the vbds to the 'install_vm' *)
-let post_install_script rpc session_id __context install_vm vm (script, vbds) =
+let post_install_script rpc session_id __context install_vm vm (script, vbds) = 
   (* Cancellable task *)
   TaskHelper.set_cancellable ~__context;
 
@@ -49,7 +17,6 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
   match script with
   | None -> () (* nothing to do *)
   | Some script ->
-      assert_script_is_whitelisted script;
       let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
       let uuids = List.map (fun self -> Uuid.of_string (Client.VDI.get_uuid rpc session_id self)) vdis in
       with_vbds rpc session_id __context install_vm vdis `RW
@@ -66,20 +33,24 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 
 	   match with_logfile_fd "install-log"
 	     (fun log ->
-	       let pid = safe_close_and_exec ~env:(Array.of_list env) None (Some log) (Some log) [] script [] in
+	       let pid = safe_close_and_exec ~env:(Array.of_list env)
+		 [ Dup2(log, Unix.stdout);
+		   Dup2(log, Unix.stderr) ]
+		 [ Unix.stdout; Unix.stderr ]
+		 script [] in
 	       let starttime = Unix.time () in
 	       let rec update_progress () =
 		 (* Check for cancelling *)
 		 if TaskHelper.is_cancelling ~__context
 		 then
 		   begin
-		     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
-		     let _ = Forkhelpers.waitpid pid in
+		     Unix.kill pid Sys.sigterm;
+		     let _ = Unix.waitpid [] pid in
 		     raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
 		   end;
 		 
-		 let (newpid,status) = Forkhelpers.waitpid_nohang pid in
-		 if newpid <> 0 
+		 let (newpid,status) = Unix.waitpid [Unix.WNOHANG] pid in
+		 if newpid = pid 
 		 then 
 		   (match status with 
 		     | Unix.WEXITED 0 -> (newpid,status) 

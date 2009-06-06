@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 (* TODO:
    1. Modify pygrub to extract all possible boot options
@@ -52,8 +39,8 @@ type extracted_kernel = {
 
 let parse_output x = 
   let sexpr = "(" ^ x ^ ")" in
-  let parse_failed = Error(Printf.sprintf "Expecting an s-expression; received: %s" sexpr) in
-  let sexpr' = SExpr_TS.of_string sexpr in
+  let parse_failed = Error(Printf.sprintf "Failed to parse the output of bootloader: %s" sexpr) in
+  let sexpr' = Sexpr.of_string sexpr in
   match sexpr' with
     (* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
     (* linux (kernel /var/lib/xen/vmlinuz.SFO5fb)(ramdisk /var/lib/xen/initrd.MUitgP)(args 'root=/dev/sda1 ro') *)
@@ -68,11 +55,6 @@ let parse_output x =
 	debug "Failed to parse: %s" sexpr;
 	raise parse_failed
 
-let parse_exception x = 
-  match Stringext.String.split '\n' x with
-  | code :: params -> raise (Api_errors.Server_error(code, params))
-  | _ -> failwith (Printf.sprintf "Failed to parse stderr output of bootloader: %s" x)
-
 (** Extract the default kernel using the -q option *)
 let extract_default_kernel bootloader disks legacy_args extra_args pv_bootloader_args vm_uuid =
   let bootloader_path = List.assoc bootloader Xapi_globs.supported_bootloaders in
@@ -83,11 +65,38 @@ let extract_default_kernel bootloader disks legacy_args extra_args pv_bootloader
   let disk = List.hd disks in
   let cmdline = bootloader_args true extra_args legacy_args pv_bootloader_args disk vm_uuid in
   debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
-  try
-	parse_output (Helpers.call_script ~log_successful_output:false bootloader_path cmdline)
-  with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
-	  parse_exception stderr
 
+  let result_out, result_in = Unix.pipe() in
+  let fds_to_close = ref [ result_out; result_in ] in
+  let close' fd = 
+    if List.mem fd !fds_to_close 
+    then (Unix.close fd; fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close) in
+  finally  (* make sure I close all my open fds in the end *)
+    (fun () ->
+       (* Capture stderr output for logging *)
+       match with_logfile_fd "bootloader"
+       (fun log_fd ->
+	  let pid = safe_close_and_exec
+	    [ Dup2(result_in, Unix.stdout);
+	      Dup2(log_fd, Unix.stderr) ]
+	    [ Unix.stdout; Unix.stderr ] (* close all but these *)
+	    bootloader_path cmdline in
+	  (* parent *)
+	  List.iter close' [ result_in ];
+	  finally (* always waitpid eventually *)
+	    (fun () ->
+	       let output = Unixext.read_whole_file 500 500 result_out in
+	       (* Do something with it *)
+	       parse_output output)
+	    (fun () -> waitpid pid)) with
+       | Success(_, x) -> debug "bootloader subprocess succeeded"; x
+       | Failure(log, Subprocess_failed n) ->
+	   raise (Error (Printf.sprintf "Return code: %d; Log = %s" n log))
+       | Failure(log, exn) ->
+	   debug "Error from bootloader: %s" log;
+	   raise exn)
+    (fun () -> List.iter Unix.close !fds_to_close)
+	  
 let delete_extracted_kernel x = 
   Unix.unlink x.kernel_path;
   match x.initrd_path with

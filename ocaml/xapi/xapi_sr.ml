@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for SR objects
- * @group XenAPI functions
- *)
- 
 open Printf
 open Threadext
 open Pervasiveext
@@ -198,7 +181,7 @@ let scan_all ~__context =
   List.iter (scan_one ~__context) scannable_srs
 
 let scanning_thread () =
-  Debug.name_thread "sr_scan";
+  name_thread "sr_scan";
   Server_helpers.exec_with_new_task "SR scanner" (fun __context ->
   let host = Helpers.get_localhost ~__context in
 
@@ -232,7 +215,7 @@ let introduce  ~__context ~uuid ~name_label
       ~physical_size: (-1L)
       ~content_type
       ~_type ~shared ~other_config:[] ~default_vdi_visibility:true
-      ~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false in
+      ~sm_config ~blobs:[] ~tags:[] in
 
     update_allowed_operations ~__context ~self:sr_ref;
     (* Return ref of newly created sr *)
@@ -254,84 +237,53 @@ let unplug_and_destroy_pbds ~__context ~self =
 	    Client.PBD.destroy ~rpc ~session_id ~self:pbd)
 	 pbds)
 
-let probe ~__context ~host ~device_config ~_type ~sm_config =
-	debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-
-	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-	then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
-	let subtask_of = Some (Context.get_task_id __context) in
-	Sm.sr_probe (subtask_of, Sm.sm_master true :: device_config) _type sm_config
-
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
-		~_type ~content_type ~shared ~sm_config =
-	debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-	let _type = String.lowercase _type in
-	if not(List.mem _type (Sm.supported_drivers ()))
-		then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
-	(* This breaks the udev SR which doesn't support sr_probe *)
-(*
-	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
-	begin 
-	  match Xml.parse_string probe_result with
-	    | Xml.Element("SRlist", _, children) -> ()
-	    | _ -> 
-		(* Figure out what was missing, then throw the appropriate error *)
-		match String.lowercase _type with
-		  | "lvmoiscsi" ->
-		      if not (List.exists (fun (s,_) -> "targetiqn" = String.lowercase s) device_config)
-		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_96",["";"";probe_result]))
-		      else if not (List.exists (fun (s,_) -> "scsiid" = String.lowercase s) device_config)
-		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_107",["";"";probe_result]))
-		  | _ -> ()
-	end;
-*)
-	let sr_uuid = Uuid.make_uuid() in
-	let sr_uuid_str = Uuid.to_string sr_uuid in
-	(* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
-	we have to clean up the record.*)
-	let sr_ref =
-		introduce  ~__context ~uuid:sr_uuid_str ~name_label
-			~name_description ~_type ~content_type ~shared ~sm_config
-	in 
+    ~_type ~content_type ~shared ~sm_config =
+  debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
+  let _type = String.lowercase _type in
+  if not(List.mem _type (Sm.supported_drivers ()))
+  then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
 
-	begin
-		try 
-			let subtask_of = Some (Context.get_task_id __context) in
-			Sm.sr_create (subtask_of, Sm.sm_master true :: device_config) _type sr_ref physical_size;
-		with
-		| Smint.Not_implemented_in_backend ->
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr_ref ]))
+  let sr_uuid = Uuid.make_uuid() in
+  let sr_uuid_str = Uuid.to_string sr_uuid in
+  (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
+     we have to clean up the record.*)
+  let sr_ref =
+    introduce  ~__context ~uuid:sr_uuid_str ~name_label
+      ~name_description ~_type ~content_type ~shared ~sm_config in 
 
-		| e -> 
-				Db.SR.destroy ~__context ~self:sr_ref;
-				raise e
-	end;
+  (* We have to transform_password_device config here on the sr_create call, since the backends will be expecting
+     transformed passwords.. *)
+  begin
+    try 
+      let subtask_of = Some (Context.get_task_id __context) in
+        Sm.sr_create (subtask_of, Sm.sm_master true :: (Xapi_pbd.transform_password_device_config device_config)) _type sr_ref physical_size;
+    with
+    | Smint.Not_implemented_in_backend ->
+	Db.SR.destroy ~__context ~self:sr_ref;
+	raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr_ref ]))
 
-	let pbds =
-		if shared then
-			let create_on_host host =
-				let dev_cfg = if Helpers.is_pool_master ~__context ~host
-					then device_config
-					else Xapi_secret.duplicate_passwds ~__context device_config
-				in
-				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config:dev_cfg ~host ~other_config:[]
-			in
-			List.map create_on_host (Db.Host.get_all ~__context)
-		else
-			[Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
-	in
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			List.iter
-			(fun self ->
-				try
-					Client.PBD.plug ~rpc ~session_id ~self
-				with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
-				pbds);
-		sr_ref
+    | e -> 
+	  Db.SR.destroy ~__context ~self:sr_ref;
+	  raise e
+  end;
+
+  let pbds =
+    if shared then
+      List.map (fun h->Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host:h ~other_config:[])
+	(Db.Host.get_all ~__context)
+    else
+      [Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ] in
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+	 List.iter
+	   (fun self ->
+	      try
+		Client.PBD.plug ~rpc ~session_id ~self
+	      with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+	   pbds);
+    sr_ref
 
 let check_no_pbds_attached ~__context ~sr =
   let all_pbds_attached_to_this_sr =
@@ -340,50 +292,40 @@ let check_no_pbds_attached ~__context ~sr =
     then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
 
 (* Remove SR record from database without attempting to remove SR from disk.
-   Fail if any PBD still is attached (plugged); force the user to unplug it
-   first. *)
+   Fail if a PBD record still exists; force the user to unplug it and delete it first. *)
 let forget  ~__context ~sr =
-	(* NB we fail if ANY host is connected to this SR *)
-	check_no_pbds_attached ~__context ~sr;
-	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-	Db.SR.destroy ~__context ~self:sr;
-	let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+  (* NB we fail if ANY host is connected to this SR *)
+  check_no_pbds_attached ~__context ~sr;
+  List.iter (fun self -> Db.PBD.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
+  Db.SR.destroy ~__context ~self:sr;
+  let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
+  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
-(** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
+(* Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
    PBD record on current host to determine device_config reqd by sr backend) *)
 let destroy  ~__context ~sr =
-	check_no_pbds_attached ~__context ~sr;
-	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  check_no_pbds_attached ~__context ~sr;
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 
-	(* raise exception if the 'indestructible' flag is set in other_config *)
-	let oc = Db.SR.get_other_config ~__context ~self:sr in
-	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
-		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
+  Storage_access.SR.attach ~__context ~self:sr;
 
-	(* this attaches the PBDs, and they need to stay that way for the call to SM below *)
-	Storage_access.SR.attach ~__context ~self:sr;
+  begin
+    try
+      Sm.call_sm_functions ~__context ~sR:sr
+	(fun device_config driver -> Sm.sr_delete device_config driver sr)
+    with
+    | Smint.Not_implemented_in_backend ->
+	raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+  end;
 
-	begin
-		try
-			Sm.call_sm_functions ~__context ~sR:sr
-				(fun device_config driver -> Sm.sr_delete device_config driver sr)
-		with
-		| Smint.Not_implemented_in_backend ->
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
-	end;
+  (* The sr_delete may have deleted some VDI records *)
+  let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 
-	(* return all PBDs to their unattached state *)
-	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds;
-	(* The sr_delete may have deleted some VDI records *)
-	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
-	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
-
-	(* Let's not call detach because the backend throws an error *)
-	Db.SR.destroy ~__context ~self:sr;
-	Xapi_secret.clean_out_passwds ~__context sm_cfg;
-	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+  (* Let's not call detach because the backend throws an error *)
+  Db.SR.destroy ~__context ~self:sr;
+  (* Safe to delete all the PBD records because we called 'check_no_pbds_attached' earlier *)
+  List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
 let update ~__context ~sr =
   Sm.assert_pbd_is_plugged ~__context ~sr;
@@ -392,8 +334,14 @@ let update ~__context ~sr =
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
+(* CA-13190 Rio->Miami upgrade needs to prevent concurrent scans *)
+let scan_upgrade_lock = Mutex.create ()
+
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr = 
+  Mutex.execute scan_upgrade_lock
+    (fun () ->
+
   Sm.call_sm_functions ~__context ~sR:sr
     (fun backend_config driver ->
        try
@@ -403,6 +351,8 @@ let scan ~__context ~sr =
 	 error "Caught error scanning SR (%s): %s." 
 	   (Db.SR.get_name_label ~__context ~self:sr) (ExnHelper.string_of_exn e);
 	 raise e)
+
+    )
 
 let set_shared ~__context ~sr ~value =
   if value then
@@ -417,6 +367,15 @@ let set_shared ~__context ~sr ~value =
       Db.SR.set_shared ~__context ~self:sr ~value
     end
   
+let probe ~__context ~host ~device_config ~_type ~sm_config =
+  debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
+
+  let _type = String.lowercase _type in
+  if not(List.mem _type (Sm.supported_drivers ()))
+  then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
+  let subtask_of = Some (Context.get_task_id __context) in
+    Sm.sr_probe (subtask_of, Sm.sm_master true :: (Xapi_pbd.transform_password_device_config device_config)) _type sm_config
+
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
 

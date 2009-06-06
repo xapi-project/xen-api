@@ -1,29 +1,26 @@
-.SUBDIRS: ocaml_backend lua js_backend
+
+.SUBDIRS: ocaml_backend sql_backend lua js_backend
 
 JQUERY = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERYTREEVIEWZIP = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
-PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14 || echo false")
+PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14")
 
-OCAMLINCLUDES  = ocaml_backend ../database
-OCAMLPACKS     = xml-light2 sexpr log
-
-CAMLP4_FILES = datamodel_types
-
-UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
+OCAMLINCLUDES += ocaml_backend ../database
+OCAMLPACKS += str xmlm xml-light2 uuid
 
 # -----------------------------------------------------------------------
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
+OCamlLibrary(datamodel, datamodel datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ../util/date ocaml_backend/ref ../database/string_marshall_helper ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser)
 
 # -----------------------------------------------------------------------
 # Build datamodel documentation
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper
+DATAMODEL_FILES = datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ../util/date ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper ../util/encodings ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps
@@ -35,7 +32,6 @@ CLOSED_EPS = xenenterpriseapi-datamodel-graph.eps citrix_logo_black.eps
 DOCDIR = $(ROOT)/ocaml/autogen/doc
 
 OCamlProgram($(DATAMODEL), $(DATAMODEL_FILES) datamodel_main)
-OCamlDocProgram(datamodel, $(DATAMODEL_FILES))
 OCamlProgram(html_build, $(DATAMODEL_FILES) html_build html_common html_types)
 
 .PHONY: xenapi-html-doc xenenterpriseapi-html-doc api-html-doc sdk-classes
@@ -57,8 +53,7 @@ xenapi-html-doc: datamodel xenapi-datamodel-graph.dot xenapi-datamodel-graph.gif
 
 xenenterpriseapi-html-doc: datamodel #xenapi-datamodel-graph.dot xenenterpriseapi-datamodel-graph.gif xenenterpriseapi-datamodel-graph.map
 	mkdir -p $(DOCDIR)/model/xe
-	cp xenenterpriseapi-datamodel-graph.map $(DOCDIR)/model/xe
-	cp xenenterpriseapi-datamodel-graph.gif $(DOCDIR)/model/xe
+	cp xenenterpriseapi-datamodel-graph.{map,gif} $(DOCDIR)/model/xe
 	cp api.css userguide.css $(DOCDIR)/model/xe
 	cp xensource_logo.png xensource_toplogo.gif check.png $(DOCDIR)/model/xe
 	./datamodel -closed -html $(DOCDIR)/model/xe
@@ -113,8 +108,7 @@ clean:
 .PHONY: sdk-install
 sdk-install: datamodel html_build xenenterpriseapi.pdf
 	mkdir -p $(SDK)/docs/html
-	cp xenenterpriseapi-datamodel-graph.map $(SDK)/docs/html
-	cp xenenterpriseapi-datamodel-graph.gif $(SDK)/docs/html
+	cp xenenterpriseapi-datamodel-graph.{map,gif} $(SDK)/docs/html
 	cp html/*.css html/*.js html/*.html $(SDK)/docs/html
 	mkdir -p $(SDK)/docs/html/images
 	cp html/images/* $(SDK)/docs/html/images
@@ -138,25 +132,7 @@ sdk-install: datamodel html_build xenenterpriseapi.pdf
 	cp sdk-README.html $(SDK)/README.html
 	lynx -dump sdk-README.html > $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
-
-.PHONY: doc
-doc: sdk-install
-
-
-META: META.in
-	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
-
-if $(defined DESTDIR)
-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
-	export
-else
-	INSTALL_PATH = $(shell ocamlfind printconf destdir)
-	export
-
-lib-install: META
-	mkdir -p $(INSTALL_PATH)
-	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META datamodel.{a,cmxa,cmi} datamodel_types.cmi datamodel_utils.cmi dm_api.cmi api_messages.cmi 
-
-.PHONY: lib-uninstall
-lib-uninstall:
-	ocamlfind remove -destdir $(INSTALL_PATH) xapi-datamodel
+	# and then the version suitable for the website
+	mkdir -p $(SDKWWW)/docs/html
+	sh -c '/bin/cp -ar $(SDK)/docs $(SDKWWW)'
+	cp sdkwww-index.html $(SDKWWW)/index.html

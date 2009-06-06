@@ -1,78 +1,59 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** The main callback function.
- * @group API Messaging
- *)
+(** The main callback function *)
 
 (** Actions module *)
 module Actions = struct
-	(** The DebugVersion throws a NotImplemented exception for everything
-		by default.  The ReleaseVersion is missing all the fields;
-		so server will not compile unless everything is overridden *)
+  (** The DebugVersion throws a NotImplemented exception for everything
+      by default.  The ReleaseVersion is missing all the fields;
+      so server will not compile unless everything is overridden *)
 
-	module Task = Xapi_task
-	module Session = Xapi_session
-	module Auth = Xapi_auth
-	module Subject = Xapi_subject
-	module Role = Xapi_role
-	module Event = Xapi_event
-	module Alert = Xapi_alert
-	module VM = struct
-		include Xapi_vm
-		include Xapi_vm_migrate
-	end
-	module VM_metrics = struct end
-	module VM_guest_metrics = struct end
-	module VMPP = Xapi_vmpp
+  module Task = Xapi_task
+  module Session = Xapi_session
+  module Auth = Xapi_auth
+  module Subject = Xapi_subject
+  module Event = Xapi_event
+  module Alert = Xapi_alert
+  module VM = struct
+    include Xapi_vm
+    include Xapi_vm_migrate
+  end
+  module VM_metrics = struct end
+  module VM_guest_metrics = struct end
 
-	module Host = Xapi_host
-	module Host_crashdump = Xapi_host_crashdump
-	module Pool = Xapi_pool
-	module Pool_patch = Xapi_pool_patch
-	module Host_patch = Xapi_host_patch
-	module Host_metrics = struct end
-	module Host_cpu = Xapi_host_cpu
-	module Network = Xapi_network
-	module VIF = Xapi_vif
-	module VIF_metrics = struct end
-	module PIF = Xapi_pif
-	module PIF_metrics = struct end
-	module SR = Xapi_sr
-	module SM = Xapi_sm
-	module VDI = Xapi_vdi
-	module VBD = Xapi_vbd
-	module VBD_metrics = struct end
-	module Crashdump = Xapi_crashdump
-	module PBD = Xapi_pbd
-	module Data_source = struct end
-	let not_implemented x = raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
+  module Host = Xapi_host
+  module Host_crashdump = Xapi_host_crashdump
+  module Pool = Xapi_pool
+  module Pool_patch = Xapi_pool_patch
+  module Host_patch = Xapi_host_patch
+  module Host_metrics = struct end
+  module Host_cpu = Xapi_host_cpu
+  module Network = Xapi_network
+  module VIF = Xapi_vif
+  module VIF_metrics = struct end
+  module PIF = Xapi_pif
+  module PIF_metrics = struct end
+  module SR = Xapi_sr
+  module SM = Xapi_sm
+  module VDI = Xapi_vdi
+  module VBD = Xapi_vbd
+  module VBD_metrics = struct end
+  module Crashdump = Xapi_crashdump
+  module PBD = Xapi_pbd
+  module Data_source = struct end
+  let not_implemented x = raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
 
-	module VTPM = struct 
-		let create ~__context ~vM ~backend = not_implemented "VTPM.create"
-		let destroy ~__context ~self = not_implemented "VTPM.destroy"
-	end
-	module Console = struct 
-		let create ~__context ~other_config = not_implemented "Console.create"
-		let destroy ~__context ~self = not_implemented "Console.destroy"
-	end
-	module Bond = Xapi_bond
-	module VLAN = Xapi_vlan
-	module User = Xapi_user
-	module Blob = Xapi_blob
-	module Message = Xapi_message
-	module Secret = Xapi_secret
-	module Tunnel = Xapi_tunnel
+  module VTPM = struct 
+    let create ~__context ~vM ~backend = not_implemented "VTPM.create"
+    let destroy ~__context ~self = not_implemented "VTPM.destroy"
+  end
+  module Console = struct 
+    let create ~__context ~other_config = not_implemented "Console.create"
+    let destroy ~__context ~self = not_implemented "Console.destroy"
+  end
+  module Bond = Xapi_bond
+  module VLAN = Xapi_vlan
+  module User = Xapi_user
+  module Blob = Xapi_blob
+  module Message = Xapi_message
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)

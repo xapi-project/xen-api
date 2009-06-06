@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 
 OCamlProgram(mpathalert, mpathalert)
 
@@ -11,6 +11,6 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	$(IPROG) mpathalert $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	$(IPROG) mpathalert $(DIST)/staging/opt/xensource/bin
 

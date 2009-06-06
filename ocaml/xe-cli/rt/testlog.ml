@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Log the tests status *)
 
 type result = 
@@ -34,7 +21,9 @@ let ignore_errors = ref false
 let cmdlog = ref (Log.openstring Log.Debug)
 
 let get_log () = 
-  Log.get_strings !cmdlog
+  match !cmdlog.Log.output with
+    Log.String s -> !s
+  | _ -> []
 
 let reset_log () =
   test_status_flag := Success;
@@ -149,7 +138,7 @@ let output_html version fname =
   let oc = open_out fname in
   Printf.fprintf oc "%s" ("<html><head><title>Test Results</title>"^
 			     "<link rel=\"stylesheet\" type=\"text/css\" href=\"test.css\"/>"^
-			     "<script type=\"text/javascript\" src=\"test_log.js\"></script></head><body>"^
+			     "<script type=\"text/javascript\" src=\"test_log.js\"></head><body>"^
 			     "<div id=\"header\"><h1>Test Results</h1></div>\n");
 
   Printf.fprintf oc "<h3>Xapi version: %s</h3>" version;

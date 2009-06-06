@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Now for some tests! *)
    
 open Cliops
@@ -641,8 +628,8 @@ let param (cli : Util.t_cli) vmid =
   let test () =
     let params = [("name-description","Testing testing!");
 		  ("user-version","100");
-		  ("VCPUs-max","2");
-		  ("PV-kernel","whatever");
+		  ("memory-dynamic-max","10000");
+		  ("memory-dynamic-min","10000");
 		] in
     log Info "Test: VM NAME='%s'" domainname;
     log Info "Testing setting/resetting parameters on stopped VM";

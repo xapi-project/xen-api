@@ -1,19 +1,7 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Locking_helpers
 open Stringext
 
+module Db = Db_actions.DB_Action
 module D = Debug.Debugger(struct let name = "dispatcher" end)
 open D
 
@@ -110,7 +98,7 @@ let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) f 
         (fun () -> 
            if not called_async 
            then Context.destroy __context
-           (* else debug "nothing more to process for this thread" *)))
+           else debug "nothing more to process for this thread"))
     ()
 
 let dispatch_exn_wrapper f =
@@ -153,9 +141,9 @@ let do_dispatch ?session_id ?forward_op ?self _type called_async supports_async 
         in
           XMLRPC.Success (marshaller_fn result)
 
-let exec_with_new_task ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
+let exec_with_new_task ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
   exec_with_context 
-    ~__context:(Context.make ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name) 
+    ~__context:(Context.make ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name) 
     (fun ~__context -> f __context)
   
 let exec_with_forwarded_task ?session_id ?origin task_id f =

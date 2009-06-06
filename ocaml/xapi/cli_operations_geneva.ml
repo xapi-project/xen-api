@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** 
- * @group Command-Line Interface (CLI)
- *)
- 
 (* Backwards compatible CLI operations *)
 
 (* These are mostly list functions - operations that do things *)
@@ -423,7 +406,7 @@ let host_vbridge_add printer rpc session_id params =
   let name = List.assoc "vbridge-name" params in
   let autoadd = List.assoc "auto-vm-add" params in
   let desc = try List.assoc "vbridge-description" params with _ -> "" in
-  ignore(Client.Network.create rpc session_id name desc 1500L
+  ignore(Client.Network.create rpc session_id name desc 
 	    (if autoadd="true" then [("auto_add_to_VM",autoadd);("geneva-name",name)] else [("geneva-name",name)]) [])
 
 let host_vbridge_remove printer rpc session_id params =

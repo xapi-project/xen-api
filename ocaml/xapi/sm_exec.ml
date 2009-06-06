@@ -1,20 +1,9 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006-2007 XenSource Inc.
+ * Author: Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * storage manager backend: external operations through exec
  *)
-(** Storage manager backend: external operations through exec
- * @group Storage
- *)
-
 open Pervasiveext
 open Stringext
 open Printf
@@ -24,10 +13,9 @@ module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
 
 let sm_dir = "/opt/xensource/sm"
-let sm_daemon_dir = "/var/xapi/sm"
 
 let cmd_name driver = sprintf "%s/%sSR" sm_dir driver
-let daemon_path driver = sprintf "%s/%s" sm_daemon_dir driver
+
 
 (*********************************************************************************************)
 (* Random utility functions *)
@@ -57,30 +45,22 @@ type call = {
   vdi_ref: API.ref_VDI option;
   vdi_location: string option;
   vdi_uuid: string option;
-  vdi_on_boot: string option;
-  vdi_allow_caching : string option;
 
   (* Reference to the task which performs the call *)
   subtask_of: API.ref_task option;
-
-  local_cache_sr: string option;
 
   cmd: string;
   args: string list;
 }
 
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of,device_config) cmd args =
-  Server_helpers.exec_with_new_task "sm_exec"
+  Server_helpers.exec_with_new_task "sm_exec: reading host other-config"
     (fun __context ->
        let vdi_location = 
 	 if vdi_location <> None 
 	 then vdi_location
 	 else may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref in
        let vdi_uuid = may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref in
-	   let vdi_on_boot = may (fun self -> 
-		   match Db.VDI.get_on_boot ~__context ~self with `persist -> "persist" | `reset -> "reset") vdi_ref in
-	   let vdi_allow_caching = may (fun self -> string_of_bool (Db.VDI.get_allow_caching ~__context ~self)) vdi_ref in
-	   let local_cache_sr = try Some (Db.SR.get_uuid ~__context ~self:(Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost __context))) with _ -> None in
        let sr_uuid = may (fun self -> Db.SR.get_uuid ~__context ~self) sr_ref in
        { host_ref = !Xapi_globs.localhost_ref;
 	 session_ref = None; (* filled in at the last minute *)
@@ -93,11 +73,8 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uui
 	 vdi_ref = vdi_ref;
 	 vdi_location = vdi_location;
 	 vdi_uuid = vdi_uuid;
-	 vdi_on_boot = vdi_on_boot;
-	 vdi_allow_caching = vdi_allow_caching;
 	 new_uuid = new_uuid;
 	 subtask_of = subtask_of;
-	 local_cache_sr = local_cache_sr;
 	 cmd = cmd;
 	 args = args
        })
@@ -119,15 +96,13 @@ let xmlrpc_of_call (call: call) =
   let vdi_ref = default [] (may (fun x -> [ "vdi_ref", XMLRPC.To.string (Ref.string_of x) ]) call.vdi_ref) in
   let vdi_location = default [] (may (fun x -> [ "vdi_location", XMLRPC.To.string x ]) call.vdi_location) in
   let vdi_uuid = default [] (may (fun x -> [ "vdi_uuid", XMLRPC.To.string x ]) call.vdi_uuid) in
-  let vdi_on_boot = default [] (may (fun x -> [ "vdi_on_boot", XMLRPC.To.string x ]) call.vdi_on_boot) in
-  let vdi_allow_caching = default [] (may (fun x -> [ "vdi_allow_caching", XMLRPC.To.string x ]) call.vdi_allow_caching) in
   let new_uuid = default [] (may (fun x -> [ "new_uuid", XMLRPC.To.string x ]) call.new_uuid) in
 
   let driver_params = default [] (may (fun x -> [ "driver_params", kvpairs x ]) call.driver_params) in
   let vdi_sm_config = default [] (may (fun x -> [ "vdi_sm_config", kvpairs x ]) call.vdi_sm_config) in
   let subtask_of = default [] (may (fun x -> [ "subtask_of", XMLRPC.To.string (Ref.string_of x) ]) call.subtask_of) in
-  let local_cache_sr = default [] (may (fun x -> ["local_cache_sr", XMLRPC.To.string x]) call.local_cache_sr) in
-  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of @ vdi_on_boot @ vdi_allow_caching @ local_cache_sr in
+
+  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of in
   XMLRPC.To.methodCall call.cmd [ XMLRPC.To.structure all ]
 
 let methodResponse xml =
@@ -141,9 +116,9 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
-let spawn_internal cmdarg =
+let spawn_internal ?(cb_set=(fun _ -> ())) ?(cb_clear=(fun () -> ())) cmdarg =
   try
-    Forkhelpers.execute_command_get_output cmdarg.(0) (List.tl (Array.to_list cmdarg))
+    Forkhelpers.execute_command_get_output ~cb_set ~cb_clear cmdarg.(0) (List.tl (Array.to_list cmdarg))
   with 
   | Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
       raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task stopped"; output; log ]))
@@ -156,7 +131,7 @@ let with_session sr f =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
   let create_session () =
     let host = !Xapi_globs.localhost_ref in
-    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
+    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" in
     (* Give this session access to this particular SR *)
     maybe (fun sr ->
 	     Db.Session.add_to_other_config ~__context ~self:session 
@@ -169,31 +144,20 @@ let with_session sr f =
   let session_id = create_session () in
   Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
-let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (call: call) =
+let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
   let do_call call = 
     let xml = xmlrpc_of_call call in
-
-    let name = Printf.sprintf "sm_exec: %s" call.cmd in
-
-    let (xml,stderr) = Stats.time_this name (fun () -> 
-      match ty with 
-	| Daemon ->
-	    (Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:(daemon_path driver) ~path:(Printf.sprintf "/%s" driver) xml,"")
-	| Executable ->
-	    let args = [| cmd_name driver; Xml.to_string xml |] in
-	    Array.iter (fun txt -> debug "'%s'" txt) args;
-	    let output, stderr = 
-	      match context with
-		| None           -> 
-		    spawn_internal args
-		| Some __context ->
-		    spawn_internal args
-	    in
-	    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
-	    ((Xml.parse_string output),stderr))
-    in
-
-    match methodResponse xml with
+    let args = [| cmd_name driver; Xml.to_string xml |] in
+    Array.iter (fun txt -> debug "'%s'" txt) args;
+    
+    let output, stderr = match context with
+      | None           -> spawn_internal args
+      | Some __context ->
+	  let cb_set pid = TaskHelper.set_external_pid ~__context pid
+	  and cb_clear () = TaskHelper.clear_external_pid ~__context in
+	  spawn_internal ~cb_set ~cb_clear args in
+    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
+    match methodResponse (Xml.parse_string output) with
     | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
     | XMLRPC.Fault(39l, _) ->
 	raise (Api_errors.Server_error (Api_errors.sr_not_empty, []))
@@ -258,7 +222,7 @@ let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
-let parse_sr_get_driver_info driver ty (xml: Xml.xml) = 
+let parse_sr_get_driver_info driver (xml: Xml.xml) = 
   let info = XMLRPC.From.structure xml in
   debug "parsed structure";
   (* Parse the standard strings *)
@@ -273,7 +237,6 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
   let lookup_table = 
     [ "SR_PROBE",       Sr_probe;
       "SR_UPDATE",      Sr_update;
-	  "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
       "VDI_CREATE",     Vdi_create;
       "VDI_DELETE",     Vdi_delete;
       "VDI_ATTACH",     Vdi_attach;
@@ -287,7 +250,6 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
       "VDI_UPDATE",     Vdi_update;
       "VDI_INTRODUCE",  Vdi_introduce;
       "VDI_GENERATE_CONFIG", Vdi_generate_config;
-	  "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
     ] in
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
   List.iter (fun s -> 
@@ -312,56 +274,36 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
     sr_driver_required_api_version = required_api_version;
     sr_driver_capabilities = capabilities;
     sr_driver_configuration = configuration;
-    sr_driver_text_capabilities = text_capabilities;
-    sr_driver_type = ty;
+    sr_driver_text_capabilities = text_capabilities
   }
 
-let sr_get_driver_info driver ty = 
+let sr_get_driver_info driver = 
   let call = make_call (None,[]) "sr_get_driver_info" [] in
-  parse_sr_get_driver_info driver ty (exec_xmlrpc ~needs_session:false ty driver call)
+  parse_sr_get_driver_info driver (exec_xmlrpc ~needs_session:false driver call)
     
-(* Call the supplied function (passing driver name and driver_info) for every
- * backend and daemon found. *)
-let get_supported add_fn =
-  let check_driver entry =
-      if String.endswith "SR" entry then (
-        let driver = String.sub entry 0 (String.length entry - 2) in
-        try
-          debug "Checking executable driver: %s" driver;
-          Unix.access (cmd_name driver) [ Unix.X_OK ];
-          let info = sr_get_driver_info driver Executable in
-          add_fn driver info;
-          debug "Driver %s supported (executable)" driver
-        with e ->
-          debug "Got exception while checking driver %s: %s" driver (Printexc.to_string e);
-          log_backtrace ();
-          debug "Rejected plugin: %s" driver
-      ) in
-
-  let check_daemon entry =
-    try
-      debug "Checking daemon driver: %s" entry;
-      let info = sr_get_driver_info entry Daemon in
-      add_fn entry info;
-      debug "Driver %s supported (daemon)" entry
-    with e ->
-      debug "Got exception while checking daemon %s: %s" entry (Printexc.to_string e);
-      log_backtrace ();
-      debug "Rejected plugin: %s" entry
-  in
-
-  List.iter 
-    (fun (f, dir) ->
-		 if Sys.file_exists dir then begin
-		   debug "Scanning directory %s for SM backends" dir;
-		   try Array.iter f (Sys.readdir dir)
-		   with e ->
-			   log_backtrace ();
-			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
-		 end else debug "Not scanning %s for SM backends: directory does not exist" dir
-    ) 
-    [ check_driver, sm_dir;
-      check_daemon, sm_daemon_dir; ]
+(* Return an association list of driver name * driver_info *)
+let get_supported () =
+  let supported = ref [] in
+  begin
+    try Array.iter 
+      (fun entry ->
+	if String.endswith "SR" entry then (
+	  let driver = String.sub entry 0 (String.length entry - 2) in
+	  try
+	    debug "Checking driver: %s" driver;
+	    Unix.access (cmd_name driver) [ Unix.X_OK ]; 
+	    let info = sr_get_driver_info driver in
+	    supported := (driver, info) :: !supported;
+	    debug "Driver supported!"
+	  with e -> 
+	    debug "Got exception: %s" (Printexc.to_string e);
+	    log_backtrace ();
+	    debug "Rejected plugin: %s" driver
+	)
+      ) (Sys.readdir sm_dir);
+    with _ -> ();
+  end;
+  !supported
 
 (*********************************************************************)
 

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext (* for ignore_exn *)
 
 module R = Debug.Debugger(struct let name = "redo_log" end)
@@ -19,7 +6,7 @@ exception NoGeneration
 exception DeltaTooOld
 exception DatabaseWrongSize of int * int
 
-let read_from_redo_log staging_path =
+let read_from_redo_log () =
   try
     (* 1. Start the process with which we communicate to access the redo log *)
     R.debug "Starting redo log";
@@ -44,7 +31,8 @@ let read_from_redo_log staging_path =
     
           (* Read from the file into the cache *)
           let fake_conn_db_file = { Parse_db_conf.dummy_conf with
-            Parse_db_conf.path = temp_file
+            Parse_db_conf.path = temp_file;
+            format = Parse_db_conf.Xml
           } in
           (* ideally, the reading from the file would also respect the latest_response_time *)
           ignore (Backend_xml.populate_and_read_manifest fake_conn_db_file);
@@ -74,14 +62,11 @@ let read_from_redo_log staging_path =
     R.debug "Reading from redo log";
     Redo_log.apply read_db read_delta;
 
-    (* 3. Write the database and generation to a file 
-     * Note: if there were no deltas applied then this is semantically 
-     *   equivalent to copying the temp_file used above in read_db rather than 
-	 *   deleting it. 
-     * Note: we don't do this using the DB lock since this is only executed at 
-	 *   startup, before the database engine has been started, so there's no 
-	 *   danger of conflicting writes. *)
-    R.debug "Staging redo log to file %s" staging_path;
+    (* 3. Write the database and generation to a file *)
+    (* Note: if there were no deltas applied then this is semantically equivalent to copying the temp_file used above in read_db rather than deleting it. *)
+    (* Note: we don't do this using the DB lock since this is only executed at startup, before the database engine has been started, so there's no danger of conflicting writes. *)
+    R.debug "Staging redo log to file %s" Xapi_globs.ha_metadata_db;
+    let staging_path = Xapi_globs.ha_metadata_db in
     (* Remove any existing file *)
     Unixext.unlink_safe staging_path;
     begin

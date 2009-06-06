@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 module D = Debug.Debugger(struct let name = "xenguesthelper" end)
 open D
@@ -21,22 +8,13 @@ let path = "/opt/xensource/libexec/xenguest"
 (** Where to place the last xenguesthelper debug log (just in case) *)
 let last_log_file = "/tmp/xenguesthelper-log"
 
-(* Exceptions which may propagate from the xenguest binary *)
-exception Xc_dom_allocate_failure of int * string
-exception Xc_dom_linux_build_failure of int * string
-exception Xc_domain_save_failure of int * string
-exception Xc_domain_resume_failure of int * string
-exception Xc_domain_restore_failure of int * string
-
-exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
-
 (** We do all our IO through the buffered channels but pass the 
     underlying fds as integers to the forked helper on the commandline. *)
-type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
+type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * int
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
+let connect (args: string list) (fds: Unix.file_descr list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
@@ -46,22 +24,19 @@ let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	let last_log_file = "/tmp/xenguest.log" in
 	(try Unix.unlink last_log_file with _ -> ());
 
-	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let server_to_slave_r_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-
 	let slave_to_server_r, slave_to_server_w = Unix.pipe () in
 	let server_to_slave_r, server_to_slave_w = Unix.pipe () in
-
-	let args = [ "-controloutfd"; slave_to_server_w_uuid;
-		     "-controlinfd"; server_to_slave_r_uuid;
+	let args = [ "-controloutfd";
+		     string_of_int (Obj.magic slave_to_server_w);
+		     "-controlinfd";
+		     string_of_int (Obj.magic server_to_slave_r);
 		     "-debuglog";
 		     last_log_file
-	] @ (if using_xiu then [ "-fake" ] else []) @ args in
-	let pid = Forkhelpers.safe_close_and_exec None None None 
-	  ([ slave_to_server_w_uuid, slave_to_server_w;
-	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
-	  path args in
-	
+		   ] @ (if using_xiu then [ "-fake" ] else []) @ args in
+	let pid = Forkhelpers.safe_close_and_exec [] 
+	     (fds @ [ Unix.stdout; Unix.stderr; slave_to_server_w; server_to_slave_r ]) (* close all but these *)
+	     path args in
+
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;
 
@@ -76,8 +51,8 @@ let disconnect (_, _, r, w, pid) =
 	Unix.close r;
 	Unix.close w;
 	(* just in case *)
-	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
-	ignore(Forkhelpers.waitpid pid)
+	Unix.kill pid Sys.sigterm;
+	ignore(Unix.waitpid [] pid)
 
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
@@ -123,40 +98,12 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
   | Info x -> debug_callback x; non_debug_receive ~debug_callback cnx
   | x -> x (* Error or Result or Suspend *)
 
-(* Dump memory statistics on failure *)
-let non_debug_receive ?debug_callback cnx = 
-  let debug_memory () = 
-    Xc.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
-  in
-  try
-    match non_debug_receive ?debug_callback cnx with
-    | Error y as x -> 
-	error "Received: %s" y;
-	debug_memory (); x
-    | x -> x
-  with e ->
-    debug_memory ();
-    raise e
-
 (** For the simple case where we just want the successful result, return it.
     If we get an error message (or suspend) then throw an exception. *)
 let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
-	match non_debug_receive ~debug_callback cnx with
-	| Error x ->
-		(* These error strings match those in xenguest_stubs.c *)
-		begin
-			match Stringext.String.split ~limit:3 ' ' x with
-			| [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
-			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xc_dom_allocate_failure    (int_of_string code, msg))
-			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xc_dom_linux_build_failure (int_of_string code, msg))
-			| [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
-			| [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
-			| [ "xc_domain_save"    ; code; msg ] -> raise (Xc_domain_save_failure     (int_of_string code, msg))
-			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xc_domain_resume_failure   (int_of_string code, msg))
-			| [ "xc_domain_restore" ; code; msg ] -> raise (Xc_domain_restore_failure  (int_of_string code, msg))
-			| _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
-		end
-	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
-	| Result x -> x
-	| Stdout _ | Stderr _ | Info _ -> assert false
+  match non_debug_receive ~debug_callback cnx with
+  | Error x -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
+  | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+  | Result x -> x
+  | Stdout _ | Stderr _ | Info _ -> assert false
 

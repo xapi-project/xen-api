@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Create a pool of SDKs *)
 
 open Client
@@ -50,7 +37,7 @@ let initialise session_id template pool =
   let networks_to_create = pool.interfaces_per_host - pool.bonds in
   debug "Creating %d networks..." networks_to_create;
   let networks = Array.init networks_to_create (fun i ->
-    Client.Network.create ~rpc ~session_id ~name_label:(Printf.sprintf "perftestnet%d" i) ~name_description:"" ~mTU:1500L ~other_config:[oc_key,pool.key] ~tags:[])
+    Client.Network.create rpc session_id (Printf.sprintf "perftestnet%d" i) "" [oc_key,pool.key] [])
   in
 
   (* Set up the template - create the VIFs *)
@@ -82,10 +69,10 @@ let initialise session_id template pool =
     Client.VM.add_to_xenstore_data ~rpc ~session_id ~self:template ~key:(Printf.sprintf "vm-data/provision/interfaces/%d/netmask" i) ~value:"255.255.255.0") interfaces;
 
   debug "Setting memory to 128 Megs";
-  Client.VM.set_memory_static_min rpc session_id template (Int64.mul 128L 1048576L);
-  Client.VM.set_memory_dynamic_min rpc session_id template (Int64.mul 128L 1048576L);
-  Client.VM.set_memory_dynamic_max rpc session_id template (Int64.mul 128L 1048576L);
   Client.VM.set_memory_static_max rpc session_id template (Int64.mul 128L 1048576L);
+  Client.VM.set_memory_static_min rpc session_id template (Int64.mul 128L 1048576L);
+  Client.VM.set_memory_dynamic_max rpc session_id template (Int64.mul 128L 1048576L);
+  Client.VM.set_memory_dynamic_min rpc session_id template (Int64.mul 128L 1048576L);
 
   Client.VM.remove_from_other_config rpc session_id template oc_key;
   Client.VM.add_to_other_config rpc session_id template oc_key pool.key;
@@ -379,7 +366,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let pifs = Client.PIF.get_all poolrpc poolses in
 
   let bondednets = Array.init pool.bonds (fun i ->
-    Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] [])
+    Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" [] [])
   in
 
   let unused_nets = ref (List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in

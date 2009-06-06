@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Xapi_fuse: Code to cause Xapi to commit not-completely-terminal hari-kiri *)
 (* The watchdog catches the exit()s and restarts us *)
 
@@ -19,7 +6,7 @@ open D
 
 let time f = 
   let start = Unix.gettimeofday () in
-  (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));
+  f ();
   Unix.gettimeofday () -. start
 
 (* give xapi time to reply to API messages by means of a 10 second fuse! *)
@@ -49,8 +36,9 @@ let light_fuse_and_reboot_after_eject() =
 	    (fun ()->
 	       Thread.delay (float_of_int Xapi_globs.fuse_time);
 	       (* this activates firstboot script and reboots the host *)
-		   ignore (Forkhelpers.execute_command_get_output "/sbin/service" [ "firstboot"; "activate" ]);
-           ()
+	       Unix.execv Forkhelpers.close_and_exec
+	                   [| Forkhelpers.close_and_exec; "--"; "/sbin/service"; "firstboot"; "activate" |];
+               ()
 	    ) ())
 
 let light_fuse_and_reboot ?(fuse_length=Xapi_globs.fuse_time) () =

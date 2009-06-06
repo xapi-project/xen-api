@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module O = Ocaml_syntax
 module DT = Datamodel_types
 module DU = Datamodel_utils
@@ -29,16 +16,15 @@ let _concurrency = "Concurrency"
 
 let enable_debugging = ref false
 
-
-let is_session_arg arg =
+let from_xmlrpc arg =
   let binding = O.string_of_param arg in
   let converter = O.type_of_param arg in
-  ((binding = "session_id") && (converter = "ref_session"))
-
-let from_xmlrpc arg =
-	let binding = O.string_of_param arg in
-	let converter = O.type_of_param arg in
-	Printf.sprintf "let %s = From.%s \"%s\" %s in" binding converter binding binding
+  let checksession =
+    if binding = "session_id" && converter = "ref_session" then
+      Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding (* ****** *)
+    else "" in
+    Printf.sprintf "let %s = From.%s \"%s\" %s in%s"
+      binding converter binding binding checksession
 
 let read_msg_parameter msg_parameter =
   from_xmlrpc 
@@ -151,20 +137,6 @@ let operation (obj: obj) (x: message) =
     match l with
       [] -> []
     | x::xs -> (i,x)::(add_counts (i+1) xs) in
-  let has_session_arg =
-      if is_ctor then is_session_arg Client.session
-      else List.exists (fun a->is_session_arg a) args_without_default_values
-  in
-  let rbac_check_begin = if has_session_arg
-    then [
-			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) string_args (if is_non_constructor_with_defaults then ((List.fold_right (fun dp ss->"\""^(dp.DT.param_name)^"\"::"^ss) msg_params_with_default_values "")^"[]") else "[]"))^" in";
-			"let key_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) (List.map (fun (k,_)->k) x.msg_map_keys_roles) "[]")^" in";
-			"let rbac __context fn = Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"]
-    else [
-    "let rbac __context fn = fn() in"
-    ]
-  in
-  let rbac_check_end = if has_session_arg then [] else [] in
   let unmarshall_code =
     (
       (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
@@ -199,48 +171,42 @@ let operation (obj: obj) (x: message) =
       | FromObject _ -> false
       | Custom -> true in
     
-		let session_check_exp =
-			if x.msg_session
-				then [ "Session_check.check intra_pool_only session_id;" ]
-				else []
-			in
+  let gen_body () =
+    let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
+    let type_xml = XMLRPC.TypeToXML.marshal ret in
+    let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
+    let cls = OU.ocaml_of_obj_name obj.DT.name in
+    let common_let_decs =
+      [
+       "let marshaller = "^result_marshaller^" in";
+       "let local_op = fun ~__context ->("^module_prefix^"."^impl_fn^") in";
+       "let supports_async = "^(if has_async then "true" else "false")^" in";
+       "let generate_task_for = "^(string_of_bool (not (List.mem obj.name DM.no_task_id_for)))^" in" ] in
+    let side_effect_let_decs =
+      if Gen_empty_custom.operation_requires_side_effect x then
+	[
+	  Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (%s.%s) in" _forward impl_fn
+	]
+      else 
+	[
+	  Printf.sprintf "%s \"%s\";"
+	    (if may_be_side_effecting x then "ApiLogSideEffect.info" else "ApiLogRead.info")
+	    wire_name
+	] in
 
-	let gen_body () =
-		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
-		let type_xml = XMLRPC.TypeToXML.marshal ret in
-		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
-		let cls = OU.ocaml_of_obj_name obj.DT.name in
-		let common_let_decs =
-			[
-				"let marshaller = "^result_marshaller^" in";
-				"let local_op = fun ~__context ->(rbac __context (fun()->("^module_prefix^"."^impl_fn^"))) in";
-				"let supports_async = "^(if has_async then "true" else "false")^" in";
-				"let generate_task_for = "^(string_of_bool (not (List.mem obj.name DM.no_task_id_for)))^" in" ] in
-		let side_effect_let_decs =
-			if Gen_empty_custom.operation_requires_side_effect x then
-				[
-					Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (rbac __context (fun()-> (%s.%s) )) in" _forward impl_fn
-				]
-			else 
-				[
-					Printf.sprintf "%s \"%s\";"
-					(if may_be_side_effecting x then "ApiLogSideEffect.info" else "ApiLogRead.info")
-					wire_name
-				] in
-
-		let body_exp =
-			[
-				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
-				(if x.msg_session then "~session_id" else "")
-				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
-				(Xml.to_string type_xml);
-				(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
-				"resp"
-			] in
-		common_let_decs @ side_effect_let_decs @ body_exp in
+    let body_exp =
+      [
+	Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
+	  (if x.msg_session then "~session_id" else "")
+	  (if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
+	  (Xml.to_string type_xml);
+(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
+	"resp"
+      ] in
+      common_let_decs @ side_effect_let_decs @ body_exp in
 
   let all = String.concat "\n        "
-    (comments @ set_intra_pool_only @ unmarshall_code @ session_check_exp @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
+    (comments @ set_intra_pool_only @ unmarshall_code @ (gen_body())) in
     
     ("    " ^ name_pattern_match ^ "\n" ^
     ("begin\n"
@@ -296,10 +262,8 @@ let gen_module api : O.Module.t =
 	      [
 	      "let subtask_of = if http_req.Http.task <> None then http_req.Http.task else http_req.Http.subtask_of in";
 	      "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ?subtask_of:(Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
-(*
 	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
 	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];
-*)
 	      "Server_helpers.dispatch_exn_wrapper (fun () -> (match __call with ";
 	    ] @ (List.flatten (List.map obj all_objs)) @ [
 		"| \"system.listMethods\" -> ";

@@ -29,7 +29,7 @@ start() {
 		return 1
 	    fi
 	fi
-	${PERFMON} --daemon ${PERFMON_FLAGS} >/dev/null 2>&1 </dev/null
+	${PERFMON} --daemon ${PERFMON_FLAGS} 
 
 	touch /var/lock/subsys/perfmon
 	success

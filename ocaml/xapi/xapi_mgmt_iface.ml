@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext
 open Threadext
 
@@ -66,12 +53,10 @@ let management_ip_cond = Condition.create ()
 
 let wait_for_management_ip () = 
     let ip = ref (match Helpers.get_management_ip_addr () with Some x -> x | None -> "") in
-    Mutex.execute management_ip_mutex (fun () -> begin
-      while !ip = "" do
-	Condition.wait management_ip_cond management_ip_mutex;
-	ip := (match Helpers.get_management_ip_addr () with Some x -> x | None -> "")
-      done;
-    end);
+    while !ip = "" do
+      Condition.wait management_ip_cond management_ip_mutex;
+      ip := (match Helpers.get_management_ip_addr () with Some x -> x | None -> "");
+    done;
     !ip
 
 let on_dom0_networking_change ~__context =
@@ -92,18 +77,17 @@ let on_dom0_networking_change ~__context =
 	debug "Changing Host.address in database to: %s" ip;
 	Db.Host.set_address ~__context ~self:localhost ~value:ip;
 	debug "Refreshing console URIs";
-	Dbsync_master.refresh_console_urls ~__context
+	Dbsync_master.refresh_console_urls ~__context;
+	debug "Signalling anyone waiting for the management IP address to change";
+	Mutex.execute management_ip_mutex
+	  (fun () -> Condition.broadcast management_ip_cond)
       end
   | None ->
       if Db.Host.get_address ~__context ~self:localhost <> "" then begin
 	debug "Changing Host.address in database to: '' (host has no management IP address)";
 	Db.Host.set_address ~__context ~self:localhost ~value:""
       end
-  end;
-  debug "Signalling anyone waiting for the management IP address to change";
-  Mutex.execute management_ip_mutex
-    (fun () -> Condition.broadcast management_ip_cond)
-
+  end
 
 let change_ip interface ip = Mutex.execute management_m (fun () -> change (interface, ip))
 

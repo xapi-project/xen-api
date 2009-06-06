@@ -1,19 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Common code between the fake and real servers for dealing with Hosts.
- * @group Host Management
- *)
+(** Common code between the fake and real servers for dealing with Hosts *)
+
+(* (C) XenSource 2006-2007 *)
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -69,13 +56,6 @@ let valid_operations ~__context record _ref' =
     try 
       if Db.Host_metrics.get_live ~__context ~self:record.Db_actions.host_metrics 
       then set_errors Api_errors.host_is_live [ _ref ] [ `power_on ] 
-    with _ -> () 
-  end;
-  (* The host power_on_mode must be not disabled *)
-  begin 
-    try 
-      if record.Db_actions.host_power_on_mode == ""
-      then set_errors Api_errors.host_power_on_mode_disabled [] [ `power_on ]
     with _ -> () 
   end;
   (* The power-on-host plugin must be available before power_on is possible *)
@@ -135,17 +115,26 @@ let update_host_metrics ~__context ~host ~memory_total ~memory_free =
 
   let last_updated = Date.of_float (Unix.gettimeofday ()) in
   let m = Db.Host.get_metrics ~__context ~self:host in
-  (* Every host should always have a Host_metrics object *)
-  if Db.is_valid_ref m then begin
-    Db.Host_metrics.set_memory_total ~__context ~self:m ~value:memory_total;
-    Db.Host_metrics.set_memory_free ~__context ~self:m ~value:memory_free;
-    Db.Host_metrics.set_last_updated ~__context ~self:m ~value:last_updated;
-    if should_set_live then begin
-      Db.Host_metrics.set_live ~__context ~self:m ~value:true;
-      update_allowed_operations ~__context ~self:host
-    end	
+  let exists = try ignore(Db.Host_metrics.get_uuid ~__context ~self:m); true with _ -> false in
+  if not(exists) then begin
+      let r = Ref.make () and uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	(* create metrics with live=false, then set live=true; this is because the db semantics for persist=false tables
+	   is to persist the creates, but not subsequent writes *)
+      Db.Host_metrics.create ~__context ~ref:r ~uuid ~memory_total ~memory_free ~last_updated ~live:false ~other_config:[];
+      Db.Host.set_metrics ~__context ~self:host ~value:r;
+      if should_set_live then begin
+	Db.Host_metrics.set_live ~__context ~self:m ~value:true;
+	update_allowed_operations ~__context ~self:host
+      end
+  end else begin
+      Db.Host_metrics.set_memory_total ~__context ~self:m ~value:memory_total;
+      Db.Host_metrics.set_memory_free ~__context ~self:m ~value:memory_free;
+      Db.Host_metrics.set_last_updated ~__context ~self:m ~value:last_updated;
+      if should_set_live then begin
+	Db.Host_metrics.set_live ~__context ~self:m ~value:true;
+	update_allowed_operations ~__context ~self:host
+      end	
   end
-  else warn "Host %s has invalid Host_metrics object reference" (Ref.string_of host)
 
 (* When the Host.shutdown and Host.reboot calls return to the master, the slave is 
    shutting down asycnronously. We immediately set the Host_metrics.live to false 

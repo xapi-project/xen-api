@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl
-OCAMLPACKS    = xml-light2
+OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES += ../uuid ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva
+OCAMLPACKS += xmlm xml-light2
 
 section
 	OCamlProgram(xinstall, xinstall operations distros util ../idl/constants)
@@ -11,6 +11,6 @@ clean:
 
 #.PHONY: install
 #install:
-#	mkdir -p $(DESTDIR)/opt/xensource/bin
-#	cp xinstall $(DESTDIR)/opt/xensource/bin
+#	mkdir -p $(DIST)/staging/opt/xensource/bin
+#	cp xinstall $(DIST)/staging/opt/xensource/bin
 

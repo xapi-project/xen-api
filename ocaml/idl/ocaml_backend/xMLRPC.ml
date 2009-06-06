@@ -1,30 +1,11 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D=Debug.Debugger(struct let name="xmlrpc" end)
 open D
 
 exception RunTimeTypeError of string * Xml.xml
 
-let rtte name xml =
-	error "Error: name='%s'; xml= %s" name (String.escaped (Xml.to_string xml));
-	raise (RunTimeTypeError(name, xml))
+let rtte name xml = raise (RunTimeTypeError(name, xml))
 
 type xmlrpc = Xml.xml
-
-let pretty_print = function
-	| Xml.Element(tag,_,_) -> "Element=" ^ String.escaped tag
-	| Xml.PCData d         -> "PCData=" ^ String.escaped d
 
 type response = 
   | Success of Xml.xml list (** normal result *)
@@ -120,17 +101,17 @@ module From = struct
 
   let pcdata f = function
     | Xml.PCData string -> f string
-    | xml -> rtte "pcdata" xml
+    | xml -> rtte "string" xml
 	
   let unbox ok f = function
     | Xml.Element(s, [], data) when List.mem s ok -> f data
-    | xml -> rtte (Printf.sprintf "unbox: %s should contain '%s'" (pretty_print xml) (List.hd ok)) xml
+    | xml -> rtte (List.hd ok) xml
 	
   let singleton ok f xml =
-    unbox ok (function [x] -> f x | y -> rtte (Printf.sprintf "singleton: {%s} should be the singleton {%s}" (String.concat ", " (List.map pretty_print y)) (List.hd ok)) xml) xml
+    unbox ok (function [x] -> f x | _ -> rtte (List.hd ok) xml) xml
 
   let pair ok f1 f2 xml =
-    unbox ok (function [v1; v2] -> f1 v1, f2 v2 | _ -> rtte "pair " xml) xml
+    unbox ok (function [v1; v2] -> f1 v1, f2 v2 | _ -> rtte "pair" xml) xml
 
   let value f xml = singleton ["value"] f xml
 
@@ -145,7 +126,7 @@ module From = struct
     ) xml
 
   let check expected xml got =
-    if got <> expected then rtte ("check " ^ expected) xml
+    if got <> expected then rtte expected xml
 
   let nil = value (unbox ["nil"] (fun _ -> ()))
 
@@ -159,17 +140,18 @@ module From = struct
 
   let int = value (singleton ["i4"; "int"] (pcdata Int32.of_string))
 
-  let methodCall xml =
+  let methodCall =
     pair ["methodCall"]
       (singleton ["methodName"] (pcdata id))
       (unbox ["params"] (List.map (singleton ["param"] id)))
-    xml
 
-  let string = function
-    | Xml.Element("value", [], [Xml.PCData s])                  -> s
+  let string xml =
+    try value (singleton ["string"] (pcdata id)) xml
+    with RunTimeTypeError _ -> match xml with
+      Xml.Element("value", [], [Xml.PCData s]) -> s
     | Xml.Element("value", [], [Xml.Element("string", [], [])])
-    | Xml.Element("value", [], [])                              -> ""
-    | xml                                                       -> value (singleton ["string"] (pcdata id)) xml
+    | Xml.Element("value", [], []) -> ""
+    | xml -> rtte "value" xml
 
   let structure : Xml.xml -> (string * Xml.xml) list =
     singleton ["value"] (unbox ["struct"] (List.map (pair ["member"] (name id) id)))
@@ -195,17 +177,16 @@ module From = struct
       int (List.assoc "faultCode" m), string (List.assoc "faultString" m) in
     singleton ["fault"] (fun xml -> aux (structure xml))
 
-  let methodResponse xml =
+  let methodResponse =
     singleton ["methodResponse"]
       (function
        | Xml.Element("params", _, _) as xml -> begin match success xml with
-       | [ xml ] -> status xml
-       | _ -> rtte "Expected single return value (struct status)" xml
+	 | [ xml ] -> status xml
+	 | _ -> rtte "Expected single return value (struct status)" xml
 	 end
        | Xml.Element("fault", _, _) as xml ->
 	   Fault (fault id xml)
        | xml -> rtte "response" xml)
-   xml
 end
 
 

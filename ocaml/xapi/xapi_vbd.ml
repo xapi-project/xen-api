@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for VBD objects
- * @group XenAPI functions
- *)
- 
 open Vmopshelpers
 open Stringext
 open Xapi_vbd_helpers
@@ -331,31 +314,6 @@ let device_is_unpaused self state =
        then (Hashtbl.remove paused_vbds self; debug "Removed hashtbl entry for %s" (Ref.string_of self))
        else (Mutex.execute state.m (fun () -> state.in_progress <- false); Condition.signal state.c))
 
-let pause_common ~__context ~vm ~self =
-
-	(* XXX: these checks may be redundant since the message forwarding layer checks this stuff *)
-	let localhost = Helpers.get_localhost ~__context in
-	
-	(* Since we blocked not holding the per-VM mutex, we need to double-check that the VM is still present *)
-	if not(Helpers.is_running ~__context ~self:vm)
-	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-										[ Ref.string_of vm; 
-										  Record_util.power_to_string `Running; 
-										  Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) ]));
-	
-	if not(Db.VBD.get_currently_attached ~__context ~self)
-	then raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]));
-	
-	(* Make sure VM has not migrated *)
-	if Db.VM.get_resident_on ~__context ~self:vm <> localhost
-	then raise (Api_errors.Server_error(Api_errors.vm_not_resident_here, [ Ref.string_of vm; Ref.string_of localhost ]));
-		
-	let device = Xen_helpers.device_of_vbd ~__context ~self in
-	try
-		with_xs (fun xs -> Device.Vbd.pause ~xs device)
-	with Device.Device_shutdown | Device.Device_not_found ->
-		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
-
 let pause ~__context ~self : string = 
   let vm = Db.VBD.get_VM ~__context ~self in
 
@@ -383,12 +341,34 @@ let pause ~__context ~self : string =
 	      while state.in_progress do Condition.wait state.c state.m done;
 	      state.in_progress <- true);
 	 (* One lucky VBD.pause thread will get here at a time *)
-	 pause_common ~__context ~vm ~self
+	 
+	 (* Wait for the VM to become unlocked and grab the per-VM mutex when this happens *)
+	 Locking_helpers.with_lock vm 
+	   (fun token () ->
+	      (* XXX: these checks may be redundant since the message forwarding layer checks this stuff *)
+	      let localhost = Helpers.get_localhost ~__context in
+	      (* Since we blocked not holding the per-VM mutex, we need to double-check that the VM is still present *)
+	      if not(Helpers.is_running ~__context ~self:vm)
+	      then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
+						  [ Ref.string_of vm; 
+						    Record_util.power_to_string `Running; 
+						    Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) ]));
+	      if not(Db.VBD.get_currently_attached ~__context ~self)
+	      then raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]));
+	      (* Make sure VM has not migrated *)
+	      if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+	      then raise (Api_errors.Server_error(Api_errors.vm_not_resident_here, [ Ref.string_of vm; Ref.string_of localhost ]));
+		
+	      let device = Xen_helpers.device_of_vbd ~__context ~self in
+	      try
+		with_xs (fun xs -> Device.Vbd.pause ~xs device)
+	      with Device.Device_shutdown ->
+		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
+	   ) ()
       )
       (* Decrement the 'blocked_threads' refcount *)
       (fun () -> Mutex.execute paused_vbds_m (fun () -> state.blocked_threads <- state.blocked_threads - 1));
       (* This thread returns leaving the 'in_progress' flag true -- this is the lock. *)
-
   with e ->
     (* Something bad happened when we were trying to pause so unwind and cleanup *)
     error "Unexpected error during VBD.pause: %s" (ExnHelper.string_of_exn e);
@@ -409,6 +389,21 @@ let unpause ~__context ~self ~token =
   
   (* Note we don't check that the client has waited for the VBD.pause to return: we trust the client not
      to be stupid anyway by the nature of this API *)
+  
+  (* Note we don't attempt to grab the per-VM lock and so the domid might change underneath us by a reboot
+     and VM.migrate requests may have arrived before this call.
+     This is safe and sufficient because:
+     1. VM.migrate is configured to wait if any devices are paused, so the domain must stay on this host
+     2. domids aren't reused on the local host
+     3. the unpause is a simple xenstore 'rm' which is taken to have succeeded if the 'pause-done' node
+     is missing
+     4. if a VM has rebooted then devices come up unpaused by default and so, since the 'pause-done' node
+     is missing this unpause will succeed.
+
+     Being lock-free is important because otherwise you get bad behaviour like:
+     1. VBD.pause
+     2. VM.reboot
+     3. VBD.unpause <- cannot acquire per-VM mutex; reboot cannot complete while disk is paused. *)
   let device = Xen_helpers.device_of_vbd ~__context ~self in
   try
     with_xs (fun xs -> Device.Vbd.unpause ~xs device token);
@@ -417,16 +412,8 @@ let unpause ~__context ~self ~token =
   | Device.Device_not_paused ->
       debug "Ignoring Device_not_paused exception";
       Opt.iter (device_is_unpaused self) state
-  | Device.Device_not_found ->
-      debug "Ignoring Device_not_found exception";
-      Opt.iter (device_is_unpaused self) state
   | Device.Pause_token_mismatch ->
       warn "Unpause left device paused because supplied token did not match"
-
-let flush ~__context self =
-  debug "Flushing vbd %s" (Ref.string_of self);
-  let token = pause ~__context ~self in
-  unpause ~__context ~self ~token 
 
 (** Called on domain destroy to signal any blocked pause threads to re-evaluate the state of the world 
     and give up *)

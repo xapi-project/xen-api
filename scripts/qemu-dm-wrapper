@@ -15,17 +15,6 @@ SQUASH_VNC=False
 SDL_ENABLED=True
 SDL_ZOOM_ENABLED=True
 
-IS_SDK = (int(os.popen("xenstore-read domid").read()) != 0)
-
-if IS_SDK:
-    time.sleep(2)
-    os.system("xenstore-write -s /local/domain/%d/qemu-pid %d\n" % (DOMID, os.getpid()))
-    os.system("xenstore-write -s /local/domain/%d/device-misc/dm-ready 1" % DOMID)
-    os.system("xenstore-write -s /local/domain/%d/console/vnc-port %d\n" % (DOMID, 6900+DOMID))
-    while True:
-        time.sleep(1)
-
-
 # enabling core dumps if /var/xen/qemu is not a ramdisk, disabling otherwise
 try :
     newlimits = None

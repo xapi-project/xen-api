@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../client_records
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi ../client_records
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 
 IEXE=install -m 755 -o root -g root
 
@@ -19,5 +19,5 @@ clean:
 install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) multipathrt $(DEBUGDIST)
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IEXE) multipathrt-helper $(DESTDIR)/etc/xapi.d/plugins/multipathrt-helper
+	mkdir -p $(DIST)/staging/etc/xapi.d/plugins
+	$(IEXE) multipathrt-helper $(DIST)/staging/etc/xapi.d/plugins/multipathrt-helper

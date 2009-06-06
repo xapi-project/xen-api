@@ -1,16 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+(* Copyright (C) 2007 XenSource *)
+
 (* Code to parse the XenSource inventory file *)
 
 open Pervasiveext
@@ -103,7 +92,7 @@ let _installation_uuid = "INSTALLATION_UUID"
 let _default_sr_physdevs = "DEFAULT_SR_PHYSDEVS"
 let _control_domain_uuid = "CONTROL_DOMAIN_UUID"
 let _management_interface = "MANAGEMENT_INTERFACE"
-let _current_interfaces = "CURRENT_INTERFACES"
+let _ha_interfaces = "HA_INTERFACES"
 let _dom0_mem = "DOM0_MEM"
 let _oem_manufacturer = "OEM_MANUFACTURER"
 let _oem_model = "OEM_MODEL"

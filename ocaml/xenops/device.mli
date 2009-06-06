@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Device_common
 
 exception Ioemu_failed of string
@@ -21,8 +8,6 @@ exception Device_shutdown
 exception Pause_token_mismatch
 exception Device_not_paused
 exception Device_not_found
-
-exception Cdrom
 
 module Generic :
 sig
@@ -114,11 +99,7 @@ end
 module PV_Vnc :
 sig
 	exception Failed_to_start
-	val save : xs:Xs.xsh -> Xc.domid -> unit
-	val get_statefile : xs:Xs.xsh -> Xc.domid -> string option
-	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> int
-
-	val vnc_port_path : Xc.domid -> string
+	val start : xs:Xs.xsh -> Xc.domid -> int
 end
 
 module PCI :
@@ -132,85 +113,44 @@ sig
 		resources: (int64 * int64 * int64) list;
 		driver: string;
 	}
-	type dev = int * int * int * int
-	val to_string: dev -> string
-	val of_string: string -> dev
 
 	exception Cannot_use_pci_with_no_pciback of t list
 
-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> ?flrscript:string option -> (int * int * int * int) list -> Xc.domid -> int -> unit
+	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
+	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
 	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
 	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
-	val reset : xs:Xs.xsh -> device -> unit
 	val bind : (int * int * int * int) list -> unit
-	val plug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> int -> unit
-	val unplug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> unit
-	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
-end
-
-module Vfb :
-sig
-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
-end
-
-module Vkbd :
-sig 
-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
 end
 
 module Dm :
 sig
-	type disp_intf_opt =
-	    | Std_vga
-	    | Cirrus
-
 	type disp_opt =
 		| NONE
-		| VNC of disp_intf_opt * bool * int * string (* auto-allocate, port if previous false, keymap *)
-		| SDL of disp_intf_opt * string (* X11 display *)
-		| Passthrough of int option
-		| Intel of disp_intf_opt * int option
-
-	type info = {
-		memory: int64;
-		boot: string;
-		serial: string;
-		vcpus: int;
-		usb: string list;
-		nics: (string * string * int) list;
-		acpi: bool;
-		disp: disp_opt;
-		pci_emulations: string list;
-		pci_passthrough: bool;
-
-		(* Xenclient extras *)
-		xenclient_enabled: bool;
-		hvm: bool;
-		sound: string option;
-		power_mgmt: int option;
-		oem_features: int option;
-		inject_sci: int option;
-		videoram: int;
-	       
-		extras: (string * string option) list;
-	}
+		| VNC of bool * int * string (* auto-allocate, port if previous false, keymap *)
+		| SDL of string (* X11 display *)
 
 	val write_logfile_to_log : int -> unit
 	val unlink_logfile : int -> unit
 
 	val vnc_port_path : Xc.domid -> string
 
-	val signal : xs:Xs.xsh -> domid:Xc.domid -> ?wait_for:string -> ?param:string
-	          -> string -> unit
+	val signal : xs:Xs.xsh -> domid:Xc.domid
+	          -> string -> string option -> string -> unit
 
-	val start : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
-	val restore : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
-	val suspend : xs:Xs.xsh -> Xc.domid -> unit
-	val resume : xs:Xs.xsh -> Xc.domid -> unit
-	val stop : xs:Xs.xsh -> Xc.domid -> unit
+	val start : xs:Xs.xsh -> dmpath:string -> memory:int64
+		 -> boot:string -> serial:string -> vcpus:int
+		 -> ?usb:string list -> ?nics:(string * string) list
+	         -> ?acpi:bool -> disp:disp_opt -> ?pci_emulations:string list
+		 -> ?extras:(string * string option) list
+		 -> ?timeout:float -> Xc.domid
+		 -> int
+	val restore : xs:Xs.xsh -> dmpath:string -> memory:int64
+		   -> boot:string -> serial:string -> vcpus:int
+		   -> ?usb:string list -> ?nics:(string * string) list
+	           -> ?acpi:bool -> disp:disp_opt -> ?pci_emulations:string list
+		   -> ?extras:(string * string option) list
+		   -> ?timeout:float -> Xc.domid
+		   -> int
+	val stop : xs:Xs.xsh -> Xc.domid -> int -> unit
 end
-
-val vnc_port_path: xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> string

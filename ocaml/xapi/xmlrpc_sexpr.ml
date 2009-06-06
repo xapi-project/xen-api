@@ -1,18 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Functions for converting between xml-rpc and a more
     compact representation based on s-expressions.
+    v1 marcusg@eu.citrix.com
 *)
 
 open Xml
@@ -162,7 +150,7 @@ let sexpr_to_xmlrpc (root:SExpr.t) =
 
 (** helper function that maps between sexpr strings and xml-rpc trees *)
 let sexpr_str_to_xmlrpc (sexpr_str:string) =
-	let sroot1 = SExpr_TS.of_string sexpr_str in
+	let sroot1 = Sexpr.of_string sexpr_str in
 	let xroot1 = sexpr_to_xmlrpc sroot1 in
 	(xroot1)
 

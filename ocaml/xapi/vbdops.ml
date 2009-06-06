@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Storage
- *)
- 
 open Printf
 open Threadext
 open Stringext
@@ -179,7 +162,13 @@ let set_vbd_qos ~__context ~self domid devid pid =
 		*)
 		in
 
-	set_vbd_qos_norestrictions ~__context ~self domid devid pid ty params alert_fct
+	let rstr = Restrictions.get () in
+	if rstr.Restrictions.enable_qos then (
+		set_vbd_qos_norestrictions ~__context ~self domid devid pid ty params alert_fct
+	) else (
+		if ty <> "" then
+			alert_fct "license restrictions"
+	)
 
 let eject_vbd ~__context ~self =
 	if not (Db.VBD.get_empty ~__context ~self) then (
@@ -232,7 +221,7 @@ let eject_vbd ~__context ~self =
 					let cmd = [| "eject"; location |] in
 					ignore (Unixext.spawnvp cmd.(0) cmd)
 				);
-				Storage_access.deactivate_and_detach ~__context ~vdi;
+				Storage_access.VDI.detach ~__context ~self:vdi;
 			)
 		) else (
 			Db.VBD.set_empty ~__context ~self ~value:true;

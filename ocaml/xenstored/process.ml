@@ -1,16 +1,10 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * All rights reserved.
  *)
+
 open Printf
 
 exception Transaction_again
@@ -160,10 +154,9 @@ let do_introduce con t domains cons data =
 		| _                         -> raise Invalid_Cmd_Args;
 		in
 	let dom =
-		if Domains.exist domains domid then begin
-			Connections.fire_spec_watches cons "@introduceDomain";
+		if Domains.exist domains domid then
 			Domains.find domains domid
-		end else try
+		else try
 			let ndom = Xc.with_intf (fun xc ->
 				Domains.create xc domains domid mfn port) in
 			Connections.add_domain cons ndom;

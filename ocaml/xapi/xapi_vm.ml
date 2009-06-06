@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Printf
 open Vmopshelpers
 open Stringext
@@ -75,8 +62,9 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value = 
 	set_is_a_template ~__context ~self ~value
 
+let valid_restart_priorities = [ Constants.ha_restart_best_effort; "1"; "2"; "3" ]
 let validate_restart_priority include_empty_string x = 
-  if not(List.mem x (Constants.ha_valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
+  if not(List.mem x (valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
   then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; x ]))
 
 let set_ha_always_run ~__context ~self ~value = 
@@ -95,16 +83,6 @@ let set_ha_always_run ~__context ~self ~value =
     if Db.Pool.get_ha_enabled ~__context ~self:pool
     then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
   end
-
-(* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
-let assert_ha_always_run_is_true ~__context ~vm =
-	let rp = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-	if (rp = "1" or rp = Constants.ha_restart_best_effort)
-	then set_ha_always_run ~__context ~self:vm ~value:true
-(* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
-let assert_ha_always_run_is_false ~__context ~vm =
-	set_ha_always_run ~__context ~self:vm ~value:false
-
 let set_ha_restart_priority ~__context ~self ~value = 
   let ha_always_run = Db.VM.get_ha_always_run ~__context ~self in
   validate_restart_priority (not ha_always_run) value;
@@ -123,56 +101,28 @@ let set_ha_restart_priority ~__context ~self ~value =
   if current <> value 
   then Db.VM.set_ha_restart_priority ~__context ~self ~value
 
-let compute_memory_overhead = compute_memory_overhead
+let set_memory_static_max ~__context ~self ~value = 
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (Db.Pool.get_ha_overcommitted ~__context ~self:pool)) then begin
+    try
+      let r = Db.VM.get_record ~__context ~self in
+      let running = Db_cache.DBCache.is_valid_ref (Ref.string_of r.API.vM_resident_on) in
+      (* If the VM is running on a host then consider what a reboot would look like *)
+      if running then begin
+       let vm_t = Helpers.get_boot_record_of_record r.API.vM_last_booted_record r.API.vM_uuid in
+       Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context 
+         ~leaving:[r.API.vM_resident_on, (self, vm_t)] ~arriving:[r.API.vM_resident_on, (self, { r with API.vM_memory_static_max = value } )] ();
+      end;
+      (* If the VM is not running but protected the block to fail safe *)
+      if not running && r.API.vM_ha_always_run
+      then raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []));
+      (* If it isn't running and isn't protected then the VM.start will be checked *)
+    with e ->
+      error "Caught exception in VM.set_memory_static_max self = %s; value = %Ld" (Ref.string_of self) value;
+      raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
+  end;      
+  Db.VM.set_memory_static_max ~__context ~self ~value
 
-open Xapi_vm_memory_constraints
-
-let set_memory_static_range ~__context ~self ~min ~max = 
-	(* Called on the master only when the VM is offline *)
-	if Db.VM.get_power_state ~__context ~self <> `Halted
-	then failwith "assertion_failed: set_memory_static_range should only be \
-		called when the VM is Halted";
-	(* Check the range constraints *)
-	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:self in
-	let constraints = {constraints with Vm_memory_constraints.
-		static_min = min;
-		static_max = max;
-	} in
-	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~vm:self ~constraints;
-	Db.VM.set_memory_static_min ~__context ~self ~value:min;
-	Db.VM.set_memory_static_max ~__context ~self ~value:max;
-	update_memory_overhead ~__context ~vm:self
-
-(* These are always converted into set_memory_dynamic_range *)
-(* by the message forwarding layer:                         *)
-let set_memory_dynamic_min ~__context ~self ~value = assert false
-let set_memory_dynamic_max ~__context ~self ~value = assert false
-(* These are always converted into set_memory_static_range *)
-(* by the message forwarding layer:                        *)
-let set_memory_static_min ~__context ~self ~value = assert false
-let set_memory_static_max ~__context ~self ~value = assert false
-
-let set_memory_limits ~__context ~self
-	~static_min ~static_max ~dynamic_min ~dynamic_max =
-	(* Called on the master only when the VM is halted. *)
-	if Db.VM.get_power_state ~__context ~self <> `Halted
-	then failwith "assertion_failed: set_memory_limits should only be \
-		called when the VM is Halted";
-	(* Support the redundant target field. *)
-	let target = dynamic_min in
-	(* Check that the new limits are in the correct order. *)
-	let constraints = {Vm_memory_constraints.
-		static_min  = static_min;
-		dynamic_min = dynamic_min;
-		target      = dynamic_min;
-		dynamic_max = dynamic_max;
-		static_max  = static_max;
-	} in
-	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~vm:self ~constraints;
-	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
-	update_memory_overhead ~__context ~vm:self
 
 (* CA-12940: sanity check to make sure this never happens again *)
 let assert_power_state_is ~__context ~vm ~expected = 
@@ -188,7 +138,7 @@ let assert_not_ha_protected ~__context ~vm =
   let pool = Helpers.get_pool ~__context in
   let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
   let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Xapi_ha_vm_failover.vm_should_always_run always_run priority)
   then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
 
 let pause_already_locked  ~__context ~vm = 
@@ -209,15 +159,34 @@ let unpause  ~__context ~vm =
 	Db.VM.set_power_state ~__context ~self:vm ~value:`Running
     ) ())
 
+let clean_shutdown_already_locked ~__context ~vm token =
+  Locking_helpers.assert_locked vm token;
+  assert_not_ha_protected ~__context ~vm;
+
+       (* Invoke pre_destroy hook *)
+       Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__clean_shutdown ~vm;
+       debug("clean_shutdown: phase 1/2: waiting for the domain to shutdown");
+	let domid = Helpers.domid_of_vm ~__context ~self:vm in
+
+	with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
+	  ~at:(TaskHelper.set_progress ~__context)
+		~__context ~self:vm domid Domain.Halt);
+
+	debug "clean_shutdown: phase 2/2: destroying old domain (domid %d)" domid;
+ 	with_xc_and_xs (fun xc xs ->
+ 	  Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+	  (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
+	  Monitor.do_monitor __context xc
+ 	)
+
 (* Note: it is important that we use the pool-internal API call, VM.atomic_set_resident_on, to set resident_on and clear
    scheduled_to_be_resident_on atomically. This prevents concurrent API calls on the master from accounting for the
    same VM twice during memory calculations to determine whether a given VM can start on a particular host..
 *)
 
 let start  ~__context ~vm ~start_paused:paused ~force =
-	License_check.with_vm_license_check ~__context vm (fun () ->
-	Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
-    (Printf.sprintf "VM.start %s" (Context.string_of_task __context))
+  License_check.with_vm_license_check ~__context vm (fun () ->
+  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
   (fun () ->
      Locking_helpers.with_lock vm
        (fun token () ->
@@ -231,18 +200,9 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 	(* Xapi_vm_helpers.assert_can_boot_here not required since the message_forwarding
 	   layer has already done it and it's very expensive on a slave *)
 
-	assert_ha_always_run_is_true ~__context ~vm;
-	
-	(* check BIOS strings: set to generic values if empty *)
-	let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-	if bios_strings = [] then begin
-		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
-		Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
-	end;
-
 	debug "start: bringing up domain in the paused state";
 	Vmops.start_paused
-		~progress_cb:(TaskHelper.set_progress ~__context) ~pcidevs:None ~__context ~vm ~snapshot;
+		~progress_cb:(TaskHelper.set_progress ~__context) ~__context ~vm ~snapshot;
 	delete_guest_metrics ~__context ~self:vm;
 
 	let localhost = Helpers.get_localhost ~__context in  
@@ -254,10 +214,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 	else (
 		let domid = Helpers.domid_of_vm ~__context ~self:vm in
 		debug "start: unpausing domain (domid %d)" domid;
-		with_xc_and_xs 
-		  (fun xc xs -> 
-		     Domain.unpause ~xc domid;
-		  );
+		with_xc (fun xc -> Domain.unpause ~xc domid);
 (*
 		(* hack to get xmtest to work *)
 		if Pool_role.is_master () then
@@ -280,381 +237,226 @@ let start_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	start ~__context ~vm ~start_paused ~force
 
-module TwoPhase = struct
-  (* Reboots and shutdowns come in two phases: 
-     in_guest: where the domain is asked to shutdown quietly
-     in_dom0: where the domain is blown away and, in the case of reboot, recreated.
-     We wish to serialise only the dom0 part of these operations.
-     Making everything more confusing, we apparently want to respect the legacy actions_after_*
-  *)
+(** The code for both hard and clean reboots is extremely similar, differing only
+    in whether to request a clean shutdown or not (obviously) and the exact debug strings
+    printed... *)
+let reboot_common ~__context ~vm ?token api_call_name clean_reboot =
+  License_check.with_vm_license_check ~__context vm (fun () ->
+	(* VM must already be locked *)
+	Opt.iter (Locking_helpers.assert_locked vm) token;
+        let new_snapshot = Db.VM.get_record ~__context ~self:vm in
+	let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
+	(* Master will have already checked the new memory_max and placed the max of
+	   the current and new values in the current_snapshot.
+	   Just in case someone raced with us and bumped the static_max *again* we
+	   cap it to the reserved value. *)
+	let new_mem = 
+	  if new_snapshot.API.vM_memory_static_max > current_snapshot.API.vM_memory_static_max 
+	  then current_snapshot.API.vM_memory_static_max (* reserved value *)
+	  else new_snapshot.API.vM_memory_static_max (* new value is smaller *) in
+	let new_snapshot = { new_snapshot with API.vM_memory_static_max = new_mem } in
 
-  (** The signature of a single phase of reboot or shutdown *)
-  type args = { __context: Context.t;
-		vm: API.ref_VM;
-		api_call_name: string;
-		clean: bool }
+	let localhost = Helpers.get_localhost ~__context in
 
-  (** Represents the two phases of a reboot or shutdown *)
-  type t = {
-    in_guest : args -> unit;
-    in_dom0 : args -> unit;
-  }
+        let domid = Helpers.domid_of_vm ~__context ~self:vm in
 
-  (** Called with the per-VM lock held. Evaluates to true if the VM has been rebooted (eg by the event thread) *)
-  let is_vm_running x =
-	(* The VM may have been rebooted by the event thread: in this case there is no work to do *)
-	let domid = Helpers.domid_of_vm x.__context x.vm in
-	true
-	&& domid <> -1 (* someone set the state to Halted *)
-	&& (with_xc
-			(fun xc ->
-				 let di = Xc.domain_getinfo xc domid in
-				 let running = Xal.is_running di in
-				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xc.shutdown di.Xc.dying (if running then "still" else "not");
-				 running))
-
-  (** Called before a regular synchronous reboot/shutdown to simulate parallel in-guest shutdowns *)
-  let simulate_internal_shutdown domid = 
-	Helpers.log_exn_continue (Printf.sprintf "simulate_internal_shutdown domid=%d" domid)
-		(fun () ->
-			 match Xapi_fist.simulate_internal_shutdown () with
-			 | Some x ->
-				   let x = String.strip String.isspace x in
-				   with_xc
-					   (fun xc ->
-							warn "FIST: simulating internal %s for domid=%d" x domid;
-							match x with
-							| "reboot" -> Xc.domain_shutdown xc domid Xc.Reboot
-							| "halt" -> Xc.domain_shutdown xc domid Xc.Halt
-							| "suspend" -> Xc.domain_shutdown xc domid Xc.Suspend
-							| "crash" -> Xc.domain_shutdown xc domid Xc.Crash
-							| _ -> failwith "Unknown simulate_internal_shutdown code");
-				   (* pause for 5s which probably lets the event thread do something (unless it is disabled) *)
-				   Thread.delay 5.
-			 | None -> ()
-		) ()
-end
-
-
-
-module Reboot = struct
-  (** This module contains the low-level implementation actions, as distinct from the tangle
-      of policy which comes later. *)
-
-  (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
-  let in_guest { TwoPhase.__context = __context; vm=vm; api_call_name=api_call_name; clean=clean } =
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	TwoPhase.simulate_internal_shutdown domid;
-
-	debug "%s Reboot.in_guest domid=%d clean=%b" api_call_name domid clean;
-	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
-	   to do here. *)
-	if domid <> -1 then begin
-      if clean then begin
-		debug "%s phase 0/3: shutting down existing domain (domid: %d)" api_call_name domid;
-		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
-							~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
-							~__context ~self:vm domid Domain.Reboot) with
-		| Xal.Vanished
-		| Xal.Rebooted -> () (* good *)
-		| Xal.Suspended ->
-			  error "VM: %s suspended when asked to reboot" (Ref.string_of vm)
-		| Xal.Crashed ->
-			  error "VM: %s crashed when asked to reboot" (Ref.string_of vm)
-		| Xal.Halted ->
-			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
-      end else begin
-		debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name;
-		(* Make sure no-one inserts an artificial delay at this point *)
-		(with_xs (fun xs -> xs.Xs.write (Hotplug.get_private_path domid ^ "/" ^ Xapi_globs.artificial_reboot_delay) "0"));
-		(* The domain might be killed by the event thread. Again, this is ok. *)
-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Reboot" domid)
-			(fun () -> 
-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Reboot)
-			) ()
-	  end
-	end
-
-  (** Once the domain has shutdown and the VM is locked, perform the reboot immediately *)
-  let in_dom0_already_locked { TwoPhase.__context = __context; vm=vm; api_call_name=api_call_name; clean=clean } =
-    License_check.vm ~__context vm;
-    Stats.time_this "VM reboot (excluding clean shutdown phase)"
-      (fun () ->
-		   let domid = Helpers.domid_of_vm ~__context ~self:vm in
-		   debug "%s Reboot.in_dom0_already_locked domid=%d" api_call_name domid;
-
-         let new_snapshot = Db.VM.get_record ~__context ~self:vm in
-
-		 let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
-	 (* Master will have already checked the new memory_max and placed the max of
-	    the current and new values in the current_snapshot.
-	    Just in case someone raced with us and bumped the static_max *again* we
-	    cap it to the reserved value. *)
-	 let new_mem = 
-	   if new_snapshot.API.vM_memory_static_max > current_snapshot.API.vM_memory_static_max 
-	   then current_snapshot.API.vM_memory_static_max (* reserved value *)
-	   else new_snapshot.API.vM_memory_static_max (* new value is smaller *) in
-	 let new_snapshot = { new_snapshot with API.vM_memory_static_max = new_mem } in
-	 
-	 (* Before we destroy the old domain we check which PCI devices were plugged in *)
-	 let pcidevs = with_xc_and_xs (fun xc xs -> Device.PCI.list xc xs domid) in
-	 debug "Listed PCI devices: [ %s ]" (String.concat ", " (List.map (fun (x, dev) -> string_of_int x ^ "/" ^ (Device.PCI.to_string dev)) pcidevs));
-
-	 let localhost = Helpers.get_localhost ~__context in
-         debug "%s phase 1/3: destroying old domain" api_call_name;
-	 (* CA-13585: prevent glitch where power-state goes to Halted in the middle of a reboot.
-	    If an error causes us to leave this function then the event thread should resynchronise
-	    the VM record properly. *)
-	 
-         (* Make sure the monitoring stuff doesn't send back the RRD to the master if we're rebooting *)
-	 let uuid = current_snapshot.API.vM_uuid in
-	 Mutex.execute Monitor.lock (fun () -> Monitor.rebooting_vms := Rrd_shared.StringSet.add uuid !Monitor.rebooting_vms);
-	 
-	 Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_reboot else Xapi_hooks.reason__hard_reboot) ~vm;
-	 debug "Destroying domain...";
-         with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm ~clear_currently_attached:false domid `Running);
-	 
-	 (* At this point the domain has been destroyed but the VM is still marked as Running.
-	    If any error occurs then we must remember to clean everything up... *)
-	 
-	 (* Set the new boot record *)
-	 debug "Setting boot record";
-	 Helpers.set_boot_record ~__context ~self:vm new_snapshot;
-	 
-         debug "%s phase 2/3: starting new domain" api_call_name;
-	 begin
-	   try
-             Vmops.start_paused
-               ~progress_cb:(fun x -> TaskHelper.set_progress ~__context (0.50 +. x /. 2.))
-				 ~pcidevs:(Some pcidevs)
-               ~__context ~vm ~snapshot:new_snapshot;
-	   with e ->
-	     debug "Vmops.start_paused failed to create domain, setting VM %s to Halted" (Ref.string_of vm);
-	     Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
-	     raise e
-	 end;
-	 
-	 Mutex.execute Monitor.lock (fun () -> Monitor.rebooting_vms := Rrd_shared.StringSet.remove uuid !Monitor.rebooting_vms);
-	 
-	 (* NB domid will be fresh *)
-         let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	 
-	 try
-	   delete_guest_metrics ~__context ~self:vm;
-           debug "%s phase 3/3: unpausing new domain (domid %d)" api_call_name domid;
-           with_xc_and_xs (fun xc xs -> 
-			     Domain.unpause ~xc domid;
-			  );
-	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
-           Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
-
-	 with exn ->
-	   error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
-	   with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
-	   raise exn     
-      )
-
-  (** In the synchronous API call paths, acquire the VM lock and see if the VM hasn't rebooted yet.
-	  If necessary we reboot it here. *)
-  let in_dom0_already_queued args = 
-	Locking_helpers.with_lock args.TwoPhase.vm 
-		(fun _ _ -> 
-			 if TwoPhase.is_vm_running args
-			 then debug "VM %s has already rebooted: taking no action" (Ref.string_of args.TwoPhase.vm)
-			 else in_dom0_already_locked args) ()
-
-  (** In the synchronouse API call paths, wait in the domU_internal_shutdown_queue and then attempt 
-	  to reboot the VM. NB this is the same queue used by the event thread. *)
-  let in_dom0 args =
-    Local_work_queue.wait_in_line Local_work_queue.domU_internal_shutdown_queue
-      (Context.string_of_task args.TwoPhase.__context)
-      (fun () -> in_dom0_already_queued args)
-
-  let actions = { TwoPhase.in_guest = in_guest; in_dom0 = in_dom0 }
-end
-
-module Shutdown = struct
-  (** This module contains the low-level implementation actions, as distinct from the tangle
-      of policy which comes later. *)
-
-  (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
-  let in_guest { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
-    assert_ha_always_run_is_false ~__context ~vm;
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	TwoPhase.simulate_internal_shutdown domid;
-
-	debug "%s Shutdown.in_guest domid=%d clean=%b" api_call_name domid clean;
-	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
-	   to do here. *)
-	if domid <> -1 then begin
-      if clean then begin
-		debug "%s: phase 1/2: waiting for the domain to shutdown" api_call_name;
-		
-		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
-							~at:(TaskHelper.set_progress ~__context)
-							~__context ~self:vm domid Domain.Halt) with
-		| Xal.Vanished
-		| Xal.Halted -> () (* good *)
-		| Xal.Suspended ->
-			  (* Log the failure but continue *)
-			  error "VM: %s suspended when asked to shutdown" (Ref.string_of vm)
-		| Xal.Crashed ->
-			  (* Log the failure but continue *)
-			error "VM: %s crashed when asked to shutdown" (Ref.string_of vm)
-		| Xal.Rebooted ->
-			  (* Log the failure but continue *)
-			  error "VM: %s attempted to reboot when asked to shutdown" (Ref.string_of vm)
-      end else begin
-		debug "%s phase 0/3: no shutdown request required since this is a hard_shutdown" api_call_name;
-		(* The domain might be killed by the event thread. Again, this is ok. *)
-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Halt" domid)
-			(fun () -> 
-				 debug "Xc.domain_shutdown domid=%d Halt" domid;
-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Halt)
-			) ()
-	  end
-	end
-
-  (** Run with the per-VM lock held to clean up any shutdown domain. Note if the VM has been rebooted
-	  then we abort with OTHER_OPERATION_IN_PROGRESS. See [retry_on_conflict] *)
-  let in_dom0_already_locked { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
-	(* If the VM has been shutdown by the event thread (domid = -1) then there's no domain to destroy. *)
-	(* If the VM is running again then throw an error to trigger retry_on_conflict *)
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	debug "%s Shutdown.in_dom0_already_locked domid=%d" api_call_name domid;
-	if domid <> -1 then begin
-	  with_xc_and_xs 
-		  (fun xc xs ->
-			   let di = Xc.domain_getinfo xc domid in
-			   (* If someone rebooted it while we dropped the lock: *)
-			   if Xal.is_running di
-			   then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
-			   
-			   (* Invoke pre_destroy hook *)
-			   Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
-			   debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
- 		       Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-		       (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
-		       Monitor.do_monitor __context xc
-		  )
+        (* Comprised of three phases: optional clean_shutdown (with reason reboot), start, unpause *)
+	if clean_reboot then begin
+	  (* Invoke pre_destroy hook *)
+	  Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__clean_reboot ~vm;
+          debug "%s phase 0/3: shutting down existing domain" api_call_name;
+	  with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
+                      ~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
+                      ~__context ~self:vm domid Domain.Reboot);
+	end else begin
+	  debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name;
+	    (* Invoke pre_destroy hook *)
+	    Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__hard_reboot ~vm;
 	end;
+	Stats.time_this "VM reboot (excluding clean shutdown phase)"
+	  (fun () ->
+        debug "%s phase 1/3: destroying old domain" api_call_name;
+	(* CA-13585: prevent glitch where power-state goes to Halted in the middle of a reboot.
+	   If an error causes us to leave this function then the event thread should resynchronise
+	   the VM record properly. *)
 
-    if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
-      debug "hard_shutdown: destroying any suspend VDI";
-      
-      let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
-      if vdi <> Ref.null (* avoid spurious but scary messages *)
-      then Helpers.log_exn_continue
-	(Printf.sprintf "destroying suspend VDI: %s" (Ref.string_of vdi))
-	(Helpers.call_api_functions ~__context)
-	(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
-      (* Whether or not that worked, forget about the VDI *)
-      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
-	Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-    end
+        (* Make sure the monitoring stuff doesn't send back the RRD to the master if we're rebooting *)
+	let uuid = current_snapshot.API.vM_uuid in
+	Mutex.execute Monitor.lock (fun () ->
+	  Monitor.rebooting_vms := Rrd_shared.StringSet.add uuid !Monitor.rebooting_vms);
 
-  (** In the synchronous API call paths, acquire the lock, check if the VM's domain has shutdown (if not error out)
-	  and continue with the shutdown *)
-  let in_dom0_already_queued args = 
-	Locking_helpers.with_lock args.TwoPhase.vm 
-		(fun _ _ -> 
-			 if TwoPhase.is_vm_running args
-			 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of args.TwoPhase.vm ]))
-			 else in_dom0_already_locked args) ()
+	debug "Destroying domain...";
+        with_xc_and_xs (fun xc xs ->
+          Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Running
+        );
+	
+	(* At this point the domain has been destroyed but the VM is still marked as Running.
+	   If any error occurs then we must remember to clean everything up... *)
+	
+	(* Set the new boot record *)
+	debug "Setting boot record";
+	Helpers.set_boot_record ~__context ~self:vm new_snapshot;
+	
+        debug "%s phase 2/3: starting new domain" api_call_name;
+	Opt.iter (Locking_helpers.assert_locked vm) token;
+        Vmops.start_paused
+          ~progress_cb:(fun x -> TaskHelper.set_progress ~__context (0.50 +. x /. 2.))
+          ~__context ~vm ~snapshot:new_snapshot;
+	
+	Mutex.execute Monitor.lock (fun () ->
+	  Monitor.rebooting_vms := Rrd_shared.StringSet.remove uuid !Monitor.rebooting_vms);
+	
+	(* NB domid will be fresh *)
+        let domid = Helpers.domid_of_vm ~__context ~self:vm in
 
-  (** In the synchronouse API call paths, wait in the domU_internal_shutdown_queue and then attempt 
-	  to reboot the VM. NB this is the same queue used by the event thread. *)
-  let in_dom0 args =
-    Local_work_queue.wait_in_line Local_work_queue.domU_internal_shutdown_queue
-      (Context.string_of_task args.TwoPhase.__context)
-      (fun () -> in_dom0_already_queued args)
+	try
+	  delete_guest_metrics ~__context ~self:vm;
 
-  let actions = { TwoPhase.in_guest = in_guest; in_dom0 = in_dom0 }
-end
+          debug "%s phase 3/3: unpausing new domain (domid %d)" api_call_name domid;
+          with_xc (fun xc -> Domain.unpause ~xc domid);
+	  Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
+          Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
+	  Opt.iter (Locking_helpers.assert_locked vm) token;
+	with exn ->
+	  error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
+	  with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
+	  raise exn
+	  )
+)
 
-(** Given an 'after_...' shutdown action, return the raw operations structure *)
-let of_action = function
-  | `restart -> Reboot.actions
-  | `destroy -> Shutdown.actions
+let clean_reboot_already_locked ~__context ~vm token = reboot_common ~__context ~vm ~token "clean_reboot" true
+let hard_reboot_already_locked ~__context ~vm token = reboot_common ~__context ~vm ~token "hard_reboot" false
 
-(** If our operation conflicts with another parallel operation (i.e. we ask for shutdown
-	but guest admin asks for reboot) then we raise an OTHER_OPERATION_IN_PROGRESS exception 
-	and retry the whole procedure. *)
-let retry_on_conflict (x: TwoPhase.args) (y: TwoPhase.t) =
-  let rec retry n = 
-	try 
-	  y.TwoPhase.in_guest x;
-	  if Xapi_fist.disable_sync_lifecycle_path ()
-	  then warn "FIST: disable_sync_lifecycle_path: deferring to the event thread"
-	  else y.TwoPhase.in_dom0 x
-	with 
-	| Api_errors.Server_error(code, _) as e when code = Api_errors.other_operation_in_progress ->
-		  let aborting = n < 1 in
-		  debug "Conflict when executing %s: %s" x.TwoPhase.api_call_name (if aborting then "aborting" else "retrying");
-		  if aborting then raise e;
-		  Thread.delay 5.;
-		  retry (n - 1) in
-  retry 10
+let hard_shutdown_already_locked ~__context ~vm token =
+	Locking_helpers.assert_locked vm token;
+	let domain_already_shutdown = 
+	  try
+	    let domid = Db.VM.get_domid ~__context ~self:vm in
+	    let di = with_xc (fun xc -> Xc.domain_getinfo xc (Int64.to_int domid)) in
+	    di.Xc.shutdown
+	  with _ -> false in
+	if not domain_already_shutdown
+	then assert_not_ha_protected ~__context ~vm;
   
+        (* Invoke pre_destroy hook *)
+        Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__hard_shutdown ~vm;
+        if Db.VM.get_power_state ~__context ~self:vm = `Suspended then
+	  begin
+	    debug "hard_shutdown: destroying any suspend VDI";
 
-(** CA-11132: Record information about the shutdown in odd other-config keys for Egenera *)
-let record_shutdown_details ~__context ~vm reason initiator action = 
-    let replace_other_config_key ~__context ~vm k v =
-      begin
-	try Db.VM.remove_from_other_config ~__context ~self:vm ~key:k
-	with _ -> ()
-      end;
-      Db.VM.add_to_other_config ~__context ~self:vm ~key:k ~value:v in
-    let vm' = Ref.string_of vm in
-    let reason' = Xal.string_of_died_reason reason in
-    let action' = Record_util.on_crash_behaviour_to_string action in
-    replace_other_config_key ~__context ~vm "last_shutdown_reason" reason';
-    replace_other_config_key ~__context ~vm "last_shutdown_initiator" initiator;
-    replace_other_config_key ~__context ~vm "last_shutdown_action" action';
-    replace_other_config_key ~__context ~vm "last_shutdown_time" (Date.to_string (Date.of_float (Unix.gettimeofday())));
-    info "VM %s shutdown initiated %sly; actions_after[%s] = %s" vm' initiator reason' action'
-  
+	    let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
+	      if vdi <> Ref.null (* avoid spurious but scary messages *)
+	      then Helpers.log_exn_continue
+		(Printf.sprintf "destroying suspend VDI: %s" (Ref.string_of vdi))
+		(Helpers.call_api_functions ~__context)
+		(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
+	      (* Whether or not that worked, forget about the VDI *)
+	      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
+	      Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+	  end
+	else
+	  begin
+            debug "hard_shutdown: destroying old domain";
+            let domid = Helpers.domid_of_vm ~__context ~self:vm in
+              with_xc_and_xs (fun xc xs ->
+		Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+		(* Force an update of the stats - this will cause the rrds to be synced back to the master *)
+		Monitor.do_monitor __context xc
+	      );
+	  end
+
+let replace_other_config_key ~__context ~vm k v =
+  begin
+    try
+      Db.VM.remove_from_other_config ~__context ~self:vm ~key:k
+    with
+        _ -> ()
+  end;
+  Db.VM.add_to_other_config ~__context ~self:vm ~key:k ~value:v
+
+let record_shutdown ~__context ~vm reason initiator action' =
+  let reason' = Xal.string_of_died_reason reason in
+    replace_other_config_key ~__context ~vm
+      "last_shutdown_reason" reason';
+    replace_other_config_key ~__context ~vm
+      "last_shutdown_initiator" initiator;
+    replace_other_config_key ~__context ~vm
+      "last_shutdown_action" action';
+    replace_other_config_key ~__context ~vm
+      "last_shutdown_time" (Date.to_string (Date.of_float
+                                              (Unix.gettimeofday())))
+
+let record_and_dispatch_shutdown ~__context ~vm reason initiator action_func 
+    restart_func destroy_func token =
+  let reason' = Xal.string_of_died_reason reason in
+  let vm' = Ref.string_of vm in
+  let action = action_func ~__context ~self:vm in
+  let action' = Record_util.on_normal_exit_to_string action in
+    record_shutdown ~__context ~vm reason initiator action';
+    info "VM %s shutdown initiated %sly; actions_after[%s] = %s" vm' initiator
+      reason' action';
+    match action with
+      | `restart ->
+          restart_func ~__context ~vm token
+      | `destroy ->
+          destroy_func ~__context ~vm token
+
 (** VM.hard_reboot entrypoint *)
 let hard_reboot ~__context ~vm =
-  let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
-  record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
-  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_reboot"; clean=false } in
-  retry_on_conflict args (of_action action)
+  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+  (fun () ->
+     Locking_helpers.with_lock vm
+       (fun token () ->
+	  record_and_dispatch_shutdown ~__context ~vm Xal.Rebooted "external"
+	    Db.VM.get_actions_after_reboot
+	    hard_reboot_already_locked hard_shutdown_already_locked
+	    token
+       ) ()
+  )
+
+(** VM.hard_reboot_internal: called via the event thread *)
+let hard_reboot_internal ~__context ~vm = reboot_common ~__context ~vm "hard_reboot" false
 
 (** VM.hard_shutdown entrypoint *)
 let hard_shutdown ~__context ~vm =
-  let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
-  record_shutdown_details ~__context ~vm Xal.Halted "external" action;
-  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
-  retry_on_conflict args (of_action action)
+  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (fun () ->
+       Locking_helpers.with_lock vm
+	 (fun token () ->
+	    record_and_dispatch_shutdown ~__context ~vm Xal.Halted "external"
+	      Db.VM.get_actions_after_shutdown
+	      hard_reboot_already_locked hard_shutdown_already_locked
+	      token
+	 ) ()
+    )
 
 (** VM.clean_reboot entrypoint *)
 let clean_reboot ~__context ~vm =
-  let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
-  record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
-  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_reboot"; clean=true } in
-  retry_on_conflict args (of_action action)
+  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (fun () ->
+       Locking_helpers.with_lock vm
+	 (fun token () ->
+	    record_and_dispatch_shutdown ~__context ~vm Xal.Rebooted "external"
+	      Db.VM.get_actions_after_reboot
+	      clean_reboot_already_locked clean_shutdown_already_locked
+	      token
+	 ) ()
+    )
 
 (** VM.clean_shutdown entrypoint *)
 let clean_shutdown ~__context ~vm =
-  let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
-  record_shutdown_details ~__context ~vm Xal.Halted "external" action;
-  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_shutdown"; clean=true } in
-  retry_on_conflict args (of_action action)
-
-(***************************************************************************************)
-
-(** @deprecated *)
-let hard_reboot_internal ~__context ~vm = assert false
-
-(***************************************************************************************)
+  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (fun () ->
+       Locking_helpers.with_lock vm
+	 (fun token () ->
+	    record_and_dispatch_shutdown ~__context ~vm Xal.Halted "external"
+	      Db.VM.get_actions_after_shutdown
+	      clean_reboot_already_locked clean_shutdown_already_locked
+	      token
+	 ) ()
+    )
 
 let power_state_reset ~__context ~vm =
-  (* CA-31428: Block if the VM is a control domain *)
-  if Db.VM.get_is_control_domain ~__context ~self:vm then begin
-    error "VM.power_state_reset vm=%s blocked because VM is a control domain" (Ref.string_of vm);
-    raise (Api_errors.Server_error(Api_errors.cannot_reset_control_domain, [ Ref.string_of vm ]));
-  end;
   (* Perform sanity checks if VM is Running or Paused since we don't want to 
      lose track of running domains. *)
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
@@ -709,176 +511,122 @@ let power_state_reset ~__context ~vm =
 
   Xapi_vm_lifecycle.force_state_reset ~__context ~value:`Halted ~self:vm
 
-let suspend  ~__context ~vm =
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
-	(fun () ->
-		Locking_helpers.with_lock vm
-		(fun token () ->
-		   assert_ha_always_run_is_false ~__context ~vm;
-			Stats.time_this "VM suspend"
-			(fun () ->
-				let domid = Helpers.domid_of_vm ~__context ~self:vm in
-				(* Invoke pre_destroy hook *)
-				Xapi_hooks.vm_pre_destroy ~__context
-					~reason:Xapi_hooks.reason__suspend ~vm;
-				with_xc_and_xs
-				(fun xc xs ->
-						debug "suspend phase 2/4: calling Vmops.suspend";
-						(* Call the memory image creating 90%, *)
-						(* the device un-hotplug the final 10% *)
-						Vmops.suspend ~__context ~xc ~xs ~vm ~live:false
-							~progress_cb:(fun x -> 
-								TaskHelper.set_progress
-								~__context (x *. 0.9)
-							);
-						debug "suspend phase 4/4: destroying the domain";
-						Vmops.destroy ~clear_currently_attached:false
-							~__context ~xc ~xs ~self:vm domid `Suspended;
-
-				)
-			)
-		) ()
- 	)
-
-
-let resume ~__context ~vm ~start_paused ~force = 
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
-	(fun () ->
-		Locking_helpers.with_lock vm
-		(fun token () ->
-			License_check.with_vm_license_check ~__context vm
-			(fun () ->
-				Stats.time_this "VM resume"
-				(fun () ->
-					with_xc_and_xs
-					(fun xc xs ->
-						debug "resume: making sure the VM really is suspended";
-						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						assert_ha_always_run_is_true ~__context ~vm;
-
-
-							(* vmops.restore guarantees that, if an exn occurs *)
-							(* during execution, any disks that were attached/ *)
-							(* activated have been detached/de-activated and   *)
-							(* the domain is destroyed.                        *)
-							Vmops.restore ~__context ~xc ~xs ~self:vm start_paused;
-
-							(* VM is now resident here *)
-							let localhost = Helpers.get_localhost ~__context in
-							Helpers.call_api_functions ~__context
-							(fun rpc session_id ->
-								Client.VM.atomic_set_resident_on rpc session_id vm
-								localhost
-							);
-							Db.VM.set_power_state ~__context ~self:vm
-								~value:(if start_paused then `Paused else `Running);
-(*
-						)
-*)
-					)
-				)
-			)
-		) ()
+let suspend  ~__context ~vm = 
+  Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+    (fun () ->
+       Locking_helpers.with_lock vm (fun token () ->
+	assert_not_ha_protected ~__context ~vm;
+	Stats.time_this "VM suspend" (fun () ->
+	let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	(* Invoke pre_destroy hook *)
+	Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__suspend ~vm;
+	with_xc_and_xs (fun xc xs ->
+		let is_paused = Db.VM.get_power_state ~__context ~self:vm = `Paused in
+		if is_paused then Domain.unpause ~xc domid;
+		try
+			debug "suspend phase 1/2: calling Vmops.suspend";
+			(* Call the memory image creating 90%, the device un-hotplug
+			   the final 10% *)
+			Vmops.suspend ~progress_cb:(fun x ->
+				TaskHelper.set_progress ~__context (x *. 0.9))
+				~__context ~xc ~xs ~vm;
+			debug "suspend phase 2/2: destroying the domain";
+			Vmops.destroy ~clear_currently_attached:false ~__context ~xc ~xs ~self:vm domid `Suspended;
+		with
+			e -> if is_paused then (try Domain.pause ~xc domid with _ -> ());
+			     raise e
 	)
+	)
+) ()
+    )
 
+let resume  ~__context ~vm ~start_paused ~force = 
+  Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+    (fun () ->
+  Locking_helpers.with_lock vm (fun token () ->
+  License_check.with_vm_license_check ~__context vm
+    (fun () ->
+	Stats.time_this "VM resume" (fun () ->
+	with_xc_and_xs (fun xc xs ->
+                debug "resume: making sure the VM really is suspended";
+                assert_power_state_is ~__context ~vm ~expected:`Suspended;
 
+		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+		Vmops.check_enough_memory ~__context ~xc ~snapshot ~restore:true;
+
+		debug "resume phase 1/3: creating an empty domain";
+
+		let domid = Vmops.create ~__context ~xc ~xs ~self:vm snapshot () in
+		debug "resume phase 2/3: executing Vmops.restore";
+		(* vmops.restore guarantees that, if an exn occurs during execution, any disks that were
+		   attached/activated have been detached/de-activated and the domain is destroyed. *)
+		Vmops.restore ~__context ~xc ~xs ~self:vm domid;
+		Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
+		
+		debug "resume phase 3/3: %s unpausing domain" (if start_paused then "not" else "");
+		if not start_paused then
+		  Domain.unpause ~xc domid;
+		
+		(* VM is now resident here *)
+		let localhost = Helpers.get_localhost ~__context in
+		Helpers.call_api_functions ~__context
+		  (fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
+		Db.VM.set_power_state ~__context ~self:vm
+		  ~value:(if start_paused then `Paused else `Running)))
+    )) ())
+				    
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	resume ~__context ~vm ~start_paused ~force
 
-let create ~__context
-		~name_label
-		~name_description
-		~user_version
-		~is_a_template ~affinity
-		~memory_target
-		~memory_static_max
-		~memory_dynamic_max
-		~memory_dynamic_min
-		~memory_static_min
-		~vCPUs_params
-		~vCPUs_max
-		~vCPUs_at_startup
-		~actions_after_shutdown
-		~actions_after_reboot
-		~actions_after_crash
-		~pV_bootloader
-		~pV_kernel
-		~pV_ramdisk
-		~pV_args
-		~pV_bootloader_args
-		~pV_legacy_args
-		~hVM_boot_policy
-		~hVM_boot_params
-		~hVM_shadow_multiplier
-		~platform
-		~pCI_bus
-		~other_config
-		~recommendations
-		~xenstore_data
-		~ha_always_run
-		~ha_restart_priority
-		~tags
-		~blocked_operations
-		~protection_policy
-		~is_snapshot_from_vmpp
-		: API.ref_VM =
-	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
-	(* Add random mac_seed if there isn't one specified already *)
-	let other_config =
-		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
-		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
-		else other_config in
-	create ~__context
-		~name_label
-		~name_description
-		~user_version
-		~is_a_template
-		~affinity
-		~memory_target
-		~memory_static_max
-		~memory_dynamic_max
-		~memory_dynamic_min
-		~memory_static_min
-		~vCPUs_params
-		~vCPUs_max
-		~vCPUs_at_startup
-		~actions_after_shutdown
-		~actions_after_reboot
-		~actions_after_crash
-		~pV_bootloader
-		~pV_kernel
-		~pV_ramdisk
-		~pV_args
-		~pV_bootloader_args
-		~pV_legacy_args
-		~hVM_boot_policy
-		~hVM_boot_params
-		~hVM_shadow_multiplier
-		~platform
-		~pCI_bus
-		~other_config
-		~recommendations
-		~xenstore_data
-		~ha_always_run
-		~ha_restart_priority
-		~tags
-		~blocked_operations
-		~protection_policy
-		~is_snapshot_from_vmpp
+let create ~__context ~name_label ~name_description
+           ~user_version ~is_a_template ~affinity
+           ~memory_target
+           ~memory_static_max
+           ~memory_dynamic_max
+           ~memory_dynamic_min
+           ~memory_static_min
+           ~vCPUs_params
+           ~vCPUs_max ~vCPUs_at_startup
+           ~actions_after_shutdown ~actions_after_reboot
+           ~actions_after_crash
+	   ~pV_bootloader
+           ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
+	   ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+           ~platform
+           ~pCI_bus ~other_config ~recommendations ~xenstore_data 
+	   ~ha_always_run ~ha_restart_priority ~tags 
+	   ~blocked_operations
+	   : API.ref_VM =
+  let gen_mac_seed()=Uuid.to_string (Uuid.make_uuid()) in
+  (* Add random mac_seed if there isn't one specified already *)
+  let other_config =
+    if not (List.mem_assoc Xapi_globs.mac_seed other_config) then
+      (Xapi_globs.mac_seed, gen_mac_seed())::other_config
+    else other_config
+  in
+    create ~__context ~name_label ~name_description
+      ~user_version ~is_a_template ~affinity
+      ~memory_target
+      ~memory_static_max
+      ~memory_dynamic_max
+      ~memory_dynamic_min
+      ~memory_static_min
+      ~vCPUs_params
+      ~vCPUs_max ~vCPUs_at_startup
+      ~actions_after_shutdown ~actions_after_reboot
+      ~actions_after_crash
+      ~pV_bootloader
+      ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
+      ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+      ~platform
+      ~pCI_bus ~other_config ~recommendations ~xenstore_data 
+      ~ha_always_run ~ha_restart_priority ~tags
+      ~blocked_operations
 
 let destroy  ~__context ~self = 
-	let parent = Db.VM.get_parent ~__context ~self in
-
-	(* rebase the children *)
-	List.iter
-		(fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
-		(Db.VM.get_children ~__context ~self);
-
-	Monitor_rrds.maybe_remove_rrd (Db.VM.get_uuid ~__context ~self);
-	destroy ~__context ~self
+  Monitor_rrds.maybe_remove_rrd (Db.VM.get_uuid ~__context ~self);
+  destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
    lock on a specific pool host and is used to manage contention between API threads and the
@@ -892,50 +640,71 @@ let clone ~__context ~vm ~new_name =
   (* Now that clones are "fast", there's no need to put this operation in the "normal_vm_queue". Indeed,
      putting it in there would mean that clones are serialized on a host-basis whereas they may be able
      to proceed in parallel. *)
-	let new_vm = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name in
-	if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-		hard_shutdown ~__context ~vm:new_vm;
-	new_vm	
+  Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name
 
-(* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
-(* the VBD level (with pause/unpause mechanism                                                   *)
 let snapshot ~__context ~vm ~new_name =
-	TaskHelper.set_cancellable ~__context;
-	Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
+  debug "Snapshot: begin";
+  TaskHelper.set_cancellable ~__context;
+  let res = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name in
+  debug "Snapshot: end"; 
+  res
 
-(* Snapshot_with_quiesce triggers the VSS plugin which will then calls the VM.snapshot API call.     *)
-(* Thus, to avoid dead-locks, do not put snapshot and snapshot_with_quiesce on the same waiting line *)
+let vss_mutex = Mutex.create ()
+
 let snapshot_with_quiesce ~__context ~vm ~new_name =
-	TaskHelper.set_cancellable ~__context;
-	Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
+  debug "Snapshot_with_quiesce: begin";
+  let path = Printf.sprintf "/local/domain/%Ld/control/" (Db.VM.get_domid ~__context ~self:vm) in
+  let snapshotpath x = path ^ "snapshot/" ^ x in
 
-(* As we will destroy the domain ourself, we grab the vm_lock here in order to tell the event thread to *)
-(* do not look at this domain. The message forwarding layer already checked that the VM reference we    *)
-(* revert too is still valid. *)
-let revert ~__context ~snapshot =
-	let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
-	let vm = 
-		if Db.is_valid_ref vm 
-		then vm
-		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
-	Xapi_vm_snapshot.revert ~__context ~snapshot ~vm
-	
-(* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
-(* thread mess around with that. *)
-let checkpoint ~__context ~vm ~new_name =
-	if not (Features.is_enabled ~__context Features.Checkpoint) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	else begin
-		Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
-			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
-			(fun () ->
-				TaskHelper.set_cancellable ~__context;
-				Locking_helpers.with_lock vm 
-					(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
-					()
-			)
-	end
-	
+  let r = with_xs (fun xs ->
+    let flag_set flag = try xs.Xs.read (path ^ flag) = "1" with e -> (debug "Exception while reading %s flag: %s" flag (Printexc.to_string e); false) in
+    (* 1. We first check if the VM supports VSS *)
+    if flag_set "feature-snapshot" || flag_set "feature-quiesce"
+    then begin
+      Pervasiveext.finally (fun () ->
+        (* 2. if it the case, we can trigger a VSS snapshot *)
+        Mutex.lock vss_mutex;
+        (* we clean the snapshot directory to be sure that nothing wrong remains from the last calls *)
+        xs.Xs.rm (path ^ "snapshot");
+        (* we trigger the VSS plugin *)
+        xs.Xs.write (snapshotpath "action") "create-snapshot";
+        try 
+          debug "Snapshot_with_quiesce: wait for the VSS agent to take the hand";
+          Watch.wait_for ~xs ~timeout:(60.) (Watch.key_to_disappear (snapshotpath "action"));
+          debug "Snapshot_with_quiesce: wait for the VSS agent to return a snapshot";
+          try match Watch.wait_for ~xs ~timeout:(5.*.60.) (Watch.value_to_appear (snapshotpath "status")) with 
+              | str when str = "snapshot-created" -> 
+                (* 3. we get the transportable snap ID *)
+                debug "Snapshot_with_quiesce: get the transportable ID";
+                let snapid = xs.Xs.directory (snapshotpath "snapid") in
+                let snapid = List.sort (fun s1 s2 -> if String.length s1 <> String.length s2 then String.length s1 - String.length s2 else compare s1 s2) snapid in
+                let snapid = List.map (fun file -> xs.Xs.read (snapshotpath ("snapid/"^file))) snapid in
+                let snapid = String.concat "" snapid in
+                  (* 4. we get the uuid of the snapshot VM *)
+                  debug "Snapshot_with_quiesce: get uuid of the snapshot VM";
+                  let snapshot_uuid = xs.Xs.read (snapshotpath "snapuuid") in
+                  let snapshot_ref = Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid in
+                    Db.VM.set_transportable_snapshot_id ~__context ~self:snapshot_ref ~value:snapid;
+                    Db.VM.set_name_label ~__context ~self:snapshot_ref ~value:new_name;  
+                    snapshot_ref
+            | str when str = "snapshot-error" ->
+                (* if an error was occured we get the error type and return *)
+                debug "Snapshot_with_quiesce: get an error";
+                raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ xs.Xs.read (snapshotpath "error") ]))
+            | _ -> 
+                raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "unexpected result" ]))
+          with Xs.Timeout -> raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "Timed out waiting for VSS snapshot" ]))
+        with Xs.Timeout -> raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "VSS plugin does not respond" ])))
+        (fun () ->
+          (* 4. we delete the xenstore directory *)
+          xs.Xs.rm (path ^ "snapshot");
+          Mutex.unlock vss_mutex)
+    end else
+      raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, ["Quiesce snapshot not supported"]))
+    ) in
+    debug "Snapshot_with_quiesce: end";
+    r
+
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
 	(* First the existence check. It's not an error to not exist at all. *)
@@ -946,22 +715,18 @@ let copy ~__context ~vm ~new_name ~sr =
 	       then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
 						   [ "Cannot copy a VM's disks to an ISO SR" ]))) sr;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
 	  (fun () ->
-		let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
-		if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-			hard_shutdown ~__context ~vm:new_vm;
-		new_vm
+  	     Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name
 	  )
 
 let provision ~__context ~vm = 
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-	  (Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
 	  (fun () ->
 	     Locking_helpers.with_lock vm (fun token () ->
 	(* This bit could be done in the guest: *)
 	debug "start: checking to see whether VM needs 'installing'";
-	Helpers.call_api_functions ~__context (fun rpc session_id ->
+	let rpc = Helpers.make_rpc ~__context in
+	let session_id = Context.get_session_id __context in
 	     set_is_a_template ~__context ~self:vm ~value:false;
 	     if Xapi_templates.needs_to_be_installed rpc session_id vm
 	     then begin
@@ -986,70 +751,33 @@ let provision ~__context ~vm =
 				 (fun self -> Client.VDI.destroy rpc session_id self)) vdis;
 		   raise e
 	       end
-	     end)
+	     end
 ) ()
 	  )
 
-(** Sets the maximum number of VCPUs for a {b Halted} guest. *)
-let set_VCPUs_max ~__context ~self ~value =
-	if Db.VM.get_power_state ~__context ~self <> `Halted
-	then failwith "assertion_failed: set_VCPUs_max should only be \
-		called when the VM is Halted";
-	let vcpus_at_startup = Db.VM.get_VCPUs_at_startup ~__context ~self in
-	if value < 1L || value < vcpus_at_startup then invalid_value
-		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
-		(Int64.to_string value);
-	Db.VM.set_VCPUs_max ~__context ~self ~value;
-	update_memory_overhead ~__context ~vm:self
-
-(** Sets the number of startup VCPUs for a {b Halted} guest. *)
-let set_VCPUs_at_startup ~__context ~self ~value =
-	if Db.VM.get_power_state ~__context ~self <> `Halted
-	then failwith "assertion_failed: set_VCPUs_at_startup should only be \
-		called when the VM is Halted";
-	let vcpus_max = Db.VM.get_VCPUs_max ~__context ~self in
-	if value < 1L || value > vcpus_max then invalid_value
-		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
-		(Int64.to_string value);
-	Db.VM.set_VCPUs_at_startup ~__context ~self ~value;
-	update_memory_overhead ~__context ~vm:self
-
-(** Sets the number of VCPUs for a {b Running} PV guest.
-@raise Api_errors.operation_not_allowed if [self] is an HVM guest. *)
-let set_VCPUs_number_live ~__context ~self ~nvcpu =
-	Locking_helpers.with_lock self (fun target () ->
-	if Helpers.has_booted_hvm ~__context ~self then (
-		error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
-		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-			["HVM VMs cannot hotplug CPUs"]));
-	);
-
+let set_VCPUs_number_live ~__context ~self ~nvcpu = Locking_helpers.with_lock self (fun target () ->
 	let at_boot_time = Helpers.get_boot_record ~__context ~self in
 	let domid = Helpers.domid_of_vm ~__context ~self in
 	let max = at_boot_time.API.vM_VCPUs_max in
 
-	if nvcpu < 1L || nvcpu > max then invalid_value
-		"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max"
-		(Int64.to_string nvcpu);
+	if Helpers.has_booted_hvm ~__context ~self then (
+		error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,["HVM VMs cannot hotplug CPUs"]));
+	);
+	if nvcpu < 1L || nvcpu > max then (
+		error "VM.set_VCPUs_number_live: number vcpus of vcpu not in range allowed";
+		invalid_value "set_VCPUs_number_live" (Int64.to_string nvcpu);
+	);
 	(* We intend to modify the VCPUs_at_startup parameter to have the new target value *)
 	let new_boot_record = { at_boot_time with API.vM_VCPUs_at_startup = nvcpu } in
 	with_xs (fun xs ->
 		Vmops.set_cpus_number ~__context ~xs ~self domid new_boot_record
 	);
-	Helpers.set_boot_record ~__context ~self new_boot_record;
-	(* Strictly speaking, PV guest memory overhead depends on the number of  *)
-	(* vCPUs. Although our current overhead calculation uses a conservative  *)
-	(* overestimate that ignores the real number of VCPUs, we still update   *)
-	(* the overhead in case our level of conservativeness changes in future. *)
-	update_memory_overhead ~__context ~vm:self
+	Helpers.set_boot_record ~__context ~self new_boot_record
 ) ()
 
 let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
   add_to_VCPUs_params_live ~__context ~self ~key ~value
-) ()
-
-let set_memory_dynamic_range ~__context ~self ~min ~max = Locking_helpers.with_lock self (fun token () ->
-	set_memory_dynamic_range ~__context ~self ~min ~max
 ) ()
 
 let set_memory_target_live ~__context ~self ~target = Locking_helpers.with_lock self (fun token () ->
@@ -1060,27 +788,9 @@ let wait_memory_target_live ~__context ~self = Locking_helpers.with_lock self (f
 	wait_memory_target_live ~__context ~self ()
 ) ()
 
-let get_cooperative ~__context ~self = 
-  (* If the VM is not supposed to be capable of ballooning then return true *)
-  let vm_r = Db.VM.get_record ~__context ~self in
-  if not(Helpers.ballooning_enabled_for_vm ~__context vm_r) then begin
-    info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
-    true
-  end else begin
-    (* Otherwise see if the squeezer has concluded the domain is uncooperative *)
-    let domid = Int64.to_int vm_r.API.vM_domid in
-    Mutex.execute Monitor.uncooperative_domains_m (fun () -> not(Hashtbl.mem Monitor.uncooperative_domains domid))
-  end
-
-let set_HVM_shadow_multiplier ~__context ~self ~value =
-	set_HVM_shadow_multiplier ~__context ~self ~value
-
-let set_shadow_multiplier_live ~__context ~self ~multiplier =
-	Locking_helpers.with_lock self
-		(fun token () ->
-			set_shadow_multiplier_live ~__context ~self ~multiplier;
-			update_memory_overhead ~__context ~vm:self
-		) ()
+let set_shadow_multiplier_live ~__context ~self ~multiplier = Locking_helpers.with_lock self (fun token () ->
+  set_shadow_multiplier_live ~__context ~self ~multiplier
+) ()
 
 let send_sysrq ~__context ~vm ~key = Locking_helpers.with_lock vm (fun token () ->
   send_sysrq ~__context ~vm ~key
@@ -1169,40 +879,3 @@ let create_new_blob ~__context ~vm ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
   Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
   blob
-  
-let s3_suspend ~__context ~vm =
-  (* XXX: TODO: monitor the guest's response; track the s3 state *)
-   Locking_helpers.with_lock vm (fun _ () -> 
-     let domid = Helpers.domid_of_vm ~__context ~self:vm in
-     with_xs (fun xs -> Domain.shutdown ~xs domid Domain.S3Suspend)) ()
- 
-let s3_resume ~__context ~vm =
-  (* XXX: TODO: monitor the guest's response; track the s3 state *)
-  Locking_helpers.with_lock vm (fun _ () -> 
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-    with_xc (fun xc -> Domain.send_s3resume ~xc domid)) ()
-
-(* BIOS strings *)
-
-let copy_bios_strings ~__context ~vm ~host =
-	(* only allow to fill in BIOS strings if they are not yet set *)
-	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-	if List.length current_strings > 0 then
-		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
-	else begin
-		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
-		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings;
-		(* also set the affinity field to push the VM to start on this host *)
-		Db.VM.set_affinity ~__context ~self:vm ~value:host
-	end
-	
-let set_protection_policy ~__context ~self ~value = 
-  if Db.VM.get_is_control_domain ~__context ~self
-  then ( (* do not assign vmpps to the dom0 vm of any host in the pool *)
-    raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]))
-  )
-  else (
-    (* if unlicensed, allow only to change to protection policy to null *)
-    (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
-    Db.VM.set_protection_policy ~__context ~self ~value
-  )
