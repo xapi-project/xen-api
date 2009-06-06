@@ -7,7 +7,6 @@ syntax: glob
 *.a
 *.annot
 *.aux
-*.class
 *.cma
 *.cmi
 *.cmo
@@ -63,6 +62,7 @@ ocaml/perftest/cumulative_time
 ocaml/xenops/memory_summary
 ocaml/xenops/squeeze_test
 ocaml/idl/java_binding/obj/*
+ocaml/idl/binding_sanity_checks/*.class
 ocaml/idl/binding_sanity_checks/doc
 ocaml/idl/binding_sanity_checks/binding
 ocaml/idl/binding_sanity_checks/*.svg
@@ -104,7 +104,6 @@ stunnel-4.15/tools/stunnel.conf-sample
 stunnel-4.15/tools/stunnel.init
 zurich/java/com/xensource/autogen/*.java
 js/api.js
-java
 ocaml/cdrommon/cdrommon
 ocaml/console/console
 ocaml/database/db_filter_lex.ml
@@ -115,10 +114,6 @@ ocaml/database/unit_test_marshall
 ocaml/database/block_device_io
 ocaml/db_process/xapi-db-process
 ocaml/db_process/xapi-db-upgrade-4.2
-ocaml/doc/content
-ocaml/doc/api
-ocaml/doc/jsapi
-ocaml/doc/components.js
 ocaml/events/event_listen
 ocaml/fdhelper/closeandexec
 ocaml/fdhelper/closeandexec_static
@@ -173,5 +168,3 @@ ocaml/xsrpc/xsrpcd-util
 ocaml/xstest/xsbench
 ocaml/xstest/xstest
 ocaml/xstest/xscheckperms
-
-*/libs

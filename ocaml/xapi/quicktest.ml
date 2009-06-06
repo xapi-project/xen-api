@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Stringext
 open Threadext
 open Pervasiveext
@@ -99,11 +86,6 @@ let setup_export_test_vm session_id =
   success test;
   vm
 
-let all_non_iso_srs_with_vdi_create session_id =
-  List.filter
-    (fun sr -> "iso" <> Client.SR.get_content_type !rpc session_id sr)
-    (all_srs_with_vdi_create session_id)
-
 let import_export_test session_id = 
   let test = make_test "VM import/export test" 0 in
   start test;
@@ -112,11 +94,11 @@ let import_export_test session_id =
 
   Unixext.unlink_safe export_filename;
   vm_export test session_id vm export_filename;
-  let all_srs = all_non_iso_srs_with_vdi_create session_id in
+  let all_srs = all_srs_with_vdi_create session_id in
   List.iter
     (fun sr ->
        debug test (Printf.sprintf "Attempting import to SR: %s" (Quicktest_storage.name_of_sr session_id sr));
-       let vm' = List.hd (vm_import ~sr test session_id export_filename) in
+       let vm' = vm_import ~sr test session_id export_filename in
        let vbds = Client.VM.get_VBDs !rpc session_id vm' in
        
        if List.length vbds <> (List.length by_device) then failed test "Wrong number of VBDs after import";
@@ -343,32 +325,26 @@ let verify_network_connectivity session_id test vm =
        let network = Client.VIF.get_network !rpc session_id vif in
        let bridge = Client.Network.get_bridge !rpc session_id network in
        let device = Printf.sprintf "vif%Ld.%s" (Client.VM.get_domid !rpc session_id vm) (Client.VIF.get_device !rpc session_id vif) in
-       let devices = Netdev.network.Netdev.intf_list bridge in
-       let other_config = Client.VIF.get_other_config !rpc session_id vif in
+       let devices = Netdev.Bridge.intf_list bridge in
        if not(List.mem device devices) 
        then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
        else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
 
-       (* Check the udev script set promiscuous mode correctly, IFF brport/promisc exists in sysfs. *)
-       let sysfs_promisc = Printf.sprintf "/sys/class/net/%s/brport/promisc" device in
-       if Sys.file_exists sysfs_promisc
-       then begin
-         let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
-         let promisc' = read_sys sysfs_promisc = "1" in
-         if promisc <> promisc' 
-         then failed test (Printf.sprintf "VIF.other_config says promiscuous mode is %b while dom0 /sys says %b" promisc promisc')
-         else debug test (Printf.sprintf "VIF.other_config and dom0 /sys agree that promiscuous mode is %b" promisc);
-       end else
-         debug test (Printf.sprintf "%s not found. assuming unsupported" sysfs_promisc);
+       (* Check the udev script set promiscuous mode correctly *)
+       let other_config = Client.VIF.get_other_config !rpc session_id vif in
+       let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
+       let promisc' = read_sys (Printf.sprintf "/sys/class/net/%s/brport/promisc" device) = "1" in
+       if promisc <> promisc' 
+       then failed test (Printf.sprintf "VIF.other_config says promiscuous mode is %b while dom0 /sys says %b" promisc promisc')
+       else debug test (Printf.sprintf "VIF.other_config and dom0 /sys agree that promiscuous mode is %b" promisc);
 
        (* Check the MTU *)
-       let mtu = Client.Network.get_MTU !rpc session_id network in
-       let mtu' = if List.mem_assoc "mtu" other_config
-         then Int64.of_string(List.assoc "mtu" other_config) else mtu in
+       let mtu = Client.VIF.get_MTU !rpc session_id vif in
+       let mtu' = if mtu = 0L then 1500L else mtu in
        let mtu'' = Int64.of_string (read_sys (Printf.sprintf "/sys/class/net/%s/mtu" device)) in
        if mtu' <> mtu'' 
-       then failed test (Printf.sprintf "VIF.MTU is %Ld but /sys says %Ld" mtu' mtu'')
-       else debug test (Printf.sprintf "VIF.MTU is %Ld and /sys says %Ld" mtu' mtu'');
+       then failed test (Printf.sprintf "VIF.MTU is %Ld but /sys says %Ld" mtu mtu'')
+       else debug test (Printf.sprintf "VIF.MTU is %Ld and /sys says %Ld" mtu mtu'');
     ) vifs
 
 let rec wait_for_task_complete session_id task = 
@@ -378,10 +354,7 @@ let rec wait_for_task_complete session_id task =
   | _ -> ()
 
 (* CP-831 *)
-let test_vhd_locking_hook session_id vm =
-  let test = make_test "test vhd locking hook" 2 in
-  start test;
-  Client.VM.start !rpc session_id vm false false;
+let test_vhd_locking_hook test session_id vm =
   (* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
   let vbds = Client.VM.get_VBDs !rpc session_id vm in
   let vdis = List.map (fun vbd -> Client.VBD.get_VDI !rpc session_id vbd) vbds in
@@ -421,8 +394,7 @@ let test_vhd_locking_hook session_id vm =
     debug test (Printf.sprintf "lvhd-script-hook tool %.2f seconds; output was: %s" (Unix.gettimeofday () -. start') result);
   done;
   Thread.join t;
-  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
-  success test
+  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops)
 
 let powercycle_test session_id vm = 
   let test = make_test "Powercycling VM" 1 in
@@ -439,12 +411,13 @@ let powercycle_test session_id vm =
   finally
     (fun () ->
        (* We play with three VMs:
-	  1. a clean install of a VM                         (vm)
+	  1. a clean install of debian                       (vm)
 	  2. a suspended clone of (1)                        (vm')
 	  3. a metadata import of the metadata export of (2) (vm'')
        *)
        debug test "Starting VM";
        Client.VM.start !rpc session_id vm false false;
+       test_vhd_locking_hook test session_id vm;
        delay ();
        debug test "Rebooting VM";
        Client.VM.clean_reboot !rpc session_id vm;
@@ -455,8 +428,8 @@ let powercycle_test session_id vm =
        Client.VM.start !rpc session_id vm false false;
        verify_network_connectivity session_id test vm;
        delay ();
-       debug test "Setting shadow-multiplier live to 10.";
-       Client.VM.set_shadow_multiplier_live !rpc session_id vm 10.;
+       debug test "Setting shadow-multiplier non-live to 10.";
+       Client.VM.set_HVM_shadow_multiplier !rpc session_id vm 10.;
        delay ();
        debug test "Suspending VM";
        Client.VM.suspend !rpc session_id vm;
@@ -474,8 +447,7 @@ let powercycle_test session_id vm =
        debug test "Importing metadata export of cloned suspended VM";
        Unixext.unlink_safe export_filename;
        vm_export ~metadata_only:true test session_id vm' export_filename;
-       let vms = vm_import ~metadata_only:true test session_id export_filename in
-       let vm'' = List.find (fun vm -> Client.VM.get_name_label !rpc session_id vm = "clone-suspended-test") vms in
+       let vm'' = vm_import ~metadata_only:true test session_id export_filename in
        debug test "Comparing clone, import VIF configuration";
        compare_vifs session_id test vm' vm'';
        debug test "Comparing clone, import VBD configuration";
@@ -501,17 +473,17 @@ let powercycle_test session_id vm =
        debug test "Resuming imported VM";
        Client.VM.resume !rpc session_id vm'' false false;
        verify_network_connectivity session_id test vm'';
-       debug test "Shutting down imported VMs";
-       List.iter (fun vm -> if Client.VM.get_power_state !rpc session_id vm <> `Halted then Client.VM.hard_shutdown !rpc session_id vm) vms;
- 
+       debug test "Shutting down imported VM";
+       Client.VM.clean_shutdown !rpc session_id vm'';
+
        (* Keep the imported VM and chuck away the clone *)
        (* NB cannot do this earlier because the suspend VDI would be destroyed
 	  and prevent the other VM being resumed *)
        Client.VM.hard_shutdown !rpc session_id vm';
-       vm_uninstall test session_id vm';
+       Client.VM.destroy !rpc session_id vm';
 
-       debug test "Uninstalling imported VMs";
-       List.iter (vm_uninstall test session_id) vms;
+       debug test "Uninstalling imported VM";
+       vm_uninstall test session_id vm'';
        success test;
     ) (fun () ->
 	 if enabled_csvm then begin
@@ -606,58 +578,40 @@ let async_test session_id =
     | _ -> failwith "Expecting 1 new disk!"
 
 let make_vif ~session_id ~vM ~network ~device = 
-  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:1400L ~mAC:"" ~device ~other_config:["promiscuous", "on"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
 
-let with_vm s f = 
+let vm_powercycle_test s = 
   try
-    let (_: API.ref_VM) = find_template s vm_template in
-    let test = make_test "Setting up test VM" 0 in
+    let (_: API.ref_VM) = find_template s debian_etch in
+    let test = make_test "Setting up VM for powercycle test" 0 in
     start test;
-    let vm = install_vm test s in
-	f s vm;
-	vm_uninstall test s vm;
-	success test
-  with Unable_to_find_suitable_vm_template ->
+    let debian = install_debian test s in
+    (* Try to add some VIFs *)
+    let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
+    debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
+    let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:guest_installer_network ~device:"0" in
+    begin match Client.PIF.get_all !rpc s with
+    | pif :: _ ->
+	let net = Client.PIF.get_network !rpc s pif in
+	debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
+	let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:net ~device:"1" in
+	()
+    | _ -> ()
+    end;
+    vbd_pause_unpause_test s debian;
+    powercycle_test s debian;
+    vm_uninstall test s debian;  
+    success test
+  with Unable_to_find_suitable_debian_template ->
     (* SKIP *)
     ()
 
-let vm_powercycle_test s vm = 
-  let test = make_test "VM powercycle test" 1 in
-  start test;
-  (* Try to add some VIFs *)
-  let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
-  debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
-  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:guest_installer_network ~device:"0" in
-  begin match Client.PIF.get_all !rpc s with
-  | pif :: _ ->
-		let net = Client.PIF.get_network !rpc s pif in
-		debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
-		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:net ~device:"1" in
-		()
-  | _ -> ()
-  end;
-  vbd_pause_unpause_test s vm;
-  powercycle_test s vm;
-  success test
-
-
-
-let squeeze_test () = 
-  let test = make_test "Memory squeezer tests" 0 in
-  start test;
-  Squeeze_test.go ();
-  if List.length !Squeeze_test.failed_scenarios = 0
-  then success test
-  else failed test "one or more scenarios failed"
-
 let _ =
-  let all_tests = [ "storage"; "vm-placement"; "vm-memory-constraints"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing"; "lifecycle"; "vhd" ] in
-  let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
-  let tests_to_run = ref default_tests in (* default is everything *)
+  let possible_tests = [ "storage"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle" ] in
+  let only_this_test = ref "" in (* default is run everything *)
   Arg.parse 
-    [ "-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
-	  "-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
+    [ "-single", Arg.Set_string only_this_test, Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " possible_tests) ;
       "-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
     (fun x -> match !host, !username, !password with
      | "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
@@ -669,8 +623,8 @@ let _ =
   if !username = "" then username := "root";
   
   let maybe_run_test name f = 
-    assert (List.mem name all_tests);
-	if List.mem name !tests_to_run then f () in
+    assert (List.mem name possible_tests);
+    if !only_this_test = "" || !only_this_test = name then f () in
 
   Stunnel.init_stunnel_path ();
   let s = init_session !username !password in
@@ -678,19 +632,13 @@ let _ =
     (fun () ->
        (try
 	  maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
-	  maybe_run_test "squeezing" squeeze_test;
-	  maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
-	  maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
 	  maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
 	  maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
 	  maybe_run_test "event" event_next_unblocking_test;
 	  maybe_run_test "vdi" (fun () -> vdi_test s);
 	  maybe_run_test "async" (fun () -> async_test s);
 	  maybe_run_test "import" (fun () -> import_export_test s);
-	  maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
-	  maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
-	  maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
-
+	  maybe_run_test "powercycle" (fun () -> vm_powercycle_test s);
 	with
 	| Api_errors.Server_error (a,b) ->
 	    output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));

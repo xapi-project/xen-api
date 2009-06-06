@@ -1,6 +1,6 @@
-OCAML_LIBS    =
-OCAMLINCLUDES = 
-OCAMLPACKS    = str xml-light2 log netdev
+OCAML_LIBS = ../../netdev/netdev
+OCAMLINCLUDES = ../../netdev ./
+OCAMLPACKS = unix str stdext xmlm xml-light2 log
 
 .SUBDIRS:geneva
 
@@ -18,17 +18,15 @@ clean:
 
 .PHONY: install
 install:
-	rm -rf $(DESTDIR)/cli-rt
-	mkdir -p $(DESTDIR)/cli-rt/gtserver
-	install -m 755 -o root -g root test_host gtclient xgetip $(DESTDIR)/cli-rt
-	cp gtmessages.ml gtcomms.ml gtlinuxops.ml gtserver_linux.ml $(DESTDIR)/cli-rt/gtserver/
-	cp Makefile.gtserver $(DESTDIR)/cli-rt/gtserver/Makefile
+	rm -rf $(DIST)/cli-rt
+	mkdir -p $(DIST)/cli-rt/gtserver
+	install -m 755 -o root -g root test_host gtclient xgetip $(DIST)/cli-rt
+	cp gtmessages.ml gtcomms.ml gtlinuxops.ml gtserver_linux.ml $(DIST)/cli-rt/gtserver/
+	cp Makefile.gtserver $(DIST)/cli-rt/gtserver/Makefile
 	# and this is for easier developer testing:
 	rm -rf /tmp/cli-rt-domu
 	mkdir -p /tmp/cli-rt-domu
 	install -m 755 -o root -g root install.sh /tmp/cli-rt-domu
 	mkdir -p /tmp/cli-rt-domu/root
 	cp gtmessages.ml gtcomms.ml gtlinuxops.ml gtserver_linux.ml /tmp/cli-rt-domu/root
-	(cd $(ROOT)/scripts; /bin/sh ./make-patch /tmp/cli-rt-domu /tmp/cli-rt-domu-shar.sh)
-	mv /tmp/cli-rt-domu-shar.sh $(DESTDIR)/opt/xensource/debug
-	install -m 755 -o root -g root install-debian-pv.sh install-debian-pv-inside.sh $(DESTDIR)/opt/xensource/debug
+	install -m 755 -o root -g root install-debian-pv.sh install-debian-pv-inside.sh $(DIST)/staging/opt/xensource/debug

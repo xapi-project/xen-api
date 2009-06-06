@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* conversion utils *)
 
 exception Record_failure of string
@@ -25,25 +12,19 @@ let power_state_to_string state =
   | `Suspended -> "Suspended"
   | `ShuttingDown -> "Shutting down"
   | `Migrating -> "Migrating"
+  | `Unknown -> "Unknown"
 
 let vm_operation_table = 
   [
     `assert_operation_valid, "assertoperationvalid";
-    `changing_dynamic_range, "changing_dynamic_range";
-    `changing_static_range, "changing_static_range";
     `clean_reboot, "clean_reboot";
     `clean_shutdown, "clean_shutdown";
     `clone, "clone";
     `snapshot, "snapshot";
-    `checkpoint, "checkpoint";
-    `snapshot_with_quiesce, "snapshot_with_quiesce";
     `copy, "copy";
-    `revert, "revert";
-    `reverting, "reverting";
     `provision, "provision";
     `destroy, "destroy";
     `export, "export";
-	`metadata_export, "metadata_export";
     `import, "import";
     `get_boot_record, "get_boot_record";
     `data_source_op, "data_sources_op";
@@ -278,6 +259,7 @@ let power_to_string h =
     | `Suspended -> "suspended"
     | `ShuttingDown -> "shutting down"
     | `Migrating -> "migrating"
+    | `Unknown -> "unknown"
 
 let vdi_type_to_string t =
   match t with
@@ -288,7 +270,6 @@ let vdi_type_to_string t =
   | `crashdump -> "Crashdump"
   | `ha_statefile -> "HA statefile"
   | `metadata -> "Metadata"
-  | `redo_log -> "Redo log"
 
 let ip_configuration_mode_to_string = function
   | `None -> "None"
@@ -301,12 +282,6 @@ let ip_configuration_mode_of_string m =
   | "none"   -> `None
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
-
-let bool_of_string s =
-	match String.lowercase s with
-		|"true"|"yes"->true
-		|"false"|"no"->false
-		|_-> raise (Record_failure ("Expected 'true','yes','false','no', got "^s))
 
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
@@ -323,11 +298,6 @@ let i642fm_to_string sep x =
 (* int64_to_string_map_to_string *)
 let i642sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %s" a b) x)
-
-let on_boot_to_string onboot =
-	match onboot with
-		| `reset -> "reset"
-		| `persist -> "persist"
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x = 

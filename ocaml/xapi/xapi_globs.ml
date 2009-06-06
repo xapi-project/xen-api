@@ -1,19 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
- 
-(** A central location for settings related to xapi *)
- 
 open Stringext
 open Printf
 
@@ -32,7 +16,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 
 (* api version *)
 let api_version_major = 1L
-let api_version_minor = 7L
+let api_version_minor = 6L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -42,15 +26,12 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.7"
-let xencenter_max_verstring = "1.7"
+let xencenter_min_verstring = "1.6"
+let xencenter_max_verstring = "1.6"
 
-(** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
-let dbv = "2009.0201"
-
-(* linux pack vsn key in host.software_version (used for a pool join restriction *)
-let linux_pack_vsn_key = "xs:linux"
-let packs_dir = "/etc/xensource/installed-repos"
+(* linux pack vsn key (put in host.software_version) *)
+let linux_pack_vsn_key = "package-linux"
+let installed = "installed"
 
 let ssl_pid = ref 0
 
@@ -66,6 +47,9 @@ let xapi_gc_debug = ref true
 
 let unix_domain_socket = "/var/xapi/xapi"
 let local_database = "/var/xapi/local.db"
+
+(* Cached localhost info *)
+let localhost_software_version : ((string * string) list) ref = ref []
 
 (* amount of time to retry master_connection before (if restart_on_connection_timeout is set) restarting xapi; -ve means don't timeout: *)
 let master_connect_retry_timeout = -1. (* never timeout *)
@@ -86,7 +70,7 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 (* Interval between host heartbeats *)
 let host_heartbeat_interval = 30.0
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
-let host_assumed_dead_interval = 600.0 (* 10 minutes *)
+let host_assumed_dead_interval = 200.0 
 
 let http_realm = "xapi"
 
@@ -99,6 +83,7 @@ let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of X
 
 let config_file = ref "/etc/xensource/xapi.conf"
 let log_config_file = ref "/etc/xensource/log.conf"
+let allowed_xsdata_file = "/etc/xensource/xsdata_allowed_prefix"
 let db_conf_path = "/etc/xensource/db.conf"
 let remote_db_conf_fragment_path = "/etc/xensource/remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
@@ -126,7 +111,6 @@ let _api_vendor_implementation = "API_vendor_implementation"
 let _xapi_major = "xapi_major"
 let _xapi_minor = "xapi_minor"
 let _export_vsn = "export_vsn"
-let _dbv = "dbv"
 
 (* Used to differentiate between 
    Rio beta2 (0) [no inline checksums, end-of-tar checksum table],
@@ -139,8 +123,7 @@ let software_version = [ _product_version, Version.product_version;
 			 _build_number,    Version.build_number;
 			 _hg_id,           Version.hg_id;
 			 _hostname,        Version.hostname;
-			 _date,            Version.date;
-			 _dbv, 			   dbv ]
+			 _date,            Version.date ]
 
 let pygrub_path = "/usr/bin/pygrub"
 let eliloader_path = "/usr/bin/eliloader"
@@ -178,6 +161,13 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = "/opt/xensource/packages/iso"
 
+(* (k, k') map: if k is in the devconf then it is replaced with k' and the value transformed *)
+(* XXX: these are the ones the Miami-only db_upgrade code uses: *)
+let hidden_fields_to_upgrade = [ "cifspassword", "cifspassword_transformed"; 
+				 "password", "password_transformed"; ]
+(* XXX: this is the main list. Perhaps this should be moved into the backends? *)
+let hidden_fields = hidden_fields_to_upgrade @ [ "chappassword", "chappassword_transformed" ]
+
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 
@@ -208,24 +198,24 @@ let db_temporary_restore_path = "/var/xapi/restore_db.db"
 (* temporary path for the HA metadata database *)
 let ha_metadata_db = "/var/xapi/ha_metadata.db"
 
-(* temporary path for the general metadata database *)
-let gen_metadata_db = "/var/xapi/gen_metadata.db"
+
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
+
+let linux_pack_installed_stamp_file_path = "/opt/xensource/packs/xs:linux"
 
 (* A comma-separated list of extra xenstore paths to watch in the migration code during
    the disk flushing *)
 let migration_extra_paths_key = "migration_extra_paths"
+
+(* After this we start to invalidate older sessions *)
+let max_sessions = 200
 
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = 24. *. 60. *. 60. (* 24 hrs in seconds *) 
 
 (* After this we start to delete completed tasks (never pending ones) *)
 let max_tasks = 200
-
-(* After this we start to invalidate older sessions *)
-(* We must allow for more sessions than running tasks *)
-let max_sessions = max_tasks * 2
 
 let completed_task_timeout = 65. *. 60. (* 65 mins *)
 
@@ -335,17 +325,18 @@ let sync_switch_off = "nosync" (* Set the following keys to this value to disabl
 let sync_create_localhost = "sync_create_localhost"
 let sync_enable_localhost = "sync_enable_localhost"
 let sync_refresh_localhost_info = "sync_refresh_localhost_info"
-let sync_record_host_memory_properties = "sync_record_host_memory_properties"
+let sync_record_host_free_memory = "sync_record_host_free_memory"
 let sync_copy_license_to_db = "sync_copy_license_to_db"
 let sync_create_host_cpu = "sync_create_host_cpu"
 let sync_create_domain_zero = "sync_create_domain_zero"
 let sync_crashdump_resynchronise = "sync_crashdump_resynchronise"
 let sync_update_vms = "sync_update_vms"
 let sync_remove_leaked_vbds = "sync_remove_leaked_vbds"
+let sync_copy_pifs_from_master = "sync_copy_pifs_from_master"
 let sync_resynchronise_pif_currently_attached = "sync_resynchronise_pif_currently_attached"
 let sync_patch_update_db = "sync_patch_update_db"
 let sync_pbd_reset = "sync_pbd_reset"
-let sync_bios_strings = "sync_bios_strings"
+let sync_dechainify_vlans = "sync_dechainify_vlans"
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
@@ -374,8 +365,19 @@ let on_system_boot = ref false
 (* Default backlog supplied to Unix.listen *)
 let listen_backlog = 128
 
-(* Where the next artificial delay is stored in xenstore *)
-let artificial_reboot_delay = "artificial-reboot-delay"
+(* This host's loadavg *)
+let loadavg = ref 0.
+(* The master's loadavg *)
+let master_loadavg = ref 0.
+(* Mutex for updating the above two loadavgs *)
+let loadavg_m = Mutex.create ()
+
+let loadavg_limit = ref 10.
+(* Key on Pool.other_config which allows the default loadavg_limit to be reset *)
+let loadavg_limit_key = "loadavg_limit"
+
+(* Key on VM.other_config that records last artificial reboot delay *)
+let last_artificial_reboot_delay_key = "last_artificial_reboot_delay"
 
 (* Xapi script hooks root *)
 let xapi_hooks_root = "/etc/xapi.d/"
@@ -384,8 +386,6 @@ let xapi_hooks_root = "/etc/xapi.d/"
 let xapi_rrd_location = "/var/xapi/blobs/rrds"
 
 let xapi_blob_location = "/var/xapi/blobs"
-
-let last_blob_sync_time = "last_blob_sync_time"
 
 (* Port on which to send network heartbeats *)
 let xha_udp_port = 694 (* same as linux-ha *)
@@ -475,63 +475,39 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 let dev_zero = "/dev/zero"
 
 let wlb_timeout = "wlb_timeout"
-let wlb_reports_timeout = "wlb_reports_timeout"
 let default_wlb_timeout = 30.0
-let default_wlb_reports_timeout = 600.0
 
-(** {2 Settings relating to dynamic memory control} *)
-
-(** A pool-wide configuration key that specifies for HVM guests a lower bound
-    for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
-let memory_ratio_hvm = ("memory-ratio-hvm", "0.25")
-
-(** A pool-wide configuration key that specifies for PV guests a lower bound
-    for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
-let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {2 Settings for the redo-log} *)
 
-(** {3 Settings related to the connection to the block device I/O process} *)
+(** {7 Settings related to the connection to the block device I/O process} *)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died *)
 let redo_log_max_block_time = 2.
-
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process while initially connecting to it before assuming that it has died *)
 let redo_log_max_startup_time = 5.
-
 (** The delay between each attempt to connect to the block device I/O process *)
 let redo_log_connect_delay = 0.1
-
 (** The prefix of the file used as a socket to communicate with the block device I/O process *)
 let redo_log_comms_socket_stem = "sock-blkdev-io"
-
 (** The maximum permitted number of block device I/O processes we are waiting to die after being killed *)
 let redo_log_max_dying_processes = 2
 
-(** {3 Settings related to the metadata VDI which hosts the redo log} *)
+(** {7 Settings related to the metadata VDI which hosts the redo log} *)
 
-(** Reason associated with the static VDI attach, to help identify the metadata VDI later (HA) *)
-let ha_metadata_vdi_reason = "HA metadata VDI"
-
-(** Reason associated with the static VDI attach, to help identify the metadata VDI later (generic) *)
-let gen_metadata_vdi_reason = "general metadata VDI"
-
+(** Reason associated with the static VDI attach, to help identify the metadata VDI later *)
+let metadata_vdi_reason = "HA metadata VDI"
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
 
-(** {3 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
+(** {7 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
 
 (** The initial backoff delay, in seconds *)
 let redo_log_initial_backoff_delay = 2
-
 (** The factor by which the backoff delay is multiplied with each successive failure *)
 let redo_log_exponentiation_base = 2
-
 (** The maximum permitted backoff delay, in seconds *)
 let redo_log_maximum_backoff_delay = 120
-
-(** Pool.other_config key which, when set to the value "true", enables generation of METADATA_LUN_{HEALTHY_BROKEN} alerts *)
-let redo_log_alert_key = "metadata_lun_alerts"
 
 (** Called from the SR.lvhd_stop_using_these_vdis_and_call_script *)
 let lvhd_script_hook = "lvhd-script-hook"
@@ -540,78 +516,7 @@ let lvhd_script_hook = "lvhd-script-hook"
 (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 let serialize_pool_enable_disable_extauth = Mutex.create()
 (* CP-695: controls our asynchronous persistent initialization of the external authentication service during Xapi.server_init *)
-
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
-(** Directory used by the v6 license policy engine for caching *)
-let upgrade_grace_file = "/var/xapi/ugp"
-
-
-(** Time after which we conclude that a VM really is unco-operative *)
-let cooperative_timeout = 30.
-
-(** Where the ballooning daemon writes the initial overhead value *)
-let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
-
-(** Xenclient enabled *)
-let xenclient_enabled = false
-
-(** {2 BIOS strings} *)
-
-(** Type 11 strings that are always included *)
-let standard_type11_strings =
-	["oem-1", "Xen";
-	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
-
-(** Generic BIOS strings *)	 
-let generic_bios_strings =
-	["bios-vendor", "Xen";
-	 "bios-version", "";
-	 "system-manufacturer", "Xen";
-	 "system-product-name", "HVM domU";
-	 "system-version", "";
-	 "system-serial-number", "";
-	 "hp-rombios", ""] @ standard_type11_strings
-
-(** BIOS strings of the old (XS 5.5) Dell Edition *)
-let old_dell_bios_strings =
-	["bios-vendor", "Dell Inc.";
-	 "bios-version", "1.9.9";
-	 "system-manufacturer", "Dell Inc.";
-	 "system-product-name", "PowerEdge";
-	 "system-version", "";
-	 "system-serial-number", "3.3.1";
-	 "oem-1", "Dell System";
-	 "oem-2", "5[0000]";
-	 "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-	 "hp-rombios", ""]
-	 
-(** BIOS strings of the old (XS 5.5) HP Edition *)
-let old_hp_bios_strings =
-	["bios-vendor", "Xen";
-	 "bios-version", "3.3.1";
-	 "system-manufacturer", "HP";
-	 "system-product-name", "ProLiant Virtual Platform";
-	 "system-version", "3.3.1";
-	 "system-serial-number", "e30aecc3-e587-5a95-9537-7c306759bced";
-	 "oem-1", "Xen";
-	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-	 "hp-rombios", "COMPAQ"]
-
-
-let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)
-
-(** {2 CPUID feature masking} *)
-
-(** Pool.other_config key to hold the user-defined feature mask, used to
- *  override the feature equality checks at a Pool.join. *)
-let cpuid_feature_mask_key = "cpuid_feature_mask"
-
-(** Default feature mask: EST (base_ecx.7) is ignored. *)
-let cpuid_default_feature_mask = "ffffff7f-ffffffff-ffffffff-ffffffff"
-
-(** Path to trigger file for Network Reset. *)
-let network_reset_trigger = "/tmp/network-reset"
-
-let first_boot_dir = "/etc/firstboot.d/"
-
+(** Contains an XML key/value pair database containing the mapping from sku_type to sku_marketing_name *)
+let sku_marketing_name_db = "/etc/xensource/sku.db"

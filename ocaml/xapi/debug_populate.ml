@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -34,7 +21,7 @@ let rec make_networks __context i =
   else
     begin
       let nw_ref =
-	Xapi_network.create ~__context ~name_label:("Network-"^(string_of_int i)) ~name_description:"dummy" ~mTU:1500L ~other_config:[] ~tags:[] in
+	Xapi_network.create ~__context ~name_label:("Network-"^(string_of_int i)) ~name_description:"dummy" ~other_config:[] ~tags:[] in
 	nws := nw_ref :: !nws;
 	make_networks __context (i-1)
     end

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D = Debug.Debugger(struct let name="xapi_alert" end)
 open D
 
@@ -46,7 +33,7 @@ let add ~name ~priority ~cls ~obj_uuid ~body =
 	(fun __context ->    
 	   let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body in true
 	)
-    end else alert_queue_push name { Alert.name = name; priority = priority; cls = cls; obj_uuid = obj_uuid; body = body } in
+    end else alert_queue_push { Alert.name = name; priority = priority; cls = cls; obj_uuid = obj_uuid; body = body } in
   if not sent then warn "Failed to send alert %s %s" name obj_uuid
       
   

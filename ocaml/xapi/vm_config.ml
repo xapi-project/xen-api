@@ -1,20 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Types which represent VM configuration independent of the pool database. Rather than pass around
-   database references and use expensive lookups we can pass around these types instead. 
- * @group Virtual-Machine Management
- *)
+(* Types which represent VM configuration independent of the pool database. Rather than pass around
+   database references and use expensive lookups we can pass around these types instead. *)
 
 (* This is a work in progress: as the code evolves we can shuffle data between the records *)
 
@@ -43,9 +28,8 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
     warn "vif QoS failed: %s (vm=%s,vif=%s)" reason vm_r.API.vM_uuid vif_r.API.vIF_uuid in
   
   let mac = vif_r.API.vIF_MAC in
-  let vif_mtu = if (List.mem_assoc "mtu" vif_r.API.vIF_other_config) then
-    Some (int_of_string (List.assoc "mtu" vif_r.API.vIF_other_config)) else None in
-
+  let mtu = Int64.to_int vif_r.API.vIF_MTU in
+  
   let qos_type = vif_r.API.vIF_qos_algorithm_type in
   let qos_params = vif_r.API.vIF_qos_algorithm_params in
   let rate = match qos_type with
@@ -67,14 +51,18 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
 	end
     | ""          -> None
     | _           -> log_qos_failure (Printf.sprintf "unknown type: %s" qos_type); None in
-    
+  
+  (* Apply license restrictions *)
+  let rate = 
+    if (Restrictions.get ()).Restrictions.enable_qos then rate else begin
+      if rate <> None then log_qos_failure "Ignoring QoS due to licensing restrictions";
+      None
+    end in
+  
   (* If we fail to find the network or bridge then assume this VIF is a dangling reference *)
   try
     let network_ref = vif_r.API.vIF_network in
     let bridge = Db.Network.get_bridge ~__context ~self:network_ref in
-    let mtu = match vif_mtu with
-      | Some mtu -> mtu
-      | None -> Int64.to_int (Db.Network.get_MTU ~__context ~self:network_ref) in
     Some {
       domid = domid;
       vif_ref = vif;

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Binary blob management *)
 
 module D = Debug.Debugger(struct let name="xapi_blob" end)
@@ -40,7 +27,7 @@ exception No_storage
 
 let handler (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   debug "blob handler";
   if not(List.mem_assoc "ref" query) then begin
     let headers = Http.http_400_badrequest in

@@ -1,23 +1,9 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 module D = Debug.Debugger(struct let name = "xapi" (* this is set to 'xapi' deliberately! :) *) end)
 open D
 
-open Db_cache_types
 open Stringext
-open Vm_memory_constraints.Vm_memory_constraints
+open Vm_memory_constraints
 
 (* ---------------------- upgrade db file from last release schema -> current schema.
 
@@ -32,103 +18,109 @@ open Vm_memory_constraints.Vm_memory_constraints
    get this done earlier for the next release we can trigger off the schema vsn change again..
 *)
 
-module Names = Db_names
-
-(** {Release-specific custom database upgrade rules} *)
-
-(** The type of an upgrade rule. The rules should ideally be idempotent and composable.
-    All new fields will have been created with default values and new tables will exist. *)
-type upgrade_rule = {
-  description: string;
-  version: int * int; (** rule will be applied if the schema version is <= this number *)
-  fn: unit -> unit;
-}
-
-(** Apply all the rules needed for the previous_version *)
-let apply_upgrade_rules rules previous_version = 
-  debug "Looking for database upgrade rules:";
-  let required_rules = List.filter (fun r -> previous_version <= r.version) rules in
-  List.iter
-    (fun r ->
-       debug "Applying database upgrade rule: %s" r.description;
-       try
-	 r.fn ()
-       with exn ->
-	 error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn)
-    ) required_rules
-  
+(** Names of database fields and tables. *)
+module Names = struct
+	let uuid = "uuid"
+	let vm = "VM"
+	let name_label = "name__label"
+	let memory_dynamic_max = "memory__dynamic_max"
+	let memory_dynamic_min = "memory__dynamic_min"
+	let memory_static_max = "memory__static_max"
+	let memory_static_min = "memory__static_min"
+	let memory_target = "memory__target"
+	let other_config = "other_config"
+	let is_a_template = "is_a_template"
+	let is_control_domain = "is_control_domain"
+	let platform = "platform"
+	let other_config = "other_config"
+end
 
 let (+++) = Int64.add
 
-(** On upgrade to the first ballooning-enabled XenServer, we reset memory
-properties to safe defaults to avoid triggering something bad.
-{ul
-	{- For guest domains, we replace the current set of possibly-invalid memory
-	constraints {i s} with a new set of valid and unballooned constraints {i t}
-	such that:
-	{ol
-		{- t.dynamic_max := s.static_max}
-		{- t.target      := s.static_max}
-		{- t.dynamic_min := s.static_max}
-		{- t.static_min  := minimum (s.static_min, s.static_max)}}}
-	{- For control domains, we respect the administrator's choice of target:
-	{ol
-		{- t.dynamic_max := s.target}
-		{- t.dynamic_min := s.target}}}
-}
-*)
+(* -- Orlando upgrade code removed, now we're doing next release
+(* Since these transformations are now run on _every_ Orlando master start we combine everything into a single pass of the VM records
+   for efficiency.. *)
 let upgrade_vm_records () =
-	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
-	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
-	let vm_rows = get_rowlist vm_table in
+	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
+	let vm_rows = Db_backend.get_rowlist vm_table in
 	(* Upgrade the memory constraints of each virtual machine. *)
-	List.iter
-		(fun vm_row ->
-			(* Helper functions to access the database. *)
-			let get field_name = Int64.of_string
-				(lookup_field_in_row vm_row field_name) in
-			let set field_name value = set_field_in_row
-				vm_row field_name (Int64.to_string value) in
-			if (lookup_field_in_row vm_row Names.is_control_domain = "true")
-			then begin
-				let target = get Names.memory_target in
-				set Names.memory_dynamic_min target;
-				set Names.memory_dynamic_max target;
-				debug "VM %s (%s) dynamic_{min,max} <- %Ld"
-					(lookup_field_in_row vm_row Names.uuid)
-					(lookup_field_in_row vm_row Names.name_label)
-					target;
-			end else begin
-				(* Note this will also transform templates *)
-				let safe_constraints = reset_to_safe_defaults ~constraints:
-					{ static_min  = get Names.memory_static_min
-					; dynamic_min = get Names.memory_dynamic_min
-					; target      = get Names.memory_target
-					; dynamic_max = get Names.memory_dynamic_max
-					; static_max  = get Names.memory_static_max
-					} in
-				set Names.memory_static_min  (safe_constraints.static_min );
-				set Names.memory_dynamic_min (safe_constraints.dynamic_min);
-				set Names.memory_target      (safe_constraints.target     );
-				set Names.memory_dynamic_max (safe_constraints.dynamic_max);
-				set Names.memory_static_max  (safe_constraints.static_max );
-				debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
-					(lookup_field_in_row vm_row Names.uuid)
-					(lookup_field_in_row vm_row Names.name_label)
-					safe_constraints.static_max;
-			end;
-		)
-		vm_rows
+	List.iter (fun vm_row ->
+		(* Helper functions to access the database. *)
+		let get field_name = Int64.of_string (Db_backend.lookup_field_in_row vm_row field_name) in
+		let set field_name value = Db_backend.set_field_in_row vm_row field_name (Int64.to_string value) in
 
-(*
+		(* Fetch the current memory constraints. *)
+		let constraints = {Vm_memory_constraints.
+			static_min  = get Names.memory_static_min;
+			dynamic_min = get Names.memory_dynamic_min;
+			target      = get Names.memory_target;
+			dynamic_max = get Names.memory_dynamic_max;
+			static_max  = get Names.memory_static_max;
+		} in
+
+		if (Db_backend.lookup_field_in_row vm_row Names.is_control_domain = "true") then
+		begin
+			(* Upgrades the memory constraints for every host's domain zero record.  *)
+			(* The new constraints must be:                                          *)
+			(*   1. valid from the point of view of non-upgraded Miami hosts         *)
+			(*      (they must not cause any change in memory balloon size for non-  *)
+			(*      upgraded hosts during a rolling upgrade from Miami to Orlando);  *)
+			(*   2. untransformably invalid from the point of view of Orlando hosts  *)
+			(*      (even after static_{min,max} are recalculated during startup).   *)
+			(*      This will cause the constraints to be regenerated by the         *)
+			(*      create_domain_zero_default_memory_constraints function when a    *)
+			(*      freshly-upgraded Orlando host boots for the very first time.     *)
+			(* The correctness of this function is important to the success of a     *)
+			(* rolling upgrade from Miami to Orlando. The sequence is as follows:    *)
+			(*   1. Upgrade master.                                                  *)
+			(*   2. Master comes back and updates the memory constraints for every   *)
+			(*      host's domain 0 record (this function).                          *)
+			(*   3. Master runs the update_domain_zero_record function for its own   *)
+			(*      domain 0 record (but no-one elses). This causes a fresh default  *)
+			(*      set of memory constraints to be generated for the master only.   *)
+			(*   4. Each slave restarts and connects to the master. After restarting *)
+			(*      a slave receives a copy of the upgraded database. Miami slaves   *)
+			(*      read the value of dynamic_max when determining their balloon     *)
+			(*      target, whose value remains unchanged by this function.          *)
+			(*   5. When a slave is upgraded, it runs the update_domain_zero_record  *)
+			(*      function for its own domain 0 record (but no-one elses), causing *)
+			(*      a fresh default set of memory constraints to be generated.       *)
+			set Names.memory_dynamic_min (constraints.Vm_memory_constraints.dynamic_max +++ 1L);
+		end else
+		(** Upgrades memory constraints for each VM record by giving memory_target   *)
+		(** an initial value equal to the existing value of memory_dynamic_max. In   *)
+		(** addition, attempts to transform any invalid constraints into valid ones. *)
+		begin
+			(* Take the original constraints and add target := dynamic_max *)
+			let constraints = {constraints with
+				Vm_memory_constraints.target =
+					if   constraints.Vm_memory_constraints.target = 0L
+					then constraints.Vm_memory_constraints.dynamic_max
+					else constraints.Vm_memory_constraints.target;
+			} in
+			(* Attempt to transform the original constraints into valid constraints. *)
+			(* If the transformation fails, then just keep the original constraints. *)
+			let constraints = match Vm_memory_constraints.transform constraints with
+				| Some transformed_constraints -> transformed_constraints
+				| None -> constraints in
+			(* Write the new (possibly-transformed) constraints back to the database. *)
+			set Names.memory_static_min  constraints.Vm_memory_constraints.static_min;
+			set Names.memory_dynamic_min constraints.Vm_memory_constraints.dynamic_min;
+			set Names.memory_target      constraints.Vm_memory_constraints.target;
+			set Names.memory_dynamic_max constraints.Vm_memory_constraints.dynamic_max;
+			set Names.memory_static_max  constraints.Vm_memory_constraints.static_max;
+		end;
+
+	) vm_rows
+
 let update_templates () =
-	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
-	let vm_rows = get_rowlist vm_table in
+	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
+	let vm_rows = Db_backend.get_rowlist vm_table in
 	(* Upgrade the memory constraints of each virtual machine. *)
 	List.iter (fun vm_row ->
 		(* CA-18974: We accidentally shipped Miami creating duplicate keys in template other-config; need to strip these out across
 		   upgrade *)
-		let other_config = lookup_field_in_row vm_row Names.other_config in
+		let other_config = Db_backend.lookup_field_in_row vm_row Names.other_config in
 		let other_config_kvs = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config in
 		(* so it turns out that it was actually the (k,v) pair as a whole that was duplicated,
 		   so we can just call setify on the whole key,value pair list directly;
@@ -136,156 +128,128 @@ let update_templates () =
 		let dups_removed = Listext.List.setify other_config_kvs in
 		(* marshall again and write back to dbrow *)
 		let dups_removed = String_marshall_helper.map (fun x->x) (fun x->x) dups_removed in
-		set_field_in_row vm_row Names.other_config dups_removed;
+		Db_backend.set_field_in_row vm_row Names.other_config dups_removed;
 
-		if bool_of_string (lookup_field_in_row vm_row Names.is_a_template) &&
+		if bool_of_string (Db_backend.lookup_field_in_row vm_row Names.is_a_template) &&
 		  (List.mem_assoc Xapi_globs.default_template_key other_config_kvs) then
 		    let default_template_key_val = List.assoc Xapi_globs.default_template_key other_config_kvs in
 		    if default_template_key_val="true" then
 		      begin
 			(* CA-18035: Add viridian flag to built-in templates (_not custom ones_) across upgrade *)
-			let platform = lookup_field_in_row vm_row Names.platform in
+			let platform = Db_backend.lookup_field_in_row vm_row Names.platform in
 			let platform_kvs = String_unmarshall_helper.map (fun x->x) (fun x->x) platform in
 			let platform_kvs =
 			  if not (List.mem_assoc Xapi_globs.viridian_key_name platform_kvs) then
 			    (Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value)::platform_kvs else platform_kvs in
 			let platform_kvs = String_marshall_helper.map (fun x->x) (fun x->x) platform_kvs in
-			set_field_in_row vm_row Names.platform platform_kvs;
+			Db_backend.set_field_in_row vm_row Names.platform platform_kvs;
 
 			(* CA-19924 If template name is "Red Hat Enterprise Linux 5.2" || "Red Hat Enterprise Linux 5.2 x64" then we need to ensure that
 			   we have ("machine-address-size", "36") in other_config. This is because the RHEL5.2 template changed between beta1 and beta2
 			   and we need to make sure it's the same after upgrade..
 			*)
-			let template_name_label = lookup_field_in_row vm_row Names.name_label in
-			let other_config = lookup_field_in_row vm_row Names.other_config in
+			let template_name_label = Db_backend.lookup_field_in_row vm_row Names.name_label in
+			let other_config = Db_backend.lookup_field_in_row vm_row Names.other_config in
 			let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config in
 			let other_config =
 			  if (template_name_label="Red Hat Enterprise Linux 5.2" || template_name_label="Red Hat Enterprise Linux 5.2 x64")
 			    && (not (List.mem_assoc Xapi_globs.machine_address_size_key_name other_config)) then
 			      (Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)::other_config else other_config in
 			let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
-			set_field_in_row vm_row Names.other_config other_config
+			Db_backend.set_field_in_row vm_row Names.other_config other_config
 
 		      end
 	) vm_rows
 *)
 
-(* GEORGE OEM -> BODIE/MNR *)	
-let upgrade_bios_strings () =
-	let oem_manufacturer =
-		try
-			let ic = open_in "/var/tmp/.previousInventory" in
-			let rec find_oem_manufacturer () =
-				let line = input_line ic in
-				match Xapi_inventory.parse_inventory_entry line with
-				| Some (k, v) when k = "OEM_MANUFACTURER" -> Some v
-				| Some _ -> find_oem_manufacturer () 
-				| None -> None
-			in
-			Pervasiveext.finally (find_oem_manufacturer) (fun () -> close_in ic)
-		with _ -> None
-	in
-	let update_vms bios_strings =
-		let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
-		let vm_rows = get_rowlist vm_table in
-		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
-		let update vm_row =
-			set_field_in_row vm_row Names.bios_strings bios_strings_kvs
-		in
-		List.iter update vm_rows
-	in
-	match oem_manufacturer with
-	| Some oem ->
-		info "Upgrade from OEM edition (%s)." oem;
-		if String.has_substr oem "HP" then begin
-			debug "Using old HP BIOS strings";
-			update_vms Xapi_globs.old_hp_bios_strings
-		end else if String.has_substr oem "Dell" then begin
-			debug "Using old Dell BIOS strings";
-			update_vms Xapi_globs.old_dell_bios_strings
-		end		
-	| None ->
-		info "Upgrade from retail edition.";
-		debug "Using generic BIOS strings";
-		update_vms Xapi_globs.generic_bios_strings
+(* !!! This fn is release specific: REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES *)
+(* !!! CAUTION: In Orlando, this fn is called on _every_ master start (see comment at the top of this file)
+   Make sure the things you add here are OK to run every time, not just on upgrade *)
+let non_generic_db_upgrade_rules () = ()
 
-let update_snapshots () = 
-	(* GEORGE -> MIDNIGHT RIDE *)
-	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
-	let vm_rows = get_rowlist vm_table in
-	let update_snapshots vm_row =
-		let vm = lookup_field_in_row vm_row Names.ref in
-		let snapshot_rows = List.filter (fun s -> lookup_field_in_row s Names.snapshot_of = vm) vm_rows in
-		let compare s1 s2 =
-			let t1 = lookup_field_in_row s1 Names.snapshot_time in
-			let t2 = lookup_field_in_row s2 Names.snapshot_time in
-			compare t1 t2 in
-		let ordered_snapshot_rows = List.sort compare snapshot_rows in
-		debug "Snapshots(%s) = {%s}" vm (String.concat ", " (List.map (fun s -> lookup_field_in_row s Names.ref) ordered_snapshot_rows));
-		let rec aux = function
-			| [] | [_] -> ()
-			| s1 :: s2 :: t ->
-				set_field_in_row s2 Names.parent (lookup_field_in_row s1 Names.ref);
-				aux (s2 :: t) in
-		aux (ordered_snapshot_rows @ [ vm_row]) in
-	List.iter update_snapshots vm_rows
+let upgrade_from_last_release dbconn =
+  debug "Database schema version is that of last release: attempting upgrade";
 
-(** A list of all the custom database upgrade rules known to the system. *)
-let upgrade_rules = 
-  let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn in
-  [ { description = "Updating snapshot parent references";
-      version = george;
-      fn = update_snapshots };
-    { description = "Upgrading VM memory fields for DMC";
-      version = george;
-      fn = upgrade_vm_records };
-    { description = "Upgrading VM BIOS strings";
-      version = george;
-      fn = upgrade_bios_strings } ]
+  (* !!! UPDATE THIS WHEN MOVING TO NEW RELEASE !!! *)
+  let old_release = Datamodel_types.rel_orlando in
+  let this_release = Datamodel_types.rel_george in
 
-(** {Generic database upgrade handling} *)
+  let objs_in_last_release =
+    List.filter (fun x -> List.mem old_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
+  let table_names_in_last_release =
+    List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) objs_in_last_release in
 
-(** Automatically insert blank tables and new columns with default values *)
-let generic_database_upgrade () =
-  let existing_table_names = fold_over_tables (fun name _ acc -> name :: acc) Db_backend.cache [] in
-  let api_table_names = List.map (fun x -> Escaping.escape_obj x.Datamodel_types.name) Db_backend.api_objs in
-  let created_table_names = Listext.List.set_difference api_table_names existing_table_names in
-  let deleted_table_names = Listext.List.set_difference existing_table_names api_table_names in
-  List.iter (fun tblname ->
-	       debug "Adding new database table: '%s'" tblname;
-	       let newtbl = create_empty_table () in
-	       set_table_in_cache Db_backend.cache tblname newtbl) created_table_names;
-  List.iter (fun tblname ->
-	       debug "Ignoring legacy database table: '%s'" tblname
-	    ) deleted_table_names;
+  let objs_in_this_release =
+    List.filter (fun x -> List.mem this_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
+  let table_names_in_this_release =
+    List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) objs_in_this_release in
+
+  let table_names_new_in_this_release =
+    List.filter (fun tblname -> not (List.mem tblname table_names_in_last_release)) table_names_in_this_release in
   
+  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
+  Db_connections.populate dbconn table_names_in_last_release;
+
+  (* we also have to ensure that the in-memory cache contains the new tables added in this release that will not have been
+     created by the proceeding populate (cos this is restricted to table names in last release). Unless the new tables are
+     explicitly added to the in-memory cache they will not be written out into the new db file across upgrade. [Turns out
+     you get away with this in the sqlite backend since there the tables are created from the schema_file; in the XML
+     backend you're not so lucky, so this needs to be made explicit..
+  *)
+  let create_blank_table_in_cache tblname =
+    let newtbl = Hashtbl.create 20 in
+    Db_backend.set_table_in_cache tblname newtbl in
+  List.iter create_blank_table_in_cache table_names_new_in_this_release;
+
   (* for each table, go through and fill in missing default values *)
+  let add_default_fields_to_tbl tblname =
+    let tbl = Db_backend.lookup_table_in_cache tblname in
+    let rows = Db_backend.get_rowlist tbl in
+    let add_fields_to_row r =
+      let kvs = Hashtbl.fold (fun k v env -> (k,v)::env) r [] in
+      let new_kvs = Db_backend.add_default_kvs kvs tblname in
+      (* now blank r and fill it with new kvs: *)
+      Hashtbl.clear r;
+      List.iter (fun (k,v) -> Hashtbl.replace r k v) new_kvs in
+    List.iter add_fields_to_row rows in
+
+  (* Go and fill in default values *)
+  List.iter add_default_fields_to_tbl table_names_in_last_release;
+  
+  non_generic_db_upgrade_rules();
+
+  (* Now do the upgrade: *)
+  (* 1. move existing db out of the way *)
+  Unix.rename dbconn.Parse_db_conf.path (dbconn.Parse_db_conf.path ^ ".prev_version." ^ (string_of_float (Unix.gettimeofday())));
+  let dbconn_to_flush_to = Db_connections.preferred_write_db() in
+  (* 2. create a new empty db file (with current schema) *)
+  Db_connections.create_empty_db dbconn_to_flush_to;
+  (* 3. mark all tables we want to write data into as dirty, and all rows as new *)
   List.iter
-    (fun tblname ->
-       let tbl = lookup_table_in_cache Db_backend.cache tblname in
-       let rows = get_rowlist tbl in
-       let add_fields_to_row objref r =
-	 let kvs = fold_over_fields (fun k v env -> (k,v)::env) r [] in
-	 let new_kvs = Db_backend.add_default_kvs kvs tblname in
-	 (* now blank r and fill it with new kvs: *)
-	 let newrow = create_empty_row () in
-	 List.iter (fun (k,v) -> set_field_in_row newrow k v) new_kvs;
-	 set_row_in_table tbl objref newrow
-       in
-       iter_over_rows add_fields_to_row tbl) 
-    api_table_names
+    (fun tname ->
+	   Db_dirty.set_all_dirty_table_status tname;
+	   let rows = Db_backend.get_rowlist (Db_backend.lookup_table_in_cache tname) in
+	   let objrefs = List.map (fun row -> Db_backend.lookup_field_in_row row Db_backend.reference_fname) rows in
+	   List.iter (fun objref->Db_dirty.set_all_row_dirty_status objref Db_dirty.New) objrefs
+    )
+    table_names_in_last_release;
+  debug "Database upgrade complete, restarting to use new db";
+  (* 4. flush and exit with restart return code, so watchdog kicks xapi off again (this time with upgraded db) *)
+  ignore (Db_connections.flush_dirty_and_maybe_exit dbconn_to_flush_to (Some Xapi_globs.restart_return_code))
+
+exception Schema_mismatch
 
 (* Maybe upgrade most recent db *)
 let maybe_upgrade most_recent_db =
-  let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Backend_xml.read_schema_vsn most_recent_db in
-  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
-  let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
-  let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
-  debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;
-  if previous_vsn > latest_vsn
-  then warn "Database schema version %s is more recent than binary %s: downgrade is unsupported." previous_string previous_string
-  else 
-    if previous_vsn < latest_vsn 
-    then apply_upgrade_rules upgrade_rules previous_vsn
-    else
-      debug "Database schemas match, no upgrade required"
+  debug "Considering upgrade...";
+  let major_vsn, minor_vsn = Db_connections.read_schema_vsn most_recent_db in
+  debug "Db has schema major_vsn=%d, minor_vsn=%d (current is %d %d) (last is %d %d)" major_vsn minor_vsn Datamodel.schema_major_vsn Datamodel.schema_minor_vsn Datamodel.last_release_schema_major_vsn Datamodel.last_release_schema_minor_vsn;
+  begin
+    if major_vsn=Datamodel.schema_major_vsn && minor_vsn=Datamodel.schema_minor_vsn then
+      () (* current vsn: do nothing *)
+    else if major_vsn=Datamodel.last_release_schema_major_vsn && minor_vsn=Datamodel.last_release_schema_minor_vsn then begin
+      upgrade_from_last_release most_recent_db
+      (* Note: redo log is not active at present because HA is always disabled before an upgrade. *)
+      (* If this ever becomes not the case, consider invalidating the redo-log here (using Redo_log.empty()). *)
+    end else raise Schema_mismatch
+  end

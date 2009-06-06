@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D=Debug.Debugger(struct let name="xapi-hooks" end)
 open D
 
@@ -25,7 +12,6 @@ let reason__clean_reboot   = "clean-reboot"
 let reason__hard_reboot    = "hard-reboot"
 let reason__suspend        = "suspend"
 let reason__migrate_source = "source" (* passed to pre-migrate hook on source host *)
-let reason__revert         = "revert"
 
 (* Names of Host script hooks *)
 let scriptname__host_pre_declare_dead = "host-pre-declare-dead"
@@ -39,8 +25,6 @@ let reason__fenced = "fenced"
 (* Names of Pool script hooks *)
 let scriptname__pool_ha_overcommitted = "pool-ha-overcommitted"
 let scriptname__pool_pre_ha_vm_restart = "pool-pre-ha-vm-restart"
-let scriptname__pool_join = "pool-join"
-let scriptname__pool_eject = "pool-eject"
 let reason__none = "none"
 
 (* Exit codes: *)
@@ -122,11 +106,5 @@ let pool_ha_overcommitted_hook ~__context =
 
 let pool_pre_ha_vm_restart_hook ~__context = 
   execute_pool_hook ~__context ~script_name:scriptname__pool_pre_ha_vm_restart ~reason:reason__none
-
-let pool_join_hook ~__context =
-  execute_pool_hook ~__context ~script_name:scriptname__pool_join ~reason:reason__none
-
-let pool_eject_hook ~__context =
-  execute_pool_hook ~__context ~script_name:scriptname__pool_eject ~reason:reason__none
 
 let pool_pre_ha_vm_restart_hook_exists () = Array.length (list_individual_hooks ~script_name:scriptname__pool_pre_ha_vm_restart) > 0

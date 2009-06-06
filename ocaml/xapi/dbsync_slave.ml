@@ -1,35 +1,21 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Main Loop and Start-up
- *)
- 
 open Stringext
 open Listext
+open Sql
 open Printf
 open Vmopshelpers
 open Create_misc
 open Client
-open Pervasiveext
 
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 
-let ( ++ ) = Int64.add
-let ( -- ) = Int64.sub
-let ( ** ) = Int64.mul
-let ( // ) = Int64.div
+let trim_end s =
+        let i = ref (String.length s - 1) in
+        while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
+	do
+		decr i
+	done;
+        if !i >= 0 then String.sub s 0 (!i + 1) else ""
 
 (* create localhost record *)
 
@@ -39,18 +25,12 @@ let get_my_ip_addr() =
     | None -> (error "Cannot read IP address. Check the control interface has an IP address"; "")
 
 let create_localhost ~__context =
-  let info = Create_misc.read_localhost_info () in
-  let ip = get_my_ip_addr () in
-  let me = try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None in
-  (* me = None on firstboot only *)
-  if me = None
-  then 
-    let (_: API.ref_host) = 
-      Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname ~name_description:"" 
-	~hostname:info.hostname ~address:ip 
-	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
-	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
-    in ()
+      let info = Create_misc.read_localhost_info() in
+	let (_ : API.ref_host) =
+	  Create_misc.create_host ~__context ~name_label:info.hostname
+	    ~xen_verstring:info.xen_verstring ~linux_verstring:info.linux_verstring ~capabilities:(Xapi_host.get_xen_capabilities())
+	    ~hostname:info.hostname ~uuid:info.uuid ~address:(get_my_ip_addr()) in
+	  ()
 
 (* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
@@ -73,18 +53,24 @@ let get_start_time () =
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 let refresh_localhost_info ~__context =
   let host = !Xapi_globs.localhost_ref in
-  let info = read_localhost_info () in
-  let software_version = Create_misc.make_software_version () in
+  let info = Create_misc.read_localhost_info() in
+  let software_version = Xapi_globs.software_version @
+    (Create_misc.make_software_version (get_xapi_verstring()) info.xen_verstring info.linux_verstring
+       Xapi_globs.xencenter_min_verstring Xapi_globs.xencenter_max_verstring
+       info.oem_manufacturer info.oem_model info.oem_build_number
+       info.machine_serial_number
+       info.machine_serial_name) in
+  let software_version = software_version @ (if Helpers.linux_pack_is_installed() then [(Xapi_globs.linux_pack_vsn_key,Xapi_globs.installed)] else []) in
+
+  Xapi_globs.localhost_software_version := software_version; (* Cache this *)
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
-  debug "Updating host software_version";
 
     Db.Host.set_software_version ~__context ~self:host ~value:software_version;
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-    let caps = String.split ' ' (Xc.with_intf (fun xc -> Xc.version_capabilities xc)) in
-    Db.Host.set_capabilities ~__context ~self:host ~value:caps;
+    Db.Host.set_capabilities ~__context ~self:host ~value:(Xapi_host.get_xen_capabilities());
     Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr());
 
     let boot_time_key = "boot_time" in
@@ -106,6 +92,179 @@ let refresh_localhost_info ~__context =
       Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
     end else
       Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
+
+(** copy bonded and vlan pifs from master *)
+let copy_bonds_from_master ~__context =
+  if Pool_role.is_master () then () (* if master do nothing *)
+  else
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+	 (* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
+	 let me = !Xapi_globs.localhost_ref in
+	 let pool = List.hd (Db.Pool.get_all ~__context) in
+	 let master = Db.Pool.get_master ~__context ~self:pool in
+
+	 let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
+	 let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) all_pifs in
+	 let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) all_pifs in
+    
+	 (* Consider Bonds *)
+	 debug "Resynchronising bonds";
+	 let all_bonds = Db.Bond.get_records_where ~__context ~expr:Db_filter_types.True in
+	 let maybe_create_bond_for_me bond = 
+	   let network = Db.PIF.get_network ~__context ~self:bond.API.bond_master in
+	   let slaves_to_mac_and_device_map =
+	     List.map (fun self -> self, Db.PIF.get_MAC ~__context ~self, Db.PIF.get_device ~__context ~self) bond.API.bond_slaves in
+	   (* Take the MAC addr of the bond and figure out whether this is the MAC address of any of the
+	      slaves. If it is then we will use this to ensure that we inherit the MAC address from the _same_
+	      slave when we re-create on the slave *)
+	   let master_bond_mac = Db.PIF.get_MAC ~__context ~self:bond.API.bond_master in
+	   let master_slaves_with_same_mac_as_bond (* expecting a list of at most 1 here *) =
+	     List.filter (fun (pifref,mac,device)->mac=master_bond_mac) slaves_to_mac_and_device_map in
+	   (* This tells us the device that the master used to inherit the bond's MAC address
+	      (if indeed that is what it did; we set it to None if we think it didn't do this) *)
+	   let device_of_primary_slave =
+	     match master_slaves_with_same_mac_as_bond with
+	       [] -> None
+	     | [_,_,device] ->
+		 debug "Master bond has MAC address derived from %s" device;
+		 Some device (* found single slave with mac matching bond master => this was one that we inherited mac from *)
+	     | _ -> None in
+	   (* Look at the master's slaves and find the corresponding slave PIFs. Note that the slave
+	      might not have the necessary devices: in this case we'll try to make partial bonds *)
+	   let slave_devices = List.map (fun (_,_,device)->device) slaves_to_mac_and_device_map in
+	   let my_slave_pifs = List.filter (fun (_, pif) -> List.mem pif.API.pIF_device slave_devices && pif.API.pIF_VLAN = (-1L)) my_pifs in
+
+	   let my_slave_pif_refs = List.map fst my_slave_pifs in
+	   (* Do I have a pif that I should treat as a primary pif - i.e. the one to inherit the MAC address from on my bond create? *)
+	   let my_primary_slave =
+	     match device_of_primary_slave with
+	       None -> None (* don't care cos we couldn't even figure out who master's primary slave was *)
+	     | Some master_primary ->
+		 begin
+		   match List.filter (fun (_,pif) -> pif.API.pIF_device=master_primary) my_slave_pifs with
+		     [] -> None
+		   | [pifref,_] ->
+		       debug "I have found a PIF to use as primary bond slave (will inherit MAC address of bond from this PIF).";
+		       Some pifref (* this is my pif corresponding to the master's primary slave *)
+		   | _ -> None
+		 end in
+	   (* If I do have a pif that I need to treat as my primary slave then I need to put it first in the list so the
+	      bond master will inherit it's MAC address *)
+	   let my_slave_pif_refs =
+	     match my_primary_slave with
+	       None -> my_slave_pif_refs (* no change *)
+	     | Some primary_pif -> primary_pif :: (List.filter (fun x-> x<>primary_pif) my_slave_pif_refs) (* remove primary pif ref and stick it on the front *) in
+	   
+	   match List.filter (fun (_, pif) -> pif.API.pIF_network = network) my_pifs, my_slave_pifs with
+	   | [], [] ->
+	       (* No bond currently exists but neither do any slave interfaces -> do nothing *)
+	       warn "Cannot create bond %s at all: no PIFs exist on slave" bond.API.bond_uuid
+	   | [], _ ->
+	       (* No bond currently exists but some slave interfaces do -> create a (partial?) bond *)
+	       let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" in ()
+	   | [ _, { API.pIF_bond_master_of = [ slave_bond ] } ], _ ->
+	       (* Some bond exists, check whether the existing set of slaves is the same as the potential set *)
+	       let current_slave_pifs = Db.Bond.get_slaves ~__context ~self:slave_bond in
+	       if not (List.set_equiv (List.setify current_slave_pifs) (List.setify my_slave_pif_refs)) then begin
+		 debug "Partial bond exists; recreating";
+		 Client.Bond.destroy rpc session_id slave_bond;
+		 let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" in ()
+	       end
+	   | [ _, { API.pIF_uuid = uuid } ], _ ->
+	       warn "Couldn't create bond on slave because PIF %s already on network %s"
+		 uuid (Db.Network.get_uuid ~__context ~self:network) in
+	 let master_bonds = List.filter (fun (_, b) -> List.mem b.API.bond_master (List.map fst all_master_pifs)) all_bonds in
+	 List.iter (Helpers.log_exn_continue "resynchronising bonds on slave" maybe_create_bond_for_me)
+	   (List.map snd master_bonds))
+	   
+let copy_vlans_from_master ~__context =
+  if Pool_role.is_master () then () (* if master do nothing *)
+  else
+    (* Consider VLANs after bonds so we can add VLANs on top of bonded interface (but not v.v.) *)
+    
+    (* Here's how we do vlan resyncing:
+       We take a VLAN master and record (i) the n/w it's on; (ii) it's VLAN tag; (iii) the network of the pif that underlies the VLAN [e.g. eth0 underlies eth0.25]
+       We then look to see whether we already have a VLAN record that is (i) on the same network; (ii) has the same tag; and (iii) also has a pif underlying it on the same network
+       If we do not already have a VLAN that falls into this category then we make one (as long as we already have a suitable pif to base the VLAN off -- if we don't have such a
+       PIF [e.g. if the master has eth0.25 and we don't have eth0] then we do nothing)
+    *)
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+	 debug "Resynchronising VLANs";
+
+	 let me = !Xapi_globs.localhost_ref in
+	 let pool = List.hd (Db.Pool.get_all ~__context) in
+	 let master = Db.Pool.get_master ~__context ~self:pool in
+
+	 let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
+	 let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) all_pifs in
+	 let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) all_pifs in
+
+	 let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
+	 let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
+
+	 let get_network_of_pif_underneath_vlan vlan_pif_ref =
+	   let pif_underneath_vlan = Helpers.get_pif_underneath_vlan ~__context vlan_pif_ref in
+	   let network_of_pif_underneath_vlan = Db.PIF.get_network ~__context ~self:pif_underneath_vlan in
+	   network_of_pif_underneath_vlan in
+
+	 let maybe_create_vlan_pif_for_me (master_pif_ref, master_pif_rec) =
+	   (* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
+	   let existing_pif = List.filter 
+	     (fun (my_pif_ref,my_pif_record) -> 
+		(* Is my VLAN PIF that we're considering (my_pif_ref) the one that corresponds to the master_pif we're considering (master_pif_ref)? *)
+		true 
+	         && my_pif_record.API.pIF_network = master_pif_rec.API.pIF_network 
+		 && my_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
+		 && ((get_network_of_pif_underneath_vlan my_pif_ref) = (get_network_of_pif_underneath_vlan master_pif_ref)) 
+	     ) my_vlan_pifs in
+	   (* if I don't have any such pif(s) then make one: *)
+	   if List.length existing_pif = 0 
+	   then
+	     begin
+	       (* On the master, we find the pif, p, that underlies the VLAN (e.g. "eth0" underlies "eth0.25") and then find the network
+		  that p's on:
+	       *)
+	       let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
+	       match List.filter (fun (_,prec) -> prec.API.pIF_network=network_of_pif_underneath_vlan_on_master ) my_pifs with
+		   [] -> () (* we have no PIF on which to make the vlan; do nothing *)
+		 | [(pif_ref,_)] -> (* this is the PIF on which we want to base our vlan record; let's make it *)
+		     ignore (Client.VLAN.create ~rpc ~session_id ~tagged_PIF:pif_ref ~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network)
+		 | _ -> () (* this should never happen cos we should never have more than one of _our_ pifs on the same nework *)
+	     end in 
+	 (* for each of the master's pifs, create a corresponding one on this host if necessary *)
+	 List.iter maybe_create_vlan_pif_for_me master_vlan_pifs
+      )
+
+(* CA-25162: Dechainify VLANs. We're actually doing this for _all_
+ * PIFs, not just those relevant to localhost. Mostly this will be
+ * a no-op, and it shouldn't matter if we fix problems for other hosts
+ * here, and it covers the case where we're a slave and the master has
+ * broken vlans which need to be corrected before we try to replicate
+ * them *)
+let fix_chained_vlans ~__context =
+  let pifs = Db.PIF.get_all_records ~__context in 
+  let (vlan_pifs,underlying_pifs) = List.partition (fun (_,pifr) -> pifr.API.pIF_VLAN >= 0L) pifs in
+  List.iter (fun (vlan_pif_ref,vlan_pif_record) ->
+    let pif_underneath_vlan = Helpers.get_pif_underneath_vlan ~__context vlan_pif_ref in
+    if not (List.exists (fun (pif_ref,_) -> pif_ref = pif_underneath_vlan) underlying_pifs) then begin
+      (* There's a problem - the underlying PIF of the vlan might be a vlan itself (or might not exist)
+	 Find the real underlying PIF by matching the host and device *)
+      try
+	let (real_pif_ref,real_pif_rec) = List.find (fun (_,pif_rec) -> 
+	  pif_rec.API.pIF_host = vlan_pif_record.API.pIF_host &&
+	    pif_rec.API.pIF_device = vlan_pif_record.API.pIF_device) underlying_pifs in
+	let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
+	warn "Resetting tagged PIF of VLAN %s, previously was %s" (Ref.string_of vlan) (Ref.string_of pif_underneath_vlan);
+	Db.VLAN.set_tagged_PIF ~__context ~self:vlan ~value:real_pif_ref
+      with _ ->
+	(* Can't find an underlying PIF - delete the VLAN record. This is pretty unlikely. *)
+	error "Destroying dangling VLAN and associated PIF record - the underlying device has disappeared";
+	let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
+	Db.VLAN.destroy ~__context ~self:vlan;
+	Db.PIF.destroy ~__context ~self:vlan_pif_ref
+    end) vlan_pifs
 
 (*************** update database tools ******************)
 
@@ -151,7 +310,7 @@ let update_vms ~xal ~__context =
   (* Remove all the scheduled_to_be_resident_on VMs which are resident_on somewhere since that host 'owns' them.
      NB if resident_on this host the VM will still be counted in the all_resident_on_vms set *)
   let really_my_scheduled_to_be_resident_on_vms = 
-    List.filter (fun (_, vm_r) -> not (Db.is_valid_ref vm_r.API.vM_resident_on)) all_scheduled_to_be_resident_on_vms in
+    List.filter (fun (_, vm_r) -> not (Db_cache.DBCache.is_valid_ref (Ref.string_of vm_r.API.vM_resident_on))) all_scheduled_to_be_resident_on_vms in
   let all_vms_assigned_to_me = Listext.List.setify (all_resident_on_vms @ really_my_scheduled_to_be_resident_on_vms) in
 
   let all_vbds = Db.VBD.get_records_where ~__context ~expr:Db_filter_types.True in
@@ -205,16 +364,14 @@ let update_vms ~xal ~__context =
 	 List.iter
 	   (fun vbd ->
 	      try
-			if Db.is_valid_ref vbd && not (Db.VBD.get_empty ~__context ~self:vbd)
-			then Events.Resync.vbd ~__context token vmref vbd
+		Events.Resync.vbd ~__context token vmref vbd
 	      with e ->
 		warn "Caught error resynchronising VBD: %s" (ExnHelper.string_of_exn e)) vm_vbds;
 	 let vm_vifs = vmrec.API.vM_VIFs in
 	 List.iter 
 	   (fun vif ->
 	      try
-			if Db.is_valid_ref vif
-			then Events.Resync.vif ~__context token vmref vif
+		Events.Resync.vif ~__context token vmref vif
 	      with e ->
 		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs
       ) () in
@@ -265,15 +422,9 @@ let update_vms ~xal ~__context =
 	set_db_state_and_domid vmref state dinfo.Xc.domid;
       end;
     (* Now sync devices *)
-    debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
-    let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
+      debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
+      let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
 	sync_devices dinfo;
-	(* Update the VM's guest metrics since: (i) while we were offline we may
-	   have missed an update; and (ii) if the tools .iso has been updated then
-	   we wish to re-evaluate whether we believe the VMs have up-to-date
-	   tools *)
-
-	Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
 	(* Now register with monitoring thread *)
 
       Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
@@ -322,51 +473,14 @@ let update_vms ~xal ~__context =
     List.iter managed_domain_running my_active_managed_domains;
     List.iter managed_domain_shutdown my_shutdown_managed_domains
 
-(* record host memory properties in database *)
-let record_host_memory_properties ~__context =
-	let self = !Xapi_globs.localhost_ref in
-	let total_memory_bytes =
-		with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
-	let metrics = Db.Host.get_metrics ~__context ~self in
-	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
-	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
-	let boot_memory_string =
-		try
-			Some (Unixext.read_whole_file_to_string boot_memory_file)
-		with e ->
-			warn "Could not read host free memory file. This may prevent \
-			VMs from being started on this host. (%s)" (Printexc.to_string e);
-			None in
-	maybe
-		(fun boot_memory_string ->
-			let boot_memory_bytes = Int64.of_string boot_memory_string in
-			(* Host memory overhead comes from multiple sources:         *)
-			(* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
-			(*    appears as used memory.                                *)
-			(* 2. non-obvious overhead: (e.g. low memory emergency pool) *)
-			(*    appears as free memory but can't be used in practice.  *)
-			let obvious_overhead_memory_bytes =
-				total_memory_bytes -- boot_memory_bytes in
-			let nonobvious_overhead_memory_kib = 
-				try
-					Vmopshelpers.with_xs
-						(fun xs -> Int64.of_string
-							(xs.Xs.read
-								Xapi_globs.squeezed_reserved_host_memory))
-				with _ ->
-					error "Failed to read %s: \
-						host memory overhead may be too small"
-						Xapi_globs.squeezed_reserved_host_memory;
-					0L
-			in
-			let nonobvious_overhead_memory_bytes =
-				Memory.bytes_of_kib nonobvious_overhead_memory_kib in
-			Db.Host.set_boot_free_mem ~__context ~self
-				~value:boot_memory_bytes;
-			Db.Host.set_memory_overhead ~__context ~self ~value:
-				(obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes);
-		)
-		boot_memory_string
+(* record host free memory in database *)
+let record_host_free_memory ~__context =
+  try
+    let bootfreemem =
+      Int64.of_string (Unixext.read_whole_file_to_string Xapi_globs.initial_host_free_memory_file) in
+      Db.Host.set_boot_free_mem ~__context ~self:!Xapi_globs.localhost_ref ~value:bootfreemem
+  with e ->
+    warn "Could not read host free memory file. This may prevent VMs from being started on this host. (%s)" (Printexc.to_string e)
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
    Committing commented out vsn of this because it might be useful again..
@@ -425,7 +539,7 @@ let resynchronise_pif_currently_attached ~__context =
   (* See which PIFs were brought up at start of day, according to the inventory file *)
   let pifs_brought_up =
     try
-      let bridges_already_up = Xapi_pif.read_bridges_from_inventory () in
+      let bridges_already_up = Xapi_pif.read_ha_bridges_from_inventory () in
       debug "HA interfaces: [%s]" (String.concat "; " bridges_already_up);
       (* Create a list pairing each PIF with the bridge for the network that it is on *)
       let pifs_with_bridges = List.map (fun (pif,pifr) -> (pif, Db.Network.get_bridge ~__context ~self:pifr.API.pIF_network)) (Db.PIF.get_all_records ~__context) in
@@ -439,8 +553,7 @@ let resynchronise_pif_currently_attached ~__context =
        let is_management_pif = Xapi_pif.is_my_management_pif ~__context ~self in
        let was_pif_brought_up_at_start_of_day = List.mem self (List.map fst pifs_brought_up) in
        (* Mark important interfaces as attached *)
-       let mark_as_attached = is_management_pif || was_pif_brought_up_at_start_of_day || 
-                              (Mtc.is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self) in
+       let mark_as_attached = is_management_pif || was_pif_brought_up_at_start_of_day in
        Db.PIF.set_currently_attached ~__context ~self ~value:mark_as_attached;
        Db.PIF.set_management ~__context ~self ~value:is_management_pif;
        debug "Marking PIF device %s as %s" (Db.PIF.get_device ~__context ~self) (if mark_as_attached then "attached" else "offline")
@@ -480,21 +593,17 @@ let update_env __context sync_keys =
   (* record who we are in xapi_globs *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 
-  (* Set the cache_sr *)
-  begin 
-	  try
-		  let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
-		  let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
-		  Monitor.set_cache_sr cache_sr_uuid
-	  with _ -> Monitor.unset_cache_sr () 
-  end;
-  
   (* Load the host rrd *)
   Monitor_rrds.load_rrd ~__context (Helpers.get_localhost_uuid ()) true;
 
-  (* maybe record host memory properties in database *)
-  switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
-    record_host_memory_properties ~__context;
+  (* refresh host info fields *)
+  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
+    refresh_localhost_info ~__context;
+  );
+
+  (* maybe record host free memory in database *)
+  switched_sync Xapi_globs.sync_record_host_free_memory (fun () ->
+    record_host_free_memory ~__context;
   );
 
   switched_sync Xapi_globs.sync_create_host_cpu (fun () ->
@@ -529,6 +638,26 @@ let update_env __context sync_keys =
   update_physical_networks ~__context;
 *)
 
+  switched_sync Xapi_globs.sync_dechainify_vlans (fun () ->
+    debug "dechainifying VLANs";
+    fix_chained_vlans ~__context
+  );
+
+  switched_sync Xapi_globs.sync_copy_pifs_from_master (fun () ->
+    debug "resynchronising bonded and vlan pif records with pool master";
+(* If you're considering merging up bonds/vlans into a single
+   phase, then be careful. I separated them explicitly because previously
+   the vlan copy-phase was using out-of-date PIF.get_all_records for itself,
+   even though new bonds had been inherited and it needed to
+   explicitly refresh its list of PIFs before proceeding to the VLAN phase.. *)
+    try
+      copy_bonds_from_master ~__context;
+      copy_vlans_from_master ~__context;
+    with e -> (* Errors here are non-data-corrupting hopefully, so we'll just carry on regardless... *)
+      error "Caught exception syncing PIFs from the master: %s" (ExnHelper.string_of_exn e);
+      log_backtrace ()
+  );
+
   switched_sync Xapi_globs.sync_resynchronise_pif_currently_attached (fun () ->
     debug "resynchronising PIF.currently_attached";
     resynchronise_pif_currently_attached ~__context;
@@ -537,20 +666,4 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_patch_update_db (fun () ->
     debug "checking patch status";
     Xapi_pool_patch.update_db ~__context
-  );
-  
-  switched_sync Xapi_globs.sync_bios_strings (fun () ->
-    debug "get BIOS strings on startup";
-    if Db.Host.get_bios_strings ~__context ~self:localhost = [] then
-      Bios_strings.set_host_bios_strings ~__context ~host:localhost
-  );
-
-  (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
-	 of all the hosts are the same. It will then assume that (for example) per-host patch records have
-	 been tidied up and attempt to delete orphaned pool-wide patch records. *)
-
-  (* refresh host info fields *)
-  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
-    refresh_localhost_info ~__context;
-  );
-
+  )

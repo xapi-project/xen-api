@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Http
 open Printf
 open Pervasiveext
@@ -32,47 +19,56 @@ let get_capabilities () =
 (* This fn outputs xen-bugtool straight to the socket, only
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
-  let s_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  
-  let params = 
-    [sprintf "--entries=%s" entries;
-     "--silent";
-     "--yestoall";
-     sprintf "--output=%s" output;
-     "--outfd="^s_uuid]
-  in
-  let cmd = 
-    sprintf "%s %s" xen_bugtool (String.concat " " params)
-  in
-  debug "running %s" cmd;
-  try
-    let headers = 
-      Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-        [ "Server: "^Xapi_globs.xapi_user_agent;
-          "Content-Type: " ^ content_type;
-          "Content-Disposition: attachment; filename=\"system_status.tgz\""] 
-    in
-    Http_svr.headers s headers;
-    
-    let result =  with_logfile_fd "get-system-status"
-      (fun log_fd ->
-	let pid = 
-          safe_close_and_exec None (Some log_fd) (Some log_fd) [(s_uuid,s)] xen_bugtool params
-	in
-	waitpid_fail_if_bad_exit pid
+  (* Make a copy of the socket fd as it closes when we exec *)
+  let cp_of_s = Unix.dup s in
+    finally
+      (fun () ->
+         let output_fd = Unixext.int_of_file_descr cp_of_s in
+         let params = 
+           [sprintf "--entries=%s" entries;
+            "--silent";
+            "--yestoall";
+            sprintf "--output=%s" output;
+            sprintf "--outfd=%i" output_fd]
+         in
+         let cmd = 
+           sprintf "%s %s" xen_bugtool (String.concat " " params)
+         in
+           debug "running %s" cmd;
+           try
+             let headers = 
+               Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
+                 [ "Server: "^Xapi_globs.xapi_user_agent;
+                   "Content-Type: " ^ content_type;
+                   "Content-Disposition: attachment; filename=\"system_status.tgz\""] 
+             in
+               Http_svr.headers s headers;
+                   
+               let result =  with_logfile_fd "get-system-status"
+	             (fun log_fd ->
+	                let pid = 
+                      safe_close_and_exec 
+                        [ Close(Unix.stdin);
+                          Dup2(log_fd, Unix.stdout);
+		                  Dup2(log_fd, Unix.stderr); ]
+		                [ Unix.stdout; Unix.stderr; cp_of_s ] 
+                        xen_bugtool params
+                    in
+                      waitpid pid
+                 )
+               in
+                 match result with
+	               | Success _ -> debug "xen-bugtool exited successfully"
+                       
+	               | Failure (log, exn) ->
+	                   debug "xen-bugtool failed with output: %s" log;
+	                   raise exn
+           with e ->
+             let msg = "xen-bugtool failed: " ^ (Printexc.to_string e) in
+               error "%s" msg;
+               raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
       )
-    in
-    match result with
-      | Success _ -> debug "xen-bugtool exited successfully"
-	  
-      | Failure (log, exn) ->
-	  debug "xen-bugtool failed with output: %s" log;
-	  raise exn
-  with e ->
-    let msg = "xen-bugtool failed: " ^ (Printexc.to_string e) in
-    error "%s" msg;
-    raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
-
+      (fun () -> Unix.close cp_of_s)
       
 (* This fn outputs xen-bugtool into a file and then write the 
    file out to the socket, to deal with zipped bugtool outputs 
@@ -102,7 +98,7 @@ let send_via_cp __context s entries output =
                 
 let handler (req: request) s =
   debug "In system status http handler...";
-  req.close <- true;
+  req.close := true;
   let get_param s =
     try List.assoc s req.query
     with _ -> ""

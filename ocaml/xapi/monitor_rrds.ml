@@ -1,21 +1,7 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** RRD maintainence code
- * @group Performance Monitoring
- *)
-
-(**
+(* Copyright (C) 2008 Citrix.
+ * 
+ * RRD maintainence code
+ * 
  * This module is primarily concerned with the lifecycle of RRDs. They
  * are created here, stored to disk, retrieved from disk, and sent
  * amongst the pool.
@@ -109,19 +95,6 @@ let read_gzipped_file_with_fallback path =
   end
 
 
-let use_min_max = ref false 
-
-let update_use_min_max () =
-  Server_helpers.exec_with_new_task "rrd_update_min_max" (fun __context -> 
-    let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-    let new_use_min_max =  (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
-      (List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
-    in
-    debug "Updating use_min_max: New value=%b" new_use_min_max;
-    use_min_max := new_use_min_max)
-
-    
-
 (** Here is the only place where RRDs are created. The timescales are fixed. If other timescales
     are required, this could be done externally. The types of archives created are also fixed.
     Currently, we're making 4 timescales of 3 types of archive. This adds up to a total of
@@ -201,7 +174,7 @@ let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid body =
       if exists then begin
       	Unixext.mkdir_safe Xapi_globs.xapi_rrd_location 0o755;
 	let base_filename = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
-	Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
+	Unixext.atomic_write_to_file (base_filename ^ ".gz")
 	  (fun fd -> 
 	    Gzip.compress fd (fun fd ->
 	      let len = String.length body in 
@@ -272,37 +245,20 @@ let send_host_rrd_to_master () =
     We save our host RRD and running VM RRDs on the local filesystem and pick them up when we restart. *)
 let backup ?(save_stats_locally=true) () =
   debug "backup safe_stats_locally=%b" save_stats_locally;
-  let total_cycles = 5 in
-  let cycles_tried = ref 0 in
-  while !cycles_tried < total_cycles do
-    if Mutex.try_lock mutex then begin
-      cycles_tried := total_cycles;
-      let vrrds = 
-        try 
-          Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) vm_rrds []
-        with exn ->
-          Mutex.unlock mutex;
-          raise exn
-      in
-      Mutex.unlock mutex;
-      List.iter (fun (uuid,rrd) -> 
-                  debug "Backup: saving RRD for VM uuid=%s to local disk" uuid; 
-                  let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrd) in
-                  archive_rrd uuid ~save_stats_locally rrd) 
-        vrrds;
-      match !host_rrd with 
-        | Some rrdi -> 
-            debug "Backup: saving RRD for host to local disk";
-            let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrdi.rrd) in
-            archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally rrd
-        | None -> ()
-    end else begin
-      cycles_tried := 1 + !cycles_tried;
-      if !cycles_tried >= total_cycles
-      then debug "Could not acquire RRD lock, skipping RRD backup"
-      else Thread.delay 1.
-    end
-  done
+  let vrrds = 
+    Mutex.execute mutex (fun () -> Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) vm_rrds []) 
+  in
+  List.iter (fun (uuid,rrd) -> 
+              debug "Backup: saving RRD for VM uuid=%s to local disk" uuid; 
+              let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrd) in
+              archive_rrd uuid ~save_stats_locally rrd) 
+    vrrds;
+  match !host_rrd with 
+    | Some rrdi -> 
+        debug "Backup: saving RRD for host to local disk";
+        let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrdi.rrd) in
+        archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally rrd
+    | None -> ()
 
 (** Maybe_remove_rrd - remove an RRD from the local filesystem, if it exists *)
 let maybe_remove_rrd uuid =
@@ -343,7 +299,7 @@ let push_rrd ~__context uuid =
     let vm = Db.VM.get_by_uuid ~__context ~uuid in
     let host = Db.VM.get_resident_on ~__context ~self:vm in
     if host = Helpers.get_localhost ~__context then begin
-      let input = Xmlm.make_input (`String (0, body)) in
+      let input = Xmlm.input_of_string body in
       let rrd = Rrd.from_xml input in
       Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]}) 	      
     end else begin
@@ -358,7 +314,7 @@ let load_rrd_from_local_filesystem ~__context uuid =
   let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
   let body = read_gzipped_file_with_fallback path in
   debug "Loading RRD from local filesystem for object uuid=%s" uuid;
-  let input = Xmlm.make_input (`String (0, body)) in
+  let input = Xmlm.input_of_string body in
   Rrd.from_xml input
 
 (* Fetch an RRD from the master *)
@@ -383,7 +339,7 @@ let pull_rrd_from_master ~__context uuid is_host =
        let length, task = Xmlrpcclient.http_rpc_fd fd headers "" in
        let body = String.create length in
        Unixext.really_read fd body 0 length;
-       let input = Xmlm.make_input (`String (0, body)) in
+       let input = Xmlm.input_of_string body in
        debug "Pulled rrd for vm uuid=%s" uuid;
        Rrd.from_xml input)
     (fun () -> Stunnel.disconnect st_proc)
@@ -430,7 +386,7 @@ exception Invalid_RRD
 
 let receive_handler (req: Http.request) (bio: Buf_io.t) =
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   debug "RRD receive handler";
   if not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
@@ -457,7 +413,7 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
 	(* Now we know what sort of RRD it is, read it in and validate it *)
 	let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rrd_size req bio in
 
-	let input = Xmlm.make_input (`String (0, body)) in
+	let input = Xmlm.input_of_string body in
 	let rrd = try Rrd.from_xml input with _ -> raise Invalid_RRD in
 
 	(* By now we know it's a valid RRD *)
@@ -485,7 +441,7 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
 (** Send handler, for sending out requested RRDs *)
 let handler (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   debug "RRD handler";
   if not(List.mem_assoc "ref" query) && not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
@@ -524,7 +480,7 @@ let handler (req: Http.request) s =
 		
 		(* If the resident_on field is valid, or the request isn't 
 		   from dbsync, then redirect *)
-		if Db.is_valid_ref host &&
+		if (Db_cache.DBCache.is_valid_ref (Ref.string_of host)) &&
 		  (not (List.mem_assoc "dbsync" query)) then
 		  let address = Db.Host.get_address ~__context ~self:host in
 		  let url = Printf.sprintf "https://%s%s?%s" address req.Http.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
@@ -543,7 +499,7 @@ let handler (req: Http.request) s =
 (** Send handler, for sending out requested host RRDs *)
 let handler_host (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   debug "RRD host handler";
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
@@ -596,7 +552,7 @@ let get_host_stats ?(json=false) start interval cfopt host uuid =
 
 let handler_rrd_updates (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
       if not(List.mem_assoc "start" query) then begin
@@ -621,7 +577,6 @@ let handler_rrd_updates (req: Http.request) s =
         ignore(Unix.write s xml 0 (String.length xml))
       end)
 
-let sent_clock_went_backwards_alert = ref false
 
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.
@@ -631,26 +586,19 @@ let sent_clock_went_backwards_alert = ref false
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD *)
-let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
+let update_rrds ~__context timestamp dss uuids pifs rebooting_vms =
   (* Here we do the synchronising between the dom0 view of the world
      and our Hashtbl. By the end of this execute block, the Hashtbl
      correctly represents the world *)
   let to_send_back = Mutex.execute mutex 
     (fun () -> 
-      let out_of_date, by_how_much =
-		match !host_rrd with 
-		| None -> false, 0.
-		| Some rrdi -> rrdi.rrd.Rrd.last_updated > timestamp, abs_float (timestamp -. rrdi.rrd.Rrd.last_updated)
+      let out_of_date =
+	match !host_rrd with 
+	  | None -> false
+	  | Some rrdi -> rrdi.rrd.Rrd.last_updated > timestamp
       in
       
-	  if out_of_date then begin
-		warn "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
-		if not(!sent_clock_went_backwards_alert) then begin
-		  Xapi_alert.add ~name:Api_messages.host_clock_went_backwards ~priority:Api_messages.host_clock_went_backwards_priority 
-			  ~cls:`Host ~obj_uuid:(Xapi_inventory.lookup Xapi_inventory._installation_uuid) ~body:"";
-		  sent_clock_went_backwards_alert := true; (* send at most one *)
-		end;
-	  end;
+      if not out_of_date then begin
 
 	let registered = Hashtbl.fold (fun k _ acc -> k::acc) vm_rrds [] in
 	let my_vms = uuids in
@@ -689,35 +637,32 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		  else
 		    rrdi.rrd
 		in
-		(* CA-34383:
-		 * Memory updates from paused domains serve no useful purpose.
-		 * During a migrate such updates can also cause undesirable
-		 * discontinuities in the observed value of memory_actual.
-		 * Hence we ignore changes from paused domains:
-		 *)
-		if not (List.mem vm_uuid paused_vms) then begin
-		  (* Check whether the memory ds has changed since last update *)
-		  let last_values = Rrd.get_last_ds_values rrd in
-		  let changed = 
-			begin try
-			  let old_mem = List.assoc "memory" last_values in
-			  let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
-			  let cur_mem = cur_mem_ds.ds_value in
-			  cur_mem <> old_mem
-			with _ -> true end in
-		  if changed then
-			dirty_memory := StringSet.add vm_uuid !dirty_memory;
-		  
-		  (* Now update the rras/dss *)
-		  Rrd.ds_update_named rrd timestamp 
-			  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
-		  rrdi.dss <- dss;
-		end
+		(* Check whether the memory ds has changed since last update *)
+		let last_values = Rrd.get_last_ds_values rrd in
+		let changed = 
+		  try
+		    let old_mem = List.assoc "memory" last_values in
+		    let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
+		    let cur_mem = cur_mem_ds.ds_value in
+		    cur_mem <> old_mem
+		  with _ -> true
+		in
+		if changed then
+		  dirty_memory := StringSet.add vm_uuid !dirty_memory;
+
+		(* Now update the rras/dss *)
+		Rrd.ds_update_named rrd timestamp 
+		  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
+		rrdi.dss <- dss;
 	      with
 		| Not_found ->
 		    debug "Creating fresh RRD for VM uuid=%s" vm_uuid;
-
-		    let rrd = create_fresh_rrd (!use_min_max) dss in
+		    let use_min_max = 
+		      let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
+		      (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
+			(List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
+		    in
+		    let rrd = create_fresh_rrd use_min_max dss in
 		    Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss}
 		| e ->
 		    raise e
@@ -786,6 +731,10 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 	  Condition.broadcast condition;
 
 	to_send_back
+      end else begin
+	debug "Ignoring out-of-date update";
+	[] (* If out of date *)
+      end
     )
   in
   

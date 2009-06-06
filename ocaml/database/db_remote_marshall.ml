@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Db_cache_types
 
 exception DB_remote_marshall_error
@@ -127,26 +114,6 @@ let unmarshall_read_field_where_args xml = unmarshall_where_rec xml
 let marshall_read_field_where_response sl =
   marshall_stringlist sl
 let unmarshall_read_field_where_response xml =
-  unmarshall_stringlist xml
-
-(* db_get_by_uuid *)
-let marshall_db_get_by_uuid_args (s1,s2) =
-  marshall_2strings (s1,s2)
-let unmarshall_db_get_by_uuid_args xml =
-  unmarshall_2strings xml
-let marshall_db_get_by_uuid_response s =
-  XMLRPC.To.string s
-let unmarshall_db_get_by_uuid_response xml =
-  XMLRPC.From.string xml
-
-(* db_get_by_name_label *)
-let marshall_db_get_by_name_label_args (s1,s2) =
-  marshall_2strings (s1,s2)
-let unmarshall_db_get_by_name_label_args xml =
-  unmarshall_2strings xml
-let marshall_db_get_by_name_label_response sl =
-  marshall_stringlist sl
-let unmarshall_db_get_by_name_label_response xml =
   unmarshall_stringlist xml
 
 (* read_set_ref *)

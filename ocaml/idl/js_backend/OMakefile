@@ -1,4 +1,4 @@
-OCAMLPACKS = xml-light2 uuid
+OCAMLPACKS += xmlm xml-light2 unix str uuid
 
 # -----------------------------------------------------------------------
 # autogen stuff
@@ -26,8 +26,3 @@ clean:
 js_binding: main
 	./main > api.js
 	cp api.js ../../../js/
-
-.PHONY: install
-install:
-	mkdir -p $(DEBUGDIST)/www
-	cp api.js $(DEBUGDIST)/www

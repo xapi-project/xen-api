@@ -1,20 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Pool Management
- *)
- 
+(* Copyright (C) XenSource 2007 *)
+
 open Pervasiveext
 open Stringext
 open Http
@@ -98,8 +83,11 @@ let extract_patch path =
       (fun () ->
         with_logfile_fd "patch"
           (fun log_fd ->
-            let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] run_path args in
-            waitpid_fail_if_bad_exit pid)
+            let pid = safe_close_and_exec [ Dup2(log_fd, Unix.stdout);
+				            Dup2(log_fd, Unix.stderr);
+				            Close(Unix.stdin) ]
+	      [ Unix.stdout; Unix.stderr ] run_path args in
+            waitpid pid)
       )
       (fun () -> Unixext.unlink_safe run_path)
 
@@ -262,8 +250,11 @@ let sync () =
   let output =
     with_logfile_fd "sync"
       (fun log_fd ->
-         let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] bin_sync [] in
-         waitpid_fail_if_bad_exit pid) 
+         let pid = safe_close_and_exec [ Dup2(log_fd, Unix.stdout);
+				                         Dup2(log_fd, Unix.stderr);
+				                         Close(Unix.stdin) ]
+	       [ Unix.stdout; Unix.stderr ] bin_sync [] in
+           waitpid pid) 
   in 
     match output with
       | Failure(log, exn) ->
@@ -429,7 +420,7 @@ let pool_patch_download_handler (req: request) s =
   
         Http_svr.response_file ~mime_content_type:None s path;
       end;
-      req.close <- true
+      req.close := true
     )
       
 let get_patch_to_local ~__context ~self =
@@ -639,7 +630,14 @@ let throw_patch_precheck_error patch s =
   | Bad_precheck_xml error ->
       raise (Api_errors.Server_error (Api_errors.invalid_patch_with_log, [error]))
 
-let run_precheck ~__context ~self ~host =
+let precheck ~__context ~self ~host =
+  (* check we're not on oem *)
+  if on_oem ~__context
+    then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-precheck"]));
+
+  (* get the patch from the master (no-op if we're the master) *)
+  get_patch_to_local ~__context ~self;
+
   let path = Db.Pool_patch.get_filename ~__context ~self in
     match execute_patch path [ "precheck" ] with
       | Success(output, _) -> output
@@ -651,25 +649,6 @@ let run_precheck ~__context ~self ~host =
         let msg = Printf.sprintf "Error running prechecks on patch %s: %s" (Ref.string_of self) log in
           debug "%s" msg;
           raise (Api_errors.Server_error(Api_errors.patch_precheck_failed_unknown_error, [Ref.string_of self; msg]))
-
-(* precheck API call entrypoint *)
-let precheck ~__context ~self ~host =
-  (* check we're not on oem *)
-  if on_oem ~__context
-    then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-precheck"]));
-
-  (* get the patch from the master (no-op if we're the master) *)
-  get_patch_to_local ~__context ~self;
-
-  finally 
-	  (fun () -> run_precheck ~__context ~self ~host)
-	  (fun () ->
-		   (* This prevents leaking space on the slave if the patch is repeatedly uploaded, prechecked and then destroyed *)
-		   if not (Pool_role.is_master ()) then begin		   
-			 let path = Db.Pool_patch.get_filename ~__context ~self in
-			 Unixext.unlink_safe path;		   
-		   end
-	  )
 
 let apply ~__context ~self ~host = 
   (* 0th, check we're not on oem *)
@@ -685,7 +664,7 @@ let apply ~__context ~self ~host =
   
   let path = Db.Pool_patch.get_filename ~__context ~self in
     (* 3rd, run prechecks *)
-    run_precheck ~__context ~self ~host;
+    precheck ~__context ~self ~host;
  
     (* 4th, apply the patch *)
     begin

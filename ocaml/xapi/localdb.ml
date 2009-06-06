@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Store and retrieve some host-specific data as key-value pairs. This can
    be used in emergency mode since every slave has its own copy. *)
 
@@ -35,9 +22,9 @@ let assert_loaded () =
       ignore(Unix.stat Xapi_globs.local_database);
       let ic = open_in Xapi_globs.local_database in
       finally 
-	(fun () -> of_db (Xmlm.make_input (`Channel ic)); loaded := true)
+	(fun () -> of_db (Xmlm.input_of_channel ic); loaded := true)
 	(fun () -> close_in ic);
-      Hashtbl.iter (fun k v -> debug "%s = %s" k v) db
+      Hashtbl.iter (fun k v -> debug "loaded %s -> %s" k v) db
     with 
       | Unix.Unix_error (Unix.ENOENT, _, _) ->
 	  debug "Local database %s doesn't currently exist. Continuing." Xapi_globs.local_database
@@ -62,11 +49,6 @@ let get (key: string) =
        with Not_found -> raise (Missing_key key)
     )
 
-let get_with_default (key: string) (default: string) = 
-  try
-	get key
-  with Missing_key _ -> default
-
 (* Returns true if a change was made and should be flushed *)
 let put_one (key: string) (v: string) = 
   if Hashtbl.mem db key && Hashtbl.find db key = v
@@ -75,7 +57,7 @@ let put_one (key: string) (v: string) =
 
 let flush () =  
   let b = Buffer.create 256 in
-  to_db (Xmlm.make_output (`Buffer b));
+  to_db (Xmlm.output_of_buffer b);
   let s = Buffer.contents b in
   Unixext.write_string_to_file Xapi_globs.local_database s
 

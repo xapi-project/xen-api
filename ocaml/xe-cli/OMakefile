@@ -1,20 +1,20 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi
-OCAMLPACKS    = xml-light2 stdext stunnel log
+OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../xapi ../idl/ocaml_backend ../autogen ../idl ../xva ../client_records ../util ./
+OCAMLPACKS = unix,stdext,xmlm,xml-light2,log
 
 section
-	OCAMLINCLUDES += .
+	OCAML_LIBS=../util/forkhelpers ../util/backtrace ../util/debug ../util/stunnel
+	OCAMLINCLUDES=../xapi ./
 	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
-	CLI_FILES = newcli ../xapi/cli_protocol options
-	OCamlProgram(xe, $(CLI_FILES))
-	OCamlDocProgram(xe, $(CLI_FILES))
+	OCamlProgram(xe, newcli ../xapi/cli_protocol options)
 
 section
 
-	OCAMLPACKS += xb xs netdev
-	OCAML_CLIBS = ../xenops/statdev_stubs 
+	OCAMLPACKS += uuid log xc xb xs sqlite3 mmap
+	OCAML_CLIBS = ../xenops/statdev_stubs ../netdev/netdev_stubs
 
 	OCamlProgram(fatxe, cli options \
+		../netdev/netdev \
 		../xapi/xapi_cli \
 		../xapi/pool_role \
 		../xapi/helpers \
@@ -48,6 +48,7 @@ section
 		../database/db_upgrade \
 		../database/db_exn \
 		../database/db_cache \
+		../database/db_access \
 		../database/db_action_helper \
 		../database/db_connections \
 		../database/db_conn_store \
@@ -60,31 +61,26 @@ section
 		../database/master_connection \
 		../database/string_marshall_helper \
 		../database/string_unmarshall_helper \
+		../database/backend_sqlite \
 		../database/backend_xml \
+		../util/config \
 		../http/http_svr \
 		../gpg/gpg \
+		../util/server_io \
+		../util/sql \
+		../util/sqlcommon \
+		../util/sqlsqlite3 \
 		../autogen/db_actions \
 		../idl/ocaml_backend/exnHelper \
 		../idl/ocaml_backend/taskHelper \
 		../idl/ocaml_backend/locking_helpers \
 		../idl/ocaml_backend/server_helpers \
 		../idl/ocaml_backend/context \
-		../database/escaping \
+		../idl/sql_backend/gen_schema \
 		../sexpr/sExpr \
 		../sexpr/sExprParser \
 		../sexpr/sExprLexer \
-		../client_records/record_util \
-		../client_records/records \
-		../idl/constants \
-		../xapi/cli_key \
-		../xapi/cli_operations \
-		../xapi/cli_operations_geneva \
-		../xapi/cli_frontend \
-		../xapi/xapi_globs \
-		../xapi/cli_printer \
-		../xapi/cli_util \
-		../xva/xva \
-		../xapi/cli_protocol)
+../client_records/record_util ../client_records/records ../idl/constants ../xapi/cli_key ../xapi/cli_operations ../xapi/cli_operations_geneva ../xapi/cli_frontend ../xapi/xapi_globs ../xapi/cli_printer ../xapi/cli_util ../xva/xva ../muxdemux/tar ../xapi/cli_protocol)
 
 .PHONY: clean
 clean:
@@ -94,12 +90,12 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	$(IPROG) xe $(DESTDIR)/opt/xensource/bin
-	mkdir -p $(DESTDIR)/usr/bin
-	ln -sf /opt/xensource/bin/xe $(DESTDIR)/usr/bin/xe
-	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/cli
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	$(IPROG) xe $(DIST)/staging/opt/xensource/bin
+	mkdir -p $(DIST)/staging/usr/bin
+	ln -sf /opt/xensource/bin/xe $(DIST)/staging/usr/bin/xe
+	mkdir -p $(DIST)/staging/etc/bash_completion.d
+	$(IPROG) bash-completion $(DIST)/staging/etc/bash_completion.d/cli
 	mkdir -p $(DEBUGDIST)
 
 .PHONY: sdk-install

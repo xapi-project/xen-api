@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group API Messaging
- *)
- 
 open Threadext
 open Pervasiveext
 open Stringext
@@ -25,8 +8,7 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 module Audit = Debug.Debugger(struct let name="audit" end)
-let info = Audit.debug
-
+let info = Audit.info
 
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
@@ -66,7 +48,7 @@ module Early_wakeup = struct
   let table_m = Mutex.create ()
     
   let wait ((a, b) as key) time = 
-    (* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
+    debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time;
     let d = Delay.make () in
     Mutex.execute table_m (fun () -> Hashtbl.add table key d);
     finally
@@ -74,23 +56,23 @@ module Early_wakeup = struct
 	 let start = Unix.gettimeofday () in
 	 let waited_full_length = Delay.wait d time in
 	 let time_sleeping = Unix.gettimeofday () -. start in
-	 (* debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
+	 debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
 	   (if waited_full_length then "slept" else "woken") a b time_sleeping (time -. time_sleeping)
-     *)() )
+      )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
       
   let broadcast ((a, b) as key) = 
-    (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
+    debug "Early_wakeup broadcast key = (%s, %s)" a b;
     Mutex.execute table_m 
       (fun () -> 
-	 Hashtbl.iter (fun (a, b) d -> (*debug "Signalling thread blocked on (%s, %s)" a b;*) Delay.signal d) table
+	 Hashtbl.iter (fun (a, b) d -> debug "Signalling thread blocked on (%s, %s)" a b; Delay.signal d) table
       )
 
   let signal ((a, b) as key) = 
-    (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
+    debug "Early_wakeup signal key = (%s, %s)" a b;
     Mutex.execute table_m 
       (fun () -> 
-	 if Hashtbl.mem table key then ((*debug "Signalling thread blocked on (%s,%s)" a b;*) Delay.signal (Hashtbl.find table key))
+	 if Hashtbl.mem table key then (debug "Signalling thread blocked on (%s,%s)" a b; Delay.signal (Hashtbl.find table key))
       )
 end
 
@@ -191,7 +173,7 @@ let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
     ~port:!Xapi_globs.https_port ~path:"/" xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
-  let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
+  let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" in
   let hostname = Db.Host.get_address ~__context ~self:host in
   Pervasiveext.finally
     (fun ()->f session_id (remote_rpc_fn __context hostname task_opt))
@@ -305,26 +287,6 @@ let hosts_with_several_srs ~__context srs =
       _ -> false in
   List.filter filterfn hosts 
 
-(* Given an SR, return a PBD to use for some storage operation. *)
-(* In the case of SR.destroy we need to be able to forward the SR operation when all 
-   PBDs are unplugged - this is the reason for the consider_unplugged_pbds optional 
-   argument below. All other SR ops only consider plugged PBDs... *)
-let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () = 
-  let all_pbds = Db.SR.get_PBDs ~__context ~self in
-  let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
-  let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
-  if Helpers.is_sr_shared ~__context ~self then
-	let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
-	let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
-	(* shared SR operations must happen on the master *)
-	match Listext.List.intersect pbds_to_consider master_pbds with
-	| pbd :: _ -> pbd (* ok, master plugged *)
-	| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
-  else
-	match pbds_to_consider with
-	| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-	| pbd :: _ -> pbd
-
     
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
   let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -421,12 +383,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of vlan
 		with _ -> "invalid"
 
-	let tunnel_uuid ~__context tunnel =
-		try if Pool_role.is_master () then
-			Db.Tunnel.get_uuid __context tunnel
-		else
-			Ref.string_of tunnel
-		with _ -> "invalid"
 
 	let bond_uuid ~__context bond =
 		try if Pool_role.is_master () then
@@ -502,10 +458,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
-  module Role = Local.Role
   module Task = Local.Task
   module Event = Local.Event
-  module VMPP = Local.VMPP
   (* module Alert = Local.Alert *)
 
   module Pool = struct
@@ -572,19 +526,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let disable_external_auth ~__context ~pool = 
       info "Pool.disable_external_auth: pool = '%s'" (pool_uuid ~__context pool);
       Local.Pool.disable_external_auth ~__context ~pool
-      
-    let enable_redo_log ~__context ~sr =
-    	info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
-    		(current_pool_uuid ~__context) (sr_uuid __context sr);
-    	Local.Pool.enable_redo_log ~__context ~sr
-    	
-    let disable_redo_log ~__context =
-    	info "Pool.disable_redo_log: pool = '%s'" (current_pool_uuid ~__context);
-    	Local.Pool.disable_redo_log ~__context
 
-    let set_vswitch_controller ~__context ~address =
-    	info "Pool.set_vswitch_controller: pool = '%s'; address = '%s'" (current_pool_uuid ~__context) address;
-    	Local.Pool.set_vswitch_controller ~__context ~address
   end
 
   module VM = struct
@@ -612,11 +554,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VBDs after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
-			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
-		end)
+	   Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
+	)
 	vbds      
 
     let mark_vbds ~__context ~vm ~doc ~op : API.ref_VBD list = 
@@ -649,12 +590,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let unmark_vifs ~__context ~vifs ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VIFs after " ^ doc)
-	(fun self ->
-		if Db.is_valid_ref self then begin 
-			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
-		end)
+	(fun self -> 
+	   Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_vif_helpers.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+	)
 	vifs      
 
     let mark_vifs ~__context ~vm ~doc ~op : API.ref_VIF list = 
@@ -701,10 +641,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* Read resisdent-on field from vm to determine who to forward to  *)
     let forward_vm_op ~local_fn ~__context ~vm op =
-      let state = Db.VM.get_power_state ~__context ~self:vm in
-      match state with
-	| `Running | `Paused ->  do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op 
-	| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
+      do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op      
 
     (* Notes on memory checking/reservation logic:
        When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -789,52 +726,31 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		finally_clear_host_operation ~__context ~host ?host_op ();
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null))	
 
-	(**
-		Used by VM.set_memory_dynamic_range to reserve enough memory for
-		increasing dynamic_min. Although a VM may actually be technically
-		outside the range [dynamic_min, dynamic_max] we still ensure that *if*
-		all VMs are obeying our commands and ballooning to dynamic_min if we ask
-		*then* the sum of the dynamic_mins will fit on the host.
-	*)
-	let reserve_memory_for_dynamic_change ~__context ~vm
-			new_dynamic_min new_dynamic_max f = 
-		let host = Db.VM.get_resident_on ~__context ~self:vm in
-		let old_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
-		let old_dynamic_max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
-		let restore_old_values_on_error = ref false in
-		with_global_lock
-		(fun () ->
-			let host_mem_available =
-				Memory_check.host_compute_free_memory_with_maximum_compression
-					~__context ~host None in
-			let dynamic_min_change = Int64.sub old_dynamic_min
-				new_dynamic_min in
-			let new_host_mem_available = Int64.add host_mem_available
-				dynamic_min_change in
-			if new_host_mem_available < 0L
-			then raise (Api_errors.Server_error (
-				Api_errors.host_not_enough_free_memory, [
-				Int64.to_string (Int64.div (Int64.sub 0L dynamic_min_change) 1024L);
-				Int64.to_string (Int64.div host_mem_available 1024L);
-			]));
-			if dynamic_min_change < 0L then begin
-				restore_old_values_on_error := true;
-				Db.VM.set_memory_dynamic_min ~__context ~self:vm
-					~value:new_dynamic_min;
-				Db.VM.set_memory_dynamic_max ~__context ~self:vm
-					~value:new_dynamic_max;
-			end
-		);
-		try
-			f ()
-		with exn ->
-			if !restore_old_values_on_error then begin
-				Db.VM.set_memory_dynamic_min ~__context ~self:vm
-					~value:old_dynamic_min;
-				Db.VM.set_memory_dynamic_max ~__context ~self:vm
-					~value:old_dynamic_max;
-			end;
-			raise exn
+    (* Used by VM.clean_reboot and VM.hard_reboot to reserve enough memory to cover the
+       reboot operation. *)
+    let reserve_memory_for_vm_reboot ~__context ~vm f = 
+      let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
+      let new_snapshot = Db.VM.get_record ~__context ~self:vm in
+      let old_mem = current_snapshot.API.vM_memory_static_max in
+      let new_mem = new_snapshot.API.vM_memory_static_max in
+      let max_mem = max old_mem new_mem in
+      let host = Db.VM.get_resident_on ~__context ~self:vm in
+
+      with_global_lock
+	(fun () ->
+	   Xapi_vm_helpers.assert_can_reboot_here ~__context ~self:vm ~new_snapshot ~current_snapshot ~host;
+	   (* Bump the memory values in the current_snapshot if the new values are bigger.
+	      This reserves the memory on the host. *)
+	   if old_mem < new_mem
+	   then Helpers.set_boot_record ~__context ~self:vm { current_snapshot with API.vM_memory_static_max = new_mem }
+	);
+      try
+	f ()
+      with exn ->
+	(* on failure, assume the reboot didn't happen so revert the last_boot_record *)
+	if old_mem < new_mem
+	then Helpers.set_boot_record ~__context ~self:vm { current_snapshot with API.vM_memory_static_max = old_mem };
+	raise exn
 
     let forward_to_access_srs ~local_fn ~__context ~vm op =
       let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) () in
@@ -851,9 +767,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     (* don't forward create. this just makes a db record *)
-    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy =
+    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations =
       info "VM.create: name_label = '%s' name_description = '%s'" name_label name_description;
-      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
+      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations
 
     (* don't forward destroy. this just deletes db record *)
     let destroy ~__context ~self =
@@ -936,7 +852,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
         (* disk corruption.                                                                                          *)
-      with_vm_operation ~__context ~self: vm ~doc:"VM.snapshot_with_quiesce" ~op:`snapshot_with_quiesce
+      with_vm_operation ~__context ~self: vm ~doc:"VM.snapshot_with_quiesce" ~op:`snapshot
       (fun () ->
         let power_state = Db.VM.get_power_state ~__context ~self:vm in
         let forward =
@@ -946,27 +862,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         in forward ~local_fn ~__context ~vm
         (fun session_id rpc -> Client.VM.snapshot_with_quiesce rpc session_id vm new_name))
 
-	let checkpoint ~__context ~vm ~new_name =
-		info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm) new_name;
-		let local_fn = Local.VM.checkpoint ~vm ~new_name in
-		let forward_fn session_id rpc = Client.VM.checkpoint rpc session_id vm new_name in
-
-		with_vm_operation ~__context ~self: vm ~doc:"VM.checkpoint" ~op:`checkpoint (fun () ->
-			if Db.VM.get_power_state __context vm = `Running then
-				forward_vm_op ~local_fn ~__context ~vm forward_fn
-			else
-				forward_to_access_srs ~local_fn ~__context ~vm forward_fn)
-
     let copy ~__context ~vm ~new_name ~sr =
       info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.copy ~vm ~new_name ~sr in
+      (* Are we copying to a new SR? *)
+      let new_sr_copy = try ignore(Db.SR.get_uuid ~__context ~self:sr); true with _ -> false in
+      let fwd_fn = 
+	if new_sr_copy 
+	then forward_to_access_srs_and ~extra_sr:sr
+	else forward_to_access_srs in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 	 uses the API to clone and lock the individual VDIs. We don't give any atomicity
 	 guarantees here but we do prevent disk corruption. *)
       with_vm_operation ~__context ~self:vm ~doc:"VM.copy" ~op:`copy
 	(fun () ->
-	   forward_to_access_srs ~local_fn ~__context ~vm 
+	   fwd_fn ~local_fn ~__context ~vm 
 	     (fun session_id rpc -> Client.VM.copy rpc session_id vm new_name sr))
 
     
@@ -998,8 +909,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			  try
 			    Db.SR.get_by_uuid ~__context ~uuid:sr
 			  with
-			    Db_cache.Read_missing_uuid (_,_,_)
-			  | Db_cache.Too_many_values (_,_,_) ->
+			    Db_access.DB_Access.Read_missing_uuid (_,_,_)
+			  | Db_access.DB_Access.Too_many_values (_,_,_) ->
 			      begin
 				match (Db.SR.get_by_name_label ~__context ~label:sr) with
 				  [] -> raise Not_forwarding (* couldn't find it. Do it locally and will report correct error *)
@@ -1021,7 +932,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		  (fun session_id rpc -> Client.VM.provision rpc session_id vm)
 	     )
 	)
-
+	
     let start ~__context ~vm ~start_paused ~force =
       info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.start ~vm ~start_paused ~force in
@@ -1033,12 +944,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	      (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
 		  (fun vifs ->
-			(* The start operation makes use of the cached memory overhead *)
-			(* value when reserving memory. It's important to recalculate  *)
-			(* the cached value before performing the start since there's  *)
-			(* no guarantee that the cached value is valid. In particular, *)
-			(* we must recalculate the value BEFORE creating the snapshot. *)
-			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
 		    let snapshot = Db.VM.get_record ~__context ~self:vm in
 		    forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 		      (fun session_id rpc -> Client.VM.start rpc session_id vm start_paused force))))
@@ -1066,13 +971,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
 		  (fun vifs ->
-			(* The start operation makes use of the cached memory overhead *)
-			(* value when reserving memory. It's important to recalculate  *)
-			(* the cached value before performing the start since there's  *)
-			(* no guarantee that the cached value is valid. In particular, *)
-			(* we must recalculate the value BEFORE creating the snapshot. *)
-			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
-
 		     let snapshot = Db.VM.get_record ~__context ~self:vm in		     
 		     reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_start
 		       (fun () ->
@@ -1109,7 +1007,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.unpause rpc session_id vm));
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
-
+    
     let clean_shutdown ~__context ~vm =
       info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.clean_shutdown ~vm in
@@ -1137,10 +1035,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.clean_reboot" ~op:`attach
 		  (fun vifs ->
-		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
-			change across reboot. *)
-		     forward_vm_op ~local_fn ~__context ~vm 
-		       (fun session_id rpc -> Client.VM.clean_reboot rpc session_id vm))));
+		     reserve_memory_for_vm_reboot ~__context ~vm 
+		       (fun () ->
+			  forward_vm_op ~local_fn ~__context ~vm 
+			    (fun session_id rpc -> Client.VM.clean_reboot rpc session_id vm)))));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
       let message_body = 
 	Printf.sprintf "VM '%s' rebooted cleanly" 
@@ -1157,7 +1055,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.VM.power_state_reset ~__context ~vm
     
     let hard_shutdown ~__context ~vm =
-      info "VM.hard_shutdown: VM = '%s'" (vm_uuid ~__context vm);
+      info "VM.hard_shutdown: Shutting down VM '%s'" (Ref.string_of vm);
       let local_fn = Local.VM.hard_shutdown ~vm in
       with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 	(fun () ->
@@ -1207,10 +1105,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 		  (fun vifs ->
-		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
-			change across reboot. *)
-		     forward_vm_op ~local_fn ~__context ~vm 
-		       (fun session_id rpc -> Client.VM.hard_reboot rpc session_id vm))));
+		     reserve_memory_for_vm_reboot ~__context ~vm 
+		       (fun () ->
+			  forward_vm_op ~local_fn ~__context ~vm 
+			    (fun session_id rpc -> Client.VM.hard_reboot rpc session_id vm)))));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
       let message_body = 
 	Printf.sprintf "VM '%s' rebooted forcibly" 
@@ -1229,10 +1127,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 		  (fun vifs ->
-		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
-			change across reboot. *)
-		     forward_vm_op ~local_fn ~__context ~vm 
-		       (fun session_id rpc -> Client.VM.hard_reboot_internal rpc session_id vm)));
+		     reserve_memory_for_vm_reboot ~__context ~vm 
+		       (fun () ->
+			  forward_vm_op ~local_fn ~__context ~vm 
+			    (fun session_id rpc -> Client.VM.hard_reboot_internal rpc session_id vm))));
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
     
@@ -1243,7 +1141,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	(fun () ->
 	   forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.suspend rpc session_id vm));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
-	(* debug "placeholder for retrieving the current value of memory-actual";*)
       let message_body = 
 	Printf.sprintf "VM '%s' suspended" 
 	  (Db.VM.get_name_label ~__context ~self:vm) 
@@ -1252,44 +1149,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		     ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
-
-	let revert ~__context ~snapshot =
-		info "VM.revert: snapshot = '%s'" (vm_uuid ~__context snapshot);
-
-		let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
-		let vm = 
-			if Db.is_valid_ref vm
-			then vm
-			else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
-
-		let local_fn = Local.VM.revert ~snapshot in
-		let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
-
-		(* We need to do a best-effort check that any suspend_VDI referenced by
-		   the snapshot (not the current VM) is currently accessible. This is because
-		   the revert code first clears space by deleting current VDIs before cloning
-		   the suspend VDI: we want to minimise the probability that the operation fails
-		   part-way through. *)
-		if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
-		  let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
-		  let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
-		  let pbd = choose_pbd_for_sr ~__context ~self:sr () in
-		  let host = Db.PBD.get_host ~__context ~self:pbd in
-		  let metrics = Db.Host.get_metrics ~__context ~self:host in
-		  let live = Db.is_valid_ref metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
-		  if not live
-		  then raise (Api_errors.Server_error(Api_errors.host_not_live, [ Ref.string_of host ]))
-		end;
-
-		with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
-			(fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
-				 (fun () ->
-					  Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm;
-					  if Db.VM.get_power_state __context vm = `Running then
-						  forward_vm_op ~local_fn ~__context ~vm forward_fn
-					  else
-						  forward_to_access_srs ~local_fn ~__context ~vm forward_fn))
-
+    
     (* same forwarding logic as clone *)
     let csvm ~__context ~vm =
       info "VM.csvm: VM = '%s'" (vm_uuid ~__context vm);
@@ -1439,102 +1299,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm:self 
 	     (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
-	let set_VCPUs_max ~__context ~self ~value =
-		info "VM.set_VCPUs_max: self = %s; value = %Ld"
-			(vm_uuid ~__context self) value;
-		with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_max"
-			~op:`changing_VCPUs
-		(fun () -> Local.VM.set_VCPUs_max ~__context ~self ~value)
-
-	let set_VCPUs_at_startup ~__context ~self ~value =
-		info "VM.set_VCPUs_at_startup: self = %s; value = %Ld"
-			(vm_uuid ~__context self) value;
-		with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_at_startup"
-			~op:`changing_VCPUs
-		(fun () -> Local.VM.set_VCPUs_at_startup ~__context ~self ~value)
-
-	let compute_memory_overhead ~__context ~vm =
-		info "VM.compute_memory_overhead: vm = '%s'"
-			(vm_uuid ~__context vm);
-		Local.VM.compute_memory_overhead ~__context ~vm
-
-	let set_memory_dynamic_range ~__context ~self ~min ~max =
-		info "VM.set_memory_dynamic_range: VM = '%s'; min = %Ld; max = %Ld"
-			(Ref.string_of self) min max;
-		let local_fn = Local.VM.set_memory_dynamic_range ~self ~min ~max in
-		with_vm_operation ~__context ~self ~doc:"VM.set_memory_dynamic_range"
-			~op:`changing_dynamic_range
-			(fun () ->
-				(* XXX: Perform basic parameter validation, before forwarding *)
-				(*      to the slave. Do this after sorting out the last boot *)
-				(*      record via set_static_range.                          *)
-				let power_state = Db.VM.get_power_state ~__context ~self in
-				match power_state with
-				| `Running ->
-					(* If current dynamic_min is lower  *)
-					(* then we will block the operation *)
-					reserve_memory_for_dynamic_change ~__context ~vm:self
-						min max
-						(fun () ->
-							forward_vm_op ~local_fn ~__context ~vm:self
-								(fun session_id rpc ->
-									Client.VM.set_memory_dynamic_range
-										rpc session_id self min max
-								)
-						)
-				| `Halted ->
-					local_fn ~__context
-				| _ ->
-					failwith
-						"assertion_failure: set_memory_dynamic_range: \
-						 power_state should be Halted or Running"
-			)
-
-	let set_memory_dynamic_max ~__context ~self ~value =
-		info "VM.set_memory_dynamic_max: VM = '%s'; value = %Ld"
-			(vm_uuid ~__context self) value;
-		set_memory_dynamic_range ~__context ~self ~max:value
-			~min:(Db.VM.get_memory_dynamic_min ~__context ~self)
-
-	let set_memory_dynamic_min ~__context ~self ~value =
-		info "VM.set_memory_dynamic_min: VM = '%s'; value = %Ld"
-			(vm_uuid ~__context self) value;
-		set_memory_dynamic_range ~__context ~self ~min:value
-			~max:(Db.VM.get_memory_dynamic_max ~__context ~self)
-
-	let set_memory_static_range ~__context ~self ~min ~max =
-		info "VM.set_memory_static_range: self = %s; min = %Ld; max = %Ld"
-			(vm_uuid ~__context self) min max;
-		with_vm_operation ~__context ~self ~doc:"VM.set_memory_static_range"
-			~op:`changing_static_range
-		(fun () -> Local.VM.set_memory_static_range ~__context ~self ~min ~max)
-
-	let set_memory_static_max ~__context ~self ~value =
-		info "VM.set_memory_static_max: VM = '%s'; value = %Ld"
-			(vm_uuid ~__context self) value;
-		set_memory_static_range ~__context ~self ~max:value
-			~min:(Db.VM.get_memory_static_min ~__context ~self)
-
-	let set_memory_static_min ~__context ~self ~value =
-		info "VM.set_memory_static_min: VM = '%s'; value = %Ld"
-			(vm_uuid ~__context self) value;
-		set_memory_static_range ~__context ~self ~min:value
-			~max:(Db.VM.get_memory_static_max ~__context ~self)
-
-	let set_memory_limits ~__context ~self
-			~static_min ~static_max ~dynamic_min ~dynamic_max =
-		info
-			"VM.set_memory_limits: self = %s; \
-			static_min = %Ld; static_max = %Ld; \
-			dynamic_min = %Ld; dynamic_max = %Ld"
-			(vm_uuid ~__context self)
-			static_min static_max dynamic_min dynamic_max;
-		with_vm_operation ~__context ~self ~doc:"VM.set_memory_limits"
-			~op:`changing_memory_limits
-		(fun () ->
-			Local.VM.set_memory_limits ~__context ~self
-				~static_min ~static_max ~dynamic_min ~dynamic_max)
-
 	let set_memory_target_live ~__context ~self ~target =
 		info "VM.set_memory_target_live: VM = '%s'; min = %Ld" (vm_uuid ~__context self) target;
 		let local_fn = Local.VM.set_memory_target_live ~self ~target in
@@ -1550,24 +1314,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			(fun () ->
 				forward_vm_op ~local_fn ~__context ~vm:self 
 					(fun session_id rpc -> Client.VM.wait_memory_target_live rpc session_id self))
-
-	let get_cooperative ~__context ~self = 
-	  info "VM.get_cooperative: VM = '%s'" (vm_uuid ~__context self);
-	  let local_fn = Local.VM.get_cooperative ~self in
-	  with_vm_operation ~__context ~self ~doc:"VM.get_cooperative" ~op:`get_cooperative
-	    (fun () ->
-	       if Db.VM.get_power_state ~__context ~self <> `Running
-	       then true 
-	       else forward_vm_op ~local_fn ~__context ~vm:self
-		 (fun session_id rpc -> Client.VM.get_cooperative rpc session_id self))
-
-	let set_HVM_shadow_multiplier ~__context ~self ~value =
-		info "VM.set_HVM_shadow_multiplier: self = %s; multiplier = %f"
-			(vm_uuid ~__context self) value;
-		with_vm_operation ~__context ~self ~doc:"VM.set_HVM_shadow_multiplier"
-			~op:`changing_shadow_memory
-			(fun () ->
-				Local.VM.set_HVM_shadow_multiplier ~__context ~self ~value)
 
     let set_shadow_multiplier_live ~__context ~self ~multiplier =
       info "VM.set_shadow_multiplier_live: VM = '%s'; min = %f" (vm_uuid ~__context self) multiplier;
@@ -1603,8 +1349,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let query_data_source ~__context ~self ~data_source =
       info "VM.query_data_source: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
       let local_fn = Local.VM.query_data_source ~self ~data_source in
-      forward_vm_op ~local_fn ~__context ~vm:self
-	(fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source)
+      with_vm_operation ~__context ~self ~doc:"VM.query_data_source" ~op:`data_source_op
+	(fun () -> 
+	  forward_vm_op ~local_fn ~__context ~vm:self
+	    (fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source))
 
     let forget_data_source_archives ~__context ~self ~data_source =
       info "VM.forget_data_source_archives: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
@@ -1655,28 +1403,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null
 	)
 
+    let set_memory_static_max ~__context ~self ~value = 
+      info "VM.set_memory_static_max: VM = '%s'; value = %Ld" (vm_uuid ~__context self) value;
+      Local.VM.set_memory_static_max ~__context ~self ~value
+
     let create_new_blob ~__context ~vm ~name ~mime_type =
       info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s'" (vm_uuid ~__context vm) name mime_type;
       Local.VM.create_new_blob ~__context ~vm ~name ~mime_type
-
-    let s3_suspend ~__context ~vm =
-      info "VM.s3_suspend: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.s3_suspend ~vm in
-      forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.s3_suspend rpc session_id vm)
-
-    let s3_resume ~__context ~vm =
-      info "VM.s3_resume: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.s3_resume ~vm in
-      forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.s3_resume rpc session_id vm)
-
-
-	let copy_bios_strings ~__context ~vm ~host =
-		info "VM.copy_bios_strings: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
-		Local.VM.copy_bios_strings ~__context ~vm ~host
-
-	let set_protection_policy ~__context ~self ~value =
-		info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
-		Local.VM.set_protection_policy ~__context ~self ~value
 
   end
 
@@ -1722,11 +1455,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "Host.destroy: host = '%s'" (host_uuid __context self);
       Local.Host.destroy ~__context ~self
-      
-    let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
-      info "Host.set_power_on_mode: host = '%s'; power_on_mode = '%s' ; power_on_config = [ %s ]" 
-      (host_uuid ~__context self) power_on_mode (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) power_on_config));
-      Local.Host.set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config
     
     let set_license_params ~__context ~self ~value = 
       info "Host.set_license_params: host = '%s'; license_params = [ %s ]" (host_uuid ~__context self) (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) value));
@@ -1814,27 +1542,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let emergency_ha_disable ~__context = 
       info "Host.emergency_ha_disable";
       Local.Host.emergency_ha_disable ~__context
-
-    let get_uncooperative_resident_VMs ~__context ~self = 
-      info "Host.get_uncooperative_resident_VMs host=%s" (Ref.string_of self);
-      let domains = Helpers.call_api_functions ~__context 
-	(fun rpc session_id -> 
-	   Client.Host.get_uncooperative_domains rpc session_id self) in
-      let vms = Db.VM.get_records_where ~__context 
-	~expr:(Db_filter_types.Eq(Db_filter_types.Field "resident_on", Db_filter_types.Literal (Ref.string_of self))) in
-      (* We are only interested in ones which can balloon *)
-      let vms = List.filter (fun (_, x) -> Helpers.ballooning_enabled_for_vm ~__context x) vms in
-      (* Remove all those not in the uncooperative domains list *)
-      let vms = List.filter (fun (_, x) -> List.mem x.API.vM_uuid domains) vms in
-      List.map fst vms
-
-    let get_uncooperative_domains ~__context ~self = 
-      info "Host.get_uncooperative_domains host=%s" (Ref.string_of self);
-      let local_fn = Local.Host.get_uncooperative_domains ~self in
-      do_op_on ~local_fn ~__context ~host:self
-	(fun session_id rpc ->
-	   Client.Host.get_uncooperative_domains rpc session_id self
-	)
 
     (* We can lose the connection during this operation if we're (e.g.) setting the management interface on a slave to a bond PIF.
        So we don't report error in these "success failures" we catch the "host cannot be contacted" exception and poll briefly to see
@@ -1959,19 +1666,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'" (host_uuid ~__context self);
       Local.Host.retrieve_wlb_evacuate_recommendations ~__context ~self
       
-	let update_pool_secret ~__context ~host ~pool_secret =
-		info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host);
-		let local_fn = Local.Host.update_pool_secret ~host ~pool_secret in
-		do_op_on ~local_fn ~__context ~host
-			(fun session_id rpc -> Client.Host.update_pool_secret rpc session_id host pool_secret)
-
-	let update_master ~__context ~host ~master_address =
-		info "Host.update_master: host = '%s'; master = '%s'" (host_uuid ~__context host) master_address;
-		let local_fn = Local.Pool.emergency_reset_master ~master_address in
-		do_op_on ~local_fn ~__context ~host
-			(fun session_id rpc -> Client.Host.update_master rpc session_id host master_address)
-
-	    let restart_agent ~__context ~host =
+    let restart_agent ~__context ~host =
       info "Host.restart_agent: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.Host.restart_agent ~host in
       do_op_on ~local_fn ~__context ~host 
@@ -2061,24 +1756,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	let compute_free_memory ~__context ~host =
 		info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context  host);
-		Local.Host.compute_free_memory ~__context ~host
-
-	let compute_memory_overhead ~__context ~host =
-		info "Host.compute_memory_overhead: host = '%s'"
-			(host_uuid ~__context host);
-		Local.Host.compute_memory_overhead ~__context ~host
+		let local_fn = Local.Host.compute_free_memory ~host in
+ 		do_op_on ~local_fn ~__context ~host
+			(fun session_id rpc -> Client.Host.compute_free_memory rpc session_id host)
 
     let get_servertime ~__context ~host =
       (* info "Host.get_servertime"; *) (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
       let local_fn = Local.Host.get_servertime ~host in
       do_op_on ~local_fn ~__context ~host
 	(fun session_id rpc -> Client.Host.get_servertime rpc session_id host)
-
-    let get_server_localtime ~__context ~host =
-      (* info "Host.get_servertime"; *) (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
-      let local_fn = Local.Host.get_server_localtime ~host in
-  do_op_on ~local_fn ~__context ~host
-  (fun session_id rpc -> Client.Host.get_server_localtime rpc session_id host)
 
     let enable_binary_storage ~__context ~host =
       info "Host.enable_binary_storage: host = '%s'" (host_uuid ~__context host);
@@ -2145,53 +1831,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	(fun session_id rpc ->
            Client.Host.get_server_certificate rpc session_id host)
 
-    let attach_static_vdis ~__context ~host ~vdi_reason_map = 
-      info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]" (host_uuid ~__context host)
-				(String.concat "; " (List.map (fun (a, b) ->  Ref.string_of a ^ "/" ^ b) vdi_reason_map));
-      let local_fn = Local.Host.attach_static_vdis ~host ~vdi_reason_map in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.attach_static_vdis rpc session_id host vdi_reason_map)
-
-    let detach_static_vdis ~__context ~host ~vdis = 
-      info "Host.detach_static_vdis: host = '%s'; vdis =[ %s ]" (host_uuid ~__context host) (String.concat "; " (List.map Ref.string_of vdis));
-      let local_fn = Local.Host.detach_static_vdis ~host ~vdis in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.detach_static_vdis rpc session_id host vdis)
-			
-    let set_localdb_key ~__context ~host ~key ~value = 
-      info "Host.set_localdb_key: host = '%s'; key = '%s'; value = '%s'" (host_uuid ~__context host) key value;
-      let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_localdb_key rpc session_id host key value)
-
-    let apply_edition ~__context ~host ~edition = 
-      info "Host.apply_edition: host = '%s'; edition = '%s'" (host_uuid ~__context host) edition;
-      let local_fn = Local.Host.apply_edition ~host ~edition in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition)
-
-    let refresh_pack_info ~__context ~host = 
-      info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
-      let local_fn = Local.Host.refresh_pack_info ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.refresh_pack_info rpc session_id host)
-      
-    let set_cpu_features ~__context ~host ~features = 
-      info "Host.set_cpu_features: host = '%s'; features = '%s'" (host_uuid ~__context host) features;
-      let local_fn = Local.Host.set_cpu_features ~host ~features in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_cpu_features rpc session_id host features)
-      
-    let reset_cpu_features ~__context ~host = 
-      info "Host.reset_cpu_features: host = '%s'" (host_uuid ~__context host);
-      let local_fn = Local.Host.reset_cpu_features ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reset_cpu_features rpc session_id host)
-      
-    let reset_networking ~__context ~host = 
-      info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);
-      Local.Host.reset_networking ~__context ~host
-
-	let enable_local_storage_caching ~__context ~host ~sr =
-		let local_fn = Local.Host.enable_local_storage_caching ~host ~sr in
-		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.enable_local_storage_caching rpc session_id host sr)
-
-	let disable_local_storage_caching ~__context ~host =
-		let local_fn = Local.Host.disable_local_storage_caching ~host in
-		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.disable_local_storage_caching rpc session_id host)
 end
 
   module Host_crashdump = struct
@@ -2256,9 +1895,9 @@ end
 
     (* Don't forward. These are just db operations. Networks are "attached" when required by hosts that read db entries.
        Bridges corresponding to networks are removed by per-host GC threads that read from db. *)
-    let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
+    let create ~__context ~name_label ~name_description ~other_config ~tags =
       info "Network.create: name_label = '%s'" name_label;
-      Local.Network.create ~__context ~name_label ~name_description ~mTU ~other_config ~tags
+      Local.Network.create ~__context ~name_label ~name_description ~other_config ~tags
     
     let attach ~__context ~network ~host = 
       info "Network.attach: network = '%s'; host = '%s'" (network_uuid ~__context network) (host_uuid ~__context host);
@@ -2266,8 +1905,8 @@ end
       do_op_on ~local_fn ~__context ~host
 	(fun session_id rpc -> Client.Network.attach rpc session_id network host)
 
-    let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
-      Local.Network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
+    let pool_introduce ~__context ~name_label ~name_description ~other_config ~bridge =
+      Local.Network.pool_introduce ~__context ~name_label ~name_description ~other_config ~bridge
 
     let destroy ~__context ~self =
       info "Network.destroy: network = '%s'" (network_uuid ~__context self);
@@ -2287,13 +1926,11 @@ end
     let unmark_vif ~__context ~vif ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VIF after " ^ doc)
-	(fun self ->
-		if Db.is_valid_ref self then begin
-			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
-		end)
-	vif
+	(fun self -> 
+	   Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_vif_helpers.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+	) vif
 
     let mark_vif ~__context ~vif ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      
@@ -2356,21 +1993,6 @@ end
       let local_fn = Local.VLAN.destroy ~self in
   do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:(Db.VLAN.get_tagged_PIF ~__context ~self)) (fun session_id rpc -> Client.VLAN.destroy rpc session_id self)
   end
-  
-	module Tunnel = struct
-		let create ~__context ~transport_PIF ~network = 
-			info "Tunnel.create: network = '%s'" (network_uuid ~__context network);
-			let local_fn = Local.Tunnel.create ~transport_PIF ~network in
-			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
-				(fun session_id rpc -> Client.Tunnel.create rpc session_id transport_PIF network)
-	  
-		let destroy ~__context ~self = 
-			info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self);
-			let local_fn = Local.Tunnel.destroy ~self in
-			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context
-				~self:(Db.Tunnel.get_transport_PIF ~__context ~self))
-				(fun session_id rpc -> Client.Tunnel.destroy rpc session_id self)
-	end
 
   module Bond = struct
     let create ~__context ~network ~members ~mAC = 
@@ -2467,11 +2089,6 @@ end
       info "PIF.scan: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.PIF.scan ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan rpc session_id host)
-	
-    let scan_bios ~__context ~host = 
-      info "PIF.scan_bios: host = '%s'" (host_uuid ~__context host);
-      let local_fn = Local.PIF.scan_bios ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan_bios rpc session_id host)
 
     let introduce ~__context ~host ~mAC ~device = 
       info "PIF.introduce: host = '%s'; MAC adress = '%s'; device = '%s'" (host_uuid ~__context host) mAC device;
@@ -2493,12 +2110,10 @@ end
       debug "Unmarking SR after %s (task=%s)" doc task_id;
       log_exn_ignore ~doc:("unmarking SR after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
-			Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_sr.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
-		end)
-	sr
+	   Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_sr.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);	   
+	) sr
 
     let mark_sr ~__context ~sr ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      
@@ -2517,21 +2132,37 @@ end
 
     (* -------- Forwarding helper functions: ------------------------------------ *)
 
-    (* Forward SR operation to host that has a suitable plugged (or unplugged) PBD  *)
-    let forward_sr_op ?consider_unplugged_pbds ~local_fn ~__context ~self op =
-	  let pbd = choose_pbd_for_sr ?consider_unplugged_pbds ~__context ~self () in
-	  let host = Db.PBD.get_host ~__context ~self:pbd in
-	  do_op_on ~local_fn ~__context ~host op
+    (* Forward SR operation to host that has a suitable plugged PBD  *)
+    (* In the case of SR.destroy we need to be able to forward the SR operation when all PBDs are unplugged - this
+       is the reason for the consider_unplugged_pbds optional argument below. All other SR ops only consider plugged PBDs... *)
+    let forward_sr_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
+      let shared_srs = Helpers.get_shared_srs ~__context in
+      let all_pbds_for_this_sr = Db.SR.get_PBDs ~__context ~self in
+      let plugged_pbds_for_this_sr = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds_for_this_sr in
+      let pbds_to_consider = if consider_unplugged_pbds then all_pbds_for_this_sr else plugged_pbds_for_this_sr in
+      let i_am_shared = List.mem self shared_srs in
+	if i_am_shared then
+	  let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+	  (* we have to do shared SR op on the master; we throw an error if master PBD not plugged *)
+	  match List.filter (fun pbd->(Db.PBD.get_host ~__context ~self:pbd)=master) pbds_to_consider with
+	    _::_ -> (* ok, master plugged *)
+	      local_fn ~__context (* go ahead and do op on master *)
+	  | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
+	else
+	  match pbds_to_consider with
+	      [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
+	    | (pbd::_) ->
+		let host = Db.PBD.get_host ~__context ~self:pbd in
+		  do_op_on ~local_fn ~__context ~host op
 
     (* do op on a host that can view multiple SRs *)
     let forward_sr_multiple_op ~local_fn ~__context ~srs op =
       let hosts = Db.Host.get_all ~__context in
       let filterfn host =
-		try
-			Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
-			check_live ~__context host;
-			true
-		with 
+	try
+	  Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
+	  true
+	with 
 	    _ -> false in
       let possibles = List.filter filterfn hosts in
       match possibles with
@@ -2606,7 +2237,8 @@ end
     let scan ~__context ~sr =
       (* since we periodically sr_scan, only log those that aren't internal ones.. otherwise logs just get spammed *)
       let is_internal_scan = Db.Session.get_pool ~__context ~self:(Context.get_session_id __context) in
-      (if is_internal_scan then debug else info) "SR.scan: SR = '%s'" (sr_uuid ~__context sr);
+      if not is_internal_scan then
+	info "SR.scan: SR = '%s'" (sr_uuid ~__context sr);
       let local_fn = Local.SR.scan ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.scan" ~op:`scan
 	(fun () ->
@@ -2640,11 +2272,9 @@ end
 	List.iter 
 	  (log_exn_ignore ~doc:("unmarking VDI: " ^ reason)
 	     (fun self -> 
-			if Db.is_valid_ref self then begin
-				Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-				Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
-			end))
-	  !vdis_marked in
+		Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
+		Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);		
+	     )) !vdis_marked in
 
       let signal_all () = 
 	List.iter (fun self -> Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self)) !vdis_marked in
@@ -2724,12 +2354,10 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn_ignore ~doc:("unmarking VDI after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
-			Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_vdi.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
-		end)
-	vdi
+	   Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_vdi.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+	) vdi
 
     let mark_vdi ~__context ~vdi ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -2770,10 +2398,8 @@ end
     (* -------------------------------------------------------------------------- *)
 
 	let set_sharable ~__context ~self ~value =
-              if not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then begin
 		let sr = Db.VDI.get_SR ~__context ~self in
 		Sm.assert_session_has_internal_sr_access ~__context ~sr;
-              end;
 		Local.VDI.set_sharable ~__context ~self ~value
 
     let set_managed ~__context ~self ~value =
@@ -2800,24 +2426,6 @@ end
       let sr = Db.VDI.get_SR ~__context ~self in
       Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_physical_utilisation ~__context ~self ~value
-
-	let ensure_vdi_not_on_running_vm ~__context ~self =
-		let vbds = Db.VDI.get_VBDs ~__context ~self in
-		List.iter (fun vbd ->
-			let vm = Db.VBD.get_VM ~__context ~self:vbd in
-			let state = Db.VM.get_power_state ~__context ~self:vm in
-			match state with
-				| `Halted -> ()
-				| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-				        [Ref.string_of vm; "halted"; Record_util.power_to_string state]))) vbds
-
-	let set_on_boot ~__context ~self ~value =
-		ensure_vdi_not_on_running_vm ~__context ~self;
-		Local.VDI.set_on_boot ~__context ~self ~value
-
-	let set_allow_caching ~__context ~self ~value =
-		ensure_vdi_not_on_running_vm ~__context ~self;
-		Local.VDI.set_allow_caching ~__context ~self ~value
 
     (* know sr so just use SR forwarding policy direct here *)
     let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
@@ -2898,9 +2506,9 @@ end
     let copy ~__context ~vdi ~sr =
       info "VDI.copy: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
       let local_fn = Local.VDI.copy ~vdi ~sr in
+      let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
       (* No need to lock the VDI because the VBD.plug will do that for us *)
-      (* Forward the request to a host which can read the source VDI *)
-      forward_vdi_op ~local_fn ~__context ~self:vdi
+      SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr;sr] 
 	(fun session_id rpc -> Client.VDI.copy rpc session_id vdi sr)
 
     let resize ~__context ~vdi ~size =
@@ -2938,7 +2546,7 @@ end
 	(fun () ->
 	   forward_vdi_op ~local_fn ~__context ~self:vdi
 	     (fun session_id rpc -> Client.VDI.force_unlock rpc session_id vdi))
-
+	
   end
   module VBD = struct
 
@@ -2956,12 +2564,10 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VBD after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
-			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
-			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
-		end)
-	vbd      
+	   Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
+	   Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
+	   Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
+	) vbd      
 
     let mark_vbd ~__context ~vbd ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      
@@ -3193,6 +2799,4 @@ end
   module Message = Local.Message
 
   module Data_source = struct end
-
-	module Secret = Local.Secret
 end

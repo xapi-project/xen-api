@@ -72,7 +72,7 @@ start() {
 	fi
 	if [ ! -f ${PEMFILE} ]; then
 		# generating a pem file
-		CN=`hostname -f`
+		CN=`hostname`
 
 		case "${CN}" in
 		    localhost*)
@@ -121,7 +121,6 @@ stop() {
 	    kill -0 $SSLPID 2> /dev/null
             if [ $? -eq 0 ]; then
 		echo -n .
-		kill ${SSLPID} # in case the first signal was missed
 		sleep 1
 	    else
 		echo
@@ -129,11 +128,8 @@ stop() {
 		return 0
             fi
         done
-	# If stunnel still hasn't exited then kill it forcefully
-	echo -n $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
-	failure $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
-	kill -9 ${SSLPID}
-	rm -f /var/lock/subsys/xapissl
+	echo -n $"stunnel failed to terminate"
+	failure $"stunnel failed to terminate"
 	return 1
 }
 

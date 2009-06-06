@@ -1,16 +1,15 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Jon Harrop    <jon.harrop@xensource.com>
+             Dave Scott    <dscott@xensource.com>
+             Richard Sharp <richard.sharp@xensource.com>
+
+   Simple HTTP 1.0 and XMLRPC client functions
+
+   ------------------------------------------------------------------- *)
 open Stringext
 open Pervasiveext
 open Threadext
@@ -327,7 +326,7 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       let unique_id = get_new_stunnel_id () in
       Stunnel.connect ~use_external_fd_wrapper ~write_to_log ~unique_id host port in
   let s = st_proc.Stunnel.fd in
-  let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
+  let s_pid = st_proc.Stunnel.pid in
     begin
       match task_id with
           None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"

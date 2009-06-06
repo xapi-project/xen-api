@@ -1,20 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group High Availability (HA)
- *)
- 
+(** True if the VM is set to always run *)
+val vm_should_always_run : bool -> string -> bool
+
 val all_protected_vms : __context:Context.t -> (API.ref_VM * API.vM_t) list 
 
 (** Take a set of live VMs and attempt to restart all protected VMs which have failed *)

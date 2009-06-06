@@ -1,23 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(*
  * RRD module
  * This module provides a util that records data in a way that's compatable
  * with rrdtool (http://oss.oetiker.ch/rrdtool/index.en.html)
- *)
-(**
- * @group Performance Monitoring
  *)
 
 open Listext
@@ -238,9 +222,7 @@ let process_ds_value ds value interval =
 let ds_update rrd timestamp values transforms =
   (* Interval is the time between this and the last update *)
   let interval = timestamp -. rrd.last_updated in
-  (* Work around the clock going backwards *)
-  let interval = if interval < 0. then 5. else interval in
-
+  
   (* start time (st) and age of the last processed pdp and the currently occupied one *)
   let proc_pdp_st, proc_pdp_age = get_times rrd.last_updated rrd.timestep in
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
@@ -483,12 +465,12 @@ let f_to_s f =
     'xport' format. *)
 let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =   
   let tag tag next () = 
-    Xmlm.output output (`El_start (("",tag),[])); 
+    Xmlm.output_signal output (`S (("",tag),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output output (`El_end) 
+    Xmlm.output_signal output (`E) 
   in
   
-  let data dat () = Xmlm.output output (`Data dat) in  
+  let data dat () = Xmlm.output_signal output (`D dat) in  
 
   let rec do_data i accum =
     let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
@@ -512,7 +494,6 @@ let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start
     tag "columns" [data (Printf.sprintf "%d" (Array.length legends))];
     tag "legend" (List.map (fun x -> tag "entry" [data x]) (Array.to_list legends))] in
   
-  Xmlm.output output (`Dtd None);
   tag "xport" [meta; mydata] ()
 
 let to_json rra_timestep rras first_rra last_cdp_time first_cdp_time start legends = 
@@ -584,18 +565,30 @@ let export ?(json=false) prefixandrrds start interval cfopt =
     real_export to_json prefixandrrds start interval cfopt
   else
     let buffer = Buffer.create 10 in
-    let output = Xmlm.make_output (`Buffer buffer) in
+    let output = Xmlm.output_of_buffer buffer in
     real_export (to_xml output) prefixandrrds start interval cfopt;
     Buffer.contents buffer
 
 let from_xml input =
   (* build tree in memory first *)
   let tree = 
-    let data d = D d in
-    let el ((prefix,tag_name),attr) children = El (tag_name, children) in
-    match Xmlm.peek input with
-    | `Dtd _ -> snd (Xmlm.input_doc_tree ~data ~el input)
-    | _ -> Xmlm.input_tree ~data ~el input
+    let d data = function 
+      | childs :: path -> ((D data) :: childs) :: path 
+      | [] -> assert false
+    in
+    let s _ path = [] :: path in
+    let e ((prefix,tag_name),attr) = function
+      | childs :: path -> 
+          let el = El (tag_name, List.rev childs) in
+          begin match path with
+            | parent :: path' -> (el :: parent) :: path' 
+            | [] -> [ [ el ] ]
+          end
+      | [] -> assert false
+    in
+    match Xmlm.input ~d ~s ~e [] input with
+      | [ [ root ] ] -> root
+      | _ -> assert false (* cannot happen (no pruning) *)
   in
 
   let kvs elts = List.filter_map 
@@ -689,14 +682,14 @@ let from_xml input =
 
 let to_xml output rrd =
   let tag n next () = 
-    Xmlm.output output (`El_start (("",n),[])); 
+    Xmlm.output_signal output (`S (("",n),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output output (`El_end) 
+    Xmlm.output_signal output (`E) 
   in
   let tags n next () =
     List.iter (fun next -> tag n next ()) next
   in
-  let data dat () = Xmlm.output output (`Data dat) in
+  let data dat () = Xmlm.output_signal output (`D dat) in
 
   let do_dss ds_list =
     [tags "ds" (List.map (fun ds -> [
@@ -741,7 +734,6 @@ let to_xml output rrd =
       tag "database" (do_database rra.rra_data)]) rra_list)]
   in
 	
-  Xmlm.output output (`Dtd None);
   tag "rrd" 
     (List.concat 
 	[[tag "version" [data "0003"];
@@ -797,7 +789,7 @@ let to_string ?(json=false) rrd =
     to_json rrd
   else
     (let buffer = Buffer.create 10 in
-    let output = Xmlm.make_output (`Buffer buffer) in
+    let output = Xmlm.output_of_buffer buffer in
     to_xml output rrd;
     Buffer.contents buffer)
 

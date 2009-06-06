@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Database Operations
- *)
- 
 open API
 open Listext
 open Threadext
@@ -30,13 +13,12 @@ let use_host_heartbeat_for_liveness_m = Mutex.create ()
 
 let host_heartbeat_table : (API.ref_host,float) Hashtbl.t = Hashtbl.create 16
 let host_skew_table : (API.ref_host,float) Hashtbl.t = Hashtbl.create 16
-let host_uncooperative_domains_table : (API.ref_host,string list) Hashtbl.t = Hashtbl.create 16
 let host_table_m = Mutex.create ()
 
-let _uncooperative_domains = "uncooperative-domains"
-let _time = "time"
 
-let valid_ref x = Db.is_valid_ref x
+let is_valid = Db_cache.DBCache.is_valid_ref
+
+let valid_ref x = is_valid (Ref.string_of x)
 
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_record =
   let all_refs = get_all ~__context in
@@ -203,37 +185,13 @@ let check_host_liveness ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   List.iter check_host all_hosts
 
-let task_status_is_completed task_status =
-    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
-
-let timeout_sessions_common ~__context sessions =
-  let unused_sessions = List.filter
-    (fun (x, _) -> 
-	  let rec is_session_unused s = 
-        if (s=Ref.null) then true (* top of session tree *)
-        else 
-        try (* if no session s, assume default value true=unused *)
-          let tasks = (Db.Session.get_tasks ~__context ~self:s) in
-          let parent = (Db.Session.get_parent ~__context ~self:s) in
-	      (List.for_all
-            (fun t -> task_status_is_completed
-              (* task might not exist anymore, assume completed in this case *)
-              (try Db.Task.get_status ~__context ~self:t with _->`success)
-            ) 
-            tasks
-          )
-          && (is_session_unused parent)
-        with _->true
-      in is_session_unused x
-    )
-    sessions
-  in
-  let disposable_sessions = unused_sessions in
+let timeout_sessions ~__context =
+  let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
   (* Only keep a list of (ref, last_active, uuid) *)
-  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
+  let all_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) all_sessions in
   (* Definitely invalidate sessions last used long ago *)
   let threshold_time = Unix.time () -. Xapi_globs.inactive_session_timeout in
-  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
+  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) all_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
     if List.length young <= Xapi_globs.max_sessions
@@ -244,30 +202,23 @@ let timeout_sessions_common ~__context sessions =
   let cancel doc sessions = 
     List.iter
       (fun (s, active, uuid) ->
-	 debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s" (Ref.string_of s) uuid (Context.trackid_of_session (Some s)) (Date.to_string (Date.of_float active)) doc;
-	 Xapi_session.destroy_db_session ~__context ~self:s
-	 ) sessions in
+	 debug "Session.destroy _ref=%s uuid=%s (last active %s): %s" (Ref.string_of s) uuid (Date.to_string (Date.of_float active)) doc;
+	 (* Unregister from the event system *)
+	 Xapi_event.on_session_deleted s;
+	 Db.Session.destroy ~__context ~self:s) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) Xapi_globs.max_sessions;
+  then debug "Number of sessions in database (%d) exceeds limit (%d): will delete the oldest" (List.length all_sessions) Xapi_globs.max_sessions;
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
-
-let timeout_sessions ~__context =
-  let all_sessions =
-    Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
-  in
-  let (intrapool_sessions, normal_sessions) =
-    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions
-  in begin
-    timeout_sessions_common ~__context normal_sessions;
-    timeout_sessions_common ~__context intrapool_sessions;
-  end
 
 let timeout_tasks ~__context =
   let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
   let oldest_completed_time = Unix.time() -. Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
   let oldest_pending_time   = Unix.time() -. Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
+
+  let task_status_is_completed task_status =
+    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled) in  
 
   let should_delete_task (_, t) = 
     if task_status_is_completed t.Db_actions.task_status
@@ -330,39 +281,35 @@ let detect_rolling_upgrade ~__context =
     let is_different_to_me product_version = product_version <> Version.product_version in
     let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me product_versions) in
     (* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
-    let pools = Db.Pool.get_all ~__context in
-    match pools with
-    | [] ->
-        debug "Ignoring absence of pool record in detect_rolling_upgrade: this is expected on first boot"
-    | pool :: _ ->
-        let pool_says_in_progress = 
-          List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
-        (* Resynchronise *)
-        if actually_in_progress <> pool_says_in_progress then begin
-          debug "xapi product version = %s; host product versions = [ %s ]"
-	    Version.product_version (String.concat "; " product_versions);
-    
-          warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
-	    (if pool_says_in_progress then "" else " not");
-          (if actually_in_progress
-           then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
-           else begin
-             Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
-             List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
-           end);
-          (* Call out to an external script to allow external actions to be performed *)
-          if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
-	    let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
-	    debug "Executing rolling_upgrade script: %s %s" 
-	      Xapi_globs.rolling_upgrade_script_hook (String.concat " " args);
-	    ignore(Forkhelpers.execute_command_get_output Xapi_globs.rolling_upgrade_script_hook args)
-          end;
-          (* Call in to internal xapi upgrade code *)
-          if actually_in_progress
-          then Xapi_upgrade.start ()
-          else Xapi_upgrade.stop ()
-        end
-  with exn -> 
+    let pool = List.hd (Db.Pool.get_all ~__context) in
+    let pool_says_in_progress = 
+      List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
+    (* Resynchronise *)
+    if actually_in_progress <> pool_says_in_progress then begin
+      debug "xapi product version = %s; host product versions = [ %s ]"
+	Version.product_version (String.concat "; " product_versions);
+
+      warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
+	(if pool_says_in_progress then "" else " not");
+      (if actually_in_progress
+       then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
+       else Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress);
+      (* Call out to an external script to allow external actions to be performed *)
+      if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
+	let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
+	debug "Executing rolling_upgrade script: %s %s" 
+	  Xapi_globs.rolling_upgrade_script_hook (String.concat " " args);
+	ignore(Forkhelpers.execute_command_get_output Xapi_globs.rolling_upgrade_script_hook args)
+      end;
+      (* Call in to internal xapi upgrade code *)
+      if actually_in_progress
+      then Xapi_upgrade.start ()
+      else Xapi_upgrade.stop ()
+    end
+  with 
+  | Failure "hd" ->
+      debug "Ignoring spurious List.hd failure in detect_rolling_upgrade: this is expected on first boot"
+  | exn -> 
       warn "Ignoring error in detect_rolling_upgrade: %s" (ExnHelper.string_of_exn exn)
 
 (* A host has asked to tickle its heartbeat to keep it alive (if we're using that
@@ -375,48 +322,20 @@ let tickle_heartbeat ~__context:_ host stuff =
        let now = Unix.gettimeofday () in
        Hashtbl.replace host_heartbeat_table host now;
        (* compute the clock skew for later analysis *)
-       if List.mem_assoc _time stuff then begin
+       if List.mem_assoc "time" stuff then
 	 try
-	   let slave = float_of_string (List.assoc _time stuff) in
+	   let slave = float_of_string (List.assoc "time" stuff) in
 	   let skew = abs_float (now -. slave) in
 	   Hashtbl.replace host_skew_table host skew
 	 with _ -> ()
-       end;
-       if List.mem_assoc _uncooperative_domains stuff then begin
-	 try
-	   let domains = Stringext.String.split ',' (List.assoc _uncooperative_domains stuff) in
-	   Hashtbl.replace host_uncooperative_domains_table host domains
-	 with _ -> ()
-       end
     );
-  []
+
+  let loadavg = Helpers.loadavg () in
+  [ "loadavg", string_of_float loadavg ]
+
 
 let gc_messages ~__context = 
   Xapi_message.gc ~__context
-
-(* Update the per-VM co-operative flags *)
-module StringSet = Set.Make(struct type t = string let compare = compare end)
-let current_uncooperative_domains = ref StringSet.empty
-
-let update_vm_cooperativeness ~__context = 
-  (* Fetch the set of slave domain uuids which are currently uncooperative *)
-  let domains = Mutex.execute host_table_m (fun () -> Hashtbl.fold (fun _ ds acc -> List.fold_left (fun acc x -> StringSet.add x acc) acc ds) host_uncooperative_domains_table StringSet.empty) in
-  let domains = List.fold_left (fun acc x -> StringSet.add x acc) domains (Monitor.get_uncooperative_domains ()) in
-
-  (* New uncooperative domains: *)
-  let uncooperative_domains = StringSet.diff domains !current_uncooperative_domains in
-  (* New cooperative domains: *)
-  let cooperative_domains = StringSet.diff !current_uncooperative_domains domains in
-  let set_uncooperative_flag value uuid = 
-    try
-      let vm = Db.VM.get_by_uuid ~__context ~uuid in
-      Helpers.set_vm_uncooperative ~__context ~self:vm ~value;
-      if value then ignore(Xapi_message.create ~__context ~name:Api_messages.vm_uncooperative ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:"")
-    with _ -> () in
-  StringSet.iter (set_uncooperative_flag true) uncooperative_domains;
-  StringSet.iter (set_uncooperative_flag false) cooperative_domains;
-
-  current_uncooperative_domains := domains
     
 let single_pass () = 
   Server_helpers.exec_with_new_task "DB GC" (fun __context ->
@@ -437,7 +356,6 @@ let single_pass () =
        (* timeout_alerts ~__context; *)
        (* CA-29253: wake up all blocked clients *)
        Xapi_event.heartbeat ~__context;
-       update_vm_cooperativeness ~__context;
     );
   
   Mutex.execute use_host_heartbeat_for_liveness_m 
@@ -453,7 +371,7 @@ let single_pass () =
 let start_db_gc_thread() =
   Thread.create 
     (fun ()->
-      Debug.name_thread "db_gc";
+      name_thread "db_gc";
       
 	  while (true) do
 	    try
@@ -465,20 +383,24 @@ let start_db_gc_thread() =
 
 let send_one_heartbeat ~__context rpc session_id = 
   let localhost = Helpers.get_localhost ~__context in
+  (* Extra stuff to tell the master *)
+  let loadavg = Helpers.loadavg () in
   let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
-  (* Transmit the list of uncooperative domains to the master *)
-  let uncooperative_domains = Monitor.get_uncooperative_domains () in
-
-  let stuff = 
-    [ _time, string_of_float time;
-      _uncooperative_domains, String.concat "," uncooperative_domains ] in
-      
+  let stuff = [ "time", string_of_float time;
+		"loadavg", string_of_float loadavg ] in
+  
   let response = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
-  ()
   (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
+  
+  (* Update both our loadavg and our cache of the master's for use in the throttling code *)
+  Mutex.execute Xapi_globs.loadavg_m 
+    (fun () -> 
+       Xapi_globs.loadavg := loadavg;
+       if List.mem_assoc "loadavg" response then Xapi_globs.master_loadavg := float_of_string (List.assoc "loadavg" response)
+    )
     
 let start_heartbeat_thread() =
-      Debug.name_thread "heartbeat";
+      name_thread "heartbeat";
       
       Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
       let localhost = Helpers.get_localhost __context in
@@ -505,12 +427,8 @@ let start_heartbeat_thread() =
 		| e ->
 		    debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
 	    done)	    
-	with
-	| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
-	    debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
-	    exit Xapi_globs.restart_return_code
-	| e -> 
-	  debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
+	with _ -> 
+	  debug "Caught session_invalid - logging in again";
 	  Thread.delay Xapi_globs.host_heartbeat_interval;
       done
       end)

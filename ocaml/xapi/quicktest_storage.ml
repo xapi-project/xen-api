@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Stringext
 open Threadext
 open Pervasiveext
@@ -524,16 +511,6 @@ let sm_caps_of_sr session_id sr =
   | [ _, plugin ] ->
       plugin.API.sM_capabilities 
 
-(* Even though the SM backend may expose a VDI_CREATE capability attempts
-   to actually create a VDI will fail in (eg) the tools SR and any that
-   happen to be R/O NFS exports *)
-let avoid_vdi_create session_id sr = 
-  let other_config = Client.SR.get_other_config !rpc session_id sr in
-  let is_tools_sr = List.mem_assoc Xapi_globs.tools_sr_tag other_config in
-  let special_key = "quicktest-no-VDI_CREATE" in
-  let is_marked = List.mem_assoc special_key other_config && List.assoc special_key other_config = "true" in
-  is_tools_sr || is_marked
-
 let foreach_sr session_id sr = 
   let ty = Client.SR.get_type !rpc session_id sr in
   let name = Client.SR.get_name_label !rpc session_id sr in
@@ -546,21 +523,6 @@ let foreach_sr session_id sr =
   | [ _, plugin ] ->
       let caps = plugin.API.sM_capabilities in
       debug test (Printf.sprintf "Capabilities reported: [ %s ]" (String.concat " " caps));
-	  let oc = Client.SR.get_other_config !rpc session_id sr in
-	  debug test (Printf.sprintf "SR.other_config = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) oc)));
-	  let avoid_vdi_create = avoid_vdi_create session_id sr in
-	  debug test (Printf.sprintf "avoid_vdi_create = %b" avoid_vdi_create);
-      (* Mirror the special handling for the XenServer Tools SR; the
-         create and delete capabilities are forbidden in that special case.
-         See Xapi_sr.valid_operations. *)
-      let caps =
-        if avoid_vdi_create then
-          List.filter
-            (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
-        else
-          caps
-      in
-      debug test (Printf.sprintf "Capabilities filtered to: [ %s ]" (String.concat " " caps));
       success test;
 
       sr_scan_test       caps session_id sr;

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext
 
 module Real = Debug.Debugger(struct let name = "taskhelper" end)
@@ -81,14 +68,6 @@ let is_unix_socket s =
       Unix.ADDR_UNIX _ -> true
     | Unix.ADDR_INET _ -> false
 
-(** Calls coming directly into xapi on port 80 from remote IPs are unencrypted *)
-let is_unencrypted s = 
-  match Unix.getpeername s with
-    | Unix.ADDR_UNIX _ -> false
-    | Unix.ADDR_INET (addr, _) when addr = Unix.inet_addr_loopback -> false
-    | Unix.ADDR_INET _ -> true
-
-
 let preauth ~__context =
   match __context.origin with
       Internal -> false
@@ -154,7 +133,7 @@ let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task
         origin = origin;
         task_name = task_name } 
 
-let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=initial) ?subtask_of ?session_id ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
   let task_id, task_uuid =
     if task_in_database 
     then !__make_task ~__context ?description:task_description ?session_id ?subtask_of task_name
@@ -167,7 +146,6 @@ let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(task_in_d
   in
 
   let info = if task_in_database then Real.info else Dummy.debug in
-  if not quiet && subtask_of <> None then
     info "task %s%s created%s%s" (* CP-982: promote tracking debug line to info status *)
       (!__string_of_task task_name task_id) 
       task_uuid

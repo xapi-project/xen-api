@@ -1,17 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* A unit testing framework for OCaml.                        *)
+(* Author: Jonathan Knowles                                   *)
+(* Copyright: 2008 Citrix Systems Research & Development Ltd. *)
 
 type test =
 	| Case  of name * description * case
@@ -83,9 +72,6 @@ val print_string : string -> unit
 
 (** Makes a test case. *)
 val make_test_case : name -> description -> case -> test
-
-(** Makes a function test case with a default description. *)
-val make_function_test_case : name -> case -> test
 
 (** Makes a test suite. *)
 val make_test_suite : name -> description -> suite -> test

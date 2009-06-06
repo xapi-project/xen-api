@@ -1,22 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Helper functions relating to VM lifecycle operations.
- * @group Virtual-Machine Management
- *)
+(** Helper functions relating to VM lifecycle operations *)
 
 open Xapi_pv_driver_version
-open Listext
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -25,63 +9,37 @@ open D
 	wich this operation can be performed. *)
 let allowed_power_states ~(op:API.vm_operations) =
 	let all_power_states =
-		[`Halted; `Paused; `Suspended; `Running] in
+		[`Halted; `Paused; `Suspended; `Running]
+	in
 	match op with
+	
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
-	| `import
-	                                -> []
-	| `changing_memory_limits
-	| `changing_shadow_memory
-	| `changing_static_range
-	| `changing_VCPUs
+	| `import                         -> []
+
+	| `start | `start_on | `provision
 	| `destroy
-	| `make_into_template
-	| `provision
-	| `start
-	| `start_on
-	                                -> [`Halted]
-	| `unpause
-	                                -> [`Paused]
-	| `csvm
-	| `resume
-	| `resume_on
-	                                -> [`Suspended]
-	| `awaiting_memory_live
-	| `clean_reboot
-	| `clean_shutdown
-	| `changing_memory_live
-	| `changing_shadow_memory_live
-	| `changing_VCPUs_live 
+	| `make_into_template             -> [`Halted]
+
+	| `unpause                        -> [`Paused]
+
+	| `resume | `resume_on | `csvm    -> [`Suspended]
+
+	| `changing_shadow_memory_live | `changing_VCPUs_live 
+	| `awaiting_memory_live | `changing_memory_live
 	| `data_source_op
-	| `migrate
+	| `pool_migrate | `migrate | `suspend
+	| `send_sysrq | `send_trigger
 	| `pause
-	| `pool_migrate
-	| `send_sysrq
-	| `send_trigger
-	| `snapshot_with_quiesce
-	| `suspend
-	                                -> [`Running]
-	| `changing_dynamic_range
-	                                -> [`Halted; `Running]
-	| `clone
-	| `copy
-	| `export
-	                                -> [`Halted; `Suspended]
-	| `hard_reboot
-	                                -> [`Paused; `Running]
-	| `checkpoint
+	| `clean_shutdown | `clean_reboot -> [`Running]
+
+	| `clone | `copy | `export        -> [`Halted; `Suspended]
+
 	| `get_boot_record
-	| `hard_shutdown
-	                                -> [`Paused; `Suspended; `Running]
-	| `assert_operation_valid
-	| `metadata_export 
+	| `hard_reboot | `hard_shutdown   -> [`Paused; `Suspended; `Running]
+
+	| `assert_operation_valid | `update_allowed_operations
 	| `power_state_reset
-	| `revert
-	| `reverting
-	| `snapshot
-	| `update_allowed_operations
-	| `get_cooperative
-	                                -> all_power_states
+	| `snapshot                       -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~power_state ~op =
@@ -91,29 +49,23 @@ let is_allowed_sequentially ~power_state ~op =
 	Remark: we do not test whether the power-state is valid. *)
 let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	(* declare below the non-conflicting concurrent sets. *)
-	let long_copies = [`clone; `copy; `export ]
+	let long_copies = [`clone; `copy; `export]
 	and boot_record = [`get_boot_record]
-	and snapshot    = [`snapshot; `checkpoint]
-	and allowed_operations = (* a list of valid state -> operation *)
-		[ [`snapshot_with_quiesce], `snapshot;
-		  [`reverting],             `hard_shutdown ] in                
-	let state_machine () = 
-		let current_state = List.map snd current_ops in
-		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
+	and snapshot    = [`snapshot]
 	in
 	let aux ops =
 		List.mem op ops && List.for_all (fun (_,o) -> List.mem o ops) current_ops
 	in
-	aux long_copies || aux snapshot || aux boot_record || state_machine ()
+	aux long_copies || aux snapshot || aux boot_record
 
 (** Special handling is required for RedHat version 3 *)
 let is_rhel3 gmr =
 	match gmr with
 	| Some gmr ->
 		let version = gmr.Db_actions.vM_guest_metrics_os_version in
-		true
-		&& List.mem_assoc "distro" version && List.assoc "distro" version = "rhel"
-		&& List.mem_assoc "major" version && List.assoc "major" version = "3"
+		List.mem_assoc "distro" version
+		&& List.assoc "distro" version = "rhel"
+		&& List.assoc "major" version = "3"
 	| None ->
 		false
 
@@ -127,13 +79,13 @@ let is_rhel3 gmr =
  *)
 let check_drivers ~vmr ~vmgmr ~op ~ref =
 	let has_booted_hvm = Helpers.has_booted_hvm_of_record vmr in
-	let pv_drivers = of_guest_metrics vmgmr in
-	let has_pv_drivers = has_pv_drivers pv_drivers in
+	let pv_drivers = of_guest_metrics_db_record_option vmgmr in
+	let has_pv_drivers = pv_drivers <> Unknown in
 
 	(* FIXME: need to update the code for is_of_for_nigrate *)
 	let has_good_drivers =
 		match op with
-		| `pool_migrate | `suspend | `checkpoint                     -> is_ok_for_migrate pv_drivers
+		| `pool_migrate | `suspend                                   -> is_ok_for_migrate pv_drivers
 		| `clean_shutdown | `clean_reboot | `changing_VCPUs_live | _ -> true
 	in
 	let is_a_rhel3_bug =
@@ -145,45 +97,26 @@ let check_drivers ~vmr ~vmgmr ~op ~ref =
 	let op_str = Record_util.vm_operation_to_string op in
 
 	if has_booted_hvm && not has_pv_drivers
-	then Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
+	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for HVM domains (are PV drivers installed?)"])
 	else if is_a_rhel3_bug
 	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for SMP RHEL 3 linux guests" ])
 	else if has_good_drivers
 	then None
-	else make_error_opt pv_drivers ref vmr.Db_actions.vM_guest_metrics
+	else up_to_date_error_of_version pv_drivers ref vmr.Db_actions.vM_guest_metrics
 
 let need_pv_drivers_check ~power_state ~op =
-	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let op_list = [ `suspend; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
 	power_state = `Running && List.mem op op_list
 
-(* templates support clone operations, destroy (if not default), export, provision and memory settings change *)
+(* templates support clone operations, destroy (if not default), export and provision. *)
 let check_template ~vmr ~op ~ref_str =
 	let default_template =
 		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
 		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
 	in
-	let allowed_operations = [
-		`changing_dynamic_range;
-		`changing_static_range;
-		`changing_memory_limits;
-		`changing_VCPUs;
-		`clone;
-		`copy;
-		`export;
-		`metadata_export;
-		`provision;
-	] in
-	if false
-		|| List.mem op allowed_operations
-		|| (op = `destroy && not default_template)
+	if List.mem op [`clone; `copy; `export; `provision] || (op = `destroy && not default_template)
 	then None
-	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
-
-let check_snapshot ~vmr ~op ~ref_str =
-	let allowed = [`revert; `clone; `copy; `export; `destroy; `hard_shutdown; `metadata_export] in
-	if List.mem op allowed
-	then None
-	else Some (Api_errors.vm_is_snapshot, [ref_str; Record_util.vm_operation_to_string op])
+	else Some (Api_errors.vm_is_template, [ref_str])
 
 (* report a power_state/operation error *)
 let report_power_state_error ~power_state ~op ~ref_str =
@@ -203,7 +136,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
-let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
+let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
@@ -221,19 +154,12 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_rese
 	then report_concurrent_operations_error ~current_ops ~ref_str
 
 	(* if the VM is a template, check the template behavior exceptions. *)
-	else if vmr.Db_actions.vM_is_a_template && not vmr.Db_actions.vM_is_a_snapshot
+	else if vmr.Db_actions.vM_is_a_template
 	then check_template ~vmr ~op ~ref_str
 	
-	(* if the VM is a snapshot, check the snapshot behavior exceptions. *)
-	else if vmr.Db_actions.vM_is_a_snapshot
-	then check_snapshot ~vmr ~op ~ref_str
-
-	(* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
+	(* if we are not a template, do not allow provision *)
 	else if op = `provision
 	then Some (Api_errors.only_provision_template, [])
-
-	else if op = `revert
-	then Some (Api_errors.only_revert_snapshot, [])
 
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)
@@ -242,21 +168,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_rese
 		&& op <> `data_source_op
 		&& op <> `changing_memory_live
 		&& op <> `awaiting_memory_live
-		&& op <> `metadata_export
-		&& op <> `changing_dynamic_range
 	then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
-
-	(* Check for an error due to VDI caching/reset behaviour *)
-	else if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
- 	then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
-		if List.exists fst vdis_reset_and_caching 
-		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
-		else None
-	else if op = `pool_migrate then
-		(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
-		if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
-		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
-		else None
 
 	(* check PV drivers constraints if needed *)
 	else if need_pv_drivers_check ~power_state ~op
@@ -266,17 +178,10 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_rese
 	else if power_state = `Suspended && (op = `clone || op = `copy) && not clone_suspended_vm_enabled
 	then Some (Api_errors.vm_bad_power_state, [ref_str; "halted"; Record_util.power_to_string power_state])
 
-	(* check if the dynamic changeable operations are still valid *)
-	else if op = `snapshot_with_quiesce && 
-		(Pervasiveext.maybe_with_default true
-			 (fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in 
-			  not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other)) 
-			 vmgmr)
-	then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
 	else None
 
 let maybe_get_guest_metrics ~__context ~ref =
-	if Db.is_valid_ref ref
+	if Db_cache.DBCache.is_valid_ref (Ref.string_of ref)
 	then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
 	else None
 
@@ -284,42 +189,32 @@ let get_info ~__context ~self =
 	let all = Db.VM.get_record_internal ~__context ~self in
 	let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
 	let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
-	let vdis_reset_and_caching = List.filter_map (fun vbd -> 
-		try 
-			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-	        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-			Some 
-				((try List.assoc "on_boot" sm_config = "reset" with _ -> false),
-				(try String.lowercase (List.assoc "caching" sm_config) = "true" with _ -> false))
-		with _ -> None) all.Db_actions.vM_VBDs in	
-	all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
+	all, gm, clone_suspended_vm_enabled
 
 let is_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	match check_operation_error all gm self clone_suspended_vm_enabled op with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	match check_operation_error all gm self clone_suspended_vm_enabled op with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
-	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
 	let check accu op =
-		match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+		match check_operation_error all gm self clone_suspended_vm_enabled op with
 		| None -> op :: accu
 		| _    -> accu
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
-			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
+			[`snapshot; `copy; `clone; `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
-			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
-			`changing_dynamic_range]
+			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
 	let allowed =
@@ -332,6 +227,8 @@ let update_allowed_operations ~__context ~self =
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc *)
 let force_state_reset ~__context ~self ~value:state =
+	warn("Forcibly resetting VM state");
+
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	if (Db.VM.get_current_operations ~__context ~self)<>[] then
 		Db.VM.set_current_operations ~__context ~self ~value:[];

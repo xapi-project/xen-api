@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 open Printf
 open Stringext
@@ -78,10 +65,6 @@ let connected_node ~xs (x: device) =
 let tapdisk_error_node ~xs (x: device) = 
   sprintf "%s/backend/%s/%d/%d/tapdisk-error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 
-(* CA-39745: node written to by blkback to report an error (eg opening an empty CDROM drive) *)
-let blkback_error_node ~xs (x: device) = 
-  sprintf "%s/error/backend/vbd/%d/%d/error" (xs.Xs.getdomainpath x.backend.domid) x.backend.domid x.frontend.devid
-
 (* Poll a device to see whether it is instantaneously "online" where "online" means
    "currently-attached" in the database. The event thread AND the startup code call
    this function to resynchronise the state of the world with the database. 
@@ -138,12 +121,11 @@ let wait_for_frontend_plug ~xs (x: device) =
   debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
   try
     let ok_watch = Watch.value_to_appear (frontend_status_node x) in
-    let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) in
-	let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) in
+    let error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) in
     Stats.time_this "udev frontend add event" 
       (fun () ->
 	 match Watch.wait_for ~xs ~timeout:hotplug_timeout 
-	 (Watch.any_of [ `OK, ok_watch; `Failed, tapdisk_error_watch; `Failed, blkback_error_watch ]) with
+	 (Watch.any_of [ `OK, ok_watch; `Failed, error_watch ]) with
 	 | `OK, _ ->
 	     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
 	 | `Failed, e ->
@@ -166,8 +148,6 @@ let wait_for_frontend_unplug ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Frontend_device_timeout x)
 
-let losetup = "/sbin/losetup"
-
 (* Create a /dev/loop* device attached to file 'path' *)
 let mount_loopdev_file readonly path =
         (* 1. Check to see if the path actually looks ok *)
@@ -183,23 +163,17 @@ let mount_loopdev_file readonly path =
         | []    -> raise Loopdev_all_busy
         | x::xs ->
                 let loopdev = "/dev/" ^ x in debug "Checking loop device %s" loopdev;
-		let args = (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
-		debug "Executing: losetup [ %s ]" (String.concat "; " args);
-		let success = 
-		  try
-		    ignore(Forkhelpers.execute_command_get_output losetup args);
-		    debug "losetup successful";
-		    true
-		  with _ ->
-		    debug "losetup unsuccessful";
-		    false in
-		if success then loopdev else allocate xs
+		let args = [ "losetup" ] @ (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
+		let args = Array.of_list args in
+		match Unixext.spawnvp args.(0) args with
+                | Unix.WEXITED 0 -> loopdev
+                | _              -> allocate xs
                 in
         allocate all_loop_devices
 
 
 let umount_loopdev loopdev =
-	ignore(Forkhelpers.execute_command_get_output losetup ["-d"; loopdev])
+	ignore(Forkhelpers.execute_command_get_output "/sbin/losetup" ["-d"; loopdev])
 
 (* Allocate a loopback device and associate it with this device so that
    it can be deallocated by the release call. *)

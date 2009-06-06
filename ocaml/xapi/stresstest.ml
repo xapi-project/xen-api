@@ -1,17 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2007 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(*
  * Cluster stress testing for rio
  *)
 
@@ -28,7 +18,7 @@ module XapiImpl = functor(Remote: API.API) -> struct
 	let password = ref "xenroot"
 	let secure = ref true
 
-	type vmState = Running | Halted | Suspended | Paused
+	type vmState = Running | Halted | Suspended | Paused | Unknown
 
 	let rpc xml =
 		if !secure then
@@ -84,6 +74,7 @@ module XapiImpl = functor(Remote: API.API) -> struct
 		| `Paused -> Paused
 		| `Running -> Running
 		| `Suspended -> Suspended
+		| `Unknown -> Unknown
 
 	let vm_is_running vm = (vm_get_state vm = Running)
 	let vm_is_suspended vm = (vm_get_state vm = Suspended)
@@ -414,7 +405,8 @@ let reset_state_fully vms tries =
 			| Xapi.Running   -> (Xapi.vm_shutdown_force vm.vmref) :: acc
 			| Xapi.Paused    -> (Xapi.vm_unpause vm.vmref) :: acc
 			| Xapi.Suspended -> (Xapi.vm_resume vm.vmref) :: acc
-			| Xapi.Halted    -> acc
+			| Xapi.Halted
+			| Xapi.Unknown   -> acc
 		) [] vms in
 		if List.length tasks > 0 then ( 
 			wait_tasks tasks 60.;
@@ -503,6 +495,7 @@ let do_random_operation vms =
 		| Xapi.Paused    -> "paused", [ Op_unpause ]
 		| Xapi.Suspended -> "suspended", [ Op_resume ]
 		| Xapi.Halted    -> "halted", [ Op_start ]
+		| Xapi.Unknown   -> "unknown", [ Op_start ]
 		in
 	let choose_one operations : random_op =
 		let l = List.length operations in

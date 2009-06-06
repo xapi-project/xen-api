@@ -1,19 +1,5 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext
 open Stringext
-open Listext
 open Threadext
 open Xapi_host_helpers
 open Xapi_support
@@ -33,22 +19,16 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
   | Pool_role.Broken -> raise !Xapi_globs.emergency_mode_error 
   | Pool_role.Slave _ -> if !Xapi_globs.slave_emergency_mode then raise !Xapi_globs.emergency_mode_error
 
+(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
 let set_license_params ~__context ~self ~value = 
   Db.Host.set_license_params ~__context ~self ~value;
-  Features.update_pool_features ~__context
-  
-let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
-  Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
-  let current_config=Db.Host.get_power_on_config ~__context ~self in
-  Db.Host.set_power_on_config ~__context ~self ~value:power_on_config;
-  Xapi_secret.clean_out_passwds ~__context current_config;
-  Xapi_host_helpers.update_allowed_operations ~__context ~self
-    
+  Restrictions.update_pool_restrictions ~__context
+
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
-    + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
-    + HA is enabled and this host has broken storage or networking which would cause protected VMs
+    1. we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
+    2. HA is enabled and this host has broken storage or networking which would cause protected VMs
     to become non-agile
-    + our license doesn't support pooling and we're a slave
+    3. our license doesn't support pooling and we're a slave
  *)
 let assert_safe_to_reenable ~__context ~self =
     let host_disabled_until_reboot = try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false in
@@ -66,7 +46,14 @@ let assert_safe_to_reenable ~__context ~self =
       (* Make sure our license hasn't expired *)
       if !License.license.License.expiry < Unix.gettimeofday ()
       then raise (Api_errors.Server_error(Api_errors.license_expired, []))
-    end
+    end;
+    if not (Restrictions.license_ok_for_pooling ~__context)
+    then raise (Api_errors.Server_error(Api_errors.license_does_not_support_pooling, []))
+
+(* read xen capabilities *)
+let get_xen_capabilities() =
+  let caps = Vmopshelpers.with_xc (fun xc -> Xc.version_capabilities xc) in
+    String.split ' ' caps
 
 let xen_bugtool = "/usr/sbin/xen-bugtool"
 
@@ -96,14 +83,8 @@ let bugreport_upload ~__context ~host ~url ~options =
     end
 
 (** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
-    attached to dom0, c) host is disabled.
-
-	This is approximately maintainance mode as defined by the gui. However, since 
-	we haven't agreed on an exact definition of this mode, we'll not call this maintainance mode here, but we'll
-	use a synonym. According to http://thesaurus.com/browse/maintenance, bacon is a synonym 
-	for maintainance, hence the name of the following function.
-*)
-let assert_bacon_mode ~__context ~host =
+    attached to dom0, and c) that there are no tasks running *)
+let assert_can_shutdown ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host 
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
 
@@ -113,35 +94,16 @@ let assert_bacon_mode ~__context ~host =
   (* We always expect a control domain to be resident on a host *)
   if List.length vms > 1 then
     raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vm"; List.hd (List.map Ref.string_of vms) ]));
-  debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
+  debug "Shutdown test: VMs OK - %d running VMs" (List.length vms);
   let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
       Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in  
   let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
       Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
   if List.length vbds > 0 then
     raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
-  debug "Bacon test: VBDs OK"
-
-let pif_update_dhcp_address ~__context ~self =
-  let network = Db.PIF.get_network ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-  match Netdev.Addr.get bridge with
-   | (_addr,_netmask)::_ ->
-       let addr = (Unix.string_of_inet_addr _addr) in
-       let netmask = (Unix.string_of_inet_addr _netmask) in
-       if addr <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-	 debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge addr netmask;
-	 Db.PIF.set_IP ~__context ~self ~value:addr;
-	 Db.PIF.set_netmask ~__context ~self ~value:netmask    
-       end
-   | _ -> ()
+  debug "Shutdown test: VBDs OK"
 
 let signal_networking_change ~__context =
-  let host = Helpers.get_localhost ~__context in
-  let pifs = Db.Host.get_PIFs ~__context ~self:host in
-  List.iter (fun pif -> if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `DHCP then
-	       pif_update_dhcp_address ~__context ~self:pif
-  ) pifs;
   Xapi_mgmt_iface.on_dom0_networking_change ~__context
 
 
@@ -201,7 +163,8 @@ let string_of_per_vm_plan p =
         String.concat "," (e :: t)
 
 (** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
-    Host or a reason why the VM cannot be migrated. *)    
+    Host or a reason why the VM cannot be migrated. *)
+    
 let compute_evacuation_plan_no_wlb ~__context ~host = 
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts = List.filter (fun self -> Db.Host.get_enabled ~__context ~self) all_hosts in
@@ -230,46 +193,27 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   let all_user_vms = List.filter (fun (_, record) -> not record.API.vM_is_control_domain) all_vms in
 
   let plans = Hashtbl.create 10 in
-  
-   
-  if target_hosts = [] 
-  then 
-       begin
-      List.iter (fun (vm, _) -> Hashtbl.add plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) all_user_vms;
-      plans
-    end
-  else 
-    begin
-      
   (* If HA is enabled we require that non-protected VMs are suspended. This gives us the property that
      the result obtained by executing the evacuation plan and disabling the host looks the same (from the HA 
      planner's PoV) to the result obtained following a host failure and VM restart. *)
   let pool = Helpers.get_pool ~__context in
   let protected_vms, unprotected_vms = 
     if Db.Pool.get_ha_enabled ~__context ~self:pool
-    then List.partition (fun (vm, record) -> Helpers.vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority) all_user_vms
+    then List.partition (fun (vm, record) -> Xapi_ha_vm_failover.vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority) all_user_vms
     else all_user_vms, [] in
   List.iter (fun (vm, _) -> Hashtbl.replace plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) unprotected_vms;
-  let migratable_vms, unmigratable_vms = List.partition (fun (vm, record) ->
-    begin
-      try 
-	List.iter (fun host -> Xapi_vm_helpers.assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot:record) target_hosts;
-	true
-      with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
-    end) protected_vms in
+
   (* Check the PV drivers versions are up to date (so migration is possible). Note that we are more strict
      than necessary by demanding the most recent PV drivers are installed and not just 'migration capable' ones.
      This simplifies the test matrix. *)
   List.iter (fun (vm, record) ->
-	       let vm_gm = record.API.vM_guest_metrics in
-	       let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
-	       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
+	       match Xapi_pv_driver_version.up_to_date_error ~__context ~vm ~self:record.API.vM_guest_metrics with
 	       | Some (code, params) -> Hashtbl.replace plans vm (Error (code, params))
 	       | None -> ()) all_user_vms;
 
   (* Compute the binpack which takes only memory size into account. We will check afterwards for storage
      and network availability. *)
-  let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts migratable_vms in
+  let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts protected_vms in
   (* Check if the plan was actually complete: if some VMs are missing it means there wasn't enough memory *)
   let vms_handled = List.map fst plan in
   let vms_missing = List.filter (fun x -> not(List.mem x vms_handled)) (List.map fst protected_vms) in
@@ -285,7 +229,6 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	       if not(Hashtbl.mem plans vm) then Hashtbl.add plans vm (Migrate host)
 	    ) plan;
   plans
- end
   
 (* Old Miami style function with the strange error encoding *)
 let assert_can_evacuate ~__context ~host =
@@ -322,12 +265,9 @@ let compute_evacuation_plan_wlb ~__context ~self =
   List.iter (fun (v, detail) ->
     debug "WLB recommends VM evacuation: %s to %s" (Db.VM.get_name_label ~__context ~self:v) (String.concat "," detail);
 
-    (* Sanity check 
-    Note: if the vm being moved is dom0 then this is a power management rec and this check does not apply
-    *)
-    let resident_h = (Db.VM.get_resident_on ~__context ~self:v) in
-    let target_uuid = List.hd (List.tl detail) in
-    if get_dom0_vm ~__context target_uuid != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
+    (* Sanity check *)
+    let h = (Db.VM.get_resident_on ~__context ~self:v) in
+    if Db.Host.get_uuid ~__context ~self:h = List.hd (List.tl detail)
     then
       (* resident host and migration host are the same. Reject this plan *)
       raise (Api_errors.Server_error 
@@ -408,7 +348,7 @@ let evacuate ~__context ~host =
         let migrate_vm  vm plan = match plan with
 	      | Migrate host ->
 		      Helpers.call_api_functions ~__context
-                (fun rpc session_id -> Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options:[ "live", "true" ]);
+                (fun rpc session_id -> Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options:[]);
 		      let progress = Db.Task.get_progress ~__context ~self:task in
                 TaskHelper.set_progress ~__context (progress +. individual_progress)
 	      | Error(code, params) -> (* should never happen *) raise (Api_errors.Server_error(code, params))
@@ -469,7 +409,7 @@ let enable  ~__context ~host =
   end
 
 let shutdown_and_reboot_common ~__context ~host label description operation cmd = 
-  assert_bacon_mode ~__context ~host;
+  assert_can_shutdown ~__context ~host;
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Remote_requests.stop_request_thread();
 
@@ -527,11 +467,9 @@ let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
 
 exception Pool_record_expected_singleton
-let copy_license_to_db ~__context ~host =
+let copy_license_to_db ~__context =
   let license_kvpairs = License.to_assoc_list !License.license in
-  let edition = Edition.of_string (Db.Host.get_edition ~__context ~self:host) in
-  let features = Edition.to_features edition in
-  let restrict_kvpairs = Features.to_assoc_list features in
+  let restrict_kvpairs = Restrictions.to_assoc_list (Restrictions.get ()) in
   let license_params = license_kvpairs @ restrict_kvpairs in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
@@ -540,11 +478,16 @@ let copy_license_to_db ~__context ~host =
 
 let is_slave ~__context ~host = not (Pool_role.is_master ())
 
+(** Contact the host and return whether it is a slave or not. 
+    If the host is dead then one of the xmlrpcclient exceptions will be thrown *)
 let ask_host_if_it_is_a_slave ~__context ~host = 
   let local_fn = is_slave ~host in
   Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
     ~host (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)
 
+(** Returns true if a host is alive, false otherwise. Note that if a host has already been marked
+    as dead by the GC thread then this is treated as definitive. Otherwise attempt to contact the host
+    to make sure. *)
 let is_host_alive ~__context ~host = 
   (* If the host is marked as not-live then assume we don't need to contact it to verify *)
   let should_contact_host = 
@@ -568,10 +511,8 @@ let is_host_alive ~__context ~host =
   end
 
 let license_apply ~__context ~host ~contents =
-  let edition = Db.Host.get_edition ~__context ~self:host in
-  if edition <> "free" then raise (Api_errors.Server_error(Api_errors.activation_while_not_free, []));
   let license = Base64.decode contents in
-  let tmp = Filenameext.temp_file_in_dir !License_file.filename in
+  let tmp = Filenameext.temp_file_in_dir !License.filename in
   let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
   let close =
     let already_done = ref false in
@@ -585,28 +526,29 @@ let license_apply ~__context ~host ~contents =
     close ();
 
     (* if downgrade and in a pool [i.e. a slave, or a master with >1 host record] then fail *)
-    let new_license = match License_file.read_license_file tmp with
+    let new_license = match License.read_license_file tmp with
       | Some l -> l
       | None -> failwith "Failed to read license" (* Gets translated into generic failure below *)
     in
     
     (* CA-27011: if HA is enabled block the application of a license whose SKU does not support HA *)
-    let new_features = Edition.to_features (Edition.of_string new_license.License.sku) in
+    let new_restrictions = Restrictions.restrictions_of_sku (Restrictions.sku_of_string new_license.License.sku) in
     let pool = List.hd (Db.Pool.get_all ~__context) in
-    if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (List.mem Features.HA new_features))
+    if Db.Pool.get_ha_enabled ~__context ~self:pool && (not new_restrictions.Restrictions.enable_xha)
     then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-      License_file.do_parse_and_validate tmp; (* throws exception if not valid which should really be translated into API error here.. *)
-      Unix.rename tmp !License_file.filename; (* atomically overwrite host license file *)
-      copy_license_to_db ~__context ~host; (* update pool.license_params for clients that want to see license info through API *)
+      License.do_parse_and_validate tmp; (* throws exception if not valid which should really be translated into API error here.. *)
+      Unix.rename tmp !License.filename; (* atomically overwrite host license file *)
+      copy_license_to_db ~__context;     (* update pool.license_params for clients that want to see license info through API *)
       Unixext.unlink_safe tmp;
+
+      (try if Restrictions.license_ok_for_pooling ~__context then Helpers.consider_enabling_host ~__context with _ -> ()); (* will re-enable host if we've just applied a pooling license to a slave *)
   with
       _ as e ->
 	close ();
 	Unixext.unlink_safe tmp;
 	match e with
-	  | License_file.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
-	  | License_file.License_file_deprecated -> raise (Api_errors.Server_error(Api_errors.license_file_deprecated, []))
+	  | License.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
 	  | (Api_errors.Server_error (x,y)) -> raise (Api_errors.Server_error (x,y)) (* pass through api exceptions *)
 	  | e ->
 	      begin
@@ -614,52 +556,44 @@ let license_apply ~__context ~host ~contents =
 		raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
 	      end
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
+let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration =
+  let xapi_verstring = Create_misc.get_xapi_verstring() in
+  let info = Create_misc.read_localhost_info () in
+  let software_version =
+    Create_misc.make_software_version xapi_verstring info.xen_verstring info.linux_verstring
+      Xapi_globs.xencenter_min_verstring Xapi_globs.xencenter_max_verstring
+      info.oem_manufacturer info.oem_model info.oem_build_number
+      info.machine_serial_number
+      info.machine_serial_name
+      in
 
-  let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
-  let make_new_metrics_object ref =
-    Db.Host_metrics.create ~__context ~ref
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
-      ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
-  let xapi_verstring = get_xapi_verstring() in
-  let name_description = "Default install of XenServer"
-  and host = Ref.make () in
-  
   let metrics = Ref.make () in
-  make_new_metrics_object metrics;
-  
-  Db.Host.create ~__context ~ref:host 
-    ~current_operations:[] ~allowed_operations:[]
-    ~software_version:Xapi_globs.software_version
+  Db.Host_metrics.create ~__context ~ref:metrics 
+    ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+    ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
+
+  let ref = Ref.make() in
+  let () =
+    Db.Host.create ~__context ~ref
+    ~software_version
     ~enabled:true
     ~aPI_version_major:Xapi_globs.api_version_major
     ~aPI_version_minor:Xapi_globs.api_version_minor
     ~aPI_version_vendor:Xapi_globs.api_version_vendor
     ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
     ~name_description ~name_label ~uuid ~other_config:[]
-    ~capabilities:[]
+    ~capabilities:(get_xen_capabilities())
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
-    ~cpu_info:[]
-    ~memory_overhead:0L
     ~sched_policy:"credit"  (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
-    ~logging:[] ~hostname ~address ~metrics
-    ~license_params ~boot_free_mem:0L
-    ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
-    ~external_auth_type
-    ~external_auth_service_name
-    ~external_auth_configuration
-    ~edition ~license_server
-    ~bios_strings:[]
-    ~power_on_mode:""
-    ~power_on_config:[]
-	  ~local_cache_sr:Ref.null
-  ;
-  (* If the host we're creating is us, make sure its set to live *)
-  Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
-  Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
-  host
+    ~logging:[] ~hostname ~address
+    ~metrics
+    ~license_params:[] ~allowed_operations:[] ~current_operations:[] ~boot_free_mem:0L 
+      ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
+      ~external_auth_type ~external_auth_service_name ~external_auth_configuration
+  in
+    ref
 
 let destroy ~__context ~self =
   (* Fail if the host is still online: the user should either isolate the machine from the network 
@@ -717,8 +651,6 @@ let propose_new_master ~__context ~address ~manual = Xapi_ha.propose_new_master 
 let commit_new_master ~__context ~address = Xapi_ha.commit_new_master __context address
 let abort_new_master ~__context ~address = Xapi_ha.abort_new_master __context address
 
-let update_master ~__context ~host ~master_address = assert false
-
 let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
 
 (* This call can be used to _instruct_ a slave that it has to take a persistent backup (force=true).
@@ -769,11 +701,7 @@ let syslog_reconfigure ~__context ~host =
 
 	syslog_config_write destination destination_only listen_remote
 
-let get_management_interface ~__context ~host =
-	let pifs = Db.PIF.get_all_records ~__context in
-	let management_pif, _ = List.find (fun (_, pif) -> pif.API.pIF_management && pif.API.pIF_host = host) pifs in
-	management_pif
-
+  
 let change_management_interface ~__context interface = 
     debug "Changing management interface";
     let addrs = Netdev.Addr.get interface in
@@ -833,22 +761,7 @@ let get_system_status_capabilities ~__context ~host =
 
 let get_diagnostic_timing_stats ~__context ~host = Stats.summarise ()
 
-
-(* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
-(* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
-(* because the extauth-hook script expects the auth_type, service_name etc to be constant throughout its execution *)
-(* This mutex also serializes the execution of the plugin, to avoid concurrency problems when updating the sshd configuration *)
-let serialize_host_enable_disable_extauth = Mutex.create()
-
-
 let set_hostname_live ~__context ~host ~hostname =
-  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
-	let current_auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
-  (* the AD/Likewise extauth plugin is incompatible with a hostname change *)
-  (if current_auth_type = Extauth.auth_type_AD_Likewise then
-		let current_service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in
-		raise (Api_errors.Server_error(Api_errors.auth_already_enabled, [current_auth_type;current_service_name]))
-	);
   (* hostname is valid if contains only alpha, decimals, and hyphen
      (for hyphens, only in middle position) *)
   let is_invalid_hostname hostname =
@@ -877,20 +790,13 @@ let set_hostname_live ~__context ~host ~hostname =
   if is_invalid_hostname hostname then
     raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
   ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/set-hostname" [hostname]);
-  Debug.invalidate_hostname_cache ();
   Db.Host.set_hostname ~__context ~self:host ~value:hostname
-  )
 
 let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode
 
 let compute_free_memory ~__context ~host =
-	(*** XXX: Use a more appropriate free memory calculation here. *)
-	Memory_check.host_compute_free_memory_with_maximum_compression
-		~dump_stats:false ~__context ~host None
-
-let compute_memory_overhead ~__context ~host =
-	Memory_check.host_compute_memory_overhead ~__context ~host
+	Memory_check.host_compute_free_memory ~dump_stats:false ~__context ~host None
 
 let get_data_sources ~__context ~host = Monitor_rrds.query_possible_host_dss ()
 
@@ -907,6 +813,11 @@ let create_new_blob ~__context ~host ~name ~mime_type =
   Db.Host.add_to_blobs ~__context ~self:host ~key:name ~value:blob;
   blob
 
+(* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
+(* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
+(* because the extauth-hook script expects the auth_type, service_name etc to be constant throughout its execution *)
+(* This mutex also serializes the execution of the plugin, to avoid concurrency problems when updating the sshd configuration *)
+let serialize_host_enable_disable_extauth = Mutex.create()
 let extauth_hook_script_name = Extauth.extauth_hook_script_name
 (* this special extauth plugin call is only used inside host.enable/disable extauth to avoid deadlock with the mutex *)
 let call_extauth_plugin_nomutex ~__context ~host ~fn ~args =
@@ -935,32 +846,14 @@ let backup_rrds ~__context ~host ~delay =
 let get_servertime ~__context ~host =
   Date.of_float (Unix.gettimeofday ())
 
-let get_server_localtime ~__context ~host =
-  let gmt_time= Unix.gettimeofday () in
-  let local_time = Unix.localtime gmt_time in
-  Date.of_string
-  (
-    Printf.sprintf "%04d%02d%02dT%02d:%02d:%02d"
-      (local_time.Unix.tm_year+1900)
-      (local_time.Unix.tm_mon+1)
-      local_time.Unix.tm_mday
-      local_time.Unix.tm_hour
-      local_time.Unix.tm_min
-      local_time.Unix.tm_sec
-	)
-
 let enable_binary_storage ~__context ~host =
   Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700;
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
 
 let disable_binary_storage ~__context ~host =
-  ignore(Helpers.get_process_output (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location));
+  ignore(Unixext.get_process_output (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location));
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
-
-let get_uncooperative_resident_VMs ~__context ~self = assert false
-
-let get_uncooperative_domains ~__context ~self = Monitor.get_uncooperative_domains ()
 
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert
@@ -1064,7 +957,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 		end
 	else
 	begin (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-		
+	
 		(* we try to use the configuration to set up the new external authentication service *)
 		try
 		(* we persist as much set up configuration now as we can *)
@@ -1107,12 +1000,12 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 				debug "Failed while enabling unknown external authentication type %s for service name %s in host %s" msg service_name host_name_label;
 				raise (Api_errors.Server_error(Api_errors.auth_unknown_type, [msg]))
 			end
-		| Auth_signature.Auth_service_error (errtag,msg) -> (* plugin returned some error *)
+		| Auth_signature.Auth_service_error msg -> (* plugin returned some error *)
 				(* we rollback to the original xapi configuration *)
 				Db.Host.set_external_auth_type ~__context ~self:host ~value:current_auth_type;
 				Db.Host.set_external_auth_service_name ~__context ~self:host ~value:current_service_name;
 				debug "Failed while enabling external authentication type %s for service name %s in host %s" msg service_name host_name_label;
-			raise (Api_errors.Server_error(Api_errors.auth_enable_failed^(Auth_signature.suffix_of_tag errtag), [msg]))
+			raise (Api_errors.Server_error(Api_errors.auth_enable_failed, [msg]))
 		| e -> (* unknown failure, just-enabled plugin might be in an inconsistent state *)
 			begin
 				(* we rollback to the original xapi configuration *)
@@ -1158,10 +1051,10 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 			(Ext_auth.d()).on_disable config;
 			None (* OK, on_disable succeeded *)
 		with 
-		| Auth_signature.Auth_service_error (errtag,msg) as e ->
+		| Auth_signature.Auth_service_error msg as e ->
 			begin
 				debug "Failed while calling on_disable event of external authentication plugin in host %s: %s" host_name_label msg;
-				Some (Api_errors.Server_error(Api_errors.auth_disable_failed^(Auth_signature.suffix_of_tag errtag), [msg]))
+				Some (Api_errors.Server_error(Api_errors.auth_disable_failed, [msg]))
 			end
 		| e -> (*absorb any exception*)
 			begin
@@ -1199,195 +1092,3 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 let disable_external_auth ~__context ~host ~config = 
 	disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
 
-let attach_static_vdis ~__context ~host ~vdi_reason_map =
-  let attach (vdi, reason) =
-    let static_vdis = Static_vdis_list.list () in
-    let check v =
-      (v.Static_vdis_list.uuid = Db.VDI.get_uuid ~__context ~self:vdi &&
-       v.Static_vdis_list.currently_attached) in
-    if not (List.exists check static_vdis) then
-      Pervasiveext.ignore_string (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason)
-  in
-  List.iter attach vdi_reason_map
-
-let detach_static_vdis ~__context ~host ~vdis = 
-  let detach vdi =
-    let static_vdis = Static_vdis_list.list () in
-    let check v =
-      (v.Static_vdis_list.uuid = Db.VDI.get_uuid ~__context ~self:vdi) in
-    if List.exists check static_vdis then
-      Static_vdis.permanent_vdi_detach ~__context ~vdi;	
-  in
-  List.iter detach vdis
-  
-let update_pool_secret ~__context ~host ~pool_secret =
-	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret
-
-let set_localdb_key ~__context ~host ~key ~value =
-	Localdb.put key value;
-	debug "Local-db key '%s' has been set to '%s'" key value
-
-(* Licensing *)
-		
-let apply_edition ~__context ~host ~edition =
-	debug "apply_edition to %s" edition;
-	Grace_retry.cancel (); (* cancel any existing grace-retry timer *)
-	let current_edition = Db.Host.get_edition ~__context ~self:host in
-	let current_license = !License.license in
-	let default = License.default () in
-	let new_license = 
-		try match Edition.of_string edition with
-		| Edition.Free ->	
-			if Edition.of_string current_edition = Edition.Free then begin
-				info "The host's edition is already 'free'. No change.";
-				current_license
-			end else begin
-				info "Downgrading from %s to free edition." current_edition;			
-				(* CA-27011: if HA is enabled block the application from downgrading to free *)
-				let pool = List.hd (Db.Pool.get_all ~__context) in
-				if Db.Pool.get_ha_enabled ~__context ~self:pool then
-					raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-				else begin
-					V6client.release_v6_license ();
-					Unixext.unlink_safe !License_file.filename; (* delete activation key, if it exists *)
-					default (* default is free edition with 30 day grace validity *)
-				end
-			end
-		| e ->
-			(* Try to get the a v6 license; if one has already been checked out,
-			 * it will be automatically checked back in. *)
-			if Edition.of_string current_edition = Edition.Free then
-				info "Upgrading from free to %s edition..." edition
-			else
-				info "(Re)applying %s license..." edition;
-		
-			begin try
-				V6client.get_v6_license ~__context ~host ~edition:e
-			with _ -> raise (Api_errors.Server_error (Api_errors.missing_connection_details, [])) end;
-		
-			begin match !V6client.licensed with 
-			| None -> 
-				error "License could not be checked out. Edition is not changed.";
-				V6client.release_v6_license ();
-				raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
-			| Some license ->
-				let name = Edition.to_marketing_name (Edition.of_string edition) in
-				let basic = {default with License.sku = edition; License.sku_marketing_name = name;
-					License.expiry = !V6client.expires} in
-				if !V6client.grace then begin
-					Grace_retry.retry_periodically host edition;
-					{basic with License.grace = "regular grace"}
-				end else
-					basic
-			end
-		with Edition.Undefined_edition e ->
-			error "Invalid edition ('%s')!" e;
-			raise (Api_errors.Server_error (Api_errors.invalid_edition, [e]))
-	in
-	License.license := new_license;
-	Db.Host.set_edition ~__context ~self:host ~value:edition;
-	copy_license_to_db ~__context ~host; (* update host.license_params, pool sku and restrictions *)
-	Unixext.unlink_safe Xapi_globs.upgrade_grace_file (* delete upgrade-grace file, if it exists *)
-
-let refresh_pack_info ~__context ~host =
-	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version () in
-	Db.Host.set_software_version ~__context ~self:host ~value:software_version
-	
-let reset_networking ~__context ~host =
-	debug "Resetting networking";
-	let local_pifs = List.filter (fun pif -> Db.PIF.get_host ~__context ~self:pif = host) (Db.PIF.get_all ~__context) in
-	let bond_is_local bond =
-		List.fold_left (fun a pif -> Db.Bond.get_master ~__context ~self:bond = pif || a) false local_pifs
-	in
-	let vlan_is_local vlan =
-		List.fold_left (fun a pif -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan = pif || a) false local_pifs
-	in
-	let tunnel_is_local tunnel =
-		List.fold_left (fun a pif -> Db.Tunnel.get_access_PIF ~__context ~self:tunnel = pif || a) false local_pifs
-	in
-	let bonds = List.filter bond_is_local (Db.Bond.get_all ~__context) in
-	List.iter (fun bond -> debug "destroying bond %s" (Db.Bond.get_uuid ~__context ~self:bond);
-		Db.Bond.destroy ~__context ~self:bond) bonds;
-	let vlans = List.filter vlan_is_local (Db.VLAN.get_all ~__context) in
-	List.iter (fun vlan -> debug "destroying VLAN %s" (Db.VLAN.get_uuid ~__context ~self:vlan);
-		Db.VLAN.destroy ~__context ~self:vlan) vlans;
-	let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
-	List.iter (fun tunnel -> debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel);
-		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
-	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
-		Db.PIF.destroy ~__context ~self:pif) local_pifs
-		
-let set_cpu_features ~__context ~host ~features =
-	debug "Set CPU features";
-	(* check restrictions *)
-	if not (Features.is_enabled ~__context Features.CPU_masking) then
-		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
-	
-	let cpuid = Cpuid.read_cpu_info () in
-	
-	(* parse features string *)
-	let features =
-		try Cpuid.string_to_features features
-		with Cpuid.InvalidFeatureString e ->
-			raise (Api_errors.Server_error (Api_errors.invalid_feature_string, [e]))
-	in
-	
-	(* check masking is possible *)
-	begin try
-		Cpuid.assert_maskability cpuid cpuid.Cpuid.manufacturer features
-	with
-	| Cpuid.MaskingNotSupported e -> 
-		raise (Api_errors.Server_error (Api_errors.cpu_feature_masking_not_supported, [e]))
-	| Cpuid.InvalidFeatureString e ->	
-		raise (Api_errors.Server_error (Api_errors.invalid_feature_string, [e]))
-	| Cpuid.ManufacturersDiffer -> () (* cannot happen *)
-	end;
-	
-	(* add masks to Xen command line *)
-	ignore (Xen_cmdline.delete_cpuid_masks ["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
-	let new_masks = Cpuid.xen_masking_string cpuid features in
-	ignore (Xen_cmdline.set_cpuid_masks new_masks);
-	
-	(* update database *)
-	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-	let cpu_info = List.replace_assoc "features_after_reboot" (Cpuid.features_to_string features) cpu_info in
-	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
-		
-let reset_cpu_features ~__context ~host =
-	debug "Reset CPU features";
-	ignore (Xen_cmdline.delete_cpuid_masks ["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
-	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-	let physical_features = List.assoc "physical_features" cpu_info in
-	let cpu_info = List.replace_assoc "features_after_reboot" physical_features cpu_info in
-	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
-
-let enable_local_storage_caching ~__context ~host ~sr =
-	assert_bacon_mode ~__context ~host;
-	let ty = Db.SR.get_type ~__context ~self:sr in
-	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-	let shared = Db.SR.get_shared ~__context ~self:sr in
-	let has_required_capability = 
-		let caps = Sm.capabilities_of_driver ty in
-		List.mem Smint.Sr_supports_local_caching caps
-	in
-	debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared (List.length pbds) has_required_capability;
-	if (shared=false) && (List.length pbds = 1) && has_required_capability then begin
-		let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
-		if pbd_host <> host then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
-		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
-		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-		Monitor.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr);		
-	end else begin
-		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
-	end
-
-let disable_local_storage_caching ~__context ~host =
-	assert_bacon_mode ~__context ~host;
-	let sr = Db.Host.get_local_cache_sr ~__context ~self:host in
-	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
-	Monitor.unset_cache_sr ();
-	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> () 
-
-
-		

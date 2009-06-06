@@ -1,20 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Host Management
- *)
- 
+
+(** Copyright (C) XenSource 2007 *)
+
 open Http
 open Pervasiveext
 open Forkhelpers
@@ -30,10 +16,13 @@ let host_backup_handler_core ~__context s =
   match 
 	(with_logfile_fd "host-backup" 
 	   (fun log_fd ->
-		  let pid = safe_close_and_exec None (Some s) (Some log_fd) [] host_backup [] in
-		  
-	  let waitpid () =
-            match Forkhelpers.waitpid_nohang pid with
+		  let pid = safe_close_and_exec 
+		    [ Dup2(s, Unix.stdout);
+		      Dup2(log_fd, Unix.stderr) ] 
+		    [ Unix.stdout; Unix.stderr ] host_backup [] in
+
+          let waitpid () =
+            match Unix.waitpid [Unix.WNOHANG] pid with
               | 0, _ -> false
               | _, Unix.WEXITED 0 -> true
               | _, Unix.WEXITED n -> raise (Subprocess_failed n)
@@ -59,7 +48,7 @@ let host_backup_handler_core ~__context s =
 	    raise (Api_errors.Server_error (Api_errors.backup_script_failed, [log]))
 
 let host_backup_handler (req: request) s = 
-  req.close <- true;
+  req.close := true;
   Xapi_http.with_context "Downloading host backup" req s
     (fun __context ->
       Http_svr.headers s (Http.http_200_ok ());
@@ -89,7 +78,7 @@ let close to_close fd =
   to_close := List.filter (fun x -> fd <> x) !to_close 
 
 let host_restore_handler (req: request) s = 
-  req.close <- true;
+  req.close := true;
   Xapi_http.with_context "Uploading host backup" req s
     (fun __context ->
       Http_svr.headers s (Http.http_200_ok ());
@@ -105,7 +94,12 @@ let host_restore_handler (req: request) s =
 	  (* XXX: ideally need to log this stuff *)
           let result =  with_logfile_fd "host-restore-log"
 	    (fun log_fd ->
-	      let pid = safe_close_and_exec (Some out_pipe) (Some log_fd) (Some log_fd) [] host_restore [] in
+	      let pid = safe_close_and_exec 
+		[ Dup2(out_pipe, Unix.stdin);
+		  Dup2(log_fd, Unix.stdout);
+		  Dup2(log_fd, Unix.stderr) ]
+		[ Unix.stdin; Unix.stdout; Unix.stderr ] 
+                host_restore [] in
               
               close out_pipe;
               
@@ -123,7 +117,7 @@ let host_restore_handler (req: request) s =
                 )
                 (fun () -> 
                   close in_pipe;
-                  waitpid_fail_if_bad_exit pid
+                  waitpid pid
                 )     
             )
           in

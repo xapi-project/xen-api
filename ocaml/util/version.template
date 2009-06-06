@@ -1,0 +1,6 @@
+let hg_id = "@@@HG_ID@@@"
+let hostname = "@@@HOSTNAME@@@"
+let date = "@@@DATE@@@"
+let product_version = "@@@PRODUCT_VERSION@@@"
+let product_brand = "@@@PRODUCT_BRAND@@@"
+let build_number = "@@@BUILD_NUMBER@@@"

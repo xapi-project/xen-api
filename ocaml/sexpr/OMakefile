@@ -1,0 +1,6 @@
+OCamlGeneratedFiles(sExprLexer.ml sExprParser.mli)
+OCamlLibrary(sexpr, sexpr sExpr sExprLexer sExprParser)
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS) sExprLexer.ml sExprParser.ml sExprParser.mli

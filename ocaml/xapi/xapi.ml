@@ -1,20 +1,16 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Main Loop and Start-up
- *)
- 
+
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Richard Sharp <richard.sharp@xensource.com>
+   Dave Scott    <dscott@xensource.com>
+   Jon Harrop    <jharrop@xensource.com>
+
+   XMLRPC server to actuate Xen Enterprise API calls over XML-RPC
+
+   ------------------------------------------------------------------- *)
+
 open Printf
 open Stringext
 open Vmopshelpers
@@ -33,6 +29,15 @@ module L=Debug.Debugger(struct let name="license" end)
 module W=Debug.Debugger(struct let name="watchdog" end)
 
 
+let show_config () =
+  debug "Server configuration:";
+  debug "product_version: %s" Version.product_version;
+  debug "product_brand: %s" Version.product_brand;
+  debug "build_number: %s" Version.build_number;
+  debug "hg changeset: %s" Version.hg_id;
+  debug "version: %d.%d" Xapi_globs.version_major Xapi_globs.version_minor;
+  debug "DB schema path: %s" !Sql.schema_filename
+
 let check_control_domain () =
   let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
@@ -42,9 +47,38 @@ let check_control_domain () =
     with_xc (fun xc -> Xc.domain_sethandle xc 0 uuid)
   )
 
-(** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
-    instead we rely on the init.d scripts to start other services. *)
+(** Perform some startup sanity checks: make sure xenstored and xenconsoled are
+    running but xenagentd and xend are not. Check that the bridge xenbr0 exists
+    (as created by the /etc/xen/scripts/network-bridge script) *)
 let startup_check () =
+  let pid_of_process x =
+    let ic = Unix.handle_unix_error Unix.open_process_in
+      (Printf.sprintf "/bin/ps -C \"%s\" -o pid=" x) in
+    let result = try
+      let line = input_line ic in
+      Some (int_of_string (String.strip String.isspace line))
+    with _ -> None in
+    ignore(Unix.close_process_in ic);
+    result in
+  let debug_and_error s = debug s; error s in
+  let xenstored = pid_of_process "xenstored" in
+  let xenconsoled = pid_of_process "xenconsoled" in
+  let blktapctrl = pid_of_process "blktapctrl" in
+  if xenstored = None then
+    begin
+      debug_and_error "xapi exiting because xenstored not present";
+      failwith "You must start xenstored";
+    end;
+  if xenconsoled = None then
+    begin
+      debug_and_error "xapi observes that xenconsoled is not running";
+      (*failwith "You must start xenconsoled"; *)
+    end;
+  if blktapctrl = None then
+    begin
+      debug_and_error "xapi observes that blktapctrl is not present";
+      (*failwith "You must start blktapctrl"; *)
+    end;
   Sanitycheck.check_for_bad_link ()
     
 (* Tell the dbcache whether we're a master or a slave *)
@@ -75,7 +109,7 @@ let start_database_engine () =
   (* Check if db files exist, if not make them *)
   List.iter Db_connections.maybe_create_new_db (Db_conn_store.read_db_connections());
 
-  (* Initialise in-memory database cache *)
+  (* Initialiase in-memory database cache *)
   debug "Populating db cache";
   Db_cache.DBCache.initialise_db_cache();
   debug "Performing initial DB GC";
@@ -153,10 +187,18 @@ let cleanup_handler i =
   if not(Pool_role.is_master ()) then exit 0;
   debug "cleanup handler exiting"
 
+let debugfpe = ref false
+let debugsegv = ref false
+
 let signals_handling () =
   let at_hangup i =
     eprintf "[signal received] hangup\n%!";
   in
+
+  if !debugfpe then
+    Sigutil.install_fpe_handler ();
+  if !debugsegv then
+    Sigutil.install_segv_handler ();
 
   (* install hangup and exit handler *)
   Sys.set_signal Sys.sighup (Sys.Signal_handle at_hangup);
@@ -165,19 +207,12 @@ let signals_handling () =
   Sys.catch_break false;
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
 
-let domain0_setup () =
-  with_xc_and_xs (fun xc xs ->
-	     (* Write an initial neutral target in for domain 0 *)
-	     let di = Xc.domain_getinfo xc 0 in
-	     let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
+let xenstore_setup () =
+  with_xs (fun xs ->
 	     (* Find domain 0's UUID *)
 	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
 	     xs.Xs.writev "/local/domain/0" [ "name", "Domain-0"; "domid", "0"; "vm", "/vm/" ^ uuid ];
-	     xs.Xs.write "/local/domain/0/memory/target" (Int64.to_string memory_actual_kib);
-	     (* XXX: remove when domain 0 gets the same script as the linux domUs *)
-	     xs.Xs.write "/local/domain/0/control/feature-balloon" "1";
-	     
 	     xs.Xs.writev ("/vm/" ^ uuid) [ "uuid", uuid; "name", "Domain-0" ];
 	     (* add special key demanded by the PV drivers *)
 	     Xs.transaction xs (fun t ->
@@ -202,18 +237,14 @@ let register_callback_fns() =
   let set_stunnelpid t s_pid =
     try
       Db.Task.set_stunnelpid ~__context:Context.initial ~self:(Ref.of_string t) ~value:(Int64.of_int s_pid);
+      debug "Set stunnel pid on forwarded call: %d" s_pid;
     with _ -> 
       debug "Did not write stunnel pid: no task record in db for this action"
-  in
-  let unset_stunnelpid t s_pid = 
-	try
-	  Db.Task.set_stunnelpid ~__context:Context.initial ~self:(Ref.of_string t) ~value:0L
-	with _ -> () in
-
+    in
     Helpers.rpc_fun := Some fake_rpc;
     Xmlrpcclient.set_stunnelpid_callback := Some set_stunnelpid;
-    Xmlrpcclient.unset_stunnelpid_callback := Some unset_stunnelpid;
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
+    Debug.get_hostname := Helpers.get_hostname;
     TaskHelper.init ()
 
 let nowatchdog = ref false
@@ -234,7 +265,7 @@ let show_version () =
   exit 0
 
 let init_args() =
-  Debug.name_thread "thread_zero";
+  name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
   let writelog = ref false in
@@ -250,6 +281,8 @@ let init_args() =
 	       "-dom0memgradient", Arg.Unit (fun () -> ()), "(ignored)";
 	       "-dom0memintercept", Arg.Unit (fun () -> ()), "(ignored)";
 	       "-onsystemboot", Arg.Set Xapi_globs.on_system_boot, "indicates that this server start is the first since the host rebooted";
+	       "-debugfpe", Arg.Set debugfpe, "activate siginfo handler of SIGFPE to dump siginfo structure to /tmp/fpe_dump";
+	       "-debugsegv", Arg.Set debugfpe, "activate siginfo handler of SIGSEGV to dump siginfo structure to /tmp/segv_dump";
 	       "-noevents", Arg.Set noevents, "turn event thread off for debugging -leaves crashed guests undestroyed";
 	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
 	       "-version", Arg.Unit show_version, "show version of the binary"
@@ -331,11 +364,11 @@ let on_master_restart ~__context =
 (* Make sure the local database can be read *)
 let init_local_database () =
   (try
-     let (_: string) = Localdb.get Constants.ha_armed in
-	 ()
+     let enabled = Localdb.get Constants.ha_armed in
+     debug "%s = %s" Constants.ha_armed enabled;
    with Localdb.Missing_key _ ->
      Localdb.put Constants.ha_armed "false";
-     debug "%s = 'false' (by default)" Constants.ha_armed);
+     debug "Missing %s key, assuming 'false'" Constants.ha_armed);
   (* Add the local session check hook *)
   Session_check.check_local_session_hook := Some (Xapi_local_session.local_session_hook);
   (* Resynchronise the master_scripts flag if this is the first start since system boot *)
@@ -372,55 +405,41 @@ let bring_up_management_if ~__context () =
     debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
 (** When booting as a slave we must have a management IP address in order to talk to the master. *)
-let wait_for_management_ip_address () =
-	debug "Attempting to acquire a management IP address";
-	Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
-	let ip = Xapi_mgmt_iface.wait_for_management_ip () in
-	debug "Acquired management IP address: %s" ip;
-	Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
-	(* Check whether I am my own slave. *)
-	let masters_ip = Pool_role.get_master_address () in
-	if masters_ip = "127.0.0.1" || masters_ip = ip then begin
-		debug "Realised that I am my own slave!";
-		Xapi_host.set_emergency_mode_error Api_errors.host_its_own_slave [];
-	end;
-	ip
-
-type hello_error =
-  | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
-  | Temporary (* some glitch or other *)
+let wait_for_management_ip_address () = 
+  debug "Attempting to acquire a management IP address";
+  Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
+  let ip = Xapi_mgmt_iface.wait_for_management_ip () in
+  debug "Acquired management IP address: %s" ip;
+  Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
+  ip
       
-(** Attempt a Pool.hello, return None if ok or Some hello_error otherwise *)
+(** Attempt a Pool.hello and return true if it succeeds *)
 let attempt_pool_hello my_ip = 
-  let localhost_uuid = Helpers.get_localhost_uuid () in
   try
-    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
-      (fun rpc session_id ->
+    let localhost_uuid = Helpers.get_localhost_uuid () in
+    Server_helpers.exec_with_new_task "attempt_pool_hello" (fun __context -> Helpers.call_api_functions ~__context
+      (fun rpc session_id -> 
 	 match Client.Client.Pool.hello rpc session_id localhost_uuid my_ip with
 	 | `cannot_talk_back ->
 	     error "Master claims he cannot talk back to us on IP: %s" my_ip;
 	     Xapi_host.set_emergency_mode_error Api_errors.host_master_cannot_talk_back [ my_ip ];
-	     Some Temporary
+	     false
 	 | `unknown_host ->
 	     debug "Master claims he has no record of us being a slave";
 	     Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
-	     Some Permanent
+	     false      
 	 | `ok -> 
-	     None
-      )
+	     true
+      ))
   with 
-  | Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
-      debug "Master did not recognise our pool secret: we must be pointing at the wrong master.";
-      Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
-      Some Permanent
   | Api_errors.Server_error(code, params) as exn ->
       debug "Caught exception: %s during Pool.hello" (ExnHelper.string_of_exn exn);
       Xapi_host.set_emergency_mode_error code params;
-      Some Temporary
+      false
   | exn ->
       debug "Caught exception: %s during Pool.hello" (ExnHelper.string_of_exn exn);
       Xapi_host.set_emergency_mode_error Api_errors.internal_error [ ExnHelper.string_of_exn exn ];
-      Some Temporary
+      false
 	
 (** Bring up the HA system if configured *)
 let start_ha () = 
@@ -429,25 +448,6 @@ let start_ha () =
   with e ->
     (* Critical that we don't continue as a master and use shared resources *)
     debug "Caught exception starting HA system: %s" (ExnHelper.string_of_exn e)
-	
-(** Enable and load the redo log if we are the master, the local-DB flag is set
- * and HA is disabled *)
-let start_redo_log () =
-  try
-    if Pool_role.is_master () &&
-		bool_of_string (Localdb.get_with_default Constants.redo_log_enabled "false") && 
-	  not (bool_of_string (Localdb.get Constants.ha_armed)) then
-    begin
-      debug "Redo log was enabled when shutting down, so restarting it";
-      (* enable the use of the redo log *)
-      Redo_log.enable Xapi_globs.gen_metadata_vdi_reason;
-      debug "Attempting to extract a database from a metadata VDI";
-      (* read from redo log and store results in a staging file for use in the
-       * next step; best effort only: does not raise any exceptions *)
-      Redo_log_usage.read_from_redo_log Xapi_globs.gen_metadata_db
-    end
-  with e ->
-    debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
   
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
@@ -480,6 +480,7 @@ let resynchronise_ha_state () =
 	 | true, false ->
 	     info "HA has been disabled on the Pool while we were offline; disarming HA locally";
 	     Localdb.put Constants.ha_armed "false";
+	     Xapi_inventory.remove Xapi_inventory._ha_interfaces;
 	     Xapi_ha.Monitor.stop ()
 	 | false, true ->
 	     info "HA has been disabled on localhost but not the Pool.";
@@ -499,8 +500,7 @@ let resynchronise_ha_state () =
 (* Calculates the amount of free memory on the host at boot time. *)
 (* Returns a result that is equivalent to (T - X), where:         *)
 (*     T = total memory in host.                                  *)
-(*     X = host virtualization overhead:                          *)
-(*         memory used by Xen code, heap and crash kernel.        *)
+(*     X = memory used by Xen code, heap and crash kernel.        *)
 (* Actually returns the current value of (F + S + Z), where:      *)
 (*     F = host free memory.                                      *)
 (*     S = host scrub memory.                                     *)
@@ -536,74 +536,30 @@ let record_boot_time_host_free_memory () =
 			(Printexc.to_string e)
 	end
 
-(** Reset the networking-related metadata for this host if the command [xe-reset-networking]
- *  was executed before the restart. *)
-let check_network_reset () =
-	try
-		(* Raises exception if the file is not there and no reset is required *)
-		let reset_file = Unixext.read_whole_file_to_string (Xapi_globs.network_reset_trigger) in
-		Server_helpers.exec_with_new_task "Performing emergency network reset"
-			(fun __context ->
-				let host = Helpers.get_localhost ~__context in
-				(* Parse reset file *)
-				let args = String.split '\n' reset_file in
-				let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
-				let mAC = List.assoc "MAC" args in
-				let mode = match List.assoc "MODE" args with
-					| "static" -> `Static
-					| "dhcp" | _ -> `DHCP
-				in
-				let iP = if List.mem_assoc "IP" args then List.assoc "IP" args else "" in
-				let netmask = if List.mem_assoc "NETMASK" args then List.assoc "NETMASK" args else "" in
-				let gateway = if List.mem_assoc "GATEWAY" args then List.assoc "GATEWAY" args else "" in
-				let dNS = if List.mem_assoc "DNS" args then List.assoc "DNS" args else "" in
-				
-				(* Erase networking database objects for this host *)
-				Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						Client.Client.Host.reset_networking rpc session_id host
-					);
-				
-				(* Introduce PIFs for remaining interfaces *)
-				let pifs = Xapi_pif.scan_bios ~__context ~host in
-				
-				(* Introduce and configure the management PIF *)
-				let pif = List.find (fun p -> Db.PIF.get_MAC ~__context ~self:p = mAC) pifs in
-				Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask ~gateway ~dNS;
-				Xapi_host.management_reconfigure ~__context ~pif;
-			);
-		(* Remove trigger file *)
-		Unix.unlink("/tmp/network-reset")
-	with _ -> () (* TODO: catch specific exception for missing fields in reset_file and inform user *)
-	
+(* Fetch the current domain 0 memory target and write it to XenStore. *)
+let set_domain0_memory_target () =
+	let task_description = "setting memory target for control domain" in
+	let task = fun __context ->
+		let domain0_ref = Helpers.get_domain_zero ~__context in
+		let memory_target_bytes = Db.VM.get_memory_target ~__context ~self:domain0_ref in
+		let memory_target_kib = Int64.div memory_target_bytes 1024L in
+		Vmopshelpers.with_xs
+			(fun xs -> Balloon.set_memory_target ~xs 0 memory_target_kib);
+		(* Wait for domain 0 to reach its memory target, but allow *)
+		(* a large margin of error and time out deterministically. *)
+		Xapi_vm_helpers.wait_memory_target_live ~__context ~self:domain0_ref ~timeout_seconds:20 () in
+	Server_helpers.exec_with_new_task task_description task
 
-(** Make sure our license is set correctly *)
+(* Make sure our license is set correctly *)
 let handle_licensing () = 
-	Server_helpers.exec_with_new_task "Licensing host"
-		(fun __context ->
-			let host = Helpers.get_localhost ~__context in
-			License_init.initialise ~__context ~host;
-			(* Copy resulting license to the database *)
-			Xapi_host.copy_license_to_db ~__context ~host
-		)
-
-(** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
-let control_domain_memory () =
-	(* We write this policy regardless of whether or not on_system_boot *)
-	(* is true, since Xapi sets on_system_boot to false for the initial *)
-	(* Xapi restart after a database upgrade.                           *)
-	Server_helpers.exec_with_new_task "control domain memory"
-		(fun __context ->
-			Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					let self = Helpers.get_domain_zero ~__context in
-					let vm_r = Db.VM.get_record ~__context ~self in
-					Client.Client.VM.set_memory_dynamic_range
-						rpc session_id self
-						vm_r.API.vM_memory_dynamic_min
-						vm_r.API.vM_memory_dynamic_max
-				)
-		)
+  Server_helpers.exec_with_new_task "Licensing host"
+    (fun __context ->
+       let localhost = Helpers.get_localhost ~__context in
+       let existing_license_params = Db.Host.get_license_params ~__context ~self:localhost in
+       License.initialise existing_license_params;
+       (* Copy resulting license to the database *)
+       Xapi_host.copy_license_to_db ~__context
+    )
 
 let startup_script () = 
   if (try Unix.access Xapi_globs.startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
@@ -611,53 +567,55 @@ let startup_script () =
     ignore(Forkhelpers.execute_command_get_output Xapi_globs.startup_script_hook [])
   end
 
-let master_only_http_handlers = [
-  (* CA-26044: don't let people DoS random slaves *)
-  ("post_remote_db_access", (Http_svr.BufIO remote_database_access_handler));
-]
-
-let common_http_handlers = [
-  ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
-  ("put_import", (Http_svr.FdIO Import.handler));
-  ("put_import_metadata", (Http_svr.FdIO Import.metadata_handler));
-  ("put_import_raw_vdi", (Http_svr.FdIO Import_raw_vdi.handler));
-  ("get_export", (Http_svr.FdIO Export.handler));
-  ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
-  ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
-  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" "/opt/xensource/www"));
-  ("post_cli", (Http_svr.BufIO Xapi_cli.handler));
-  ("get_host_backup", (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
-  ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
-  ("get_host_logs_download", (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
-  ("put_pool_patch_upload", (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
-  ("get_pool_patch_download", (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
-  ("put_oem_patch_stream", (Http_svr.FdIO Xapi_pool_patch.oem_patch_stream_handler));
-  ("get_vncsnapshot", (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
-  ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
-  ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
-  ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
-  ("get_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
-  ("put_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
-  ("get_system_status", (Http_svr.FdIO System_status.handler));
-  ("get_vm_rrd", (Http_svr.FdIO Monitor_rrds.handler));
-  ("put_rrd", (Http_svr.BufIO Monitor_rrds.receive_handler));
-  ("get_host_rrd", (Http_svr.FdIO Monitor_rrds.handler_host));
-  ("get_rrd_updates", (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
-  ("get_blob", (Http_svr.FdIO Xapi_blob.handler));
-  ("put_blob", (Http_svr.FdIO Xapi_blob.handler));
-  (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
-     [the motivation for disabling it is that it simplifies security audit etc.] *)
-  (* ("get_message_rss_feed", Xapi_message.handler); *)
-  ("connect_remotecmd", (Http_svr.FdIO Xapi_remotecmd.handler));
-  ("post_remote_stats", (Http_svr.BufIO remote_stats_handler));
-  ("get_wlb_report", (Http_svr.BufIO Wlb_reports.report_handler));
-  ("get_wlb_diagnostics", (Http_svr.BufIO Wlb_reports.diagnostics_handler));
-  ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
-  ("post_root", (Http_svr.BufIO (Api_server.callback false)));
-  ("post_json", (Http_svr.BufIO (Api_server.callback true)));
-]
-
 let server_init() =
+  let master_only_http_handlers = [
+    (* CA-26044: don't let people DoS random slaves *)
+    (Http.Post, Constants.remote_db_access_uri,  (Http_svr.BufIO remote_database_access_handler));
+  ] in
+
+    let common_http_handlers = [
+      (Http.Connect, Constants.migrate_uri, (Http_svr.FdIO Xapi_vm_migrate.handler));
+      (Http.Put, Constants.import_uri, (Http_svr.FdIO Import.handler));
+      (Http.Put, Constants.import_metadata_uri, (Http_svr.FdIO Import.metadata_handler));
+      (Http.Put, Constants.import_raw_vdi_uri, (Http_svr.FdIO Import_raw_vdi.handler));
+      (Http.Get, Constants.export_uri, (Http_svr.FdIO Export.handler));
+      (Http.Get, Constants.export_metadata_uri, (Http_svr.FdIO Export.metadata_handler));
+      (Http.Connect, Constants.console_uri, Http_svr.FdIO (Console.handler Console.real_proxy));
+      (Http.Get, "/", Http_svr.BufIO (Fileserver.send_file "/" "/opt/xensource/www"));
+      (Http.Post, Constants.cli_uri, (Http_svr.BufIO Xapi_cli.handler));
+      (Http.Get, Constants.host_backup_uri, (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
+      (Http.Put, Constants.host_restore_uri, (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
+      (Http.Get, Constants.host_logs_download_uri, (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
+      (Http.Put, Constants.pool_patch_upload_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
+      (Http.Get, Constants.pool_patch_download_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
+      (Http.Put, Constants.oem_patch_stream_uri, (Http_svr.FdIO Xapi_pool_patch.oem_patch_stream_handler));
+      (Http.Get, Constants.vncsnapshot_uri, (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
+      (Http.Get, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
+      (Http.Put, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
+      (Http.Get, Constants.config_sync_uri, (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
+      (Http.Get, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
+      (Http.Put, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
+      (Http.Get, Constants.system_status_uri, (Http_svr.FdIO System_status.handler));
+      (Http.Get, Constants.vm_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler));
+      (Http.Put, Constants.rrd_put_uri, (Http_svr.BufIO Monitor_rrds.receive_handler));
+      (Http.Get, Constants.host_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler_host));
+      (Http.Get, Constants.rrd_updates, (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
+      (Http.Get, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
+      (Http.Put, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
+      (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
+	 [the motivation for disabling it is that it simplifies security audit etc.] *)
+      (* (Http.Get, Constants.message_rss_feed, Xapi_message.handler); *)
+      (Http.Connect, Constants.remotecmd_uri, (Http_svr.FdIO Xapi_remotecmd.handler));
+      (Http.Post, Constants.remote_stats_uri, (Http_svr.BufIO remote_stats_handler));
+      (Http.Get, Constants.wlb_report_uri, (Http_svr.BufIO Wlb_reports.report_handler));
+      (Http.Get, Constants.wlb_diagnostics_uri, (Http_svr.BufIO Wlb_reports.diagnostics_handler));
+
+      (* XMLRPC callback *)
+      (Http.Post, "/", (Http_svr.BufIO (Api_server.callback false)));
+      (* JSON callback *)
+      (Http.Post, Constants.json_uri, (Http_svr.BufIO (Api_server.callback true)));
+    ] in
+
   let listen_unix_socket () =
     (* Always listen on the Unix domain socket first *)
     Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
@@ -673,7 +631,7 @@ let server_init() =
     ignore(Http_svr.start (localhost_sock, "inet-RPC"));
     in
 
-  let print_server_starting_message() = debug "on_system_boot=%b" !Xapi_globs.on_system_boot in
+  let print_server_starting_message() = debug "xapi server starting; on_system_boot=%b" !Xapi_globs.on_system_boot in
 
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
@@ -732,7 +690,7 @@ let server_init() =
                 ", host_external_auth_service_name="^service_name^
                 ", error="^ (match !last_error with None -> "timeout" | Some e ->
                 (match e with 
-                  | Auth_signature.Auth_service_error (errtag,errmsg) -> errmsg (* this is the expected error msg *)
+                  | Auth_signature.Auth_service_error errmsg -> errmsg (* this is the expected error msg *)
                   | e ->  (ExnHelper.string_of_exn e) (* unknown error msg *)
                 ))
             );
@@ -773,17 +731,17 @@ let server_init() =
   try
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
-    "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Xapi_config.read_log_config !Xapi_globs.log_config_file);
+    "Reading config file", [], (fun () -> Helpers.read_config !Xapi_globs.config_file);
+    "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Helpers.read_log_config !Xapi_globs.log_config_file);
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
     "Reading pool secret", [], Helpers.get_pool_secret;
-    "Logging xapi version info", [], Xapi_config.dump_config;
+    "Logging xapi version info", [], show_config;
     "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
-    "Setting up domain 0 xenstore keys", [], domain0_setup;
+    "Setting up xenstore keys", [], xenstore_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
     "Registering SR plugins", [], Sm.register;
@@ -794,7 +752,6 @@ let server_init() =
     (* Pre-requisite for starting HA since it may temporarily use the DB cache *)
     "Set DB mode", [], set_db_mode;
     "Checking HA configuration", [], start_ha;
-	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
     (* Start up database engine if we're a master.
@@ -804,76 +761,74 @@ let server_init() =
      then try and bring up networking again (now racing with itself since dhclient will already be 
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
-	"hi-level database upgrade", [ Startup.OnlyMaster ], Db_hiupgrade.hi_level_db_upgrade_rules ~__context;
     "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], Redo_log_alert.loop;
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
   ];
+    let (_: Restrictions.restrictions) = Restrictions.get () in
     begin match Pool_role.get_role () with
     | Pool_role.Master ->
-        ()
+	()
     | Pool_role.Broken ->
-        info "This node is broken; moving straight to emergency mode";
-        Xapi_host.set_emergency_mode_error Api_errors.host_broken [];
+	info "This node is broken; moving straight to emergency mode";
+	Xapi_host.set_emergency_mode_error Api_errors.host_broken [];
 
-        (* XXX: consider not restarting here *)
-        server_run_in_emergency_mode ()
+	(* XXX: consider not restarting here *)
+	server_run_in_emergency_mode ()
     | Pool_role.Slave _ ->
-        info "Running in 'Pool Slave' mode";
-        (* Set emergency mode until we actually talk to the master *)
-        Xapi_globs.slave_emergency_mode := true;
-        (* signal the init script that it should succeed even though we're bust *)
-        Helpers.touch_file !Xapi_globs.ready_file;
-
-        (* Keep trying to log into master *)
-        let finished = ref false in
-        while not(!finished) do
-          (* Grab the management IP address (wait forever for it if necessary) *)
-          let ip = wait_for_management_ip_address () in
-
-          debug "Attempting to communicate with master";
-          (* Try to say hello to the pool *)
-          begin match attempt_pool_hello ip with
-          | None -> finished := true
-          | Some Temporary ->
-              debug "I think the error is a temporary one, retrying in 5s";
-              Thread.delay 5.;
-          | Some Permanent ->
-              error "Permanent error in Pool.hello, will retry after %.0fs just in case" Xapi_globs.permanent_master_failure_retry_timeout;
-              Thread.delay Xapi_globs.permanent_master_failure_retry_timeout
-          end;
-        done;
-        debug "Startup successful";
-        Xapi_globs.slave_emergency_mode := false;
-        Master_connection.connection_timeout := initial_connection_timeout;
-        
-        begin
-          try
-            (* We can't tolerate an exception in db synchronization so fall back into emergency mode
-               if this happens and try again later.. *)
-            Master_connection.restart_on_connection_timeout := false;
-            Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
-            Db_cache.DBCache.initialise_db_cache();
-            Dbsync.setup ()
-          with e ->
-            begin
-              debug "Failure in slave dbsync; slave will pause and then restart to try again. Entering emergency mode.";
-              server_run_in_emergency_mode()
-            end
-        end;
-        Master_connection.connection_timeout := Xapi_globs.master_connect_retry_timeout;
-        Master_connection.restart_on_connection_timeout := true;
-        Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
+	info "Running in 'Pool Slave' mode";
+	(* Set emergency mode until we actually talk to the master *)
+	Xapi_globs.slave_emergency_mode := true;
+	(* signal the init script that it should succeed even though we're bust *)
+	Helpers.touch_file !Xapi_globs.ready_file; 
+		
+	(* Keep trying to log into master *)
+	let finished = ref false in
+	while not(!finished) do
+	  (* Grab the management IP address (wait forever for it if necessary) *)
+	  let ip = wait_for_management_ip_address () in
+	  
+	  debug "Attempting to communicate with master";
+	  (* Try to say hello to the pool *)
+	  finished := attempt_pool_hello ip;
+	  if not(!finished) then Thread.delay 5.
+	done;
+	debug "Startup successful";
+	Xapi_globs.slave_emergency_mode := false;
+	Master_connection.connection_timeout := initial_connection_timeout;
+	
+	begin
+	  try
+	    (* We can't tolerate an exception in db synchronization so fall back into emergency mode
+	       if this happens and try again later.. *)
+	    Master_connection.restart_on_connection_timeout := false;
+	    Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
+	    Db_cache.DBCache.initialise_db_cache();
+	    Dbsync.setup ()
+	  with e ->
+	    begin
+	      debug "Failure in slave dbsync; slave will pause and then restart to try again. Entering emergency mode.";
+	      server_run_in_emergency_mode()
+	    end
+	end;
+	Master_connection.connection_timeout := Xapi_globs.master_connect_retry_timeout;
+	Master_connection.restart_on_connection_timeout := true;
+	Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end;
- 
+    (* Inform the user that pooling is unavailable under their license *)
+    Server_helpers.exec_with_new_task "checking that current license is ok for pooling configuration"
+      (fun __context ->
+    	 if not(Restrictions.license_ok_for_pooling ~__context)
+	 then 
+	   let host = Helpers.get_localhost ~__context in
+	   let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+	   Xapi_alert.add ~name:Api_messages.license_does_not_support_pooling ~priority:1L ~cls:`Host ~obj_uuid ~body:"");
+						    					    
     Startup.run ~__context [
-      "Checking emergency network reset", [], check_network_reset;
-      "Synchronising bonds/VLANs on slave with master", [], Sync_networking.sync_slave_with_master ~__context;
-      "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
       "Initialising licensing", [], handle_licensing;
-      "control domain memory", [ Startup.OnThread ], control_domain_memory;
-      "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
+      "setting memory target for control domain", [ Startup.NoExnRaising ], set_domain0_memory_target;
+      "message_hook_thread", [ Startup.NoExnRaising ], Xapi_message.start_message_hook_thread;
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;
@@ -883,13 +838,12 @@ let server_init() =
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
-      "Registering periodic functions", [], Xapi_periodic_scheduler_init.register;
+      "Registering periodic functions", [], Xapi_periodic_scheduler.register;
       "executing startup scripts", [ Startup.NoExnRaising], startup_script;
 
       "considering executing on-master-start script", [],
         (fun () -> Xapi_pool_transition.run_external_scripts (Pool_role.is_master ()));
       "creating networks", [ Startup.OnlyMaster ], Create_networks.create_networks_localhost;
-      "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context)); 
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;

@@ -1,18 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2007 XenSource Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** HTTP handler for importing a raw VDI.
- * @group Import and Export
+ * HTTP handler for importing a raw VDI
  *)
 
 module D=Debug.Debugger(struct let name="import" end)
@@ -20,89 +9,41 @@ open D
 
 open Http
 open Importexport
-open Sparse_encoding
 open Unixext
 open Pervasiveext
-open Client
 
-let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
-	Chunk.fold (fun () -> Chunk.write fd) () s
-
-let vdi_of_req ~__context (req: request) = 
-	let all = req.Http.query @ req.Http.cookie in
-	let vdi = 
-		if List.mem_assoc "vdi" all
-		then List.assoc "vdi" all
-		else raise (Failure "Missing vdi query parameter") in
-	if Db_cache.DBCache.is_valid_ref vdi 
-	then Ref.of_string vdi 
-	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
-
-let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
-  req.close <- true;
+let handler (req: request) (s: Unix.file_descr) =
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
-	let all = req.Http.query @ req.Http.cookie in
-      let vdi = vdi_of_req ~__context req in
-      let chunked = List.mem_assoc "chunked" all in
-      let task_id = Context.get_task_id __context in
-	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
-	 try
-	match req.transfer_encoding with
-	| Some "chunked" ->
+      let session_id=Context.get_session_id __context in
+      let vdi = 
+	if List.mem_assoc "vdi" req.Http.query
+	then Ref.of_string (List.assoc "vdi" req.Http.query)
+	else raise (Failure "Missing vdi query parameter") in
+      try
+	match req.transfer_encoding, req.content_length with
+	| Some "chunked", _ ->
 	    error "Chunked encoding not yet implemented in the import code";
 	    Http_svr.headers s http_403_forbidden;
 	    raise (Failure "import code cannot handle chunked encoding")
-	| None ->
+	| None, _ ->
 	    let headers = Http.http_200_ok ~keep_alive:false () @
-	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);
+	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 		content_type ] in
             Http_svr.headers s headers;
 	    
-		Server_helpers.exec_with_new_task "VDI.import" 
-		(fun __context -> 
-		 Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
-		   (fun fd ->
-			   try
-			     if chunked
-			     then receive_chunks s fd
-			     else ignore(Unixext.copy_file ?limit:req.content_length s fd);
-			     Unixext.fsync fd;
-			   with Unix.Unix_error(Unix.EIO, _, _) ->
-			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
+	    Helpers.call_api_functions ~__context
+	      (fun rpc session_id ->
+		 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
+		   (fun device ->
+		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
+		      finally 
+			(fun () -> Unixext.copy_file s fd)
+			(fun () -> Unix.close fd)
 		   )
-	    );
-	    TaskHelper.complete ~__context [];
+	      );
+
+	    TaskHelper.complete ~__context []
       with e ->
-	error "Caught exception: %s" (ExnHelper.string_of_exn e);
-	log_backtrace ();
 	TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
 	raise e)
-
-let return_302_redirect (req: request) s address =
-	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
-	let headers = Http.http_302_redirect url in
-	debug "HTTP 302 redirect to: %s" url;
-	Http_svr.headers s headers
-
-let handler (req: request) (s: Unix.file_descr) =
-	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
-
-	(* Perform the SR reachability check using a fresh context/task because
-	   we don't want to complete the task in the forwarding case *)
-	Server_helpers.exec_with_new_task "VDI.import" 
-	(fun __context -> 
-		Helpers.call_api_functions ~__context 
-		(fun rpc session_id ->
-			let vdi = vdi_of_req ~__context req in
-			let sr = Db.VDI.get_SR ~__context ~self:vdi in
-			debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
-			if (Importexport.check_sr_availability ~__context sr)
-			then localhost_handler rpc session_id req s
-			else 
-				let host = Importexport.find_host_for_sr ~__context sr in
-				let address = Db.Host.get_address ~__context ~self:host in
-				return_302_redirect req s address
-		)
-       )
-

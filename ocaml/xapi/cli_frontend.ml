@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** 
- * @group Command-Line Interface (CLI)
- *)
- 
 (* ----------------------------------------------------------------------
    XE-CLI Front End
    ---------------------------------------------------------------------- *)
@@ -128,15 +111,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.message_create;
       flags=[];
     };
-
-	"message-destroy",
-	  {
-		  reqd=["uuid"];
-		  optn=[];
-		  help="Destroy an existing message.";
-		  implementation=No_fd Cli_operations.message_destroy;
-		  flags=[];
-	  };
 
 (*    "host-introduce",
     {
@@ -396,15 +370,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
     
-   "pool-set-vswitch-controller",
-   {
-      reqd=["address"];
-      optn=[];
-      help="Set the IP address of the vswitch controller.";
-      implementation= No_fd Cli_operations.pool_set_vswitch_controller;
-      flags=[Hidden];
-   };
-   
    "host-is-in-emergency-mode",
     {
       reqd=[];
@@ -449,42 +414,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation= No_fd Cli_operations.host_enable;
       flags=[Host_selectors];
     };
-
-   "host-enable-local-storage-caching",
-	{ 
-		reqd=["sr-uuid"];
-		optn=[];
-		help="Enable local storage caching on the specified host";
-		implementation=No_fd Cli_operations.host_enable_local_storage_caching;
-		flags=[Host_selectors];
-	};
-
-   "host-disable-local-storage-caching",
-	{ 
-		reqd=[];
-		optn=[];
-		help="Disable local storage caching on the specified host";
-		implementation=No_fd Cli_operations.host_disable_local_storage_caching;
-		flags=[Host_selectors];
-	};
-	  
-   "pool-enable-local-storage-caching",
-	{
-		reqd=["uuid"];
-		optn=[];
-		help="Enable local storage caching across the pool";
-		implementation=No_fd Cli_operations.pool_enable_local_storage_caching;
-		flags=[];
-	};
-
-   "pool-disable-local-storage-caching",
-	{
-		reqd=["uuid"];
-		optn=[];
-		help="Disable local storage caching across the pool";
-		implementation=No_fd Cli_operations.pool_disable_local_storage_caching;
-		flags=[];
-	};
 
    "host-shutdown",
     {
@@ -657,15 +586,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		flags=[Host_selectors];
 	};
 
-	"host-compute-memory-overhead",
-	{
-		reqd=[];
-		optn=[];
-		help="Computes the virtualization memory overhead of a host.";
-		implementation=No_fd Cli_operations.host_compute_memory_overhead;
-		flags=[Host_selectors];
-	};
-
    "host-get-system-status-capabilities",
     {
       reqd=[];
@@ -690,15 +610,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Sets the host name to the specified string.  Both the API and lower-level system hostname are changed.";
       implementation= No_fd Cli_operations.host_set_hostname_live;
-      flags=[Host_selectors];
-    };
-    
-     "host-set-power-on-mode",
-    {
-      reqd=["power-on-mode"];
-      optn=["power-on-config"];
-      help="Sets the power-on mode for the XE host";
-      implementation= No_fd Cli_operations.host_set_power_on_mode;
       flags=[Host_selectors];
     };
 
@@ -736,51 +647,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       help="Disables external authentication in a host";
       implementation= No_fd Cli_operations.host_disable_external_auth;
       flags=[Hidden];
-    };
-
-   "host-refresh-pack-info",
-    {
-      reqd=["host-uuid"];
-      optn=[];
-      help="Refreshes Host.software_version";
-      implementation= No_fd Cli_operations.host_refresh_pack_info;
-      flags=[Hidden];
-    };
-
-   "host-cpu-info",
-    {
-      reqd=[];
-      optn=["uuid"];
-      help="Lists information about the host's physical CPUs.";
-      implementation= No_fd Cli_operations.host_cpu_info;
-      flags=[];
-    };
-
-   "host-get-cpu-features",
-    {
-      reqd=[];
-      optn=["uuid"];
-      help="Prints a hexadecimal representation of the host's physical-CPU features.";
-      implementation= No_fd Cli_operations.host_get_cpu_features;
-      flags=[];
-    };
-
-   "host-set-cpu-features",
-    {
-      reqd=["features"];
-      optn=["uuid"];
-      help="Attempts to mask the host's physical-CPU features to match the given features. The given string must be a 32-digit hexadecimal number (optionally containing spaces), as given by host-get-cpu-features.";
-      implementation= No_fd Cli_operations.host_set_cpu_features;
-      flags=[];
-    };
-
-   "host-reset-cpu-features",
-    {
-      reqd=[];
-      optn=["uuid"];
-      help="Removes the feature mask of the host's physical CPU (if any).";
-      implementation= No_fd Cli_operations.host_reset_cpu_features;
-      flags=[];
     };
 
    "patch-upload",
@@ -856,15 +722,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
-	"vm-compute-memory-overhead",
-	{
-		reqd=[];
-		optn=[];
-		help="Computes the virtualization memory overhead of a VM.";
-		implementation=No_fd Cli_operations.vm_compute_memory_overhead;
-		flags=[Vm_selectors];
-	};
-
 	"vm-memory-balloon",
 	{
 		reqd=["target"];
@@ -872,51 +729,17 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		help="Set the memory target for a running VM. The given value must be within the "^
 		     "range defined by the VM's memory_dynamic_min and memory_dynamic_max values.";
 		implementation= No_fd Cli_operations.vm_memory_target_set;
-		flags=[Deprecated ["vm-memory-dynamic-range-set"]; Vm_selectors; Hidden];
-	};
-
-	"vm-memory-dynamic-range-set",
-	{
-		reqd=["min"; "max"];
-		optn=[];
-		help="Configure the dynamic memory range of a VM. The dynamic memory \
-		range defines soft lower and upper limits for a VM's memory. It's \
-		possible to change these fields when a VM is running or halted. The \
-		dynamic range must fit within the static range.";
-		implementation= No_fd Cli_operations.vm_memory_dynamic_range_set;
-		flags=[Vm_selectors];
-	};
-
-	"vm-memory-static-range-set",
-	{
-		reqd=["min"; "max"];
-		optn=[];
-		help="Configure the static memory range of a VM. The static memory \
-		range defines hard lower and upper limits for a VM's memory. It's \
-		possible to change these fields only when a VM is halted. The static \
-		range must encompass the dynamic range.";
-		implementation= No_fd Cli_operations.vm_memory_static_range_set;
-		flags=[Vm_selectors];
-	};
-
-	"vm-memory-limits-set",
-	{
-		reqd=["static-min"; "static-max"; "dynamic-min"; "dynamic-max"];
-		optn=[];
-		help="Configure the memory limits of a VM.";
-		implementation=No_fd Cli_operations.vm_memory_limits_set;
-		flags=[Vm_selectors];
+		flags=[Deprecated ["vm-memory-target-set"]; Vm_selectors; Hidden];
 	};
 
 	"vm-memory-target-set",
 	{
 		reqd=["target"];
 		optn=[];
-		help="Set the memory target for a halted or running VM. The given \
-		value must be within the range defined by the VM's memory_static_min \
-		and memory_static_max values.";
+		help="Set the memory target for a running VM. The given value must be within the "^
+		     "range defined by the VM's memory_dynamic_min and memory_dynamic_max values.";
 		implementation= No_fd Cli_operations.vm_memory_target_set;
-		flags=[Vm_selectors];
+		flags=[Vm_selectors; Hidden];
 	};
 
 	"vm-memory-target-wait",
@@ -979,7 +802,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=["new-name-description"];
      help="Clone an existing VM, using storage-level fast disk clone operation where available.";
      implementation= No_fd Cli_operations.vm_clone;
-     flags=[Standard; Vm_selectors];
+      flags=[Standard; Vm_selectors];
    };
 
     "vm-snapshot",
@@ -1000,38 +823,19 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags =[Standard; Vm_selectors];
     };
 
-  "vm-checkpoint",
-    {
-      reqd =["new-name-label"];
-      optn =["new-name-description"];
-      help ="Checkpoint an existing VM, using storage-level fast disk snapshot operation where available.";
-      implementation = No_fd Cli_operations.vm_checkpoint;
-      flags =[Standard; Vm_selectors];
-    };
-
    "vm-copy",
    {
      reqd=["new-name-label"]; 
      optn=["new-name-description"; "sr-uuid"];
      help="Copy an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
      implementation= No_fd Cli_operations.vm_copy;
-     flags=[Standard; Vm_selectors];
+      flags=[Standard; Vm_selectors];
    };
-
-   "snapshot-revert", 
-   {
-      reqd = [];
-      optn = ["uuid"];
-      help ="Revert an existing VM to a previous checkpointed or snapshotted state.";
-      implementation = No_fd Cli_operations.snapshot_revert;
-      flags =[Standard];
-   };
-
 
    "vm-install",
    {
      reqd=["new-name-label"];
-     optn=["sr-name-label";"sr-uuid";"template";"copy-bios-strings-from"];
+     optn=["sr-name-label";"sr-uuid";"template"];
      help="Install a new VM from a template. The template parameter can match either the template name or the uuid.";
      implementation= No_fd Cli_operations.vm_install;
      flags=[Standard];
@@ -1091,14 +895,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
      flags=[Standard; Vm_selectors];
    };
    
-   "snapshot-reset-powerstate",
-   {
-     reqd=[]; 
-     optn=["uuid"; "force"];
-     help="Force the VM powerstate to halted in the management toolstack database only. This command is used to recover a snapshot that is marked as 'suspended'. This is a potentially dangerous operation: you must ensure that you do not need the memory image anymore (ie. you will not be able to resume your snapshot anymore).";
-     implementation= No_fd Cli_operations.snapshot_reset_powerstate;
-     flags=[Standard; Vm_selectors];
-   };
 
    "vm-reboot",
    {
@@ -1130,8 +926,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-migrate",
     {
       reqd=[];
-      optn=["live"; "host"; "host-uuid"; "encrypt"];
-      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. The parameter '--encrypt' will encrypt the memory image transfer.";
+      optn=["live"; "host"; "host-uuid"];
+      help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host.";
       implementation= No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
     };
@@ -1267,83 +1063,11 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vm-export",
     {
       reqd=["filename"];
-      optn=["preserve-power-state"; "compress"];
+      optn=[];
       help="Export a VM to <filename>.";
       implementation= With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
     };
-
-   "vm-copy-bios-strings",
-    {
-      reqd=["host-uuid"];
-      optn=[];
-      help="Copy the BIOS strings of the given host to the VM.";
-      implementation= No_fd Cli_operations.vm_copy_bios_strings;
-      flags=[Vm_selectors];
-    };
-
-   "vm-is-bios-customized",
-    {
-      reqd=[];
-      optn=[];
-      help="Indicates whether the BIOS strings of the VM have been customized.";
-      implementation= No_fd Cli_operations.vm_is_bios_customized;
-      flags=[Vm_selectors];
-    };
-
-   "snapshot-export-to-template",
-    {
-      reqd=["filename"];
-      optn=["uuid"; "preserve-power-state"];
-      help="Export a snapshot to <filename>.";
-      implementation= With_fd Cli_operations.snapshot_export;
-      flags=[Standard];
-    };
-
-   "snapshot-clone",
-    {
-      reqd=["new-name-label"];
-      optn=["uuid"; "new-name-description"];
-      help="Create a new template by cloning an existing snapshot, using storage-level fast disk clone operation where available.";
-      implementation= No_fd Cli_operations.snapshot_clone;
-      flags=[Standard];
-    };
-
-   "snapshot-copy",
-    {
-      reqd=["new-name-label"];
-      optn=["uuid"; "new-name-description"; "sr-uuid"];
-      help="Create a new template by copying an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
-      implementation= No_fd Cli_operations.snapshot_copy;
-      flags=[Standard];
-    };
-
-   "snapshot-uninstall",
-   {
-     reqd=[];
-     optn=["uuid"; "force"];
-     help="Uninstall a snapshot. This operation will destroy those VDIs that are marked RW and connected to this snapshot only. To simply destroy the VM record, use snapshot-destroy.";
-     implementation= With_fd Cli_operations.snapshot_uninstall;
-     flags=[Standard];
-   };
-
-   "snapshot-destroy",
-    {
-      reqd=[];
-      optn=["uuid"];
-      help="Destroy a snapshot. This leaves the storage associated with the snapshot intact. To delete storage too, use snapshot-uninstall.";
-      implementation=No_fd Cli_operations.snapshot_destroy;
-      flags=[];
-    };
-
-   "snapshot-disk-list",
-   {
-     reqd=[]; 
-     optn=["uuid"; "vbd-params";"vdi-params"];
-     help="List the disks on the selected VM(s).";
-     implementation= No_fd (Cli_operations.snapshot_disk_list false);
-     flags=[Standard; Vm_selectors];
-   };
 
    "template-export",
     {
@@ -1387,24 +1111,6 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       optn=[];
       help="Destroy a VLAN.";
       implementation=No_fd Cli_operations.vlan_destroy;
-      flags=[];
-    };
-    
-   "tunnel-create",
-   {
-     reqd=["pif-uuid"; "network-uuid"];
-     optn=[];
-     help="Create a new tunnel on a host.";
-     implementation= No_fd Cli_operations.tunnel_create;
-     flags=[];
-   };
-
-   "tunnel-destroy",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Destroy a tunnel.";
-      implementation=No_fd Cli_operations.tunnel_destroy;
       flags=[];
     };
 
@@ -1751,7 +1457,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
    "network-create",
    {
      reqd=["name-label"]; 
-     optn=["name-description"; "MTU"];
+     optn=["name-description"];
      help="Create a new network.";
      implementation= No_fd Cli_operations.net_create;
       flags=[];
@@ -1775,7 +1481,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
    "vif-create",
     {
       reqd=["device";"network-uuid";"vm-uuid"];
-      optn=["mac"];
+      optn=["mac";"mtu"];
       help="Create a VIF. Appropriate values for the device are listed in the parameter 'allowed-VIF-devices' on the VM. If specified, the MAC parameter is of the form aa:bb:cc:dd:ee:ff. If MAC is not specified the server will choose an appropriate MAC automatically.";
       implementation=No_fd Cli_operations.vif_create;
       flags=[];
@@ -1907,14 +1613,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_license_view;
       flags=[];
     };
-    "host-apply-edition",
-    {
-      reqd=["edition"];
-      optn=["host-uuid"; "license-server-address"; "license-server-port"];
-      help="Change to another edition, or reactivate it after a license has expired. Possible editions are 'free', 'enterprise', and 'platinum'. Upgrading from free to enterprise or platinum is subject to the successful checkout of an appropriate license from the license server.";
-      implementation=No_fd Cli_operations.host_apply_edition;
-      flags=[];
-    };
    "host-evacuate",
     {
       reqd=["uuid"];
@@ -1930,14 +1628,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Return a list of VMs which prevent the evacuation of a specific host and display reasons for each one.";
       implementation=No_fd Cli_operations.host_get_vms_which_prevent_evacuation;
       flags=[];
-    };
-   "host-get-uncooperative-vms",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Return a list of VMs which are not co-operating with the memory control system.";
-      implementation=No_fd Cli_operations.host_get_uncooperative_vms;
-      flags=[];      
     };
    "host-shutdown-agent",
     {
@@ -2082,22 +1772,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation= No_fd Cli_operations.pool_ha_compute_vm_failover_plan;
       flags=[Hidden]
     };
-    "pool-enable-redo-log",
-    {
-      reqd=["sr-uuid"];
-      optn=[];
-      help="Enable the redo log on the given SR and start using it, unless HA is enabled.";
-      implementation= No_fd Cli_operations.pool_enable_redo_log;
-      flags=[]
-    };
-    "pool-disable-redo-log",
-    {
-      reqd=[];
-      optn=[];
-      help="Disable the redo log if in use, unless HA is enabled.";
-      implementation= No_fd Cli_operations.pool_disable_redo_log;
-      flags=[]
-    };
 
     "host-ha-xapi-healthcheck",
     {
@@ -2119,7 +1793,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 
 *)
-(*
+
     "subject-list",
     {
       reqd=[]; 
@@ -2128,7 +1802,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation= No_fd Cli_operations.subject_list;
       flags=[]
     };
-*)
+
     "subject-add",
     {
       reqd=["subject-name"];
@@ -2147,43 +1821,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       flags=[]
     };
 
-    "subject-role-add",
-    {
-      reqd=["uuid"];
-      optn=["role-name"; "role-uuid"];
-      help="Add a role to a subject";
-      implementation= No_fd Cli_operations.subject_role_add;
-      flags=[]
-    };
-
-    "subject-role-remove",
-    {
-      reqd=["uuid"];
-      optn=["role-name"; "role-uuid"];
-      help="Remove a role from a subject";
-      implementation= No_fd Cli_operations.subject_role_remove;
-      flags=[]
-    };
-
-    "audit-log-get",
-    {
-      reqd=["filename"];
-      optn=["since"];
-      help="Write the audit log of the pool to <filename>";
-      implementation= With_fd Cli_operations.audit_log_get;
-      flags=[]
-    };
-
-(*  RBAC 2.0 only
-    "role-create",
-    {
-      reqd=["id";"name"];
-      optn=[]; 
-      help="Add a role to the pool";
-      implementation= No_fd Cli_operations.role_create;
-      flags=[]
-    };
-*)
     "session-subject-identifier-list",
     {
       reqd=[];
@@ -2228,38 +1865,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Regenerate any missing built-in templates";
       implementation=No_fd Cli_operations.regenerate_built_in_templates;
       flags=[Hidden];
-    };
-
-		"secret-create",
-			{ reqd = ["value"]
-			; optn = []
-			; help = "Create a secret"
-			; implementation = No_fd Cli_operations.secret_create
-			; flags = []
-			};
-
-		"secret-destroy",
-			{ reqd = ["uuid"]
-			; optn = []
-			; help = "Destroy a secret"
-			; implementation = No_fd Cli_operations.secret_destroy
-			; flags = []
-			};
-    "vmpp-create",
-    {
-      reqd=["name-label";"backup-type";"backup-frequency"];
-      optn=["name-description";"is-policy-enabled";"backup-schedule:";"backup-retention-value";"archive-target-type";"archive-target-config:";"archive-frequency";"archive-schedule:";"is-alarm-enabled";"alarm-config:"];
-      help="Create a new VM protection policy.";
-      implementation=No_fd Cli_operations.vmpp_create;
-      flags=[];
-    };
-    "vmpp-destroy",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Destroy a VM protection policy.";
-      implementation=No_fd Cli_operations.vmpp_destroy;
-      flags=[];
     };
     
   ]

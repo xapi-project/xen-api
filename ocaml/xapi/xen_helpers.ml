@@ -1,17 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2007 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(*
  * Helpers for Xen-specific functionality (i.e. that which is not needed by
  * the fakeserver).
  *)
@@ -41,9 +31,11 @@ let vbd_of_devid ~__context ~vm devid =
 let device_of_vbd ~__context ~self = 
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+  let vdi = Db.VBD.get_VDI ~__context ~self in
+  let kind = kind_of_vdi ~__context ~self:vdi in
   let devid = devid_of_vbd ~__context ~self in
   let backend = { Device_common.domid = 0; 
-		  kind = Device_common.Vbd;
+		  kind = kind;
 		  devid = devid } in
   Device_common.device_of_backend backend domid 
 

@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Access Control
- *)
-
 module D = Debug.Debugger(struct let name="extauth_plugin_ADlikewise" end)
 open D
 
@@ -90,11 +73,34 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 	let err_writeme = Unix.openfile err_tmpfile [ Unix.O_WRONLY] 0o0 in
 	fds_to_close := err_writeme :: !fds_to_close;
 
-	let pid = Forkhelpers.safe_close_and_exec (Some in_readme) (Some out_writeme) (Some err_writeme) [] likewise_cmd params_list in
-
+	(*enforces that likewise cmd only inherits the fds explicitly cited below*)
+	let args = Forkhelpers.close_and_exec_cmdline
+		(* we use stdin,stdout and stderr instead of in_readme,out_writeme,err_writeme because *)
+		(* this function maps them internally: in_readme->unix.stdin, out_writeme->unix.stdout, err_writeme->unix.stderr *)
+		[Unix.stdin;Unix.stdout;Unix.stderr]
+		likewise_cmd
+		params_list
+	in
+	(* we bypass the shell here, calling create_process that forks and calls unix.execvp directly, *)
+	(* in order to avoid potential cmd injections that use shell vulnerabilities\escape sequences *)
+	let pid = 
+		(try 
+			Unix.create_process
+				(List.hd args) (*this is the likewise_cmd*)
+				(Array.append [|(List.hd args)|] (Array.of_list (List.tl args))) (* these are the parameters *)
+				in_readme	(* pass along to likewise_cmd the read-only end point of our new stdin pipe *)
+				out_writeme	(* pass along to likewise_cmd the write-only end point of our new stdout file *)
+				err_writeme	(* pass along to likewise_cmd the write-only end point of our new stderr file *)
+		with 
+		| e-> begin
+			let msg = (Printf.sprintf "Error creating process for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e)) in
+			debug "%s" msg;
+			raise (Auth_signature.Auth_service_error msg) (* general error *)
+		end)
+	in
 	finally
 	  (fun () ->
-	        debug "Created process pid %s for cmd %s" (Forkhelpers.string_of_pidty pid) debug_cmd;
+		debug "Created process pid %i for cmd %s" pid debug_cmd;
 	  	(* Insert this delay to reproduce the cannot write to stdin bug: 
 		   Thread.delay 5.; *)
 	   	(* WARNING: we don't close the in_readme because otherwise in the case where the likewise 
@@ -116,12 +122,11 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		with e -> begin
 			(* in_string is usually the password or other sensitive param, so never write it to debug or exn *)
 			debug "Error writing to stdin for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e);
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,ExnHelper.string_of_exn e))
+			raise (Auth_signature.Auth_service_error (ExnHelper.string_of_exn e))
 		end
 		end;
 	  )
-	  (fun () -> Forkhelpers.waitpid pid);
-
+	  (fun () -> Unix.waitpid [] pid);
 	(* <-- at this point the process has quit and left us its output in temporary files *)
 
 	(* we parse the likewise cmd's STDOUT *)
@@ -169,13 +174,13 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 			debug "Error likewise for cmd %s: %s" debug_cmd msg;
 			(* CA-27772: return user-friendly error messages when Likewise crashes *)
 			let msg = user_friendly_error_msg in
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg))
+			raise (Auth_signature.Auth_service_error msg)
 		| e -> (* unknown error *)
 		begin
 			debug "Parse_likewise error for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e);
 			(* CA-27772: return user-friendly error messages when Likewise crashes *)
 			let msg = user_friendly_error_msg in
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg (*(ExnHelper.string_of_exn e)*)))
+			raise (Auth_signature.Auth_service_error msg (*(ExnHelper.string_of_exn e)*))
 		end
 	in
 
@@ -188,26 +193,24 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		| Parse_likewise.Failure (code,errmsg) -> begin
 			debug "Likewise raised an error for cmd %s: (%i) %s" debug_cmd code errmsg;
 			match code with
-				| 40008    (* no such user *)
-				| 40012    (* no such group *)
-				| 40071    (* no such user, group or domain object *)
-					-> raise Not_found (*Subject_cannot_be_resolved*)
-
-				| 40047    (* empty password, The call to kerberos 5 failed *)
-				| 40022    (* The password is incorrect for the given username *)
-				| 40056    (* The user account is disabled *)
-				| 40017    (* The authentication request could not be handled *)
-					-> raise (Auth_signature.Auth_failure errmsg)
-
-				| 524334
-					-> raise (Auth_signature.Auth_service_error (Auth_signature.E_INVALID_OU,errmsg))
-				| 524326    (* error joining AD domain *)
+				| 32775 -> (* no such user *)
+					raise Not_found (*Subject_cannot_be_resolved*)
+				| 32779 -> (* no such group *)
+					raise Not_found (*Subject_cannot_be_resolved*)
+				| 32784 -> (* The authentication request could not be handled *)
+					raise (Auth_signature.Auth_failure errmsg)
+				| 32814 -> (* authentication failed *)
+					raise (Auth_signature.Auth_failure errmsg)
+				| 32823 -> (* authentication failed: The user account is disabled *)
+					raise (Auth_signature.Auth_failure errmsg)
+				| 32838 -> (* no such user or group *)
+					raise Not_found (*Subject_cannot_be_resolved*)
 				| 524359 -> (* error joining AD domain *)
-					raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
-
-				| 40118 (* lsass server not responding *)
-				| _ ->  (* general Likewise error *)
-					raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "(%i) %s" code errmsg)))
+					raise (Auth_signature.Auth_service_error errmsg)
+				| 32885 (* lsass server not responding *)
+				| 32888 (* domain is offline (probably /etc/resolv.conf doesn't point to AD's DNS server) *)
+				| _ ->
+					raise (Auth_signature.Auth_service_error (Printf.sprintf "(%i) %s" code errmsg)) (* general Likewise error *)
 		end
 	end	  
 )
@@ -271,12 +274,12 @@ let likewise_get_all_byid subject_id =
 	let subject_attrs = likewise_common ["--minimal";subject_id] "/opt/likewise/bin/lw-find-by-sid" in
 	subject_attrs (* OK, return the whole output list *)
 
-let likewise_get_group_sids_byname _subject_name =
+let likewise_get_gids_byname _subject_name =
 	let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 
 	let subject_attrs = likewise_common ["--minimal";subject_name] "/opt/likewise/bin/lw-list-groups" in
-	(* returns all sids in the result *)
-	List.map (fun (n,v)->v) (List.filter (fun (n,v)->n="Sid") subject_attrs)
+	(* returns all gids in the result *)
+	List.map (fun (n,v)->v) (List.filter (fun (n,v)->n="Gid") subject_attrs)
 
 let likewise_get_sid_bygid gid =
 	
@@ -287,7 +290,7 @@ let likewise_get_sid_bygid gid =
 		(* this should not have happend, likewise didn't return an SID field!! *)
 		let msg = (Printf.sprintf "Likewise didn't return an SID field for gid %s" gid) in
 		debug "Error likewise_get_sid_bygid for gid %s: %s" gid msg;
-		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg)) (* general Likewise error *)
+		raise (Auth_signature.Auth_service_error msg) (* general Likewise error *)
 	end
 
 let likewise_get_sid_byname _subject_name cmd = 
@@ -300,7 +303,7 @@ let likewise_get_sid_byname _subject_name cmd =
 		(* this should not have happend, likewise didn't return an SID field!! *)
 		let msg = (Printf.sprintf "Likewise didn't return an SID field for user %s" subject_name) in
 		debug "Error likewise_get_sid_byname for subject name %s: %s" subject_name msg;
-		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg)) (* general Likewise error *)
+		raise (Auth_signature.Auth_service_error msg) (* general Likewise error *)
 	end
 
 (* subject_id get_subject_identifier(string subject_name)
@@ -315,7 +318,7 @@ let get_subject_identifier _subject_name =
 		(* looks up list of users*)
 		let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 		likewise_get_sid_byname subject_name "/opt/likewise/bin/lw-find-user-by-name"
-	with _ ->
+	with Not_found ->
 		(* append domain if necessary, lw-find-group-by-name only accepts nt-format names  *)
 		let subject_name = get_full_subject_name ~use_nt_format:true (convert_upn_to_nt_username _subject_name) in 
 		(* looks up list of groups*)
@@ -390,15 +393,13 @@ let query_subject_information subject_identifier =
 			("contains-byname", List.fold_left (fun (n,v) m ->m^","^v) "" (List.filter (fun (n,v)->n="Member") infolist));*)
 		]
 	else (* subject is user *)
-		let subject_name = unmap_lw_space_chars (get_value "Name" infolist) in
-		let subject_gecos = get_value "Gecos" infolist in
-		[	("subject-name", subject_name);
+		[	("subject-name", unmap_lw_space_chars (get_value "Name" infolist));
 			("subject-upn", get_value "UPN" infolist);
 			("subject-uid", get_value "Uid" infolist);
 			("subject-gid", get_value "Gid" infolist);
 			("subject-sid", get_value "SID" infolist);
-			("subject-gecos", subject_gecos);
-			("subject-displayname", if subject_gecos="" then subject_name else subject_gecos);
+			("subject-gecos", get_value "Gecos" infolist);
+			("subject-displayname", get_value "Gecos" infolist);
 			(*("subject-homedir", get_value "Home dir" infolist);*)
 			(*("subject-shell", get_value "Shell" infolist);*)
 			("subject-is-group", "false");
@@ -421,14 +422,38 @@ let query_group_membership subject_identifier =
 	let subject_info = query_subject_information subject_identifier in
 	
 	if (List.assoc "subject-is-group" subject_info)="true" (* this field is always present *)
-	then (* subject is a group, so get_group_sids_byname will not work because likewise's lw-list-groups *)
+	then (* subject is a group, so get_gids_byname will not work because likewise's lw-list-groups *)
 	     (* doesnt work if a group name is given as input *)
 	     (* FIXME: default action for groups until workaround is found: return an empty list of membership groups *)
 		[]
-	else (* subject is a user, lw-list-groups and therefore get_group_sids_byname work fine *)
+	else (* subject is a user, lw-list-groups and therefore get_gids_byname work fine *)
 	let subject_name = List.assoc "subject-name" subject_info in (* CA-27744: always use NT-style names *)
 
-	let subject_sid_membership_list = likewise_get_group_sids_byname subject_name in
+	let subject_gid_membership_list = likewise_get_gids_byname subject_name in
+	debug "Found %i group gids for subject %s (%s): %s"
+		(List.length subject_gid_membership_list)
+		subject_name
+		subject_identifier
+		(List.fold_left (fun p pp->if p="" then pp else p^","^pp) "" subject_gid_membership_list);
+	let subject_sid_membership_list =
+		let rec sid_of_gid gids =
+			match gids with
+			| [] -> []
+			| gid::etc ->
+				let sid = 
+					try
+						Some (likewise_get_sid_bygid gid)
+					with
+					| e -> (* CA-30080: absorb any exception *)
+						debug "Ignoring group gid %s: Absorbed error when looking up group gid %s: %s" gid gid (ExnHelper.string_of_exn e);
+						None
+				in
+				match sid with
+					| None -> sid_of_gid etc
+					| Some sid -> sid::sid_of_gid etc
+		in
+		sid_of_gid subject_gid_membership_list
+	in
 	debug "Resolved %i group sids for subject %s (%s): %s"
 		(List.length subject_sid_membership_list)
 		subject_name
@@ -524,26 +549,10 @@ let on_enable config_params =
 			&& (List.mem_assoc "pass" config_params)
 		) 
 	then begin
-		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,"enable requires two config params: user and pass."))
+		raise (Auth_signature.Auth_service_error "enable requires two config params: user and pass.")
 	end
 	
 	else (* we have all the required parameters *)
-
-	let hostname =
-		Server_helpers.exec_with_new_task "retrieving hostname"
-			(fun __context ->
-				 let host = Helpers.get_localhost ~__context in
-				 Db.Host.get_hostname ~__context ~self:host
-			)
-	in
-	if (Stringext.String.fold_left
-			 (fun b ch -> b && (ch>='0')&&(ch<='9'))
-			 true
-			 hostname
-		 )
-	then 
-		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "hostname '%s' cannot contain only digits." hostname)))
-	else
 	
 	let domain = 
 		let service_name = Server_helpers.exec_with_new_task "retrieving external_auth_service_name"
@@ -557,7 +566,7 @@ let on_enable config_params =
 			let _domain = List.assoc "domain" config_params in
 			if service_name <> _domain 
 			then 
-				raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,"if present, config:domain must match service-name."))
+				raise (Auth_signature.Auth_service_error "if present, config:domain must match service-name.")
 			else 
 				service_name
 		end
@@ -566,14 +575,13 @@ let on_enable config_params =
 	in
 	let _user = List.assoc "user" config_params in
 	let pass = List.assoc "pass" config_params in
-	let (ou_conf,ou_params) = if (List.mem_assoc "ou" config_params) then let ou=(List.assoc "ou" config_params) in ([("ou",ou)],["--ou";ou]) else ([],[]) in
 	
 	(* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
 	let user = convert_nt_to_upn_username _user in
 	
 	(* execute the likewise domain join cmd *)
 	try
-		likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
+		likewise_common ~stdin_string:pass ["--minimal";"join";"--ignore-pam";"--ignore-ssh";domain;user]
 			"/usr/bin/domainjoin-cli";
 
 		let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
@@ -581,7 +589,7 @@ let on_enable config_params =
 		begin
 			let errmsg = (Printf.sprintf "External authentication server not available after %i query tests" max_tries) in
 			debug "%s" errmsg;
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_UNAVAILABLE,errmsg))
+			raise (Auth_signature.Auth_service_error errmsg)
 		end;
 
 		(* OK SUCCESS, likewise has joined the AD domain successfully *)
@@ -590,7 +598,7 @@ let on_enable config_params =
 		let extauthconf = [
 			("domain", domain);
 			("user", user)
-		] @ ou_conf in
+		] in
 		Server_helpers.exec_with_new_task "storing external_auth_configuration"
 			(fun __context -> 
 				let host = Helpers.get_localhost ~__context in
@@ -600,26 +608,48 @@ let on_enable config_params =
 		() (* OK, return unit*)
 
 	with (*ERROR, we didn't join the AD domain*)
-	|Auth_signature.Auth_service_error (errtag,errmsg) as e ->
+	
+	(* 1. with wrong password: returns in STDOUT *)
+	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "Administrator" "xenroot3"
+		FAILURE
+		524359
+		The call to Kerberos 5 failed
+	*)
+	(* 2. with wrong administrator name: returns in STDOUT *)
+	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "Administrator3" "xenroot"
+		FAILURE
+		524359
+		The call to Kerberos 5 failed
+	*)
+	(* 3. with a non-administrator user: returns in STDOUT*)
+	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "user1" "xenR00t"
+		FAILURE
+		524359
+		Permission denied
+	*)
+	(* 4. with wrong domain: retursn in STDOUT *)
+	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net2" "Administrator" "xenroot"
+		FAILURE
+		524359
+		Failed to lookup the domain controller for given domain
+	*)
+	|Auth_signature.Auth_service_error errmsg ->
 		(*errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Error enabling external authentication for domain %s and user %s: %s" domain user errmsg;
-		if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
-			or has_substr errmsg "0x9C84" (* The user account is invalid *)
-		then begin
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password is wrong."))
+		if has_substr errmsg "The call to Kerberos 5 failed"
+		then begin (* this seems to be a user/password wrong error... *)
+			raise (Auth_signature.Auth_service_error "The username or password is wrong.")
+		end 
+		else if has_substr errmsg "Permission denied"
+		then begin (* this seems to be a non-admin user error... *)
+			raise (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to join a domain.")
 		end
-		else if has_substr errmsg "(0x5)" (* Windows ERROR_ACCESS_DENIED error *) 
-			or has_substr errmsg "(0x57)" (* CA-39450 INVALID_PARAMETER meaning permission-denied *)
-		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to join the domain or to modify the machine account in the Active Directory database."))
-		end
-		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)
-			or has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
+		else if has_substr errmsg "Failed to lookup the domain controller for given domain"
 		then begin (* this seems to be a wrong domain controller name error... *)
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_LOOKUP,"Failed to lookup the domain controller for given domain."))
+			raise (Auth_signature.Auth_service_error "Failed to lookup the domain controller for given domain.")
 		end
 		else begin (* general Likewise error *)
-			raise e
+			raise (Auth_signature.Auth_service_error errmsg) 
 		end
 
 (* unit on_disable()
@@ -659,22 +689,23 @@ let on_disable config_params =
 		None (* no failure observed in likewise *)
 
 	with 
-	| Auth_signature.Auth_service_error (errtag,errmsg) as e ->
+	| Auth_signature.Auth_service_error errmsg ->
 		(* errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Internal Likewise error when disabling external authentication: %s" errmsg;
-
-    if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
-      or has_substr errmsg "0x9C84" (* The user account is invalid *)
-    then begin
-			Some (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password was wrong and did not disable the machine account in the Active Directory database."))
+		if has_substr errmsg "The call to Kerberos 5 failed"
+		then begin (* this seems to be a user/password wrong error... *)
+			Some (Auth_signature.Auth_service_error "The username or password is wrong.")
+		end 
+		else if has_substr errmsg "Permission denied"
+		then begin (* this seems to be a non-admin invalid user error... *)
+			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
 		end
-		else if has_substr errmsg "0x400A" (* Unkown error *)
-			or has_substr errmsg "(0xD)" (* ERROR_INVALID_DATA *)
+		else if has_substr errmsg "code 400A"
 		then begin (* this seems to be a non-admin valid user error... *)
-			Some (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to disable the machine account in the Active Directory database."))
+			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
 		end
 		else begin (* general Likewise error *)
-			Some e
+			Some (Auth_signature.Auth_service_error errmsg) 
 		end
 	| e -> (* unexpected error disabling likewise *)
 		( 
@@ -734,7 +765,7 @@ let on_xapi_initialize system_boot =
 	begin
 		let errmsg = (Printf.sprintf "External authentication server not available after %i query tests" max_tries) in
 		debug "%s" errmsg;
-		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
+		raise (Auth_signature.Auth_service_error errmsg)
 	end;
 	()
 

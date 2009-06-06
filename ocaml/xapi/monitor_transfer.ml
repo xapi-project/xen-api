@@ -1,20 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Copyright (C) 2007 XenSource Ltd.
  *)
-(**
- * @group Performance Monitoring
- *)
- 
+
 open Monitor_types
 
 let marshall_vifs l =
@@ -137,7 +124,7 @@ let marshall_pifs pifs =
 			XMLRPC.To.string (string_of_float pif.pif_tx);
 			XMLRPC.To.string (string_of_float pif.pif_rx);
 			XMLRPC.To.string (string_of_bool pif.pif_carrier);
-			XMLRPC.To.string (string_of_int (Netdev.Link.int_of_speed pif.pif_speed));
+			XMLRPC.To.string (Netdev.Link.string_of_speed pif.pif_speed);
 			XMLRPC.To.string (Netdev.Link.string_of_duplex pif.pif_duplex);
 			XMLRPC.To.string pif.pif_pci_bus_path;
 			XMLRPC.To.string pif.pif_vendor_id;
@@ -154,11 +141,12 @@ let unmarshall_pifs xml =
 		 pif_raw_tx=0L;
 		 pif_raw_rx=0L; (* Ignore these, for RRD only *)
 		 pif_carrier=bool_of_string (XMLRPC.From.string carrier);
-		 pif_speed=Netdev.Link.speed_of_int (int_of_string (XMLRPC.From.string speed));
+		 pif_speed=Netdev.Link.speed_of_string (XMLRPC.From.string speed);
 		 pif_duplex=Netdev.Link.duplex_of_string (XMLRPC.From.string duplex);
 		 pif_pci_bus_path=XMLRPC.From.string pcibuspath;
 		 pif_vendor_id=XMLRPC.From.string vendor;
-		 pif_device_id=XMLRPC.From.string device} in
+		 pif_device_id=XMLRPC.From.string device;
+		 pif_bridge_info=None} in
 	List.map f (XMLRPC.From.array (fun x -> x) xml)
 
 let marshall_uuids uuids =

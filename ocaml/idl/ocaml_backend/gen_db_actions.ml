@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 (** Generate OCaml code to access the backend database *)
 open Listext
@@ -22,6 +9,15 @@ module DT = Datamodel_types
 module DU = Datamodel_utils
 module DM = Datamodel
 open DT
+
+(* Name of the database helper module to use.
+   Change this to select between (e.g.) in-memory metadata cache or direct db access
+*)
+(*
+let _database_helper_module = "DBHelper_SQL_Direct"
+*)
+
+let _database_helper_module = "Db_access.DB_Access"
 
 (* Names of the modules we're going to generate (use these to prevent typos) *)
 let _dm_to_string = "DM_to_String"
@@ -125,12 +121,6 @@ let string_to_dm tys : O.Module.t =
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys) ()
 
-(** True if a field is actually in this table, false if stored elsewhere
-    (ie Set(Ref _) are stored in foreign tables *)
-let field_in_this_table = function
-  | { DT.ty = DT.Set(DT.Ref _); DT.field_ignore_foreign_key = false } -> false
-  | _ -> true
-
 (* the function arguments are similar to the client, except the Make *)
 let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
   let arg_of_param = function
@@ -141,7 +131,9 @@ let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
 	    (* Client constructor takes all object fields regardless of qualifier
 	       but excluding Set(Ref _) types *)
 	    let fields = DU.fields_of_obj obj in
-	    let fields = List.filter field_in_this_table fields in
+	    let fields = List.filter (function { DT.ty = DT.Set(DT.Ref _) } -> false
+				    | _ -> true) fields in
+
 	    List.map Client.param_of_field fields
 	| _ -> failwith "arg_of_param: encountered a Record in an unexpected place"
 	end
@@ -150,6 +142,12 @@ let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
   let args = List.map arg_of_param msg.msg_params in
 
   List.concat (ref :: args)
+
+(** True if a field is actually in this table, false if stored elsewhere
+    (ie Set(Ref _) are stored in foreign tables *)
+let field_in_this_table = function
+  | { DT.ty = DT.Set(DT.Ref _) } -> false
+  | _ -> true
 
 (** True if a field is in the client side record (ie not an implementation field) *)
 let client_side_field f = not (f.DT.internal_only)
@@ -166,16 +164,16 @@ let look_up_related_table_and_field obj other full_name =
 let read_set_ref obj other full_name =
   (* Set(Ref t) is actually stored in the table t *)
   let obj', fld' = look_up_related_table_and_field obj other full_name in
-  Printf.sprintf "ignore (read_field __context \"%s\" \"%s\" %s); List.map %s.%s (read_set_ref {table=\"%s\"; return=Db_action_helper.reference; where_field=\"%s\"; where_value=%s})"
-    (Escaping.escape_obj obj.DT.name) "uuid" Client._self
+  Printf.sprintf "ignore (db_read __context \"%s\" \"%s\" %s); List.map %s.%s (db_read_set_ref \"%s\" \"%s\" %s)"
+    (Gen_schema.sql_of_obj obj.DT.name) "uuid" Client._self
     _string_to_dm (OU.alias_of_ty (DT.Ref other))
-    (Escaping.escape_obj obj') fld' Client._self
+    (Gen_schema.sql_of_obj obj') fld' Client._self
 
 let get_record (obj: obj) aux_fn_name =
   let body =
     [
-      Printf.sprintf "let (__regular_fields, __set_refs) = read_record \"%s\" %s in" 
-	(Escaping.escape_obj obj.DT.name) Client._self;
+      Printf.sprintf "let (__regular_fields, __set_refs) = db_read_record \"%s\" %s in" 
+	(Gen_schema.sql_of_obj obj.DT.name) Client._self;
       aux_fn_name^" ~__regular_fields ~__set_refs";
     ] in
   String.concat "\n" body
@@ -202,15 +200,15 @@ let make_shallow_copy api (obj: obj) (src: string) (dst: string) (all_fields: fi
      custom actions of other (Ref _) fields! *)
   let fields = List.filter field_in_this_table all_fields in
   let fields = List.filter (fun x -> x.full_name <> [ "uuid" ]) fields in
-  let sql_fields = List.map (fun f -> Escaping.escape_id f.full_name) fields in
+  let sql_fields = List.map (fun f -> Gen_schema.sql_of_id f.full_name) fields in
   let to_notify = follow_references obj api in
   let to_notify' = List.map 
     (fun (tbl, fld) -> 
-       tbl, "\"" ^ (Escaping.escape_id fld.full_name) ^ "\"", "(fun () -> failwith \"shallow copy\")") to_notify in
+       tbl, "\"" ^ (Gen_schema.sql_of_id fld.full_name) ^ "\"", "(fun () -> failwith \"shallow copy\")") to_notify in
     Printf.sprintf "sql_copy %s ~new_objref:%s \"%s\" %s [%s]"
       (ocaml_of_tbl_fields to_notify')
       dst
-      (Escaping.escape_obj obj.DT.name) src
+      (Gen_schema.sql_of_obj obj.DT.name) src
       (String.concat "; " (List.map (fun f -> "\"" ^ f ^ "\"") sql_fields))
 *)
 
@@ -221,7 +219,7 @@ let db_action api : O.Module.t =
   let expr_arg = O.Named(expr, "Db_filter_types.expr") in
 
   let get_refs_where (obj: obj) = 
-    let tbl = Escaping.escape_obj obj.DT.name in
+    let tbl = Gen_schema.sql_of_obj obj.DT.name in
     O.Let.make
       ~name: "get_refs_where"
       ~params: [ Gen_common.context_arg; expr_arg ]
@@ -231,17 +229,17 @@ let db_action api : O.Module.t =
 
     let get_record_aux_fn_body ?(m="API.") (obj: obj) (all_fields: field list) =
       let fields = List.filter field_in_this_table all_fields in
-      let sql_fields = List.map (fun f -> Escaping.escape_id f.full_name) fields in
+      let sql_fields = List.map (fun f -> Gen_schema.sql_of_id f.full_name) fields in
 	
       let of_field = function
-	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name; DT.field_ignore_foreign_key = false } ->
+	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name } ->
 	    Printf.sprintf "List.map %s.%s (List.assoc \"%s\" __set_refs)"
 	      _string_to_dm
 	      (OU.alias_of_ty (DT.Ref other))
-	      (Escaping.escape_id full_name)
+	      (Gen_schema.sql_of_id full_name)
 	| f ->
 	    _string_to_dm ^ "." ^ (OU.alias_of_ty f.DT.ty) ^
-	      "(List.assoc \"" ^ (Escaping.escape_id f.full_name) ^ "\" __regular_fields)" in
+	      "(List.assoc \"" ^ (Gen_schema.sql_of_id f.full_name) ^ "\" __regular_fields)" in
       let fields = List.map (fun f -> m ^ (OU.ocaml_of_record_field obj.DT.name f.DT.full_name) ^ "=" ^ (of_field f) ^ ";") all_fields in
       let fields = if fields = [] then [ m ^ "__unused=()" ] else fields in
       let mk_rec = [ "{" ] @ fields @ [ "}"] in
@@ -272,8 +270,8 @@ let db_action api : O.Module.t =
 	  ~name: name
 	  ~params: [ Gen_common.context_arg; expr_arg ]
 	  ~ty: ("'a")
-	  ~body: [ Printf.sprintf "let records = read_records_where \"%s\" %s in"
-		     (Escaping.escape_obj obj.DT.name) expr;
+	  ~body: [ Printf.sprintf "let records = db_read_records_where \"%s\" %s in"
+		     (Gen_schema.sql_of_obj obj.DT.name) expr;
 		   Printf.sprintf "List.map (fun (ref,(__regular_fields,__set_refs)) -> Ref.of_string ref, %s __regular_fields __set_refs) records" conversion_fn] () in
       
     let register_get_record obj = O.Let.make
@@ -300,12 +298,12 @@ let db_action api : O.Module.t =
 
     let body = match tag with
       | FromField(Setter, fld) ->
-	  Printf.sprintf "write_field __context \"%s\" %s \"%s\" value"
-	    (Escaping.escape_obj obj.DT.name)
+	  Printf.sprintf "db_update __context \"%s\" value \"%s\" %s"
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id fld.DT.full_name)
 	    Client._self
-	    (Escaping.escape_id fld.DT.full_name)
       | FromField(Getter, { DT.ty = DT.Set(DT.Ref other);
-			    full_name = full_name; DT.field_ignore_foreign_key = false }) ->
+			    full_name = full_name }) ->
 	  read_set_ref obj other full_name
 (*
 	  (* Set(Ref t) is actually stored in the table t *)
@@ -314,60 +312,56 @@ let db_action api : O.Module.t =
 	  let obj', fld' = DU.Relations.other_end_of DM.all_api this_end in
 	  Printf.sprintf "List.map %s.%s (sql_read_set_ref \"%s\" \"%s\" %s)"
 	    _string_to_dm (OU.alias_of_ty (DT.Ref other))
-	    (Escaping.escape_obj obj') fld' Client._self
+	    (Gen_schema.sql_of_obj obj') fld' Client._self
 *)
       | FromField(Getter, { DT.ty = ty; full_name = full_name }) ->
-	  Printf.sprintf "%s.%s (read_field __context \"%s\" \"%s\" %s)"
+	  Printf.sprintf "%s.%s (db_read __context \"%s\" \"%s\" %s)"
 	    _string_to_dm (OU.alias_of_ty ty)
-	    (Escaping.escape_obj obj.DT.name)
-	    (Escaping.escape_id full_name)
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id full_name)
 	    Client._self
       | FromField(Add, { DT.ty = DT.Map(_, _); full_name = full_name }) ->
-	  Printf.sprintf "process_structured_field __context (%s,%s) \"%s\" \"%s\" %s AddMap"
-            Client._key Client._value
-	    (Escaping.escape_obj obj.DT.name)
-	    (Escaping.escape_id full_name)
-	    Client._self
+	  Printf.sprintf "db_add_map __context \"%s\" \"%s\" %s %s %s"
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id full_name)
+	    Client._self Client._key Client._value
       | FromField(Add, { DT.ty = DT.Set(_); full_name = full_name }) ->
-	  Printf.sprintf "process_structured_field __context (%s,\"\") \"%s\" \"%s\" %s AddSet"
-            Client._value
-	    (Escaping.escape_obj obj.DT.name)
-	    (Escaping.escape_id full_name)
-	    Client._self
+	  Printf.sprintf "db_add_set __context \"%s\" \"%s\" %s %s"
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id full_name)
+	    Client._self Client._value
       | FromField(Remove, { DT.ty = DT.Map(_, _); full_name = full_name }) ->
-	  Printf.sprintf "process_structured_field __context (%s,\"\") \"%s\" \"%s\" %s RemoveMap"
-            Client._key
-	    (Escaping.escape_obj obj.DT.name)
-	    (Escaping.escape_id full_name)
-	    Client._self
+	  Printf.sprintf "db_remove_map __context \"%s\" \"%s\" %s %s"
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id full_name)
+	    Client._self Client._key
       | FromField(Remove, { DT.ty = DT.Set(_); full_name = full_name }) ->
-	  Printf.sprintf "process_structured_field __context (%s,\"\") \"%s\" \"%s\" %s RemoveSet"
-            Client._value
-	    (Escaping.escape_obj obj.DT.name)
-	    (Escaping.escape_id full_name)
-	    Client._self
+	  Printf.sprintf "db_remove_set __context \"%s\" \"%s\" %s %s"
+	    (Gen_schema.sql_of_obj obj.DT.name)
+	    (Gen_schema.sql_of_id full_name)
+	    Client._self Client._value
 
       | FromField((Add | Remove), _) -> failwith "Cannot generate db add/remove for non sets and maps"
 
       | FromObject(Delete) ->
-	  (Printf.sprintf "delete_row __context \"%s\" %s"
-	    (Escaping.escape_obj obj.DT.name) Client._self)
+	  (Printf.sprintf "db_delete __context \"%s\" %s"
+	    (Gen_schema.sql_of_obj obj.DT.name) Client._self)
       | FromObject(Make) ->
 	  let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
 (*	  let fields = db_fields_of_obj obj in *)
 	  let kvs = List.map (fun fld ->
-				Escaping.escape_id fld.full_name,
+				Gen_schema.sql_of_id fld.full_name,
 				OU.escape (OU.ocaml_of_id fld.full_name)) fields  in
 	  let kvs' = List.map (fun (sql, o) ->
 				 Printf.sprintf "(\"%s\", %s)" sql o) kvs in
-	  Printf.sprintf "create_row __context \"%s\" [ %s ] ref"
-	    (Escaping.escape_obj obj.DT.name)
+	  Printf.sprintf "db_insert __context \"%s\" [ %s ] ref"
+	    (Gen_schema.sql_of_obj obj.DT.name)
 	    (String.concat "; " kvs') 
       | FromObject(GetByUuid) ->
 	  begin match x.msg_params, x.msg_result with
 	  | [ {param_type=ty; param_name=name} ], Some (result_ty, _) ->
 	      let query = Printf.sprintf "db_get_by_uuid \"%s\" %s"
-		(Escaping.escape_obj obj.DT.name)
+		(Gen_schema.sql_of_obj obj.DT.name)
 		(OU.escape name) in
 	      _string_to_dm ^ "." ^ (OU.alias_of_ty result_ty) ^ " (" ^ query ^ ")"
 	  | _ -> failwith "GetByUuid call should have only one parameter and a result!"
@@ -376,7 +370,7 @@ let db_action api : O.Module.t =
 	  begin match x.msg_params, x.msg_result with
 	  | [ {param_type=ty; param_name=name} ], Some (Set result_ty, _) ->
 	      let query = Printf.sprintf "db_get_by_name_label \"%s\" %s"
-		(Escaping.escape_obj obj.DT.name)
+		(Gen_schema.sql_of_obj obj.DT.name)
 		(OU.escape name) in
 	      if DU.obj_has_get_by_name_label obj
 	      then "List.map " ^ _string_to_dm ^ "." ^ (OU.alias_of_ty result_ty) ^ " (" ^ query ^ ")"
@@ -391,8 +385,8 @@ let db_action api : O.Module.t =
 	     Eventually we'll need to provide user filtering for the public version *)
 	  begin match x.msg_result with
 	  | Some (Set result_ty, _) ->
-	      let query = Printf.sprintf "read_refs \"%s\""
-		(Escaping.escape_obj obj.DT.name) in
+	      let query = Printf.sprintf "db_get_all \"%s\""
+		(Gen_schema.sql_of_obj obj.DT.name) in
 	      "List.map " ^ _string_to_dm ^ "." ^ (OU.alias_of_ty result_ty) ^ "(" ^ query ^ ")"
 	  | _ -> failwith "GetAll call needs a result type"
 	  end
@@ -449,8 +443,8 @@ let db_action api : O.Module.t =
   O.Module.make
     ~name:_db_action
     ~preamble:[ 
-                "open Db_cache.DBCache";
-                "open Db_cache_types";
+		"open Db_action_helper";
+		"open "^_database_helper_module;
 		"module D=Debug.Debugger(struct let name=\"db\" end)";
 		"open D";
 	      ]

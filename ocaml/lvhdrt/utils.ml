@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 let stdout_m = Mutex.create () 
 
 let debug (fmt: ('a , unit, string, unit) format4) =
@@ -221,12 +208,7 @@ let with_sacrificial_vm rpc session f =
     let vm_install session_id template name sr = 
       let sr_uuid = Client.SR.get_uuid rpc session_id sr in
       let newvm_uuid = cli_cmd [ "vm-install"; "template=" ^ template; "new-name-label=" ^ name; "sr-uuid=" ^ sr_uuid ] in
-      let vm =
-	Client.VM.get_by_uuid rpc session_id newvm_uuid
-      in
-	Client.VM.set_PV_args rpc session_id vm "noninteractive"; 
-	vm
-    in
+      Client.VM.get_by_uuid rpc session_id newvm_uuid in
     let vm' = vm_install session "Debian Etch 4.0" "lvhdrt sacrificial VM" sr in
 
     Pervasiveext.finally 

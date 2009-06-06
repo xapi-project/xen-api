@@ -20,7 +20,6 @@ xe pool-dump-database file-name=${POOL_DB_BACKUP}
 # exist, however, for xapi to function correctly.
 
 tar --exclude 'tmp/*' --exclude 'tmp/.*' --exclude 'var/crash/*' --exclude 'var/crash/.*' \
-    --exclude 'var/log/audit*' \
     --exclude 'var/xsconfig/*' --exclude 'var/xsconfig/.*' \
     --exclude 'var/xapi/[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*' \
     --sparse --preserve-permissions --to-stdout --gzip --one-file-system -C / -c . 

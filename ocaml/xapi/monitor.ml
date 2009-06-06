@@ -1,21 +1,10 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Guest monitoring
- * @group Performance Monitoring
+(* Copyright (C) 2006 XenSource Ltd.  
+ * Author Vincent Hanquez <vincent@xensource.com>
+ * 
+ * Guest monitoring
  *)
  
-(** This module is the primary guest monitoring module, and has the
+(* This module is the primary guest monitoring module, and has the
  * loop that runs the monitoring code. It is also responsible for
  * reading all of the stats from dom0. It marshals them up as
  * data_sources (defined in ds.ml). When gathering data about PIFs, we
@@ -47,39 +36,19 @@ open D
 
 let timeslice = ref 5
 
-(** Cache memory/target values *)
-let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
-let memory_targets_m = Mutex.create ()
-
-(** Flags unco-operative domains *)
-let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
-let uncooperative_domains_m = Mutex.create ()
-
-let uuid_of_domid domains domid = 
-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) domains in
-  if List.mem_assoc domid domid_to_uuid
-  then Uuid.string_of_uuid (List.assoc domid domid_to_uuid)
-  else failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
-
-let get_uncooperative_domains () = 
-  let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
-  let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) dis in
-  let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
-  List.map Uuid.string_of_uuid uuids
-
 (*****************************************************)
 (* cpu related code                                  *)
 (*****************************************************)
 
 (* This function is used both for getting vcpu stats and for getting the uuids of the
    VMs present on this host *)
-let update_vcpus xc doms =
+let update_vcpus xc =
+  let doms = Xc.domain_getinfolist xc 0 in
   List.fold_left (fun (dss,uuids,domids) dom ->
     let domid = dom.Xc.domid in
     let maxcpus = dom.Xc.max_vcpu_id + 1 in
-    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
-
+    let uuid=uuid_of_domid domid in
+    
     let rec cpus i dss = 
       if i>=maxcpus then dss else 
 	let vcpuinfo = Xc.domain_get_vcpuinfo xc domid i in
@@ -101,6 +70,7 @@ let update_vcpus xc doms =
 	  (VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
 	  (VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss 
       with e -> 
+	warn "Caught error getting runstate info: %s" (ExnHelper.string_of_exn e);
 	dss 
     in
     
@@ -130,25 +100,17 @@ let update_pcpus xc =
       ~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ())::acc,i+1)) ([],0) newinfos in
   dss
 
-let update_memory __context xc doms = 
+let update_memory __context xc = 
+	let doms = Xc.domain_getinfolist xc 0 in
 	List.fold_left (fun acc dom ->
 		let domid = dom.Xc.domid in
 		let kib = Xc.pages_to_kib (Int64.of_nativeint dom.Xc.total_memory_pages) in 
 		let memory = Int64.mul kib 1024L in
-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
+		let uuid = uuid_of_domid domid in
 		let main_mem_ds = 
 		  (VM uuid,
 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
 		    ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
-		in
-		let memory_target_opt = try Mutex.execute memory_targets_m (fun () -> Some (Hashtbl.find memory_targets domid)) with Not_found -> None in
-		let mem_target_ds = 
-		  Opt.map
-		    (fun memory_target ->
-		       (VM uuid,
-			ds_make ~name:"memory_target" ~description:"Target of VM balloon driver"
-			  ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
-		    ) memory_target_opt
 		in
 		let other_ds = 
 		  try
@@ -160,7 +122,9 @@ let update_memory __context xc doms =
 			   ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
 		  with _ -> None
 		in
-		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc) [] doms
+		match other_ds with 
+		  | None -> main_mem_ds :: acc
+		  | Some ds -> main_mem_ds :: ds :: acc) [] doms
 
 let update_loadavg () = 
   Host, ds_make ~name:"loadavg"
@@ -180,7 +144,7 @@ type ethstats = {
 	mutable rx_errors: int64; (* error received *)
 }
 
-let update_netdev doms =
+let update_netdev () =
   let devs = ref [] in
 
   let standardise_name name =
@@ -243,7 +207,7 @@ let update_netdev doms =
 	  (fun d1 d2 -> d1, d2) in
 	let vif_name = Printf.sprintf "vif_%d" d2 in
 	(* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
-	let uuid=uuid_of_domid doms d1 in
+	let uuid=uuid_of_domid d1 in
 	(VM uuid,
 	ds_make ~name:(vif_name^"_tx")
 	  ~description:("Bytes per second transmitted on virtual interface number '"^(string_of_int d2)^"'")
@@ -272,6 +236,13 @@ let update_netdev doms =
       let pif_name="pif_"^dev in
       let carrier = (try Netdev.get_carrier dev with _ -> false) in
       let buspath = Netdev.get_pcibuspath dev in
+      let bridgeinfo = 
+	try 
+	  let bridge = Netdev.get_bridge dev in
+	  let bridge_addr, bridge_netmask = List.hd (Netdev.Addr.get bridge) in
+	  Some (bridge_addr, bridge_netmask)
+	with _ -> None 
+      in
       let pif = {
 	pif_name=dev;
 	pif_tx= -1.0;
@@ -284,6 +255,7 @@ let update_netdev doms =
 	pif_pci_bus_path=buspath;
 	pif_vendor_id=vendor_id;
 	pif_device_id=device_id;
+	pif_bridge_info=bridgeinfo;
       } in
       ((Host,
        ds_make ~name:(pif_name^"_rx")
@@ -309,7 +281,7 @@ let update_netdev doms =
 (* disk related code                                 *)
 (*****************************************************)
 
-let update_vbds doms =
+let update_vbds () =
   let read_int_file file =
     let v = ref 0L in
     try Unixext.readfile_line (fun l -> v := Int64.of_string l) file; !v
@@ -350,7 +322,7 @@ let update_vbds doms =
        correspond to an active domain uuid. Skip these for now. *)
     let newacc = 
       try
-	let uuid=uuid_of_domid doms domid in
+	let uuid=uuid_of_domid domid in
 	(VM uuid,
 	ds_make ~name:(vbd_name^"_write") ~description:("Writes to device '"^device_name^"' in bytes per second")
 	  ~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ~units:"bytes per second" ())::
@@ -422,77 +394,6 @@ let read_mem_metrics xc =
    (Host,ds_make ~name:"xapi_allocation_kib" ~description:"Memory allocation done by the xapi daemon"
      ~value:(Rrd.VT_Float xapigrad_kib) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
   ]
-
-(**** Local cache SR stuff *)
-
-type last_vals = {
-	time : float;
-	cache_size_raw : int64;
-	cache_hits_raw : int64;
-	cache_misses_raw : int64;
-}
-
-let last_cache_stats = ref None
-let cache_sr_uuid = ref None
-let cache_sr_lock = Mutex.create () 
-let cached_cache_dss = ref []
-
-(* Avoid a db lookup every 5 secs by caching the cache sr uuid. Set by xapi_host and dbsync_slave *)
-let set_cache_sr sr_uuid = 
-	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
-
-let unset_cache_sr () =
-	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
-
-let read_cache_stats timestamp =
-	let cache_sr_opt = Mutex.execute cache_sr_lock (fun () -> !cache_sr_uuid) in
-
-	let do_read cache_sr =
-		let (cache_stats_out,err) = Forkhelpers.execute_command_get_output "/opt/xensource/bin/tapdisk-cache-stats" [cache_sr] in
-		let assoc_list = 
-			List.filter_map (fun line -> try let hd::tl = String.split '=' line in Some (hd,String.concat "=" tl) with _ -> None) 
-				(String.split '\n' cache_stats_out) 
-		in
-		(*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
-		{ time = timestamp;
-		  cache_size_raw = Int64.of_string (List.assoc "TOTAL_CACHE_UTILISATION" assoc_list);
-		  cache_hits_raw = Int64.of_string (List.assoc "TOTAL_CACHE_HITS" assoc_list);
-		  cache_misses_raw = Int64.of_string (List.assoc "TOTAL_CACHE_MISSES" assoc_list); }
-	in
-
-	let get_dss cache_sr oldvals newvals =
-		[ 
-			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr) ~description:"Size in bytes of the cache SR"
-				~value:(Rrd.VT_Int64 newvals.cache_size_raw) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr) ~description:"Hits per second of the cache"
-				~value:(Rrd.VT_Int64 (Int64.div (Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
-					(Int64.of_float (newvals.time -. oldvals.time))))
-				~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr) ~description:"Misses per second of the cache"
-				~value:(Rrd.VT_Int64 (Int64.div (Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw) 
-					(Int64.of_float (newvals.time -. oldvals.time))))
-				~ty:Rrd.Gauge ~min:0.0 ~default:true ()) ]
-	in
-
-	match !last_cache_stats,cache_sr_opt with 
-		| None, None -> 
-			[]
-		| None, Some cache_sr ->
-			let stats = do_read cache_sr in
-			last_cache_stats := Some stats;
-			[]
-		| Some oldstats, None ->
-			last_cache_stats := None;
-			[]
-		| Some oldstats, Some cache_sr ->
-			if timestamp -. oldstats.time > 55.0 then begin
-				let newstats = do_read cache_sr in
-				last_cache_stats := Some newstats;
-				let dss = get_dss cache_sr oldstats newstats in
-				cached_cache_dss := dss;
-				dss
-			end else !cached_cache_dss
-
       
 let read_all_dom0_stats __context =
   let handle_exn log f default =
@@ -503,31 +404,21 @@ let read_all_dom0_stats __context =
 	default
       end in
   Mutex.execute lock (fun () ->
-	with_xc (fun xc ->
-	  let domains = Xc.domain_getinfolist xc 0 in
-      let timestamp = Unix.gettimeofday() in
-      let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
-			let uuid_of_domain d =
-				Uuid.to_string (Uuid.uuid_of_int_array (d.Xc.handle)) in
-			let domain_paused d = d.Xc.paused in
-			let my_paused_domain_uuids =
-				List.map uuid_of_domain (List.filter domain_paused domains) in
-      let (vifs,pifs) = try update_netdev domains with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
-      let (vcpus,uuids,domids) = update_vcpus xc domains in
+    let timestamp = Unix.gettimeofday() in
+    let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
+    let (vifs,pifs) = try update_netdev() with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
+    with_xc (fun xc ->
+      let (vcpus,uuids,domids) = update_vcpus xc in
       Xapi_guest_agent.sync_cache domids;
-      Helpers.remove_other_keys memory_targets domids;
-      Helpers.remove_other_keys uncooperative_domains domids;
-
       (List.concat [
 	handle_exn "ha_stats" (fun () -> Xapi_ha_stats.all ()) [];
 	handle_exn "read_mem_metrics" (fun ()->read_mem_metrics xc) [];
         vcpus;
 	vifs;
-	handle_exn "cache_stats" (fun () -> read_cache_stats timestamp) [];
 	handle_exn "update_pcpus" (fun ()->update_pcpus xc) [];
-	handle_exn "update_vbds" (fun ()->update_vbds domains) [];
+	handle_exn "update_vbds" (fun ()->update_vbds()) [];
 	handle_exn "update_loadavg" (fun ()-> [ update_loadavg () ]) [];
-	handle_exn "update_memory" (fun ()->update_memory __context xc domains) []],uuids,pifs,timestamp,my_rebooting_vms, my_paused_domain_uuids)
+	handle_exn "update_memory" (fun ()->update_memory __context xc) []],uuids,pifs,timestamp,my_rebooting_vms)
     )
   )
 
@@ -535,9 +426,9 @@ let read_all_dom0_stats __context =
 let do_monitor __context xc =
   Stats.time_this "monitor"
     (fun () ->
-      let (stats,uuids,pifs,timestamp,my_rebooting_vms,my_paused_vms) = read_all_dom0_stats __context in
+      let (stats,uuids,pifs,timestamp,my_rebooting_vms) = read_all_dom0_stats __context in
       Monitor_self.go __context;
-      Monitor_rrds.update_rrds ~__context timestamp stats uuids pifs my_rebooting_vms my_paused_vms)
+      Monitor_rrds.update_rrds ~__context timestamp stats uuids pifs my_rebooting_vms)
     
 let _loop __context xc =
   while true
@@ -554,7 +445,7 @@ let _loop __context xc =
   done
     
 let loop () =
-        Debug.name_thread "monitor";
+        name_thread "monitor";
         debug "Monitor.loop thread created";
   	with_xc (fun xc ->
 		Server_helpers.exec_with_new_task "performance monitor"

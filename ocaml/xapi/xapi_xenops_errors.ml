@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Code to translate misc low-level xenops exceptions into more user-friendly 
     API errors *)
 
@@ -48,8 +35,6 @@ let to_api_error = function
       Server_error(internal_error, [ sprintf "device model failed to initialise: %s" msg ])
   | Device.Ioemu_failed_dying ->
       Server_error(internal_error, [ "internal error waiting for device model to stop (for either shutdown or suspend)" ])
-  | Device.Cdrom ->
-		Server_error(host_cd_drive_empty, [])
 	
   | Domain.Restore_signature_mismatch ->
       Server_error(internal_error, [ "restore file signature mismatch: has suspend image been corrupted?" ])
@@ -61,17 +46,6 @@ let to_api_error = function
       Server_error(internal_error, [ sprintf "protocol failure while talking to xenguesthelper (%s)" x ])
   | Domain.Xenguest_failure x ->
       Server_error(internal_error, [ sprintf "received failure message from xenguesthelper: %s" x ])
-  | XenguestHelper.Domain_builder_error(fn, code, msg) ->
-      Server_error(domain_builder_error, [ fn; string_of_int code; msg ])
-  | Xc.Error x ->
-      Vmopshelpers.with_xc
-	(fun xc ->
-	   let free = Memory.get_free_memory_kib ~xc
-	   and total = Memory.get_total_memory_mib ~xc
-	   and scrub = Memory.get_scrub_memory_kib ~xc in
-	   
-	   Server_error(internal_error, [ sprintf "Xc.Error [ memory %Ld KiB free; to be scrubbed %Ld KiB; total %Ld MiB]: %s" free scrub total x ])
-	)
   | e -> e
 
 let handle_xenops_error f = 

@@ -1,18 +1,9 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2007 XenSource Inc.
+ * Copyright (c) 2008 Citrix Systems Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** HTTP handler for importing a VM from a stream.
- * @group Import and Export
+ * HTTP handler for importing a VM from a stream
  *)
 
 module D=Debug.Debugger(struct let name="import" end)
@@ -33,9 +24,6 @@ type import_failure =
 | Unexpected_file of string * string
 
 exception IFailure of import_failure
-
-open Xapi_vm_memory_constraints
-open Vm_memory_constraints
 
 (** Allows the import to be customised *)
 type config = 
@@ -60,12 +48,11 @@ type table = (string * string * string) list
     functions to delete all the objects we've created, in the event of error. *)
 type state = { 
   mutable table: table;
-  mutable created_vms: table;
   mutable cleanup: (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> unit) list;
   export: obj list;
 }
 
-let initial_state export = { table = []; created_vms = []; cleanup = []; export = export }
+let initial_state export = { table = []; cleanup = []; export = export }
 
 let log_reraise msg f x = try f x with e -> error "Import failed: %s" msg; raise e
 
@@ -113,14 +100,12 @@ let non_cdrom_vdis (x: header) =
 let assert_can_restore_backup rpc session_id (x: header) =
   let all_vms = List.filter (fun x -> x.cls = Datamodel._vm) x.objects in
   let all_vms = List.map (fun x -> API.From.vM_t "" x.snapshot) all_vms in
-  let all_vms = List.filter (fun x -> try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id x.API.vM_uuid in false with _ -> true) all_vms in
-
   let get_mac_seed (vm: API.vM_t): string option = 
     if List.mem_assoc Xapi_globs.mac_seed vm.API.vM_other_config
     then Some(List.assoc Xapi_globs.mac_seed vm.API.vM_other_config)
     else None in
 
-  let existing_vms = Client.VM.get_all_records rpc session_id in
+  let existing_vms = Client.VM.get_all_records_where rpc session_id "true" in
   (* Make a table of seed -> VM reference, for error message generation *)
   let existing_seeds_table = List.map (fun (r, rr) -> get_mac_seed rr, Ref.string_of r) existing_vms in
   let existing_seeds : string option list = List.map fst existing_seeds_table in
@@ -128,39 +113,11 @@ let assert_can_restore_backup rpc session_id (x: header) =
 	     then raise (Api_errors.Server_error(Api_errors.duplicate_vm, [ List.assoc x existing_seeds_table ]))
 	     | None -> ()) (List.map get_mac_seed all_vms)
 
-(** Find the host with the same uuid as the one recorded in the snapshot *)
-let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
-	let host_record = API.From.host_t "" x.snapshot in
-	let host = 
-		try Client.Host.get_by_uuid rpc session_id host_record.API.host_uuid
-		with _ -> Ref.null in
-	state.table <- (x.cls, x.id, Ref.string_of host) :: state.table
 
 (** Create a new VM record, add the reference to the table *)
 let handle_vm __context config rpc session_id (state: state) (x: obj) : unit = 
   let task_id = Ref.string_of (Context.get_task_id __context) in
   let vm_record = API.From.vM_t "" x.snapshot in
-  (* Do not create a VM which already exists if we do a full restore *)
-
-  let get_vm_uuid () = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in
-  let get_vm_name () = try List.hd (Client.VM.get_by_name_label rpc session_id vm_record.API.vM_name_label) with _ -> Ref.null in
-  let vm_uuid_exists () = try ignore (get_vm_uuid ()); true with _ -> false in
-
-  if config.full_restore && vm_uuid_exists () then begin
-	let vm = get_vm_uuid () in
-	state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
-	state.table <- (x.cls, Ref.string_of vm, Ref.string_of vm) :: state.table
-  end else
-
-  (* if the VM is a default template, then pick-up the one with the same name *)
-  if vm_record.API.vM_is_a_template
-	&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
-	&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
-  then begin
-	let template = get_vm_name () in
-	state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
-  end else begin
-
   (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
   let other_config = List.filter 
     (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
@@ -173,34 +130,9 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 	(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
   let vm_record = { vm_record with API.vM_other_config = other_config } in
 
-	let vm_record =
-		if vm_exported_pre_dmc x
-		then begin
-			let safe_constraints = Vm_memory_constraints.reset_to_safe_defaults
-				~constraints:(Vm_memory_constraints.extract ~vm_record) in
-			debug "VM %s was exported pre-DMC; dynamic_{min,max},target <- %Ld"
-				vm_record.API.vM_name_label safe_constraints.static_max;
-			{vm_record with API.
-				vM_memory_static_min  = safe_constraints.static_min;
-				vM_memory_dynamic_min = safe_constraints.dynamic_min;
-				vM_memory_target      = safe_constraints.target;
-				vM_memory_dynamic_max = safe_constraints.dynamic_max;
-				vM_memory_static_max  = safe_constraints.static_max;
-			}
-		end else vm_record
-	in
-	let vm_record = {vm_record with API.
-		vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
-	} in
-	let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
-
   let vm = log_reraise
     ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
-    (fun value ->
-      let vm = Client.VM.create_from_record rpc session_id value in
-      if config.full_restore then Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid;
-      vm)
-    vm_record in
+    (fun value -> Client.VM.create_from_record rpc session_id value) vm_record in
   state.cleanup <- (fun __context rpc session_id -> 
 		      (* Need to get rid of the import task or we cannot destroy the VM *)
 		      Helpers.log_exn_continue 
@@ -214,25 +146,14 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   TaskHelper.operate_on_db_task ~__context (fun t -> 
     (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.import_task with _ -> ());
     Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.import_task ~value:(Ref.string_of t));
-  (* Set the power_state and suspend_VDI if the VM is suspended.
-   * If anything goes wrong, still continue if forced. *)
+  (* Set the power_state and suspend_VDI if the VM is suspended *)
   if vm_record.API.vM_power_state = `Suspended then begin
-	try
-      let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
-      Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
-      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
-    with e -> if not config.force then begin
-      let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in
-      error "Import failed: %s" msg;
-      raise e
-    end
-  end else
-    Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
-
-  (* We might want to import a control domain *)
-  Db.VM.set_is_control_domain~__context  ~self:vm ~value:vm_record.API.vM_is_control_domain;
-  Db.VM.set_resident_on ~__context ~self:vm ~value:(try lookup vm_record.API.vM_resident_on state.table with _ -> Ref.null);
-  Db.VM.set_affinity ~__context ~self:vm ~value:(try lookup vm_record.API.vM_affinity state.table with _ -> Ref.null);
+    let vdi = log_reraise 
+      ("Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI))
+      (lookup vm_record.API.vM_suspend_VDI) state.table in
+    Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
+    Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+  end;
 
   (* Update the snapshot metadata. At this points, the snapshot_of field is not relevant as
 	 it use the export ref. However, as the corresponding VM object may have not been created
@@ -240,17 +161,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:vm_record.API.vM_is_a_snapshot;
   Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
   Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
-  Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
-
-  Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent;
   
-  begin try
-	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
-	  Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
-  with _ -> () end;
-  
-  Db.VM.set_bios_strings ~__context ~self:vm ~value:vm_record.API.vM_bios_strings;
-
   debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id;
 
   (* Although someone could sneak in here and attempt to power on the VM, it
@@ -261,28 +172,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:`import;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
 
-  state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
-  state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms;
-  end
-
-(** Create the guest metrics *)
-let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
-	let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
-	let gm = Ref.make () in
-	Db.VM_guest_metrics.create ~__context
-		~ref:gm
-		~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-		~os_version:gm_record.API.vM_guest_metrics_os_version
-		~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
-		~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
-		~memory:gm_record.API.vM_guest_metrics_memory
-		~disks:gm_record.API.vM_guest_metrics_disks
-		~networks:gm_record.API.vM_guest_metrics_networks
-		~other:gm_record.API.vM_guest_metrics_other
-		~last_updated:gm_record.API.vM_guest_metrics_last_updated
-		~other_config:gm_record.API.vM_guest_metrics_other_config
-		~live:gm_record.API.vM_guest_metrics_live;
-	state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
+  state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. Fail if it cannot
     be found unless it has content-type=iso in which case we'll eject the disk.
@@ -324,9 +214,8 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 
   let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
   if original_sr.API.sR_content_type = "iso" then begin
-    (* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
-    let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
-        && Client.SR.get_type rpc session_id self <> "udev")
+    (* Best effort: locate a VDI in any ISO SR with a matching VDI.location *)
+    let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso")
       (Client.SR.get_all rpc session_id) in
     match List.filter (fun (_, vdir) -> 
 	vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
@@ -384,25 +273,17 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
   let net = 
     match possibilities, config.vm_metadata_only with
       | [], true ->
-          begin try
-            (* Lookup by bridge name as fallback *)
-            let nets = Client.Network.get_all_records rpc session_id in
-            let net, _ =
-              List.find (fun (_, netr) -> netr.API.network_bridge = net_record.API.network_bridge) nets in
-            net
-          with _ ->
- 	        (* In vm_metadata_only_mode the network must exist *)
- 	        let msg = 
-              Printf.sprintf "Unable to find Network with name_label = '%s' nor bridge = '%s'" 
- 	            net_record.API.network_name_label net_record.API.network_bridge
-            in
- 	          error "%s" msg;
- 	          raise (Failure msg)
- 	      end
+ 	      (* In vm_metadata_only_mode the network must exist *)
+ 	      let msg = 
+            Printf.sprintf "Unable to find Network with name_label = '%s'" 
+ 	          net_record.API.network_name_label 
+          in
+ 	        error "%s" msg;
+ 	        raise (Failure msg)
       | [], false ->
  	      (* In normal mode we attempt to create any networks which are missing *)
  	      let net = 
-            log_reraise ("failed to create Network with name_label " ^ net_record.API.network_name_label)
+            log_reraise ("failed to create Network with name-label " ^ net_record.API.network_name_label)
  	          (fun value -> Client.Network.create_from_record rpc session_id value) net_record 
           in
             (* Only add task flag to networks which get created in this import *)
@@ -427,16 +308,6 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
  *)
 let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit = 
   let vbd_record = API.From.vBD_t "" x.snapshot in
-
-  let get_vbd () = Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid in
-  let vbd_exists () = try ignore (get_vbd ()); true with _ -> false in 
-
-  if config.full_restore && vbd_exists () then begin
-	let vbd = get_vbd () in
-	state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table;
-	state.table <- (x.cls, Ref.string_of vbd, Ref.string_of vbd) :: state.table
-  end else
-
   let vm = log_reraise 
     ("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
     (lookup vbd_record.API.vBD_VM) state.table in
@@ -446,15 +317,12 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
   let create_vbd vbd_record = 
     let vbd = log_reraise
       "failed to create VBD"
-      (fun value ->
-        let vbd = Client.VBD.create_from_record rpc session_id value in
-        if config.full_restore then Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid;
-        vbd)
-      vbd_record in
+      (fun value -> Client.VBD.create_from_record rpc session_id value) vbd_record in
     state.cleanup <- (fun __context rpc session_id -> Client.VBD.destroy rpc session_id vbd) :: state.cleanup;
     (* Now that we can import/export suspended VMs we need to preserve the
        currently_attached flag *)
-    Db.VBD.set_currently_attached ~__context ~self:vbd ~value:vbd_record.API.vBD_currently_attached;
+    if Db.VM.get_power_state ~__context ~self:vm = `Suspended
+    then Db.VBD.set_currently_attached ~__context ~self:vbd ~value:vbd_record.API.vBD_currently_attached;
     state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table in
 
   (* If the VBD is supposed to be attached to a PV guest (which doesn't support
@@ -477,16 +345,6 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
     The VM and Network must have already been handled first. *)
 let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
   let vif_record = API.From.vIF_t "" x.snapshot in
-
-  let get_vif () = Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid in
-  let vif_exists () = try ignore (get_vif ()); true with _ -> false in
-
-  if config.full_restore && vif_exists () then begin
-	let vif = get_vif () in
-	state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table;
-	state.table <- (x.cls, Ref.string_of vif, Ref.string_of vif) :: state.table
-  end else
-
   (* If not restoring a full backup then blank the MAC so it is regenerated *)
   let vif_record = { vif_record with API.vIF_MAC = 
       if config.full_restore then vif_record.API.vIF_MAC else "" } in
@@ -501,15 +359,11 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
 		       API.vIF_network = net } in
   let vif = log_reraise
     "failed to create VIF"
-    (fun value ->
-      let vif = Client.VIF.create_from_record rpc session_id value in
-      if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
-      vif)
-    vif_record in
+    (fun value -> Client.VIF.create_from_record rpc session_id value)  vif_record in
   state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
   (* Now that we can import/export suspended VMs we need to preserve the
      currently_attached flag *)
-  if Db.VM.get_power_state ~__context ~self:vm <> `Halted
+  if Db.VM.get_power_state ~__context ~self:vm = `Suspended
   then Db.VIF.set_currently_attached ~__context ~self:vif ~value:vif_record.API.vIF_currently_attached;
 
   state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table
@@ -517,43 +371,30 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers = 
   [
-    Datamodel._host, handle_host;
     Datamodel._sr, handle_sr;
     Datamodel._vdi, handle_vdi;
-    Datamodel._vm_guest_metrics, handle_gm;
     Datamodel._vm, handle_vm;
     Datamodel._network, handle_net;
     Datamodel._vbd, handle_vbd;
     Datamodel._vif, handle_vif
   ]
 
-let update_snapshot_and_parent_links ~__context state =
+let update_snapshot_links ~__context state =
 	let aux (cls, id, ref) =
 		let ref = Ref.of_string ref in
-
-		if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then begin
+		if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then
 			let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
 			if snapshot_of <> Ref.null 
 			then begin
-				debug "lookup for snapshot_of = '%s'" (Ref.string_of snapshot_of);
+				debug "lookup for %s" (Ref.string_of snapshot_of);
 				log_reraise
 					("Failed to find the VM which is snapshot of " ^ (Db.VM.get_name_label ~__context ~self:ref))
 					(fun table -> 
-						let snapshot_of = (lookup snapshot_of) table in
-						Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of)
+						 let snapshot_of = (lookup snapshot_of) table in
+						 Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of)
 					state.table
 			end
-		end;
-
-		if cls = Datamodel._vm then begin
-			let parent = Db.VM.get_parent ~__context ~self:ref in
-			debug "lookup for parent = '%s'" (Ref.string_of parent);
-			try
-				let parent = lookup parent state.table in
-				Db.VM.set_parent ~__context ~self:ref ~value:parent
-			with _ -> debug "no parent found"
-		end in
-
+	in
 	List.iter aux state.table
 
 (** Take a list of objects, lookup the handlers by class name and 'handle' them *)
@@ -562,10 +403,9 @@ let handle_all __context config rpc session_id (xs: obj list) =
   try
     let one_type (cls, handler) =
       let instances = List.filter (fun x -> x.cls = cls) xs in
-      debug "Importing %i %s(s)" (List.length instances) cls;
       List.iter (fun x -> handler __context config rpc session_id state x) instances in
     List.iter one_type handlers;
-    update_snapshot_and_parent_links ~__context state;
+    update_snapshot_links ~__context state;
     state
   with e ->
     error "Caught exception in import: %s" (ExnHelper.string_of_exn e);
@@ -577,66 +417,17 @@ let handle_all __context config rpc session_id (xs: obj list) =
     end;
     raise e
 
-(** Read the next file in the archive as xml *)
-let read_xml hdr fd = 
-  let xml_string = Bigbuffer.make () in
-  really_read_bigbuffer fd xml_string hdr.Tar.Header.file_size;
-  Xml.parse_bigbuffer xml_string
-
-let assert_filename_is hdr filename = 
-  if hdr.Tar.Header.file_name <> filename then begin
-    let hex = Tar.Header.to_hex in
-    error "import expects the next file in the stream to be [%s]; got [%s]"
-      (hex  hdr.Tar.Header.file_name) (hex Xva.xml_filename);
-    raise (IFailure (Unexpected_file(hdr.Tar.Header.file_name, Xva.xml_filename)))
-  end
-
-(** Takes an fd and a function, tries first to read the first tar block
-    and checks for the existence of 'ova.xml'. If that fails then pipe
-    the lot through gzip and try again *)
-let with_open_archive fd f = 
-  (* Read the first header's worth into a buffer *)
-  let buffer = String.make Tar.Header.length ' ' in
-  let retry_with_gzip = ref true in
-  try
-    really_read fd buffer 0 Tar.Header.length;
-
-    (* we assume the first block is not all zeroes *)
-    let Some hdr = Tar.Header.unmarshal buffer in
-    assert_filename_is hdr Xva.xml_filename;
-
-    (* successfully opened uncompressed stream *)
-    retry_with_gzip := false;
-    let xml = read_xml hdr fd in
-    Tar.Archive.skip fd (Tar.Header.compute_zero_padding_length hdr);
-    f xml fd
-  with e ->
-    if not(!retry_with_gzip) then raise e;
-    debug "Failed to directly open the archive; trying gzip";
-    let pipe_out, pipe_in = Unix.pipe () in
-    let t = Thread.create
-      (Gzip.decompress pipe_in)
-      (fun compressed_in ->
-	 (* Write the initial buffer *)
-	 Unix.set_close_on_exec compressed_in;
-	 debug "Writing initial buffer";
-	 Unix.write compressed_in buffer 0 Tar.Header.length;
-	 let n = Unixext.copy_file fd compressed_in in
-	 debug "Written a total of %d + %Ld bytes" Tar.Header.length n;
-      ) in
-    finally
-      (fun () ->
-	 let hdr = Tar.Header.get_next_header pipe_out in
-	 assert_filename_is hdr Xva.xml_filename;
-
-	 let xml = read_xml hdr pipe_out in
-	 Tar.Archive.skip pipe_out (Tar.Header.compute_zero_padding_length hdr);
-	 f xml pipe_out)
-      (fun () ->
-	 debug "Closing pipes";
-	 Unix.close pipe_in;
-	 Unix.close pipe_out;
-	 Thread.join t)
+(** Read the next file from the tar stream as XML metadata *)
+let get_xml fd filename =
+  (* Read the xml header *)
+  let xml = Tar.Archive.with_next_file fd
+    (fun s hdr ->
+       if hdr.Tar.Header.file_name <> filename then raise (IFailure (Unexpected_file (filename, hdr.Tar.Header.file_name)));
+       let file_size = Int32.to_int hdr.Tar.Header.file_size in
+       let xml_string = String.make file_size '\000' in
+       really_read s xml_string 0 file_size;
+       xml_string) in
+  Xml.parse_string xml
 
 (** Remove "import" from the current operations of all created VMs, complete the
     task including the VM references *)
@@ -660,21 +451,20 @@ let complete_import ~__context vmrefs =
 (** Import metadata only *)
 let metadata_handler (req: request) s = 
   debug "metadata_handler called";  
-  Xapi_http.with_context "VM.metadata_import" req s
-    (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
+  Xapi_http.with_context "Importing VM metadata" req s
+    (fun __context ->
+       let session_id=Context.get_session_id __context in
        let full_restore = 
 	 List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
        let force = 
 	 List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
-       info "VM.import_metadata: force = %b; full_restore = %b" force full_restore;
+       info "import_metadata force = %b full_restore = %b" force full_restore;
        let config = { sr = Ref.null; full_restore = full_restore; vm_metadata_only = true; force = force } in
        let headers = Http.http_200_ok ~keep_alive:false () @
 	 [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 	   content_type ] in
        Http_svr.headers s headers;
-       with_open_archive s
-       (fun metadata s ->
-	    debug "Got XML";
+       let metadata = get_xml s Xva.xml_filename in
        (* Skip trailing two zero blocks *)
        Tar.Archive.skip s (Tar.Header.length * 2);
 
@@ -690,8 +480,8 @@ let metadata_handler (req: request) s =
 		      debug "Imported object type %s: external ref: %s internal ref: %s"
 			cls id r) table;
 
-	 let vmrefs = List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms in
-     let vmrefs = Listext.List.setify vmrefs in
+	 let vmrefs = List.map (fun (cls,id,r) -> Ref.of_string r)
+	   (List.filter (fun (cls,id,r) -> cls=Datamodel._vm) table) in
 	 complete_import ~__context vmrefs;
 	 info "import_metadata successful";
        with e ->
@@ -703,12 +493,12 @@ let metadata_handler (req: request) s =
 	 cleanup on_cleanup_stack;
 	 end;
 	 raise e
-    )))
+    )
 
 let handler (req: request) s = 
-  req.close <- true;
+  req.close := true;
 
-  Xapi_http.assert_credentials_ok "VM.import" ~http_action:"put_import" req;
+  Xapi_http.assert_credentials_ok "Exporting VM" req;
 
   debug "import handler";
 
@@ -716,18 +506,12 @@ let handler (req: request) s =
     List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
   let force = 
     List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
-
-  let all = req.Http.cookie @ req.Http.query in
-  let subtask_of =
-    if List.mem_assoc "subtask_of" all
-    then Some (Ref.of_string (List.assoc "subtask_of" all))
-    else None in
-
+  
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
   
-  Server_helpers.exec_with_new_task ?subtask_of "VM.import" 
-    (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
+  Server_helpers.exec_with_new_task "Importing VM from network" 
+    (fun __context -> 
        let sr = 
          if List.mem_assoc "sr_id" (req.Http.query @ req.Http.cookie)
          then Ref.of_string (List.assoc "sr_id" (req.Http.query @ req.Http.cookie))
@@ -736,10 +520,7 @@ let handler (req: request) s =
                 (Helpers.call_api_functions ~__context) 
                 get_default_sr 
        in
-         info "VM.import: SR = '%s%s'; force = %b; full_restore = %b" 
-			 (try Db.SR.get_uuid ~__context ~self:sr with _ -> "invalid")
-			 (try Printf.sprintf " (%s)" (Db.SR.get_name_label ~__context ~self:sr) with _ -> "")
-			 force full_restore;
+         info "import sr = %s; force = %b; full_restore = %b" (Ref.string_of sr) force full_restore;
          if not(check_sr_availability ~__context sr)
          then 
 	 (debug "sr not available - redirecting";
@@ -750,7 +531,7 @@ let handler (req: request) s =
 	  debug "new location: %s" url;
 	  Http_svr.headers s headers)
        else       
-	 Xapi_http.with_context "VM.import" req s
+	 Xapi_http.with_context "Importing VM from XVA 0.2 stream" req s
 	   (fun __context ->
 	     (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
 	     (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
@@ -766,6 +547,7 @@ let handler (req: request) s =
 		 raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 	       end;
 	     try
+	        let session_id=Context.get_session_id __context in
 		let refresh_session = Xapi_session.consider_touching_session rpc session_id in
 
 	        debug "Importing %s" (if full_restore then "(as 'restore')" else "(as new VM)");
@@ -782,9 +564,8 @@ let handler (req: request) s =
 			content_type ] in
 		    Http_svr.headers s headers;
 		    debug "Reading XML";
-		    with_open_archive s
-		      (fun metadata s ->
-			 debug "Got XML";
+		    let metadata = get_xml s Xva.xml_filename in
+		    debug "Got XML";
 		    let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in
 		    let vmrefs = 
 		      if old_zurich_or_geneva 
@@ -822,8 +603,7 @@ let handler (req: request) s =
 			  (* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
 			  if header.version.export_vsn < 2 then 
 			    begin
-			      let xml = Tar.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
-			      let expected_checksums = checksum_table_of_xmlrpc xml in
+			      let expected_checksums = checksum_table_of_xmlrpc (get_xml s Xva.checksum_filename) in
 			      if not(compare_checksums checksum_table expected_checksums) then begin
 				error "Some data checksums were incorrect: VM may be corrupt";
 				if not(force)
@@ -832,7 +612,8 @@ let handler (req: request) s =
 			      end;
 			    end;
 			  (* return vmrefs *)
-			  Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
+			  List.map (fun (cls,id,r) -> Ref.of_string r) 
+			    (List.filter (fun (cls,id,r) -> cls=Datamodel._vm) table)
 			    
 			with e ->
 			  error "Caught exception during import: %s" (ExnHelper.string_of_exn e);
@@ -846,8 +627,7 @@ let handler (req: request) s =
 		      end
 		    in
 		    complete_import ~__context vmrefs;
-		    debug "import successful"
-		    )
+		    info "import successful"
 	      with 
 		| IFailure failure ->
 		    begin
@@ -880,4 +660,4 @@ let handler (req: request) s =
 		    raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
 	   )
     );
-  debug "import successful")
+  info "import successful"

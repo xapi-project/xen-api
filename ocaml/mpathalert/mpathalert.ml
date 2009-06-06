@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Threadext
 open Stringext
 open Listext
@@ -19,7 +6,6 @@ open Client
 open Event_types
 
 let print_debug = ref false
-let delay = ref 120.
 
 let lock = Mutex.create ()
 let with_global_lock (f:unit -> unit) = Mutex.execute lock f
@@ -60,17 +46,12 @@ let to_string alert =
 
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
-	let session =
-		let rec aux () = 
-			try Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4"
-			with _ -> Thread.delay !delay; aux () in
-		aux () in
 	try
+		let session = Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" in
 		f rpc session x
-	with e ->
-		begin try Client.Session.logout ~rpc ~session_id:session with _ -> () end;
-		debug "Got '%s', trying with a new session ..." (Printexc.to_string e);
-		Thread.delay !delay;
+	with _ ->
+		debug "Session expired, trying to get a new session ...";
+		Thread.delay 1.;
 		retry_with_session f rpc x
 
 let keep_mpath = List.filter (fun (key, value) -> Stringext.String.startswith "mpath-" key)
@@ -227,6 +208,7 @@ let sender rpc session (delay, msg, queue) =
 	done
 
 let _ =
+	let delay = ref 120. in
 	let pidfile = ref "/var/run/mpathalert.pid" in
 	let daemonize = ref false in
 

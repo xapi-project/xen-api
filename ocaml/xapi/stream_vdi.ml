@@ -1,18 +1,8 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006, 2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Utility functions for streaming VDI images
- * @group Storage
+ * Utility functions for streaming VDI images
  *)
 
 open Stringext
@@ -86,27 +76,6 @@ let made_progress __context progress n =
   end
 
 
-(** Write a block of checksummed data of length [len] with name [filename] to [ofd] *)
-let write_block ~__context filename buffer ofd len = 
-  let hdr = Tar.Header.make filename (Int64.of_int len) in
-
-  try
-	let csum = Sha1sum.sha1sum
-	  (fun checksumfd ->
-		   Tar.write_block hdr (fun ofd -> Tar.Archive.multicast_n_string buffer 
-									[ ofd; checksumfd ] len) ofd
-	  ) in
-	(* Write the checksum as a separate file *)
-	let hdr' = Tar.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
-	Tar.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
-  with
-	Unix.Unix_error (a,b,c) as e ->
-		if TaskHelper.is_cancelling ~__context
-		then raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
-		else 
-		  (if b="write" 
-		   then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
-		   else raise e)
 
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
@@ -116,53 +85,56 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 
   let progress = new_progress_record __context prefix_vdis in
 
-  (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
-  let last_transmission_time = ref 0. in
-
   let send_one ofd (__context:Context.t) (prefix, vdi_ref, size) = 
     let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
+    let buffer = String.make (Int64.to_int chunk_size) '\000' in
 
     with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
       (fun ifd ->
-
-
+	 
 	 (* NB. It used to be that chunks could be larger than a native int *)
 	 (* could handle, but this is no longer the case! Ensure all chunks *)
 	 (* are strictly less than 2^30 bytes *)
 	 let rec stream_from (chunk_no: int) (offset: int64) = 
 	   refresh_session ();
+
 	   let remaining = Int64.sub size offset in
 	   if remaining > 0L
 	   then 
 	     begin
 	       let this_chunk = (min remaining chunk_size) in
-		   let last_chunk = this_chunk = remaining in
+	       let last_chunk = this_chunk=remaining in
 	       let this_chunk = Int64.to_int this_chunk in
 	       let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
-	       let hdr = Tar.Header.make filename (Int64.of_int this_chunk) in
-
-		   let now = Unix.gettimeofday () in
-		   let time_since_transmission = now -. !last_transmission_time in
+	       let hdr = Tar.Header.make filename (Int32.of_int this_chunk) in
+	       Unixext.really_read ifd buffer 0 this_chunk;
+	       
+	       (* Only write the chunk if it's not all zeros, or if it's the first *)
+	       if not (Zerocheck.is_all_zeros buffer this_chunk) || chunk_no=0 || last_chunk then
+		 begin
+		   let csum = Sha1sum.sha1sum
+		     (fun checksumfd ->
+		       try
+			 Tar.write_block hdr (fun ofd -> Tar.Archive.multicast_n_string buffer 
+			   [ ofd; checksumfd ] this_chunk) ofd
+		       with
+			   Unix.Unix_error (a,b,c) as e ->
+			     if TaskHelper.is_cancelling ~__context
+			     then raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
+			     else 
+			       (if b="write" 
+			       then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
+				 else raise e)
+		     ) in	
 		   
-		   (* We always include the first and last blocks *)
-		   let first_or_last = chunk_no = 0 || last_chunk in
+		   (* Write the checksum as a separate file *)
+		   let hdr' = Tar.Header.make (filename ^ checksum_extension) (Int32.of_int (String.length csum)) in
+		   Tar.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
+		 end;
 
-		   if time_since_transmission > 5. && not first_or_last then begin
-			 last_transmission_time := now;
-			 write_block ~__context filename "" ofd 0;
-			 (* no progress has been made *)
-			 stream_from (chunk_no + 1) offset
-		   end else begin
-			 let buffer = String.make this_chunk '\000' in
-			 Unixext.really_read ifd buffer 0 this_chunk;
-			 if not (Zerocheck.is_all_zeros buffer this_chunk) || first_or_last then begin
-			   last_transmission_time := now;
-			   write_block ~__context filename buffer ofd this_chunk;
-			 end;
-			 made_progress __context progress (Int64.of_int this_chunk);
-			 stream_from (chunk_no + 1) (Int64.add offset chunk_size);
-	       end
-		 end
+	       made_progress __context progress (Int64.of_int this_chunk);
+	       stream_from (chunk_no + 1) (Int64.add offset chunk_size)
+	     end;
 	 in
 	 stream_from 0 0L);
     debug "Finished streaming VDI" in
@@ -180,7 +152,7 @@ let verify_inline_checksum ifd checksum_table =
     raise (Failure msg)
   end;
   try
-    let length' = Int64.to_int length in
+    let length' = Int32.to_int length in
     let csum = String.make length' ' ' in
     Unixext.really_read ifd csum 0 length';
     Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
@@ -208,9 +180,16 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
   let zerochunkstring = ref "" in
   
   let recv_one ifd (__context:Context.t) (prefix, vdi_ref, size) =
-    let vdi_skip_zeros = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi_ref) in
     (* If this is true, we skip writing zeros. Only for sparse files (vhd only atm) *)
-    debug "begun import of VDI%s preserving sparseness" (if vdi_skip_zeros then "" else " NOT");
+    debug "begun import of VDI";
+
+    let vdi_skip_zeros =
+      begin
+	let sr = Db.VDI.get_SR ~__context ~self:vdi_ref in
+	let ty = Db.SR.get_type ~__context ~self:sr in
+	ty="ext" || ty="nfs"
+      end 
+    in
     
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd ->
@@ -228,7 +207,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 	    if !firstchunklength < 0 
 	    then 
 	      begin
-		firstchunklength := (Int64.to_int length);
+		firstchunklength := (Int32.to_int length);
 		zerochunkstring := String.make !firstchunklength '\000'
 	      end;
 	    
@@ -268,7 +247,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 	    checksum_table := (file_name, csum) :: !checksum_table;
 
 	    Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
-	    made_progress __context progress (Int64.add skipped_size length);
+	    made_progress __context progress (Int64.add skipped_size (Int64.of_int32 length));
 
 
 	    if vsn.Importexport.export_vsn > 0 then
@@ -280,15 +259,10 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 		      if not(force) then raise e
 	      end;
 
-	    stream_from suffix (Int64.add skipped_size (Int64.add offset length))	    
+	    stream_from suffix (Int64.add skipped_size (Int64.add offset (Int64.of_int32 length)))	    
 	  end in
-	stream_from "-1" 0L;
-	Unixext.fsync ofd) in
-  begin try
-    for_each_vdi __context (recv_one ifd __context) prefix_vdis;
-  with Unix.Unix_error(Unix.EIO, _, _) ->
-    raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
-  end;
+	stream_from "-1" 0L) in
+  for_each_vdi __context (recv_one ifd __context) prefix_vdis;
   !checksum_table
 
 
@@ -322,11 +296,11 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 		       error "Expected VDI chunk suffix to have increased under lexicograpic ordering; last = %s; this = %s" last_suffix suffix;
 		       raise (Failure "Invalid XVA file")
 		     end;
-		   debug "Decompressing %Ld bytes from %s\n" length file_name;
+		   debug "Decompressing %ld bytes from %s\n" length file_name;
 		   Gzip.decompress ofd (fun zcat_in -> Tar.Archive.copy_n ifd zcat_in length);
 		   Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
 		   (* XXX: this is totally wrong: *)
-		   made_progress __context progress length;
+		   made_progress __context progress (Int64.of_int32 length);
 		   next ();
 		   stream_from suffix
 	     end 
@@ -336,13 +310,8 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 	          were cancelled... *)
 	       TaskHelper.exn_if_cancelling ~__context;
 	       () in
-	stream_from "";
-	Unixext.fsync ofd) in
-  begin try
-    for_each_vdi __context (recv_one ifd __context) prefix_vdis;
-  with Unix.Unix_error(Unix.EIO, _, _) ->
-    raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
-  end;
+      stream_from "") in
+  for_each_vdi __context (recv_one ifd __context) prefix_vdis;
   if !hdr <> None then begin
       error "Failed to import XVA; some chunks were not processed.";
       raise (Failure "Some XVA data not processed")

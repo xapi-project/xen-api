@@ -18,9 +18,7 @@
 # Simple python example to demonstrate the event system. Logs into the server,
 # registers for all events and prints them to the screen.
 
-import XenAPI, sys, time
-
-iso8601 = "%Y%m%dT%H:%M:%SZ"
+import XenAPI, sys
 
 def main(session):
     try:
@@ -29,10 +27,10 @@ def main(session):
         while True:
             try:
                 events = session.xenapi.event.next()
-                now = time.strftime(iso8601, time.gmtime(time.time()))
+                
                 # Print the events out in a nice format:
-                fmt = "%18s %8s %s %20s  %5s  %s %s"
-                hdr = fmt % ("time", "id", "ref", "class", "type", "name of object (if available)", "snapshot")
+                fmt = "%8s %s %20s  %5s  %s %s"
+                hdr = fmt % ("id", "ref", "class", "type", "name of object (if available)", "snapshot")
                 print "-" * (len(hdr))
                 print hdr
                 print "-" * (len(hdr))
@@ -42,7 +40,7 @@ def main(session):
                         snapshot = event['snapshot']
                         if "name_label" in snapshot.keys():
                             name = snapshot['name_label']
-                    print fmt % (now, event['id'], event["ref"], event['class'], event['operation'], name, repr(snapshot))
+                    print fmt % (event['id'], event["ref"], event['class'], event['operation'], name, repr(snapshot))
 
             except XenAPI.Failure, e:
                 if e.details <> [ "EVENTS_LOST" ]: raise
@@ -58,25 +56,16 @@ def main(session):
     finally:
         session.xenapi.session.logout()
         
-def usage_and_quit():
-    print "Usage:"
-    print sys.argv[0], " url <username> <password>"
-    sys.exit(1)
-    
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        usage_and_quit()
+    if len(sys.argv) <> 4:
+        print "Usage:"
+        print sys.argv[0], " <url> <username> <password>"
+        sys.exit(1)
     url = sys.argv[1]
-    username = ""
-    password = ""
-    if len(sys.argv) > 2:
-        username = sys.argv[2]
-    if len(sys.argv) > 3:
-        password = sys.argv[3]
+    username = sys.argv[2]
+    password = sys.argv[3]
     # First acquire a valid session by logging in:
-    if url == "http://localhost" or url == "localhost":
-        session = XenAPI.xapi_local()
-    else:
-        session = XenAPI.Session(url)
+    session = XenAPI.Session(url)
     session.xenapi.login_with_password(username, password)
     main(session)

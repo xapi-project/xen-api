@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Operations using the CLI *)
 
 (* All of these should throw an exception if the operation fails.  *)
@@ -99,19 +86,17 @@ let get_short_version (cli : Util.t_cli) =
   List.hd lines
 
 let reset_xapi_log (cli : Util.t_cli) =
-(*  (try Sys.remove "/tmp/xapi.log" with _ -> ());
+  (try Sys.remove "/tmp/xapi.log" with _ -> ());
   ignore (expect_success (fun () -> cli "log-set-output" ["output","nil"]));
-  ignore (expect_success (fun () -> cli "log-set-output" ["output","file:/tmp/xapi.log"]))*) ()
+  ignore (expect_success (fun () -> cli "log-set-output" ["output","file:/tmp/xapi.log"]))
 
 let get_xapi_log (cli : Util.t_cli) =
-  try
-    let ic = open_in "/tmp/xapi.log" in
-    let rec r lines =
-      let nextline = 
-        try Some (input_line ic) with _ -> None
-      in match nextline with Some x -> r (x::lines) | None -> List.rev lines
-    in r []
-  with _ -> []
+  let ic = open_in "/tmp/xapi.log" in
+  let rec r lines =
+    let nextline = 
+      try Some (input_line ic) with _ -> None
+    in match nextline with Some x -> r (x::lines) | None -> List.rev lines
+  in r []
 			     
 let get_vms cli =
   let lines = expect_success (fun()->cli "vm-list" 

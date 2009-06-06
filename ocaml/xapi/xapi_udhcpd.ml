@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Interface to udhcpd *)
 
 open Stringext
@@ -38,7 +25,7 @@ let check_pid () =
 let writestring f line =
   ignore_int (Unix.write f line 0 (String.length line))
 
-let write_config ~__context ip_router =
+let write_config ~__context =
   Mutex.lock mutex;
   Pervasiveext.finally
     (fun () ->
@@ -56,7 +43,6 @@ let write_config ~__context ip_router =
       let other_config = Db.Network.get_other_config ~__context ~self:network in
       let netmask = List.assoc "netmask" other_config in
       writestring oc (Printf.sprintf "option\tsubnet\t%s\n" netmask);
-      writestring oc (Printf.sprintf "option\trouter\t%s\n" ip_router);
       
       let list = !assigned in
       List.iter (fun lease -> 
@@ -75,8 +61,12 @@ let run () =
   kill_if_running ();
   match with_logfile_fd "udhcpd"
     (fun out ->
-      let pid = safe_close_and_exec None (Some out) (Some out) [] command ["/var/xapi/udhcpd.conf"] in
-      ignore(waitpid pid))
+      let pid = safe_close_and_exec
+	[ Dup2(out, Unix.stdout);
+	  Dup2(out, Unix.stderr)]
+	[ Unix.stdout; Unix.stderr ] (* close all but these *)
+	command ["/var/xapi/udhcpd.conf"] in
+      ignore(Unix.waitpid [] pid))
   with
     | Success(log,_) -> debug "success! %s" log
     | Failure(log,_) -> debug "failure! %s" log
@@ -123,7 +113,7 @@ let maybe_add_lease ~__context vif =
 	    assigned := {mac=mac; ip=ip; vm=vm} :: !assigned;
 	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vm=%s" lease.mac a b c d (Ref.string_of vm)) !assigned)
 	(fun () -> Mutex.unlock mutex);
-      write_config ~__context ip_begin;
+      write_config ~__context;
       ignore(run ())
     with e -> (debug "exception caught: %s" (Printexc.to_string e); log_backtrace ())
 

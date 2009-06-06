@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Remote command execution *)
 
 module D = Debug.Debugger(struct let name="remotecmd" end)
@@ -24,13 +11,18 @@ open Forkhelpers
 let do_cmd s cmd args =
   let cmdline = String.concat " " (cmd :: args) in
 
+  let pid = ref 0 in
   match with_logfile_fd "execute_command_get_output"
     (fun log_fd ->
       (* Capture stderr output for logging *)
-		 let pid = safe_close_and_exec (Some s) (Some s) (Some log_fd) [] cmd args in
-		 snd(waitpid pid)
-	) with
-    | Success(log, status) ->
+      pid := safe_close_and_exec
+	[ Dup2(s, Unix.stdout);
+	  Dup2(s, Unix.stdin);
+	  Dup2(log_fd, Unix.stderr);]
+	[ Unix.stdout; Unix.stdin; Unix.stderr ] (* close all but these *)
+	cmd args;
+      snd(Unix.waitpid [] !pid)) with
+      | Success(log, status) ->
 	  debug "log: %s" log;
 	  begin match status with
 	    | Unix.WEXITED 0 -> ignore(log)

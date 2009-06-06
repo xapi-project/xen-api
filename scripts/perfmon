@@ -354,8 +354,8 @@ def get_percent_fs_usage(ignored):
     "Get the percent usage of the host filesystem.  Input list is ignored and should be empty"
     # this file is on the filesystem of interest in both OEM and Retail
     output = commands.getoutput('df /etc/passwd')
-    output = ' '.join(output.splitlines()[1:]) # remove header line and rewrap on single line
-    percentage = output.split()[4]
+    line = output.split('\n')[1]
+    percentage = line.split()[4]
     # strip of % character and convert to float
     return float(percentage[0:-1])/100.0
 

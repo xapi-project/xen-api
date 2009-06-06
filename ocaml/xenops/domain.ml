@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Functions relating to Xen domains *)
 
 open Printf
@@ -23,17 +10,12 @@ open Device_common
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 
-type create_info = {
-	ssidref: int32;
-	hvm: bool;
-	hap: bool;
-	name: string;
-	xsdata: (string * string) list;
-	platformdata: (string * string) list;
-	bios_strings: (string * string) list;
-}
-
 type build_hvm_info = {
+	pae: bool;
+	apic: bool;
+	acpi: bool;
+	nx: bool;
+	viridian: bool;
 	shadow_multiplier: float;
 	timeoffset: string;
 }
@@ -96,28 +78,15 @@ let domarch_of_string = function
 	| "x32" -> Arch_X32
 	| _     -> Arch_native
 
-let make ~xc ~xs info uuid =
-	let flags = if info.hvm then (
-	  let default_flags =
-		(if info.hvm then [ Xc.CDF_HVM ] else []) @
-		(if (info.hvm && info.hap) then [ Xc.CDF_HAP ] else []) in
-	   if (List.mem_assoc "hap" info.platformdata) then (
-              if (List.assoc "hap" info.platformdata) = "false" then (
-                 debug "HAP will be disabled for VM %s." (Uuid.to_string uuid);
-                 [ Xc.CDF_HVM ]
-              ) else if (List.assoc "hap" info.platformdata) = "true" then (
-                 debug "HAP will be enabled for VM %s." (Uuid.to_string uuid);
-                 [ Xc.CDF_HVM; Xc.CDF_HAP ] 
-              ) else (
-                 debug "Unrecognized HAP platform value.  Assuming default settings for VM %s." (Uuid.to_string uuid);
-                 default_flags
-              )
-           ) else
-              default_flags
-        ) else [] in
-	let domid = Xc.domain_create xc info.ssidref flags uuid in
-	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
+
+let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) uuid =
+	let ssidref = 0l in
+
+	let flags = if hvm then [ Xc.CDF_HVM; Xc.CDF_HAP ] else [] in
+	let domid = Xc.domain_create xc ssidref flags uuid in
+	let name = if name <> "" then name else sprintf "Domain-%d" domid in
 	try
+
 		let dom_path = xs.Xs.getdomainpath domid in
 		let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
 		let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
@@ -162,16 +131,11 @@ let make ~xc ~xs info uuid =
 			"name", name;
 		];
 
-		xs.Xs.writev dom_path info.xsdata;
-		xs.Xs.writev (dom_path ^ "/platform") info.platformdata;
-	
-		xs.Xs.writev (dom_path ^ "/bios-strings") info.bios_strings;
+		xs.Xs.writev dom_path xsdata;
+		xs.Xs.writev dom_path (List.map (fun (k,v) ->
+			("platform/" ^ k, v)) platformdata);
 
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
-
-		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
-		   the domid hasn't changed (consider cross-host migrate) *)
-		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.string_of_uuid (Uuid.make_uuid ()));
 
 		debug "Created domain with id: %d" domid;
 		domid
@@ -179,7 +143,7 @@ let make ~xc ~xs info uuid =
 		debug "Caught exception in domid %d creation: %s" domid (Printexc.to_string e);
 		raise e
 
-type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
+type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | Unknown of int
 
 (** Strings suitable for putting in the control/shutdown xenstore entry *)
 let string_of_shutdown_reason = function
@@ -188,7 +152,6 @@ let string_of_shutdown_reason = function
 	| Suspend  -> "suspend"
         | Crash    -> "crash" (* this one makes no sense to send to a guest *)
 	| Halt     -> "halt"
-	| S3Suspend -> "s3"
 	| Unknown x -> sprintf "(unknown %d)" x (* or this one *)
 
 (** Decode the shutdown_reason contained within the dominfo struct *)
@@ -206,7 +169,6 @@ let shutdown_to_xc_shutdown = function
 	| Suspend  -> Xc.Suspend
 	| Crash    -> Xc.Crash
 	| Halt     -> Xc.Halt
-	| S3Suspend -> raise (Invalid_argument "unknown")
 	| Unknown _-> raise (Invalid_argument "unknown")
 
 (** Immediately change the domain state to shutdown *)
@@ -216,47 +178,41 @@ let hard_shutdown ~xc domid req =
 (** Return the path in xenstore watched by the PV shutdown driver *)
 let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
 
-(** Raised if a domain has vanished *)
-exception Domain_does_not_exist
-
 (** Request a shutdown, return without waiting for acknowledgement *)
 let shutdown ~xs domid req =
 	debug "Requesting shutdown of domain %d" domid;
 	let reason = string_of_shutdown_reason req in
-	let path = control_shutdown ~xs domid in
-	let domainpath = xs.Xs.getdomainpath domid in
-	Xs.transaction xs
-		(fun t ->
-			 (* Fail if the directory has been deleted *)
-			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xb.Noent -> false in
-			 if not domain_exists then raise Domain_does_not_exist;
-			 (* Delete the node if it already exists. NB: the guest may well still shutdown for the
-				previous reason... we only want to give it a kick again just in case. *)
-			 (try t.Xst.rm path with _ -> ());
-			 t.Xst.write path reason
-		)
+	xs.Xs.write (control_shutdown ~xs domid) reason
 
-(** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
-	All other exceptions imply the domain has disappeared. *)
-let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
-  let di = Xc.domain_getinfo xc domid in
-
-  if di.Xc.hvm_guest then begin
-	if Xc.hvm_check_pvdriver xc domid
-	then debug "HVM guest with PV drivers: not expecting any acknowledgement"
-	else Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
-  end else begin
+(** PV domains will acknowledge the request by deleting the node from the
+    store, block until this happens. *)
+let shutdown_wait_for_ack ?timeout ~xs domid req =
 	debug "Waiting for PV domain %d to acknowledge shutdown request" domid;
 	let path = control_shutdown ~xs domid in
-	(* If already shutdown then we continue *)
-	if not di.Xc.shutdown
-	then match Watch.wait_for ~xs ~timeout (Watch.any_of [ `Ack, Watch.value_to_become path "";
-													  `Gone, Watch.key_to_disappear path ]) with
-	| `Ack, _ ->
-		  debug "Domain acknowledged shutdown request"
-	| `Gone, _ ->
-		  debug "Domain disappeared"
-  end
+	try
+	  Watch.wait_for ~xs ?timeout (Watch.value_to_become path "");
+	  debug "Domain acknowledged shutdown request";
+	  true
+	with Watch.Timeout _ ->
+	  debug "Timed-out waiting for domain to acknowledge shutdown request";
+	  false
+
+
+let shutdown_ack ?(timeout=60.) ~xc ~xs domid req =
+	(* For both PV and HVM, write the control/shutdown node *)
+	shutdown ~xs domid req;
+	(* PV domains will acknowledge the request (if not then something
+	   very bad is wrong) *)
+	if not((Xc.domain_getinfo xc domid).Xc.hvm_guest)
+	then shutdown_wait_for_ack ~timeout ~xs domid req
+	else begin
+	  (* If HVM domain has no PV drivers, we shut it down here *)
+	  if not(Xc.hvm_check_pvdriver xc domid)
+	  then Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req);
+	  (* If HVM domain has PV drivers, it shuts itself down but it
+	     doesn't remove the control/shutdown node. *)
+	  true
+	end
 
 let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
@@ -288,16 +244,12 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	debug "Domain.destroy: all known devices = [ %a ]" (fun () -> String.concat "; ")
           (List.map string_of_device all_devices);
 
-	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
-	let all_pci_devices = List.filter (fun device -> device.backend.kind = Pci) all_devices in
-	List.iter (fun pcidev -> Device.PCI.reset ~xs pcidev) all_pci_devices;
-
 	(* Now we should kill the domain itself *)
 	debug "Domain.destroy calling Xc.domain_destroy (domid %d)" domid;
 	log_exn_continue "Xc.domain_destroy" (Xc.domain_destroy xc) domid;
 
 	log_exn_continue "Error stoping device-model, already dead ?"
-	                 (fun () -> Device.Dm.stop ~xs domid) ();
+	                 (fun () -> Device.Dm.stop ~xs domid Sys.sigterm) ();
 
 	(* Forcibly shutdown every backend *)
 	List.iter 
@@ -387,57 +339,44 @@ let create_channels ~xc domid =
 	let console = Xc.evtchn_alloc_unbound xc domid 0 in
 	store, console
 
-let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib domid =
-	debug "build_pre domid=%d; max=%Ld MiB; shadow=%Ld MiB; required=%Ld MiB"
-		domid xen_max_mib shadow_mib required_host_free_mib;
-
-	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	Memory.wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib);
-
-	let shadow_mib = Int64.to_int shadow_mib in
-
+(* pre build *)
+let build_pre ~xc ~xs ~vcpus ~mem_max_kib ~shadow_kib domid =
+	let shadow_mib = Int64.to_int (Int64.div shadow_kib 1024L) in
+	debug "build_pre domid=%d; mem=%Lu KiB; shadow=%Lu KiB (%d MiB)"
+	      domid mem_max_kib shadow_kib shadow_mib;
 	let dom_path = xs.Xs.getdomainpath domid in
-	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
-	let has_platform_flag flag = try bool_of_string (read_platform flag) with _ -> false in
-	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
-	let use_vmxassist = has_platform_flag "vmxassist" in
-	let timer_mode = int_platform_flag "timer_mode" in
-	let hpet = int_platform_flag "hpet" in
-	let vpt_align = int_platform_flag "vpt_align" in
-
-	let maybe_exn_ign name f opt =
-          maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
-        in
-
-	maybe_exn_ign "timer mode" (fun mode -> Xc.domain_set_timer_mode xc domid mode) timer_mode;
-        maybe_exn_ign "hpet" (fun hpet -> Xc.domain_set_hpet xc domid hpet) hpet;
-        maybe_exn_ign "vpt align" (fun vpt_align -> Xc.domain_set_vpt_align xc domid vpt_align) vpt_align;
-
+	let use_vmxassist =
+	  try bool_of_string (xs.Xs.read (dom_path ^ "/platform/vmxassist"))
+	  with _ -> false in
 	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
-	Xc.domain_setmaxmem xc domid (Memory.kib_of_mib xen_max_mib);
-	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
+	Xc.domain_setmaxmem xc domid mem_max_kib;
+	Xc.domain_set_memmap_limit xc domid mem_max_kib;
 	Xc.shadow_allocation_set xc domid shadow_mib;
 	create_channels ~xc domid
 
-let resume_post ~xc ~xs domid =
+(* puts value in store after the uncooperative domain resume *)
+let resume_post ~xc ~xs domid store_port console_port =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
 	let store_mfn = Nativeint.of_string store_mfn_s in
-	let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
+
+	let ents = [
+		("store/port", string_of_int store_port);
+		("console/port", string_of_int console_port);
+		("serial/0/limit", string_of_int 65536);
+	] in
+	Xs.transaction xs (fun t -> t.Xst.writev dom_path ents);
 	xs.Xs.introduce domid store_mfn store_port
 
 (* puts value in store after the domain build succeed *)
-let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
-		store_mfn store_port ents vments =
+let build_post ~xc ~xs ~vcpus ~mem_target_kib ~mem_max_kib domid
+               store_mfn store_port ents vments =
 	let dom_path = xs.Xs.getdomainpath domid in
-	(* Unit conversion. *)
-	let static_max_kib = Memory.kib_of_mib static_max_mib in
-	let target_kib = Memory.kib_of_mib target_mib in
 	(* expand local stuff with common values *)
 	let ents =
-		[ ("memory/static-max", Int64.to_string static_max_kib);
-		  ("memory/target", Int64.to_string target_kib);
+		[ ("memory/static-max", Int64.to_string mem_max_kib);
+		  ("memory/target", Int64.to_string mem_target_kib);
 		  ("domid", string_of_int domid);
 		  ("store/port", string_of_int store_port);
 		  ("store/ring-ref", sprintf "%nu" store_mfn);
@@ -450,39 +389,21 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 	xs.Xs.introduce domid store_mfn store_port
 
 (** build a linux type of domain *)
-let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-		~vcpus domid =
+let build_linux ~xc ~xs ~mem_max_kib ~mem_target_kib ~kernel ~cmdline ~ramdisk ~vcpus domid =
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
 
-	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	let mem_max_kib' = Memory.Linux.required_available mem_max_kib in
 
-	(* Sanity check. *)
-	assert (target_mib <= static_max_mib);
+	let store_port, console_port =
+		build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib:0L ~vcpus domid in
 
-	(* Adapt memory configuration values for Xen and the domain builder. *)
-	let build_max_mib =
-		Memory.Linux.build_max_mib static_max_mib in
-	let build_start_mib =
-		Memory.Linux.build_start_mib target_mib in
-	let xen_max_mib =
-		Memory.Linux.xen_max_mib static_max_mib in
-	let shadow_mib =
-		Memory.Linux.shadow_mib in
-	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib in
-
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+	let mem_target_mib = (Int64.to_int (Int64.div mem_target_kib 1024L)) in
 	let cnx = XenguestHelper.connect
 	  [
 	    "-mode"; "linux_build";
 	    "-domid"; string_of_int domid;
-	    "-mem_max_mib"; Int64.to_string build_max_mib;
-	    "-mem_start_mib"; Int64.to_string build_start_mib;
+	    "-memsize"; string_of_int mem_target_mib;
 	    "-image"; kernel;
 	    "-ramdisk"; (match ramdisk with Some x -> x | None -> "");
 	    "-cmdline"; cmdline;
@@ -509,39 +430,27 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
 	] in
-	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff [];
+	build_post ~xc ~xs ~vcpus ~mem_target_kib ~mem_max_kib domid store_mfn store_port local_stuff [];
 	match protocol with
 	| "x86_32-abi" -> Arch_X32
 	| "x86_64-abi" -> Arch_X64
 	| _            -> Arch_native
 
 (** build hvm type of domain *)
-let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~timeoffset domid =
+let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
+              ~kernel ~pae ~apic ~acpi ~nx ~viridian ~timeoffset domid =
 	assert_file_is_readable kernel;
 
-	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+	(* NB we reserve a little extra *)
+	let mem_max_kib' = Memory.HVM.required_available mem_max_kib
+	and shadow_kib = Memory.HVM.required_shadow vcpus mem_max_kib shadow_multiplier in
+	(* HVM must have at least 1MiB of shadow *)
+	let shadow_kib = max 1024L shadow_kib in
 
-	(* Sanity check. *)
-	assert (target_mib <= static_max_mib);
+	let store_port, console_port =
+		build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib ~vcpus domid in
 
-	(* Adapt memory configuration values for Xen and the domain builder. *)
-	let build_max_mib =
-		Memory.HVM.build_max_mib static_max_mib in
-	let build_start_mib =
-		Memory.HVM.build_start_mib target_mib in
-	let xen_max_mib =
-		Memory.HVM.xen_max_mib static_max_mib in
-	let shadow_mib =
-		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
-	let required_host_free_mib =
-		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
+	let mem_max_mib = (Int64.to_int (Int64.div mem_max_kib 1024L)) in
 
 	let cnx = XenguestHelper.connect
 	  [
@@ -549,8 +458,13 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
 	    "-image"; kernel;
-	    "-mem_max_mib"; Int64.to_string build_max_mib;
-	    "-mem_start_mib"; Int64.to_string build_start_mib;
+	    "-memsize"; string_of_int mem_max_mib;
+	    "-vcpus"; string_of_int vcpus;
+	    "-pae"; string_of_bool pae;
+	    "-apic"; string_of_bool apic;
+	    "-acpi"; string_of_bool acpi;
+	    "-nx"; string_of_bool nx;
+	    "-viridian"; string_of_bool viridian;
 	    "-fork"; "true";
 	  ] [] in
 	let line = finally
@@ -559,16 +473,14 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 
 	(* XXX: domain builder will reduce our shadow allocation under our feet.
 	   Detect this and override. *)
-	let requested_shadow_mib = Int64.to_int shadow_mib in
+	let requested_shadow_mib = Int64.to_int (Int64.div shadow_kib 1024L) in
 	let actual_shadow_mib = Xc.shadow_allocation_get xc domid in
 	if actual_shadow_mib < requested_shadow_mib then begin
-		warn
-			"HVM domain builder reduced our \
-			shadow memory from %d to %d MiB; reverting" 
-			requested_shadow_mib actual_shadow_mib;
-		Xc.shadow_allocation_set xc domid requested_shadow_mib;
-		let shadow = Xc.shadow_allocation_get xc domid in
-		debug "Domain now has %d MiB of shadow" shadow;
+	  warn "HVM domain builder reduced our shadow memory from %d to %d MiB; reverting" 
+	    requested_shadow_mib actual_shadow_mib;
+	  Xc.shadow_allocation_set xc domid requested_shadow_mib;
+	  let shadow = Xc.shadow_allocation_get xc domid in
+	  debug "Domain now has %d MiB of shadow" shadow;
 	end;
 
 	debug "Read [%s]" line;
@@ -579,19 +491,18 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		"rtc/timeoffset",    timeoffset;
 	] in
 
-	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff;
-
+	build_post ~xc ~xs ~vcpus ~mem_target_kib ~mem_max_kib domid store_mfn store_port [] vm_stuff;
 	Arch_HVM
 
 let build ~xc ~xs info domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
-		build_hvm ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_hvm ~xc ~xs ~mem_max_kib:info.memory_max ~mem_target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset domid
+		          ~kernel:info.kernel ~pae:hvminfo.pae ~apic:hvminfo.apic ~acpi:hvminfo.acpi
+		          ~nx:hvminfo.nx ~viridian:hvminfo.viridian ~timeoffset:hvminfo.timeoffset domid
 	| BuildPV pvinfo   ->
-		build_linux ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+		build_linux ~xc ~xs ~mem_max_kib:info.memory_max ~mem_target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus domid
 
@@ -604,17 +515,15 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 		raise Restore_signature_mismatch;
 
 	Unix.clear_close_on_exec fd;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-
 	let cnx = XenguestHelper.connect
 	  ([
 	    "-mode"; if hvm then "hvm_restore" else "restore";
 	    "-domid"; string_of_int domid;
-	    "-fd"; fd_uuid;
+	    "-fd"; string_of_int (Obj.magic fd);
 	    "-store_port"; string_of_int store_port;
 	    "-console_port"; string_of_int console_port;
 	    "-fork"; "true";
-	  ] @ extras) [ fd_uuid, fd ] in
+	  ] @ extras) [ fd ] in
 
 	let line = finally
 	  (fun () -> XenguestHelper.receive_success cnx)
@@ -643,32 +552,35 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 	);
 	store_mfn, console_mfn
 
-let resume ~xc ~xs ~hvm ~cooperative domid =
-	if not cooperative
-	then failwith "Domain.resume works only for collaborative domains";
-	Xc.domain_resume_fast xc domid;
-	resume_post ~xc	~xs domid;
-	if hvm then Device.Dm.resume ~xs domid
+let resume ~xc ~xs ~cooperative domid =
+	if cooperative then
+		Xc.domain_resume_fast xc domid
+	else (
+		(* FIXME release devices *)
 
-let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
+		Xc.evtchn_reset xc domid;
+		xs.Xs.rm (sprintf "%s/control/shutdown" (xs.Xs.getdomainpath domid));
+		let store, console = create_channels ~xc domid in
+		resume_post ~xc ~xs domid store console;
 
-	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
+		(* FIXME create devices *)
 
-	(* Sanity check. *)
-	assert (target_mib <= static_max_mib);
+		let cnx = XenguestHelper.connect [
+			"-mode"; "slow_resume";
+			"-domid"; string_of_int domid;
+			"-fork"; "true";
+		] [] in
+		let line = finally (fun () ->
+			XenguestHelper.receive_success cnx
+		) (fun () -> XenguestHelper.disconnect cnx) in
+		debug "Read [%s]" line;
+	)
 
-	(* Adapt memory configuration values for Xen and the domain builder. *)
-	let xen_max_mib =
-		Memory.Linux.xen_max_mib static_max_mib in
-	let shadow_mib =
-		Memory.Linux.shadow_mib in
-	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib in
+let restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~vcpus domid fd =
+	let mem_max_kib' = Memory.Linux.required_available mem_max_kib in
 
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
+	let store_port, console_port =
+	        build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib:0L ~vcpus domid in
 
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:false
 	                                            ~store_port ~console_port
@@ -678,50 +590,27 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
 	] in
-	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff []
+	build_post ~xc ~xs ~vcpus ~mem_target_kib ~mem_max_kib domid store_mfn store_port local_stuff []
 
-let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
+let hvm_restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus ~pae ~viridian ~timeoffset domid fd =
+	let shadow_kib = Memory.HVM.required_shadow vcpus mem_max_kib shadow_multiplier
+	and mem_max_kib' = Memory.HVM.required_available mem_max_kib in
 
-	(* Convert memory configuration values into the correct units. *)
-	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-	let target_mib     = Memory.mib_of_kib_used target_kib in
-
-	(* Sanity check. *)
-	assert (target_mib <= static_max_mib);
-
-	(* Adapt memory configuration values for Xen and the domain builder. *)
-	let xen_max_mib =
-		Memory.HVM.xen_max_mib static_max_mib in
-	let shadow_mib =
-		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
-	let required_host_free_mib =
-		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
+	let store_port, console_port =
+		build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib ~vcpus domid in
+	let extras = [
+		"-pae"; string_of_bool pae;
+		"-viridian"; string_of_bool viridian;
+	] in
 
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:true
 	                                            ~store_port ~console_port
-	                                            ~vcpus ~extras:[] domid fd in
+	                                            ~vcpus ~extras domid fd in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
 	(* and finish domain's building *)
-	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff
-
-let restore ~xc ~xs info domid fd =
-	let restore_fct = match info.priv with
-	| BuildHVM hvminfo ->
-		hvm_restore ~shadow_multiplier:hvminfo.shadow_multiplier
-		  ~timeoffset:hvminfo.timeoffset
-	| BuildPV pvinfo   ->
-		pv_restore
-		in
-	restore_fct ~xc ~xs
-	            ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus
-	            domid fd
+	build_post ~xc ~xs ~vcpus ~mem_target_kib ~mem_max_kib domid store_mfn store_port [] vm_stuff
 
 type suspend_flag = Live | Debug
 
@@ -732,7 +621,6 @@ type suspend_flag = Live | Debug
 let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_suspend_callback =
 	debug "Domain.suspend domid=%d" domid;
 	Io.write fd save_signature;
-	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 
 	let cmdline_to_flag flag =
 		match flag with
@@ -742,20 +630,20 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 	let flags' = List.map cmdline_to_flag flags in
 
 	let xenguestargs = [
-		"-fd"; fd_uuid;
+		"-fd"; string_of_int (Obj.magic fd);
 		"-mode"; if hvm then "hvm_save" else "save";
 		"-domid"; string_of_int domid;
 		"-fork"; "true";
 	] @ (List.concat flags') in
 
-	let cnx = XenguestHelper.connect xenguestargs [ fd_uuid, fd ] in
+	let cnx = XenguestHelper.connect xenguestargs [ fd ] in
 	finally (fun () ->
 		debug "Blocking for suspend notification from xenguest";
 
 		(* Monitor the debug (stderr) output of the xenguest helper and
 		   spot the progress indicator *)
 		let callback txt =
-			let prefix = "\\b\\b\\b\\b" in
+			let prefix = "\\008\\008\\008\\008" in
 			if String.startswith prefix txt then
 				let rest = String.sub txt (String.length prefix)
 				                   (String.length txt - (String.length prefix)) in
@@ -788,9 +676,9 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 		do_suspend_callback ();
 		if hvm then (
 			debug "Suspending qemu-dm for domid %d" domid;
-			Device.Dm.suspend ~xs domid;
+			Device.Dm.stop ~xs domid Sys.sigusr1;
 		);
- 		XenguestHelper.send cnx "done\n";
+		XenguestHelper.send cnx "done\n";
 
 		let msg = XenguestHelper.non_debug_receive cnx in
 		progress_callback 1.;
@@ -824,9 +712,6 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 
 let send_s3resume ~xc domid = Xc.domain_send_s3resume xc domid
 
-let trigger_power ~xc domid = Xc.domain_trigger_power xc domid
-let trigger_sleep ~xc domid = Xc.domain_trigger_sleep xc domid
-
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	let bitmap = ref Int64.zero in
 	if Array.length cpumap > 64 then
@@ -851,12 +736,27 @@ let vcpu_affinity_get ~xc domid vcpu =
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xc.domain_getinfo xc domid).Xc.handle
 
-let set_memory_dynamic_range ~xs ~min ~max domid =
+let grant_api_access ~xs domid mac ip port session vmref =
 	let kvs = [
-		"dynamic-min", string_of_int min;
-		"dynamic-max", string_of_int max;
+	        "mac", mac;
+		"ip", ip;
+		"port", string_of_int port;
+		"session_id", session;
+		"vm_ref", vmref;
 	] in
-	xs.Xs.writev (Printf.sprintf "%s/memory" (xs.Xs.getdomainpath domid)) kvs
+	xs.Xs.writev (xs.Xs.getdomainpath domid) kvs
+
+let get_api_access ~xs domid =
+	let keys = [ "ip"; "port"; "session_id"; "vm_ref" ] in
+	let v = xs.Xs.readv (xs.Xs.getdomainpath domid) keys in
+	List.nth v 0, int_of_string (List.nth v 1),
+	List.nth v 2, List.nth v 3
+
+let guest_get_api_access ~xs =
+	let keys = [ "ip"; "port"; "session_id"; "vm_ref" ] in
+	let v = xs.Xs.readv "" keys in
+	List.nth v 0, int_of_string (List.nth v 1),
+	List.nth v 2, List.nth v 3
 
 let add_ioport ~xc domid start_port end_port =
 	let nr_ports = end_port - start_port in

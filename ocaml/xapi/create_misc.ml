@@ -1,19 +1,6 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Create miscellaneous DB records needed by both the real and fake servers.
- * @group Database Operations
- *)
+(** Create miscellaneous DB records needed by both the real and fake servers *)
+
+(* (C) 2006-2007 XenSource *)
 
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
@@ -24,6 +11,8 @@ open Db_filter_types
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
+
+exception Cannot_read_hostname
 
 type host_info = {
 	name_label : string;
@@ -117,7 +106,7 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
 			create_domain_zero_console_record ~__context ~domain_zero_ref
 		| [console_ref] ->
 			(* if there's a single reference but it's invalid, make a new one: *)
-			if not (Db.is_valid_ref console_ref) then
+			if not ((Db_cache.DBCache.is_valid_ref (Ref.string_of console_ref))) then
 				create_domain_zero_console_record ~__context ~domain_zero_ref
 		| _ ->
 			(* if there's more than one console then something strange is *)
@@ -125,7 +114,7 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
 			create_domain_zero_console_record ~__context ~domain_zero_ref
 
 and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref =
-	if not (Db.is_valid_ref (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
+	if not ((Db_cache.DBCache.is_valid_ref (Ref.string_of (Db.VM.get_metrics ~__context ~self:domain_zero_ref)))) then
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
 		let metrics_ref = Ref.make() in
@@ -162,22 +151,15 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 		~actions_after_crash:`destroy ~actions_after_reboot:`destroy ~actions_after_shutdown:`destroy
 		~allowed_operations:[] ~current_operations:[] ~blocked_operations:[] ~power_state:`Running
 		~vCPUs_max:(Int64.of_int vcpus) ~vCPUs_at_startup:(Int64.of_int vcpus) ~vCPUs_params:[]
-		~memory_overhead:0L
 		~memory_static_min:memory.static_min ~memory_dynamic_min:memory.dynamic_min ~memory_target:memory.target
 		~memory_static_max:memory.static_max ~memory_dynamic_max:memory.dynamic_max
 		~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost ~suspend_VDI:Ref.null
 		~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch
 		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null ~transportable_snapshot_id:""
-		~snapshot_info:[] ~snapshot_metadata:""
-		~parent:Ref.null
 		~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[] ~user_version:1L
 		~ha_restart_priority:"" ~ha_always_run:false ~recommendations:""
 		~last_boot_CPU_flags:[] ~last_booted_record:""
 		~guest_metrics:Ref.null ~metrics
-		~bios_strings:[] ~protection_policy:Ref.null
-		~is_snapshot_from_vmpp:false
-	;
-	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record ~__context ~domain_zero_ref =
 	debug "Domain 0 record does not have associated console record. Creating now";
@@ -234,13 +216,13 @@ and create_domain_zero_default_memory_constraints () =
 	  let target = if target > static_max then static_max else target in
 	  {
 	    static_min  = static_min;
-	    dynamic_min = target;
+	    dynamic_min = static_min;
 	    target      = target;
-	    dynamic_max = target;
+	    dynamic_max = static_max;
 	    static_max  = static_max;
 	  }
 
-and update_domain_zero_record ~__context ~domain_zero_ref : unit =
+and update_domain_zero_record ~__context ~domain_zero_ref =
 	(* Fetch existing memory constraints for domain 0. *)
 	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref in
 	(* Generate new memory constraints from the old constraints. *)
@@ -308,81 +290,77 @@ let create_root_user ~__context =
 	let all = Db.User.get_records_where ~__context ~expr:(Eq(Field "short_name", Literal short_name)) in
 	if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
+let make_software_version xapi_verstring xen_verstring linux_verstring
+                          xencenter_min_verstring xencenter_max_verstring
+			  oem_manufacturer oem_model oem_build_number
+			  machine_serial_number machine_serial_name
+			  =
+  let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
+  [ "xapi", xapi_verstring;
+    "xen", xen_verstring;
+    "linux", linux_verstring;
+    "xencenter_min", xencenter_min_verstring;
+    "xencenter_max", xencenter_max_verstring;
+  ] @
+    (option_to_list "oem_manufacturer" oem_manufacturer) @
+    (option_to_list "oem_model" oem_model) @
+    (option_to_list "oem_build_number" oem_build_number) @
+    (option_to_list "machine_serial_number" machine_serial_number) @
+    (option_to_list "machine_serial_name" machine_serial_name)
+
 let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor  
-  
-(** Create assoc list of Supplemental-Pack information.
- *  The package information is taking from the [XS-REPOSITORY] XML file in the package
- *  directory.
- *  The keys have the form "<originator>:<name>", the value is
- *  "<description>, version <version>", appended by ", build <build>" if the <build>
- *  number is present in the XML file, and appended by ", homogeneous" if the [enforce-homogeneity]
- *  attribute is present and set to "true".
- *  For backwards compatibility, the old [package-linux] key is also added
- *  when the linux pack (now [xs:linux]) is present (alongside the new key).
- *  The [package-linux] key is now deprecated and will be removed in the next version. *)
-let make_packs_info () =
-	try
-		let packs = Sys.readdir Xapi_globs.packs_dir in
-		let get_pack_details fname =
-			try
-				let xml = Xml.parse_file (Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY") in
-				match xml with
-				| Xml.Element (name, attr, children) -> 
-					let originator = List.assoc "originator" attr in
-					let name = List.assoc "name" attr in
-					let version = List.assoc "version" attr in
-					let build = 
-						if List.mem_assoc "build" attr then Some (List.assoc "build" attr)
-						else None
-					in
-					let homogeneous = 
-						if List.mem_assoc "enforce-homogeneity" attr &&
-							(List.assoc "enforce-homogeneity" attr) = "true" then true
-						else false
-					in
-					let description = match children with
-						| Xml.Element(_, _, (Xml.PCData s) :: _) :: _ -> s
-						| _ -> failwith "error with parsing pack data"
-					in
-					let param_name = originator ^ ":" ^ name in
-					let value = description ^ ", version " ^ version ^
-						(match build with
-						| Some build -> ", build " ^ build
-						| None -> "") ^
-						(if homogeneous then ", homogeneous"
-						else "")
-					in
-					let kv = [(param_name, value)] in
-					if originator = "xs" && name = "linux" then
-						(* CA-29040: put old linux-pack key in there for backwards compatibility *)
-						["package-linux", "installed"] @ kv
-					else
-						kv
-				| _ -> failwith "error while parsing pack data!"
-			with _ -> debug "error while parsing pack data for %s!" fname; []
-		in
-		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
-	with _ -> []
-  
-(** Create a complete assoc list of version information *)
-let make_software_version () =
-	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
-	let info = read_localhost_info () in
-	Xapi_globs.software_version @
-	["xapi", get_xapi_verstring ();
-	"xen", info.xen_verstring;
-	"linux", info.linux_verstring;
-	"xencenter_min", Xapi_globs.xencenter_min_verstring;
-	"xencenter_max", Xapi_globs.xencenter_max_verstring;
-	"network_backend", Netdev.string_of_kind Netdev.network.Netdev.kind;
-	] @
-	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
-	(option_to_list "oem_model" info.oem_model) @
-	(option_to_list "oem_build_number" info.oem_build_number) @
-	(option_to_list "machine_serial_number" info.machine_serial_number) @
-	(option_to_list "machine_serial_name" info.machine_serial_name) @
-	make_packs_info ()
+  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor    
+
+(** Create a record for a host if it doesn't exist already (identified by uuid) *)
+let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabilities ~hostname ~uuid ~address =
+        let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
+	let make_new_metrics_object ref =
+	  Db.Host_metrics.create ~__context ~ref
+	    ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+	    ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
+	let host = 
+	  match existing_host with
+	      None ->
+	        debug "localhost record does not exist for this host. creating new one (uuid='%s')" uuid;
+		let xapi_verstring = get_xapi_verstring() in
+		let name_description = "Default install of XenServer"
+		and ref = Ref.make () in
+
+		let metrics = Ref.make () in
+		make_new_metrics_object metrics;
+
+		Db.Host.create ~__context ~ref 
+		  ~current_operations:[] ~allowed_operations:[]
+		  ~software_version:Xapi_globs.software_version
+		       ~enabled:true
+		       ~aPI_version_major:Xapi_globs.api_version_major
+		       ~aPI_version_minor:Xapi_globs.api_version_minor
+		       ~aPI_version_vendor:Xapi_globs.api_version_vendor
+		       ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
+	               ~name_description ~name_label ~uuid ~other_config:[]
+	               ~capabilities
+	               ~cpu_configuration:[]   (* !!! FIXME hard coding *)
+	               ~sched_policy:"credit"  (* !!! FIXME hard coding *)
+	  	       ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
+                       ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
+		       ~logging:[] ~hostname ~address ~metrics
+		       ~license_params:[] ~boot_free_mem:0L
+		       ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
+		  ~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[]
+		;
+		ref
+	    | Some ref -> ref in
+	let metrics = Db.Host.get_metrics ~__context ~self:host in
+	if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
+	  begin
+	    let ref = Ref.make() in
+	    make_new_metrics_object metrics;
+	    Db.Host.set_metrics ~__context ~self:host ~value:metrics
+	  end;
+	(* If the host we're creating is us, make sure its set to live *)
+	Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
+	Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
+	host
 
 let create_host_cpu ~__context =
 	let get_nb_cpus () =
@@ -436,52 +414,37 @@ let create_host_cpu ~__context =
 	        Hashtbl.find tbl "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
-	let number = get_nb_cpus () in
-	let host = Helpers.get_localhost ~__context in
-	
-	(* Fill in Host.cpu_info *)
-	
-	let cpuid = Cpuid.read_cpu_info () in
-	let features = Cpuid.features_to_string cpuid.Cpuid.features in
-	let physical_features = Cpuid.features_to_string cpuid.Cpuid.physical_features in
-	let maskable = match cpuid.Cpuid.maskable with
-		| Cpuid.No -> "no"
-		| Cpuid.Base -> "base"
-		| Cpuid.Full -> "full"
-	in
-	let cpu = [
-		"cpu_count", string_of_int number;
-		"vendor", vendor;
-		"speed", cpu_mhz;
-		"modelname", modelname;
-		"family", family;
-		"model", model;
-		"stepping", stepping;
-		"flags", flags;
-		"features", features;
-		"features_after_reboot", features;
-		"physical_features", physical_features;
-		"maskable", maskable;
-	] in
-	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
- 
- 	(* Recreate all Host_cpu objects *)
-	
-	let speed = Int64.of_float (float_of_string cpu_mhz) in
-	let model = Int64.of_string model in
-	let family = Int64.of_string family in
 
-	(* Recreate all Host_cpu objects *)
-	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
-	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
+	let host = Helpers.get_localhost ~__context
+	and number = get_nb_cpus ()
+	and speed = Int64.of_float (float_of_string cpu_mhz)
+	and model = Int64.of_string model 
+	and family = Int64.of_string family in
+
+	let existing = Db.Host.get_host_CPUs ~__context ~self:host in
+	let numbers = List.map (fun self -> Int64.to_int (Db.Host_cpu.get_number ~__context ~self)) existing in
+	let table = List.combine numbers existing in
 	for i = 0 to number - 1
 	do
-		let uuid = Uuid.to_string (Uuid.make_uuid ())
+	  if List.mem i numbers then begin
+	    let self = List.assoc i table in
+	    Db.Host_cpu.set_vendor ~__context ~self ~value:vendor;
+	    Db.Host_cpu.set_speed ~__context ~self ~value:speed;
+	    Db.Host_cpu.set_modelname ~__context ~self ~value:modelname;
+	    Db.Host_cpu.set_flags ~__context ~self ~value:flags;
+	    Db.Host_cpu.set_stepping ~__context ~self ~value:stepping;
+	    Db.Host_cpu.set_model ~__context ~self ~value:model;
+	    Db.Host_cpu.set_family ~__context ~self ~value:family;
+	    Db.Host_cpu.set_features ~__context ~self ~value:"";
+	  end else begin
+	    let uuid = Uuid.to_string (Uuid.make_uuid ())
 	    and ref = Ref.make () in
-		debug "Creating CPU %d: %s" i uuid;
-		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
-			~vendor ~speed ~modelname
-			~utilisation:0. ~flags ~stepping ~model ~family
-			~features:"" ~other_config:[])
+	    debug "Creating CPU %d: %s" i uuid;
+	    let () = Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
+	      ~vendor ~speed ~modelname
+	      ~utilisation:0. ~flags ~stepping ~model ~family
+              ~features:"" ~other_config:[] in 
+	    ()
+	  end
 	done
-	
+

@@ -1,27 +1,9 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** 
- * @group Command-Line Interface (CLI)
- *)
- 
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
 open Stringext
 open Pervasiveext
 open Listext
-open Fun
 
 module D=Debug.Debugger(struct let name="cli" end)
 open D
@@ -141,12 +123,12 @@ let diagnostic_db_log printer rpc session_id params =
 type host_license = {
   hostname: string;
   uuid: string;
-  rstr: Features.feature list;
+  rstr: Restrictions.restrictions;
   license: License.license
 }
 let host_license_of_r host_r =
   let params = host_r.API.host_license_params in
-  let rstr = Features.of_assoc_list params in
+  let rstr = Restrictions.of_assoc_list params in
   let license = License.of_assoc_list params in
   { hostname = host_r.API.host_hostname;
     uuid = host_r.API.host_uuid;
@@ -162,8 +144,8 @@ let diagnostic_license_status printer rpc session_id params =
   (* Sort licenses into nearest-expiry first then free *)
   let host_licenses = List.sort (fun a b -> 
 				   let a_expiry = a.license.License.expiry and b_expiry = b.license.License.expiry in
-				   let a_free = (Edition.of_string a.license.License.sku) = Edition.Free
-				   and b_free = (Edition.of_string b.license.License.sku) = Edition.Free in
+				   let a_free = Restrictions.is_floodgate_free (Restrictions.sku_of_string a.license.License.sku)
+				   and b_free = Restrictions.is_floodgate_free (Restrictions.sku_of_string b.license.License.sku) in
 				   if a_expiry < b_expiry then -1
 				   else 
 				     if a_expiry > b_expiry then 1
@@ -175,21 +157,19 @@ let diagnostic_license_status printer rpc session_id params =
   let now = Unix.gettimeofday () in
   let hosts = List.map (fun h -> [ h.hostname; 
 				   String.sub h.uuid 0 8; 
-				   Features.to_compact_string h.rstr; 
-				   Edition.to_short_string (Edition.of_string h.license.License.sku); 
-				   string_of_bool ((Edition.of_string h.license.License.sku) = Edition.Free);			   
+				   Restrictions.to_compact_string h.rstr; 
+				   Restrictions.obfuscated_string_of_sku (Restrictions.sku_of_string h.license.License.sku); 
+				   string_of_bool (Restrictions.is_floodgate_free (Restrictions.sku_of_string h.license.License.sku)); 
 				   Date.to_string (Date.of_float h.license.License.expiry);
 				   Printf.sprintf "%.1f" ((h.license.License.expiry -. now) /. (24. *. 60. *. 60.));
 				 ]) host_licenses in
   let invalid_hosts = List.map (fun (_, host_r) -> [ host_r.API.host_hostname;
 						     String.sub host_r.API.host_uuid 0 8;
 						     "-"; "-"; "-"; "-"; "-" ]) invalid in
-  let __context = Context.make "diagnostic_license_status" in
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
-  let pool_free = List.fold_left (||) false (List.map (fun h -> (Edition.of_string h.license.License.sku) = Edition.Free) host_licenses) in
+  let pool_restrictions = Restrictions.get_pool () in
+  let pool_free = List.fold_left (||) false (List.map (fun h -> Restrictions.is_floodgate_free (Restrictions.sku_of_string h.license.License.sku)) host_licenses) in
   let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
-  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; string_of_bool pool_free; "-"; "-" ] in
+  let pool = [ "-"; "-"; Restrictions.to_compact_string pool_restrictions; "-"; string_of_bool pool_free; "-"; "-" ] in
   let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
 
   (* Compute the required column widths *)
@@ -264,13 +244,15 @@ let log_set_output printer _ session_id params =
 	printer (Cli_printer.PList ["Resetting all logging output to logger: "^logger])
 
 let log_get_keys printer _ session_id params =
-  let keys = Debug.get_all_debug_keys () in
+  let keys = Debug.StringSet.fold (fun key keys -> key::keys) !Debug.debug_keys [] in
   printer (Cli_printer.PList keys)
 
 let log_get printer _ session_id params =
   let logger = Logs.get_or_open "string" in 
-  let lines = Log.get_strings logger in
-  printer (Cli_printer.PList (List.rev lines))
+  match logger.Log.output with 
+      Log.String lines ->
+	printer (Cli_printer.PList (List.rev !lines))
+    | _ -> ()
 
 let log_reopen printer _ session_id params =
   Logs.reopen (); ()
@@ -677,39 +659,33 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 
 
 let gen_cmds rpc session_id = 
-	(make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @ 
-	(make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @ 
-	(make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @ 
-	(make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @
-	(make_param_funs (Client.Tunnel.get_all) (Client.Tunnel.get_all_records_where) (Client.Tunnel.get_by_uuid) (tunnel_record) "tunnel" [] ["uuid";"transport-PIF";"access-PIF";"status"] rpc session_id) @  
-	(make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
-	(make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
-	(make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
-	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
-	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id) @
-	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"; "is-snapshot-from-vmpp"] rpc session_id) @
-	(make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
-	(make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
+  (make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @ 
+  (make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @ 
+  (make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @ 
+  (make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @ 
+    (make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
+    (make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
+    (make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
+    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
+    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true")] ["name-label";"name-description";"uuid"] rpc session_id) @
+    (make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
+    (make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
 
-	(make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
-	(make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
-	(make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
-	(make_param_funs (Client.VBD.get_all) (Client.VBD.get_all_records_where) (Client.VBD.get_by_uuid) (vbd_record) "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id) @
-	(make_param_funs (Client.SR.get_all) (Client.SR.get_all_records_where) (Client.SR.get_by_uuid) (sr_record) "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id) @
-	(make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
-	(make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
-	(make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
-	(make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @ 
-	(make_param_funs (Client.Role.get_all) (fun ~rpc ~session_id ~expr -> Client.Role.get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions) 
-		(Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
-	(make_param_funs (Client.VMPP.get_all) (Client.VMPP.get_all_records_where) (Client.VMPP.get_by_uuid) (vmpp_record) "vmpp" [] ["uuid";"name-label";"name-description";"is-policy-enabled";"backup-type";"backup-retention-value";"backup-frequency";"backup-schedule";"is-backup-running";"backup-last-run-time";"archive-target-type";"archive-target-config";"archive-frequency";"archive-schedule";"is-archive-running";"archive-last-run-time";"is-alarm-enabled";"alarm-config";"VMs"] rpc session_id) @
+    (make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
+    (make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
+    (make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
+    (make_param_funs (Client.VBD.get_all) (Client.VBD.get_all_records_where) (Client.VBD.get_by_uuid) (vbd_record) "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id) @
+    (make_param_funs (Client.SR.get_all) (Client.SR.get_all_records_where) (Client.SR.get_by_uuid) (sr_record) "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id) @
+    (make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
+    (make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
+    (make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
+    (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config"] rpc session_id) @ 
 (*
-	(make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
+    (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 *)
-	(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
-	@ (make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id)
+    (make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
 (*
-	@ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
+    @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 *)
 
 (* NB, might want to put these back in at some point
@@ -725,7 +701,7 @@ let gen_cmds rpc session_id =
 
 let message_create printer rpc session_id params =
   let body = List.assoc "body" params in
-  let priority = try Int64.of_string (List.assoc "priority" params) with _ -> failwith "Priority field should be an integer" in
+  let priority = Int64.of_string (List.assoc "priority" params) in
   let name = List.assoc "name" params in
   let uuid,cls = 
     if (List.mem_assoc "vm-uuid" params) then
@@ -741,10 +717,6 @@ let message_create printer rpc session_id params =
   in
   ignore(Client.Message.create rpc session_id name priority cls uuid body)
 
-let message_destroy printer rpc session_id params = 
-  let uuid = List.assoc "uuid" params in
-  let message = Client.Message.get_by_uuid rpc session_id uuid in
-  Client.Message.destroy rpc session_id message
 
 (* Pool operations *)
 
@@ -906,12 +878,12 @@ let pool_recover_slaves printer rpc session_id params =
     printer (Cli_printer.PList host_uuids)
 
 let pool_initialize_wlb printer rpc session_id params =
-	let wlb_url = List.assoc "wlb_url" params in
-	let wlb_username = List.assoc "wlb_username" params in
-	let wlb_password = List.assoc "wlb_password" params in
-	let xenserver_username = List.assoc "xenserver_username" params in
-	let xenserver_password = List.assoc "xenserver_password" params in
-	Client.Pool.initialize_wlb ~rpc ~session_id ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
+  let wlb_url = List.assoc "wlb_url" params in
+  let wlb_username = List.assoc "wlb_username" params in
+  let wlb_password = List.assoc "wlb_password" params in
+  let xenserver_username = List.assoc "xenserver_username" params in
+  let xenserver_password = List.assoc "xenserver_password" params in
+  Client.Pool.initialize_wlb ~rpc ~session_id ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
 
 let pool_deconfigure_wlb printer rpc session_id params =
   Client.Pool.deconfigure_wlb ~rpc ~session_id
@@ -975,17 +947,6 @@ let pool_crl_list printer rpc session_id params =
 
 let pool_certificate_sync printer rpc session_id params =
   Client.Pool.certificate_sync ~rpc ~session_id
-  
-let pool_enable_redo_log printer rpc session_id params =
-  let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) in
-  Client.Pool.enable_redo_log ~rpc ~session_id ~sr
-
-let pool_disable_redo_log printer rpc session_id params =
-  Client.Pool.disable_redo_log ~rpc ~session_id
-	
-let pool_set_vswitch_controller printer rpc session_id params =
-	let address = List.assoc "address" params in
-	Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
 
 let vdi_type_of_string = function
     | "system" -> `system
@@ -1377,9 +1338,9 @@ let vif_create printer rpc session_id params =
   let vm_uuid=List.assoc "vm-uuid" params in
   let mac=try List.assoc "mac" params with _ -> "" in
   let mac=if mac="random" then (Record_util.random_mac_local ()) else mac in
+  let mtu=try Int64.of_string (List.assoc "mtu" params) with _ -> 1500L in
   let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
   let network=Client.Network.get_by_uuid rpc session_id network_uuid in
-  let mtu = Client.Network.get_MTU rpc session_id network in
   let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] in
   let uuid = Client.VIF.get_uuid rpc session_id vif in
   printer (Cli_printer.PList [uuid])
@@ -1402,8 +1363,7 @@ let vif_unplug printer rpc session_id params =
 let net_create printer rpc session_id params = 
   let network = List.assoc "name-label" params in
   let descr = if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
-  let mtu = if List.mem_assoc "MTU" params then Int64.of_string (List.assoc "MTU" params) else 1500L in
-  let net = Client.Network.create rpc session_id network descr mtu [] [] in
+  let net = Client.Network.create rpc session_id network descr [] [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
   printer (Cli_printer.PList [uuid])
 
@@ -1435,7 +1395,7 @@ let vm_create printer rpc session_id params =
     ~actions_after_shutdown:`destroy ~actions_after_reboot:`restart ~actions_after_crash:`destroy ~pV_bootloader:""
     ~pV_kernel:"" ~pV_ramdisk:"" ~pV_args:"" ~pV_bootloader_args:"" ~pV_legacy_args:"" ~hVM_boot_policy:"" 
     ~hVM_boot_params:[] ~hVM_shadow_multiplier:1. ~platform:[] ~pCI_bus:"" ~other_config:[] ~xenstore_data:[] ~recommendations:"" ~ha_always_run:false ~ha_restart_priority:""
-    ~tags:[] ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false in
+    ~tags:[] in
   let uuid=Client.VM.get_uuid rpc session_id vm in
   printer (Cli_printer.PList [uuid])
 
@@ -1483,85 +1443,78 @@ let diagnostic_event_deltas fd printer rpc session_id params =
 exception Finished
 
 let event_wait_gen rpc session_id classname record_matches =
-	(* Immediately register *)
-	let classes = [classname] in
-	Client.Event.register ~rpc ~session_id ~classes;
+  (* Immediately register *)
+  let classes = [classname] in
+  Client.Event.register ~rpc ~session_id ~classes;
 
-	debug "Registered for events";
+  debug "Registered for events";
 
-	(* Check to see if the condition is already satisfied - get all objects of whatever class specified... *)
-	let poll () = 
-		let current_tbls = 
-			match classname with
-				| "vm" -> List.map (fun x -> (vm_record rpc session_id x).fields) (Client.VM.get_all rpc session_id)
-				| "vdi" -> List.map (fun x -> (vdi_record rpc session_id x).fields) (Client.VDI.get_all rpc session_id)
-				| "sr" -> List.map (fun x -> (sr_record rpc session_id x).fields) (Client.SR.get_all rpc session_id)
-				| "host" -> List.map (fun x -> (host_record rpc session_id x).fields) (Client.Host.get_all rpc session_id)
-				| "network" -> List.map (fun x -> (net_record rpc session_id x).fields) (Client.Network.get_all rpc session_id)
-				| "vif" -> List.map (fun x -> (vif_record rpc session_id x).fields) (Client.VIF.get_all rpc session_id)
-				| "pif" -> List.map (fun x -> (pif_record rpc session_id x).fields) (Client.PIF.get_all rpc session_id)
-				| "vbd" -> List.map (fun x -> (vbd_record rpc session_id x).fields) (Client.VBD.get_all rpc session_id)
-				| "pbd" -> List.map (fun x -> (pbd_record rpc session_id x).fields) (Client.PBD.get_all rpc session_id)
-				| "pool" -> List.map (fun x -> (pool_record rpc session_id x).fields) (Client.Pool.get_all rpc session_id)
-				| "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
-				| "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
-				| "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
-				| "vmpp" -> List.map (fun x -> (vmpp_record rpc session_id x).fields) (Client.VMPP.get_all rpc session_id)
-				| "secret" -> List.map (fun x -> (secret_record rpc session_id x).fields) (Client.Secret.get_all rpc session_id)
-(*				| "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
-				| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
-		in
+  (* Check to see if the condition is already satisfied - get all objects of whatever class specified... *)
+  let poll () = 
+    let current_tbls = 
+      match classname with
+      | "vm" -> List.map (fun x -> (vm_record rpc session_id x).fields) (Client.VM.get_all rpc session_id)
+      | "vdi" -> List.map (fun x -> (vdi_record rpc session_id x).fields) (Client.VDI.get_all rpc session_id)
+      | "sr" -> List.map (fun x -> (sr_record rpc session_id x).fields) (Client.SR.get_all rpc session_id)
+      | "host" -> List.map (fun x -> (host_record rpc session_id x).fields) (Client.Host.get_all rpc session_id)
+      | "network" -> List.map (fun x -> (net_record rpc session_id x).fields) (Client.Network.get_all rpc session_id)
+      | "vif" -> List.map (fun x -> (vif_record rpc session_id x).fields) (Client.VIF.get_all rpc session_id)
+      | "pif" -> List.map (fun x -> (pif_record rpc session_id x).fields) (Client.PIF.get_all rpc session_id)
+      | "vbd" -> List.map (fun x -> (vbd_record rpc session_id x).fields) (Client.VBD.get_all rpc session_id)
+      | "pbd" -> List.map (fun x -> (pbd_record rpc session_id x).fields) (Client.PBD.get_all rpc session_id)
+      | "pool" -> List.map (fun x -> (pool_record rpc session_id x).fields) (Client.Pool.get_all rpc session_id)
+      | "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
+(*      | "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
+      | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
+    in
 
-		debug "Getting all records";
-		(* Records of every object of the class specified *)
-		let all_recs = List.map (List.map (fun r -> (r.name,(fun () -> safe_get_field r)))) current_tbls in
+    debug "Getting all records";
+    (* Records of every object of the class specified *)
+    let all_recs = List.map (List.map (fun r -> (r.name,(fun () -> safe_get_field r)))) current_tbls in
+    
+    debug "Got %d records" (List.length all_recs);
+    
+    (* true if anything matches now *)
+    let find_any_match recs =
+      let ls = List.map record_matches recs in
+      (List.length (List.filter (fun x -> x) ls)) > 0
+    in
+    find_any_match all_recs in
 
-		debug "Got %d records" (List.length all_recs);
-
-		(* true if anything matches now *)
-		let find_any_match recs =
-			let ls = List.map record_matches recs in
-			(List.length (List.filter (fun x -> x) ls)) > 0
-		in
-		find_any_match all_recs
-	in
-
-	finally
-		(fun () ->
-			if not(poll ()) then
-				try
-					while true do
-						try
-							let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
-							let doevent event = 
-								let tbl = match Event_helper.record_of_event event with
- 								  | Event_helper.VM (r,x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.VDI (r,x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.SR (r,x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.Host (r,x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.Network (r,x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.VIF (r,x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.PIF (r,x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.VBD (r,x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.PBD (r,x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.Pool (r,x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.Task (r,x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.VMPP (r,x) -> let record = vmpp_record rpc session_id r in record.setrefrec (r,x); record.fields
- 								  | Event_helper.Secret (r,x) -> let record = secret_record rpc session_id r in record.setrefrec (r,x); record.fields
-  								  | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
-  								in
-  								let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
-  								if record_matches record then raise Finished 
-  							in
- 							List.iter doevent events
-						with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
-						  debug "Got EVENTS_LOST; reregistering";
-							Client.Event.unregister ~rpc ~session_id ~classes;
-							Client.Event.register ~rpc ~session_id ~classes;
-							if poll() then raise Finished
-					done
-				with Finished -> ()
-		) (fun () -> Client.Event.unregister ~rpc ~session_id ~classes) (* We're done. Unregister and finish *) 
+  finally
+    (fun () ->
+       if not(poll ()) then
+	 try
+	   while true do
+	     try
+	       let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+	       let doevent event = 
+		 let tbl = match Event_helper.record_of_event event with
+		   | Event_helper.VM (r,x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.VDI (r,x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.SR (r,x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.Host (r,x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.Network (r,x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.VIF (r,x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.PIF (r,x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.VBD (r,x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.PBD (r,x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.Pool (r,x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | Event_helper.Task (r,x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
+		   | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
+		 in
+		 let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
+		 if record_matches record then raise Finished 
+	       in
+	       List.iter doevent events
+	     with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
+	       debug "Got EVENTS_LOST; reregistering";
+	       Client.Event.unregister ~rpc ~session_id ~classes;
+	       Client.Event.register ~rpc ~session_id ~classes;
+	       if poll() then raise Finished
+	   done	   
+	 with Finished -> ()
+    ) (fun () -> Client.Event.unregister ~rpc ~session_id ~classes) (* We're done. Unregister and finish *) 
 
 
 let event_wait printer rpc session_id params =
@@ -1630,9 +1583,7 @@ let select_hosts rpc session_id params ignore_params =
   let do_filter params =
     let hosts = Client.Host.get_all_records_where rpc session_id "true" in
     let all_recs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
-    
-    let filter_params = List.filter (fun (p,_) ->
-      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+    let filter_params = List.filter (fun (p,_) -> not (List.mem p (stdparams @ ignore_params))) params in
     (* Filter all the records *)
     List.fold_left filter_records_on_fields all_recs filter_params    
   in
@@ -1771,62 +1722,13 @@ let hook_no_hosts_available printer rpc session_id vm f =
 	  end;
 	raise e
 
-let vm_compute_memory_overhead printer rpc session_id params =
-	ignore
-		(do_vm_op ~include_control_vms:true printer rpc session_id
-			(fun vm ->
-				let memory_overhead = Client.VM.compute_memory_overhead
-					rpc session_id (vm.getref ()) in
-				printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
-			)
-			params []
-		)
-
-let vm_memory_dynamic_range_set printer rpc session_id params = 
-	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
-	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
-	ignore
-		(do_vm_op ~include_control_vms:true ~include_template_vms:true
-			printer rpc session_id
-			(fun vm ->
-				Client.VM.set_memory_dynamic_range rpc session_id
-					(vm.getref ()) min max)
-			params ["min"; "max"])
-
-let vm_memory_static_range_set printer rpc session_id params =
-	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
-	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
-	ignore
-		(do_vm_op ~include_control_vms:true ~include_template_vms:true
-			printer rpc session_id
-			(fun vm ->
-				Client.VM.set_memory_static_range rpc session_id
-					(vm.getref ()) min max)
-			params ["min"; "max"])
-
-let vm_memory_limits_set printer rpc session_id params =
-	let extract key =
-		Record_util.bytes_of_string key (List.assoc key params) in
-	let static_min = extract "static-min"
-	and static_max = extract "static-max"
-	and dynamic_min = extract "dynamic-min"
-	and dynamic_max = extract "dynamic-max" in
-	ignore
-		(do_vm_op ~include_control_vms:true ~include_template_vms:true
-			printer rpc session_id
-			(fun vm ->
-				Client.VM.set_memory_limits rpc session_id (vm.getref ())
-					static_min static_max dynamic_min dynamic_max)
-			params ["static-min"; "static-max"; "dynamic-min"; "dynamic-max"])
-
-let vm_memory_target_set printer rpc session_id params = 
-	let target = Record_util.bytes_of_string "target"
-		(List.assoc "target" params) in
+let vm_memory_target_set printer rpc session_id params =
+	let target = List.assoc "target" params in
+	let target_bytes = Record_util.bytes_of_string "target" target in
 	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
-	(fun vm ->
-		Client.VM.set_memory_dynamic_range rpc session_id
-			(vm.getref ()) target target) params ["target"]
-	)
+		(fun vm ->
+			let vm=vm.getref () in
+			Client.VM.set_memory_target_live rpc session_id vm target_bytes) params ["target"])
 
 let vm_memory_target_wait printer rpc session_id params =
 	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
@@ -1912,18 +1814,6 @@ let host_compute_free_memory printer rpc session_id params =
 			let free_memory = Client.Host.compute_free_memory rpc session_id host in
 			printer (Cli_printer.PMsg (Int64.to_string free_memory))
 		) params [])
-
-let host_compute_memory_overhead printer rpc session_id params =
-	ignore
-		(do_host_op rpc session_id ~multiple:false
-			(fun _ host ->
-				let host = host.getref () in
-				let memory_overhead = Client.Host.compute_memory_overhead
-					rpc session_id host in
-				printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
-			)
-			params []
-		)
 
 let host_get_server_certificate printer rpc session_id params =
   ignore (do_host_op rpc session_id ~multiple:false
@@ -2013,30 +1903,20 @@ let vm_install_real printer rpc session_id template name description params =
         then Ref.string_of Ref.null
         else failwith "Failed to find a valid default SR for the Pool. Please provide an sr-name-label or sr-uuid parameter."
     in
-
-	if Client.VM.get_is_a_snapshot rpc session_id template && (List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params) then
-		failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks.";
-
+      
       (* We should now have an sr-uuid *)
       let new_vm =
         if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
         then Client.VM.copy rpc session_id template name (Client.SR.get_by_uuid rpc session_id sr_uuid)
         else Client.VM.clone rpc session_id template name 
       in
-    try      
+    try
       Client.VM.set_name_description rpc session_id new_vm description;
       rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
       Client.VM.provision rpc session_id new_vm;
-      (* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *)       
-      
-      (* copy BIOS strings if needed *)
-      if List.mem_assoc "copy-bios-strings-from" params then begin
-	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "copy-bios-strings-from" params) in
-	Client.VM.copy_bios_strings rpc session_id new_vm host
-      end;
-      debug "hello";
+      (* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *) 
       let vm_uuid = Client.VM.get_uuid rpc session_id new_vm in
-      printer (Cli_printer.PList [vm_uuid])
+	printer (Cli_printer.PList [vm_uuid])
     with
 	e ->
 	  begin
@@ -2089,7 +1969,8 @@ let vm_install printer rpc session_id params =
   let new_name = List.assoc "new-name-label" params in
   let new_description = "Installed via xe CLI" in (* Client.VM.get_name_description rpc session_id template in *)
   vm_install_real printer rpc session_id template new_name new_description params
-  
+
+
 
 let vm_uninstall_common fd printer rpc session_id params vms =
   let toremove = ref [] in
@@ -2103,7 +1984,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
       (* add extra text if the VDI is being shared *)
       let r = Client.VDI.get_record rpc session_id vdi in
       Printf.sprintf "VDI: %s (%s) %s" r.API.vDI_uuid r.API.vDI_name_label
-	(if List.length r.API.vDI_VBDs <= 1 then "" else " ** WARNING: disk is shared by other VMs") in
+	(if List.length r.API.vDI_VBDs = 1 then "" else " ** WARNING: disk is shared by other VMs") in
     let string_of_vm vm = 
       let r = Client.VM.get_record rpc session_id vm in
       Printf.sprintf "VM : %s (%s)" r.API.vM_uuid r.API.vM_name_label in
@@ -2120,21 +2001,13 @@ let vm_uninstall_common fd printer rpc session_id params vms =
 	   if List.mem_assoc Xapi_globs.owner_key other_config
 	   then [ vdi ] else [ ]
 	 with _ -> []) vbds) in
-   let suspend_VDI =
-	   try 
-		   let vdi = Client.VM.get_suspend_VDI rpc session_id vm in 
-		   ignore (Client.VDI.get_uuid rpc session_id vdi);
-		   vdi
-	   with _ -> Ref.null in
-   let output = string_of_vm vm :: (List.map string_of_vdi vdis) @ (if suspend_VDI = Ref.null then [] else [string_of_vdi suspend_VDI]) in
-    toprint := !toprint @ output;
-    let destroy () =
-      if Client.VM.get_power_state rpc session_id vm <> `Halted then Client.VM.hard_shutdown rpc session_id vm;
+    let output = string_of_vm vm :: (List.map string_of_vdi vdis) in
+    toprint := output @ !toprint;
+    let destroy () = 
       Client.VM.destroy rpc session_id vm;
-      List.iter (fun vdi -> Client.VDI.destroy rpc session_id vdi) vdis;
-      if suspend_VDI <> Ref.null then try Client.VDI.destroy rpc session_id suspend_VDI with _ -> ()
+      List.iter (fun vdi -> Client.VDI.destroy rpc session_id vdi) vdis
     in
-    toremove := !toremove @ [destroy];
+    toremove := destroy :: !toremove;
   in
   List.iter choose_objects_to_delete vms;
   marshal fd (Command (Print "The following items are about to be destroyed"));
@@ -2150,8 +2023,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
 
 let vm_uninstall fd printer rpc session_id params =
   let vms = do_vm_op printer rpc session_id (fun vm -> vm.getref()) params [] in
-  let snapshots = List.flatten (List.map (fun vm -> Client.VM.get_snapshots rpc session_id vm) vms) in
-  vm_uninstall_common fd printer rpc session_id params (vms @ snapshots)
+  vm_uninstall_common fd printer rpc session_id params vms
 
 let template_uninstall fd printer rpc session_id params = 
   let uuid = List.assoc "template-uuid" params in
@@ -2176,45 +2048,6 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session
 let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true 
 let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer false 
 let vm_snapshot_with_quiesce printer = vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false
-let vm_checkpoint printer = vm_clone_aux Client.VM.checkpoint "Checkpointed " printer false
-
-let get_snapshot_uuid params = 
-  if List.mem_assoc "snapshot-uuid" params
-  then List.assoc "snapshot-uuid" params
-  else List.assoc "uuid" params
-
-let snapshot_revert printer rpc session_id params =
-  let snap_uuid = get_snapshot_uuid params in
-	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
-	Client.VM.revert ~rpc ~session_id ~snapshot:snap_ref
-
-let snapshot_op op printer rpc session_id params =
-	let new_name = List.assoc "new-name-label" params in
-	let desc = if List.mem_assoc "new-name-description" params then Some (List.assoc "new-name-description" params) else None in
-	let uuid = get_snapshot_uuid params in
-	let ref = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
-	let new_ref = op ~rpc ~session_id ~vm:ref ~new_name in
-	ignore (may (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc) desc);
-	let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
-	printer (Cli_printer.PList [new_uuid])
-
-let snapshot_clone printer = snapshot_op Client.VM.clone printer
-
-let snapshot_copy printer rpc session_id params =
-	let sr = if List.mem_assoc "sr-uuid" params then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) else Ref.null in
-	let op = Client.VM.copy ~sr:sr in
-	snapshot_op op printer rpc session_id params
-
-let snapshot_destroy printer rpc session_id params =
-	let snap_uuid = get_snapshot_uuid params in
-	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
-	if Client.VM.get_power_state rpc session_id snap_ref <> `Halted then Client.VM.hard_shutdown ~rpc ~session_id ~vm:snap_ref;
-	Client.VM.destroy ~rpc ~session_id ~self:snap_ref
-
-let snapshot_uninstall fd printer rpc session_id params =
-	let snap_uuid = get_snapshot_uuid params in
-	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
-	vm_uninstall_common fd printer rpc session_id params [snap_ref]
 
 let vm_copy printer rpc session_id params =
   let new_name = List.assoc "new-name-label" params in
@@ -2228,13 +2061,6 @@ let vm_reset_powerstate printer rpc session_id params =
   if not (List.mem_assoc "force" params) then
     failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   ignore (do_vm_op printer rpc session_id (fun vm -> Client.VM.power_state_reset rpc session_id (vm.getref())) params [])
-
-let snapshot_reset_powerstate printer rpc session_id params =
-	if not (List.mem_assoc "force" params) then
-		failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
-	let snapshot_uuid = get_snapshot_uuid params in
-	let snapshot = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
-	Client.VM.power_state_reset rpc session_id snapshot
 
 let vm_shutdown printer rpc session_id params =
   let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
@@ -2271,17 +2097,20 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
   with
     | Records.CLI_failed_to_find_param name ->
         failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
+    
+let vm_migrate printer rpc session_id params = 
+  (* Hack to match host-uuid and host-name for backwards compatibility *)
+  let params = List.map (fun (k,v) -> if (k="host-uuid")||(k="host-name") then ("host",v) else (k,v)) params in
+  if not (List.mem_assoc "host" params) then
+    failwith "No destination host specified";
+  let host = get_host_by_name_or_id rpc session_id (List.assoc "host" params) in
+  let host = host.getref () in
+  let live = (List.mem_assoc "live" params) && (bool_of_string "live" (List.assoc "live" params)) in
+  let options = [ "live", if live then "true" else "false" ] in
+  ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref()) host options) params ["host"; "host-uuid"; "host-name"; "live"])
 
-let vm_migrate printer rpc session_id params =
-	(* Hack to match host-uuid and host-name for backwards compatibility *)
-	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-	if not (List.mem_assoc "host" params) then failwith "No destination host specified";
-	let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
-	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["live"; "encrypt"] params) in
-	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
-					 params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
-
-let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
+let vm_disk_list is_cd_list printer rpc session_id params =
+  let op vm =
     let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
     let vbdrecords = List.map (fun vbd-> (vbd_record rpc session_id vbd)) vbds in
     let vdirecords = List.map (fun vbd -> 
@@ -2313,16 +2142,8 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
 	    doit vbds vdis (n+1)
 	| _ -> (failwith "Unexpected mismatch in list length in vm_disk_list")
     in doit selectedvbd vdirecords 0
-
-let vm_disk_list is_cd_list printer rpc session_id params = 
-	let op vm = vm_disk_list_aux vm is_cd_list printer rpc session_id params in
-	let ( _ : unit list) = do_vm_op printer rpc session_id op params ["vbd-params";"vdi-params"] in ()
-
-let snapshot_disk_list is_cd_list printer rpc session_id params =
-	let snapshot_uuid = get_snapshot_uuid params in
-	let snapshot_ref = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
-	let snapshot = vm_record rpc session_id snapshot_ref in
-	vm_disk_list_aux snapshot is_cd_list printer rpc session_id params
+  in
+  ignore(do_vm_op printer rpc session_id op params ["vbd-params";"vdi-params"])
 
 let vm_crashdump_list printer rpc session_id params =
   let op vm =
@@ -2548,46 +2369,6 @@ let host_license_view printer rpc session_id params =
   let params = List.filter (fun (x, _) -> not (List.mem x tohide)) params in
   printer (Cli_printer.PTable [params])
 
-let host_apply_edition printer rpc session_id params =
-  let host = 
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
-    else
-      get_host_from_session rpc session_id in
-  let edition = List.assoc "edition" params in
-  if List.mem_assoc "license-server-address" params then begin
-    let address = List.assoc "license-server-address" params in
-    Client.Host.remove_from_license_server rpc session_id host "address";
-    Client.Host.add_to_license_server rpc session_id host "address" address
-  end;
-  if List.mem_assoc "license-server-port" params then begin
-    let port = List.assoc "license-server-port" params in
-    let port_int = try int_of_string port with _ -> -1 in
-    if port_int < 0 || port_int > 65535 then
-      printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.")
-    else begin
-      Client.Host.remove_from_license_server rpc session_id host "port";
-      Client.Host.add_to_license_server rpc session_id host "port" port
-    end
-  end;
-  let now = (Unix.gettimeofday ()) in
-  try
-    Client.Host.apply_edition rpc session_id host edition
-  with
-  | Api_errors.Server_error (name, args) when name = Api_errors.license_checkout_error ->
-    let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
-    let print_if_checkout_error (ref, msg) =
-      if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
-        (* the body of the alert message is specified in the v6 daemon *)
-        printer (Cli_printer.PStderr msg.API.message_body)
-    in
-    if alerts = [] then
-      printer (Cli_printer.PStderr "Internal error: the licensing daemon was not found.")
-    else
-      List.iter print_if_checkout_error alerts;
-    raise (ExitWithError 1)
-  | e -> raise e
-
 let host_evacuate printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
@@ -2597,26 +2378,10 @@ let host_get_vms_which_prevent_evacuation printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
   let vms = Client.Host.get_vms_which_prevent_evacuation rpc session_id host in
-
-  let op (vm, error) = 
-    let error = String.concat "," error in
-    let record = vm_record rpc session_id vm in
-    let extra_field = make_field ~name:"reason" ~get:(fun () -> error) () in
-    let record = { record with fields = record.fields @ [ extra_field ] } in
-    let selected = List.hd (select_fields params [record] [ "uuid"; "name-label"; "reason"]) in
-    let table = List.map print_field selected in
-    printer (Cli_printer.PTable [table])
-  in
-  ignore(List.iter op vms)
-
-let host_get_uncooperative_vms printer rpc session_id params = 
-  let uuid = List.assoc "uuid" params in
-  let host = Client.Host.get_by_uuid rpc session_id uuid in
-  let vms = Client.Host.get_uncooperative_resident_VMs rpc session_id host in
-  let table = List.map (fun vm ->
-			  Client.VM.get_uuid rpc session_id vm, Client.VM.get_name_label rpc session_id vm
-		       ) vms in
-  printer (Cli_printer.PTable [ table ])
+  let table = List.map (fun (vm, result) -> 
+			  Printf.sprintf "%s (%s)" (Client.VM.get_uuid rpc session_id vm) (Client.VM.get_name_label rpc session_id vm),
+			  print_assert_exception (Api_errors.Server_error(List.hd result, List.tl result))) vms in
+  printer (Cli_printer.PTable [ ("VM", "Error") :: table ])  
 
 let host_retrieve_wlb_evacuate_recommendations printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
@@ -2806,7 +2571,7 @@ let vm_import fd printer rpc session_id params =
 	      let writer _ task_id sock = 
 		try
 		  (* First add the metadata file *)
-		  let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int (String.length buffer)) in
+		  let hdr = Tar.Header.make Xva.xml_filename (Int32.of_int (String.length buffer)) in
 		  Tar.write_block hdr (fun ofd -> Tar.write_string ofd buffer) sock;
 		  List.iter 
 		    (fun vdi ->
@@ -2835,7 +2600,7 @@ let vm_import fd printer rpc session_id params =
 				| Blob (Chunk x) -> x
 				| _ -> failwith "Thin CLI protocol error"
 			      in
-			      let hdr = Tar.Header.make chunk (Int64.of_int32 length) in
+			      let hdr = Tar.Header.make chunk length in
 			      Tar.write_block hdr 
 				(fun ofd -> 
 				   let limit = Int64.of_int32 length in
@@ -2904,9 +2669,6 @@ let vm_import fd printer rpc session_id params =
 	      marshal fd (Command (Debug ("Caught exception: " ^ (Printexc.to_string e))));
 	      marshal fd (Command (PrintStderr "Failed to import directory-format XVA"));
 	      debug "Import failed with exception: %s" (Printexc.to_string e);
-	      (if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0)) 
-	        then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.import_error_generic,[(Printexc.to_string e)])
-	      );
 	      raise (ExitWithError 2)
 	  end
 	end) 
@@ -3072,16 +2834,9 @@ let blob_create printer rpc session_id params =
     raise (Cli_util.Cli_failure "Need one of: vm-uuid, host-uuid, network-uuid, sr-uuid or pool-uuid")
 
     
-let export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm =
+let export_common fd printer rpc session_id params filename num vm =
   let vm_record = vm.record () in
-  let exporttask, task_destroy_fn = 
-    match task_uuid with
-		| None -> (* manage task internally *)
-      let exporttask = Client.Task.create rpc session_id (Printf.sprintf "Export of VM: %s" (vm_record.API.vM_uuid)) "" in
-      (exporttask,(fun ()->Client.Task.destroy rpc session_id exporttask))
-		| Some task_uuid -> (* do not destroy the task that has been received *)
-			((Client.Task.get_by_uuid rpc session_id task_uuid),(fun ()->()))
-  in
+  let exporttask = Client.Task.create rpc session_id (Printf.sprintf "Export of VM: %s" (vm_record.API.vM_uuid)) "" in
   
   (* Initially mark the task progress as -1.0. The first thing the export handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
@@ -3091,63 +2846,33 @@ let export_common fd printer rpc session_id params filename num ?task_uuid use_c
   
   finally 
     (fun () ->
-      let f = if !num > 1 then filename ^ (string_of_int !num) else filename in
-      download_file ~__context rpc session_id exporttask fd f
+      download_file ~__context rpc session_id exporttask fd filename
         (Printf.sprintf
-           "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b" 
+           "%s?session_id=%s&task_id=%s&ref=%s" 
  	   (if List.mem_assoc "metadata" params
  	    then Constants.export_metadata_uri
  	    else Constants.export_uri)
 	   (Ref.string_of session_id)
            (Ref.string_of exporttask) 
-	   (Ref.string_of (vm.getref ()))
-	   Constants.use_compression
-	   (if use_compression then "true" else "false")
-		preserve_power_state)
+	   (Ref.string_of (vm.getref ())))
         "Export";
         num := !num + 1)
-    (fun () -> task_destroy_fn ())
+    (fun () -> Client.Task.destroy rpc session_id exporttask)
     
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = List.mem_assoc "compress" params && (List.assoc "compress" params = "true") in
-  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
-  let task_uuid = if (List.mem_assoc "task-uuid" params) then Some (List.assoc "task-uuid" params) else None in
   let num = ref 1 in
   let op vm = 
-    export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm
+    export_common fd printer rpc session_id params filename num vm
   in
-  ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "compress"; "preserve-power-state"])
+  ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"])
 
-let vm_export_aux obj_type fd printer rpc session_id params =
+let template_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = List.mem_assoc "compress" params && (List.assoc "compress" params = "true") in
-  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
   let num = ref 1 in
-  let uuid = List.assoc (obj_type ^ "-uuid") params in
-  let ref = Client.VM.get_by_uuid rpc session_id uuid in
-  export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
-
-let vm_copy_bios_strings printer rpc session_id params =
-  let host = Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) in
-  let op vm = 
-  	Client.VM.copy_bios_strings rpc session_id (vm.getref ()) host in
-  ignore(do_vm_op printer rpc session_id op params ["host-uuid"])
-
-let vm_is_bios_customized printer rpc session_id params =
-  let op vm =
-  	let bios_strings = Client.VM.get_bios_strings rpc session_id (vm.getref ()) in
-  	if List.length bios_strings = 0 then
-	  printer (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
-  	else if bios_strings = Xapi_globs.generic_bios_strings then
-	  printer (Cli_printer.PMsg "This VM is BIOS-generic.")
-	else
-	  printer (Cli_printer.PMsg "This VM is BIOS-customized.")
-  in
-  ignore(do_vm_op printer rpc session_id op params [])
-  
-let template_export fd printer = vm_export_aux "template" fd printer
-let snapshot_export fd printer = vm_export_aux "snapshot" fd printer
+  let template_uuid = List.assoc "template-uuid" params in
+  let template = Client.VM.get_by_uuid rpc session_id template_uuid in
+  export_common fd printer rpc session_id params filename num (vm_record rpc session_id template)
 
 let vm_vcpu_hotplug printer rpc session_id params =
   let vcpus=List.assoc "new-vcpus" params in
@@ -3221,18 +2946,6 @@ let vlan_destroy printer rpc session_id params =
 	let pif = Client.PIF.get_by_uuid rpc session_id uuid in
 	Client.PIF.destroy rpc session_id pif
 
-let tunnel_create printer rpc session_id params = 
-	let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
-	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
-	let tunnel = Client.Tunnel.create rpc session_id pif network in
-	let pif' = Client.Tunnel.get_access_PIF rpc session_id tunnel in
-	let uuid = Client.PIF.get_uuid rpc session_id pif' in
-	printer (Cli_printer.PList [uuid])
-  
-let tunnel_destroy printer rpc session_id params =
-	let uuid = List.assoc "uuid" params in
-	let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
-	Client.Tunnel.destroy rpc session_id tunnel
 
 let pif_reconfigure_ip printer rpc session_id params = 
   let read_optional_case_insensitive key =
@@ -3337,32 +3050,6 @@ let host_dmesg printer rpc session_id params =
     printer (Cli_printer.PList [ dmesg ])
   in
   ignore(do_host_op rpc session_id op params [])
-  
-let host_enable_local_storage_caching printer rpc session_id params =
-	ignore(do_host_op rpc session_id (fun _ host -> 
-		let sr_uuid = List.assoc "sr-uuid" params in
-		let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
-		Client.Host.enable_local_storage_caching rpc session_id (host.getref ()) sr
-	) params ["sr-uuid"])
-
-let host_disable_local_storage_caching printer rpc session_id params =
-	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.disable_local_storage_caching rpc session_id (host.getref ())) params [])
-
-let pool_enable_local_storage_caching printer rpc session_id params =
-	let pool = List.hd (Client.Pool.get_all rpc session_id) in
-	Client.Pool.enable_local_storage_caching rpc session_id pool
-	
-let pool_disable_local_storage_caching printer rpc session_id params =
-	let pool = List.hd (Client.Pool.get_all rpc session_id) in
-	Client.Pool.disable_local_storage_caching rpc session_id pool
-  
-let host_set_power_on_mode printer rpc session_id params =
-  let power_on_mode = List.assoc "power-on-mode" params in
-  let power_on_config = read_map_params "power-on-config" params in
-   ignore(
-       do_host_op rpc session_id (fun _ host -> Client.Host.set_power_on_mode ~rpc ~session_id ~self:(host.getref ()) ~power_on_mode ~power_on_config )
-       params ["power-on-mode";"power-on-config"]
-       )
 
 let host_crash_upload printer rpc session_id params = 
   let crash = Client.Host_crashdump.get_by_uuid rpc session_id (List.assoc "uuid" params) in
@@ -3596,48 +3283,7 @@ let host_disable_external_auth printer rpc session_id params =
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
   let config = read_map_params "config" params in
   Client.Host.disable_external_auth rpc session_id host config
-  
-let host_refresh_pack_info printer rpc session_id params =
-  let host_uuid = List.assoc "host-uuid" params in
-  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
-  Client.Host.refresh_pack_info rpc session_id host
 
-let host_cpu_info printer rpc session_id params =
-  let host = 
-    if List.mem_assoc "uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
-    else
-      get_host_from_session rpc session_id in
-  let cpu_info = Client.Host.get_cpu_info rpc session_id host in
-  printer (Cli_printer.PTable [cpu_info])
-  
-let host_get_cpu_features printer rpc session_id params =
-  let host = 
-    if List.mem_assoc "uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
-    else
-      get_host_from_session rpc session_id in
-  let cpu_info = Client.Host.get_cpu_info rpc session_id host in
-  let features = List.assoc "features" cpu_info in
-  printer (Cli_printer.PMsg features)
-
-let host_set_cpu_features printer rpc session_id params =
-  let host = 
-    if List.mem_assoc "uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
-    else
-      get_host_from_session rpc session_id in
-  let features = List.assoc "features" params in
-  Client.Host.set_cpu_features rpc session_id host features
-
-let host_reset_cpu_features printer rpc session_id params =
-  let host = 
-    if List.mem_assoc "uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
-    else
-      get_host_from_session rpc session_id in
-  Client.Host.reset_cpu_features rpc session_id host
-    
 let patch_upload fd printer rpc session_id params = 
   let filename = List.assoc "file-name" params in
   let pool = Client.Pool.get_all rpc session_id in
@@ -3716,7 +3362,7 @@ let host_logs_download fd printer rpc session_id params =
       if n=1 then "" else "-"^(safe_get_field (field_lookup host.fields "name-label"))
     in
     let make_command task_id = 
-      let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s" prefix
+      let uri = Printf.sprintf "%s?session_id=%s&task_id=%s" 
 	Constants.host_logs_download_uri (Ref.string_of session_id) (Ref.string_of task_id) in
       HttpGet (filename^filesuffix, uri) in
     ignore(track_http_operation fd rpc session_id make_command "host logs download")
@@ -3798,7 +3444,6 @@ let alert_destroy printer rpc session_id params =
   Client.Alert.destroy rpc session_id alert
 *)
 
-(*
 let subject_list printer rpc session_id params = 
   (* we get all subjects from the pool *)
   let subjects = Client.Subject.get_all_records rpc session_id in
@@ -3811,7 +3456,6 @@ let subject_list printer rpc session_id params =
   in
   let all = List.map table_of_subject subjects in
   printer (Cli_printer.PTable all)
-*)
 
 let subject_add printer rpc session_id params = 
   let subject_name = List.assoc "subject-name" params in
@@ -3820,78 +3464,13 @@ let subject_add printer rpc session_id params =
   (* obtains a list of name-value pairs with info about the subject from the external directory *)
   let subject_info = Client.Auth.get_subject_information_from_identifier ~rpc ~session_id ~subject_identifier in
   (* now we've got enough information to create our new subject in the pool *)
-  let subject_ref = Client.Subject.create ~rpc ~session_id ~subject_identifier ~other_config:subject_info in
-  let subject_uuid = Client.Subject.get_uuid rpc session_id subject_ref in
-  printer (Cli_printer.PList [subject_uuid])
+  ignore (Client.Subject.create ~rpc ~session_id ~subject_identifier ~other_config:subject_info)
 
 let subject_remove printer rpc session_id params =
   (* we are removing by subject-uuid *)
   let subject_uuid = List.assoc "subject-uuid" params in
   let subject = Client.Subject.get_by_uuid ~rpc ~session_id ~uuid:subject_uuid in
   Client.Subject.destroy ~rpc ~session_id ~self:subject
-
-let subject_role_common rpc session_id params =
-  let role_uuid = if List.mem_assoc "role-uuid" params then List.assoc "role-uuid" params else "" in
-  let role_name = if List.mem_assoc "role-name" params then List.assoc "role-name" params else "" in
-  if role_uuid="" && role_name="" 
-    then failwith "Required parameter not found: role-uuid or role-name"
-  else
-  if role_uuid<>"" && role_name<>""
-    then failwith "Parameters role-uuid and role-name cannot be used together"
-  else
-  let subject_uuid = List.assoc "uuid" params in
-  let role = 
-    if role_uuid<>"" 
-      then Client.Role.get_by_uuid ~rpc ~session_id ~uuid:role_uuid
-      else begin
-        let roles = (Client.Role.get_by_name_label ~rpc ~session_id ~label:role_name) in
-        if List.length roles > 0 
-          then List.hd roles (* names are unique, there's either 0 or 1*)
-          else Ref.null (*role not found* raise (Api_errors.Server_error (Api_errors.role_not_found, []))*)
-      end
-  in
-  let subject = Client.Subject.get_by_uuid ~rpc ~session_id ~uuid:subject_uuid in
-  (subject,role)
-
-let subject_role_add printer rpc session_id params =
-  let (subject,role) = subject_role_common rpc session_id params in
-  Client.Subject.add_to_roles ~rpc ~session_id ~self:subject ~role
-
-let subject_role_remove printer rpc session_id params =
-  let (subject,role) = subject_role_common rpc session_id params in
-  Client.Subject.remove_from_roles ~rpc ~session_id ~self:subject ~role
-
-let audit_log_get fd printer rpc session_id params =
-  let filename = List.assoc "filename" params in
-  let since =
-    if List.mem_assoc "since" params
-		then (* make sure since has a reasonable length *)
-			let unsanitized_since = List.assoc "since" params in
-			if String.length unsanitized_since > 255
-			then String.sub unsanitized_since 0 255
-			else unsanitized_since
-		else ""
-  in
-  let label = Printf.sprintf "audit-log-get%sinto file %s"
-		(if since="" then " " else Printf.sprintf " (since \"%s\") " since)
-		(if String.length filename <= 255
-		 then filename (* make sure filename has a reasonable length in the logs *)
-		 else String.sub filename 0 255
-		)
-	in
-	let query = 
-		if since="" then ""
-		else Printf.sprintf "since=%s" (Http.urlencode since)
-	in
-  download_file_with_task
-    fd rpc session_id filename Constants.audit_log_uri query label label
-
-(* RBAC 2.0 only
-let role_create printer rpc session_id params = 
-  (*let id = List.assoc "id" params in*)
-  let name = List.assoc "name" params in
-  ignore (Client.Role.create ~rpc ~session_id ~name ~description:"" ~permissions:[] ~is_basic:false ~is_complete:false)
-*)
 
 let session_subject_identifier_list printer rpc session_id params =
   let subject_identifiers = Client.Session.get_all_subject_identifiers ~rpc ~session_id in
@@ -3909,55 +3488,5 @@ let session_subject_identifier_logout_all printer rpc session_id params =
   let subject_identifiers = Client.Session.get_all_subject_identifiers ~rpc ~session_id in
   List.iter (fun subject_identifier -> Client.Session.logout_subject_identifier ~rpc ~session_id ~subject_identifier) subject_identifiers
 
-let secret_create printer rpc session_id params =
-	let value = List.assoc "value" params in
-	let ref = Client.Secret.create ~rpc ~session_id ~value in
-	let uuid = Client.Secret.get_uuid ~rpc ~session_id ~self:ref in
-	printer (Cli_printer.PList [uuid])
-
-let secret_destroy printer rpc session_id params =
-	let uuid = List.assoc "uuid" params in
-	let ref = Client.Secret.get_by_uuid ~rpc ~session_id ~uuid in
-	Client.Secret.destroy ~rpc ~session_id ~self:ref
-
 let regenerate_built_in_templates printer rpc session_id params = 
   Create_templates.create_all_templates rpc session_id
-
-let vmpp_create printer rpc session_id params =
-	let get ?default param_name =
-		if List.mem_assoc param_name params
-		then List.assoc param_name params
-		else match default with
-			| Some default_value -> default_value
-			| None -> failwith ("No default value for parameter "^param_name)
-	in
-  let map param_name ?default xmlrpc_to_type api_from_type =
-		api_from_type param_name (xmlrpc_to_type (get ?default param_name))
-	in
-	let name_label = List.assoc "name-label" params in
-	let backup_type = map "backup-type" XMLRPC.To.string API.From.vmpp_backup_type in
-	let backup_frequency = map "backup-frequency" XMLRPC.To.string API.From.vmpp_backup_frequency in
-	let backup_schedule = read_map_params "backup-schedule" params in
-  (* optional parameters with default values *)
-	let name_description = get "name-description" ~default:"" in
-	let is_policy_enabled = Record_util.bool_of_string(get "is-policy-enabled" ~default:"true") in
-  let backup_retention_value = map "backup-retention-value" ~default:"1" XMLRPC.To.string API.From.int64 in
-	let archive_frequency = map "archive-frequency" ~default:"never" XMLRPC.To.string API.From.vmpp_archive_frequency in
-	let archive_target_type = map "archive-target-type" ~default:"none" XMLRPC.To.string API.From.vmpp_archive_target_type in
-	let archive_target_config = read_map_params "archive-target-config" params in
-	let archive_schedule = read_map_params "archive-schedule" params in
-	let is_alarm_enabled = Record_util.bool_of_string(get "is-alarm-enabled" ~default:"false") in
-	let alarm_config = read_map_params "alarm-config" params in
-	let ref = Client.VMPP.create ~rpc ~session_id ~name_label ~name_description
-		~is_policy_enabled ~backup_type ~backup_retention_value ~backup_frequency
-    ~backup_schedule ~archive_target_type
-    ~archive_target_config ~archive_frequency ~archive_schedule
-    ~is_alarm_enabled ~alarm_config
-	in
-  let uuid = Client.VMPP.get_uuid ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PList [uuid])
-	
-let vmpp_destroy printer rpc session_id params =
-	let uuid = List.assoc "uuid" params in
-	let ref = Client.VMPP.get_by_uuid ~rpc ~session_id ~uuid in
-	Client.VMPP.destroy ~rpc ~session_id ~self:ref

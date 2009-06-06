@@ -1,11 +1,25 @@
-OCamlLibrary(version, version)
-OCamlDocLibrary(version, version)
+OCAMLINCLUDES += ../sexpr
+OCAML_LIBS += ../sexpr/sexpr
+OCAMLPACKS += sqlite3 xmlm xml-light2 inotify
 
+OCamlProgram(pp, pp)
+OCamlProgram(unix-domain-wrapper, unix-domain-wrapper debug)
+OCamlProgram(file_access_test, file_access_test)
+
+OCamlProgram(xmlpp, xmlpp)
+OCamlProgram(pciutil, pciutil pciutil_main)
+
+OCamlLibrary(version, version)
+OCamlLibrary(debug, debug)
+OCamlLibrary(forkhelpers, forkhelpers)
+OCamlLibrary(stunnel, stunnel)
+OCamlLibrary(gzip, gzip)
+OCamlLibrary(sha1sum, sha1sum)
 OCamlLibrary(sanitycheck, sanitycheck)
+OCamlLibrary(pciutil, pciutil)
+OCamlLibrary(rss, rss)
 OCamlLibrary(stats, stats)
-OCamlDocLibrary(stats, stats)
 OCamlLibrary(vm_memory_constraints, vm_memory_constraints)
-OCamlDocLibrary(vm_memory_constraints, vm_memory_constraints)
 OCamlLibrary(ocamltest, ocamltest)
 
 StaticCLibrary(backtrace_stub, backtrace_stub)
@@ -19,9 +33,21 @@ OCamlLibraryClib(sigutil, sigutil, sigutil_stub)
 
 OCamlLibrary(encodings, encodings)
 
+version.ml: version.template
+	sed -e "s/@@@HG_ID@@@/$(shell hg id -i)/" \
+	    -e "s/@@@HOSTNAME@@@/$(shell hostname)/" \
+	    -e "s/@@@DATE@@@/$(shell date -u +%Y-%m-%d)/" \
+	    -e "s/@@@PRODUCT_VERSION@@@/$(PRODUCT_VERSION)/" \
+	    -e "s/@@@PRODUCT_BRAND@@@/$(PRODUCT_BRAND)/" \
+	    -e "s/@@@BUILD_NUMBER@@@/$(BUILD_NUMBER)/" \
+	    < $< > $@
+
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)
 
 .PHONY: install
 install:
+	mkdir -p $(DEBUGDIST)
+#	cp xmlpp $(DIST)/staging/opt/xensource/bin
+	cp file_access_test $(DEBUGDIST)

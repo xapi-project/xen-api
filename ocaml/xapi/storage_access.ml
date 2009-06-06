@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Threadext
 
 module D=Debug.Debugger(struct let name="storage_access" end)
@@ -183,9 +170,7 @@ module VDI =
       let uuid = Uuid.of_string (Db.VDI.get_uuid ~__context ~self) in
       with_vdi_lock
 	(fun () ->
-           (* MTC: A protected VM needs to have its disks mounted into two VMs: one as R+W and another as RO *)
-	   if is_already_attached uuid && (mode <> get_mode uuid) && 
-             not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then
+	   if is_already_attached uuid && (mode <> get_mode uuid) then
 	     failwith (Printf.sprintf "The VDI %s is already attached in %s mode; it can't be attached in %s mode!" (Uuid.to_string uuid) (string_of_mode (get_mode uuid)) (string_of_mode mode));
 	   let attach_path = 
 	     Sm.call_sm_vdi_functions ~__context ~vdi:self
@@ -218,15 +203,14 @@ module VDI =
 	   debug "Executed detach succesfully on VDI '%s'; attach refcount now: %d" (Uuid.to_string uuid) newval
 	)
 
-    let activate ~__context ~self ~mode =
+    let activate ~__context ~self =
     with_vdi_lock
       (fun () ->
 	 if (check_enclosing_sr_for_capability __context Smint.Vdi_activate self) then
 	   begin
-		   if mode=`RW then debug "foo";
 	     Sm.call_sm_vdi_functions ~__context ~vdi:self
 	       (fun device_config sr_type sr ->
-		  Sm.vdi_activate device_config sr_type sr self (mode = `RW));
+		  Sm.vdi_activate device_config sr_type sr self);
 	     let newval = increment_activate_refcount self in
 	     debug "Executed activate succesfully on VDI '%s'; activate refcount now: %d" (Ref.string_of self) newval
 	   end
@@ -271,7 +255,7 @@ module VDI =
 let use_vdi ~__context ~vdi ~mode =
   VDI.attach ~__context ~self:vdi ~mode;
   try
-    VDI.activate ~__context ~self:vdi ~mode;
+    VDI.activate ~__context ~self:vdi
   with e ->
     (* if activate fails then best effort detach VDI before propogating original exception *)
     begin
@@ -312,7 +296,7 @@ let with_careful_attach_and_activate ~__context ~vdis ~leave_activated f =
       let do_single_attach (vdi,mode) =
 	VDI.attach ~__context ~self:vdi ~mode;
 	Hashtbl.replace attached vdi ();
-	VDI.activate ~__context ~self:vdi ~mode;
+	VDI.activate ~__context ~self:vdi;
 	Hashtbl.replace activated vdi () in
       (* Attach/activate vbds recording what we've done *)
       List.iter do_single_attach vdis;
@@ -346,3 +330,13 @@ let with_careful_attach_and_activate ~__context ~vdis ~leave_activated f =
       vdis;
   result_of_f
 
+(** Set the dirty flag on a SR to trigger a rescan (scan is initiated by SR scanning thread running on master) *)
+let set_dirty ~__context ~self =
+  let oc = Db.SR.get_other_config ~__context ~self in
+  try
+    (* don't add a dirty field if it's already set *)
+    if List.mem_assoc "dirty" oc
+    then ()
+    else Db.SR.set_other_config ~__context ~self ~value:(("dirty", "") :: oc)
+  with _ ->
+    ()

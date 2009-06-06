@@ -1,27 +1,17 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Dave Scott    <dscott@xensource.com>
+             Jon Ludlam    <jludlam@xensource.com>
+
+   Simple HTTP 1.0/1.1 and XMLRPC client functions
+
+   ------------------------------------------------------------------- *)
+
 (** Thrown when an explicit HTTP rejection is received (although note we don't
     parse enough of the response to be sure... but it was non-empty at least) *)
 exception Http_request_rejected of string
-
-(** Thrown when we get a specific HTTP error, e.g.                                          
-    401 (unauthorized) if we supply the wrong credentials
-    403 (forbidden)    if RBAC denied access                             
-    500 (internal server error) if XAPI failed with an INTERNAL_ERROR,
-          Api_server error, XMLRPC_UNMARSHAL_FAILURE error etc.
-*)
-exception Http_error of string*string
 
 exception Content_length_required
 
@@ -37,13 +27,7 @@ exception Empty_response_from_server
     the connection works fail. *)
 exception Stunnel_connection_failed
 
-(** When invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
-	us to store the association between a task and an stunnel pid *)
 val set_stunnelpid_callback : (string -> int -> unit) option ref
-
-(** After invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
-    us to forget the association between a task and an stunnel pid *)
-val unset_stunnelpid_callback : (string -> int -> unit) option ref
 
 val connect_headers : ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> string -> string list
 val xmlrpc_headers : ?task_id:string -> ?subtask_of:string -> version:string -> string -> string -> int -> string list

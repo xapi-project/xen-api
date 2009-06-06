@@ -1,17 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Ltd.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(*
  * Xen/Xenstored Abstraction Layer
  *
  * XAL is in charge of abstracting domain and devices events.
@@ -37,13 +27,17 @@ exception Device_not_monitored
 exception Timeout
 
 type dev_event =
-	| DevEject of string
-	| DevThread of string * int
+	| DevNew of bool * string * string
+	| DevWorking of bool * string * string
+	| DevClosing of bool * string * string
+	| DevClosed of bool * string * string
+	| DevError of string * string * string
+	| DevEject of string * string
+	| DevThread of string * string * int
 	| DevShutdownDone of string * string
 	| ChangeRtc of string * string
 	| Message of string * string * int64 * string
-	| HotplugChanged of string * string option * string option
-	| ChangeUncooperative of bool
+	| HotplugChanged of bool * string * string * string option * string option
 
 (* type dev_state = Connecting | Connected | Closing | Closed *)
 
@@ -83,7 +77,6 @@ val init : ?callback_introduce:(ctx -> domid -> unit)
         -> ?callback_release:(ctx -> domid -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
-	-> ?callback_memory_target:(ctx -> domid -> unit)
         -> ?monitor_devices:bool
         -> unit -> ctx
 val close : ctx -> unit
@@ -100,5 +93,4 @@ val loop : ?callback_introduce:(ctx -> domid -> unit)
         -> ?callback_release:(ctx -> domid -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
-	-> ?callback_memory_target:(ctx -> domid -> unit)
         -> unit -> unit

@@ -1,16 +1,8 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+(* 
+ * Copyright (c) Citrix Systems 2008. All rights reserved 
+ * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
  *)
+
 open Printf
 
 let error fmt = Logs.error "general" fmt
@@ -46,9 +38,9 @@ type access =
 
 let string_of_date () =
 	let time = Unix.gettimeofday () in
-	let tm = Unix.gmtime time in
+	let tm = Unix.localtime time in
 	let msec = time -. (floor time) in
-	sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ" (1900 + tm.Unix.tm_year)
+	sprintf "%d%.2d%.2d %.2d:%.2d:%.2d.%.3d" (1900 + tm.Unix.tm_year)
 		(tm.Unix.tm_mon + 1)
 		tm.Unix.tm_mday
 		tm.Unix.tm_hour
@@ -222,13 +214,10 @@ let end_transaction ~tid ~con =
 	if !log_transaction_ops && tid <> 0
 	then write_access_log ~tid ~con (XbOp Xb.Op.Transaction_end)
 
-let is_error_kind kind data =
-	Stringext.String.startswith kind data
-
 let xb_answer ~tid ~con ~ty data =
 	let print = match ty with
-		| Xb.Op.Error when is_error_kind "ENOENT" data -> !log_read_ops
-		| Xb.Op.Error -> true
+		| Xb.Op.Error when data="ENOENT " -> !log_read_ops
+		| Xb.Op.Error -> !log_special_ops
 		| Xb.Op.Watchevent -> true
 		| _ -> false
 	in

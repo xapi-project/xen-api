@@ -1,21 +1,4 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Workload Balancing Reports and Diagnostics.
- * @group Workload Balancing
- *)
-
-(**
   This module serves the /wlb_report and /wlb_diagnostics HTTP requests.
   In the former case, we receive some basic parameters (report name, report
   params) and pass those to the WLB server as a SOAP request.  The latter
@@ -31,13 +14,15 @@
 
   What we do instead is have a receive-side state machine, which passes
   through three states:
-    +  Looking for the <XmlDataSet> tag, and discarding data.
-    +  Looking for the </XmlDataSet> tag, and sending data.
-    +  Discarding data until EOF.
+
+    1.  Looking for the <XmlDataSet> tag, and discarding data.
+    2.  Looking for the </XmlDataSet> tag, and sending data.
+    3.  Discarding data until EOF.
 
   When sending, we have a separate two-state machine for entity decode:
-    +  Looking for an ampersand, and sending data.
-    +  Found an ampersand, so looking for the ending semicolon.
+
+    1.  Looking for an ampersand, and sending data.
+    2.  Found an ampersand, so looking for the ending semicolon.
 
   If the response does not contain an <XmlDataSet> node, then it's most 
   likely a WLB error response.  We parse these using the normal XML parser, 
@@ -49,9 +34,7 @@
 
   The GetDiagnostics message is identical, except we look for different
   start and end tags.
- *)
 
-(*
   <!-- ExecuteReport response-->
   <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing">
     <s:Header>
@@ -87,8 +70,8 @@
       </ExecuteReportResponse>
     </s:Body>
   </s:Envelope>
-  
- *)
+
+*)
 
 open Printf
 
@@ -224,7 +207,7 @@ let handle req bio method_name tokens (method_name, request_func) =
   let client_sock = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
   debug "handle: fd = %d" (Unixext.int_of_file_descr client_sock);
-  req.close <- true;
+  req.close := true;
 
   Xapi_http.with_context (sprintf "WLB %s request" method_name) req
     client_sock

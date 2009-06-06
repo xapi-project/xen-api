@@ -1,96 +1,219 @@
 #!/usr/bin/python
 #
-# Copyright (c) 2008,2009 Citrix Systems, Inc.
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published
-# by the Free Software Foundation; version 2.1 only. with the special
-# exception on linking described in file LICENSE.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
+# Copyright (c) Citrix Systems 2008. All rights reserved.
 #
 """Usage:
 
-    %(command-name)s <PIF> up
-    %(command-name)s <PIF> down
-    %(command-name)s rewrite
-    %(command-name)s --force <BRIDGE> up
-    %(command-name)s --force <BRIDGE> down
-    %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> --mac=<MAC-ADDRESS> <CONFIG>
+    %(command-name)s --session <SESSION-REF> --pif <PIF-REF> [up|down|rewrite]
+    %(command-name)s --force <BRIDGE> [up|down|rewrite <CONFIG>]
+    %(command-name)s --force all down
 
-    where <PIF> is one of:
-       --session <SESSION-REF> --pif <PIF-REF>
-       --pif-uuid <PIF-UUID>
-    and <CONFIG> is one of:
-       --mode=dhcp
-       --mode=static --ip=<IPADDR> --netmask=<NM> [--gateway=<GW>]
+    where,
+          <CONFIG> = --device=<INTERFACE> --mode=dhcp
+          <CONFIG> = --device=<INTERFACE> --mode=static --ip=<IPADDR> --netmask=<NM> [--gateway=<GW>]
 
   Options:
-    --session           A session reference to use to access the xapi DB
-    --pif               A PIF reference within the session.
-    --pif-uuid          The UUID of a PIF.
-    --force             An interface name.
-    --root-prefix=DIR   Use DIR as alternate root directory (for testing).
-    --no-syslog         Write log messages to stderr instead of system log.
+    --session		A session reference to use to access the xapi DB
+    --pif               A PIF reference.
+    --force-interface	An interface name. Mutually exclusive with --session/--pif.
+
+  Either both --session and --pif  or just --pif-uuid.
+  
+  <ACTION> is either "up" or "down" or "rewrite"
 """
 
+#
+# Undocumented parameters for test & dev:
+#
+#  --output-directory=<DIR>	Write configuration to <DIR>. Also disables actually
+#                               raising/lowering the interfaces
+#  --pif-uuid			A PIF UUID, use instead of --session/--pif.
+#
+#
+#
 # Notes:
 # 1. Every pif belongs to exactly one network
 # 2. Every network has zero or one pifs
 # 3. A network may have an associated bridge, allowing vifs to be attached
 # 4. A network may be bridgeless (there's no point having a bridge over a storage pif)
 
-from InterfaceReconfigure import *
-
+import XenAPI
 import os, sys, getopt
 import syslog
 import traceback
+import time
 import re
-import random
 
+output_directory = None
+
+db = None
 management_pif = None
 
-dbcache_file = "/var/xapi/network.dbcache"
-
-#
-# Logging.
-#
-
-def log_pif_action(action, pif):
-    pifrec = db().get_pif_record(pif)
-    rec = {}
-    rec['uuid'] = pifrec['uuid']
-    rec['ip_configuration_mode'] = pifrec['ip_configuration_mode']
-    rec['action'] = action
-    rec['pif_netdev_name'] = pif_netdev_name(pif)
-    rec['message'] = "Bring %(action)s PIF %(uuid)s" % rec
-    log("%(message)s: %(pif_netdev_name)s configured as %(ip_configuration_mode)s" % rec)
-
-#
-# Exceptions.
-#
+sysfs_bonding_masters = "/sys/class/net/bonding_masters"
+ifcfg = "/etc/sysconfig/network-scripts"
 
 class Usage(Exception):
     def __init__(self, msg):
         Exception.__init__(self)
         self.msg = msg
 
-#
-# Boot from Network filesystem or device.
-#
+class Error(Exception):
+    def __init__(self, msg):
+        Exception.__init__(self)
+        self.msg = msg
 
-def check_allowed(pif):
-    """Determine whether interface-reconfigure should be manipulating this PIF.
+class ConfigurationFile(object):
+    """Write a file, tracking old and new versions.
 
-    Used to prevent system PIFs (such as network root disk) from being interfered with.
+    Supports writing a new version of a file and applying and
+    reverting those changes.
     """
 
-    pifrec = db().get_pif_record(pif)
+    __STATE = {"OPEN":"OPEN",
+               "NOT-APPLIED":"NOT-APPLIED", "APPLIED":"APPLIED",
+               "REVERTED":"REVERTED", "COMMITTED": "COMMITTED"}
+    
+    def __init__(self, fname, path=ifcfg):
+
+        self.__state = self.__STATE['OPEN']
+        self.__fname = fname
+        self.__children = []
+        
+        if debug_mode():
+            dirname = output_directory
+        else:
+            dirname = path
+            
+        self.__path    = os.path.join(dirname, fname)
+        self.__oldpath = os.path.join(dirname, "." + fname + ".xapi-old")
+        self.__newpath = os.path.join(dirname, "." + fname + ".xapi-new")
+        self.__unlink = False
+        
+        self.__f = open(self.__newpath, "w")
+
+    def attach_child(self, child):
+        self.__children.append(child)
+
+    def path(self):
+        return self.__path
+
+    def readlines(self):
+        try:
+            return open(self.path()).readlines()
+        except:
+            return ""
+        
+    def write(self, args):
+        if self.__state != self.__STATE['OPEN']:
+            raise Error("Attempt to write to file in state %s" % self.__state)
+        self.__f.write(args)
+
+    def unlink(self):
+        if self.__state != self.__STATE['OPEN']:
+            raise Error("Attempt to unlink file in state %s" % self.__state)
+        self.__unlink = True
+        self.__f.close()
+        self.__state = self.__STATE['NOT-APPLIED']
+    
+    def close(self):
+        if self.__state != self.__STATE['OPEN']:
+            raise Error("Attempt to close file in state %s" % self.__state)
+        
+        self.__f.close()
+        self.__state = self.__STATE['NOT-APPLIED']
+
+    def changed(self):
+        if self.__state != self.__STATE['NOT-APPLIED']:
+            raise Error("Attempt to compare file in state %s" % self.__state)
+
+        return True
+
+    def apply(self):
+        if self.__state != self.__STATE['NOT-APPLIED']:
+            raise Error("Attempt to apply configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.apply()
+
+        log("Applying changes to %s configuration" % self.__fname)
+
+        # Remove previous backup.
+        if os.access(self.__oldpath, os.F_OK):
+            os.unlink(self.__oldpath)
+
+        # Save current configuration.
+        if os.access(self.__path, os.F_OK):
+            os.link(self.__path, self.__oldpath)
+            os.unlink(self.__path)
+
+        # Apply new configuration.
+        assert(os.path.exists(self.__newpath))
+        if not self.__unlink:
+            os.link(self.__newpath, self.__path)
+        else:
+            pass # implicit unlink of original file 
+
+        # Remove temporary file.
+        os.unlink(self.__newpath)
+
+        self.__state = self.__STATE['APPLIED']
+
+    def revert(self):
+        if self.__state != self.__STATE['APPLIED']:
+            raise Error("Attempt to revert configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.revert()
+
+        log("Reverting changes to %s configuration" % self.__fname)
+
+        # Remove existing new configuration
+        if os.access(self.__newpath, os.F_OK):
+            os.unlink(self.__newpath)
+
+        # Revert new configuration.
+        if os.access(self.__path, os.F_OK):
+            os.link(self.__path, self.__newpath)
+            os.unlink(self.__path)
+
+        # Revert to old configuration.
+        if os.access(self.__oldpath, os.F_OK):
+            os.link(self.__oldpath, self.__path)
+            os.unlink(self.__oldpath)
+
+        # Leave .*.xapi-new as an aid to debugging.
+        
+        self.__state = self.__STATE['REVERTED']
+    
+    def commit(self):
+        if self.__state != self.__STATE['APPLIED']:
+            raise Error("Attempt to commit configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.commit()
+
+        log("Committing changes to %s configuration" % self.__fname)
+        
+        if os.access(self.__oldpath, os.F_OK):
+            os.unlink(self.__oldpath)
+        if os.access(self.__newpath, os.F_OK):
+            os.unlink(self.__newpath)
+
+        self.__state = self.__STATE['COMMITTED']
+
+def debug_mode():
+    return output_directory is not None
+
+def log(s):
+    if debug_mode():
+        print >>sys.stderr, s
+    else:
+        syslog.syslog(s)
+
+def check_allowed(pif):
+    pifrec = db.get_pif_record(pif)
     try:
-        f = open(root_prefix() + "/proc/ardence")
+        f = open("/proc/ardence")
         macline = filter(lambda x: x.startswith("HWaddr:"), f.readlines())
         f.close()
         if len(macline) == 1:
@@ -102,129 +225,120 @@ def check_allowed(pif):
         pass
     return True
 
-#
-# Bare Network Devices -- network devices without IP configuration
-#
+def interface_exists(i):
+    return os.path.exists("/sys/class/net/" + i)
 
-def netdev_remap_name(pif, already_renamed=[]):
-    """Check whether 'pif' exists and has the correct MAC.
-    If not, try to find a device with the correct MAC and rename it.
-    'already_renamed' is used to avoid infinite recursion.
-    """
+def interface_up(i):
+    operstate = os.path.join("/sys/class/net",i,"operstate")
+    if not os.path.exists(operstate):
+        log("No operstate for interface %s, assuming down" % i)
+        return 0
+    
+    f = open(operstate)
+    state = f.read().strip()
+    f.close()
 
-    def read1(name):
-        file = None
-        try:
-            file = open(name, 'r')
-            return file.readline().rstrip('\n')
-        finally:
-            if file != None:
-                file.close()
+    # bridges confusingly return "unknown" when they are up
+    return state in ["up", "unknown"]
 
-    def get_netdev_mac(device):
-        try:
-            return read1("%s/sys/class/net/%s/address" % (root_prefix(), device))
-        except:
-            # Probably no such device.
-            return None
-
-    def get_netdev_tx_queue_len(device):
-        try:
-            return int(read1("%s/sys/class/net/%s/tx_queue_len" % (root_prefix(), device)))
-        except:
-            # Probably no such device.
-            return None
-
-    def get_netdev_by_mac(mac):
-        for device in os.listdir(root_prefix() + "/sys/class/net"):
-            dev_mac = get_netdev_mac(device)
-            if (dev_mac and mac.lower() == dev_mac.lower() and
-                get_netdev_tx_queue_len(device)):
-                return device
-        return None
-
-    def rename_netdev(old_name, new_name):
-        log("Changing the name of %s to %s" % (old_name, new_name))
-        run_command(['/sbin/ifconfig', old_name, 'down'])
-        if not run_command(['/sbin/ip', 'link', 'set', old_name, 'name', new_name]):
-            raise Error("Could not rename %s to %s" % (old_name, new_name))
-
-    pifrec = db().get_pif_record(pif)
-    device = pifrec['device']
-    mac = pifrec['MAC']
-
-    # Is there a network device named 'device' at all?
-    device_exists = netdev_exists(device)
-    if device_exists:
-        # Yes.  Does it have MAC 'mac'?
-        found_mac = get_netdev_mac(device)
-        if found_mac and mac.lower() == found_mac.lower():
-            # Yes, everything checks out the way we want.  Nothing to do.
-            return
-    else:
-        log("No network device %s" % device)
-
-    # What device has MAC 'mac'?
-    cur_device = get_netdev_by_mac(mac)
-    if not cur_device:
-        log("No network device has MAC %s" % mac)
+def ifup(interface):
+    command = "/sbin/ifup"
+    if debug_mode():
         return
+    if os.spawnl(os.P_WAIT, command, command, interface) != 0:
+        raise Error("Command failed: %s %s" % (command, interface))
 
-    # First rename 'device', if it exists, to get it out of the way
-    # for 'cur_device' to replace it.
-    if device_exists:
-        rename_netdev(device, "dev%d" % random.getrandbits(24))
-
-    # Rename 'cur_device' to 'device'.
-    rename_netdev(cur_device, device)
-
-#
-# IP Network Devices -- network devices with IP configuration
-#
-
-def ifdown(netdev):
-    """Bring down a network interface"""
-    if not netdev_exists(netdev):
-        log("ifdown: device %s does not exist, ignoring" % netdev)
+def ifdown(interface):
+    command = "/sbin/ifdown"
+    if debug_mode():
         return
-    if not os.path.exists("%s/etc/sysconfig/network-scripts/ifcfg-%s" % (root_prefix(), netdev)):
-        log("ifdown: device %s exists but ifcfg-%s does not" % (netdev,netdev))
-        run_command(["/sbin/ifconfig", netdev, 'down'])
+    if not interface_exists(interface):
+        log("ifdown: interface %s does not exist, ignoring" % interface)
         return
-    run_command(["/sbin/ifdown", netdev])
+    if os.spawnl(os.P_WAIT, command, command, interface) != 0:
+        log("Command failed: %s %s" % (command, interface))
 
-def ifup(netdev):
-    """Bring up a network interface"""
-    if not os.path.exists(root_prefix() + "/etc/sysconfig/network-scripts/ifcfg-%s" % netdev):
-        raise Error("ifup: device %s exists but ifcfg-%s does not" % (netdev,netdev))
-    run_command(["/sbin/ifup", netdev])
-
-#
-#
-#
-
-def pif_rename_physical_devices(pif):
-    if pif_is_tunnel(pif):
+def delbr(bridge):
+    command = "/usr/sbin/brctl"
+    if debug_mode():
         return
+    if not interface_exists(bridge):
+        log("delbr: bridge %s does not exist, ignoring" % bridge)
+        return
+    if os.spawnl(os.P_WAIT, command, command, "delbr", bridge) != 0:
+        log("Command failed: %s delbr %s" % (command, bridge))
 
-    if pif_is_vlan(pif):
-        pif = pif_get_vlan_slave(pif)
+def vconfig_rem(vlan):
+    command = "/sbin/vconfig"
+    if debug_mode():
+        return
+    if not interface_exists(vlan):
+        log("vconfig del: vlan %s does not exist, ignoring" % vlan)
+        return
+    if os.spawnl(os.P_WAIT, command, command, "rem", vlan) != 0:
+        log("Command failed: %s rem %s" % (command, vlan))
 
-    if pif_is_bond(pif):
-        pifs = pif_get_bond_slaves(pif)
-    else:
-        pifs = [pif]
+def configure_ethtool(oc, f):
+    # Options for "ethtool -s"
+    settings = None
+    setting_opts = ["autoneg", "speed", "duplex"]
+    # Options for "ethtool -K"
+    offload = None
+    offload_opts = ["rx", "tx", "sg", "tso", "ufo", "gso"]
+    
+    for opt in [opt for opt in setting_opts + offload_opts if oc.has_key("ethtool-" + opt)]:
+        val = oc["ethtool-" + opt]
 
-    for pif in pifs:
-        netdev_remap_name(pif)
+        if opt in ["speed"]:
+            if val in ["10", "100", "1000"]:
+                val = "speed " + val
+            else:
+                log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
+                val = None
+        elif opt in ["duplex"]:
+            if val in ["half", "full"]:
+                val = "duplex " + val
+            else:
+                log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
+                val = None
+        elif opt in ["autoneg"] + offload_opts:
+            if val in ["true", "on"]:
+                val = opt + " on"
+            elif val in ["false", "off"]:
+                val = opt + " off"
+            else:
+                log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
+                val = None
 
-#
-# IP device configuration
-#
+        if opt in setting_opts:
+            if val and settings:
+                settings = settings + " " + val
+            else:
+                settings = val
+        elif opt in offload_opts:
+            if val and offload:
+                offload = offload + " " + val
+            else:
+                offload = val
 
-def ipdev_configure_static_routes(interface, oc, f):
+    if settings:
+        f.write("ETHTOOL_OPTS=\"%s\"\n" % settings)
+    if offload:
+        f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % offload)
+
+def configure_mtu(oc, f):
+    if not oc.has_key('mtu'):
+        return
+    
+    try:
+        mtu = int(oc['mtu'])
+        f.write("MTU=%d\n" % mtu)
+    except ValueError, x:
+        log("Invalid value for mtu = %s" % mtu)
+
+def configure_static_routes(interface, oc, f):
     """Open a route-<interface> file for static routes.
-
+    
     Opens the static routes configuration file for interface and writes one
     line for each route specified in the network's other config "static-routes" value.
     E.g. if
@@ -235,6 +349,7 @@ def ipdev_configure_static_routes(interface, oc, f):
           172.16.0.0/15 via 192.168.0.3 dev xenbr1
           172.18.0.0/16 via 192.168.0.4 dev xenbr1
     """
+    fname = "route-%s" % interface
     if oc.has_key('static-routes'):
         # The key is present - extract comma seperates entries
         lines = oc['static-routes'].split(',')
@@ -242,7 +357,7 @@ def ipdev_configure_static_routes(interface, oc, f):
         # The key is not present, i.e. there are no static routes
         lines = []
 
-    child = ConfigurationFile("%s/etc/sysconfig/network-scripts/route-%s" % (root_prefix(), interface))
+    child = ConfigurationFile(fname)
     child.write("# DO NOT EDIT: This file (%s) was autogenerated by %s\n" % \
             (os.path.basename(child.path()), os.path.basename(sys.argv[0])))
 
@@ -250,33 +365,263 @@ def ipdev_configure_static_routes(interface, oc, f):
         for l in lines:
             network, masklen, gateway = l.split('/')
             child.write("%s/%s via %s dev %s\n" % (network, masklen, gateway, interface))
-
+            
         f.attach_child(child)
         child.close()
 
     except ValueError, e:
         log("Error in other-config['static-routes'] format for network %s: %s" % (interface, e))
 
-def ipdev_open_ifcfg(pif):
-    ipdev = pif_ipdev_name(pif)
+def __open_ifcfg(interface):
+    """Open a network interface configuration file.
 
-    log("Writing network configuration for %s" % ipdev)
-
-    f = ConfigurationFile("%s/etc/sysconfig/network-scripts/ifcfg-%s" % (root_prefix(), ipdev))
-
+    Opens the configuration file for interface, writes a header and
+    common options and returns the file object.
+    """
+    fname = "ifcfg-%s" % interface
+    f = ConfigurationFile(fname)
+    
     f.write("# DO NOT EDIT: This file (%s) was autogenerated by %s\n" % \
             (os.path.basename(f.path()), os.path.basename(sys.argv[0])))
     f.write("XEMANAGED=yes\n")
-    f.write("DEVICE=%s\n" % ipdev)
+    f.write("DEVICE=%s\n" % interface)
     f.write("ONBOOT=no\n")
+    
+    return f
+
+def open_network_ifcfg(pif):    
+    bridge = bridge_name(pif)
+    interface = interface_name(pif)
+    if bridge:
+        return __open_ifcfg(bridge)
+    else:
+        return __open_ifcfg(interface)
+
+
+def open_pif_ifcfg(pif):
+    pifrec = db.get_pif_record(pif)
+    
+    log("Configuring %s (%s)" % (interface_name(pif), pifrec['MAC']))
+    
+    f = __open_ifcfg(interface_name(pif))
+
+    if pifrec.has_key('other_config'):
+        configure_ethtool(pifrec['other_config'], f)
+        configure_mtu(pifrec['other_config'], f)
 
     return f
 
-def ipdev_configure_network(pif, dp):
+class DatabaseCache(object):
+    def __init__(self, session_ref):
+        session = XenAPI.xapi_local()
+
+        if not session_ref:
+            log("No session ref given on command line, logging in.")
+            session.xenapi.login_with_password("root", "")
+        else:
+            session._session = session_ref
+
+        try:
+            self.__vlans = session.xenapi.VLAN.get_all_records()
+            self.__bonds = session.xenapi.Bond.get_all_records()
+            self.__pifs = session.xenapi.PIF.get_all_records()
+            self.__networks = session.xenapi.network.get_all_records()
+        finally:
+            if not session_ref:
+                session.xenapi.session.logout()
+
+    def get_pif_by_uuid(self, uuid):
+        pifs = map(lambda (ref,rec): ref,
+                  filter(lambda (ref,rec): uuid == rec['uuid'],
+                         self.__pifs.items()))
+        if len(pifs) == 0:
+            raise Error("Unknown PIF \"%s\"" % uuid)
+        elif len(pifs) > 1:
+            raise Error("Non-unique PIF \"%s\"" % uuid)
+
+        return pifs[0]
+
+    def get_pif_by_record(self, record):
+        """record is partial pif record.
+        Get the pif whose record matches.
+        """
+        def match(pifrec):
+            for key in record:
+                if record[key] != pifrec[key]:
+                    return False
+            return True
+            
+        pifs = map(lambda (ref,rec): ref,
+                  filter(lambda (ref,rec): match(rec),
+                         self.__pifs.items()))
+        if len(pifs) == 0:
+            raise Error("No matching PIF \"%s\"" % str(record))
+        elif len(pifs) > 1:
+            raise Error("Multiple matching PIFs \"%s\"" % str(record))
+
+        return pifs[0]
+
+    def get_pif_record(self, pif):
+        if self.__pifs.has_key(pif):
+            return self.__pifs[pif]
+        raise Error("Unknown PIF \"%s\"" % pif)
+    def get_all_pifs(self):
+        return self.__pifs
+    def pif_exists(self, pif):
+        return self.__pifs.has_key(pif)
+    
+    def get_management_pif(self, host):
+        """ Returns the management pif on host
+        """
+        all = self.get_all_pifs()
+        for pif in all: 
+            pifrec = self.get_pif_record(pif)
+            if pifrec['management'] and pifrec['host'] == host :
+                return pif
+        return None
+
+    def get_network_record(self, network):
+        if self.__networks.has_key(network):
+            return self.__networks[network]
+        raise Error("Unknown network \"%s\"" % network)
+
+    def get_bond_record(self, bond):
+        if self.__bonds.has_key(bond):
+            return self.__bonds[bond]
+        else:
+            return None
+        
+    def get_vlan_record(self, vlan):
+        if self.__vlans.has_key(vlan):
+            return self.__vlans[vlan]
+        else:
+            return None
+            
+def bridge_name(pif):
+    """Return the bridge name associated with pif, or None if network is bridgeless"""
+    pifrec = db.get_pif_record(pif)
+    nwrec = db.get_network_record(pifrec['network'])
+
+    if nwrec['bridge']:
+        # TODO: sanity check that nwrec['bridgeless'] != 'true'
+        return nwrec['bridge']
+    else:
+        # TODO: sanity check that nwrec['bridgeless'] == 'true'
+        return None
+
+def interface_name(pif):
+    """Construct an interface name from the given PIF record."""
+
+    pifrec = db.get_pif_record(pif)
+
+    if pifrec['VLAN'] == '-1':
+        return pifrec['device']
+    else:
+        return "%(device)s.%(VLAN)s" % pifrec
+
+def log_pif_action(action, pif):
+    pifrec = db.get_pif_record(pif)
+    pifrec['action'] = action
+    pifrec['interface-name'] = interface_name(pif)
+    if action == "rewrite":
+        pifrec['message'] = "Rewrite PIF %(uuid)s configuration" % pifrec
+    else:
+        pifrec['message'] = "Bring %(action)s PIF %(uuid)s" % pifrec
+    log("%(message)s: %(interface-name)s configured as %(ip_configuration_mode)s" % pifrec)
+
+def load_bonding_driver():
+    log("Loading bonding driver")
+    os.spawnl(os.P_WAIT, "/sbin/modprobe", "/sbin/modprobe", "bonding")
+    try: 
+        # bond_device_exists() uses the contents of sysfs_bonding_masters to work out which devices
+        # have already been created.  Unfortunately the driver creates "bond0" automatically at 
+        # modprobe init.  Get rid of this now or our accounting will go wrong.
+        f = open(sysfs_bonding_masters, "w")
+        f.write("-bond0")
+        f.close()
+    except IOError, e:
+        log("Failed to load bonding driver: %s" % e)
+
+def bonding_driver_loaded():
+    lines = open("/proc/modules").read().split("\n")
+    modules = [line.split(" ")[0] for line in lines]
+    return "bonding" in modules
+    
+def bond_device_exists(name):
+    f = open(sysfs_bonding_masters, "r")
+    bonds = f.readline().split()
+    f.close()
+    return name in bonds
+
+def __create_bond_device(name):
+    
+    if not bonding_driver_loaded():
+        load_bonding_driver()
+
+    if bond_device_exists(name):
+        log("bond master %s already exists, not creating" % name)
+    else:
+        log("Creating bond master %s" % name)
+        try: 
+            f = open(sysfs_bonding_masters, "w")
+            f.write("+" + name)
+            f.close()
+        except IOError, e:
+            log("Failed to create %s: %s" % (name, e))
+
+def create_bond_device(pif):
+    """Ensures that a bond master device exists in the kernel."""
+
+    if debug_mode():
+        return
+    
+    pifrec = db.get_pif_record(pif)
+
+    if len(pifrec['bond_master_of']) == 0:
+        return
+
+    __create_bond_device(interface_name(pif))
+
+def __destroy_bond_device(name):
+    if bond_device_exists(name):
+        retries = 10 # 10 * 0.5 seconds
+        while retries > 0:
+            retries = retries - 1
+            log("Destroying bond master %s (%d attempts remain)" % (name,retries))
+            try:
+                f = open(sysfs_bonding_masters, "w")
+                f.write("-" + name)
+                f.close()
+                retries = 0
+            except IOError, e:
+                time.sleep(0.5)
+    else:
+        log("bond master %s does not exist, not destroying" % name)
+
+def destroy_bond_device(pif):
+    """No, Mr. Bond, I expect you to die."""
+
+    if debug_mode():
+        return
+    
+    pifrec = db.get_pif_record(pif)
+
+    if len(pifrec['bond_master_of']) == 0:
+        return
+
+    # If the bonding module isn't loaded then do nothing.
+    if not os.access(sysfs_bonding_masters, os.F_OK):
+        return
+
+    name = interface_name(pif)
+
+    __destroy_bond_device(name)
+
+def configure_network(pif, f):
     """Write the configuration file for a network.
 
-    Writes configuration derived from the network object into the relevant
-    ifcfg file.  The configuration file is passed in, but if the network is
+    Writes configuration derived from the network object into the relevant 
+    ifcfg file.  The configuration file is passed in, but if the network is 
     bridgeless it will be ifcfg-<interface>, otherwise it will be ifcfg-<bridge>.
 
     This routine may also write ifcfg files of the networks corresponding to other PIFs
@@ -284,31 +629,41 @@ def ipdev_configure_network(pif, dp):
 
     params:
         pif:  Opaque_ref of pif
-        dp:   Datapath object
+        f :   ConfigurationFile(/path/to/ifcfg) to which we append network configuration
     """
-
-    pifrec = db().get_pif_record(pif)
+    
+    pifrec = db.get_pif_record(pif)
+    host = pifrec['host']
     nw = pifrec['network']
-    nwrec = db().get_network_record(nw)
-
-    ipdev = pif_ipdev_name(pif)
-
-    f = ipdev_open_ifcfg(pif)
-
-    mode = pifrec['ip_configuration_mode']
-    log("Configuring %s using %s configuration" % (ipdev, mode))
-
+    nwrec = db.get_network_record(nw)
     oc = None
+    bridge = bridge_name(pif)
+    interface = interface_name(pif)
+    if bridge:
+        device = bridge
+    else:
+        device = interface
+
+    if nwrec.has_key('other_config'):
+        configure_ethtool(nwrec['other_config'], f)
+        configure_mtu(nwrec['other_config'], f)
+        configure_static_routes(device, nwrec['other_config'], f)
+
+    
     if pifrec.has_key('other_config'):
         oc = pifrec['other_config']
 
-    dp.configure_ipdev(f)
+    if device == bridge:
+        f.write("TYPE=Bridge\n")
+        f.write("DELAY=0\n")
+        f.write("STP=off\n")
+        f.write("PIFDEV=%s\n" % interface_name(pif))
 
     if pifrec['ip_configuration_mode'] == "DHCP":
         f.write("BOOTPROTO=dhcp\n")
         f.write("PERSISTENT_DHCLIENT=yes\n")
     elif pifrec['ip_configuration_mode'] == "Static":
-        f.write("BOOTPROTO=none\n")
+        f.write("BOOTPROTO=none\n") 
         f.write("NETMASK=%(netmask)s\n" % pifrec)
         f.write("IPADDR=%(IP)s\n" % pifrec)
         f.write("GATEWAY=%(gateway)s\n" % pifrec)
@@ -317,164 +672,642 @@ def ipdev_configure_network(pif, dp):
     else:
         raise Error("Unknown ip-configuration-mode %s" % pifrec['ip_configuration_mode'])
 
-    if nwrec.has_key('other_config'):
-        settings,offload = ethtool_settings(nwrec['other_config'])
-        if len(settings):
-            f.write("ETHTOOL_OPTS=\"%s\"\n" % str.join(" ", settings))
-        if len(offload):
-            f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % str.join(" ", offload))
-
-        ipdev_configure_static_routes(ipdev, nwrec['other_config'], f)
-
-    mtu = mtu_setting(nw, "Network", nwrec['other_config'])
-    if mtu:
-        f.write("MTU=%s\n" % mtu)
-
-
     if pifrec.has_key('DNS') and pifrec['DNS'] != "":
         ServerList = pifrec['DNS'].split(",")
         for i in range(len(ServerList)): f.write("DNS%d=%s\n" % (i+1, ServerList[i]))
     if oc and oc.has_key('domain'):
         f.write("DOMAIN='%s'\n" % oc['domain'].replace(',', ' '))
 
-    # There can be only one DNSDEV and one GATEWAYDEV in /etc/sysconfig/network.
-    #
-    # The peerdns pif will be the one with
-    # pif::other-config:peerdns=true, or the mgmt pif if none have
-    # this set.
-    #
-    # The gateway pif will be the one with
-    # pif::other-config:defaultroute=true, or the mgmt pif if none
-    # have this set.
+    # We only allow one ifcfg-xenbr* to have PEERDNS=yes and there can be only one GATEWAYDEV in /etc/sysconfig/network.
+    # The peerdns pif will be the one with pif::other-config:peerdns=true, or the mgmt pif if none have this set.
+    # The gateway pif will be the one with pif::other-config:defaultroute=true, or the mgmt pif if none have this set.
 
-    # Work out which pif on this host should be the DNSDEV and which
-    # should be the GATEWAYDEV
+    # Work out which pif on this host should be the one with PEERDNS=yes and which should be the GATEWAYDEV
     #
-    # Note: we prune out the bond master pif (if it exists). This is
-    # because when we are called to bring up an interface with a bond
-    # master, it is implicit that we should bring down that master.
+    # Note: we prune out the bond master pif (if it exists).
+    # This is because when we are called to bring up an interface with a bond master, it is implicit that
+    # we should bring down that master.
+    pifs_on_host = [ __pif for __pif in db.get_all_pifs() if
+                     db.get_pif_record(__pif)['host'] == host and 
+                     (not  __pif in get_bond_masters_of_pif(pif)) ]
+    other_pifs_on_host = [ __pif for __pif in pifs_on_host if __pif != pif ]
 
-    pifs_on_host = [p for p in db().get_all_pifs() if not p in pif_get_bond_masters(pif)]
-
+    peerdns_pif = None
+    defaultroute_pif = None
+    
     # loop through all the pifs on this host looking for one with
     #   other-config:peerdns = true, and one with
     #   other-config:default-route=true
-    peerdns_pif = None
-    defaultroute_pif = None
     for __pif in pifs_on_host:
-        __pifrec = db().get_pif_record(__pif)
+        __pifrec = db.get_pif_record(__pif)
         __oc = __pifrec['other_config']
         if __oc.has_key('peerdns') and __oc['peerdns'] == 'true':
             if peerdns_pif == None:
                 peerdns_pif = __pif
             else:
                 log('Warning: multiple pifs with "peerdns=true" - choosing %s and ignoring %s' % \
-                        (db().get_pif_record(peerdns_pif)['device'], __pifrec['device']))
+                        (db.get_pif_record(peerdns_pif)['device'], __pifrec['device']))
         if __oc.has_key('defaultroute') and __oc['defaultroute'] == 'true':
             if defaultroute_pif == None:
                 defaultroute_pif = __pif
             else:
                 log('Warning: multiple pifs with "defaultroute=true" - choosing %s and ignoring %s' % \
-                        (db().get_pif_record(defaultroute_pif)['device'], __pifrec['device']))
-
-    # If no pif is explicitly specified then use the mgmt pif for
-    # peerdns/defaultroute.
+                        (db.get_pif_record(defaultroute_pif)['device'], __pifrec['device']))
+    
+    # If no pif is explicitly specified then use the mgmt pif for peerdns/defaultroute
     if peerdns_pif == None:
         peerdns_pif = management_pif
     if defaultroute_pif == None:
         defaultroute_pif = management_pif
+        
+    # Update all the other network's ifcfg files and ensure consistency
+    for __pif in other_pifs_on_host:
+        __f = open_network_ifcfg(__pif)
+        peerdns_line_wanted = 'PEERDNS=%s\n' % ((__pif == peerdns_pif) and 'yes' or 'no')
+        lines =  __f.readlines()
 
-    is_dnsdev = peerdns_pif == pif
-    is_gatewaydev = defaultroute_pif == pif
+        if not peerdns_line_wanted in lines:
+            # the PIF selected for DNS has changed and as a result this ifcfg file needs rewriting
+            for line in lines:
+                if not line.lstrip().startswith('PEERDNS'):
+                    __f.write(line)
+            log("Setting %s in %s" % (peerdns_line_wanted.strip(), __f.path()))
+            __f.write(peerdns_line_wanted)
+            __f.close()
+            f.attach_child(__f)
 
-    if is_dnsdev or is_gatewaydev:
-        fnetwork = ConfigurationFile(root_prefix() + "/etc/sysconfig/network")
-        for line in fnetwork.readlines():
-            if is_dnsdev and line.lstrip().startswith('DNSDEV='):
-                fnetwork.write('DNSDEV=%s\n' % ipdev)
-                is_dnsdev = False
-            elif is_gatewaydev and line.lstrip().startswith('GATEWAYDEV='):
-                fnetwork.write('GATEWAYDEV=%s\n' % ipdev)
-                is_gatewaydev = False
-            else:
-                fnetwork.write(line)
+        else:
+            # There is no need to change this ifcfg file.  So don't attach_child.
+            pass
+        
+    # ... and for this pif too
+    f.write('PEERDNS=%s\n' % ((pif == peerdns_pif) and 'yes' or 'no'))
+    
+    # Update gatewaydev
+    fnetwork = ConfigurationFile("network", "/etc/sysconfig")
+    for line in fnetwork.readlines():
+        if line.lstrip().startswith('GATEWAY') :
+            continue
+        fnetwork.write(line)
+    if defaultroute_pif:
+        gatewaydev = bridge_name(defaultroute_pif)
+        if not gatewaydev:
+            gatewaydev = interface_name(defaultroute_pif)
+        fnetwork.write('GATEWAYDEV=%s\n' % gatewaydev)
+    fnetwork.close()
+    f.attach_child(fnetwork)
 
-        if is_dnsdev:
-            fnetwork.write('DNSDEV=%s\n' % ipdev)
-        if is_gatewaydev:
-            fnetwork.write('GATEWAYDEV=%s\n' % ipdev)
+    return
 
-        fnetwork.close()
-        f.attach_child(fnetwork)
+
+def configure_physical_interface(pif):
+    """Write the configuration for a physical interface.
+
+    Writes the configuration file for the physical interface described by
+    the pif object.
+
+    Returns the open file handle for the interface configuration file.
+    """
+
+    pifrec = db.get_pif_record(pif)
+
+    f = open_pif_ifcfg(pif)
+    
+    f.write("TYPE=Ethernet\n")
+    f.write("HWADDR=%(MAC)s\n" % pifrec)
 
     return f
 
-#
-# Toplevel actions
-#
+def get_bond_masters_of_pif(pif):
+    """Returns a list of PIFs which are bond masters of this PIF"""
 
-def action_up(pif, force):
-    pifrec = db().get_pif_record(pif)
+    pifrec = db.get_pif_record(pif)
 
-    ipdev = pif_ipdev_name(pif)
-    dp = DatapathFactory()(pif)
+    bso = pifrec['bond_slave_of']
 
-    log("action_up: %s" % ipdev)
+    # bond-slave-of is currently a single reference but in principle a
+    # PIF could be a member of several bonds which are not
+    # concurrently attached. Be robust to this possibility.
+    if not bso or bso == "OpaqueRef:NULL":
+        bso = []
+    elif not type(bso) == list:
+        bso = [bso]
 
-    f = ipdev_configure_network(pif, dp)
+    bondrecs = [db.get_bond_record(bond) for bond in bso]
+    bondrecs = [rec for rec in bondrecs if rec]
 
-    dp.preconfigure(f)
+    return [bond['master'] for bond in bondrecs]
 
+def get_bond_slaves_of_pif(pif):
+    """Returns a list of PIFs which make up the given bonded pif."""
+    
+    pifrec = db.get_pif_record(pif)
+    host = pifrec['host']
+
+    bmo = pifrec['bond_master_of']
+    if len(bmo) > 1:
+        raise Error("Bond-master-of contains too many elements")
+    
+    if len(bmo) == 0:
+        return []
+    
+    bondrec = db.get_bond_record(bmo[0])
+    if not bondrec:
+        raise Error("No bond record for bond master PIF")
+
+    # build a list of slave's pifs
+    slave_pifs = bondrec['slaves']
+
+    # Ensure any currently attached slaves are listed in the opposite order to the order in 
+    # which they were attached.  The first slave attached must be the last detached since
+    # the bond is using its MAC address.
+    try:
+        attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
+        for slave in attached_slaves:
+            partial_pifrec = {'host':host, 'device':slave}
+            slave_pif = db.get_pif_by_record(partial_pifrec)
+            slave_pifs.remove(slave_pif)
+            slave_pifs.insert(0, slave_pif)
+    except IOError:
+        pass 
+
+    return slave_pifs
+
+def configure_bond_interface(pif):
+    """Write the configuration for a bond interface.
+
+    Writes the configuration file for the bond interface described by
+    the pif object. Handles writing the configuration for the slave
+    interfaces.
+
+    Returns the open file handle for the bond interface configuration
+    file.
+    """
+
+    pifrec = db.get_pif_record(pif)
+    oc = pifrec['other_config']
+    f = open_pif_ifcfg(pif)
+
+    if pifrec['MAC'] != "":
+        f.write("MACADDR=%s\n" % pifrec['MAC'])
+
+    for slave in get_bond_slaves_of_pif(pif):
+        s = configure_physical_interface(slave)
+        s.write("MASTER=%(device)s\n" % pifrec)
+        s.write("SLAVE=yes\n")
+        s.close()
+        f.attach_child(s)
+
+    # The bond option defaults
+    bond_options = { 
+        "mode":   "balance-slb",
+        "miimon": "100",
+        "downdelay": "200",
+        "updelay": "31000",
+        "use_carrier": "1",
+        }
+
+    # override defaults with values from other-config whose keys being with "bond-"
+    overrides = filter(lambda (key,val): key.startswith("bond-"), oc.items())
+    overrides = map(lambda (key,val): (key[5:], val), overrides)
+    bond_options.update(overrides)
+
+    # write the bond options to ifcfg-bondX
+    f.write('BONDING_OPTS="')
+    for (name,val) in bond_options.items():
+        f.write("%s=%s " % (name,val))
+    f.write('"\n')
+    return f
+
+def get_vlan_slave_of_pif(pif):
+    """Find the PIF which is the VLAN slave of pif.
+
+Returns the 'physical' PIF underneath the a VLAN PIF @pif."""
+    
+    pifrec = db.get_pif_record(pif)
+
+    vlan = pifrec['VLAN_master_of']
+    if not vlan or vlan == "OpaqueRef:NULL":
+        raise Error("PIF is not a VLAN master")
+
+    vlanrec = db.get_vlan_record(vlan)
+    if not vlanrec:
+        raise Error("No VLAN record found for PIF")
+
+    return vlanrec['tagged_PIF']
+
+def get_vlan_masters_of_pif(pif):
+    """Returns a list of PIFs which are VLANs on top of the given pif."""
+    
+    pifrec = db.get_pif_record(pif)
+    vlans = [db.get_vlan_record(v) for v in pifrec['VLAN_slave_of']]
+    return [v['untagged_PIF'] for v in vlans if v and db.pif_exists(v['untagged_PIF'])]
+
+def configure_vlan_interface(pif):
+    """Write the configuration for a VLAN interface.
+
+    Writes the configuration file for the VLAN interface described by
+    the pif object. Handles writing the configuration for the master
+    interface if necessary.
+
+    Returns the open file handle for the VLAN interface configuration
+    file.
+    """
+
+    slave = configure_pif(get_vlan_slave_of_pif(pif))
+    slave.close()
+
+    f = open_pif_ifcfg(pif)
+    f.write("VLAN=yes\n")
+    f.attach_child(slave)
+    
+    return f
+
+def configure_pif(pif):
+    """Write the configuration for a PIF object.
+
+    Writes the configuration file the PIF and all dependent
+    interfaces (bond slaves and VLAN masters etc).
+
+    Returns the open file handle for the interface configuration file.
+    """
+
+    pifrec = db.get_pif_record(pif)
+
+    if pifrec['VLAN'] != '-1':
+        f = configure_vlan_interface(pif)
+    elif len(pifrec['bond_master_of']) != 0:
+        f = configure_bond_interface(pif)
+    else:
+        f = configure_physical_interface(pif)
+
+    bridge = bridge_name(pif)
+    if bridge:
+        f.write("BRIDGE=%s\n" % bridge)
+
+    return f
+
+def unconfigure_pif(pif):
+    """Clear up the files created by configure_pif"""
+    f = open_pif_ifcfg(pif)
+    log("Unlinking stale file %s" % f.path())
+    f.unlink()
+    return f
+
+
+def bring_down_bridge(bridge, destroy=False):
+    """Bring down the bridge associated with a PIF."""
+    log("Bring bridge %s down" % bridge)
+    ifdown(bridge)
+    if destroy:
+        log("Destroy bridge %s" % bridge)
+        delbr(bridge)
+
+def bring_up_bridge(bridge):
+    """Bring up the bridge associated with a PIF."""
+    log("Bring bridge %s up" % bridge)
+    ifup(bridge)
+
+def bring_down_interface(pif, destroy=False):
+    """Bring down the interface associated with PIF.
+
+    Brings down the given interface as well as any physical interfaces
+    which are bond slaves of this one. This is because they will be
+    required when the bond is brought up."""
+
+    rec = db.get_pif_record(pif)    
+    interface = interface_name(pif)
+    bridge = bridge_name(pif)
+
+    if rec['VLAN'] != '-1':
+        log("bring_down_interface: %s is a VLAN" % interface)
+        ifdown(interface)
+        
+        if destroy:
+            log("Destroy vlan device %s" % interface)
+            vconfig_rem(interface)
+            if bridge:
+                bring_down_bridge(bridge, destroy=True)
+        else:
+            return
+
+        slave = get_vlan_slave_of_pif(pif)
+        if db.get_pif_record(slave)['currently_attached']:
+            log("bring_down_interface: vlan slave is currently attached")
+            return
+        
+        masters = get_vlan_masters_of_pif(slave)
+        masters = [m for m in masters if m != pif and db.get_pif_record(m)['currently_attached']]
+        if len(masters) > 0:
+            log("bring_down_interface: vlan slave has other masters")
+            return
+
+        log("bring_down_interface: no more masters, bring down vlan slave %s" % interface_name(slave))
+        pif = slave
+    else:
+        vlan_masters = get_vlan_masters_of_pif(pif)
+        log("vlan masters of %s - %s" % (rec['device'], [interface_name(m) for m in vlan_masters]))
+        if len([m for m in vlan_masters if db.get_pif_record(m)['currently_attached']]) > 0:
+            log("Leaving %s up due to currently attached VLAN masters" % interface)
+            return
+
+    # pif is now either a bond or a physical device which needs to be brought down
+    rec = db.get_pif_record(pif)
+    interface = interface_name(pif)
+
+    # Need to bring down bond slaves first since the bond device
+    # must be up to enslave/unenslave.        
+    bond_slaves = get_bond_slaves_of_pif(pif)
+    log("bond slaves of %s - %s" % (rec['device'], [interface_name(s) for s in bond_slaves]))
+    for slave in bond_slaves:
+        slave_interface = interface_name(slave)
+        slave_bridge = bridge_name(slave)
+        if db.get_pif_record(slave)['currently_attached']:
+            log("leave bond slave %s up (currently attached)" % slave_interface)
+            continue
+        log("bring down bond slave %s" % slave_interface)
+        ifdown(slave_interface)
+        # Also destroy the bridge associated with the slave, since
+        # it will carry the MAC address and possibly an IP address
+        # leading to confusion.
+        if slave_bridge:
+            bring_down_bridge(slave_bridge, destroy=True)
+
+    log("Bring interface %s down" % interface)
+    ifdown(interface)
+
+    if destroy:
+        destroy_bond_device(pif)
+        if bridge:
+            bring_down_bridge(bridge, destroy=True)
+
+def interface_is_up(pif):
+    try:
+        interface = interface_name(pif)
+        state = open("/sys/class/net/%s/operstate" % interface).read().strip()
+        return state == "up"
+    except:
+        return False # interface prolly doesn't exist
+
+def bring_up_interface(pif):
+    """Bring up the interface associated with a PIF.
+
+    Also bring up the interfaces listed in additional.
+    """
+
+    rec = db.get_pif_record(pif)
+    
+    # VLAN on bond seems to need bond brought up explicitly, but VLAN
+    # on normal device does not. Might as well always bring it up.
+    if rec['VLAN'] != '-1':
+        slave = get_vlan_slave_of_pif(pif)
+        if not interface_is_up(slave):
+            bring_up_interface(slave)
+
+    interface = interface_name(pif)
+
+    create_bond_device(pif)
+        
+    log("Bring interface %s up" % interface)
+    ifup(interface)
+
+def action_up(pif):
+
+    pifrec = db.get_pif_record(pif)
+
+    f = configure_pif(pif)
+    
+    interface = interface_name(pif)
+    bridge = bridge_name(pif)
+    mode = pifrec['ip_configuration_mode']
+
+    if bridge:
+        log("Configuring %s using %s configuration" % (bridge, mode))
+        br = open_network_ifcfg(pif)
+        configure_network(pif, br)
+        br.close()
+        f.attach_child(br)
+    else:
+        log("Configuring %s using %s configuration" % (interface, mode))
+        configure_network(pif, f)
+        
     f.close()
 
-    pif_rename_physical_devices(pif)
+    # if there is a bridge using this pif then bring it down
+    if bridge:
+        bring_down_bridge(bridge)
 
-    # if we are not forcing the interface up then attempt to tear down
-    # any existing devices which might interfere with brinign this one
-    # up.
-    if not force:
-        ifdown(ipdev)
+    # Bring down any VLAN masters so that we can reconfigure the slave.
+    vlan_masters = get_vlan_masters_of_pif(pif)
+    for master in vlan_masters:
+        name = interface_name(master)
+        log("action_up: bring down %s" % (name))
+        ifdown(name)
 
-        dp.bring_down_existing()
-
+    # interface-reconfigure is never explicitly called to down a bond master.
+    # However, when we are called to up a slave it is implicit that we are destroying the master.
+    bond_masters = get_bond_masters_of_pif(pif)
+    for master in bond_masters:
+        master_bridge = bridge_name(master)
+        # bring down master
+        bring_down_interface(master, destroy=True)
+        if master_bridge:
+            bring_down_bridge(master_bridge, destroy=True)
+        # unconfigure master
+        removed = unconfigure_pif(master)
+        f.attach_child(removed)
+        if master_bridge:
+            removed = open_network_ifcfg(master)
+            log("Unlinking stale file %s" % removed.path())
+            removed.unlink()
+            f.attach_child(removed)
+    
+    # No masters left - now its safe to reconfigure the slave.
+    bring_down_interface(pif)
+    
     try:
         f.apply()
 
-        dp.configure()
-
-        ifup(ipdev)
-
-        dp.post()
-
+        bring_up_interface(pif)
+        if bridge:
+            bring_up_bridge(bridge)
+        
         # Update /etc/issue (which contains the IP address of the management interface)
-        os.system(root_prefix() + "/sbin/update-issue")
+        os.system("/sbin/update-issue")
+
+        # Bring back any currently-attached VLAN masters (brought down above)
+        for master in [v for v in vlan_masters if db.get_pif_record(v)['currently_attached']]:
+            name = interface_name(master)
+            log("action_up: bring up %s" % (name))
+            ifup(name)
 
         f.commit()
     except Error, e:
         log("failed to apply changes: %s" % e.msg)
         f.revert()
         raise
-
+        
 def action_down(pif):
-    ipdev = pif_ipdev_name(pif)
-    dp = DatapathFactory()(pif)
+    bring_down_interface(pif, destroy=True)
 
-    log("action_down: %s" % ipdev)
+    # Clear up the pif's config file
+    f = unconfigure_pif(pif)
 
-    ifdown(ipdev)
+    # If there's a bridge associated, clear up its config file
+    bridge = bridge_name(pif)
+    if bridge:
+        br = open_network_ifcfg(pif)
+        log("Unlinking stale file %s" % br.path())
+        br.unlink()
+        f.attach_child(br)
 
-    dp.bring_down()
+    try:
+        f.apply()
+        f.commit()
+    except Error, e:
+        log("action_down failed to apply changes: %s" % e.msg)
+        f.revert()
+        raise
 
-def action_rewrite():
-    DatapathFactory().rewrite()
+def action_rewrite(pif):
+
+    pifrec = db.get_pif_record(pif)
+
+    f = configure_pif(pif)
+
+    interface = interface_name(pif)
+    bridge = bridge_name(pif)
+    mode = pifrec['ip_configuration_mode']
+
+    if bridge:
+        log("Configuring %s using %s configuration" % (bridge, mode))
+        br = open_network_ifcfg(pif)
+        configure_network(pif, br)
+        br.close()
+        f.attach_child(br)
+    else:
+        log("Configuring %s using %s configuration" % (interface, mode))
+        configure_network(pif, f)
+
+    f.close()
+
+    try:
+        f.apply()
+        f.commit()
+    except Error, e:
+        log("failed to apply changes: %s" % e.msg)
+        f.revert()
+        raise
+
+def force_pif_up(pifdev):
+    if os.path.exists(os.path.join(ifcfg, "ifcfg-" + pifdev)):
+        if not interface_up(pifdev):
+            log("Bring interface %s up" % pifdev)
+            ifup(pifdev)
+        else:
+            log("Interface %s is already up, leaving" % pifdev)
+    else:
+        log("No configuration found for PIF %s, attempting to continue" % pifdev)
+
+
+def force_pif_down(pifdev):
+    if os.path.exists(os.path.join(ifcfg, "ifcfg-" + pifdev)):
+        if interface_up(pifdev):
+            log("Bring interface %s down" % pifdev)
+            ifdown(pifdev)
+        else:
+            log("Interface %s is already down, leaving" % pifdev)
+    else:
+        log("No configuration found for PIF %s, attempting to continue" % pifdev)
+
+def action_force_up(bridge):
+    ifcfg_bridge = os.path.join(ifcfg, "ifcfg-" + bridge)
+    if not os.path.exists(ifcfg_bridge):
+        raise Error("No configuration found for bridge %s" % bridge)
+
+    f = open(ifcfg_bridge)
+    pifdevs = filter(lambda x: x.startswith("PIFDEV="), f.readlines())
+    f.close()
+
+    if len(pifdevs) == 0:
+        log("PIF device is not configured for %s, attempting to continue" % bridge)
+    else:
+        if len(pifdevs) > 1:
+            log("Device %s has %d PIF devices configured. Selecting the first" % (bridge, len(pifdevs)))
+        pifdev = pifdevs[0].strip()[len("PIFDEV="):]
+
+        split = pifdev.split(".",1)
+        if len(split) == 2:
+            vlanmaster = split[0]
+            vlantag = split[1]
+        else:
+            vlanmaster = None
+
+        if pifdev.startswith("bond"):
+            # Drop the (optional) VLAN suffix
+            bond = pifdev.split(".")[0]
+            __create_bond_device(bond)
+
+        if vlanmaster:
+            force_pif_up(vlanmaster)
+            
+        force_pif_up(pifdev)
+        
+    if not os.path.exists(os.path.join(ifcfg, "ifcfg-" + bridge)):
+        log("No configuration found for bridge %s, attempting to continue" % bridge)
+    elif not interface_up(bridge):
+        log("Bring bridge %s up" % bridge)
+        ifup(bridge)
+    else:
+        log("Bridge %s is already up, leaving" % bridge)
+
+
+def action_force_down(bridge):
+    if bridge == 'all':
+        action_force_down_all_devices()
     
+    ifcfg_bridge = os.path.join(ifcfg, "ifcfg-" + bridge)
+    if not os.path.exists(ifcfg_bridge):
+        raise Error("No configuration found for bridge %s" % bridge)
+
+    if interface_up(bridge):
+        log("Bring bridge %s down" % bridge)
+        ifdown(bridge)
+    else:
+        log("Bridge %s is already down, leaving" % bridge)
+
+
+    f = open(ifcfg_bridge)
+    pifdevs = filter(lambda x: x.startswith("PIFDEV="), f.readlines())
+    f.close()
+
+    if len(pifdevs) == 0:
+        log("PIF device is not configured for %s, attempting to continue" % bridge)
+    else:
+        if len(pifdevs) > 1:
+            log("Device %s has %d PIF devices configured. Selecting the first" % (bridge, len(pifdevs)))
+        pifdev = pifdevs[0].strip()[len("PIFDEV="):]
+
+        force_pif_down(pifdev)
+
+        split = pifdev.split(".",1)
+        if len(split) == 2:
+            vlanmaster = split[0]
+            vlantag = split[1]
+        else:
+            vlanmaster = None
+
+        if vlanmaster:
+            force_pif_down(vlanmaster)
+
+        if pifdev.startswith("bond"):
+            # Drop the (optional) VLAN suffix
+            bond = pifdev.split(".")[0]
+            __destroy_bond_device(bond)
+        
+
 # This is useful for reconfiguring the mgmt interface after having lost connectivity to the pool master
 def action_force_rewrite(bridge, config):
-    def getUUID():
-        import subprocess
-        uuid,_ = subprocess.Popen(['uuidgen'], stdout = subprocess.PIPE).communicate()
-        return uuid.strip()
-
     # Notes:
     # 1. that this assumes the interface is bridged
     # 2. If --gateway is given it will make that the default gateway for the host
@@ -482,11 +1315,9 @@ def action_force_rewrite(bridge, config):
     # extract the configuration
     try:
         mode = config['mode']
-        mac = config['mac']
         interface = config['device']
     except:
-        raise Usage("Please supply --mode, --mac and --device")
-
+        raise Usage("Please supply --mode and --device")
     if mode == 'static':
         try:
             netmask = config['netmask']
@@ -506,58 +1337,58 @@ def action_force_rewrite(bridge, config):
     else:
         is_vlan = False
 
-    if is_vlan:
-        raise Error("Force rewrite of VLAN not implemented")
-
     log("Configuring %s using %s configuration" % (bridge, mode))
-
-    f = ConfigurationFile(root_prefix() + dbcache_file)
-
-    pif_uuid = getUUID()
-    network_uuid = getUUID()
-
-    f.write('<?xml version="1.0" ?>\n')
-    f.write('<xenserver-network-configuration>\n')
-    f.write('\t<pif ref="OpaqueRef:%s">\n' % pif_uuid)
-    f.write('\t\t<network>OpaqueRef:%s</network>\n' % network_uuid)
-    f.write('\t\t<management>True</management>\n')
-    f.write('\t\t<uuid>%sPif</uuid>\n' % interface)
-    f.write('\t\t<bond_slave_of>OpaqueRef:NULL</bond_slave_of>\n')
-    f.write('\t\t<bond_master_of/>\n')
-    f.write('\t\t<VLAN_slave_of/>\n')
-    f.write('\t\t<VLAN_master_of>OpaqueRef:NULL</VLAN_master_of>\n')
-    f.write('\t\t<VLAN>-1</VLAN>\n')
-    f.write('\t\t<device>%s</device>\n' % interface)
-    f.write('\t\t<MAC>%s</MAC>\n' % mac)
-    f.write('\t\t<other_config/>\n')
-    if mode == 'dhcp':
-        f.write('\t\t<ip_configuration_mode>DHCP</ip_configuration_mode>\n')
-        f.write('\t\t<IP></IP>\n')
-        f.write('\t\t<netmask></netmask>\n')
-        f.write('\t\t<gateway></gateway>\n')
-        f.write('\t\t<DNS></DNS>\n')
-    elif mode == 'static':
-        f.write('\t\t<ip_configuration_mode>Static</ip_configuration_mode>\n')
-        f.write('\t\t<IP>%s</IP>\n' % ip)
-        f.write('\t\t<netmask>%s</netmask>\n' % netmask)
-        if gateway is not None:
-            f.write('\t\t<gateway>%s</gateway>\n' % gateway)
-        f.write('\t\t<DNS></DNS>\n')
+    # Physical Device configuration
+    f = __open_ifcfg(interface)
+    if is_vlan:
+        f.write("VLAN=yes\n")
+        try:
+            slv_mac = open("/sys/class/net/%s/address" % vlan_slave).read().strip()
+        except:
+            raise Error("cannot find device %s" % vlan_slave)
+        slv =  __open_ifcfg(vlan_slave)
+        slv.write("TYPE=Ethernet\n")
+        slv.write("HWADDR=%s\n" % slv_mac)
+        slv.close()
+        f.attach_child(slv)
     else:
-        raise Error("Unknown mode %s" % mode)
-    f.write('\t</pif>\n')
-
-    f.write('\t<network ref="OpaqueRef:%s">\n' % network_uuid)
-    f.write('\t\t<uuid>InitialManagementNetwork</uuid>\n')
-    f.write('\t\t<PIFs>\n')
-    f.write('\t\t\t<PIF>OpaqueRef:%s</PIF>\n' % pif_uuid)
-    f.write('\t\t</PIFs>\n')
-    f.write('\t\t<bridge>%s</bridge>\n' % bridge)
-    f.write('\t\t<other_config/>\n')
-    f.write('\t</network>\n')
-    f.write('</xenserver-network-configuration>\n')
-
+        try:
+            itf_mac = open("/sys/class/net/%s/address" % interface).read().strip()
+        except:
+            raise Error("cannot find device %s" % interface)
+        f.write("TYPE=Ethernet\n")
+        f.write("HWADDR=%s\n" % itf_mac)
+    f.write("BRIDGE=%s\n" % bridge)
     f.close()
+
+
+    br = __open_ifcfg(bridge)
+    f.attach_child(br)
+
+    # Networking configuration
+    br.write("TYPE=Bridge\n")
+    br.write("DELAY=0\n")
+    br.write("STP=off\n")
+    br.write("PIFDEV=%s\n" % interface)
+
+    if mode == "dhcp":
+        br.write("BOOTPROTO=dhcp\n")
+        br.write("PERSISTENT_DHCLIENT=yes\n")
+    elif mode == "static":
+        br.write("BOOTPROTO=none\n") 
+        br.write("NETMASK=%s\n" % netmask)
+        br.write("IPADDR=%s\n" % ip)
+        if gateway:
+            br.write("GATEWAY=%s\n" % gateway)
+            fnetwork = ConfigurationFile("network", "/etc/sysconfig")
+            for line in fnetwork.readlines():
+                if line.lstrip().startswith('GATEWAY') :
+                    continue
+                fnetwork.write(line)
+            fnetwork.write('GATEWAYDEV=%s\n' % bridge)
+            fnetwork.close()
+            br.attach_child(fnetwork)
+    br.close()
 
     try:
         f.apply()
@@ -567,39 +1398,116 @@ def action_force_rewrite(bridge, config):
         f.revert()
         raise
 
-def main(argv=None):
-    global management_pif
+# This is an almighty big hammer which uses heuristics to determine
+# which interfaces are up and how they're configured and brings
+# everything down with the exception of vifs and local interfaces.
+# Use this if you haven't access to the DB, or if the networking has
+# been screwed up manually using the CLI.
+def action_force_down_all_devices():
+    log("Forcing down ALL net-devices")
+    def run(*args):
+        rc = os.spawnl(os.P_WAIT, args[0], *args)
+        if rc:
+            log("%s returned %d" % (" ".join(args), rc))
+    # kill any dhclients previously started
+    run('/bin/sh','-c','/usr/bin/killall -9 dhclient; exit 0')
+    
+    # Create list of bridges
+    bridges = [ itf for itf in os.listdir('/sys/class/net/') 
+                if os.path.exists('/sys/class/net/%s/bridge' % itf) ]
 
+    # Per bridge bringing down
+    for bridge in bridges:
+        # Detach from IP stack
+        run("/sbin/ip", "route", "flush", "dev", bridge, "table", "all")
+        run("/sbin/ip", "addr", "flush", "dev", bridge)
+        
+        # Remove interfaces
+        brifs = [ itf for itf in os.listdir('/sys/class/net/%s/brif/' % bridge)
+                  if not itf.startswith('vif') ]
+        for itf in brifs:
+            run("/usr/sbin/brctl", "delif", bridge, itf)
+
+    # Bring down VLANs
+    vlans = []
+    if os.path.exists('/proc/net/vlan'):
+        vlans = [ v for v in os.listdir('/proc/net/vlan') if v != "config" ]
+    for vlan in vlans:
+        run("/sbin/ip", "link", "set", vlan, "down")
+        run("/sbin/vconfig", "rem", vlan)
+
+    # Bring down bonds
+    bonds = []
+    if os.path.exists('/sys/class/net/bonding_masters'):
+        bonds = open('/sys/class/net/bonding_masters').readline().split()
+    for bond in bonds:
+        run("/sbin/ip", "link", "set", bond, "up")
+        fname = "/sys/class/net/%s/bonding/slaves" % bond
+        fd = open(fname, "r")
+        slaves = fd.readline().strip().split()
+        fd.close()
+        while len(slaves) > 0:
+            slave = slaves.pop()
+            fd = open(fname, "w")
+            fd.write("-%s" % slave)
+            fd.close()
+        fd = open("/sys/class/net/bonding_masters", "w")
+        fd.write("-%s" % bond)
+        fd.close()
+    # DO NOT modprobe -r bonding as this has side effect of bringing down all bridges
+
+    # Bring down physical interfaces
+    physifs = [ itf for itf in os.listdir('/sys/class/net')
+                   if (os.path.exists('/sys/class/net/%s/ifindex' % itf) and
+                       (itf != "lo") and
+                       (not itf.startswith("vif")) and
+                       (not itf.startswith("xapi")) and 
+                       (not itf.startswith("xenbr")) and
+                       (not itf.startswith("sit")) and 
+                       (not itf.startswith("ppp"))
+                       )
+                   ]
+    for phys in physifs:
+        run("/sbin/ip", "route", "flush", "dev", phys, "table", "all")
+        run("/sbin/ip", "addr", "flush", "dev", phys)
+        run("/sbin/ip", "link", "set", phys, "down")
+        
+
+def main(argv=None):
+    global output_directory, management_pif
+    
     session = None
     pif_uuid = None
     pif = None
 
     force_interface = None
     force_management = False
-
+    
     if argv is None:
         argv = sys.argv
 
     try:
         try:
             shortops = "h"
-            longops = [ "pif=", "pif-uuid=",
+            longops = [ "output-directory=",
+                        "pif=", "pif-uuid=",
                         "session=",
                         "force=",
                         "force-interface=",
                         "management",
-                        "mac=", "device=", "mode=", "ip=", "netmask=", "gateway=",
-                        "root-prefix=",
-                        "no-syslog",
+                        "test-mode",
+                        "device=", "mode=", "ip=", "netmask=", "gateway=",
                         "help" ]
             arglist, args = getopt.gnu_getopt(argv[1:], shortops, longops)
         except getopt.GetoptError, msg:
             raise Usage(msg)
 
         force_rewrite_config = {}
-
+        
         for o,a in arglist:
-            if o == "--pif":
+            if o == "--output-directory":
+                output_directory = a
+            elif o == "--pif":
                 pif = a
             elif o == "--pif-uuid":
                 pif_uuid = a
@@ -609,33 +1517,26 @@ def main(argv=None):
                 force_interface = a
             elif o == "--management":
                 force_management = True
-            elif o in ["--mac", "--device", "--mode", "--ip", "--netmask", "--gateway"]:
+            elif o in ["--device", "--mode", "--ip", "--netmask", "--gateway"]:
                 force_rewrite_config[o[2:]] = a
-            elif o == "--root-prefix":
-                set_root_prefix(a)
-            elif o == "--no-syslog":
-                set_log_destination("stderr")
             elif o == "-h" or o == "--help":
                 print __doc__ % {'command-name': os.path.basename(argv[0])}
                 return 0
 
-        if get_log_destination() == "syslog":
+        if not debug_mode():
             syslog.openlog(os.path.basename(argv[0]))
             log("Called as " + str.join(" ", argv))
-
         if len(args) < 1:
             raise Usage("Required option <action> not present")
         if len(args) > 1:
             raise Usage("Too many arguments")
 
         action = args[0]
-
-        if not action in ["up", "down", "rewrite", "rewrite-configuration"]:
-            raise Usage("Unknown action \"%s\"" % action)
-
         # backwards compatibility
         if action == "rewrite-configuration": action = "rewrite"
-
+        
+        if output_directory and ( session or pif ):
+            raise Usage("--session/--pif cannot be used with --output-directory")
         if ( session or pif ) and pif_uuid:
             raise Usage("--session/--pif and --pif-uuid are mutually exclusive.")
         if ( session and not pif ) or ( not session and pif ):
@@ -644,62 +1545,52 @@ def main(argv=None):
             raise Usage("--force is mutually exclusive with --session, --pif and --pif-uuid")
         if len(force_rewrite_config) and not (force_interface and action == "rewrite"):
             raise Usage("\"--force rewrite\" needed for --device, --mode, --ip, --netmask, and --gateway")
-        if (action == "rewrite") and (pif or pif_uuid ):
-            raise Usage("rewrite action does not take --pif or --pif-uuid")
-        
-        global db
+
         if force_interface:
             log("Force interface %s %s" % (force_interface, action))
-
-            if action == "rewrite":
+            
+            if action == "up":
+                action_force_up(force_interface)
+            elif action == "down":
+                action_force_down(force_interface)
+            elif action == "rewrite":
                 action_force_rewrite(force_interface, force_rewrite_config)
-            elif action in ["up", "down"]:
-                db_init_from_cache(dbcache_file)
-                pif = db().get_pif_by_bridge(force_interface)
-                management_pif = db().get_management_pif()
-
-                if action == "up":
-                    action_up(pif, True)
-                elif action == "down":
-                    action_down(pif)
             else:
-                raise Error("Unknown action %s"  % action)
+                raise Usage("Unknown action %s"  % action)
         else:
-            db_init_from_xenapi(session)
+            global db
+            db = DatabaseCache(session)
 
             if pif_uuid:
-                pif = db().get_pif_by_uuid(pif_uuid)
+                pif = db.get_pif_by_uuid(pif_uuid)
+        
+            if not pif:
+                raise Usage("No PIF given")
 
-            if action == "rewrite":
-                action_rewrite()
+            if force_management:
+                # pif is going to be the management pif 
+                management_pif = pif
             else:
-                if not pif:
-                    raise Usage("No PIF given")
+                # pif is not going to be the management pif.
+                # Search DB cache for pif on same host with management=true
+                pifrec = db.get_pif_record(pif)
+                host = pifrec['host']
+                management_pif = db.get_management_pif(host)
 
-                if force_management:
-                    # pif is going to be the management pif
-                    management_pif = pif
-                else:
-                    # pif is not going to be the management pif.
-                    # Search DB cache for pif on same host with management=true
-                    pifrec = db().get_pif_record(pif)
-                    management_pif = db().get_management_pif()
+            log_pif_action(action, pif)
 
-                log_pif_action(action, pif)
+            if not check_allowed(pif):
+                return 0
 
-                if not check_allowed(pif):
-                    return 0
-
-                if action == "up":
-                    action_up(pif, False)
-                elif action == "down":
-                    action_down(pif)
-                else:
-                    raise Error("Unknown action %s"  % action)
-
-            # Save cache.
-            db().save(dbcache_file)
-
+            if action == "up":
+                action_up(pif)
+            elif action == "down":
+                action_down(pif)
+            elif action == "rewrite":
+                action_rewrite(pif)
+            else:
+                raise Usage("Unknown action %s"  % action)
+        
     except Usage, err:
         print >>sys.stderr, err.msg
         print >>sys.stderr, "For help use --help."
@@ -707,7 +1598,7 @@ def main(argv=None):
     except Error, err:
         log(err.msg)
         return 1
-
+    
     return 0
 
 if __name__ == "__main__":
@@ -720,6 +1611,7 @@ if __name__ == "__main__":
         for exline in err:
             log(exline)
 
-    syslog.closelog()
-
+    if not debug_mode():
+        syslog.closelog()
+        
     sys.exit(rc)

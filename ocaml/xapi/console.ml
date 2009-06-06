@@ -1,24 +1,13 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006,2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(*
  * HTTP handler for connecting to a VM's VNC console.
  * Handler should be passed a reference to either a VM (in which case the 'default' VNC
  * console will be chosen) or a console object.
  *)
 
 open Http
-open Xenops_helpers
 
 module D = Debug.Debugger(struct let name="console" end)
 open D
@@ -26,28 +15,21 @@ open D
 exception Failure
 
 let real_proxy __context console s = 
-  let vm = Db.Console.get_VM __context console in
-  let domid = Helpers.domid_of_vm __context vm in
-  let vnc_port = 
-	try 
-	  int_of_string (with_xc_and_xs (fun xc xs -> xs.Xs.read (Device.vnc_port_path xc xs domid))) 
-	with Xb.Noent ->
-		error "Failed to read vnc-port from xenstore";
-		raise Failure in
-
-  debug "VM %s has console on port %d" (Ref.string_of vm) vnc_port;
+  (* Only works with VNC for now *)
+  let vnc_port = Int64.to_int (Db.Console.get_port ~__context ~self:console) in
+  (* let vnc_port = 22 in *)
+  debug "attempting to connect to port %d" vnc_port;
   begin try
-    let vnc_sock = Unixext.open_connection_fd "127.0.0.1" vnc_port in
-    (* Unixext.proxy closes fds itself so we must dup here *)
-    let s' = Unix.dup s in
-    debug "Connected; running proxy (between fds: %d and %d)" 
-		(Unixext.int_of_file_descr vnc_sock) (Unixext.int_of_file_descr s');
-    Unixext.proxy vnc_sock s';
-    debug "Proxy exited"
-  with
-    exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
+      let vnc_sock = Unixext.open_connection_fd "127.0.0.1" vnc_port in
+      (* Unixext.proxy closes fds itself so we must dup here *)
+      let s' = Unix.dup s in
+      debug "Connected; running proxy (between fds: %d and %d)" 
+	(Unixext.int_of_file_descr vnc_sock) (Unixext.int_of_file_descr s');
+      Unixext.proxy vnc_sock s';
+      debug "Proxy exited"
+    with
+      exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
   end
-		
 
 let fake_proxy __context console s = 
   Rfb_randomtest.server s
@@ -78,56 +60,22 @@ let console_of_request __context req =
   (* The _ref may be either a VM ref in which case we look for a
      default VNC console or it may be a console ref in which case we
      go for that. *)
-  let is_vm, is_console = match Db_cache.DBCache.get_table_from_ref _ref with
-	| Some c when c = Db_names.vm -> true, false
-	| Some c when c = Db_names.console -> false, true
-	| _ ->
-		  error "%s is neither a VM ref or a console ref" _ref;
-		  raise Failure in
-
+  let is_vm = try ignore(Db.VM.get_uuid ~__context ~self:(Ref.of_string _ref)); true with _ -> false in
+  let is_console = try ignore(Db.Console.get_uuid ~__context ~self:(Ref.of_string _ref)); true with _ -> false in
+  if not(is_vm) && not(is_console) then begin
+    error "Reference was not for a VM or a console";
+    raise Failure
+  end;
   if is_vm then default_console_of_vm ~__context ~self:(Ref.of_string _ref) else (Ref.of_string _ref) 
     
-
-let rbac_check_for_control_domain __context (req:request) console_id permission =
-	let is_control_domain =
-		let vm_id = Db.Console.get_VM ~__context ~self:console_id in
-		Db.VM.get_is_control_domain ~__context ~self:vm_id
-	in
-	if is_control_domain then
-		let extra_dmsg = Printf.sprintf "for host console %s" (Ref.string_of console_id) in
-		let session_id = Xapi_http.get_session_id req in
-		Rbac.check_with_new_task ~extra_dmsg session_id permission ~fn:Rbac.nofn
-			~args:(Xapi_http.rbac_audit_params_of req)
-
-let check_vm_is_running_here __context console = 
-  let vm = Db.Console.get_VM ~__context ~self:console in
-  if Db.VM.get_power_state ~__context ~self:vm <> `Running then begin
-	error "VM %s (Console %s) has power_state <> Running" (Ref.string_of vm) (Ref.string_of console);
-	raise Failure
-  end;
-  let localhost = Helpers.get_localhost ~__context in
-  let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-  if resident_on <> localhost then begin
-	error "VM %s (Console %s) has resident_on = %s <> localhost" (Ref.string_of vm) (Ref.string_of console) (Ref.string_of resident_on);
-	raise Failure
-  end
-
-  ()
 (* GET /console_uri?ref=.....
    Cookie: <session id> *)
 let handler proxy_fn (req: request) s =
-  req.close <- true;
+  req.close := true;
+  debug "handler: fd = %d" (Unixext.int_of_file_descr s);
   Xapi_http.with_context "Connection to VM console" req s
     (fun __context ->
       let console = console_of_request __context req in
-      (* only sessions with 'http/connect_console/host_console' permission *)
-      (* can access dom0 host consoles *)
-      rbac_check_for_control_domain __context req console
-        Rbac_static.permission_http_connect_console_host_console.Db_actions.role_name_label;
-
-	  (* Check VM is actually running locally *)
-	  check_vm_is_running_here __context console;
-
       Http_svr.headers s (Http.http_200_ok ());
       
       proxy_fn __context console s)

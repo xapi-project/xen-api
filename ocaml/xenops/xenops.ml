@@ -1,21 +1,24 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006 XenSource Inc.
+ * Author Vincent Hanquez <vincent@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * All rights reserved.
  *)
+
 open Printf
 open Pervasiveext
 open Stringext
 open Device_common
-open Xenops_helpers
+
+let with_xal f =
+	let xal = Xal.init () in
+	finally (fun () -> f xal) (fun () -> Xal.close xal)
+
+let with_xc f = Xc.with_intf f
+let with_xs f =
+	let xs = Xs.daemon_open () in
+	finally (fun () -> f xs) (fun () -> Xs.close xs)
+let with_xc_and_xs f = with_xc (fun xc -> with_xs (fun xs -> f xc xs))
 
 let print_xen_dmesg ~xc =
 	let s = Xc.readconsolering xc in
@@ -53,35 +56,22 @@ let is_hvm ~xc domid =
 
 let create_domain ~xc ~xs ~hvm =
 	let uuid = Uuid.make_uuid () in
-	let info = {
-		Domain.ssidref = 0l;
-		Domain.hvm = hvm;
-		Domain.hap = hvm;
-		Domain.name = "";
-		Domain.xsdata = [];
-		Domain.platformdata = [];
-		Domain.bios_strings = [];
-	} in
-	let domid = Domain.make ~xc ~xs info uuid in
+	let domid = Domain.make ~xc ~xs ~hvm uuid in
 	printf "%u\n" domid
 
-let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_linux xc xs static_max_kib target_kib
+let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~mem_max_kib ~mem_target_kib =
+	let (_: Domain.domarch) = Domain.build_linux xc xs mem_max_kib mem_target_kib
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
-let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
-	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel "0" domid in
+let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~pae ~apic ~acpi ~nx ~viridian =
+	let (_: Domain.domarch) = Domain.build_hvm xc xs mem_max_kib mem_target_kib 1.
+	                                           vcpus kernel pae apic acpi nx viridian
+	                                           "0" domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
-  let xc = Xal.xc_of_ctx xal in
-  let xs = Xal.xs_of_ctx xal in
-  Domain.shutdown ~xs domid reason;
-  (* Wait for any necessary acknowledgement. If we get a Watch.Timeout _ then
-	 we abort early; otherwise we continue in Xal.wait_release below. *)
-  let acked = try Domain.shutdown_wait_for_ack ~xc ~xs domid reason; true with Watch.Timeout _ -> false in
+	let acked = Domain.shutdown_ack (Xal.xc_of_ctx xal) (Xal.xs_of_ctx xal) domid reason in
 	if not acked then (
 		eprintf "domain %u didn't acknowledged shutdown\n" domid;
 	) else (
@@ -124,15 +114,15 @@ let suspend_domain ~xc ~xs ~domid ~file =
 
 let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.resume ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
+	Domain.resume ~xc ~xs ~cooperative domid
 
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
 	Domain.destroy xc xs domid
 
-let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
+let restore_domain ~xc ~xs ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+	Domain.restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =
@@ -233,9 +223,11 @@ let find_device ~xs (frontend: endpoint) (backend: endpoint) =
   | _ -> failwith "failed to find device"
 
 let del_vbd ~xs ~domid ~backend_domid ~virtpath ~phystype =
+	let physty = Device.Vbd.physty_of_string phystype in
+	let kind = Device.Vbd.kind_of_physty physty in
 	let devid = Device.Vbd.device_number virtpath in
-	let frontend = { domid = domid; kind = Vbd; devid = devid } in
-	let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
+	let frontend = { domid = domid; kind = kind; devid = devid } in
+	let backend = { domid = backend_domid; kind = kind; devid = devid } in
 	let device = find_device ~xs frontend backend in
 	Device.clean_shutdown ~xs device
 
@@ -248,21 +240,13 @@ let del_vif ~xs ~domid ~backend_domid ~devid =
 	let device = find_device ~xs frontend backend in
 	Device.clean_shutdown ~xs device
 
-let pci_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
-
 let add_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	Printf.printf "pci: %s\n" pci;
-	let pcidevs = List.map pci_of_string (String.split ',' pci) in
-	Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 pcidevs domid devid;
+	let pcidevs = List.map (fun d -> 
+		Scanf.sscanf d "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
+	) (String.split ',' pci) in
+	Device.PCI.add ~xc ~xs ~hvm pcidevs domid devid;
 	()
-
-let plug_pci ~xc ~xs ~domid ~devid ~pci = 
-	let pcidev = pci_of_string pci in
-	Device.PCI.plug ~xc ~xs pcidev domid devid
-
-let unplug_pci ~xc ~xs ~domid ~devid ~pci = 
-	let pcidev = pci_of_string pci in
-	Device.PCI.unplug ~xc ~xs pcidev domid
 
 let del_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	let pcidevs = List.map (fun d -> 
@@ -277,37 +261,10 @@ let bind_pci ~pci =
 	) (String.split ',' pci) in
 	Device.PCI.bind pcidevs
 
-let list_pci ~xc ~xs ~domid = 
-	let pcidevs = Device.PCI.list ~xc ~xs domid in
-	List.iter (fun (id, (domain, bus, dev, func)) ->
-		     Printf.printf "dev-%d %04x:%02x:%02x.%1x\n" id domain bus dev func
-		  ) pcidevs
-
-let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
+let add_dm ~xs ~domid ~mem_max_kib ~vcpus ~boot =
 	let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
-	let info = {
- 	  Device.Dm.memory = static_max_kib;
- 	  Device.Dm.boot = boot;
- 	  Device.Dm.serial = "pty";
- 	  Device.Dm.vcpus = vcpus;
- 	  Device.Dm.nics = [];
- 	  Device.Dm.pci_emulations = [];
-	  Device.Dm.pci_passthrough = false;
- 	  Device.Dm.usb = [];
- 	  Device.Dm.acpi = true;
- 	  Device.Dm.disp = Device.Dm.NONE;
-
-	  Device.Dm.xenclient_enabled=false;
-	  Device.Dm.hvm=false;
-	  Device.Dm.sound=None;
-	  Device.Dm.power_mgmt=None;
-	  Device.Dm.oem_features=None;
-	  Device.Dm.inject_sci=None;
-	  Device.Dm.videoram=0;
-
- 	  Device.Dm.extras = []
- 	} in
-	Device.Dm.start ~xs ~dmpath info domid
+	Device.Dm.start ~xs ~dmpath ~memory:mem_max_kib ~boot ~serial:"pty"
+	                ~vcpus ~disp:Device.Dm.NONE domid
 
 let add_ioport ~xc ~domid ~ioport_start ~ioport_end =
 	Domain.add_ioport ~xc domid ioport_start ioport_end
@@ -481,6 +438,11 @@ let do_cmd_parsing cmd =
 	]
 	and hvm_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
+		"-pae", Arg.Set pae, "set PAE to true";
+		"-acpi", Arg.Set acpi, "set ACPI to true";
+		"-apic", Arg.Set apic, "set APIC to true";
+		"-nx", Arg.Set nx, "set NX to true";
+		"-viridian", Arg.Set viridian, "set VIRIDIAN to true";
 	]
 	and normal_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
@@ -586,9 +548,6 @@ let do_cmd_parsing cmd =
 		("add_pci"        , common @ pci_args);
 		("del_pci"        , common @ pci_args);
 		("bind_pci"       , pci_args);
-		("plug_pci"       , common @ pci_args);
-		("unplug_pci"     , common @ pci_args);
-		("list_pci"       , common);
 		("add_dm"         , common @ common_build @ dm_args);
 		("add_ioport"     , common @ ioport_args);
 		("del_ioport"     , common @ ioport_args);
@@ -598,12 +557,8 @@ let do_cmd_parsing cmd =
 		("del_irq"        , common @ irq_args);
 		("balloon"        , common @ balloon_args);
 		("dom-uuid"       , common);
-		("squeeze"        , balloon_args);
-		("balance"        , []);
 		("watchdog"       , watchdog_args);
 		("send-s3resume"  , common);
-		("trigger-power"  , common);
-		("trigger-sleep"  , common);
 		("dmesg"          , []);
 		("debugkeys"      , []);
 		("physinfo"       , []);
@@ -647,7 +602,7 @@ let _ =
 
 
 	let domid, backend_domid, hvm, vcpus, vcpu, kernel, ramdisk, cmdline,
-	    max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
+	    mem_max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
 	    phystype, physpath, virtpath, dev_type, devid, mac, pci, reason, sysrq,
 	    script, sync, netty, weight, cap, bitmap, cooperative,
 	    boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
@@ -655,9 +610,7 @@ let _ =
 
 	let is_domain_hvm xc domid = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
 
-	(* Aliases *)
-	let target_kib = max_kib in
-	let static_max_kib = max_kib in
+	let mem_target_kib=mem_max_kib in
 
 	let error s = eprintf "error: \"%s\" argument is not valid\n" s; exit 1 in
 	let assert_domid () = if domid < 0 then error "domid"
@@ -676,19 +629,20 @@ let _ =
 	| "build_domain"  ->
 		assert_domid (); assert_vcpus ();
 		with_xc_and_xs (fun xc xs ->
-			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~static_max_kib ~target_kib ~domid)
+			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~mem_max_kib ~mem_target_kib ~domid)
 	| "build_hvm"     ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~domid)
+		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~mem_max_kib ~mem_target_kib ~pae
+						       ~apic ~acpi ~nx ~viridian ~domid)
 	| "setmaxmem"     ->
 		assert_domid ();
-		with_xc (fun xc -> Xc.domain_setmaxmem xc domid max_kib) (* call takes pages *)
+		with_xc (fun xc -> Xc.domain_setmaxmem xc domid mem_max_kib) (* call takes pages *)
 	| "save_domain"   ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_destroy ~xc ~xs ~domid ~file)
 	| "restore_domain" ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file)
+		with_xc_and_xs (fun xc xs -> restore_domain ~xc ~xs ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~file)
 	| "chkpoint_domain" ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative)
@@ -757,17 +711,8 @@ let _ =
 	| "del_pci" ->
 		assert_domid ();
 		with_xc_and_xs (fun xc xs -> del_pci ~xc ~xs ~hvm:(is_domain_hvm xc domid) ~domid ~devid ~pci)
-	| "plug_pci" ->
-		assert_domid ();
-		with_xc_and_xs (fun xc xs -> plug_pci ~xc ~xs ~domid ~devid ~pci)
-	| "unplug_pci" ->
-		assert_domid ();
-		with_xc_and_xs (fun xc xs -> unplug_pci ~xc ~xs ~domid ~devid ~pci)
 	| "bind_pci" ->
 		bind_pci ~pci
-	| "list_pci" ->
-		assert_domid ();
-		with_xc_and_xs (fun xc xs -> list_pci ~xc ~xs ~domid)
 	| "add_ioport" ->
 		assert_domid ();
 		with_xc (fun xc -> add_ioport ~xc ~domid ~ioport_start ~ioport_end)
@@ -789,17 +734,12 @@ let _ =
 	| "add_dm" ->
 		assert_domid ();
 		with_xs (fun xs ->
-			let vnc_port = add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot in
+			let vnc_port = add_dm ~xs ~domid ~mem_max_kib ~vcpus ~boot in
 			Printf.printf "%d\n" vnc_port
 		)
 	| "balloon" ->
 		assert_domid ();
 		with_xs (fun xs -> balloon_domain ~xs ~domid ~mem_mib)
-	| "squeeze" ->
-		let mem_kib = Int64.mul mem_mib 1024L in
-		with_xc (fun xc -> with_xs (fun xs -> Squeeze_xen.free_memory ~xc ~xs mem_kib))
-	| "balance" ->
-		with_xc (fun xc -> with_xs (fun xs -> Squeeze_xen.balance_memory ~xc ~xs))
 	| "dom-uuid" ->
 		assert_domid ();
 		with_xc (fun xc -> domain_get_uuid ~xc ~domid);
@@ -810,12 +750,6 @@ let _ =
 	| "send-s3resume" ->
 		assert_domid ();
 		with_xc (fun xc -> Domain.send_s3resume ~xc domid);
-	| "trigger-power" ->
-		assert_domid ();
-		with_xc (fun xc -> Domain.trigger_power ~xc domid);
-	| "trigger-sleep" ->
-		assert_domid ();
-		with_xc (fun xc -> Domain.trigger_sleep ~xc domid);
 	| "dmesg" ->
 		with_xc (fun xc -> print_xen_dmesg ~xc);
 	| "debugkeys" ->

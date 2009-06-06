@@ -1,14 +1,15 @@
-OCAMLPACKS     =  xc xb log eventchn stdext
-OCAML_LIBS     =
+OCAMLPACKS    += unix uuid mmap xc xb log eventchn
+OCAMLINCLUDES += ../idl/ocaml_backend
+OCAML_LIBS    +=
 OCAML_CLIBS   += $(XEN_OCAML_CLIBS)
 CFLAGS        += $(XEN_CFLAGS)
 
-XENSTORED_FILES = event \
-	parse_arg connection connections define domain domains xenstored \
-	perms process symbol store transaction utils quota disk logging
+OCamlDoc(../../doc/xenstored, store.mli symbol.mli perms.mli quota.mli connection.mli connections.mli domain.mli)
 
-OCamlProgram(xenstored, $(XENSTORED_FILES))
-OCamlDocProgram(xenstored, $(XENSTORED_FILES))
+OCamlProgram(xenstored, \
+             event ../util/config \
+             parse_arg connection connections define domain domains xenstored \
+             perms process symbol store transaction utils quota disk logging)
 
 .DEFAULT: xenstored
 
@@ -18,10 +19,10 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	cp xenstored $(DESTDIR)/opt/xensource/bin
-	mkdir -p $(DESTDIR)/etc/xensource
-	cp xenstored.conf $(DESTDIR)/etc/xensource
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	cp xenstored $(DIST)/staging/opt/xensource/bin
+	mkdir -p $(DIST)/staging/etc/xensource
+	cp xenstored.conf $(DIST)/staging/etc/xensource
 
 .PHONY: sdk-install
 sdk-install: install

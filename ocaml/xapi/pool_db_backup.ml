@@ -1,24 +1,8 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Synchronises a copy of the master database amongst the pool's hosts
- * @group Pool Management
- *)
+
+(* Synchronises a copy of the master database amongst the pool's hosts *)
 
 open Threadext
 open Client
-
-open Db_cache_types
 
 module D = Debug.Debugger(struct let name="pool_db_sync" end)
 open D
@@ -61,17 +45,17 @@ let restore_from_xml __context dry_run (xml_filename: string) =
   version_check manifest;
   (* To prevent duplicate installation_uuids or duplicate IP address confusing the
      "no other masters" check we remove all hosts from the backup except the master. *)
-  let hosts = lookup_table_in_cache unmarshalled_db "host" in
-  let uuid_to_ref = fold_over_rows
-    (fun _ref r acc -> (lookup_field_in_row r "uuid", _ref)::acc) hosts [] in
+  let hosts = Hashtbl.find unmarshalled_db "host" in
+  let uuid_to_ref = Hashtbl.fold 
+    (fun _ref r acc -> (Hashtbl.find r "uuid", _ref)::acc) hosts [] in
   (* This should never happen by construction: *)
   if not(List.mem_assoc manifest.Db_cache_types.installation_uuid uuid_to_ref)
   then failwith "Master host's UUID not present in the backup file";
   let master = List.assoc manifest.Db_cache_types.installation_uuid uuid_to_ref in
   (* Remove all slaves from the database *)
-  let hosts' = create_empty_table () in
-  iter_over_rows (fun _ref r -> if _ref = master then set_row_in_table hosts' master r) hosts;
-  set_table_in_cache unmarshalled_db "host" hosts';
+  let hosts' = Hashtbl.create 10 in
+  Hashtbl.iter (fun _ref r -> if _ref = master then Hashtbl.add hosts' master r) hosts;
+  Hashtbl.replace unmarshalled_db "host" hosts';
   debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
   debug "Previous master: %s" manifest.Db_cache_types.installation_uuid;
   
@@ -107,24 +91,22 @@ let restore_from_xml __context dry_run (xml_filename: string) =
      
      PIFs whose device name are not recognised or those belonging to (now dead) 
      slaves are forgotten. *)
-  let pifs = lookup_table_in_cache unmarshalled_db "PIF" in
-  let pifs' = create_empty_table () in
+  let pifs = Hashtbl.find unmarshalled_db "PIF" in
+  let pifs' = Hashtbl.create 10 in
   let found_mgmt_if = ref false in
   let ifs_in_backup = ref [] in
-  iter_over_rows 
+  Hashtbl.iter 
     (fun _ref r ->
-       if lookup_field_in_row r "host" = master then begin
-	 let device = lookup_field_in_row r "device" in
+       if Hashtbl.find r "host" = master then begin
+	 let device = Hashtbl.find r "device" in
 	 ifs_in_backup := device :: !ifs_in_backup;
 
-	 let uuid = lookup_field_in_row r "uuid" in
-	 let physical = bool_of_string (lookup_field_in_row r "physical") in
+	 let uuid = Hashtbl.find r "uuid" in
+	 let physical = bool_of_string (Hashtbl.find r "physical") in
 
-	 let pif = create_empty_row () in
-	 iter_over_fields (fun k v -> set_field_in_row pif k v) r;
-
+	 let pif = Hashtbl.copy r in
 	 let is_mgmt = Some device = mgmt_dev in
-	 set_field_in_row pif "management" (string_of_bool is_mgmt);
+	 Hashtbl.replace pif "management" (string_of_bool is_mgmt);
 	 if is_mgmt then found_mgmt_if := true;
 
 	 (* We only need to rewrite the MAC addresses of physical PIFs *)
@@ -136,19 +118,19 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 	   (* Otherwise rewrite the MAC address to match the current machine
 	      and set the management flag accordingly *)
 	   let existing_pif = List.assoc device device_to_ref in
-	   set_field_in_row pif "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif);
+	   Hashtbl.replace pif "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif);
 	 end;
 	 
 	 debug "Rewriting PIF uuid %s device %s (management %s -> %s) MAC %s -> %s"
-	   uuid device (lookup_field_in_row r "management") (lookup_field_in_row pif "management")
-	   (lookup_field_in_row r "MAC") (lookup_field_in_row pif "MAC");
-	 set_row_in_table pifs' _ref pif
+	   uuid device (Hashtbl.find r "management") (Hashtbl.find pif "management")
+	   (Hashtbl.find r "MAC") (Hashtbl.find pif "MAC");
+	 Hashtbl.add pifs' _ref pif
        end else begin
 	 (* don't bother copying forgotten slave PIFs *)
-	 debug "Forgetting slave PIF uuid %s" (lookup_field_in_row r "uuid")
+	 debug "Forgetting slave PIF uuid %s" (Hashtbl.find r "uuid")
        end
     ) pifs;
-  set_table_in_cache unmarshalled_db "PIF" pifs';
+  Hashtbl.replace unmarshalled_db "PIF" pifs';
   (* Check that management interface was synced up *)
   if not(!found_mgmt_if) && mgmt_dev <> None
   then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));
@@ -163,7 +145,6 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req: Http.request) s =
   debug "received request to write out db as xml";
-  req.Http.close <- true;
   Xapi_http.with_context "Dumping database as XML" req s
     (fun __context ->
       debug "sending headers";
@@ -254,7 +235,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
 
 (* Master sync thread *)
 let pool_db_backup_thread () =
-  Debug.name_thread "pool_db_sync";
+  name_thread "pool_db_sync";
   Server_helpers.exec_with_new_task "Pool DB sync" (fun __context ->
   while (true) do
     try

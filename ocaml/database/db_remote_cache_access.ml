@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 module DBCacheRemoteListener =
 struct
@@ -59,20 +46,22 @@ struct
       debug "Call failed";
       resp
 
-  (** Unmarshals the request, calls the DBCache function and marshals the result.
-      Note that, although the messages still contain the pool_secret for historical reasons,
-      access has already been applied by the RBAC code in Xapi_http.add_handler. *)
+
+  exception DB_authentication_failed
+    (* we pass in whether pooling is enabled from the handler, because we cannot access
+       the restrictions/licensing symbols from here directly *)
   let process_xmlrpc xml =
     Mutex.lock ctr_mutex;
     calls_processed := !calls_processed + 1;
     Mutex.unlock ctr_mutex;
-    let fn_name, args =
+    let fn_name, pool_secret, args =
       match (XMLRPC.From.array (fun x->x) xml) with
-	  [fn_name; _; args] ->
-	    XMLRPC.From.string fn_name, args
+	  [fn_name; pool_secret; args] ->
+	    XMLRPC.From.string fn_name, XMLRPC.From.string pool_secret, args
 	| _ -> raise DBCacheListenerInvalidMessageReceived in
       try
 	debug "Received [total=%d rx=%d tx=%d] %s" !calls_processed !total_recv_len !total_transmit_len fn_name;
+	if pool_secret <> !Xapi_globs.pool_secret then raise DB_authentication_failed;
 	match fn_name with
 	    "get_table_from_ref" ->
 	      let s = unmarshall_get_table_from_ref_args args in
@@ -113,12 +102,6 @@ struct
 	  | "read_records_where" ->
 	      let (s,e) = unmarshall_read_records_where_args args in
 		success (marshall_read_records_where_response (DBCache.read_records_where s e))
-	  | "db_get_by_uuid" ->
-	      let (s,e) = unmarshall_db_get_by_uuid_args args in
-		success (marshall_db_get_by_uuid_response (DBCache.db_get_by_uuid s e))
-	  | "db_get_by_name_label" ->
-	      let (s,e) = unmarshall_db_get_by_name_label_args args in
-		success (marshall_db_get_by_name_label_response (DBCache.db_get_by_name_label s e))
 	  | _ -> raise (DBCacheListenerUnknownMessageName fn_name)
       with
 	  Duplicate_key (c,f,u,k) ->
@@ -127,9 +110,5 @@ struct
 	    failure "dbcache_notfound" (marshall_3strings (s1,s2,s3))
 	| Uniqueness_constraint_violation (s1,s2,s3) ->
 	    failure "uniqueness_constraint_violation" (marshall_3strings (s1,s2,s3))
-	| Read_missing_uuid (s1,s2,s3) ->
-	    failure "read_missing_uuid" (marshall_3strings (s1,s2,s3))
-	| Too_many_values (s1,s2,s3) ->
-	    failure "too_many_values" (marshall_3strings (s1,s2,s3))
 	| e -> raise e
 end

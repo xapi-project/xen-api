@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Custom doc generator for our generated code *)
 
 (* Based on the example in the manual: 
@@ -24,7 +11,7 @@ class my_gen =
       (* Decode the locks annotation, stored as s-expresions *)
       let txt = Odoc_info.string_of_text t in
       let locks = 
-	match SExpr_TS.of_string txt with
+	match Sexpr.of_string txt with
 	| SExpr.Node kv -> 
 	    List.map (function SExpr.Node [ SExpr.String k; SExpr.String v ] -> k,v
 		      | _ -> failwith "Failed to parse lock comment") kv 

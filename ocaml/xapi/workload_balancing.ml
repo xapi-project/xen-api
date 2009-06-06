@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Workload Balancing
- *  @group Workload Balancing
- *)
- 
 open Printf
 open Stringext
 open Threadext
@@ -87,7 +70,7 @@ let wlb_host_port ~__context =
     split_host_port url
 
 let assert_wlb_licensed ~__context =
-  if not (Features.is_enabled ~__context Features.WLB)
+  if not (Restrictions.license_ok_for_wlb ~__context)
   then
     raise_license_restriction()
 
@@ -137,8 +120,7 @@ let unexpected_data meth tag xml =
     (sprintf "Found data in %s node, expected only parent nodes" tag)
     xml
   
-(* Function walks down the xml tree matching nodes in a path defined by tag_names , returning the element at the end of the path. 
-  Throws Xml_parse_failure to be handled in context of the calling function *)
+(* Function walks down the xml tree matching nodes in a path defined by tag_names , returning the element at the end of the path. Throws Xml_parse_failure to be handled in context of the calling function *)
 let rec descend_and_match tag_names xml =
   match tag_names, xml with
   | [], elem -> elem  (* have reached end of the list, with all correct matches so return this element*)
@@ -164,8 +146,7 @@ let rec descend_and_match tag_names xml =
   
 let data_from_leaf element =
   match element with 
-  | Xml.Element ( _, _, [Xml.PCData data]) ->data
-  | Xml.Element ( _, _, _) ->  ""
+    | Xml.Element ( _, _, [Xml.PCData data]) -> data
     | _ -> 
       raise_malformed_response "unknown" "Expected element to be leaf node" 
         element
@@ -213,11 +194,10 @@ let encoded_auth un pw =
     Base64.encode (Printf.sprintf "%s:%s" un pw)
 
 let wlb_encoded_auth ~__context =
-	let pool = Helpers.get_pool ~__context in
-	let secret_ref = Db.Pool.get_wlb_password ~__context ~self:pool in
-	encoded_auth
-		(Db.Pool.get_wlb_username ~__context ~self:pool)
-		(Db.Secret.get_value ~__context ~self:secret_ref)
+  let pool = Helpers.get_pool ~__context in
+    encoded_auth
+      (Db.Pool.get_wlb_username ~__context ~self:pool)
+      (Db.Pool.get_wlb_password ~__context ~self:pool)
       
 let generate_safe_param tag_name tag_value =
   Xml.to_string (Xml.Element(tag_name, [], [Xml.PCData tag_value])) 
@@ -270,7 +250,7 @@ let retrieve_inner_xml meth response enable_log=
           "Logging output disabled for this call." 
     
 (* This function handles the actual network request and deals with any errors relating to the connection *)
-let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log ~timeout_key ~timeout_default =
+let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log =
   let body = wlb_body meth params in
   let headers = wlb_headers host meth (String.length body) auth in
   let pool = Helpers.get_pool ~__context in
@@ -278,13 +258,13 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
   let timeout =
     try
-      if List.mem_assoc timeout_key pool_other_config then
-        float_of_string (List.assoc timeout_key pool_other_config)
+      if List.mem_assoc Xapi_globs.wlb_timeout pool_other_config then
+        float_of_string (List.assoc Xapi_globs.wlb_timeout pool_other_config)
       else
-        timeout_default
+        Xapi_globs.default_wlb_timeout
     with
       | _ ->
-          timeout_default
+          Xapi_globs.default_wlb_timeout
   in
   if enable_log then
     debug "%s\n%s" (String.concat "\n" (filtered_headers headers)) body;
@@ -294,7 +274,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
   with
     | Remote_requests.Timed_out ->
         raise_timeout timeout
-    | Xmlrpcclient.Http_request_rejected _ | Xmlrpcclient.Http_error _ ->
+    | Xmlrpcclient.Http_request_rejected _ ->
         raise_authentication_failed ()
     | Xmlrpcclient.Connection_reset ->
         raise_connection_reset ()
@@ -305,12 +285,10 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
           match error_msg with
           | "Connection refused" -> 
             raise_connection_refused ()
-          | "No route to host"
           | "No host resolved" -> 
             raise_unknown_host ()
           | "Invalid argument" -> 
             raise_url_invalid (sprintf "%s:%s" host (string_of_int port))
-          | "" -> raise_connection_reset()
           | _ -> 
             raise exc
         end
@@ -345,7 +323,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
         | Xml.Error err ->
             raise_malformed_response' meth (Xml.error err) ""
     in
-    debug "\n\n%s\n\n" (Xml.to_string response); 
+    (* debug "\n\n%s\n\n" (Xml.to_string response); *)
     let inner_xml = retrieve_inner_xml meth response enable_log in
     result := Some (
       try
@@ -356,8 +334,6 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
           error enable_log)
   in
   wlb_request ~__context ~host ~port ~auth:auth' ~meth ~params
-    ~timeout_key:Xapi_globs.wlb_timeout
-    ~timeout_default:Xapi_globs.default_wlb_timeout
     ~handler:check_response ~enable_log;
   match !result with
   | Some s -> s
@@ -401,8 +377,8 @@ let retrieve_vm_recommendations ~__context ~vm =
         | Xml_parse_failure error ->
           (* let this parse error carry on upwards,  perform_wlb_request will catch it and check the rest of the xml for an error code *)
           raise (Xml_parse_failure error)
-        | Db_cache.Read_missing_uuid (_,_,_)
-        | Db_cache.Too_many_values (_,_,_) -> 
+        | Db_access.DB_Access.Read_missing_uuid (_,_,_)
+        | Db_access.DB_Access.Too_many_values (_,_,_) -> 
           raise_malformed_response' "VMGetRecommendations" 
             "Invalid VM or host UUID" "unknown"
     in
@@ -413,7 +389,7 @@ let retrieve_vm_recommendations ~__context ~vm =
     else
       match recs with 
       | Xml.Element ( _, _, children) ->
-        if ((List.length children) != List.length((Helpers.get_live_hosts ~__context)))
+        if ((List.length children) != List.length((Db.Host.get_all ~__context)))
         then
           raise_malformed_response "VMGetRecommendations" 
             "List of returned reccomendations is not equal to the number of hosts in pool" 
@@ -425,65 +401,61 @@ let retrieve_vm_recommendations ~__context ~vm =
   perform_wlb_request ~meth:"VMGetRecommendations" ~params ~handle_response 
     ~__context ()
   
-let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
-	assert_wlb_licensed ~__context;
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let params = (sprintf "%s\n%s\n%s\n%s\n" 
-		(generate_safe_param "Password" xenserver_password)
-		(pool_uuid_param ~__context)
-		(generate_safe_param "UserName" xenserver_username)
-		(generate_safe_param "XenServerUrl" 
-			(sprintf "http://%s:80/" 
-				(Db.Host.get_address ~__context ~self:master)))) 
-	in
-	let handle_response inner_xml =
-		(*A succesful result has an ID inside the addxenserverresult *)
-		(* delete if it already exists *)
-		match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
-		| _ ->
-			let old_secret_ref = Db.Pool.get_wlb_password ~__context ~self:pool in
-			let wlb_secret_ref = Xapi_secret.create ~__context ~value:wlb_password in
-			Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
-			Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref;
-			Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
-			Pervasiveext.ignore_exn (fun _ -> Db.Secret.destroy ~__context ~self:old_secret_ref);
-	in
-	Mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
-		~meth:"AddXenServer" ~params 
-		~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url 
-		~handle_response ~__context)
+let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password 
+  ~xenserver_username ~xenserver_password =
+  assert_wlb_licensed ~__context;
+  let pool = Helpers.get_pool ~__context in
+  let master = Db.Pool.get_master ~__context ~self:pool in
+  let params = (sprintf "%s\n%s\n%s\n%s\n" 
+    (generate_safe_param "Password" xenserver_password)
+    (pool_uuid_param ~__context)
+    (generate_safe_param "UserName" xenserver_username)
+    (generate_safe_param "XenServerUrl" 
+      (sprintf "http://%s:80/" 
+        (Db.Host.get_address ~__context ~self:master)))) 
+  in
+  let handle_response inner_xml =
+      (*A succesful result has an ID inside the addxenserverresult *)
+      match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
+      | _ ->
+        Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
+        Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_password;
+        Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
+  in
+  Mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
+    ~meth:"AddXenServer" ~params 
+    ~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url 
+    ~handle_response ~__context)
  
 let decon_wlb ~__context =
-	let clear_wlb_config ~__context ~pool = 
-		let secret_ref = Db.Pool.get_wlb_password ~__context ~self:pool in
-		Db.Pool.set_wlb_username ~__context ~self:pool ~value:"";
-		Db.Pool.set_wlb_password ~__context ~self:pool ~value:Ref.null;
-		Db.Pool.set_wlb_url ~__context ~self:pool ~value:"";
-		Db.Pool.set_wlb_enabled ~__context ~self:pool ~value:false;
-		Db.Secret.destroy ~__context ~self:secret_ref
-	in
-	let pool = Helpers.get_pool ~__context in
-	let handle_response inner_xml =
-		(* A succesful result is empty. Check this before clearing config *)
-		if (is_childless inner_xml)
-		then 
-			clear_wlb_config ~__context ~pool
-		else
-			(*child elements are errors. Raise an  exception to force an error check *)         
-			raise (Xml_parse_failure "Expected blank result from a deconfigure")
-	in
-	if Db.Pool.get_wlb_url ~__context ~self:pool = ""
-	then
-		raise_not_initialized()
-		(*if wlb not enabled then clear the config but dont attempt to call the server for the removexenserver *)
-	else if not (Db.Pool.get_wlb_enabled ~__context ~self:pool)
-	then
-		clear_wlb_config ~__context ~pool
-	else
-		let params = pool_uuid_param ~__context in
-		Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
-			~params ~handle_response ~__context)
+  let clear_wlb_config ~__context ~pool = 
+    Db.Pool.set_wlb_username ~__context ~self:pool ~value:"";
+    Db.Pool.set_wlb_password ~__context ~self:pool ~value:"";
+    Db.Pool.set_wlb_url ~__context ~self:pool ~value:"";
+    Db.Pool.set_wlb_enabled ~__context ~self:pool ~value:false
+  in
+  let pool = Helpers.get_pool ~__context in
+  let handle_response inner_xml =
+  (* A succesful result is empty. Check this before clearing config *)
+    if (is_childless inner_xml)
+    then 
+      clear_wlb_config ~__context ~pool
+    else
+      (*child elements are errors. Raise an  exception to force an error check *)         
+      raise (Xml_parse_failure
+        "Expected blank result from a deconfigure")
+  in
+  if Db.Pool.get_wlb_url ~__context ~self:pool = ""
+  then
+    raise_not_initialized()
+  (*if wlb not enabled then clear the config but dont attempt to call the server for the removexenserver *)
+  else if not (Db.Pool.get_wlb_enabled ~__context ~self:pool)
+  then
+    clear_wlb_config ~__context ~pool
+  else
+    let params = pool_uuid_param ~__context in
+    Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
+      ~params ~handle_response ~__context)
 
 let send_wlb_config ~__context ~config =
   assert_wlb_licensed ~__context;
@@ -544,9 +516,6 @@ let retrieve_wlb_config ~__context =
   perform_wlb_request ~meth:"GetXenPoolConfiguration" ~params ~handle_response 
     ~__context ()
   
-  let get_dom0_vm ~__context host=
-    List.hd (List.filter (fun v -> (Db.VM.get_is_control_domain ~__context ~self:v)) (Db.Host.get_resident_VMs ~__context ~self:(Db.Host.get_by_uuid ~__context ~uuid:host)))
-  
 let get_opt_recommendations ~__context =
   assert_wlb_enabled ~__context;
   let params = pool_uuid_param ~__context in
@@ -577,48 +546,44 @@ let get_opt_recommendations ~__context =
       | Xml.Element (_, _, children) -> 
         (gen_map children, 
           data_from_leaf (descend_and_match ["OptimizationId"] inner_xml))
-      | _ -> debug "IS CHILDLESS"; assert false (*is_childless should prevent this case *)
+          | _ -> assert false (*is_childless should prevent this case *)
   in
   let result_map =
     perform_wlb_request ~meth:"GetOptimizationRecommendations" ~params 
       ~handle_response ~__context ()
   in
-  
-  let rec remap vm hostfrom hostto reason rec_id opt_id = function
-    | (k, v) :: vs ->    debug "k:%s v:%s" k v;
-      if k = "VmToMoveUuid" && v <> "" then
-        remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) hostfrom hostto
+  let rec remap vm host reason rec_id opt_id = function
+    | (k, v) :: vs ->
+      if k = "VmToMoveUuid" then
+        remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host 
           reason rec_id opt_id vs
       else if k = "MoveToHostUuid" then
-        remap vm hostfrom (Some v) reason rec_id opt_id vs
-      else if k = "MoveFromHostUuid" then
-        remap vm (Some v) hostto reason rec_id opt_id vs
+        remap vm (Some v) reason rec_id opt_id vs
       else if k = "Reason" then
-        remap vm hostfrom hostto (Some v) rec_id opt_id vs
+        remap vm host (Some v) rec_id opt_id vs
       else if k = "RecommendationId" then
-        remap vm hostfrom hostto reason (Some v) opt_id vs
+        remap vm host reason (Some v) opt_id vs
       else
-        remap vm hostfrom hostto reason rec_id opt_id vs 
+        remap vm host reason rec_id opt_id vs 
     | [] ->
       begin
-        match (vm, hostfrom, hostto, reason, rec_id, opt_id) with
-     | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; val_num (opt_id'); val_num (rec_id'); reason'])
-     | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; val_num (opt_id'); val_num (rec_id'); reason'])
-      | _ ->
+        match (vm, host, reason, rec_id, opt_id) with
+        | (Some vm', Some host', Some reason', Some rec_id', opt_id') ->
+          (vm', ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
+        | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
         end
   in
   try
     match result_map with (map, opt_id) ->
-      List.map (fun kvs -> remap None None None None None opt_id kvs) map
+      List.map (fun kvs -> remap None None None None opt_id kvs) map
   with
-  | Db_cache.Read_missing_uuid (_,_,_)
-  | Db_cache.Too_many_values (_,_,_) ->
-    raise_malformed_response' "GetOptimizationRecommendations" "Invalid VM or host UUID" "unknown"
-   
-    
-    
+  | Db_access.DB_Access.Read_missing_uuid (_,_,_)
+  | Db_access.DB_Access.Too_many_values (_,_,_) ->
+    raise_malformed_response' "GetOptimizationRecommendations"
+      "Invalid VM or host UUID" "unknown"
+
 (* note that this call only returns a rec for each vm which can be migrated *)
 let get_evacuation_recoms ~__context ~uuid =
   assert_wlb_enabled ~__context;
@@ -668,7 +633,7 @@ let get_evacuation_recoms ~__context ~uuid =
   in
   let rec remap vm host rec_id = function
   | (k, v) :: vs ->
-    if k = "VmUuid" && v<> "" then
+    if k = "VmUuid" then
       remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host rec_id vs
     else if k = "HostUuid" then
       remap vm (Some v) rec_id vs
@@ -679,8 +644,8 @@ let get_evacuation_recoms ~__context ~uuid =
   | [] ->
     begin
       match (vm, host, rec_id) with
-    | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; val_num (rec_id')])
-    | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; val_num (rec_id')])
+      | (Some vm', Some host', Some rec_id') ->
+        (vm', ["WLB"; host'; val_num (rec_id')])
       | _ ->
         raise_malformed_response' "HostGetRecommendations"
           "Missing VmUuid, RecID or HostUuid" "unknown"
@@ -689,8 +654,8 @@ let get_evacuation_recoms ~__context ~uuid =
   try
     List.map (fun kvs -> remap None None None kvs) result_map
   with
-  | Db_cache.Read_missing_uuid (_,_,_)
-  | Db_cache.Too_many_values (_,_,_) ->
+  | Db_access.DB_Access.Read_missing_uuid (_,_,_)
+  | Db_access.DB_Access.Too_many_values (_,_,_) ->
     raise_malformed_response' "HostGetRecommendations"
       "Invalid VM or host UUID" "unknown"
 
@@ -706,8 +671,6 @@ let wlb_context_request meth params ~__context ~handler =
   let auth = wlb_encoded_auth ~__context in
   wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler 
     ~enable_log:true
-    ~timeout_key:Xapi_globs.wlb_reports_timeout
-    ~timeout_default:Xapi_globs.default_wlb_reports_timeout
 
 let wlb_report_request report params =
   let meth = "ExecuteReport" in

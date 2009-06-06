@@ -1,0 +1,5 @@
+OCamlProgram(tar, tar tar_main ../util/debug)
+
+.PHONY:clean
+clean:
+	rm -f $(CLEAN_OBJS) tar

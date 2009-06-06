@@ -1,16 +1,7 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+open GenOCaml
+*)
+
 open Listext
 
 module DT = Datamodel_types
@@ -109,5 +100,5 @@ let gen_db_actions highapi =
        ]
       )
 
-let gen_rbac highapi =
-  print_endline (Gen_rbac.gen_permissions_of_static_roles highapi)
+let gen_schema highapi = 
+  print_endline (Gen_schema.sql_schema highapi)

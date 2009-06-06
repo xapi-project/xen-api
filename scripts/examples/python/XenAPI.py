@@ -54,6 +54,18 @@ translation = gettext.translation('xen-xm', fallback = True)
 API_VERSION_1_1 = '1.1'
 API_VERSION_1_2 = '1.2'
 
+#
+# Methods that have different parameters between API versions 1.1 and 1.2, and
+# the number of parameters in 1.1.
+#
+COMPATIBILITY_METHODS_1_1 = [
+    ('SR.create'     , 8),
+    ('SR.introduce'  , 6),
+    ('SR.make'       , 7),
+    ('VDI.snapshot'  , 1),
+    ('VDI.clone'     , 1),
+    ]
+
 class Failure(Exception):
     def __init__(self, details):
         self.details = details
@@ -152,7 +164,10 @@ class Session(xmlrpclib.ServerProxy):
         self._session = result
         self.last_login_method = method
         self.last_login_params = params
-        self.API_version = self._get_api_version()
+        if method.startswith("slave_local"):
+            self.API_version = API_VERSION_1_2
+        else:
+            self.API_version = self._get_api_version()
 
     def _logout(self):
         try:
@@ -169,9 +184,11 @@ class Session(xmlrpclib.ServerProxy):
     def _get_api_version(self):
         pool = self.xenapi.pool.get_all()[0]
         host = self.xenapi.pool.get_master(pool)
-        major = self.xenapi.host.get_API_version_major(host)
-        minor = self.xenapi.host.get_API_version_minor(host)
-        return "%s.%s"%(major,minor)
+        if (self.xenapi.host.get_API_version_major(host) == "1" and
+            self.xenapi.host.get_API_version_minor(host) == "2"):
+            return API_VERSION_1_2
+        else:
+            return API_VERSION_1_1
 
     def __getattr__(self, name):
         if name == 'handle':
@@ -226,4 +243,9 @@ class _Dispatcher:
             return _Dispatcher(self.__API_version, self.__send, "%s.%s" % (self.__name, name))
 
     def __call__(self, *args):
+        if self.__API_version == API_VERSION_1_1:
+            for m in COMPATIBILITY_METHODS_1_1:
+                if self.__name == m[0]:
+                    return self.__send(self.__name, args[0:m[1]])
+
         return self.__send(self.__name, args)

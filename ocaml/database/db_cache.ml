@@ -1,26 +1,13 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 
 (* ---------------------------------------------------------------------------------------------
    The dbcache provides low-level access to the data in the db (both getting and setting).
    It is below the event-level: calling the functions in this module will not cause any events
    to be generated. For that reason, regular xapi code accessing the database must call in via
-   the Db.* API.
+   the Db.* API (or, absolute worst-case (!) via the DB_ACCESS layer)
 
    The DBCache module contains 2 instances of the DB_CACHE module type: one instance for pool
-   masters (that is an in-memory db-cache, with async write log pushed to database for persistent
+   masters (that is an in-memory db-cache, with async write log pushed to sqlite db for persistent
    store); and one instance for pool slaves (that calls a marshalling protocol that retrieves/
    modifies directly from the ppol master).
 
@@ -44,9 +31,6 @@ type database_mode = Master | Slave
 let database_mode : database_mode option ref = ref None 
 
 exception Must_initialise_database_mode
-
-exception Read_missing_uuid of (*class*) string * (*ref*) string * (*uuid*) string
-exception Too_many_values of   (*class*) string * (*ref*) string * (*uuid*) string
 
 (** Interface of DB_Cache implementations *)
 module type DB_CACHE =
@@ -79,8 +63,6 @@ sig
   val is_valid_ref : string -> bool
   val read_refs : string -> string list
   val read_field_where : Db_cache_types.where_record -> string list
-  val db_get_by_uuid : string -> string -> string
-  val db_get_by_name_label : string -> string -> string list
   val read_set_ref : Db_cache_types.where_record -> string list
   val create_row : Context.t -> string -> (string*string) list -> string -> unit
   val delete_row : Context.t -> string -> string -> unit
@@ -138,9 +120,9 @@ struct
     let stats () = 
       with_lock 
 	(fun () ->
-	  fold_over_tables (fun name tbl acc ->
-	    let size = fold_over_rows (fun _ _ acc -> acc + 1) tbl 0 in
-	    (name, size) :: acc) cache [])
+	   Hashtbl.fold (fun name tbl acc ->
+			   let size = Hashtbl.fold (fun _ _ acc -> acc + 1) tbl 0 in
+			   (name, size) :: acc) cache [])
 
     let flush_dirty dbconn = Db_connections.flush_dirty_and_maybe_exit dbconn None
     let flush_and_exit dbconn ret_code = ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
@@ -149,13 +131,13 @@ struct
     let read_field context tblname fldname objref =
       with_lock
 	(fun () ->
-	   let row = find_row cache tblname objref in
+	   let row = find_row tblname objref in
 	   lookup_field_in_row row fldname)
 
     let table_of_kvs kvs =
-      let row = create_empty_row () in
-      List.iter (fun (k,v)-> set_field_in_row row k v) kvs;
-      row
+      let hashtbl = Hashtbl.create (List.length kvs) in
+      List.iter (fun (k,v)->Hashtbl.replace hashtbl k v) kvs;
+      hashtbl
 
     let save_in_redo_log context entry =
       if Redo_log.is_enabled() then begin
@@ -181,15 +163,14 @@ struct
       with_lock
 	(fun () ->
 	   (* if uuid or reference then check uniqueness constraints: *)
-	   if fldname=uuid_fname then begin
-	     check_unique_table_constraints tblname (table_of_kvs [(uuid_fname, newval)]);
-	     Ref_index.update_uuid objref newval;
-	   end else if fldname=reference_fname then
+	   if fldname=uuid_fname then
+	     check_unique_table_constraints tblname (table_of_kvs [(uuid_fname, newval)])
+	   else if fldname=reference_fname then
 	     check_unique_table_constraints tblname (table_of_kvs [(reference_fname, newval)])
 	   else if fldname=name_label_fname then
 	     Ref_index.update_name_label objref newval;
 
-	   let row = find_row cache tblname objref in
+	   let row = find_row tblname objref in
 	   let current_val = lookup_field_in_row row fldname in
 
 	   let other_tbl_refs = Eventgen.follow_references tblname in
@@ -249,7 +230,7 @@ struct
 	     try Hashtbl.find indexes (rcd.table, rcd.where_field, rcd.return)
 	     with _ ->
 	       begin
-		 let tbl = lookup_table_in_cache cache rcd.table in
+		 let tbl = lookup_table_in_cache rcd.table in
 		 let rows = get_rowlist tbl in
 		 let new_index = Hashtbl.create (List.length rows) in
 		 let rec populate_index rows =
@@ -276,8 +257,8 @@ struct
     let read_record tbl objref  =
       with_lock
 	(fun ()->
-	   let row = find_row cache tbl objref (* !! need fields as well as values here !! *) in
-	   let fvlist = fold_over_fields (fun k d env -> (k,d)::env) row [] in
+	   let row = find_row tbl objref (* !! need fields as well as values here !! *) in
+	   let fvlist = Hashtbl.fold (fun k d env -> (k,d)::env) row [] in
 	   let get_set_ref tbl fld objref =
 	     read_set_ref {table=tbl; return=reference_fname;
 			   where_field=fld; where_value=objref} in
@@ -299,9 +280,9 @@ struct
 	       [] -> []
 	     | ({Datamodel_types.ty = Datamodel_types.Set(Datamodel_types.Ref clsname); full_name = full_name}::fs) ->
 		 let obj', fld' = look_up_related_table_and_field obj clsname full_name in
-		 (Escaping.escape_obj obj.Datamodel_types.name, (* local classname *)
-		  Escaping.escape_id full_name, (* local field *)
-		  Escaping.escape_obj obj', (* remote classname *)
+		 (Gen_schema.sql_of_obj obj.Datamodel_types.name, (* local classname *)
+		  Gen_schema.sql_of_id full_name, (* local field *)
+		  Gen_schema.sql_of_obj obj', (* remote classname *)
 		  fld' (* remote fieldname *))::(set_refs fs)
 	     | _::fs -> set_refs fs in
 	   
@@ -346,12 +327,12 @@ struct
 	   let mod_events = lazily_generate_mod_events () in
 
 	   invalidate_indexes tblname;
-	   let tbl = lookup_table_in_cache cache tblname in
+	   let tbl = lookup_table_in_cache tblname in
 
-	   remove_row_from_table tbl objref;
+	   Hashtbl.remove tbl objref;
 	   
 	   (* Notify each db connection of delete *)
-	   List.iter (fun dbconn->Backend_xml.notify_delete dbconn tblname objref) (Db_conn_store.read_db_connections());
+	   List.iter (fun dbconn->Db_connections.notify_delete dbconn tblname objref) (Db_conn_store.read_db_connections());
 
 	   if (this_table_persists tblname) then
 	     begin
@@ -375,9 +356,6 @@ struct
       (* fill in default values specifed in datamodel if kv pairs for these are not supplied already *)
       let kvs = add_default_kvs kvs tblname in
 
-      (* add the reference to the row itself *)
-      let kvs = (reference, new_objref) :: kvs in
-
       let generate_create_event() =
 	let snapshot = Eventgen.find_get_record tblname ~__context:context ~self:new_objref in
 	let other_tbl_refs = Eventgen.follow_references tblname in
@@ -398,9 +376,9 @@ struct
 	   W.debug "create_row %s (%s) [%s]" tblname new_objref (String.concat "," (List.map (fun (k,v)->"("^k^","^"v"^")") kvs));
 	   invalidate_indexes tblname;
 	   let newrow = table_of_kvs kvs in
-	   let tbl = lookup_table_in_cache cache tblname in
+	   let tbl = lookup_table_in_cache tblname in
 	   check_unique_table_constraints tblname newrow;
-	   set_row_in_table tbl new_objref newrow;
+	   Hashtbl.replace tbl new_objref newrow;
 	   if (this_table_persists tblname) then
 	     begin
 	       Db_dirty.set_all_row_dirty_status new_objref Db_dirty.New;
@@ -421,7 +399,7 @@ struct
     let read_field_where rcd =
       with_lock
 	(fun () ->
-           let tbl = lookup_table_in_cache cache rcd.table in
+           let tbl = lookup_table_in_cache rcd.table in
            let rec do_find tbl acc =
              match tbl with
                [] -> acc
@@ -433,34 +411,28 @@ struct
            do_find rows []
 	)
 
-    let db_get_by_uuid tbl uuid_val =
-      match (read_field_where
-               {table=tbl; return=reference;
-               where_field=uuid; where_value=uuid_val}) with
-      | [] -> raise (Read_missing_uuid (tbl, "", uuid_val))
-      | [r] -> r
-      | _ -> raise (Too_many_values (tbl, "", uuid_val))
-
-    (** Return reference fields from tbl that matches specified name_label field *)
-    let db_get_by_name_label tbl label =
-      read_field_where
-        {table=tbl; return=reference;
-        where_field=(Escaping.escape_id ["name"; "label"]);
-        where_value=label}
-
     (* Read references from tbl *)
     let read_refs tblname =
       with_lock
 	(fun () ->
-	   get_reflist (lookup_table_in_cache cache tblname))
+	   get_reflist (lookup_table_in_cache tblname))
 
     let populate_from connection_spec =
-      Backend_xml.populate connection_spec;
+      Db_connections.populate connection_spec db_table_names;
       Db_backend.blow_away_non_persistent_fields()
 
     let sync_all_db_connections() =
-      (* Unconditionally force-flush all databases. *)
-      List.iter Db_connections.force_flush_all (List.map snd (Db_connections.get_dbs_and_gen_counts()))
+      (* if any of the connections have an on-disk generation count <> the gen count of the db we populated from
+	 then we need to force_flush them to "pull them to tip" *)
+      List.iter 
+	(fun (gen,db)->
+	   let current_gen = Generation.read_generation() in
+	   if gen<>current_gen then
+	     begin
+	       debug "Database '%s' out of sync; syncing up now." db.Parse_db_conf.path;
+	       Db_connections.force_flush_all db
+	     end)
+	(Db_connections.get_dbs_and_gen_counts())
 
     (* Executed on the master to post-process database after populating cache from db stored on disk *)
     let post_populate_hook () =
@@ -468,8 +440,6 @@ struct
        * there's no need to keep it and it's preferable for it not to hang
        * around. *)
       Unixext.unlink_safe Xapi_globs.ha_metadata_db;
-      (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
-	 if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *)
       Db_backend.blow_away_non_persistent_fields();
       (* Flush the in-memory cache to the redo-log *)
       Backend_xml.flush_db_to_redo_log Db_backend.cache
@@ -478,46 +448,48 @@ struct
       let connections = Db_conn_store.read_db_connections () in
       
       (* Include a fake connection representing the HA metadata db
-	  (if available). This isn't a full flushing connection per-se but
-	  is only considered as a population source. *)
+	 (if available). This isn't a full flushing connection per-se but
+	 is only considered as a population source. *)
       let fake_ha_dbconn = { Parse_db_conf.dummy_conf with
-        Parse_db_conf.path = Xapi_globs.ha_metadata_db } in
+			       Parse_db_conf.path = Xapi_globs.ha_metadata_db;
+			       format = Parse_db_conf.Xml } in
       let connections = 
-		if Sys.file_exists Xapi_globs.ha_metadata_db
-		then fake_ha_dbconn :: connections else connections in
-
-      let fake_gen_dbconn = { Parse_db_conf.dummy_conf with
-        Parse_db_conf.path = Xapi_globs.gen_metadata_db } in
-      let connections = 
-		if Sys.file_exists Xapi_globs.gen_metadata_db
-		then fake_gen_dbconn :: connections else connections in
+	if Sys.file_exists Xapi_globs.ha_metadata_db
+	then fake_ha_dbconn :: connections else connections in
 	
       Db_connections.init_gen_count connections;
       (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
-      let db = 
-	if Sys.file_exists Xapi_globs.db_temporary_restore_path then begin
+      if Sys.file_exists Xapi_globs.db_temporary_restore_path then
+	begin
 	  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
 	  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
 	  Db_backend.post_restore_hook manifest;
+	  (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
+	     if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *);
+	  post_populate_hook();
+	  debug "removed non-persistent fields after backup";
+	  (* since we just restored from backup then flush new cache to all db connections *)
+	  List.iter 
+	    (fun (_,db)->
+	       debug "Database '%s' syncing up after restore from backup." db.Parse_db_conf.path;
+	       Db_connections.force_flush_all db
+	    )
+	    (Db_connections.get_dbs_and_gen_counts());
 	  (* delete file that contained backup *)
 	  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
-	  Parse_db_conf.backup_file_dbconn
 	end
       else (* if there's no backup to restore from then.. *)
 	begin
 	  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
 	  let most_recent_db = Db_connections.pick_most_recent_db connections in
-	  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
-	  Backend_xml.populate most_recent_db;
-	  most_recent_db
-	end in
-      (* Always perform the generic database upgrade stuff *)
-      Db_upgrade.generic_database_upgrade ();
+	  debug "Path that I'm looking at to consider whether to upgrade = %s" most_recent_db.Parse_db_conf.path;
+	  if Sys.file_exists most_recent_db.Parse_db_conf.path then
+	    Db_upgrade.maybe_upgrade most_recent_db;
 
-      (* Then look to see whether we have specific upgrade rules to consider *)
-      if Sys.file_exists db.Parse_db_conf.path then Db_upgrade.maybe_upgrade db;
-	
-      post_populate_hook ()
+	  (* populate from most recent database *)
+	  Db_connections.populate most_recent_db db_table_names;
+	  post_populate_hook ()
+	end
 
     let spawn_db_flush_threads() =
       (* Spawn threads that flush cache to db connections at regular intervals *)
@@ -527,7 +499,7 @@ struct
 		     (fun ()->
 			Db_connections.inc_db_flush_thread_refcount();
 			let db_path = dbconn.Parse_db_conf.path in
-			Debug.name_thread ("dbflush ["^db_path^"]");
+			name_thread ("dbflush ["^db_path^"]");
 			let my_writes_this_period = ref 0 in
 
 			(* the collesce_period_start records the time of the last write *)
@@ -603,11 +575,10 @@ struct
       populate_cache();
       spawn_db_flush_threads()
 
-    (* Return a list of all the references for which the expression returns true. *)
     let find_refs_with_filter (tblname: string) (expr: Db_filter_types.expr) = 
       with_lock
 	(fun ()->
-	   let tbl = lookup_table_in_cache cache tblname in
+	   let tbl = lookup_table_in_cache tblname in
 	   let rows = get_rowlist tbl in
 	   let eval_val row = function
 	     | Db_filter_types.Literal x -> x
@@ -653,7 +624,7 @@ struct
 	end in
       with_lock
 	(fun () ->
-	   let row = find_row cache tbl objref in
+	   let row = find_row tbl objref in
 	   let existing_str = lookup_field_in_row row fld in
 	   let existing = parse_sexpr existing_str in
 	   let processed = proc_fn existing in
@@ -726,12 +697,6 @@ struct
 	    | "uniqueness_constraint_violation" ->
 		let (x,y,z) = unmarshall_3strings exn_params_xml in
 		raise (Uniqueness_constraint_violation (x,y,z))
-	    | "read_missing_uuid" ->
-		let (x,y,z) = unmarshall_3strings exn_params_xml in
-		raise (Read_missing_uuid (x,y,z))
-	    | "too_many_values" ->
-		let (x,y,z) = unmarshall_3strings exn_params_xml in
-		raise (Too_many_values (x,y,z))
 	    | _ -> raise DB_remote_marshall_error
 	  end
       | _ -> raise Remote_db_server_returned_unknown_exception
@@ -739,7 +704,7 @@ struct
     exception Remote_db_server_returned_bad_message
     let do_remote_call marshall_args unmarshall_resp fn_name args =
       let xml = marshall_args args in
-      let xml = XMLRPC.To.array [XMLRPC.To.string fn_name; XMLRPC.To.string "" (* unused *); xml] in
+      let xml = XMLRPC.To.array [XMLRPC.To.string fn_name; XMLRPC.To.string !Xapi_globs.pool_secret; xml] in
       let resp = Master_connection.execute_remote_fn xml Constants.remote_db_access_uri in
       match XMLRPC.From.array (fun x->x) resp with
 	[status_xml; resp_xml] ->
@@ -775,20 +740,6 @@ struct
 	unmarshall_read_field_where_response
 	"read_field_where"
 	x
-
-    let db_get_by_uuid t u =
-      do_remote_call
-	marshall_db_get_by_uuid_args
-	unmarshall_db_get_by_uuid_response
-	"db_get_by_uuid"
-	(t,u)
-
-    let db_get_by_name_label t l =
-      do_remote_call
-	marshall_db_get_by_name_label_args
-	unmarshall_db_get_by_name_label_response
-	"db_get_by_name_label"
-	(t,l)
 
     let read_set_ref x =
       do_remote_call
@@ -907,10 +858,6 @@ struct
     (sw Master.read_refs Slave.read_refs) s
   let read_field_where w =
     (sw Master.read_field_where Slave.read_field_where) w
-  let db_get_by_uuid t u =
-    (sw Master.db_get_by_uuid Slave.db_get_by_uuid) t u
-  let db_get_by_name_label t l =
-    (sw Master.db_get_by_name_label Slave.db_get_by_name_label) t l
   let read_set_ref w =
     (sw Master.read_set_ref Slave.read_set_ref) w
   let create_row context s1 s2 s3 =

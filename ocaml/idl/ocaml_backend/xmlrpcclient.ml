@@ -1,16 +1,15 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
+
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Jon Harrop    <jon.harrop@xensource.com>
+             Dave Scott    <dscott@xensource.com>
+             Richard Sharp <richard.sharp@xensource.com>
+
+   Simple HTTP 1.0 and XMLRPC client functions
+
+   ------------------------------------------------------------------- *)
 open Stringext
 open Pervasiveext
 open Threadext
@@ -19,7 +18,6 @@ module D = Debug.Debugger(struct let name = "http" end)
 open D
 
 let set_stunnelpid_callback : (string -> int -> unit) option ref = ref None
-let unset_stunnelpid_callback : (string -> int -> unit) option ref = ref None
 
 (* Headers for an HTTP CONNECT operation *)
 let connect_headers ?session_id ?task_id ?subtask_of host path = 
@@ -62,14 +60,6 @@ exception Http_header_truncated of string
     (eg) an stunnel accepted the connection but xapi refused the forward causing stunnel
     to immediately close. *)
 exception Empty_response_from_server
-
-(** Thrown when we get a specific HTTP error, e.g. 
-		401 (unauthorized) if we supply the wrong credentials
-		403 (forbidden)    if RBAC denied access
-		500 (internal server error) if XAPI failed with an INTERNAL_ERROR,
-		      Api_server error, XMLRPC_UNMARSHAL_FAILURE error etc.
- *)
-exception Http_error of string*string
 
 let input_line_fd (fd: Unix.file_descr) = 
   let buf = Buffer.create 20 in
@@ -159,8 +149,6 @@ let http_rpc_recv_response error_msg fd =
 		 end 
 	       end
 	 done
-     | _ :: (("401"|"403"|"500") as http_code) :: _ ->
-       raise (Http_error (http_code,error_msg))
      | _ -> 
 	 debug "Read unknown response response: %s" line;
 	 raise Not_found
@@ -195,8 +183,6 @@ let http_rpc_recv_response_timeout error_msg ?(timeout=Some Buf_io.infinite_time
   let line = Buf_io.input_line ?timeout buf in
   match String.split_f String.isspace line with
   | _ :: "200" :: _ -> read_http_headers ?timeout buf 
-  | _ :: (("401"|"403"|"500") as http_code) :: _ ->
-      raise (Http_error (http_code,error_msg))
   | _ ->
       warn "http_rpc_recv_response_timeout: unknown response: %s" line;
       raise (Http_request_rejected error_msg)
@@ -339,46 +325,36 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       let unique_id = get_new_stunnel_id () in
       Stunnel.connect ~use_external_fd_wrapper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
   let s = st_proc.Stunnel.fd in
-  let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
-  info "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
-
-  (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
-  let with_recorded_stunnelpid task_opt s_pid f =
-	begin
-	  match task_id, !set_stunnelpid_callback with
-	  | Some t, Some f -> f t s_pid
-	  | _, _ -> ()
-	end;
-	finally f
-		(fun () ->
-			 match task_id, !unset_stunnelpid_callback with
-			 | Some t, Some f -> f t s_pid
-			 | _, _ -> ()
-		) in
-
-  with_recorded_stunnelpid task_id s_pid
-	(fun () ->
-  finally
+  let s_pid = st_proc.Stunnel.pid in
+    begin
+      match task_id with
+          None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
+        | Some t ->
+            match !set_stunnelpid_callback with
+			          None -> warn "Did not write stunnel pid: no callback registered"
+			        | Some f -> f t s_pid
+    end;
+    finally
     (fun () ->
-      try
-        let content_length, task_id = http_rpc_fd s headers body in
-        f content_length task_id s
-      with e ->
-		  warn "stunnel pid: %d caught %s" s_pid (Printexc.to_string e);
-		  if e = Connection_reset && not use_stunnel_cache
-		  then Stunnel.diagnose_failure st_proc;
-          raise e)
+       try
+         let content_length, task_id = http_rpc_fd s headers body in
+           f content_length task_id s
+       with
+         | Connection_reset ->
+             if not use_stunnel_cache then
+               Stunnel.diagnose_failure st_proc;
+             raise Connection_reset)
     (fun () ->
-      if use_stunnel_cache
-      then
-        Stunnel_cache.add st_proc
-      else
-        begin
-          Unix.unlink st_proc.Stunnel.logfile;
-          Stunnel.disconnect st_proc
-        end
+       if use_stunnel_cache
+       then
+         Stunnel_cache.add st_proc
+       else
+         begin
+           Unix.unlink st_proc.Stunnel.logfile;
+           Stunnel.disconnect st_proc
+         end
     )
-     ) 
+      
 
 (** Take an optional content_length and task_id together with a socket
     and return the XMLRPC response as an XML document *)

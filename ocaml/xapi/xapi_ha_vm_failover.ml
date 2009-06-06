@@ -1,23 +1,14 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D = Debug.Debugger(struct let name="xapi_ha_vm_failover" end)
 open D
+
+(* All non best-effort VMs with always_run set should be kept running at all costs *)
+let vm_should_always_run always_run restart_priority = 
+  always_run && (restart_priority <> Constants.ha_restart_best_effort)
 
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
 let all_protected_vms ~__context = 
    let vms = Db.VM.get_all_records ~__context in
-   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
+   List.filter (fun (_, vm_rec) -> vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
 
 (* Comparison function which can be used to sort a list of VM ref, record by restart_priority *)
 let by_restart_priority (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
@@ -40,8 +31,8 @@ let by_restart_priority (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
 (* Planning code follows                                                                             *)
 
 (* Compute the total memory required of a VM (Running or not) *)
-let total_memory_of_vm ~__context policy snapshot = 
-  let main, shadow = Memory_check.vm_compute_start_memory ~__context ~policy snapshot in
+let total_memory_of_vm ~__context snapshot = 
+  let main, shadow = Memory_check.vm_compute_start_memory __context snapshot in
   Int64.add main shadow 
 
 let short_string_of_ref x =
@@ -51,8 +42,8 @@ let short_string_of_ref x =
 (** Return a VM -> Host plan for the Host.evacuate code. We assume the VMs are all agile. The returned plan may
     be incomplete if there was not enough memory. *)
 let compute_evacuation_plan ~__context total_hosts remaining_hosts vms_and_snapshots = 
-  let hosts = List.map (fun host -> host, (Memory_check.host_compute_free_memory_with_maximum_compression ~__context ~host None)) remaining_hosts in  
-  let vms = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context Memory_check.Dynamic_min snapshot) vms_and_snapshots in
+  let hosts = List.map (fun host -> host, (Memory_check.host_compute_free_memory ~__context ~host None)) remaining_hosts in  
+  let vms = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context snapshot) vms_and_snapshots in
 
   let config = { Binpack.hosts = hosts; vms = vms; placement = []; total_hosts = total_hosts; num_failures = 1 } in
   Binpack.check_configuration config;
@@ -200,18 +191,16 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
      returns None) Also apply the supplied counterfactual-reasoning changes (if any) *)
   let hosts_and_memory = List.map 
     (fun host -> 
-       (* Ultra-conservative assumption: plan using VM static_max values. *)
-       let summary = Memory_check.get_host_memory_summary ~__context ~host in
-       let currently_free = Memory_check.host_compute_free_memory_with_policy ~__context summary Memory_check.Static_max in
+       let currently_free = Memory_check.host_compute_free_memory ~__context ~host None in
        let sum = List.fold_left Int64.add 0L in
        let arriving = List.filter (fun (h, _) -> h = host) change.old_vms_arriving in
-       let arriving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context Memory_check.Static_max snapshot) arriving) in
+       let arriving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context snapshot) arriving) in
        let leaving = List.filter (fun (h, _) -> h = host) change.old_vms_leaving in
-       let leaving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context Memory_check.Static_max snapshot) leaving) in
+       let leaving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context snapshot) leaving) in
        host, Int64.sub (Int64.add currently_free leaving_memory) arriving_memory) live_hosts in
 
   (* Memory required by all protected VMs *)
-  let vms_and_memory = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context Memory_check.Static_max snapshot) vms_to_ensure_running in
+  let vms_and_memory = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context snapshot) vms_to_ensure_running in
 
   (* For each non-agile VM, consider it pinned it to one host (even if it /could/ run on several). Note that if it is
      actually running somewhere else (very strange semi-agile situation) then it will be counted as overhead there and

@@ -1,21 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for Message objects
- * @group XenAPI functions
- *)
-
- 
 (** Message store *)
 
 (* We use a filesystem based 'database': 
@@ -41,8 +23,7 @@ let class_to_string cls =
     | `VM -> "VM" 
     | `Host -> "Host" 
     | `SR -> "SR" 
-    | `Pool -> "Pool"
-    | `VMPP -> "VMPP" 
+    | `Pool -> "Pool" 
     | _ -> "unknown"
 
 let string_to_class str = 
@@ -51,7 +32,6 @@ let string_to_class str =
     | "Host" -> `Host
     | "SR" -> `SR
     | "Pool" -> `Pool
-    | "VMPP" -> `VMPP
     | _ -> failwith "Bad type"
 
 (* We use the timestamp to name the file. For consistency, use this function *)
@@ -62,13 +42,12 @@ let timestamp_to_string f =
 
 let to_xml output _ref message =
   let tag n next () = 
-    Xmlm.output output (`El_start (("",n),[])); 
+    Xmlm.output_signal output (`S (("",n),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output output `El_end 
+    Xmlm.output_signal output (`E) 
   in
-  let data dat () = Xmlm.output output (`Data dat) in
+  let data dat () = Xmlm.output_signal output (`D dat) in
 
-  Xmlm.output output (`Dtd None);
   tag "message" [
     tag "ref" [ data (Ref.string_of _ref) ];
     tag "name" [ data message.API.message_name ];
@@ -92,11 +71,9 @@ let of_xml input =
     API.message_uuid = ""}
   in
   let _ref = ref "" in
-  let rec f () = match Xmlm.input input with
-  | `El_start ((ns,tag),attr) -> current_elt := tag; f ()
-  | `El_end                   -> current_elt := ""; if Xmlm.eoi input then () else f ()
-  | `Data dat                 -> 
-    begin match !current_elt with
+  let s ((ns,tag),attr) _ = current_elt := tag in
+  let e ((ns,tag),attr) _ = current_elt := "" in
+  let d dat () = match !current_elt with
     | "name" -> message := {!message with API.message_name=dat}
     | "priority" -> message := {!message with API.message_priority=Int64.of_string dat}
     | "cls" -> message := {!message with API.message_cls=string_to_class dat}
@@ -106,15 +83,9 @@ let of_xml input =
     | "body" -> message := {!message with API.message_body=dat}
     | "ref" -> _ref := dat
     | _ -> failwith "Bad XML!"
-    end;
-    f ()
-  | `Dtd _ -> f () 
   in
-  try 
-    f ();
-    (Ref.of_string !_ref,!message) 
-  with e -> log_backtrace (); debug "Caught exception: %s" (Printexc.to_string e); raise e
-
+  Xmlm.input ~s ~e ~d () input;
+  (Ref.of_string !_ref,!message)
 
 
 (********** Symlink functions *************)
@@ -150,26 +121,24 @@ let check_uuid ~__context ~cls ~uuid =
       | `VM -> ignore(Db.VM.get_by_uuid ~__context ~uuid)
       | `Host -> ignore(Db.Host.get_by_uuid ~__context ~uuid)
       | `SR -> ignore(Db.SR.get_by_uuid ~__context ~uuid)
-      | `Pool -> ignore(Db.Pool.get_by_uuid ~__context ~uuid)
-      | `VMPP -> ignore(Db.VMPP.get_by_uuid ~__context ~uuid)
-    );
+      | `Pool -> ignore(Db.Pool.get_by_uuid ~__context ~uuid));
     true
   with _ -> 
     false
 
 (*********** Thread_queue to exec the message script hook ***********)
 
-let queue_push = ref (fun (description: string) (m : string) -> false)
+let queue_push = ref (fun (m : string) -> false)
 
 let message_to_string (_ref,message) =
   let buffer = Buffer.create 10 in
-  let output = Xmlm.make_output (`Buffer buffer) in
+  let output = Xmlm.output_of_buffer buffer in
   to_xml output _ref message;
   Buffer.contents buffer
 
-let handle_message ~__context message = 
+let handle_message message = 
   try
-    if not (Features.is_enabled ~__context Features.Email)
+    if not (Restrictions.get_pool ()).Restrictions.enable_email
     then info "Email alerting is restricted by current license: not generating email"
     else begin
       let output, log = Forkhelpers.execute_command_get_output (Xapi_globs.xapi_message_script) [message] in
@@ -179,8 +148,8 @@ let handle_message ~__context message =
     error "Unexpected exception in message hook. Exception='%s'" (ExnHelper.string_of_exn e);
     log_backtrace ()
 
-let start_message_hook_thread ~__context () =
-  queue_push := Thread_queue.make ~name:"email message queue" ~max_q_length:100 (handle_message ~__context)
+let start_message_hook_thread () =
+  queue_push := Thread_queue.make ~name:"email message queue" ~max_q_length:100 handle_message
 
 
 (********************************************************************)
@@ -216,7 +185,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) name (message_to_string (_ref,message));
+      (!queue_push) (message_to_string (_ref,message));
       (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
       (* Return a null reference *)
@@ -252,10 +221,10 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) name (message_to_string (_ref,message));
+      (!queue_push) (message_to_string (_ref,message));
 
       let oc = Unix.out_channel_of_descr f in
-      let output = Xmlm.make_output (`Channel oc) in
+      let output = Xmlm.output_of_channel oc in
       to_xml output _ref message;
       close_out oc;
 
@@ -272,7 +241,7 @@ let destroy_real basefilename =
   let filename = message_dir ^ "/" ^ basefilename in
   let ic = open_in filename in
   let (_ref,message) = Pervasiveext.finally 
-    (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
+    (fun () -> of_xml (Xmlm.input_of_channel ic))
     (fun () -> close_in ic) 
   in
   let symlinks = symlinks _ref message basefilename in
@@ -312,15 +281,8 @@ let gc ~__context =
 	  let to_reap = n - Xapi_globs.message_limit in
 	  let rec reap_one i msgs =
 	    if i=to_reap then () else
-	      begin
-		begin
-		  try destroy_real (snd (List.hd msgs)) 
-		  with e -> 
-		    debug "Failed to destroy message %s" (snd (List.hd msgs));
-		    debug "Caught exception %s" (Printexc.to_string e)
-		end;
-		reap_one (i+1) (List.tl msgs)
-	      end
+	      (destroy_real (snd (List.hd msgs));
+	       reap_one (i+1) (List.tl msgs))
 	  in
 	  reap_one 0 sorted
 	end
@@ -335,7 +297,7 @@ let get_real dir filter since =
       let filename = dir ^ "/" ^ msg in
       try 
 	let ic = open_in filename in
-	let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in	  
+	let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.input_of_channel ic)) (fun () -> close_in ic) in	  
 	if filter msg then Some (_ref,msg) else None
       with _ -> None) messages
     in
@@ -356,7 +318,7 @@ let get_by_uuid ~__context ~uuid =
   try
     let message_filename = (uuid_symlink ()) ^ "/" ^ uuid in
     let ic = open_in message_filename in
-    let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
+    let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.input_of_channel ic)) (fun () -> close_in ic) in
     _ref
   with
       _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ uuid ]))
@@ -373,7 +335,7 @@ let get_record ~__context ~self =
     let fullpath = Unix.readlink symlinkfname in
     let ic = open_in fullpath in
     let (_ref,message) = Pervasiveext.finally 
-      (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
+      (fun () -> of_xml (Xmlm.input_of_channel ic))
       (fun () -> close_in ic) 
     in message
   with _ ->
@@ -389,7 +351,7 @@ let get_all_records_where ~__context ~expr =
    days worth of messages as an RSS feed. *)  
 let handler (req: Http.request) (bio: Buf_io.t) = 
   let query = req.Http.query in
-  req.Http.close <- true;
+  req.Http.close := true;
   debug "Message handler";
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;

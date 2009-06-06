@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (** Time activities, monitor the mean and standard deviation. Try to help understand how
     long key operations take under load. *)
 
@@ -82,12 +69,9 @@ let sample (name: string) (x: float) =
        Hashtbl.replace timings name p';
 (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
        p') in
-()
-(*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)
   then debug "Population %s time more than 3 standard deviations from the mean (time = %f; mean = %s)" name x (string_of p)
-*)
 
 (** Helper function to time a specific thing *)
 let time_this (name: string) f = 

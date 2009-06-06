@@ -10,28 +10,27 @@ else
   LIBDIR = lib64
   export
 
-# By default compile to native code but not byte code unless specified otherwise
-NATIVE_ENABLED=$(getenv COMPILE_NATIVE, true)
-BYTE_ENABLED=$(getenv COMPILE_BYTE, false)
-if $(not $(or $(NATIVE_ENABLED), $(BYTE_ENABLED)))
-  eprintln(At least one of native and bytecode compilation modes should be enabled)
-  exit(1)
-export
+# Default to bytecode unless COMPILE_NATIVE is defined
+if $(not $(defined-env COMPILE_NATIVE))
+  COMPILE_NATIVE = yes
+  export
+BYTE_ENABLED = false
+NATIVE_ENABLED = $(if $(equal $(COMPILE_NATIVE), yes), true, false)
 
-CARBON_DISTFILES=$(getenv CARBON_DISTFILES, /usr/groups/linux/distfiles)
-export
-
-OCAMLDEP_MODULES_ENABLED = false
+if $(not $(defined-env CARBON_DISTFILES))
+  CARBON_DISTFILES = /usr/groups/linux/distfiles
+  export
 
 USE_OCAMLFIND = true
 
 OCAMLFLAGS = -g -dtypes -thread -warn-error F
+OCAMLPACKS = threads bigarray
 
 # c compiling stuff
 OCAMLCFLAGS += -g
 OCAMLOPTFLAGS = -ccopt -fPIC
 CFLAGS+=-g -O2
-if $(NATIVE_ENABLED)
+if $(defined-env COMPILE_NATIVE)
   CFLAGS+=-DCOMPILE_NATIVE
   export
 
@@ -48,56 +47,49 @@ XEN_OCAML_CLIBS=
 # For the Zurich chroot environment
 CFLAGS+=-I$(shell ocamlc -where)
 
-DESTDIR=$(getenv DESTDIR, $(ROOT)/dist/staging)
-DEBUGDIST=$(DESTDIR)/opt/xensource/debug
-LIBEXEC=$(DESTDIR)/opt/xensource/libexec
-
 DIST=$(ROOT)/dist
-SDK=$(DESTDIR)/usr/share/doc/xapi
-SDKWWW=$(DESTDIR)/usr/share/doc/xapi/www
+SDK=$(ROOT)/dist/staging/SDK
+SDKWWW=$(ROOT)/dist/staging/SDKwww
+DEBUGDIST=$(DIST)/staging/opt/xensource/debug
+LIBEXEC=$(DIST)/staging/opt/xensource/libexec
 
 CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a
 export CLEAN_OBJS
 
-#.PHONY: clean
-#clean:
-#	rm -rf doc/
+.PHONY: clean
+clean:
+	rm -rf doc/
 
-COMPILE_OCAML=$(getenv COMPILE_OCAML, yes)
-COMPILE_JS=$(getenv COMPILE_JS, yes)
-COMPILE_JAVA=$(getenv COMPILE_JAVA, yes)
-export
+.SUBDIRS: ocaml scripts
 
-.SUBDIRS: ocaml scripts $(if $(COMPILE_JAVA), java) $(if $(COMPILE_JS), javascript)
+
+if $(not $(defined-env COMPILE_OCAML))
+  COMPILE_OCAML = yes
+  export
+if $(not $(defined-env COMPILE_JS))
+  COMPILE_JS = yes
+  export
 
 # inherits COMPILE_XENSTUFF from the Makefile (NB don't set it here or else
 # you can't build the fakeserver etc on a machine without Xen, e.g. an Apple)
-COMPILE_XENSTUFF=$(getenv COMPILE_XENSTUFF, no)
-export
+if $(not $(defined-env COMPILE_XENSTUFF))
+  COMPILE_XENSTUFF = no
+  export
 
 .PHONY: none
 
 # Ocaml #############################################################################
-OCAML_PHASE1= autogen_idl
-OCAML_PHASE2= $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa)
+OCAML_PHASE1= copy_quicktest_modules
+OCAML_PHASE2= autogen_idl
 
 # JS ################################################################################
 JS_PHASE1=
 JS_PHASE2=js_binding
 JS_PHASE3=
 
-# Java ##############################################################################
-JAVA_PHASE1= XenServerConsole.jar
-JAVA_PHASE2=
-JAVA_PHASE3=
-
-JS_PHASE1_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE1))
-JS_PHASE2_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE2))
-JS_PHASE3_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE3))
-
-JAVA_PHASE1_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE1))
-JAVA_PHASE2_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE2))
-JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
+JS_PHASE1_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE1), none)
+JS_PHASE2_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE2), none)
+JS_PHASE3_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE3), none)
 
 # Phase 3 targets divided into two depending on whether we're building the Xen stuff or not:
 OCAML_PHASE3_XEN = \
@@ -110,15 +102,12 @@ OCAML_PHASE3_XEN = \
 	ocaml/xenops-ts/runtest \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
-	ocaml/xiu/xiu \
 	ocaml/xapi/fakeguestagent \
-	ocaml/xapi/quicktestbin \
-	ocaml/xapi/sparse_dd \
 	ocaml/xsrpc/xsrpc \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
-	ocaml/license/v6testd \
-	ocaml/license/v6d-reopen-logs
+	ocaml/netdev/brctl \
+	ocaml/p2v/p2v
 
 OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauthx \
@@ -130,21 +119,30 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/xe-cli/rt/xgetip \
 	ocaml/xe-cli/rt/geneva/cli_test \
 	ocaml/xe-cli/rt/geneva/sm_stress \
+	ocaml/util/unix-domain-wrapper \
+	ocaml/util/xmlpp \
+	ocaml/util/file_access_test \
 	ocaml/events/event_listen \
+	ocaml/muxdemux/tar \
 	ocaml/console/console \
 	ocaml/graph/graph \
 	ocaml/rfb/rfb_randomtest \
 	ocaml/database/unit_test_marshall \
+	ocaml/database/dbupdate \
 	ocaml/database/block_device_io \
+	ocaml/fdhelper/closeandexec \
+	ocaml/fdhelper/closeandexec_static \
 	ocaml/toplevel \
+	ocaml/xiu/xiu \
 	ocaml/cdrommon/cdrommon \
 	ocaml/xapi/stresstest \
+	ocaml/xapi/fakeguestagent \
+	ocaml/xapi/quicktestbin \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
 	ocaml/idl/html_build \
 	ocaml/db_process/xapi-db-process \
 	ocaml/vncproxy/vncproxy \
-	ocaml/xapi/rrddump \
 	ocaml/perftest/perftest \
 	ocaml/perftest/histogram \
 	ocaml/perftest/cumulative_time \
@@ -153,24 +151,24 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/multipathrt/multipathrt
 
 
-OCAML_PHASE3 = $(if $(COMPILE_XENSTUFF),$(OCAML_PHASE3_XEN)) $(OCAML_PHASE3_NOXEN)
+OCAML_PHASE3 = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_PHASE3_XEN) $(OCAML_PHASE3_NOXEN), $(OCAML_PHASE3_NOXEN))
 
-OCAML_PHASE1_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE1))
-OCAML_PHASE2_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE2))
-OCAML_PHASE3_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE3))
+OCAML_PHASE1_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE1), none)
+OCAML_PHASE2_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE2), none)
+OCAML_PHASE3_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE3), none)
 
 #####################################################################################
 
 # phase1: build stdlib2
 .PHONY: phase1
-phase1: $(OCAML_PHASE1_TARGETS) $(JS_PHASE1_TARGETS) $(JAVA_PHASE1_TARGETS)
+phase1: $(OCAML_PHASE1_TARGETS) $(JS_PHASE1_TARGETS)
 	mkdir -p $(DIST) $(DIST)/bin
 
 # phase2: build compilers and make autogenerated files
 .PHONY: phase2
-phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
+phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS)
 
 # phase3: use autogenerated files to make apps
 .PHONY: phase3
-phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
+phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS)
 

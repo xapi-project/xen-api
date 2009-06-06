@@ -1,16 +1,10 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006, 2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * Functions for handling the export format 'XVA' as used by Zurich
  *)
+
 open Stringext
 
 module D=Debug.Debugger(struct let name="xva" end)
@@ -231,7 +225,7 @@ let send path fd =
     debug "Attempting to add %s (%s)\n" path filename;
     let hdr = Tar.Header.of_file path in
     let hdr = { hdr with Tar.Header.file_name = filename } in
-    debug "file_size = %Ld\n" (hdr.Tar.Header.file_size); 
+    debug "file_size = %ld\n" (hdr.Tar.Header.file_size); 
     Tar.write_block hdr 
       (fun ofd ->
 	 let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in

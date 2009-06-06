@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 exception Server_error of string * string list
 
 let to_string = function
@@ -54,7 +41,6 @@ let host_disabled_until_reboot = "HOST_DISABLED_UNTIL_REBOOT"
 let host_not_disabled = "HOST_NOT_DISABLED"
 let host_not_live = "HOST_NOT_LIVE"
 let host_is_live = "HOST_IS_LIVE"
-let host_power_on_mode_disabled="HOST_POWER_ON_MODE_DISABLED"
 let host_not_enough_free_memory = "HOST_NOT_ENOUGH_FREE_MEMORY"
 let no_hosts_available = "NO_HOSTS_AVAILABLE"
 let host_offline = "HOST_OFFLINE"
@@ -62,12 +48,8 @@ let host_cannot_destroy_self = "HOST_CANNOT_DESTROY_SELF"
 let host_is_slave = "HOST_IS_SLAVE"
 let host_name_invalid = "HOST_NAME_INVALID"
 let host_has_resident_vms = "HOST_HAS_RESIDENT_VMS"
-let hosts_failed_to_enable_caching = "HOSTS_FAILED_TO_ENABLE_CACHING"
-let hosts_failed_to_disable_caching = "HOSTS_FAILED_TO_DISABLE_CACHING"
-let host_cannot_see_SR = "HOST_CANNOT_SEE_SR"
 
 (* Host errors which explain why the host is in emergency mode *)
-let host_its_own_slave = "HOST_ITS_OWN_SLAVE"
 let host_still_booting = "HOST_STILL_BOOTING"
 (* license *)
 let host_has_no_management_ip = "HOST_HAS_NO_MANAGEMENT_IP"
@@ -104,17 +86,10 @@ let cannot_plug_vif = "CANNOT_PLUG_VIF"
 let mac_still_exists = "MAC_STILL_EXISTS"
 let mac_does_not_exist = "MAC_DOES_NOT_EXIST"
 let mac_invalid = "MAC_INVALID"
-let duplicate_pif_device_name = "DUPLICATE_PIF_DEVICE_NAME"
-
-let openvswitch_not_active = "OPENVSWITCH_NOT_ACTIVE"
-let transport_pif_not_configured = "TRANSPORT_PIF_NOT_CONFIGURED"
-let is_tunnel_access_pif = "IS_TUNNEL_ACCESS_PIF"
-let pif_tunnel_still_exists = "PIF_TUNNEL_STILL_EXISTS"
 
 let vlan_tag_invalid = "VLAN_TAG_INVALID"
 let vm_bad_power_state = "VM_BAD_POWER_STATE"
 let vm_is_template = "VM_IS_TEMPLATE"
-let vm_is_snapshot = "VM_IS_SNAPSHOT"
 let other_operation_in_progress = "OTHER_OPERATION_IN_PROGRESS"
 let vbd_not_removable_media = "VBD_NOT_REMOVABLE_MEDIA"
 let vbd_not_unpluggable = "VBD_NOT_UNPLUGGABLE"
@@ -122,21 +97,6 @@ let vbd_not_empty = "VBD_NOT_EMPTY"
 let vbd_is_empty = "VBD_IS_EMPTY"
 let vbd_tray_locked = "VBD_TRAY_LOCKED"
 let vm_snapshot_failed = "VM_SNAPSHOT_FAILED"
-let vm_snapshot_with_quiesce_failed = "VM_SNAPSHOT_WITH_QUIESCE_FAILED"
-let vm_snapshot_with_quiesce_timeout = "VM_SNAPSHOT_WITH_QUIESCE_TIMEOUT"
-let vm_snapshot_with_quiesce_plugin_does_not_respond = "VM_SNAPSHOT_WITH_QUIESCE_PLUGIN_DEOS_NOT_RESPOND"
-let vm_snapshot_with_quiesce_not_supported = "VM_SNAPSHOT_WITH_QUIESCE_NOT_SUPPORTED"
-let xen_vss_req_error_init_failed = "XEN_VSS_REQ_ERROR_INIT_FAILED"
-let xen_vss_req_error_prov_not_loaded = "XEN_VSS_REQ_ERROR_PROV_NOT_LOADED"
-let xen_vss_req_error_no_volumes_supported = "XEN_VSS_REQ_ERROR_NO_VOLUMES_SUPPORTED"
-let xen_vss_req_error_start_snapshot_set_failed = "XEN_VSS_REQ_ERROR_START_SNAPSHOT_SET_FAILED"
-let xen_vss_req_error_adding_volume_to_snapset_failed = "XEN_VSS_REQ_ERROR_ADDING_VOLUME_TO_SNAPSET_FAILED"
-let xen_vss_req_error_preparing_writers = "XEN_VSS_REQ_ERROR_PREPARING_WRITERS"
-let xen_vss_req_error_creating_snapshot = "XEN_VSS_REQ_ERROR_CREATING_SNAPSHOT"
-let xen_vss_req_error_creating_snapshot_xml_string = "XEN_VSS_REQ_ERROR_CREATING_SNAPSHOT_XML_STRING"
-let vm_revert_failed = "VM_REVERT_FAILED"
-let vm_checkpoint_suspend_failed = "VM_CHECKPOINT_SUSPEND_FAILED"
-let vm_checkpoint_resume_failed = "VM_CHECKPOINT_RESUME_FAILED"
 let vm_unsafe_boot = "VM_UNSAFE_BOOT"
 let vm_requires_sr = "VM_REQUIRES_SR"
 let vm_requires_vdi = "VM_REQUIRES_VDI"
@@ -154,14 +114,8 @@ let vm_memory_target_wait_timeout = "VM_MEMORY_TARGET_WAIT_TIMEOUT"
 let vm_shutdown_timeout = "VM_SHUTDOWN_TIMEOUT"
 let vm_duplicate_vbd_device = "VM_DUPLICATE_VBD_DEVICE"
 let vm_not_resident_here = "VM_NOT_RESIDENT_HERE"
-let vm_crashed = "VM_CRASHED"
-let vm_rebooted = "VM_REBOOTED"
-let vm_halted = "VM_HALTED"
-let vms_failed_to_cooperate = "VMS_FAILED_TO_COOPERATE"
 let domain_exists = "DOMAIN_EXISTS"
-let cannot_reset_control_domain = "CANNOT_RESET_CONTROL_DOMAIN"
 let only_provision_template = "PROVISION_ONLY_ALLOWED_ON_TEMPLATE"
-let only_revert_snapshot = "REVERT_ONLY_ALLOWED_ON_SNAPSHOT"
 let provision_failed_out_of_space = "PROVISION_FAILED_OUT_OF_SPACE"
 let bootloader_failed = "BOOTLOADER_FAILED"
 let unknown_bootloader = "UNKNOWN_BOOTLOADER"
@@ -172,19 +126,15 @@ let sr_full = "SR_FULL"
 let sr_has_pbd = "SR_HAS_PBD"
 let sr_requires_upgrade = "SR_REQUIRES_UPGRADE"
 let vdi_in_use = "VDI_IN_USE"
-let vdi_is_sharable = "VDI_IS_SHARABLE"
 let vdi_readonly = "VDI_READONLY"
 let vdi_is_a_physical_device = "VDI_IS_A_PHYSICAL_DEVICE"
 let vdi_is_not_iso = "VDI_IS_NOT_ISO"
 let vbd_cds_must_be_readonly = "VBD_CDS_MUST_BE_READONLY"
-let host_cd_drive_empty = "HOST_CD_DRIVE_EMPTY"
 let vdi_not_available = "VDI_NOT_AVAILABLE"
 let vdi_location_missing = "VDI_LOCATION_MISSING"
 let vdi_missing = "VDI_MISSING"
 let vdi_incompatible_type = "VDI_INCOMPATIBLE_TYPE"
 let vdi_not_managed = "VDI_NOT_MANAGED"
-let vdi_io_error = "VDI_IO_ERROR"
-let vdi_on_boot_mode_incompatable_with_operation = "VDI_ON_BOOT_MODE_INCOMPATABLE_WITH_OPERATION"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 
@@ -198,7 +148,6 @@ let sr_not_empty = "SR_NOT_EMPTY"
 let sr_device_in_use = "SR_DEVICE_IN_USE"
 let sr_operation_not_supported = "SR_OPERATION_NOT_SUPPORTED"
 let sr_not_sharable = "SR_NOT_SHARABLE"
-let sr_indestructible = "SR_INDESTRUCTIBLE"
 
 let pbd_exists = "PBD_EXISTS"
 
@@ -230,7 +179,6 @@ let pool_not_in_emergency_mode = "NOT_IN_EMERGENCY_MODE"
 let pool_hosts_not_homogeneous = "HOSTS_NOT_HOMOGENEOUS"
 let pool_joining_host_cannot_contain_shared_SRs = "JOINING_HOST_CANNOT_CONTAIN_SHARED_SRS"
 let pool_joining_host_cannot_have_running_or_suspended_VMs = "JOINING_HOST_CANNOT_HAVE_RUNNING_OR_SUSPENDED_VMS"
-let pool_joining_host_cannot_have_running_VMs = "JOINING_HOST_CANNOT_HAVE_RUNNING_VMS"
 let pool_joining_host_cannot_have_vms_with_current_operations = "JOINING_HOST_CANNOT_HAVE_VMS_WITH_CURRENT_OPERATIONS"
 let pool_joining_host_cannot_be_master_of_other_hosts = "JOINING_HOST_CANNOT_BE_MASTER_OF_OTHER_HOSTS"
 let pool_joining_host_connection_failed = "JOINING_HOST_CONNECTION_FAILED"
@@ -294,14 +242,6 @@ let license_processing_error = "LICENSE_PROCESSING_ERROR"
 let license_cannot_downgrade_in_pool = "LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL"
 let license_does_not_support_xha = "LICENSE_DOES_NOT_SUPPORT_XHA"
 
-let invalid_edition = "INVALID_EDITION"
-let missing_connection_details = "MISSING_CONNECTION_DETAILS"
-let license_checkout_error = "LICENSE_CHECKOUT_ERROR"
-let license_file_deprecated = "LICENSE_FILE_DEPRECATED"
-let activation_while_not_free = "ACTIVATION_WHILE_NOT_FREE"
-
-let feature_restricted = "FEATURE_RESTRICTED"
-
 let xmlrpc_unmarshal_failure = "XMLRPC_UNMARSHAL_FAILURE"
 
 let duplicate_vm = "DUPLICATE_VM"
@@ -349,43 +289,17 @@ let xenapi_plugin_failure = "XENAPI_PLUGIN_FAILURE"
 
 let sr_attached = "SR_ATTACHED"
 
-let domain_builder_error = "DOMAIN_BUILDER_ERROR"
-
 let auth_already_enabled = "AUTH_ALREADY_ENABLED"
 let auth_unknown_type = "AUTH_UNKNOWN_TYPE"
 let auth_is_disabled = "AUTH_IS_DISABLED"
-let auth_suffix_wrong_credentials = "_WRONG_CREDENTIALS"
-let auth_suffix_permission_denied = "_PERMISSION_DENIED"
-let auth_suffix_domain_lookup_failed = "_DOMAIN_LOOKUP_FAILED"
-let auth_suffix_unavailable = "_UNAVAILABLE"
-let auth_suffix_invalid_ou = "_INVALID_OU"
 let auth_enable_failed = "AUTH_ENABLE_FAILED"
-let auth_enable_failed_wrong_credentials = auth_enable_failed^auth_suffix_wrong_credentials
-let auth_enable_failed_permission_denied = auth_enable_failed^auth_suffix_permission_denied
-let auth_enable_failed_domain_lookup_failed = auth_enable_failed^auth_suffix_domain_lookup_failed
-let auth_enable_failed_unavailable = auth_enable_failed^auth_suffix_unavailable
-let auth_enable_failed_invalid_ou = auth_enable_failed^auth_suffix_invalid_ou
 let auth_disable_failed = "AUTH_DISABLE_FAILED"
-let auth_disable_failed_wrong_credentials = auth_disable_failed^auth_suffix_wrong_credentials
-let auth_disable_failed_permission_denied = auth_disable_failed^auth_suffix_permission_denied
 let pool_auth_already_enabled = "POOL_AUTH_ALREADY_ENABLED"
-let pool_auth_prefix = "POOL_"
-let pool_auth_enable_failed = pool_auth_prefix^auth_enable_failed
-let pool_auth_enable_failed_wrong_credentials = pool_auth_enable_failed^auth_suffix_wrong_credentials
-let pool_auth_enable_failed_permission_denied = pool_auth_enable_failed^auth_suffix_permission_denied
-let pool_auth_enable_failed_domain_lookup_failed = pool_auth_enable_failed^auth_suffix_domain_lookup_failed
-let pool_auth_enable_failed_unavailable = pool_auth_enable_failed^auth_suffix_unavailable
-let pool_auth_enable_failed_unavailable = pool_auth_enable_failed^auth_suffix_invalid_ou
-let pool_auth_enable_failed_duplicate_hostname = pool_auth_enable_failed^"_DUPLICATE_HOSTNAME"
-let pool_auth_disable_failed = pool_auth_prefix^auth_disable_failed
-let pool_auth_disable_failed_wrong_credentials = pool_auth_disable_failed^auth_suffix_wrong_credentials
-let pool_auth_disable_failed_permission_denied = pool_auth_disable_failed^auth_suffix_permission_denied
+let pool_auth_enable_failed = "POOL_AUTH_ENABLE_FAILED"
+let pool_auth_disable_failed = "POOL_AUTH_DISABLE_FAILED"
 let subject_cannot_be_resolved = "SUBJECT_CANNOT_BE_RESOLVED"
 let auth_service_error = "AUTH_SERVICE_ERROR"
 let subject_already_exists = "SUBJECT_ALREADY_EXISTS"
-let role_not_found = "ROLE_NOT_FOUND"
-let role_already_exists = "ROLE_ALREADY_EXISTS"
-let rbac_permission_denied = "RBAC_PERMISSION_DENIED"
 
 let certificate_does_not_exist = "CERTIFICATE_DOES_NOT_EXIST"
 let certificate_already_exists = "CERTIFICATE_ALREADY_EXISTS"
@@ -397,16 +311,4 @@ let crl_already_exists = "CRL_ALREADY_EXISTS"
 let crl_name_invalid = "CRL_NAME_INVALID"
 let crl_corrupt = "CRL_CORRUPT"
 
-let vmpp_has_vm = "VMPP_HAS_VM"
-let vmpp_archive_more_frequent_than_backup = "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
-
 let ssl_verify_error = "SSL_VERIFY_ERROR"
-
-let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
-let redo_log_is_enabled = "REDO_LOG_IS_ENABLED"
-
-let vm_bios_strings_already_set = "VM_BIOS_STRINGS_ALREADY_SET"
-
-let invalid_feature_string = "INVALID_FEATURE_STRING"
-let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
-

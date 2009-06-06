@@ -1,17 +1,9 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2006, 2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * constants which are global across all the tools
  *)
-(* constants which are global across all the tools *)
 
 let import_vdi_uri = "/import_vdi"                    (* Currently unused *)
 let import_raw_vdi_uri = "/import_raw_vdi"            (* ocaml/xapi/import_raw_vdi.ml *)
@@ -41,13 +33,10 @@ let rrd_put_uri = "/rrd"                              (* ocaml/xapi/monitor_rrds
 let host_rrd_uri = "/host_rrd"                        (* ocaml/xapi/monitor_rrds.ml *)
 let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds.ml *)
 let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
-let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_remotecmd.ml *)
-let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_message.ml *)
+let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_blob.ml *)
+let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_blob.ml *)
 let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.ml *)
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
-let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
-
-let use_compression = "use_compression"
 
 (* If VM.HVM_boot_policy is set to this then we boot using qemu-dm *)
 let hvm_boot_policy_bios_order = "BIOS order"
@@ -65,10 +54,8 @@ let fix_firewall_script = "/opt/xensource/bin/fix_firewall.sh"
 let ha_armed = "ha.armed"
 let ha_disable_failover_decisions = "ha.disable_failover_decisions"
 let ha_restart_best_effort = "best-effort"
-let ha_valid_restart_priorities = [ "0"; "1"; "2"; "3"; ha_restart_best_effort ]
 let ha_base_t = "ha_base_t"
 let ballooning_enabled = "ballooning.enabled"
-let redo_log_enabled = "redo_log.enabled"
 
 (* Set in the local db to cause us to emit an alert when we come up as a master after
    a transition or HA failover *)
@@ -105,7 +92,3 @@ let pool_join_mem_stat_max = "pool_join_memory_static_max"
 let pool_join_mem_dyn_min = "pool_join_memory_dynamic_min"
 let pool_join_mem_dyn_max = "pool_join_memory_dynamic_max"
 let pool_join_mem_target = "pool_join_memory_target"
-
-(* The unique static rbac ref for the pool-admin role in the roles table *)
-let rbac_pool_admin_uuid = "0165f154-ba3e-034e-6b27-5d271af109ba"
-

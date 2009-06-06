@@ -1,63 +1,23 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Pervasiveext
 open Threadext
 open Stringext
 
 module R = Debug.Debugger(struct let name = "redo_log" end)
 
-(* --------------------------------------- *)
-(* Functions relating to the redo log VDI. *)
-
-let get_device reason =
-  (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
-	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
-  let vdis = List.filter
-    (fun x -> x.Static_vdis_list.reason = reason && x.Static_vdis_list.currently_attached)
-    (Static_vdis_list.list ())
-  in
-  (* Return the path to the first attached VDI which matches the reason *)
-  R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
-  match vdis with
-  | [] -> None
-  | hd :: _ -> Some hd
-
-(* Make sure we have plenty of room for the database *)
-let minimum_vdi_size =
-  let ( ** ) = Int64.mul in
-  let mib = 1024L ** 1024L in
-  256L ** mib
-
-let redo_log_sm_config = [ "type", "raw" ]
-
 (* ------------------------------------------------------------------------ *)
 (* Functions relating to whether writing to the log is enabled or disabled. *)
 
 let enabled = ref false (* Controls whether we use or ignore the redo log. Coincides precisely with whether HA is enabled. *)
 let ready_to_write = ref true (* Controls whether DB writes are also copied to the redo log. *)
-let redo_log_vdi : Static_vdis_list.vdi option ref = ref None
 
 let is_enabled () = !enabled
 
-let enable vdi_reason =
+let enable () =
   R.info "Enabling use of redo log";
-  redo_log_vdi := get_device vdi_reason;
   enabled := true
 
 let disable () =
   R.info "Disabling use of redo log";
-  redo_log_vdi := None;
   enabled := false
 
 
@@ -187,7 +147,7 @@ let start_io_process block_dev ctrlsockpath datasockpath =
   (* Execute the process *)
   let args = ["-device"; block_dev; "-ctrlsock"; ctrlsockpath; "-datasock"; datasockpath] in
   let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr ] in
-  Forkhelpers.safe_close_and_exec None None None [] prog args
+  Forkhelpers.fork_and_exec ~pre_exec:(fun _ -> Unixext.close_all_fds_except fds_needed) (prog::args)
 
 let connect sockpath latest_response_time =
   let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
@@ -385,6 +345,19 @@ let action_write_delta marker generation_count data flush_db_fn sock datasockpat
       raise (RedoLogFailure error) (* Some other error *)
   | e -> R.warn "Received unexpected response"; raise (CommunicationsProblem ("unrecognised writedelta response ["^e^"]"))
 
+(* Finds an attached HA metadata VDI *)
+let get_device_path () =
+  (* Specifically use Static_vdis_list rather than Static_vdis to avoid the cyclic dependency caused by reference to Server_helpers in Static_vdis *)
+  let vdis = List.filter
+    (fun x -> x.Static_vdis_list.reason = Xapi_globs.metadata_vdi_reason && x.Static_vdis_list.currently_attached)
+    (Static_vdis_list.list ())
+  in
+  (* Return the path to the first attached VDI which matches the reason *)
+  R.debug "Found %d VDIs matching [%s]" (List.length vdis) Xapi_globs.metadata_vdi_reason;
+  match vdis with
+  | [] -> None
+  | x::_ -> x.Static_vdis_list.path
+
 
 (* ----------------------------------------------------------------------------------------------- *)
 (* Functions relating to the exponential back-off of repeated attempts to reconnect after failure. *)
@@ -426,7 +399,7 @@ let maybe_retry f =
 let marker = Uuid.to_string (Uuid.make_uuid ())
 
 let sock = ref None
-let pid : (Forkhelpers.pidty * string * string) option ref = ref None (* pid, filename of control socket, filename of data socket *)
+let pid : (int * string * string) option ref = ref None (* pid, filename of control socket, filename of data socket *)
 
 let dying_processes_mutex = Mutex.create ()
 let num_dying_processes = ref 0
@@ -451,15 +424,14 @@ let shutdown () =
           end;
   
           (* Terminate the child process *)
-	    let ipid = Forkhelpers.getpid p in
-          R.debug "Killing I/O process with pid %d" ipid;
-          Unix.kill ipid Sys.sigkill;
+          R.debug "Killing I/O process with pid %d" p;
+          Unix.kill p Sys.sigkill;
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore (Thread.create (fun () ->
-            R.debug "Waiting for I/O process with pid %d to die..." ipid;
+            R.debug "Waiting for I/O process with pid %d to die..." p;
             Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes + 1);
-            ignore(Forkhelpers.waitpid p);
-            R.debug "Finished waiting for process %d" ipid;
+            ignore (Unix.waitpid [] p);
+            R.debug "Finished waiting for process %d" p;
             Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes - 1)
           ) ());
           (* Forget about that process *)
@@ -495,29 +467,24 @@ let startup () =
           begin
             (* Don't start if there are already some processes hanging around *)
             Mutex.execute dying_processes_mutex (fun () -> if !num_dying_processes >= Xapi_globs.redo_log_max_dying_processes then raise TooManyProcesses);
-
-            match !redo_log_vdi with
+  
+            let block_dev = get_device_path() in
+            match block_dev with
             | None ->
               R.info "Could not find block device"
-            | Some vdi ->
-			  match vdi.Static_vdis_list.path with
-			  | None ->
-		        R.info "Could not find block device"
-		      | Some block_dev -> begin
-		        R.info "Using block device at %s" block_dev;
-		          
-		        (* Check that the block device exists *)
-		        Unix.access block_dev [Unix.F_OK; Unix.R_OK];
-		        (* will throw Unix.Unix_error if not readable *)
-		          
-		        (* Start the I/O process *)
-		        let [ctrlsockpath; datasockpath] = List.map (fun suffix -> Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix) ["ctrl"; "data"] in
-		        R.debug "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
-		        let p = start_io_process block_dev ctrlsockpath datasockpath in
-		          
-		        pid := Some (p, ctrlsockpath, datasockpath);
-		        R.debug "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
-		      end
+            | Some block_dev ->
+              R.info "Using block device at %s" block_dev;
+  
+              (* Check that the block device exists *)
+              Unix.access block_dev [Unix.F_OK; Unix.R_OK]; (* will throw Unix.Unix_error if not readable *)
+      
+              (* Start the I/O process *)
+              let [ctrlsockpath; datasockpath] = List.map (fun suffix -> Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix) ["ctrl"; "data"] in
+              R.debug "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
+              let p = start_io_process block_dev ctrlsockpath datasockpath in
+  
+              pid := Some (p, ctrlsockpath, datasockpath);
+              R.debug "Block device I/O process has PID [%d]" p
           end
       end;
       match !pid with
@@ -564,11 +531,6 @@ let startup () =
     with TooManyProcesses ->
       R.info "Too many dying I/O processes. Not starting another one.";
       cannot_connect_fn()
-
-let switch vdi_reason =
-  shutdown ();
-  redo_log_vdi := get_device vdi_reason;
-  startup ()
 
 (* Given a socket, execute a function and catch exceptions. *)
 let perform_action f desc sock =

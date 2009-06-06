@@ -1,18 +1,17 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 (** Data Model and Message Specification for Xen Management Tools *)
+
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Dave Scott    <dscott@xensource.com>
+             Richard Sharp <richard.sharp@xensource.com>
+             Jon Harrop    <jon.harrop@xensource.com>
+ 
+   Data Model and Message Specification for Xen Management Tools
+
+   ------------------------------------------------------------------- *)
 
 (*
 
@@ -26,12 +25,6 @@
 
 *)
 
-module Date = struct
-	include Date
-	let iso8601_of_rpc rpc = Date.of_string (Rpc.string_of_rpc rpc)
-	let rpc_of_iso8601 date = Rpc.rpc_of_string (Date.to_string date)
-end
-
 (* useful constants for product vsn tracking *)
 let oss_since_303 = Some "3.0.3"
 let rel_george = "george"
@@ -41,7 +34,6 @@ let rel_symc = "symc"
 let rel_miami = "miami"
 let rel_rio = "rio"
 let rel_midnight_ride = "midnight-ride"
-let rel_cowley = "cowley"
 
 let release_order =
 	[ rel_rio
@@ -51,7 +43,6 @@ let release_order =
 	; rel_orlando_update_1
 	; rel_george
 	; rel_midnight_ride
-	; rel_cowley
 	]
 
 exception Unknown_release of string
@@ -71,7 +62,6 @@ type ty =
     | Map of ty * ty
     | Ref of string
     | Record of string
-    with rpc
 
 type api_value =
     VString of string
@@ -83,34 +73,19 @@ type api_value =
   | VMap of (api_value*api_value) list
   | VSet of api_value list
   | VRef of string
-	with rpc
-	
-(** Each database field has a qualifier associated with it: *)
-type qualifier =
-	| RW        (** Read-write database field whose initial value is specified at the
-	              * time of object construction. *)
-	| StaticRO  (** Read-only database field whose final value is specified at the time
-	              * of object construction. *)
-	| DynamicRO (** Read-only database field whose value is computed dynamically and
-	              * not specified at the time of object construction. *)
-	with rpc
-	
+      
+(** Each field has a qualifier associated with it: *)
+type qualifier = 
+    | StaticRO   (** field is set statically at install-time *)
+    | DynamicRO  (** field is computed dynamically from the guest *)
+    | RW         (** field is read / write *)
+
 (** Release keeps track of which versions of opensource/internal products fields and messages are included in *)
 type release = {
   opensource: string list;
   internal: string list;
   internal_deprecated_since: string option; (* first release we said it was deprecated *)
-} with rpc
-
-type lifecycle_change =
-	| Published
-	| Extended
-	| Changed
-	| Deprecated
-	| Removed
-
-and lifecycle_transition = lifecycle_change * string * string
-with rpc
+}
 
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
@@ -143,21 +118,16 @@ and message = {
     msg_pool_internal: bool; (* only allow on "pool-login" sessions *)
     msg_db_only: bool; (* this is a db_* only message; not exposed through api *)
     msg_release: release;
-    msg_lifecycle: lifecycle_transition list;
     msg_has_effect: bool; (* if true it appears in the custom operations *)
-    msg_force_custom: qualifier option; (* unlike msg_has_effect, msg_force_custom=Some(RO|RW) always forces msg into custom operations, see gen_empty_custom.ml *)
     msg_no_current_operations: bool; (* if true it doesnt appear in the current operations *)
     msg_tag: tag;
     msg_obj_name: string;
     msg_custom_marshaller: bool;
     msg_hide_from_docs: bool;
-    msg_allowed_roles: string list option;
-    msg_map_keys_roles: (string * (string list option)) list
-} 
+}
 
 and field = {
     release: release;
-    lifecycle: lifecycle_transition list;
     field_persist: bool;
     default_value: api_value option;
     internal_only: bool;
@@ -167,11 +137,7 @@ and field = {
     ty: ty;
     field_description: string;
     field_has_effect: bool;
-    field_ignore_foreign_key: bool;
-    field_setter_roles: string list option;
-    field_getter_roles: string list option;
-    field_map_keys_roles: (string * (string list option)) list
-} 
+}
 
 and error = { 
     err_name: string;
@@ -182,7 +148,7 @@ and error = {
 and mess = {
     mess_name: string;
     mess_doc: string;
-} with rpc
+}
 
 (** Getters and Setters will be generated for each field, depending on the qualifier. 
     Namespaces allow fields to be grouped together (and this can get reflected in the XML
@@ -191,35 +157,26 @@ and mess = {
 type content =
     | Field of field                     (** An individual field *)
     | Namespace of string * content list (** A nice namespace for a group of fields *)
-	with rpc
-	
+
 (* Note: there used be more than 2 persist_options -- that's why it isn't a bool.
    I figured even though there's only 2 now I may as well leave it as an enumeration type.. *)
 
-type persist_option = PersistNothing | PersistEverything with rpc
+type persist_option = PersistNothing | PersistEverything
 (* PersistEverything - all creates/writes persisted;
    PersistNothing - no creates/writes to this table persisted *)
 
 (** An object (or entity) is represented by one of these: *)
-type obj = {
-	name : string;
-	description : string;
-	obj_lifecycle: lifecycle_transition list;
-	contents : content list;
-	messages : message list;
-	doccomments : (string * string) list;
-	gen_constructor_destructor: bool;
-	force_custom_actions: qualifier option; (* None,Some(RW),Some(StaticRO) *)
-	obj_allowed_roles: string list option; (* for construct, destruct and explicit obj msgs*)
-	obj_implicit_msg_allowed_roles: string list option; (* for all other implicit obj msgs*)
-	gen_events: bool;
-	persist: persist_option;
-	obj_release: release;
-	in_database: bool (* If the object is in the database *)
-} with rpc
-
-(* val rpc_of_obj : obj -> Rpc.t *)
-(* let s = Jsonrpc.to_string (rpc_of_obj o) *)
+type obj = { name : string;
+	     description : string;
+	     contents : content list;
+	     messages : message list;
+	     doccomments : (string * string) list;
+	     gen_constructor_destructor: bool;
+	     gen_events: bool;
+	     persist: persist_option;
+	     obj_release: release;
+	     in_database: bool (* If the object is in the database *)
+	   }
 
 (** A relation binds two fields together *)
 type relation = (string * string) * (string * string) 

@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Util to test various aspects of the new control stack *)
 
 (* Tests:
@@ -44,7 +31,7 @@ let _ =
   ("-a",Arg.Set all,"Run all the tests") ]
     (fun _ -> raise (Failure "Invalid argument! (try -help for help)"))
     "VM testing utility";
-  let cli : Util.t_cli = Util.cli_onhost in 
+  let cli : Util.t_cli = Util.cli_offhost in 
   let version = Cliops.get_version cli in
   let short_version = Cliops.get_short_version cli in
   let tests = Parsers.explode !tests ',' in
