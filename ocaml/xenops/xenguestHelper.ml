@@ -1,0 +1,109 @@
+
+module D = Debug.Debugger(struct let name = "xenguesthelper" end)
+open D
+
+(** Installed path of the xenguest helper *)
+let path = "/opt/xensource/libexec/xenguest"
+
+(** Where to place the last xenguesthelper debug log (just in case) *)
+let last_log_file = "/tmp/xenguesthelper-log"
+
+(** We do all our IO through the buffered channels but pass the 
+    underlying fds as integers to the forked helper on the commandline. *)
+type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * int
+
+(** Fork and run a xenguest helper with particular args, leaving 'fds' open 
+    (in addition to internal control I/O fds) *)
+let connect (args: string list) (fds: Unix.file_descr list) : t =
+	debug "connect: args = [ %s ]" (String.concat " " args);
+	(* Need to send commands and receive responses from the
+	   slave process *)
+
+	let using_xiu = Xc.using_injection () in
+
+	let last_log_file = "/tmp/xenguest.log" in
+	(try Unix.unlink last_log_file with _ -> ());
+
+	let slave_to_server_r, slave_to_server_w = Unix.pipe () in
+	let server_to_slave_r, server_to_slave_w = Unix.pipe () in
+	let args = [ "-controloutfd";
+		     string_of_int (Obj.magic slave_to_server_w);
+		     "-controlinfd";
+		     string_of_int (Obj.magic server_to_slave_r);
+		     "-debuglog";
+		     last_log_file
+		   ] @ (if using_xiu then [ "-fake" ] else []) @ args in
+	let pid = Forkhelpers.safe_close_and_exec [] 
+	     (fds @ [ Unix.stdout; Unix.stderr; slave_to_server_w; server_to_slave_r ]) (* close all but these *)
+	     path args in
+
+	Unix.close slave_to_server_w;
+	Unix.close server_to_slave_r;
+
+	Unix.in_channel_of_descr slave_to_server_r,
+	Unix.out_channel_of_descr server_to_slave_w,
+	slave_to_server_r,
+	server_to_slave_w,
+	pid
+
+(** Wait for the (hopefully dead) child process *)
+let disconnect (_, _, r, w, pid) =
+	Unix.close r;
+	Unix.close w;
+	(* just in case *)
+	Unix.kill pid Sys.sigterm;
+	ignore(Unix.waitpid [] pid)
+
+(** immediately write a command to the control channel *)
+let send (_, out, _, _, _) txt = output_string out txt; flush out
+
+(** Keep this in sync with xenguest_main *)
+type message =
+    | Stdout of string (* captured stdout from libxenguest *)
+    | Stderr of string (* captured stderr from libxenguest *)
+    | Error of string  (* an actual error that we detected *)
+    | Suspend          (* request the caller suspends the domain *)
+    | Info of string   (* some info that we want to send back *)
+    | Result of string (* the result of the operation *)
+
+let string_of_message = function
+  | Stdout x -> "stdout:" ^ (String.escaped x)
+  | Stderr x -> "stderr:" ^ (String.escaped x)
+  | Error x  -> "error:" ^ (String.escaped x)
+  | Suspend  -> "suspend:"
+  | Info x   -> "info:" ^ (String.escaped x)
+  | Result x -> "result:" ^ (String.escaped x)
+
+let message_of_string x =
+  if not(String.contains x ':') 
+  then failwith (Printf.sprintf "Failed to parse message from xenguesthelper [%s]" x);
+  let i = String.index x ':' in
+  let prefix = String.sub x 0 i
+  and suffix = String.sub x (i + 1) (String.length x - i - 1) in match prefix with
+    | "stdout" -> Stdout suffix
+    | "stderr" -> Stderr suffix
+    | "error" -> Error suffix
+    | "suspend" -> Suspend
+    | "info" -> Info suffix
+    | "result" -> Result suffix
+    | _ -> Error "uncaught exception"
+
+(** return the next output line from the control channel *)
+let receive (infd, _, _, _, _) = message_of_string (input_line infd)
+
+(** return the next output line which is not a debug: line *)
+let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match receive cnx with
+  | Stdout x -> debug_callback x; non_debug_receive ~debug_callback cnx
+  | Stderr x -> debug_callback x; non_debug_receive ~debug_callback cnx
+  | Info x -> debug_callback x; non_debug_receive ~debug_callback cnx
+  | x -> x (* Error or Result or Suspend *)
+
+(** For the simple case where we just want the successful result, return it.
+    If we get an error message (or suspend) then throw an exception. *)
+let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
+  match non_debug_receive ~debug_callback cnx with
+  | Error x -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
+  | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+  | Result x -> x
+  | Stdout _ | Stderr _ | Info _ -> assert false
+

@@ -1,0 +1,259 @@
+OCAMLPACKS += unix xmlm xml-light2 sqlite3 uuid cdrom
+OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory_constraints \
+		../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
+		../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
+OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
+                 ../autogen ../idl/sql_backend/ ../database/ \
+                 ../http/ ../xenops ../muxdemux ../xva \
+		 ../netdev ../auth ../license ../client_records ../rfb ../gpg
+
+CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
+
+# Since the section didn't work, link against the xen libs for everything if we are building
+# xen stuff at all.
+# NB order of libraries is important: OMake cannot determine dependencies between libraries
+XEN_OCAML_LIBS = ../netdev/netdev ../xenops/xenops ../auth/pam
+XEN_OCAMLINCLUDES =
+XEN_OCAMLPACKS = mmap xc xb xs
+OCAML_CLIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_CLIBS) $(OCAML_CLIBS), $(OCAML_CLIBS)) 
+OCAML_LINK_FLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS), $(OCAML_LINK_FLAGS))
+CFLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_CFLAGS) $(CFLAGS), $(CFLAGS))
+OCAMLINCLUDES = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES), $(OCAMLINCLUDES))
+# xc.cma depends on uuid.cma
+OCAML_LIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_LIBS) $(XEN_OCAML_LIBS), $(OCAML_LIBS)) 
+OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAMLPACKS) $(XEN_OCAMLPACKS), $(OCAMLPACKS))
+
+
+OCamlDoc(../../doc/xapi, redo_log_usage.mli xapi_globs.ml)
+
+
+# -----------------------------------------------------------------------
+# Build the server
+# -----------------------------------------------------------------------
+
+#OCAML_CLIBS += stubs
+
+OCamlProgram(http_test, http_test)
+
+COMMON = \
+	xapi_templates \
+	../idl/api_lowlevel \
+	db \
+	nm \
+	xapi_mgmt_iface \
+	smint \
+	../gpg/gpg \
+        ../license/license \
+	helpers \
+	helper_hostname \
+	helper_process \
+	at_least_once_more \
+	create_templates \
+	fileserver
+
+#OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
+
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings)
+OCamlProgram(stresstest, stresstest)
+OCamlProgram(fakeguestagent, fakeguestagent)
+
+OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
+
+OCamlProgram(rrddump, rrddump rrd)
+
+OCamlProgram(xapi, $(COMMON) \
+	local_work_queue \
+	../muxdemux/tar \
+	../xva/xva \
+	../idl/ocaml_backend/json \
+	../rfb/rfb \
+	../rfb/rfb_randomtest \
+	../client_records/records \
+	../client_records/record_util \
+	bootloader \
+	storage_access \
+	sm_exec \
+	sm \
+	console \
+	xen_helpers \
+	importexport \
+	create_storage \
+	create_networks \
+	xapi_fist \
+	xapi_udhcpd \
+	xapi_network_types \
+	xapi_network_real \
+	xapi_network \
+	xapi_network_attach_helpers \
+	xapi_event \
+	xapi_alert \
+	xapi_cli \
+	xapi_task \
+	xapi_crashdump \
+	xapi_pbd \
+	xapi_user \
+	xapi_host_cpu \
+	xapi_host_helpers \
+	xapi_host_crashdump \
+	xapi_guest_agent \
+	xapi_pv_driver_version \
+	xapi_http \
+	xapi_host_patch \
+	xapi_pool_patch \
+	xapi_support \
+	xapi_xenops_errors \
+	xapi_session \
+	xapi_auth \
+	../auth/auth_signature \
+	../auth/authx \
+	../auth/extauth \
+	../auth/extauth_plugin_ADlikewise \
+	../auth/parse_likewise \
+	xapi_subject \
+	xapi_vm_lifecycle \
+	xapi_vm_clone \
+	xapi_vm_helpers \
+	xmlrpc_sexpr \
+	memory_check \
+	xapi_vm_memory_constraints \
+	xapi_vbd_helpers \
+	xapi_vif_helpers \
+	xapi_vdi_helpers \
+	xapi_hooks \
+	xapi_bond \
+	xapi_vlan \
+	xapi_sr \
+	xapi_sm \
+	xapi_pbd \
+	xapi_vdi \
+	pool_db_backup \
+	xapi_sync \
+	config_file_sync \
+	config_file_io \
+	slave_backup \
+	restrictions \
+	sm_fs_ops \
+	vmopshelpers \
+	vm_config \
+	vmops \
+	vbdops \
+	attach_helpers \
+	message_forwarding \
+	cancel_tasks \
+	xapi_pool_transition \
+	thread_queue \
+	xapi_ha \
+	xapi_ha_stats \
+	xapi_ha_vm_failover \
+	binpack \
+	xapi_local_session \
+	xapi_local_pbd_state \
+	xha_interface \
+	xha_statefile \
+	xha_metadata_vdi \
+	xha_errno \
+	static_vdis \
+	monitor_self \
+	monitor_transfer \
+	monitor_master \
+	rrd_shared \
+	monitor_dbcalls \
+	monitor_rrds \
+	monitor \
+	rrd \
+	api_server \
+	create_misc \
+	xapi_host \
+	xapi_plugins \
+	xapi_fuse \
+	db_gc \
+	cli_protocol \
+	cli_cmdtable \
+	cli_frontend \
+	cli_operations \
+	cli_operations_geneva \
+	cli_util \
+	cli_key \
+	cli_printer \
+	ipq \
+	xapi_periodic_scheduler \
+		dbsync \
+		dbsync_slave \
+		dbsync_master \
+		storage_access \
+		events \
+		import_xva \
+		import \
+		import_raw_vdi \
+		export \
+		stream_vdi \
+		fileupload \
+		../util/config \
+		smint \
+		sm_exec \
+		sm \
+		startup \
+		system_status \
+		license_check \
+		xapi_vm \
+		xapi_sr \
+		xapi_vdi \
+		xapi_vbd \
+		xapi_vif \
+		xapi_pif \
+		xapi_pbd \
+		xapi_user \
+		xapi_host_cpu \
+		xapi_task \
+		xapi_vm_migrate \
+		mtc \
+		xapi_crashdump \
+		xapi_templates_install \
+		xapi_host_backup \
+		xapi_logs_download \
+		xapi_vncsnapshot \
+		xapi_pool \
+		xapi_upgrade \
+		xapi_blob \
+		xapi_message \
+		debug_populate \
+		ds \
+		xapi_remotecmd \
+		redo_log_usage \
+		redo_log_alert \
+		xapi \
+		workload_balancing \
+		wlb_reports \
+		remote_requests \
+		certificates)
+
+OCamlProgram(bootloader, bootloader bootloader_test)
+
+OCamlProgram(binpack, binpack binpack_test xapi_fist)
+
+OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
+
+.DEFAULT: xapi
+
+.PHONY: install
+install:
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	cp -f xapi $(DIST)/staging/opt/xensource/bin
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) quicktest $(DEBUGDIST)
+	cp -f quicktestbin $(DEBUGDIST)
+
+.PHONY: sdk-install
+sdk-install: install
+	mkdir -p $(DIST)/staging/opt/xensource/libexec
+	cp fakeguestagent $(DIST)/staging/opt/xensource/libexec/
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
+	rm -f quicktest_encodings_module.ml
+
+.PHONY: copy_quicktest_modules
+copy_quicktest_modules:
+	/bin/cp -uf ../util/encodings.ml quicktest_encodings_module.ml
+	/bin/chmod -w quicktest_encodings_module.ml

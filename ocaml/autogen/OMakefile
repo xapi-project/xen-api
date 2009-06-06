@@ -1,0 +1,18 @@
+OCAMLINCLUDES += ../sexpr ../idl/ocaml_backend ../database ../util ../http ../idl
+OCAMLPACKS += xmlm xml-light2 sqlite3
+.PHONY: clean
+clean:
+	rm -rf *.*
+
+AUTOGEN_HELPER_DIR = ../database
+
+OCamlProgram(db_actions, db_actions $(AUTOGEN_HELPER_DIR)/string_unmarshall_helper $(AUTOGEN_HELPER_DIR)/string_marshall_helper $(AUTOGEN_HELPER_DIR)/db_action_helper $(AUTOGEN_HELPER_DIR)/db_remote_marshall $(AUTOGEN_HELPER_DIR)/db_filter_types $(AUTOGEN_HELPER_DIR)/db_filter $(AUTOGEN_HELPER_DIR)/db_filter_parse $(AUTOGEN_HELPER_DIR)/db_filter_lex)
+
+HTMLGEN=../idl/ocaml_backend/htmldoc.cma
+.PHONY: custom_actions_doc
+custom_actions_doc: $(HTMLGEN) ../idl/ocaml_backend/server.cma
+	mkdir -p doc/api
+	ocamldoc -g $(HTMLGEN) -d doc/api custom_actions.ml
+
+.PHONY: api_docs
+api_docs: custom_actions_doc

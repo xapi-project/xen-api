@@ -1,0 +1,18 @@
+
+OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES += ../idl/ocaml_backend ../autogen ../idl ../util
+OCAMLPACKS = stdext, xmlm, xml-light2, log
+
+OCamlProgram(vncproxy, vncproxy)
+
+.PHONY: install
+install: 
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) vncproxy $(DEBUGDIST)
+
+.PHONY: sdk-install
+sdk-install: install
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) vncproxy

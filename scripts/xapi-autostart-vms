@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Copyright (c) Citrix Systems 2008. All rights reserved.
+#
+# wait for xapi initialisation to complete.
+# Then, if initialisation did complete,  attempt to start all vms
+# with "auto_poweron" in their other-config
+#
+
+[ -e /proc/xen ] || exit 0
+
+XAPI_START_TIMEOUT_SECONDS=240
+
+# wait for xapi to complete initialisation for a max 4 minutes
+/opt/xensource/bin/xapi-wait-init-complete ${XAPI_START_TIMEOUT_SECONDS}
+if [ $? -eq 0 ]; then
+    # if xapi init completed then start vms (best effort, don't report errors)
+    xe vm-start other-config:auto_poweron=true power-state=halted --multiple >/dev/null 2>/dev/null || true
+fi

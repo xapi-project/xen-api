@@ -1,0 +1,94 @@
+(*
+ * Copyright (c) 2006, 2007 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
+ *
+ * constants which are global across all the tools
+ *)
+
+let import_vdi_uri = "/import_vdi"                    (* Currently unused *)
+let import_raw_vdi_uri = "/import_raw_vdi"            (* ocaml/xapi/import_raw_vdi.ml *)
+let export_uri = "/export"                            (* ocaml/xapi/export.ml *)
+let export_metadata_uri = "/export_metadata"
+let import_uri = "/import"                            (* ocaml/xapi/import.ml *)
+let import_metadata_uri = "/import_metadata"
+let migrate_uri = "/migrate"                          (* ocaml/xapi/xapi_vm_migrate.ml *)
+let console_uri = "/console"                          (* ocaml/xapi/console.ml *)
+let host_backup_uri = "/host_backup"                  (* ocaml/xapi/xapi_host_backup.ml *)
+let host_restore_uri = "/host_restore"                (* ocaml/xapi/xapi_host_backup.ml *)
+let host_logs_download_uri = "/host_logs_download"    (* ocaml/xapi/xapi_logs_download.ml *)
+let pool_patch_upload_uri = "/pool_patch_upload"      (* ocaml/xapi/xapi_pool_patch.ml *)
+let oem_patch_stream_uri = "/oem_patch_stream"        (* ocaml/xapi/xapi_pool_patch.ml *)
+let pool_patch_download_uri = "/pool_patch_download"  (* ocaml/xapi/xapi_pool_patch.ml *)
+let config_sync_uri = "/sync_config_files"            (* ocaml/xapi/config_file_sync.ml *)
+let pool_xml_db_sync = "/pool/xmldbdump"              (* ocaml/xapi/pool_db_backup.ml *)
+let vm_connect_uri = "http"                           (* ocaml/xapi/xapi_udhcpd.ml *)
+let vncsnapshot_uri = "/vncsnapshot"                  (* ocaml/xapi/xapi_vncsnapshot.ml *)
+let system_status_uri = "/system-status"              (* ocaml/xapi/system_status.ml *)
+let remote_db_access_uri = "/remote_db_access"        (* ocaml/xapi/xapi.ml *)
+let remote_stats_uri = "/remote_stats"                (* ocaml/xapi/xapi.ml *)
+let json_uri = "/json"                                (* ocaml/xapi/xapi.ml *)
+let cli_uri = "/cli"                                  (* ocaml/xapi/xapi_cli.ml *)
+let vm_rrd_uri = "/vm_rrd"                            (* ocaml/xapi/monitor_rrds.ml *)
+let rrd_put_uri = "/rrd"                              (* ocaml/xapi/monitor_rrds.ml *)
+let host_rrd_uri = "/host_rrd"                        (* ocaml/xapi/monitor_rrds.ml *)
+let rrd_updates = "/rrd_updates"                      (* ocaml/xapi/monitor_rrds.ml *)
+let blob_uri = "/blob"                                (* ocaml/xapi/xapi_blob.ml *)
+let remotecmd_uri = "/remotecmd"                      (* ocaml/xapi/xapi_blob.ml *)
+let message_rss_feed = "/rss"                         (* ocaml/xapi/xapi_blob.ml *)
+let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.ml *)
+let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
+
+(* If VM.HVM_boot_policy is set to this then we boot using qemu-dm *)
+let hvm_boot_policy_bios_order = "BIOS order"
+(* Key we expect to find in VM.HVM_boot_params if VM.HVM_boot_policy = BIOS_order.
+   Value is the boot string we send to qemu-dm (eg cd, dc, dcn, etc) *)
+let hvm_boot_params_order = "order"
+
+(* Key we put in VM.other_config when we upgrade a VM from Zurich/Geneva to Rio *)
+let vm_upgrade_time = "upgraded at"
+
+(* Name of the script to execute to fix the firewall for the guest installer network *)
+let fix_firewall_script = "/opt/xensource/bin/fix_firewall.sh"
+
+(* Keys in the local config database *)
+let ha_armed = "ha.armed"
+let ha_disable_failover_decisions = "ha.disable_failover_decisions"
+let ha_restart_best_effort = "best-effort"
+let ha_base_t = "ha_base_t"
+let ballooning_enabled = "ballooning.enabled"
+
+(* Set in the local db to cause us to emit an alert when we come up as a master after
+   a transition or HA failover *)
+let this_node_just_became_master = "this_node_just_became_master"
+
+(* Environment variables used to communicate with HA reconfigure script *)
+let ha_peers = "ha_peers"
+
+(* Stores whether we've executed the master scripts *)
+let master_scripts = "master_scripts"
+
+(* This flag is set when we commit to rebooting or shutting down the host when HA is enabled.
+   This will prevent anyone from re-enabling the host and starting VMs on it during shutdown. *)
+let host_disabled_until_reboot = "host_disabled_until_reboot"
+
+(* Set when shutting down and rebooting. If we come up and finds no new crashdump and HA is enabled,
+   we assume the host was fenced. *)
+let host_restarted_cleanly = "host_restarted_cleanly"
+
+(* This flag is for setting the interval at which the metrics updates happen. The possible
+   values are 0=never 1=every 5 seconds, 2=every 60 seconds *)
+let rrd_update_interval = "rrd_update_interval"
+
+(* Standard name of a XenAPI plugin which can power on remote hosts *)
+let power_on_plugin = "power-on-host"
+let power_on_fn = "main"
+
+(* Key used in local storage to list local PBDs with should have currently_attached = true (on this boot) *)
+let local_currently_attached_pbds = "currently_attached_pbds"
+
+(* Key used in local db to preserve dom0 memory settings over a pool-join *)
+let pool_join_mem_stat_min = "pool_join_memory_static_min"
+let pool_join_mem_stat_max = "pool_join_memory_static_max"
+let pool_join_mem_dyn_min = "pool_join_memory_dynamic_min"
+let pool_join_mem_dyn_max = "pool_join_memory_dynamic_max"
+let pool_join_mem_target = "pool_join_memory_target"

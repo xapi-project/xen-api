@@ -1,0 +1,258 @@
+# Copy this file to /etc/bash_completion.d/cli
+# Make sure that cli is on your path, too!
+
+MAGIC_SQUOTE="jsufbtghejhw"
+MAGIC_DQUOTE="JSUFBTGHEJHW"
+
+_xe()
+{
+        local IFS=$'\n,'
+
+	local cur prev opts xe IFS
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	xe=xe
+	
+	if [[ $COMP_CWORD == 1 ]] ; then
+	        opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'` && COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+		return 0
+	fi
+	
+# parameters are passed as param=value
+
+	if echo ${COMP_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
+		local param value
+		local IFS=""
+		param=`echo ${COMP_WORDS[COMP_CWORD]} | cut -d= -f1`
+		value=`echo ${COMP_WORDS[COMP_CWORD]} | cut -d= -f2`
+
+		local vms args
+		
+		case "$param" in
+			filename|file-name|license-file)
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen -f ${value}) )
+				return 0
+				;;
+
+			mode) # for pif-reconfigure-ip
+				if [ "${COMP_WORDS[1]}" == "pif-reconfigure-ip" ]; then
+					IFS=$'\n,'
+					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
+				fi
+				return 0
+				;;
+
+		        uuid)   
+				case "${COMP_WORDS[1]}" in
+					diagnostic-vm-status) cmd=vm-list;;
+					diagnostic-vdi-status) cmd=vdi-list;;
+					*) cmd=`echo ${COMP_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ { print $1 "-" $2 }$0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ { print $1 }'`-list;;
+				esac
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen_names "$cmd" uuid "$value") )
+				return 1
+				;;
+			vm)
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen_names vm-list name-label "$value") )
+				return 0
+				;;
+
+			host)
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen_names host-list name-label "$value") )
+				return 0
+				;;
+			params)
+                                val=$(final_comma_separated_param "$value")
+				class=`echo ${COMP_WORDS[1]} | cut -d- -f1`
+				params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "$params,all" -- "$val" ) )
+				return 0
+				;;
+			template)
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen_names template-list name-label "$value") )
+				return 0
+				;;
+
+			# param name is used by *-param-add
+			param-name)
+				if echo ${COMP_WORDS[1]} | grep "param-add" > /dev/null; then
+					class=`echo ${COMP_WORDS[1]} | sed s/-param-add//g`
+					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
+					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
+					return 0
+				fi
+				;;
+			cd-name)
+				if [[ "${COMP_WORDS[1]}" == "vm-cd-add" || "${COMP_WORDS[1]}" == "vm-cd-insert" ]]; then
+                                        IFS=$'\n,'
+                                        COMPREPLY=( $(compgen_names cd-list name-label "$value") )
+					return 0
+				elif [[ "${COMP_WORDS[1]}" == "vm-cd-remove" ]]; then
+				        vm=`for i in ${COMP_WORDS[@]:2}; do echo $i | grep "^vm="; done`
+					local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g"`
+                                        IFS=$'\n,'
+                                        COMPREPLY=( $(compgen_escape "$cds" "$value") )
+					return 0
+				fi
+				;;
+			on)	
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen_names host-list name-label "$value") )
+				return 0
+				;;
+			key)
+				local keys=`${xe} log-get-keys --minimal 2>/dev/null`
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen_escape "$keys" "$value") )
+				return 0
+				;;
+			level)
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "debug ,info ,warning ,error " -- ${value}) )
+				return 0
+				;;
+			sr-name-label) # for vm-install
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen_names sr-list name-label "$value") )
+				return 0
+				;;
+			crash-dump-SR | suspend-image-SR | default-SR)
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen_names sr-list uuid "$value") )
+				return 0
+				;;
+			type) # for vbd-create/vdi-create/sr-create/sr-probe
+                                IFS=$'\n,'
+			        fst=`echo ${COMP_WORDS[1]} | cut -d- -f1`
+
+				if [[ "${fst}" == "vbd" ]]; then
+				   COMPREPLY=( $(compgen -W "Disk ,CD " -- ${value}) )
+				   return 0
+				elif [[ "${fst}" == "vdi" ]]; then
+				   COMPREPLY=( $(compgen -W "system ,user ,suspend ,crashdump " -- ${value}) )
+				   return 0
+				elif [[ "${fst}" == "sr" ]]; then
+				   COMPREPLY=( $(compgen -W "$(xe sm-list params=type --minimal 2>/dev/null | sed 's/,/ ,/g') " -- ${value}) )
+				   return 0
+				fi
+				;;
+			entries) # for host-get-system-status
+                                val=$(final_comma_separated_param "$value")
+                                master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
+                                IFS=$'\n'
+                                caps=$($xe host-get-system-status-capabilities uuid="$master_uuid" 2>/dev/null | grep '<capability ' | sed -ne 's/.*<capability .* key="\([^"]*\)".*$/\1/p' | tr '\n' , | sed -e 's/,$//g' | tr , '\n')
+        # Fake "
+                                COMPREPLY=( $(compgen -W "$caps" -- "$val") )
+                                return 0
+                                ;;
+			output)
+                                case "${COMP_WORDS[1]}" in
+                                    log-set-output)
+                                        IFS=$'\n,'
+                                        COMPREPLY=( $(compgen -W "file,syslog,nil " -- ${value}) )
+                                        ;;
+                                    host-get-system-status)
+                                        IFS=$'\n,'
+                                        COMPREPLY=( $(compgen -W "tar.bz2 ,zip " -- ${value}) )
+                                        ;;
+                                esac
+                                return 0
+                                ;;
+			*)
+				snd=`echo ${param} | cut -d- -f2`
+				fst=`echo ${param} | cut -d- -f1`
+				
+				if [[ "${snd}" == "uuid" ]]; then
+				   uuids=`${xe} ${fst}-list --all params=uuid --minimal 2>/dev/null`
+                                   IFS=$'\n,'
+                                   COMPREPLY=( $(compgen_escape "$uuids" "$value") )
+				   return 0
+				else
+				   fst=`echo ${COMP_WORDS[1]} | cut -d- -f1`
+				   snd=`echo ${COMP_WORDS[1]} | cut -d- -f2`
+				   if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
+                                     IFS=$'\n,'
+				     COMPREPLY=( $(compgen_names "${fst}-list" "$param" "$value") )
+				     return 0
+				   fi
+				fi	  
+				;;
+		esac
+	else
+		local param reqd
+		param=${COMP_WORDS[COMP_CWORD]}
+		vmselectors=`${xe} help ${COMP_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
+		hostselectors=`${xe} help ${COMP_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
+		isdeviceconfig=`echo "${param}" | grep "device-config:"`
+		if [ "${isdeviceconfig}" ]; then
+			IFS=" " type=$(for i in ${COMP_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr [A-Z] [a-z])
+			extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
+		elif [ "${vmselectors}" ]; then
+		   if [ "${param}" ] ; then
+		      extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
+		   else
+		      extraargs=",vm="
+		   fi
+		elif [ "${hostselectors}" ]; then
+		   if [ "${param}" ] ; then
+		      extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
+		   else
+		      extraargs=",host="
+		   fi
+		else
+   		   extraargs=""
+		fi
+                IFS=$'\n,'
+		COMPREPLY=( $(compgen_params "${COMP_WORDS[1]}" "$extraargs" "$param") )
+		return 0
+	fi
+}
+
+##
+# Return the last word in the given value, split on commas.
+#
+final_comma_separated_param()
+{
+  if expr "$1" : ".*," >/dev/null
+  then
+      old_ifs="$IFS"
+      bits=$(echo "$1" | sed -e 's#^\(.*\),\([^,]*\)$#\1%\2#g')
+      IFS=%
+      bits=($bits)
+      echo "${bits[1]}"
+      IFS="$old_ifs"
+  else
+      echo "$1"
+  fi
+}
+
+compgen_names()
+{
+  local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
+  compgen_escape "$vals" "$3"
+}
+
+compgen_escape()
+{
+  local v=$(echo "$2" | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
+  compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
+}
+
+params()
+{
+    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+}
+
+compgen_params()
+{
+  local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
+  compgen -o nospace -W "$v$2" -- "$3"
+}
+
+complete -F _xe -o nospace xe

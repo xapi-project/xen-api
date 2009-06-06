@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# Copyright (c) Citrix Systems 2008. All rights reserved.
+#
+# Set the local non-pooled host to use a specific iSCSI IQN
+
+set -e
+
+XE=/opt/xensource/bin/xe
+
+configmap="other-config"
+configkey="iscsi_iqn"
+
+if [ ! -f /etc/xensource-inventory ]; then
+  echo Error: Not a XenServer host
+  exit 1
+fi
+
+usage () {
+  echo Usage: $0 iscsi_iqn
+  echo Set the local non-pooled host to use a specific iSCSI IQN
+  exit 1
+}
+
+if [ -z "$1" ]; then
+  usage
+else
+  iqn="$1"
+fi
+
+. /etc/xensource-inventory
+
+${XE} host-param-remove uuid=${INSTALLATION_UUID} param-name=${configmap} param-key=${configkey} || true
+${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}-${configkey}=${iqn}

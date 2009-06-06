@@ -1,0 +1,17 @@
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http 
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
+COMPILE_NATIVE=no
+section
+	OCAMLFLAGS+=-linkall
+	OCamlProgram(xsh, xsh )
+
+.PHONY: clean
+
+.PHONY: install
+install:
+        mkdir -p $(DIST)/staging/opt/xensource/bin
+        cp -f xsh $(DIST)/staging/opt/xensource/bin
+
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o

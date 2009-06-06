@@ -1,0 +1,144 @@
+(* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
+
+open Stringext
+module D=Debug.Debugger(struct let name="xapi" end)
+open D
+
+type db_connection_mode = Write_limit | No_limit
+type db_format = Xml | Sqlite
+
+type db_connection =
+    {path:string;
+     mode:db_connection_mode;
+     format:db_format;
+     compress:bool;
+     write_limit_period:int;
+     write_limit_write_cycles:int;
+     is_on_remote_storage:bool;
+     other_parameters:(string*string) list
+    }
+
+let default_write_limit_period = 21600 (* 6 hours *)
+let default_write_cycles = 10
+
+(* a useful "empty" config value *)
+let dummy_conf =
+  {path=""; mode=No_limit; format=Sqlite;
+   write_limit_period=default_write_limit_period;
+   write_limit_write_cycles=default_write_cycles;
+   compress=false;
+   is_on_remote_storage=false;
+   other_parameters=[]
+  }
+
+(* the db conf that we use for temporary backup/restore files *)
+let backup_file_dbconn = {dummy_conf with
+			    path=Xapi_globs.db_temporary_restore_path;
+			    format=Xml
+			 }
+
+(* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
+let db_snapshot_dbconn = {dummy_conf with
+  path=Xapi_globs.snapshot_db;
+  format=Xml
+}
+
+let from_format v =
+  match v with
+    Xml -> "xml"
+  | Sqlite -> "sqlite"
+
+let to_format s =
+  match s with
+    "xml"->Xml
+  | "sqlite"->Sqlite
+
+let from_mode v =
+  match v with
+    Write_limit -> "write_limit"
+  | No_limit -> "no_limit"
+
+let from_block r =
+  String.concat ""
+    [
+      Printf.sprintf
+	"[%s]\nmode:%s\nformat:%s\ncompress:%b\nis_on_remote_storage:%b\n"
+	r.path (from_mode r.mode) (from_format r.format) r.compress
+	r.is_on_remote_storage;
+      if r.mode = Write_limit then
+	Printf.sprintf "write_limit_period:%d\nwrite_limit_write_cycles:%d\n"
+	  r.write_limit_period r.write_limit_write_cycles
+      else "";
+      String.concat "" (List.map (fun (k,v) -> Printf.sprintf "%s:%s\n" k v) r.other_parameters)
+    ]
+
+let write_db_conf connections =
+  let dbconf = String.concat "\n" (List.map from_block connections) in
+  Unixext.write_string_to_file Xapi_globs.db_conf_path dbconf
+
+let to_mode s =
+  match s with
+    "write_limit" -> Write_limit
+  | "no_limit" -> No_limit
+
+exception Cannot_parse_database_config_file
+exception Cannot_have_multiple_dbs_in_sr
+
+let sanity_check connections =
+  let conns_in_sr = List.filter (fun r->r.is_on_remote_storage) connections in
+  if (List.length conns_in_sr)>1 then raise Cannot_have_multiple_dbs_in_sr
+
+let parse_db_conf s =
+  try
+    let conf = Unixext.read_whole_file_to_string s in
+    let lines : string list ref = ref [] in
+    let consume_line() = lines := List.tl !lines in
+    lines := String.split '\n' conf;
+    List.iter (fun line -> debug "%s" line) !lines;
+    let read_block () =
+      let path_line = List.hd !lines in
+      let path = String.sub path_line 1 ((String.length path_line)-2) in
+      consume_line();
+      let key_values = ref [] in
+      while (!lines<>[] && (List.hd !lines)<>"") do
+	let line = List.hd !lines in
+	key_values := (match (String.split ':' line) with k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs)))::!key_values;
+	consume_line();
+      done;
+
+      (* if the key_name exists then return the value; otherwise return the default.
+	 if the key_name exists we remove the value from the association list -- this is so at the end of
+	 populating the record what we have left are the "other_fields" *)
+      let maybe_put_in key_name default conv_fn =
+	if List.mem_assoc key_name !key_values then
+	  begin
+	    let value = List.assoc key_name !key_values in
+	    key_values := List.remove_assoc key_name !key_values;
+	    conv_fn value
+	  end
+	else default in
+      {path=path;
+       mode=maybe_put_in "mode" (* key name *) No_limit (* default if key not present *) to_mode (* fn to conv string->mode type *);
+       format=maybe_put_in "format" Sqlite to_format;
+       compress = maybe_put_in "compress" false bool_of_string;
+       is_on_remote_storage = maybe_put_in "is_on_remote_storage" false bool_of_string;
+       write_limit_period=maybe_put_in "write_limit_period" default_write_limit_period int_of_string;
+       write_limit_write_cycles=maybe_put_in "write_limit_write_cycles" default_write_cycles int_of_string;
+       other_parameters = !key_values (* the things remaining in key_values at this point are the ones we haven't parsed out explicitly above.. *)
+      } in
+    let connections : db_connection list ref = ref [] in
+    while !lines<>[] do
+      let line = List.hd !lines in
+      if String.startswith "[" line then
+	connections := read_block() :: !connections
+      else consume_line()
+    done;
+    sanity_check !connections;
+    !connections
+  with exn ->
+    begin
+      debug "Database config parse failed: %s" (Printexc.to_string exn);
+      log_backtrace();
+      raise Cannot_parse_database_config_file
+    end
+

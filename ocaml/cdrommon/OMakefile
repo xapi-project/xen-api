@@ -1,0 +1,12 @@
+OCAMLPACKS += unix cdrom
+
+OCamlProgram(cdrommon, cdrommon)
+
+.PHONY: install
+install:
+	mkdir -p $(DIST)/staging/opt/xensource/libexec
+	cp -f cdrommon $(DIST)/staging/opt/xensource/libexec
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig cdrommon

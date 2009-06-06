@@ -1,0 +1,13 @@
+OCAMLPACKS+=mmap xb xs
+OCAML_LIBS += ../xenops/xenops ../netdev/netdev
+OCAMLINCLUDES += ../xenops ../netdev
+OCamlProgram(xiu, xiu ../util/config)
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) xiu
+
+.PHONY: sdk-install
+sdk-install:
+	mkdir -p $(DIST)/staging/opt/xensource/bin
+	cp xiu $(DIST)/staging/opt/xensource/bin/

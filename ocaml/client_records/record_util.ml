@@ -1,0 +1,359 @@
+(* conversion utils *)
+
+exception Record_failure of string
+
+open Stringext
+
+let power_state_to_string state =
+  match state with
+    `Halted -> "Halted"
+  | `Paused -> "Paused"
+  | `Running -> "Running"
+  | `Suspended -> "Suspended"
+  | `ShuttingDown -> "Shutting down"
+  | `Migrating -> "Migrating"
+  | `Unknown -> "Unknown"
+
+let vm_operation_table = 
+  [
+    `assert_operation_valid, "assertoperationvalid";
+    `clean_reboot, "clean_reboot";
+    `clean_shutdown, "clean_shutdown";
+    `clone, "clone";
+    `snapshot, "snapshot";
+    `copy, "copy";
+    `provision, "provision";
+    `destroy, "destroy";
+    `export, "export";
+    `import, "import";
+    `get_boot_record, "get_boot_record";
+    `data_source_op, "data_sources_op";
+    `hard_reboot, "hard_reboot";
+    `hard_shutdown, "hard_shutdown";
+    `migrate, "migrate";
+    `pause, "pause";
+    `resume, "resume";
+    `resume_on, "resume_on";
+    `changing_VCPUs_live, "changing_VCPUs_live";
+    `start, "start";
+    `start_on, "start_on";
+    `suspend, "suspend";
+    `unpause, "unpause";
+    `update_allowed_operations, "update_allowed_operations";
+    `make_into_template, "make_into_template";
+    `send_sysrq, "send_sysrq";
+    `send_trigger, "send_trigger";
+    `changing_memory_live, "changing_memory_live";
+    `awaiting_memory_live, "awaiting_memory_live";
+    `changing_shadow_memory_live, "changing_shadow_memory_live";
+    `pool_migrate, "pool_migrate";
+    `power_state_reset, "power_state_reset";
+    `csvm, "csvm";
+  ]
+
+let vm_operation_to_string x = 
+  if not(List.mem_assoc x vm_operation_table) 
+  then "(unknown operation)"
+  else List.assoc x vm_operation_table
+
+let string_to_vm_operation x = 
+  let table = List.map (fun (a, b) -> b, a) vm_operation_table in
+  if not(List.mem_assoc x table)
+  then (raise (Api_errors.Server_error(Api_errors.invalid_value, [ "blocked_operation"; x ])))
+  else List.assoc x table
+
+let host_operation_to_string = function
+  | `provision -> "provision"
+  | `evacuate -> "evacuate"
+  | `shutdown -> "shutdown"
+  | `reboot -> "reboot"
+  | `power_on -> "power_on"
+  | `vm_start -> "VM.start"
+  | `vm_resume -> "VM.resume"
+  | `vm_migrate -> "VM.migrate"
+
+let vdi_operation_to_string = function
+  | `scan -> "scan"
+  | `clone -> "clone"
+  | `copy -> "copy"
+  | `resize -> "resize"
+  | `resize_online -> "resize_online"
+  | `destroy -> "destroy"
+  | `force_unlock -> "force_unlock"
+  | `snapshot -> "snapshot"
+  | `forget -> "forget"
+  | `update -> "update"
+  | `generate_config -> "generate_config"
+  | `blocked -> "blocked"
+
+let sr_operation_to_string = function
+  | `scan -> "scan"
+  | `destroy -> "destroy"
+  | `forget -> "forget"
+  | `plug -> "plug"
+  | `unplug -> "unplug"
+  | `update -> "update"
+  | `vdi_create -> "VDI.create"
+  | `vdi_introduce -> "VDI.introduce"
+  | `vdi_destroy -> "VDI.destroy"
+  | `vdi_resize -> "VDI.resize"
+  | `vdi_clone -> "VDI.clone"
+  | `vdi_snapshot -> "VDI.snapshot"
+
+let vbd_operation_to_string = function
+  | `attach -> "attach"
+  | `eject -> "eject"
+  | `insert -> "insert"
+  | `plug -> "plug"
+  | `unplug -> "unplug"
+  | `unplug_force -> "unplug_force"
+  | `pause -> "pause"
+  | `unpause -> "unpause"
+
+let vif_operation_to_string = function
+  | `attach -> "attach"
+  | `plug -> "plug"
+  | `unplug -> "unplug"
+
+let cpu_feature_to_string f =
+  match f with 
+    `FPU -> "FPU"
+  | `VME -> "VME"
+  | `DE -> "DE"
+  | `PSE -> "PSE"
+  | `TSC -> "TSC"
+  | `MSR -> "MSR"
+  | `PAE -> "PAE"
+  | `MCE -> "MCE"
+  | `CX8 -> "CX8"
+  | `APIC -> "APIC"
+  | `SEP -> "SEP"
+  | `MTRR -> "MTRR"
+  | `PGE -> "PGE"
+  | `MCA -> "MCA"
+  | `CMOV -> "CMOV"
+  | `PAT -> "PAT"
+  | `PSE36 -> "PSE36"
+  | `PN -> "PN"
+  | `CLFLSH -> "CLFLSH"
+  | `DTES -> "DTES"
+  | `ACPI -> "ACPI"
+  | `MMX -> "MMX"
+  | `FXSR -> "FXSR"
+  | `XMM -> "XMM"
+  | `XMM2 -> "XMM2"
+  | `SELFSNOOP -> "SELFSNOOP"
+  | `HT -> "HT"
+  | `ACC -> "ACC"
+  | `IA64 -> "IA64"
+  | `SYSCALL -> "SYSCALL"
+  | `MP -> "MP"
+  | `NX -> "NX"
+  | `MMXEXT -> "MMXEXT"
+  | `LM -> "LM"
+  | `THREEDNOWEXT -> "3DNOWEXT"
+  | `THREEDNOW -> "3DNOW"
+  | `RECOVERY -> "RECOVERY"
+  | `LONGRUN -> "LONGRUN"
+  | `LRTI -> "LRTI"
+  | `CXMMX -> "CXMMX"
+  | `K6MTRR -> "K6MTRR"
+  | `CYRIXARR -> "CYRIXARR"
+  | `CENTAURMCR -> "CENTAURMCR"
+  | `K8 -> "K8"
+  | `K7 -> "K7"
+  | `P3 -> "P3"
+  | `P4 -> "P4"
+  | `CONSTANTTSC -> "CONSTANTTSC"
+  | `FXSAVELEAK -> "FXSAVELEAK"
+  | `XMM3 -> "XMM3"
+  | `MWAIT -> "MWAIT"
+  | `DSCPL -> "DSCPL"
+  | `EST -> "EST"
+  | `TM2 -> "TM2"
+  | `CID -> "CID"
+  | `CX16 -> "CX16"
+  | `XTPR -> "XTPR"
+  | `XSTORE -> "XSTORE"
+  | `XSTOREEN -> "XSTOREEN"
+  | `XCRYPT -> "XCRYPT"
+  | `XCRYPTEN -> "XCRYPTEN"
+  | `LAHFLM -> "LAHFLM"
+  | `CMPLEGACY -> "CMPLEGACY"
+  | `VMX -> "VMX"
+
+let task_status_type_to_string s =
+  match s with
+    | `pending -> "pending"
+    | `success -> "success"
+    | `failure -> "failure"
+    | `cancelling -> "cancelling"
+    | `cancelled -> "cancelled"
+
+let protocol_to_string = function
+  | `vt100 -> "VT100"
+  | `rfb -> "RFB"
+  | `rdp -> "RDP"
+
+let cpu_feature_list_to_string list =
+  String.concat "," (List.map (fun x -> cpu_feature_to_string x) list)
+
+let task_allowed_operations_to_string s =
+  match s with 
+      `cancel -> "Cancel"
+    
+let alert_level_to_string s =
+  match s with
+  | `Info -> "info"
+  | `Warn -> "warning"
+  | `Error -> "error"
+
+let on_normal_exit_to_string x =
+  match x with 
+    `destroy -> "Destroy" 
+  | `restart -> "Restart"
+
+let string_to_on_normal_exit s =
+  match String.lowercase s with
+    "destroy" -> `destroy
+  | "restart" -> `restart
+  | _ -> raise (Record_failure ("Expected 'destroy' or 'restart', got "^s))
+
+let on_crash_behaviour_to_string x= 
+ match x with 
+   `destroy -> "Destroy"
+ | `coredump_and_destroy -> "Core dump and destroy"
+ | `restart -> "Restart"
+ | `coredump_and_restart -> "Core dump and restart"
+ | `preserve -> "Preserve"
+ | `rename_restart -> "Rename restart"
+
+let string_to_on_crash_behaviour s=
+  match String.lowercase s with
+    "destroy" -> `destroy
+  | "coredump_and_destroy" -> `coredump_and_destroy
+  | "restart" -> `restart
+  | "coredump_and_restart" -> `coredump_and_restart
+  | "preserve" -> `preserve
+  | "rename_restart" -> `rename_restart
+  | _ -> raise (Record_failure ("Expected 'on_crash_behaviour' type, got "^s))
+
+let boot_type_to_string x =
+  match x with
+    `bios -> "BIOS"
+  | `grub -> "GRUB"
+  | `kernelexternal -> "Kernel external"
+
+let string_to_boot_type s =
+  match String.lowercase s with
+    "bios" -> `bios
+  | "grub" -> `grub
+  | "kernelexternal" -> `kernelexternal
+  | _ -> raise (Record_failure ("Expected 'bios','grub' or 'kernelexternal', got "^s))
+
+let power_to_string h =
+  match h with
+      `Halted -> "halted"
+    | `Paused -> "paused"
+    | `Running -> "running"
+    | `Suspended -> "suspended"
+    | `ShuttingDown -> "shutting down"
+    | `Migrating -> "migrating"
+    | `Unknown -> "unknown"
+
+let vdi_type_to_string t =
+  match t with
+  | `system -> "System"
+  | `user -> "User"
+  | `ephemeral -> "Ephemeral"
+  | `suspend -> "Suspend"
+  | `crashdump -> "Crashdump"
+  | `ha_statefile -> "HA statefile"
+  | `metadata -> "Metadata"
+
+let ip_configuration_mode_to_string = function
+  | `None -> "None"
+  | `DHCP -> "DHCP"
+  | `Static -> "Static"
+
+let ip_configuration_mode_of_string m = 
+  match String.lowercase m with
+  | "dhcp"   -> `DHCP
+  | "none"   -> `None
+  | "static" -> `Static
+  | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
+
+(* string_to_string_map_to_string *)
+let s2sm_to_string sep x =
+  String.concat sep (List.map (fun (a,b) -> a^": "^b) x)
+
+(* string to blob ref map to string *)
+let s2brm_to_string get_uuid_from_ref sep x =
+  String.concat sep (List.map (fun (n,r) -> n ^ ": " ^ (get_uuid_from_ref r)) x)
+
+(* int64_to_float_map_to_string *)
+let i642fm_to_string sep x =
+  String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %f" a b) x)
+
+(* int64_to_string_map_to_string *)
+let i642sm_to_string sep x =
+  String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %s" a b) x)
+
+(** Parse a string which might have a units suffix on the end *)
+let bytes_of_string field x = 
+  let isdigit c = c >= '0' && c <= '9' in
+  let ( ** ) a b = Int64.mul a b in
+  let max_size_TiB = Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L) in
+  (* detect big number that cannot be represented by Int64. *)
+  let int64_of_string s =
+    try
+      Int64.of_string s
+    with _ ->
+      if s = "" then
+        raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field));
+      let alldigit = ref true and i = ref (String.length s - 1) in
+      while !alldigit && !i > 0 do alldigit := isdigit s.[!i]; decr i done;
+      if !alldigit then
+        raise (Record_failure (Printf.sprintf "Failed to parse field '%s': number too big (maximum = %Ld TiB)" field max_size_TiB))
+      else
+        raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field));
+    in
+  match (String.split_f (fun c -> String.isspace c || (isdigit c)) x) with
+  | [] -> 
+      (* no suffix on the end *)
+      int64_of_string x
+  | [ suffix ] -> begin
+	let number = match (String.split_f (fun x -> not (isdigit x)) x) with
+	  | [ number ] -> int64_of_string number
+	  | _ -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field)) in
+	let multiplier = match suffix with
+	  | "bytes" -> 1L
+	  | "KiB" -> 1024L
+	  | "MiB" -> 1024L ** 1024L
+	  | "GiB" -> 1024L ** 1024L ** 1024L 
+	  | "TiB" -> 1024L ** 1024L ** 1024L ** 1024L
+	  | x -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': Unknown suffix: '%s' (try KiB, MiB, GiB or TiB)" field x)) in
+        (* FIXME: detect overflow *)
+	number ** multiplier
+    end
+  | _ -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field))
+
+(* Vincent's random mac utils *)
+
+(* generate a random mac with XenSource OUI "00:16:3e" *)
+let random_mac () =
+	let macs = [0x00; 0x16; 0x3e] @ (List.map Random.int [0x80; 0x100; 0x100]) in
+	String.concat ":" (List.map (Printf.sprintf "%02x") macs)
+
+let mac_from_int_array macs =
+  (* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)
+  macs.(0) <- ((macs.(0) lor 0x2) land (lnot 0x1));
+  Printf.sprintf "%02x:%02x:%02x:%02x:%02x:%02x" macs.(0) macs.(1) macs.(2)
+    macs.(3) macs.(4) macs.(5)
+
+(* generate a random mac that is locally administered *)
+let random_mac_local () =
+  mac_from_int_array (Array.init 6 (fun i -> Random.int 0x100))
+
+
+

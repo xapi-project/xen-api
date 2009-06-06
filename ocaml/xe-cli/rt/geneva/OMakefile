@@ -1,0 +1,23 @@
+USE_OCAMLFIND=1
+OCAMLPACKS=unix threads
+OCAMLFLAGS=-dtypes -thread
+OCAMLINCLUDES=./
+OCAML_LIBS=
+
+OCamlProgram(cli_test, cli_test cli_utils utils)
+OCamlProgram(sm_stress, sm_stress cli_utils utils)
+
+.PHONY: clean
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt cli_test sm_stress
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) cli_test sm_stress myfirstpatch.asc $(DEBUGDIST)
+
+.PHONY: install
+install:
+	rm -rf $(DIST)/cli-regress-geneva
+	mkdir -p $(DIST)/cli-regress-geneva
+	$(IPROG) cli_test sm_stress license.txt myfirstpatch.asc pwfile_unix.txt pwfile_windows.txt $(DIST)/cli-regress-geneva

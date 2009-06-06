@@ -1,0 +1,177 @@
+(* Manages persistent connection from slave->master over which the db is accessed.
+
+   The state of this connection is used by the slave to determine whether it can see its
+   master or not. After the slave has not been able to see the master for a while, xapi
+   restarts in emergency mode.
+*)
+
+type db_record = (string * string) list * (string * (string list)) list
+module D = Debug.Debugger(struct let name = "master_connection" end)
+open D
+
+let my_connection : Stunnel.t option ref = ref None
+  
+exception Cannot_connect_to_master
+  
+(* kill the stunnel underlying the connection.. When the master dies
+   then read/writes to the connection block for ages waiting for the
+   TCP timeout. By killing the stunnel, we can get these calls to
+   unblock. (We do not clean up after killing stunnel, it is still the
+   duty of the person who initiated the stunnel connection to call
+   Stunnel.disconnect which closes the relevant fds and does wait_pid on
+   the (now dead!) stunnel process.
+*)
+let force_connection_reset () =
+  match !my_connection with
+    None -> ()
+  | Some st_proc ->
+      Unix.kill st_proc.Stunnel.pid Sys.sigterm
+	
+(* whenever a call is made that involves read/write to the master connection, a timestamp is
+   written into this global: *)
+let last_master_connection_call : float option ref = ref None
+  (* the master_connection_watchdog uses this time to determine whether the master connection
+     should be reset *)
+  
+(* Set and unset the timestamp global. (No locking required since we are operating under
+   mutual exclusion provided by the database lock here anyway) *)
+let with_timestamp f =
+  last_master_connection_call := Some (Unix.gettimeofday());
+  Pervasiveext.finally
+    f
+    (fun ()->last_master_connection_call := None)
+    
+(* call force_connection_reset if we detect that a master-connection is blocked for too long.
+   One common way this can happen is if we end up blocked waiting for a TCP timeout when the
+   master goes away unexpectedly... *)
+let start_master_connection_watchdog() =
+  let connection_reset_timeout = 2. *. 60. in
+  Thread.create
+    (fun () ->
+       while (true)
+       do
+	 try
+	   begin
+	     match !last_master_connection_call with
+	       None -> ()
+	     | Some t ->
+		 let now = Unix.gettimeofday() in
+		 let since_last_call = now -. t in
+		 if since_last_call > connection_reset_timeout then
+		   begin
+		     debug "Master connection timeout: forcibly resetting master connection";
+		     force_connection_reset()
+		   end
+	   end;
+	   Thread.delay 10.
+	 with _ -> ()
+       done
+    )
+    ()
+
+module StunnelDebug=Debug.Debugger(struct let name="stunnel" end)
+
+(** Called when the connection to the master is (re-)established. This will be called once
+    on slave start and then every time after the master restarts and we reconnect. *)
+let on_database_connection_established = ref (fun () -> ())
+
+let open_secure_connection () =
+  let host = Pool_role.get_master_address () in
+  let port = !Xapi_globs.https_port in
+  let write_to_log x = Xmlrpcclient.write_to_log ("master_connection: " ^ x) in
+  let st_proc = Stunnel.connect
+    ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
+  my_connection := Some st_proc;
+  !on_database_connection_established ()
+    
+(* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
+   fails *)
+exception Goto_handler
+let connection_timeout = ref 10. (* -ve means retry forever *)
+  
+(* if this is true then xapi will restart if retries exceeded [and enter emergency mode if still
+   can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
+   are exceeded *)
+let restart_on_connection_timeout = ref true
+  
+let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml = 
+  let time_call_started = Unix.gettimeofday() in
+  let write_ok = ref false in
+  let result = ref (Xml.PCData "") in
+  let surpress_no_timeout_logs = ref false in
+  while (not !write_ok)
+  do
+    begin
+      try
+	let req_string = Xml.to_string_fmt req in
+	let headers = Xmlrpcclient.xmlrpc_headers ~version:"1.1" host path (String.length req_string + 0) in
+	(* The database actually puts the pool_secret in the xmlrpc calls; we stick it here because the remote_stats_url
+	   (soon to be deprecated) also requires authentication.. Once we have totally deprecated the remote_stats_url
+	   then we can remove this line: *)
+	let headers = headers @ ["Cookie: pool_secret="^(!Xapi_globs.pool_secret)] in
+	match !my_connection with
+	  None -> raise Goto_handler
+	| (Some stunnel_proc) ->
+	    let fd = stunnel_proc.Stunnel.fd in
+	    let content_length, task_id = with_timestamp (fun ()->Xmlrpcclient.http_rpc_fd fd headers req_string) in
+	    (* XML responses must have a content-length because we cannot use the Xml.parse_in
+	       in_channel function: the input channel will buffer an arbitrary amount of stuff
+	       and we'll be out of sync with the next request. *)
+	    if content_length < 0 then raise Xmlrpcclient.Content_length_required;
+	    let res = with_timestamp (fun ()->Xmlrpcclient.read_xml_rpc_response content_length task_id fd) in
+	    write_ok := true;
+	    result := res (* yippeee! return and exit from while loop *)
+      with
+	_ ->
+	  begin
+	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s *)
+	    begin
+	      match !my_connection with
+		None -> ()
+	      | (Some st_proc) ->
+		  my_connection := None; (* don't want to try closing multiple times *)
+		  (try Stunnel.disconnect st_proc with _ -> ())
+	    end;
+	    let time_sofar = Unix.gettimeofday() -. time_call_started in
+	    if !connection_timeout < 0. then
+	      begin
+		if not !surpress_no_timeout_logs then
+		  begin
+		    debug "Connection to master died. I will continue to retry indefinitely (supressing future logging of this message).";
+		    error "Connection to master died. I will continue to retry indefinitely (supressing future logging of this message).";
+		  end;
+		surpress_no_timeout_logs := true
+	      end
+	    else
+	      debug "Connection to master died: time taken so far in this call '%f'; will %s"
+		time_sofar (if !connection_timeout < 0. 
+			    then "never timeout" 
+			    else Printf.sprintf "timeout after '%f'" !connection_timeout);
+	    if time_sofar > !connection_timeout && !connection_timeout >= 0. then
+	      begin
+		if !restart_on_connection_timeout then
+		  begin
+		    debug "Exceeded timeout for retrying master connection: restarting xapi";
+		    exit Xapi_globs.restart_return_code
+		  end
+		else
+		  begin
+		    debug "Exceeded timeout for retrying master connection: raising Cannot_connect_to_master";
+		    raise Cannot_connect_to_master
+		  end
+	      end;
+	    Thread.delay 2.0;
+	    try
+	      open_secure_connection()
+	    with _ -> () (* oh well, maybe nextime... *)
+	  end
+    end
+  done;
+  !result
+    
+let execute_remote_fn xml path =
+  let host = Pool_role.get_master_address () in
+  Db_lock.with_lock
+    (fun () ->
+       (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
+       do_db_xml_rpc_persistent_with_reopen ~host ~path xml)

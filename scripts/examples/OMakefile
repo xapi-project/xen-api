@@ -1,0 +1,5 @@
+IEXE=install -m 755 -o root -g root
+
+.SUBDIRS: bash-cli python
+
+

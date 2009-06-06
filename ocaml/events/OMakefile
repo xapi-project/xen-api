@@ -1,0 +1,16 @@
+OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES = ../xapi ../idl/ocaml_backend ../autogen 
+OCAMLPACKS = stdext xmlm xml-light2 uuid log
+
+OCamlProgram(event_listen, event_listen)
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS)
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) event_listen $(DEBUGDIST)
+
+

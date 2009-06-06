@@ -1,0 +1,176 @@
+(* ------------------------------------------------------------------
+
+   Copyright (c) 2006 Xensource Inc
+
+   Contacts: Dave Scott    <dscott@xensource.com>
+
+   Helper functions for manipulating Task objects
+
+   ------------------------------------------------------------------- *)
+
+module D = Debug.Debugger(struct let name = "taskhelper" end)
+module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
+open D
+
+(*open API*)
+
+type t = API.ref_task
+
+let now () = Date.of_float (Unix.time ())
+
+let string_of_task task_name task_id = 
+  let sep = if task_name = "" then "" else " " in
+  Printf.sprintf "%s%s%s" task_name sep (Ref.really_pretty_and_small task_id)
+
+(* creates a new task *)
+let make ~__context ?(description="") ?session_id ?subtask_of label : (t * t Uuid.t) = 
+  let uuid = Uuid.make_uuid () in
+  let uuid_str = Uuid.string_of_uuid uuid in
+  let ref = Ref.make () in
+  (* we store in database only parent/child relationship between real tasks *) 
+  let subtaskid_of = match subtask_of with
+    | Some task_id when not (Ref.is_dummy task_id) -> task_id
+    | _e -> Ref.null
+  in
+  let (_ : unit) = Db_actions.DB_Action.Task.create
+    ~ref
+    ~__context
+    ~created:(Date.of_float (Unix.time()))
+    ~finished:(Date.of_float 0.0)
+    ~current_operations:[]
+    ~_type:"<none/>"
+    ~session:(Pervasiveext.default Ref.null session_id)
+    ~resident_on:(!Xapi_globs.localhost_ref)
+    ~status:`pending
+    ~result:"" ~progress:0.
+    ~error_info:[]
+    ~allowed_operations:[]
+    ~name_description:description ~name_label:label
+    ~stunnelpid:(-1L) ~forwarded:false ~forwarded_to:Ref.null
+    ~uuid:uuid_str ~externalpid:(-1L)
+    ~subtask_of:subtaskid_of
+    ~other_config:[] in
+  ref, uuid
+
+let destroy ~__context task_id =
+  let debug = if Ref.is_dummy task_id then Dummy.debug else D.debug in
+  if not (Ref.is_dummy task_id)  
+  then Db_actions.DB_Action.Task.destroy ~__context ~self:task_id;
+  if Context.get_task_id __context = task_id
+  then debug "task destroyed"
+  else debug "task %s destroyed" (string_of_task "" task_id)
+
+(* set the ref fn to break the cyclic dependency *)
+let init () = 
+  Context.__get_task_name := (fun ~__context self -> Db_actions.DB_Action.Task.get_name_label ~__context ~self);
+  Context.__destroy_task := destroy;
+  Context.__string_of_task := string_of_task;
+  Context.__make_task := make
+
+let operate_on_db_task ~__context f =
+  if Context.task_in_database __context 
+  then f (Context.get_task_id __context) 
+
+let set_description ~__context value =
+  operate_on_db_task ~__context
+    (fun self -> Db_actions.DB_Action.Task.set_name_description ~__context ~self ~value)
+
+let add_to_other_config ~__context key value =
+  operate_on_db_task ~__context
+    (fun self ->
+         Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key;
+         Db_actions.DB_Action.Task.add_to_other_config ~__context ~self ~key ~value)
+
+let set_progress ~__context value =
+  operate_on_db_task ~__context
+    (fun self -> Db_actions.DB_Action.Task.set_progress ~__context ~self ~value)
+
+let set_external_pid ~__context pid =
+  operate_on_db_task ~__context
+    (fun self -> Db_actions.DB_Action.Task.set_externalpid ~__context ~self ~value:(Int64.of_int pid))
+
+let clear_external_pid ~__context = set_external_pid ~__context (-1)
+
+let set_result_on_task ~__context task_id (result: Xml.xml list) = 
+  (* Extract the result: must be either a void or a reference for now *)
+  match result with
+  | [] -> () (* void *)
+  | [ x ] -> 
+      begin try
+	Db_actions.DB_Action.Task.set_result ~__context ~self:task_id ~value:(Xml.to_string x)
+      with e ->
+	warn "unable to store task result (not a unit or void): %s (got exn %s)" (Xml.to_string x) (Printexc.to_string e)
+      end
+  | xs -> 
+      warn "taskHelper.complete received something other than a single string result value: [ %s ]" (String.concat "; " (List.map Xml.to_string xs));
+      Db_actions.DB_Action.Task.set_result ~__context ~self:task_id ~value:""
+  
+
+(** Only set the result without completing the task. Useful for vm import *)
+let set_result ~__context (result: Xml.xml list) = 
+  operate_on_db_task ~__context
+    (fun t -> set_result_on_task ~__context t result)
+
+let status_to_string = function
+	| `pending -> "pending"
+	| `success -> "success"
+	| `failure -> "failure"
+	| `cancelling -> "cancelling"
+	| `cancelled -> "cancelled"
+
+let complete ~__context (result: Xml.xml list) =
+  operate_on_db_task ~__context
+    (fun self ->
+		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+		if status = `pending then begin
+			Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[];
+			Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
+			Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
+			set_result_on_task ~__context self result;
+			Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`success
+		end else
+			debug "the status of %s is: %s; cannot set it to `success"
+				(Ref.really_pretty_and_small self)
+				(status_to_string status))
+
+let set_cancellable ~__context =
+  operate_on_db_task ~__context
+    (fun self -> Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[`cancel])
+
+let is_cancelling ~__context =
+  Context.task_in_database __context && 
+  let l = Db_actions.DB_Action.Task.get_current_operations ~__context ~self:(Context.get_task_id __context) in
+	  List.exists (fun (_,x) -> x=`cancel) l
+
+let exn_if_cancelling ~__context =
+  if is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
+
+let cancel ~__context = 
+  operate_on_db_task ~__context
+    (fun self ->
+		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+		if status = `pending then begin
+			Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled;
+			Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
+		end else
+			debug "the status of %s is %s; cannot set it to `cancelled"
+				(Ref.really_pretty_and_small self)
+				(status_to_string status))
+
+let failed ~__context (code, params) =
+  operate_on_db_task ~__context
+    (fun self ->
+		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+		if status = `pending then begin
+			Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
+			Db_actions.DB_Action.Task.set_error_info ~__context ~self ~value:(code::params);
+			Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
+			Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[];
+			if code=Api_errors.task_cancelled 
+			then Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled
+			else Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`failure
+		end else
+			debug "the status of %s is %s; cannot set it to %s" 
+				(Ref.really_pretty_and_small self)
+				(status_to_string status)
+				(if code=Api_errors.task_cancelled then "`cancelled" else "`failure"))

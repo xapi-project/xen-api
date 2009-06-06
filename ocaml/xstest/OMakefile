@@ -1,0 +1,10 @@
+OCAMLPACKS    += threads uuid mmap xc xb xs
+OCAMLFLAGS    += -thread
+
+OCamlProgram(xstest, xstest common)
+OCamlProgram(xsbench, bm bench)
+OCamlProgram(xscheckperms, perms common)
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi

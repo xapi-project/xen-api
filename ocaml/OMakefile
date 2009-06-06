@@ -1,0 +1,60 @@
+# You must set your XEN_ROOT env var before building
+XEN_CFLAGS += -I$(XEN_ROOT)/usr/include
+OCAMLINCLUDES += +ocamldoc $(ROOT)/ocaml/util
+
+OCAMLPACKS += stdext log
+
+OCAML_LIBS += \
+	$(ROOT)/ocaml/util/version \
+	$(ROOT)/ocaml/util/backtrace \
+	$(ROOT)/ocaml/util/debug \
+	$(ROOT)/ocaml/util/forkhelpers \
+	$(ROOT)/ocaml/util/stunnel \
+	$(ROOT)/ocaml/util/sha1sum \
+	$(ROOT)/ocaml/util/gzip \
+	$(ROOT)/ocaml/util/stats
+
+.SUBDIRS: \
+	autogen \
+	xe-cli \
+	xapimon \
+	cvm \
+	guest_installer \
+	client_records \
+	idl \
+	util \
+	xapi \
+	templates \
+	http \
+	sexpr \
+	xenguest \
+	xenops \
+	xenops-ts \
+	xsrpc \
+	muxdemux \
+	xva \
+	guest \
+	console \
+	netdev \
+	auth \
+	events \
+	in_guest_install \
+	p2v \
+	graph \
+	license \
+	rfb \
+	fdhelper \
+	database \
+	toplevel \
+	xenstored \
+	xstest \
+	xiu \
+	cdrommon \
+	gpg \
+	db_process \
+	vncproxy \
+	xsh \
+	perftest \
+	lvhdrt \
+	mpathalert \
+	multipathrt

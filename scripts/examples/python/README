@@ -1,0 +1,38 @@
+XenAPI python examples
+----------------------
+
+install.py
+   -- chooses a Debian template and installs a VM from it, placing
+      disks on the Pool's default SR. It adds a VIF connecting the VM
+      to a network on the host and boots the VM. The script blocks until
+      the guest agent has reported both the OS version and eth0's IP address.
+
+powercycle.py
+   -- lists all existing VMs, shuts them down and then performs some
+      aggressive power-cycling on each one
+
+vm_start_async.py
+   -- demonstrates the asyncronous operation support by starting a VM
+      named "new" (which must already exist and be halted), retrieving
+      a task reference and displaying the instantaneous task status
+
+watch-all-events.py
+  -- demonstrates using the event system by registering for events on
+     all classes and pretty-printing them as they are received.
+
+shell.py
+  -- creates a python interactive shell with access to the bindings for
+     experimentation
+
+Invoking the examples
+---------------------
+
+Each program takes 3 commandline arguments:
+
+url - an https or http URL pointing at the server
+username - a valid user on the server (eg root)
+password
+
+For example:
+
+./install.py https://localhost:443/ root letmein

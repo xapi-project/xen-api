@@ -1,0 +1,186 @@
+#! /bin/bash
+#
+# xapi          Start/Stop the XAPI server
+#
+# chkconfig: 2345 22 77
+# description: XenServer server
+# processname: xapi
+# config: /etc/xensource/xapi.conf
+# pidfile: /var/run/xapi.pid
+
+# Source function library.
+. /etc/init.d/functions
+
+if [ -f /etc/sysconfig/xapi ]; then
+  . /etc/sysconfig/xapi
+fi
+
+if [ -e /var/xapi/xiu-xc ]; then
+	export XIU=/var/xapi/xiu
+fi
+
+XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
+XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
+XAPI_BLOCK_STARTUP_COOKIE=/etc/xensource/xapi_block_startup
+XAPI_BOOT_TIME_INFO_UPDATED=/etc/xensource/boot_time_info_updated
+
+# Enable core dumping for xapi
+ulimit -c unlimited
+
+start() {
+	echo -n $"Starting xapi: "
+
+	# clear out any old xapi coredumps
+	rm -rf /var/xapi/debug
+
+        if [ -e /var/lock/subsys/xapi ]; then
+	    if [ -e /var/run/xapi.pid ] && [ -e /proc/`cat /var/run/xapi.pid` ]; then
+		echo -n $"cannot start xapi: already running.";
+		failure $"cannot start xapi: already running.";
+		echo
+		return 1
+	    fi
+	fi
+	# This bit is ok though:
+	rm -f ${XAPI_STARTUP_COOKIE}
+	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
+	# Enable backtraces
+	export OCAMLRUNPARAM="b"
+	# Add HA scripts to the path
+	PATH=$PATH:/opt/xensource/xha
+
+	# For debugging, prevent xapi startup
+	if [ -e ${XAPI_BLOCK_STARTUP_COOKIE} ]; then
+            if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
+	    logger "Aborting xapi startup because ${XAPI_BLOCK_STARTUP_COOKIE} is present and the system has just booted. Remove file and try again";
+	    echo -n $"startup blocked."
+	    failure $"startup blocked."
+	    echo
+	    return 1
+            fi
+	fi
+
+	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
+	    # clear out qemu coredumps/chroot dirs on system boot:
+	    rm -rf /var/xen/qemu/*
+	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
+		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
+	    #xapi_pid=$!
+	    rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
+	else
+	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
+		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
+	    #xapi_pid=$!
+	fi
+	# wait for startup cookie to be written for up to ${MAX_RETRIES} seconds
+	MAX_RETRIES=180
+	# don't conclude that xapi has failed until at least ${INITIAL_GRACE_PERIOD} seconds
+	INITIAL_GRACE_PERIOD=10
+	RETRY=0
+	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
+		if [ ${RETRY} -gt ${INITIAL_GRACE_PERIOD} ]; then
+			# Abort early if all xapis have gone 
+			xapi_pids=$(pidof xapi)
+			if [ -z "$xapi_pids" ]; then
+				logger "xapi daemon disappeared; aborting"
+				echo -n .
+				echo -n $"failed to start xapi (daemon disappeared)"
+				failure $"failed to start xapi (daemon disappeared)"
+				echo
+				return 1
+			fi
+		fi
+
+		if [ -e ${XAPI_STARTUP_COOKIE} ]; then
+			touch /var/lock/subsys/xapi
+			echo -n $"start-of-day complete."
+			success $"start-of-day complete."
+			echo
+			return 0
+		fi
+		sleep 1
+		echo -n .
+		RETRY=$(( ${RETRY} + 1 ))
+	done
+	echo -n $"failed to start xapi."
+	failure $"failed to start xapi."
+	killproc xapi
+	rm -f /var/lock/subsys/xapi /var/run/xapi.pid
+	echo
+	return 1
+}
+
+stop() {
+	echo -n $"Stopping xapi: "
+        if [ ! -e /var/lock/subsys/xapi ]; then
+	    echo -n $"cannot stop xapi: xapi is not running."
+	    failure $"cannot stop xapi: xapi is not running."
+	    echo
+	    return 1;
+	fi
+	rm -f ${XAPI_STARTUP_COOKIE}
+	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
+	xe host-shutdown-agent
+
+	# Find out if xapi has died
+	RETRIES=60
+	while [ ${RETRIES} -ne 0 ]; do
+		# Finish if all xapis have gone 
+		xapi_pids=$(pidof xapi)
+		if [ -z "$xapi_pids" ]; then
+			logger "xapi stopped successfully"
+			rm -f /var/run/xapi.pid /var/lock/subsys/xapi
+			success $"xapi stopped successfully"
+			echo
+			return 0
+		fi
+		sleep 1
+		echo -n .
+		RETRIES=$(( ${RETRIES} - 1 ))
+	done
+
+	killproc xapi
+	RETVAL=$?
+	if [ $RETVAL -eq 0 ]; then
+	    logger "xapi stopped forcibly"
+	    success $"xapi stopped successfully"
+	    echo
+	    rm -f /var/run/xapi.pid /var/lock/subsys/xapi
+	else
+	    logger "failed to stop xapi"
+	    failure $"failed to stop xapi"
+	    echo
+	fi
+
+	return $RETVAL
+}
+
+rhstatus() {
+	status xapi
+}
+
+restart() {
+	stop
+	start
+}
+
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	restart
+	;;
+  status)
+	rhstatus
+	;;
+  condrestart)
+	[ -f /var/lock/subsys/xapi ] && restart || :
+	;;
+  *)
+	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	exit 1
+esac

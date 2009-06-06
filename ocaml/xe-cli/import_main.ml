@@ -1,0 +1,59 @@
+(*
+ * Copyright (c) 2006 XenSource Inc.
+ * Author: David Scott <david.scott@xensource.com>
+ *
+ * import of VMs: driver which allows VMs to be imported from the local filesystem
+ * (no network transport)
+ *)
+
+open Debug
+open Import 
+
+let username = ref "root"
+let password = ref ""
+let host = ref "127.0.0.1"
+let port = ref 8086
+let srid = ref ""
+
+open Client
+
+let rpc xml = Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host:!host ~port:!port ~path:"/" xml
+
+let _ = 
+  let path = ref "" in
+  Arg.parse [
+    "-username", Arg.Set_string username,
+    Printf.sprintf "Login username (default %s)" !username;    
+    "-password", Arg.Set_string password,
+    "Login password";
+    "-host", Arg.Set_string host,
+    Printf.sprintf "Server hostname (default %s)" !host;
+    "-port", Arg.Set_int port,
+    Printf.sprintf "Server port (default %d)" !port;
+    "-srid", Arg.Set_string srid,
+    "Import VDIs into this SR (default autodetect)";
+    "-debug", Arg.Unit (fun () -> Debug.enable_all ()), "enable debugging";
+  ] (fun x -> if !path = "" then path := x else Printf.printf "Warning, ignoring unknown argument: %s" x)
+    "Import a VM from the local filesystem";
+  let path = !path in
+  if path = "" then failwith "Must supply an XVA path (file or directory) as an argument";
+
+  let session_id: API.ref_session = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password in
+
+  let send_fn = match Import.classify path with
+    | Zurich -> stream_from_xva_dir path
+    | TarXVA -> stream_from_xva_file path
+    | Unknown -> failwith "Failed to detect XVA type" in
+
+  let writer _ task_id sock = 
+    begin match task_id with Some task_id -> debug(Printf.sprintf "Got task id: %s" task_id) | None -> () end;
+    let oc = Unix.out_channel_of_descr sock in
+    send_fn oc;
+    flush oc in
+
+  let path = Constants.import_xva_uri in
+  let headers = Xmlrpcclient.connect_headers ~session_id:(Ref.string_of session_id) !host Constants.import_xva_uri in
+  Xmlrpcclient.do_http_rpc !host !port headers "" writer;
+  debug "XVA import successful"
+  
+

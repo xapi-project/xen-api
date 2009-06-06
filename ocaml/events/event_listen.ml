@@ -1,0 +1,34 @@
+(* Test program to subscribe to an event stream *)
+
+let host = ref "localhost"
+let port = ref 8086
+let username = ref "root"
+let password = ref ""
+
+(* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
+let rpc xml = Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host:!host ~port:!port ~path:"/" xml
+
+open Client
+open Printf
+open Event_types
+
+let _ =
+  Arg.parse [
+    "-h", Arg.Set_string host, "hostname to connect to";
+    "-p", Arg.Set_int port, "port number to connect to";
+    "-u", Arg.Set_string username, "username to connect with";
+    "-pw", Arg.Set_string password, "password to connect with";
+  ]
+    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
+    "Subscribe to an event stream and print the results";
+
+  Printf.printf "Connecting to Host: %s; Port: %d; Username: %s" !host !port !username;
+  
+  (* Interesting event stuff starts here: *)
+  let session_id = Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.2" in
+  Client.Event.register ~rpc ~session_id ~classes:["*"];
+  while true do
+    let events = events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+    List.iter (fun event -> print_endline (string_of_event event)) events;
+    flush stdout
+  done

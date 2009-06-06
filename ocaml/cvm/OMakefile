@@ -1,0 +1,9 @@
+OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../log/log ../idl/ocaml_backend/client
+OCAMLINCLUDES += ../uuid ../idl ../idl/ocaml_backend/ ../autogen/ ../xva ../muxdemux ../log
+OCAMLPACKS += xmlm xml-light2
+
+OCamlProgram(cvm, ../util/config cvm)
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS)

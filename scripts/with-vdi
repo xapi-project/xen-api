@@ -1,0 +1,46 @@
+#!/bin/sh
+
+function usage()
+{
+  echo
+  echo Usage:
+  echo $0 "<VDI uuid> [ command to execute, defaults to /bin/sh ]"
+  echo
+  echo Block attaches a VDI to the control domain, executes a command \(typically a shell\),
+  echo detaches and destroys the VBD when the command finishes.
+
+}
+
+VDI=$1
+# check that the VDI actually exists
+if [ -z "$(xe vdi-list params=uuid uuid=${VDI})" ]; then
+  echo Failed to find VDI with UUID: ${VDI}
+  usage
+  exit 1
+fi
+COMMAND=$2
+if [ -z "$COMMAND" ]; then
+  COMMAND=/bin/sh
+fi
+if [ ! -x "$COMMAND" ]; then
+  echo Failed to find command: ${COMMAND}
+  usage
+  exit 1
+fi
+
+. /etc/xensource-inventory
+
+if [ `xe vdi-param-get uuid=${VDI} param-name=read-only` = "true" ] ; then 
+    MODE=RO
+else
+    MODE=RW
+fi
+VBD=`xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} device=autodetect mode=${MODE}`
+xe vbd-plug uuid=${VBD}
+DEVICE=`xe vbd-param-get uuid=${VBD} param-name=device`
+export DEVICE
+echo DEVICE=${DEVICE}
+${COMMAND}
+xe vbd-unplug uuid=${VBD}
+xe vbd-destroy uuid=${VBD}
+

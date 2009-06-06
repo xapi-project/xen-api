@@ -1,0 +1,7 @@
+.PHONY: install
+install:
+	mkdir -p $(LIBEXEC)
+	$(IPROG) host-backup host-restore $(LIBEXEC)
+
+.PHONY: sdk-install
+sdk-install: install

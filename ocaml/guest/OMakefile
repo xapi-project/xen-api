@@ -1,0 +1,9 @@
+OCAMLPACKS = stdext uuid xc mmap xb xs log
+
+OCamlProgram(agent, agent)
+
+.DEFAULT: agent
+
+.PHONY: clean
+clean:
+	rm -rf *.cmi *.cma *.cmxa *.a *.cmo *.cmx *.o *.opt *.aux *.log *.fig *.run *.annot agent

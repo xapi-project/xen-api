@@ -1,0 +1,21 @@
+
+# Don't link with threads
+OCAMLPACKS = stdext
+
+section:
+	OCAMLFLAGS += -cclib -static
+	OCamlProgram(closeandexec_static, closeandexec)
+
+OCamlProgram(closeandexec, closeandexec)
+
+.PHONY: install
+install: 
+	mkdir -p $(LIBEXEC)
+	$(IPROG) closeandexec $(LIBEXEC)
+
+.PHONY: sdk-install
+sdk-install: install
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig closeandexec

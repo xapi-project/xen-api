@@ -1,0 +1,11 @@
+OCAMLPACKS += xmlm xml-light2 xc
+OCAMLINCLUDES += ../http
+#OCAMLINCLUDES += ../sexpr ../uuid ../idl ../idl/ocaml_backend ../log \
+OCAMLINCLUDES += ../xapi ../gpg
+
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
+
+# keyring is stored in dom0.hg

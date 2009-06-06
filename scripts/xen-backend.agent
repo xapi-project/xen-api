@@ -1,0 +1,16 @@
+#! /bin/bash
+
+case "$XENBUS_TYPE" in
+  tap)
+    /etc/xensource/scripts/tap "$ACTION"
+    ;;
+  vbd)
+    /etc/xensource/scripts/block "$ACTION"
+    ;;
+  vtpm)
+    /etc/xensource/scripts/vtpm "$ACTION"
+    ;;
+  vif)
+    /etc/xensource/scripts/vif "$ACTION"
+    ;;
+esac

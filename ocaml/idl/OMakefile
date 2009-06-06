@@ -1,0 +1,138 @@
+
+.SUBDIRS: ocaml_backend sql_backend lua js_backend
+
+JQUERY = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
+JQUERYTREEVIEWZIP = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
+
+PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14")
+
+OCAMLINCLUDES += ocaml_backend ../database
+OCAMLPACKS += str xmlm xml-light2 uuid
+
+# -----------------------------------------------------------------------
+# Build datamodel library
+# -----------------------------------------------------------------------
+
+OCamlLibrary(datamodel, datamodel datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ../util/date ocaml_backend/ref ../database/string_marshall_helper ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser)
+
+# -----------------------------------------------------------------------
+# Build datamodel documentation
+# -----------------------------------------------------------------------
+
+DATAMODEL = datamodel
+DATAMODEL_FILES = datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ../util/date ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper ../util/encodings ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser
+
+SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
+SHARED_EPS = vm_lifecycle.eps
+OPEN_TEX = xenapi.tex xenapi-coversheet.tex xenapi-datamodel.tex
+OPEN_EPS = xenapi-datamodel-graph.eps xen.eps
+CLOSED_TEX = xenenterpriseapi.tex xenenterpriseapi-coversheet.tex xenenterpriseapi-datamodel.tex
+CLOSED_EPS = xenenterpriseapi-datamodel-graph.eps citrix_logo_black.eps
+
+DOCDIR = $(ROOT)/ocaml/autogen/doc
+
+OCamlProgram($(DATAMODEL), $(DATAMODEL_FILES) datamodel_main)
+OCamlProgram(html_build, $(DATAMODEL_FILES) html_build html_common html_types)
+
+.PHONY: xenapi-html-doc xenenterpriseapi-html-doc api-html-doc sdk-classes
+api-html-doc: xenapi-html-doc xenenterpriseapi-html-doc
+
+# XXX replace xenapi-html-doc and xenenterpriseapi-html-doc with implicit
+# targets instead of hardcoding
+
+sdk-classes: sdk-classes.dot
+	dot -Tps2 -Kneato -Goverlap=false sdk-classes.dot > sdk-classes.ps
+	dot -Tgif -Kneato -Goverlap=false sdk-classes.dot > sdk-classes.gif
+
+xenapi-html-doc: datamodel xenapi-datamodel-graph.dot xenapi-datamodel-graph.gif xenapi-datamodel-graph.map
+	mkdir -p $(DOCDIR)/model/oss
+	cp xenapi-datamodel-graph.{map,gif} $(DOCDIR)/model/oss
+	cp api.css userguide.css $(DOCDIR)/model/oss
+	cp xensource_logo.png check.png $(DOCDIR)/model/oss
+	./datamodel -html $(DOCDIR)/model/oss
+
+xenenterpriseapi-html-doc: datamodel #xenapi-datamodel-graph.dot xenenterpriseapi-datamodel-graph.gif xenenterpriseapi-datamodel-graph.map
+	mkdir -p $(DOCDIR)/model/xe
+	cp xenenterpriseapi-datamodel-graph.{map,gif} $(DOCDIR)/model/xe
+	cp api.css userguide.css $(DOCDIR)/model/xe
+	cp xensource_logo.png xensource_toplogo.gif check.png $(DOCDIR)/model/xe
+	./datamodel -closed -html $(DOCDIR)/model/xe
+
+xenapi-datamodel-graph.dot: datamodel
+	./datamodel -dot  >$@
+
+xenenterpriseapi-datamodel-graph.dot: datamodel
+	./datamodel -dot -closed >$@
+
+xenapi-datamodel.tex: datamodel
+	./datamodel -latex  >$@
+
+
+xenenterpriseapi-datamodel.tex: datamodel
+	./datamodel -latex  -closed >$@
+
+datamodel-dtd.xml: datamodel
+	./datamodel -dtd  >$@
+
+xenenterpriseapi.dvi: $(CLOSED_TEX) $(SHARED_TEX) $(CLOSED_EPS) $(SHARED_EPS)
+	latex $<
+	latex $<
+
+xenapi.dvi: $(OPEN_TEX) $(SHARED_TEX) $(OPEN_EPS) $(SHARED_EPS)
+	latex $<
+	latex $<
+
+%.pdf: %.ps
+	$(PSTOPDF) $< $@
+
+%.ps: %.dvi
+	dvips $< -o $@
+
+#%.eps: %.dot
+#	dot -Tps $< >$@
+
+%.map: %.dot
+	dot -Tcmapx $< >$@
+
+%.gif: %.dot
+	dot -Tgif $< >$@
+
+.PHONY: clean
+clean:
+	rm -rf *.cmi *.cma *.cmxa *.a *.cmo *.cmx *.o *.opt *.aux *.log *.fig *.run datamodel
+	rm -rf *.ps *.pdf *.dvi *.annot
+	rm -rf *datamodel.tex datamodel-dtd.xml datamodel-coversheet.tex
+	rm -rf /tmp/docs
+	rm -rf $(SDKWWW)/docs/html
+
+.PHONY: sdk-install
+sdk-install: datamodel html_build xenenterpriseapi.pdf
+	mkdir -p $(SDK)/docs/html
+	cp xenenterpriseapi-datamodel-graph.{map,gif} $(SDK)/docs/html
+	cp html/*.css html/*.js html/*.html $(SDK)/docs/html
+	mkdir -p $(SDK)/docs/html/images
+	cp html/images/* $(SDK)/docs/html/images
+	cp xensource_logo.gif xensource_toplogo.gif check.png $(SDK)/docs/html
+	rm -rf /tmp/docs
+	mkdir -p /tmp/docs/html/autogen
+	cp xenenterpriseapi-datamodel-graph.map /tmp/docs/html/autogen
+	./datamodel -closed -html /tmp/docs/html/autogen
+	./html_build -autogen /tmp/docs/html/autogen/API -manual html/overlay/API -output /tmp/docs/html/merged/API -tree $(SDK)/docs/html/tree.html
+	mkdir -p $(SDKWWW)/docs/html
+	mkdir -p $(SDK)/docs/html
+	sh -c '/bin/cp -ar /tmp/docs/html/merged/API $(SDK)/docs/html'
+	cp /tmp/docs/html/autogen/classes.html $(SDK)/docs/html
+	cp $(JQUERY) $(SDK)/docs/html
+	mkdir -p $(SDK)/docs/html/images
+	unzip -o -j -d $(SDK)/docs/html/images $(JQUERYTREEVIEWZIP) images/*
+	unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) *.js images/*
+	#./datamodel -closed -html $(SDK)/docs/html
+	mkdir -p $(SDK)/docs/pdf
+	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
+	cp sdk-README.html $(SDK)/README.html
+	lynx -dump sdk-README.html > $(SDK)/README.txt
+	cp sdk-index.html $(SDK)/index.html
+	# and then the version suitable for the website
+	mkdir -p $(SDKWWW)/docs/html
+	sh -c '/bin/cp -ar $(SDK)/docs $(SDKWWW)'
+	cp sdkwww-index.html $(SDKWWW)/index.html

@@ -1,0 +1,23 @@
+OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi ../client_records
+OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
+
+IEXE=install -m 755 -o root -g root
+
+OCamlProgram(multipathrt, \
+	multipathrt multipathrt_exceptions \
+	utils devmapper_utils iscsi_utils netapp_utils hba_utils alert_utils \
+	globs ../client_records/record_util \
+	tc_9068 tc_9069 tc_9071 tc_9072 tc_9078 tc_9079 tc_9074)
+
+.PHONY: clean
+
+clean:
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) multipathrt $(DEBUGDIST)
+	mkdir -p $(DIST)/staging/etc/xapi.d/plugins
+	$(IEXE) multipathrt-helper $(DIST)/staging/etc/xapi.d/plugins/multipathrt-helper

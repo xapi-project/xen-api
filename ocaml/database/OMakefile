@@ -1,0 +1,41 @@
+
+OCAMLINCLUDES += ../sexpr  ../util ../idl/ocaml_backend ../xapi ../idl ../idl/sql_backend 
+
+OCAMLPACKS += sqlite3 xmlm xml-light2 uuid
+OCAML_LIBS += ../sexpr/sexpr
+OCAMLPPFLAGS = -pp "camlp4o" 
+OCAMLDEPFLAGS += -pp "camlp4o"
+
+OCamlGeneratedFiles(sqllex.ml sqlparse.mli sqlparse.ml db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
+
+OCamlProgram(unit_test_sql, unit_test_sql)
+
+OCamlProgram(block_device_io, \
+	block_device_io_errors \
+	block_device_io \
+	../xapi/xapi_globs ../idl/ocaml_backend/ref \
+	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors)
+
+OCamlDoc(../../doc/database, redo_log.mli)
+
+section:
+	OCAMLPACKS += stdext
+	OCamlProgram(dbupdate, sqlsyntax sqllex sqlparse dbupdate)
+
+section:
+	OCAML_LIBS +=  ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server
+	OCamlProgram(unit_test_marshall, unit_test_marshall db_remote_cache_access)
+
+.PHONY: install
+install:
+	mkdir -p $(LIBEXEC)
+	$(IPROG) block_device_io $(LIBEXEC)
+	$(IPROG) dbupdate $(LIBEXEC)
+
+.PHONY: sdk-install
+sdk-install: install
+
+.PHONY: clean
+clean:
+	rm -f *.cmo *.cmi *.cmx *.o *.cmx *.cma *.cmxa xenEnterpriseAPI* gen gen.opt *.omc *.annot db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml
+
