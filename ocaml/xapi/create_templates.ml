@@ -41,6 +41,9 @@ open Client
 
 let find_or_create_template x rpc session_id = 
   let all = Client.VM.get_by_name_label rpc session_id x.vM_name_label in
+  (* CA-30238: Filter out _default templates_ *)
+  let all = List.filter (fun self -> Client.VM.get_is_a_template rpc session_id self) all in
+  let all = List.filter (fun self -> List.mem default_template (Client.VM.get_other_config rpc session_id self)) all in
   if all = []
   then Client.VM.create_from_record rpc session_id x
   else List.hd all
