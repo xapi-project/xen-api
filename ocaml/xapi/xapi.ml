@@ -567,55 +567,55 @@ let startup_script () =
     ignore(Forkhelpers.execute_command_get_output Xapi_globs.startup_script_hook [])
   end
 
+let master_only_http_handlers = [
+  (* CA-26044: don't let people DoS random slaves *)
+  (Http.Post, Constants.remote_db_access_uri,  (Http_svr.BufIO remote_database_access_handler));
+]
+
+let common_http_handlers = [
+  (Http.Connect, Constants.migrate_uri, (Http_svr.FdIO Xapi_vm_migrate.handler));
+  (Http.Put, Constants.import_uri, (Http_svr.FdIO Import.handler));
+  (Http.Put, Constants.import_metadata_uri, (Http_svr.FdIO Import.metadata_handler));
+  (Http.Put, Constants.import_raw_vdi_uri, (Http_svr.FdIO Import_raw_vdi.handler));
+  (Http.Get, Constants.export_uri, (Http_svr.FdIO Export.handler));
+  (Http.Get, Constants.export_metadata_uri, (Http_svr.FdIO Export.metadata_handler));
+  (Http.Connect, Constants.console_uri, Http_svr.FdIO (Console.handler Console.real_proxy));
+  (Http.Get, "/", Http_svr.BufIO (Fileserver.send_file "/" "/opt/xensource/www"));
+  (Http.Post, Constants.cli_uri, (Http_svr.BufIO Xapi_cli.handler));
+  (Http.Get, Constants.host_backup_uri, (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
+  (Http.Put, Constants.host_restore_uri, (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
+  (Http.Get, Constants.host_logs_download_uri, (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
+  (Http.Put, Constants.pool_patch_upload_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
+  (Http.Get, Constants.pool_patch_download_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
+  (Http.Put, Constants.oem_patch_stream_uri, (Http_svr.FdIO Xapi_pool_patch.oem_patch_stream_handler));
+  (Http.Get, Constants.vncsnapshot_uri, (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
+  (Http.Get, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
+  (Http.Put, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
+  (Http.Get, Constants.config_sync_uri, (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
+  (Http.Get, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
+  (Http.Put, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
+  (Http.Get, Constants.system_status_uri, (Http_svr.FdIO System_status.handler));
+  (Http.Get, Constants.vm_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler));
+  (Http.Put, Constants.rrd_put_uri, (Http_svr.BufIO Monitor_rrds.receive_handler));
+  (Http.Get, Constants.host_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler_host));
+  (Http.Get, Constants.rrd_updates, (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
+  (Http.Get, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
+  (Http.Put, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
+  (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
+     [the motivation for disabling it is that it simplifies security audit etc.] *)
+  (* (Http.Get, Constants.message_rss_feed, Xapi_message.handler); *)
+  (Http.Connect, Constants.remotecmd_uri, (Http_svr.FdIO Xapi_remotecmd.handler));
+  (Http.Post, Constants.remote_stats_uri, (Http_svr.BufIO remote_stats_handler));
+  (Http.Get, Constants.wlb_report_uri, (Http_svr.BufIO Wlb_reports.report_handler));
+  (Http.Get, Constants.wlb_diagnostics_uri, (Http_svr.BufIO Wlb_reports.diagnostics_handler));
+
+  (* XMLRPC callback *)
+  (Http.Post, "/", (Http_svr.BufIO (Api_server.callback false)));
+  (* JSON callback *)
+  (Http.Post, Constants.json_uri, (Http_svr.BufIO (Api_server.callback true)));
+]
+
 let server_init() =
-  let master_only_http_handlers = [
-    (* CA-26044: don't let people DoS random slaves *)
-    (Http.Post, Constants.remote_db_access_uri,  (Http_svr.BufIO remote_database_access_handler));
-  ] in
-
-    let common_http_handlers = [
-      (Http.Connect, Constants.migrate_uri, (Http_svr.FdIO Xapi_vm_migrate.handler));
-      (Http.Put, Constants.import_uri, (Http_svr.FdIO Import.handler));
-      (Http.Put, Constants.import_metadata_uri, (Http_svr.FdIO Import.metadata_handler));
-      (Http.Put, Constants.import_raw_vdi_uri, (Http_svr.FdIO Import_raw_vdi.handler));
-      (Http.Get, Constants.export_uri, (Http_svr.FdIO Export.handler));
-      (Http.Get, Constants.export_metadata_uri, (Http_svr.FdIO Export.metadata_handler));
-      (Http.Connect, Constants.console_uri, Http_svr.FdIO (Console.handler Console.real_proxy));
-      (Http.Get, "/", Http_svr.BufIO (Fileserver.send_file "/" "/opt/xensource/www"));
-      (Http.Post, Constants.cli_uri, (Http_svr.BufIO Xapi_cli.handler));
-      (Http.Get, Constants.host_backup_uri, (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
-      (Http.Put, Constants.host_restore_uri, (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
-      (Http.Get, Constants.host_logs_download_uri, (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
-      (Http.Put, Constants.pool_patch_upload_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
-      (Http.Get, Constants.pool_patch_download_uri, (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
-      (Http.Put, Constants.oem_patch_stream_uri, (Http_svr.FdIO Xapi_pool_patch.oem_patch_stream_handler));
-      (Http.Get, Constants.vncsnapshot_uri, (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
-      (Http.Get, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
-      (Http.Put, Constants.pool_xml_db_sync, (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
-      (Http.Get, Constants.config_sync_uri, (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
-      (Http.Get, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
-      (Http.Put, Constants.vm_connect_uri, (Http_svr.FdIO Xapi_udhcpd.handler));
-      (Http.Get, Constants.system_status_uri, (Http_svr.FdIO System_status.handler));
-      (Http.Get, Constants.vm_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler));
-      (Http.Put, Constants.rrd_put_uri, (Http_svr.BufIO Monitor_rrds.receive_handler));
-      (Http.Get, Constants.host_rrd_uri, (Http_svr.FdIO Monitor_rrds.handler_host));
-      (Http.Get, Constants.rrd_updates, (Http_svr.FdIO Monitor_rrds.handler_rrd_updates));
-      (Http.Get, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
-      (Http.Put, Constants.blob_uri, (Http_svr.FdIO Xapi_blob.handler));
-      (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
-	 [the motivation for disabling it is that it simplifies security audit etc.] *)
-      (* (Http.Get, Constants.message_rss_feed, Xapi_message.handler); *)
-      (Http.Connect, Constants.remotecmd_uri, (Http_svr.FdIO Xapi_remotecmd.handler));
-      (Http.Post, Constants.remote_stats_uri, (Http_svr.BufIO remote_stats_handler));
-      (Http.Get, Constants.wlb_report_uri, (Http_svr.BufIO Wlb_reports.report_handler));
-      (Http.Get, Constants.wlb_diagnostics_uri, (Http_svr.BufIO Wlb_reports.diagnostics_handler));
-
-      (* XMLRPC callback *)
-      (Http.Post, "/", (Http_svr.BufIO (Api_server.callback false)));
-      (* JSON callback *)
-      (Http.Post, Constants.json_uri, (Http_svr.BufIO (Api_server.callback true)));
-    ] in
-
   let listen_unix_socket () =
     (* Always listen on the Unix domain socket first *)
     Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
