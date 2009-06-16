@@ -242,6 +242,7 @@ install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) quicktest $(DEBUGDIST)
 	cp -f quicktestbin $(DEBUGDIST)
+	$(IPROG) rrddump $(DEBUGDIST)
 
 .PHONY: sdk-install
 sdk-install: install
