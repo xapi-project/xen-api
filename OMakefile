@@ -143,6 +143,7 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/idl/html_build \
 	ocaml/db_process/xapi-db-process \
 	ocaml/vncproxy/vncproxy \
+	ocaml/xapi/rrddump \
 	ocaml/perftest/perftest \
 	ocaml/perftest/histogram \
 	ocaml/perftest/cumulative_time \
