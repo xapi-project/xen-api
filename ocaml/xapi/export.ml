@@ -71,7 +71,9 @@ let rec update_table ~__context ~include_snapshots ~table ~vm =
     add vdi;
     let vdi = Db.VDI.get_record ~__context ~self:vdi in
     add vdi.API.vDI_SR
-  end
+  end;
+  (* Add also the guest metrics *)
+  add vm.API.vM_guest_metrics
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
     to include in the output. Other object references will be purged. *)
@@ -106,11 +108,17 @@ let make_vm ?(with_snapshot_metadata=false) table __context self =
 		API.vM_crash_dumps = [];
 		API.vM_VTPMs = [];
 		API.vM_consoles = [];
-		API.vM_metrics = Ref.null;
-		API.vM_guest_metrics = Ref.null; } in
+		API.vM_metrics = Ref.null } in
   { cls = Datamodel._vm; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.vM_t vm }
+
+(** Convert a guest-metrics reference to an obj *)
+let make_gm table __context self =
+	let gm = Db.VM_guest_metrics.get_record ~__context ~self in
+	{ cls = Datamodel._vm_guest_metrics;
+	  id = Ref.string_of (lookup table (Ref.string_of self));
+	  snapshot = API.To.vM_guest_metrics_t gm }
 
 (** Convert a VIF reference to an obj *)
 let make_vif table __context self = 
@@ -169,6 +177,7 @@ let make_sr table __context self =
 let make_all ~with_snapshot_metadata table __context self = 
   let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
   let vms  = List.map (make_vm ~with_snapshot_metadata table __context) (filter table (Db.VM.get_all ~__context)) in
+  let gms  = List.map (make_gm table __context) (filter table (Db.VM_guest_metrics.get_all ~__context)) in
   let vbds = List.map (make_vbd table __context) (filter table (Db.VBD.get_all ~__context)) in
   let vifs = List.map (make_vif table __context) (filter table (Db.VIF.get_all ~__context)) in
   let nets = List.map (make_network table __context) (filter table (Db.Network.get_all ~__context)) in
