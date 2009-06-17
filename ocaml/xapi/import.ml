@@ -162,6 +162,11 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
   Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
   
+  begin try
+	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
+	  Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
+  with _ -> () end;
+
   debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id;
 
   (* Although someone could sneak in here and attempt to power on the VM, it
@@ -173,6 +178,25 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
 
   state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table
+
+(** Create the guest metrics *)
+let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
+	let gm_record = API.From.vM_guest_metrics_t "" x.snapshot in
+	let gm = Ref.make () in
+	Db.VM_guest_metrics.create ~__context
+		~ref:gm
+		~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+		~os_version:gm_record.API.vM_guest_metrics_os_version
+		~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
+		~pV_drivers_up_to_date:gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
+		~memory:gm_record.API.vM_guest_metrics_memory
+		~disks:gm_record.API.vM_guest_metrics_disks
+		~networks:gm_record.API.vM_guest_metrics_networks
+		~other:gm_record.API.vM_guest_metrics_other
+		~last_updated:gm_record.API.vM_guest_metrics_last_updated
+		~other_config:gm_record.API.vM_guest_metrics_other_config
+		~live:gm_record.API.vM_guest_metrics_live;
+	state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. Fail if it cannot
     be found unless it has content-type=iso in which case we'll eject the disk.
@@ -373,6 +397,7 @@ let handlers =
   [
     Datamodel._sr, handle_sr;
     Datamodel._vdi, handle_vdi;
+    Datamodel._vm_guest_metrics, handle_gm;
     Datamodel._vm, handle_vm;
     Datamodel._network, handle_net;
     Datamodel._vbd, handle_vbd;
