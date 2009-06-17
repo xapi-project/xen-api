@@ -18,7 +18,7 @@ OCAMLPACKS += sqlite3 stdext uuid
 
 # only gen_api requires datamodel library:
 GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common ../sql_backend/gen_schema xMLRPC ../sql_backend/locking ../../util/date ../api_lowlevel
-OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper ../../util/encodings)
+OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper ../../util/encodings)
 
 FILTER = closed # or opensource or closed or debug or implementation
 

@@ -13,14 +13,14 @@ OCAMLPACKS += str xmlm xml-light2 uuid
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(datamodel, datamodel datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ../util/date ocaml_backend/ref ../database/string_marshall_helper ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser)
+OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ../util/date ocaml_backend/ref ../database/string_marshall_helper ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser)
 
 # -----------------------------------------------------------------------
 # Build datamodel documentation
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ../util/date ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper ../util/encodings ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser
+DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ../util/date ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper ../util/encodings ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps

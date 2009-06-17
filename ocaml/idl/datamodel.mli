@@ -42,3 +42,11 @@ val no_async_messages_for : string list
 val expose_get_all_messages_for : string list
 val no_task_id_for : string list
 val current_operations_for : string list
+
+type action_arg =
+   String_query_arg of string |
+   Int64_query_arg of string |
+   Bool_query_arg of string |
+   Varargs_query_arg
+type http_meth = Get | Put | Post | Connect
+val http_actions : (string * (http_meth * string * bool * action_arg list)) list
