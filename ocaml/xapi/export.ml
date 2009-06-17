@@ -108,7 +108,8 @@ let make_vm ?(with_snapshot_metadata=false) table __context self =
 		API.vM_crash_dumps = [];
 		API.vM_VTPMs = [];
 		API.vM_consoles = [];
-		API.vM_metrics = Ref.null } in
+		API.vM_metrics = Ref.null;
+		API.vM_guest_metrics = lookup table (Ref.string_of vm.API.vM_guest_metrics) } in
   { cls = Datamodel._vm; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.vM_t vm }
@@ -184,7 +185,7 @@ let make_all ~with_snapshot_metadata table __context self =
   let vdis = List.map (make_vdi table __context) (filter table (Db.VDI.get_all ~__context)) in
   let srs  = List.map (make_sr table __context) (filter table (Db.SR.get_all ~__context)) in
   
-  vms @ vbds @ vifs @ nets @ vdis @ srs 
+  vms @ gms @ vbds @ vifs @ nets @ vdis @ srs 
 
 open Xapi_globs
 
