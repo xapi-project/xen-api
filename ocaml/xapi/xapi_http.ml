@@ -124,7 +124,10 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
 let http_request = Http.http_request ~user_agent:Xapi_globs.xapi_user_agent
 let svr_bind = Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog
 
-let add_handler (ty, uri, handler, sdk, sdkargs) =
+let add_handler (name, handler) =
+
+  let action = List.assoc name Datamodel.http_actions in
+
 	let h = match handler with
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
@@ -144,5 +147,12 @@ let add_handler (ty, uri, handler, sdk, sdkargs) =
 				raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
 			)
 		)
-		in
-	Http_svr.add_handler ty uri h
+	in
+
+    match action with (meth, uri, sdk, sdkargs) ->
+      let ty = match meth with
+	  Datamodel.Get -> Http.Get
+	| Datamodel.Put -> Http.Put
+	| Datamodel.Post -> Http.Post
+	| Datamodel.Connect -> Http.Connect
+      in Http_svr.add_handler ty uri h

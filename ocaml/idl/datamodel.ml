@@ -4874,3 +4874,64 @@ let no_task_id_for = [ _task; (* _alert; *) _event ]
 
 let current_operations_for = [ _vm; (* _vdi; _host; _sr *) ]
 
+(*** HTTP actions ***)
+
+type action_arg =   (* I'm not using Datamodel_types here because we need varargs *)
+   String_query_arg of string |
+   Int64_query_arg of string |
+   Bool_query_arg of string |
+   Varargs_query_arg
+
+type http_meth = Get | Put | Post | Connect
+
+(* Each action has:
+   (unique public name, (HTTP method, URI, whether to expose in SDK, [args to expose in SDK]))
+*)
+
+let http_actions = [
+  ("post_remote_db_access", (Post, Constants.remote_db_access_uri, false, []));
+  ("connect_migrate", (Connect, Constants.migrate_uri, false, []));
+  ("put_import", (Put, Constants.import_uri, true,
+		  [Bool_query_arg "restore"; Bool_query_arg "force"; String_query_arg "sr_id"]));
+  ("put_import_metadata", (Put, Constants.import_metadata_uri, true,
+			   [Bool_query_arg "restore"; Bool_query_arg "force"]));
+  ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"]));
+  ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"]));
+  ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"]));
+  ("connect_console", (Connect, Constants.console_uri, false, []));
+  ("get_root", (Get, "/", false, []));
+  ("post_cli", (Post, Constants.cli_uri, false, []));
+  ("get_host_backup", (Get, Constants.host_backup_uri, true, []));
+  ("put_host_restore", (Put, Constants.host_restore_uri, true, []));
+  ("get_host_logs_download", (Get, Constants.host_logs_download_uri, true, []));
+  ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, []));
+  ("get_pool_patch_download", (Get, Constants.pool_patch_download_uri, true, [String_query_arg "uuid"]));
+  ("put_oem_patch_stream", (Put, Constants.oem_patch_stream_uri, true, []));
+  ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"]));
+  ("get_pool_xml_db_sync", (Get, Constants.pool_xml_db_sync, true, []));
+  ("put_pool_xml_db_sync", (Put, Constants.pool_xml_db_sync, false, []));
+  ("get_config_sync", (Get, Constants.config_sync_uri, false, []));
+  ("get_vm_connect", (Get, Constants.vm_connect_uri, false, []));
+  ("put_vm_connect", (Put, Constants.vm_connect_uri, false, []));
+  ("get_system_status", (Get, Constants.system_status_uri, true,
+			 [String_query_arg "entries"; String_query_arg "output"]));
+  ("get_vm_rrd", (Get, Constants.vm_rrd_uri, true, [String_query_arg "uuid"]));
+  ("put_rrd", (Put, Constants.rrd_put_uri, false, []));
+  ("get_host_rrd", (Get, Constants.host_rrd_uri, true, [Bool_query_arg "json"]));
+  ("get_rrd_updates", (Get, Constants.rrd_updates, true,
+		       [Int64_query_arg "start"; String_query_arg "cf"; Int64_query_arg "interval";
+			Bool_query_arg "host"; String_query_arg "uuid"; Bool_query_arg "json"]));
+  ("get_blob", (Get, Constants.blob_uri, true, [String_query_arg "ref"]));
+  ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"]));
+  ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, []));  (* not enabled in xapi *)
+  ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, []));
+  ("post_remote_stats", (Post, Constants.remote_stats_uri, false, []));  (* deprecated *)
+  ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
+		      [String_query_arg "report"; Varargs_query_arg]));
+  ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, []));
+
+  (* XMLRPC callback *)
+  ("post_root", (Post, "/", false, []));
+  (* JSON callback *)
+  ("post_json", (Post, Constants.json_uri, false, []));
+]
