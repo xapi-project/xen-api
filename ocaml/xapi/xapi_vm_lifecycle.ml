@@ -34,8 +34,9 @@ let allowed_power_states ~(op:API.vm_operations) =
 
 	| `clone | `copy | `export        -> [`Halted; `Suspended]
 
+	| `hard_reboot                    -> [`Paused; `Running]
 	| `get_boot_record
-	| `hard_reboot | `hard_shutdown   -> [`Paused; `Suspended; `Running]
+	| `hard_shutdown                  -> [`Paused; `Suspended; `Running]
 
 	| `assert_operation_valid | `update_allowed_operations
 	| `power_state_reset
