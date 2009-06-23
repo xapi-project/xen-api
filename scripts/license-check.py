@@ -13,7 +13,7 @@ from xml.dom import minidom
 
 gpg_binary_path="/usr/bin/gpg"
 gpg_homedir="/opt/xensource/gpg"
-gpg_pub_keyring=gpg_homedir + "pubring.gpg"
+gpg_pub_keyring=gpg_homedir + "/pubring.gpg"
 license_file="/etc/xensource/license"
 expiry_message_name="LICENSE_EXPIRES_SOON"
 
@@ -31,7 +31,7 @@ def get_localhost():
     for line in filter(match_installation, f.readlines()):
         localhost = line.split("'")[1]
     if not localhost:
-        raise "Couln't find installation uuid!"
+        raise "Couldn't find installation uuid!"
     return localhost
 
 def log_err(err):
@@ -52,14 +52,15 @@ def unsign_license(license_file):
 
 def main():
     (rc,stdout,stderr) = unsign_license(license_file)
-    xmldoc = minidom.parseString(stdout)
-    currenttime=time.time()
-    lic=xmldoc.getElementsByTagName("xe_license")[0]
-    expiry=float(lic.getAttribute("expiry"))
-    timeleft=expiry-currenttime
-    if(timeleft < 24.0 * 3600.0 * 30.0 and timeleft > 0):
-        localhost=get_localhost()
-        doexec(["xe","message-create","host-uuid=%s" % localhost, "name=%s" % expiry_message_name, "priority=10", "body=Your license will expire in %.0f days" % (timeleft / (24.0 * 3600.0))])
+    if rc == 0:
+        xmldoc = minidom.parseString(stdout)
+        currenttime=time.time()
+        lic=xmldoc.getElementsByTagName("xe_license")[0]
+        expiry=float(lic.getAttribute("expiry"))
+        timeleft=expiry-currenttime
+        if (timeleft < 24.0 * 3600.0 * 30.0 and timeleft > 0):
+            localhost=get_localhost()
+            doexec(["xe","message-create","host-uuid=%s" % localhost, "name=%s" % expiry_message_name, "priority=10", "body=Your license will expire in %.0f days" % (timeleft / (24.0 * 3600.0))])
     return 0
 
 if __name__ == '__main__':
