@@ -320,6 +320,18 @@ let really_read_string fd length =
   really_read fd buf 0 length;
   buf
 
+let really_read_bigbuffer fd bigbuf n =
+	let chunk = 4096 in
+	let s = String.make chunk '\000' in
+	let written = ref 0L in
+	while !written < n do
+		let remaining = Int64.sub n !written in
+		let to_write = min remaining (Int64.of_int chunk) in
+		really_read fd s 0 (Int64.to_int to_write);
+		Bigbuffer.append_substring bigbuf s 0 (Int64.to_int to_write);
+		written := Int64.add !written to_write;
+	done
+
 let really_write fd string off n =
 	let written = ref 0 in
 	while !written < n
