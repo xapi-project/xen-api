@@ -15,6 +15,13 @@ let make () = { cells = Array.make default_array_len None; index = 0L }
 
 let length bigbuf = bigbuf.index
 
+let get bigbuf n =
+	let array_offset = Int64.to_int (Int64.div n (Int64.of_int cell_size)) in
+	let cell_offset = Int64.to_int (Int64.rem n (Int64.of_int cell_size)) in
+	match bigbuf.cells.(array_offset) with
+	| None -> "".[0]
+	| Some buf -> buf.[cell_offset]
+
 let rec append_substring bigbuf s offset len =
 	let array_offset = Int64.to_int (Int64.div bigbuf.index (Int64.of_int cell_size)) in
 	let cell_offset = Int64.to_int (Int64.rem bigbuf.index (Int64.of_int cell_size)) in
