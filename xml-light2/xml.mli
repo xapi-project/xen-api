@@ -14,6 +14,7 @@ val error : error -> string
 val parse_file : string -> xml
 val parse_in : in_channel -> xml
 val parse_string : string -> xml
+val parse_bigbuffer : Bigbuffer.t -> xml
 
 (** output functions *)
 val to_fct : xml -> (string -> unit) -> unit

@@ -16,7 +16,7 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
-STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring qring fring opt unixext range bigbuffer vIO trie
+STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring qring fring opt bigbuffer unixext range vIO trie
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
 

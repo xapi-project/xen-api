@@ -44,6 +44,7 @@ val make_endpoint : Unix.file_descr -> endpoint
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> string -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
+val really_read_bigbuffer : Unix.file_descr -> Bigbuffer.t -> int64 -> unit
 val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
 exception Timeout

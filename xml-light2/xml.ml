@@ -91,6 +91,17 @@ let parse_string s =
 	let i = Xmlm.input_of_string s in
 	parse i
 
+let parse_bigbuffer b =
+	let n = ref Int64.zero in
+	let aux () =
+		try 
+			let c = Bigbuffer.get b !n in
+			n := Int64.add !n Int64.one;
+			int_of_char c
+		with _ -> raise End_of_file in
+	let i = Xmlm.input_of_fun aux in
+	parse i
+
 (* common output function *)
 let substitute list s =
 	s
