@@ -178,7 +178,26 @@ let sparse_dd refresh_session ~__context sparse ifd ofd size bs =
   in
   do_block 0L;
   update 1.0
-    
+
+(* SCTX-286: thin provisioning is thrown away over VDI.copy, VM.import(VM.export).
+   Return true if the newly created vdi must have zeroes written into it; default to false
+   under the assumption that "proper" storage devices (ie not our legacy LVM stuff) always 
+   create disks full of virtual zeroes, if for no other reason other than it being a
+   privacy violation to return a VDI containing someone else's old data.
+
+   This knowledge clearly ought to be in the SM backend rather than here. *)
+let must_write_zeroes_into_new_vdi ~__context vdi =
+  let vdi_r = Db.VDI.get_record ~__context ~self:vdi in
+  let sr_r = Db.SR.get_record ~__context ~self:vdi_r.API.vDI_SR in
+  let potentially_using_lvhd sr_r = List.mem (String.lowercase sr_r.API.sR_type) [ "lvm"; "lvmoiscsi"; "lvmohba" ] in
+  let requested_raw_vdi vdi_r = List.mem (List.hd Xha_statefile.statefile_sm_config) vdi_r.API.vDI_sm_config in
+  let upgraded_to_lvhd sr_r = List.mem ("use_vhd", "true") sr_r.API.sR_sm_config in
+  (* Julian agreed with the following logic by email + chat: *)
+  potentially_using_lvhd sr_r
+  && ((requested_raw_vdi vdi_r) ||   (* requested RAW on an LVHD backend *)
+	(not (upgraded_to_lvhd sr_r))) (* => all VDIs will still be RAW *)
+  
+
 let copy_vdi ~__context vdi_src vdi_dst = 
   TaskHelper.set_cancellable ~__context;
 
@@ -186,20 +205,14 @@ let copy_vdi ~__context vdi_src vdi_dst =
   let session_id = Context.get_session_id __context in
   let refresh_session = Xapi_session.consider_touching_session rpc session_id in
 
-  debug "copy vdi";
 
-  (* Use the sparse copy if the src and dest are of type ext or nfs *)
-  let sparse = 
-    let sr_src = Db.VDI.get_SR ~__context ~self:vdi_src in
-    let sr_dst = Db.VDI.get_SR ~__context ~self:vdi_dst in
-    let src_ty = Db.SR.get_type ~__context ~self:sr_src in
-    let dst_ty = Db.SR.get_type ~__context ~self:sr_dst in
-    ((src_ty="nfs")||(src_ty="ext")) && ((dst_ty="nfs")||(dst_ty="ext"))
-  in
+  (* Use the sparse copy unless we must write zeroes into the new VDI *)
+  let sparse = not (must_write_zeroes_into_new_vdi ~__context vdi_dst) in
 
   let size = Db.VDI.get_virtual_size ~__context ~self:vdi_src in
-  
-  debug "use sparse copy: %b" sparse;
+  let blocksize = 1024*1024 in
+
+  debug "Sm_fs_ops.copy_vdi: copying %Ld in blocks of %d%s preserving sparseness" size blocksize (if sparse then "" else " NOT");
 
   let dd = sparse_dd refresh_session ~__context sparse in
 
@@ -210,7 +223,7 @@ let copy_vdi ~__context vdi_src vdi_dst =
 	    let ifd=Unix.openfile device_src [Unix.O_RDONLY] 0o600 
 	    and ofd=Unix.openfile device_dst [Unix.O_WRONLY] 0o600 in
 	    try
-	      dd ifd ofd size (1024*1024);
+	      dd ifd ofd size blocksize;
 	      Unix.close ifd;
 	      Unix.close ofd
 	    with
