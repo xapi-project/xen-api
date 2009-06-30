@@ -180,16 +180,9 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
   let zerochunkstring = ref "" in
   
   let recv_one ifd (__context:Context.t) (prefix, vdi_ref, size) =
+    let vdi_skip_zeros = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi_ref) in
     (* If this is true, we skip writing zeros. Only for sparse files (vhd only atm) *)
-    debug "begun import of VDI";
-
-    let vdi_skip_zeros =
-      begin
-	let sr = Db.VDI.get_SR ~__context ~self:vdi_ref in
-	let ty = Db.SR.get_type ~__context ~self:sr in
-	ty="ext" || ty="nfs"
-      end 
-    in
+    debug "begun import of VDI%s preserving sparseness" (if vdi_skip_zeros then "" else " NOT");
     
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd ->

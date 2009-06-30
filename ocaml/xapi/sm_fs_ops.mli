@@ -4,3 +4,6 @@ val with_new_fs_vdi : Context.t -> name_label:string -> name_description:string 
   sm_config:API.string_to_string_map -> (API.ref_VDI -> string -> 'a) -> 'a
 val with_fs_vdi :   Context.t -> API.ref_VDI -> (string -> 'a) -> 'a
 val copy_vdi : __context:Context.t -> API.ref_VDI -> API.ref_VDI -> unit
+
+
+val must_write_zeroes_into_new_vdi : __context:Context.t -> API.ref_VDI -> bool
