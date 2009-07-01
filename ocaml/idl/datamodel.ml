@@ -438,6 +438,8 @@ let _ =
     ~doc:"The host joining the pool cannot contain any shared storage." ();
   error Api_errors.pool_joining_host_cannot_have_running_or_suspended_VMs []
     ~doc:"The host joining the pool cannot have any running or suspended VMs." ();
+  error Api_errors.pool_joining_host_cannot_have_running_VMs []
+    ~doc:"The host joining the pool cannot have any running VMs." ();
   error Api_errors.pool_joining_host_cannot_have_vms_with_current_operations []
     ~doc:"The host joining the pool cannot have any VMs with active tasks." ();
   error Api_errors.pool_joining_host_cannot_be_master_of_other_hosts []
@@ -1881,6 +1883,28 @@ let host_disable_binary_storage = call
   ~params:[Ref _host, "host", "The host"]
   ()
 
+let host_update_pool_secret = call
+	~name:"update_pool_secret"
+	~in_product_since:rel_midnight_ride
+	~hide_from_docs:true
+	~pool_internal:true
+	~doc:""
+	~params:[
+		Ref _host, "host", "The host";
+		String, "pool_secret", "The new pool secret" ]
+	()
+
+let host_update_master = call
+	~name:"update_master"
+	~in_product_since:rel_midnight_ride
+	~hide_from_docs:true
+	~pool_internal:true
+	~doc:""
+	~params:[
+		Ref _host, "host", "The host";
+		String, "master_address", "The new master address" ]
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    VDI Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -2815,6 +2839,8 @@ let host =
 		 host_crl_list;
 		 host_certificate_sync;
 		 host_get_server_certificate;
+		 host_update_pool_secret;
+		 host_update_master;
 		 ]
       ~contents:
         ([ uid _host;

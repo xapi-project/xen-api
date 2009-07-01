@@ -21,531 +21,473 @@ let rpc host_address xml =
   with Xmlrpcclient.Connection_reset ->
     raise (Api_errors.Server_error(Api_errors.pool_joining_host_connection_failed, []))
 
-let join_common ~__context ~master_address ~master_username ~master_password ~force =
-  (* I cannot join a Pool if I have HA already enabled on me *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool
-  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+let get_master ~rpc ~session_id =
+	let pool = List.hd (Client.Pool.get_all rpc session_id) in
+	Client.Pool.get_master rpc session_id pool
 
-  let master_address = Helpers.gethostbyname master_address in
+(* Pre-join asserts *)
+let pre_join_checks ~__context ~rpc ~session_id ~force =
+	let pooling_is_allowed () =
+		let rstr = Restrictions.get () in
+		if not rstr.Restrictions.enable_pooling then begin
+			L.error "License does not allow pooling";
+			raise (Api_errors.Server_error (Api_errors.license_restriction, []))
+		end in
 
-  let rstr = Restrictions.get () in
-  if rstr.Restrictions.enable_pooling then 
-    begin
-      let cluster_secret = ref "" in
-      (* ... Can't use Helpers.call_api_functions here because we need to talk to host other than ourselves! *)
-      let rpc = rpc master_address in
-      
-      (* read my non-shared SRs ready to copy to master *)
-      let srs = Db.SR.get_records_where ~__context ~expr:Db_filter_types.True in
-      let my_non_shared_srs = List.filter (fun (_,srec)->not srec.API.sR_shared) srs in
+	(* I cannot join a Pool if I have HA already enabled on me *)
+	let ha_is_not_enable_on_me () =
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
+			error "Cannot join pool as HA is enabled";
+			raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
+		end in
 
-      let is_default_template trec =
-	let other_config = trec.API.vM_other_config in
-	(List.mem_assoc Xapi_globs.default_template_key other_config) &&
-	  ((List.assoc Xapi_globs.default_template_key other_config) = "true") in
-      
-      (* read my (non-control-domain) VMs, VBDs and VIFs ready to copy to master *)
-      let all_my_vm_recs = Db.VM.get_records_where ~__context ~expr:Db_filter_types.True in
+	(* I Cannot joint a Pool if it has HA enabled on it *)
+	let ha_is_not_enable_on_the_distant_pool () =
+		let pool = List.hd (Client.Pool.get_all rpc session_id) in
+		if Client.Pool.get_ha_enabled rpc session_id pool then begin
+			error "Cannot join pool which already has HA enabled";
+			raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+		end in
 
-      (* my_vms are the records I want to merge in the pool-join. It includes both vms and non-default templates: *)
-      let my_vms = List.filter (fun (_,vmrec)->(not vmrec.API.vM_is_control_domain) && (not (is_default_template vmrec))) all_my_vm_recs in
-      (* order the VM list to have the snapshots at the end. *)
-      let my_vms = List.sort (fun (_,vm1) (_,vm2) -> if vm1.API.vM_is_a_snapshot then 1 else -1) my_vms in
+	(* CA-26975: Pool restrictions (implied by pool_sku) MUST match *)
+	let assert_restrictions_match () = 
+		let pool_license_params = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Client.Host.get_all_records ~rpc ~session_id) in
+		let pool_restrictions = Restrictions.pool_restrictions_of_list (List.map Restrictions.of_assoc_list pool_license_params) in
+		let my_restrictions = Restrictions.get() in
+		if pool_restrictions <> my_restrictions then begin
+			error "Pool.join failed because of license restrictions mismatch";
+			error "Remote has %s" (Restrictions.to_compact_string pool_restrictions);
+			error "Local has  %s" (Restrictions.to_compact_string my_restrictions);
+			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+		end in
 
-      let my_running_vms = List.filter (fun (_,vmrec)->(vmrec.API.vM_power_state = `Running || vmrec.API.vM_power_state = `Paused)) my_vms in
-      let my_suspended_vms = List.filter (fun (_,vmrec)->(vmrec.API.vM_power_state = `Suspended)) my_vms in
-      let my_default_templates = List.filter (fun (_,vmrec)->vmrec.API.vM_is_a_template && (is_default_template vmrec)) all_my_vm_recs in
-      let my_default_template_refs = List.map fst my_default_templates in
-      let my_control_domains = List.filter (fun (_,vmrec)->vmrec.API.vM_is_control_domain) all_my_vm_recs in
-      let my_control_domain_refs = List.map fst my_control_domains in
+	(* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
+	(* that of master of pool-to-join *)
+	let assert_external_auth_matches () =
+		let master = get_master rpc session_id in
+		let slavetobe = Helpers.get_localhost ~__context in
+		let slavetobe_auth_type = Db.Host.get_external_auth_type ~__context ~self:slavetobe in
+		let slavetobe_auth_service_name = Db.Host.get_external_auth_service_name ~__context ~self:slavetobe in
+		let master_auth_type = Client.Host.get_external_auth_type ~rpc ~session_id ~self:master in
+		let master_auth_service_name = Client.Host.get_external_auth_service_name ~rpc ~session_id ~self:master in
+		debug "Verifying if external auth configuration of master %s (auth_type=%s service_name=%s) matches that of slave-to-be %s (auth-type=%s service_name=%s)" 
+			(Client.Host.get_name_label ~rpc ~session_id ~self:master) master_auth_type master_auth_service_name 
+			(Db.Host.get_name_label ~__context ~self:slavetobe) slavetobe_auth_type slavetobe_auth_service_name;
+		if (slavetobe_auth_type <> master_auth_type)
+		|| (slavetobe_auth_service_name <> master_auth_service_name) then begin
+			error "Cannot join pool whose external authentication configuration is different";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_external_auth_mismatch, []))
+		end in
 
-      let my_vifs = Db.VIF.get_records_where ~__context ~expr:Db_filter_types.True in
-      let my_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
-      let my_vdis = Db.VDI.get_records_where ~__context ~expr:Db_filter_types.True in
+	let assert_i_know_of_no_other_hosts () =
+		let hosts = Db.Host.get_all ~__context in
+		if List.length hosts > 1 then begin
+			error "The current host is already the master of other hosts: it cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_be_master_of_other_hosts, []))
+		end in
 
-      let my_network_to_devname_map =
-	List.map (fun (pref, prec) -> prec.API.pIF_network, prec.API.pIF_device) my_pifs in
+	let assert_no_running_vms_on_me () =
+		let my_vms = Db.VM.get_all_records ~__context in
+ 		let my_running_vms =
+			List.filter
+				(fun (_,vmrec) -> 
+					(not vmrec.API.vM_is_control_domain) && vmrec.API.vM_power_state = `Running
+				)
+				my_vms in
+		if List.length my_running_vms > 0 then begin
+			error "The current host has running or suspended VMs: it cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_have_running_VMs, []))
+		end in
 
-      (* Get VBDs that aren't attached to default templates and aren't attached to control domains *)
-      let my_vbds = Db.VBD.get_records_where ~__context ~expr:Db_filter_types.True in
-      let my_vbds = List.filter
-	(fun (_,vbdrec)->
-	   not (List.mem vbdrec.API.vBD_VM my_default_template_refs) &&
-	     not (List.mem vbdrec.API.vBD_VM my_control_domain_refs))
-	my_vbds in
+	let assert_no_vms_with_current_ops () =
+		let my_vms = Db.VM.get_all_records ~__context in
+		let vms_with_current_ops =
+			List.filter (fun (_,vmr) -> (List.length vmr.API.vM_current_operations)>0 ) my_vms in
+		if List.length vms_with_current_ops > 0 then begin
+			error "The current host has VMs with current operations: it cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_have_vms_with_current_operations, []))
+		end in
 
-      let session_id =
-      	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
-	with Xmlrpcclient.Http_request_rejected _ ->
-	  raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, []))
-      in
+	let assert_no_shared_srs_on_me () =
+		let my_srs = Db.SR.get_all_records ~__context in
+		let my_shared_srs = List.filter (fun (sr,srec)-> srec.API.sR_shared && not (Helpers.is_tools_sr ~__context ~sr)) my_srs in
+		if List.length my_shared_srs > 0 then begin
+			error "The current host has no shared SRs: it cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
+		end in
 
-      let pool = List.hd (Client.Pool.get_all rpc session_id) in
-      if Client.Pool.get_ha_enabled rpc session_id pool then begin
-	error "Cannot join pool which already has HA enabled";
-	raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
-      end;
+	let assert_management_interface_is_physical () =
+		let pifs = Db.PIF.get_all_records ~__context in
+		if List.exists (fun (_,pifr)-> pifr.API.pIF_management && not pifr.API.pIF_physical) pifs then begin
+			error "The current host has a management interface which is not physical: cannot join a new pool";
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []));
+		end in
 
-      let create_or_get_host_on_master() =
-	let me = Helpers.get_localhost ~__context in
-	let my_uuid = Db.Host.get_uuid ~__context ~self:me in
-	let existing_reference = try Some (Client.Host.get_by_uuid rpc session_id my_uuid) with _ -> None in
-	match existing_reference with
-	  None ->
-	    debug "Found no suitable host record for me on master. Creating a new one with uuid='%s'" my_uuid;
-	    let ref =
-	      Client.Host.create ~rpc ~session_id
-		~uuid:my_uuid
-		~name_label:(Db.Host.get_name_label ~__context ~self:me)
-		~name_description:(Db.Host.get_name_description ~__context ~self:me)
-		~hostname:(Db.Host.get_hostname ~__context ~self:me)
-		~address:(Db.Host.get_address ~__context ~self:me)
-		~external_auth_type:(Db.Host.get_external_auth_type ~__context ~self:me)
-		~external_auth_service_name:(Db.Host.get_external_auth_service_name ~__context ~self:me)
-		~external_auth_configuration:(Db.Host.get_external_auth_configuration ~__context ~self:me) in
-	    debug "Created new host record for me: ref='%s'" (Ref.string_of ref);
-	    (* Copy other-config into newly created host record: *)
-	    Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:(Db.Host.get_other_config ~__context ~self:me);
-	    ref
-	| Some r ->
-	    debug "Found suitable host record for me already exists on master. Ref='%s'" (Ref.string_of r);
-	    r
-      in
-      
-      let create_sr_and_pbd_on_master host_ref s =
-	let sref, srec = s in
-	debug "Creating SR and PBD on master for SR: %s" srec.API.sR_uuid;
-	(* Nb. since the joining xapi is certainly not pooled, there can be only one *)
-	(* PBD linking the SR to the host *)
-	let device_config = Db.PBD.get_device_config ~__context 
-	  ~self:(List.hd (Db.SR.get_PBDs ~__context ~self:sref)) in
-	let attempted_to_make_new_sr = ref false in
+	let assert_hosts_homogeneous () =
+		let me = Helpers.get_localhost ~__context in
+
+		(* read local and remote cpu records *)
+		let master_ref = get_master rpc session_id in
+		let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
+		let master_cpu_recs = Client.Host_cpu.get_all_records_where ~rpc ~session_id ~expr:"true" in
+		let master_cpus = List.map (fun cpu -> List.assoc cpu master_cpu_recs) master.API.host_host_CPUs in
+		let master_software_version = master.API.host_software_version in
+
+		let my_cpu_refs = Db.Host.get_host_CPUs ~__context ~self:me in
+		let my_cpus = List.map (fun cpu -> Db.Host_cpu.get_record ~__context ~self:cpu) my_cpu_refs in
+		let my_software_version = Db.Host.get_software_version ~__context ~self:me in
+
+		(* CA-29511 filter irrelevant CPU flags *)
+		let irrelevant_cpu_flags = [ "est" (* Enhanced Speed Step *) ] in
+		let cpu_flags_of_string x = Stringext.String.split_f Stringext.String.isspace x in
+		let string_of_cpu_flags x = String.concat " " x in
+
+		let filtered_cpu_flags x = string_of_cpu_flags (List.filter (fun x -> not (List.mem x irrelevant_cpu_flags)) (cpu_flags_of_string x)) in
+
+		let get_comparable_fields hcpu =
+			let raw_flags = hcpu.API.host_cpu_flags in
+			let filtered_flags = filtered_cpu_flags raw_flags in
+			(hcpu.API.host_cpu_vendor, hcpu.API.host_cpu_model, hcpu.API.host_cpu_family, filtered_flags) in
+		let print_cpu_rec (vendor,model,family,flags) =
+			debug "%s, %Ld, %Ld, %s" vendor model family flags in
+		let get_software_version_fields fields =
+			begin try List.assoc "product_version" fields with _ -> "" end,
+			begin try List.assoc "product_brand" fields with _ -> "" end,
+			begin try List.assoc "build_number" fields with _ -> "" end,
+			begin try List.assoc "hg_id" fields with _ -> "" end,
+			begin try List.assoc Xapi_globs.linux_pack_vsn_key fields with _ -> "not present" end in
+
+		let print_software_version (version,brand,number,id,linux_pack) =
+			debug "version:%s, brand:%s, build:%s, id:%s, linux_pack:%s" version brand number id linux_pack in
+
+		let my_cpus_compare = List.map get_comparable_fields my_cpus in
+		let master_cpus_compare = List.map get_comparable_fields master_cpus in
+
+		let my_software_compare = get_software_version_fields my_software_version in
+		let master_software_compare = get_software_version_fields master_software_version in
+
+		debug "Pool pre-join Software homogeneity check:";
+		debug "Slave software:";
+		print_software_version my_software_compare;
+		debug "Master software:";
+		print_software_version master_software_compare;
+
+		debug "Pool pre-join CPU homogeneity check:";
+		debug "Slave cpus:";
+		List.iter print_cpu_rec my_cpus_compare;
+		debug "Master cpus:";
+		List.iter print_cpu_rec master_cpus_compare;
+
+		if my_software_compare <> master_software_compare then
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
+		if not (Listext.List.set_equiv my_cpus_compare master_cpus_compare) then
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["cpus differ"])) in
+
+	let assert_not_joining_myself () =
+		let master = get_master rpc session_id in
+		let master_uuid = Client.Host.get_uuid rpc session_id master in
+		let my_uuid = Db.Host.get_uuid ~__context ~self:(Helpers.get_localhost ~__context) in
+		if master_uuid = my_uuid then
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Host cannot become slave of itself"])) in
+
+	(* call pre-join asserts *)
+	pooling_is_allowed ();
+	ha_is_not_enable_on_me ();
+	ha_is_not_enable_on_the_distant_pool ();
+	assert_not_joining_myself();
+	assert_i_know_of_no_other_hosts();
+	assert_no_running_vms_on_me ();
+	assert_no_vms_with_current_ops ();
+	if (not force) then assert_hosts_homogeneous ();
+	assert_no_shared_srs_on_me ();
+	assert_management_interface_is_physical ();
+	assert_external_auth_matches ();
+	assert_restrictions_match ()
+
+let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
+	let my_uuid = host.API.host_uuid in
+
+	let new_host_ref = 
+		try Client.Host.get_by_uuid rpc session_id my_uuid
+		with _ ->
+			debug "Found no host with uuid = '%s' on the master, so creating one." my_uuid;
+			let ref = Client.Host.create ~rpc ~session_id
+				~uuid:my_uuid
+				~name_label:host.API.host_name_label
+				~name_description:host.API.host_name_description
+				~hostname:host.API.host_hostname
+				~address:host.API.host_address
+				~external_auth_type:host.API.host_external_auth_type
+				~external_auth_service_name:host.API.host_external_auth_service_name
+				~external_auth_configuration:host.API.host_external_auth_configuration in
+
+			(* Copy other-config into newly created host record: *)
+			no_exn (fun () -> Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:host.API.host_other_config) ();
+
+			(* Copy the crashdump SR *)
+			let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
+			let my_crashdump_sr_rec = Db.SR.get_record ~__context ~self:my_crashdump_sr in
+			let crashdump_sr = create_or_get_sr_on_master __context rpc session_id (my_crashdump_sr, my_crashdump_sr_rec) in
+			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
+
+			(* Copy the suspend image SR *)
+			let my_suspend_image_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
+			let my_suspend_image_sr_rec = Db.SR.get_record ~__context ~self:my_suspend_image_sr in
+			let syspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
+			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:my_suspend_image_sr) ();
+
+			ref in
+
+	new_host_ref
+
+and create_or_get_sr_on_master __context rpc session_id (sr_ref, sr) : API.ref_SR =
+	let my_uuid = sr.API.sR_uuid in
+
 	let new_sr_ref =
-	  try Client.SR.get_by_uuid rpc session_id srec.API.sR_uuid
-	  with _ ->
-	    attempted_to_make_new_sr := true;
-	    Client.SR.introduce rpc session_id srec.API.sR_uuid srec.API.sR_name_label srec.API.sR_name_description
-	      srec.API.sR_type srec.API.sR_content_type false srec.API.sR_sm_config in
-	(* copy other-config into newly created sr record: *)
-	Client.SR.set_other_config rpc session_id new_sr_ref srec.API.sR_other_config;
-	if !attempted_to_make_new_sr then
-	  ignore (Client.PBD.create rpc session_id host_ref new_sr_ref device_config [])
-      in
+		try Client.SR.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
+		with _ ->
+			let my_pbd_ref = List.hd (Db.SR.get_PBDs ~__context ~self:sr_ref) in
+			let my_pbd = Db.PBD.get_record ~__context ~self:my_pbd_ref in
+			let pbds_on_master = Client.PBD.get_all_records ~rpc ~session_id in
 
-      (* keep mapping of our VM uuids -> the ref of the equivalent VM we just made on the master *)
-      let my_vm_uuid_to_new_ref_mapping = ref [] in
-      (* keep mapping of our VM refs -> the ref of the equivalent VM we just made on the master *)
-      let my_vm_ref_to_new_ref_mapping = ref [] in
+			(* The only possible shared SRs are ISO, as other SRs cannot be shared properly accross pools. *)
+			(* In this case, if we find a SR with a PBD having the same device_config field, we pick this SR instead of building a new one *)
+			let iso_already_exists_on_master () = List.exists (fun (_,x) -> Listext.List.set_equiv x.API.pBD_device_config my_pbd.API.pBD_device_config) pbds_on_master in
+			if sr.API.sR_shared && sr.API.sR_content_type = "iso" && iso_already_exists_on_master () then begin
+				let similar_pbd_ref, similar_pbd = List.find (fun (_,x) -> Listext.List.set_equiv x.API.pBD_device_config my_pbd.API.pBD_device_config) pbds_on_master in
+				similar_pbd.API.pBD_SR
 
-      let create_vm_on_master (old_ref, vm) =
-	let vm_ref = Client.VM.create_from_record rpc session_id vm in
-	debug "Create VM %s on master" vm.API.vM_uuid;
-	let lookup_table vm =
-		if List.mem_assoc vm !my_vm_ref_to_new_ref_mapping then
-			List.assoc vm !my_vm_ref_to_new_ref_mapping
-		else
-			Ref.null in
-	if vm.API.vM_is_a_snapshot then begin
-		debug "Updating snapshots metadata on master, from VM %s to VM %s" (Ref.string_of old_ref) (Ref.string_of vm_ref);
-		Helpers.copy_snapshot_metadata ~lookup_table rpc session_id ~src_record:vm ~dst_ref:vm_ref
-	end else
-		my_vm_ref_to_new_ref_mapping := (old_ref, vm_ref) :: !my_vm_ref_to_new_ref_mapping;
-	my_vm_uuid_to_new_ref_mapping := (vm.API.vM_uuid, vm_ref)::(!my_vm_uuid_to_new_ref_mapping) in
+			end else begin
+				debug "Found no SR with uuid = '%s' on the master, so creating one." my_uuid;
+				let ref = Client.SR.introduce ~rpc ~session_id
+					~uuid:my_uuid
+					~name_label:sr.API.sR_name_label
+					~name_description:sr.API.sR_name_description
+					~_type:sr.API.sR_type
+					~content_type:sr.API.sR_content_type
+					~shared:false
+					~sm_config:sr.API.sR_sm_config in
+				(* copy other-config into newly created sr record: *)
+				no_exn (fun () -> Client.SR.set_other_config ~rpc ~session_id ~self:ref ~value:sr.API.sR_other_config) ();
+				ref
+			end in
 
-      let create_vbd_on_master vbd = Client.VBD.create_from_record rpc session_id vbd in
-      let create_vif_on_master vif = Client.VIF.create_from_record rpc session_id vif in
-      let create_vdi_on_master (vdi_ref, vdi) : API.ref_VDI =
-	debug "Introducing VDI on master: %s" vdi.API.vDI_uuid;
-	let r = Client.VDI.pool_introduce ~rpc ~session_id
-	  ~uuid:vdi.API.vDI_uuid
-	  ~name_label:vdi.API.vDI_name_label
-	  ~name_description:vdi.API.vDI_name_description
-	  ~sR:vdi.API.vDI_SR
-	  ~_type:vdi.API.vDI_type
-	  ~sharable:vdi.API.vDI_sharable
-	  ~read_only:vdi.API.vDI_read_only
-	  ~other_config:vdi.API.vDI_other_config
-	  ~location:(Db.VDI.get_location ~__context ~self:vdi_ref)
-	  ~xenstore_data:vdi.API.vDI_xenstore_data
-	  ~sm_config:vdi.API.vDI_sm_config in
-	debug "received reference: %s" (Ref.string_of r);
-	r in
-      let create_pif_on_master pif : API.ref_PIF =
-	debug "Introducing PIF on master: %s" pif.API.pIF_uuid;
-	let r = Client.PIF.pool_introduce ~rpc ~session_id
-	  ~device:pif.API.pIF_device
-	  ~network:pif.API.pIF_network
-	  ~host:pif.API.pIF_host
-	  ~mAC:pif.API.pIF_MAC
-	  ~mTU:pif.API.pIF_MTU
-	  ~vLAN:pif.API.pIF_VLAN
-	  ~physical:pif.API.pIF_physical
-	  ~ip_configuration_mode:pif.API.pIF_ip_configuration_mode
-	  ~iP:pif.API.pIF_IP
-	  ~netmask:pif.API.pIF_netmask
-	  ~gateway:pif.API.pIF_gateway
-	  ~dNS:pif.API.pIF_DNS
-	  ~bond_slave_of:pif.API.pIF_bond_slave_of
-	  ~vLAN_master_of:pif.API.pIF_VLAN_master_of
-	  ~management:pif.API.pIF_management
-	  ~other_config:pif.API.pIF_other_config
-	  ~disallow_unplug:pif.API.pIF_disallow_unplug
-	in
-	debug "received reference: %s" (Ref.string_of r);
-	r in
-      let create_network_on_master device =
-	debug "Creating new network on master";
-	let r = Client.Network.pool_introduce ~rpc ~session_id
-	  ~name_label:(Helpers.choose_network_name_for_pif device)
-	  ~name_description:""
-	  ~other_config:[]
-	  ~bridge:(Xapi_pif.bridge_naming_convention device) in
-	r in
-      
-      (* Take a VBD and remap it so it points to the equivalent VDI we just made on client-side, matching by uuid;
-         and so it points to the equivalent VM we just made on the client-side, matching by uuid *)
-      let remap_vbd client_vdi_recs vbd =
-	try
-	  begin
-	    debug "Remapping VBD: %s" vbd.API.vBD_uuid;
-	    let is_cd_vbd = vbd.API.vBD_type = `CD in
-	    let my_vm = Db.VM.get_record ~__context ~self:vbd.API.vBD_VM in
-	    let my_vm_uuid = my_vm.API.vM_uuid in
-	    debug "Remapping VBD: searching for VM='%s' in client VM recs" my_vm_uuid;
-	    let matching_client_vm_ref = List.assoc my_vm_uuid !my_vm_uuid_to_new_ref_mapping in
+	new_sr_ref
 
-	    (* VDI ref might be null if the VBD is an empty CD drive, so catch that *)
-	    try
-	      let my_vdi = Db.VDI.get_record ~__context ~self:vbd.API.vBD_VDI in
-	      let my_vdi_uuid = my_vdi.API.vDI_uuid in
-	      debug "Remapping VBD: searching for VDI='%s' in client VDI recs" my_vdi_uuid;
-	      let matching_client_vdi_ref, _ = List.find (fun (_,vdirec)->vdirec.API.vDI_uuid=my_vdi_uuid) client_vdi_recs in
-	      Some {vbd with API.vBD_VDI=matching_client_vdi_ref; API.vBD_VM=matching_client_vm_ref }
-	    with _ -> 
-	      if is_cd_vbd then 
-		(debug "Remapping VBD: VDI missing for CD VBD. Setting to empty";
-		Some {vbd with API.vBD_empty=true; API.vBD_VDI = Ref.null; API.vBD_VM=matching_client_vm_ref })
-	      else 
-		(debug "VDI missing. VBD will not be created";
-		 None)
-	  end
-	with _ -> 
-	  debug "VM missing. VBD will not be recreated";
-	  None
-      in
+let create_or_get_pbd_on_master __context rpc session_id (pbd_ref, pbd) : API.ref_PBD =
+	let my_uuid = pbd.API.pBD_uuid in
 
-      (* Try and remap my_sr_ref to matching client_sr_ref using client_sr_recs as a mapping; or throw an exception if could not find
-	 my_sr_ref in map *)
-      let remap_sr client_sr_recs my_sr_ref =
+	let new_pbd_ref =
+		try Client.PBD.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
+		with _ ->
+			let my_host_ref = pbd.API.pBD_host in
+			let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
+			let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
+
+			let my_sr_ref = pbd.API.pBD_SR in
+			let my_sr = Db.SR.get_record ~__context ~self:my_sr_ref in
+			let new_sr_ref = create_or_get_sr_on_master __context rpc session_id (my_sr_ref, my_sr) in
+
+			debug "Found no PBD with uuid = '%s' on the master, so creating one." my_uuid;
+			Client.PBD.create ~rpc ~session_id
+				~host:new_host_ref
+				~sR:new_sr_ref
+				~other_config:pbd.API.pBD_other_config
+				~device_config:pbd.API.pBD_device_config in
+
+	new_pbd_ref
+
+let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.ref_VDI =
+	let my_uuid = vdi.API.vDI_uuid in
+	let my_sr_ref = vdi.API.vDI_SR in
 	let my_sr = Db.SR.get_record ~__context ~self:my_sr_ref in
-	let my_sr_uuid = my_sr.API.sR_uuid in
-	let matching_client_sr_ref, _ = List.find (fun (_,srrec)->srrec.API.sR_uuid=my_sr_uuid) client_sr_recs in
-	matching_client_sr_ref in
-      
-      (* Take a VDI and remap it so its SR reference points to the equivalent SR we just made on the client-side, matching by uuid *)
-      (* Since we haven't recreated shared SRs (e.g. XenSource Tools SR) on master, this will fail when we try to remap VDIs in a shared SR..
-	 but since we don't want to recreate shared SRs or the VDIs contained therein on the master then that's great! ;) *)
-      let remap_vdi client_sr_recs vdi =
-	try
-	  debug "Remapping VDI: %s" vdi.API.vDI_uuid;
-	  let my_sr_ref = vdi.API.vDI_SR in
-	  let matching_client_sr_ref = remap_sr client_sr_recs my_sr_ref in
-	  Some {vdi with API.vDI_SR=matching_client_sr_ref}
-	with _ -> None in
 
-      (* Take a VIF and remap it so it points to the equivalent network on client-side, matching by PIF.device-name;
-	 and so it points to the equivalent VM we just made on the client-side, matching by uuid *)
-      let remap_vif client_devname_to_network_map vif =
-	try
-	  debug "Remapping VIF: %s" (vif.API.vIF_uuid);
-	  let my_vm = Db.VM.get_record ~__context ~self:vif.API.vIF_VM in
-	  let my_vm_uuid = my_vm.API.vM_uuid in
-	  let matching_client_vm_ref = List.assoc my_vm_uuid !my_vm_uuid_to_new_ref_mapping in
-	  debug "New VM reference: %s" (Ref.string_of matching_client_vm_ref);
-	  let my_network = vif.API.vIF_network in
-	  let my_network_devname = List.assoc my_network my_network_to_devname_map in
-	  debug "Network devname = %s" my_network_devname;
-	  let new_network = List.assoc my_network_devname client_devname_to_network_map in
-	  debug "New network ref = %s" (Ref.string_of new_network);
-	  Some {vif with API.vIF_VM=matching_client_vm_ref; API.vIF_network=new_network}
-	with _ -> None in
+	let new_sr_ref = create_or_get_sr_on_master __context rpc session_id (my_sr_ref, my_sr) in
 
-      (* Create a physical PIF record on the master and, if there's already a PIF on the master with the same
-	 'device' name, then attach the newly created pif to the same network; otherwise create a new network and attach
-	 newly created PIF to that.
-      *)
-      let client_pifs = Client.PIF.get_all_records_where rpc session_id "true" in
-      let create_pif_and_maybe_network hostref pif =
-	let my_pif_record = Db.PIF.get_record ~__context ~self:pif in
-	debug "Copying PIF record to master: %s" my_pif_record.API.pIF_uuid;
-	let my_pif_device_name = my_pif_record.API.pIF_device in
-	let my_pif_vlan_tag = my_pif_record.API.pIF_VLAN in
-	(* if there's a pif with the same device (name) and VLAN tag on the master then we use that network;
-	   otherwise we make a new network for this pif *)
-	let master_pifs_with_same_name = 
-	  List.filter (fun (_,master_pif) -> 
-	    (master_pif.API.pIF_device = my_pif_device_name) && (master_pif.API.pIF_VLAN = my_pif_vlan_tag)) client_pifs in
-	let master_network_to_use =
-	  match master_pifs_with_same_name with
-	    [] -> (* nothing suitable here, so make new network on master *)
-	      debug "Master does not have corresponding PIF, creating new network";
-	      create_network_on_master my_pif_device_name
-	  | (_,mpiff)::_ -> (* master has pif with same name so we re-use that network *)
-	      debug "Master has corresponding pif; re-using master's network accordingly";
-	      mpiff.API.pIF_network in
-	(* remap network field and host field in my_pif_record and then go and create it on the master *)
-	let my_pif_record =
-	  {my_pif_record with
-	     API.pIF_network=master_network_to_use;
-	     API.pIF_host=hostref
-	  } in
-	create_pif_on_master my_pif_record in
+	let new_vdi_ref =
+		try Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:my_uuid 
+		with _ ->
+			debug "Found no VDI with uuid = '%s' on the master, so creating one." my_uuid;
+			Client.VDI.pool_introduce ~rpc ~session_id
+				~uuid:my_uuid
+				~name_label:vdi.API.vDI_name_label
+				~name_description:vdi.API.vDI_name_description
+				~sR:new_sr_ref
+				~_type:vdi.API.vDI_type
+				~sharable:vdi.API.vDI_sharable
+				~read_only:vdi.API.vDI_read_only
+				~other_config:vdi.API.vDI_other_config
+				~location:(Db.VDI.get_location ~__context ~self:vdi_ref)
+				~xenstore_data:vdi.API.vDI_xenstore_data
+				~sm_config:vdi.API.vDI_sm_config in
 
-      let map_opt f l =
-	let rec doit l acc =
-	  match l with
-	    [] -> acc
-	  | (x::xs) ->
-	      (match f x with
-		 None -> doit xs acc
-	       | Some r -> doit xs (r::acc)) in
-	doit l [] in
+	new_vdi_ref
 
-      (* Pre-join asserts *)
+let create_or_get_network_on_master __context rpc session_id (network_ref, network) : API.ref_network =
+	let my_name = network.API.network_name_label in
 
-      (* CA-26975: Pool restrictions (implied by pool_sku) MUST match *)
-      let assert_restrictions_match () = 
-	let pool_license_params = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Client.Host.get_all_records ~rpc ~session_id) in
-	let pool_restrictions = Restrictions.pool_restrictions_of_list (List.map Restrictions.of_assoc_list pool_license_params) in
-	let my_restrictions = Restrictions.get() in
-	if pool_restrictions <> my_restrictions then begin
-	  error "Pool.join failed because of license restrictions mismatch";
-	  error "Remote has %s" (Restrictions.to_compact_string pool_restrictions);
-	  error "Local has  %s" (Restrictions.to_compact_string my_restrictions);
-	  raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	end in
+	let new_network_ref =
+		try List.hd (Client.Network.get_by_name_label ~rpc ~session_id ~label:my_name)
+		with _ ->
+			debug "Found no network with name_label = '%s' on the master, so creating one." my_name;
+			Client.Network.pool_introduce ~rpc ~session_id
+				~name_label:my_name
+				~name_description:network.API.network_name_description
+				~other_config:network.API.network_other_config
+				~bridge:network.API.network_bridge in
 
-      let assert_external_auth_matches master = 
-        (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
-        (* that of master of pool-to-join *)
-        let slavetobe = Helpers.get_localhost ~__context in
-        let slavetobe_auth_type = Db.Host.get_external_auth_type ~__context ~self:slavetobe in
-        let slavetobe_auth_service_name = Db.Host.get_external_auth_service_name ~__context ~self:slavetobe in
-        let master_auth_type = Client.Host.get_external_auth_type ~rpc ~session_id ~self:master in
-        let master_auth_service_name = Client.Host.get_external_auth_service_name ~rpc ~session_id ~self:master in
-        begin
-          debug "Verifying if external auth configuration of master %s (auth_type=%s service_name=%s) matches that of slave-to-be %s (auth-type=%s service_name=%s)" 
-            (Client.Host.get_name_label ~rpc ~session_id ~self:master) master_auth_type master_auth_service_name 
-            (Db.Host.get_name_label ~__context ~self:slavetobe) slavetobe_auth_type slavetobe_auth_service_name;
-          if (slavetobe_auth_type <> master_auth_type)
-             || (slavetobe_auth_service_name <> master_auth_service_name) then
-          begin
-           error "Cannot join pool whose external authentication configuration is different";
-           raise (Api_errors.Server_error(Api_errors.pool_joining_external_auth_mismatch, []))
-          end
-        end in
+	new_network_ref
 
-      let assert_i_know_of_no_other_hosts () =
-	let hosts = Db.Host.get_all ~__context in
-	if List.length hosts > 1 then
-	  raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_be_master_of_other_hosts, [])) in
+let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.ref_PIF =
+	let my_uuid = pif.API.pIF_uuid in
 
-      let assert_no_running_or_suspended_vms_on_me () =
-	if List.length my_running_vms > 0 || List.length my_suspended_vms > 0 then
-	  raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_have_running_or_suspended_VMs, [])) in
+	let my_host_ref = pif.API.pIF_host in
+	let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
+	let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
 
-      let assert_no_vms_with_current_ops () =
-	let vms_with_current_ops =
-	  List.filter (fun (_,vmr) -> (List.length vmr.API.vM_current_operations)>0 ) my_vms in
-	if List.length vms_with_current_ops > 0 then
-	  raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_have_vms_with_current_operations, [])) in
-      
-      let assert_no_shared_srs_on_me () =
-	let srs = Db.SR.get_records_where ~__context ~expr:Db_filter_types.True in
-	let my_shared_srs = List.filter (fun (_,srec)->srec.API.sR_shared) srs in
-	let my_shared_srs = List.filter (fun (sr,_)->not(Helpers.is_tools_sr ~__context ~sr)) my_shared_srs in
-	if List.length my_shared_srs > 0 then
-	  raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, [])) in
+	let my_network_ref = pif.API.pIF_network in
+	let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
+	let new_network_ref = create_or_get_network_on_master __context rpc session_id (my_network_ref, my_network) in
 
-      let assert_management_interface_is_physical () =
-	let pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
-	List.iter (fun (_,pifr)->
-		     if pifr.API.pIF_management && (not pifr.API.pIF_physical) then
-		       raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []))) pifs in
+	let new_pif_ref =
+		try Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
+		with _ ->
+			debug "Found no PIF with uuid = '%s' on the master, so creating one." my_uuid;
+			Client.PIF.pool_introduce ~rpc ~session_id
+				~device:pif.API.pIF_device
+				~network:new_network_ref
+				~host:new_host_ref
+				~mAC:pif.API.pIF_MAC
+				~mTU:pif.API.pIF_MTU
+				~vLAN:pif.API.pIF_VLAN
+				~physical:pif.API.pIF_physical
+				~ip_configuration_mode:pif.API.pIF_ip_configuration_mode
+				~iP:pif.API.pIF_IP
+				~netmask:pif.API.pIF_netmask
+				~gateway:pif.API.pIF_gateway
+				~dNS:pif.API.pIF_DNS
+				~bond_slave_of:pif.API.pIF_bond_slave_of
+				~vLAN_master_of:pif.API.pIF_VLAN_master_of
+				~management:pif.API.pIF_management
+				~other_config:pif.API.pIF_other_config
+				~disallow_unplug:pif.API.pIF_disallow_unplug in
 
-      let assert_hosts_homogeneous master_ref =
-	let me = Helpers.get_localhost ~__context in
+	new_pif_ref
 
-	(* read local and remote cpu records *)
-	let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
-	let master_cpu_recs = Client.Host_cpu.get_all_records_where ~rpc ~session_id ~expr:"true" in
-	let master_cpus = List.map (fun cpu -> List.assoc cpu master_cpu_recs) master.API.host_host_CPUs in
-	let master_software_version = master.API.host_software_version in
+let protect_exn f x =
+	try Some (f x)
+	with _ -> None
 
-	let my_cpu_refs = Db.Host.get_host_CPUs ~__context ~self:me in
-	let my_cpus = List.map (fun cpu -> Db.Host_cpu.get_record ~__context ~self:cpu) my_cpu_refs in
-	let my_software_version = Db.Host.get_software_version ~__context ~self:me in
+(* Remark: the order in which we create the object in the distant database is not very important, as we have *)
+(* an unique way to identify each object and thus we know if we need to create them or if it is already done *)
+let update_non_vm_metadata ~__context ~rpc ~session_id =
 
-	(* CA-29511 filter irrelevant CPU flags *)
-	let irrelevant_cpu_flags = [ "est" (* Enhanced Speed Step *) ] in
-	let cpu_flags_of_string x = Stringext.String.split_f Stringext.String.isspace x in
-	let string_of_cpu_flags x = String.concat " " x in
+	(* Update hosts *)
+	let my_hosts = Db.Host.get_all_records ~__context in
+	let (_ : API.ref_host option list) =
+		List.map (protect_exn (create_or_get_host_on_master __context rpc session_id)) my_hosts in
 
-	let filtered_cpu_flags x = string_of_cpu_flags (List.filter (fun x -> not (List.mem x irrelevant_cpu_flags)) (cpu_flags_of_string x)) in
+	(* Update SRs *)
+	let my_srs = Db.SR.get_all_records ~__context in
+	let (_ : API.ref_SR option list) =
+		List.map (protect_exn (create_or_get_sr_on_master __context rpc session_id)) my_srs in
 
-	let get_comparable_fields hcpu =
-	  let raw_flags = hcpu.API.host_cpu_flags in
-	  let filtered_flags = filtered_cpu_flags raw_flags in
-	  (hcpu.API.host_cpu_vendor, hcpu.API.host_cpu_model, hcpu.API.host_cpu_family, filtered_flags) in
-	let print_cpu_rec (vendor,model,family,flags) =
-	  debug "%s, %Ld, %Ld, %s" vendor model family flags in
-	let get_software_version_fields fields =
-	  begin try List.assoc "product_version" fields with _ -> "" end,
-	  begin try List.assoc "product_brand" fields with _ -> "" end,
-	  begin try List.assoc "build_number" fields with _ -> "" end,
-	  begin try List.assoc "hg_id" fields with _ -> "" end,
-	  begin try List.assoc Xapi_globs.linux_pack_vsn_key fields with _ -> "not present" end
-	in
-	let print_software_version (version,brand,number,id,linux_pack) =
-	  debug "version:%s, brand:%s, build:%s, id:%s, linux_pack:%s" version brand number id linux_pack
-	in
-	
-	let is_subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1) in
-	let set_equiv s1 s2 = (is_subset s1 s2) && (is_subset s2 s1) in
+	(* Update PBDs *)
+	let my_pbds = Db.PBD.get_all_records ~__context in
+	let (_ : API.ref_PBD option list) =
+		List.map (protect_exn (create_or_get_pbd_on_master __context rpc session_id)) my_pbds in
 
-	let my_cpus_compare = List.map get_comparable_fields my_cpus in
-	let master_cpus_compare = List.map get_comparable_fields master_cpus in
+	(* Update VDIs *)
+	let my_vdis = Db.VDI.get_all_records ~__context in
+	let (_ : API.ref_VDI option list) =
+		List.map (protect_exn (create_or_get_vdi_on_master __context rpc session_id)) my_vdis in
 
-	let my_software_compare = get_software_version_fields my_software_version in
-	let master_software_compare = get_software_version_fields master_software_version in
+	(* Update networks *)
+	let my_networks = Db.Network.get_all_records ~__context in
+	let (_ : API.ref_network option list) =
+		List.map (protect_exn (create_or_get_network_on_master __context rpc session_id)) my_networks in
 
-	debug "Pool pre-join Software homogeneity check:";
-	debug "Slave software:";
-	print_software_version my_software_compare;
-	debug "Master software:";
-	print_software_version master_software_compare;
+	(* update PIFs *)
+	let my_pifs = Db.PIF.get_all_records ~__context in
+	let (_ : API.ref_PIF option list) =
+		List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
 
-	debug "Pool pre-join CPU homogeneity check:";
-	debug "Slave cpus:";
-	List.iter print_cpu_rec my_cpus_compare;
-	debug "Master cpus:";
-	List.iter print_cpu_rec master_cpus_compare;
+	()
 
-	if my_software_compare <> master_software_compare then
-	  raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
-	if not (set_equiv my_cpus_compare master_cpus_compare) then
-	  raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["cpus differ"])) in
+let open_tcp ~server =
+	(* We don't bother closing fds since this requires our close_and_exec wrapper *)
+	let port = 443 in
+	let x = Stunnel.connect ~use_external_fd_wrapper:false ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x) server port in
+	Unix.in_channel_of_descr x.Stunnel.fd, Unix.out_channel_of_descr x.Stunnel.fd
 
-      Pervasiveext.finally
+let update_vm_metadata ~__context ~rpc ~session_id ~master_address =
+	let temp_file = Printf.sprintf "/tmp/pool-join-metadata.out" in
+	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
+
+	finally
+		(fun () ->
+			Unixext.unlink_safe temp_file;
+
+			(* 1. export my VMs metadata to the tempory file *)
+			let my_address = Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context) in
+			Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+				let export_uri = Printf.sprintf "%s?session_id=%s&subtask_of=%s&all=true" Constants.export_metadata_uri (Ref.string_of my_session_id) subtask_of in
+				debug "exporting the metadata into filename = '%s' to server = '%s'" temp_file my_address;
+				Unixext.http_get ~open_tcp ~uri:export_uri ~filename:temp_file ~server:my_address);
+
+			(* 2. import that tempory file to the distant pool *)
+			let import_uri = Printf.sprintf "%s?session_id=%s&subtask_of=%s&restore=true" Constants.import_metadata_uri (Ref.string_of session_id) subtask_of in
+			debug "importing the metadata from filename = '%s' to server = '%s'" temp_file master_address;
+			Unixext.http_put ~open_tcp ~uri:import_uri ~filename:temp_file ~server:master_address)
+		(fun () -> Unixext.unlink_safe temp_file)
+
+let join_common ~__context ~master_address ~master_username ~master_password ~force =
+	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
+	(* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
+	a host that does not support pooling then an error will be thrown at this stage *)
+	let rpc = rpc master_address in
+	let session_id =
+	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
+		with Xmlrpcclient.Http_request_rejected _ ->
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
+
+	let cluster_secret = ref "" in
+
+	finally (fun () ->
+		pre_join_checks ~__context ~rpc ~session_id ~force;
+		cluster_secret := Client.Pool.initial_auth rpc session_id;
+
+		(* get pool db from new master so I have a backup ready if we failover to me -- if 
+		this fails the whole join operation fails.
+		CA-22449: this is where a --force'd pool.join across differing product versions
+		will fail because the database schema has the wrong version. *)
+		begin try
+			Pool_db_backup.fetch_database_backup ~master_address ~pool_secret:!cluster_secret ~force:None
+		with Api_errors.Server_error(code, _) when code = Api_errors.restore_incompatible_version ->
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_product_version, []))
+		end;
+
+		(* this is where we try and sync up as much state as we can
+		with the master. This is "best effort" rather than
+		critical; if we fail part way through this then we carry
+		on with the join *)
+		try
+			update_non_vm_metadata ~__context ~rpc ~session_id;
+			update_vm_metadata ~__context ~rpc ~session_id ~master_address;
+		with e ->
+			debug "Error whilst importing db objects into master; aborted: %s" (Printexc.to_string e);
+			warn "Error whilst importing db objects to master. The pool-join operation will continue, but some of the slave's VMs may not be available on the master.")
 	(fun () ->
+		Client.Session.logout rpc session_id);
 
-	   let pool = List.hd (Client.Pool.get_all rpc session_id) in
-	   let master = Client.Pool.get_master rpc session_id pool in
-	   let master_uuid = Client.Host.get_uuid rpc session_id master in
-	   let me = Helpers.get_localhost ~__context in
-	   let my_uuid = Db.Host.get_uuid ~__context ~self:me in
-	   let assert_not_joining_myself() =
-	     if master_uuid=my_uuid then
-	       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Host cannot become slave of itself"])) in
-
-	   (* call pre-join asserts *)
-	   assert_not_joining_myself();
-	   assert_i_know_of_no_other_hosts();
-	   assert_no_running_or_suspended_vms_on_me();
-	   assert_no_vms_with_current_ops();
-	   if (not force) then assert_hosts_homogeneous master;
-	   assert_no_shared_srs_on_me();
-	   assert_management_interface_is_physical ();
-	   assert_external_auth_matches(master);
-	   assert_restrictions_match ();
-	   (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
-	   (* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
-	      a host that does not support pooling then an error will be thrown at this stage *)
-	   cluster_secret := Client.Pool.initial_auth rpc session_id;
-
-	   (* get pool db from new master so I have a backup ready if we failover to me -- if 
-	      this fails the whole join operation fails.
-	      CA-22449: this is where a --force'd pool.join across differing product versions
-	      will fail because the database schema has the wrong version. *)
-	   begin
-	     try
-	       Pool_db_backup.fetch_database_backup ~master_address ~pool_secret:!cluster_secret ~force:None
-	     with Api_errors.Server_error(code, _) when code = Api_errors.restore_incompatible_version ->
-	       raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_product_version, []))
-	   end;
-	   
-	   (* this is where we try and sync up as much state as we can
-	      with the master. This is "best effort" rather than
-	      critical; if we fail part way through this then we carry
-	      on with the join *)
-	   try
-	     let hostref = create_or_get_host_on_master() in
-	     (* Create SRs and PBDs *)
-	     List.iter (no_exn (create_sr_and_pbd_on_master hostref)) my_non_shared_srs;
-	     (* Create VMs *)
-	     ignore (List.map (no_exn create_vm_on_master) my_vms);
-	     
-	     (* Remap VDI.SR fields to newly created SR records [matching on uuid] *)
-	     let client_sr_recs = Client.SR.get_all_records_where rpc session_id "true" in
-	     let vdis_for_master =
-	       map_opt
-		 (fun (vref,vrec)->
-		    match remap_vdi client_sr_recs vrec with
-		      None -> None
-		    | Some r -> Some (vref, r)) my_vdis in
-	     (* Create VDIs *)
-	     ignore (List.map (no_exn create_vdi_on_master) vdis_for_master);
-	     
-	     (* Remap VBDs to newly created VDI/VM records [matching on uuid] *)
-	     let client_vdi_recs = Client.VDI.get_all_records_where rpc session_id "true" in
-	     let vbds_for_master = map_opt (remap_vbd client_vdi_recs) (List.map snd my_vbds) in
-	     (* Create VBDs *)
-	     ignore (List.map (no_exn create_vbd_on_master) vbds_for_master);
-
-	     (* Create physical PIFs and either create new or join up networks *)
-	     let my_pif_refs = Db.PIF.get_all ~__context in
-	     let my_physical_pifs = List.filter (fun pif -> Db.PIF.get_physical ~__context ~self:pif) my_pif_refs in
-	     ignore (List.map (no_exn (create_pif_and_maybe_network hostref)) my_physical_pifs);
-	     
-	     (* Remap VIFs to master networks [matching on network device name] *)
-	     let client_devname_to_network_map =
-	       List.map (fun (pref, prec) -> prec.API.pIF_device, prec.API.pIF_network) client_pifs in
-	     let vifs_for_master = map_opt (remap_vif client_devname_to_network_map) (List.map snd my_vifs) in
-	     (* Create VIFs *)
-	     ignore (List.map (no_exn create_vif_on_master) vifs_for_master);
-	     
-	     (* Set default crashdump and suspend-sr fields on newly created host *)
-	     let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:me in
-	     let my_suspend_image_sr = Db.Host.get_crash_dump_sr ~__context ~self:me in
-	     
-	     no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:hostref ~value:(remap_sr client_sr_recs my_crashdump_sr)) ();
-	     no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:hostref ~value:(remap_sr client_sr_recs my_suspend_image_sr)) ()
-	       
-	   with
-	   | e ->
-	       debug "Error whilst importing db objects into master; aborted: %s" (Printexc.to_string e);
-	       warn "Error whilst importing db objects to master. The pool-join operation will continue, but some of the slave's VMs may not be available on the master."
-	)
-	(fun () -> Client.Session.logout rpc session_id);
-      Unixext.write_string_to_file Xapi_globs.pool_secret_path !cluster_secret;
-      
-      (* Here we dump our dom0 memory settings to the local db so that they'll be picked up by create_misc when we come to create our new control domain record *)
-      let dom0 = Helpers.get_domain_zero ~__context in
-      Localdb.put (Constants.pool_join_mem_stat_min) (Int64.to_string (Db.VM.get_memory_static_min ~__context ~self:dom0));
-      Localdb.put (Constants.pool_join_mem_stat_max) (Int64.to_string (Db.VM.get_memory_static_max ~__context ~self:dom0));
-      Localdb.put (Constants.pool_join_mem_dyn_min) (Int64.to_string (Db.VM.get_memory_dynamic_min ~__context ~self:dom0));
-      Localdb.put (Constants.pool_join_mem_dyn_max) (Int64.to_string (Db.VM.get_memory_dynamic_max ~__context ~self:dom0));
-      Localdb.put (Constants.pool_join_mem_target) (Int64.to_string (Db.VM.get_memory_target ~__context ~self:dom0));
-
-      Pool_role.set_role (Pool_role.Slave master_address);
-      Xapi_fuse.light_fuse_and_run()
-    end
-  else
-    begin
-      L.error "License does not allow pooling";
-      raise (Api_errors.Server_error (Api_errors.license_restriction, []))
-    end
+	(* Rewrite the pool secret on every host of the current pool, and restart all the agent as slave of the distant pool master. *)
+	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+		List.iter
+			(fun (host, _) ->
+				Client.Host.update_pool_secret my_rpc my_session_id host !cluster_secret;
+				Client.Host.update_master my_rpc my_session_id host master_address)
+		(Db.Host.get_all_records ~__context))
 
 let join ~__context ~master_address ~master_username ~master_password  =
   join_common ~__context ~master_address ~master_username ~master_password ~force:false

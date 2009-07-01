@@ -204,13 +204,14 @@ let vm_export ?(metadata_only=false) test session_id vm filename =
   let args = if metadata_only then args @ [ "metadata=true" ] else args in
   ignore(cli_cmd test args)
 
-let vm_import ?(metadata_only=false) ?sr test session_id filename = 
+let vm_import ?(metadata_only=false) ?(preserve=false) ?sr test session_id filename = 
   let sr_uuid = Opt.map (fun sr -> Client.SR.get_uuid !rpc session_id sr) sr in
   let args = [ "vm-import"; "filename=" ^ filename ] in
   let args = args @ (Opt.default [] (Opt.map (fun x -> [ "sr-uuid=" ^ x ]) sr_uuid)) in
   let args = if metadata_only then args @ [ "metadata=true" ] else args in
-  let newvm_uuid = cli_cmd test args in
-  Client.VM.get_by_uuid !rpc session_id newvm_uuid 
+  let args = if preserve then args @ [ "preserve=true" ] else args in
+  let newvm_uuids = String.split ',' (cli_cmd test args) in
+  List.map (fun uuid -> Client.VM.get_by_uuid !rpc session_id uuid) newvm_uuids
 
 let install_debian test session_id = 
   let t = find_template session_id debian_etch in

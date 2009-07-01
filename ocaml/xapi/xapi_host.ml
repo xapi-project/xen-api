@@ -651,6 +651,8 @@ let propose_new_master ~__context ~address ~manual = Xapi_ha.propose_new_master 
 let commit_new_master ~__context ~address = Xapi_ha.commit_new_master __context address
 let abort_new_master ~__context ~address = Xapi_ha.abort_new_master __context address
 
+let update_master ~__context ~host ~master_address = assert false
+
 let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
 
 (* This call can be used to _instruct_ a slave that it has to take a persistent backup (force=true).
@@ -1092,3 +1094,5 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 let disable_external_auth ~__context ~host ~config = 
 	disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
 
+let update_pool_secret ~__context ~host ~pool_secret =
+	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret

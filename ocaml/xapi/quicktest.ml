@@ -98,7 +98,7 @@ let import_export_test session_id =
   List.iter
     (fun sr ->
        debug test (Printf.sprintf "Attempting import to SR: %s" (Quicktest_storage.name_of_sr session_id sr));
-       let vm' = vm_import ~sr test session_id export_filename in
+       let vm' = List.hd (vm_import ~sr test session_id export_filename) in
        let vbds = Client.VM.get_VBDs !rpc session_id vm' in
        
        if List.length vbds <> (List.length by_device) then failed test "Wrong number of VBDs after import";
@@ -447,7 +447,8 @@ let powercycle_test session_id vm =
        debug test "Importing metadata export of cloned suspended VM";
        Unixext.unlink_safe export_filename;
        vm_export ~metadata_only:true test session_id vm' export_filename;
-       let vm'' = vm_import ~metadata_only:true test session_id export_filename in
+       let vms = vm_import ~metadata_only:true test session_id export_filename in
+       let vm'' = List.find (fun vm -> Client.VM.get_name_label !rpc session_id vm = "clone-suspended-test") vms in
        debug test "Comparing clone, import VIF configuration";
        compare_vifs session_id test vm' vm'';
        debug test "Comparing clone, import VBD configuration";
@@ -473,17 +474,17 @@ let powercycle_test session_id vm =
        debug test "Resuming imported VM";
        Client.VM.resume !rpc session_id vm'' false false;
        verify_network_connectivity session_id test vm'';
-       debug test "Shutting down imported VM";
-       Client.VM.clean_shutdown !rpc session_id vm'';
-
+       debug test "Shutting down imported VMs";
+       List.iter (fun vm -> if Client.VM.get_power_state !rpc session_id vm <> `Halted then Client.VM.hard_shutdown !rpc session_id vm) vms;
+ 
        (* Keep the imported VM and chuck away the clone *)
        (* NB cannot do this earlier because the suspend VDI would be destroyed
 	  and prevent the other VM being resumed *)
        Client.VM.hard_shutdown !rpc session_id vm';
-       Client.VM.destroy !rpc session_id vm';
+       vm_uninstall test session_id vm';
 
-       debug test "Uninstalling imported VM";
-       vm_uninstall test session_id vm'';
+       debug test "Uninstalling imported VMs";
+       List.iter (vm_uninstall test session_id) vms;
        success test;
     ) (fun () ->
 	 if enabled_csvm then begin
