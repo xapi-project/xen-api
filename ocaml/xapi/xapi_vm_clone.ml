@@ -135,6 +135,23 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 	in
 	fst (List.fold_left fold_function ([],0L) sizes)
 
+let power_state_at_snapshot = "power-state-at-snapshot"
+let disk_snapshot_type = "disk-snapshot-type"
+let crash_consistent = "crash_consistent"
+
+let snapshot_info ~power_state ~is_a_snapshot =
+	let power_state_info = [power_state_at_snapshot, Record_util.power_state_to_string power_state] in
+	if is_a_snapshot then
+		(disk_snapshot_type, crash_consistent) :: power_state_info
+	else
+		[]
+
+let snapshot_metadata ~vm ~is_a_snapshot =
+	if is_a_snapshot then
+		Helpers.vm_to_string vm
+	else
+		""
+
 (* return a new VM record, in appropriate power state and having the good metrics. *)
 let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -224,6 +241,8 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 		~is_a_snapshot: is_a_snapshot
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
+		~snapshot_info:(snapshot_info ~power_state ~is_a_snapshot)
+		~snapshot_metadata:(snapshot_metadata ~vm ~is_a_snapshot)
 		~transportable_snapshot_id:""
 		~parent
 		~resident_on:Ref.null

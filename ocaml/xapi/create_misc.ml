@@ -156,6 +156,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 		~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost ~suspend_VDI:Ref.null
 		~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch
 		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null ~transportable_snapshot_id:""
+		~snapshot_info:[] ~snapshot_metadata:""
 		~parent:Ref.null
 		~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[] ~user_version:1L
 		~ha_restart_priority:"" ~ha_always_run:false ~recommendations:""

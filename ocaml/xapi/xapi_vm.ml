@@ -665,6 +665,20 @@ let create_template ~__context ~vm ~new_name =
 		hard_shutdown ~__context ~vm:new_vm;
 	new_vm
 
+(* As we will destroy the domain ourself, we grab the vm_lock here in order to tell the event thread to *)
+(* do not look at this domain. The message forwarding layer already checked that the VM reference we    *)
+(* revert too is still valid. *)
+let revert ~__context ~snapshot =
+	let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
+	let vm = 
+		if Db.is_valid_ref vm 
+		then vm
+		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
+	
+	Locking_helpers.with_lock vm 
+		(fun token () -> Xapi_vm_snapshot.revert ~__context ~snapshot ~vm)
+		()
+
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
 	(* First the existence check. It's not an error to not exist at all. *)
