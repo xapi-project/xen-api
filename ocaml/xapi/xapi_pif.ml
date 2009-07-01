@@ -20,7 +20,7 @@ let calculate_pifs_required_at_start_of_day ~__context =
   List.filter (fun (_,pifr) -> 
     true
     && (pifr.API.pIF_host = !Xapi_globs.localhost_ref) (* this host only *)
-    && not (Db_cache.DBCache.is_valid_ref (Ref.string_of pifr.API.pIF_bond_slave_of)) (* not enslaved by a bond *)
+    && not (Db.is_valid_ref pifr.API.pIF_bond_slave_of) (* not enslaved by a bond *)
   )
     (Db.PIF.get_all_records ~__context)
   

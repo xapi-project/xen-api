@@ -199,7 +199,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 	else None
 
 let maybe_get_guest_metrics ~__context ~ref =
-	if Db_cache.DBCache.is_valid_ref (Ref.string_of ref)
+	if Db.is_valid_ref ref
 	then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
 	else None
 

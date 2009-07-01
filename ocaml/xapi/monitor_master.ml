@@ -13,7 +13,7 @@ open D
 let set_vm_metrics ~__context ~vm ~memory ~cpus =
 	(* if vm metrics don't exist then make one *)
 	let metrics = Db.VM.get_metrics ~__context ~self:vm in
-	if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
+	if not (Db.is_valid_ref metrics) then
 	  begin
 	    let ref = Ref.make() in
 	    Db.VM_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -56,7 +56,7 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 
 			   (* if vif metrics don't exist then make one *)
 			   let metrics = Db.VIF.get_metrics ~__context ~self in
-			   if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
+			   if not (Db.is_valid_ref metrics) then
 			     begin
 			       let ref = Ref.make() in
 			       Db.VIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -83,7 +83,7 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 
 			  (* if vbd metrics don't exist then make one *)
 			   let metrics = Db.VBD.get_metrics ~__context ~self in
-			   if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
+			   if not (Db.is_valid_ref metrics) then
 			     begin
 			       let ref = Ref.make() in
 			       Db.VBD_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -186,7 +186,7 @@ let update_pifs ~__context host pifs =
 		        let pif_stats=List.find (fun p -> p.pif_name = real_device_name) pifs in
 			let metrics = Db.PIF.get_metrics ~__context ~self:pifdev in
 			(* if PIF metrics don't exist then create one: *)
-			if not (Db_cache.DBCache.is_valid_ref (Ref.string_of metrics)) then
+			if not (Db.is_valid_ref metrics) then
 			  begin
 			    let ref = Ref.make() in
 			    Db.PIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~carrier:false

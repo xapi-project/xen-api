@@ -194,7 +194,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	in
 	(* Copy the old metrics if available, otherwise generate a fresh one *)
 	let m =
-		if Db_cache.DBCache.is_valid_ref (Ref.string_of all.Db_actions.vM_metrics)
+		if Db.is_valid_ref all.Db_actions.vM_metrics
 		then Some (Db.VM_metrics.get_record_internal ~__context ~self:all.Db_actions.vM_metrics)
 		else None
 	in

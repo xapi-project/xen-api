@@ -310,7 +310,7 @@ let update_vms ~xal ~__context =
   (* Remove all the scheduled_to_be_resident_on VMs which are resident_on somewhere since that host 'owns' them.
      NB if resident_on this host the VM will still be counted in the all_resident_on_vms set *)
   let really_my_scheduled_to_be_resident_on_vms = 
-    List.filter (fun (_, vm_r) -> not (Db_cache.DBCache.is_valid_ref (Ref.string_of vm_r.API.vM_resident_on))) all_scheduled_to_be_resident_on_vms in
+    List.filter (fun (_, vm_r) -> not (Db.is_valid_ref vm_r.API.vM_resident_on)) all_scheduled_to_be_resident_on_vms in
   let all_vms_assigned_to_me = Listext.List.setify (all_resident_on_vms @ really_my_scheduled_to_be_resident_on_vms) in
 
   let all_vbds = Db.VBD.get_records_where ~__context ~expr:Db_filter_types.True in

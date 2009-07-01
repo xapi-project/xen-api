@@ -233,22 +233,33 @@ let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms =
   let ova_xml = Xml.to_bigbuffer (xmlrpc_of_header header) in
   table, ova_xml
 
+let string_of_vm ~__context vm =
+	try Printf.sprintf "'%s' ('%s')" 
+		(Db.VM.get_uuid ~__context ~self:vm)
+		(Db.VM.get_name_label ~__context ~self:vm)
+	with _ -> "invalid"
+
 (** Export a VM's metadata only *)
 let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~vms s =
 	begin match vms with
 	| [] -> failwith "need to specify at least one VM"
-	| [vm] -> info "VM.export_metadata: VM = '%s'; with_snapshot_metadata = '%b'; preserve_power_state = '%s" 
-				(Db.VM.get_uuid ~__context ~self:vm) with_snapshot_metadata (string_of_bool preserve_power_state)
+	| [vm] -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s" 
+				(string_of_vm ~__context vm)
+				with_snapshot_metadata
+				(string_of_bool preserve_power_state)
 	| vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s"
-				(String.concat ", " (List.map (fun vm -> Printf.sprintf "'%s'" (Db.VM.get_uuid ~__context ~self:vm)) vms))
-				with_snapshot_metadata (string_of_bool preserve_power_state) end;
+				(String.concat ", " (List.map (string_of_vm ~__context) vms)) 
+				with_snapshot_metadata
+				(string_of_bool preserve_power_state) end;
 
 	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms in
 	let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
 	Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s
 
 let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
-  info "VM.export: VM = '%s'; preserve_power_state = '%s'" (Db.VM.get_uuid ~__context ~self:vm_ref) (string_of_bool preserve_power_state);
+  info "VM.export: VM = %s; preserve_power_state = '%s'"
+	  (string_of_vm ~__context vm_ref)
+	  (string_of_bool preserve_power_state);
 
   let table, ova_xml = vm_metadata ~with_snapshot_metadata:false  ~preserve_power_state ~__context ~vms:[vm_ref] in
 
@@ -274,7 +285,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
   (* We no longer write the end-of-tar checksum table, preferring the inline ones instead *)
 
   Tar.write_end s;
-  info "export VM = %s completed successfully" (Ref.string_of vm_ref)
+  debug "export VM = %s completed successfully" (Ref.string_of vm_ref)
 
 open Http
 open Client

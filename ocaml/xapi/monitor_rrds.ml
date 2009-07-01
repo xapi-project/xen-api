@@ -480,7 +480,7 @@ let handler (req: Http.request) s =
 		
 		(* If the resident_on field is valid, or the request isn't 
 		   from dbsync, then redirect *)
-		if (Db_cache.DBCache.is_valid_ref (Ref.string_of host)) &&
+		if Db.is_valid_ref host &&
 		  (not (List.mem_assoc "dbsync" query)) then
 		  let address = Db.Host.get_address ~__context ~self:host in
 		  let url = Printf.sprintf "https://%s%s?%s" address req.Http.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
