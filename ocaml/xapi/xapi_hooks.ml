@@ -12,6 +12,7 @@ let reason__clean_reboot   = "clean-reboot"
 let reason__hard_reboot    = "hard-reboot"
 let reason__suspend        = "suspend"
 let reason__migrate_source = "source" (* passed to pre-migrate hook on source host *)
+let reason__revert         = "revert"
 
 (* Names of Host script hooks *)
 let scriptname__host_pre_declare_dead = "host-pre-declare-dead"

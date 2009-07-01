@@ -887,6 +887,26 @@ let touch_file fname =
   with
   | e -> (warn "Unable to touch ready file '%s': %s" fname (Printexc.to_string e))
 
+let vm_to_string vm = 
+	let str = Ref.string_of vm in
+
+	if not (Db_cache.DBCache.is_valid_ref str)
+	then raise (Api_errors.Server_error(Api_errors.invalid_value ,[str]));
+
+	let fields = fst (Db_cache.DBCache.read_record Db_names.vm str) in
+	let sexpr = SExpr.Node (List.map (fun (key,value) -> SExpr.Node [SExpr.String key; SExpr.String value]) fields) in
+	SExpr.string_of sexpr
+
+let vm_string_to_assoc vm_string =
+
+	let assoc_of_node = function
+		| SExpr.Node [SExpr.String s; SExpr.String t] -> (s,t)
+		| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"])) in
+
+	match SExprParser.expr SExprLexer.token (Lexing.from_string vm_string) with
+	| SExpr.Node l -> List.map assoc_of_node l
+	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"]))
+
 let i_am_srmaster ~__context ~sr = 
   (* Assuming there is a plugged in PBD on this host then
      we are an 'srmaster' IFF: we are a pool master and this is a shared SR

@@ -26,9 +26,12 @@ let rio_schema_minor_vsn = 19
 let miami_release_schema_major_vsn = 5
 let miami_release_schema_minor_vsn = 35
 
+let orlando_release_schema_major_vsn = 5
+let orlando_release_schema_minor_vsn = 55
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = 5
-let last_release_schema_minor_vsn = 55
+let last_release_schema_minor_vsn = 57
 
 (** Bindings for currently specified releases *)
 
@@ -387,6 +390,8 @@ let _ =
     ~doc:"The VSS plug-in cannot be contacted" ();
   error Api_errors.vm_snapshot_with_quiesce_not_supported [ "vm" ]
     ~doc:"The VSS plug-in is not installed on this virtual machine" ();
+  error Api_errors.vm_revert_failed [ "vm"; "snapshot" ]
+    ~doc:"An error occured while reverting the specified virtual machine to the specified snapshot" ();
 
   (* Host errors *)
   error Api_errors.host_offline [ "host" ]
@@ -4531,6 +4536,9 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this VM";
 	field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~qualifier:RW ~ty:(Map(vm_operations, String)) "blocked_operations" "List of operations which have been explicitly blocked and an error code";
+	
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap []))    ~ty:(Map (String, String)) "snapshot_info"     "Human-readable information concerning this snapshot";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String                 "snapshot_metadata" "Encoded information about the VM's metadata this is a snapshot of";
 
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VRef "")) ~ty:(Ref _vm)       "parent"       "Ref pointing to the parent of this VM";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
