@@ -197,6 +197,8 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
   Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
   Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
+
+  Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent;
   
   begin try
 	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
@@ -449,23 +451,33 @@ let handlers =
     Datamodel._vif, handle_vif
   ]
 
-let update_snapshot_links ~__context state =
+let update_snapshot_and_parent_links ~__context state =
 	let aux (cls, id, ref) =
 		let ref = Ref.of_string ref in
+
 		if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then begin
 			let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
 			if snapshot_of <> Ref.null 
 			then begin
-				debug "lookup for %s" (Ref.string_of snapshot_of);
+				debug "lookup for snapshot_of = '%s'" (Ref.string_of snapshot_of);
 				log_reraise
 					("Failed to find the VM which is snapshot of " ^ (Db.VM.get_name_label ~__context ~self:ref))
 					(fun table -> 
-						 let snapshot_of = (lookup snapshot_of) table in
-						 Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of)
+						let snapshot_of = (lookup snapshot_of) table in
+						Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of)
 					state.table
 			end
-		end
-	in
+		end;
+
+		if cls = Datamodel._vm then begin
+			let parent = Db.VM.get_parent ~__context ~self:ref in
+			debug "lookup for parent = '%s'" (Ref.string_of parent);
+			try
+				let parent = lookup parent state.table in
+				Db.VM.set_parent ~__context ~self:ref ~value:parent
+			with _ -> debug "no parent found"
+		end in
+
 	List.iter aux state.table
 
 (** Take a list of objects, lookup the handlers by class name and 'handle' them *)
@@ -477,7 +489,7 @@ let handle_all __context config rpc session_id (xs: obj list) =
       debug "Importing %i %s(s)" (List.length instances) cls;
       List.iter (fun x -> handler __context config rpc session_id state x) instances in
     List.iter one_type handlers;
-    update_snapshot_links ~__context state;
+    update_snapshot_and_parent_links ~__context state;
     state
   with e ->
     error "Caught exception in import: %s" (ExnHelper.string_of_exn e);
