@@ -481,7 +481,7 @@ let complete_import ~__context vmrefs =
 (** Import metadata only *)
 let metadata_handler (req: request) s = 
   debug "metadata_handler called";  
-  Xapi_http.with_context "Importing VM metadata" req s
+  Xapi_http.with_context "VM.metadata_import" req s
     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
        let full_restore = 
 	 List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
@@ -527,7 +527,7 @@ let metadata_handler (req: request) s =
 let handler (req: request) s = 
   req.close := true;
 
-  Xapi_http.assert_credentials_ok "Exporting VM" req;
+  Xapi_http.assert_credentials_ok "VM.import" req;
 
   debug "import handler";
 
@@ -535,11 +535,17 @@ let handler (req: request) s =
     List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
   let force = 
     List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
-  
+
+  let all = req.Http.cookie @ req.Http.query in
+  let subtask_of =
+    if List.mem_assoc "subtask_of" all
+    then Some (Ref.of_string (List.assoc "subtask_of" all))
+    else None in
+
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
   
-  Server_helpers.exec_with_new_task "Importing VM from network" 
+  Server_helpers.exec_with_new_task ?subtask_of "VM.import" 
     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
        let sr = 
          if List.mem_assoc "sr_id" (req.Http.query @ req.Http.cookie)
@@ -560,7 +566,7 @@ let handler (req: request) s =
 	  debug "new location: %s" url;
 	  Http_svr.headers s headers)
        else       
-	 Xapi_http.with_context "Importing VM from XVA 0.2 stream" req s
+	 Xapi_http.with_context "VM.import" req s
 	   (fun __context ->
 	     (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
 	     (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
