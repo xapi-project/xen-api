@@ -110,49 +110,49 @@ let create ~__context ~name_label ~name_description
 	let vCPUs_number = vCPUs_at_startup in
 	let vCPUs_utilisation = [(0L, 0.)] in
 	Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-	                     ~memory_actual:0L ~vCPUs_number:0L
-	                     ~vCPUs_utilisation
-	                     ~vCPUs_CPU:[]
-	                     ~vCPUs_params:[]
-	                     ~vCPUs_flags:[]
-	                     ~state:[]
-	                     ~start_time:Date.never
-		             ~install_time:Date.never
-			     ~last_updated:Date.never
-	                     ~other_config:[];
+		~memory_actual:0L ~vCPUs_number:0L
+		~vCPUs_utilisation
+		~vCPUs_CPU:[]
+		~vCPUs_params:[]
+		~vCPUs_flags:[]
+		~state:[]
+		~start_time:Date.never
+		~install_time:Date.never
+		~last_updated:Date.never
+		~other_config:[];
 	Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
-	             ~power_state:(`Halted) ~allowed_operations:[]
-	             ~current_operations:[]
-		     ~blocked_operations:[]
-	             ~name_label ~name_description
-	             ~user_version ~is_a_template 
-                 ~transportable_snapshot_id:""
-                 ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
-	             ~parent:Ref.null
+		~power_state:(`Halted) ~allowed_operations:[]
+		~current_operations:[]
+		~blocked_operations:[]
+		~name_label ~name_description
+		~user_version ~is_a_template 
+		~transportable_snapshot_id:""
+		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+		~parent:Ref.null
 		~snapshot_info:[] ~snapshot_metadata:""
-	             ~resident_on ~scheduled_to_be_resident_on ~affinity
-	             ~memory_static_max
-	             ~memory_dynamic_max
-	             ~memory_target
-	             ~memory_dynamic_min 
-	             ~memory_static_min
-	             ~vCPUs_params
-	             ~vCPUs_at_startup ~vCPUs_max
-	             ~actions_after_shutdown ~actions_after_reboot
-	             ~actions_after_crash
-	             ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-	             ~suspend_VDI:Ref.null
-	             ~platform
-	             ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
-		     ~pV_legacy_args
-	             ~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
-		     ~last_boot_CPU_flags:[]
-	             ~is_control_domain:false
-	             ~metrics ~guest_metrics:Ref.null
-                     ~last_booted_record:"" ~xenstore_data ~recommendations
-   	             ~blobs:[]
-	             ~ha_restart_priority
-		     ~ha_always_run ~tags;
+		~resident_on ~scheduled_to_be_resident_on ~affinity
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_target
+		~memory_dynamic_min 
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_at_startup ~vCPUs_max
+		~actions_after_shutdown ~actions_after_reboot
+		~actions_after_crash
+		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+		~suspend_VDI:Ref.null
+		~platform
+		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
+		~pV_legacy_args
+		~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
+		~last_boot_CPU_flags:[]
+		~is_control_domain:false
+		~metrics ~guest_metrics:Ref.null
+		~last_booted_record:"" ~xenstore_data ~recommendations
+		~blobs:[]
+		~ha_restart_priority
+		~ha_always_run ~tags;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	vm_ref
@@ -409,7 +409,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
       false in
 
   let affinity = Db.VM.get_affinity ~__context ~self:vm in
-  let affinity_valid_ref = Db_cache.DBCache.is_valid_ref (Ref.string_of affinity) in
+  let affinity_valid_ref = Db.is_valid_ref affinity in
   if not affinity_valid_ref
   then debug "VM %s (%s) has an invalid affinity reference" (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm);
 

@@ -1361,7 +1361,7 @@ let enable __context heartbeat_srs configuration =
   (* Check also that any PIFs with IP information set are currently attached - it's a non-fatal 
      error if they are, but we'll warn with a message *)
   let pifs_with_ip_config = List.filter (fun (_,pifr) -> pifr.API.pIF_ip_configuration_mode <> `None) pifs in
-  let not_bond_slaves = List.filter (fun (_,pifr) -> not (Db_cache.DBCache.is_valid_ref (Ref.string_of pifr.API.pIF_bond_slave_of))) pifs_with_ip_config in
+  let not_bond_slaves = List.filter (fun (_,pifr) -> not (Db.is_valid_ref pifr.API.pIF_bond_slave_of)) pifs_with_ip_config in
   let without_disallow_unplug = List.filter (fun (_,pifr) -> not (pifr.API.pIF_disallow_unplug || pifr.API.pIF_management)) not_bond_slaves in
   if List.length without_disallow_unplug > 0 then begin
     let pifinfo = List.map (fun (pif,pifr) -> (Db.Host.get_name_label ~__context ~self:pifr.API.pIF_host, pif, pifr)) without_disallow_unplug in

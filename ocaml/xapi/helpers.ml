@@ -890,7 +890,7 @@ let touch_file fname =
 let vm_to_string vm = 
 	let str = Ref.string_of vm in
 
-	if not (Db_cache.DBCache.is_valid_ref str)
+	if not (Db.is_valid_ref vm)
 	then raise (Api_errors.Server_error(Api_errors.invalid_value ,[str]));
 
 	let fields = fst (Db_cache.DBCache.read_record Db_names.vm str) in

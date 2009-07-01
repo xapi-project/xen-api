@@ -1,7 +1,6 @@
 open Locking_helpers
 open Stringext
 
-module Db = Db_actions.DB_Action
 module D = Debug.Debugger(struct let name = "dispatcher" end)
 open D
 
