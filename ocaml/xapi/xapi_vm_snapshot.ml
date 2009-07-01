@@ -55,19 +55,19 @@ let compare_snapid_chunks s1 s2 =
 (* the applications of the VM and to call VM.snapshot. After that, the VSS provider is supposed *)
 (* to tell us if everything happened nicely.                                                    *)
 (* The vss_mutex lock is already taken when this function is called.                            *)
-let wait_for_snapshot ~__context ~xs ~domid ~new_name =
+let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 	let value = Watch.value_to_appear (snapshot_path ~xs ~domid "status") in
 	match Watch.wait_for ~xs ~timeout:(5.*.60.) value with
 	| "snapshot-created" ->
 		(* Get the transportable snap ID *)
-		debug "Snapshot_with_quiesce: get the transportable ID";
+		debug "wait_for_snapshot: getting the transportable ID";
 		let snapid = xs.Xs.directory (snapshot_path ~xs ~domid "snapid") in
 		let snapid = List.sort compare_snapid_chunks snapid in
 		let read_chunk x = xs.Xs.read (snapshot_path ~xs ~domid ("snapid/" ^ x)) in
 		let snapid = String.concat "" (List.map read_chunk snapid) in
 
 		(* Get the uuid of the snapshot VM *)
-		debug "Snapshot_with_quiesce: get uuid of the snapshot VM";
+		debug "wait_for_snapshot: getting uuid of the snapshot VM";
 		let snapshot_uuid = xs.Xs.read (snapshot_path ~xs ~domid "snapuuid") in
 		let snapshot_ref = Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid in
 
@@ -77,18 +77,18 @@ let wait_for_snapshot ~__context ~xs ~domid ~new_name =
 
 	| "snapshot-error" ->
 		(* If an error was occured we get the error type and return *)
-		debug "Snapshot_with_quiesce: get an error";
-		raise (Api_errors.Server_error
-			(Api_errors.vm_snapshot_failed, [ xs.Xs.read (snapshot_path ~xs ~domid "error") ]))
+		let error_str = xs.Xs.read (snapshot_path ~xs ~domid "error") in
+		error "wait_for_snapshot: %s" error_str;
+		raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ]))
 
-	| _ -> 
-		raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "unexpected result" ]))
+	| e -> 
+		failwith (Printf.sprintf "wait_for_snapshot: unexpected result (%s)" e)
 
 (* We fail if the guest does not support quiesce mode. It would be possible to dynamicaly detect *)
 (* if snapshot-with-quiesce is allowed or not, but it seems to be useless as the GUI won't need  *)
 (* to display that information to the userm, apparently.                                         *)
 let snapshot_with_quiesce ~__context ~vm ~new_name =
-	debug "Snapshot_with_quiesce: begin";
+	debug "snapshot_with_quiesce: begin";
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	let result = Vmopshelpers.with_xs (fun xs ->
 		(* 1. We first check if the VM supports quiesce-mode *)
@@ -105,20 +105,21 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 					let value = Watch.key_to_disappear (snapshot_path ~xs ~domid "action") in
 					Watch.wait_for ~xs ~timeout:(60.) value;
 					debug "Snapshot_with_quiesce: wait for the VSS agent to return a snapshot";
-					try wait_for_snapshot ~__context ~xs ~domid ~new_name
+					try wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name
 					with Xs.Timeout ->
-						raise (Api_errors.Server_error
-							(Api_errors.vm_snapshot_failed, [ "Timed out waiting for VSS snapshot" ]))
+						error "time-out while waiting for VSS snapshot";
+						raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_timeout, [ Ref.string_of vm ]))
 
 				with Xs.Timeout ->
-					raise (Api_errors.Server_error
-						(Api_errors.vm_snapshot_failed, [ "VSS plugin does not respond" ])))
+					error "VSS plugin does not respond";
+					raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
+
 			(fun () ->
 				xs.Xs.rm (xs.Xs.getdomainpath domid ^ "snapshot");
 				Mutex.unlock vss_mutex)
-		end else
-			raise (Api_errors.Server_error
-				(Api_errors.vm_snapshot_failed, ["Quiesce snapshot not supported"])))
-	in
-	debug "Snapshot_with_quiesce: end";
+		end else begin
+			error "Quiesce snapshot not supported";
+			raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_not_supported, [ Ref.string_of vm ]))
+		end) in
+	debug "snapshot_with_quiesce: end";
 	result
