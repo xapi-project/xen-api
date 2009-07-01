@@ -2064,6 +2064,11 @@ let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true
 let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer false 
 let vm_snapshot_with_quiesce printer = vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false
 
+let snapshot_revert printer rpc session_id params =
+	let snap_uuid = List.assoc "snapshot-uuid" params in
+	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+	Client.VM.revert ~rpc ~session_id ~snapshot:snap_ref
+
 let snapshot_op op printer rpc session_id params =
 	let new_name = List.assoc "new-name-label" params in
 	let desc = if List.mem_assoc "new-name-description" params then Some (List.assoc "new-name-description" params) else None in
