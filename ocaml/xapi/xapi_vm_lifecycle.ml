@@ -41,7 +41,8 @@ let allowed_power_states ~(op:API.vm_operations) =
 
 	| `assert_operation_valid | `update_allowed_operations
 	| `power_state_reset
-	| `snapshot | `metadata_export    -> all_power_states
+	| `snapshot | `metadata_export 
+	| `revert                         -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~power_state ~op =
@@ -116,9 +117,15 @@ let check_template ~vmr ~op ~ref_str =
 		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
 		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
 	in
-	if List.mem op [`clone; `copy; `export; `provision; `metadata_export] || (op = `destroy && not default_template)
+	if List.mem op [`clone; `copy; `export; `provision; `metadata_export; `create_template] || (op = `destroy && not default_template)
 	then None
-	else Some (Api_errors.vm_is_template, [ref_str])
+	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
+
+let check_snapshot ~vmr ~op ~ref_str =
+	let allowed = [`revert; `create_template; `export; `destroy; `hard_shutdown; `metadata_export] in
+	if List.mem op allowed
+	then None
+	else Some (Api_errors.vm_is_snapshot, [ref_str; Record_util.vm_operation_to_string op])
 
 (* report a power_state/operation error *)
 let report_power_state_error ~power_state ~op ~ref_str =
@@ -156,12 +163,19 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 	then report_concurrent_operations_error ~current_ops ~ref_str
 
 	(* if the VM is a template, check the template behavior exceptions. *)
-	else if vmr.Db_actions.vM_is_a_template
+	else if vmr.Db_actions.vM_is_a_template && not vmr.Db_actions.vM_is_a_snapshot
 	then check_template ~vmr ~op ~ref_str
 	
-	(* if we are not a template, do not allow provision *)
+	(* if the VM is a snapshot, check the snapshot behavior exceptions. *)
+	else if vmr.Db_actions.vM_is_a_snapshot
+	then check_snapshot ~vmr ~op ~ref_str
+
+	(* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
 	else if op = `provision
 	then Some (Api_errors.only_provision_template, [])
+
+	else if op = `revert
+	then Some (Api_errors.only_revert_snapshot, [])
 
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)
@@ -215,7 +229,7 @@ let update_allowed_operations ~__context ~self =
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `create_template;
+			[`snapshot; `copy; `clone; `create_template; `revert;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
