@@ -99,7 +99,9 @@ end
 module PV_Vnc :
 sig
 	exception Failed_to_start
-	val start : xs:Xs.xsh -> Xc.domid -> int
+	val save : xs:Xs.xsh -> Xc.domid -> unit
+	val get_statefile : xs:Xs.xsh -> Xc.domid -> string option
+	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> int
 end
 
 module PCI :
