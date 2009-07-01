@@ -113,11 +113,31 @@ let assert_can_restore_backup rpc session_id (x: header) =
 	     then raise (Api_errors.Server_error(Api_errors.duplicate_vm, [ List.assoc x existing_seeds_table ]))
 	     | None -> ()) (List.map get_mac_seed all_vms)
 
+(** Find the host with the same uuid as the one recorded in the snapshot *)
+let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
+	let host_record = API.From.host_t "" x.snapshot in
+	let host = 
+		try Client.Host.get_by_uuid rpc session_id host_record.API.host_uuid
+		with _ -> Ref.null in
+	state.table <- (x.cls, x.id, Ref.string_of host) :: state.table
 
 (** Create a new VM record, add the reference to the table *)
 let handle_vm __context config rpc session_id (state: state) (x: obj) : unit = 
   let task_id = Ref.string_of (Context.get_task_id __context) in
   let vm_record = API.From.vM_t "" x.snapshot in
+  (* Do not create a VM which already exists if we do a full restore *)
+  let already_existing_VM () =
+	  try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in true
+	  with _ -> false in
+  if not (config.full_restore && already_existing_VM ()) then begin
+  (* if the VM is a default template, then pick-up the one with the same name *)
+  if vm_record.API.vM_is_a_template
+	&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
+	&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
+  then begin
+	let template = try List.hd (Db.VM.get_by_name_label ~__context ~label:vm_record.API.vM_name_label) with _ -> Ref.null in
+	state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
+  end else
   (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
   let other_config = List.filter 
     (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
@@ -162,7 +182,13 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
       error "Import failed: %s" msg;
       raise e
     end
-  end;
+  end else
+    Db.VM.set_power_state ~__context ~self:vm ~value:vm_record.API.vM_power_state;
+
+  (* We might want to import a control domain *)
+  Db.VM.set_is_control_domain~__context  ~self:vm ~value:vm_record.API.vM_is_control_domain;
+  Db.VM.set_resident_on ~__context ~self:vm ~value:(try lookup vm_record.API.vM_resident_on state.table with _ -> Ref.null);
+  Db.VM.set_affinity ~__context ~self:vm ~value:(try lookup vm_record.API.vM_affinity state.table with _ -> Ref.null);
 
   (* Update the snapshot metadata. At this points, the snapshot_of field is not relevant as
 	 it use the export ref. However, as the corresponding VM object may have not been created
@@ -170,6 +196,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:vm_record.API.vM_is_a_snapshot;
   Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
   Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
+  Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
   
   begin try
 	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
@@ -187,6 +214,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
 
   state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table
+  end
 
 (** Create the guest metrics *)
 let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
@@ -358,8 +386,7 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
     state.cleanup <- (fun __context rpc session_id -> Client.VBD.destroy rpc session_id vbd) :: state.cleanup;
     (* Now that we can import/export suspended VMs we need to preserve the
        currently_attached flag *)
-    if Db.VM.get_power_state ~__context ~self:vm = `Suspended
-    then Db.VBD.set_currently_attached ~__context ~self:vbd ~value:vbd_record.API.vBD_currently_attached;
+    Db.VBD.set_currently_attached ~__context ~self:vbd ~value:vbd_record.API.vBD_currently_attached;
     state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table in
 
   (* If the VBD is supposed to be attached to a PV guest (which doesn't support
@@ -412,6 +439,7 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers = 
   [
+    Datamodel._host, handle_host;
     Datamodel._sr, handle_sr;
     Datamodel._vdi, handle_vdi;
     Datamodel._vm_guest_metrics, handle_gm;
@@ -424,7 +452,7 @@ let handlers =
 let update_snapshot_links ~__context state =
 	let aux (cls, id, ref) =
 		let ref = Ref.of_string ref in
-		if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then
+		if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then begin
 			let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
 			if snapshot_of <> Ref.null 
 			then begin
@@ -436,6 +464,7 @@ let update_snapshot_links ~__context state =
 						 Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of)
 					state.table
 			end
+		end
 	in
 	List.iter aux state.table
 

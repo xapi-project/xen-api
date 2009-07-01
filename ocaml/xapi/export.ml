@@ -45,13 +45,18 @@ let make_id =
 
 let rec update_table ~__context ~include_snapshots ~table ~vm =
   let add r = Hashtbl.add table (Ref.string_of r)(make_id ()) in
+ 
+  if Db.is_valid_ref vm then begin
   add vm;
   let vm = Db.VM.get_record ~__context ~self:vm in
-  List.iter (fun vif ->
+  List.iter 
+	(fun vif -> if Db.is_valid_ref vif then begin
 	       add vif;
 	       let vif = Db.VIF.get_record ~__context ~self:vif in
-	       add vif.API.vIF_network) vm.API.vM_VIFs;
-  List.iter (fun vbd ->
+	       add vif.API.vIF_network end) 
+	vm.API.vM_VIFs;
+  List.iter 
+	(fun vbd -> if Db.is_valid_ref vbd then begin
 	       add vbd;
 	       let vbd = Db.VBD.get_record ~__context ~self:vbd in
 	       if not(vbd.API.vBD_empty)
@@ -59,21 +64,23 @@ let rec update_table ~__context ~include_snapshots ~table ~vm =
 		 let vdi = vbd.API.vBD_VDI in
 		 add vdi;
 		 let vdi = Db.VDI.get_record ~__context ~self:vdi in
-		 add vdi.API.vDI_SR) vm.API.vM_VBDs;
+		 add vdi.API.vDI_SR end) 
+	vm.API.vM_VBDs;
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
   if include_snapshots then
 	  List.iter 
 		  (fun snap -> update_table ~__context ~include_snapshots ~table ~vm:snap)
 		  vm.API.vM_snapshots;
   (* If VM is suspended then add the suspend_VDI *)
-  if vm.API.vM_power_state = `Suspended then begin
-    let vdi = vm.API.vM_suspend_VDI in
+  let vdi = vm.API.vM_suspend_VDI in
+  if vm.API.vM_power_state = `Suspended && Db.is_valid_ref vdi then begin
     add vdi;
     let vdi = Db.VDI.get_record ~__context ~self:vdi in
     add vdi.API.vDI_SR
   end;
   (* Add also the guest metrics *)
   add vm.API.vM_guest_metrics
+  end
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
     to include in the output. Other object references will be purged. *)
@@ -87,12 +94,25 @@ let lookup table r =
 (** Convert a list of internal references into external references, filtering out NULLs *)
 let filter table rs = List.filter (fun x -> x <> Ref.null) (List.map (lookup table) rs)
 
+(** Convert an Host to an obj *)
+let make_host table __context self =
+	let host = Db.Host.get_record ~__context ~self in
+	let host = { host with
+					API.host_PIFs = [];
+					API.host_PBDs = [];
+					API.host_host_CPUs = [];
+					API.host_crash_dump_sr = lookup table (Ref.string_of host.API.host_crash_dump_sr);
+					API.host_suspend_image_sr = lookup table (Ref.string_of host.API.host_suspend_image_sr);
+					API.host_resident_VMs = List.map (fun vm -> lookup table (Ref.string_of vm)) host.API.host_resident_VMs } in
+	{ cls = Datamodel._host;
+	  id  = Ref.string_of (lookup table (Ref.string_of self));
+	  snapshot = API.To.host_t host }
+
 (** Convert a VM reference to an obj *)
 let make_vm ?(with_snapshot_metadata=false) table __context self = 
   let vm = Db.VM.get_record ~__context ~self in
   let vm = { vm with 
  	        API.vM_suspend_VDI = lookup table (Ref.string_of vm.API.vM_suspend_VDI);
- 	        API.vM_resident_on = lookup table (Ref.string_of vm.API.vM_resident_on);
 		API.vM_is_a_snapshot = if with_snapshot_metadata then vm.API.vM_is_a_snapshot else false;
 		API.vM_snapshot_of =
 		  if with_snapshot_metadata 
@@ -105,6 +125,8 @@ let make_vm ?(with_snapshot_metadata=false) table __context self =
 		API.vM_VBDs = filter table (List.map Ref.string_of vm.API.vM_VBDs);
 		API.vM_crash_dumps = [];
 		API.vM_VTPMs = [];
+		API.vM_resident_on = lookup table (Ref.string_of vm.API.vM_resident_on);
+		API.vM_affinity = lookup table (Ref.string_of vm.API.vM_affinity);
 		API.vM_consoles = [];
 		API.vM_metrics = Ref.null;
 		API.vM_guest_metrics = lookup table (Ref.string_of vm.API.vM_guest_metrics) } in
@@ -175,6 +197,7 @@ let make_sr table __context self =
 
 let make_all ~with_snapshot_metadata table __context = 
   let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
+  let hosts = List.map (make_host table __context) (filter table (Db.Host.get_all ~__context)) in
   let vms  = List.map (make_vm ~with_snapshot_metadata table __context) (filter table (Db.VM.get_all ~__context)) in
   let gms  = List.map (make_gm table __context) (filter table (Db.VM_guest_metrics.get_all ~__context)) in
   let vbds = List.map (make_vbd table __context) (filter table (Db.VBD.get_all ~__context)) in
@@ -183,7 +206,7 @@ let make_all ~with_snapshot_metadata table __context =
   let vdis = List.map (make_vdi table __context) (filter table (Db.VDI.get_all ~__context)) in
   let srs  = List.map (make_sr table __context) (filter table (Db.SR.get_all ~__context)) in
   
-  vms @ gms @ vbds @ vifs @ nets @ vdis @ srs 
+  hosts @ vms @ gms @ vbds @ vifs @ nets @ vdis @ srs 
 
 open Xapi_globs
 
