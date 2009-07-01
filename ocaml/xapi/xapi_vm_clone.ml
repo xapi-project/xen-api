@@ -197,6 +197,18 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 		~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
 		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m));	
 
+	(* compute the parent VM *)
+	let parent =
+		match disk_op with
+		| Disk_op_clone | Disk_op_copy _-> vm
+		| Disk_op_snapshot -> all.Db_actions.vM_parent in
+
+	(* update the VM's parent field in case of snapshot. *)
+	begin match disk_op with
+		| Disk_op_clone | Disk_op_copy _-> ()
+		| Disk_op_snapshot -> Db.VM.set_parent ~__context ~self:vm ~value:ref
+	end;
+
 	(* create a new VM *)
 	Db.VM.create ~__context 
 		~ref
@@ -213,6 +225,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
 		~transportable_snapshot_id:""
+		~parent
 		~resident_on:Ref.null
 		~scheduled_to_be_resident_on:Ref.null
 		~affinity:all.Db_actions.vM_affinity

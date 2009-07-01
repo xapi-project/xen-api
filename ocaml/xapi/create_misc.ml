@@ -156,6 +156,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 		~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost ~suspend_VDI:Ref.null
 		~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch
 		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null ~transportable_snapshot_id:""
+		~parent:Ref.null
 		~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[] ~user_version:1L
 		~ha_restart_priority:"" ~ha_always_run:false ~recommendations:""
 		~last_boot_CPU_flags:[] ~last_booted_record:""
@@ -222,7 +223,7 @@ and create_domain_zero_default_memory_constraints () =
 	    static_max  = static_max;
 	  }
 
-and update_domain_zero_record ~__context ~domain_zero_ref =
+and update_domain_zero_record ~__context ~domain_zero_ref : unit =
 	(* Fetch existing memory constraints for domain 0. *)
 	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref in
 	(* Generate new memory constraints from the old constraints. *)

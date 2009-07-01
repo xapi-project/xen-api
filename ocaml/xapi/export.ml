@@ -43,10 +43,12 @@ let make_id =
     incr counter;
     "Ref:" ^ (string_of_int this)
 
-let rec update_table ~__context ~include_snapshots ~table ~vm =
-  let add r = Hashtbl.add table (Ref.string_of r)(make_id ()) in
+let rec update_table ~__context ~include_snapshots ~table vm =
+  let add r = 
+	  if not (Hashtbl.mem table (Ref.string_of r)) then
+		  Hashtbl.add table (Ref.string_of r)(make_id ()) in
  
-  if Db.is_valid_ref vm then begin
+  if Db.is_valid_ref vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
   add vm;
   let vm = Db.VM.get_record ~__context ~self:vm in
   List.iter 
@@ -69,7 +71,7 @@ let rec update_table ~__context ~include_snapshots ~table ~vm =
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
   if include_snapshots then
 	  List.iter 
-		  (fun snap -> update_table ~__context ~include_snapshots ~table ~vm:snap)
+		  (fun snap -> update_table ~__context ~include_snapshots:false ~table snap)
 		  vm.API.vM_snapshots;
   (* If VM is suspended then add the suspend_VDI *)
   let vdi = vm.API.vM_suspend_VDI in
@@ -79,7 +81,9 @@ let rec update_table ~__context ~include_snapshots ~table ~vm =
     add vdi.API.vDI_SR
   end;
   (* Add also the guest metrics *)
-  add vm.API.vM_guest_metrics
+  add vm.API.vM_guest_metrics;
+  (* Add the parent VM *)
+  if include_snapshots then update_table ~__context ~include_snapshots:false ~table vm.API.vM_parent
   end
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
@@ -121,6 +125,10 @@ let make_vm ?(with_snapshot_metadata=false) table __context self =
 		API.vM_snapshots = if with_snapshot_metadata then vm.API.vM_snapshots else [];
 		API.vM_snapshot_time = if with_snapshot_metadata then vm.API.vM_snapshot_time else Date.never;
 		API.vM_transportable_snapshot_id = if with_snapshot_metadata then vm.API.vM_transportable_snapshot_id else "";
+		API.vM_parent =
+			if with_snapshot_metadata
+			then lookup table (Ref.string_of vm.API.vM_parent)
+			else Ref.null;
 		API.vM_VIFs = filter table (List.map Ref.string_of vm.API.vM_VIFs);
 		API.vM_VBDs = filter table (List.map Ref.string_of vm.API.vM_VBDs);
 		API.vM_crash_dumps = [];
@@ -215,7 +223,7 @@ open Xapi_globs
    which are snapshots of the exported VM. *)
 let vm_metadata ~with_snapshot_metadata ~__context ~vms =
   let table = create_table () in
-  List.iter (fun vm -> update_table ~__context ~include_snapshots:with_snapshot_metadata ~vm ~table) vms;
+  List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~table) vms;
   let objects = make_all ~with_snapshot_metadata table __context in
   let header = { version = this_version __context;
 		   objects = objects } in
@@ -306,7 +314,7 @@ let metadata_handler (req: request) s =
 			let export_all = export_all_vms_from_request ~__context req in
 
 			(* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
-			(* In case of exporting all the VMs metadata, get all the VM records which are default templates. *)
+			(* In case of exporting all the VMs metadata, get all the VM records which are not default templates. *)
 			let vm_refs =
 				if export_all then begin
 					let is_default_template vm =

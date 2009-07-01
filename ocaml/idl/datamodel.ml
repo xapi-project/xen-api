@@ -17,7 +17,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 57
+let schema_minor_vsn = 58
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -4532,6 +4532,9 @@ let vm =
 	field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~qualifier:RW ~ty:(Map(vm_operations, String)) "blocked_operations" "List of operations which have been explicitly blocked and an error code";
 
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VRef "")) ~ty:(Ref _vm)       "parent"       "Ref pointing to the parent of this VM";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
+
       ])
 
 let vm_memory_metrics = 
@@ -4838,6 +4841,7 @@ let all_relations =
     (* snapshots *)
     (_vm, "snapshot_of"), (_vm, "snapshots");
     (_vdi, "snapshot_of"), (_vdi, "snapshots");
+    (_vm, "parent"), (_vm, "children");
 
     (* subtasks hierarchy *)
     (_task, "subtask_of"), (_task, "subtasks");

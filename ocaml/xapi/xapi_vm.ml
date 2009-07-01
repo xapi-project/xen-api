@@ -625,8 +625,15 @@ let create ~__context ~name_label ~name_description
       ~blocked_operations
 
 let destroy  ~__context ~self = 
-  Monitor_rrds.maybe_remove_rrd (Db.VM.get_uuid ~__context ~self);
-  destroy ~__context ~self
+	let parent = Db.VM.get_parent ~__context ~self in
+
+	(* rebase the children *)
+	List.iter
+		(fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
+		(Db.VM.get_children ~__context ~self);
+
+	Monitor_rrds.maybe_remove_rrd (Db.VM.get_uuid ~__context ~self);
+	destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
    lock on a specific pool host and is used to manage contention between API threads and the
