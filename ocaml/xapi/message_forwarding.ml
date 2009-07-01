@@ -532,11 +532,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VM = struct
     (** Add to the VM's current operations, call a function and then remove from the
 	current operations. Ensure the allowed_operations are kept up to date. *)
-    let with_vm_operation ~__context ~self ~doc ~op f =
+    let with_vm_operation ?(assert_valid=true) ~__context ~self ~doc ~op f =
       let task_id = Ref.string_of (Context.get_task_id __context) in
       retry_with_global_lock ~__context ~doc
 	(fun () ->
-	   Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
+	   if assert_valid then Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
 	   Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
 	   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
       (* Then do the action with the lock released *)
@@ -1154,7 +1154,27 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		     ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
-    
+
+	let revert ~__context ~snapshot =
+		info "VM.revert: snapshot = '%s'" (vm_uuid ~__context snapshot);
+
+		let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
+		let vm = 
+			if Db_cache.DBCache.is_valid_ref (Ref.string_of vm)
+			then vm
+			else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
+
+		let local_fn = Local.VM.revert ~snapshot in
+		let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
+
+		with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
+			(fun () -> with_vm_operation ~assert_valid:false ~__context ~self:vm ~doc:"VM.revert" ~op:`revert
+				 (fun () -> 
+					  if Db.VM.get_power_state __context vm = `Running then
+						  forward_vm_op ~local_fn ~__context ~vm forward_fn
+					  else
+						  forward_to_access_srs ~local_fn ~__context ~vm forward_fn))
+
     (* same forwarding logic as clone *)
     let csvm ~__context ~vm =
       info "VM.csvm: VM = '%s'" (vm_uuid ~__context vm);

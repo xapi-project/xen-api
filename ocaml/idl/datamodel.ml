@@ -1083,6 +1083,15 @@ let vm_snapshot = call
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
   ()
 
+let vm_revert = call
+  ~name:"revert"
+  ~in_product_since: rel_midnight_ride
+  ~doc:"Reverts the specified VM to a previous state."
+  ~params:[Ref _vm, "snapshot", "The snapshotted state that we revert to"]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed;
+		Api_errors.sr_full; Api_errors.vm_revert_failed ]
+  ()
+
 let vm_create_template = call
   ~name:"create_template"
   ~in_product_since:rel_midnight_ride
@@ -4428,7 +4437,7 @@ let vm_power_state =
 let vm_operations = 
   Enum ("vm_operations",
 	List.map operation_enum
-	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template;
+	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
@@ -4454,7 +4463,7 @@ let vm =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
       ~gen_events:true
       ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
-      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_create_template;
+      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_create_template; vm_revert;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
 		vm_hardReboot_internal;
