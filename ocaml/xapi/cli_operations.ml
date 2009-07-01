@@ -2063,6 +2063,7 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session
 let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true 
 let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer false 
 let vm_snapshot_with_quiesce printer = vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false
+let vm_checkpoint printer = vm_clone_aux Client.VM.checkpoint "Checkpointed " printer false
 
 let snapshot_revert printer rpc session_id params =
 	let snap_uuid = List.assoc "snapshot-uuid" params in
