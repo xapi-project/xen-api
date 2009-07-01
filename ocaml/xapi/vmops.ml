@@ -579,7 +579,7 @@ let pcidevs_of_vm ~__context ~vm =
 (* Create the qemu-dm device emulator process. Has to be done after the
    disks and vifs have already been added.
    Returns the port number of the default VNC console. *)
-let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) domid vifs snapshot =
+let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statefile domid vifs snapshot =
 	let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max
 	and mem_max_kib = Int64.div snapshot.API.vM_memory_static_max 1024L in
 	let other_config = snapshot.API.vM_other_config in
@@ -639,7 +639,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) domid vifs 
 	        (* if we have a "disable_pv_vnc" entry in other_config we disable
 		   VNC for PV *)
 		let disable_pv_vnc = List.mem_assoc "disable_pv_vnc" other_config in
-		if not disable_pv_vnc then Device.PV_Vnc.start ~xs domid else 0
+		if not disable_pv_vnc then Device.PV_Vnc.start ~xs domid ?statefile:vnc_statefile else 0
 	end
 
 
@@ -685,7 +685,7 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	set_cpus_mask ~__context ~xc ~self domid at_boot_time
 
 (* restore the domain, assumes the devices are already set up *)
-let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
+let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domid vifs =
 	let ballooning_enabled = Helpers.ballooning_enabled_for_vm ~__context at_boot_time in
 
 	(* NB the last-known timeoffset is used, not the at boot time one *)
@@ -716,7 +716,7 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	) else (
 		Domain.restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~vcpus fd;
 	);
-	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true domid vifs at_boot_time in
+	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile domid vifs at_boot_time in
 	create_console ~__context ~vM:self ~vncport ()
 
 (** In Rio suspend images had filenames of the form: 
@@ -734,7 +734,15 @@ let find_suspend_image mountpoint =
   | x :: _ ->
       warn "Suspend VDI contains multiple files starting with 'suspend-image': how did this happen?";
       mountpoint ^ "/" ^ x
- 
+
+let find_vnc_statefile mountpoint =
+	match List.filter (String.startswith "vncterm.statefile") (Array.to_list (Sys.readdir mountpoint)) with
+	| [] -> 
+		  debug "restore: no vncterm.statefile found"; None
+	| h::_ -> 
+		  let filename = mountpoint ^ "/" ^ h in
+		  debug "restore: a vncterm statefile (%s) has been found" filename;
+		  Some filename
 
 (** Get the suspend VDI, mount the disk, open the file and call _restore*. Guarantees to
     always unmount the VDI and, only if the restore succeeds, deletes the VDI (otherwise
@@ -747,6 +755,7 @@ let restore ~__context ~xc ~xs ~self domid =
        Sm_fs_ops.with_fs_vdi __context suspend_vdi
 	 (fun mount_point ->
 	    let filename = find_suspend_image mount_point in
+		let vnc_statefile = find_vnc_statefile mount_point in
 	    debug "Using suspend image: %s" filename;
 	    let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0o400 in
 	    finally 
@@ -759,7 +768,7 @@ let restore ~__context ~xc ~xs ~self domid =
 			try
 			  let vifs = Vm_config.vifs_of_vm ~__context ~vm:self domid in
 			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs;
-			  _restore_domain ~__context ~xc ~xs ~self snapshot fd domid vifs;
+			  _restore_domain ~__context ~xc ~xs ~self snapshot fd ?vnc_statefile domid vifs;
 
 			with exn ->
 			  begin
@@ -881,7 +890,10 @@ let suspend ~progress_cb ~__context ~xc ~xs ~vm =
 	 ~sR:suspend_SR ~_type:`suspend ~required_space
 	 ~sm_config:[Xapi_globs._sm_vm_hint, uuid]
 	 (fun vdi_ref mount_point ->
+
 	    let filename = sprintf "%s/suspend-image" mount_point in
+		let vnc_statefile = sprintf "%s/vncterm.statefile" mount_point in
+
 	    debug "suspend: phase 1/2: opening suspend image file (%s)" filename;
 	    (* NB if the suspend file already exists it will be overwritten *)
 	    let fd = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
@@ -889,10 +901,28 @@ let suspend ~progress_cb ~__context ~xc ~xs ~vm =
 	      (fun () ->
 		 let domid = Helpers.domid_of_vm ~__context ~self:vm in
 		 debug "suspend: phase 2/2: suspending to disk";
+
+		 Device.PV_Vnc.save ~xs domid;
+		 begin match Device.PV_Vnc.get_statefile ~xs domid with
+		 | None -> debug "suspend: no vncterm.statefile found"
+		 | Some f -> 
+			   debug "suspend: a vncterm statefile (%s) has been found, saving into %s" f vnc_statefile;
+			   let fd_src = Unix.openfile f [Unix.O_RDONLY] 0o600 in
+			   let fd_dst = Unix.openfile vnc_statefile [Unix.O_WRONLY; Unix.O_CREAT] 0o600 in
+			   finally
+				   (fun () -> let (_:int64) = Unixext.copy_file fd_src fd_dst in ())
+				   (fun () ->
+						Unix.close fd_src;
+						Unix.close fd_dst;
+						debug "suspend: deleting '%s'" f;
+						Unix.unlink f)
+		 end;
+
 		 with_xal
 		   (fun xal ->
 		      Domain.suspend ~xc ~xs ~hvm domid fd [] ~progress_callback:progress_cb
 			(fun () -> clean_shutdown_with_reason ~xal ~__context ~self:vm domid Domain.Suspend));
+
 		 (* If the suspend succeeds, set the suspend_VDI *)
 		 Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;
 	      )

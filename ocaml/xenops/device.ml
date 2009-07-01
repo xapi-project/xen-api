@@ -825,13 +825,57 @@ let vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 
 let path domid = sprintf "/local/domain/%d/serial/0/vnc-port" domid
 
+let pid ~xs domid =
+	try
+		let pid = xs.Xs.read (sprintf "/local/domain/%d/serial/0/vncterm-pid" domid) in
+		Some (int_of_string pid)
+	with _ ->
+		None
+
+let load_args = function
+	| None -> []
+	| Some filename ->
+		if Sys.file_exists filename
+		then ["-l"; filename]
+		else []
+
 exception Failed_to_start
 
-let start ~xs domid =
+let vncterm_statefile pid = sprintf "/var/xen/vncterm/%d/vncterm.statefile" pid
+
+let get_statefile ~xs domid =
+	match pid ~xs domid with
+	| None -> None
+	| Some pid -> 
+		  let filename = vncterm_statefile pid in
+		  if Sys.file_exists filename then
+			  Some filename
+		  else
+			  None
+
+let save ~xs domid =
+	match pid ~xs domid with
+	| Some pid -> 
+		  Unix.kill pid Sys.sigusr1;
+		  let filename = vncterm_statefile pid in
+		  let delay = 10. in
+		  let start_time = Unix.time () in
+		  (* wait at most ten seconds *)
+		  while not (Sys.file_exists filename) || Unix.time () -. start_time > delay do
+			  debug "Device.PV_Vnc.save: waiting for %s to appear" filename;
+			  Thread.delay 1.
+		  done;
+		  if Unix.time () -. start_time > delay then
+			  debug "Device.PV_Vnc.save: timeout while waiting for %s to appear" filename
+		  else
+			  debug "Device.PV_Vnc.save: %s has appeared" filename
+	| None     -> ()
+
+let start ?statefile ~xs domid =
 	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
 		  (* everything else goes straight through to vncterm-wrapper: *)
 		  "-x"; sprintf "/local/domain/%d/serial/0" domid;
-		] in
+		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
 	let cmdline = Forkhelpers.close_and_exec_cmdline [] vncterm_wrapper l in
 	debug "Executing [ %s ]" (String.concat " " cmdline);
