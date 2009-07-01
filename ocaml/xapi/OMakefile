@@ -112,6 +112,7 @@ OCamlProgram(xapi, $(COMMON) \
 	xapi_subject \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
+	xapi_vm_snapshot \
 	xapi_vm_helpers \
 	xmlrpc_sexpr \
 	memory_check \
