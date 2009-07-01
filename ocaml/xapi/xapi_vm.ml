@@ -642,68 +642,15 @@ let clone ~__context ~vm ~new_name =
      to proceed in parallel. *)
   Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name
 
+(* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
+(* the VBD level (with pause/unpause mechanism                                                   *)
 let snapshot ~__context ~vm ~new_name =
-  debug "Snapshot: begin";
-  TaskHelper.set_cancellable ~__context;
-  let res = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name in
-  debug "Snapshot: end"; 
-  res
+	Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
 
-let vss_mutex = Mutex.create ()
-
+(* Snapshot_with_quiesce triggers the VSS plugin which will then calls the VM.snapshot API call.     *)
+(* Thus, to avoid dead-locks, do not put snapshot and snapshot_with_quiesce on the same waiting line *)
 let snapshot_with_quiesce ~__context ~vm ~new_name =
-  debug "Snapshot_with_quiesce: begin";
-  let path = Printf.sprintf "/local/domain/%Ld/control/" (Db.VM.get_domid ~__context ~self:vm) in
-  let snapshotpath x = path ^ "snapshot/" ^ x in
-
-  let r = with_xs (fun xs ->
-    let flag_set flag = try xs.Xs.read (path ^ flag) = "1" with e -> (debug "Exception while reading %s flag: %s" flag (Printexc.to_string e); false) in
-    (* 1. We first check if the VM supports VSS *)
-    if flag_set "feature-snapshot" || flag_set "feature-quiesce"
-    then begin
-      Pervasiveext.finally (fun () ->
-        (* 2. if it the case, we can trigger a VSS snapshot *)
-        Mutex.lock vss_mutex;
-        (* we clean the snapshot directory to be sure that nothing wrong remains from the last calls *)
-        xs.Xs.rm (path ^ "snapshot");
-        (* we trigger the VSS plugin *)
-        xs.Xs.write (snapshotpath "action") "create-snapshot";
-        try 
-          debug "Snapshot_with_quiesce: wait for the VSS agent to take the hand";
-          Watch.wait_for ~xs ~timeout:(60.) (Watch.key_to_disappear (snapshotpath "action"));
-          debug "Snapshot_with_quiesce: wait for the VSS agent to return a snapshot";
-          try match Watch.wait_for ~xs ~timeout:(5.*.60.) (Watch.value_to_appear (snapshotpath "status")) with 
-              | str when str = "snapshot-created" -> 
-                (* 3. we get the transportable snap ID *)
-                debug "Snapshot_with_quiesce: get the transportable ID";
-                let snapid = xs.Xs.directory (snapshotpath "snapid") in
-                let snapid = List.sort (fun s1 s2 -> if String.length s1 <> String.length s2 then String.length s1 - String.length s2 else compare s1 s2) snapid in
-                let snapid = List.map (fun file -> xs.Xs.read (snapshotpath ("snapid/"^file))) snapid in
-                let snapid = String.concat "" snapid in
-                  (* 4. we get the uuid of the snapshot VM *)
-                  debug "Snapshot_with_quiesce: get uuid of the snapshot VM";
-                  let snapshot_uuid = xs.Xs.read (snapshotpath "snapuuid") in
-                  let snapshot_ref = Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid in
-                    Db.VM.set_transportable_snapshot_id ~__context ~self:snapshot_ref ~value:snapid;
-                    Db.VM.set_name_label ~__context ~self:snapshot_ref ~value:new_name;  
-                    snapshot_ref
-            | str when str = "snapshot-error" ->
-                (* if an error was occured we get the error type and return *)
-                debug "Snapshot_with_quiesce: get an error";
-                raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ xs.Xs.read (snapshotpath "error") ]))
-            | _ -> 
-                raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "unexpected result" ]))
-          with Xs.Timeout -> raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "Timed out waiting for VSS snapshot" ]))
-        with Xs.Timeout -> raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, [ "VSS plugin does not respond" ])))
-        (fun () ->
-          (* 4. we delete the xenstore directory *)
-          xs.Xs.rm (path ^ "snapshot");
-          Mutex.unlock vss_mutex)
-    end else
-      raise (Api_errors.Server_error(Api_errors.vm_snapshot_failed, ["Quiesce snapshot not supported"]))
-    ) in
-    debug "Snapshot_with_quiesce: end";
-    r
+	Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
 
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
