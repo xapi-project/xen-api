@@ -187,7 +187,7 @@ type cleanup_stack = (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> un
 let cleanup (x: cleanup_stack) = 
   (* Always perform the cleanup with a fresh login + context to prevent problems with
      any user-supplied one being invalidated *)
-  Server_helpers.exec_with_new_task "cleaning up after failed VM import" ~task_in_database:true
+  Server_helpers.exec_with_new_task "VM.import (cleanup)" ~task_in_database:true
     (fun __context ->
        Helpers.call_api_functions ~__context
 	 (fun rpc session_id ->
