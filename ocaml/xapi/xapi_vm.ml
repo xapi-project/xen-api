@@ -725,8 +725,7 @@ let provision ~__context ~vm =
 	     Locking_helpers.with_lock vm (fun token () ->
 	(* This bit could be done in the guest: *)
 	debug "start: checking to see whether VM needs 'installing'";
-	let rpc = Helpers.make_rpc ~__context in
-	let session_id = Context.get_session_id __context in
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
 	     set_is_a_template ~__context ~self:vm ~value:false;
 	     if Xapi_templates.needs_to_be_installed rpc session_id vm
 	     then begin
@@ -751,7 +750,7 @@ let provision ~__context ~vm =
 				 (fun self -> Client.VDI.destroy rpc session_id self)) vdis;
 		   raise e
 	       end
-	     end
+	     end)
 ) ()
 	  )
 

@@ -122,10 +122,6 @@ let header_of_xmlrpc x =
     objects   = XMLRPC.From.array obj_of_xmlrpc (find _objects);
   }
 
-(* Used to make API calls *)
-let rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" 
-  ~filename:Xapi_globs.unix_domain_socket ~path:"/" xml 
-
 open Client
 
 (** HTTP header type used for streaming binary data *)

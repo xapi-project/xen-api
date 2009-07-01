@@ -344,14 +344,11 @@ let handler (req: request) s =
 	 begin
 	   debug "Doing xapi_http.with_context now...";
 	   Xapi_http.with_context "Exporting VM" req s
-	     (fun __context ->
+	     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
 	       
 	       (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
 	       (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
 	       TaskHelper.set_progress ~__context 0.0;
-
-	       let session_id=Context.get_session_id __context in     
-	       
 	       let refresh_session = Xapi_session.consider_touching_session rpc session_id in	      
 	       let task_id = Ref.string_of (Context.get_task_id __context) in
 	       let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
@@ -366,6 +363,6 @@ let handler (req: request) s =
 		    export refresh_session __context rpc session_id s vm_ref)
 		 
        	     (* Exceptions are handled by Server_helpers.with_context *)
-	     )
+	     ))
 	 end
     )
