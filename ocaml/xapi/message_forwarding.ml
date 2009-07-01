@@ -10,6 +10,7 @@ open D
 module Audit = Debug.Debugger(struct let name="audit" end)
 let info = Audit.info
 
+
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
 
@@ -554,10 +555,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VBDs after " ^ doc)
 	(fun self -> 
-	   Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
-	)
+		if Db.is_valid_ref self then begin
+			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
+		end)
 	vbds      
 
     let mark_vbds ~__context ~vm ~doc ~op : API.ref_VBD list = 
@@ -590,11 +592,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let unmark_vifs ~__context ~vifs ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VIFs after " ^ doc)
-	(fun self -> 
-	   Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
-	)
+	(fun self ->
+		if Db.is_valid_ref self then begin 
+			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+		end)
 	vifs      
 
     let mark_vifs ~__context ~vm ~doc ~op : API.ref_VIF list = 
@@ -1171,7 +1174,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
 		let vm = 
-			if Db_cache.DBCache.is_valid_ref (Ref.string_of vm)
+			if Db.is_valid_ref vm
 			then vm
 			else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
 
@@ -1974,11 +1977,13 @@ end
     let unmark_vif ~__context ~vif ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VIF after " ^ doc)
-	(fun self -> 
-	   Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
-	) vif
+	(fun self ->
+		if Db.is_valid_ref self then begin
+			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+		end)
+	vif
 
     let mark_vif ~__context ~vif ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      
@@ -2158,10 +2163,12 @@ end
       debug "Unmarking SR after %s (task=%s)" doc task_id;
       log_exn_ignore ~doc:("unmarking SR after " ^ doc)
 	(fun self -> 
-	   Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_sr.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);	   
-	) sr
+		if Db.is_valid_ref self then begin
+			Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_sr.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
+		end)
+	sr
 
     let mark_sr ~__context ~sr ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      
@@ -2320,9 +2327,11 @@ end
 	List.iter 
 	  (log_exn_ignore ~doc:("unmarking VDI: " ^ reason)
 	     (fun self -> 
-		Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-		Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);		
-	     )) !vdis_marked in
+			if Db.is_valid_ref self then begin
+				Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
+				Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+			end))
+	  !vdis_marked in
 
       let signal_all () = 
 	List.iter (fun self -> Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self)) !vdis_marked in
@@ -2402,10 +2411,12 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn_ignore ~doc:("unmarking VDI after " ^ doc)
 	(fun self -> 
-	   Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_vdi.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
-	) vdi
+		if Db.is_valid_ref self then begin
+			Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_vdi.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+		end)
+	vdi
 
     let mark_vdi ~__context ~vdi ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -2612,10 +2623,12 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VBD after " ^ doc)
 	(fun self -> 
-	   Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
-	   Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-	   Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
-	) vbd      
+		if Db.is_valid_ref self then begin
+			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
+			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
+			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
+		end)
+	vbd      
 
     let mark_vbd ~__context ~vbd ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      

@@ -541,7 +541,7 @@ let metadata_handler (req: request) s =
 	 List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
        let force = 
 	 List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
-       info "import_metadata force = %b full_restore = %b" force full_restore;
+       info "VM.import_metadata: force = %b; full_restore = %b" force full_restore;
        let config = { sr = Ref.null; full_restore = full_restore; vm_metadata_only = true; force = force } in
        let headers = Http.http_200_ok ~keep_alive:false () @
 	 [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
@@ -609,7 +609,10 @@ let handler (req: request) s =
                 (Helpers.call_api_functions ~__context) 
                 get_default_sr 
        in
-         info "import sr = %s; force = %b; full_restore = %b" (Ref.string_of sr) force full_restore;
+         info "VM.import: SR = '%s%s'; force = %b; full_restore = %b" 
+			 (try Db.SR.get_uuid ~__context ~self:sr with _ -> "invalid")
+			 (try Printf.sprintf " (%s)" (Db.SR.get_name_label ~__context ~self:sr) with _ -> "")
+			 force full_restore;
          if not(check_sr_availability ~__context sr)
          then 
 	 (debug "sr not available - redirecting";
@@ -715,7 +718,7 @@ let handler (req: request) s =
 		      end
 		    in
 		    complete_import ~__context vmrefs;
-		    info "import successful"
+		    debug "import successful"
 	      with 
 		| IFailure failure ->
 		    begin
@@ -748,4 +751,4 @@ let handler (req: request) s =
 		    raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
 	   )
     );
-  info "import successful")
+  debug "import successful")

@@ -15,10 +15,7 @@ let host_heartbeat_table : (API.ref_host,float) Hashtbl.t = Hashtbl.create 16
 let host_skew_table : (API.ref_host,float) Hashtbl.t = Hashtbl.create 16
 let host_table_m = Mutex.create ()
 
-
-let is_valid = Db_cache.DBCache.is_valid_ref
-
-let valid_ref x = is_valid (Ref.string_of x)
+let valid_ref x = Db.is_valid_ref x
 
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_record =
   let all_refs = get_all ~__context in

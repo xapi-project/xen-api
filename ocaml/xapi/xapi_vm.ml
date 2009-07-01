@@ -106,7 +106,7 @@ let set_memory_static_max ~__context ~self ~value =
   if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (Db.Pool.get_ha_overcommitted ~__context ~self:pool)) then begin
     try
       let r = Db.VM.get_record ~__context ~self in
-      let running = Db_cache.DBCache.is_valid_ref (Ref.string_of r.API.vM_resident_on) in
+      let running = Db.is_valid_ref r.API.vM_resident_on in
       (* If the VM is running on a host then consider what a reboot would look like *)
       if running then begin
        let vm_t = Helpers.get_boot_record_of_record r.API.vM_last_booted_record r.API.vM_uuid in

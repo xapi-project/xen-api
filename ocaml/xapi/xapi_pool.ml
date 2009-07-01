@@ -670,7 +670,7 @@ let is_slave ~__context ~host =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)" (if is_slave then "slave" else "master");
   debug "About to kick the database connection to make sure it's still working...";
-  Db_cache.DBCache.is_valid_ref "Pool.is_slave checking to see if the database connection is up";
+  Db.is_valid_ref (Ref.of_string "Pool.is_slave checking to see if the database connection is up");
   is_slave
 
 let hello ~__context ~host_uuid ~host_address =
