@@ -2571,7 +2571,7 @@ let vm_import fd printer rpc session_id params =
 	      let writer _ task_id sock = 
 		try
 		  (* First add the metadata file *)
-		  let hdr = Tar.Header.make Xva.xml_filename (Int32.of_int (String.length buffer)) in
+		  let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int (String.length buffer)) in
 		  Tar.write_block hdr (fun ofd -> Tar.write_string ofd buffer) sock;
 		  List.iter 
 		    (fun vdi ->
@@ -2600,7 +2600,7 @@ let vm_import fd printer rpc session_id params =
 				| Blob (Chunk x) -> x
 				| _ -> failwith "Thin CLI protocol error"
 			      in
-			      let hdr = Tar.Header.make chunk length in
+			      let hdr = Tar.Header.make chunk (Int64.of_int32 length) in
 			      Tar.write_block hdr 
 				(fun ofd -> 
 				   let limit = Int64.of_int32 length in
