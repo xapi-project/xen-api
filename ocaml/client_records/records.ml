@@ -508,6 +508,7 @@ let vm_record rpc session_id vm =
    make_field ~name:"snapshots"      ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_snapshots)) ();
    make_field ~name:"snapshot_time"  ~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time) ();
    make_field ~name:"transportable-snapshot-id" ~hidden:true ~get:(fun () -> (x()).API.vM_transportable_snapshot_id) ();
+   make_field ~name:"snapshot-info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_snapshot_info) ();
 
    make_field ~name:"parent"       ~get:(fun () -> get_uuid_from_ref (x()).API.vM_parent) ();
    make_field ~name:"children"     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_children)) ();
