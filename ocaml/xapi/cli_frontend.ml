@@ -802,7 +802,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=["new-name-description"];
      help="Clone an existing VM, using storage-level fast disk clone operation where available.";
      implementation= No_fd Cli_operations.vm_clone;
-      flags=[Standard; Vm_selectors];
+     flags=[Standard; Vm_selectors];
    };
 
     "vm-snapshot",
@@ -829,8 +829,18 @@ let rec cmdtable_data : (string*cmd_spec) list =
      optn=["new-name-description"; "sr-uuid"];
      help="Copy an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
      implementation= No_fd Cli_operations.vm_copy;
-      flags=[Standard; Vm_selectors];
+     flags=[Standard; Vm_selectors];
    };
+
+   "snapshot-revert", 
+   {
+      reqd = ["snapshot-uuid"];
+      optn = [];
+      help ="Revert an existing VM to a previous checkpointed or snapshotted state.";
+      implementation = No_fd Cli_operations.snapshot_revert;
+      flags =[Standard];
+   };
+
 
    "vm-install",
    {
