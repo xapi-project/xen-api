@@ -230,7 +230,7 @@ let update_allowed_operations ~__context ~self =
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `create_template; `revert;
+			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
