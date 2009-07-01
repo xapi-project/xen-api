@@ -23,6 +23,7 @@ let vm_operation_table =
     `create_template, "create_template";
     `snapshot, "snapshot";
     `checkpoint, "checkpoint";
+    `snapshot_with_quiesce, "snapshot_with_quiesce";
     `copy, "copy";
     `revert, "revert";
     `provision, "provision";

@@ -29,7 +29,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `data_source_op
 	| `pool_migrate | `migrate | `suspend
 	| `send_sysrq | `send_trigger
-	| `pause
+	| `pause | `snapshot_with_quiesce
 	| `clean_shutdown | `clean_reboot -> [`Running]
 
 	| `create_template
@@ -56,11 +56,14 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	let long_copies = [`clone; `copy; `export; `create_template]
 	and boot_record = [`get_boot_record]
 	and snapshot    = [`snapshot]
+	and state_machine = 
+		let state = List.map snd current_ops in
+		state = [`snapshot_with_quiesce] && op = `snapshot
 	in
 	let aux ops =
 		List.mem op ops && List.for_all (fun (_,o) -> List.mem o ops) current_ops
 	in
-	aux long_copies || aux snapshot || aux boot_record
+	aux long_copies || aux snapshot || aux boot_record || state_machine
 
 (** Special handling is required for RedHat version 3 *)
 let is_rhel3 gmr =
@@ -196,6 +199,13 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 	else if power_state = `Suspended && (op = `clone || op = `copy) && not clone_suspended_vm_enabled
 	then Some (Api_errors.vm_bad_power_state, [ref_str; "halted"; Record_util.power_to_string power_state])
 
+	(* check if the dynamic changeable operations are still valid *)
+	else if op = `snapshot_with_quiesce && 
+		(Pervasiveext.maybe_with_default true
+			 (fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in 
+			  not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other)) 
+			 vmgmr)
+	then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
 	else None
 
 let maybe_get_guest_metrics ~__context ~ref =
@@ -230,7 +240,7 @@ let update_allowed_operations ~__context ~self =
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint;
+			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
