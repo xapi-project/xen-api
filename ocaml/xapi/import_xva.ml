@@ -16,7 +16,7 @@ open D
 open Client
 
 (** Connect to an XAPI server on host:port and construct the VMs *)
-let make __context session_id srid (vms, vdis) = 
+let make __context rpc session_id srid (vms, vdis) = 
   let task_id = Ref.string_of (Context.get_task_id __context) in
   
   (* On error, destroy all objects we have created *)
@@ -124,7 +124,7 @@ let from_xml refresh_session s __context rpc session_id srid xml =
   let vms, vdis = of_xml xml in
   let total_size = total_size_of_disks vdis in
 	      
-  let (vms,vdis,clean_up_stack) = make __context session_id srid (vms, vdis) in
+  let (vms,vdis,clean_up_stack) = make __context rpc session_id srid (vms, vdis) in
   try
     (* signal to GUI that object have been created and they can now go off and remapp networks *)
     TaskHelper.add_to_other_config ~__context "object_creation" "complete";

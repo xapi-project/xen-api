@@ -15,7 +15,6 @@ open Pervasiveext
 let handler (req: request) (s: Unix.file_descr) =
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
-      let session_id=Context.get_session_id __context in
       let vdi = 
 	if List.mem_assoc "vdi" req.Http.query
 	then Ref.of_string (List.assoc "vdi" req.Http.query)
