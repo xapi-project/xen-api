@@ -139,6 +139,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 let power_state_at_snapshot = "power-state-at-snapshot"
 let disk_snapshot_type = "disk-snapshot-type"
 let crash_consistent = "crash_consistent"
+let quiesced = "quiesced"
 
 let snapshot_info ~power_state ~is_a_snapshot =
 	let power_state_info = [power_state_at_snapshot, Record_util.power_state_to_string power_state] in

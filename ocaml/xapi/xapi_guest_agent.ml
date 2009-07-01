@@ -192,8 +192,10 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	    Db.VM_guest_metrics.set_os_version ~__context ~self:gm ~value:os_version;
 	  if(networks_cached <> networks) then
 	    Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks;
-	  if(other_cached <> other) then
+	  if(other_cached <> other) then begin
 	    Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
+	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+	  end;
 (*	  if(memory_cached <> memory) then
 	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
 	  
