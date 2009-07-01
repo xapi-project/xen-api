@@ -22,6 +22,7 @@ let vm_operation_table =
     `clone, "clone";
     `create_template, "create_template";
     `snapshot, "snapshot";
+    `checkpoint, "checkpoint";
     `copy, "copy";
     `revert, "revert";
     `provision, "provision";
