@@ -433,6 +433,7 @@ let handle_all __context config rpc session_id (xs: obj list) =
   try
     let one_type (cls, handler) =
       let instances = List.filter (fun x -> x.cls = cls) xs in
+      debug "Importing %i %s(s)" (List.length instances) cls;
       List.iter (fun x -> handler __context config rpc session_id state x) instances in
     List.iter one_type handlers;
     update_snapshot_links ~__context state;
@@ -453,11 +454,11 @@ let get_xml fd filename =
   let xml = Tar.Archive.with_next_file fd
     (fun s hdr ->
        if hdr.Tar.Header.file_name <> filename then raise (IFailure (Unexpected_file (filename, hdr.Tar.Header.file_name)));
-       let file_size = Int32.to_int hdr.Tar.Header.file_size in
-       let xml_string = String.make file_size '\000' in
-       really_read s xml_string 0 file_size;
+       let file_size = hdr.Tar.Header.file_size in
+       let xml_string = Bigbuffer.make () in
+       really_read_bigbuffer s xml_string file_size;
        xml_string) in
-  Xml.parse_string xml
+  Xml.parse_bigbuffer xml
 
 (** Remove "import" from the current operations of all created VMs, complete the
     task including the VM references *)

@@ -4389,6 +4389,7 @@ let vm_operations =
 	    "make_into_template", "Turning this VM into a template";
 	    "import", "importing a VM from a network stream";
 	    "export", "exporting a VM to a network stream";
+	    "metadata_export", "exporting VM metadata to a network stream";
 	    "destroy", "refers to the act of uninstalling the VM"; ]
        )
 

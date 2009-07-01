@@ -40,7 +40,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 
 	| `assert_operation_valid | `update_allowed_operations
 	| `power_state_reset
-	| `snapshot                       -> all_power_states
+	| `snapshot | `metadata_export    -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~power_state ~op =
@@ -115,7 +115,7 @@ let check_template ~vmr ~op ~ref_str =
 		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
 		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
 	in
-	if List.mem op [`clone; `copy; `export; `provision] || (op = `destroy && not default_template)
+	if List.mem op [`clone; `copy; `export; `provision; `metadata_export] || (op = `destroy && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str])
 
