@@ -7,7 +7,7 @@ SRCDIR=`dirname $0`
 cd $SRCDIR
 
 apt-get update -y -q
-apt-get install -y -q ocaml dosfstools
+apt-get install -y --force-yes -q ocaml dosfstools
 
 cd /root
 
