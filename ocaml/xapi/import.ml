@@ -146,13 +146,18 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   TaskHelper.operate_on_db_task ~__context (fun t -> 
     (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.import_task with _ -> ());
     Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.import_task ~value:(Ref.string_of t));
-  (* Set the power_state and suspend_VDI if the VM is suspended *)
+  (* Set the power_state and suspend_VDI if the VM is suspended.
+   * If anything goes wrong, still continue if forced. *)
   if vm_record.API.vM_power_state = `Suspended then begin
-    let vdi = log_reraise 
-      ("Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI))
-      (lookup vm_record.API.vM_suspend_VDI) state.table in
-    Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
-    Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+	try
+      let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
+      Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
+      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+    with e -> if not config.force then begin
+      let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in
+      error "Import failed: %s" msg;
+      raise e
+    end
   end;
 
   (* Update the snapshot metadata. At this points, the snapshot_of field is not relevant as
