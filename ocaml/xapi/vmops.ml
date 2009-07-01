@@ -878,13 +878,14 @@ let get_suspend_space __context vm =
 
 exception Domain_architecture_not_supported_in_suspend
 
-let suspend ~progress_cb ~__context ~xc ~xs ~vm =
+let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
        let uuid = Db.VM.get_uuid ~__context ~self:vm in
        let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
        let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
        let required_space = get_suspend_space __context vm in
+       let params = if live then [Domain.Live] else [] in
        Sm_fs_ops.with_new_fs_vdi __context
 	 ~name_label:"Suspend image" ~name_description:"Suspend image"
 	 ~sR:suspend_SR ~_type:`suspend ~required_space
@@ -920,7 +921,7 @@ let suspend ~progress_cb ~__context ~xc ~xs ~vm =
 
 		 with_xal
 		   (fun xal ->
-		      Domain.suspend ~xc ~xs ~hvm domid fd [] ~progress_callback:progress_cb
+		      Domain.suspend ~xc ~xs ~hvm domid fd params ~progress_callback:progress_cb
 			(fun () -> clean_shutdown_with_reason ~xal ~__context ~self:vm domid Domain.Suspend));
 
 		 (* If the suspend succeeds, set the suspend_VDI *)
@@ -930,6 +931,13 @@ let suspend ~progress_cb ~__context ~xc ~xs ~vm =
 	    debug "suspend: complete")
     )
 
+let resume ~__context ~xc ~xs ~vm =
+	let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+	Xapi_xenops_errors.handle_xenops_error (fun () ->
+		(* TTT: check if the domain is really cooperative *)
+		Domain.resume ~xs ~xc ~hvm ~cooperative:true domid;
+		Domain.unpause ~xc domid) 
 
 (** Starts up a VM, leaving it in the paused state *)
 let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =

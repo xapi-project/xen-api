@@ -113,10 +113,11 @@ let make_host table __context self =
 	  snapshot = API.To.host_t host }
 
 (** Convert a VM reference to an obj *)
-let make_vm ?(with_snapshot_metadata=false) table __context self = 
+let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __context self = 
   let vm = Db.VM.get_record ~__context ~self in
-  let vm = { vm with 
- 	        API.vM_suspend_VDI = lookup table (Ref.string_of vm.API.vM_suspend_VDI);
+  let vm = { vm with
+		API.vM_power_state = if preserve_power_state then vm.API.vM_power_state else `Halted;
+ 		API.vM_suspend_VDI = if preserve_power_state then lookup table (Ref.string_of vm.API.vM_suspend_VDI) else Ref.null;
 		API.vM_is_a_snapshot = if with_snapshot_metadata then vm.API.vM_is_a_snapshot else false;
 		API.vM_snapshot_of =
 		  if with_snapshot_metadata 
@@ -150,9 +151,10 @@ let make_gm table __context self =
 	  snapshot = API.To.vM_guest_metrics_t gm }
 
 (** Convert a VIF reference to an obj *)
-let make_vif table __context self = 
+let make_vif table ~preserve_power_state __context self = 
   let vif = Db.VIF.get_record ~__context ~self in
   let vif = { vif with 
+		API.vIF_currently_attached = if preserve_power_state then vif.API.vIF_currently_attached else false;
 		API.vIF_network = lookup table (Ref.string_of vif.API.vIF_network);
 		API.vIF_VM = lookup table (Ref.string_of vif.API.vIF_VM);
 		API.vIF_metrics = Ref.null; } in
@@ -171,9 +173,10 @@ let make_network table __context self =
     snapshot = API.To.network_t net }
 
 (** Convert a VBD reference to an obj *)
-let make_vbd table __context self = 
+let make_vbd table ~preserve_power_state __context self = 
   let vbd = Db.VBD.get_record ~__context ~self in
   let vbd = { vbd with 
+		API.vBD_currently_attached = if preserve_power_state then vbd.API.vBD_currently_attached else false;
 		API.vBD_VDI = lookup table (Ref.string_of vbd.API.vBD_VDI); 
 		API.vBD_VM = lookup table (Ref.string_of vbd.API.vBD_VM);
 		API.vBD_metrics = Ref.null;
@@ -203,51 +206,51 @@ let make_sr table __context self =
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.sR_t sr }    
 
-let make_all ~with_snapshot_metadata table __context = 
-  let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
-  let hosts = List.map (make_host table __context) (filter table (Db.Host.get_all ~__context)) in
-  let vms  = List.map (make_vm ~with_snapshot_metadata table __context) (filter table (Db.VM.get_all ~__context)) in
-  let gms  = List.map (make_gm table __context) (filter table (Db.VM_guest_metrics.get_all ~__context)) in
-  let vbds = List.map (make_vbd table __context) (filter table (Db.VBD.get_all ~__context)) in
-  let vifs = List.map (make_vif table __context) (filter table (Db.VIF.get_all ~__context)) in
-  let nets = List.map (make_network table __context) (filter table (Db.Network.get_all ~__context)) in
-  let vdis = List.map (make_vdi table __context) (filter table (Db.VDI.get_all ~__context)) in
-  let srs  = List.map (make_sr table __context) (filter table (Db.SR.get_all ~__context)) in
+let make_all ~with_snapshot_metadata ~preserve_power_state table __context = 
+	let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
+	let hosts = List.map (make_host table __context) (filter table (Db.Host.get_all ~__context)) in
+	let vms  = List.map (make_vm ~with_snapshot_metadata ~preserve_power_state table __context) (filter table (Db.VM.get_all ~__context)) in
+	let gms  = List.map (make_gm table __context) (filter table (Db.VM_guest_metrics.get_all ~__context)) in
+	let vbds = List.map (make_vbd ~preserve_power_state table __context) (filter table (Db.VBD.get_all ~__context)) in
+	let vifs = List.map (make_vif ~preserve_power_state table __context) (filter table (Db.VIF.get_all ~__context)) in
+	let nets = List.map (make_network table __context) (filter table (Db.Network.get_all ~__context)) in
+	let vdis = List.map (make_vdi table __context) (filter table (Db.VDI.get_all ~__context)) in
+	let srs  = List.map (make_sr table __context) (filter table (Db.SR.get_all ~__context)) in
   
-  hosts @ vms @ gms @ vbds @ vifs @ nets @ vdis @ srs 
+	hosts @ vms @ gms @ vbds @ vifs @ nets @ vdis @ srs 
 
 open Xapi_globs
 
 (* on normal export, do not include snapshot metadata;
    on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs 
    which are snapshots of the exported VM. *)
-let vm_metadata ~with_snapshot_metadata ~__context ~vms =
+let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms =
   let table = create_table () in
   List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~table) vms;
-  let objects = make_all ~with_snapshot_metadata table __context in
+  let objects = make_all ~with_snapshot_metadata ~preserve_power_state table __context in
   let header = { version = this_version __context;
 		   objects = objects } in
   let ova_xml = Xml.to_bigbuffer (xmlrpc_of_header header) in
   table, ova_xml
 
 (** Export a VM's metadata only *)
-let export_metadata ~__context ~with_snapshot_metadata ~vms s =
+let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~vms s =
 	begin match vms with
 	| [] -> failwith "need to specify at least one VM"
-	| [vm] -> info "VM.export_metadata: VM = '%s'; with_snapshot_metadata = '%b'" 
-				(Db.VM.get_uuid ~__context ~self:vm) with_snapshot_metadata
-	| vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'"
+	| [vm] -> info "VM.export_metadata: VM = '%s'; with_snapshot_metadata = '%b'; preserve_power_state = '%s" 
+				(Db.VM.get_uuid ~__context ~self:vm) with_snapshot_metadata (string_of_bool preserve_power_state)
+	| vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s"
 				(String.concat ", " (List.map (fun vm -> Printf.sprintf "'%s'" (Db.VM.get_uuid ~__context ~self:vm)) vms))
-				with_snapshot_metadata end;
+				with_snapshot_metadata (string_of_bool preserve_power_state) end;
 
-	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~__context ~vms in
+	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms in
 	let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
 	Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s
 
-let export refresh_session __context rpc session_id s vm_ref =
-	info "VM.export: VM = '%s'" (Db.VM.get_uuid ~__context ~self:vm_ref);
+let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
+  info "VM.export: VM = '%s'; preserve_power_state = '%s'" (Db.VM.get_uuid ~__context ~self:vm_ref) (string_of_bool preserve_power_state);
 
-  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false ~__context ~vms:[vm_ref] in
+  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false  ~preserve_power_state ~__context ~vms:[vm_ref] in
 
   debug "Outputting ova.xml";
 
@@ -261,7 +264,7 @@ let export refresh_session __context rpc session_id s vm_ref =
   let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
   (* Don't forget the suspend VDI (if we allow export of suspended VMs) *)
   let vdis = match Db.VM.get_power_state ~__context ~self:vm_ref with
-    | `Suspended -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis 
+    | `Suspended when not preserve_power_state -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis 
     | _ -> vdis in
   let vdis = List.filter (fun self -> Db.SR.get_content_type ~__context ~self:(Db.VDI.get_SR ~__context ~self) <> "iso") vdis in
   let vdis = List.filter (fun vdi -> Hashtbl.mem table (Ref.string_of vdi)) vdis in
@@ -343,7 +346,7 @@ let metadata_handler (req: request) s =
 			(* lock all the VMs before exporting their metadata *)
 			List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
 			finally
- 				(fun () -> export_metadata ~with_snapshot_metadata:true ~__context ~vms:vm_refs s)
+ 				(fun () -> export_metadata ~with_snapshot_metadata:true ~preserve_power_state:true ~__context ~vms:vm_refs s)
  				(fun () ->
  					 List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs;
  					 Tar.write_end s);
@@ -411,6 +414,9 @@ let handler (req: request) s =
 	       TaskHelper.set_progress ~__context 0.0;
 	       let refresh_session = Xapi_session.consider_touching_session rpc session_id in	      
 	       let task_id = Ref.string_of (Context.get_task_id __context) in
+	       let preserve_power_state = 
+			   let all = req.cookie @ req.query in
+			   List.mem_assoc "preserve_power_state" all && bool_of_string (List.assoc "preserve_power_state" all) in
 	       let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
 		 [ Http.task_id_hdr ^ ": " ^ task_id;
 		   "Server: "^Xapi_globs.xapi_user_agent;
@@ -420,7 +426,7 @@ let handler (req: request) s =
  	       with_vm_locked ~__context ~vm:vm_ref ~task_id `export
 		 (fun () -> 
 		    Http_svr.headers s headers;
-		    export refresh_session __context rpc session_id s vm_ref)
+		    export refresh_session __context rpc session_id s vm_ref preserve_power_state)
 		 
        	     (* Exceptions are handled by Server_helpers.with_context *)
 	     ))

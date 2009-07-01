@@ -249,7 +249,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	log_exn_continue "Xc.domain_destroy" (Xc.domain_destroy xc) domid;
 
 	log_exn_continue "Error stoping device-model, already dead ?"
-	                 (fun () -> Device.Dm.stop ~xs domid Sys.sigterm) ();
+	                 (fun () -> Device.Dm.stop ~xs domid) ();
 
 	(* Forcibly shutdown every backend *)
 	List.iter 
@@ -552,29 +552,11 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 	);
 	store_mfn, console_mfn
 
-let resume ~xc ~xs ~cooperative domid =
-	if cooperative then
-		Xc.domain_resume_fast xc domid
-	else (
-		(* FIXME release devices *)
-
-		Xc.evtchn_reset xc domid;
-		xs.Xs.rm (sprintf "%s/control/shutdown" (xs.Xs.getdomainpath domid));
-		let store, console = create_channels ~xc domid in
-		resume_post ~xc ~xs domid store console;
-
-		(* FIXME create devices *)
-
-		let cnx = XenguestHelper.connect [
-			"-mode"; "slow_resume";
-			"-domid"; string_of_int domid;
-			"-fork"; "true";
-		] [] in
-		let line = finally (fun () ->
-			XenguestHelper.receive_success cnx
-		) (fun () -> XenguestHelper.disconnect cnx) in
-		debug "Read [%s]" line;
-	)
+let resume ~xc ~xs ~hvm ~cooperative domid =
+	if not cooperative
+	then failwith "Domain.resume works only for collaborative domains";
+	Xc.domain_resume_fast xc domid;
+	if hvm then Device.Dm.resume ~xs domid
 
 let restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~vcpus domid fd =
 	let mem_max_kib' = Memory.Linux.required_available mem_max_kib in
@@ -676,9 +658,9 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 		do_suspend_callback ();
 		if hvm then (
 			debug "Suspending qemu-dm for domid %d" domid;
-			Device.Dm.stop ~xs domid Sys.sigusr1;
+			Device.Dm.suspend ~xs domid;
 		);
-		XenguestHelper.send cnx "done\n";
+ 		XenguestHelper.send cnx "done\n";
 
 		let msg = XenguestHelper.non_debug_receive cnx in
 		progress_callback 1.;

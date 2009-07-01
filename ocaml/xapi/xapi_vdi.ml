@@ -92,6 +92,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	  if not (List.mem Smint.Vdi_generate_config (Sm.capabilities_of_driver srtype)) then
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None	    
+	  | `snapshot when record.Db_actions.vDI_sharable ->
+			Some (Api_errors.vdi_is_sharable, [ _ref ])
       | _ -> None
     )
 
@@ -110,12 +112,9 @@ let update_allowed_operations ~__context ~self : unit =
 
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed = 
-    let check x = match check_operation_error ~__context ha_enabled all self x with None ->  [ x ] | _ -> [] in 
-    List.concat 
-      (List.map check 
-	 [
-	   `clone; `destroy; `resize; `update; `generate_config; `resize_online
-	 ]) in
+    let check x = match check_operation_error ~__context ha_enabled all self x with None ->  [ x ] | _ -> [] in
+	List.fold_left (fun accu op -> check op @ accu) []
+		[ `snapshot; `copy; `clone; `destroy; `resize; `update; `generate_config; `resize_online ] in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
 (** Someone is cancelling a task so remove it from the current_operations *)
@@ -299,10 +298,16 @@ let snapshot ~__context ~vdi ~driver_params =
 
   (* While we don't have blkback support for pause/unpause we only do this
      for .vhd-based backends. *)
-  let vdi_info = 
+  let vdi_info =
     if Xen_helpers.kind_of_vdi ~__context ~self:vdi = Device_common.Tap
-    then Sm.with_all_vbds_paused ~__context ~vdis:[vdi] call_snapshot
-    else call_snapshot () in
+	then begin
+		let vm_lock =
+			try List.mem_assoc Sm.with_vm_lock driver_params && bool_of_string (List.assoc Sm.with_vm_lock driver_params)
+			with Not_found -> true in
+		debug "VDI.snapshot with vm_lock='%s'" (string_of_bool vm_lock);
+		Sm.with_all_vbds_paused ~vm_lock ~__context ~vdis:[vdi] call_snapshot
+    end else 
+		call_snapshot () in
 
   let uuid = require_uuid vdi_info in
   let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in

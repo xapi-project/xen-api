@@ -4,6 +4,9 @@
  *)
 
 open Client
+open Vmopshelpers
+
+open Client
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
@@ -125,6 +128,51 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 	debug "snapshot_with_quiesce: end";
 	result
 
+(*************************************************************************************************)
+(* Checkpoint                                                                                    *)
+(*************************************************************************************************)
+let get_flushable_vbds ~__context vm =
+	let aux vbd =  
+		Db.VBD.get_currently_attached ~__context ~self:vbd
+		&& Db.VBD.get_mode ~__context ~self:vbd = `RW
+	in
+	List.filter aux (Db.VM.get_VBDs ~__context ~self:vm)
+
+let checkpoint ~__context ~vm ~new_name =
+	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	with_xc_and_xs (fun xc xs ->
+		let vbds = get_flushable_vbds ~__context vm in
+
+		(* live-suspend the VM if the VM is running *)
+		if power_state = `Running
+		then begin
+			try
+				(* suspend the VM *)
+				Vmops.suspend ~progress_cb:(fun _ -> ())  ~__context ~xs ~xc ~vm ~live:false;
+				(* flush the devices *)
+				List.iter (Xapi_vbd.flush ~__context) vbds;
+			with _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm]))
+		end;
+
+		(* snapshot the disks and the suspend VDI *)
+		let snap =  Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name in
+
+		(* restore the power state of the VM *)
+		if power_state = `Running
+		then begin
+			try 
+				let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+				Vmops.resume ~__context ~xc ~xs ~vm;
+				if Db.is_valid_ref suspend_VDI then begin
+					Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
+					Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.destroy rpc session_id suspend_VDI);
+				end;
+			with _ ->
+				Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted;
+				Db.VM.destroy ~__context ~self:snap;
+				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm]))
+		end;
+		snap)
 
 
 (********************************************************************************)
@@ -242,13 +290,13 @@ let revert ~__context ~snapshot ~vm =
 	debug "Reverting %s to %s" (Ref.string_of vm) (Ref.string_of snapshot);
 
 	try
-		let power_state = `Halted in
+		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 		let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
 		let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
 
 		(* first of all, destroy the domain if needed. *)
 		if Db.VM.get_power_state ~__context ~self:vm = `Running then begin
-			Xpi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__revert ~vm;
+			Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__revert ~vm;
 			let domid = Helpers.domid_of_vm ~__context ~self:vm in
 			Vmopshelpers.with_xc_and_xs (fun xc xs ->
 				Vmops.destroy_domain ~__context ~xc ~xs ~self:vm domid;

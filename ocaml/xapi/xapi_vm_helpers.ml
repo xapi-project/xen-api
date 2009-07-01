@@ -765,20 +765,23 @@ let delete_guest_metrics ~__context ~self:vm =
 	(try Db.VM_guest_metrics.destroy ~__context ~self:guest_metrics with _ -> ())
 
 let copy_guest_metrics ~__context ~vm =
-	let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
-	let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
-	let ref = Ref.make () in
-	Db.VM_guest_metrics.create ~__context 
-		~ref 
-		~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-		~os_version:all.API.vM_guest_metrics_os_version
-		~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
-		~pV_drivers_up_to_date:all.API.vM_guest_metrics_PV_drivers_up_to_date
-		~memory:all.API.vM_guest_metrics_memory
-		~disks:all.API.vM_guest_metrics_disks
-		~networks:all.API.vM_guest_metrics_networks
-		~other:all.API.vM_guest_metrics_other
-		~last_updated:all.API.vM_guest_metrics_last_updated
-		~other_config:all.API.vM_guest_metrics_other_config
-		~live:all.API.vM_guest_metrics_live;
-	ref
+	try
+		let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+		let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
+		let ref = Ref.make () in
+		Db.VM_guest_metrics.create ~__context 
+			~ref 
+			~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+			~os_version:all.API.vM_guest_metrics_os_version
+			~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
+			~pV_drivers_up_to_date:all.API.vM_guest_metrics_PV_drivers_up_to_date
+			~memory:all.API.vM_guest_metrics_memory
+			~disks:all.API.vM_guest_metrics_disks
+			~networks:all.API.vM_guest_metrics_networks
+			~other:all.API.vM_guest_metrics_other
+			~last_updated:all.API.vM_guest_metrics_last_updated
+			~other_config:all.API.vM_guest_metrics_other_config
+			~live:all.API.vM_guest_metrics_live;
+		ref
+	with _ ->
+		Ref.null
