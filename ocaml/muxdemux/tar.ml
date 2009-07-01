@@ -53,14 +53,14 @@ module Header = struct
 	     file_mode: int;
 	     user_id: int;
 	     group_id: int;
-	     file_size: int32;
-	     mod_time: int32;
+	     file_size: int64;
+	     mod_time: int64;
 	     link: bool;
 	     link_name: int;
 	   }
 
   (** Helper function to make a simple header *)
-  let make ?(file_mode=0) ?(user_id=0) ?(group_id=0) ?(mod_time=0l) ?(link=false) ?(link_name=0) file_name file_size = 
+  let make ?(file_mode=0) ?(user_id=0) ?(group_id=0) ?(mod_time=0L) ?(link=false) ?(link_name=0) file_name file_size = 
     { file_name = file_name;
       file_mode = file_mode;
       user_id = user_id;
@@ -96,8 +96,8 @@ module Header = struct
 		  "file_mode", string_of_int x.file_mode;
 		  "user_id",   string_of_int x.user_id;
 		  "group_id",  string_of_int x.group_id;
-		  "file_size", Int32.to_string x.file_size;
-		  "mod_time",  Int32.to_string x.mod_time;
+		  "file_size", Int64.to_string x.file_size;
+		  "mod_time",  Int64.to_string x.mod_time;
 		  "link",      string_of_bool x.link;
 		  "link_name", string_of_int x.link_name ] in
     "{\n" ^ (String.concat "\n\t" (List.map (fun (k, v) -> k ^ ": " ^ v) table)) ^ "}"
@@ -108,8 +108,8 @@ module Header = struct
     let mode = Printf.sprintf "%010d" x.file_mode in
     (* root/root *)
     let usergroup = Printf.sprintf "%d/%d" x.user_id x.group_id in
-    let size = pad_right (Int32.to_string x.file_size) 8 ' ' in
-    let time = Unix.gmtime (Int32.to_float x.mod_time) in
+    let size = pad_right (Int64.to_string x.file_size) 8 ' ' in
+    let time = Unix.gmtime (Int64.to_float x.mod_time) in
     let time = Printf.sprintf "%04d-%02d-%02d %02d:%02d:%02d" 
       (time.Unix.tm_year + 1900) (time.Unix.tm_mon + 1) time.Unix.tm_mday
       time.Unix.tm_hour time.Unix.tm_min time.Unix.tm_sec in
@@ -126,9 +126,9 @@ module Header = struct
     let result = pad_left octal (n-1) '0' in
     result ^ "\000" (* space or NULL allowed *)
 
-  (** Marshal an int32 field of size 'n' *)
-  let marshal_int32 (x: int32) (n: int) = 
-    let octal = Printf.sprintf "%lo" x in
+  (** Marshal an int64 field of size 'n' *)
+  let marshal_int64 (x: int64) (n: int) = 
+    let octal = Printf.sprintf "%Lo" x in
     let result = pad_left octal (n-1) '0' in
     result ^ "\000" (* space or NULL allowed *)
 
@@ -154,10 +154,10 @@ module Header = struct
       Printf.eprintf "Failed to parse integer [%s] == %s\n" tmp (to_hex tmp);
       raise e
 
-  (** Unmarshal an int32 field (stored as 0-padded octal) *)
-  let unmarshal_int32 (x: string) : int32 = 
+  (** Unmarshal an int64 field (stored as 0-padded octal) *)
+  let unmarshal_int64 (x: string) : int64 = 
     let tmp = "0o0" ^ (trim_numerical x) in
-    Int32.of_string tmp
+    Int64.of_string tmp
 
   (** Unmarshal a string *)
   let unmarshal_string (x: string) : string = trim_string x
@@ -166,7 +166,7 @@ module Header = struct
   exception Checksum_mismatch
 
   (** From an already-marshalled block, compute what the checksum should be *)
-  let checksum (x: string) : int32 = 
+  let checksum (x: string) : int64 = 
     (* Sum of all the byte values of the header with the checksum field taken
        as 8 ' ' (spaces) *)
     let x' = String.copy x in
@@ -174,21 +174,21 @@ module Header = struct
     for i = start to start + length - 1 do
       x'.[i] <- ' '
     done;
-    List.fold_left Int32.add 0l (List.map (fun x -> Int32.of_int (int_of_char x)) (String.explode x'))
+    List.fold_left Int64.add 0L (List.map (fun x -> Int64.of_int (int_of_char x)) (String.explode x'))
 
   (** Unmarshal a header block, returning None if it's all zeroes *)
   let unmarshal (x: string) : t option = 
     (* Check if the string is full of zeros *)
     if x = zero_block then None
     else 
-      let chksum = unmarshal_int32  (getfield x "chksum") in
+      let chksum = unmarshal_int64  (getfield x "chksum") in
       if checksum x <> chksum then raise Checksum_mismatch
       else Some { file_name = unmarshal_string (getfield x "file_name");
 		  file_mode = unmarshal_int    (getfield x "file_mode");
 		  user_id   = unmarshal_int    (getfield x "user_id");
 		  group_id  = unmarshal_int    (getfield x "group_id");
-		  file_size = unmarshal_int32  (getfield x "file_size");
-		  mod_time  = unmarshal_int32  (getfield x "mod_time");
+		  file_size = unmarshal_int64  (getfield x "file_size");
+		  mod_time  = unmarshal_int64  (getfield x "mod_time");
 		  link      = getfield x "link" = "1";
 		  link_name = unmarshal_int    (getfield x "link_name");
 		}
@@ -200,12 +200,12 @@ module Header = struct
     setfield buffer "file_mode" (marshal_int x.file_mode (fieldsize "file_mode"));
     setfield buffer "user_id"   (marshal_int x.user_id (fieldsize "user_id"));
     setfield buffer "group_id"  (marshal_int x.group_id (fieldsize "group_id"));
-    setfield buffer "file_size" (marshal_int32 x.file_size (fieldsize "file_size"));    
-    setfield buffer "mod_time"  (marshal_int32 x.mod_time (fieldsize "mod_time"));  
+    setfield buffer "file_size" (marshal_int64 x.file_size (fieldsize "file_size"));    
+    setfield buffer "mod_time"  (marshal_int64 x.mod_time (fieldsize "mod_time"));  
     (* leave out link, link_name (zero-filled = unused) *)
     (* Finally, compute the checksum *)
     let chksum = checksum buffer in
-    setfield buffer "chksum"    (marshal_int32 chksum (fieldsize "chksum"));
+    setfield buffer "chksum"    (marshal_int64 chksum (fieldsize "chksum"));
     buffer
 
   (** Thrown if we detect the end of the tar (at least two zero blocks in sequence) *)
@@ -233,10 +233,10 @@ module Header = struct
       to a whole number of blocks *)
   let compute_zero_padding_length (x: t) : int = 
     (* round up to next whole number of block lengths *)
-    let length = Int32.of_int length in
-    let lenm1 = Int32.sub length Int32.one in
-    let next_block_length = (Int32.mul length (Int32.div (Int32.add x.file_size lenm1) length)) in
-    Int32.to_int (Int32.sub next_block_length x.file_size)
+    let length = Int64.of_int length in
+    let lenm1 = Int64.sub length Int64.one in
+    let next_block_length = (Int64.mul length (Int64.div (Int64.add x.file_size lenm1) length)) in
+    Int64.to_int (Int64.sub next_block_length x.file_size)
 
   (** Return the required zero-padding as a string *)
   let zero_padding (x: t) : string = 
@@ -246,13 +246,13 @@ module Header = struct
   (** Return the header needed for a particular file on disk *)
   let of_file (file: string) : t =
     let stat = Unix.stat file in
-    let size = Int32.of_int stat.Unix.st_size in
+    let size = Int64.of_int stat.Unix.st_size in
     { file_name   = file;
       file_mode   = stat.Unix.st_perm;
       user_id     = stat.Unix.st_uid;
       group_id    = stat.Unix.st_gid;
       file_size   = size;
-      mod_time    = Int32.of_float stat.Unix.st_mtime;
+      mod_time    = Int64.of_float stat.Unix.st_mtime;
       link        = false;
       link_name   = 0 }
 end
@@ -261,6 +261,9 @@ end
 let write_string fd str = 
   let written = Unix.write fd str 0 (String.length str) in
   if str <> "" && String.length str > written then failwith "Truncated write"
+
+let write_bigbuffer fd buf =
+	Bigbuffer.to_fct buf (write_string fd)
 
 let write_block (header: Header.t) (body: Unix.file_descr -> unit) (fd : Unix.file_descr) = 
   write_string fd (Header.marshal header);
@@ -298,16 +301,16 @@ module Archive = struct
 
   (** Multicast 'n' bytes from input fd 'ifd' to output fds 'ofds'. NB if one deadlocks
       they all stop.*)
-  let multicast_n ?(buffer_size=1024*1024) (ifd: Unix.file_descr) (ofds: Unix.file_descr list) (n: int32) = 
+  let multicast_n ?(buffer_size=1024*1024) (ifd: Unix.file_descr) (ofds: Unix.file_descr list) (n: int64) = 
     let buffer = String.make buffer_size '\000' in
-    let rec loop (n: int32) = 
-      if n <= 0l then ()
+    let rec loop (n: int64) = 
+      if n <= 0L then ()
       else 
-	let amount = Int32.to_int (min n (Int32.of_int(String.length buffer))) in
+	let amount = Int64.to_int (min n (Int64.of_int(String.length buffer))) in
 	let read = Unix.read ifd buffer 0 amount in
 	if read = 0 then raise End_of_file;
 	List.iter (fun ofd -> ignore(Unix.write ofd buffer 0 read)) ofds;
-	loop (Int32.sub n (Int32.of_int read)) in
+	loop (Int64.sub n (Int64.of_int read)) in
     loop n
 
   let multicast_n_string buffer ofds n =
@@ -322,7 +325,7 @@ module Archive = struct
 	while true do
 	  let hdr = Header.get_next_header fd in
 	  print_endline (Header.to_summary_string hdr);
-	  skip fd (Int32.to_int hdr.Header.file_size);
+	  skip fd (Int64.to_int hdr.Header.file_size);
 	  skip fd (Header.compute_zero_padding_length hdr)
 	done
       with 

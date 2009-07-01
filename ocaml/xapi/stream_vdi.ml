@@ -106,7 +106,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 	       let last_chunk = this_chunk=remaining in
 	       let this_chunk = Int64.to_int this_chunk in
 	       let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
-	       let hdr = Tar.Header.make filename (Int32.of_int this_chunk) in
+	       let hdr = Tar.Header.make filename (Int64.of_int this_chunk) in
 	       Unixext.really_read ifd buffer 0 this_chunk;
 	       
 	       (* Only write the chunk if it's not all zeros, or if it's the first *)
@@ -128,7 +128,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 		     ) in	
 		   
 		   (* Write the checksum as a separate file *)
-		   let hdr' = Tar.Header.make (filename ^ checksum_extension) (Int32.of_int (String.length csum)) in
+		   let hdr' = Tar.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
 		   Tar.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
 		 end;
 
@@ -152,7 +152,7 @@ let verify_inline_checksum ifd checksum_table =
     raise (Failure msg)
   end;
   try
-    let length' = Int32.to_int length in
+    let length' = Int64.to_int length in
     let csum = String.make length' ' ' in
     Unixext.really_read ifd csum 0 length';
     Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
@@ -200,7 +200,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 	    if !firstchunklength < 0 
 	    then 
 	      begin
-		firstchunklength := (Int32.to_int length);
+		firstchunklength := (Int64.to_int length);
 		zerochunkstring := String.make !firstchunklength '\000'
 	      end;
 	    
@@ -240,7 +240,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 	    checksum_table := (file_name, csum) :: !checksum_table;
 
 	    Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
-	    made_progress __context progress (Int64.add skipped_size (Int64.of_int32 length));
+	    made_progress __context progress (Int64.add skipped_size length);
 
 
 	    if vsn.Importexport.export_vsn > 0 then
@@ -252,7 +252,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 		      if not(force) then raise e
 	      end;
 
-	    stream_from suffix (Int64.add skipped_size (Int64.add offset (Int64.of_int32 length)))	    
+	    stream_from suffix (Int64.add skipped_size (Int64.add offset length))	    
 	  end in
 	stream_from "-1" 0L) in
   for_each_vdi __context (recv_one ifd __context) prefix_vdis;
@@ -289,11 +289,11 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 		       error "Expected VDI chunk suffix to have increased under lexicograpic ordering; last = %s; this = %s" last_suffix suffix;
 		       raise (Failure "Invalid XVA file")
 		     end;
-		   debug "Decompressing %ld bytes from %s\n" length file_name;
+		   debug "Decompressing %Ld bytes from %s\n" length file_name;
 		   Gzip.decompress ofd (fun zcat_in -> Tar.Archive.copy_n ifd zcat_in length);
 		   Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
 		   (* XXX: this is totally wrong: *)
-		   made_progress __context progress (Int64.of_int32 length);
+		   made_progress __context progress length;
 		   next ();
 		   stream_from suffix
 	     end 

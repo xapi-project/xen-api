@@ -225,7 +225,7 @@ let send path fd =
     debug "Attempting to add %s (%s)\n" path filename;
     let hdr = Tar.Header.of_file path in
     let hdr = { hdr with Tar.Header.file_name = filename } in
-    debug "file_size = %ld\n" (hdr.Tar.Header.file_size); 
+    debug "file_size = %Ld\n" (hdr.Tar.Header.file_size); 
     Tar.write_block hdr 
       (fun ofd ->
 	 let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in

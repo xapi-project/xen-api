@@ -77,10 +77,8 @@ let rec update_table ~__context ~include_snapshots ~table ~vm =
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
     to include in the output. Other object references will be purged. *)
-let create_table ~__context ~include_snapshots ~vm =
-	let table = Hashtbl.create 10 in
-	update_table ~__context ~include_snapshots ~vm ~table;
-	table
+let create_table () =
+	Hashtbl.create 10
 
 (** Convert an internal reference into an external one or NULL *)
 let lookup table r = 
@@ -175,7 +173,7 @@ let make_sr table __context self =
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.sR_t sr }    
 
-let make_all ~with_snapshot_metadata table __context self = 
+let make_all ~with_snapshot_metadata table __context = 
   let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
   let vms  = List.map (make_vm ~with_snapshot_metadata table __context) (filter table (Db.VM.get_all ~__context)) in
   let gms  = List.map (make_gm table __context) (filter table (Db.VM_guest_metrics.get_all ~__context)) in
@@ -192,32 +190,38 @@ open Xapi_globs
 (* on normal export, do not include snapshot metadata;
    on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs 
    which are snapshots of the exported VM. *)
-let vm_metadata ~with_snapshot_metadata ~__context ~vm =
-  let table = create_table ~__context ~include_snapshots:with_snapshot_metadata ~vm in
-  let objects = make_all ~with_snapshot_metadata table __context vm in
+let vm_metadata ~with_snapshot_metadata ~__context ~vms =
+  let table = create_table () in
+  List.iter (fun vm -> update_table ~__context ~include_snapshots:with_snapshot_metadata ~vm ~table) vms;
+  let objects = make_all ~with_snapshot_metadata table __context in
   let header = { version = this_version __context;
 		   objects = objects } in
-  let ova_xml = Xml.to_string_fmt (xmlrpc_of_header header) in
+  let ova_xml = Xml.to_bigbuffer (xmlrpc_of_header header) in
   table, ova_xml
 
 (** Export a VM's metadata only *)
-let export_metadata ~__context ~vm s = 
-  info "export_metadata VM = %s" (Ref.string_of vm);
-  let _, ova_xml = vm_metadata ~with_snapshot_metadata:true ~__context ~vm in
-  let hdr = Tar.Header.make Xva.xml_filename (Int32.of_int (String.length ova_xml)) in
-  Tar.write_block hdr (fun s -> Tar.write_string s ova_xml) s;
-  Tar.write_end s;
-  info "export_metadata VM = %s completed successfully" (Ref.string_of vm)
+let export_metadata ~__context ~with_snapshot_metadata ~vms s =
+	begin match vms with
+	| [] -> failwith "need to specify at least one VM"
+	| [vm] -> info "VM.export_metadata: VM = '%s'; with_snapshot_metadata = '%b'" 
+				(Db.VM.get_uuid ~__context ~self:vm) with_snapshot_metadata
+	| vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'"
+				(String.concat ", " (List.map (fun vm -> Printf.sprintf "'%s'" (Db.VM.get_uuid ~__context ~self:vm)) vms))
+				with_snapshot_metadata end;
+
+	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~__context ~vms in
+	let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
+	Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s
 
 let export refresh_session __context rpc session_id s vm_ref =
-  info "export VM = %s" (Ref.string_of vm_ref);
- 
-  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false ~__context ~vm:vm_ref in
+	info "VM.export: VM = '%s'" (Db.VM.get_uuid ~__context ~self:vm_ref);
+
+  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false ~__context ~vms:[vm_ref] in
 
   debug "Outputting ova.xml";
 
-  let hdr = Tar.Header.make Xva.xml_filename (Int32.of_int (String.length ova_xml)) in
-  Tar.write_block hdr (fun s -> Tar.write_string s ova_xml) s;
+  let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
+  Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s;
 
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
      and whose SR.content_type <> "iso" *)
@@ -241,16 +245,21 @@ let export refresh_session __context rpc session_id s vm_ref =
 open Http
 open Client
 
-let with_vm_locked ~__context ~vm ~task_id f = 
-  (* Note slight race here because we haven't got the master lock *)
-  Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op:`export;
-  (* ... small race lives here ... *)
-  Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:`export;
-  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
-  finally f
-    (fun () ->
-       Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id;
-       Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm)
+let lock_vm ~__context ~vm ~task_id op =
+	(* Note slight race here because we haven't got the master lock *)
+	Xapi_vm_lifecycle.assert_operation_valid ~__context ~self:vm ~op;
+	(* ... small race lives here ... *)
+	Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:op;
+	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
+
+let unlock_vm ~__context ~vm ~task_id =
+    Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id;
+    Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
+
+let with_vm_locked ~__context ~vm ~task_id op f = 
+	lock_vm ~__context ~vm ~task_id op;
+	finally f
+		(fun () -> unlock_vm ~__context ~vm ~task_id)
 
 let vm_from_request ~__context (req: request) = 
   if List.mem_assoc "ref" req.query
@@ -260,34 +269,54 @@ let vm_from_request ~__context (req: request) =
       Helpers.call_api_functions 
         ~__context (fun rpc session_id -> Client.VM.get_by_uuid rpc session_id uuid) 
 
+let export_all_vms_from_request ~__context (req: request) = 
+	if List.mem_assoc "all" req.query
+	then bool_of_string (List.assoc "all" req.query)
+	else false
+
 let metadata_handler (req: request) s = 
-  debug "metadata_handler called";
+	debug "metadata_handler called";
 
-  (* Xapi_http.with_context always completes the task at the end *)
-  Xapi_http.with_context "Exporting VM metadata" req s
-    (fun __context ->
-       (* The VM Ref *)
-       let vm_ref = vm_from_request ~__context req in
-		if Db.VM.get_is_a_snapshot ~__context ~self:vm_ref then
-			raise (Api_errors.Server_error (Api_errors.operation_not_allowed, [ "Exporting metadata of a snapshot is not allowed" ]));
-       let task_id = Ref.string_of (Context.get_task_id __context) in
-       let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-	 [ Http.task_id_hdr ^ ": " ^ task_id;
-	   "Server: "^Xapi_globs.xapi_user_agent;
-	   content_type;
-	   "Content-Disposition: attachment; filename=\"export.xva\""] in
-       Http_svr.headers s headers;
+	(* Xapi_http.with_context always completes the task at the end *)
+	Xapi_http.with_context "VM.export_metadata" req s
+		(fun __context ->
+			let export_all = export_all_vms_from_request ~__context req in
 
-       (* If VM isn't halted or suspended, allow best-effort metadata export anyway *)
-       let power_state = Db.VM.get_power_state ~__context ~self:vm_ref in
-       if power_state <> `Halted && power_state <> `Suspended
-       then export_metadata ~__context ~vm:vm_ref s
-       else
-	 (* If Halted or Suspended, lock the VM for better coherence *)
-	 with_vm_locked ~__context ~vm:vm_ref ~task_id
-	   (fun () ->
-	      export_metadata ~__context ~vm:vm_ref s)
-    )
+			(* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
+			(* In case of exporting all the VMs metadata, get all the VM records which are default templates. *)
+			let vm_refs =
+				if export_all then begin
+					let is_default_template vm =
+						vm.API.vM_is_a_template
+						&& (List.mem_assoc Xapi_globs.default_template_key vm.API.vM_other_config)
+						&& ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true") in
+					let all_vms = Db.VM.get_all_records ~__context in
+					let interesting_vms = List.filter (fun (_, vm) -> not (is_default_template vm)) all_vms in
+					List.map fst interesting_vms
+				end else
+					[vm_from_request ~__context req]
+				in
+
+			if not export_all && Db.VM.get_is_a_snapshot ~__context ~self:(List.hd vm_refs) then
+				raise (Api_errors.Server_error (Api_errors.operation_not_allowed, [ "Exporting metadata of a snapshot is not allowed" ]));
+
+			let task_id = Ref.string_of (Context.get_task_id __context) in
+			let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
+				[ Http.task_id_hdr ^ ": " ^ task_id;
+				"Server: "^Xapi_globs.xapi_user_agent;
+				content_type;
+				"Content-Disposition: attachment; filename=\"export.xva\""] in
+
+			Http_svr.headers s headers;
+
+			(* lock all the VMs before exporting their metadata *)
+			List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
+			finally
+ 				(fun () -> export_metadata ~with_snapshot_metadata:true ~__context ~vms:vm_refs s)
+ 				(fun () ->
+ 					 List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs;
+ 					 Tar.write_end s);
+		)
 
 let handler (req: request) s = 
   debug "export handler";
@@ -295,12 +324,12 @@ let handler (req: request) s =
 
   (* First things first, let's make sure that the request has a valid session or username/password *)
   
-  Xapi_http.assert_credentials_ok "Exporting VM" req;
+  Xapi_http.assert_credentials_ok "VM.export" req;
     
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
   
-  Server_helpers.exec_with_new_task "Exporting VM" 
+  Server_helpers.exec_with_new_task "VM.export" 
     (fun __context -> 
        (* The VM Ref *)
        let vm_ref = vm_from_request ~__context req in
@@ -343,7 +372,7 @@ let handler (req: request) s =
 	 (* Xapi_http.with_context always completes the task at the end *)
 	 begin
 	   debug "Doing xapi_http.with_context now...";
-	   Xapi_http.with_context "Exporting VM" req s
+	   Xapi_http.with_context "VM.export" req s
 	     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
 	       
 	       (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
@@ -357,7 +386,7 @@ let handler (req: request) s =
 		   content_type;
 		   "Content-Disposition: attachment; filename=\"export.xva\""] in
 	
- 	       with_vm_locked ~__context ~vm:vm_ref ~task_id
+ 	       with_vm_locked ~__context ~vm:vm_ref ~task_id `export
 		 (fun () -> 
 		    Http_svr.headers s headers;
 		    export refresh_session __context rpc session_id s vm_ref)
