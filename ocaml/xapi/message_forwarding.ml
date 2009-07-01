@@ -826,6 +826,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_to_access_srs ~local_fn ~__context ~vm 
 	     (fun session_id rpc -> Client.VM.clone rpc session_id vm new_name))
 
+	let create_template ~__context ~vm ~new_name  =
+		info "VM.create_template: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
+		with_vm_operation ~__context ~self:vm ~doc:"VM.create_template" ~op:`create_template
+			(fun () -> Local.VM.create_template ~__context ~vm ~new_name)
+
 	let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time ~transportable_snapshot_id =
 		Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:true;
 		Db.VM.set_snapshot_time ~__context ~self:vm ~value:snapshot_time;

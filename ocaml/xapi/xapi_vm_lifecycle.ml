@@ -32,6 +32,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `pause
 	| `clean_shutdown | `clean_reboot -> [`Running]
 
+	| `create_template
 	| `clone | `copy | `export        -> [`Halted; `Suspended]
 
 	| `hard_reboot                    -> [`Paused; `Running]
@@ -50,7 +51,7 @@ let is_allowed_sequentially ~power_state ~op =
 	Remark: we do not test whether the power-state is valid. *)
 let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	(* declare below the non-conflicting concurrent sets. *)
-	let long_copies = [`clone; `copy; `export]
+	let long_copies = [`clone; `copy; `export; `create_template]
 	and boot_record = [`get_boot_record]
 	and snapshot    = [`snapshot]
 	in
@@ -214,7 +215,8 @@ let update_allowed_operations ~__context ~self =
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
+			[`snapshot; `copy; `clone; `create_template;
+			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
 	in

@@ -45,10 +45,7 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	| `snapshot -> true
 	| `resize_online -> true
 	| `blocked -> true
-	| `clone -> 
-	    if Helpers.clone_suspended_vm_enabled ~__context
-	    then List.fold_left (&&) true (List.map (fun v -> is_active v && (Db.VM.get_power_state ~__context ~self:v.Db_actions.vBD_VM) = `Suspended || not(is_active v)) vbd_recs)
-	    else false
+	| `clone -> true
 	| _ -> false in
 
     (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)

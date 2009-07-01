@@ -20,6 +20,7 @@ let vm_operation_table =
     `clean_reboot, "clean_reboot";
     `clean_shutdown, "clean_shutdown";
     `clone, "clone";
+    `create_template, "create_template";
     `snapshot, "snapshot";
     `copy, "copy";
     `provision, "provision";

@@ -1078,6 +1078,18 @@ let vm_snapshot = call
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
   ()
 
+let vm_create_template = call
+  ~name:"create_template"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Creates a new template by cloning the specified VM. Clone automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write)."
+  ~result:(Ref _vm, "The reference of the newly created template.")
+  ~params:[
+	    Ref _vm, "vm", "The VM to be cloned";
+	    String, "new_name", "The name of the new template"
+	  ]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ()
+
 (* VM.Provision -- causes the template's disks to be instantiated *)
 
 let vm_provision = call
@@ -4411,7 +4423,8 @@ let vm_power_state =
 let vm_operations = 
   Enum ("vm_operations",
 	List.map operation_enum
-	  [ vm_snapshot; vm_clone; vm_copy; vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
+	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template;
+		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
 	    vm_pool_migrate;
@@ -4436,7 +4449,8 @@ let vm =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
       ~gen_events:true
       ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
-      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
+      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_create_template;
+		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
 		vm_hardReboot_internal;
 		vm_resume_on; 

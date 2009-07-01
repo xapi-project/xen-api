@@ -652,6 +652,12 @@ let snapshot ~__context ~vm ~new_name =
 let snapshot_with_quiesce ~__context ~vm ~new_name =
 	Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
 
+let create_template ~__context ~vm ~new_name =
+	let new_vm = clone ~__context ~vm ~new_name in
+	if Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
+		hard_shutdown ~__context ~vm:new_vm;
+	new_vm
+
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
 	(* First the existence check. It's not an error to not exist at all. *)
