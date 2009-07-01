@@ -23,6 +23,7 @@ let vm_operation_table =
     `create_template, "create_template";
     `snapshot, "snapshot";
     `copy, "copy";
+    `revert, "revert";
     `provision, "provision";
     `destroy, "destroy";
     `export, "export";
