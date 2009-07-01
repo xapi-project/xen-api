@@ -200,9 +200,7 @@ let must_write_zeroes_into_new_vdi ~__context vdi =
 
 let copy_vdi ~__context vdi_src vdi_dst = 
   TaskHelper.set_cancellable ~__context;
-
-  let rpc = Helpers.make_rpc ~__context in
-  let session_id = Context.get_session_id __context in
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
   let refresh_session = Xapi_session.consider_touching_session rpc session_id in
 
 
@@ -234,5 +232,5 @@ let copy_vdi ~__context vdi_src vdi_dst =
 		Unix.close ofd
 	 )
     )
-	      
+  )
 

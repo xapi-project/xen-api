@@ -482,8 +482,7 @@ let complete_import ~__context vmrefs =
 let metadata_handler (req: request) s = 
   debug "metadata_handler called";  
   Xapi_http.with_context "Importing VM metadata" req s
-    (fun __context ->
-       let session_id=Context.get_session_id __context in
+    (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
        let full_restore = 
 	 List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
        let force = 
@@ -523,7 +522,7 @@ let metadata_handler (req: request) s =
 	 cleanup on_cleanup_stack;
 	 end;
 	 raise e
-    )
+    ))
 
 let handler (req: request) s = 
   req.close := true;
@@ -541,7 +540,7 @@ let handler (req: request) s =
      we don't want to complete the task in the forwarding case *)
   
   Server_helpers.exec_with_new_task "Importing VM from network" 
-    (fun __context -> 
+    (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
        let sr = 
          if List.mem_assoc "sr_id" (req.Http.query @ req.Http.cookie)
          then Ref.of_string (List.assoc "sr_id" (req.Http.query @ req.Http.cookie))
@@ -577,7 +576,6 @@ let handler (req: request) s =
 		 raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 	       end;
 	     try
-	        let session_id=Context.get_session_id __context in
 		let refresh_session = Xapi_session.consider_touching_session rpc session_id in
 
 	        debug "Importing %s" (if full_restore then "(as 'restore')" else "(as new VM)");
@@ -690,4 +688,4 @@ let handler (req: request) s =
 		    raise (Api_errors.Server_error (Api_errors.import_error_generic, [ (ExnHelper.string_of_exn e) ]))
 	   )
     );
-  info "import successful"
+  info "import successful")

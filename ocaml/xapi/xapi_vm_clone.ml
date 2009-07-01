@@ -10,9 +10,8 @@ let delete_disks rpc session_id disks =
 	List.iter (fun (vbd,vdi) -> try Client.VDI.destroy rpc session_id vdi with _ -> ()) disks
 
 let wait_for_clone ?progress_minmax ~__context task =
-	let rpc = Helpers.make_rpc ~__context in
-	let session = Context.get_session_id __context in
-	let refresh_session = Xapi_session.consider_touching_session (Helpers.make_rpc ~__context) session in
+	Helpers.call_api_functions ~__context (fun rpc session ->
+	let refresh_session = Xapi_session.consider_touching_session rpc session in
 	let main_task = Context.get_task_id __context in
 
 	let cancel_task () =
@@ -76,7 +75,7 @@ let wait_for_clone ?progress_minmax ~__context task =
 
 	let result = Db_actions.DB_Action.Task.get_result ~__context ~self:task in
 	let vdiref = API.From.ref_VDI "" (Xml.parse_string result) in
-	vdiref  
+	vdiref)
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
