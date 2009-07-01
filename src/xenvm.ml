@@ -754,7 +754,7 @@ let monitor_vm socket cfg state =
 				Domain.destroy ~xc ~xs id;
 			| ActionResume ->
 				let cooperative = not cfg.hvm in
-				Domain.resume ~xc ~xs ~cooperative id;
+				Domain.resume ~xc ~xs ~cooperative ~hvm:cfg.hvm id;
 				change_vmstate cfg state VmRunning;
 			| ActionDestroy  ->
 				Domain.destroy ~xc ~xs id;
@@ -908,7 +908,7 @@ let monitor_vm socket cfg state =
 					let r = Xal.wait_release xal ~timeout:30. state.vm_domid in
 					if r <> Xal.Suspended then
 						failwith "domain failed to suspend";
-					Device.Dm.stop ~xs state.vm_domid Sys.sigusr1;
+					Device.Dm.suspend ~xs state.vm_domid;
 				with Xal.Timeout ->
 					failwith "domain failed to suspend";
 				in
@@ -923,7 +923,7 @@ let monitor_vm socket cfg state =
 				change_vmstate cfg state VmSuspended;
 			| ActionResume ->
 				let cooperative = not cfg.hvm in
-				Domain.resume ~xc ~xs ~cooperative state.vm_domid;
+				Domain.resume ~xc ~xs ~cooperative ~hvm:cfg.hvm state.vm_domid;
 				change_vmstate cfg state VmRunning;
 			in
 		let suspend flags file =

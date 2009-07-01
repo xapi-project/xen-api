@@ -106,11 +106,10 @@ let exists ~xs (x: device) =
     true
   with Xb.Noent -> false
 
-let exists_t ~xs t (x: device) =
+let assert_exists_t ~xs t (x: device) =
   let backend_stub = backend_path_of_device ~xs x in
   try
-    ignore_string(t.Xst.read backend_stub);
-    true
+    ignore_string(t.Xst.read backend_stub)
   with Xb.Noent -> raise Device_not_found
 
 (*
@@ -377,7 +376,7 @@ let pause ~xs (x: device) =
 	   directory still exists, to avoid us racing with an 'rm' and creating an orphaned key *)
 	Xs.transaction xs (fun t ->
 		(* Device should exist *)
-		Generic.exists_t ~xs t x;
+		Generic.assert_exists_t ~xs t x;
 
 		let path_should_not_exist path = 
 			try 
@@ -417,7 +416,7 @@ let unpause ~xs (x: device) (token: string) =
 	   it is not paused. *)
 	let fast_track_success = Xs.transaction xs (fun t ->
 		(* Device should exist *)
-		Generic.exists_t ~xs t x;
+		Generic.assert_exists_t ~xs t x;
 
 		let path_should_exist path = 
 			try ignore(t.Xst.read path)
@@ -1137,7 +1136,7 @@ let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 (* Where qemu writes its state and is signalled *)
 let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
 
-let signal ~xs ~domid cmd param retexpected =
+let signal ~xs ~domid ?wait_for ?param cmd =
 	let cmdpath = device_model_path domid in
 	Xs.transaction xs (fun t ->
 		t.Xst.write (cmdpath ^ "/command") cmd;
@@ -1145,9 +1144,17 @@ let signal ~xs ~domid cmd param retexpected =
 		| None -> ()
 		| Some param -> t.Xst.write (cmdpath ^ "/parameter") param
 	);
-	let pw = cmdpath ^ "/state" in
-	Watch.wait_for ~xs (Watch.value_to_become pw retexpected);
-	()
+	match wait_for with
+	| Some state ->
+		let pw = cmdpath ^ "/state" in
+		Watch.wait_for ~xs (Watch.value_to_become pw state)
+	| None -> ()
+
+let get_state ~xs domid =
+	let cmdpath = device_model_path domid in
+	let statepath = cmdpath ^ "/state" in
+	try Some (xs.Xs.read statepath)
+	with _ -> None
 
 (* Returns the allocated vnc port number *)
 let __start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
@@ -1259,8 +1266,14 @@ let restore ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
 	__start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ~usb
 	        ~nics ~acpi ~disp ~pci_emulations ~restore:true ~extras ?timeout domid
 
+(* suspend/resume is a done by sending signals to qemu *)
+let suspend ~xs domid =
+	signal ~xs ~domid "save" ~wait_for:"paused"
+let resume ~xs domid =
+	signal ~xs ~domid "continue" ~wait_for:"running"
+
 (* Called by every domain destroy, even non-HVM *)
-let stop ~xs domid signal =
+let stop ~xs domid  =
 	let qemu_pid_path = sprintf "/local/domain/%d/qemu-pid" domid in
 	let qemu_pid =
 		try int_of_string (xs.Xs.read qemu_pid_path)
@@ -1268,10 +1281,7 @@ let stop ~xs domid signal =
 	if qemu_pid = 0
 	then debug "No qemu-dm pid in xenstore; assuming this domain was PV"
 	else begin
-		debug "qemu-dm: stopping qemu-dm with %s (domid = %d)"
-		  (if signal = Sys.sigterm then "SIGTERM" 
-		   else if signal = Sys.sigusr1 then "SIGUSR1"
-		   else "(unknown)") domid;
+		debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
 
 		(* Note that we consider ioemu to be dead if either the pid has gone altogether
 		   OR in the very unlikely event that the pid has been recycled by a process
@@ -1297,8 +1307,13 @@ let stop ~xs domid signal =
 			let left = ref qemu_dm_shutdown_timeout in
 
 			let reference = readcmdline qemu_pid and quit = ref false in
+			if get_state ~xs domid = Some "paused" then begin
+				debug "qemu-dm: process is paused so sending signal now (domid %d pid %d)" domid qemu_pid;
+				resume ~xs domid;
+			end;
+
 			debug "qemu-dm: process is alive so sending signal now (domid %d pid %d)" domid qemu_pid;
-			Unix.kill qemu_pid signal;
+			Unix.kill qemu_pid Sys.sigterm;
 
 			while pid_exists qemu_pid && not !quit && !left > 0.
 			do
@@ -1306,6 +1321,7 @@ let stop ~xs domid signal =
 				quit := cmdline <> None && cmdline <> reference;
 				if !quit then debug "qemu-dm: /proc/%d/cmdline has changed; assuming qemu-dm has gone away" qemu_pid
 				else begin
+				  Unix.kill qemu_pid Sys.sigterm;
 				  (* sleep *)
 				  ignore (Unix.select [] [] [] loop_time_waiting);
 				  left := !left -. loop_time_waiting

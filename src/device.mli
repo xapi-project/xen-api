@@ -137,8 +137,8 @@ sig
 
 	val vnc_port_path : Xc.domid -> string
 
-	val signal : xs:Xs.xsh -> domid:Xc.domid
-	          -> string -> string option -> string -> unit
+	val signal : xs:Xs.xsh -> domid:Xc.domid -> ?wait_for:string -> ?param:string
+	          -> string -> unit
 
 	val start : xs:Xs.xsh -> dmpath:string -> memory:int64
 		 -> boot:string -> serial:string -> vcpus:int
@@ -154,5 +154,7 @@ sig
 		   -> ?extras:(string * string option) list
 		   -> ?timeout:float -> Xc.domid
 		   -> int
-	val stop : xs:Xs.xsh -> Xc.domid -> int -> unit
+	val suspend : xs:Xs.xsh -> Xc.domid -> unit
+	val resume : xs:Xs.xsh -> Xc.domid -> unit
+	val stop : xs:Xs.xsh -> Xc.domid -> unit
 end
