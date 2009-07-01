@@ -509,7 +509,10 @@ let vm_record rpc session_id vm =
    make_field ~name:"snapshot_time"  ~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time) ();
    make_field ~name:"transportable-snapshot-id" ~hidden:true ~get:(fun () -> (x()).API.vM_transportable_snapshot_id) ();
 
-     make_field ~name:"is-control-domain"   ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain) ();
+   make_field ~name:"parent"       ~get:(fun () -> get_uuid_from_ref (x()).API.vM_parent) ();
+   make_field ~name:"children"     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_children)) ();
+
+   make_field ~name:"is-control-domain"   ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain) ();
    make_field ~name:"power-state"         ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state) ();
    make_field ~name:"memory-actual" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) )) ();
    make_field ~name:"memory-target"  ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_target) ();

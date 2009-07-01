@@ -128,6 +128,7 @@ let create ~__context ~name_label ~name_description
 	             ~user_version ~is_a_template 
                  ~transportable_snapshot_id:""
                  ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+	             ~parent:Ref.null
 	             ~resident_on ~scheduled_to_be_resident_on ~affinity
 	             ~memory_static_max
 	             ~memory_dynamic_max
