@@ -86,6 +86,7 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      $(AUTOGEN_HELPER_DIR)/db_filter_parse \
 	      $(AUTOGEN_HELPER_DIR)/db_filter_lex \
               $(AUTOGEN_HELPER_DIR)/db_cache \
+	      $(AUTOGEN_HELPER_DIR)/db_names \
 	      $(AUTOGEN_HELPER_DIR)/db_upgrade \
 	      $(AUTOGEN_HELPER_DIR)/db_exn \
 	      $(AUTOGEN_HELPER_DIR)/ref_index \

@@ -1,8 +1,9 @@
 (* 
- * Copyright (c) Citrix Systems 2008. All rights reserved 
+ * Copyright (c) Citrix Systems 2008-2009. All rights reserved 
  * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
  *)
 
+open Client
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
@@ -123,3 +124,179 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 		end) in
 	debug "snapshot_with_quiesce: end";
 	result
+
+
+
+(********************************************************************************)
+(*                        Revert                                                *)
+(********************************************************************************)
+
+(* The following code have to run on the master as it manipulates the DB cache directly. *)
+let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy =
+	assert (Pool_role.is_master ());
+	debug "copying metadata into %s" (Ref.string_of dst);
+	List.iter
+		(fun (key,value) -> 
+			 if not (List.mem key do_not_copy)
+			 then Db_cache.DBCache.write_field __context Db_names.vm (Ref.string_of dst) key value)
+		metadata
+		
+let force_destroy_vbd ~__context ~rpc ~session_id vbd =
+	if Db.is_valid_ref vbd then begin
+		Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
+		Client.VBD.destroy rpc session_id vbd
+	end
+
+let force_destroy_vif ~__context ~rpc ~session_id vif =
+	if Db.is_valid_ref vif then begin
+		Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
+		Client.VIF.destroy rpc session_id vif
+	end
+
+let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
+	if Db.is_valid_ref vdi then begin
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
+		if not (Db.SR.get_content_type ~__context ~self:sr = "iso") then
+			Client.VDI.destroy rpc session_id vdi
+	end
+	
+(* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
+(* This operation destroys the data of the dest VM.                                    *)
+let update_vifs_and_vbds ~__context ~snapshot ~vm =
+	let snap_vbds = Db.VM.get_VBDs ~__context ~self:snapshot in
+	let snap_vifs = Db.VM.get_VIFs ~__context ~self:snapshot in
+	let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
+
+	let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
+	let vm_VDIs = List.map (fun vbd -> Db.VBD.get_VDI __context vbd) vm_VBDs in
+	let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
+	let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+
+	(* clone all the disks of the snapshot *)
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+
+		debug "Cleaning up the old VBDs and VDIs to have more free space";
+		List.iter (force_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs;
+		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_VDIs);
+		TaskHelper.set_progress ~__context 0.2;
+
+		debug "Cloning the snapshoted disks";
+		let driver_params = Xapi_vm_clone.make_driver_params () in
+		let cloned_disks = Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_vbds driver_params in
+		TaskHelper.set_progress ~__context 0.6;
+
+		debug "Cloning the suspend VDI if needed";
+		let cloned_suspend_VDI =
+			if snap_suspend_VDI = Ref.null
+			then Ref.null
+			else Xapi_vm_clone.clone_single_vdi rpc session_id Xapi_vm_clone.Disk_op_clone ~__context snap_suspend_VDI driver_params in
+		TaskHelper.set_progress ~__context 0.7;
+
+		try
+			debug "Copying the VBDs";
+			let (_ : [`VBD] Ref.t list) =
+				List.map (fun (vbd, vdi) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) cloned_disks in
+			TaskHelper.set_progress ~__context 0.8;
+
+			debug "Update the suspend_VDI";
+			Db.VM.set_suspend_VDI ~__context ~self:vm ~value:cloned_suspend_VDI;
+
+			debug "Cleaning up the old VIFs";
+			List.iter (force_destroy_vif ~__context ~rpc ~session_id) vm_VIFs;
+
+			debug "Setting up the new VIFs";
+			let (_ : [`VIF] Ref.t list) =
+				List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true vif) snap_vifs in
+			TaskHelper.set_progress ~__context 0.9;
+
+		with e ->
+			error "Error while updating the new VBD, VDI and VIF records. Cleaning up the cloned VDIs.";
+			List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (cloned_suspend_VDI :: List.map snd cloned_disks);
+			raise e)
+
+let update_guest_metrics ~__context ~vm ~snapshot =
+	let snap_gm = Db.VM.get_guest_metrics ~__context ~self:snapshot in
+	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
+
+	debug "Reverting the guest metrics";
+	if Db.is_valid_ref vm_gm then Db.VM_guest_metrics.destroy ~__context ~self:vm_gm;
+	if Db.is_valid_ref snap_gm then begin
+		let new_gm = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm:snapshot in
+		Db.VM.set_guest_metrics ~__context ~self:vm ~value:new_gm
+	end
+
+let update_parent ~__context ~vm ~snapshot =
+	Db.VM.set_parent ~__context ~self:vm ~value:snapshot
+
+let do_not_copy = [
+	Db_names.uuid;
+	Db_names.ref;
+	Db_names.suspend_VDI;
+	Db_names.power_state;
+	Db_names.parent;
+	Db_names.current_operations;
+	Db_names.allowed_operations;
+	Db_names.guest_metrics ]
+
+let revert ~__context ~snapshot ~vm =
+	debug "Reverting %s to %s" (Ref.string_of vm) (Ref.string_of snapshot);
+
+	try
+		let power_state = `Halted in
+		let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
+		let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
+
+		(* first of all, destroy the domain if needed. *)
+		if Db.VM.get_power_state ~__context ~self:vm = `Running then begin
+			Xpi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__revert ~vm;
+			let domid = Helpers.domid_of_vm ~__context ~self:vm in
+			Vmopshelpers.with_xc_and_xs (fun xc xs ->
+				Vmops.destroy_domain ~__context ~xc ~xs ~self:vm domid;
+				Monitor.do_monitor __context xc)
+		end;
+
+		copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy;
+		TaskHelper.set_progress ~__context 0.1;
+
+		update_vifs_and_vbds ~__context ~snapshot ~vm;
+		update_guest_metrics ~__context ~snapshot ~vm;
+		update_parent ~__context ~snapshot ~vm;
+		TaskHelper.set_progress ~__context 1.;
+
+		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:power_state;
+		debug "VM.revert done"
+
+	with e ->
+		error "revert failed: %s" (Printexc.to_string e);
+		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
+		raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of vm]))
+
+let	create_vm_from_snapshot ~__context ~snapshot =
+	let old_vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
+	try 
+		let snapshots = 
+			Db.VM.get_records_where __context 
+				(Db_filter_types.Eq (Db_filter_types.Field "snapshot_of", Db_filter_types.Literal (Ref.string_of old_vm))) in
+	
+		let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
+		let snap_metadata =  Helpers.vm_string_to_assoc snap_metadata in
+		let vm_uuid = List.assoc Db_names.uuid snap_metadata in
+		let snap_record = Db.VM.get_record ~__context ~self:snapshot in
+
+		Helpers.call_api_functions ~__context 
+			(fun rpc session_id -> 
+				 let new_vm = Client.VM.create_from_record rpc session_id snap_record in
+				 begin try
+					 Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid;
+					 copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy;
+					 List.iter (fun (snap,_) -> Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm) snapshots;
+					 new_vm
+				 with e ->
+					 debug "cleanin-up by deleting the VM %s" (Ref.string_of new_vm);
+					 Client.VM.destroy rpc session_id new_vm;
+					 raise e;
+				 end)
+	with e ->
+		error "create_vm_from_snapshot failed: %s" (Printexc.to_string e);
+		raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of old_vm]))
+		

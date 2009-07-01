@@ -324,7 +324,8 @@ let destroy  ~__context ~self =
 	
 	(* Force the user to unplug first *)
 	if r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved
-	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VBD still attached to a running VM"]));
+	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
+		[Printf.sprintf "VBD '%s' still attached to '%s'" r.Db_actions.vBD_uuid (Db.VM.get_uuid __context vm)]));
 
 	let metrics = Db.VBD.get_metrics ~__context ~self in
 	(* Don't let a failure to destroy the metrics stop us *)

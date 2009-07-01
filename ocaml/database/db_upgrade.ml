@@ -18,22 +18,7 @@ open Vm_memory_constraints
    get this done earlier for the next release we can trigger off the schema vsn change again..
 *)
 
-(** Names of database fields and tables. *)
-module Names = struct
-	let uuid = "uuid"
-	let vm = "VM"
-	let name_label = "name__label"
-	let memory_dynamic_max = "memory__dynamic_max"
-	let memory_dynamic_min = "memory__dynamic_min"
-	let memory_static_max = "memory__static_max"
-	let memory_static_min = "memory__static_min"
-	let memory_target = "memory__target"
-	let other_config = "other_config"
-	let is_a_template = "is_a_template"
-	let is_control_domain = "is_control_domain"
-	let platform = "platform"
-	let other_config = "other_config"
-end
+module Names = Db_names
 
 let (+++) = Int64.add
 
