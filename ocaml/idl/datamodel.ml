@@ -379,6 +379,14 @@ let _ =
     ~doc:"Not enough host memory is available to perform this operation" ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
+  error Api_errors.vm_snapshot_with_quiesce_failed [ "vm" ]
+    ~doc:"The quiesced-snapshot operation failed for an unexpected reason" ();
+  error Api_errors.vm_snapshot_with_quiesce_timeout [ "vm" ]
+    ~doc:"The VSS plug-in has timed out" ();
+  error Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond [ "vm" ]
+    ~doc:"The VSS plug-in cannot be contacted" ();
+  error Api_errors.vm_snapshot_with_quiesce_not_supported [ "vm" ]
+    ~doc:"The VSS plug-in is not installed on this virtual machine" ();
 
   (* Host errors *)
   error Api_errors.host_offline [ "host" ]
@@ -1039,7 +1047,11 @@ let vm_snapshot_with_quiesce = call
     Ref _vm, "vm", "The VM to be snapshotted";
     String, "new_name", "The name of the snapshotted VM"
   ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed;
+		Api_errors.vm_snapshot_with_quiesce_failed;
+		Api_errors.vm_snapshot_with_quiesce_timeout;
+		Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond;
+		Api_errors.vm_snapshot_with_quiesce_not_supported ]
   ()
 
 let vm_update_snapshot_metadata = call
