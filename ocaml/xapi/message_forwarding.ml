@@ -867,6 +867,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         in forward ~local_fn ~__context ~vm
         (fun session_id rpc -> Client.VM.snapshot_with_quiesce rpc session_id vm new_name))
 
+	let checkpoint ~__context ~vm ~new_name =
+		info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm) new_name;
+		let local_fn = Local.VM.checkpoint ~vm ~new_name in
+		let forward_fn session_id rpc = Client.VM.checkpoint rpc session_id vm new_name in
+
+		with_vm_operation ~__context ~self: vm ~doc:"VM.checkpoint" ~op:`checkpoint (fun () ->
+			if Db.VM.get_power_state __context vm = `Running then
+				forward_vm_op ~local_fn ~__context ~vm forward_fn
+			else
+				forward_to_access_srs ~local_fn ~__context ~vm forward_fn)
+
     let copy ~__context ~vm ~new_name ~sr =
       info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
       let task_id = Ref.string_of (Context.get_task_id __context) in
