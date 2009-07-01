@@ -392,6 +392,10 @@ let _ =
     ~doc:"The VSS plug-in is not installed on this virtual machine" ();
   error Api_errors.vm_revert_failed [ "vm"; "snapshot" ]
     ~doc:"An error occured while reverting the specified virtual machine to the specified snapshot" ();
+  error Api_errors.vm_checkpoint_suspend_failed [ "vm" ]
+    ~doc:"An error occured while saving the memory image of the specified virtual machine" ();
+  error Api_errors.vm_checkpoint_resume_failed [ "vm" ]
+    ~doc:"An error occured while restoring the memory image of the specified virtual machine" ();
 
   (* Host errors *)
   error Api_errors.host_offline [ "host" ]
@@ -1090,6 +1094,19 @@ let vm_revert = call
   ~params:[Ref _vm, "snapshot", "The snapshotted state that we revert to"]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed;
 		Api_errors.sr_full; Api_errors.vm_revert_failed ]
+  ()
+
+let vm_checkpoint = call
+  ~name:"checkpoint"
+  ~in_product_since: rel_midnight_ride
+  ~doc:"Checkpoints the specified VM, making a new VM. Checkppoint automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write) and saves the memory image as well."
+  ~result: (Ref _vm, "The reference of the newly created VM.")
+  ~params:[
+    Ref _vm, "vm", "The VM to be checkpointed";
+    String, "new_name", "The name of the checkpointed VM"
+  ]
+  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed;
+		Api_errors.vm_checkpoint_suspend_failed; Api_errors.vm_checkpoint_resume_failed]
   ()
 
 let vm_create_template = call
@@ -4437,7 +4454,7 @@ let vm_power_state =
 let vm_operations = 
   Enum ("vm_operations",
 	List.map operation_enum
-	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert;
+	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;

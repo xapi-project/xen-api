@@ -82,6 +82,7 @@ type disk_op_t =
 	| Disk_op_clone 
 	| Disk_op_copy of API.ref_SR option
 	| Disk_op_snapshot
+	| Disk_op_checkpoint
 
 let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_params = 
 	let task = 
@@ -93,7 +94,7 @@ let clone_single_vdi ?(progress) rpc session_id disk_op ~__context vdi driver_pa
 			Client.Async.VDI.copy rpc session_id vdi sr
 		| Disk_op_copy (Some other_sr) ->
 			Client.Async.VDI.copy rpc session_id vdi other_sr
-		| Disk_op_snapshot ->
+		| Disk_op_snapshot | Disk_op_checkpoint ->
 			Client.Async.VDI.snapshot rpc session_id vdi driver_params
 	in
 	(* This particular clone takes overall progress from startprogress to endprogress *)
@@ -159,12 +160,13 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	let ref = Ref.make () in
 	let all = Db.VM.get_record_internal ~__context ~self:vm in
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
-	let is_a_snapshot = disk_op = Disk_op_snapshot in
+	let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 	let current_op =
 		match disk_op with
 		| Disk_op_clone -> `clone
 		| Disk_op_copy _-> `copy
 		| Disk_op_snapshot -> `snapshot
+		| Disk_op_checkpoint -> `checkpoint
 	in
 	(* replace VM mac seed on clone *)
 	let rec replace_seed l =
@@ -198,7 +200,6 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	in
 	let metrics = Ref.make ()
 	and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let vCPUs_utilisation = [(0L, 0.)] in
 	Db.VM_metrics.create ~__context
 		~ref:metrics 
 		~uuid:metrics_uuid
@@ -214,16 +215,21 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 		~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
 		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m));	
 
+	(* For checkpoints, copy the guest metrics (as the VM will be reverted in a suspended state *)
+	let guest_metrics = match disk_op with
+		| Disk_op_checkpoint -> Xapi_vm_helpers.copy_guest_metrics ~__context ~vm
+		| _ -> Ref.null in
+
 	(* compute the parent VM *)
 	let parent =
 		match disk_op with
 		| Disk_op_clone | Disk_op_copy _-> vm
-		| Disk_op_snapshot -> all.Db_actions.vM_parent in
+		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
 	(* update the VM's parent field in case of snapshot. *)
 	begin match disk_op with
 		| Disk_op_clone | Disk_op_copy _-> ()
-		| Disk_op_snapshot -> Db.VM.set_parent ~__context ~self:vm ~value:ref
+		| Disk_op_snapshot | Disk_op_checkpoint -> Db.VM.set_parent ~__context ~self:vm ~value:ref
 	end;
 
 	(* create a new VM *)
@@ -278,7 +284,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 		~is_control_domain:all.Db_actions.vM_is_control_domain
 		~metrics
 		~blobs:[]
-		~guest_metrics:Ref.null
+		~guest_metrics:guest_metrics
 		~last_booted_record:all.Db_actions.vM_last_booted_record
 		~recommendations:all.Db_actions.vM_recommendations
 		~xenstore_data:all.Db_actions.vM_xenstore_data
@@ -304,14 +310,16 @@ let clone disk_op ~__context ~vm ~new_name =
 		(* Otherwise, we keep the same power-state as the initial VM          *)
 		let new_power_state =
 			match disk_op, power_state with
+			| Disk_op_checkpoint, (`Running | `Suspended) -> `Suspended
 			| (Disk_op_clone|Disk_op_copy _), `Suspended  -> `Suspended
 			| _ -> `Halted
 		in
 
-		let is_a_snapshot = disk_op = Disk_op_snapshot in
+		let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 
-		(* driver params to be passed to storage backend clone operations *)
-		let driver_params = make_driver_params () in
+		(* driver params to be passed to storage backend clone operations. *)
+		(* In case of checkpoint, tell the backend do not lock the VM on VBD.pause, as the lock is already held by the checkpoint call *)
+		let driver_params = make_driver_params () @ if disk_op = Disk_op_checkpoint then [ Sm.with_vm_lock, "false" ] else [] in
 
 		(* backend cloning operations first *)
 		let cloned_disks = safe_clone_disks rpc session_id disk_op ~__context vbds driver_params in
@@ -341,6 +349,8 @@ let clone disk_op ~__context ~vm ~new_name =
 							 let original = Db.VM.get_suspend_VDI ~__context ~self:vm in
 							 if original = Ref.null || disk_op = Disk_op_snapshot
 							 then Ref.null
+							 else if disk_op = Disk_op_checkpoint && power_state = `Runnning
+							 then original
 							 else clone_single_vdi rpc session_id disk_op ~__context original driver_params) in
 				
 				Db.VM.set_suspend_VDI ~__context ~self:ref ~value:suspend_VDI;

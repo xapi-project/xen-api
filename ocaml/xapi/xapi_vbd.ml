@@ -314,7 +314,32 @@ let device_is_unpaused self state =
        then (Hashtbl.remove paused_vbds self; debug "Removed hashtbl entry for %s" (Ref.string_of self))
        else (Mutex.execute state.m (fun () -> state.in_progress <- false); Condition.signal state.c))
 
-let pause ~__context ~self : string = 
+let pause_common ~__context ~vm ~self =
+
+	(* XXX: these checks may be redundant since the message forwarding layer checks this stuff *)
+	let localhost = Helpers.get_localhost ~__context in
+	
+	(* Since we blocked not holding the per-VM mutex, we need to double-check that the VM is still present *)
+	if not(Helpers.is_running ~__context ~self:vm)
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
+										[ Ref.string_of vm; 
+										  Record_util.power_to_string `Running; 
+										  Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) ]));
+	
+	if not(Db.VBD.get_currently_attached ~__context ~self)
+	then raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]));
+	
+	(* Make sure VM has not migrated *)
+	if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+	then raise (Api_errors.Server_error(Api_errors.vm_not_resident_here, [ Ref.string_of vm; Ref.string_of localhost ]));
+		
+	let device = Xen_helpers.device_of_vbd ~__context ~self in
+	try
+		with_xs (fun xs -> Device.Vbd.pause ~xs device)
+	with Device.Device_shutdown ->
+		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
+
+let pause_internal ~with_vm_lock ~__context ~self : string = 
   let vm = Db.VBD.get_VM ~__context ~self in
 
   (* 1. Find the current vbd pause state record or make a new one *)
@@ -335,45 +360,41 @@ let pause ~__context ~self : string =
   try
     finally
       (fun () ->
+	let f () = 
 	 (* Only one VBD.pause thread is allowed to acquire the 'in_progress' flag/lock *)
 	 Mutex.execute state.m
 	   (fun () -> 
 	      while state.in_progress do Condition.wait state.c state.m done;
 	      state.in_progress <- true);
 	 (* One lucky VBD.pause thread will get here at a time *)
-	 
+	 pause_common ~__context ~vm ~self in
+
 	 (* Wait for the VM to become unlocked and grab the per-VM mutex when this happens *)
-	 Locking_helpers.with_lock vm 
-	   (fun token () ->
-	      (* XXX: these checks may be redundant since the message forwarding layer checks this stuff *)
-	      let localhost = Helpers.get_localhost ~__context in
-	      (* Since we blocked not holding the per-VM mutex, we need to double-check that the VM is still present *)
-	      if not(Helpers.is_running ~__context ~self:vm)
-	      then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
-						  [ Ref.string_of vm; 
-						    Record_util.power_to_string `Running; 
-						    Record_util.power_to_string (Db.VM.get_power_state ~__context ~self:vm) ]));
-	      if not(Db.VBD.get_currently_attached ~__context ~self)
-	      then raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]));
-	      (* Make sure VM has not migrated *)
-	      if Db.VM.get_resident_on ~__context ~self:vm <> localhost
-	      then raise (Api_errors.Server_error(Api_errors.vm_not_resident_here, [ Ref.string_of vm; Ref.string_of localhost ]));
-		
-	      let device = Xen_helpers.device_of_vbd ~__context ~self in
-	      try
-		with_xs (fun xs -> Device.Vbd.pause ~xs device)
-	      with Device.Device_shutdown ->
-		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
-	   ) ()
+	 if with_vm_lock then
+		Locking_helpers.with_lock vm (fun token -> f) ()
+	 else
+		f ()
       )
       (* Decrement the 'blocked_threads' refcount *)
       (fun () -> Mutex.execute paused_vbds_m (fun () -> state.blocked_threads <- state.blocked_threads - 1));
       (* This thread returns leaving the 'in_progress' flag true -- this is the lock. *)
+
   with e ->
     (* Something bad happened when we were trying to pause so unwind and cleanup *)
     error "Unexpected error during VBD.pause: %s" (ExnHelper.string_of_exn e);
     device_is_unpaused self state;
     raise e
+
+(* If the key "with-vm-lock" is set to false' in the other-config field, then do not lock the VM when pausing the VBD. *)
+let pause ~__context ~self : string =
+	let other_config = Db.VBD.get_other_config ~__context ~self in
+	let with_vm_lock =
+		if List.mem_assoc Sm.with_vm_lock other_config then
+			bool_of_string (List.assoc Sm.with_vm_lock other_config)
+		else
+			true in
+	debug "VBD.pause will %slock the VM." (if with_vm_lock then "" else "do not ");
+	pause_internal ~with_vm_lock ~__context ~self
 
 let state_of_vbd self = 
   Mutex.execute paused_vbds_m
@@ -414,6 +435,11 @@ let unpause ~__context ~self ~token =
       Opt.iter (device_is_unpaused self) state
   | Device.Pause_token_mismatch ->
       warn "Unpause left device paused because supplied token did not match"
+
+let flush ~__context self =
+  debug "Flushing vbd %s" (Ref.string_of self);
+  let token = pause_internal ~with_vm_lock:false ~__context ~self in
+  unpause ~__context ~self ~token 
 
 (** Called on domain destroy to signal any blocked pause threads to re-evaluate the state of the world 
     and give up *)
