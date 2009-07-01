@@ -114,7 +114,7 @@ let suspend_domain ~xc ~xs ~domid ~file =
 
 let suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative =
 	suspend_domain ~xc ~xs ~domid ~file;
-	Domain.resume ~xc ~xs ~cooperative domid
+	Domain.resume ~xc ~xs ~cooperative ~hvm:(is_hvm ~xc domid) domid
 
 let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;

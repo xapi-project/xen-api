@@ -529,7 +529,7 @@ let suspend  ~__context ~vm =
 			   the final 10% *)
 			Vmops.suspend ~progress_cb:(fun x ->
 				TaskHelper.set_progress ~__context (x *. 0.9))
-				~__context ~xc ~xs ~vm;
+				~live:false ~__context ~xc ~xs ~vm;
 			debug "suspend phase 2/2: destroying the domain";
 			Vmops.destroy ~clear_currently_attached:false ~__context ~xc ~xs ~self:vm domid `Suspended;
 		with
@@ -679,6 +679,14 @@ let revert ~__context ~snapshot =
 		(fun token () -> Xapi_vm_snapshot.revert ~__context ~snapshot ~vm)
 		()
 
+(* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
+(* thread mess around with that. *)
+let checkpoint ~__context ~vm ~new_name =
+	TaskHelper.set_cancellable ~__context;
+	Locking_helpers.with_lock vm 
+		(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
+		()
+	
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
 	(* First the existence check. It's not an error to not exist at all. *)
