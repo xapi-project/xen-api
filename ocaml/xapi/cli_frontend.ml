@@ -1081,7 +1081,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vm-export",
     {
       reqd=["filename"];
-      optn=[];
+      optn=["preserve-power-state"];
       help="Export a VM to <filename>.";
       implementation= With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
@@ -1090,7 +1090,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "snapshot-export-to-template",
     {
       reqd=["filename"; "snapshot-uuid"];
-      optn=[];
+      optn=["preserve-power-state"];
       help="Export a snapshot to <filename>.";
       implementation= With_fd Cli_operations.snapshot_export;
       flags=[Standard];
