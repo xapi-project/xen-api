@@ -11,6 +11,7 @@
 #include <xs.h>
 #include <xen/hvm/hvm_info_table.h>
 #include <xen/hvm/params.h>
+#include <xen/hvm/e820.h>
 #include <sys/mman.h>
 
 #define CAML_NAME_SPACE
@@ -203,7 +204,8 @@ xenstore_get(char *key, int domid)
 
 static int hvm_build_set_params(int handle, int domid,
                                 int apic, int acpi, int pae, int nx, int viridian, int vcpus,
-                                int store_evtchn, unsigned long *store_mfn)
+                                int store_evtchn, unsigned long *store_mfn, 
+                                uint32_t frames)
 {
 	struct hvm_info_table *va_hvm;
 	uint8_t *va_map, sum;
@@ -222,6 +224,21 @@ static int hvm_build_set_params(int handle, int domid,
 	va_hvm->acpi_enabled = acpi;
 	va_hvm->apic_mode = apic;
 	va_hvm->nr_vcpus = vcpus;
+
+#ifdef HVM_PARAM_VPT_ALIGN /* Ugly test for xen version with these fields */
+        if ( frames <= (HVM_BELOW_4G_RAM_END >> 12) )
+            va_hvm->low_mem_pgend = frames;
+        else 
+            va_hvm->low_mem_pgend = (HVM_BELOW_4G_RAM_END >> 12);
+        va_hvm->high_mem_pgend = 0x100000 + frames - va_hvm->low_mem_pgend;
+        /* PFN of the bufioreq page: here to 4G is out of bounds */
+        {
+            unsigned long pfn;
+            xc_get_hvm_param(handle, domid, HVM_PARAM_BUFIOREQ_PFN, &pfn);
+            va_hvm->reserved_mem_pgstart = pfn;
+        }
+#endif
+
         va_hvm->s4_enabled = xenstore_get("acpi_s4", domid);
         va_hvm->s3_enabled = xenstore_get("acpi_s3", domid);
 	for (i = 0, sum = 0; i < va_hvm->length; i++)
@@ -271,7 +288,8 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 	                         Bool_val(apic), Bool_val(acpi),
 	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
 				 Int_val(vcpus),
-	                         Int_val(store_evtchn), &store_mfn);
+	                         Int_val(store_evtchn), &store_mfn,
+	                         ((uint32_t) Int_val(memsize)) << (20 - 12));
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
@@ -314,7 +332,8 @@ CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
 	                         Bool_val(apic), Bool_val(acpi),
 	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
 				 Int_val(vcpus),
-	                         Int_val(store_evtchn), &store_mfn);
+	                         Int_val(store_evtchn), &store_mfn,
+	                         ((uint32_t) Int_val(memsize)) << (20 - 12));
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
