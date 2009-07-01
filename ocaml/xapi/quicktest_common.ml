@@ -191,12 +191,7 @@ let template_uninstall test session_id vm =
 
 let vm_uninstall test session_id vm =
   let uuid = Client.VM.get_uuid !rpc session_id vm in
-  let snapshots = Client.VM.get_snapshots !rpc session_id vm in
-  ignore(cli_cmd test [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ]);
-  if snapshots <> [] then begin
-    debug test "Uninstalling snapshots";
-    List.iter (template_uninstall test session_id) snapshots;
-  end
+  ignore(cli_cmd test [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ])
 
 let vm_export ?(metadata_only=false) test session_id vm filename = 
   let uuid = Client.VM.get_uuid !rpc session_id vm in
