@@ -132,7 +132,11 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 
   let vm = log_reraise
     ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
-    (fun value -> Client.VM.create_from_record rpc session_id value) vm_record in
+    (fun value ->
+      let vm = Client.VM.create_from_record rpc session_id value in
+      if config.full_restore then Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid;
+      vm)
+    vm_record in
   state.cleanup <- (fun __context rpc session_id -> 
 		      (* Need to get rid of the import task or we cannot destroy the VM *)
 		      Helpers.log_exn_continue 
@@ -346,7 +350,11 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
   let create_vbd vbd_record = 
     let vbd = log_reraise
       "failed to create VBD"
-      (fun value -> Client.VBD.create_from_record rpc session_id value) vbd_record in
+      (fun value ->
+        let vbd = Client.VBD.create_from_record rpc session_id value in
+        if config.full_restore then Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid;
+        vbd)
+      vbd_record in
     state.cleanup <- (fun __context rpc session_id -> Client.VBD.destroy rpc session_id vbd) :: state.cleanup;
     (* Now that we can import/export suspended VMs we need to preserve the
        currently_attached flag *)
@@ -388,7 +396,11 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
 		       API.vIF_network = net } in
   let vif = log_reraise
     "failed to create VIF"
-    (fun value -> Client.VIF.create_from_record rpc session_id value)  vif_record in
+    (fun value ->
+      let vif = Client.VIF.create_from_record rpc session_id value in
+      if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
+      vif)
+    vif_record in
   state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
   (* Now that we can import/export suspended VMs we need to preserve the
      currently_attached flag *)
