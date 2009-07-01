@@ -2890,7 +2890,7 @@ let blob_create printer rpc session_id params =
     raise (Cli_util.Cli_failure "Need one of: vm-uuid, host-uuid, network-uuid, sr-uuid or pool-uuid")
 
     
-let export_common fd printer rpc session_id params filename num vm =
+let export_common fd printer rpc session_id params filename num preserve_power_state vm =
   let vm_record = vm.record () in
   let exporttask = Client.Task.create rpc session_id (Printf.sprintf "Export of VM: %s" (vm_record.API.vM_uuid)) "" in
   
@@ -2904,31 +2904,34 @@ let export_common fd printer rpc session_id params filename num vm =
     (fun () ->
       download_file ~__context rpc session_id exporttask fd filename
         (Printf.sprintf
-           "%s?session_id=%s&task_id=%s&ref=%s" 
+           "%s?session_id=%s&task_id=%s&ref=%s&preserve_power_state=%b" 
  	   (if List.mem_assoc "metadata" params
  	    then Constants.export_metadata_uri
  	    else Constants.export_uri)
 	   (Ref.string_of session_id)
            (Ref.string_of exporttask) 
-	   (Ref.string_of (vm.getref ())))
+	   (Ref.string_of (vm.getref ()))
+		preserve_power_state)
         "Export";
         num := !num + 1)
     (fun () -> Client.Task.destroy rpc session_id exporttask)
     
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
+  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
   let num = ref 1 in
   let op vm = 
-    export_common fd printer rpc session_id params filename num vm
+    export_common fd printer rpc session_id params filename num preserve_power_state vm
   in
   ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"])
 
 let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
+  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
-  export_common fd printer rpc session_id params filename num (vm_record rpc session_id ref)
+  export_common fd printer rpc session_id params filename num preserve_power_state (vm_record rpc session_id ref)
 
 let template_export fd printer = vm_export_aux "template" fd printer
 let snapshot_export fd printer = vm_export_aux "snapshot" fd printer
