@@ -895,6 +895,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
      flags=[Standard; Vm_selectors];
    };
    
+   "snapshot-reset-powerstate",
+   {
+     reqd=["snapshot-uuid"]; 
+     optn=["force"];
+     help="Force the VM powerstate to halted in the management toolstack database only. This command is used to recover a snapshot that is marked as 'suspended'. This is a potentially dangerous operation: you must ensure that you do not need the memory image anymore (ie. you will not be able to resume your snapshot anymore).";
+     implementation= No_fd Cli_operations.snapshot_reset_powerstate;
+     flags=[Standard; Vm_selectors];
+   };
 
    "vm-reboot",
    {
@@ -1068,6 +1076,51 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation= With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
     };
+
+   "snapshot-export-to-template",
+    {
+      reqd=["filename"; "snapshot-uuid"];
+      optn=[];
+      help="Export a snapshot to <filename>.";
+      implementation= With_fd Cli_operations.snapshot_export;
+      flags=[Standard];
+    };
+
+   "snapshot-create-template",
+    {
+      reqd=["new-name-label"; "snapshot-uuid"];
+      optn=["new-name-description"];
+      help="Create a new template by cloning an existing snapshot, using storage-level fast disk clone operation where available.";
+      implementation= No_fd Cli_operations.snapshot_create_template;
+      flags=[Standard];
+    };
+
+   "snapshot-uninstall",
+   {
+     reqd=["snapshot-uuid"];
+     optn=["force"];
+     help="Uninstall a snapshot. This operation will destroy those VDIs that are marked RW and connected to this snapshot only. To simply destroy the VM record, use snapshot-destroy.";
+     implementation= With_fd Cli_operations.snapshot_uninstall;
+     flags=[Standard];
+   };
+
+   "snapshot-destroy",
+    {
+      reqd=["snapshot-uuid"];
+      optn=[];
+      help="Destroy a snapshot. This leaves the storage associated with the snapshot intact. To delete storage too, use snapshot-uninstall.";
+      implementation=No_fd Cli_operations.snapshot_destroy;
+      flags=[];
+    };
+
+   "snapshot-disk-list",
+   {
+     reqd=["snapshot-uuid"]; 
+     optn=["vbd-params";"vdi-params"];
+     help="List the disks on the selected VM(s).";
+     implementation= No_fd (Cli_operations.snapshot_disk_list false);
+     flags=[Standard; Vm_selectors];
+   };
 
    "template-export",
     {

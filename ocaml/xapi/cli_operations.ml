@@ -667,7 +667,8 @@ let gen_cmds rpc session_id =
     (make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
     (make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
     (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
-    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true")] ["name-label";"name-description";"uuid"] rpc session_id) @
+    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id) @
+    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id) @
     (make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
     (make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
 
@@ -1903,10 +1904,15 @@ let vm_install_real printer rpc session_id template name description params =
         then Ref.string_of Ref.null
         else failwith "Failed to find a valid default SR for the Pool. Please provide an sr-name-label or sr-uuid parameter."
     in
-      
+
+	if Client.VM.get_is_a_snapshot rpc session_id template && (List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params) then
+		failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks.";
+
       (* We should now have an sr-uuid *)
       let new_vm =
-        if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
+        if Client.VM.get_is_a_snapshot rpc session_id template
+        then Client.VM.create_template rpc session_id template name
+        else if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
         then Client.VM.copy rpc session_id template name (Client.SR.get_by_uuid rpc session_id sr_uuid)
         else Client.VM.clone rpc session_id template name 
       in
@@ -1984,7 +1990,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
       (* add extra text if the VDI is being shared *)
       let r = Client.VDI.get_record rpc session_id vdi in
       Printf.sprintf "VDI: %s (%s) %s" r.API.vDI_uuid r.API.vDI_name_label
-	(if List.length r.API.vDI_VBDs = 1 then "" else " ** WARNING: disk is shared by other VMs") in
+	(if List.length r.API.vDI_VBDs <= 1 then "" else " ** WARNING: disk is shared by other VMs") in
     let string_of_vm vm = 
       let r = Client.VM.get_record rpc session_id vm in
       Printf.sprintf "VM : %s (%s)" r.API.vM_uuid r.API.vM_name_label in
@@ -2049,6 +2055,29 @@ let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true
 let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer false 
 let vm_snapshot_with_quiesce printer = vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false
 
+let snapshot_op op printer rpc session_id params =
+	let new_name = List.assoc "new-name-label" params in
+	let desc = if List.mem_assoc "new-name-description" params then Some (List.assoc "new-name-description" params) else None in
+	let uuid = List.assoc "snapshot-uuid" params in
+	let ref = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+	let new_ref = op ~rpc ~session_id ~vm:ref ~new_name in
+	ignore (may (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc) desc);
+	let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
+	printer (Cli_printer.PList [new_uuid])
+
+let snapshot_create_template printer = snapshot_op Client.VM.create_template printer
+
+let snapshot_destroy printer rpc session_id params =
+	let snap_uuid = List.assoc "snapshot-uuid" params in
+	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+	if Client.VM.get_power_state rpc session_id snap_ref <> `Halted then Client.VM.hard_shutdown ~rpc ~session_id ~vm:snap_ref;
+	Client.VM.destroy ~rpc ~session_id ~self:snap_ref
+
+let snapshot_uninstall fd printer rpc session_id params =
+	let snap_uuid = List.assoc "snapshot-uuid" params in
+	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+	vm_uninstall_common fd printer rpc session_id params [snap_ref]
+
 let vm_copy printer rpc session_id params =
   let new_name = List.assoc "new-name-label" params in
   let desc = try Some (List.assoc "new-name-description" params) with _ -> None in
@@ -2061,6 +2090,13 @@ let vm_reset_powerstate printer rpc session_id params =
   if not (List.mem_assoc "force" params) then
     failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   ignore (do_vm_op printer rpc session_id (fun vm -> Client.VM.power_state_reset rpc session_id (vm.getref())) params [])
+
+let snapshot_reset_powerstate printer rpc session_id params =
+	if not (List.mem_assoc "force" params) then
+		failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
+	let snapshot_uuid = List.assoc "snapshot-uuid" params in
+	let snapshot = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
+	Client.VM.power_state_reset rpc session_id snapshot
 
 let vm_shutdown printer rpc session_id params =
   let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
@@ -2109,8 +2145,7 @@ let vm_migrate printer rpc session_id params =
   let options = [ "live", if live then "true" else "false" ] in
   ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref()) host options) params ["host"; "host-uuid"; "host-name"; "live"])
 
-let vm_disk_list is_cd_list printer rpc session_id params =
-  let op vm =
+let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
     let vbdrecords = List.map (fun vbd-> (vbd_record rpc session_id vbd)) vbds in
     let vdirecords = List.map (fun vbd -> 
@@ -2142,8 +2177,15 @@ let vm_disk_list is_cd_list printer rpc session_id params =
 	    doit vbds vdis (n+1)
 	| _ -> (failwith "Unexpected mismatch in list length in vm_disk_list")
     in doit selectedvbd vdirecords 0
-  in
-  ignore(do_vm_op printer rpc session_id op params ["vbd-params";"vdi-params"])
+
+let vm_disk_list is_cd_list printer rpc session_id params = 
+	ignore(do_vm_op printer rpc session_id vm_disk_list_aux params ["vbd-params";"vdi-params"])
+
+let snapshot_disk_list is_cd_list printer rpc session_id params =
+	let snapshot_uuid = List.assoc "snapshot-uuid" params in
+	let snapshot_ref = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
+	let snapshot = vm_record rpc session_id snapshot_ref in
+	vm_disk_list_aux snapshot is_cd_list printer rpc session_id params
 
 let vm_crashdump_list printer rpc session_id params =
   let op vm =
@@ -2867,12 +2909,15 @@ let vm_export fd printer rpc session_id params =
   in
   ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"])
 
-let template_export fd printer rpc session_id params =
+let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
   let num = ref 1 in
-  let template_uuid = List.assoc "template-uuid" params in
-  let template = Client.VM.get_by_uuid rpc session_id template_uuid in
-  export_common fd printer rpc session_id params filename num (vm_record rpc session_id template)
+  let uuid = List.assoc (obj_type ^ "-uuid") params in
+  let ref = Client.VM.get_by_uuid rpc session_id uuid in
+  export_common fd printer rpc session_id params filename num (vm_record rpc session_id ref)
+
+let template_export fd printer = vm_export_aux "template" fd printer
+let snapshot_export fd printer = vm_export_aux "snapshot" fd printer
 
 let vm_vcpu_hotplug printer rpc session_id params =
   let vcpus=List.assoc "new-vcpus" params in
