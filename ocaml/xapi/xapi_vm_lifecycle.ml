@@ -169,6 +169,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 		&& op <> `data_source_op
 		&& op <> `changing_memory_live
 		&& op <> `awaiting_memory_live
+		&& op <> `metadata_export
 	then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
 
 	(* check PV drivers constraints if needed *)

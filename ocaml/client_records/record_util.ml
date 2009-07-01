@@ -25,6 +25,7 @@ let vm_operation_table =
     `provision, "provision";
     `destroy, "destroy";
     `export, "export";
+	`metadata_export, "metadata_export";
     `import, "import";
     `get_boot_record, "get_boot_record";
     `data_source_op, "data_sources_op";

@@ -1666,7 +1666,19 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'" (host_uuid ~__context self);
       Local.Host.retrieve_wlb_evacuate_recommendations ~__context ~self
       
-    let restart_agent ~__context ~host =
+	let update_pool_secret ~__context ~host ~pool_secret =
+		info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host);
+		let local_fn = Local.Host.update_pool_secret ~host ~pool_secret in
+		do_op_on ~local_fn ~__context ~host
+			(fun session_id rpc -> Client.Host.update_pool_secret rpc session_id host pool_secret)
+
+	let update_master ~__context ~host ~master_address =
+		info "Host.update_master: host = '%s'; master = '%s'" (host_uuid ~__context host) master_address;
+		let local_fn = Local.Pool.emergency_reset_master ~master_address in
+		do_op_on ~local_fn ~__context ~host
+			(fun session_id rpc -> Client.Host.update_master rpc session_id host master_address)
+
+	    let restart_agent ~__context ~host =
       info "Host.restart_agent: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.Host.restart_agent ~host in
       do_op_on ~local_fn ~__context ~host 
