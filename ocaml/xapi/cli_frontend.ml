@@ -823,6 +823,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags =[Standard; Vm_selectors];
     };
 
+  "vm-checkpoint",
+    {
+      reqd =["new-name-label"];
+      optn =["new-name-description"];
+      help ="Checkpoint an existing VM, using storage-level fast disk snapshot operation where available.";
+      implementation = No_fd Cli_operations.vm_checkpoint;
+      flags =[Standard; Vm_selectors];
+    };
+
    "vm-copy",
    {
      reqd=["new-name-label"]; 
