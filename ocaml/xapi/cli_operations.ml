@@ -2007,13 +2007,21 @@ let vm_uninstall_common fd printer rpc session_id params vms =
 	   if List.mem_assoc Xapi_globs.owner_key other_config
 	   then [ vdi ] else [ ]
 	 with _ -> []) vbds) in
-    let output = string_of_vm vm :: (List.map string_of_vdi vdis) in
-    toprint := output @ !toprint;
-    let destroy () = 
+   let suspend_VDI =
+	   try 
+		   let vdi = Client.VM.get_suspend_VDI rpc session_id vm in 
+		   ignore (Client.VDI.get_uuid rpc session_id vdi);
+		   vdi
+	   with _ -> Ref.null in
+   let output = string_of_vm vm :: (List.map string_of_vdi vdis) @ (if suspend_VDI = Ref.null then [] else [string_of_vdi suspend_VDI]) in
+    toprint := !toprint @ output;
+    let destroy () =
+      if Client.VM.get_power_state rpc session_id vm <> `Halted then Client.VM.hard_shutdown rpc session_id vm;
       Client.VM.destroy rpc session_id vm;
-      List.iter (fun vdi -> Client.VDI.destroy rpc session_id vdi) vdis
+      List.iter (fun vdi -> Client.VDI.destroy rpc session_id vdi) vdis;
+      if suspend_VDI <> Ref.null then try Client.VDI.destroy rpc session_id suspend_VDI with _ -> ()
     in
-    toremove := destroy :: !toremove;
+    toremove := !toremove @ [destroy];
   in
   List.iter choose_objects_to_delete vms;
   marshal fd (Command (Print "The following items are about to be destroyed"));
@@ -2029,7 +2037,8 @@ let vm_uninstall_common fd printer rpc session_id params vms =
 
 let vm_uninstall fd printer rpc session_id params =
   let vms = do_vm_op printer rpc session_id (fun vm -> vm.getref()) params [] in
-  vm_uninstall_common fd printer rpc session_id params vms
+  let snapshots = List.flatten (List.map (fun vm -> Client.VM.get_snapshots rpc session_id vm) vms) in
+  vm_uninstall_common fd printer rpc session_id params (vms @ snapshots)
 
 let template_uninstall fd printer rpc session_id params = 
   let uuid = List.assoc "template-uuid" params in
