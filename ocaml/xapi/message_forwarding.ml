@@ -1183,7 +1183,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
 			(fun () -> with_vm_operation ~assert_valid:false ~__context ~self:vm ~doc:"VM.revert" ~op:`revert
-				 (fun () -> 
+				 (fun () ->
+					  Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm;
 					  if Db.VM.get_power_state __context vm = `Running then
 						  forward_vm_op ~local_fn ~__context ~vm forward_fn
 					  else
