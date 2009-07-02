@@ -4870,6 +4870,7 @@ let all_system =
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
+(* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
 let all_relations =
   [
     (* snapshots *)
@@ -4884,12 +4885,12 @@ let all_relations =
     (_pif, "bond_master_of"), (_bond, "master");
     (_pif, "VLAN_slave_of"), (_vlan, "tagged_PIF");
 
-    (_host, "PBDs"), (_pbd, "host");
-    (_sr, "PBDs"), (_pbd, "SR");
+    (_pbd, "host"), (_host, "PBDs");
+    (_pbd, "SR"), (_sr, "PBDs");
 
-    (_vdi, "VBDs"), (_vbd, "VDI"); 
-    (_vdi, "crash_dumps"), (_crashdump, "VDI");
-(*    (_vdi, "parent"), (_vdi, "children"); *)
+    (_vbd, "VDI"), (_vdi, "VBDs"); 
+    (_crashdump, "VDI"), (_vdi, "crash_dumps");
+(*  (_vdi, "parent"), (_vdi, "children"); *)
 
     (_vbd, "VM"), (_vm, "VBDs");
     (_crashdump, "VM"), (_vm, "crash_dumps");
@@ -4902,19 +4903,19 @@ let all_relations =
     (_pif, "host"), (_host, "PIFs");
     (_pif, "network"), (_network, "PIFs");
 
-    (_sr, "VDIs"), (_vdi, "SR");
+    (_vdi, "SR"), (_sr, "VDIs");
 
-(* (_task, "alerts"), (_alert, "task"); *)
+(*  (_alert, "task"), (_task, "alerts"); *)
 
     (_vtpm, "VM"), (_vm, "VTPMs");
     (_console, "VM"), (_vm, "consoles");
 
-    (_host, "resident_VMs"), (_vm, "resident_on");
-    (_host, "host_CPUs"), (_hostcpu, "host");
+    (_vm, "resident_on"), (_host, "resident_VMs");
+    (_hostcpu, "host"), (_host, "host_CPUs");
 
-    (_host, "crashdumps"), (_host_crashdump, "host");
-    (_host, "patches"), (_host_patch, "host");
-    (_pool_patch, "host_patches"), (_host_patch, "pool_patch");
+    (_host_crashdump, "host"), (_host, "crashdumps");
+    (_host_patch, "host"), (_host, "patches");
+    (_host_patch, "pool_patch"), (_pool_patch, "host_patches");
   ]
 
 (** the full api specified here *)
