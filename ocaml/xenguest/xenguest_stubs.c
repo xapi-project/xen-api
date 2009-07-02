@@ -226,11 +226,13 @@ static int hvm_build_set_params(int handle, int domid,
 	va_hvm->nr_vcpus = vcpus;
 
 #ifdef HVM_PARAM_VPT_ALIGN /* Ugly test for xen version with these fields */
-        if ( frames <= (HVM_BELOW_4G_RAM_END >> 12) )
+        if ( frames <= (HVM_BELOW_4G_RAM_END >> 12) ) {
             va_hvm->low_mem_pgend = frames;
-        else 
+            va_hvm->high_mem_pgend = 0;
+        } else {
             va_hvm->low_mem_pgend = (HVM_BELOW_4G_RAM_END >> 12);
-        va_hvm->high_mem_pgend = 0x100000 + frames - va_hvm->low_mem_pgend;
+            va_hvm->high_mem_pgend = 0x100000 + frames - va_hvm->low_mem_pgend;
+        }
         /* PFN of the bufioreq page: here to 4G is out of bounds */
         {
             unsigned long pfn;
