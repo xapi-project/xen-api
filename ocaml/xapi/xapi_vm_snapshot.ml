@@ -286,13 +286,19 @@ let do_not_copy = [
 	Db_names.allowed_operations;
 	Db_names.guest_metrics ]
 
+(* This function has to be done on the master *)
+let revert_vm_fields ~__context ~snapshot ~vm =
+	debug "Reverting the fields of %s to the ones of %s" (Ref.string_of vm) (Ref.string_of snapshot);
+	let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
+	let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
+	copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy;
+	TaskHelper.set_progress ~__context 0.1
+
 let revert ~__context ~snapshot ~vm =
 	debug "Reverting %s to %s" (Ref.string_of vm) (Ref.string_of snapshot);
 
 	try
 		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
-		let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
-		let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
 
 		(* first of all, destroy the domain if needed. *)
 		if Db.VM.get_power_state ~__context ~self:vm = `Running then begin
@@ -302,10 +308,7 @@ let revert ~__context ~snapshot ~vm =
 				Vmops.destroy_domain ~__context ~xc ~xs ~self:vm domid;
 				Monitor.do_monitor __context xc)
 		end;
-
-		copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy;
-		TaskHelper.set_progress ~__context 0.1;
-
+	
 		update_vifs_and_vbds ~__context ~snapshot ~vm;
 		update_guest_metrics ~__context ~snapshot ~vm;
 		update_parent ~__context ~snapshot ~vm;
