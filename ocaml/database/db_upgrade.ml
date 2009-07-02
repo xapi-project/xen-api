@@ -148,16 +148,35 @@ let update_templates () =
 *)
 
 (* !!! This fn is release specific: REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES *)
-(* !!! CAUTION: In Orlando, this fn is called on _every_ master start (see comment at the top of this file)
-   Make sure the things you add here are OK to run every time, not just on upgrade *)
-let non_generic_db_upgrade_rules () = ()
+let non_generic_db_upgrade_rules () =
+
+	(* GEORGE -> MIDNIGHT RIDE *)
+	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
+	let vm_rows = Db_backend.get_rowlist vm_table in
+	let update_snapshots vm_row =
+		let vm = Db_backend.lookup_field_in_row vm_row Names.ref in
+		let snapshot_rows = List.filter (fun s -> Db_backend.lookup_field_in_row s Names.snapshot_of = vm) vm_rows in
+		let snapshot_rows = List.filter (fun s -> Db_backend.lookup_field_in_row s Names.parent = Ref.string_of Ref.null) snapshot_rows in
+		let compare s1 s2 =
+			let t1 = Db_backend.lookup_field_in_row s1 Names.snapshot_time in
+			let t2 = Db_backend.lookup_field_in_row s2 Names.snapshot_time in
+			compare t1 t2 in
+		let ordered_snapshot_rows = List.sort compare snapshot_rows in
+		let rec aux = function
+			| [] -> ()
+			| [s] -> ()
+			| s1 :: s2 :: t ->
+				Db_backend.set_field_in_row s2 Names.parent (Db_backend.lookup_field_in_row s1 Names.ref);
+				aux (s2 :: t) in
+		aux ordered_snapshot_rows in
+	List.iter update_snapshots vm_rows
 
 let upgrade_from_last_release dbconn =
   debug "Database schema version is that of last release: attempting upgrade";
 
   (* !!! UPDATE THIS WHEN MOVING TO NEW RELEASE !!! *)
-  let old_release = Datamodel_types.rel_orlando in
-  let this_release = Datamodel_types.rel_george in
+  let old_release = Datamodel_types.rel_george in
+  let this_release = Datamodel_types.rel_midnight_ride in
 
   let objs_in_last_release =
     List.filter (fun x -> List.mem old_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
