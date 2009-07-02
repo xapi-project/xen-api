@@ -158,17 +158,19 @@ let get_domain_zero ~__context : API.ref_VM =
        match !domain_zero_ref_cache with
        Some r -> r
      | None ->
-         let me = get_localhost ~__context in
-         let me_str = Ref.string_of me in
-         let my_dom0 =
-           Db.VM.get_internal_records_where ~__context
-         ~expr:(And(Eq (Field "resident_on", Literal me_str),
-                Eq (Field "is_control_domain", Literal "true"))) in
-           match (List.map fst my_dom0) with
-         | [] -> raise (No_domain_zero me_str)
-         | (x::xs) ->
-             domain_zero_ref_cache := Some x;
-             x
+	 (* Read the control domain uuid from the inventory file *)
+	 let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	 try
+	   let vm = Db.VM.get_by_uuid ~__context ~uuid in
+	   if not (Db.VM.get_is_control_domain ~__context ~self:vm) then begin
+	     error "VM uuid %s is not a control domain but the uuid is in my inventory file" uuid;
+	     raise (No_domain_zero uuid);
+	   end;
+	   domain_zero_ref_cache := Some vm;
+	   vm
+	 with _ ->
+	   error "Failed to find control domain (uuid = %s)" uuid;
+	   raise (No_domain_zero uuid)
     )
 
 let get_size_with_suffix s =
