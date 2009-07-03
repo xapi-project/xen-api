@@ -155,7 +155,7 @@ let snapshot_metadata ~vm ~is_a_snapshot =
 		""
 
 (* return a new VM record, in appropriate power state and having the good metrics. *)
-let copy_vm_record ~__context ~vm ~disk_op ~new_name =
+let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	let task_id = Ref.string_of (Context.get_task_id __context) in
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
@@ -237,7 +237,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name =
 	Db.VM.create ~__context 
 		~ref
 		~uuid:(Uuid.to_string uuid)
-		~power_state:`Halted
+		~power_state:new_power_state
 		~allowed_operations:[]
 		~blocked_operations:[]
 		~name_label:new_name
@@ -327,7 +327,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		begin try 
 			
 			(* create the VM record *)
-			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name in
+			let ref, uuid = copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state in
 				
 			(* copy every VBD using the new VDI as backend                                *)
 			(* if this fails halfway through, delete the VM and the VDIs, but don't worry *)
