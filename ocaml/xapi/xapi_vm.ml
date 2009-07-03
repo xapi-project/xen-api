@@ -679,10 +679,12 @@ let revert ~__context ~snapshot =
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
 (* thread mess around with that. *)
 let checkpoint ~__context ~vm ~new_name =
-	TaskHelper.set_cancellable ~__context;
-	Locking_helpers.with_lock vm 
-		(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
-		()
+	Local_work_queue.wait_in_line Local_work_queue.long_running_queue (fun () ->
+		TaskHelper.set_cancellable ~__context;
+		Locking_helpers.with_lock vm 
+			(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
+			()
+	)
 	
 let copy ~__context ~vm ~new_name ~sr =
 	(* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
