@@ -255,8 +255,7 @@ open Client
     we must pause VBDs in order of device number to avoid a deadlock where 'VM.get_VBDs' returns the
     devices in a different order in a parallel call
 *)
-let with_vm_lock = "with-vm-lock"
-let with_all_vbds_paused ?(vm_lock=true) ~__context ~vdis f = 
+let with_all_vbds_paused ~__context ~vdis f = 
   (* We need to keep track of the VBDs we've paused so we can go back and unpause them *)
   let paused_so_far = ref [] in
   let vbds = List.concat (List.map (fun vdi -> Db.VDI.get_VBDs ~__context ~self:vdi) vdis) in  
@@ -283,18 +282,9 @@ let with_all_vbds_paused ?(vm_lock=true) ~__context ~vdis f =
 		 let finished = ref false in
 		 while not !finished do
 		   try
-				let finish () =
-					let token = Client.VBD.pause rpc session_id vbd in
-					paused_so_far := (vbd, token) :: !paused_so_far;
-					finished := true in
-		     if not vm_lock then begin
-				 let other_config = Client.VBD.get_other_config ~rpc ~session_id ~self:vbd in
-				 if not (List.mem_assoc with_vm_lock other_config) then begin
-					 Client.VBD.add_to_other_config ~rpc ~session_id ~self:vbd ~key:with_vm_lock ~value:"false";
-					 finish ()
-				 end 
-			 end else
-				 finish ()
+			   let token = Client.VBD.pause rpc session_id vbd in
+			   paused_so_far := (vbd, token) :: !paused_so_far;
+			   finished := true
 		   with 
 		   | Api_errors.Server_error(code, _) when code = Api_errors.device_not_attached ->
 		       warn "Not pausing VBD %s because it appears to have spontaneously unplugged" (Ref.string_of vbd);
@@ -321,8 +311,6 @@ let with_all_vbds_paused ?(vm_lock=true) ~__context ~vdis f =
 	       and not as only debug messages *)
 	    List.iter
 	      (fun (vbd, token) ->
-	    (* Remove theu ugly key from other-config *)
-	    if not vm_lock then begin try Client.VBD.remove_from_other_config ~rpc ~session_id ~self:vbd ~key:with_vm_lock with _ ->() end;
 		 try Client.VBD.unpause rpc session_id vbd token
 		 with e ->
 		   warn "Failed to unpause VBD %s: %s" (Ref.string_of vbd) (ExnHelper.string_of_exn e))

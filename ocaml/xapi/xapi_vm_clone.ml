@@ -319,8 +319,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		let is_a_snapshot = disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint in
 
 		(* driver params to be passed to storage backend clone operations. *)
-		(* In case of checkpoint, tell the backend do not lock the VM on VBD.pause, as the lock is already held by the checkpoint call *)
-		let driver_params = make_driver_params () @ if disk_op = Disk_op_checkpoint then [ Sm.with_vm_lock, "false" ] else [] in
+		let driver_params = make_driver_params () in
 
 		(* backend cloning operations first *)
 		let cloned_disks = safe_clone_disks rpc session_id disk_op ~__context vbds driver_params in
