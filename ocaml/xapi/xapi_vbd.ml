@@ -339,7 +339,7 @@ let pause_common ~__context ~vm ~self =
 	with Device.Device_shutdown ->
 		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
 
-let pause_internal ~with_vm_lock ~__context ~self : string = 
+let pause ~__context ~self : string = 
   let vm = Db.VBD.get_VM ~__context ~self in
 
   (* 1. Find the current vbd pause state record or make a new one *)
@@ -360,20 +360,13 @@ let pause_internal ~with_vm_lock ~__context ~self : string =
   try
     finally
       (fun () ->
-	let f () = 
 	 (* Only one VBD.pause thread is allowed to acquire the 'in_progress' flag/lock *)
 	 Mutex.execute state.m
 	   (fun () -> 
 	      while state.in_progress do Condition.wait state.c state.m done;
 	      state.in_progress <- true);
 	 (* One lucky VBD.pause thread will get here at a time *)
-	 pause_common ~__context ~vm ~self in
-
-	 (* Wait for the VM to become unlocked and grab the per-VM mutex when this happens *)
-	 if with_vm_lock then
-		Locking_helpers.with_lock vm (fun token -> f) ()
-	 else
-		f ()
+	 pause_common ~__context ~vm ~self
       )
       (* Decrement the 'blocked_threads' refcount *)
       (fun () -> Mutex.execute paused_vbds_m (fun () -> state.blocked_threads <- state.blocked_threads - 1));
@@ -384,17 +377,6 @@ let pause_internal ~with_vm_lock ~__context ~self : string =
     error "Unexpected error during VBD.pause: %s" (ExnHelper.string_of_exn e);
     device_is_unpaused self state;
     raise e
-
-(* If the key "with-vm-lock" is set to false' in the other-config field, then do not lock the VM when pausing the VBD. *)
-let pause ~__context ~self : string =
-	let other_config = Db.VBD.get_other_config ~__context ~self in
-	let with_vm_lock =
-		if List.mem_assoc Sm.with_vm_lock other_config then
-			bool_of_string (List.assoc Sm.with_vm_lock other_config)
-		else
-			true in
-	debug "VBD.pause will %slock the VM." (if with_vm_lock then "" else "do not ");
-	pause_internal ~with_vm_lock ~__context ~self
 
 let state_of_vbd self = 
   Mutex.execute paused_vbds_m
@@ -410,21 +392,6 @@ let unpause ~__context ~self ~token =
   
   (* Note we don't check that the client has waited for the VBD.pause to return: we trust the client not
      to be stupid anyway by the nature of this API *)
-  
-  (* Note we don't attempt to grab the per-VM lock and so the domid might change underneath us by a reboot
-     and VM.migrate requests may have arrived before this call.
-     This is safe and sufficient because:
-     1. VM.migrate is configured to wait if any devices are paused, so the domain must stay on this host
-     2. domids aren't reused on the local host
-     3. the unpause is a simple xenstore 'rm' which is taken to have succeeded if the 'pause-done' node
-     is missing
-     4. if a VM has rebooted then devices come up unpaused by default and so, since the 'pause-done' node
-     is missing this unpause will succeed.
-
-     Being lock-free is important because otherwise you get bad behaviour like:
-     1. VBD.pause
-     2. VM.reboot
-     3. VBD.unpause <- cannot acquire per-VM mutex; reboot cannot complete while disk is paused. *)
   let device = Xen_helpers.device_of_vbd ~__context ~self in
   try
     with_xs (fun xs -> Device.Vbd.unpause ~xs device token);
@@ -438,7 +405,7 @@ let unpause ~__context ~self ~token =
 
 let flush ~__context self =
   debug "Flushing vbd %s" (Ref.string_of self);
-  let token = pause_internal ~with_vm_lock:false ~__context ~self in
+  let token = pause ~__context ~self in
   unpause ~__context ~self ~token 
 
 (** Called on domain destroy to signal any blocked pause threads to re-evaluate the state of the world 

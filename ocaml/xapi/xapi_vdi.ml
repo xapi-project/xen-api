@@ -299,14 +299,9 @@ let snapshot ~__context ~vdi ~driver_params =
   (* While we don't have blkback support for pause/unpause we only do this
      for .vhd-based backends. *)
   let vdi_info =
-    if Xen_helpers.kind_of_vdi ~__context ~self:vdi = Device_common.Tap
-	then begin
-		let vm_lock =
-			try List.mem_assoc Sm.with_vm_lock driver_params && bool_of_string (List.assoc Sm.with_vm_lock driver_params)
-			with Not_found -> true in
-		debug "VDI.snapshot with vm_lock='%s'" (string_of_bool vm_lock);
-		Sm.with_all_vbds_paused ~vm_lock ~__context ~vdis:[vdi] call_snapshot
-    end else 
+    if Xen_helpers.kind_of_vdi ~__context ~self:vdi = Device_common.Tap then
+		Sm.with_all_vbds_paused ~__context ~vdis:[vdi] call_snapshot
+    else 
 		call_snapshot () in
 
   let uuid = require_uuid vdi_info in
