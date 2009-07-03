@@ -82,6 +82,11 @@ let rec update_table ~__context ~include_snapshots ~table vm =
   end;
   (* Add also the guest metrics *)
   add vm.API.vM_guest_metrics;
+
+  (* Add the hosts links *)
+  add vm.API.vM_resident_on;
+  add vm.API.vM_affinity;
+
   (* Add the parent VM *)
   if include_snapshots then update_table ~__context ~include_snapshots:false ~table vm.API.vM_parent
   end
