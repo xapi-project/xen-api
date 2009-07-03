@@ -301,13 +301,8 @@ let revert ~__context ~snapshot ~vm =
 		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 
 		(* first of all, destroy the domain if needed. *)
-		if Db.VM.get_power_state ~__context ~self:vm = `Running then begin
-			Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__revert ~vm;
-			let domid = Helpers.domid_of_vm ~__context ~self:vm in
-			Vmopshelpers.with_xc_and_xs (fun xc xs ->
-				Vmops.destroy_domain ~__context ~xc ~xs ~self:vm domid;
-				Monitor.do_monitor __context xc)
-		end;
+		if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
+			Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VM.hard_shutdown rpc session_id vm);
 	
 		update_vifs_and_vbds ~__context ~snapshot ~vm;
 		update_guest_metrics ~__context ~snapshot ~vm;

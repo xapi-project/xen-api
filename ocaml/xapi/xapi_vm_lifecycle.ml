@@ -56,14 +56,17 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	let long_copies = [`clone; `copy; `export; `create_template]
 	and boot_record = [`get_boot_record]
 	and snapshot    = [`snapshot]
-	and state_machine = 
-		let state = List.map snd current_ops in
-		state = [`snapshot_with_quiesce] && op = `snapshot
+	and allowed_operations = (* a list of valid state -> operation *)
+		[ [`snapshot_with_quiesce], `snapshot;
+		  [`revert],                `hard_shutdown ] in                
+	let state_machine () = 
+		let current_state = List.map snd current_ops in
+		List.exists (fun (state, transition) -> state = current_state && transition = op) allowed_operations
 	in
 	let aux ops =
 		List.mem op ops && List.for_all (fun (_,o) -> List.mem o ops) current_ops
 	in
-	aux long_copies || aux snapshot || aux boot_record || state_machine
+	aux long_copies || aux snapshot || aux boot_record || state_machine ()
 
 (** Special handling is required for RedHat version 3 *)
 let is_rhel3 gmr =

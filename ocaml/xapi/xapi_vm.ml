@@ -674,11 +674,8 @@ let revert ~__context ~snapshot =
 		if Db.is_valid_ref vm 
 		then vm
 		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
+	Xapi_vm_snapshot.revert ~__context ~snapshot ~vm
 	
-	Locking_helpers.with_lock vm 
-		(fun token () -> Xapi_vm_snapshot.revert ~__context ~snapshot ~vm)
-		()
-
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
 (* thread mess around with that. *)
 let checkpoint ~__context ~vm ~new_name =
