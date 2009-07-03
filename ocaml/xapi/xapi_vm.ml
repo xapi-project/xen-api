@@ -652,6 +652,7 @@ let clone ~__context ~vm ~new_name =
 (* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
 (* the VBD level (with pause/unpause mechanism                                                   *)
 let snapshot ~__context ~vm ~new_name =
+	TaskHelper.set_cancellable ~__context;
 	Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
 
 (* Snapshot_with_quiesce triggers the VSS plugin which will then calls the VM.snapshot API call.     *)
