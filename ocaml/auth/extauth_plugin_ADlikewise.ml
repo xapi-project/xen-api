@@ -274,12 +274,12 @@ let likewise_get_all_byid subject_id =
 	let subject_attrs = likewise_common ["--minimal";subject_id] "/opt/likewise/bin/lw-find-by-sid" in
 	subject_attrs (* OK, return the whole output list *)
 
-let likewise_get_gids_byname _subject_name =
+let likewise_get_group_sids_byname _subject_name =
 	let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 
 	let subject_attrs = likewise_common ["--minimal";subject_name] "/opt/likewise/bin/lw-list-groups" in
-	(* returns all gids in the result *)
-	List.map (fun (n,v)->v) (List.filter (fun (n,v)->n="Gid") subject_attrs)
+	(* returns all sids in the result *)
+	List.map (fun (n,v)->v) (List.filter (fun (n,v)->n="Sid") subject_attrs)
 
 let likewise_get_sid_bygid gid =
 	
@@ -422,38 +422,14 @@ let query_group_membership subject_identifier =
 	let subject_info = query_subject_information subject_identifier in
 	
 	if (List.assoc "subject-is-group" subject_info)="true" (* this field is always present *)
-	then (* subject is a group, so get_gids_byname will not work because likewise's lw-list-groups *)
+	then (* subject is a group, so get_group_sids_byname will not work because likewise's lw-list-groups *)
 	     (* doesnt work if a group name is given as input *)
 	     (* FIXME: default action for groups until workaround is found: return an empty list of membership groups *)
 		[]
-	else (* subject is a user, lw-list-groups and therefore get_gids_byname work fine *)
+	else (* subject is a user, lw-list-groups and therefore get_group_sids_byname work fine *)
 	let subject_name = List.assoc "subject-name" subject_info in (* CA-27744: always use NT-style names *)
 
-	let subject_gid_membership_list = likewise_get_gids_byname subject_name in
-	debug "Found %i group gids for subject %s (%s): %s"
-		(List.length subject_gid_membership_list)
-		subject_name
-		subject_identifier
-		(List.fold_left (fun p pp->if p="" then pp else p^","^pp) "" subject_gid_membership_list);
-	let subject_sid_membership_list =
-		let rec sid_of_gid gids =
-			match gids with
-			| [] -> []
-			| gid::etc ->
-				let sid = 
-					try
-						Some (likewise_get_sid_bygid gid)
-					with
-					| e -> (* CA-30080: absorb any exception *)
-						debug "Ignoring group gid %s: Absorbed error when looking up group gid %s: %s" gid gid (ExnHelper.string_of_exn e);
-						None
-				in
-				match sid with
-					| None -> sid_of_gid etc
-					| Some sid -> sid::sid_of_gid etc
-		in
-		sid_of_gid subject_gid_membership_list
-	in
+	let subject_sid_membership_list = likewise_get_group_sids_byname subject_name in
 	debug "Resolved %i group sids for subject %s (%s): %s"
 		(List.length subject_sid_membership_list)
 		subject_name
