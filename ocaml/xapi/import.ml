@@ -433,7 +433,7 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
   state.cleanup <- (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif) :: state.cleanup;
   (* Now that we can import/export suspended VMs we need to preserve the
      currently_attached flag *)
-  if Db.VM.get_power_state ~__context ~self:vm = `Suspended
+  if Db.VM.get_power_state ~__context ~self:vm <> `Halted
   then Db.VIF.set_currently_attached ~__context ~self:vif ~value:vif_record.API.vIF_currently_attached;
 
   state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table
