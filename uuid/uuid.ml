@@ -72,3 +72,10 @@ let int_array_of_uuid s =
              a10; a11; a12; a13; a14; a15; ]);
     Array.of_list !l
   with _ -> invalid_arg "Uuid.int_array_of_uuid"
+
+let is_uuid str =
+	try
+		Scanf.sscanf str
+			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+			(fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true)
+	with _ -> false
