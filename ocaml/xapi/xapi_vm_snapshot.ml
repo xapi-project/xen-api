@@ -110,11 +110,11 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 					Watch.wait_for ~xs ~timeout:(60.) value;
 					debug "Snapshot_with_quiesce: waiting for the VSS agent to take a snapshot";
 					try wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name
-					with Xs.Timeout ->
+					with Watch.Timeout _ ->
 						error "time-out while waiting for VSS snapshot";
 						raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_timeout, [ Ref.string_of vm ]))
 
-				with Xs.Timeout ->
+				with Watch.Timeout _ ->
 					error "VSS plugin does not respond";
 					raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
 
