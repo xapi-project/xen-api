@@ -28,7 +28,10 @@ let control_path ~xs ~domid x =
 	xs.Xs.getdomainpath domid ^ "/control/" ^ x
 
 let snapshot_path ~xs ~domid x =
-	xs.Xs.getdomainpath domid ^ "/snapshot/" ^ x
+	xs.Xs.getdomainpath domid ^ "/control/snapshot/" ^ x
+
+let snapshot_cleanup_path ~xs ~domid =
+	xs.Xs.getdomainpath domid ^ "/control/snapshot"
 
 (* check if [flag] is set in the control_path of the VM [vm]. This looks like this code is a kind  *)
 (* of duplicate of the one in {!xal.ml}, {!events.ml} and {!xapi_guest_agent.ml} which are looking *)
@@ -101,7 +104,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 		then begin Pervasiveext.finally
 			(fun () ->
 				(* 2. if it the case, we can trigger a VSS snapshot *)
-				xs.Xs.rm (xs.Xs.getdomainpath domid ^ "snapshot");
+				xs.Xs.rm (snapshot_cleanup_path ~xs ~domid);
 				xs.Xs.write (snapshot_path ~xs ~domid "action") "create-snapshot";
 
 				try 
@@ -119,7 +122,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 					raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
 
 			(fun () -> 
-				 xs.Xs.rm (xs.Xs.getdomainpath domid ^ "snapshot"))
+				 xs.Xs.rm (snapshot_cleanup_path ~xs ~domid))
 
 		end else begin
 			error "Quiesce snapshot not supported";
