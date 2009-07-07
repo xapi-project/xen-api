@@ -74,7 +74,10 @@ let track_http_operation ?use_existing_task fd rpc session_id (make_command: API
 	 (* would need to use this mechanism if we want to check for it here. For now a  *)
 	 (* delay of 1 will do... *)
 	     let params = Client.Task.get_error_info rpc session_id task_id in
-	     raise (Api_errors.Server_error(List.hd params, List.tl params));
+		 if params = [] then
+			 raise (Api_errors.Server_error(Api_errors.client_error, []))
+		 else
+			 raise (Api_errors.Server_error(List.hd params, List.tl params));
        end)
     (fun () ->
        (* if we created our own task then destroy it again; if the task was supplied to us then don't destroy it --
