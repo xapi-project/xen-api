@@ -37,3 +37,6 @@ val string_of_cookie : cookie -> string
 val uuid_of_int_array : int array -> 'a t
 
 val int_array_of_uuid : 'a t -> int array
+
+(* check if a string is a uuid *)
+val is_uuis : string -> bool
