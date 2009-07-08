@@ -2194,7 +2194,8 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     in doit selectedvbd vdirecords 0
 
 let vm_disk_list is_cd_list printer rpc session_id params = 
-	ignore(do_vm_op printer rpc session_id vm_disk_list_aux params ["vbd-params";"vdi-params"])
+	let op vm = vm_disk_list_aux vm is_cd_list printer rpc session_id params in
+	let ( _ : unit list) = do_vm_op printer rpc session_id op params ["vbd-params";"vdi-params"] in ()
 
 let snapshot_disk_list is_cd_list printer rpc session_id params =
 	let snapshot_uuid = List.assoc "snapshot-uuid" params in
