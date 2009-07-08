@@ -163,9 +163,10 @@ struct
       with_lock
 	(fun () ->
 	   (* if uuid or reference then check uniqueness constraints: *)
-	   if fldname=uuid_fname then
-	     check_unique_table_constraints tblname (table_of_kvs [(uuid_fname, newval)])
-	   else if fldname=reference_fname then
+	   if fldname=uuid_fname then begin
+	     check_unique_table_constraints tblname (table_of_kvs [(uuid_fname, newval)]);
+	     Ref_index.update_uuid objref newval;
+	   end else if fldname=reference_fname then
 	     check_unique_table_constraints tblname (table_of_kvs [(reference_fname, newval)])
 	   else if fldname=name_label_fname then
 	     Ref_index.update_name_label objref newval;
