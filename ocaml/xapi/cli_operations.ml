@@ -2924,7 +2924,7 @@ let vm_export fd printer rpc session_id params =
   let op vm = 
     export_common fd printer rpc session_id params filename num preserve_power_state vm
   in
-  ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"])
+  ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "preserve-power-state"])
 
 let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
