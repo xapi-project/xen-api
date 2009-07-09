@@ -95,7 +95,7 @@ let check_drivers ~vmr ~vmgmr ~op ~ref =
 	(* FIXME: need to update the code for is_of_for_nigrate *)
 	let has_good_drivers =
 		match op with
-		| `pool_migrate | `suspend                                   -> is_ok_for_migrate pv_drivers
+		| `pool_migrate | `suspend | `checkpoint                     -> is_ok_for_migrate pv_drivers
 		| `clean_shutdown | `clean_reboot | `changing_VCPUs_live | _ -> true
 	in
 	let is_a_rhel3_bug =
@@ -115,7 +115,7 @@ let check_drivers ~vmr ~vmgmr ~op ~ref =
 	else up_to_date_error_of_version pv_drivers ref vmr.Db_actions.vM_guest_metrics
 
 let need_pv_drivers_check ~power_state ~op =
-	let op_list = [ `suspend; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
+	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
 	power_state = `Running && List.mem op op_list
 
 (* templates support clone operations, destroy (if not default), export and provision. *)
