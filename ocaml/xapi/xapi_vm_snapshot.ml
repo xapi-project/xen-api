@@ -287,7 +287,9 @@ let do_not_copy = [
 	Db_names.parent;
 	Db_names.current_operations;
 	Db_names.allowed_operations;
-	Db_names.guest_metrics ]
+	Db_names.guest_metrics;
+	Db_names.resident_on;
+	Db_names.scheduled_to_be_resident_on ]
 
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
