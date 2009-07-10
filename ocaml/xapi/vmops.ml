@@ -93,7 +93,7 @@ let create_vifs ~__context ~xs vifs =
 let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
 	List.iter (fun (devid, devs) ->
 		Device.PCI.bind devs;
-		Device.PCI.add ~xc ~xs ~hvm devs domid devid
+		Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 devs domid devid
 	) pcis
 
 (* Called on both VM.start and VM.resume codepaths to create vcpus in xenstore *)
