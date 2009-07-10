@@ -497,7 +497,7 @@ let add_devices xc xs domid cfg state restore =
 		let devs = List.map (fun dev ->
 			(dev.pci_domain, dev.pci_bus, dev.pci_slot, dev.pci_func)
 		) devs in
-		Device.PCI.add ~xc ~xs ~hvm:cfg.hvm devs domid devid
+		Device.PCI.add ~xc ~xs ~hvm:cfg.hvm ~msitranslate:0 ~pci_power_mgmt:0 devs domid devid
 	) cfg.pcis;
 
 	(* add device model *)
