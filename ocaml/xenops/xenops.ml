@@ -245,7 +245,7 @@ let add_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	let pcidevs = List.map (fun d -> 
 		Scanf.sscanf d "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
 	) (String.split ',' pci) in
-	Device.PCI.add ~xc ~xs ~hvm pcidevs domid devid;
+	Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 pcidevs domid devid;
 	()
 
 let del_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
