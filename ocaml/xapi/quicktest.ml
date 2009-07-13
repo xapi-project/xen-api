@@ -330,13 +330,18 @@ let verify_network_connectivity session_id test vm =
        then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
        else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
 
-       (* Check the udev script set promiscuous mode correctly *)
-       let other_config = Client.VIF.get_other_config !rpc session_id vif in
-       let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
-       let promisc' = read_sys (Printf.sprintf "/sys/class/net/%s/brport/promisc" device) = "1" in
-       if promisc <> promisc' 
-       then failed test (Printf.sprintf "VIF.other_config says promiscuous mode is %b while dom0 /sys says %b" promisc promisc')
-       else debug test (Printf.sprintf "VIF.other_config and dom0 /sys agree that promiscuous mode is %b" promisc);
+       (* Check the udev script set promiscuous mode correctly, IFF brport/promisc exists in sysfs. *)
+       let sysfs_promisc = Printf.sprintf "/sys/class/net/%s/brport/promisc" device in
+       if Sys.file_exists sysfs_promisc
+       then
+         let other_config = Client.VIF.get_other_config !rpc session_id vif in
+         let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
+         let promisc' = read_sys sysfs_promisc = "1" in
+         if promisc <> promisc' 
+         then failed test (Printf.sprintf "VIF.other_config says promiscuous mode is %b while dom0 /sys says %b" promisc promisc')
+         else debug test (Printf.sprintf "VIF.other_config and dom0 /sys agree that promiscuous mode is %b" promisc);
+       else
+         debug test (Printf.sprintf "%s not found. assuming unsupported" sysfs_promisc);
 
        (* Check the MTU *)
        let mtu = Client.VIF.get_MTU !rpc session_id vif in
