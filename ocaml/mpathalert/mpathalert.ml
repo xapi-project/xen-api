@@ -47,7 +47,11 @@ let to_string alert =
 
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
-	let session = Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" in
+	let session =
+		let rec aux () = 
+			try Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4"
+			with _ -> Thread.delay !delay; aux () in
+		aux () in
 	try
 		f rpc session x
 	with e ->
