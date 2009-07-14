@@ -336,7 +336,7 @@ let pause_common ~__context ~vm ~self =
 	let device = Xen_helpers.device_of_vbd ~__context ~self in
 	try
 		with_xs (fun xs -> Device.Vbd.pause ~xs device)
-	with Device.Device_shutdown ->
+	with Device.Device_shutdown | Device.Device_not_found ->
 		raise (Api_errors.Server_error(Api_errors.device_not_attached, [ Ref.string_of self ]))
 
 let pause ~__context ~self : string = 
