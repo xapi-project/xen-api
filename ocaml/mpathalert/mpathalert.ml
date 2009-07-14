@@ -6,6 +6,7 @@ open Client
 open Event_types
 
 let print_debug = ref false
+let delay = ref 120.
 
 let lock = Mutex.create ()
 let with_global_lock (f:unit -> unit) = Mutex.execute lock f
@@ -46,12 +47,13 @@ let to_string alert =
 
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
+	let session = Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" in
 	try
-		let session = Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4" in
 		f rpc session x
-	with _ ->
-		debug "Session expired, trying to get a new session ...";
-		Thread.delay 1.;
+	with e ->
+		begin try Client.Session.logout ~rpc ~session_id:session with _ -> () end;
+		debug "Got '%s', trying with a new session ..." (Printexc.to_string e);
+		Thread.delay !delay;
 		retry_with_session f rpc x
 
 let keep_mpath = List.filter (fun (key, value) -> Stringext.String.startswith "mpath-" key)
@@ -208,7 +210,6 @@ let sender rpc session (delay, msg, queue) =
 	done
 
 let _ =
-	let delay = ref 120. in
 	let pidfile = ref "/var/run/mpathalert.pid" in
 	let daemonize = ref false in
 
