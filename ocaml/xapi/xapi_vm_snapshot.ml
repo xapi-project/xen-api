@@ -295,7 +295,9 @@ let do_not_copy = [
 let revert_vm_fields ~__context ~snapshot ~vm =
 	debug "Reverting the fields of %s to the ones of %s" (Ref.string_of vm) (Ref.string_of snapshot);
 	let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
-	let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
+	let snap_metadata =
+		try Helpers.vm_string_to_assoc snap_metadata 
+		with _ -> Helpers.vm_string_to_assoc (Helpers.vm_to_string snapshot) in
 	copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy;
 	TaskHelper.set_progress ~__context 0.1
 
