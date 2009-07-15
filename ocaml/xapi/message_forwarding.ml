@@ -533,11 +533,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VM = struct
     (** Add to the VM's current operations, call a function and then remove from the
 	current operations. Ensure the allowed_operations are kept up to date. *)
-    let with_vm_operation ?(assert_valid=true) ~__context ~self ~doc ~op f =
+    let with_vm_operation ~__context ~self ~doc ~op f =
       let task_id = Ref.string_of (Context.get_task_id __context) in
       retry_with_global_lock ~__context ~doc
 	(fun () ->
-	   if assert_valid then Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
+	   Xapi_vm_lifecycle.assert_operation_valid ~__context ~self ~op;
 	   Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
 	   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
       (* Then do the action with the lock released *)
@@ -1182,7 +1182,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
 
 		with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
-			(fun () -> with_vm_operation ~assert_valid:false ~__context ~self:vm ~doc:"VM.revert" ~op:`revert
+			(fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
 				 (fun () ->
 					  Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm;
 					  if Db.VM.get_power_state __context vm = `Running then
