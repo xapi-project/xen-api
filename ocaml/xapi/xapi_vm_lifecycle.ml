@@ -43,7 +43,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `assert_operation_valid | `update_allowed_operations
 	| `power_state_reset
 	| `snapshot | `metadata_export 
-	| `revert                         -> all_power_states
+	| `revert | `reverting            -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~power_state ~op =
@@ -55,7 +55,7 @@ let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	(* declare below the non-conflicting concurrent sets. *)
 	let long_copies = [`clone; `copy; `export; `create_template]
 	and boot_record = [`get_boot_record]
-	and snapshot    = [`snapshot]
+	and snapshot    = [`snapshot; `checkpoint]
 	and allowed_operations = (* a list of valid state -> operation *)
 		[ [`snapshot_with_quiesce], `snapshot;
 		  [`revert],                `hard_shutdown ] in                
