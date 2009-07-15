@@ -26,6 +26,7 @@ let vm_operation_table =
     `snapshot_with_quiesce, "snapshot_with_quiesce";
     `copy, "copy";
     `revert, "revert";
+    `reverting, "reverting";
     `provision, "provision";
     `destroy, "destroy";
     `export, "export";
