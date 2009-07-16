@@ -1074,7 +1074,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.VM.power_state_reset ~__context ~vm
     
     let hard_shutdown ~__context ~vm =
-      info "VM.hard_shutdown: Shutting down VM '%s'" (Ref.string_of vm);
+      info "VM.hard_shutdown: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.hard_shutdown ~vm in
       with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown" ~op:`hard_shutdown
 	(fun () ->
