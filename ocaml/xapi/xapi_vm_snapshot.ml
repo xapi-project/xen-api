@@ -192,15 +192,13 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy =
 			 then Db_cache.DBCache.write_field __context Db_names.vm (Ref.string_of dst) key value)
 		metadata
 		
-let force_destroy_vbd ~__context ~rpc ~session_id vbd =
+let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
 	if Db.is_valid_ref vbd then begin
-		Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
 		Client.VBD.destroy rpc session_id vbd
 	end
 
-let force_destroy_vif ~__context ~rpc ~session_id vif =
+let safe_destroy_vif ~__context ~rpc ~session_id vif =
 	if Db.is_valid_ref vif then begin
-		Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
 		Client.VIF.destroy rpc session_id vif
 	end
 
@@ -227,7 +225,7 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 
 		debug "Cleaning up the old VBDs and VDIs to have more free space";
-		List.iter (force_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs;
+		List.iter (safe_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs;
 		List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (vm_suspend_VDI :: vm_VDIs);
 		TaskHelper.set_progress ~__context 0.2;
 
@@ -253,7 +251,7 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 			Db.VM.set_suspend_VDI ~__context ~self:vm ~value:cloned_suspend_VDI;
 
 			debug "Cleaning up the old VIFs";
-			List.iter (force_destroy_vif ~__context ~rpc ~session_id) vm_VIFs;
+			List.iter (safe_destroy_vif ~__context ~rpc ~session_id) vm_VIFs;
 
 			debug "Setting up the new VIFs";
 			let (_ : [`VIF] Ref.t list) =
@@ -289,6 +287,7 @@ let do_not_copy = [
 	Db_names.allowed_operations;
 	Db_names.guest_metrics;
 	Db_names.resident_on;
+	Db_names.domid;
 	Db_names.scheduled_to_be_resident_on ]
 
 (* This function has to be done on the master *)
@@ -308,8 +307,12 @@ let revert ~__context ~snapshot ~vm =
 		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 
 		(* first of all, destroy the domain if needed. *)
-		if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
+		if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
+			debug "VM %s (domid %Ld) which is reverted is not halted: shutting it down first"
+				(Db.VM.get_uuid __context vm)
+				(Db.VM.get_domid __context vm);
 			Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VM.hard_shutdown rpc session_id vm);
+		end;
 	
 		update_vifs_and_vbds ~__context ~snapshot ~vm;
 		update_guest_metrics ~__context ~snapshot ~vm;
