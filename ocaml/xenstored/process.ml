@@ -154,9 +154,10 @@ let do_introduce con t domains cons data =
 		| _                         -> raise Invalid_Cmd_Args;
 		in
 	let dom =
-		if Domains.exist domains domid then
+		if Domains.exist domains domid then begin
+			Connections.fire_spec_watches cons "@introduceDomain";
 			Domains.find domains domid
-		else try
+		end else try
 			let ndom = Xc.with_intf (fun xc ->
 				Domains.create xc domains domid mfn port) in
 			Connections.add_domain cons ndom;
