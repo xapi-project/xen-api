@@ -339,9 +339,20 @@ let domain_update ctx =
 	let domain_set_dead domid reason =
 		let domev = get_domstate ctx domid in
 		domev.dead_reason <- Some reason;
-		del_domain_watch domid;
-		deads := domid :: !deads;
+		if reason <> Suspended then begin
+			del_domain_watch domid;
+			deads := domid :: !deads;
+		end in
+	let domain_resume domid =
+		let domev = get_domstate ctx domid in
+		domev.dead_reason <- None
 		in
+		
+	(* search for resumed domains *)
+	List.iter (fun (domid, state, dom) ->
+				if state = Running && List.mem_assoc domid olddoms && List.assoc domid olddoms = Dead
+				then domain_resume domid)
+		doms;
 
 	(* search for new domains first *)
 	List.iter (fun (domid, state, dom) ->

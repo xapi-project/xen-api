@@ -355,18 +355,11 @@ let build_pre ~xc ~xs ~vcpus ~mem_max_kib ~shadow_kib domid =
 	Xc.shadow_allocation_set xc domid shadow_mib;
 	create_channels ~xc domid
 
-(* puts value in store after the uncooperative domain resume *)
-let resume_post ~xc ~xs domid store_port console_port =
+let resume_post ~xc ~xs domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
 	let store_mfn = Nativeint.of_string store_mfn_s in
-
-	let ents = [
-		("store/port", string_of_int store_port);
-		("console/port", string_of_int console_port);
-		("serial/0/limit", string_of_int 65536);
-	] in
-	Xs.transaction xs (fun t -> t.Xst.writev dom_path ents);
+	let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
 	xs.Xs.introduce domid store_mfn store_port
 
 (* puts value in store after the domain build succeed *)
@@ -556,6 +549,7 @@ let resume ~xc ~xs ~hvm ~cooperative domid =
 	if not cooperative
 	then failwith "Domain.resume works only for collaborative domains";
 	Xc.domain_resume_fast xc domid;
+	resume_post ~xc	~xs domid;
 	if hvm then Device.Dm.resume ~xs domid
 
 let restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~vcpus domid fd =
