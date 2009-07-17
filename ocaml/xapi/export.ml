@@ -298,7 +298,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
   let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
   (* Don't forget the suspend VDI (if we allow export of suspended VMs) *)
   let vdis = match Db.VM.get_power_state ~__context ~self:vm_ref with
-    | `Suspended when not preserve_power_state -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis 
+    | `Suspended when preserve_power_state -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis 
     | _ -> vdis in
   let vdis = List.filter (fun self -> Db.SR.get_content_type ~__context ~self:(Db.VDI.get_SR ~__context ~self) <> "iso") vdis in
   let vdis = List.filter (fun vdi -> Hashtbl.mem table (Ref.string_of vdi)) vdis in
