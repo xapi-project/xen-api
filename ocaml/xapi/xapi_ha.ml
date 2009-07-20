@@ -667,25 +667,47 @@ let ha_prevent_restarts_for __context seconds =
 (* ----------------------------- *)
 (* Interaction with the redo log *)
 
-(* This function is called when HA is enabled during run-time: flush the DB to the redo-log and make future DB changes get written as deltas. *)
-let redo_log_ha_enabled_during_runtime () =
+(* This function is called when HA is enabled during run-time: flush the DB to
+ * the redo-log and make future DB changes get written as deltas. *)
+let redo_log_ha_enabled_during_runtime __context =
   debug "Enabling HA, so also enabling writing to redo-log";
-  Redo_log.enable() (* upon the first attempt to write a delta, it will realise that a DB flush is necessary as the I/O process will not be running *)
+  let pool = Helpers.get_pool ~__context in
+    if Db.Pool.get_redo_log_enabled ~__context ~self:pool then begin
+      info "A redo log is already in use; switch to the dedicated HA VDI.";
+      Redo_log.switch Xapi_globs.ha_metadata_vdi_reason
+    end else begin
+      info "Switching on HA redo log.";
+      Redo_log.enable Xapi_globs.ha_metadata_vdi_reason
+      (* upon the first attempt to write a delta, it will realise that a DB flush
+       * is necessary as the I/O process will not be running *)
+    end
+	
 
-(* This function is called when HA is disabled during run-time: stop the I/O process and make future DB changes not go to the redo-log. *)
-let redo_log_ha_disabled_during_runtime () =
+(* This function is called when HA is disabled during run-time: stop the
+ * I/O process and make future DB changes not go to the redo-log. *)
+let redo_log_ha_disabled_during_runtime __context =
   debug "Disabling HA, so also disabling writing to redo-log";
-  Redo_log_usage.stop_using_redo_log();
-  Redo_log.disable()
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_redo_log_enabled ~__context ~self:pool then begin
+    (* switch to the other VDI *)
+    info "A general redo-log is in available, independent from HA; using it now";
+    Redo_log.switch Xapi_globs.gen_metadata_vdi_reason
+  end
+  else begin
+    Redo_log_usage.stop_using_redo_log();
+  	Redo_log.disable()
+  end
 
-(* This function is called when HA is found to be enabled at startup, before the DB backend is initialised. Read the latest DB from the block-device, and make future DB changes get written as deltas. *)
+(* This function is called when HA is found to be enabled at startup, before
+ * the DB backend is initialised. Read the latest DB from the block-device, and
+ * make future DB changes get written as deltas. *)
 let redo_log_ha_enabled_at_startup () =
   (* If we are still the master, extract any HA metadata database so we can consider population from it *)
   if Pool_role.is_master () then begin
     debug "HA is enabled, so enabling writing to redo-log";
-    Redo_log.enable (); (* enable the use of the redo log *)
+    Redo_log.enable Xapi_globs.ha_metadata_vdi_reason; (* enable the use of the redo log *)
     debug "This node is a master; attempting to extract a database from a metadata VDI";
-    Redo_log_usage.read_from_redo_log () (* best effort only: does not raise any exceptions *)
+    Redo_log_usage.read_from_redo_log Xapi_globs.ha_metadata_db (* best effort only: does not raise any exceptions *)
   end
 
 (* ----------------------------- *)
@@ -733,7 +755,6 @@ let on_server_restart () =
       | Xha_error Xha_errno.Mtc_exit_invalid_pool_state as e ->
 	  warn "ha_start_daemon failed with MTC_EXIT_INVALID_POOL_STATE: disabling HA on this host";
           Localdb.put Constants.ha_armed "false";
-	  Xapi_inventory.remove Xapi_inventory._ha_interfaces;	  
 	  raise e
       | Xha_error Xha_errno.Mtc_exit_can_not_access_statefile as e ->
 	  warn "ha_start_daemon failed with MTC_EXIT_CAN_NOT_ACCESS_STATEFILE: will contact existing master and check if HA is still enabled";
@@ -753,7 +774,6 @@ let on_server_restart () =
 	  if master_can_confirm_ha_is_disabled () then begin
 	    info "Existing master confirmed that HA is disabled pool-wide: disabling HA on this host";
 	    Localdb.put Constants.ha_armed "false";
-	    Xapi_inventory.remove Xapi_inventory._ha_interfaces;
 	    raise e
 	  end;
 	  info "Assuming HA is still enabled on the Pool and that our storage system has failed: will retry in 10s";
@@ -851,7 +871,6 @@ let emergency_ha_disable __context =
 
   warn "Host.emergency_ha_disable: Disabling the HA subsystem on the local host only.";
   Localdb.put Constants.ha_armed "false";
-  Xapi_inventory.remove Xapi_inventory._ha_interfaces;
 
   begin 
     try
@@ -884,9 +903,6 @@ let ha_release_resources __context localhost =
 
   (* Detach any metadata VDIs *)
   Xha_metadata_vdi.detach_existing ~__context;
-
-  (* No need for extra interface bringup at boot time *)
-  Xapi_inventory.remove Xapi_inventory._ha_interfaces;
 
   (* At this point a restart won't enable the HA subsystem *)
   Localdb.put Constants.ha_armed "false"
@@ -945,7 +961,7 @@ let attach_statefiles ~__context statevdis =
 let attach_metadata_vdi ~__context vdi = 
   info "Detaching any existing metadata volume: these are not needed anymore";
   Xha_metadata_vdi.detach_existing ~__context;
-  Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason:Xapi_globs.metadata_vdi_reason
+  Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason:Xapi_globs.ha_metadata_vdi_reason
 
 (** Write the local configfile *)
 let write_config_file ~__context statevdi_paths generation =
@@ -1012,12 +1028,6 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
     (* It's unnecessary to remember the path since this can be queried dynamically *)
     ignore(attach_metadata_vdi ~__context metadata_vdi);
   end;
-
-  (* In the case of bonded storage NICs we write the PIFs (actually the ifcfg bridge names) to the inventory file so 
-     these interfaces can be brought up before the statefile attach is attempted on host boot - CA-21416 *)
-  let start_of_day_pifs = Xapi_pif.calculate_pifs_required_by_ha ~__context in
-  let start_of_day_bridges = List.map (fun (_, pifr) -> Db.Network.get_bridge ~__context ~self:pifr.API.pIF_network) start_of_day_pifs in
-  Xapi_inventory.update Xapi_inventory._ha_interfaces (String.concat " " start_of_day_bridges);
 
   write_uuid_to_ip_mapping ();
   
@@ -1165,7 +1175,7 @@ let disable_internal __context =
   let statefile_vdis = List.map Ref.of_string (Db.Pool.get_ha_statefiles ~__context ~self:pool) in
   let metadata_vdis = List.map (fun x -> Db.VDI.get_by_uuid ~__context ~uuid:x.Static_vdis.uuid) (Xha_metadata_vdi.list_existing ()) in
 
-  redo_log_ha_disabled_during_runtime();
+  redo_log_ha_disabled_during_runtime __context;
 
   (* Steps from 8.6 Disabling HA
      If the master has access to the state file (how do we determine this)?
@@ -1450,8 +1460,8 @@ let enable __context heartbeat_srs configuration =
 	     Db.Task.set_progress ~__context ~self:task ~value:(float_of_int !call_count /. (float_of_int total_calls))
 	  ) in
 
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
+	Helpers.call_api_functions ~__context
+	 (fun rpc session_id ->
 	 (* ... *)
 	 (* Tell each host to attach its statefile, write config files etc. Do not start the xHA daemon. *)
 	 List.iter
@@ -1489,8 +1499,8 @@ let enable __context heartbeat_srs configuration =
 	 Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
 	 debug "HA enabled";
 
-         (* Enable writing to the redo-log *)
-         redo_log_ha_enabled_during_runtime ();
+     (* Enable writing to the redo-log *)
+     redo_log_ha_enabled_during_runtime __context;
     
 	 (* ... *)
 	 (* Make sure everyone's got a fresh database *)
@@ -1513,7 +1523,7 @@ let enable __context heartbeat_srs configuration =
 
 	 (* Update the allowed_operations on the HA volumes to prevent people thinking they can mess with them *)
 	 List.iter (fun vdi -> Xapi_vdi.update_allowed_operations ~__context ~self:vdi) (!database_vdis @ !statefile_vdis);
-      );
+  ); (* end of api call *)
 
   with exn ->
     debug "Caught exception while enabling HA: %s" (ExnHelper.string_of_exn exn);

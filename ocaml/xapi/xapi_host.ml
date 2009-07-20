@@ -19,17 +19,10 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
   | Pool_role.Broken -> raise !Xapi_globs.emergency_mode_error 
   | Pool_role.Slave _ -> if !Xapi_globs.slave_emergency_mode then raise !Xapi_globs.emergency_mode_error
 
-(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
 let set_license_params ~__context ~self ~value = 
   Db.Host.set_license_params ~__context ~self ~value;
   Restrictions.update_pool_restrictions ~__context
 
-(** Before we re-enable this host we make sure it's safe to do so. It isn't if:
-    1. we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
-    2. HA is enabled and this host has broken storage or networking which would cause protected VMs
-    to become non-agile
-    3. our license doesn't support pooling and we're a slave
- *)
 let assert_safe_to_reenable ~__context ~self =
     let host_disabled_until_reboot = try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false in
     if host_disabled_until_reboot
@@ -82,8 +75,6 @@ let bugreport_upload ~__context ~host ~url ~options =
     | _ -> raise e
     end
 
-(** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
-    attached to dom0, and c) that there are no tasks running *)
 let assert_can_shutdown ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host 
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
@@ -162,8 +153,6 @@ let string_of_per_vm_plan p =
     | Error (e, t) ->
         String.concat "," (e :: t)
 
-(** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
-    Host or a reason why the VM cannot be migrated. *)
     
 let compute_evacuation_plan_no_wlb ~__context ~host = 
   let all_hosts = Db.Host.get_all ~__context in
@@ -478,16 +467,11 @@ let copy_license_to_db ~__context =
 
 let is_slave ~__context ~host = not (Pool_role.is_master ())
 
-(** Contact the host and return whether it is a slave or not. 
-    If the host is dead then one of the xmlrpcclient exceptions will be thrown *)
 let ask_host_if_it_is_a_slave ~__context ~host = 
   let local_fn = is_slave ~host in
   Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
     ~host (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)
 
-(** Returns true if a host is alive, false otherwise. Note that if a host has already been marked
-    as dead by the GC thread then this is treated as definitive. Otherwise attempt to contact the host
-    to make sure. *)
 let is_host_alive ~__context ~host = 
   (* If the host is marked as not-live then assume we don't need to contact it to verify *)
   let should_contact_host = 
@@ -1094,5 +1078,31 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 let disable_external_auth ~__context ~host ~config = 
 	disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
 
+let attach_static_vdis ~__context ~host ~vdi_reason_map =
+  let attach (vdi, reason) =
+    let static_vdis = Static_vdis_list.list () in
+    let check v =
+      (v.Static_vdis_list.uuid = Db.VDI.get_uuid ~__context ~self:vdi &&
+       v.Static_vdis_list.currently_attached) in
+    if not (List.exists check static_vdis) then
+      Pervasiveext.ignore_string (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason)
+  in
+  List.iter attach vdi_reason_map
+
+let detach_static_vdis ~__context ~host ~vdis = 
+  let detach vdi =
+    let static_vdis = Static_vdis_list.list () in
+    let check v =
+      (v.Static_vdis_list.uuid = Db.VDI.get_uuid ~__context ~self:vdi) in
+    if List.exists check static_vdis then
+      Static_vdis.permanent_vdi_detach ~__context ~vdi;	
+  in
+  List.iter detach vdis
+  
 let update_pool_secret ~__context ~host ~pool_secret =
 	Unixext.write_string_to_file Xapi_globs.pool_secret_path pool_secret
+
+let set_localdb_key ~__context ~host ~key ~value =
+	Localdb.put key value;
+	debug "Local-db key '%s' has been set to '%s'" key value
+	

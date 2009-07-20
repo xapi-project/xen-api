@@ -948,7 +948,14 @@ let pool_crl_list printer rpc session_id params =
 
 let pool_certificate_sync printer rpc session_id params =
   Client.Pool.certificate_sync ~rpc ~session_id
+  
+let pool_enable_redo_log printer rpc session_id params =
+  let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) in
+  Client.Pool.enable_redo_log ~rpc ~session_id ~sr
 
+let pool_disable_redo_log printer rpc session_id params =
+  Client.Pool.disable_redo_log ~rpc ~session_id
+	
 let vdi_type_of_string = function
     | "system" -> `system
     | "user" -> `user

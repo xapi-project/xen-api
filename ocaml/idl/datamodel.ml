@@ -795,7 +795,13 @@ let _ =
 
   error Api_errors.ssl_verify_error ["reason"]
     ~doc:"The remote system's SSL certificate failed to verify against our certificate library." ();
+	
+  error Api_errors.cannot_enable_redo_log ["reason"] 
+	~doc:"Could not enable redo log." ();
 
+  error Api_errors.redo_log_is_enabled [] 
+	~doc:"The operation could not be performed because a redo log is enabled on the Pool." ();
+	
   ()
 
 
@@ -1883,6 +1889,28 @@ let host_query_data_source = call
   ~flags:[`Session]
   ()
 
+let host_attach_static_vdis = call
+  ~name:"attach_static_vdis"
+	~in_product_since:rel_midnight_ride
+  ~doc:"Statically attach VDIs on a host."
+  ~params:[Ref _host, "host", "The Host to modify";
+    Map(Ref _vdi, String), "vdi_reason_map", "List of VDI+reason pairs to attach"
+	  ]
+  ~pool_internal:true
+  ~hide_from_docs:true
+  () 
+
+let host_detach_static_vdis = call
+  ~name:"detach_static_vdis"
+	~in_product_since:rel_midnight_ride
+  ~doc:"Detach static VDIs from a host."
+  ~params:[Ref _host, "host", "The Host to modify";
+	   Set(Ref _vdi), "vdis", "Set of VDIs to detach";
+	  ]
+  ~pool_internal:true
+  ~hide_from_docs:true
+  ()
+
 let host_forget_data_source_archives = call
   ~name:"forget_data_source_archives"
   ~in_oss_since:None
@@ -1962,6 +1990,18 @@ let host_update_master = call
 		Ref _host, "host", "The host";
 		String, "master_address", "The new master address" ]
 	()
+
+let host_set_localdb_key = call
+  ~name:"set_localdb_key"
+	~in_product_since:rel_midnight_ride
+  ~doc:"Set a key in the local DB of the host."
+  ~params:[Ref _host, "host", "The Host to modify";
+    String, "key", "Key to change";
+    String, "value", "Value to set"
+	  ]
+  ~pool_internal:true
+  ~hide_from_docs:true
+  () 
 
 (* ------------------------------------------------------------------------------------------------------------
    VDI Management
@@ -2899,6 +2939,9 @@ let host =
 		 host_get_server_certificate;
 		 host_update_pool_secret;
 		 host_update_master;
+		 host_attach_static_vdis;
+		 host_detach_static_vdis;
+		 host_set_localdb_key;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3546,6 +3589,7 @@ let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on 
 				   "crashdump", "a disk that stores VM crashdump information";
 				   "ha_statefile", "a disk used for HA storage heartbeating";
 				   "metadata", "a disk used for HA Pool metadata";
+				   "redo_log", "a disk used for a general metadata redo-log";
 				 ])
 
 let vdi_introduce_params first_rel =
@@ -4235,6 +4279,21 @@ let pool_certificate_sync = call
   ~name:"certificate_sync"
   ~doc:"Sync SSL certificates from master to slaves."
   ()
+  
+let pool_enable_redo_log = call
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~name:"enable_redo_log"
+  ~params:[Ref _sr, "sr", "SR to hold the redo log."]
+  ~doc:"Enable the redo log on the given SR and start using it, unless HA is enabled."
+  ()
+  
+let pool_disable_redo_log = call
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~name:"disable_redo_log"
+  ~doc:"Disable the redo log if in use, unless HA is enabled."
+  ()
 
 (** A pool class *)
 let pool =
@@ -4272,6 +4331,8 @@ let pool =
 	       pool_crl_uninstall;
 	       pool_crl_list;
 	       pool_certificate_sync;
+	       pool_enable_redo_log;
+	       pool_disable_redo_log;
 	       ]
     ~contents:
     [uid ~in_oss_since:None _pool;
@@ -4297,6 +4358,8 @@ let pool =
      field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_password" "Password for accessing the workload balancing host";
      field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise";
      field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification.";
+     field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise";
+     field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled";
     ]
 
 (** Auth class *)

@@ -6,7 +6,7 @@ exception NoGeneration
 exception DeltaTooOld
 exception DatabaseWrongSize of int * int
 
-let read_from_redo_log () =
+let read_from_redo_log staging_path =
   try
     (* 1. Start the process with which we communicate to access the redo log *)
     R.debug "Starting redo log";
@@ -62,11 +62,14 @@ let read_from_redo_log () =
     R.debug "Reading from redo log";
     Redo_log.apply read_db read_delta;
 
-    (* 3. Write the database and generation to a file *)
-    (* Note: if there were no deltas applied then this is semantically equivalent to copying the temp_file used above in read_db rather than deleting it. *)
-    (* Note: we don't do this using the DB lock since this is only executed at startup, before the database engine has been started, so there's no danger of conflicting writes. *)
-    R.debug "Staging redo log to file %s" Xapi_globs.ha_metadata_db;
-    let staging_path = Xapi_globs.ha_metadata_db in
+    (* 3. Write the database and generation to a file 
+     * Note: if there were no deltas applied then this is semantically 
+     *   equivalent to copying the temp_file used above in read_db rather than 
+	 *   deleting it. 
+     * Note: we don't do this using the DB lock since this is only executed at 
+	 *   startup, before the database engine has been started, so there's no 
+	 *   danger of conflicting writes. *)
+    R.debug "Staging redo log to file %s" staging_path;
     (* Remove any existing file *)
     Unixext.unlink_safe staging_path;
     begin

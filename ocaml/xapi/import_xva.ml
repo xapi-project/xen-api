@@ -26,7 +26,7 @@ let make __context rpc session_id srid (vms, vdis) =
     let vdi_refs = List.map (fun vdi ->
 			       let vdi = Client.VDI.create ~rpc ~session_id ~name_label:vdi.vdi_name
 				 ~name_description:"" ~sR:srid ~virtual_size:vdi.size 
-				 ~_type:vdi.variety ~sharable:false ~read_only:false ~xenstore_data:[] 
+				 ~_type:(vdi.variety:>API.vdi_type) ~sharable:false ~read_only:false ~xenstore_data:[] 
 				 ~sm_config:[] ~other_config:[] ~tags:[] in
 			       clean_up_stack := 
 				 (fun _ rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: !clean_up_stack;

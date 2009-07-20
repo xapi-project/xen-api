@@ -1,52 +1,60 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for Host objects
- * @group XenAPI functions
- *)
+(** Module that defines API functions (messages) for [host] objects *)
 
 (** {2 (Fill in Title!)} *)
 
+val host_bugreport_upload : string
 val set_emergency_mode_error : string -> string list -> unit
-(** When starting xapi we begin in 'emergency mode' and hope to transition out of it by contacting
-    the master etc. As we make progress we set the 'emergency_mode_error' which is the error returned
-    by the CLI, indicating stuff like: failure to get a management IP address, the master doesn't
-    recognise us etc. *)
+val local_assert_healthy : __context:'a -> unit
 
-val local_assert_healthy : __context:'a -> unit 
-
+(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
 val set_license_params :
   __context:Context.t ->
   self:[ `host ] Ref.t -> value:(string * string) list -> unit
-(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
   
-val set_power_on_mode :
-  __context:Context.t ->
-  self:[ `host ] Ref.t -> power_on_mode: string -> power_on_config:(string * string) list -> unit
+(** Before we re-enable this host we make sure it's safe to do so. It isn't if:
+    + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
+    + HA is enabled and this host has broken storage or networking which would cause protected VMs
+    to become non-agile
+    + our license doesn't support pooling and we're a slave
+ *)
+val assert_safe_to_reenable :
+  __context:Context.t -> self:[ `host ] Ref.t -> unit
   
+val get_xen_capabilities : unit -> string list
+val xen_bugtool : string
 val bugreport_upload :
   __context:'a ->
   host:'b -> url:string -> options:(string * string) list -> unit
   
+(** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
+    attached to dom0, and c) that there are no tasks running *)
+val assert_can_shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
+
 val signal_networking_change : __context:Context.t -> unit
 val signal_cdrom_event : __context:Context.t -> string -> unit
 val notify : __context:Context.t -> ty:string -> params:string -> unit
+val rotate : 'a list -> 'a list
 
 (** {2 (Fill in title!)} *)
+
+type per_vm_plan = Migrate of API.ref_host | Error of (string * string list)
+val string_of_per_vm_plan : per_vm_plan -> string
+
+(** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
+    Host or a reason why the VM cannot be migrated. *)
+val compute_evacuation_plan_no_wlb :
+  __context:Context.t ->
+  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
 
 val assert_can_evacuate : __context:Context.t -> host:API.ref_host -> unit
 val get_vms_which_prevent_evacuation :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
+val compute_evacuation_plan_wlb :
+  __context:Context.t ->
+  self:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
+val compute_evacuation_plan :
+  __context:Context.t ->
+  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
 val evacuate : __context:Context.t -> host:API.ref_host -> unit
 val retrieve_wlb_evacuate_recommendations :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
@@ -57,6 +65,20 @@ val restart_agent : __context:'a -> host:'b -> unit
 val shutdown_agent : __context:'a -> unit
 val disable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val shutdown_and_reboot_common :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  string ->
+  string ->
+  [< `evacuate
+   | `power_on
+   | `provision
+   | `reboot
+   | `shutdown
+   | `vm_migrate
+   | `vm_resume
+   | `vm_start ] ->
+  string -> unit
 val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
@@ -65,7 +87,8 @@ val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
 val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
-val copy_license_to_db : __context:Context.t -> host:[ `host ] Ref.t -> unit
+exception Pool_record_expected_singleton
+val copy_license_to_db : __context:Context.t -> unit
 val is_slave : __context:'a -> host:'b -> bool
 
 (** Contact the host and return whether it is a slave or not. 
@@ -78,7 +101,7 @@ val ask_host_if_it_is_a_slave :
     to make sure. *)
 val is_host_alive : __context:Context.t -> host:API.ref_host -> bool
 
-val license_apply : __context:Context.t -> host:API.ref_host -> contents:string -> unit
+val license_apply : __context:Context.t -> host:'a -> contents:string -> unit
 val create :
   __context:Context.t ->
   uuid:string ->
@@ -88,11 +111,7 @@ val create :
   address:string ->
   external_auth_type:string ->
   external_auth_service_name:string ->
-  external_auth_configuration:(string * string) list ->
-  license_params:(string * string) list ->
-  edition:string ->
-  license_server:(string * string) list ->
-  [ `host ] Ref.t
+  external_auth_configuration:(string * string) list -> [ `host ] Ref.t
 val destroy : __context:Context.t -> self:API.ref_host -> unit
 val ha_disable_failover_decisions : __context:'a -> host:'b -> unit
 val ha_disarm_fencing : __context:'a -> host:'b -> unit
@@ -116,19 +135,12 @@ val request_backup :
 val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
 val syslog_config_write : string -> bool -> bool -> unit
 val syslog_reconfigure : __context:Context.t -> host:'a -> unit
-
-(** {2 Management Interface} *)
-
-val get_management_interface : __context:Context.t -> host:API.ref_host -> API.ref_PIF
 val change_management_interface : __context:Context.t -> string -> unit
 val local_management_reconfigure :
   __context:Context.t -> interface:string -> unit
 val management_reconfigure :
   __context:Context.t -> pif:[ `PIF ] Ref.t -> unit
 val management_disable : __context:Context.t -> unit
-
-(** {2 (Fill in title!)} *)
-
 val get_system_status_capabilities :
   __context:'a -> host:API.ref_host -> string
 val get_diagnostic_timing_stats :
@@ -138,8 +150,6 @@ val set_hostname_live :
 val is_in_emergency_mode : __context:'a -> bool
 val compute_free_memory :
   __context:Context.t -> host:[ `host ] Ref.t -> int64
-val compute_memory_overhead :
-  __context:Context.t -> host:API.ref_host -> int64
 val get_data_sources : __context:'a -> host:'b -> API.data_source_t list
 val record_data_source :
   __context:'a -> host:'b -> data_source:string -> unit
@@ -168,13 +178,10 @@ val call_plugin :
 val sync_data : __context:Context.t -> host:API.ref_host -> unit
 val backup_rrds : __context:'a -> host:'b -> delay:float -> unit
 val get_servertime : __context:'a -> host:'b -> Date.iso8601
-val get_server_localtime : __context:'a -> host:'b -> Date.iso8601
 val enable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
 val disable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
-val get_uncooperative_resident_VMs : __context:Context.t -> self:[`host] Ref.t -> 'a
-val get_uncooperative_domains : __context:Context.t -> self:[`host] Ref.t -> string list
 val certificate_install :
   __context:'a -> host:'b -> name:string -> cert:string -> unit
 val certificate_uninstall : __context:'a -> host:'b -> name:string -> unit
@@ -225,37 +232,4 @@ val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> 
   
 val update_pool_secret :
   __context:'a -> host:'b -> pool_secret:string -> unit
-
-
-(** {2 Supplemental Packs} *)
-
-(** Refresh the list of Supplemental Packs in the host.software_version field. *)
-val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
-
-
-(** {2 Licensing} *)
-
-(** Attempt to activate the given edition (one of "free", "enterprise" or "platinum".
- *  In needed, the function automatically checks v6 licenses in and out
- *  from the license server (via the v6 daemon). If the requested edition is not
- *  available, the call will fail with an exception, leaving the edition as it is.
- *  Also call this function to change to a different license server, after the
- *  connection details in host.license_server have been amended. *)
-val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit 
- 
-
-(** {2 CPU Feature Masking} *)
- 
-(** Set the CPU features to be used after a reboot, if the given features string is valid. *)
-val set_cpu_features : __context:Context.t -> host:API.ref_host -> features:string -> unit
-
-(** Remove the feature mask, such that after a reboot all features of the CPU are enabled. *)
-val reset_cpu_features : __context:Context.t -> host:API.ref_host -> unit
-
-(** Control the local caching behaviour of the host *)
-val enable_local_storage_caching : __context:Context.t -> host:API.ref_host -> sr:API.ref_SR -> unit
-val disable_local_storage_caching : __context:Context.t -> host:API.ref_host -> unit
-
-(** Purge all network-related metadata associated with the given host. *)
-val reset_networking : __context:Context.t -> host:API.ref_host -> unit
 

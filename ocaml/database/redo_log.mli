@@ -1,14 +1,22 @@
 (** Keep track of changes to the database by writing deltas to a block device. Communicates with another process which does the block device I/O. *)
 
+(** {2 VDI related} *)
+
+val get_device : string -> Static_vdis_list.vdi option
+(** Finds an attached metadata VDI with a given reason *)
+val minimum_vdi_size : int64 
+(** Minimum size for redo log VDI *)
+val redo_log_sm_config : (string * string) list
+(** SM config for redo log VDI *)
+
 (** {2 Enabling and disabling writing} *)
 
 val is_enabled : unit -> bool
 (** Returns [true] iff writing deltas to the block device is enabled. *)
-val enable : unit -> unit
-(** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. *)
+val enable : string -> unit
+(** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a static-VDI reason as argument to select the device to use. *)
 val disable : unit -> unit
 (** Disables writing deltas to the block device. Subsequent modifications to the database will not be persisted to the block device. *)
-
 
 (** {2 Status of writing mechanism} *)
 
@@ -19,14 +27,14 @@ val currently_accessible_condition : Condition.t
 val currently_accessible : bool ref
 (** Indicates whether the block device was able to be accessed at the last attempt. *)
 
-
 (** {2 Lifecycle of I/O process} *)
 
 val startup : unit -> unit
 (** Start the I/O process. Will do nothing if it's already started. *)
 val shutdown : unit -> unit
 (** Stop the I/O process. Will do nothing if it's not already started. *)
-
+val switch : string -> unit
+(** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {2 Interacting with the block device} *)
 
