@@ -307,6 +307,11 @@ let destroy  ~__context ~sr =
   check_no_pbds_attached ~__context ~sr;
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 
+  (* raise exception if the 'indestructible' flag is set in other_config *)
+  let oc = Db.SR.get_other_config ~__context ~self:sr in
+  if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
+    raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
+    
   Storage_access.SR.attach ~__context ~self:sr;
 
   begin
