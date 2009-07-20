@@ -158,6 +158,7 @@ let sr_not_empty = "SR_NOT_EMPTY"
 let sr_device_in_use = "SR_DEVICE_IN_USE"
 let sr_operation_not_supported = "SR_OPERATION_NOT_SUPPORTED"
 let sr_not_sharable = "SR_NOT_SHARABLE"
+let sr_indestructible = "SR_INDESTRUCTIBLE"
 
 let pbd_exists = "PBD_EXISTS"
 
