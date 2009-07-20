@@ -599,6 +599,9 @@ let _ =
     ~doc:"The SR operation cannot be performed because a device underlying the SR is in use by the host." ();  
   error Api_errors.sr_not_sharable [ "sr"; "host" ]
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
+  error Api_errors.sr_indestructible ["sr"]
+    ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
+    
   error Api_errors.device_already_attached ["device"] 
     ~doc:"The device is already attached to a VM" ();
   error Api_errors.device_already_detached ["device"] 
