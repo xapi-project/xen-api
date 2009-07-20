@@ -128,8 +128,11 @@ stop() {
 		return 0
             fi
         done
-	echo -n $"stunnel failed to terminate"
-	failure $"stunnel failed to terminate"
+	# If stunnel still hasn't exited then kill it forcefully
+	echo -n $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
+	failure $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
+	kill -9 ${SSLPID}
+	rm -f /var/lock/subsys/xapissl
 	return 1
 }
 
