@@ -276,6 +276,7 @@ let vdi_type_to_string t =
   | `crashdump -> "Crashdump"
   | `ha_statefile -> "HA statefile"
   | `metadata -> "Metadata"
+  | `redo_log -> "Redo log"
 
 let ip_configuration_mode_to_string = function
   | `None -> "None"

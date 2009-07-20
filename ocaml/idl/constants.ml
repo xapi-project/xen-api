@@ -56,6 +56,7 @@ let ha_disable_failover_decisions = "ha.disable_failover_decisions"
 let ha_restart_best_effort = "best-effort"
 let ha_base_t = "ha_base_t"
 let ballooning_enabled = "ballooning.enabled"
+let redo_log_enabled = "redo_log.enabled"
 
 (* Set in the local db to cause us to emit an alert when we come up as a master after
    a transition or HA failover *)

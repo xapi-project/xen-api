@@ -7,20 +7,14 @@ open Client
 open Listext
 open Stringext
 
-(** Make sure we have plenty of room for the database *)
-let minimum_size =
-  let ( ** ) = Int64.mul in
-  let mib = 1024L ** 1024L in
-  256L ** mib
-
 let create ~__context ~sr = 
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        Client.VDI.create ~rpc ~session_id
 	 ~name_label:"Metadata for HA" 
 	 ~name_description:"Used for master failover"
-         ~sR:sr ~virtual_size:minimum_size ~_type:`metadata
-         ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Xha_statefile.statefile_sm_config ~tags:[]
+         ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata
+         ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
     )
 
 (** Return a reference to a valid metadata VDI in the given SR.
@@ -30,7 +24,7 @@ let find_or_create ~__context ~sr =
   List.filter 
     (fun self -> true
        && (Db.VDI.get_type ~__context ~self = `metadata)
-       && (Db.VDI.get_virtual_size ~__context ~self >= minimum_size))
+       && (Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size))
     (Db.SR.get_VDIs ~__context ~self:sr) with
     | x :: _ ->
 	info "re-using existing metadata VDI: %s" (Db.VDI.get_uuid ~__context ~self:x);
@@ -41,7 +35,7 @@ let find_or_create ~__context ~sr =
 
 
 let list_existing () = 
-  List.filter (fun x -> x.Static_vdis.reason = Xapi_globs.metadata_vdi_reason) (Static_vdis.list ()) 
+  List.filter (fun x -> x.Static_vdis.reason = Xapi_globs.ha_metadata_vdi_reason) (Static_vdis.list ()) 
 
 (** Detach all statefiles attached with reason, to clear stale state *)
 let detach_existing ~__context = 
