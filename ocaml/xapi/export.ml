@@ -43,7 +43,7 @@ let make_id =
     incr counter;
     "Ref:" ^ (string_of_int this)
 
-let rec update_table ~__context ~include_snapshots ~table vm =
+let rec update_table ~__context ~include_snapshots ~preserve_power_state ~table vm =
   let add r = 
 	  if not (Hashtbl.mem table (Ref.string_of r)) then
 		  Hashtbl.add table (Ref.string_of r)(make_id ()) in
@@ -71,11 +71,11 @@ let rec update_table ~__context ~include_snapshots ~table vm =
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
   if include_snapshots then
 	  List.iter 
-		  (fun snap -> update_table ~__context ~include_snapshots:false ~table snap)
+		  (fun snap -> update_table ~__context ~include_snapshots:false ~preserve_power_state ~table snap)
 		  vm.API.vM_snapshots;
   (* If VM is suspended then add the suspend_VDI *)
   let vdi = vm.API.vM_suspend_VDI in
-  if vm.API.vM_power_state = `Suspended && Db.is_valid_ref vdi then begin
+  if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref vdi then begin
     add vdi;
     let vdi = Db.VDI.get_record ~__context ~self:vdi in
     add vdi.API.vDI_SR
@@ -88,7 +88,7 @@ let rec update_table ~__context ~include_snapshots ~table vm =
   add vm.API.vM_affinity;
 
   (* Add the parent VM *)
-  if include_snapshots then update_table ~__context ~include_snapshots:false ~table vm.API.vM_parent
+  if include_snapshots then update_table ~__context ~include_snapshots:false ~preserve_power_state ~table vm.API.vM_parent
   end
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
@@ -249,7 +249,7 @@ open Xapi_globs
    which are snapshots of the exported VM. *)
 let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms =
   let table = create_table () in
-  List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~table) vms;
+  List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~preserve_power_state ~table) vms;
   let objects = make_all ~with_snapshot_metadata ~preserve_power_state table __context in
   let header = { version = this_version __context;
 		   objects = objects } in
