@@ -324,3 +324,6 @@ let crl_name_invalid = "CRL_NAME_INVALID"
 let crl_corrupt = "CRL_CORRUPT"
 
 let ssl_verify_error = "SSL_VERIFY_ERROR"
+
+let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
+let redo_log_is_enabled = "REDO_LOG_IS_ENABLED"

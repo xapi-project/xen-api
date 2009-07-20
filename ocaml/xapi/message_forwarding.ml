@@ -527,6 +527,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let disable_external_auth ~__context ~pool = 
       info "Pool.disable_external_auth: pool = '%s'" (pool_uuid ~__context pool);
       Local.Pool.disable_external_auth ~__context ~pool
+      
+    let enable_redo_log ~__context ~sr =
+    	info "Pool.enable_redo_log: pool = '%s'; sr_uuid = '%s'"
+    		(current_pool_uuid ~__context) (sr_uuid __context sr);
+    	Local.Pool.enable_redo_log ~__context ~sr
+    	
+    let disable_redo_log ~__context =
+    	info "Pool.disable_redo_log: pool = '%s'" (current_pool_uuid ~__context);
+    	Local.Pool.disable_redo_log ~__context
 
   end
 
@@ -1882,6 +1891,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
 	(fun session_id rpc ->
            Client.Host.get_server_certificate rpc session_id host)
+
+    let attach_static_vdis ~__context ~host ~vdi_reason_map = 
+      info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]" (host_uuid ~__context host)
+				(String.concat "; " (List.map (fun (a, b) ->  Ref.string_of a ^ "/" ^ b) vdi_reason_map));
+      let local_fn = Local.Host.attach_static_vdis ~host ~vdi_reason_map in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.attach_static_vdis rpc session_id host vdi_reason_map)
+
+    let detach_static_vdis ~__context ~host ~vdis = 
+      info "Host.detach_static_vdis: host = '%s'; vdis =[ %s ]" (host_uuid ~__context host) (String.concat "; " (List.map Ref.string_of vdis));
+      let local_fn = Local.Host.detach_static_vdis ~host ~vdis in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.detach_static_vdis rpc session_id host vdis)
+			
+    let set_localdb_key ~__context ~host ~key ~value = 
+      info "Host.set_localdb.key: host = '%s'; key = '%s'; value = '%s'" (host_uuid ~__context host) key value;
+      let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.set_localdb_key rpc session_id host key value)
 
 end
 

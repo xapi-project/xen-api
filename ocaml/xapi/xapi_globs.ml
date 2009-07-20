@@ -198,7 +198,8 @@ let db_temporary_restore_path = "/var/xapi/restore_db.db"
 (* temporary path for the HA metadata database *)
 let ha_metadata_db = "/var/xapi/ha_metadata.db"
 
-
+(* temporary path for the general metadata database *)
+let gen_metadata_db = "/var/xapi/gen_metadata.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
@@ -496,7 +497,8 @@ let redo_log_max_dying_processes = 2
 (** {7 Settings related to the metadata VDI which hosts the redo log} *)
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later *)
-let metadata_vdi_reason = "HA metadata VDI"
+let ha_metadata_vdi_reason = "HA metadata VDI"
+let gen_metadata_vdi_reason = "general metadata VDI"
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
 

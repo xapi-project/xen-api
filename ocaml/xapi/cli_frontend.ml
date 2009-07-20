@@ -1844,6 +1844,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation= No_fd Cli_operations.pool_ha_compute_vm_failover_plan;
       flags=[Hidden]
     };
+    "pool-enable-redo-log",
+    {
+      reqd=["sr-uuid"];
+      optn=[];
+      help="Enable the redo log on the given SR and start using it, unless HA is enabled.";
+      implementation= No_fd Cli_operations.pool_enable_redo_log;
+      flags=[]
+    };
+    "pool-disable-redo-log",
+    {
+      reqd=[];
+      optn=[];
+      help="Disable the redo log if in use, unless HA is enabled.";
+      implementation= No_fd Cli_operations.pool_disable_redo_log;
+      flags=[]
+    };
 
     "host-ha-xapi-healthcheck",
     {

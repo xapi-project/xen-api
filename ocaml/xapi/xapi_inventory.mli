@@ -37,4 +37,4 @@ val _machine_serial_number : string
 val _machine_serial_name : string
 
 (* Keys defined in Orlando *)
-val _ha_interfaces : string
+val _current_interfaces : string

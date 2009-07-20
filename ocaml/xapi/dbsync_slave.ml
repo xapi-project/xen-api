@@ -539,7 +539,7 @@ let resynchronise_pif_currently_attached ~__context =
   (* See which PIFs were brought up at start of day, according to the inventory file *)
   let pifs_brought_up =
     try
-      let bridges_already_up = Xapi_pif.read_ha_bridges_from_inventory () in
+      let bridges_already_up = Xapi_pif.read_bridges_from_inventory () in
       debug "HA interfaces: [%s]" (String.concat "; " bridges_already_up);
       (* Create a list pairing each PIF with the bridge for the network that it is on *)
       let pifs_with_bridges = List.map (fun (pif,pifr) -> (pif, Db.Network.get_bridge ~__context ~self:pifr.API.pIF_network)) (Db.PIF.get_all_records ~__context) in

@@ -449,48 +449,55 @@ struct
       let connections = Db_conn_store.read_db_connections () in
       
       (* Include a fake connection representing the HA metadata db
-	 (if available). This isn't a full flushing connection per-se but
-	 is only considered as a population source. *)
+	  (if available). This isn't a full flushing connection per-se but
+	  is only considered as a population source. *)
       let fake_ha_dbconn = { Parse_db_conf.dummy_conf with
-			       Parse_db_conf.path = Xapi_globs.ha_metadata_db;
-			       format = Parse_db_conf.Xml } in
+        Parse_db_conf.path = Xapi_globs.ha_metadata_db;
+        format = Parse_db_conf.Xml } in
       let connections = 
-	if Sys.file_exists Xapi_globs.ha_metadata_db
-	then fake_ha_dbconn :: connections else connections in
+		if Sys.file_exists Xapi_globs.ha_metadata_db
+		then fake_ha_dbconn :: connections else connections in
+
+      let fake_gen_dbconn = { Parse_db_conf.dummy_conf with
+        Parse_db_conf.path = Xapi_globs.gen_metadata_db;
+        format = Parse_db_conf.Xml } in
+      let connections = 
+		if Sys.file_exists Xapi_globs.gen_metadata_db
+		then fake_gen_dbconn :: connections else connections in
 	
       Db_connections.init_gen_count connections;
       (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
       if Sys.file_exists Xapi_globs.db_temporary_restore_path then
-	begin
-	  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
-	  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
-	  Db_backend.post_restore_hook manifest;
-	  (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
-	     if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *);
-	  post_populate_hook();
-	  debug "removed non-persistent fields after backup";
-	  (* since we just restored from backup then flush new cache to all db connections *)
-	  List.iter 
-	    (fun (_,db)->
-	       debug "Database '%s' syncing up after restore from backup." db.Parse_db_conf.path;
-	       Db_connections.force_flush_all db
-	    )
-	    (Db_connections.get_dbs_and_gen_counts());
-	  (* delete file that contained backup *)
-	  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
-	end
+		begin
+		  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
+		  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
+		  Db_backend.post_restore_hook manifest;
+		  (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
+		     if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *);
+		  post_populate_hook();
+		  debug "removed non-persistent fields after backup";
+		  (* since we just restored from backup then flush new cache to all db connections *)
+		  List.iter 
+		    (fun (_,db)->
+		       debug "Database '%s' syncing up after restore from backup." db.Parse_db_conf.path;
+		       Db_connections.force_flush_all db
+		    )
+		    (Db_connections.get_dbs_and_gen_counts());
+		  (* delete file that contained backup *)
+		  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
+		end
       else (* if there's no backup to restore from then.. *)
-	begin
-	  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
-	  let most_recent_db = Db_connections.pick_most_recent_db connections in
-	  debug "Path that I'm looking at to consider whether to upgrade = %s" most_recent_db.Parse_db_conf.path;
-	  if Sys.file_exists most_recent_db.Parse_db_conf.path then
-	    Db_upgrade.maybe_upgrade most_recent_db;
-
-	  (* populate from most recent database *)
-	  Db_connections.populate most_recent_db db_table_names;
-	  post_populate_hook ()
-	end
+		begin
+		  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
+		  let most_recent_db = Db_connections.pick_most_recent_db connections in
+		  debug "Path that I'm looking at to consider whether to upgrade = %s" most_recent_db.Parse_db_conf.path;
+		  if Sys.file_exists most_recent_db.Parse_db_conf.path then
+		    Db_upgrade.maybe_upgrade most_recent_db;
+	
+		  (* populate from most recent database *)
+		  Db_connections.populate most_recent_db db_table_names;
+		  post_populate_hook ()
+		end
 
     let spawn_db_flush_threads() =
       (* Spawn threads that flush cache to db connections at regular intervals *)

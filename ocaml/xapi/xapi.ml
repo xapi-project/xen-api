@@ -109,7 +109,7 @@ let start_database_engine () =
   (* Check if db files exist, if not make them *)
   List.iter Db_connections.maybe_create_new_db (Db_conn_store.read_db_connections());
 
-  (* Initialiase in-memory database cache *)
+  (* Initialise in-memory database cache *)
   debug "Populating db cache";
   Db_cache.DBCache.initialise_db_cache();
   debug "Performing initial DB GC";
@@ -448,6 +448,25 @@ let start_ha () =
   with e ->
     (* Critical that we don't continue as a master and use shared resources *)
     debug "Caught exception starting HA system: %s" (ExnHelper.string_of_exn e)
+	
+(** Enable and load the redo log if we are the master, the local-DB flag is set
+ * and HA is disabled *)
+let start_redo_log () =
+  try
+    if Pool_role.is_master () &&
+		bool_of_string (Localdb.get Constants.redo_log_enabled) && 
+	  not (bool_of_string (Localdb.get Constants.ha_armed)) then
+    begin
+      debug "Redo log was enabled when shutting down, so restarting it";
+      (* enable the use of the redo log *)
+      Redo_log.enable Xapi_globs.gen_metadata_vdi_reason;
+      debug "Attempting to extract a database from a metadata VDI";
+      (* read from redo log and store results in a staging file for use in the
+       * next step; best effort only: does not raise any exceptions *)
+      Redo_log_usage.read_from_redo_log Xapi_globs.gen_metadata_db
+    end
+  with e ->
+    debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
   
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
@@ -480,7 +499,6 @@ let resynchronise_ha_state () =
 	 | true, false ->
 	     info "HA has been disabled on the Pool while we were offline; disarming HA locally";
 	     Localdb.put Constants.ha_armed "false";
-	     Xapi_inventory.remove Xapi_inventory._ha_interfaces;
 	     Xapi_ha.Monitor.stop ()
 	 | false, true ->
 	     info "HA has been disabled on localhost but not the Pool.";
@@ -749,6 +767,7 @@ let server_init() =
     (* Pre-requisite for starting HA since it may temporarily use the DB cache *)
     "Set DB mode", [], set_db_mode;
     "Checking HA configuration", [], start_ha;
+	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)
     "Setup DB configuration", [], setup_db_conf;
     (* Start up database engine if we're a master.

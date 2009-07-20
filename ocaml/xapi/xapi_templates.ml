@@ -52,6 +52,7 @@ let vdi_type2string v =
     | `crashdump -> "crashdump"
     | `ha_statefile -> "HA statefile"
     | `metadata -> "metadata"
+    | `redo_log -> "redo log"
 
 let xml_of_disk disk = 
   Element("disk", [ "device", disk.device;

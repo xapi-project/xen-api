@@ -13,8 +13,8 @@ let bridge_naming_convention (device: string) =
 (** Returns the set of PIF references + records which we want to be plugged in by the end of the
     start of day code. Those for which 'disallow_unplug' is true and the management interface will
     actually be brought up ahead of time by the init scripts, so we don't have to plug them in.
-    These are written to the xensource-inventory file when HA is enabled so that HA can bring up interfaces
-    required by storage NICs etc. - CA-21416 
+    These are written to the xensource-inventory file when HA is enabled so that HA can bring up 
+    interfaces required by storage NICs etc. - CA-21416 
 *)
 let calculate_pifs_required_at_start_of_day ~__context =
   List.filter (fun (_,pifr) -> 
@@ -23,17 +23,9 @@ let calculate_pifs_required_at_start_of_day ~__context =
     && not (Db.is_valid_ref pifr.API.pIF_bond_slave_of) (* not enslaved by a bond *)
   )
     (Db.PIF.get_all_records ~__context)
-  
-let calculate_pifs_required_by_ha ~__context = 
-  List.filter (fun (_,pifr) -> pifr.API.pIF_disallow_unplug || pifr.API.pIF_management) (calculate_pifs_required_at_start_of_day ~__context)
 
-let read_ha_bridges_from_inventory () =
-  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._ha_interfaces) with _ -> []
-
-let assert_not_ha_pif ~__context ~self =
-  let ha_bridges = read_ha_bridges_from_inventory () in
-  let bridge = Db.Network.get_bridge ~__context ~self:(Db.PIF.get_network ~__context ~self) in
-  if List.mem bridge ha_bridges then raise (Api_errors.Server_error (Api_errors.pif_does_not_allow_unplug, [Ref.string_of self]))
+let read_bridges_from_inventory () =
+  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces) with _ -> []
 
 let assert_not_in_bond ~__context ~self = 
   (* Prevent bond slaves interfaces *)
@@ -70,11 +62,16 @@ let assert_not_slave_management_pif ~__context ~self =
     && Db.PIF.get_management ~__context ~self
   then raise (Api_errors.Server_error(Api_errors.pif_is_management_iface, [ Ref.string_of self ]))
 
-let assert_not_ha_heartbeat_pif ~__context ~self = 
-  (* If HA is enabled then refuse to reconfigure the interface at all *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Db.PIF.get_management ~__context ~self) 
-  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
+let assert_no_protection_enabled ~__context ~self = 
+  (* If HA or redo-log is enabled and PIF is attached then refuse to reconfigure 
+   * the interface at all *)
+  if Db.PIF.get_currently_attached ~__context ~self then begin
+    let pool = List.hd (Db.Pool.get_all ~__context) in
+    if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
+    else if Db.Pool.get_redo_log_enabled ~__context ~self:pool then
+      raise (Api_errors.Server_error(Api_errors.redo_log_is_enabled, []))
+  end
 
 let abort_if_network_attached_to_protected_vms ~__context ~self = 
   (* Abort a PIF.unplug if the Network has VIFs connected to protected VMs *)
@@ -277,7 +274,7 @@ let forget ~__context ~self =
   assert_not_in_bond ~__context ~self;
   assert_no_vlans ~__context ~self;
   assert_not_slave_management_pif ~__context ~self; 
-  assert_not_ha_pif ~__context ~self;
+  assert_no_protection_enabled ~__context ~self;
 
   let host = Db.PIF.get_host ~__context ~self in
   let t = make_tables ~__context ~host in
@@ -372,8 +369,7 @@ let destroy ~__context ~self =
   debug "PIF.destroy uuid = %s" (Db.PIF.get_uuid ~__context ~self);
   assert_not_in_bond ~__context ~self;
   assert_not_slave_management_pif ~__context ~self; 
-  assert_not_ha_heartbeat_pif ~__context ~self;
-  assert_not_ha_pif ~__context ~self;
+  assert_no_protection_enabled ~__context ~self;
 
   if Db.PIF.get_VLAN ~__context ~self < 0L 
   then raise (Api_errors.Server_error (Api_errors.pif_is_physical, []));
@@ -409,7 +405,7 @@ let vLAN_destroy ~__context ~self =
   end
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
-  assert_not_ha_heartbeat_pif ~__context ~self;
+  assert_no_protection_enabled ~__context ~self;
 
   let assert_is_valid ip_addr =
     try Unix.inet_addr_of_string ip_addr; true with _ -> false in
@@ -448,9 +444,8 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   mark_pif_as_dirty (Db.PIF.get_device ~__context ~self) (Db.PIF.get_VLAN ~__context ~self)
 
 let unplug ~__context ~self = 
-  assert_not_ha_heartbeat_pif ~__context ~self;
+  assert_no_protection_enabled ~__context ~self;
   assert_not_slave_management_pif ~__context ~self;
-  assert_not_ha_pif ~__context ~self;
   let host = Db.PIF.get_host ~__context ~self in
   if Db.Host.get_enabled ~__context ~self:host
   then abort_if_network_attached_to_protected_vms ~__context ~self;

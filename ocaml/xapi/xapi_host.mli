@@ -1,0 +1,235 @@
+(** Module that defines API functions (messages) for [host] objects *)
+
+(** {2 (Fill in Title!)} *)
+
+val host_bugreport_upload : string
+val set_emergency_mode_error : string -> string list -> unit
+val local_assert_healthy : __context:'a -> unit
+
+(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
+val set_license_params :
+  __context:Context.t ->
+  self:[ `host ] Ref.t -> value:(string * string) list -> unit
+  
+(** Before we re-enable this host we make sure it's safe to do so. It isn't if:
+    + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
+    + HA is enabled and this host has broken storage or networking which would cause protected VMs
+    to become non-agile
+    + our license doesn't support pooling and we're a slave
+ *)
+val assert_safe_to_reenable :
+  __context:Context.t -> self:[ `host ] Ref.t -> unit
+  
+val get_xen_capabilities : unit -> string list
+val xen_bugtool : string
+val bugreport_upload :
+  __context:'a ->
+  host:'b -> url:string -> options:(string * string) list -> unit
+  
+(** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
+    attached to dom0, and c) that there are no tasks running *)
+val assert_can_shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
+
+val signal_networking_change : __context:Context.t -> unit
+val signal_cdrom_event : __context:Context.t -> string -> unit
+val notify : __context:Context.t -> ty:string -> params:string -> unit
+val rotate : 'a list -> 'a list
+
+(** {2 (Fill in title!)} *)
+
+type per_vm_plan = Migrate of API.ref_host | Error of (string * string list)
+val string_of_per_vm_plan : per_vm_plan -> string
+
+(** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
+    Host or a reason why the VM cannot be migrated. *)
+val compute_evacuation_plan_no_wlb :
+  __context:Context.t ->
+  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
+
+val assert_can_evacuate : __context:Context.t -> host:API.ref_host -> unit
+val get_vms_which_prevent_evacuation :
+  __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
+val compute_evacuation_plan_wlb :
+  __context:Context.t ->
+  self:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
+val compute_evacuation_plan :
+  __context:Context.t ->
+  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
+val evacuate : __context:Context.t -> host:API.ref_host -> unit
+val retrieve_wlb_evacuate_recommendations :
+  __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
+
+(** {2 (Fill in title!)} *)
+
+val restart_agent : __context:'a -> host:'b -> unit
+val shutdown_agent : __context:'a -> unit
+val disable : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val shutdown_and_reboot_common :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  string ->
+  string ->
+  [< `evacuate
+   | `power_on
+   | `provision
+   | `reboot
+   | `shutdown
+   | `vm_migrate
+   | `vm_resume
+   | `vm_start ] ->
+  string -> unit
+val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val dmesg : __context:'a -> host:'b -> string
+val dmesg_clear : __context:'a -> host:'b -> 'c
+val get_log : __context:'a -> host:'b -> 'c
+val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
+val list_methods : __context:'a -> 'b
+exception Pool_record_expected_singleton
+val copy_license_to_db : __context:Context.t -> unit
+val is_slave : __context:'a -> host:'b -> bool
+
+(** Contact the host and return whether it is a slave or not. 
+    If the host is dead then one of the xmlrpcclient exceptions will be thrown *)
+val ask_host_if_it_is_a_slave :
+  __context:Context.t -> host:API.ref_host -> bool
+
+(** Returns true if a host is alive, false otherwise. Note that if a host has already been marked
+    as dead by the GC thread then this is treated as definitive. Otherwise attempt to contact the host
+    to make sure. *)
+val is_host_alive : __context:Context.t -> host:API.ref_host -> bool
+
+val license_apply : __context:Context.t -> host:'a -> contents:string -> unit
+val create :
+  __context:Context.t ->
+  uuid:string ->
+  name_label:string ->
+  name_description:string ->
+  hostname:string ->
+  address:string ->
+  external_auth_type:string ->
+  external_auth_service_name:string ->
+  external_auth_configuration:(string * string) list -> [ `host ] Ref.t
+val destroy : __context:Context.t -> self:API.ref_host -> unit
+val ha_disable_failover_decisions : __context:'a -> host:'b -> unit
+val ha_disarm_fencing : __context:'a -> host:'b -> unit
+val ha_stop_daemon : __context:'a -> host:'b -> unit
+val ha_release_resources : __context:Context.t -> host:'a -> unit
+val ha_wait_for_shutdown_via_statefile : __context:'a -> host:'b -> unit
+val ha_xapi_healthcheck : __context:'a -> bool
+val preconfigure_ha :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  statefiles:API.ref_VDI list ->
+  metadata_vdi:[ `VDI ] Ref.t -> generation:string -> unit
+val ha_join_liveset : __context:'a -> host:'b Ref.t -> unit
+val propose_new_master : __context:'a -> address:string -> manual:'b -> unit
+val commit_new_master : __context:'a -> address:string -> unit
+val abort_new_master : __context:'a -> address:string -> unit
+val update_master : __context:'a -> host:'b -> master_address:'c -> 'd
+val emergency_ha_disable : __context:'a -> unit
+val request_backup :
+  __context:'a -> host:API.ref_host -> generation:int64 -> force:bool -> unit
+val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
+val syslog_config_write : string -> bool -> bool -> unit
+val syslog_reconfigure : __context:Context.t -> host:'a -> unit
+val change_management_interface : __context:Context.t -> string -> unit
+val local_management_reconfigure :
+  __context:Context.t -> interface:string -> unit
+val management_reconfigure :
+  __context:Context.t -> pif:[ `PIF ] Ref.t -> unit
+val management_disable : __context:Context.t -> unit
+val get_system_status_capabilities :
+  __context:'a -> host:API.ref_host -> string
+val get_diagnostic_timing_stats :
+  __context:'a -> host:'b -> (string * string) list
+val set_hostname_live :
+  __context:Context.t -> host:[ `host ] Ref.t -> hostname:string -> unit
+val is_in_emergency_mode : __context:'a -> bool
+val compute_free_memory :
+  __context:Context.t -> host:[ `host ] Ref.t -> int64
+val get_data_sources : __context:'a -> host:'b -> API.data_source_t list
+val record_data_source :
+  __context:'a -> host:'b -> data_source:string -> unit
+val query_data_source :
+  __context:'a -> host:'b -> data_source:string -> float
+val forget_data_source_archives :
+  __context:'a -> host:'b -> data_source:string -> unit
+val tickle_heartbeat :
+  __context:'a ->
+  host:API.ref_host -> stuff:(string * string) list -> (string * string) list
+val create_new_blob :
+  __context:Context.t ->
+  host:[ `host ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+val serialize_host_enable_disable_extauth : Threadext.Mutex.t
+val extauth_hook_script_name : string
+val call_extauth_plugin_nomutex :
+  __context:Context.t ->
+  host:[ `host ] Ref.t -> fn:string -> args:(string * string) list -> string
+val call_extauth_plugin :
+  __context:Context.t ->
+  host:[ `host ] Ref.t -> fn:string -> args:(string * string) list -> string
+val call_plugin :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  plugin:string -> fn:string -> args:(string * string) list -> string
+val sync_data : __context:Context.t -> host:API.ref_host -> unit
+val backup_rrds : __context:'a -> host:'b -> delay:float -> unit
+val get_servertime : __context:'a -> host:'b -> Date.iso8601
+val enable_binary_storage :
+  __context:Context.t -> host:[ `host ] Ref.t -> unit
+val disable_binary_storage :
+  __context:Context.t -> host:[ `host ] Ref.t -> unit
+val certificate_install :
+  __context:'a -> host:'b -> name:string -> cert:string -> unit
+val certificate_uninstall : __context:'a -> host:'b -> name:string -> unit
+val certificate_list : __context:'a -> host:'b -> string list
+val crl_install :
+  __context:'a -> host:'b -> name:string -> crl:string -> unit
+val crl_uninstall : __context:'a -> host:'b -> name:string -> unit
+val crl_list : __context:'a -> host:'b -> string list
+val certificate_sync : __context:'a -> host:'b -> unit
+val get_server_certificate : __context:'a -> host:'b -> string
+val detect_nonhomogeneous_external_auth_in_host :
+  __context:Context.t -> host:API.ref_host -> unit
+val enable_external_auth :
+  __context:Context.t ->
+  host:API.ref_host ->
+  config:(string * string) list ->
+  service_name:string -> auth_type:string -> unit
+val disable_external_auth_common :
+  ?during_pool_eject:bool ->
+  __context:Context.t ->
+  host:API.ref_host -> config:(string * string) list -> unit
+val disable_external_auth :
+  __context:Context.t ->
+  host:API.ref_host -> config:(string * string) list -> unit
+
+
+(** {2 Static VDIs} *)
+
+(** Make the given VDIs static on the host, such that they will automatically be attached
+ * when xapi is restarted on this host. Supply a [reason] string for each VDI to be
+ * included. *)
+val attach_static_vdis :
+  __context:Context.t ->
+  host:API.ref_host -> vdi_reason_map:([ `VDI ] Ref.t * string) list -> unit
+
+(** Remove the given VDIs from the list of static VDIs on the host. *)
+val detach_static_vdis :
+  __context:Context.t -> host:API.ref_host -> vdis:API.ref_VDI list -> unit
+
+
+(** {2 Local Database} *)
+
+(** Set a key in the Local DB of the host. *)
+val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit 
+
+
+(** {2 Secrets} *)
+  
+val update_pool_secret :
+  __context:'a -> host:'b -> pool_secret:string -> unit
+
