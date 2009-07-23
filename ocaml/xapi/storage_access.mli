@@ -22,4 +22,3 @@ val deactivate_and_detach            : __context:Context.t -> vdi:API.ref_VDI ->
 val with_careful_attach_and_activate : __context:Context.t -> vdis:(API.ref_VDI * [`RO|`RW]) list -> leave_activated:bool -> (unit -> 'a ) -> 'a
 val use_vdi_from_vbd                 : __context:Context.t -> [`VBD] Ref.t -> unit
 
-val set_dirty                        : __context:Context.t -> self:[`SR] Ref.t -> unit

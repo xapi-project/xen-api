@@ -101,7 +101,6 @@ let plug ~__context ~self =
       begin
 	let sr = Db.PBD.get_SR ~__context ~self in
 	  Storage_access.SR.attach ~__context ~self:sr;
-  	  Storage_access.set_dirty ~__context ~self:sr; (* schedule scan to pick up (at least) SR phys/virtual size *)
       end
 
 let unplug ~__context ~self =

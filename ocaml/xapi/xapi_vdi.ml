@@ -192,7 +192,6 @@ let create ~__context ~name_label ~name_description
 	Db.VDI.set_name_label ~__context ~self:ref ~value:name_label;
 	Db.VDI.set_name_description ~__context ~self:ref ~value:name_description;
 
-	Storage_access.set_dirty ~__context ~self:sR;
 	update_allowed_operations ~__context ~self:ref;
 	ref
 
@@ -324,8 +323,6 @@ let snapshot ~__context ~vdi ~driver_params =
   Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:(Db.VDI.get_by_uuid ~__context ~uuid:a.Db_actions.vDI_uuid);
   Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
-  Storage_access.set_dirty ~__context ~self:a.Db_actions.vDI_SR;  
-
   update_allowed_operations ~__context ~self:newvdi;
   newvdi
 
@@ -347,7 +344,6 @@ let destroy ~__context ~self =
 	  (fun srconf srtype sr ->
 	    Sm.vdi_detach srconf srtype sr self;
 	    Sm.vdi_delete srconf srtype sr self);
-	Storage_access.set_dirty ~__context ~self:sr;
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
 	List.iter (fun vbd ->
@@ -358,9 +354,7 @@ let destroy ~__context ~self =
 
 let after_resize ~__context ~vdi ~size vdi_info = 
   let new_size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-  debug "VDI.resize requested size = %Ld; actual size = %Ld" size new_size;
-  let sr = Db.VDI.get_SR ~__context ~self:vdi in
-  Storage_access.set_dirty ~__context ~self:sr
+  debug "VDI.resize requested size = %Ld; actual size = %Ld" size new_size
 
 let resize ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
@@ -411,7 +405,6 @@ let clone ~__context ~vdi ~driver_params =
     Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
     Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
 
-    Storage_access.set_dirty ~__context ~self:a.Db_actions.vDI_SR;
     update_allowed_operations ~__context ~self:newvdi;
     newvdi
   with Smint.Not_implemented_in_backend ->
@@ -439,7 +432,6 @@ let clone ~__context ~vdi ~driver_params =
        Db.VDI.remove_from_current_operations ~__context ~self:vdi ~key:task_id;
 
       Sm_fs_ops.copy_vdi ~__context vdi newvdi;
-      Storage_access.set_dirty ~__context ~self:a.Db_actions.vDI_SR;
 
       Db.VDI.remove_from_current_operations ~__context ~self:newvdi ~key:task_id;
       update_allowed_operations ~__context ~self:newvdi;
@@ -473,7 +465,6 @@ let copy ~__context ~vdi ~sr =
       ) in
   try
     Sm_fs_ops.copy_vdi ~__context vdi dst;
-    Storage_access.set_dirty ~__context ~self:sr;
 
     Db.VDI.remove_from_current_operations ~__context ~self:dst ~key:task_id;
     update_allowed_operations ~__context ~self:dst;
