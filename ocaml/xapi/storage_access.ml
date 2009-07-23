@@ -330,13 +330,3 @@ let with_careful_attach_and_activate ~__context ~vdis ~leave_activated f =
       vdis;
   result_of_f
 
-(** Set the dirty flag on a SR to trigger a rescan (scan is initiated by SR scanning thread running on master) *)
-let set_dirty ~__context ~self =
-  let oc = Db.SR.get_other_config ~__context ~self in
-  try
-    (* don't add a dirty field if it's already set *)
-    if List.mem_assoc "dirty" oc
-    then ()
-    else Db.SR.set_other_config ~__context ~self ~value:(("dirty", "") :: oc)
-  with _ ->
-    ()
