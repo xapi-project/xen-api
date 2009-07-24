@@ -4949,8 +4949,8 @@ let all_relations =
     (_task, "subtask_of"), (_task, "subtasks");
     
     (_pif, "bond_slave_of"), (_bond, "slaves");
-    (_pif, "bond_master_of"), (_bond, "master");
-    (_pif, "VLAN_slave_of"), (_vlan, "tagged_PIF");
+    (_bond, "master"), (_pif, "bond_master_of");
+    (_vlan, "tagged_PIF"), (_pif, "VLAN_slave_of");
 
     (_pbd, "host"), (_host, "PBDs");
     (_pbd, "SR"), (_sr, "PBDs");
