@@ -120,7 +120,8 @@ let unexpected_data meth tag xml =
     (sprintf "Found data in %s node, expected only parent nodes" tag)
     xml
   
-(* Function walks down the xml tree matching nodes in a path defined by tag_names , returning the element at the end of the path. Throws Xml_parse_failure to be handled in context of the calling function *)
+(* Function walks down the xml tree matching nodes in a path defined by tag_names , returning the element at the end of the path. 
+  Throws Xml_parse_failure to be handled in context of the calling function *)
 let rec descend_and_match tag_names xml =
   match tag_names, xml with
   | [], elem -> elem  (* have reached end of the list, with all correct matches so return this element*)
@@ -323,7 +324,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
         | Xml.Error err ->
             raise_malformed_response' meth (Xml.error err) ""
     in
-    (* debug "\n\n%s\n\n" (Xml.to_string response); *)
+   (* debug "\n\n%s\n\n" (Xml.to_string response); *)
     let inner_xml = retrieve_inner_xml meth response enable_log in
     result := Some (
       try
@@ -516,6 +517,9 @@ let retrieve_wlb_config ~__context =
   perform_wlb_request ~meth:"GetXenPoolConfiguration" ~params ~handle_response 
     ~__context ()
   
+  let get_dom0_vm ~__context host=
+    List.hd (List.filter (fun v -> (Db.VM.get_is_control_domain ~__context ~self:v)) (Db.Host.get_resident_VMs ~__context ~self:(Db.Host.get_by_uuid ~__context ~uuid:host)))
+  
 let get_opt_recommendations ~__context =
   assert_wlb_enabled ~__context;
   let params = pool_uuid_param ~__context in
@@ -553,11 +557,13 @@ let get_opt_recommendations ~__context =
       ~handle_response ~__context ()
   in
   let rec remap vm host reason rec_id opt_id = function
-    | (k, v) :: vs ->
+    | (k, v) :: vs ->   (* debug "k:%s v:%s" k v;*)
       if k = "VmToMoveUuid" then
         remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host 
           reason rec_id opt_id vs
       else if k = "MoveToHostUuid" then
+        remap vm (Some v) reason rec_id opt_id vs
+      else if k = "MoveFromHostUuid" then
         remap vm (Some v) reason rec_id opt_id vs
       else if k = "Reason" then
         remap vm host (Some v) rec_id opt_id vs
@@ -568,9 +574,9 @@ let get_opt_recommendations ~__context =
     | [] ->
       begin
         match (vm, host, reason, rec_id, opt_id) with
-        | (Some vm', Some host', Some reason', Some rec_id', opt_id') ->
-          (vm', ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
-        | _ ->
+      | (Some vm', Some host', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
+      | (None, Some host', Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context host'), ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
+      | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
         end
@@ -581,9 +587,10 @@ let get_opt_recommendations ~__context =
   with
   | Db_access.DB_Access.Read_missing_uuid (_,_,_)
   | Db_access.DB_Access.Too_many_values (_,_,_) ->
-    raise_malformed_response' "GetOptimizationRecommendations"
-      "Invalid VM or host UUID" "unknown"
-
+    raise_malformed_response' "GetOptimizationRecommendations" "Invalid VM or host UUID" "unknown"
+   
+    
+    
 (* note that this call only returns a rec for each vm which can be migrated *)
 let get_evacuation_recoms ~__context ~uuid =
   assert_wlb_enabled ~__context;
