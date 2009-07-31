@@ -2318,8 +2318,7 @@ end
     let scan ~__context ~sr =
       (* since we periodically sr_scan, only log those that aren't internal ones.. otherwise logs just get spammed *)
       let is_internal_scan = Db.Session.get_pool ~__context ~self:(Context.get_session_id __context) in
-      if not is_internal_scan then
-	info "SR.scan: SR = '%s'" (sr_uuid ~__context sr);
+      (if is_internal_scan then debug else info) "SR.scan: SR = '%s'" (sr_uuid ~__context sr);
       let local_fn = Local.SR.scan ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.scan" ~op:`scan
 	(fun () ->
