@@ -339,14 +339,8 @@ let update ~__context ~sr =
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
-(* CA-13190 Rio->Miami upgrade needs to prevent concurrent scans *)
-let scan_upgrade_lock = Mutex.create ()
-
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr = 
-  Mutex.execute scan_upgrade_lock
-    (fun () ->
-
   Sm.call_sm_functions ~__context ~sR:sr
     (fun backend_config driver ->
        try
@@ -356,8 +350,6 @@ let scan ~__context ~sr =
 	 error "Caught error scanning SR (%s): %s." 
 	   (Db.SR.get_name_label ~__context ~self:sr) (ExnHelper.string_of_exn e);
 	 raise e)
-
-    )
 
 let set_shared ~__context ~sr ~value =
   if value then
