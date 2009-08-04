@@ -165,7 +165,9 @@ let mount_loopdev_file readonly path =
                 let loopdev = "/dev/" ^ x in debug "Checking loop device %s" loopdev;
 		let args = [ "losetup" ] @ (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
 		let args = Array.of_list args in
-		match Unixext.spawnvp args.(0) args with
+		let r = Unixext.spawnvp args.(0) args in
+		debug "losetup returned";
+		match r with
                 | Unix.WEXITED 0 -> loopdev
                 | _              -> allocate xs
                 in
