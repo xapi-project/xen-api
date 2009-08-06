@@ -148,6 +148,8 @@ let wait_for_frontend_unplug ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Frontend_device_timeout x)
 
+let losetup = "/sbin/losetup"
+
 (* Create a /dev/loop* device attached to file 'path' *)
 let mount_loopdev_file readonly path =
         (* 1. Check to see if the path actually looks ok *)
@@ -163,19 +165,23 @@ let mount_loopdev_file readonly path =
         | []    -> raise Loopdev_all_busy
         | x::xs ->
                 let loopdev = "/dev/" ^ x in debug "Checking loop device %s" loopdev;
-		let args = [ "losetup" ] @ (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
-		let args = Array.of_list args in
-		let r = Unixext.spawnvp args.(0) args in
-		debug "losetup returned";
-		match r with
-                | Unix.WEXITED 0 -> loopdev
-                | _              -> allocate xs
+		let args = (if readonly then [ "-r" ] else []) @ [ loopdev; path ] in
+		debug "Executing: losetup [ %s ]" (String.concat "; " args);
+		let success = 
+		  try
+		    ignore(Forkhelpers.execute_command_get_output losetup args);
+		    debug "losetup successful";
+		    true
+		  with _ ->
+		    debug "losetup unsuccessful";
+		    false in
+		if success then loopdev else allocate xs
                 in
         allocate all_loop_devices
 
 
 let umount_loopdev loopdev =
-	ignore(Forkhelpers.execute_command_get_output "/sbin/losetup" ["-d"; loopdev])
+	ignore(Forkhelpers.execute_command_get_output losetup ["-d"; loopdev])
 
 (* Allocate a loopback device and associate it with this device so that
    it can be deallocated by the release call. *)
