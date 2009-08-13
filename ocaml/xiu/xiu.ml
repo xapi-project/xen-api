@@ -260,7 +260,21 @@ let thread_domain0 () =
 			)
 		| _ -> ()
 		in
-
+	let device_model_changed xs w =
+	        let l = Stringext.String.split '/' w in
+                match l with
+                | "" :: "local" :: "domain" :: "0" :: "device-model" :: domid :: [ "command" ] -> (
+	                let device_model_transaction = xs.Xs.read (sprintf "/local/domain/0/device-model/%s/command" domid) in
+                        match device_model_transaction with
+			| "save"     -> let file = sprintf "/tmp/xen.qemu-dm.%s" domid in
+					let fd = Unix.openfile file (Unix.O_RDWR :: [ Unix.O_CREAT ]) 0o640 in
+					  Unix.close fd;
+					  xs.Xs.write (sprintf "/local/domain/0/device-model/%s/state" domid) "paused"
+			| "continue" -> xs.Xs.write (sprintf "/local/domain/0/device-model/%s/state" domid) "running"
+			| _          -> ()
+		        )
+		| _ -> ()
+	        in
 	let frontend_changed xs w =
 		let l = Stringext.String.split '/' w in
 		match l with
@@ -288,9 +302,11 @@ let thread_domain0 () =
 			let add_watch_for_newdomain dom =
 				printf "dom0: new domain %d\n" dom;
 				xs.Xs.watch (sprintf "/local/domain/%d/device" dom) "frontend";
+				xs.Xs.watch (sprintf "/local/domain/0/device-model/%d" dom) "devicemodel" (* add watch for device-model for migrating vms *)
 			and remove_watch_for_olddomain dom =
 				printf "dom0: dead domain %d\n" dom;
 				xs.Xs.unwatch (sprintf "/local/domain/%d/device" dom) "frontend";
+				xs.Xs.unwatch (sprintf "/local/domain/0/device-model/%d" dom) "devicemodel"
 				in
 			(* diff old list and new list *)
 			let currents = Hashtbl.fold (fun k v acc -> k :: acc) domains [] in
@@ -318,6 +334,7 @@ let thread_domain0 () =
 				| "frontend" -> frontend_changed xs w
 				| "introduce"-> domains_changed w
 				| "release"  -> domains_changed w
+				| "devicemodel" -> device_model_changed xs w
 				| _          -> add_console (sprintf "dom0: unknown watch %s,%s" w v)
 			with exn ->
 				add_console (sprintf "dom0: %s" (Printexc.to_string exn));
