@@ -485,11 +485,14 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true) ?(de
   (* destroy the session *)
   Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying domid %d guest session" domid)
     (fun () ->
-       let (ip,port,session_id,vm_ref) = Domain.get_api_access ~xs domid in
-       if vm_ref=Ref.string_of (self) then begin
-	 debug "Destroying guest session"; 
-	 Server_helpers.exec_with_new_task ~session_id:(Ref.of_string session_id) "guest" (fun __context -> Xapi_session.logout ~__context)
-       end) ();
+       try
+	 let ip, port, session_id, vm_ref = Domain.get_api_access ~xs domid in
+	 if vm_ref = Ref.string_of self then begin
+	   debug "Destroying guest session"; 
+	   Server_helpers.exec_with_new_task ~session_id:(Ref.of_string session_id) "guest" (fun __context -> Xapi_session.logout ~__context)
+	 end
+       with Xb.Noent -> () (* this is the common-case: remove log spam *)
+    ) ();
 
   Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
     (fun () -> Domain.destroy ~preserve_xs_vm ~xc ~xs domid) ();
