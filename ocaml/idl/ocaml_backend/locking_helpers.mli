@@ -13,3 +13,11 @@ exception Lock_not_held
     dropped outside, eg by an accidental partial function application. *)
 val assert_locked : API.ref_VM -> token -> unit
 
+
+module Per_VM_Qs : sig
+
+  (** Attempt to push the work item to the per-VM queue if it exists. If successful, return true.
+      If unsuccessful i.e. the per-VM queue doesn't exist then return false *)
+  val maybe_push: API.ref_VM -> string -> (token -> unit) -> bool
+end
+
