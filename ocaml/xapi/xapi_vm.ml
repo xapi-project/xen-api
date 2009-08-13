@@ -457,6 +457,11 @@ let clean_shutdown ~__context ~vm =
     )
 
 let power_state_reset ~__context ~vm =
+  (* CA-31428: Block if the VM is a control domain *)
+  if Db.VM.get_is_control_domain ~__context ~self:vm then begin
+    error "VM.power_state_reset vm=%s blocked because VM is a control domain" (Ref.string_of vm);
+    raise (Api_errors.Server_error(Api_errors.cannot_reset_control_domain, [ Ref.string_of vm ]));
+  end;
   (* Perform sanity checks if VM is Running or Paused since we don't want to 
      lose track of running domains. *)
   let power_state = Db.VM.get_power_state ~__context ~self:vm in

@@ -348,6 +348,8 @@ let _ =
     ~doc:"The specified VM is not currently resident on the specified host." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]
     ~doc:"The operation could not be performed because a domain still exists for the specified VM." ();
+  error Api_errors.cannot_reset_control_domain [ "vm" ]
+    ~doc:"The power-state of a control domain cannot be reset." ();
   error Api_errors.vm_cannot_delete_default_template ["vm"]
     ~doc:"You cannot delete the specified default template." ();
   error Api_errors.vm_bad_power_state ["vm"; "expected"; "actual"]
