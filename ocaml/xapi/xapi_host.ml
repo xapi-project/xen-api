@@ -191,7 +191,11 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
     then List.partition (fun (vm, record) -> Xapi_ha_vm_failover.vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority) all_user_vms
     else all_user_vms, [] in
   List.iter (fun (vm, _) -> Hashtbl.replace plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) unprotected_vms;
-
+  let migratable_vms, unmigratable_vms = List.partition (fun (vm, record) ->
+    begin
+      try Xapi_vm_helpers.can_boot_on_all_no_memcheck ~__context ~self:vm ~target_hosts ~snapshot:record
+      with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
+    end) protected_vms in
   (* Check the PV drivers versions are up to date (so migration is possible). Note that we are more strict
      than necessary by demanding the most recent PV drivers are installed and not just 'migration capable' ones.
      This simplifies the test matrix. *)
@@ -202,7 +206,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 
   (* Compute the binpack which takes only memory size into account. We will check afterwards for storage
      and network availability. *)
-  let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts protected_vms in
+  let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts migratable_vms in
   (* Check if the plan was actually complete: if some VMs are missing it means there wasn't enough memory *)
   let vms_handled = List.map fst plan in
   let vms_missing = List.filter (fun x -> not(List.mem x vms_handled)) (List.map fst protected_vms) in
