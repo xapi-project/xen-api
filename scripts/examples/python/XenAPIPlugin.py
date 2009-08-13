@@ -1,16 +1,17 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
-# XenAPI plugin boilerplat code
+# XenAPI python plugin boilerplate code
 
 import sys, xmlrpclib, XenAPI
 
-class Failure:
-    def __init__(self, code, params):
-        self.code = code
-        self.params = params
-    def __str__(self):
-        s = { 'Status': 'Failure', 'ErrorDescription': [ self.code ] + self.params }        
-        return xmlrpclib.dumps((s, ), "", True)
+
+def success_message(result):
+    rpcparams = { 'Status': 'Success', 'Value': result }
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+def failure_message(description):
+    rpcparams = { 'Status': 'Failure', 'ErrorDescription': description }
+    return xmlrpclib.dumps((rpcparams, ), '', True)
 
 def dispatch(fn_table):
     if len(sys.argv) <> 2:
@@ -18,14 +19,17 @@ def dispatch(fn_table):
     params, methodname = xmlrpclib.loads(sys.argv[1])
     session_id = params[0]
     args = params[1]
-    try:
-        if methodname in fn_table.keys():
-            x = XenAPI.xapi_local()
-            x._session = session_id
+    if methodname in fn_table:
+        x = XenAPI.xapi_local()
+        x._session = session_id
+        try:
             result = fn_table[methodname](x, args)
-            s = { 'Status': 'Success', 'Value': result }
-            print xmlrpclib.dumps((s, ), "", True)
-        else:
-            raise Failure("UNKNOWN_XENAPI_PLUGIN_FUNCTION", [ methodname ])
-    except Failure, e:
-        print str(e)
+            print success_message(result)
+        except SystemExit:
+            # SystemExit should not be caught, as it is handled elsewhere in the plugin system.
+            raise
+        except Exception, e:
+            print failure_message(['XENAPI_PLUGIN_EXCEPTION',
+                                   methodname, e.__class__.__name__, str(e)])
+    else:
+        print failure_message(['UNKNOWN_XENAPI_PLUGIN_FUNCTION', methodname])
