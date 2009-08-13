@@ -147,7 +147,8 @@ let rec descend_and_match tag_names xml =
   
 let data_from_leaf element =
   match element with 
-    | Xml.Element ( _, _, [Xml.PCData data]) -> data
+  | Xml.Element ( _, _, [Xml.PCData data]) ->data
+  | Xml.Element ( _, _, _) ->  ""
     | _ -> 
       raise_malformed_response "unknown" "Expected element to be leaf node" 
         element
@@ -324,7 +325,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
         | Xml.Error err ->
             raise_malformed_response' meth (Xml.error err) ""
     in
-   (* debug "\n\n%s\n\n" (Xml.to_string response); *)
+    debug "\n\n%s\n\n" (Xml.to_string response); 
     let inner_xml = retrieve_inner_xml meth response enable_log in
     result := Some (
       try
@@ -550,32 +551,33 @@ let get_opt_recommendations ~__context =
       | Xml.Element (_, _, children) -> 
         (gen_map children, 
           data_from_leaf (descend_and_match ["OptimizationId"] inner_xml))
-          | _ -> assert false (*is_childless should prevent this case *)
+      | _ -> debug "IS CHILDLESS"; assert false (*is_childless should prevent this case *)
   in
   let result_map =
     perform_wlb_request ~meth:"GetOptimizationRecommendations" ~params 
       ~handle_response ~__context ()
   in
-  let rec remap vm host reason rec_id opt_id = function
-    | (k, v) :: vs ->   (* debug "k:%s v:%s" k v;*)
-      if k = "VmToMoveUuid" then
-        remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host 
+  
+  let rec remap vm hostfrom hostto reason rec_id opt_id = function
+    | (k, v) :: vs ->    debug "k:%s v:%s" k v;
+      if k = "VmToMoveUuid" && v <> "" then
+        remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) hostfrom hostto
           reason rec_id opt_id vs
       else if k = "MoveToHostUuid" then
-        remap vm (Some v) reason rec_id opt_id vs
+        remap vm hostfrom (Some v) reason rec_id opt_id vs
       else if k = "MoveFromHostUuid" then
-        remap vm (Some v) reason rec_id opt_id vs
+        remap vm (Some v) hostto reason rec_id opt_id vs
       else if k = "Reason" then
-        remap vm host (Some v) rec_id opt_id vs
+        remap vm hostfrom hostto (Some v) rec_id opt_id vs
       else if k = "RecommendationId" then
-        remap vm host reason (Some v) opt_id vs
+        remap vm hostfrom hostto reason (Some v) opt_id vs
       else
-        remap vm host reason rec_id opt_id vs 
+        remap vm hostfrom hostto reason rec_id opt_id vs 
     | [] ->
       begin
-        match (vm, host, reason, rec_id, opt_id) with
-      | (Some vm', Some host', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
-      | (None, Some host', Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context host'), ["WLB"; host'; val_num (opt_id'); val_num (rec_id'); reason'])
+        match (vm, hostfrom, hostto, reason, rec_id, opt_id) with
+     | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; val_num (opt_id'); val_num (rec_id'); reason'])
+     | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; val_num (opt_id'); val_num (rec_id'); reason'])
       | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
@@ -583,7 +585,7 @@ let get_opt_recommendations ~__context =
   in
   try
     match result_map with (map, opt_id) ->
-      List.map (fun kvs -> remap None None None None opt_id kvs) map
+      List.map (fun kvs -> remap None None None None None opt_id kvs) map
   with
   | Db_access.DB_Access.Read_missing_uuid (_,_,_)
   | Db_access.DB_Access.Too_many_values (_,_,_) ->
@@ -640,7 +642,7 @@ let get_evacuation_recoms ~__context ~uuid =
   in
   let rec remap vm host rec_id = function
   | (k, v) :: vs ->
-    if k = "VmUuid" then
+    if k = "VmUuid" && v<> "" then
       remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host rec_id vs
     else if k = "HostUuid" then
       remap vm (Some v) rec_id vs
