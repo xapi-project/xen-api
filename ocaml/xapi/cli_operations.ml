@@ -702,7 +702,7 @@ let gen_cmds rpc session_id =
 
 let message_create printer rpc session_id params =
   let body = List.assoc "body" params in
-  let priority = Int64.of_string (List.assoc "priority" params) in
+  let priority = try Int64.of_string (List.assoc "priority" params) with _ -> failwith "Priority field should be an integer" in
   let name = List.assoc "name" params in
   let uuid,cls = 
     if (List.mem_assoc "vm-uuid" params) then
