@@ -26,6 +26,9 @@ let normal_vm_queue = Thread_queue.make ~name:"vm_lifecycle_op" vm_lifecycle_que
 (** Resynchronising dom0 VBDs and VIFs are handled here. *)
 let dom0_device_resync_queue = Thread_queue.make ~name:"dom0_device_resync" (fun f -> f ())
 
+(** Internal reboots and shutdowns are queued here *)
+let domU_internal_shutdown_queue = Thread_queue.make ~name:"domU_internal_shutdown" (fun f -> f())
+
 open Pervasiveext
 open Threadext
 

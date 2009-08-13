@@ -6,6 +6,7 @@
 open Printf
 open Vmopshelpers
 open Pervasiveext
+open Threadext
 
 module D = Debug.Debugger(struct let name = "event" end)
 open D
@@ -357,24 +358,39 @@ module Resync = struct
 end
 
 
-(** Call the function 'f' with 'vm' locked only if the VM is definitely still 'resident_on' this host. This is necessary
-    because we may end up with a bunch of events queued for a VM even after it has shutdown or migrated away. *)
-let with_vm_locked_on_this_host vm f = 
-  assert_not_on_xal_thread ();
-  Locking_helpers.with_lock vm
-    (fun token vm ->
-       Server_helpers.exec_with_new_task (Printf.sprintf "Locking VM %s to process a queued event" (Ref.string_of vm))
-	 (fun __context ->
-	    (* Once the lock has been grabbed, make sure the VM hasn't moved to another host (ie the migrate case) *)
-	    let localhost = Helpers.get_localhost ~__context in
-	    let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-	    if localhost <> resident_on then
-	      debug "VM %s (%s) resident_on other host %s (%s): taking no action" 
-		(Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm)
-		(Ref.string_of resident_on) (Db.Host.get_hostname ~__context ~self:localhost)
-	    else f ~__context token
-	 )
-    ) vm
+(** Push the specified work_item either to the per-VM queue if it exists or to the given deferred_queue for
+    later background processing. *)
+let push vm deferred_queue description work_item =
+  (* Perform the work_item now on a locked VM if the VM is still resident here. Otherwise do nothing. *)
+  let perform_work_item_if_resident token = 
+    Locking_helpers.assert_locked vm token;
+    Server_helpers.exec_with_new_task (Printf.sprintf "VM %s: processing %s" (Ref.string_of vm) description)
+      (fun __context ->
+	 (* Once the lock has been grabbed, make sure the VM hasn't moved to another host (ie the migrate case) *)
+	 let localhost = Helpers.get_localhost ~__context in
+	 let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+	 if localhost <> resident_on then
+	   debug "VM %s (%s) resident_on other host %s (%s): taking no action" 
+	     (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm)
+	     (Ref.string_of resident_on) (Db.Host.get_hostname ~__context ~self:localhost)
+	 else begin
+	   debug "VM %s: about to perform: %s" (Ref.string_of vm) description;
+	   work_item ~__context token
+	 end) in
+
+  (* The per-VM queue is executed with the VM already locked. The deferred_queue path needs to 
+     acquire the lock itself. *)
+  let per_vm_work_item token = perform_work_item_if_resident token in
+  let deferred_work_item () =
+    assert_not_on_xal_thread ();
+    debug "VM %s: grabbing lock to perform: %s" (Ref.string_of vm) description;
+    Locking_helpers.with_lock vm (fun token _ -> perform_work_item_if_resident token) () in
+
+  let (_: bool) = 
+    false
+    || Locking_helpers.Per_VM_Qs.maybe_push vm description per_vm_work_item
+    || deferred_queue description deferred_work_item
+  in ()
 
 (* Used to pre-filter the device events we care about from lots of uninteresting ones *)
 let interesting_device_event = function
@@ -412,13 +428,12 @@ let callback_devices ctx domid dev_event =
 		      let vif = 
 			try Ref.of_string (xs.Xs.read (private_data_path ^ "/ref")) 
 			with Xb.Noent -> Helpers.vif_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item () = 
-			with_vm_locked_on_this_host vm
-			  (fun ~__context token ->
-			     Resync.vif ~__context token vm vif
-			  ) in
+		      let work_item ~__context token = 
+			Resync.vif ~__context token vm vif
+		      in
 		      debug "Adding Resync.vif to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "HotplugChanged(vif, %s) domid: %d" devid domid) work_item in ()
+		      let description = Printf.sprintf "HotplugChanged(vif, %s) domid: %d" devid domid in
+		      push vm Local_work_queue.normal_vm_queue description work_item
 		    with Helpers.Device_has_no_VIF ->
 		      debug "ignoring because VIF does not exist in DB"
 		  end
@@ -427,13 +442,12 @@ let callback_devices ctx domid dev_event =
 		  begin
 		    try
 		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item () = 
-			with_vm_locked_on_this_host vm
-			  (fun ~__context token ->
-			     Resync.vbd ~__context token vm vbd
-			  ) in
+		      let work_item ~__context token = 
+			Resync.vbd ~__context token vm vbd
+		      in
 		      debug "Adding Resync.vbd to queue";
-		      let (_: bool) = (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) (Printf.sprintf "DevShutdownDone(%s, %s) domid: %d" ty devid domid) work_item in ()
+		      let description = Printf.sprintf "DevShutdownDone(%s, %s) domid: %d" ty devid domid in
+		      push vm (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) description work_item;
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -443,14 +457,13 @@ let callback_devices ctx domid dev_event =
 		  begin
 		    try
 		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item () = 
-			with_vm_locked_on_this_host vm
-			  (fun ~__context token ->
-			     let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-			     Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
-			  ) in
+		      let work_item ~__context token = 
+			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+			Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
+		      in
 		      debug "Adding Vbdops.set_vbd_qos to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "DevThread(%s, %s, %d) domid %d" ty devid pid domid) work_item in ()
+		      let description = Printf.sprintf "DevThread(%s, %s, %d) domid %d" ty devid pid domid in
+		      push vm Local_work_queue.normal_vm_queue description work_item 
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -460,13 +473,12 @@ let callback_devices ctx domid dev_event =
 		  begin
 		    try
 		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item () = 
-			with_vm_locked_on_this_host vm
-			  (fun ~__context token ->
-			     Vbdops.eject_vbd ~__context ~self:vbd
-			  ) in
+		      let work_item ~__context token = 
+			Vbdops.eject_vbd ~__context ~self:vbd
+		      in
 		      debug "Adding Vbdops.eject_vbd to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "DevEject(%s, %s) domid %d" ty devid domid) work_item in ()
+		      let description = Printf.sprintf "DevEject(%s, %s) domid %d" ty devid domid in
+		      push vm Local_work_queue.normal_vm_queue description work_item;
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -504,14 +516,12 @@ let callback_release ctx domid =
 	      (* Get the VM reference given the domid by looking up the uuid *)
 	      let vm = vm_of_domid ~__context domid in
 	      (* Construct a work item and push it on the work queue *)
-	      let work_item () = 
-		with_vm_locked_on_this_host vm
-		  (fun ~__context token ->
-		     let action_taken = Resync.vm ~__context token vm in
-		     if action_taken then debug "Action was taken so allowed_operations should be updated";		   
-		  ) in
+	      let work_item ~__context token = 
+		let action_taken = Resync.vm ~__context token vm in
+		if action_taken then debug "Action was taken so allowed_operations should be updated";		   
+	      in
 	      debug "adding Resync.vm to work queue";
-	      let (_: bool) = Local_work_queue.normal_vm_queue description work_item in ()
+	      push vm Local_work_queue.domU_internal_shutdown_queue description work_item;
 	   )
        with Vm_corresponding_to_domid_not_in_db domid ->
 	 error "event could not be processed because VM record not in database"
