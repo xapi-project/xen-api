@@ -68,7 +68,7 @@ let compare_vsn_with_product_vsn (pv_maj,pv_min,pv_mic) =
       let (prod_maj, prod_min, prod_mic) =
         match (Stringext.String.split '.' my_product_version) with
         | [ prod_maj; prod_min; prod_mic] -> int_of_string prod_maj, int_of_string prod_min, int_of_string prod_mic
-        | _                               -> warn "PV product version is wrong format"; assert false;
+        | _                               -> warn "xapi product version is wrong format: %s" my_product_version; assert false;
 	in
       if pv_mic = -1 then -1 (* out of date if micro version not specified -- reqd since Miami Beta1 was shipped without micro versions! *)
       else if pv_maj<prod_maj || (pv_maj=prod_maj && pv_min<prod_min) || (pv_maj=prod_maj && pv_min=prod_min && pv_mic<prod_mic) then -1
