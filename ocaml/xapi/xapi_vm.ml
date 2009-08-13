@@ -187,6 +187,7 @@ let clean_shutdown_already_locked ~__context ~vm token =
 let start  ~__context ~vm ~start_paused:paused ~force =
   License_check.with_vm_license_check ~__context vm (fun () ->
   Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (Printf.sprintf "VM.start %s" (Context.string_of_task __context))
   (fun () ->
      Locking_helpers.with_lock vm
        (fun token () ->
@@ -404,6 +405,7 @@ let record_and_dispatch_shutdown ~__context ~vm reason initiator action_func
 (** VM.hard_reboot entrypoint *)
 let hard_reboot ~__context ~vm =
   Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (Printf.sprintf "VM.hard_reboot %s" (Context.string_of_task __context))
   (fun () ->
      Locking_helpers.with_lock vm
        (fun token () ->
@@ -420,6 +422,7 @@ let hard_reboot_internal ~__context ~vm = reboot_common ~__context ~vm "hard_reb
 (** VM.hard_shutdown entrypoint *)
 let hard_shutdown ~__context ~vm =
   Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (Printf.sprintf "VM.hard_shutdown %s" (Context.string_of_task __context))
     (fun () ->
        Locking_helpers.with_lock vm
 	 (fun token () ->
@@ -433,6 +436,7 @@ let hard_shutdown ~__context ~vm =
 (** VM.clean_reboot entrypoint *)
 let clean_reboot ~__context ~vm =
   Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (Printf.sprintf "VM.clean_reboot %s" (Context.string_of_task __context))
     (fun () ->
        Locking_helpers.with_lock vm
 	 (fun token () ->
@@ -446,6 +450,7 @@ let clean_reboot ~__context ~vm =
 (** VM.clean_shutdown entrypoint *)
 let clean_shutdown ~__context ~vm =
   Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+    (Printf.sprintf "VM.clean_shutdown %s" (Context.string_of_task __context))
     (fun () ->
        Locking_helpers.with_lock vm
 	 (fun token () ->
@@ -518,6 +523,7 @@ let power_state_reset ~__context ~vm =
 
 let suspend  ~__context ~vm = 
   Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+    (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
     (fun () ->
        Locking_helpers.with_lock vm (fun token () ->
 	assert_not_ha_protected ~__context ~vm;
@@ -547,6 +553,7 @@ let suspend  ~__context ~vm =
 
 let resume  ~__context ~vm ~start_paused ~force = 
   Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+    (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
     (fun () ->
   Locking_helpers.with_lock vm (fun token () ->
   License_check.with_vm_license_check ~__context vm
@@ -686,7 +693,9 @@ let revert ~__context ~snapshot =
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
 (* thread mess around with that. *)
 let checkpoint ~__context ~vm ~new_name =
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue (fun () ->
+	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
+    (Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
+	  (fun () ->
 		TaskHelper.set_cancellable ~__context;
 		Locking_helpers.with_lock vm 
 			(fun token () -> Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
@@ -703,12 +712,14 @@ let copy ~__context ~vm ~new_name ~sr =
 	       then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
 						   [ "Cannot copy a VM's disks to an ISO SR" ]))) sr;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+	  (Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
 	  (fun () ->
   	     Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name
 	  )
 
 let provision ~__context ~vm = 
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+	  (Printf.sprintf "VM.provision %s" (Context.string_of_task __context))
 	  (fun () ->
 	     Locking_helpers.with_lock vm (fun token () ->
 	(* This bit could be done in the guest: *)

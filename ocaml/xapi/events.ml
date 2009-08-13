@@ -418,7 +418,7 @@ let callback_devices ctx domid dev_event =
 			     Resync.vif ~__context token vm vif
 			  ) in
 		      debug "Adding Resync.vif to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue work_item in ()
+		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "HotplugChanged(vif, %s) domid: %d" devid domid) work_item in ()
 		    with Helpers.Device_has_no_VIF ->
 		      debug "ignoring because VIF does not exist in DB"
 		  end
@@ -433,7 +433,7 @@ let callback_devices ctx domid dev_event =
 			     Resync.vbd ~__context token vm vbd
 			  ) in
 		      debug "Adding Resync.vbd to queue";
-		      let (_: bool) = (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) work_item in ()
+		      let (_: bool) = (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) (Printf.sprintf "DevShutdownDone(%s, %s) domid: %d" ty devid domid) work_item in ()
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -450,7 +450,7 @@ let callback_devices ctx domid dev_event =
 			     Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
 			  ) in
 		      debug "Adding Vbdops.set_vbd_qos to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue work_item in ()
+		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "DevThread(%s, %s, %d) domid %d" ty devid pid domid) work_item in ()
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -466,7 +466,7 @@ let callback_devices ctx domid dev_event =
 			     Vbdops.eject_vbd ~__context ~self:vbd
 			  ) in
 		      debug "Adding Vbdops.eject_vbd to queue";
-		      let (_: bool) = Local_work_queue.normal_vm_queue work_item in ()
+		      let (_: bool) = Local_work_queue.normal_vm_queue (Printf.sprintf "DevEject(%s, %s) domid %d" ty devid domid) work_item in ()
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
 		  end
@@ -498,8 +498,8 @@ let callback_release ctx domid =
   Helpers.log_exn_continue (Printf.sprintf "callback_release (domid: %d)" domid)
     (fun () ->
        try
-	 Server_helpers.exec_with_new_task ~task_in_database:false
-	   (Printf.sprintf "VM (domid %d) @releaseDomain" domid)
+	 let description = Printf.sprintf "VM (domid %d) @releaseDomain" domid in
+	 Server_helpers.exec_with_new_task ~task_in_database:false description
 	   (fun __context ->
 	      (* Get the VM reference given the domid by looking up the uuid *)
 	      let vm = vm_of_domid ~__context domid in
@@ -511,7 +511,7 @@ let callback_release ctx domid =
 		     if action_taken then debug "Action was taken so allowed_operations should be updated";		   
 		  ) in
 	      debug "adding Resync.vm to work queue";
-	      let (_: bool) = Local_work_queue.normal_vm_queue work_item in ()
+	      let (_: bool) = Local_work_queue.normal_vm_queue description work_item in ()
 	   )
        with Vm_corresponding_to_domid_not_in_db domid ->
 	 error "event could not be processed because VM record not in database"

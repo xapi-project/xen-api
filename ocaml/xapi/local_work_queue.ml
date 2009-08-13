@@ -31,11 +31,11 @@ open Threadext
 
 (** Join a given queue and execute the function 'f' when its our turn. Actually perform the computation in
     this thread so we can return a result. *)
-let wait_in_line q f = 
+let wait_in_line q description f = 
   let m = Mutex.create () in
   let c = Condition.create () in
   let state = ref `Pending in
-  let ok = q
+  let ok = q description
     (fun () ->
        (* Signal the mothership to run the computation now *)
        Mutex.execute m

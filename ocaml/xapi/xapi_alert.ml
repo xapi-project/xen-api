@@ -33,7 +33,7 @@ let add ~name ~priority ~cls ~obj_uuid ~body =
 	(fun __context ->    
 	   let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body in true
 	)
-    end else alert_queue_push { Alert.name = name; priority = priority; cls = cls; obj_uuid = obj_uuid; body = body } in
+    end else alert_queue_push name { Alert.name = name; priority = priority; cls = cls; obj_uuid = obj_uuid; body = body } in
   if not sent then warn "Failed to send alert %s %s" name obj_uuid
       
   
