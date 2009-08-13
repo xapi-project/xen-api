@@ -128,7 +128,7 @@ let check_uuid ~__context ~cls ~uuid =
 
 (*********** Thread_queue to exec the message script hook ***********)
 
-let queue_push = ref (fun (m : string) -> false)
+let queue_push = ref (fun (description: string) (m : string) -> false)
 
 let message_to_string (_ref,message) =
   let buffer = Buffer.create 10 in
@@ -185,7 +185,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) (message_to_string (_ref,message));
+      (!queue_push) name (message_to_string (_ref,message));
       (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
       (* Return a null reference *)
@@ -221,7 +221,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) (message_to_string (_ref,message));
+      (!queue_push) name (message_to_string (_ref,message));
 
       let oc = Unix.out_channel_of_descr f in
       let output = Xmlm.output_of_channel oc in

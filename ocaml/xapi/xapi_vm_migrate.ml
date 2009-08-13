@@ -575,7 +575,8 @@ let with_no_vbds_paused ~__context ~vm f =
     )
 	 
 let pool_migrate ~__context ~vm ~host ~options =
-	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
+	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
 
 	     
