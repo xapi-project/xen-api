@@ -123,6 +123,11 @@ sig
 	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
 	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
 	val bind : (int * int * int * int) list -> unit
+
+	val plug : xc:Xc.handle -> xs:Xs.xsh
+		-> (int * int * int * int) -> Xc.domid -> int -> unit
+	val unplug : xc:Xc.handle -> xs:Xs.xsh
+		-> (int * int * int * int) -> Xc.domid -> int -> unit
 end
 
 module Dm :
