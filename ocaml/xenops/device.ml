@@ -1113,6 +1113,22 @@ let hard_shutdown ~xs (x: device) =
 	debug "Device.Pci.hard_shutdown %s" (string_of_device x);
 	clean_shutdown ~xs x
 
+let signal_device_model ~xc ~xs domid cmd parameter = 
+	debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
+	let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
+	Xs.transaction xs (fun t ->
+		t.Xst.writev dom0 [ Printf.sprintf "device-model/%d/command" domid, cmd;
+				    Printf.sprintf "device-model/%d/parameter" domid, parameter ]
+	);
+	(* XXX: no response protocol *)
+	()
+
+let plug ~xc ~xs (domain, bus, dev, func) domid devid = 
+	signal_device_model ~xc ~xs domid "pci-ins" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func)  
+
+let unplug ~xc ~xs (domain, bus, dev, func) domid devid = 
+	signal_device_model ~xc ~xs domid "pci-rem" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func)  
+
 end
 
 let hard_shutdown ~xs (x: device) = match x.backend.kind with
