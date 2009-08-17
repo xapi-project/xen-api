@@ -240,13 +240,21 @@ let del_vif ~xs ~domid ~backend_domid ~devid =
 	let device = find_device ~xs frontend backend in
 	Device.clean_shutdown ~xs device
 
+let pci_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
+
 let add_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	Printf.printf "pci: %s\n" pci;
-	let pcidevs = List.map (fun d -> 
-		Scanf.sscanf d "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d))
-	) (String.split ',' pci) in
+	let pcidevs = List.map pci_of_string (String.split ',' pci) in
 	Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 pcidevs domid devid;
 	()
+
+let plug_pci ~xc ~xs ~domid ~devid ~pci = 
+	let pcidev = pci_of_string pci in
+	Device.PCI.plug ~xc ~xs pcidev domid devid
+
+let unplug_pci ~xc ~xs ~domid ~devid ~pci = 
+	let pcidev = pci_of_string pci in
+	Device.PCI.unplug ~xc ~xs pcidev domid devid
 
 let del_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	let pcidevs = List.map (fun d -> 
@@ -548,6 +556,8 @@ let do_cmd_parsing cmd =
 		("add_pci"        , common @ pci_args);
 		("del_pci"        , common @ pci_args);
 		("bind_pci"       , pci_args);
+		("plug_pci"       , common @ pci_args);
+		("unplug_pci"     , common @ pci_args);
 		("add_dm"         , common @ common_build @ dm_args);
 		("add_ioport"     , common @ ioport_args);
 		("del_ioport"     , common @ ioport_args);
@@ -711,6 +721,12 @@ let _ =
 	| "del_pci" ->
 		assert_domid ();
 		with_xc_and_xs (fun xc xs -> del_pci ~xc ~xs ~hvm:(is_domain_hvm xc domid) ~domid ~devid ~pci)
+	| "plug_pci" ->
+		assert_domid ();
+		with_xc_and_xs (fun xc xs -> plug_pci ~xc ~xs ~domid ~devid ~pci)
+	| "unplug_pci" ->
+		assert_domid ();
+		with_xc_and_xs (fun xc xs -> unplug_pci ~xc ~xs ~domid ~devid ~pci)
 	| "bind_pci" ->
 		bind_pci ~pci
 	| "add_ioport" ->
