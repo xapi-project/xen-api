@@ -87,66 +87,14 @@ module Domain_shutdown = struct
       VM will still be marked as Running in the database but the user might have noticed the VM
       is gone... *)
 
-  let get_vm_start_time __context vm =
-    try
-      let metrics = Db.VM.get_metrics ~__context ~self:vm in
-      Date.to_float (Db.VM_metrics.get_start_time ~__context ~self:metrics)
-    with _ -> 0. (* ages ago *)
+  let time_vm_ran_for ~__context ~vm =
+    let start_time = 
+      try
+	let metrics = Db.VM.get_metrics ~__context ~self:vm in
+	Date.to_float (Db.VM_metrics.get_start_time ~__context ~self:metrics)
+      with _ -> 0. (* ages ago *) in
+    Unix.gettimeofday () -. start_time 
 
-  let hard_reboot ~__context ~vm = 
-    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.hard_reboot_internal rpc session_id vm)
-
-  let on_crash __context vm domid token = 
-    (* Compute how long it was since the VM booted to avoid any bouncing *)
-    let start_time = get_vm_start_time __context vm in
-    let vm_ran_for = Unix.gettimeofday () -. start_time in
-    let bounce_suppression_needed = vm_ran_for < Xapi_globs.minimum_time_between_bounces in
-    
-    if bounce_suppression_needed
-    then warn "VM (%s) domid %d crashed too soon after start (ran for %f; minimum time %f). Will not reboot." 
-      (Db.VM.get_name_label ~__context ~self:vm) domid vm_ran_for Xapi_globs.minimum_time_between_bounces;
-    
-    let after_crash = Db.VM.get_actions_after_crash ~__context ~self:vm in
-    let after_crash = 
-      if not(bounce_suppression_needed) 
-      then after_crash
-      else match after_crash with
-      | `coredump_and_restart -> `coredump_and_destroy
-      | `restart -> `destroy
-      | `rename_restart -> `destroy
-      | x -> x in
-    
-    Xapi_vm.record_shutdown ~__context ~vm Xal.Crashed "internal"
-      (Record_util.on_crash_behaviour_to_string after_crash);
-    
-    match after_crash with
-    | `preserve ->
-	debug "domid %d actions_after_crash = preserve; leaving domain paused" domid;
-	Xapi_vm.pause_already_locked __context vm
-    | `coredump_and_restart ->
-	debug "domid %d actions_after_crash = coredump_and_restart" domid;
-	finally 
-	  (fun () -> Crashdump.make ~__context vm domid)
-	  (fun () -> hard_reboot ~__context ~vm)
-    | `coredump_and_destroy ->
-	debug "domid %d actions_after_crash = coredump_and_destroy" domid;
-	finally 
-	  (fun () -> Crashdump.make ~__context vm domid)
-	  (fun () ->
-	     Xapi_vm.hard_shutdown_already_locked ~__context ~vm token;
-	     update_allowed_ops_using_api ~__context vm
-	  )
-    | `restart ->
-	debug "domid %d actions_after_crash = restart" domid;
-	hard_reboot ~__context ~vm;
-    | `destroy ->
-	debug "domid %d actions_after_crash = destroy" domid;
-	Xapi_vm.hard_shutdown_already_locked ~__context ~vm token;
-	update_allowed_ops_using_api ~__context vm
-    | `rename_restart ->
-	warn "domid %d actions_after_crash = rename_restart but this is not supported." domid;
-	hard_reboot ~__context ~vm
-	  
   (* When a VM is rebooted too quickly (from within) we insert a delay; on each _contiguous_
      quick reboot, this delay doubles *)
   let insert_reboot_delay ~__context ~vm =
@@ -171,42 +119,92 @@ module Domain_shutdown = struct
   let clear_reboot_delay ~__context ~vm =
     try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key with _ -> ()
       
+  let perform_destroy ~__context ~vm token =
+    TaskHelper.set_description ~__context "destroy";
+    Xapi_vm.Shutdown.in_dom0 { Xapi_vm.TwoPhase.__context = __context; vm=vm; token=Some token; api_call_name="destroy"; clean=false };
+    update_allowed_ops_using_api ~__context vm
+
+  let perform_preserve ~__context ~vm token = 
+    TaskHelper.set_description ~__context "preserve";
+    Xapi_vm.pause_already_locked __context vm    
+
   let perform_restart ~__context ~vm token =
-  TaskHelper.set_description ~__context "Performing reboot";
-    let start_time = get_vm_start_time __context vm in
-    let vm_ran_for = Unix.gettimeofday () -. start_time in
-    if vm_ran_for < Xapi_globs.minimum_time_between_reboot_with_no_added_delay then
-      insert_reboot_delay ~__context ~vm
-    else
-      clear_reboot_delay ~__context ~vm;
+    TaskHelper.set_description ~__context "restart";
+    if time_vm_ran_for ~__context ~vm < Xapi_globs.minimum_time_between_reboot_with_no_added_delay 
+    then insert_reboot_delay ~__context ~vm
+    else clear_reboot_delay ~__context ~vm;
+
     try
-      hard_reboot ~__context ~vm
+      Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.hard_reboot_internal rpc session_id vm)
     with e ->
       (* NB this can happen if the user has change the VM configuration to onw which
 	 cannot boot (eg not enough memory) and then rebooted inside the guest *)
       warn "Failed to reboot VM: %s; halting instead" (ExnHelper.string_of_exn e);
-      Xapi_vm.hard_shutdown_already_locked ~__context ~vm token;
-      update_allowed_ops_using_api ~__context vm
-      
-  let perform_destroy ~__context ~vm token =
-    TaskHelper.set_description ~__context "Performing halt";
-    Xapi_vm.hard_shutdown_already_locked ~__context ~vm token;
-    update_allowed_ops_using_api ~__context vm
-      
+      perform_destroy ~__context ~vm token
+
+  (** Performs an arbitrary action (restart, destroy, etc) on a VM *)
+  let perform ~__context ~vm token action =
+    let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+    match action with
+    | `preserve ->
+	debug "domid %d action = preserve; leaving domain paused" domid;
+	perform_preserve ~__context ~vm token;
+    | `coredump_and_restart ->
+	debug "domid %d action = coredump_and_restart" domid;
+	finally 
+	  (fun () -> Crashdump.make ~__context vm domid)
+	  (fun () -> perform_restart ~__context ~vm token)
+    | `coredump_and_destroy ->
+	debug "domid %d actions_after_crash = coredump_and_destroy" domid;
+	finally 
+	  (fun () -> Crashdump.make ~__context vm domid)
+	  (fun () -> perform_destroy ~__context ~vm token)
+    | `restart ->
+	debug "domid %d actions_after_crash = restart" domid;
+	perform_restart ~__context ~vm token
+    | `destroy ->
+	debug "domid %d actions_after_crash = destroy" domid;
+	perform_destroy ~__context ~vm token
+    | `rename_restart ->
+	warn "domid %d actions_after_crash = rename_restart but this is not supported." domid;
+	perform_restart ~__context ~vm token
+
   let on_reboot ~__context ~vm token =
-    Xapi_vm.record_and_dispatch_shutdown ~__context ~vm Xal.Rebooted "internal"
-      Db.VM.get_actions_after_reboot
-      perform_restart
-      perform_destroy
-      token
+    let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
+    Xapi_vm.record_shutdown_details ~__context ~vm Xal.Rebooted "internal" action;    
+    (* NB already locked and at the front of a queue at this point *)
+    perform ~__context ~vm token action
       
   let on_shutdown ~__context ~vm reason token =
-    Xapi_vm.record_and_dispatch_shutdown ~__context ~vm reason "internal"
-      Db.VM.get_actions_after_shutdown
-      perform_restart
-      perform_destroy
-      token
+    let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
+    Xapi_vm.record_shutdown_details ~__context ~vm reason "internal" action;
+    (* NB already locked and at the front of a queue at this point *)
+    perform ~__context ~vm token action
 
+  let on_crash __context vm domid token = 
+    let action = Db.VM.get_actions_after_crash ~__context ~self:vm in
+    
+    (* Perform bounce-suppression to prevent fast crash loops *)
+    let action = 
+      let t = time_vm_ran_for ~__context ~vm in
+      if t < Xapi_globs.minimum_time_between_bounces then begin
+	let msg = Printf.sprintf "VM (%s) domid %d crashed too soon after start (ran for %f; minimum time %f)" 
+	  (Db.VM.get_name_label ~__context ~self:vm) domid t Xapi_globs.minimum_time_between_bounces in
+	match action with
+	| `coredump_and_restart -> 
+	    debug "%s: converting coredump_and_restart -> coredump_and_destroy" msg;
+	    `coredump_and_destroy
+	| `restart -> 
+	    debug "%s: converting restart -> destroy" msg;
+	    `destroy
+	| `rename_restart -> 
+	    debug "%s: converting rename_restart -> destroy" msg;
+	    `destroy
+	| x -> x
+      end else action in
+
+    Xapi_vm.record_shutdown_details ~__context ~vm Xal.Crashed "internal" action;
+    perform ~__context ~vm token action
 end
 
 
