@@ -407,28 +407,10 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) () =
 	let uuid_str = Db.VM.get_uuid ~__context ~self in
 	let uuid = Uuid.of_string uuid_str in
 	let xsdata = Db.VM.get_xenstore_data ~__context ~self in
-	let allowed_xsdata_prefix =
-		try
-			let prefixes = ref [] in
-			Unixext.readfile_line (fun line -> prefixes := line :: !prefixes)
-			                      Xapi_globs.allowed_xsdata_file;
-			!prefixes
-		with _ -> []
-		in
-	let xsdata =
-		if allowed_xsdata_prefix = [] then 
-			[]
-		else (
-			List.filter (fun (k,v) ->
-				let found = ref false in
-				List.iter (fun p ->
-					if String.startswith p k then
-						found := true
-				) allowed_xsdata_prefix;
-				!found
-			) xsdata
-		)
-		in
+	(* disallowed by default; allowed only if it has one of a set of prefixes *)
+	let allowed_xsdata (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith p x) [ "vm-data/"; "FIST/" ]) in
+	let xsdata = List.filter allowed_xsdata xsdata in
+
 	let rstr = Restrictions.get () in
 	let platformdata =
 		let p = Db.VM.get_platform ~__context ~self in
