@@ -83,6 +83,16 @@ let set_ha_always_run ~__context ~self ~value =
     if Db.Pool.get_ha_enabled ~__context ~self:pool
     then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
   end
+
+(* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
+let assert_ha_always_run_is_true ~__context ~vm =
+	let rp = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+	if (rp = "1" or rp = Constants.ha_restart_best_effort)
+	then set_ha_always_run ~__context ~self:vm ~value:true
+(* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
+let assert_ha_always_run_is_false ~__context ~vm =
+	set_ha_always_run ~__context ~self:vm ~value:false
+
 let set_ha_restart_priority ~__context ~self ~value = 
   let ha_always_run = Db.VM.get_ha_always_run ~__context ~self in
   validate_restart_priority (not ha_always_run) value;
@@ -161,8 +171,8 @@ let unpause  ~__context ~vm =
 
 let clean_shutdown_already_locked ~__context ~vm token =
   Locking_helpers.assert_locked vm token;
-  assert_not_ha_protected ~__context ~vm;
 
+  assert_ha_always_run_is_false ~__context ~vm;
   (* Invoke pre_destroy hook *)
   Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__clean_shutdown ~vm;
   debug("clean_shutdown: phase 1/2: waiting for the domain to shutdown");
@@ -204,6 +214,8 @@ let start  ~__context ~vm ~start_paused:paused ~force =
         let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 	(* Xapi_vm_helpers.assert_can_boot_here not required since the message_forwarding
 	   layer has already done it and it's very expensive on a slave *)
+
+	assert_ha_always_run_is_true ~__context ~vm;
 
 	debug "start: bringing up domain in the paused state";
 	Vmops.start_paused
@@ -361,7 +373,7 @@ module Shutdown = struct
 
   let in_guest { TwoPhase.__context=__context; vm=vm; token=token; api_call_name=api_call_name; clean=clean } =
     Opt.iter (Locking_helpers.assert_locked vm) token;
-    assert_not_ha_protected ~__context ~vm;
+    assert_ha_always_run_is_false ~__context ~vm;
 
     if clean then begin
       debug "%s: phase 1/2: waiting for the domain to shutdown" api_call_name;
@@ -546,7 +558,7 @@ let suspend  ~__context ~vm =
     (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
     (fun () ->
        Locking_helpers.with_lock vm (fun token () ->
-	assert_not_ha_protected ~__context ~vm;
+	assert_ha_always_run_is_false ~__context ~vm;
 	Stats.time_this "VM suspend" (fun () ->
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	(* Invoke pre_destroy hook *)
@@ -583,6 +595,7 @@ let resume  ~__context ~vm ~start_paused ~force =
                 debug "resume: making sure the VM really is suspended";
                 assert_power_state_is ~__context ~vm ~expected:`Suspended;
 
+		assert_ha_always_run_is_true ~__context ~vm;
 		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 		Vmops.check_enough_memory ~__context ~xc ~snapshot ~restore:true;
 
