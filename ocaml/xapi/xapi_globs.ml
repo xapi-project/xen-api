@@ -83,7 +83,6 @@ let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of X
 
 let config_file = ref "/etc/xensource/xapi.conf"
 let log_config_file = ref "/etc/xensource/log.conf"
-let allowed_xsdata_file = "/etc/xensource/xsdata_allowed_prefix"
 let db_conf_path = "/etc/xensource/db.conf"
 let remote_db_conf_fragment_path = "/etc/xensource/remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"

@@ -20,7 +20,6 @@ install:
 	$(IPROG) xapi-autostart-vms $(DIST)/staging/opt/xensource/bin/
 	$(IPROG) udhcpd.skel $(DIST)/staging/var/xapi/udhcpd.skel
 	$(IPROG) xapi-ssl.conf $(DIST)/staging/etc/xensource/xapi-ssl.conf
-	$(IPROG) xsdata_allowed_prefix $(DIST)/staging/etc/xensource/xsdata_allowed_prefix
 	$(IPROG) xapi.conf $(DIST)/staging/etc/xensource/xapi.conf
 	$(IPROG) log.conf $(DIST)/staging/etc/xensource/log.conf
 	$(IPROG) db.conf.skel $(DIST)/staging/etc/xensource/db.conf
