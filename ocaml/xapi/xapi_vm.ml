@@ -169,30 +169,6 @@ let unpause  ~__context ~vm =
 	Db.VM.set_power_state ~__context ~self:vm ~value:`Running
     ) ())
 
-let clean_shutdown_already_locked ~__context ~vm token =
-  Locking_helpers.assert_locked vm token;
-
-  assert_ha_always_run_is_false ~__context ~vm;
-  (* Invoke pre_destroy hook *)
-  Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__clean_shutdown ~vm;
-  debug("clean_shutdown: phase 1/2: waiting for the domain to shutdown");
-  let domid = Helpers.domid_of_vm ~__context ~self:vm in
-  
-  with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
-	      ~at:(TaskHelper.set_progress ~__context)
-	      ~__context ~self:vm domid Domain.Halt);
-  
-  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
-    (Printf.sprintf "VM.clean_shutdown %s" (Context.string_of_task __context))
-    (fun () ->
-       debug "clean_shutdown: phase 2/2: destroying old domain (domid %d)" domid;
-       with_xc_and_xs (fun xc xs ->
- 			 Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-			 (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
-			 Monitor.do_monitor __context xc
- 		      )
-    )
-
 (* Note: it is important that we use the pool-internal API call, VM.atomic_set_resident_on, to set resident_on and clear
    scheduled_to_be_resident_on atomically. This prevents concurrent API calls on the master from accounting for the
    same VM twice during memory calculations to determine whether a given VM can start on a particular host..
