@@ -1,4 +1,4 @@
-OCAMLPACKS += unix xmlm xml-light2 sqlite3 uuid cdrom
+OCAMLPACKS += unix xmlm xml-light2 uuid cdrom
 OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory_constraints \
 		../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
 		../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest

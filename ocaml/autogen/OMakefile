@@ -1,5 +1,5 @@
 OCAMLINCLUDES += ../sexpr ../idl/ocaml_backend ../database ../util ../http ../idl
-OCAMLPACKS += xmlm xml-light2 sqlite3
+OCAMLPACKS += xmlm xml-light2
 .PHONY: clean
 clean:
 	rm -rf *.*
