@@ -1,6 +1,6 @@
 OCAMLINCLUDES += ../sexpr
 OCAML_LIBS += ../sexpr/sexpr
-OCAMLPACKS += sqlite3 xmlm xml-light2
+OCAMLPACKS += xmlm xml-light2
 
 OCamlProgram(pp, pp)
 OCamlProgram(unix-domain-wrapper, unix-domain-wrapper debug)

@@ -35,8 +35,7 @@ let show_config () =
   debug "product_brand: %s" Version.product_brand;
   debug "build_number: %s" Version.build_number;
   debug "hg changeset: %s" Version.hg_id;
-  debug "version: %d.%d" Xapi_globs.version_major Xapi_globs.version_minor;
-  debug "DB schema path: %s" !Sql.schema_filename
+  debug "version: %d.%d" Xapi_globs.version_major Xapi_globs.version_minor
 
 let check_control_domain () =
   let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in

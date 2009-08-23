@@ -1,5 +1,5 @@
 
-OCAMLPACKS += xmlm xml-light2 unix sqlite3
+OCAMLPACKS += xmlm xml-light2 unix
 
 # -----------------------------------------------------------------------
 # autogen stuff
@@ -14,7 +14,7 @@ OCAMLINCLUDES += .. ../.. ../sql_backend ../../database $(AUTOGEN_DIR) ../../htt
 
 
 OCAML_LIBS += ../../sexpr/sexpr
-OCAMLPACKS += sqlite3 stdext uuid
+OCAMLPACKS += stdext uuid
 
 # only gen_api requires datamodel library:
 GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common ../sql_backend/gen_schema xMLRPC ../sql_backend/locking ../../util/date ../api_lowlevel
@@ -92,7 +92,6 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      $(AUTOGEN_HELPER_DIR)/ref_index \
 	      $(AUTOGEN_HELPER_DIR)/db_backend \
 	      $(AUTOGEN_HELPER_DIR)/db_dirty \
-	      $(AUTOGEN_HELPER_DIR)/backend_sqlite \
 	      $(AUTOGEN_HELPER_DIR)/backend_xml \
 	      $(AUTOGEN_HELPER_DIR)/generation \
 	      $(AUTOGEN_HELPER_DIR)/db_connections \
@@ -106,7 +105,6 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      ../../xapi/parse_db_conf \
 	      ../../client_records/records \
 	      ../../client_records/record_util \
-              ../../util/sql \
               ../../util/encodings \
               ../../util/vm_memory_constraints \
               ../sql_backend/locking ../dm_api \
@@ -115,9 +113,6 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      server_helpers session_check context ../../util/config \
 	      ../../http/http_svr ../../util/server_io \
 	      ../../idl/ocaml_backend/context \
-              ../../util/sqldummy \
-	      ../../util/sqlcommon \
-              ../../util/sqlsqlite3 \
 	      ../../xapi/pool_role \
 	      ../../xapi/xapi_inventory \
 	      ../../xapi/hashtbl_xml \

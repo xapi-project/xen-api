@@ -501,7 +501,6 @@ let read_config filename =
         in
 
     let configargs = [
-        "schema_filename", Config.Set_string Sql.schema_filename;
         "license_filename", Config.Set_string License.filename;
         "http-port", Config.Set_int http_port;
         "stunnelng", Config.Set_bool Stunnel.use_new_stunnel;
@@ -522,7 +521,6 @@ let dump_config () =
     debug "build_number: %s" Version.build_number;
     debug "hg changeset: %s" Version.hg_id;
     debug "version: %d.%d" version_major version_minor;
-    debug "DB schema path: %s" !Sql.schema_filename;
     debug "License filename: %s" !License.filename
 
 let get_vm_metrics ~__context ~self = 
