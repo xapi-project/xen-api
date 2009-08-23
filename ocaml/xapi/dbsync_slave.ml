@@ -1,6 +1,5 @@
 open Stringext
 open Listext
-open Sql
 open Printf
 open Vmopshelpers
 open Create_misc

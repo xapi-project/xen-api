@@ -1,8 +1,8 @@
 OCAMLINCLUDES += ../xapi ../idl/ocaml_backend ../autogen ../idl ../netdev ../xenops ../http
-OCAMLPACKS = unix,stdext,xmlm,xml-light2,sqlite3,log,uuid,mmap,xc,xb,xs
+OCAMLPACKS = unix,stdext,xmlm,xml-light2,log,uuid,mmap,xc,xb,xs
 OCAML_LIBS += ../idl/ocaml_backend/common ../sexpr/sexpr ../idl/ocaml_backend/client ../netdev/netdev ../xenops/xenops ../idl/ocaml_backend/server
 
-OCAMLFLAGS += -dtypes -warn-error F -cclib -static -cclib -lsqlite3 -cclib -lpthread -g
+OCAMLFLAGS += -dtypes -warn-error F -cclib -static -cclib -lpthread -g
 
 OCamlProgram(p2v,p2v)
 

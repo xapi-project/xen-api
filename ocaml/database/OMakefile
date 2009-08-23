@@ -1,7 +1,7 @@
 
 OCAMLINCLUDES += ../sexpr  ../util ../idl/ocaml_backend ../xapi ../idl ../idl/sql_backend 
 
-OCAMLPACKS += sqlite3 xmlm xml-light2 uuid
+OCAMLPACKS += xmlm xml-light2 uuid
 OCAML_LIBS += ../sexpr/sexpr
 OCAMLPPFLAGS = -pp "camlp4o" 
 OCAMLDEPFLAGS += -pp "camlp4o"
