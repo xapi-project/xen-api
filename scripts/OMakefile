@@ -93,7 +93,6 @@ install:
 .PHONY: sdk-install
 sdk-install: install
 	cp motd $(SDK)/motd
-	$(IPROG) init.d-xenservices.xiu $(DIST)/staging/etc/rc.d/init.d/xenservices
 	$(IPROG) init.d-sdkinit $(DIST)/staging/etc/rc.d/init.d/sdkinit
 	mkdir -p $(DIST)/staging/usr/lib/python2.4/site-packages/xen/lowlevel
 	touch $(DIST)/staging/usr/lib/python2.4/site-packages/xen/__init__.py
