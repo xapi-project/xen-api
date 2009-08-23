@@ -121,7 +121,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/xe-cli/rt/geneva/sm_stress \
 	ocaml/util/unix-domain-wrapper \
 	ocaml/util/xmlpp \
-	ocaml/util/file_access_test \
 	ocaml/events/event_listen \
 	ocaml/muxdemux/tar \
 	ocaml/console/console \
