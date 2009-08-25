@@ -387,9 +387,10 @@ let create_all_templates rpc session_id =
       rhel45_install_template "CentOS 4.5";
       rhel45_install_template "Red Hat Enterprise Linux 4.6";
       rhel45_install_template "CentOS 4.6";
-      rhel47_install_template "Red Hat Enterprise Linux 4.8";
       rhel47_install_template "Red Hat Enterprise Linux 4.7";
       rhel47_install_template "CentOS 4.7";
+      rhel47_install_template "Red Hat Enterprise Linux 4.8";
+      rhel47_install_template "CentOS 4.8";
       rhel50_install_template "Red Hat Enterprise Linux 5.0" "i386";
       rhel50_install_template "Oracle Enterprise Linux 5.0" "i386";
       rhel50_install_template "CentOS 5.0" "i386";
