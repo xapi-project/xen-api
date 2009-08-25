@@ -129,7 +129,7 @@ let create_host_metrics ~__context =
        end) (Db.Host.get_all ~__context)
 
 
-let create_tools_sr ~__context = 
+let create_tools_sr __context = 
   Helpers.call_api_functions ~__context (fun rpc session_id ->
     (* Creates a new SR and PBD record *)
     (* N.b. dbsync_slave is called _before_ this, so we can't rely on the PBD creating code in there 
@@ -170,7 +170,7 @@ let create_tools_sr ~__context =
 	"XenServer Tools ISOs"]
 	true)
 
-
+let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
@@ -200,5 +200,5 @@ let update_env __context =
 
   create_missing_vlan_records ~__context;
   create_host_metrics ~__context;
-  create_tools_sr ~__context
+  create_tools_sr_noexn __context
     
