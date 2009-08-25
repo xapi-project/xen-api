@@ -619,7 +619,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 		(* Monitor the debug (stderr) output of the xenguest helper and
 		   spot the progress indicator *)
 		let callback txt =
-			let prefix = "\\008\\008\\008\\008" in
+			let prefix = "\\b\\b\\b\\b" in
 			if String.startswith prefix txt then
 				let rest = String.sub txt (String.length prefix)
 				                   (String.length txt - (String.length prefix)) in
