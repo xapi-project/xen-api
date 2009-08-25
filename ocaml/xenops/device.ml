@@ -1113,6 +1113,7 @@ let hard_shutdown ~xs (x: device) =
 	debug "Device.Pci.hard_shutdown %s" (string_of_device x);
 	clean_shutdown ~xs x
 
+
 let signal_device_model ~xc ~xs domid cmd parameter = 
 	debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
 	let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
@@ -1129,6 +1130,27 @@ let plug ~xc ~xs (domain, bus, dev, func) domid devid =
 let unplug ~xc ~xs (domain, bus, dev, func) domid devid = 
 	signal_device_model ~xc ~xs domid "pci-rem" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func)  
 
+(* XXX: this really should be tied to the device rather than being global. Also we should make it clear that 'unplug'
+   is asynchronous. *)
+let unplug_wait ~xc ~xs domid =
+  let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
+  match Watch.wait_for ~xs (Watch.value_to_appear (Printf.sprintf "%s/device-model/%d/state" dom0 domid)) with
+  | "pci-removed" -> () (* success *)
+  | x -> failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+
+(* Return a list of PCI devices *)
+let list ~xc ~xs domid = 
+  let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
+  let path = Printf.sprintf "%s/backend/pci/%d/0" dom0 domid in (* XXX: another hardcoded 0 *)
+  let prefix = "dev-" in
+  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
+  (* The values are the PCI device (domain, bus, dev, func) strings *)
+  let pairs = List.map (fun x -> x, xs.Xs.read (path ^ "/" ^ x)) all in
+  let device_number_of_string x =
+    (* remove the silly prefix *)
+    int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
+  let pci_device_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c, d)) in
+  List.map (fun (x, y) -> device_number_of_string x, pci_device_of_string y) pairs
 end
 
 let hard_shutdown ~xs (x: device) = match x.backend.kind with
