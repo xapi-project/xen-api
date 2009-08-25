@@ -1,37 +1,37 @@
 #!/bin/sh
 
-# Build the XenCloudPlatform repos in a build appliance
+# Build the XenCloud repos in a build appliance
 
 set -e
 
-UPSTREAM_URL=http://xenbits.xensource.com/XCP
+UPSTREAM_URL=http://hg.uk.xensource.com/carbon/trunk
 REPO=/root/repo
 
-if [ -z "$(cat /etc/redhat-release | grep 'XenCloudPlatform')" ]; then
-   echo WARNING: this does not appear to be a XenCloudPlatform build appliance
+if [ -z "$(cat /etc/redhat-release | grep 'XenServer DDK')" ]; then
+   echo WARNING: this does not appear to be a XenCloud build appliance
 fi
 
 echo "Placing repositories in ${REPO}"
 mkdir -p ${REPO}
 
-for repo in xen-dist-ocaml.hg xen-api-libs.hg xen-api.hg; do
+for repo in dist-ocaml.hg api-libs.hg api.hg; do
     if [ ! -e "$REPO/$repo" ]; then
 	echo Cloning $UPSTREAM_URL/$repo to $REPO/$repo
 	hg clone $UPSTREAM_URL/$repo $REPO/$repo
     else
-	echo "$REPO/$repo already exists; no need to re-clone"
+	echo $REPO/$repo already exists; no need to re-clone
     fi
 done
 
 echo "Building ocaml packages"
-cd $REPO/xen-dist-ocaml.hg
+cd $REPO/dist-ocaml.hg
 make
 make clean
-echo "Building XCP-specific libraries"
-cd $REPO/xen-api-libs.hg
+echo "Building XenCloud-specific libraries"
+cd $REPO/api-libs.hg
 ./rebuild
-echo "Building XCP toolstack"
-cd $REPO/xen-api.hg
-COMPILE_JAVA=no make
-COMPILE_JAVA=no make install
-echo "XCP toolstack in $REPO/xen-api.hg/dist/staging"
+echo "Building XenCloud toolstack"
+cd $REPO/api.hg
+make
+make install
+echo "XenCloud toolstack in $REPO/api.hg/dist/staging"
