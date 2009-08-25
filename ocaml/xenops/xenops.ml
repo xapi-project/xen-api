@@ -269,6 +269,12 @@ let bind_pci ~pci =
 	) (String.split ',' pci) in
 	Device.PCI.bind pcidevs
 
+let list_pci ~xc ~xs ~domid = 
+	let pcidevs = Device.PCI.list ~xc ~xs domid in
+	List.iter (fun (id, (domain, bus, dev, func)) ->
+		     Printf.printf "dev-%d %04x:%02x:%02x.%1x\n" id domain bus dev func
+		  ) pcidevs
+
 let add_dm ~xs ~domid ~mem_max_kib ~vcpus ~boot =
 	let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
 	Device.Dm.start ~xs ~dmpath ~memory:mem_max_kib ~boot ~serial:"pty"
@@ -558,6 +564,7 @@ let do_cmd_parsing cmd =
 		("bind_pci"       , pci_args);
 		("plug_pci"       , common @ pci_args);
 		("unplug_pci"     , common @ pci_args);
+		("list_pci"       , common);
 		("add_dm"         , common @ common_build @ dm_args);
 		("add_ioport"     , common @ ioport_args);
 		("del_ioport"     , common @ ioport_args);
@@ -729,6 +736,9 @@ let _ =
 		with_xc_and_xs (fun xc xs -> unplug_pci ~xc ~xs ~domid ~devid ~pci)
 	| "bind_pci" ->
 		bind_pci ~pci
+	| "list_pci" ->
+		assert_domid ();
+		with_xc_and_xs (fun xc xs -> list_pci ~xc ~xs ~domid)
 	| "add_ioport" ->
 		assert_domid ();
 		with_xc (fun xc -> add_ioport ~xc ~domid ~ioport_start ~ioport_end)
