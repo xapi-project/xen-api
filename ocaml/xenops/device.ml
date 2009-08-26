@@ -1113,28 +1113,41 @@ let hard_shutdown ~xs (x: device) =
 	debug "Device.Pci.hard_shutdown %s" (string_of_device x);
 	clean_shutdown ~xs x
 
+(* This is the global location where PCI device add/remove status is put. We should aim to use
+   a per-device location to support parallel requests in future *)
+let device_model_state_path xs be_domid fe_domid =
+  Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
+
+let device_model_pci_device_path xs be_domid fe_domid =
+  let be_path = xs.Xs.getdomainpath be_domid in
+  Printf.sprintf "%s/backend/pci/%d/0" be_path fe_domid
 
 let signal_device_model ~xc ~xs domid cmd parameter = 
 	debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
-	let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
+	let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
+	let be_path = xs.Xs.getdomainpath be_domid in 
 	Xs.transaction xs (fun t ->
-		t.Xst.writev dom0 [ Printf.sprintf "device-model/%d/command" domid, cmd;
-				    Printf.sprintf "device-model/%d/parameter" domid, parameter ]
+		t.Xst.writev be_path [ Printf.sprintf "device-model/%d/command" domid, cmd;
+				       Printf.sprintf "device-model/%d/parameter" domid, parameter ];
+		(* Currently responses go in this global place. Blank it to prevent request/response/request confusion *)
+		t.Xst.rm (device_model_state_path xs be_domid domid)
 	);
 	(* XXX: no response protocol *)
 	()
 
 let plug ~xc ~xs (domain, bus, dev, func) domid devid = 
-	signal_device_model ~xc ~xs domid "pci-ins" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func)  
+	let pci = Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func in
+	signal_device_model ~xc ~xs domid "pci-ins" pci;
+	xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-0") pci (* XXX *)
 
 let unplug ~xc ~xs (domain, bus, dev, func) domid devid = 
-	signal_device_model ~xc ~xs domid "pci-rem" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func)  
+	signal_device_model ~xc ~xs domid "pci-rem" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func);
+	xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-0")
 
 (* XXX: this really should be tied to the device rather than being global. Also we should make it clear that 'unplug'
    is asynchronous. *)
 let unplug_wait ~xc ~xs domid =
-  let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
-  match Watch.wait_for ~xs (Watch.value_to_appear (Printf.sprintf "%s/device-model/%d/state" dom0 domid)) with
+  match Watch.wait_for ~xs (Watch.value_to_appear (device_model_state_path xs 0 domid)) with (* XXX: assume dom0 *)
   | "pci-removed" -> () (* success *)
   | x -> failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
 
