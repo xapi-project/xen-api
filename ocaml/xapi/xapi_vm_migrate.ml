@@ -176,6 +176,38 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
       raise (Vmops.Domain_shutdown_for_wrong_reason Xal.Crashed)
     end;
 
+    (* PCI: The following code only does anything if PCI devices have been passed-through
+       which is an unsupported configuration. *)
+    let pci_hotunplug_time = try float_of_string (List.assoc "pci-hotunplug-time" (Db.VM.get_other_config ~__context ~self:vm)) with _ -> 0.8 in
+    let pci_devices_to_unplug = ref [] in (* XXX: currently only support 1 due to xenstore protocol *)
+    let pci_unplug_initiated_already = ref false in
+    let pci_unplug_initiate_noexn () = 
+      Helpers.log_exn_continue "pci_unplug_initiate"
+	(fun () ->
+	   if not (!pci_unplug_initiated_already) then begin
+	     pci_unplug_initiated_already := true;
+	     debug "looking for PCI devices to hot unplug";
+	     let devices = Device.PCI.list ~xc ~xs domid in
+	     if List.length devices > 1 then warn "We can only handle one PCI device during migration!";
+	     if List.length devices > 0 then begin
+	       let (id, device) = List.hd devices in
+	       let (domain, bus, dev, func) = device in
+	       debug "requesting unplug of %.4x:%.2x:%.2x.%.1x" domain bus dev func;
+	       Device.PCI.unplug ~xc ~xs device domid (-1);
+	       pci_devices_to_unplug := [ device ]
+	     end	
+	   end) () in
+    let pci_unplug_wait_noexn () = 
+      Helpers.log_exn_continue "pci_unplug_wait"
+	(fun () ->
+	   debug "waiting for PCI hotunplug to complete";
+	   List.iter (fun device -> 
+			let (domain, bus, dev, func) = device in
+			debug "synchronising with unplug of %.4x:%.2x:%.2x.%.1x" domain bus dev func;
+			Device.PCI.unplug_wait ~xc ~xs domid
+		     ) !pci_devices_to_unplug) () in
+
+
     (* MTC: We want to be notified when libxc's xc_domain_save suspends the domain
      *      to go from background to foreground mode.  Therefore, we provide the
      *      MTC callback routine here to notify MTC software and must wait for 
@@ -183,8 +215,14 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
      *      before allowing it continued.
      *)
     Domain.suspend ~xc ~xs ~hvm domid fd (if live then [ Domain.Live ] else [])
-      ~progress_callback:(fun x -> migration_progress_cb ~__context vm_migrate_failed ~vm (x *. 0.95)) 
-      (fun () -> migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self:vm domid Domain.Suspend);
+      ~progress_callback:(fun x -> 
+			    debug "migration_progress = %.2f" x;
+			    if x > pci_hotunplug_time then pci_unplug_initiate_noexn ();
+			    migration_progress_cb ~__context vm_migrate_failed ~vm (x *. 0.95)) 
+      (fun () -> 
+	 pci_unplug_initiate_noexn(); (* just in case *)
+	 pci_unplug_wait_noexn ();
+	 migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self:vm domid Domain.Suspend);
 
     (* <-- [2] Synchronisation point *)
 
@@ -416,6 +454,9 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs =
 
   debug "Receiver 7b. unpausing domain";
   Domain.unpause ~xc domid;
+
+  Vmops.plug_pcidevs ~__context ~vm domid;
+
   Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
   Helpers.call_api_functions ~__context
     (fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);

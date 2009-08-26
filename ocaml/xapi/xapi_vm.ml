@@ -208,6 +208,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 		let domid = Helpers.domid_of_vm ~__context ~self:vm in
 		debug "start: unpausing domain (domid %d)" domid;
 		with_xc (fun xc -> Domain.unpause ~xc domid);
+		Vmops.plug_pcidevs ~__context ~vm domid;
 (*
 		(* hack to get xmtest to work *)
 		if Pool_role.is_master () then
