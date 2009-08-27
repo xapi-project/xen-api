@@ -391,13 +391,14 @@ def main():
         os.close(fd)
 
         # Run ssmtp to send mail
-        pipe = os.popen("/usr/sbin/ssmtp -C%s %s" % (fname, destination), "w")
-        pipe.write("From: noreply@%s\n" % getfqdn())
-        pipe.write("To: %s\n" % destination)
-        pipe.write("Subject: %s\n" % msg.generate_email_subject())
-        pipe.write("\n")
-        pipe.write(msg.generate_email_body())
-        pipe.close()
+        chld_stdin, chld_stdout = os.popen2(["/usr/sbin/ssmtp", "-C%s" % fname, destination])
+        chld_stdin.write("From: noreply@%s\n" % getfqdn())
+        chld_stdin.write("To: %s\n" % destination)
+        chld_stdin.write("Subject: %s\n" % msg.generate_email_subject())
+        chld_stdin.write("\n")
+        chld_stdin.write(msg.generate_email_body())
+        chld_stdin.close()
+        chld_stdout.close()
 
     finally:
         os.unlink(fname)
