@@ -25,7 +25,7 @@ let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
 let mib = 1024L
 
-let low_mem_emergency_pool = 16L ** mib (** Same as xen commandline *)
+let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
@@ -259,11 +259,11 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 			end
 		done
 
-let extra_mem_to_keep = 32L ** mib (** Domain.creates take "ordinary" memory as well as "special" memory *)
+let extra_mem_to_keep = 8L ** mib (** Domain.creates take "ordinary" memory as well as "special" memory *)
 
 let target_host_free_mem_kib = low_mem_emergency_pool +* extra_mem_to_keep
 
-let free_memory_tolerance_kib = 1024L (** No need to be too exact *)
+let free_memory_tolerance_kib = 512L (** No need to be too exact *)
 
 
 let free_memory ~xc ~xs required_mem_kib = change_host_free_memory ~xc ~xs (required_mem_kib +* target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* target_host_free_mem_kib))
