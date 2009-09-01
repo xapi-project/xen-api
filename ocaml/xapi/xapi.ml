@@ -206,12 +206,19 @@ let signals_handling () =
   Sys.catch_break false;
   Sys.set_signal Sys.sigint (Sys.Signal_handle cleanup_handler)
 
-let xenstore_setup () =
-  with_xs (fun xs ->
+let domain0_setup () =
+  with_xc_and_xs (fun xc xs ->
+	     (* Write an initial neutral target in for domain 0 *)
+	     let di = Xc.domain_getinfo xc 0 in
+	     let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
 	     (* Find domain 0's UUID *)
 	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
 	     xs.Xs.writev "/local/domain/0" [ "name", "Domain-0"; "domid", "0"; "vm", "/vm/" ^ uuid ];
+	     xs.Xs.write "/local/domain/0/memory/target" (Int64.to_string memory_actual_kib);
+	     (* XXX: remove when domain 0 gets the same script as the linux domUs *)
+	     xs.Xs.write "/local/domain/0/control/feature-balloon" "1";
+	     
 	     xs.Xs.writev ("/vm/" ^ uuid) [ "uuid", uuid; "name", "Domain-0" ];
 	     (* add special key demanded by the PV drivers *)
 	     Xs.transaction xs (fun t ->
@@ -554,22 +561,6 @@ let record_boot_time_host_free_memory () =
 			(Printexc.to_string e)
 	end
 
-(* Fetch the current domain 0 memory target and write it to XenStore. *)
-let set_domain0_memory_target () =
-	let task_description = "setting memory target for control domain" in
-	let task = fun __context ->
-		let domain0_ref = Helpers.get_domain_zero ~__context in
-		let memory_target_bytes = Db.VM.get_memory_target ~__context ~self:domain0_ref in
-		let memory_target_kib = Int64.div memory_target_bytes 1024L in
-		Vmopshelpers.with_xs
-			(fun xs -> 
-			   Domain.set_memory_dynamic_range ~xs ~min:(Int64.to_int memory_target_kib) ~max:(Int64.to_int memory_target_kib) 0;
-			   Balloon.set_memory_target ~xs 0 memory_target_kib);
-		(* Wait for domain 0 to reach its memory target, but allow *)
-		(* a large margin of error and time out deterministically. *)
-		Xapi_vm_helpers.wait_memory_target_live ~__context ~self:domain0_ref ~timeout_seconds:20 () in
-	Server_helpers.exec_with_new_task task_description task
-
 (* Make sure our license is set correctly *)
 let handle_licensing () = 
   Server_helpers.exec_with_new_task "Licensing host"
@@ -580,6 +571,20 @@ let handle_licensing () =
        (* Copy resulting license to the database *)
        Xapi_host.copy_license_to_db ~__context
     )
+
+(* Write the memory policy to xenstore and trigger the ballooning daemon *)
+let control_domain_memory () = 
+  if !Xapi_globs.on_system_boot then begin
+    Server_helpers.exec_with_new_task "control domain memory"
+      (fun __context ->
+	 Helpers.call_api_functions ~__context
+	   (fun rpc session_id ->
+	      let self = Helpers.get_domain_zero ~__context in
+	      let vm_r = Db.VM.get_record ~__context ~self in
+	      Client.Client.VM.set_memory_dynamic_range rpc session_id self vm_r.API.vM_memory_dynamic_min vm_r.API.vM_memory_dynamic_max
+	   )
+      )
+  end else debug "Not on_system_boot so nothing to do"
 
 let startup_script () = 
   if (try Unix.access Xapi_globs.startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
@@ -758,7 +763,7 @@ let server_init() =
     "Logging xapi version info", [], show_config;
     "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
-    "Setting up xenstore keys", [], xenstore_setup;
+    "Setting up domain 0 xenstore keys", [], domain0_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
     "Registering SR plugins", [], Sm.register;
@@ -845,7 +850,7 @@ let server_init() =
 						    					    
     Startup.run ~__context [
       "Initialising licensing", [], handle_licensing;
-      "setting memory target for control domain", [ Startup.NoExnRaising ], set_domain0_memory_target;
+      "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], Xapi_message.start_message_hook_thread;
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
