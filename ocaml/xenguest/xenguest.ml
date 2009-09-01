@@ -16,15 +16,16 @@ external init : unit -> handle = "stub_xenguest_init"
 external close : handle -> unit = "stub_xenguest_close"
 
 (** build a linux domain *)
-external linux_build : handle -> domid -> int -> string
-                    -> string option -> string -> string -> int
-                    -> int -> int -> (nativeint * nativeint * string)
-       = "stub_xc_linux_build_bytecode" "stub_xc_linux_build_native"
+external linux_build : handle -> domid -> int -> int -> string ->
+                       string option -> string -> string -> int ->
+                       int -> int -> (nativeint * nativeint * string)
+	= "stub_xc_linux_build_bytecode" "stub_xc_linux_build_native"
 
 (** build a hvm domain *)
-external hvm_build : handle -> domid -> int -> string -> int
-                  -> bool -> bool -> bool -> bool -> bool -> int -> nativeint
-       = "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
+external hvm_build : handle -> domid -> int -> int -> string ->
+                     int -> bool -> bool -> bool -> bool ->
+                     bool -> int -> nativeint
+	= "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
 
 (** build a hvm domain from memory *)
 external hvm_build_mem : handle -> domid -> int -> string -> nativeint

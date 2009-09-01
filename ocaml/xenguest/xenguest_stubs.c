@@ -89,13 +89,15 @@ extern struct xc_dom_image *xc_dom_allocate(const char *cmdline, const char *fea
 
 
 CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
-                                          value mem_mb, value image_name,
-                                          value ramdisk_name, value cmdline,
-                                          value features, value flags,
-                                          value store_evtchn, value console_evtchn)
+                                          value mem_max_mib, value mem_start_mib,
+                                          value image_name, value ramdisk_name,
+                                          value cmdline, value features,
+                                          value flags, value store_evtchn,
+                                          value console_evtchn)
 {
-	CAMLparam5(xc_handle, domid, mem_mb, image_name, ramdisk_name);
-	CAMLxparam4(cmdline, flags, store_evtchn, console_evtchn);
+	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
+	CAMLxparam5(ramdisk_name, cmdline, features, flags, store_evtchn);
+	CAMLxparam1(console_evtchn);
 	CAMLlocal1(result);
 
 	unsigned long store_mfn;
@@ -106,7 +108,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 
 	/* Copy the ocaml values into c-land before dropping the mutex */
 	int c_xc_handle = _H(xc_handle);
-	unsigned int c_mem_mb = Int_val(mem_mb);
+	unsigned int c_mem_start_mib = Int_val(mem_start_mib);
 	uint32_t c_domid = _D(domid);
 	char *c_image_name = strdup(String_val(image_name));
 	char *c_ramdisk_name = ramdisk_name == None_val ? NULL : strdup(String_val(Field(ramdisk_name, 0)));
@@ -120,7 +122,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 		failwith_oss_xc("xc_dom_allocate");
 
 	caml_enter_blocking_section();
-	r = xc_dom_linux_build(c_xc_handle, dom, c_domid, c_mem_mb,
+	r = xc_dom_linux_build(c_xc_handle, dom, c_domid, c_mem_start_mib,
 	                       c_image_name, c_ramdisk_name, c_flags,
 	                       c_store_evtchn, &store_mfn,
 	                       c_console_evtchn, &console_mfn);
@@ -151,7 +153,7 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_linux_build_native(argv[0], argv[1], argv[2], argv[3],
 	                                  argv[4], argv[5], argv[6], argv[7],
-	                                  argv[8], argv[9]);
+	                                  argv[8], argv[9], argv[10]);
 }
 
 static int pasprintf(char **buf, const char *fmt, ...)
@@ -261,13 +263,15 @@ static int hvm_build_set_params(int handle, int domid,
 }
 
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
-                                        value memsize, value image_name,
-                                        value vcpus, value pae, value apic,
-                                        value acpi, value nx, value viridian,
-                                        value store_evtchn)
+                                        value mem_max_mib, value mem_start_mib,
+                                        value image_name, value vcpus,
+                                        value pae, value apic,
+                                        value acpi, value nx,
+                                        value viridian, value store_evtchn)
 {
-	CAMLparam5(xc_handle, domid, memsize, image_name, vcpus);
-	CAMLxparam5(pae, apic, acpi, nx, store_evtchn);
+	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
+	CAMLxparam5(vcpus, pae, apic, acpi, nx);
+	CAMLxparam2(viridian, store_evtchn);
 	CAMLlocal1(ret);
 	char *image_name_c = strdup(String_val(image_name));
 	char *error[256];
@@ -276,8 +280,10 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 	int r;
 
 	caml_enter_blocking_section ();
-	r = xc_hvm_build(_H(xc_handle), _D(domid), Int_val(memsize),
-	                 image_name_c);
+	r = xc_hvm_build_target_mem(_H(xc_handle), _D(domid),
+	                            Int_val(mem_max_mib),
+	                            Int_val(mem_start_mib),
+	                            image_name_c);
 	caml_leave_blocking_section ();
 
 	free(image_name_c);
@@ -291,7 +297,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
 				 Int_val(vcpus),
 	                         Int_val(store_evtchn), &store_mfn,
-	                         ((uint32_t) Int_val(memsize)) << (20 - 12));
+	                         ((uint32_t) Int_val(mem_max_mib)) << (20 - 12));
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
@@ -303,16 +309,16 @@ CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
 	                                argv[4], argv[5], argv[6], argv[7],
-	                                argv[8], argv[9], argv[10]);
+	                                argv[8], argv[9], argv[10], argv[11]);
 }
 
 CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
-                                            value memsize, value image_buffer,
+                                            value mem_max_mib, value image_buffer,
                                             value image_size, value vcpus,
                                             value pae, value apic, value acpi,
                                             value nx, value viridian, value store_evtchn)
 {
-	CAMLparam5(xc_handle, domid, memsize, image_buffer, image_size);
+	CAMLparam5(xc_handle, domid, mem_max_mib, image_buffer, image_size);
 	CAMLxparam5(vcpus, pae, apic, acpi, nx);
 	CAMLxparam1(store_evtchn);
 	CAMLlocal1(ret);
@@ -323,7 +329,7 @@ CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
 	c_image_size = Nativeint_val(image_size);
 
 	caml_enter_blocking_section ();
-	r = xc_hvm_build_mem(_H(xc_handle), _D(domid), Int_val(memsize),
+	r = xc_hvm_build_mem(_H(xc_handle), _D(domid), Int_val(mem_max_mib),
 	                     String_val(image_buffer), c_image_size);
 	caml_leave_blocking_section ();
 
@@ -335,7 +341,7 @@ CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
 	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
 				 Int_val(vcpus),
 	                         Int_val(store_evtchn), &store_mfn,
-	                         ((uint32_t) Int_val(memsize)) << (20 - 12));
+	                         ((uint32_t) Int_val(mem_max_mib)) << (20 - 12));
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
