@@ -265,23 +265,18 @@ let destroy_consoles ~__context ~vM =
 	let all = Db.VM.get_consoles ~__context ~self:vM in
 	List.iter (fun console -> Db.Console.destroy ~__context ~self:console) all
 
-(* Called on VM.start to make sure enough memory is available in theory and to wait for it
-   to become available in practice *)
-let check_enough_memory ~__context ~snapshot ~xc ~restore =
-  let main, shadow = Memory_check.vm_compute_start_memory ~__context snapshot in
-  let needed_b = Int64.add main shadow in
-  let needed_kib = Int64.div needed_b 1024L in
-
-  if not (Memory.wait_xen_free_mem xc needed_kib) then begin
-    let free_mem = Memory.get_free_memory_kib ~xc in
-    error "not enough memory available: %Ld available %Ld required" free_mem needed_kib;
-    (* Get some debug messages printed: *)
-    let host = Helpers.get_localhost () in
-    ignore(Memory_check.host_compute_free_memory ~dump_stats:false ~__context ~host None);
-
-    raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string needed_kib; Int64.to_string free_mem ]))
-  end
-
+(** For a given virtual machine snapshot, returns a cautious overestimate of
+    the amount of memory required to create a domain for that virtual machine. *)
+let memory_required_to_safely_start_domain_kib ~__context ~snapshot =
+	let required_main_bytes, required_shadow_bytes =
+		Memory_check.vm_compute_start_memory ~__context snapshot in
+	let required_bytes = Int64.add required_main_bytes required_shadow_bytes in
+	let required_kib = Memory.kib_of_bytes_used required_bytes in
+	(* XXXX: we overcompensate here to avoid causing domain  *)
+	(* builder errors caused by imprecise memory accounting. *)
+	let required_with_fudge_factor_kib =
+		Int64.of_float (Int64.to_float required_kib *. 1.2) in
+	required_with_fudge_factor_kib
 
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
@@ -293,7 +288,6 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	  if ballooning_enabled
 	  then Int64.div snapshot.API.vM_memory_target 1024L
 	  else mem_max_kib in
-
 	try
 	let domarch = (match Helpers.boot_method_of_vm ~__context ~vm:snapshot with
 	| Helpers.HVM { Helpers.pae = pae;
@@ -304,7 +298,7 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld pae:%b apic:%b acpi:%b nx:%b viridian:%b timeoffset:%s"
 		      kernel_path vcpus mem_max_kib mem_target_kib pae apic acpi nx viridian timeoffset;
 		let arch = Domain.build_hvm xc xs mem_max_kib mem_target_kib shadow_multiplier vcpus kernel_path
-		  pae apic acpi nx viridian timeoffset domid in
+		     pae apic acpi nx viridian timeoffset domid in
 		(* Since our shadow allocation might have been increased by Xen we need to 
 		   update the shadow_multiplier now. Nb. the last_boot_record wont 
 		   necessarily have the right value in! *)
@@ -319,7 +313,7 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 		debug "build linux \"%s\" \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld"
 		      pv_kernel pv_args vcpus mem_max_kib mem_target_kib;
 		Domain.build_linux xc xs mem_max_kib mem_target_kib pv_kernel pv_args
-		                   pv_ramdisk vcpus domid
+		     pv_ramdisk vcpus domid
 	| Helpers.IndirectPV { Helpers.bootloader = bootloader;
 			       extra_args = extra_args;
 			       legacy_args = legacy_args;
@@ -539,9 +533,10 @@ let destroy ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate
 	   we can blank the resident_on. 
 	*)
 	if state <> `Running 
-	then 
-	  (Db.VM.set_resident_on ~__context ~self ~value:Ref.null);
-	
+	then Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
+
+	Memory_control.balance_memory ~xc ~xs;
+
 	destroy_consoles ~__context ~vM:self;
 	(* to make debugging easier, set currently_attached to false for all
 	   VBDs and VIFs*)
@@ -888,57 +883,45 @@ let get_suspend_space __context vm =
 exception Domain_architecture_not_supported_in_suspend
 
 let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
-  Xapi_xenops_errors.handle_xenops_error
-    (fun () ->
-       let uuid = Db.VM.get_uuid ~__context ~self:vm in
-       let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
-       let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
-       let required_space = get_suspend_space __context vm in
-       let params = if live then [Domain.Live] else [] in
-       Sm_fs_ops.with_new_fs_vdi __context
-	 ~name_label:"Suspend image" ~name_description:"Suspend image"
-	 ~sR:suspend_SR ~_type:`suspend ~required_space
-	 ~sm_config:[Xapi_globs._sm_vm_hint, uuid]
-	 (fun vdi_ref mount_point ->
-
-	    let filename = sprintf "%s/suspend-image" mount_point in
-		let vnc_statefile = sprintf "%s/vncterm.statefile" mount_point in
-
-	    debug "suspend: phase 1/2: opening suspend image file (%s)" filename;
-	    (* NB if the suspend file already exists it will be overwritten *)
-	    let fd = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
-	    finally
-	      (fun () ->
-		 let domid = Helpers.domid_of_vm ~__context ~self:vm in
-		 debug "suspend: phase 2/2: suspending to disk";
-
-		 Device.PV_Vnc.save ~xs domid;
-		 begin match Device.PV_Vnc.get_statefile ~xs domid with
-		 | None -> debug "suspend: no vncterm.statefile found"
-		 | Some f -> 
-			   debug "suspend: a vncterm statefile (%s) has been found, saving into %s" f vnc_statefile;
-			   let fd_src = Unix.openfile f [Unix.O_RDONLY] 0o600 in
-			   let fd_dst = Unix.openfile vnc_statefile [Unix.O_WRONLY; Unix.O_CREAT] 0o600 in
-			   finally
-				   (fun () -> let (_:int64) = Unixext.copy_file fd_src fd_dst in ())
-				   (fun () ->
-						Unix.close fd_src;
-						Unix.close fd_dst;
-						debug "suspend: deleting '%s'" f;
-						Unix.unlink f)
-		 end;
-
-		 with_xal
-		   (fun xal ->
-		      Domain.suspend ~xc ~xs ~hvm domid fd params ~progress_callback:progress_cb
-			(fun () -> clean_shutdown_with_reason ~xal ~__context ~self:vm domid Domain.Suspend));
-
-		 (* If the suspend succeeds, set the suspend_VDI *)
-		 Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;
-	      )
-	      (fun () -> Unix.close fd);
-	    debug "suspend: complete")
-    )
+	Xapi_xenops_errors.handle_xenops_error
+		(fun () ->
+			let uuid = Db.VM.get_uuid ~__context ~self:vm in
+			let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+			let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
+			let required_space = get_suspend_space __context vm in
+			Sm_fs_ops.with_new_fs_vdi __context
+				~name_label:"Suspend image" ~name_description:"Suspend image"
+				~sR:suspend_SR ~_type:`suspend ~required_space
+				~sm_config:[Xapi_globs._sm_vm_hint, uuid]
+				(fun vdi_ref mount_point ->
+					let filename = sprintf "%s/suspend-image" mount_point in
+					debug "suspend: phase 1/2: opening suspend image file (%s)"
+						filename;
+					(* NB if the suspend file already exists it will be *)
+					(* overwritten. *)
+					let fd = Unix.openfile filename
+						[ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
+					finally
+						(fun () ->
+							let domid = Helpers.domid_of_vm ~__context ~self:vm in
+							debug "suspend: phase 2/2: suspending to disk";
+							with_xal
+								(fun xal ->
+									Domain.suspend ~xc ~xs ~hvm domid fd []
+										~progress_callback:progress_cb
+										(fun () ->
+											clean_shutdown_with_reason ~xal
+												~__context ~self:vm domid
+												Domain.Suspend
+										)
+								);
+							(* If the suspend succeeds, set the suspend_VDI *)
+							Db.VM.set_suspend_VDI ~__context ~self:vm
+								~value:vdi_ref;
+						)
+						(fun () -> Unix.close fd);
+			debug "suspend: complete")
+		)
 
 let resume ~__context ~xc ~xs ~vm =
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
@@ -948,17 +931,20 @@ let resume ~__context ~xc ~xs ~vm =
 		Domain.resume ~xs ~xc ~hvm ~cooperative:true domid;
 		Domain.unpause ~xc domid) 
 
+
 (** Starts up a VM, leaving it in the paused state *)
 let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
   check_vm_parameters ~__context ~self:vm ~snapshot;
   (* Take the subset of locked VBDs *)
   let other_config = Db.VM.get_other_config ~__context ~self:vm in
   let vbds = Vbdops.vbds_to_attach ~__context ~vm in
-  with_xc_and_xs (fun xc xs ->		    
-		    check_enough_memory ~__context ~xc ~snapshot ~restore:false;
-
-		    let domid = create ~__context ~xc ~xs ~self:vm snapshot () in
+	let memory_required_kib = memory_required_to_safely_start_domain_kib
+		~__context ~snapshot in
+	with_xc_and_xs
+ 	(fun xc xs ->
+		    let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot () in
 		    begin try
+		      Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid; 
 		      Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
 
 		      progress_cb 0.25;

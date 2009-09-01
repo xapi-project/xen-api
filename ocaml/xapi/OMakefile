@@ -137,6 +137,7 @@ OCamlProgram(xapi, $(COMMON) \
 	vmopshelpers \
 	vm_config \
 	vmops \
+	memory_control \
 	vbdops \
 	attach_helpers \
 	message_forwarding \

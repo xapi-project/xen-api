@@ -547,6 +547,8 @@ let _ =
     ~doc:"The bootloader returned an error" ();
   error Api_errors.unknown_bootloader [ "vm"; "bootloader" ]
     ~doc:"The requested bootloader is unknown" ();
+  error Api_errors.vms_failed_to_cooperate [ ]
+    ~doc:"The given VMs failed to release memory when instructed to do so" ();
 
 
   (* Storage errors *)

@@ -214,7 +214,10 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 	else (
 		let domid = Helpers.domid_of_vm ~__context ~self:vm in
 		debug "start: unpausing domain (domid %d)" domid;
-		with_xc (fun xc -> Domain.unpause ~xc domid);
+		with_xc_and_xs 
+		  (fun xc xs -> 
+		     Domain.unpause ~xc domid;
+		     Squeeze_xen.balance_memory ~xc ~xs);
 		Vmops.plug_pcidevs ~__context ~vm domid;
 (*
 		(* hack to get xmtest to work *)
@@ -537,73 +540,124 @@ let power_state_reset ~__context ~vm =
 
   Xapi_vm_lifecycle.force_state_reset ~__context ~value:`Halted ~self:vm
 
-let suspend  ~__context ~vm = 
-  Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-    (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
-    (fun () ->
-       Locking_helpers.with_lock vm (fun token () ->
-	assert_ha_always_run_is_false ~__context ~vm;
-	Stats.time_this "VM suspend" (fun () ->
-	let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	(* Invoke pre_destroy hook *)
-	Xapi_hooks.vm_pre_destroy ~__context ~reason:Xapi_hooks.reason__suspend ~vm;
-	with_xc_and_xs (fun xc xs ->
-		let is_paused = Db.VM.get_power_state ~__context ~self:vm = `Paused in
-		if is_paused then Domain.unpause ~xc domid;
-		try
-			debug "suspend phase 1/2: calling Vmops.suspend";
-			(* Call the memory image creating 90%, the device un-hotplug
-			   the final 10% *)
-			Vmops.suspend ~progress_cb:(fun x ->
-				TaskHelper.set_progress ~__context (x *. 0.9))
-				~live:false ~__context ~xc ~xs ~vm;
-			debug "suspend phase 2/2: destroying the domain";
-			Vmops.destroy ~clear_currently_attached:false ~__context ~xc ~xs ~self:vm domid `Suspended;
-		with
-			e -> if is_paused then (try Domain.pause ~xc domid with _ -> ());
-			     raise e
+let suspend  ~__context ~vm =
+	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+	  (Printf.sprintf "VM.suspend %s" (Context.string_of_task __context))
+	(fun () ->
+		Locking_helpers.with_lock vm
+		(fun token () ->
+		   assert_ha_always_run_is_false ~__context ~vm;
+			Stats.time_this "VM suspend"
+			(fun () ->
+				let domid = Helpers.domid_of_vm ~__context ~self:vm in
+				(* Invoke pre_destroy hook *)
+				Xapi_hooks.vm_pre_destroy ~__context
+					~reason:Xapi_hooks.reason__suspend ~vm;
+				with_xc_and_xs
+				(fun xc xs ->
+					let is_paused = Db.VM.get_power_state
+						~__context ~self:vm = `Paused in
+					if is_paused then Domain.unpause ~xc domid;
+					try
+						debug "suspend phase 1/3: calling Vmops.suspend";
+						(* Call the memory image creating 90%, *)
+						(* the device un-hotplug the final 10% *)
+						Vmops.suspend ~__context ~xc ~xs ~vm ~live:false
+							~progress_cb:(fun x -> 
+								TaskHelper.set_progress
+								~__context (x *. 0.9)
+							);
+						debug "suspend phase 2/3: recording memory usage";
+						(* Record the final memory usage of the VM, so *)
+						(* that we know how much memory to free before *)
+						(* attempting to resume this VM in future.     *)
+						let final_memory_bytes = with_xc
+							(fun xc ->
+								let info = Xc.domain_getinfo xc domid in
+								Memory.bytes_of_pages
+									(Int64.of_nativeint
+										info.Xc.total_memory_pages)) in
+						let boot_record = Helpers.get_boot_record
+							~__context ~self:vm in
+						let boot_record_with_final_memory_usage = {
+							boot_record with
+							API.vM_memory_target = final_memory_bytes} in
+						Helpers.set_boot_record ~__context ~self:vm
+							boot_record_with_final_memory_usage;
+						debug "final memory usage = %Ld bytes."
+							final_memory_bytes;
+						debug "suspend phase 3/3: destroying the domain";
+						Vmops.destroy ~clear_currently_attached:false
+							~__context ~xc ~xs ~self:vm domid `Suspended;
+					with e ->
+						if is_paused then
+							(try Domain.pause ~xc domid with _ -> ());
+							raise e
+				)
+			)
+		) ()
+ 	)
+
+
+let resume ~__context ~vm ~start_paused ~force = 
+	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+	  (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
+	(fun () ->
+		Locking_helpers.with_lock vm
+		(fun token () ->
+			License_check.with_vm_license_check ~__context vm
+			(fun () ->
+				Stats.time_this "VM resume"
+				(fun () ->
+					with_xc_and_xs
+					(fun xc xs ->
+						debug "resume: making sure the VM really is suspended";
+						assert_power_state_is ~__context ~vm ~expected:`Suspended;
+						assert_ha_always_run_is_true ~__context ~vm;
+						let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+						let memory_required_kib =
+							Memory.kib_of_bytes_used (
+								Memory_check.vm_compute_resume_memory
+								~__context vm) in
+(*
+						Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
+  (fun () ->
+*)
+							debug "resume phase 1/3: creating an empty domain";
+							let domid = Vmops.create ~__context ~xc ~xs ~self:vm
+								snapshot () in
+							Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid;
+							debug "resume phase 2/3: executing Vmops.restore";
+							(* vmops.restore guarantees that, if an exn occurs *)
+							(* during execution, any disks that were attached/ *)
+							(* activated have been detached/de-activated and   *)
+							(* the domain is destroyed.                        *)
+							Vmops.restore ~__context ~xc ~xs ~self:vm domid;
+							Db.VM.set_domid ~__context ~self:vm
+								~value:(Int64.of_int domid);
+							debug "resume phase 3/3: %s unpausing domain"
+								(if start_paused then "not" else "");
+							if not start_paused then
+								Domain.unpause ~xc domid;
+							(* VM is now resident here *)
+							let localhost = Helpers.get_localhost ~__context in
+							Helpers.call_api_functions ~__context
+							(fun rpc session_id ->
+								Client.VM.atomic_set_resident_on rpc session_id vm
+								localhost
+							);
+							Db.VM.set_power_state ~__context ~self:vm
+								~value:(if start_paused then `Paused else `Running)
+(*
+						)
+*)
+					)
+				)
+			)
+		) ()
 	)
-	)
-) ()
-    )
 
-let resume  ~__context ~vm ~start_paused ~force = 
-  Local_work_queue.wait_in_line Local_work_queue.long_running_queue
-    (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
-    (fun () ->
-  Locking_helpers.with_lock vm (fun token () ->
-  License_check.with_vm_license_check ~__context vm
-    (fun () ->
-	Stats.time_this "VM resume" (fun () ->
-	with_xc_and_xs (fun xc xs ->
-                debug "resume: making sure the VM really is suspended";
-                assert_power_state_is ~__context ~vm ~expected:`Suspended;
 
-		assert_ha_always_run_is_true ~__context ~vm;
-		let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-		Vmops.check_enough_memory ~__context ~xc ~snapshot ~restore:true;
-
-		debug "resume phase 1/3: creating an empty domain";
-
-		let domid = Vmops.create ~__context ~xc ~xs ~self:vm snapshot () in
-		debug "resume phase 2/3: executing Vmops.restore";
-		(* vmops.restore guarantees that, if an exn occurs during execution, any disks that were
-		   attached/activated have been detached/de-activated and the domain is destroyed. *)
-		Vmops.restore ~__context ~xc ~xs ~self:vm domid;
-		Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
-		
-		debug "resume phase 3/3: %s unpausing domain" (if start_paused then "not" else "");
-		if not start_paused then
-		  Domain.unpause ~xc domid;
-		
-		(* VM is now resident here *)
-		let localhost = Helpers.get_localhost ~__context in
-		Helpers.call_api_functions ~__context
-		  (fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
-		Db.VM.set_power_state ~__context ~self:vm
-		  ~value:(if start_paused then `Paused else `Running)))
-    )) ())
-				    
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	resume ~__context ~vm ~start_paused ~force

@@ -63,13 +63,13 @@ let vm_compute_used_memory ~__context policy vm_ref =
 	let vm_metrics_record = Db.VM_metrics.get_record ~__context ~self:vm_metrics_ref in
 	(* Extract the current memory state from the fetched records: *)
 	let memory_static_max = vm_boot_record.API.vM_memory_static_max in
-	let memory_target = vm_main_record.API.vM_memory_target in
-	let memory_actual = vm_metrics_record.API.vM_metrics_memory_actual in
-	(* Consider the case where ballooning is enabled, by taking the maximum  *)
-	(* of the current target and the asynchronously calculated memory usage: *)
+	let memory_dynamic_min = vm_main_record.API.vM_memory_dynamic_min in
+	(* When phase proportional ballooning is enabled, we trust that *)
+	(* we will be able to balloon guests down to their dynamic_min. *)
 	let ballooning_enabled = Helpers.ballooning_enabled_for_vm ~__context vm_boot_record in
 	let memory_required =
-        	if ballooning_enabled && policy = Dynamic_target then max memory_target memory_actual
+		if ballooning_enabled && policy = Dynamic_target 
+		then memory_dynamic_min
 		else memory_static_max in
 	vm_compute_required_memory vm_boot_record (Memory.kib_of_bytes_used memory_required)
 

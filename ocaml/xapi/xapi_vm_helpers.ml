@@ -562,19 +562,20 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 	then raise (Api_errors.Server_error(Api_errors.memory_constraint_violation,
 		["min or max"]));
 
+	(* memory_target is now unused but setting it equal *)
+	(* to dynamic_min avoids tripping validation code.  *)
 	Db.VM.set_memory_target ~__context ~self ~value:min;
 	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
 	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
-	let target = Memory.kib_of_bytes_used min in
 
 	let domid = Helpers.domid_of_vm ~__context ~self in
-	Vmopshelpers.with_xs 
-	(fun xs -> 
-		Balloon.set_memory_target ~xs domid target;
+	Vmopshelpers.with_xc_and_xs
+	(fun xc xs -> 
 		Domain.set_memory_dynamic_range ~xs
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
+		Memory_control.balance_memory ~xc ~xs
 	)
 
 (** Sets the current memory target for a running VM, to the given *)
