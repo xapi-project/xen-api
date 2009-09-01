@@ -168,8 +168,9 @@ let has_hit_target memory_actual_kib target_kib = direction_of_actual memory_act
 
 
 let short_string_of_domain domain = 
-  Printf.sprintf "%d T%Ld A%Ld M%Ld %s" domain.domid
+  Printf.sprintf "%d T%Ld A%Ld M%Ld %s%s" domain.domid
     domain.target_kib domain.memory_actual_kib domain.memory_max_kib
+    (if domain.can_balloon then "B" else "?")
     (string_of_direction (direction_of_actual domain.memory_actual_kib domain.target_kib))
 
 (** Generic code to guesstimate if a balloon driver is stuck *)
