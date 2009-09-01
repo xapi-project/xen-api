@@ -10,6 +10,7 @@ open Pervasiveext
 
 module M = Debug.Debugger(struct let name = "memory" end)
 let debug = Squeeze.debug
+let error = Squeeze.error 
 
 (** We define a domain which is paused, not shutdown and has not clocked up any CPU cycles
     as 'never_been_run' *)
@@ -47,16 +48,62 @@ let xen_tot_offset_kib di =
   let totmem_mib = if di.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib in
   Memory.kib_of_mib totmem_mib
 
-let domain_setmaxmem xc domid target_kib = 
+let domain_setmaxmem_noexn xc domid target_kib = 
   let di = Xc.domain_getinfo xc domid in
   let maxmem_kib = xen_max_offset_kib di +* target_kib in
-  debug "Xc.domain_setmaxmem domid=%d target=%Ld max=%Ld" domid target_kib maxmem_kib;
-  Xc.domain_setmaxmem xc domid maxmem_kib
-
-let set_target t dom_path target_kib = 
+  try
+    let existing_maxmem_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
+    if existing_maxmem_kib <> maxmem_kib then begin
+      debug "Xc.domain_setmaxmem domid=%d target=%Ld max=%Ld" domid target_kib maxmem_kib;      
+      Xc.domain_setmaxmem xc domid maxmem_kib
+    end
+  with e ->
+    (* someone probably just destroyed the domain *)
+    error "Xc.domain_setmaxmem domid=%d max=%Ld: %s" domid maxmem_kib (Printexc.to_string e)
+      
+let set_target_noexn xs dom_path target_kib = 
   let path = target_path dom_path in
-  debug "xenstore-write %s = %Ld" path target_kib;
-  t.Xst.write path (Int64.to_string target_kib)
+  try
+    Xs.transaction xs
+      (fun t ->
+	 (* make sure no-one deletes the tree *)
+	 let existing_target_kib = Int64.of_string (t.Xst.read path) in
+	 if existing_target_kib <> target_kib then begin
+	   debug "xenstore-write %s = %Ld" path target_kib;
+	   t.Xst.write path (Int64.to_string target_kib)
+	 end
+      )
+  with e ->
+    (* someone probably just destroyed the domain *)
+    error "xenstore-write %s = %Ld: %s" path target_kib (Printexc.to_string e)
+
+let set_uncooperative_noexn xs dom_path x =
+  try
+    if x 
+    then 
+      Xs.transaction xs
+	(fun t ->
+	   (* make sure no-one deletes the tree *)
+	   ignore (t.Xst.read dom_path);
+	   t.Xst.write (uncooperative_path dom_path) ""
+	)
+    else xs.Xs.rm (uncooperative_path dom_path)
+  with e ->
+    error "set_uncooperative %s %b: %s" dom_path x (Printexc.to_string e)
+
+let get_uncooperative_noexn xs dom_path = exists xs (uncooperative_path dom_path)
+
+let set_memory_offset_noexn xs dom_path offset_kib =
+  try
+    Xs.transaction xs
+      (fun t ->
+	 (* Make sure the domain still exists *)
+	 ignore (xs.Xs.read dom_path);
+	 t.Xst.write (memory_offset_path dom_path) (Int64.to_string offset_kib)
+      )
+  with e ->
+    error "set_memory_offset_noexn %s %Ld: %s" dom_path offset_kib (Printexc.to_string e)
+
 
 exception Cannot_free_this_much_memory of int64 (** even if we balloon everyone down we can't free this much *)
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
@@ -119,12 +166,7 @@ let make_host ~xc ~xs =
 					      let target_kib = Int64.of_string (xs_read xs (target_path path)) in
 					      let offset_kib = memory_actual_kib -* target_kib in
 					      debug "domid %d just exposed feature-balloon; calibrating total_pages offset = %Ld KiB" di.Xc.domid offset_kib;
-					      Xs.transaction xs
-						(fun t ->
-						   (* Make sure the domain still exists *)
-						   ignore (xs.Xs.read path);
-						   t.Xst.write (memory_offset_path path) (Int64.to_string offset_kib)
-						);
+					      set_memory_offset_noexn xs path offset_kib;
 					      offset_kib
 					  end in
 					let memory_actual_kib = memory_actual_kib -* offset_kib in
@@ -222,17 +264,9 @@ let update_cooperative_flags xs =
   let now = Unix.gettimeofday () in
   Hashtbl.iter (fun domid last_time ->
 		  let dom_path = xs.Xs.getdomainpath domid in
-		  if now -. last_time <= 20. 
-		  then xs.Xs.rm (uncooperative_path dom_path)
-		  else begin
-		    debug "domid: %d declared uncooperative" domid;
-		    Xs.transaction xs
-		      (fun t ->
-			 (* make sure no-one deletes the tree *)
-			 ignore (t.Xst.read dom_path);
-			 t.Xst.write (uncooperative_path dom_path) ""
-		      )
-		  end
+		  let old_value = get_uncooperative_noexn xs dom_path in
+		  let new_value = now -. last_time > 20. in
+		  if old_value <> new_value then set_uncooperative_noexn xs dom_path new_value
 	       )
     when_domain_was_last_cooperative
 		  
@@ -243,16 +277,11 @@ let execute_action ~xc ~xs action =
 		let domid = action.Squeeze.action_domid in
 		let path = xs.Xs.getdomainpath domid in
 		let target_kib = action.Squeeze.new_target_kib in
-		Xs.transaction xs
-			(fun t ->
-				(* make sure no-one deletes the tree *)
-				ignore (t.Xst.read path);
-				if target_kib < 0L
-				then failwith "Proposed target is negative (domid %d): %Ld"
-					domid target_kib;
-				domain_setmaxmem xc domid target_kib;
-				set_target t path target_kib
-			)
+		if target_kib < 0L
+		then failwith "Proposed target is negative (domid %d): %Ld" domid target_kib;
+
+		domain_setmaxmem_noexn xc domid target_kib;
+		set_target_noexn xs path target_kib
 	with e ->
 		debug "Failed to reset balloon target (domid: %d) (target: %Ld): %s"
 			action.Squeeze.action_domid action.Squeeze.new_target_kib
@@ -315,7 +344,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				       let domain = Squeeze.IntMap.find domid host.Squeeze.domid_to_domain in
 				       let mem_max_kib = min domain.Squeeze.target_kib domain.Squeeze.memory_actual_kib in
 				       debug "Setting inactive domain %d mem_max = %Ld" domid mem_max_kib;
-				       domain_setmaxmem xc domid mem_max_kib
+				       domain_setmaxmem_noexn xc domid mem_max_kib
 				     with Not_found ->
 				       debug "WARNING: inactive domain %d not in map" domid
 				  ) declared_inactive_domids;
@@ -328,7 +357,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 					 then List.assoc domid new_targets 
 					 else domain.Squeeze.target_kib in
 				       debug "Setting active domain %d mem_max = %Ld" domid mem_max_kib;
-				       domain_setmaxmem xc domid mem_max_kib
+				       domain_setmaxmem_noexn xc domid mem_max_kib
 				     with Not_found ->
 				       debug "WARNING: active domain %d not in map" domid
 				  ) declared_active_domids;
@@ -338,7 +367,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				    debug "Success: Host free memory = %Ld KiB" required_mem_kib;
 				    finished := true
 				| Squeeze.Failed [] ->
-				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits" required_mem_kib;
+				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits of balloonable domains" required_mem_kib;
 				    raise (Cannot_free_this_much_memory required_mem_kib);
 				| Squeeze.Failed domids ->
 				    let s = String.concat ", " (List.map string_of_int domids) in
