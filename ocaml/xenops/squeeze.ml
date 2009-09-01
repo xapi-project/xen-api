@@ -169,17 +169,18 @@ module Stuckness_monitor = struct
 			   let have_useful_update = 
 			     (* either I have no information at all *)
 			     if not (Hashtbl.mem x.memory_actual_updates domain.domid) then begin
-			       debug "domid %d is untracked so I will consider memory_actual = %Ld to be a change"
+			       if domain.domid <> 0 (* dom0 is boring and sits on its target *)
+			       then debug "domid %d is untracked so I will consider memory_actual = %Ld to be a change"
 				 domain.domid domain.memory_actual_kib;
 			       true
 			     end else if domain.memory_actual_kib <> fst (Hashtbl.find x.memory_actual_updates domain.domid) then begin
 			       (* or the information I have is out of date *)
-			       debug "domid %d has changed memory_actual from %Ld to %Ld" domain.domid (fst (Hashtbl.find x.memory_actual_updates domain.domid)) domain.memory_actual_kib;
 			       true
 			     end else if hit_target then begin
 			       (* we assume that if the target has been hit then the domain is still active *)
 			       if not (Hashtbl.mem x.has_hit_targets domain.domid) then begin
-				 debug "domid %d has hit its target; target = %Ld; memory_actual = %Ld" domain.domid domain.target_kib domain.memory_actual_kib;
+				 if domain.domid <> 0 (* dom0 is boring and sits on its target *)
+				 then debug "domid %d has hit its target; target = %Ld; memory_actual = %Ld" domain.domid domain.target_kib domain.memory_actual_kib;
 				 Hashtbl.replace x.has_hit_targets domain.domid true
 			       end;
 			       true
@@ -327,12 +328,26 @@ module Proportional = struct
 		assert (remaining = 0L);
 		let adjustments = List.rev adjustments_reversed in
 		let per_domain_allocations = List.map (fun (a, b) -> a +* b) (List.combine per_domain_allocations adjustments) in
+		(* Note this list contains one entry per domain, even if it's a no-op *)
+		List.map (fun (domain, allocation) -> domain, (domain.dynamic_min_kib +* allocation))
+		  (List.combine domains per_domain_allocations)
 
-		let new_targets = List.map (fun (domain, allocation) -> domain, (domain.dynamic_min_kib +* allocation))
-		  (List.combine domains per_domain_allocations) in
-		(* Filter out attempts to set the target to a different value *)
-		let useful_new_targets = List.filter (fun (domain, target) -> domain.target_kib <> target) new_targets in
-		List.map (fun (domain, target) -> { action_domid = domain.domid; new_target_kib = target }) useful_new_targets
+
+	(* Given a set of domains and a host free memory target, return balloon target adjustments *)
+	let compute_target_adjustments (host: host) host_target_kib =
+		(* Assuming *all non-stuck* domains successfully balloon down to their *)
+		(* dynamic_min or up to their dynamic_max:                             *)
+		let total_freeable_memory_kib, total_allocatable_memory_kib =
+			compute_host_memory_delta_range host.domains in
+		let minimum_possible_free_memory_kib = host.free_mem_kib -* total_allocatable_memory_kib in
+		let maximum_possible_free_memory_kib = host.free_mem_kib +* total_freeable_memory_kib in
+
+		(* 'allocate_memory_in_proportion' is used to give back some memory after we pretend
+		   that every domain has been ballooned down to dynamic_min. Obviously the amount of 
+		   memory given back can't be negative (negative implies 'target_too_big' *)
+		let give_back_kib = max 0L (maximum_possible_free_memory_kib -* host_target_kib) in
+		allocate_memory_in_proportion give_back_kib host.domains
+
 
 	(**
 		Takes a view of the host state and amount of free memory desired and
@@ -362,6 +377,7 @@ module Proportional = struct
 		let x = { x with non_active_domains = non_active_domains } in
 
 		(* 2. Compute how we would adjust the domain memory targets *)
+		let targets = compute_target_adjustments { host with domains = active_domains } host_target_kib in
 
 		(* Assuming *all non-stuck* domains successfully balloon down to their *)
 		(* dynamic_min or up to their dynamic_max:                             *)
@@ -370,11 +386,11 @@ module Proportional = struct
 		let minimum_possible_free_memory_kib = host.free_mem_kib -* total_allocatable_memory_kib in
 		let maximum_possible_free_memory_kib = host.free_mem_kib +* total_freeable_memory_kib in
 
-		(* 'allocate_memory_in_proportion' is used to give back some memory after we pretend
-		   that every domain has been ballooned down to dynamic_min. Obviously the amount of 
-		   memory given back can't be negative (negative implies 'target_too_big' *)
-		let give_back_kib = max 0L (maximum_possible_free_memory_kib -* host_target_kib) in
-		let adjustments = allocate_memory_in_proportion give_back_kib active_domains in
+		(* Xen heap workaround: *)
+		let is_freeing_memory (domain, new_target_kib) = new_target_kib < domain.memory_actual_kib in
+		let freeing, allocating = List.partition is_freeing_memory targets in
+		let allocation_phase = freeing = [] in
+		let targets = if allocation_phase then allocating else freeing in
 
 		(* Have all the non-stuck domains reached their current targets? *)
 		let targets_reached = List.map (fun domain -> has_hit_target domain.memory_actual_kib domain.target_kib) active_domains in
@@ -388,20 +404,23 @@ module Proportional = struct
 
 		let target_too_big = maximum_possible_free_memory_kib < host_target_kib in
 		let cant_allocate_any_more = host.free_mem_kib > host_target_kib && total_allocatable_memory_kib = 0L in
+		let cant_free_any_more = host.free_mem_kib < host_target_kib && total_freeable_memory_kib = 0L in
 
-		debug "host free memory: %Ld <= %Ld <= %Ld (goal = %Ld)%s; all domain targets %sreached%s" 
+		let only_target_changes = List.filter (fun (domain, target) -> domain.target_kib <> target) targets in
+		debug "host free memory: %Ld <= %Ld <= %Ld (goal = %Ld)%s; all domain targets %sreached%s;%s" 
 		  minimum_possible_free_memory_kib host.free_mem_kib maximum_possible_free_memory_kib host_target_kib
 		  (if success then " OK"
 		   else if target_too_big then " cannot free enough"
 		   else if cant_allocate_any_more then " cannot allocate enough" else "")
 		  (if all_targets_reached then "" else "not ")
-		  (if adjustments = [] then "" else "; however about to adjust targets");
+		  (if only_target_changes = [] then "" else "; however about to adjust targets")
+ 		  (if allocation_phase then "allocation phase" else "freeing phase");
 
-		if (success && all_targets_reached && (adjustments = [])) || cant_allocate_any_more then x, declared_active, declared_inactive, Success
+		if (success && all_targets_reached && (only_target_changes = [])) || cant_allocate_any_more then x, declared_active, declared_inactive, Success
 		else 
-		  if target_too_big
+		  if target_too_big && all_targets_reached && (only_target_changes = [])
 		  then x, declared_active, declared_inactive, Failed non_active_domains
-		  else x, declared_active, declared_inactive, AdjustTargets adjustments
+ 		  else x, declared_active, declared_inactive, AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
 
 	let free_memory x h host_target_kib n = change_host_free_memory (fun x -> x >= host_target_kib) x h host_target_kib n 
 

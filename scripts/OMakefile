@@ -29,6 +29,8 @@ install:
 	$(IPROG) init.d-xapi $(DIST)/staging/etc/rc.d/init.d/xapi
 	$(IPROG) init.d-xapissl $(DIST)/staging/etc/rc.d/init.d/xapissl
 	$(IPROG) init.d-xapi-domains $(DIST)/staging/etc/rc.d/init.d/xapi-domains
+	$(IPROG) init.d-squeezed $(DIST)/staging/etc/rc.d/init.d/squeezed
+	$(IDATA) squeezed-logrotate $(DIST)/staging/etc/logrotate.d/squeezed
 	mkdir -p $(DIST)/staging/etc/xensource/master.d
 	$(IPROG) on-master-start $(DIST)/staging/etc/xensource/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DIST)/staging/etc/xensource/master.d/03-mpathalert-daemon

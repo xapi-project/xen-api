@@ -1,21 +1,7 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 
 (** Potentially generic xenstore RPC stuff *)
 
 open Pervasiveext
-open Xenops_helpers
 
 (* Service-specific: *)
 let _service = "squeezed" (* prefix in xenstore of daemon *)
@@ -46,7 +32,6 @@ let _reopen_logs = "reopen-logs"
 let _error_cannot_free_this_much_memory_code = "1000"
 let _error_domains_refused_to_cooperate_code = "1001"
 let _error_unknown_reservation               = "1002"
-let _error_invalid_memory_value              = "1003" (* -ve *)
 let _echo = "echo"
 
 (* Generic: *)
@@ -81,18 +66,25 @@ let debug (fmt: ('a , unit, string, unit) format4) =
        flush stdout) fmt
   else Printf.kprintf (fun s -> debug "%s" s) fmt
 
+
+let with_xc_and_xs f = 
+  Xc.with_intf
+    (fun xc ->
+       let xs = Xs.daemon_open () in
+       finally (fun () -> f xc xs) (fun () -> Xs.close xs))
+
 let path = List.fold_left Filename.concat "/"
 
 let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xb.Noent -> []
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
-exception Server_not_registered
-exception Error of string * string
-exception Missing_argument of string
-exception Unknown_function of string
-
 module Rpc_internal = struct
   type handler = (string * string) list -> (string * string) list
+
+  exception Server_not_registered
+  exception Error of string * string
+  exception Missing_argument of string
+  exception Unknown_function of string
 
   let write_request xs service fn args = 
     let unique_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
@@ -178,7 +170,7 @@ module Rpc_internal = struct
       write_response xs service fn unique_id results
 	
   (** Service requests forever *)
-  let loop ~service ~function_table ~xc ~xs ?(idle_timeout=(-1.)) ?(idle_callback=(fun () -> ())) () = 
+  let loop ~service ~function_table ~xc ~xs = 
     (* Write our pid to the store so clients can see we are alive *)
     xs.Xs.write (path [ service; _pid ]) (string_of_int (Unix.getpid ()));
 
@@ -191,20 +183,18 @@ module Rpc_internal = struct
     (* list the requests which arrived before our watch was established *)
     process_new_requests ();
     while true do
-      if Xs.has_watchevents xs then begin
-		(* Drain the watch event queue *)
-		while Xs.has_watchevents xs do
-		  ignore(Xs.get_watchevent xs)
-		done
+      if Xs.has_watchevents xs
+      then begin
+	debug "There are queued watch events";
+	while Xs.has_watchevents xs do
+	  ignore(Xs.get_watchevent xs)
+	done
       end else begin
-		(* Nothing in the queue, wait for an event on the fd *)
-		let r, _, _ = Unix.select [ Xs.get_fd xs ] [] [] idle_timeout in
-		if r = []
-		then idle_callback ()
-		else ignore(Xs.read_watchevent xs);
+	debug "Blocking for watch event";
+	ignore(Xs.read_watchevent xs)
       end;
-	  (* We think there is some work to do *)
-	  process_new_requests ()
+      debug "Scanning for new requests";
+      process_new_requests ()
     done
 end
   
@@ -212,7 +202,9 @@ module type RPC = sig
   
   type handler = (string * string) list -> (string * string) list
 
-  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
+  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> unit
+
+  exception Server_not_registered
 
   val client: xs:Xs.xsh -> service:string -> fn:string -> args:((string * string) list) -> (string * string) list
 
