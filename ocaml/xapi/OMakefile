@@ -24,7 +24,7 @@ OCAML_LIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_LIBS) $(XEN_OCAML_L
 OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAMLPACKS) $(XEN_OCAMLPACKS), $(OCAMLPACKS))
 
 
-OCamlDoc(../../doc/xapi, redo_log_usage.mli xapi_globs.ml)
+OCamlDoc(../../doc/xapi, redo_log_usage.mli xapi_globs.ml xapi_vm_placement.ml vm_placement.ml)
 
 
 # -----------------------------------------------------------------------
@@ -53,7 +53,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings quicktest_vm_placement vm_placement)
 OCamlProgram(stresstest, stresstest)
 OCamlProgram(fakeguestagent, fakeguestagent)
 
@@ -113,6 +113,8 @@ OCamlProgram(xapi, $(COMMON) \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
 	xapi_vm_snapshot \
+	vm_placement \
+	xapi_vm_placement \
 	xapi_vm_helpers \
 	xmlrpc_sexpr \
 	memory_check \

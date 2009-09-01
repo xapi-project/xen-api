@@ -410,6 +410,13 @@ let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
+let is_pool_master ~__context ~host =
+	let pool = get_pool ~__context in
+	let host_id = Db.Host.get_uuid ~__context ~self:host in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	let master_id = Db.Host.get_uuid ~__context ~self:master in
+	host_id = master_id
+
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
 let ballooning_enabled_for_vm ~__context vm_record = true
 
