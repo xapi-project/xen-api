@@ -72,7 +72,7 @@ module IntMap = Map.Make(struct type t = int let compare = compare end)
 type host = {
 	(** VMs running on this host *)
 	domains: domain list;
-	domain_set: domain IntMap.t;
+	domid_to_domain: domain IntMap.t;
 	(** total free memory on this host *)
 	free_mem_kib: int64;
 	(** size of the emergency pool; memory which cannot be used *)
@@ -82,7 +82,7 @@ type host = {
 let make_host ~domains ~free_mem_kib ~emergency_pool_kib = 
   { 
     domains = domains;
-    domain_set = List.fold_left (fun map domain -> IntMap.add domain.domid domain map) IntMap.empty domains;
+    domid_to_domain = List.fold_left (fun map domain -> IntMap.add domain.domid domain map) IntMap.empty domains;
     free_mem_kib = free_mem_kib;
     emergency_pool_kib = emergency_pool_kib;
   }
@@ -143,7 +143,7 @@ let assert_within_dynamic_range host = List.iter
 type result = 
 	| Success
 		(** enough memory is now available *)
-	| Failed of domain list
+	| Failed of int list
 		(** we have run out of options: all domains are either
 		fully-ballooned or are stuck (stuck domids returned) *)
 	| AdjustTargets of action list
@@ -263,9 +263,9 @@ module Proportional = struct
 	(** State maintained between invocations of the algorithm function *)
 	type t = {
 		stuckness: Stuckness_monitor.t;
-		non_active_domains: domain list;
+		non_active_domids: int list; (* domids are unique and constant *)
 	}
-	let make () = { stuckness = Stuckness_monitor.make (); non_active_domains = [] }
+	let make () = { stuckness = Stuckness_monitor.make (); non_active_domids = [] }
 
 	(**
 		Given a list of domains, return the total amount of memory which could
@@ -396,20 +396,21 @@ module Proportional = struct
 				 domain.can_balloon
 				 && (Stuckness_monitor.domid_is_active x.stuckness domain.domid now))
 			host.domains in
-		let non_active_domains = set_difference host.domains active_domains in
-		let declared_inactive = set_difference non_active_domains x.non_active_domains in
-		let declared_active = set_difference x.non_active_domains non_active_domains in
+		let non_active_domids = List.map (fun d -> d.domid) (set_difference host.domains active_domains) in
 		
-		List.iter
-			(fun domain ->
-				debug "domid %d has been declared inactive" domain.domid
-			) declared_inactive;
-		List.iter
-			(fun domain ->
-				debug "domid %d has been declared active" domain.domid
-			) declared_active;
+		let declared_inactive_domids = set_difference non_active_domids x.non_active_domids in
+		let declared_active_domids = set_difference x.non_active_domids non_active_domids in
 
-		let x = { x with non_active_domains = non_active_domains } in
+		List.iter
+			(fun d ->
+				debug "domid %d has been declared inactive" d
+			) declared_inactive_domids;
+		List.iter
+			(fun d ->
+				debug "domid %d has been declared active" d
+			) declared_active_domids;
+
+		let x = { x with non_active_domids = non_active_domids } in
 
 		(* 2. Compute how we would adjust the domain memory targets *)
 		let targets = compute_target_adjustments { host with domains = active_domains } host_target_kib in
@@ -451,11 +452,11 @@ module Proportional = struct
 		  (if only_target_changes = [] then "" else "; however about to adjust targets")
  		  (if allocation_phase then "allocation phase" else "freeing phase");
 
-		if (success && all_targets_reached && (only_target_changes = [])) || cant_allocate_any_more then x, declared_active, declared_inactive, Success
+		if (success && all_targets_reached && (only_target_changes = [])) || cant_allocate_any_more then x, declared_active_domids, declared_inactive_domids, Success
 		else 
 		  if target_too_big && all_targets_reached && (only_target_changes = [])
-		  then x, declared_active, declared_inactive, Failed non_active_domains
- 		  else x, declared_active, declared_inactive, AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
+		  then x, declared_active_domids, declared_inactive_domids, Failed non_active_domids
+ 		  else x, declared_active_domids, declared_inactive_domids, AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
 
 	let free_memory x h host_target_kib n = change_host_free_memory (fun x -> x >= host_target_kib) x h host_target_kib n 
 
