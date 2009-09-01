@@ -445,7 +445,15 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
  	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	Xapi_xenops_errors.handle_xenops_error
 	  (fun () ->
-	     let domid = Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~name:snapshot.API.vM_name_label uuid in
+	     info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
+	     let domid = (try 
+		Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~name:snapshot.API.vM_name_label uuid 
+	      with e ->
+		info "Domain.make threw %s" (ExnHelper.string_of_exn e);
+		info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
+		raise e
+	     ) in
+
 	     debug "Created domain with domid: %d" domid;
 	     Memory_control.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
 
@@ -1051,6 +1059,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 		    with exn ->
 		      debug "Vmops.start_paused caught: %s."
 			(ExnHelper.string_of_exn exn);
+		      error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc);
+
 		      debug "Vmops.start_paused: calling domain_destroy";
 		      (* We do not detach/deactivate here because -- either devices were attached (in which case the storage_access
 			 handler has already detached them by this point); or devices were _never_ attached because exn was thrown

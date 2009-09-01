@@ -21,6 +21,7 @@ OCamlDoc(../../doc/xenops, memory.mli)
 
 OCamlProgram(list_domains, list_domains table)
 OCamlProgram(memory_summary, memory_summary)
+OCamlProgram(freemem, freemem)
 OCamlProgram(squeezed, squeezed)
 OCamlProgram(squeezed_client, squeezed_client)
 
