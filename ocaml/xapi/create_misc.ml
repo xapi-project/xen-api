@@ -220,9 +220,9 @@ and create_domain_zero_default_memory_constraints () =
 	  let target = if target > static_max then static_max else target in
 	  {
 	    static_min  = static_min;
-	    dynamic_min = static_min;
+	    dynamic_min = target;
 	    target      = target;
-	    dynamic_max = static_max;
+	    dynamic_max = target;
 	    static_max  = static_max;
 	  }
 
