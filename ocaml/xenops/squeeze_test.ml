@@ -374,7 +374,7 @@ let run_test scenario =
 				:: !scenario_error_table
 		end
 
-let _ = 
+let go () = 
 	List.iter run_test all_scenarios;
 	debug "%d tests executed; %d unexpected results"
 		(List.length all_scenarios) (List.length !failed_scenarios);
