@@ -708,8 +708,8 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		let bootrec = Helpers.get_boot_record ~__context ~self in
 		let domid = Helpers.domid_of_vm ~__context ~self in
 		let vcpus = Int64.to_int bootrec.API.vM_VCPUs_max in
-		let max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
-		let newshadow = Int64.to_int (Memory.HVM.xen_shadow_mib max_mib vcpus multiplier) in
+		let static_max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
+		let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vcpus multiplier) in
 
 		(* Make sure enough free memory exists *)
 		let host = Db.VM.get_resident_on ~__context ~self in
@@ -731,7 +731,7 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		     end;
 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
 		     Xc.shadow_allocation_set xc domid newshadow;
-		     Memory.HVM.round_shadow_multiplier max_mib vcpus multiplier domid) in
+		     Memory.HVM.round_shadow_multiplier static_max_mib vcpus multiplier domid) in
 		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
 		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in
 		Helpers.set_boot_record ~__context ~self newbootrec;
