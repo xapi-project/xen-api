@@ -270,16 +270,6 @@ let destroy_consoles ~__context ~vM =
 	let all = Db.VM.get_consoles ~__context ~self:vM in
 	List.iter (fun console -> Db.Console.destroy ~__context ~self:console) all
 
-(** For a given virtual machine snapshot, returns a cautious overestimate of
-    the amount of memory required to create a domain for that virtual machine. *)
-let memory_range_required_to_safely_start_domain_kib ~__context ~snapshot =
-	let min_kib = Memory.kib_of_bytes_used snapshot.API.vM_memory_dynamic_min 
-	and max_kib = Memory.kib_of_bytes_used snapshot.API.vM_memory_dynamic_max in
-	let add (x, y) = Int64.add x y in
-	let min_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot min_kib)) in
-	let max_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot max_kib)) in
-	min_required_kib, max_required_kib
-
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	(* get common parameters *)
@@ -952,19 +942,23 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 	(* Take the subset of locked VBDs *)
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
 	let vbds = Vbdops.vbds_to_attach ~__context ~vm in
-	let dynamic_min_plus_overhead_kib, dynamic_max_plus_overhead_kib =
-		memory_range_required_to_safely_start_domain_kib ~__context ~snapshot in
+
+	let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
+	(* NB the database value isn't authoritative because (eg) over upgrade it will be 0L *)
+	Db.VM.set_memory_overhead ~__context ~self:vm ~value:overhead_bytes;
 	with_xc_and_xs (fun xc xs ->
 		let target_plus_overhead_kib, reservation_id =
 			Memory_control.reserve_memory_range ~__context ~xc ~xs
-				~min:dynamic_min_plus_overhead_kib
-				~max:dynamic_max_plus_overhead_kib in
-		let target_plus_overhead_bytes =
-			Memory.bytes_of_kib target_plus_overhead_kib in
-		let overhead_bytes = snapshot.API.vM_memory_overhead in
+				~min:(Memory.kib_of_bytes_used (snapshot.API.vM_memory_dynamic_min +++ overhead_bytes))
+				~max:(Memory.kib_of_bytes_used (snapshot.API.vM_memory_dynamic_max +++ overhead_bytes)) in
+		let target_plus_overhead_bytes = Memory.bytes_of_kib target_plus_overhead_kib in
 		let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
+		(* NB due to rounding up on the bytes to kib conversion we might end up with more memory free than 
+		   we need: this is ok; we don't have to use it all. *)
+		let target_bytes = min snapshot.API.vM_memory_dynamic_max target_bytes in
+
 		if target_bytes < snapshot.API.vM_memory_dynamic_min then begin
-		  error "target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld; dynamic_min+overhead = %Ld KiB" target_bytes snapshot.API.vM_memory_dynamic_min overhead_bytes target_plus_overhead_bytes dynamic_min_plus_overhead_kib;
+		  error "target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld" target_bytes snapshot.API.vM_memory_dynamic_min overhead_bytes target_plus_overhead_bytes;
 		  error "All stop.";
 		  exit 1;
 		end;
