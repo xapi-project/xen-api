@@ -1746,6 +1746,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_get_vms_which_prevent_evacuation;
       flags=[];
     };
+   "host-get-uncooperative-vms",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Return a list of VMs which are not co-operating with the memory control system.";
+      implementation=No_fd Cli_operations.host_get_uncooperative_vms;
+      flags=[];      
+    };
    "host-shutdown-agent",
     {
       reqd=[];

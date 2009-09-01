@@ -2505,6 +2505,15 @@ let host_get_vms_which_prevent_evacuation printer rpc session_id params =
 			  print_assert_exception (Api_errors.Server_error(List.hd result, List.tl result))) vms in
   printer (Cli_printer.PTable [ ("VM", "Error") :: table ])  
 
+let host_get_uncooperative_vms printer rpc session_id params = 
+  let uuid = List.assoc "uuid" params in
+  let host = Client.Host.get_by_uuid rpc session_id uuid in
+  let vms = Client.Host.get_uncooperative_resident_VMs rpc session_id host in
+  let table = List.map (fun vm ->
+			  Client.VM.get_uuid rpc session_id vm, Client.VM.get_name_label rpc session_id vm
+		       ) vms in
+  printer (Cli_printer.PTable [ table ])
+
 let host_retrieve_wlb_evacuate_recommendations printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
