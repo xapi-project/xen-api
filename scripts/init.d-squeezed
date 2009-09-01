@@ -28,9 +28,6 @@ if [ -e /var/xapi/xiu-xc ]; then
 	export XIU=/var/xapi/xiu
 fi
 
-# Enable core dumping
-ulimit -c unlimited
-
 start() {
 	echo -n $"Starting the memory ballooning daemon: "
 	
@@ -44,7 +41,7 @@ start() {
 	fi
 	
 	xenstore-rm /squeezed
-	${SQUEEZED} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
+	${SQUEEZED} -daemon -pidfile ${PID_FILE}
 
 	MAX_RETRIES=30
 	RETRY=0

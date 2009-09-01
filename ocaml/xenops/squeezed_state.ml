@@ -1,23 +1,7 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Squeezed_rpc 
 
 (** Path in xenstore where the daemon stores state, specifically reservations *)
 let state_path service = path [ ""; service; "state" ]
-
-(** Path in xenstore where the deamon puts the amount of host memory it needs to keep eg for lowmem_emergency_pool *)
-let reserved_host_memory_path service = path [ ""; service; "reserved-host-memory" ]
 
 (** Path where a specific reservation is stored *)
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]

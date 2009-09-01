@@ -1,24 +1,10 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 let default_pidfile = "/var/run/squeezed.pid" 
 let log_file_path = "file:/var/log/squeezed.log" 
-let idle_timeout = 10. (* seconds per balancing check *)
+
 
 open Pervasiveext 
 open Squeezed_rpc
 open Squeezed_state
-open Xenops_helpers
 
 (* We assume only one instance of a named service logs in at a time and therefore can use
    the service name as a session_id. *)
@@ -40,18 +26,6 @@ let login args =
     [ _session_id, service_name ]
   end
 
-let handle_memory_errors f = 
-  try
-    f ()
-  with
-  | Squeeze.Cannot_free_this_much_memory (needed, free) ->
-      (* NB both needed and free have been inflated by the lowmem_emergency_pool etc *)
-      let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib 
-      and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
-      [ _code, _error_cannot_free_this_much_memory_code; _description, Printf.sprintf "%Ld,%Ld" needed free ]
-  | Squeeze.Domains_refused_to_cooperate domids ->
-      [ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
-
 (* val reserve_memory: session_id -> kib -> reservation_id *)
 let reserve_memory args = 
   if not(List.mem_assoc _session_id args)
@@ -60,24 +34,24 @@ let reserve_memory args =
   then [ _code, _error_missing_argument_code; _description, _kib ]
   else begin
     let session_id = List.assoc _session_id args 
-    and kib = Int64.of_string (List.assoc _kib args) in
+    and kib = List.assoc _kib args in
     let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    if kib < 0L
-    then [ _code, _error_invalid_memory_value; _description, _kib ]
-    else
-      handle_memory_errors
+    try
+      Debug.with_thread_associated (Printf.sprintf "reserve_memory(%s, %s)" session_id kib)
 	(fun () ->
-	   Debug.with_thread_associated (Printf.sprintf "reserve_memory(%s, %Ld)" session_id kib)
-	     (fun () ->
-		with_xc_and_xs
-		  (fun xc xs ->
-		     Squeeze_xen.free_memory ~xc ~xs kib;
-		     debug "reserved %Ld kib for reservation %s" kib reservation_id;
-		     add_reservation xs _service session_id reservation_id (Int64.to_string kib)
-		  )
-	     ) ();
-	   [ _reservation_id, reservation_id ]
-	)
+	   with_xc_and_xs
+	     (fun xc xs ->
+		Squeeze_xen.free_memory ~xc ~xs (Int64.of_string kib);
+		debug "reserved %s kib for reservation %s" kib reservation_id;
+		add_reservation xs _service session_id reservation_id kib
+	     )
+	) ();
+      [ _reservation_id, reservation_id ]
+    with
+    | Squeeze_xen.Cannot_free_this_much_memory _ ->
+	[ _code, _error_cannot_free_this_much_memory_code; _description, kib ]
+    | Squeeze_xen.Domains_refused_to_cooperate domids ->
+	[ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
   end
 
 (* val reserve_memory_range: session_id -> min -> max -> reservation_id *)
@@ -90,31 +64,25 @@ let reserve_memory_range args =
   then [ _code, _error_missing_argument_code; _description, _max ]
   else begin
     let session_id = List.assoc _session_id args in
-    let min = Int64.of_string (List.assoc _min args) in
-    let max = Int64.of_string (List.assoc _max args) in
+    let min = List.assoc _min args in
+    let max = List.assoc _max args in
     let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    if min < 0L 
-    then [ _code, _error_invalid_memory_value; _description, _min ]
-    else 
-      if max < 0L
-      then [ _code, _error_invalid_memory_value; _description, _max ]
-      else 
-	if max < min
-	then [ _code, _error_invalid_memory_value; _description, _min ]
-	else
-	  handle_memory_errors
-	    (fun () ->
-	       Debug.with_thread_associated (Printf.sprintf "reserve_memory_range(%s, %Ld, %Ld)" session_id min max)
-		 (fun () ->
-		    with_xc_and_xs
-		      (fun xc xs ->
-			 let amount = Squeeze_xen.free_memory_range ~xc ~xs min max in
-			 debug "reserved %Ld kib for reservation %s" amount reservation_id;
-			 add_reservation xs _service session_id reservation_id (Int64.to_string amount);
-			 [ _kib, Int64.to_string amount; _reservation_id, reservation_id ]
-		      )
-		 ) ()
-	    )
+    try
+      Debug.with_thread_associated (Printf.sprintf "reserve_memory_range(%s, %s, %s)" session_id min max)
+	(fun () ->
+	   with_xc_and_xs
+	     (fun xc xs ->
+		let amount = Squeeze_xen.free_memory_range ~xc ~xs (Int64.of_string min) (Int64.of_string max) in
+		debug "reserved %Ld kib for reservation %s" amount reservation_id;
+		add_reservation xs _service session_id reservation_id (Int64.to_string amount);
+		[ _kib, Int64.to_string amount; _reservation_id, reservation_id ]
+	     )
+	) ()
+    with 
+    | Squeeze_xen.Cannot_free_this_much_memory _ ->
+	[ _code, _error_cannot_free_this_much_memory_code; _description, min ]
+    | Squeeze_xen.Domains_refused_to_cooperate domids ->
+	[ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
   end
   
 
@@ -194,11 +162,15 @@ let function_table = [
   _reopen_logs, reopen_logs;
 ]
 
-(** Called periodically to look for unbalanced memory and take corrective action *)
-let idle_callback ~xc ~xs () = 
-  if Squeeze_xen.is_host_memory_unbalanced ~xc ~xs
-  then Debug.with_thread_associated "auto-balance" (fun () -> Squeeze_xen.balance_memory ~xc ~xs) ()
-  
+let read_hostname () = 
+  (* Get the hostname and configure the debug module *)
+  let pid, pipe_exit = Unixext.execv_get_output "/bin/hostname" [| "/bin/hostname" |] in 
+  let hostname = String.make 128 ' ' in
+  let len = Unix.read pipe_exit hostname 0 (String.length hostname) in
+  let hostname = Stringext.String.strip Stringext.String.isspace (String.sub hostname 0 len) in
+  Unix.waitpid [] pid;
+  hostname
+
 let _ = 
   let pidfile = ref default_pidfile in
   let daemonize = ref false in
@@ -213,17 +185,17 @@ let _ =
 
   Logs.reset_all [ log_file_path ];
 
-  debug "Writing reserved-host-memory=%Ld KiB" Squeeze_xen.target_host_free_mem_kib;
-  with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) (Int64.to_string Squeeze_xen.target_host_free_mem_kib));
+  let hostname = read_hostname () in
+  Debug.get_hostname := (fun () -> hostname);
 
   if !daemonize then Unixext.daemonize ();
 
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-  debug "Starting daemon listening on %s with idle_timeout = %.0f" _service idle_timeout;
+  debug "Starting daemon";
   try
-    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout ~idle_callback:(idle_callback ~xc ~xs) () );
+    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table );
     debug "Graceful shutdown";
     exit 0
   with e ->
