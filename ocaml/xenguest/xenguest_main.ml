@@ -428,8 +428,30 @@ let _ =
 		  failwith msg
  	    in
 	    control_write (Result result);
-	  with e ->
-	    control_write (Error (sprintf "caught exception: %s" (Printexc.to_string e)))
+	with
+	| Failure x as e ->
+		let prefix = "Subprocess failure: Failure(\"" in
+		if String.sub x 0 (String.length prefix) = prefix then
+			begin
+				let rest = String.sub x (String.length prefix)
+					(String.length x - (String.length prefix)) in
+				try
+					let lbr = String.index rest '['
+					and rbr = String.index rest ']' in
+					let code = String.sub rest 0 (lbr - 2) in
+					let errno = String.sub rest (lbr + 1) (rbr - lbr - 1) in
+					let rest = String.sub rest (rbr + 1)
+						(String.length rest - rbr - 2) in
+					control_write (Error (sprintf "%s %s %s" code errno rest))
+				with _ ->
+					control_write (Error rest)
+			end
+		else
+			control_write (Error (sprintf "caught exception: %s"
+				(Printexc.to_string e)))
+	| e ->
+		control_write (Error (sprintf "caught exception: %s"
+			(Printexc.to_string e)))
 	end;
 	closelog ()
 
