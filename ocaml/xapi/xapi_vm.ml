@@ -974,23 +974,10 @@ let get_cooperative ~__context ~self =
     info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
     true
   end else begin
-    (* If the VM is supposed to be capable of ballooning then we expect the RRD:memory to become equal to the RRD:memory_target
-       within a threshold time. *)
-    let target = ref 0L
-    and actual = ref 1L in
-    
-    let start = Unix.gettimeofday () in
-    while Unix.gettimeofday () -. start < Xapi_globs.cooperative_timeout && !target < !actual do
-      target := Int64.of_float (Monitor_rrds.query_vm_dss vm_r.API.vM_uuid "memory_target");
-      actual := Int64.of_float (Monitor_rrds.query_vm_dss vm_r.API.vM_uuid "memory");
-      if !target < !actual then Thread.delay 5.
-    done;
-    let cooperative = !target >= !actual in
-    info "VM %s (%s) is %s because after %.0f seconds target=%Ld actual=%Ld" (Ref.string_of self) vm_r.API.vM_name_label 
-      (if cooperative then "co-operative" else "unco-operative")
-      (Unix.gettimeofday () -. start) !target !actual;
-    cooperative
-end
+    (* Otherwise see if the squeezer has concluded the domain is uncooperative *)
+    let domid = Int64.to_int vm_r.API.vM_domid in
+    Mutex.execute Monitor.uncooperative_domains_m (fun () -> not(Hashtbl.mem Monitor.uncooperative_domains domid))
+  end
 
 let set_HVM_shadow_multiplier ~__context ~self ~value =
 	set_HVM_shadow_multiplier ~__context ~self ~value
