@@ -433,8 +433,8 @@ let powercycle_test session_id vm =
        Client.VM.start !rpc session_id vm false false;
        verify_network_connectivity session_id test vm;
        delay ();
-       debug test "Setting shadow-multiplier non-live to 10.";
-       Client.VM.set_HVM_shadow_multiplier !rpc session_id vm 10.;
+       debug test "Setting shadow-multiplier live to 10.";
+       Client.VM.set_shadow_multiplier_live !rpc session_id vm 10.;
        delay ();
        debug test "Suspending VM";
        Client.VM.suspend !rpc session_id vm;
