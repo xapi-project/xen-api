@@ -1730,6 +1730,15 @@ let hook_no_hosts_available printer rpc session_id vm f =
 	  end;
 	raise e
 
+let vm_memory_static_range_set printer rpc session_id params =
+	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
+	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
+	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
+	(fun vm ->
+		Client.VM.set_memory_static_range rpc session_id (vm.getref ()) min max)
+			params ["min"; "max"]
+	)
+
 let vm_memory_target_set printer rpc session_id params =
 	let target = List.assoc "target" params in
 	let target_bytes = Record_util.bytes_of_string "target" target in
