@@ -410,19 +410,8 @@ let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
-(** Indicates whether ballooning is enabled for the entire pool. *)
-let ballooning_enabled_for_pool ~__context =
-  let pool = get_pool ~__context in    
-  let other_config = Db.Pool.get_other_config ~__context ~self:pool in
-  try 
-    bool_of_string (List.assoc Constants.ballooning_enabled other_config)
-  with
-      _ -> false
-
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
-(** Always returns true if ballooning is enabled for the entire pool.      *)
-let ballooning_enabled_for_vm ~__context vm_record =
-	vm_record.API.vM_is_control_domain or (ballooning_enabled_for_pool ~__context)
+let ballooning_enabled_for_vm ~__context vm_record = true
 
 let clear_log level key =
     let clear_f =
