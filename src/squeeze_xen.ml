@@ -275,7 +275,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 			update_cooperative_table host;
 			update_cooperative_flags xs;
 
-			let acc', declared_active, declared_inactive, result =
+			let acc', declared_active_domids, declared_inactive_domids, result =
 				Squeeze.Proportional.change_host_free_memory success_condition !acc host required_mem_kib t in
 			acc := acc';
 			
@@ -310,21 +310,28 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 			M.debug "%s" debug_string;
 			
 			(* Deal with inactive and 'never been run' domains *)
-			List.iter (fun domain -> 
-				     let mem_max_kib = min domain.Squeeze.target_kib domain.Squeeze.memory_actual_kib in
-				     debug "Setting inactive domain %d mem_max = %Ld" domain.Squeeze.domid mem_max_kib;
-				     domain_setmaxmem xc domain.Squeeze.domid mem_max_kib
-				  ) declared_inactive;
+			List.iter (fun domid -> 
+				     try
+				       let domain = Squeeze.IntMap.find domid host.Squeeze.domid_to_domain in
+				       let mem_max_kib = min domain.Squeeze.target_kib domain.Squeeze.memory_actual_kib in
+				       debug "Setting inactive domain %d mem_max = %Ld" domid mem_max_kib;
+				       domain_setmaxmem xc domid mem_max_kib
+				     with Not_found ->
+				       debug "WARNING: inactive domain %d not in map" domid
+				  ) declared_inactive_domids;
 			(* Next deal with the active domains (which may have new targets) *)
-			List.iter (fun domain ->
-				     let domid = domain.Squeeze.domid in
-				     let mem_max_kib = 
-				       if List.mem_assoc domid new_targets 
-				       then List.assoc domid new_targets 
-				       else domain.Squeeze.target_kib in
-				     debug "Setting active domain %d mem_max = %Ld" domain.Squeeze.domid mem_max_kib;
-				     domain_setmaxmem xc domain.Squeeze.domid mem_max_kib				     
-				  ) declared_active;
+			List.iter (fun domid ->
+				     try
+				       let domain = Squeeze.IntMap.find domid host.Squeeze.domid_to_domain in
+				       let mem_max_kib = 
+					 if List.mem_assoc domid new_targets 
+					 then List.assoc domid new_targets 
+					 else domain.Squeeze.target_kib in
+				       debug "Setting active domain %d mem_max = %Ld" domid mem_max_kib;
+				       domain_setmaxmem xc domid mem_max_kib
+				     with Not_found ->
+				       debug "WARNING: active domain %d not in map" domid
+				  ) declared_active_domids;
 
 			begin match result with
 				| Squeeze.Success ->
@@ -333,8 +340,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				| Squeeze.Failed [] ->
 				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits" required_mem_kib;
 				    raise (Cannot_free_this_much_memory required_mem_kib);
-				| Squeeze.Failed domains_to_blame ->
-				    let domids = List.map (fun x -> x.Squeeze.domid) domains_to_blame in
+				| Squeeze.Failed domids ->
 				    let s = String.concat ", " (List.map string_of_int domids) in
 				    debug "Failed to free %Ld KiB of memory: the following domains have failed to meet their targets: [ %s ]"
 				      required_mem_kib s;

@@ -310,7 +310,7 @@ let simulate scenario =
 						(only %Ld KiB free) [stuck domains: %s]"
 						scenario.required_mem_kib !host_free_mem_kib
 						(String.concat ", "
-							(List.map (fun x -> string_of_int x.domid) domains)
+							(List.map string_of_int domains)
 						)
 					);
 				| AdjustTargets actions ->
