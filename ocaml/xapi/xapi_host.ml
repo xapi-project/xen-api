@@ -849,6 +849,15 @@ let disable_binary_storage ~__context ~host =
   Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage;
   Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
 
+let get_uncooperative_resident_VMs ~__context ~self = assert false
+
+let get_uncooperative_domains ~__context ~self = 
+  let domids = Mutex.execute Monitor.uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) Monitor.uncooperative_domains []) in
+  let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
+  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) dis in
+  let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
+  List.map Uuid.string_of_uuid uuids
+
 let certificate_install ~__context ~host ~name ~cert =
   Certificates.host_install true name cert
 
