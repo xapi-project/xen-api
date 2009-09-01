@@ -111,6 +111,7 @@ let make_host ~xc ~xs =
 	{Squeeze.
 		domains = domains;
 		free_mem_kib = Int64.sub free_mem_kib !reserved_kib;
+		emergency_pool_kib = 0L;
 	}
 
 (** Best-effort update of a domain's memory target. *)

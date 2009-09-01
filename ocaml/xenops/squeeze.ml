@@ -68,6 +68,8 @@ type host = {
 	domains: domain list;
 	(** total free memory on this host *)
 	free_mem_kib: int64;
+	(** size of the emergency pool; memory which cannot be used *)
+	emergency_pool_kib: int64;
 }
 
 let string_pairs_to_string (x: (string * string) list) =
@@ -180,6 +182,10 @@ module Stuckness_monitor = struct
 				 debug "domid %d has hit its target; target = %Ld; memory_actual = %Ld" domain.domid domain.target_kib domain.memory_actual_kib;
 				 Hashtbl.replace x.has_hit_targets domain.domid true
 			       end;
+			       true
+			     end else if domain.memory_actual_kib < domain.target_kib && state.free_mem_kib <= state.emergency_pool_kib then begin
+			       (* I've been told to allocate more memory but I can't since there 
+				  is no memory free... probably because of someone else getting stuck *)
 			       true
 			     end else false in
 			     if have_useful_update 
