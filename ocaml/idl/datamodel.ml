@@ -17,7 +17,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 58
+let schema_minor_vsn = 59
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -2539,22 +2539,30 @@ let user =
 
 (** Guest Memory *)
 let guest_memory =
-  let field = field ~ty:Int in
-  [
-    field "target" ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L));
-    field "static_max" ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
-    field "dynamic_max" ~qualifier:StaticRO "Dynamic maximum (bytes)";
-    field "dynamic_min" ~qualifier:StaticRO "Dynamic minimum (bytes)";
-    field "static_min" ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
-  ]
+	let field = field ~ty:Int in
+	[
+		field "overhead" ~qualifier:DynamicRO "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
+		field "target" ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L));
+		field "static_max" ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
+		field "dynamic_max" ~qualifier:StaticRO "Dynamic maximum (bytes)";
+		field "dynamic_min" ~qualifier:StaticRO "Dynamic minimum (bytes)";
+		field "static_min" ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
+	]
 
 (** Host Memory *)
 let host_memory = 
-  let field = field ~ty:Int in
-  [
-    field ~qualifier:DynamicRO "total" "Host's total memory (bytes)";
-    field ~qualifier:DynamicRO "free" "Host's free memory (bytes)";
-  ]
+	let field = field ~ty:Int in
+	[
+		field ~qualifier:DynamicRO "overhead" "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
+	]
+
+(** Host Metrics Memory *)
+let host_metrics_memory = 
+	let field = field ~ty:Int in
+	[
+		field ~qualifier:DynamicRO "total" "Host's total memory (bytes)";
+		field ~qualifier:DynamicRO "free" "Host's free memory (bytes)";
+	]
 
 let api_version = 
   let field' = field ~qualifier:DynamicRO in
@@ -3048,6 +3056,7 @@ let host =
       ~contents:
         ([ uid _host;
 	namespace ~name:"name" ~contents:(names None RW);
+	namespace ~name:"memory" ~contents:host_memory;
 	] @ (allowed_and_current_operations host_operations) @ [
 	namespace ~name:"API_version" ~contents:api_version;
 	field ~qualifier:DynamicRO ~ty:Bool "enabled" "True if the host is currently enabled";
@@ -3088,7 +3097,7 @@ let host_metrics =
       ~doccomments:[]
       ~messages:[] ~contents:
       [ uid _host_metrics;
-	namespace ~name:"memory" ~contents:host_memory;
+	namespace ~name:"memory" ~contents:host_metrics_memory;
 	field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live" "Pool master thinks this host is live";
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";

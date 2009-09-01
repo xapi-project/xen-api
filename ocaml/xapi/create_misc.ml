@@ -151,6 +151,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 		~actions_after_crash:`destroy ~actions_after_reboot:`destroy ~actions_after_shutdown:`destroy
 		~allowed_operations:[] ~current_operations:[] ~blocked_operations:[] ~power_state:`Running
 		~vCPUs_max:(Int64.of_int vcpus) ~vCPUs_at_startup:(Int64.of_int vcpus) ~vCPUs_params:[]
+		~memory_overhead:0L
 		~memory_static_min:memory.static_min ~memory_dynamic_min:memory.dynamic_min ~memory_target:memory.target
 		~memory_static_max:memory.static_max ~memory_dynamic_max:memory.dynamic_max
 		~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost ~suspend_VDI:Ref.null
@@ -332,23 +333,26 @@ let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabili
 		make_new_metrics_object metrics;
 
 		Db.Host.create ~__context ~ref 
-		  ~current_operations:[] ~allowed_operations:[]
-		  ~software_version:Xapi_globs.software_version
-		       ~enabled:true
-		       ~aPI_version_major:Xapi_globs.api_version_major
-		       ~aPI_version_minor:Xapi_globs.api_version_minor
-		       ~aPI_version_vendor:Xapi_globs.api_version_vendor
-		       ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
-	               ~name_description ~name_label ~uuid ~other_config:[]
-	               ~capabilities
-	               ~cpu_configuration:[]   (* !!! FIXME hard coding *)
-	               ~sched_policy:"credit"  (* !!! FIXME hard coding *)
-	  	       ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
-                       ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
-		       ~logging:[] ~hostname ~address ~metrics
-		       ~license_params:[] ~boot_free_mem:0L
-		       ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
-		  ~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[]
+			~current_operations:[] ~allowed_operations:[]
+			~software_version:Xapi_globs.software_version
+			~enabled:true
+			~aPI_version_major:Xapi_globs.api_version_major
+			~aPI_version_minor:Xapi_globs.api_version_minor
+			~aPI_version_vendor:Xapi_globs.api_version_vendor
+			~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
+			~name_description ~name_label ~uuid ~other_config:[]
+			~capabilities
+			~cpu_configuration:[]   (* !!! FIXME hard coding *)
+			~memory_overhead:0L     (* !!! FIXME hard coding *)
+			~sched_policy:"credit"  (* !!! FIXME hard coding *)
+			~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
+			~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
+			~logging:[] ~hostname ~address ~metrics
+			~license_params:[] ~boot_free_mem:0L
+			~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
+			~external_auth_type:""
+			~external_auth_service_name:""
+			~external_auth_configuration:[]
 		;
 		ref
 	    | Some ref -> ref in

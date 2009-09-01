@@ -255,6 +255,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~resident_on:Ref.null
 		~scheduled_to_be_resident_on:Ref.null
 		~affinity:all.Db_actions.vM_affinity
+		~memory_overhead:all.Db_actions.vM_memory_overhead
 		~memory_target:all.Db_actions.vM_memory_target
 		~memory_static_max:all.Db_actions.vM_memory_static_max
 		~memory_dynamic_max:all.Db_actions.vM_memory_dynamic_max
