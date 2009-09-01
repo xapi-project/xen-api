@@ -107,6 +107,21 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
   | Info x -> debug_callback x; non_debug_receive ~debug_callback cnx
   | x -> x (* Error or Result or Suspend *)
 
+(* Dump memory statistics on failure *)
+let non_debug_receive ?debug_callback cnx = 
+  let debug_memory () = 
+    Xc.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
+  in
+  try
+    match non_debug_receive ?debug_callback cnx with
+    | Error y as x -> 
+	error "Received: %s" y;
+	debug_memory (); x
+    | x -> x
+  with e ->
+    debug_memory ();
+    raise e
+
 (** For the simple case where we just want the successful result, return it.
     If we get an error message (or suspend) then throw an exception. *)
 let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
@@ -128,3 +143,4 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
 	| Result x -> x
 	| Stdout _ | Stderr _ | Info _ -> assert false
+
