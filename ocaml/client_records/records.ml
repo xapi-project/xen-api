@@ -516,6 +516,7 @@ let vm_record rpc session_id vm =
    make_field ~name:"is-control-domain"   ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain) ();
    make_field ~name:"power-state"         ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state) ();
    make_field ~name:"memory-actual" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) )) ();
+   make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_overhead) ();
    make_field ~name:"memory-target"  ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_target) ();
    make_field ~name:"memory-static-max"   ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_max)
      ~set:(fun x -> Client.VM.set_memory_static_max rpc session_id vm (Record_util.bytes_of_string "memory-static-max" x)) ();
@@ -800,6 +801,7 @@ let host_record rpc session_id host =
     make_field ~name:"supported-bootloaders" ~get:(fun () -> String.concat "; " (x ()).API.host_supported_bootloaders) 
       ~get_set:(fun () -> (x ()).API.host_supported_bootloaders) ();
     make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.host_blobs) ();
+    make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead) ();
     make_field ~name:"memory-total" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) )) ();
     make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
     make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();

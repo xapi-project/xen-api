@@ -132,6 +132,7 @@ let blank_template =
     vM_snapshot_time = Date.never;
     vM_snapshot_info = [];
     vM_snapshot_metadata = "";
+    vM_memory_overhead = (0L ** mib);
     vM_memory_target = (256L ** mib);
     vM_memory_static_max = (256L ** mib);
     vM_memory_dynamic_max = (256L ** mib);
