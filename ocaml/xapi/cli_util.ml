@@ -130,9 +130,14 @@ let get_server_error code params =
   try
     let error = Hashtbl.find Datamodel.errors code in
     (* There ought to be a bijection between parameters mentioned in
-       datamodel.ml and those in the exception but this is unchecked.
-       For now we attempt to pretty-print the list even when it's short/long *)
-    let required = error.Datamodel_types.err_params in
+       datamodel.ml and those in the exception but this is unchecked and 
+       false in some cases, defined here. *)
+    let required = 
+      if code = Api_errors.vms_failed_to_cooperate
+      then List.map (fun _ -> "VM") params
+      else error.Datamodel_types.err_params in
+
+    (* For the rest we attempt to pretty-print the list even when it's short/long *)
     let rec pp_params = function
       | t::ts, v::vs -> (t ^ ": " ^ v) :: (pp_params (ts, vs))
       | [],    v::vs -> ("<extra>: " ^ v) :: (pp_params ([], vs))
