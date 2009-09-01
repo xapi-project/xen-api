@@ -965,6 +965,11 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			Memory.bytes_of_kib target_plus_overhead_kib in
 		let overhead_bytes = snapshot.API.vM_memory_overhead in
 		let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
+		if target_bytes < snapshot.API.vM_memory_dynamic_min then begin
+		  error "target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld; dynamic_min+overhead = %Ld KiB" target_bytes snapshot.API.vM_memory_dynamic_min overhead_bytes target_plus_overhead_bytes dynamic_min_plus_overhead_kib;
+		  error "All stop.";
+		  exit 1;
+		end;
 		assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
 		assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
 		let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
