@@ -170,7 +170,7 @@ module Rpc_internal = struct
       write_response xs service fn unique_id results
 	
   (** Service requests forever *)
-  let loop ~service ~function_table ~xc ~xs = 
+  let loop ~service ~function_table ~xc ~xs ?(idle_timeout=(-1.)) ?(idle_callback=(fun () -> ())) () = 
     (* Write our pid to the store so clients can see we are alive *)
     xs.Xs.write (path [ service; _pid ]) (string_of_int (Unix.getpid ()));
 
@@ -190,10 +190,12 @@ module Rpc_internal = struct
 	  ignore(Xs.get_watchevent xs)
 	done
       end else begin
-	debug "Blocking for watch event";
-	ignore(Xs.read_watchevent xs)
+	debug "Blocking for watch event %s" (if idle_timeout < 0. then "forever" else Printf.sprintf "for up to %.0f s" idle_timeout);
+	let r, _, _ = Unix.select [ Xs.get_fd xs ] [] [] idle_timeout in
+	if r = []
+	then idle_callback ()
+	else ignore(Xs.read_watchevent xs);
       end;
-      debug "Scanning for new requests";
       process_new_requests ()
     done
 end
@@ -202,7 +204,7 @@ module type RPC = sig
   
   type handler = (string * string) list -> (string * string) list
 
-  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> unit
+  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
 
   val client: xs:Xs.xsh -> service:string -> fn:string -> args:((string * string) list) -> (string * string) list
 

@@ -171,6 +171,11 @@ let read_hostname () =
   Unix.waitpid [] pid;
   hostname
 
+(** Called periodically to look for unbalanced memory and take corrective action *)
+let idle_callback ~xc ~xs () = 
+  if Squeeze_xen.is_host_memory_unbalanced ~xc ~xs
+  then Debug.with_thread_associated "auto-balance" (fun () -> Squeeze_xen.balance_memory ~xc ~xs) ()
+  
 let _ = 
   let pidfile = ref default_pidfile in
   let daemonize = ref false in
@@ -195,7 +200,7 @@ let _ =
 
   debug "Starting daemon";
   try
-    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table );
+    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout:10. ~idle_callback:(idle_callback ~xc ~xs) () );
     debug "Graceful shutdown";
     exit 0
   with e ->
