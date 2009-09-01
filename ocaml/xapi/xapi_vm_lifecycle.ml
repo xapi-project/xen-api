@@ -15,7 +15,9 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `import
 	                                -> []
 	| `changing_memory_limits
+	| `changing_shadow_memory
 	| `changing_static_range
+	| `changing_VCPUs
 	| `destroy
 	| `make_into_template
 	| `provision

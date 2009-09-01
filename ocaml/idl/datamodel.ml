@@ -1520,20 +1520,44 @@ let vm_pool_migrate = call
   ()
 
 let set_vcpus_number_live = call
-  ~name:"set_VCPUs_number_live"
-  ~in_product_since:rel_rio
-  ~doc:"Set this VM's VCPUs/at_startup value, and set the same value on the VM, if running"
-  ~params:[Ref _vm, "self", "The VM";
-           Int, "nvcpu", "The number of VCPUs" ]
-  ()
+	~name:"set_VCPUs_number_live"
+	~in_product_since:rel_rio
+	~doc:"Set the number of VCPUs for a running VM"
+	~params:[Ref _vm, "self", "The VM";
+		Int, "nvcpu", "The number of VCPUs"]
+	()
+
+let vm_set_VCPUs_max = call ~flags:[`Session]
+	~name:"set_VCPUs_max"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the maximum number of VCPUs for a halted VM"
+	~params:[Ref _vm, "self", "The VM";
+		Int, "value", "The new maximum number of VCPUs"]
+	()
+
+let vm_set_VCPUs_at_startup = call ~flags:[`Session]
+	~name:"set_VCPUs_at_startup"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the number of startup VCPUs for a halted VM"
+	~params:[Ref _vm, "self", "The VM";
+		Int, "value", "The new maximum number of VCPUs"]
+	()
+
+let vm_set_HVM_shadow_multiplier = call ~flags:[`Session]
+	~name:"set_HVM_shadow_multiplier"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the shadow memory multiplier on a halted VM"
+	~params:[Ref _vm, "self", "The VM";
+		Float, "value", "The new shadow memory multiplier to set"]
+	()
 
 let vm_set_shadow_multiplier_live = call
-  ~name:"set_shadow_multiplier_live"
-  ~in_product_since:rel_rio
-  ~doc:"Set the shadow memory on a running VM with the new shadow multiplier"
-  ~params:[Ref _vm, "self", "The VM";
-           Float, "multiplier", "The new shadow multiplier to set"]
-  ()
+	~name:"set_shadow_multiplier_live"
+	~in_product_since:rel_rio
+	~doc:"Set the shadow memory multiplier on a running VM"
+	~params:[Ref _vm, "self", "The VM";
+		Float, "multiplier", "The new shadow memory multiplier to set"]
+	()
 
 let vm_add_to_VCPUs_params_live = call
   ~name:"add_to_VCPUs_params_live"
@@ -4579,7 +4603,7 @@ let hvm =
   [
     field "boot_policy" "HVM boot policy";
     field ~ty:(Map(String, String)) "boot_params" "HVM boot params";
-    field ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:RW "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
+    field ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
   ]
 
 (** Action to take on guest reboot/power off/sleep etc *)
@@ -4607,8 +4631,8 @@ let on_normal_exit_behaviour =
 let vcpus =
   [
     field ~ty:(Map(String, String)) "params" "configuration parameters for the selected VCPU policy";
-    field ~ty:Int "max" "Max number of VCPUs";
-    field ~ty:Int "at_startup" "Boot number of VCPUs";
+    field ~qualifier:StaticRO ~ty:Int "max" "Max number of VCPUs";
+    field ~qualifier:StaticRO ~ty:Int "at_startup" "Boot number of VCPUs";
   ]
 
 (** Default actions *)
@@ -4644,8 +4668,10 @@ let vm_operations =
 	    "changing_static_range", "Changing the memory static range";
 	    "changing_memory_limits", "Changing the memory limits";
 	    "get_cooperative", "Querying the co-operativeness of the VM";
-	    "changing_shadow_memory_live", "Changing the shadow memory settings";
-	    "changing_VCPUs_live", "Changing either the VCPUs_number or VCPUs_params";
+	    "changing_shadow_memory", "Changing the shadow memory for a halted VM.";
+	    "changing_shadow_memory_live", "Changing the shadow memory for a running VM.";
+	    "changing_VCPUs", "Changing VCPU settings for a halted VM.";
+	    "changing_VCPUs_live", "Changing VCPU settings for a running VM.";
 	    "assert_operation_valid", "";
 	    "data_source_op", "Add, remove, query or list data sources";
 	    "update_allowed_operations", "";
@@ -4682,7 +4708,10 @@ let vm =
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
 		vm_get_cooperative;
+		vm_set_HVM_shadow_multiplier;
 		vm_set_shadow_multiplier_live;
+		vm_set_VCPUs_max;
+		vm_set_VCPUs_at_startup;
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
 		vm_migrate;
