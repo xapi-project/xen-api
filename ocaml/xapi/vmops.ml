@@ -265,18 +265,23 @@ let destroy_consoles ~__context ~vM =
 	let all = Db.VM.get_consoles ~__context ~self:vM in
 	List.iter (fun console -> Db.Console.destroy ~__context ~self:console) all
 
+(* XXXX: we overcompensate here to avoid causing domain  *)
+(* builder errors caused by imprecise memory accounting. *)
+let start_vm_fudge_factor = 1.2
+let add_start_vm_fudge_factor x = Int64.of_float (Int64.to_float x *. start_vm_fudge_factor)
+let remove_start_vm_fudge_factor x = Int64.of_float (Int64.to_float x /. start_vm_fudge_factor)
+
 (** For a given virtual machine snapshot, returns a cautious overestimate of
     the amount of memory required to create a domain for that virtual machine. *)
-let memory_required_to_safely_start_domain_kib ~__context ~snapshot =
-	let required_main_bytes, required_shadow_bytes =
-		Memory_check.vm_compute_start_memory ~__context snapshot in
-	let required_bytes = Int64.add required_main_bytes required_shadow_bytes in
-	let required_kib = Memory.kib_of_bytes_used required_bytes in
-	(* XXXX: we overcompensate here to avoid causing domain  *)
-	(* builder errors caused by imprecise memory accounting. *)
-	let required_with_fudge_factor_kib =
-		Int64.of_float (Int64.to_float required_kib *. 1.2) in
-	required_with_fudge_factor_kib
+let memory_range_required_to_safely_start_domain_kib ~__context ~snapshot =
+	let min_kib = Memory.kib_of_bytes_used snapshot.API.vM_memory_dynamic_min 
+	and max_kib = Memory.kib_of_bytes_used snapshot.API.vM_memory_dynamic_max in
+	let add (x, y) = Int64.add x y in
+	let min_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot min_kib)) in
+	let max_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot max_kib)) in
+	let min_required_with_fudge_kib = add_start_vm_fudge_factor min_required_kib in
+	let max_required_with_fudge_kib = add_start_vm_fudge_factor max_required_kib in
+	min_required_with_fudge_kib, max_required_with_fudge_kib
 
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
@@ -392,7 +397,9 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 	  if not (String.has_substr caps "hvm") then (raise (Api_errors.Server_error (Api_errors.vm_hvm_required,[]))))
 
 (* create an empty domain *)
-let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) () =
+let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
+  finally
+    (fun () ->
         general_domain_create_check ~__context ~vm:self ~snapshot;
 	(* We always create at_startup vCPUs and modify this field to reflect the
 	   current value when we suspend so it's safe to always use at_startup.
@@ -440,6 +447,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) () =
 	  (fun () ->
 	     let domid = Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~name:snapshot.API.vM_name_label uuid in
 	     debug "Created domain with domid: %d" domid;
+	     Memory_control.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
 
 	     begin try let sspf = (List.assoc "suppress-spurious-page-faults" snapshot.API.vM_other_config) in
 	     if sspf = "true" then Domain.suppress_spurious_page_faults ~xc domid;
@@ -457,6 +465,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) () =
 
 	     domid
 	  )
+    ) (fun () -> Memory_control.delete_reservation ~xs ~reservation_id)
 
 (* Destroy a domain associated with this VM. Note the VM's power_state and domid might
    remain valid if the VM has a domain on another host (ie in the migrate case)
@@ -938,13 +947,16 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
   (* Take the subset of locked VBDs *)
   let other_config = Db.VM.get_other_config ~__context ~self:vm in
   let vbds = Vbdops.vbds_to_attach ~__context ~vm in
-	let memory_required_kib = memory_required_to_safely_start_domain_kib
-		~__context ~snapshot in
+  let min_kib, max_kib = memory_range_required_to_safely_start_domain_kib ~__context ~snapshot in
 	with_xc_and_xs
  	(fun xc xs ->
-		    let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot () in
+	   let amount_kib, reservation_id = Memory_control.reserve_memory_range ~__context ~xc ~xs ~min:min_kib ~max:max_kib in
+	   let amount_bytes = Int64.mul 1024L amount_kib in
+	   let amount_bytes = max snapshot.API.vM_memory_dynamic_min (remove_start_vm_fudge_factor amount_bytes) in
+	   let snapshot = { snapshot with API.vM_memory_target = amount_bytes } in
+	   let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
+
 		    begin try
-		      Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid; 
 		      Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
 
 		      progress_cb 0.25;

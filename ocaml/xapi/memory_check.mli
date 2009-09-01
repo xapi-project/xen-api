@@ -42,6 +42,8 @@ val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
 val compute_free_memory : __context:Context.t -> host_memory_summary ->
 	accounting_policy -> int64
 
+val vm_compute_required_memory : API.vM_t -> int64 -> int64 * int64
+
 val vm_compute_start_memory : __context:Context.t ->
 	?policy:accounting_policy -> API.vM_t -> int64 * int64
 
