@@ -21,11 +21,14 @@ let dynamic_min_path         dom_path = dom_path ^ "/memory/dynamic-min"
 let dynamic_max_path         dom_path = dom_path ^ "/memory/dynamic-max"
 let feature_balloon_path     dom_path = dom_path ^ "/control/feature-balloon"
 let memory_offset_path       dom_path = dom_path ^ "/memory/memory-offset"
+let uncooperative_path       dom_path = dom_path ^ "/memory/uncooperative"
 
 let ( ** ) = Int64.mul
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
 let mib = 1024L
+
+let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
 let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
@@ -196,6 +199,44 @@ let make_host ~xc ~xs =
 		~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib)
 		~emergency_pool_kib:low_mem_emergency_pool
 
+(** Record when the domain was last co-operative *)
+let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
+
+let update_cooperative_table host = 
+  let now = Unix.gettimeofday () in
+  let alive_domids = List.map (fun d -> d.Squeeze.domid) host.Squeeze.domains in
+  let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) when_domain_was_last_cooperative [] in
+  let gone_domids = set_difference known_domids alive_domids in
+  List.iter (Hashtbl.remove when_domain_was_last_cooperative) gone_domids;
+  let arrived_domids = set_difference alive_domids known_domids in
+  (* Assume domains are initially co-operative *)
+  List.iter (fun x -> Hashtbl.replace when_domain_was_last_cooperative x now) arrived_domids;
+  (* Main business: mark any domain which is on or above target as co-operative *)
+  List.iter (fun d -> 
+	       if Squeeze.has_hit_target d.Squeeze.memory_actual_kib d.Squeeze.target_kib 
+	       then Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
+	    ) host.Squeeze.domains
+
+(** Update all the flags in xenstore *)
+let update_cooperative_flags xs = 
+  let now = Unix.gettimeofday () in
+  Hashtbl.iter (fun domid last_time ->
+		  let dom_path = xs.Xs.getdomainpath domid in
+		  if now -. last_time <= 20. 
+		  then xs.Xs.rm (uncooperative_path dom_path)
+		  else begin
+		    debug "domid: %d declared uncooperative" domid;
+		    Xs.transaction xs
+		      (fun t ->
+			 (* make sure no-one deletes the tree *)
+			 ignore (t.Xst.read dom_path);
+			 t.Xst.write (uncooperative_path dom_path) ""
+		      )
+		  end
+	       )
+    when_domain_was_last_cooperative
+		  
+
 (** Best-effort update of a domain's memory target. *)
 let execute_action ~xc ~xs action =
 	try
@@ -230,6 +271,10 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 		while not (!finished) do
 			let t = Unix.gettimeofday () in
 			let host_debug_string, host = make_host ~xc ~xs in
+			(* Check whether the domains are co-operating *)
+			update_cooperative_table host;
+			update_cooperative_flags xs;
+
 			let acc', declared_active, declared_inactive, result =
 				Squeeze.Proportional.change_host_free_memory success_condition !acc host required_mem_kib t in
 			acc := acc';
@@ -297,7 +342,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				| Squeeze.AdjustTargets actions ->
 				    (* Set all the balloon targets *)
 				    List.iter (fun action -> execute_action ~xc ~xs action) actions;
-				    ignore(Unix.select [] [] [] 0.25);
+				    ignore(Unix.select [] [] [] 1.);
 			end
 		done
 
@@ -348,6 +393,10 @@ let balance_memory ~xc ~xs =
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
 let is_host_memory_unbalanced ~xc ~xs = 
   let debug_string, host = make_host ~xc ~xs in
+  (* Check whether the domains are co-operating *)
+  update_cooperative_table host;
+  update_cooperative_flags xs;
+
   let domains = List.map (fun d -> d.Squeeze.domid, d) host.Squeeze.domains in
 
   let t = Unix.gettimeofday () in
