@@ -38,6 +38,7 @@ type dev_event =
 	| ChangeRtc of string * string
 	| Message of string * string * int64 * string
 	| HotplugChanged of bool * string * string * string option * string option
+	| ChangeUncooperative of bool
 
 (* type dev_state = Connecting | Connected | Closing | Closed *)
 
