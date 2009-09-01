@@ -29,9 +29,17 @@ let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
+(** total_pages and max_pages both include the HVM VGA framebuffer but this memory is external to the guest's regular
+    address space. *)
+let domain_vga_kib di =
+  let vga_framebuffer_mib = if di.Xc.hvm_guest then Memory.HVM.xen_video_mib else Memory.Linux.xen_video_mib in
+  Memory.kib_of_mib vga_framebuffer_mib
+
 let domain_setmaxmem xc domid target_kib = 
-  debug "Xc.domain_setmaxmem domid=%d target=%Ld" domid target_kib;
-  Xc.domain_setmaxmem xc domid target_kib
+  let di = Xc.domain_getinfo xc domid in
+  let maxmem_kib = domain_vga_kib di +* target_kib in
+  debug "Xc.domain_setmaxmem domid=%d target=%Ld max=%Ld" domid target_kib maxmem_kib;
+  Xc.domain_setmaxmem xc domid maxmem_kib
 
 let set_target t dom_path target_kib = 
   let path = target_path dom_path in
@@ -80,8 +88,12 @@ let make_host ~xc ~xs =
 				try
 					let path = xs.Xs.getdomainpath di.Xc.domid in
 					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
-					(* dom0 is special for some reason *)
+					(* the VGA framebuffer appears in total_memory_pages and max_memory_pages but we want to ignore this *)
+					let vga_framebuffer_kib = domain_vga_kib di in
+					let memory_actual_kib = max 0L (memory_actual_kib -* vga_framebuffer_kib) in
+					(* dom0 is also special for some reason *)
 					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
+					let memory_max_kib = max 0L (memory_max_kib -* vga_framebuffer_kib) in
 					let domain = 
 					  { Squeeze.
 						domid = di.Xc.domid;
