@@ -558,7 +558,16 @@ let suspend  ~__context ~vm =
 					let is_paused = Db.VM.get_power_state
 						~__context ~self:vm = `Paused in
 					if is_paused then Domain.unpause ~xc domid;
+					let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+					let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+					let min = Int64.to_int (Int64.div min 1024L) in
+					let max = Int64.to_int (Int64.div max 1024L) in
 					try
+						(* Balloon down the guest as far as we can to force it to clear
+						   unnecessary caches etc. *)
+						debug "suspend phase 0/3: asking guest to balloon down";
+						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+						Squeeze_xen.balance_memory ~xc ~xs;
 						debug "suspend phase 1/3: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
 						(* the device un-hotplug the final 10% *)
@@ -590,6 +599,8 @@ let suspend  ~__context ~vm =
 						Vmops.destroy ~clear_currently_attached:false
 							~__context ~xc ~xs ~self:vm domid `Suspended;
 					with e ->
+						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
+						Squeeze_xen.balance_memory ~xc ~xs;
 						if is_paused then
 							(try Domain.pause ~xc domid with _ -> ());
 							raise e
