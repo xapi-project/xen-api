@@ -332,6 +332,10 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_required_kib =
   let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 
+  (* Since the initial memory target is read from vM_memory_target in _resume_domain we must
+     set this equal to memory_required_kib otherwise the domain will balloon up on unpause. *)
+  let snapshot = { snapshot with API.vM_memory_target = Int64.mul memory_required_kib 1024L } in
+
   (* MTC: If this is a protected VM, then return the peer VM configuration
    * for instantiation (the destination VM where we'll migrate to).  
    * Otherwise, it returns the current VM (which is the unmodified XAPI
