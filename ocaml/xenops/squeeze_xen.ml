@@ -245,9 +245,9 @@ let update_cooperative_table host =
   let arrived_domids = set_difference alive_domids known_domids in
   (* Assume domains are initially co-operative *)
   List.iter (fun x -> Hashtbl.replace when_domain_was_last_cooperative x now) arrived_domids;
-  (* Main business: mark any domain which is on or above target as co-operative *)
+  (* Main business: mark any domain which is on or above target OR which cannot balloon as co-operative *)
   List.iter (fun d -> 
-	       if Squeeze.has_hit_target d.Squeeze.memory_actual_kib d.Squeeze.target_kib 
+	       if not d.Squeeze.can_balloon || (Squeeze.has_hit_target d.Squeeze.memory_actual_kib d.Squeeze.target_kib)
 	       then Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
 	    ) host.Squeeze.domains
 
