@@ -56,11 +56,8 @@ let vm_compute_used_memory ~__context policy vm_ref =
 	(* Fetch records relating to the current memory state of the given VM:                   *)
 	(*   + the VM main record holds current values of memory_{dynamic_{min,max},target};     *)
 	(*   + the VM boot record holds current values of memory_static_{min,max};               *)
-	(*   + the VM metrics record holds the asynchronously-calculated value of memory_actual. *)
 	let vm_main_record = Db.VM.get_record ~__context ~self:vm_ref in
 	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
-	let vm_metrics_ref = vm_main_record.API.vM_metrics in
-	let vm_metrics_record = Db.VM_metrics.get_record ~__context ~self:vm_metrics_ref in
 	(* Extract the current memory state from the fetched records: *)
 	let memory_static_max = vm_boot_record.API.vM_memory_static_max in
 	let memory_dynamic_min = vm_main_record.API.vM_memory_dynamic_min in
