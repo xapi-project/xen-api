@@ -1,20 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(**
- * @group Virtual-Machine Management
- *)
- 
 open Db_filter_types
 open Pervasiveext
 open Vm_placement
@@ -33,9 +16,12 @@ let create_guest_snapshot __context guest =
 
 let create_host_snapshot __context host =
 	let host_id = Db.Host.get_uuid __context host in
-	let memory_overhead = Db.Host.get_memory_overhead ~__context ~self:host in
-	let metrics = Db.Host.get_metrics ~__context ~self:host in
-	let memory_total = Db.Host_metrics.get_memory_total ~__context ~self:metrics in
+	let host_metrics = Db.Host.get_metrics ~__context
+		~self:host in
+	let memory_overhead = Db.Host.get_memory_overhead ~__context
+		~self:host in
+	let memory_total = Db.Host_metrics.get_memory_total ~__context
+		~self:host_metrics in
 	let guest_snapshots guest_type = List.map
 		(create_guest_snapshot __context)
 		(Db.VM.get_refs_where ~__context
@@ -77,9 +63,7 @@ let affinity_host_ids_of_guest __context guest =
 	let affinity_host = Db.VM.get_affinity ~__context ~self:guest in
 	let affinity_host_is_valid = Db_cache.DBCache.is_valid_ref
 		(Ref.string_of affinity_host) in
-	if affinity_host_is_valid
-		then [Db.Host.get_uuid __context affinity_host]
-		else []
+	if affinity_host_is_valid then [Ref.string_of affinity_host] else []
 
 (** Returns a single host (from the set of all hosts) on which the given [vm]
 can boot. @raise Api_errors.no_hosts_available if no such host exists. *)
