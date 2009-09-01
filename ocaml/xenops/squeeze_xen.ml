@@ -42,12 +42,6 @@ let xen_max_offset_kib di =
   let maxmem_mib = if di.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib in
   Memory.kib_of_mib maxmem_mib
 
-(** When quiesced total_pages is always a certain amount above target. This accounts for 
-    most of it leaving a few 10s of KiB difference. *)
-let xen_tot_offset_kib di =
-  let totmem_mib = if di.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib in
-  Memory.kib_of_mib totmem_mib
-
 let domain_setmaxmem_noexn xc domid target_kib = 
   let di = Xc.domain_getinfo xc domid in
   let maxmem_kib = xen_max_offset_kib di +* target_kib in
@@ -147,11 +141,9 @@ let make_host ~xc ~xs =
 				try
 					let path = xs.Xs.getdomainpath di.Xc.domid in
 					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
-					(* The VGA framebuffer appears in total_memory_pages *)
-					let memory_actual_kib = max 0L (memory_actual_kib -* (xen_tot_offset_kib di)) in
-					(* dom0 is also special for some reason *)
+					(* dom0 is special for some reason *)
 					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
-					(* The VGA framebuffer and misc other stuff appears in max_memory_pages *)
+					(* Misc other stuff appears in max_memory_pages *)
 					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di)) in
 					let can_balloon = exists xs (feature_balloon_path path) in
 					(* Once the domain tells us it can balloon, we assume it's not currently ballooning and

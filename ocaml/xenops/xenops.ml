@@ -59,13 +59,13 @@ let create_domain ~xc ~xs ~hvm =
 	let domid = Domain.make ~xc ~xs ~hvm uuid in
 	printf "%u\n" domid
 
-let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~mem_max_kib ~mem_target_kib =
-	let (_: Domain.domarch) = Domain.build_linux xc xs mem_max_kib mem_target_kib
+let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =
+	let (_: Domain.domarch) = Domain.build_linux xc xs static_max_kib target_kib
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
-let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~pae ~apic ~acpi ~nx ~viridian =
-	let (_: Domain.domarch) = Domain.build_hvm xc xs mem_max_kib mem_target_kib 1.
+let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib ~pae ~apic ~acpi ~nx ~viridian =
+	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
 	                                           vcpus kernel pae apic acpi nx viridian
 	                                           "0" domid in
 	printf "built hvm domain: %u\n" domid
@@ -120,9 +120,9 @@ let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 	suspend_domain ~xc ~xs ~domid ~file;
 	Domain.destroy xc xs domid
 
-let restore_domain ~xc ~xs ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~file =
+let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~vcpus fd;
+	Domain.restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =
@@ -275,9 +275,9 @@ let list_pci ~xc ~xs ~domid =
 		     Printf.printf "dev-%d %04x:%02x:%02x.%1x\n" id domain bus dev func
 		  ) pcidevs
 
-let add_dm ~xs ~domid ~mem_max_kib ~vcpus ~boot =
+let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 	let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
-	Device.Dm.start ~xs ~dmpath ~memory:mem_max_kib ~boot ~serial:"pty"
+	Device.Dm.start ~xs ~dmpath ~memory:static_max_kib ~boot ~serial:"pty"
 	                ~vcpus ~disp:Device.Dm.NONE domid
 
 let add_ioport ~xc ~domid ~ioport_start ~ioport_end =
@@ -621,7 +621,7 @@ let _ =
 
 
 	let domid, backend_domid, hvm, vcpus, vcpu, kernel, ramdisk, cmdline,
-	    mem_max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
+	    max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
 	    phystype, physpath, virtpath, dev_type, devid, mac, pci, reason, sysrq,
 	    script, sync, netty, weight, cap, bitmap, cooperative,
 	    boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
@@ -629,7 +629,9 @@ let _ =
 
 	let is_domain_hvm xc domid = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
 
-	let mem_target_kib=mem_max_kib in
+	(* Aliases *)
+	let target_kib = max_kib in
+	let static_max_kib = max_kib in
 
 	let error s = eprintf "error: \"%s\" argument is not valid\n" s; exit 1 in
 	let assert_domid () = if domid < 0 then error "domid"
@@ -648,20 +650,20 @@ let _ =
 	| "build_domain"  ->
 		assert_domid (); assert_vcpus ();
 		with_xc_and_xs (fun xc xs ->
-			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~mem_max_kib ~mem_target_kib ~domid)
+			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~static_max_kib ~target_kib ~domid)
 	| "build_hvm"     ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~mem_max_kib ~mem_target_kib ~pae
+		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~pae
 						       ~apic ~acpi ~nx ~viridian ~domid)
 	| "setmaxmem"     ->
 		assert_domid ();
-		with_xc (fun xc -> Xc.domain_setmaxmem xc domid mem_max_kib) (* call takes pages *)
+		with_xc (fun xc -> Xc.domain_setmaxmem xc domid max_kib) (* call takes pages *)
 	| "save_domain"   ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_destroy ~xc ~xs ~domid ~file)
 	| "restore_domain" ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> restore_domain ~xc ~xs ~domid ~vcpus ~mem_max_kib ~mem_target_kib ~file)
+		with_xc_and_xs (fun xc xs -> restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file)
 	| "chkpoint_domain" ->
 		assert_domid (); assert_file ();
 		with_xc_and_xs (fun xc xs -> suspend_domain_and_resume ~xc ~xs ~domid ~file ~cooperative)
@@ -762,7 +764,7 @@ let _ =
 	| "add_dm" ->
 		assert_domid ();
 		with_xs (fun xs ->
-			let vnc_port = add_dm ~xs ~domid ~mem_max_kib ~vcpus ~boot in
+			let vnc_port = add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot in
 			Printf.printf "%d\n" vnc_port
 		)
 	| "balloon" ->

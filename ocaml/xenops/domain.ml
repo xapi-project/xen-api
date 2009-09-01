@@ -339,19 +339,19 @@ let create_channels ~xc domid =
 	let console = Xc.evtchn_alloc_unbound xc domid 0 in
 	store, console
 
-let build_pre ~xc ~xs ~vcpus ~xen_mem_max_mib ~xen_mem_shadow_mib domid =
+let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib domid =
 	debug "build_pre domid=%d; max=%Ld MiB; shadow=%Ld MiB"
-		domid xen_mem_max_mib xen_mem_shadow_mib;
-	let xen_mem_shadow_mib = Int64.to_int xen_mem_shadow_mib in
+		domid xen_max_mib shadow_mib;
+	let shadow_mib = Int64.to_int shadow_mib in
 	let dom_path = xs.Xs.getdomainpath domid in
 	let use_vmxassist =
 	  try bool_of_string (xs.Xs.read (dom_path ^ "/platform/vmxassist"))
 	  with _ -> false in
 	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
-	Xc.domain_setmaxmem xc domid (Memory.kib_of_mib xen_mem_max_mib);
-	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_mem_max_mib);
-	Xc.shadow_allocation_set xc domid xen_mem_shadow_mib;
+	Xc.domain_setmaxmem xc domid (Memory.kib_of_mib xen_max_mib);
+	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
+	Xc.shadow_allocation_set xc domid shadow_mib;
 	create_channels ~xc domid
 
 let resume_post ~xc ~xs domid =
@@ -362,16 +362,16 @@ let resume_post ~xc ~xs domid =
 	xs.Xs.introduce domid store_mfn store_port
 
 (* puts value in store after the domain build succeed *)
-let build_post ~xc ~xs ~vcpus ~mem_max_mib ~mem_target_mib domid
+let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
 		store_mfn store_port ents vments =
 	let dom_path = xs.Xs.getdomainpath domid in
 	(* Unit conversion. *)
-	let mem_max_kib = Memory.kib_of_mib mem_max_mib in
-	let mem_target_kib = Memory.kib_of_mib mem_target_mib in
+	let static_max_kib = Memory.kib_of_mib static_max_mib in
+	let target_kib = Memory.kib_of_mib target_mib in
 	(* expand local stuff with common values *)
 	let ents =
-		[ ("memory/static-max", Int64.to_string mem_max_kib);
-		  ("memory/target", Int64.to_string mem_target_kib);
+		[ ("memory/static-max", Int64.to_string static_max_kib);
+		  ("memory/target", Int64.to_string target_kib);
 		  ("domid", string_of_int domid);
 		  ("store/port", string_of_int store_port);
 		  ("store/ring-ref", sprintf "%nu" store_mfn);
@@ -384,30 +384,37 @@ let build_post ~xc ~xs ~vcpus ~mem_max_mib ~mem_target_mib domid
 	xs.Xs.introduce domid store_mfn store_port
 
 (** build a linux type of domain *)
-let build_linux ~xc ~xs ~mem_max_kib ~mem_target_kib ~kernel ~cmdline ~ramdisk ~vcpus domid =
+let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
+		~vcpus domid =
 	assert_file_is_readable kernel;
 	maybe assert_file_is_readable ramdisk;
 
 	(* Convert memory configuration values into the correct units. *)
-	let mem_max_mib = Memory.mib_of_kib_used mem_max_kib in
-	let mem_target_mib = Memory.mib_of_kib_used mem_target_kib in
+	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
+	let target_mib     = Memory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
-	assert (mem_target_mib <= mem_max_mib);
+	assert (target_mib <= static_max_mib);
 
-	(* Convert memory configuration values into Xen hypercall values. *)
-	let xen_mem_max_mib = Memory.Linux.xen_max_mib mem_max_mib in
-	let xen_mem_shadow_mib = Memory.Linux.xen_shadow_mib in
+	(* Adapt memory configuration values for Xen and the domain builder. *)
+	let build_max_mib =
+		Memory.Linux.build_max_mib static_max_mib in
+	let build_start_mib =
+		Memory.Linux.build_start_mib target_mib in
+	let xen_max_mib =
+		Memory.Linux.xen_max_mib static_max_mib in
+	let shadow_mib =
+		Memory.Linux.shadow_mib in
 
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_mem_max_mib ~xen_mem_shadow_mib ~vcpus domid in
+	let store_port, console_port =
+		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
 
 	let cnx = XenguestHelper.connect
 	  [
 	    "-mode"; "linux_build";
 	    "-domid"; string_of_int domid;
-	    "-mem_max_mib"; Int64.to_string mem_max_mib;
-	    "-mem_start_mib"; Int64.to_string mem_target_mib;
+	    "-mem_max_mib"; Int64.to_string build_max_mib;
+	    "-mem_start_mib"; Int64.to_string build_start_mib;
 	    "-image"; kernel;
 	    "-ramdisk"; (match ramdisk with Some x -> x | None -> "");
 	    "-cmdline"; cmdline;
@@ -434,7 +441,7 @@ let build_linux ~xc ~xs ~mem_max_kib ~mem_target_kib ~kernel ~cmdline ~ramdisk ~
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
 	] in
-	build_post ~xc ~xs ~vcpus ~mem_target_mib ~mem_max_mib
+	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff [];
 	match protocol with
 	| "x86_32-abi" -> Arch_X32
@@ -442,24 +449,29 @@ let build_linux ~xc ~xs ~mem_max_kib ~mem_target_kib ~kernel ~cmdline ~ramdisk ~
 	| _            -> Arch_native
 
 (** build hvm type of domain *)
-let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
+let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
               ~kernel ~pae ~apic ~acpi ~nx ~viridian ~timeoffset domid =
 	assert_file_is_readable kernel;
 
 	(* Convert memory configuration values into the correct units. *)
-	let mem_max_mib = Memory.mib_of_kib_used mem_max_kib in
-	let mem_target_mib = Memory.mib_of_kib_used mem_target_kib in
+	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
+	let target_mib     = Memory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
-	assert (mem_target_mib <= mem_max_mib);
+	assert (target_mib <= static_max_mib);
 
-	(* Convert memory configuration values into Xen hypercall values. *)
-	let xen_mem_max_mib = Memory.HVM.xen_max_mib mem_max_mib in
-	let xen_mem_shadow_mib = Memory.HVM.xen_shadow_mib mem_max_mib
-		vcpus shadow_multiplier in
+	(* Adapt memory configuration values for Xen and the domain builder. *)
+	let build_max_mib =
+		Memory.HVM.build_max_mib static_max_mib in
+	let build_start_mib =
+		Memory.HVM.build_start_mib target_mib in
+	let xen_max_mib =
+		Memory.HVM.xen_max_mib static_max_mib in
+	let shadow_mib =
+		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
 
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_mem_max_mib ~xen_mem_shadow_mib ~vcpus domid in
+	let store_port, console_port =
+		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
 
 	let cnx = XenguestHelper.connect
 	  [
@@ -467,8 +479,8 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
 	    "-image"; kernel;
-	    "-mem_max_mib"; Int64.to_string mem_max_mib;
-	    "-mem_start_mib"; Int64.to_string mem_target_mib;
+	    "-mem_max_mib"; Int64.to_string build_max_mib;
+	    "-mem_start_mib"; Int64.to_string build_start_mib;
 	    "-vcpus"; string_of_int vcpus;
 	    "-pae"; string_of_bool pae;
 	    "-apic"; string_of_bool apic;
@@ -483,7 +495,7 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 
 	(* XXX: domain builder will reduce our shadow allocation under our feet.
 	   Detect this and override. *)
-	let requested_shadow_mib = Int64.to_int xen_mem_shadow_mib in
+	let requested_shadow_mib = Int64.to_int shadow_mib in
 	let actual_shadow_mib = Xc.shadow_allocation_get xc domid in
 	if actual_shadow_mib < requested_shadow_mib then begin
 		warn
@@ -503,7 +515,7 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 		"rtc/timeoffset",    timeoffset;
 	] in
 
-	build_post ~xc ~xs ~vcpus ~mem_target_mib ~mem_max_mib
+	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port [] vm_stuff;
 
 	Arch_HVM
@@ -511,12 +523,12 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 let build ~xc ~xs info domid =
 	match info.priv with
 	| BuildHVM hvminfo ->
-		build_hvm ~xc ~xs ~mem_max_kib:info.memory_max ~mem_target_kib:info.memory_target
+		build_hvm ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
 		          ~kernel:info.kernel ~pae:hvminfo.pae ~apic:hvminfo.apic ~acpi:hvminfo.acpi
 		          ~nx:hvminfo.nx ~viridian:hvminfo.viridian ~timeoffset:hvminfo.timeoffset domid
 	| BuildPV pvinfo   ->
-		build_linux ~xc ~xs ~mem_max_kib:info.memory_max ~mem_target_kib:info.memory_target
+		build_linux ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
 		            ~vcpus:info.vcpus domid
 
@@ -573,21 +585,23 @@ let resume ~xc ~xs ~hvm ~cooperative domid =
 	resume_post ~xc	~xs domid;
 	if hvm then Device.Dm.resume ~xs domid
 
-let restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~vcpus domid fd =
+let restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
-	let mem_max_mib = Memory.mib_of_kib_used mem_max_kib in
-	let mem_target_mib = Memory.mib_of_kib_used mem_target_kib in
+	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
+	let target_mib     = Memory.mib_of_kib_used target_kib in
 
 	(* Sanity check. *)
-	assert (mem_target_mib <= mem_max_mib);
+	assert (target_mib <= static_max_mib);
 
-	(* Convert memory configuration values into Xen hypercall values. *)
-	let xen_mem_max_mib = Memory.Linux.xen_max_mib mem_max_mib in
-	let xen_mem_shadow_mib = Memory.Linux.xen_shadow_mib in
+	(* Adapt memory configuration values for Xen and the domain builder. *)
+	let xen_max_mib =
+		Memory.Linux.xen_max_mib static_max_mib in
+	let shadow_mib =
+		Memory.Linux.shadow_mib in
 
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_mem_max_mib ~xen_mem_shadow_mib ~vcpus domid in
+	let store_port, console_port =
+		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
 
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:false
 	                                            ~store_port ~console_port
@@ -597,26 +611,26 @@ let restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~vcpus domid fd =
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
 	] in
-	build_post ~xc ~xs ~vcpus ~mem_target_mib ~mem_max_mib
+	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff []
 
-let hvm_restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus ~pae ~viridian ~timeoffset domid fd =
+let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~pae ~viridian ~timeoffset domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
-	let mem_max_mib = Memory.mib_of_kib_used mem_max_kib in
-	let mem_target_mib = Memory.mib_of_kib_used mem_target_kib in
+	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
+	let target_mib     = Memory.mib_of_kib_used target_kib in
 
-	debug "hvm_restore mem_max_kib=%Ld mem_target_kib=%Ld" mem_max_kib mem_target_kib;
 	(* Sanity check. *)
-	assert (mem_target_mib <= mem_max_mib);
+	assert (target_mib <= static_max_mib);
 
-	(* Convert memory configuration values into Xen hypercall values. *)
-	let xen_mem_max_mib = Memory.HVM.xen_max_mib mem_max_mib in
-	let xen_mem_shadow_mib = Memory.HVM.xen_shadow_mib mem_max_mib
-		vcpus shadow_multiplier in
+	(* Adapt memory configuration values for Xen and the domain builder. *)
+	let xen_max_mib =
+		Memory.HVM.xen_max_mib static_max_mib in
+	let shadow_mib =
+		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
 
-	let store_port, console_port = build_pre ~xc ~xs
-		~xen_mem_max_mib ~xen_mem_shadow_mib ~vcpus domid in
+	let store_port, console_port =
+		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
 
 	let extras = [
 		"-pae"; string_of_bool pae;
@@ -630,7 +644,7 @@ let hvm_restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus ~
 		"rtc/timeoffset",    timeoffset;
 	] in
 	(* and finish domain's building *)
-	build_post ~xc ~xs ~vcpus ~mem_target_mib ~mem_max_mib
+	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port [] vm_stuff
 
 type suspend_flag = Live | Debug

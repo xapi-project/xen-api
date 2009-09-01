@@ -711,10 +711,10 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
          *)
 	let hvm = Helpers.is_hvm at_boot_time in
 	let vcpus = Int64.to_int (at_boot_time.API.vM_VCPUs_max) in
-	let mem_max_kib = Int64.div (at_boot_time.API.vM_memory_static_max) 1024L in
-	let mem_target_kib = if ballooning_enabled 
+	let static_max_kib = Int64.div (at_boot_time.API.vM_memory_static_max) 1024L in
+	let target_kib = if ballooning_enabled 
 	  then Int64.div at_boot_time.API.vM_memory_target 1024L (* suspend copies this number from total_pages *)
-	  else mem_max_kib in 
+	  else static_max_kib in 
 
 	if hvm then (
 		let platform = at_boot_time.API.vM_platform in
@@ -724,10 +724,10 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 		let shadow_multiplier = at_boot_time.API.vM_HVM_shadow_multiplier in
 		let pae = map_to_bool "pae" in
 		let viridian = map_to_bool "viridian" in
-		Domain.hvm_restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
+		Domain.hvm_restore ~xc ~xs domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		                   ~pae ~viridian ~timeoffset fd;
 	) else (
-		Domain.restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~vcpus fd;
+		Domain.restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	);
 	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile domid vifs at_boot_time in
 	(* write in the current policy info *)
