@@ -69,17 +69,20 @@ let get_session_id =
 	     s
       )
 
-(** If we fail to allocate because VMs failed to co-operate then retry for a while before finally giving up.
+(** If we fail to allocate because VMs either failed to co-operate or because they are still booting
+    and haven't written their feature-balloon flag then retry for a while before finally giving up.
     In particular this should help smooth over the period when VMs are booting and haven't loaded their balloon
     drivers yet. *)
-let retry_if_not_cooperative f = 
+let retry f = 
   let start = Unix.gettimeofday () in
-  let interval = 5. in
-  let timeout = 30. in
+  let interval = 10. in
+  let timeout = 60. in
   let rec loop () = 
     try
       f ()
-    with Api_errors.Server_error(code, params) as e when code = Api_errors.vms_failed_to_cooperate ->
+    with Api_errors.Server_error(code, params) as e 
+      when code = Api_errors.vms_failed_to_cooperate 
+	|| code = Api_errors.host_not_enough_free_memory ->
       let now = Unix.gettimeofday () in
       if now -. start > timeout then raise e else begin
 	debug "Sleeping %.0f before retrying" interval;
@@ -91,7 +94,7 @@ let retry_if_not_cooperative f =
 (** Reserve a particular amount of memory and return a reservation id *)
 let reserve_memory ~__context ~xc ~xs ~kib = 
   let session_id = get_session_id ~__context ~xs in
-  retry_if_not_cooperative
+  retry
     (fun () ->
        throw_exceptions ~__context
 	 (fun () ->
@@ -106,7 +109,7 @@ let reserve_memory ~__context ~xc ~xs ~kib =
 let reserve_memory_range ~__context ~xc ~xs ~min ~max = 
   let session_id = get_session_id ~__context ~xs in
   let reserved_memory, reservation_id =
-  retry_if_not_cooperative
+  retry
     (fun () ->
        throw_exceptions ~__context
 	 (fun () ->

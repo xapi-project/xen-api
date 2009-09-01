@@ -99,8 +99,35 @@ let set_memory_offset_noexn xs dom_path offset_kib =
     error "set_memory_offset_noexn %s %Ld: %s" dom_path offset_kib (Printexc.to_string e)
 
 
-exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon everyone down we can't free this much *)
-exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
+(** Record when the domain was last co-operative *)
+let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
+
+let update_cooperative_table host = 
+  let now = Unix.gettimeofday () in
+  let alive_domids = List.map (fun d -> d.Squeeze.domid) host.Squeeze.domains in
+  let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) when_domain_was_last_cooperative [] in
+  let gone_domids = set_difference known_domids alive_domids in
+  List.iter (Hashtbl.remove when_domain_was_last_cooperative) gone_domids;
+  let arrived_domids = set_difference alive_domids known_domids in
+  (* Assume domains are initially co-operative *)
+  List.iter (fun x -> Hashtbl.replace when_domain_was_last_cooperative x now) arrived_domids;
+  (* Main business: mark any domain which is on or above target OR which cannot balloon as co-operative *)
+  List.iter (fun d -> 
+	       if not d.Squeeze.can_balloon || (Squeeze.has_hit_target d.Squeeze.inaccuracy_kib d.Squeeze.memory_actual_kib d.Squeeze.target_kib)
+	       then Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
+	    ) host.Squeeze.domains
+
+(** Update all the flags in xenstore *)
+let update_cooperative_flags xs = 
+  let now = Unix.gettimeofday () in
+  Hashtbl.iter (fun domid last_time ->
+		  let dom_path = xs.Xs.getdomainpath domid in
+		  let old_value = get_uncooperative_noexn xs dom_path in
+		  let new_value = now -. last_time > 20. in
+		  if old_value <> new_value then set_uncooperative_noexn xs dom_path new_value
+	       )
+    when_domain_was_last_cooperative
+		  
 
 (** Best-effort creation of a 'host' structure and a simple debug line showing its derivation *)
 let make_host ~xc ~xs =
@@ -172,6 +199,7 @@ let make_host ~xc ~xs =
 						target_kib = 0L;
 						memory_actual_kib = 0L;
 						memory_max_kib = memory_max_kib;
+						inaccuracy_kib = 4L;
 					  } in
 					
 					(* If the domain has never run (detected by being paused, not shutdown and clocked up no CPU time)
@@ -228,40 +256,12 @@ let make_host ~xc ~xs =
 	debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
-	Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib,
-	Squeeze.make_host ~domains
-		~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib)
-		~emergency_pool_kib:low_mem_emergency_pool
+	let host = Squeeze.make_host ~domains ~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib) in
 
-(** Record when the domain was last co-operative *)
-let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
+	update_cooperative_table host;
+	update_cooperative_flags xs;
 
-let update_cooperative_table host = 
-  let now = Unix.gettimeofday () in
-  let alive_domids = List.map (fun d -> d.Squeeze.domid) host.Squeeze.domains in
-  let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) when_domain_was_last_cooperative [] in
-  let gone_domids = set_difference known_domids alive_domids in
-  List.iter (Hashtbl.remove when_domain_was_last_cooperative) gone_domids;
-  let arrived_domids = set_difference alive_domids known_domids in
-  (* Assume domains are initially co-operative *)
-  List.iter (fun x -> Hashtbl.replace when_domain_was_last_cooperative x now) arrived_domids;
-  (* Main business: mark any domain which is on or above target OR which cannot balloon as co-operative *)
-  List.iter (fun d -> 
-	       if not d.Squeeze.can_balloon || (Squeeze.has_hit_target d.Squeeze.memory_actual_kib d.Squeeze.target_kib)
-	       then Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
-	    ) host.Squeeze.domains
-
-(** Update all the flags in xenstore *)
-let update_cooperative_flags xs = 
-  let now = Unix.gettimeofday () in
-  Hashtbl.iter (fun domid last_time ->
-		  let dom_path = xs.Xs.getdomainpath domid in
-		  let old_value = get_uncooperative_noexn xs dom_path in
-		  let new_value = now -. last_time > 20. in
-		  if old_value <> new_value then set_uncooperative_noexn xs dom_path new_value
-	       )
-    when_domain_was_last_cooperative
-		  
+	Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib, host
 
 (** Best-effort update of a domain's memory target. *)
 let execute_action ~xc ~xs action =
@@ -279,172 +279,39 @@ let execute_action ~xc ~xs action =
 			action.Squeeze.action_domid action.Squeeze.new_target_kib
 			(Printexc.to_string e)
 
-(**
-	If this returns successfully the required amount of memory should be free
-	(modulo scrubbing).
-*)
-let change_host_free_memory ~xc ~xs required_mem_kib success_condition = 
-	(* XXX: debugging *)
-	debug "change_host_free_memory required_mem = %Ld KiB" required_mem_kib;
-
-		let acc = ref (Squeeze.Proportional.make ()) in
-		let finished = ref false in
-		while not (!finished) do
-			let t = Unix.gettimeofday () in
-			let host_debug_string, host = make_host ~xc ~xs in
-			(* Check whether the domains are co-operating *)
-			update_cooperative_table host;
-			update_cooperative_flags xs;
-
-			let acc', declared_active_domids, declared_inactive_domids, result =
-				Squeeze.Proportional.change_host_free_memory success_condition !acc host required_mem_kib t in
-			acc := acc';
-			
-			(* Set the max_mem of a domain as follows:
-
-			   If the VM has never been run && is paused -> use initial-reservation
-			   If the VM is active                       -> use target
-			   If the VM is inactive                     -> use min(target, actual)
-
-			   So active VMs may move up or down towards their target and either get there 
-			   (while we actively monitor them) or are declared inactive.
-			   Inactive VMs are allowed to free memory while we aren't looking but 
-			   they are not to allocate more.
-
-			   Note that the concept of having 'never been run' is hidden from us by the
-			   'make_host' function above. The data we receive here will show either an
-			   inactive (paused) domain with target=actual=initial_reservation or an
-			   active (unpaused) domain. So the we need only deal with 'active' vs 'inactive'.
-			*)
-
-			(* Compile a list of new targets *)
-			let new_targets = match result with
-			  | Squeeze.AdjustTargets actions ->
-			      List.map (fun a -> a.Squeeze.action_domid, a.Squeeze.new_target_kib) actions
-			  | _ -> [] in
-			let new_target_direction domain = 
-			  let new_target = if List.mem_assoc domain.Squeeze.domid new_targets then Some(List.assoc domain.Squeeze.domid new_targets) else None in
-			  match new_target with
-			  | None -> Squeeze.string_of_direction None
-			  | Some t -> Squeeze.string_of_direction (Squeeze.direction_of_int64 domain.Squeeze.target_kib t) in
-			let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> Squeeze.short_string_of_domain domain ^ (new_target_direction domain)) host.Squeeze.domains)) in
-			M.debug "%s" debug_string;
-			
-			(* Deal with inactive and 'never been run' domains *)
-			List.iter (fun domid -> 
-				     try
-				       let domain = Squeeze.IntMap.find domid host.Squeeze.domid_to_domain in
-				       let mem_max_kib = min domain.Squeeze.target_kib domain.Squeeze.memory_actual_kib in
-				       debug "Setting inactive domain %d mem_max = %Ld" domid mem_max_kib;
-				       domain_setmaxmem_noexn xc domid mem_max_kib
-				     with Not_found ->
-				       debug "WARNING: inactive domain %d not in map" domid
-				  ) declared_inactive_domids;
-			(* Next deal with the active domains (which may have new targets) *)
-			List.iter (fun domid ->
-				     try
-				       let domain = Squeeze.IntMap.find domid host.Squeeze.domid_to_domain in
-				       let mem_max_kib = 
-					 if List.mem_assoc domid new_targets 
-					 then List.assoc domid new_targets 
-					 else domain.Squeeze.target_kib in
-				       debug "Setting active domain %d mem_max = %Ld" domid mem_max_kib;
-				       domain_setmaxmem_noexn xc domid mem_max_kib
-				     with Not_found ->
-				       debug "WARNING: active domain %d not in map" domid
-				  ) declared_active_domids;
-
-			begin match result with
-				| Squeeze.Success ->
-				    debug "Success: Host free memory = %Ld KiB" required_mem_kib;
-				    finished := true
-				| Squeeze.Failed [] ->
-				    (* For better error reporting, calculate the maximum we could free *)
-				    let total_freeable_memory_kib, _ = Squeeze.Proportional.compute_host_memory_delta_range host.Squeeze.domains in
-				    let maximum_possible_free_memory_kib = host.Squeeze.free_mem_kib +* total_freeable_memory_kib in
-				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits of balloonable domains. Maximum possible free memory = %Ld KiB" required_mem_kib maximum_possible_free_memory_kib;
-				    raise (Cannot_free_this_much_memory (required_mem_kib, maximum_possible_free_memory_kib));
-				| Squeeze.Failed domids ->
-				    let s = String.concat ", " (List.map string_of_int domids) in
-				    debug "Failed to free %Ld KiB of memory: the following domains have failed to meet their targets: [ %s ]"
-				      required_mem_kib s;
-				    raise (Domains_refused_to_cooperate domids)
-				| Squeeze.AdjustTargets actions ->
-				    (* Set all the balloon targets *)
-				    List.iter (fun action -> execute_action ~xc ~xs action) actions;
-				    ignore(Unix.select [] [] [] 1.);
-			end
-		done
-
 let extra_mem_to_keep = 8L ** mib (** Domain.creates take "ordinary" memory as well as "special" memory *)
 
 let target_host_free_mem_kib = low_mem_emergency_pool +* extra_mem_to_keep
 
 let free_memory_tolerance_kib = 512L (** No need to be too exact *)
 
+let io ~xc ~xs = {
+  Squeeze.gettimeofday = Unix.gettimeofday;
+  make_host = (fun () -> make_host ~xc ~xs);
+  domain_setmaxmem = (fun domid kib -> domain_setmaxmem_noexn xc domid kib);
+  wait = (fun delay -> ignore(Unix.select [] [] [] delay));
+  execute_action = (fun action -> execute_action ~xc ~xs action);
+  target_host_free_mem_kib = target_host_free_mem_kib;
+  free_memory_tolerance_kib = free_memory_tolerance_kib;
+}
 
+let change_host_free_memory ~xc ~xs required_mem_kib success_condition = 
+  Squeeze.change_host_free_memory (io ~xc ~xs) required_mem_kib success_condition
 
-let free_memory ~xc ~xs required_mem_kib = change_host_free_memory ~xc ~xs (required_mem_kib +* target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* target_host_free_mem_kib))
+let free_memory ~xc ~xs required_mem_kib = 
+  let io = io ~xc ~xs in
+  Squeeze.change_host_free_memory io (required_mem_kib +* io.Squeeze.target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* io.Squeeze.target_host_free_mem_kib))
 
 let free_memory_range ~xc ~xs min_kib max_kib =
-  (* First compute the 'ideal' amount of free memory based on the proportional allocation policy *)
-  let domain = { Squeeze.domid = -1;
-		 can_balloon = true;
-		 dynamic_min_kib = min_kib; dynamic_max_kib = max_kib;
-		 target_kib = min_kib;
-		 memory_actual_kib = 0L;
-		 memory_max_kib = 0L
-	       } in
-  let host = snd(make_host ~xc ~xs)in
-  let host' = { host with Squeeze.domains = domain :: host.Squeeze.domains } in
-  let adjustments = Squeeze.Proportional.compute_target_adjustments host' target_host_free_mem_kib in
-  let target = 
-    if List.mem_assoc domain adjustments
-    then List.assoc domain adjustments
-    else min_kib in
-  debug "free_memory_range ideal new target = %Ld; need to keep %Ld free => need %Ld free in total" target target_host_free_mem_kib (target +* target_host_free_mem_kib);
-
-  change_host_free_memory ~xc ~xs (target +* target_host_free_mem_kib) (fun x -> x >= (min_kib +* target_host_free_mem_kib));
-  let host = snd(make_host ~xc ~xs) in
-  let usable_free_mem_kib = host.Squeeze.free_mem_kib -* target_host_free_mem_kib in
-  if usable_free_mem_kib < min_kib then begin
-    debug "WARNING usable_free_mem_kib (%Ld) < min_kib (%Ld) (difference = %Ld KiB)" usable_free_mem_kib min_kib (min_kib -* usable_free_mem_kib);
-  end;
-  max min_kib (min usable_free_mem_kib max_kib)
+  let io = io ~xc ~xs in
+  Squeeze.free_memory_range io min_kib max_kib
 
 let is_balanced x = Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib
 
 let balance_memory ~xc ~xs = 
-  try
-    change_host_free_memory ~xc ~xs target_host_free_mem_kib is_balanced;
-    if not (Memory.wait_xen_free_mem ~xc (Int64.sub target_host_free_mem_kib free_memory_tolerance_kib))
-    then failwith "wait_xen_free_mem"
-  with e -> debug "balance memory caught: %s" (Printexc.to_string e)
+  Squeeze.balance_memory (io ~xc ~xs)
 
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
 let is_host_memory_unbalanced ~xc ~xs = 
-  let debug_string, host = make_host ~xc ~xs in
-  (* Check whether the domains are co-operating *)
-  update_cooperative_table host;
-  update_cooperative_flags xs;
-
-  let domains = List.map (fun d -> d.Squeeze.domid, d) host.Squeeze.domains in
-
-  let t = Unix.gettimeofday () in
-  let _, _, _, result = Squeeze.Proportional.change_host_free_memory 
-    is_balanced (Squeeze.Proportional.make ()) host 
-    target_host_free_mem_kib (Unix.gettimeofday ()) in
-  
-  let is_new_target a = 
-    let existing = (List.assoc a.Squeeze.action_domid domains).Squeeze.target_kib in
-    a.Squeeze.new_target_kib <> existing in
-
-  match result with
-  | Squeeze.AdjustTargets ts ->
-      if List.fold_left (||) false (List.map is_new_target ts) then begin
-	debug "Memory is not currently balanced";
-	debug "%s" debug_string;
-	true
-      end else false
-  | _ -> false
+  Squeeze.is_host_memory_unbalanced (io ~xc ~xs)
   
