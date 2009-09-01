@@ -729,7 +729,16 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		help="Set the memory target for a running VM. The given value must be within the "^
 		     "range defined by the VM's memory_dynamic_min and memory_dynamic_max values.";
 		implementation= No_fd Cli_operations.vm_memory_target_set;
-		flags=[Deprecated ["vm-memory-target-set"]; Vm_selectors; Hidden];
+		flags=[Deprecated ["vm-memory-dynamic-range-set"]; Vm_selectors; Hidden];
+	};
+
+	"vm-memory-dynamic-range-set",
+	{
+		reqd=["min"; "max"];
+		optn=[];
+		help="Configure the range of physical memory the VM is allowed to consume.";
+		implementation= No_fd Cli_operations.vm_memory_dynamic_range_set;
+		flags=[Vm_selectors];
 	};
 
 	"vm-memory-static-range-set",
@@ -748,7 +757,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		help="Set the memory target for a running VM. The given value must be within the "^
 		     "range defined by the VM's memory_dynamic_min and memory_dynamic_max values.";
 		implementation= No_fd Cli_operations.vm_memory_target_set;
-		flags=[Vm_selectors; Hidden];
+		flags=[Deprecated ["vm-memory-dynamic-range-set"]; Vm_selectors; Hidden];
 	};
 
 	"vm-memory-target-wait",
