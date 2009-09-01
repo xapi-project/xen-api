@@ -8,6 +8,7 @@
 *)
 open Pervasiveext
 
+module M = Debug.Debugger(struct let name = "memory" end)
 let debug = Squeeze.debug
 
 (** We define a domain which is paused, not shutdown and has not clocked up any CPU cycles
@@ -19,20 +20,47 @@ let target_path              dom_path = dom_path ^ "/memory/target"
 let dynamic_min_path         dom_path = dom_path ^ "/memory/dynamic-min"
 let dynamic_max_path         dom_path = dom_path ^ "/memory/dynamic-max"
 
+let ( ** ) = Int64.mul
+let ( +* ) = Int64.add
+let ( -* ) = Int64.sub
+let mib = 1024L
+
+let low_mem_emergency_pool = 16L ** mib (** Same as xen commandline *)
+
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+
+let domain_setmaxmem xc domid target_kib = 
+  debug "Xc.domain_setmaxmem domid=%d target=%Ld" domid target_kib;
+  Xc.domain_setmaxmem xc domid target_kib
+
+let set_target t dom_path target_kib = 
+  let path = target_path dom_path in
+  debug "xenstore-write %s = %Ld" path target_kib;
+  t.Xst.write path (Int64.to_string target_kib)
 
 exception Cannot_free_this_much_memory of int64 (** even if we balloon everyone down we can't free this much *)
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
 
-(** Best-effort creation of a 'host' structure *)
+(** Best-effort creation of a 'host' structure and a simple debug line showing its derivation *)
 let make_host ~xc ~xs =
+	(* Wait for any scrubbing so that we don't end up with no immediately usable pages --
+	   this might cause something else to fail (eg domain builder?) *)
+	while Memory.get_scrub_memory_kib ~xc <> 0L do Unix.select [] [] [] 0.25 done;
+
 	(* Some VMs are considered by us (but not by xen) to have an "initial-reservation". For VMs which have never 
 	   run (eg which are still being built or restored) we take the difference between memory_actual_kib and the
 	   reservation and subtract this manually from the host's free memory. Note that we don't get an atomic snapshot
 	   of system state so there is a natural race between the hypercalls. Hopefully the memory is being consumed
 	   fairly slowly and so the error is small. *)
-
+  
+	(* Additionally we have the concept of a 'reservation' separate from a domain which allows us to postpone
+	   domain creates until such time as there is lots of memory available. This minimises the chance that the
+	   remaining free memory will be too fragmented to actually use (some xen structures require contiguous frames) *)
+  
 	let reserved_kib = ref 0L in
+
+	(* We cannot query simultaneously the host memory info and the domain memory info. Furthermore
+	   the call to domain_getinfolist is not atomic but comprised of many hypercall invocations. *)
 
 	let domain_infolist = Xc.domain_getinfolist xc 0 in
 	(*
@@ -41,10 +69,10 @@ let make_host ~xc ~xs =
 		is slow.
 	*)
 	let physinfo = Xc.physinfo xc in
-	let free_mem_kib = Xc.pages_to_kib (Int64.add
-		(Int64.of_nativeint physinfo.Xc.free_pages)
-		(Int64.of_nativeint physinfo.Xc.scrub_pages))
-	in
+	let free_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.free_pages)
+	and scrub_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.scrub_pages) 
+	and total_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.total_pages) in
+	let free_mem_kib = Int64.add free_pages_kib scrub_pages_kib in
 
 	let domains = List.concat
 		(List.map
@@ -52,6 +80,8 @@ let make_host ~xc ~xs =
 				try
 					let path = xs.Xs.getdomainpath di.Xc.domid in
 					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
+					(* dom0 is special for some reason *)
+					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
 					let domain = 
 					  { Squeeze.
 						domid = di.Xc.domid;
@@ -74,7 +104,9 @@ let make_host ~xc ~xs =
 						let unaccounted_kib = max 0L (Int64.sub initial_reservation_kib memory_actual_kib) in
 						reserved_kib := Int64.add !reserved_kib unaccounted_kib;
 
-						[ { domain with Squeeze.
+						[ Printf.sprintf "%d I%Ld A%Ld M%Ld" domain.Squeeze.domid 
+						    initial_reservation_kib memory_actual_kib memory_max_kib,
+						  { domain with Squeeze.
 						      dynamic_min_kib = initial_reservation_kib;
 						      dynamic_max_kib = initial_reservation_kib;
 						      target_kib = initial_reservation_kib;
@@ -92,14 +124,20 @@ let make_host ~xc ~xs =
 						with _ ->
 							target_kib, target_kib
 						in
-						[ { domain with Squeeze.
+						[ Printf.sprintf "%d T%Ld A%Ld M%Ld" domain.Squeeze.domid
+						    target_kib memory_actual_kib memory_max_kib,
+						  { domain with Squeeze.
 						      dynamic_min_kib = min_kib;
 						      dynamic_max_kib = max_kib;
 						      target_kib = target_kib;
 						      memory_actual_kib = memory_actual_kib
 						  } ]
 					end
-				with e ->
+				with
+				| Xb.Noent ->
+				    (* useful debug message is printed by the xs_read function *)
+				    []
+				|  e ->
 					debug "Skipping domid %d: %s"
 						di.Xc.domid (Printexc.to_string e);
 					[]
@@ -107,11 +145,19 @@ let make_host ~xc ~xs =
 			domain_infolist
 		) in
 
+	(* Sum up the 'reservations' which exist separately from domains *)
+	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_rpc._service in
+	debug "Total non-domain reservations = %Ld" non_domain_reservations;
+	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
+	let host_debug_string = Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib in
+	let debug_string = String.concat "; " (host_debug_string :: (List.map fst domains)) in
+
+	debug_string,
 	{Squeeze.
-		domains = domains;
+		domains = List.map snd domains;
 		free_mem_kib = Int64.sub free_mem_kib !reserved_kib;
-		emergency_pool_kib = 0L;
+		emergency_pool_kib = low_mem_emergency_pool;
 	}
 
 (** Best-effort update of a domain's memory target. *)
@@ -127,8 +173,8 @@ let execute_action ~xc ~xs action =
 				if target_kib < 0L
 				then failwith "Proposed target is negative (domid %d): %Ld"
 					domid target_kib;
-				Xc.domain_setmaxmem xc domid target_kib;
-				t.Xst.write (target_path path) (Int64.to_string target_kib)
+				domain_setmaxmem xc domid target_kib;
+				set_target t path target_kib
 			)
 	with e ->
 		debug "Failed to reset balloon target (domid: %d) (target: %Ld): %s"
@@ -142,22 +188,13 @@ let execute_action ~xc ~xs action =
 let change_host_free_memory ~xc ~xs required_mem_kib success_condition = 
 	(* XXX: debugging *)
 	debug "change_host_free_memory required_mem = %Ld KiB" required_mem_kib;
-	let cols = [ Squeeze.Gnuplot.Memory_actual; Squeeze.Gnuplot.Target ] in
-	let oc = open_out "/tmp/free_memory.dat" in
-	finally
-	(fun () ->
 
-		(* Initially set all domain's maxmem = target. Note this portentially lets domains
-		   allocate memory which we intend for other purposes. *)
-		let host = make_host ~xc ~xs in
-		List.iter (fun d -> Xc.domain_setmaxmem xc d.Squeeze.domid d.Squeeze.target_kib) host.Squeeze.domains;
-		
 		let acc = ref (Squeeze.Proportional.make ()) in
 		let finished = ref false in
 		while not (!finished) do
 			let t = Unix.gettimeofday () in
-			let host = make_host ~xc ~xs in
-			Squeeze.Gnuplot.write_row oc host cols t;
+			let debug_string, host = make_host ~xc ~xs in
+			M.debug "%s" debug_string;
 			let acc', declared_active, declared_inactive, result =
 				Squeeze.Proportional.change_host_free_memory success_condition !acc host required_mem_kib t in
 			acc := acc';
@@ -189,7 +226,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 			List.iter (fun domain -> 
 				     let mem_max_kib = min domain.Squeeze.target_kib domain.Squeeze.memory_actual_kib in
 				     debug "Setting inactive domain %d mem_max = %Ld" domain.Squeeze.domid mem_max_kib;
-				     Xc.domain_setmaxmem xc domain.Squeeze.domid mem_max_kib
+				     domain_setmaxmem xc domain.Squeeze.domid mem_max_kib
 				  ) declared_inactive;
 			(* Next deal with the active domains (which may have new targets) *)
 			List.iter (fun domain ->
@@ -199,7 +236,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				       then List.assoc domid new_targets 
 				       else domain.Squeeze.target_kib in
 				     debug "Setting active domain %d mem_max = %Ld" domain.Squeeze.domid mem_max_kib;
-				     Xc.domain_setmaxmem xc domain.Squeeze.domid mem_max_kib				     
+				     domain_setmaxmem xc domain.Squeeze.domid mem_max_kib				     
 				  ) declared_active;
 
 			begin match result with
@@ -221,24 +258,45 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				    ignore(Unix.select [] [] [] 0.25);
 			end
 		done
-	)
-	(fun () ->
-		close_out oc;
-		Squeeze.Gnuplot.write_gp "/tmp/free_memory" (make_host ~xc ~xs) cols
-	)
 
-let free_memory ~xc ~xs required_mem_kib = change_host_free_memory ~xc ~xs required_mem_kib (fun x -> x >= required_mem_kib)
+let extra_mem_to_keep = 32L ** mib (** Domain.creates take "ordinary" memory as well as "special" memory *)
 
-
-
-
-let target_host_free_mem_kib = 2048L (** Keep some memory around for new domain allocations (NB HVM takes more than PV) *)
+let target_host_free_mem_kib = low_mem_emergency_pool +* extra_mem_to_keep
 
 let free_memory_tolerance_kib = 1024L (** No need to be too exact *)
+
+
+let free_memory ~xc ~xs required_mem_kib = change_host_free_memory ~xc ~xs (required_mem_kib +* target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* target_host_free_mem_kib))
+
+let free_memory_range ~xc ~xs min_kib max_kib =
+  (* First compute the 'ideal' amount of free memory based on the proportional allocation policy *)
+  let domain = { Squeeze.domid = -1;
+		 can_balloon = true;
+		 dynamic_min_kib = min_kib; dynamic_max_kib = max_kib;
+		 target_kib = min_kib;
+		 memory_actual_kib = 0L } in
+  let host = snd(make_host ~xc ~xs)in
+  let host' = { host with Squeeze.domains = domain :: host.Squeeze.domains } in
+  let adjustments = Squeeze.Proportional.compute_target_adjustments host' target_host_free_mem_kib in
+  let target = 
+    if List.mem_assoc domain adjustments
+    then List.assoc domain adjustments
+    else min_kib in
+  debug "free_memory_range ideal target = %Ld" target;
+
+  change_host_free_memory ~xc ~xs (target +* target_host_free_mem_kib) (fun x -> x >= (min_kib +* target_host_free_mem_kib));
+  let host = snd(make_host ~xc ~xs) in
+  let usable_free_mem_kib = host.Squeeze.free_mem_kib -* target_host_free_mem_kib in
+  if usable_free_mem_kib < min_kib then begin
+    debug "WARNING usable_free_mem_kib (%Ld) < min_kib (%Ld) (difference = %Ld KiB)" usable_free_mem_kib min_kib (min_kib -* usable_free_mem_kib);
+  end;
+  max min_kib (min usable_free_mem_kib max_kib)
 
 let balance_memory ~xc ~xs = 
   try
     change_host_free_memory ~xc ~xs target_host_free_mem_kib 
-      (fun x -> Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib)
+      (fun x -> Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib);
+    if not (Memory.wait_xen_free_mem ~xc (Int64.sub target_host_free_mem_kib free_memory_tolerance_kib))
+    then failwith "wait_xen_free_mem"
   with e -> debug "balance memory caught: %s" (Printexc.to_string e)
 
