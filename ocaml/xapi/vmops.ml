@@ -265,12 +265,6 @@ let destroy_consoles ~__context ~vM =
 	let all = Db.VM.get_consoles ~__context ~self:vM in
 	List.iter (fun console -> Db.Console.destroy ~__context ~self:console) all
 
-(* XXXX: we overcompensate here to avoid causing domain  *)
-(* builder errors caused by imprecise memory accounting. *)
-let start_vm_fudge_factor = 1.2
-let add_start_vm_fudge_factor x = Int64.of_float (Int64.to_float x *. start_vm_fudge_factor)
-let remove_start_vm_fudge_factor x = Int64.of_float (Int64.to_float x /. start_vm_fudge_factor)
-
 (** For a given virtual machine snapshot, returns a cautious overestimate of
     the amount of memory required to create a domain for that virtual machine. *)
 let memory_range_required_to_safely_start_domain_kib ~__context ~snapshot =
@@ -279,9 +273,7 @@ let memory_range_required_to_safely_start_domain_kib ~__context ~snapshot =
 	let add (x, y) = Int64.add x y in
 	let min_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot min_kib)) in
 	let max_required_kib = Memory.kib_of_bytes_used (add (Memory_check.vm_compute_required_memory snapshot max_kib)) in
-	let min_required_with_fudge_kib = add_start_vm_fudge_factor min_required_kib in
-	let max_required_with_fudge_kib = add_start_vm_fudge_factor max_required_kib in
-	min_required_with_fudge_kib, max_required_with_fudge_kib
+	min_required_kib, max_required_kib
 
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
@@ -960,7 +952,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
  	(fun xc xs ->
 	   let amount_kib, reservation_id = Memory_control.reserve_memory_range ~__context ~xc ~xs ~min:min_kib ~max:max_kib in
 	   let amount_bytes = Int64.mul 1024L amount_kib in
-	   let amount_bytes = max snapshot.API.vM_memory_dynamic_min (remove_start_vm_fudge_factor amount_bytes) in
+	   let amount_bytes = max snapshot.API.vM_memory_dynamic_min amount_bytes in
 	   let snapshot = { snapshot with API.vM_memory_target = amount_bytes } in
 	   let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
 
