@@ -574,6 +574,8 @@ let do_cmd_parsing cmd =
 		("del_irq"        , common @ irq_args);
 		("balloon"        , common @ balloon_args);
 		("dom-uuid"       , common);
+		("squeeze"        , balloon_args);
+		("balance"        , []);
 		("watchdog"       , watchdog_args);
 		("send-s3resume"  , common);
 		("dmesg"          , []);
@@ -766,6 +768,11 @@ let _ =
 	| "balloon" ->
 		assert_domid ();
 		with_xs (fun xs -> balloon_domain ~xs ~domid ~mem_mib)
+	| "squeeze" ->
+		let mem_kib = Int64.mul mem_mib 1024L in
+		with_xc (fun xc -> with_xs (fun xs -> Squeeze_xen.free_memory ~xc ~xs mem_kib))
+	| "balance" ->
+		with_xc (fun xc -> with_xs (fun xs -> Squeeze_xen.balance_memory ~xc ~xs))
 	| "dom-uuid" ->
 		assert_domid ();
 		with_xc (fun xc -> domain_get_uuid ~xc ~domid);
