@@ -11,3 +11,8 @@ clean:
 install:
 	mkdir -p $(DIST)/staging/opt/xensource/libexec
 	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
+
+.PHONE: sdk-install
+sdk-install:
+	mkdir -p $(DIST)/staging/opt/xensource/libexec
+	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
