@@ -1817,9 +1817,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	let compute_free_memory ~__context ~host =
 		info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context  host);
-		let local_fn = Local.Host.compute_free_memory ~host in
- 		do_op_on ~local_fn ~__context ~host
-			(fun session_id rpc -> Client.Host.compute_free_memory rpc session_id host)
+		Local.Host.compute_free_memory ~__context ~host
 
     let get_servertime ~__context ~host =
       (* info "Host.get_servertime"; *) (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
