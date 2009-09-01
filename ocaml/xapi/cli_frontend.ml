@@ -732,6 +732,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		flags=[Deprecated ["vm-memory-target-set"]; Vm_selectors; Hidden];
 	};
 
+	"vm-memory-static-range-set",
+	{
+		reqd=["min"; "max"];
+		optn=[];
+		help="Configure the range of virtual memory the VM is allowed to consume.";
+		implementation= No_fd Cli_operations.vm_memory_static_range_set;
+		flags=[Vm_selectors];
+	};
+
 	"vm-memory-target-set",
 	{
 		reqd=["target"];
