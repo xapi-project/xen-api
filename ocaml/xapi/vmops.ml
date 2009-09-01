@@ -6,6 +6,11 @@ open Vmopshelpers
 open Client
 open Vbdops
 
+let ( +++ ) = Int64.add
+let ( --- ) = Int64.sub
+let ( *** ) = Int64.mul
+let ( /// ) = Int64.div
+
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
@@ -299,7 +304,9 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 		(* Since our shadow allocation might have been increased by Xen we need to 
 		   update the shadow_multiplier now. Nb. the last_boot_record wont 
 		   necessarily have the right value in! *)
-		let multiplier = Memory.HVM.round_shadow_multiplier vcpus mem_max_kib shadow_multiplier domid in
+		let multiplier = Memory.HVM.round_shadow_multiplier
+			(Memory.mib_of_kib_used mem_max_kib)
+			vcpus shadow_multiplier domid in
 		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier;
 		arch
 	| Helpers.DirectPV { Helpers.kernel = pv_kernel;
@@ -943,18 +950,25 @@ let resume ~__context ~xc ~xs ~vm =
 
 (** Starts up a VM, leaving it in the paused state *)
 let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
-  check_vm_parameters ~__context ~self:vm ~snapshot;
-  (* Take the subset of locked VBDs *)
-  let other_config = Db.VM.get_other_config ~__context ~self:vm in
-  let vbds = Vbdops.vbds_to_attach ~__context ~vm in
-  let min_kib, max_kib = memory_range_required_to_safely_start_domain_kib ~__context ~snapshot in
-	with_xc_and_xs
- 	(fun xc xs ->
-	   let amount_kib, reservation_id = Memory_control.reserve_memory_range ~__context ~xc ~xs ~min:min_kib ~max:max_kib in
-	   let amount_bytes = Int64.mul 1024L amount_kib in
-	   let amount_bytes = max snapshot.API.vM_memory_dynamic_min amount_bytes in
-	   let snapshot = { snapshot with API.vM_memory_target = amount_bytes } in
-	   let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
+	check_vm_parameters ~__context ~self:vm ~snapshot;
+	(* Take the subset of locked VBDs *)
+	let other_config = Db.VM.get_other_config ~__context ~self:vm in
+	let vbds = Vbdops.vbds_to_attach ~__context ~vm in
+	let dynamic_min_plus_overhead_kib, dynamic_max_plus_overhead_kib =
+		memory_range_required_to_safely_start_domain_kib ~__context ~snapshot in
+	with_xc_and_xs (fun xc xs ->
+		let target_plus_overhead_kib, reservation_id =
+			Memory_control.reserve_memory_range ~__context ~xc ~xs
+				~min:dynamic_min_plus_overhead_kib
+				~max:dynamic_max_plus_overhead_kib in
+		let target_plus_overhead_bytes =
+			Memory.bytes_of_kib target_plus_overhead_kib in
+		let overhead_bytes = snapshot.API.vM_memory_overhead in
+		let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
+		assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
+		assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
+		let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
+		let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
 
 		    begin try
 		      Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);

@@ -1006,7 +1006,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		  (fun session_id rpc -> Client.VM.provision rpc session_id vm)
 	     )
 	)
-	
+
     let start ~__context ~vm ~start_paused ~force =
       info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.start ~vm ~start_paused ~force in
@@ -1018,6 +1018,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	      (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
 		  (fun vifs ->
+			(* The start operation makes use of the cached memory overhead *)
+			(* value when reserving memory. It's important to recalculate  *)
+			(* the cached value before performing the start since there's  *)
+			(* no guarantee that the cached value is valid. In particular, *)
+			(* we must recalculate the value BEFORE creating the snapshot. *)
+			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
 		    let snapshot = Db.VM.get_record ~__context ~self:vm in
 		    forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
 		      (fun session_id rpc -> Client.VM.start rpc session_id vm start_paused force))))
@@ -1045,6 +1051,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
 		  (fun vifs ->
+			(* The start operation makes use of the cached memory overhead *)
+			(* value when reserving memory. It's important to recalculate  *)
+			(* the cached value before performing the start since there's  *)
+			(* no guarantee that the cached value is valid. In particular, *)
+			(* we must recalculate the value BEFORE creating the snapshot. *)
+			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
+
 		     let snapshot = Db.VM.get_record ~__context ~self:vm in		     
 		     reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_start
 		       (fun () ->
@@ -1395,6 +1408,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm:self 
 	     (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
+	let set_VCPUs_max ~__context ~self ~value =
+		info "VM.set_VCPUs_max: self = %s; value = %Ld"
+			(vm_uuid ~__context self) value;
+		with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_max"
+			~op:`changing_VCPUs
+		(fun () -> Local.VM.set_VCPUs_max ~__context ~self ~value)
+
+	let set_VCPUs_at_startup ~__context ~self ~value =
+		info "VM.set_VCPUs_at_startup: self = %s; value = %Ld"
+			(vm_uuid ~__context self) value;
+		with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_at_startup"
+			~op:`changing_VCPUs
+		(fun () -> Local.VM.set_VCPUs_at_startup ~__context ~self ~value)
+
 	let compute_memory_overhead ~__context ~vm =
 		info "VM.compute_memory_overhead: vm = '%s'"
 			(vm_uuid ~__context vm);
@@ -1500,6 +1527,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	    (fun () ->
 	       forward_vm_op ~local_fn ~__context ~vm:self
 		 (fun session_id rpc -> Client.VM.get_cooperative rpc session_id self))
+
+	let set_HVM_shadow_multiplier ~__context ~self ~value =
+		info "VM.set_HVM_shadow_multiplier: self = %s; multiplier = %f"
+			(vm_uuid ~__context self) value;
+		with_vm_operation ~__context ~self ~doc:"VM.set_HVM_shadow_multiplier"
+			~op:`changing_shadow_memory
+			(fun () ->
+				Local.VM.set_HVM_shadow_multiplier ~__context ~self ~value)
 
     let set_shadow_multiplier_live ~__context ~self ~multiplier =
       info "VM.set_shadow_multiplier_live: VM = '%s'; min = %f" (vm_uuid ~__context self) multiplier;

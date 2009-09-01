@@ -14,6 +14,13 @@ let invalid_value x y = raise (Api_errors.Server_error (Api_errors.invalid_value
 let value_not_supported fld v reason = 
 	raise (Api_errors.Server_error (Api_errors.value_not_supported, [ fld; v; reason ]))
 
+let compute_memory_overhead ~__context ~vm =
+	Memory_check.vm_compute_memory_overhead ~__context ~vm
+
+let update_memory_overhead ~__context ~vm =
+	let memory_overhead = compute_memory_overhead ~__context ~vm in
+	Db.VM.set_memory_overhead ~__context ~self:vm ~value:memory_overhead
+
 (* Simple validation functions for fields ************************************************)
 let validate_vcpus ~__context ~vCPUs_max ~vCPUs_at_startup = 
 	if vCPUs_max < 1L then invalid_value "VCPUs_max" (Int64.to_string vCPUs_max);
@@ -156,6 +163,7 @@ let create ~__context ~name_label ~name_description
 		~ha_always_run ~tags;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
+	update_memory_overhead ~__context ~vm:vm_ref;
 	vm_ref
 
 let destroy  ~__context ~self =
@@ -665,17 +673,31 @@ let wait_memory_target_live ~__context ~self
 	in
 	wait 0
 
-let set_shadow_multiplier_live ~__context ~self ~multiplier =
+let validate_HVM_shadow_multiplier multiplier =
 	if multiplier < 1.
-	then invalid_value "multiplier" (string_of_float multiplier); 
+	then invalid_value "multiplier" (string_of_float multiplier)
+
+(** Sets the HVM shadow multiplier for a {b Halted} VM. Runs on the master. *)
+let set_HVM_shadow_multiplier ~__context ~self ~value =
+	if Db.VM.get_power_state ~__context ~self <> `Halted
+	then failwith "assertion_failed: set_HVM_shadow_multiplier should only be \
+		called when the VM is Halted";
+	validate_HVM_shadow_multiplier value;
+	Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value;
+	update_memory_overhead ~__context ~vm:self
+
+(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
+let set_shadow_multiplier_live ~__context ~self ~multiplier =
+	if Db.VM.get_power_state ~__context ~self <> `Running
+	then failwith "assertion_failed: set_shadow_multiplier_live should only be \
+		called when the VM is Running";
+	validate_HVM_shadow_multiplier multiplier;
 	if Helpers.has_booted_hvm ~__context ~self then (
 		let bootrec = Helpers.get_boot_record ~__context ~self in
 		let domid = Helpers.domid_of_vm ~__context ~self in
 		let vcpus = Int64.to_int bootrec.API.vM_VCPUs_max in
-		let kib = Int64.div bootrec.API.vM_memory_static_max 1024L in
-		let newshadow = Int64.to_int (Int64.div (Memory.HVM.required_shadow vcpus kib multiplier) 1024L) in
-		(* Make sure we request >= 1MiB *)
-		let newshadow = max 1 newshadow in 
+		let max_mib = Memory.mib_of_bytes_used (bootrec.API.vM_memory_static_max) in
+		let newshadow = Int64.to_int (Memory.HVM.xen_shadow_mib max_mib vcpus multiplier) in
 
 		(* Make sure enough free memory exists *)
 		let host = Db.VM.get_resident_on ~__context ~self in
@@ -697,14 +719,14 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		     end;
 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
 		     Xc.shadow_allocation_set xc domid newshadow;
-		     Memory.HVM.round_shadow_multiplier vcpus kib multiplier domid) in
+		     Memory.HVM.round_shadow_multiplier max_mib vcpus multiplier domid) in
 		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
 		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in
 		Helpers.set_boot_record ~__context ~self newbootrec;
+		update_memory_overhead ~__context ~vm:self;
 		()
 	) else
 		()
-
 
 let send_sysrq ~__context ~vm ~key =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_sysrq" ]))

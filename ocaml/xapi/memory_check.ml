@@ -1,21 +1,36 @@
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
+let ( +++ ) = Int64.add
+let ( --- ) = Int64.sub
+let ( *** ) = Int64.mul
+let ( /// ) = Int64.div
+
 (** Calculates the amounts of 'normal' and 'shadow' host memory needed *)
 (** to run the given HVM guest with the given amount of guest memory.  *)
 let vm_compute_required_memory_for_hvm vm_record guest_memory_kib =
-	let vcpus = Int64.to_int vm_record.API.vM_VCPUs_max in
+	let vcpu_count = Int64.to_int vm_record.API.vM_VCPUs_max in
 	let multiplier = vm_record.API.vM_HVM_shadow_multiplier in
-	let normal = Memory.bytes_of_kib (Memory.HVM.required_available guest_memory_kib) in
-	let shadow = Memory.bytes_of_kib (Memory.HVM.required_shadow vcpus guest_memory_kib multiplier) in
-	(normal, shadow)
+	let target_mib = Memory.mib_of_kib_used guest_memory_kib in
+	let max_mib = Memory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
+	let footprint_mib =
+		Memory.HVM.xen_footprint_mib target_mib max_mib vcpu_count multiplier in
+	let shadow_mib =
+		Memory.HVM.xen_shadow_mib max_mib vcpu_count multiplier in
+	let normal_mib =
+		footprint_mib --- shadow_mib in
+	let normal_bytes = Memory.bytes_of_mib normal_mib in
+	let shadow_bytes = Memory.bytes_of_mib shadow_mib in
+	(normal_bytes, shadow_bytes)
 
 (** Calculates the amounts of 'normal' and 'shadow' host memory needed *)
 (** to run the given PV guest with the given amount of guest memory.   *)
 let vm_compute_required_memory_for_pv vm_record guest_memory_kib =
-	let normal = Memory.bytes_of_kib (Memory.Linux.required_available guest_memory_kib) in
-	let shadow = 0L in
-	(normal, shadow)
+	let target_mib = Memory.mib_of_kib_used guest_memory_kib in
+	let footprint_mib = 
+		Memory.Linux.xen_footprint_mib target_mib in
+	let normal_bytes = Memory.bytes_of_mib footprint_mib in
+	(normal_bytes, 0L)
 
 (** Calculates the amounts of 'normal' and 'shadow' host memory needed *)
 (** to run the given guest with the given amount of guest memory.      *)
@@ -213,4 +228,23 @@ let host_compute_memory_overhead ~__context ~host =
 	(* to time and simply fetch the existing cached value from the database. *)
 	Db.Host.get_memory_overhead ~__context ~self:host
 
-let vm_compute_memory_overhead ~__context ~vm = 0L
+let has_booted_or_will_boot_hvm ~__context ~vm =
+	match Db.VM.get_power_state ~__context ~self:vm with
+		| `Paused | `Running | `Suspended ->
+			Helpers.has_booted_hvm ~__context ~self:vm
+		| `Halted | `Unknown | _ ->
+			Helpers.will_boot_hvm ~__context ~self:vm
+
+let vm_compute_memory_overhead ~__context ~vm =
+	let memory_overhead_mib =
+		if (has_booted_or_will_boot_hvm ~__context ~vm)
+		then begin
+			let multiplier = Db.VM.get_HVM_shadow_multiplier ~__context ~self:vm in
+			let vcpu_count = Db.VM.get_VCPUs_max ~__context ~self:vm in
+			let max_bytes = Db.VM.get_memory_static_max ~__context ~self:vm in
+			let max_mib = Memory.mib_of_bytes_used max_bytes in
+			Memory.HVM.xen_overhead_mib max_mib (Int64.to_int vcpu_count) multiplier
+		end else begin
+			Memory.Linux.xen_overhead_mib
+		end in
+	Memory.bytes_of_mib memory_overhead_mib

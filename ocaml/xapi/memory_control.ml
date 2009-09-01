@@ -96,6 +96,7 @@ let reserve_memory ~__context ~xc ~xs ~kib =
 (** Reserve a particular amount of memory and return a reservation id *)
 let reserve_memory_range ~__context ~xc ~xs ~min ~max = 
   let session_id = get_session_id ~xs in
+  let reserved_memory, reservation_id =
   retry_if_not_cooperative
     (fun () ->
        catch_generic_errors
@@ -122,7 +123,13 @@ let reserve_memory_range ~__context ~xc ~xs ~min ~max =
 						) domids) in
 		raise (Api_errors.Server_error(Api_errors.vms_failed_to_cooperate, List.map Ref.string_of vms))
 	 )
-    )
+    ) in
+  debug "reserved_memory = %Ld; min = %Ld; max = %Ld" reserved_memory min max;
+	(* Post condition: *)
+	assert (reserved_memory >= min);
+	assert (reserved_memory <= max);
+
+	reserved_memory, reservation_id
 
 (** Delete a reservation given by [reservation_id] *)
 let delete_reservation ~xs ~reservation_id =
