@@ -380,7 +380,7 @@ let _ =
     ~doc:"You need at least 1 VCPU to start a VM" ();
   error Api_errors.vm_toomany_vcpus ["vm"]
     ~doc:"Too many VCPUs to start this VM" ();
-  error Api_errors.host_not_enough_free_memory []
+  error Api_errors.host_not_enough_free_memory [ "needed"; "available" ]
     ~doc:"Not enough host memory is available to perform this operation" ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
