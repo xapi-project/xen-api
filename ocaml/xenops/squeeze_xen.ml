@@ -99,7 +99,7 @@ let set_memory_offset_noexn xs dom_path offset_kib =
     error "set_memory_offset_noexn %s %Ld: %s" dom_path offset_kib (Printexc.to_string e)
 
 
-exception Cannot_free_this_much_memory of int64 (** even if we balloon everyone down we can't free this much *)
+exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon everyone down we can't free this much *)
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
 
 (** Best-effort creation of a 'host' structure and a simple debug line showing its derivation *)
@@ -359,8 +359,11 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 				    debug "Success: Host free memory = %Ld KiB" required_mem_kib;
 				    finished := true
 				| Squeeze.Failed [] ->
-				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits of balloonable domains" required_mem_kib;
-				    raise (Cannot_free_this_much_memory required_mem_kib);
+				    (* For better error reporting, calculate the maximum we could free *)
+				    let total_freeable_memory_kib, _ = Squeeze.Proportional.compute_host_memory_delta_range host.Squeeze.domains in
+				    let maximum_possible_free_memory_kib = host.Squeeze.free_mem_kib +* total_freeable_memory_kib in
+				    debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits of balloonable domains. Maximum possible free memory = %Ld KiB" required_mem_kib maximum_possible_free_memory_kib;
+				    raise (Cannot_free_this_much_memory (required_mem_kib, maximum_possible_free_memory_kib));
 				| Squeeze.Failed domids ->
 				    let s = String.concat ", " (List.map string_of_int domids) in
 				    debug "Failed to free %Ld KiB of memory: the following domains have failed to meet their targets: [ %s ]"
@@ -378,6 +381,7 @@ let extra_mem_to_keep = 8L ** mib (** Domain.creates take "ordinary" memory as w
 let target_host_free_mem_kib = low_mem_emergency_pool +* extra_mem_to_keep
 
 let free_memory_tolerance_kib = 512L (** No need to be too exact *)
+
 
 
 let free_memory ~xc ~xs required_mem_kib = change_host_free_memory ~xc ~xs (required_mem_kib +* target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* target_host_free_mem_kib))
@@ -398,7 +402,7 @@ let free_memory_range ~xc ~xs min_kib max_kib =
     if List.mem_assoc domain adjustments
     then List.assoc domain adjustments
     else min_kib in
-  debug "free_memory_range ideal target = %Ld" target;
+  debug "free_memory_range ideal new target = %Ld; need to keep %Ld free => need %Ld free in total" target target_host_free_mem_kib (target +* target_host_free_mem_kib);
 
   change_host_free_memory ~xc ~xs (target +* target_host_free_mem_kib) (fun x -> x >= (min_kib +* target_host_free_mem_kib));
   let host = snd(make_host ~xc ~xs) in

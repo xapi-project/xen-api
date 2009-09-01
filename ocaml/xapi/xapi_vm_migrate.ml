@@ -567,7 +567,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
                 let min = Int64.to_int (Int64.div min 1024L) in
                 let max = Int64.to_int (Int64.div max 1024L) in
 		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-		Memory_control.balance_memory ~xc ~xs;
+		Memory_control.balance_memory ~__context ~xc ~xs;
 		try
 		  begin
 
@@ -626,7 +626,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		with e ->
 		  debug "Writing original memory policy back to xenstore";
 		  Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-		  Memory_control.balance_memory ~xc ~xs;
+		  Memory_control.balance_memory ~__context ~xc ~xs;
 		  raise e
 		  )
 	     ) (fun () -> 

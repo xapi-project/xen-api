@@ -593,7 +593,7 @@ let suspend  ~__context ~vm =
 						   unnecessary caches etc. *)
 						debug "suspend phase 0/3: asking guest to balloon down";
 						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-						Memory_control.balance_memory ~xc ~xs;
+						Memory_control.balance_memory ~__context ~xc ~xs;
 
 						debug "suspend phase 1/3: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
@@ -617,7 +617,7 @@ let suspend  ~__context ~vm =
 							~__context ~xc ~xs ~self:vm domid `Suspended;
 					with e ->
 						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-						Memory_control.balance_memory ~xc ~xs;
+						Memory_control.balance_memory ~__context ~xc ~xs;
 						if is_paused then
 							(try Domain.pause ~xc domid with _ -> ());
 							raise e
