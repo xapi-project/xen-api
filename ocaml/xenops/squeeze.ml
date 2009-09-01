@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (**
 	Implement a simple 'proportional memory' policy where VMs are squeezed
 	equally to free memory. There is no direct attempt to respond to distress or
@@ -25,34 +12,9 @@
 	Can we calibrate on boot if the offset is const?
 *)
 
-(* Make debug printing work both when linked into a daemon and from the commandline *)
-let start = Unix.gettimeofday ()
-
-module D = Debug.Debugger(struct let name = "xenops" end)
-
-let debug_oc = ref stdout
-
-let debug fmt =
-  Printf.kprintf 
-    (fun x -> 
-       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x; 
-       flush !debug_oc;
-       D.debug "%s" x
-    ) fmt
-
-let error fmt =
-  Printf.kprintf 
-    (fun x -> 
-       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x; 
-       flush !debug_oc;
-       D.error "%s" x
-    ) fmt
-
 (** Per-domain data *)
 type domain = {
 	domid: int;
-	(** true if the domain has ballooning capability i.e. is not paused etc. *)
-	can_balloon: bool;
 	(** admin-imposed lower-limit on the balloon target *)
 	dynamic_min_kib: int64;
 	(** current balloon target requested by the system *)
@@ -61,62 +23,42 @@ type domain = {
 	dynamic_max_kib: int64;
 	(** view from dom0 of how much memory this guest is using *)
 	memory_actual_kib: int64;
-	(** xen maxmem *)
-	memory_max_kib: int64;
-	(** amount by which the target may differ from memory_actual and be declared a 'hit' *)
-	inaccuracy_kib: int64;
 }
 
 let domain_make
-	domid can_balloon dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib memory_max_kib inaccuracy_kib =
+	domid dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib =
 	{
 		domid = domid;
-		can_balloon = can_balloon;
 		dynamic_min_kib = dynamic_min_kib;
 		target_kib = target_kib;
 		dynamic_max_kib = dynamic_max_kib;
-		memory_actual_kib = memory_actual_kib;
-		memory_max_kib = memory_max_kib;
-		inaccuracy_kib = inaccuracy_kib;
+		memory_actual_kib = memory_actual_kib
 	}
 
 let domain_to_string_pairs (x: domain) = 
 	let i64 = Int64.to_string and i = string_of_int in
 	[
 		"domid", i x.domid;
-		"can_balloon", string_of_bool x.can_balloon;
 		"dynamic_min_kib", i64 x.dynamic_min_kib;
 		"target_kib", i64 x.target_kib;
 		"dynamic_max_kib", i64 x.dynamic_max_kib;
 		"memory_actual_kib", i64 x.memory_actual_kib;
-		"memory_max_kib", i64 x.memory_max_kib;
-		"inaccuracy_kib", i64 x.inaccuracy_kib;
 	]
-
-module IntMap = Map.Make(struct type t = int let compare = compare end)
 
 (** Per-Host data *)
 type host = {
 	(** VMs running on this host *)
 	domains: domain list;
-	domid_to_domain: domain IntMap.t;
 	(** total free memory on this host *)
 	free_mem_kib: int64;
 }
 
-let make_host ~domains ~free_mem_kib = 
-  { 
-    domains = domains;
-    domid_to_domain = List.fold_left (fun map domain -> IntMap.add domain.domid domain map) IntMap.empty domains;
-    free_mem_kib = free_mem_kib;
-  }
-
 let string_pairs_to_string (x: (string * string) list) =
 	String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x)
 
-let domain_to_string d = string_pairs_to_string (domain_to_string_pairs d)
-
 let host_to_string_pairs (x: host) =
+	let domain_to_string d =
+		string_pairs_to_string (domain_to_string_pairs d) in
 	let domains = (String.concat "; " (List.map domain_to_string x.domains)) in
 	[
 		"domains", "[" ^ domains ^ "]";
@@ -141,40 +83,43 @@ let ( +* ) = Int64.add
 let ( ** ) = Int64.mul
 
 let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
-let sum = List.fold_left ( +* ) 0L 
+
+let start = Unix.gettimeofday ()
+
+let debug fmt =
+	Printf.kprintf (fun x -> Printf.fprintf stdout "[%.2f] %s\n"
+	(Unix.gettimeofday() -. start) x; flush stdout) fmt
+
+(** Fails if either memory_actual or target lie outside our dynamic range *)
+let assert_within_dynamic_range host = List.iter
+	(fun domain ->
+		let lt domid x x' y y' =
+			if x < y
+			then failwith
+				(Printf.sprintf "domid %d %s (%Ld) < %s (%Ld)" domid x' x y' y)
+		in
+		(*
+		lt domain.domid domain.memory_actual_kib "memory_actual"
+			domain.dynamic_min_kib "dynamic_min";
+		*)
+		lt domain.domid domain.target_kib "target"
+			domain.dynamic_min_kib "dynamic_min";
+		lt domain.domid domain.dynamic_max_kib "dynamic_max"
+			domain.memory_actual_kib "memory_actual";
+		lt domain.domid domain.dynamic_max_kib "dynamic_max"
+			domain.target_kib "target"
+	)
+	host.domains
 
 (** The value returned from the 'free_memory' function *)
 type result = 
 	| Success
 		(** enough memory is now available *)
-	| Failed of int list
+	| Failed of domain list
 		(** we have run out of options: all domains are either
 		fully-ballooned or are stuck (stuck domids returned) *)
 	| AdjustTargets of action list
 		(** we want to change the targets of some domains *)
-
-type direction = Up | Down
-
-let string_of_direction = function
-  | Some Up -> "^" | Some Down -> "v" | None -> "x"
-
-let direction_of_actual inaccuracy_kib memory_actual_kib target_kib = 
-  let delta_kib = memory_actual_kib -* target_kib in
-  let abs x = if x < 0L then 0L -* x else x in
-  if abs delta_kib <= inaccuracy_kib then None
-  else (if target_kib > memory_actual_kib then Some Down else Some Up)
-
-let direction_of_int64 a b = if a = b then None else (if a > b then Some Down else Some Up)
-
-(** Work around the fact that the target may not be hit precisely *)
-let has_hit_target inaccuracy_kib memory_actual_kib target_kib = 
-  direction_of_actual inaccuracy_kib memory_actual_kib target_kib = None
-
-let short_string_of_domain domain = 
-  Printf.sprintf "%d T%Ld A%Ld M%Ld %s%s" domain.domid
-    domain.target_kib domain.memory_actual_kib domain.memory_max_kib
-    (if domain.can_balloon then "B" else "?")
-    (string_of_direction (direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib))
 
 (** Generic code to guesstimate if a balloon driver is stuck *)
 module Stuckness_monitor = struct
@@ -186,86 +131,55 @@ module Stuckness_monitor = struct
 		and exclude it from our calculations. The effect is to ask the remaining
 		functioning balloon drivers to balloon down faster.
 	*)
-	let assume_balloon_driver_stuck_after = 5. (* seconds *)
+	let assume_balloon_driver_stuck_after = 2. (* seconds *)
 
-	type per_domain_state = {
-		mutable last_actual_kib: int64; (** last value of memory actual seen *)
-		mutable last_makingprogress_time: float; (** last time we saw progress towards the target *)
-		mutable stuck: bool; 
-	}
-	type t = {
-		per_domain: (int, per_domain_state) Hashtbl.t;
-	}
+	type t = (int, int64 * float) Hashtbl.t
 
 	(** Make a monitoring object *)
-	let make () : t = 
-	  { per_domain = Hashtbl.create 10 }
+	let make () = Hashtbl.create 10 
 
 	(** Update our internal state given a snapshot of the outside world *)
-	let update (x: t) (host: host) (now: float) =
+	let update (x: t) (state: host) (now: float) =
+		let have_useful_update domain = false
+			(* either I have no information at all *)
+			|| not (Hashtbl.mem x domain.domid)
+			(* or the information I have is out of date *)
+			|| (domain.memory_actual_kib <> (fst (Hashtbl.find x domain.domid)))
+			(* or I've hit my target already (so I assume this *)
+			(* is an update to avoid being declared stuck      *)
+			|| (domain.memory_actual_kib = domain.target_kib)
+		in
 		List.iter
-			(fun (domain: domain) ->
-				 let direction = direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
-				 if not(Hashtbl.mem x.per_domain domain.domid)
-				 then Hashtbl.replace x.per_domain domain.domid
-				   (* new domains are considered to be making progress now and not stuck *)
-				   { last_actual_kib = domain.memory_actual_kib;
-					 last_makingprogress_time = now;
-					 stuck = false };
-				 let state = Hashtbl.find x.per_domain domain.domid in
-				 let delta_actual = domain.memory_actual_kib -* state.last_actual_kib in
-				 state.last_actual_kib <- domain.memory_actual_kib;
-				 (* If memory_actual is moving towards the target then we say we are makingprogress *)
-				 let makingprogress = (delta_actual > 0L && direction = Some Down) || (delta_actual < 0L && direction = Some Up) in
-				 (* We keep track of the last time we were makingprogress. If we are makingprogress now 
-					then we are not stuck. *)
-				 if makingprogress then begin
-				   state.last_makingprogress_time <- now;
-				   state.stuck <- false;
-				 end;
-				 (* If there is a request (ie work to do) and we haven't been makingprogress for more than the
-					assume_balloon_driver_stuck_after then declare this domain stuck. *)
-				 let request = direction <> None in (* ie target <> actual *)
-				 if request && (now -. state.last_makingprogress_time > assume_balloon_driver_stuck_after)
-				 then state.stuck <- true;
+			(fun domain ->
+				if have_useful_update domain then begin
+					debug "domid %d has changed memory_actual = %Ld"
+						domain.domid domain.memory_actual_kib;
+					Hashtbl.replace x domain.domid
+						(domain.memory_actual_kib, now)
+				end
 			)
-			host.domains;
+			state.domains;
 		(* Clear out dead domains just in case someone keeps *)
 		(* one of these things around for a long time.       *)
-		let live_domids = List.map (fun domain -> domain.domid) host.domains in
+		let live_domids = List.map (fun domain -> domain.domid) state.domains in
 		let to_delete = Hashtbl.fold
 			(fun domid _ acc ->
 				if List.mem domid live_domids then acc else domid :: acc
 			)
-			x.per_domain []
+			x []
 		in
-		List.iter (Hashtbl.remove x.per_domain) to_delete
+		List.iter (Hashtbl.remove x) to_delete
 
-	(** Return true if we think a particular driver is still making useful progress.
-	    If it is not making progress it may have either hit its target or it may have failed. *)
-	let domid_is_active (x: t) domid (now: float) = 
-	  if not (Hashtbl.mem x.per_domain domid)
-	  then false (* it must have been destroyed *)
-	  else not (Hashtbl.find x.per_domain domid).stuck
-end
+	(** Return true if we think a particular driver is stuck. *)
+	let domid_is_stuck (x: t) domid (now: float) = true
+		&& (Hashtbl.mem x domid)
+		&& (
+			let _, time = Hashtbl.find x domid in
+			now -. time > assume_balloon_driver_stuck_after
+		)
 
-type fistpoint = 
-  | DisableTwoPhaseTargetSets (** this prevents free memory going to 0 and allowing all low memory to be allocated *)
-  | DisableInaccuracyCompensation (** don't factor balloon driver inaccuracy into calculations *)
+(* XXX: debugging *)
 
-(** The minimum amount we will free by setting target = dynamic_min *)
-let min_freeable ?(fistpoints=[]) domain = 
-  if List.mem DisableInaccuracyCompensation fistpoints
-  then max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib)
-  else max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib -* 2L ** domain.inaccuracy_kib)
-    (** The minimum amount we will allocate by setting target = dynamic_max *)
-let min_allocatable domain = max 0L (domain.dynamic_max_kib -* domain.memory_actual_kib -* 2L ** domain.inaccuracy_kib)
-  (** The range between dynamic_min and dynamic_max i.e. the total amount we may vary the balloon target
-      NOT the total amount the memory_actual may vary. *)
-let range domain = max 0L (domain.dynamic_max_kib -* domain.dynamic_min_kib)
-  
-module type POLICY = sig
-  val compute_target_adjustments: ?fistpoints:(fistpoint list) -> bool -> host -> int64 -> (domain * int64) list
 end
 
 (**
@@ -274,152 +188,153 @@ end
 *)
 module Proportional = struct
 
-	(** Constrains [value] within the range [minimum] ... [maximum]. *)
-	let constrain minimum maximum value =
-		assert (minimum < maximum);
-		if value < minimum then minimum else
-		if value > maximum then maximum else 
-		if classify_float value = FP_nan then minimum else (* arbitrary *)
-		value
+	(** State maintained between invocations of the algorithm function *)
+	type t = {
+		stuckness: Stuckness_monitor.t;
+		stuck_domains: domain list;
+	}
+	let make () = { stuckness = Stuckness_monitor.make (); stuck_domains = [] }
+
+	(**
+		Given a list of domains, return the total amount of memory which could
+		be freed (in theory) if each were ballooned down to their dynamic_min.
+	*)
+	let compute_total_freeable_memory domains =
+		(* If all non-stuck domains balloon down to their *)
+		(* dynamic_min, how much memory would be freed?   *)
+		let freeable_memory_kib = List.map
+			(fun domain ->
+				domain.memory_actual_kib -* domain.dynamic_min_kib)
+			domains in
+		List.fold_left ( +* ) 0L freeable_memory_kib
 
 	(**
 		Given an amount of theoretically surplus memory (= host free memory +
 		that which would be freed by ballooning down to dynamic_min) produce a
 		set of balloon-target-set actions to divide it up amongst the given VMs
-		so that (target - min) / (max - min) is the same for all VMs.
+		so that (target-min)/(max-min) is the same.
 	*)
-	let allocate_memory_in_proportion verbose surplus_memory_kib domains =
-	  (* We allocate surplus memory in proportion to each domain's dynamic_range: *)
-	  let allocate gamma domain = Int64.of_float (gamma *. (Int64.to_float (range domain))) in
-	  (* gamma = the proportion where 0 <= gamma <= 1 *)
-	  let total_range = sum (List.map range domains) in
-	  let gamma' = Int64.to_float surplus_memory_kib /. (Int64.to_float total_range) in
-	  let gamma = constrain 0. 1. gamma' in
-	  debug "total_range = %Ld gamma = %f gamma' = %f" total_range gamma gamma';
-	  if verbose
-	  then debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma 
-		(if total_range = 0L then 0L else Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma)));
-
-	  List.map (fun domain -> domain, domain.dynamic_min_kib +* (allocate gamma domain)) domains
-
-
-	(* Given a set of domains and a host free memory target, return balloon target adjustments *)
-	let compute_target_adjustments ?fistpoints verbose (host: host) host_target_kib =
-	  (* If all domains balloon down to dynamic_min: *)
-	  let maximum_free_mem_kib = host.free_mem_kib +* (sum (List.map (min_freeable ?fistpoints) host.domains)) in
-	  let surplus_memory_kib = max 0L (maximum_free_mem_kib -* host_target_kib) in
-	  allocate_memory_in_proportion verbose surplus_memory_kib host.domains
-end
-
-module Policy = (Proportional: POLICY)
-
-module Squeezer = struct
-
-	(** State maintained between invocations of the algorithm function *)
-	type t = {
-		stuckness: Stuckness_monitor.t;
-		non_active_domids: int list; (* domids are unique and constant *)
-	}
-	let make () = { stuckness = Stuckness_monitor.make (); non_active_domids = [] }
+	let allocate_memory_in_proportion surplus_memory_kib domains =
+		(* We assign surplus memory to domains in proportion to  *)
+		(* their dynamic ranges [min_i...max_i].                 *)
+		(* First we find the greatest \gamma such that:          *)
+		(*     \sigma i \in VM. \gamma.(max_i - min_i) = surplus *)
+		(* Then we assign each guest a target t_i according to:  *)
+		(*     \forall i \in VM. t_i := \gamma.(max_i - min_i)   *)
+		let dynamic_ranges = List.map
+			(fun domain -> domain.dynamic_max_kib -* domain.dynamic_min_kib)
+			domains in
+		let gamma = Int64.to_float surplus_memory_kib /. (Int64.to_float 
+			(List.fold_left ( +* ) 0L dynamic_ranges)) in
+		List.concat
+			(List.map 
+				(fun domain ->
+					let new_target_kib = domain.dynamic_min_kib +*
+						Int64.of_float (Int64.to_float (
+						domain.dynamic_max_kib -* domain.dynamic_min_kib) *.
+						gamma)
+					in
+					(* Don't generate no-ops i.e. attempts *)
+					(* to set the target to the same value *)
+					if new_target_kib <> domain.target_kib
+					then [{
+						action_domid = domain.domid;
+						new_target_kib = new_target_kib;
+					}]
+					else []
+				)
+				domains
+			)
 
 	(**
 		Takes a view of the host state and amount of free memory desired and
 		returns a list of ballooning actions which may help achieve the goal.
 	*)
-	let one_iteration ?(fistpoints=[]) verbose success_condition (x: t) (host: host) host_target_kib (now: float) =
-		(* 1. Compute which domains are still considered active *)
+	let free_memory (x: t) (host: host) free_memory_needed_kib (now: float) =
 		Stuckness_monitor.update x.stuckness host now;
-		let active_domains = 
-		  List.filter (fun domain ->
-				 domain.can_balloon
-				 && (Stuckness_monitor.domid_is_active x.stuckness domain.domid now))
-			host.domains in
-		let non_active_domids = List.map (fun d -> d.domid) (set_difference host.domains active_domains) in
-		
-		let declared_inactive_domids = set_difference non_active_domids x.non_active_domids in
-		let declared_active_domids = set_difference x.non_active_domids non_active_domids in
-
+		let non_stuck_domains = List.filter
+			(fun domain ->
+					not (Stuckness_monitor.domid_is_stuck
+						x.stuckness domain.domid now
+					)
+			)
+			host.domains
+		in
+		let stuck_domains = set_difference host.domains non_stuck_domains in
 		List.iter
-			(fun d ->
-				debug "domid %d has been declared inactive" d
-			) declared_inactive_domids;
+			(fun domain ->
+				debug "domid %d has been declared stuck" domain.domid
+			)
+			(set_difference stuck_domains x.stuck_domains);
 		List.iter
-			(fun d ->
-				debug "domid %d has been declared active" d
-			) declared_active_domids;
+			(fun domain ->
+				debug "domid %d has been declared unstuck" domain.domid
+			)
+			(set_difference x.stuck_domains stuck_domains);
 
-		let x = { x with non_active_domids = non_active_domids } in
+		let x = { x with stuck_domains = stuck_domains } in
 
-		(* 2. Compute how we would adjust the domain memory targets *)
-		let targets = Policy.compute_target_adjustments ~fistpoints verbose { host with domains = active_domains } host_target_kib in
+		(* Continue while there is more memory to free and *)
+		(* apparently working balloon drivers to free it.  *)
+		if host.free_mem_kib >= free_memory_needed_kib then begin
+			debug "There is enough free memory already (%Ld >= %Ld)"
+				host.free_mem_kib free_memory_needed_kib;
+			x, Success
+		end else begin
 
-		let maximum_possible_free_memory_kib = host.free_mem_kib +* (sum (List.map (min_freeable ~fistpoints) active_domains)) in
-		if verbose
-		then debug "Maximum possible free memory if all active domains balloon down to dynamic_min = %Ld" maximum_possible_free_memory_kib;
-		(* Xen heap workaround: *)
-		let is_freeing_memory (domain, new_target_kib) = not (has_hit_target domain.inaccuracy_kib domain.memory_actual_kib new_target_kib) && new_target_kib < domain.memory_actual_kib in
-		let freeing, allocating = List.partition is_freeing_memory targets in
-		let allocation_phase = freeing = [] in
-		let targets = 
-		  if List.mem DisableTwoPhaseTargetSets fistpoints
-		  then targets
-		  else (if allocation_phase then allocating else freeing) in
+		(* Assuming *all non-stuck* domains successfully *)
+		(* balloon down to their dynamic_min:            *)
+		let total_freeable_memory_kib =
+			compute_total_freeable_memory non_stuck_domains in
+		(* If this happens, what would the resulting surplus be? *)
+		let surplus_memory_kib = host.free_mem_kib +* total_freeable_memory_kib
+			-* free_memory_needed_kib in
 
-		(* Have all the non-stuck domains reached their current targets? *)
-		let all p xs = List.fold_left (&&) true (List.map p xs) in
-		let hit_target domain = has_hit_target domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
-		let all_targets_reached = all hit_target active_domains in
-		let min_target domain = domain.target_kib = domain.dynamic_min_kib in
-		let max_target domain = domain.target_kib = domain.dynamic_max_kib in
+		(* If surplus_memory < 0L then there is nothing we think we can *)
+		(* do with the non_stuck_domains which will be good enough; in  *)
+		(* this case we adopt a 'do no harm' principle and do nothing.  *)
+		if surplus_memory_kib < 0L then begin
+			x, Failed stuck_domains
+		end else begin
+			let actions = allocate_memory_in_proportion surplus_memory_kib
+				non_stuck_domains in
+			x, AdjustTargets actions
+		end
+	end
 
-		let cant_allocate_any_more = all max_target active_domains in
-		let cant_free_any_more = all min_target active_domains in
+	(**
+		Takes a view of the host state and issues actions which, if executed,
+		would share the host memory amongst the VMs.
+	*)
+	let balance (host: host) =
+		(*
+			We ignore stuck domains. We pretend that all domains balloon down to
+			their dynamic_min and compute how much memory would be freed. We add
+			this to the host's free memory and then divide it up amongst the
+			domains proportionally.
 
-		(* Note the asymmetry between:
-		   1. increasing free memory: if we think we can't free enough then we give up
-		   2. reducing free memory: we wait until as much as possible is allocated *)
-		
-		let success = success_condition host.free_mem_kib in
+			If some domains are stuck they'll be left with target < actual,
+			while non-stuck domains will have target > memory_actual. Hopefully
+			if some domains become unstuck in future, then memory will be
+			automatically re-allocated to the non-stuck domains.
 
-		let target_too_big = maximum_possible_free_memory_kib < host_target_kib in
+			If some domains are destroyed in future then this function will need
+			to be recalled to re-divide the memory.
+		*)
 
-		let no_target_changes = List.filter (fun (domain, target) -> domain.target_kib <> target) targets = [] in
-		if verbose
-		then debug "current host free mem = %Ld KiB (aiming for %Ld KiB);%s; all domain targets%s reached%s; %s"
-		  host.free_mem_kib host_target_kib 
-		  (if success then " OK"
-		   else if target_too_big then " cannot free enough"
-		   else if cant_allocate_any_more then " cannot allocate enough" else "")
-		  (if all_targets_reached then "" else " not")
-		  (if no_target_changes then "" else "; however about to adjust targets")
- 		  (if allocation_phase then "allocation phase" else "freeing phase");
-
-		(* If we have to blame a domain for being stuck, we don't blame it if it can't balloon. *)
-		let non_active_domains = List.concat (List.map (fun d -> try [ IntMap.find d host.domid_to_domain ] with Not_found -> []) non_active_domids) in
-		let non_active_can_balloon_domains = List.filter (fun d -> d.can_balloon) non_active_domains in
-		let non_active_can_balloon_domids = List.map (fun d -> d.domid) non_active_can_balloon_domains in
-
-		(* 1. In all cases we wait for all targets to be reached and to be stable.
-		   2. If targets are reached and stable we evaluate our success condition and succeed/fail accordingly. *)
-		let action = 
-		  if not all_targets_reached || not no_target_changes
-		  then AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
-		  else
-		    if success then Success
-		    else Failed non_active_can_balloon_domids in
-
-		x, declared_active_domids, declared_inactive_domids, action
+		(* Here we assume *all* domains become unstuck and  *)
+		(* successfully balloon down to their dynamic_min:  *)
+		(* Σ v ∈ V (v.memory-actual - v.memory-dynamic-min) *)
+		let total_freeable_memory_kib =
+			compute_total_freeable_memory host.domains in
+		let surplus_memory_kib =
+			host.free_mem_kib +* total_freeable_memory_kib in
+		allocate_memory_in_proportion surplus_memory_kib host.domains
 
 end
 
 module Gnuplot = struct
 	type colspec = Dynamic_min | Memory_actual | Dynamic_max | Target
-	let write_header oc cols = 
-	  let all = List.concat [ if List.mem Dynamic_min cols then [ "dynamic_min" ] else [];
-				  if List.mem Dynamic_max cols then [ "dynamic_max" ] else [];
-				  if List.mem Memory_actual cols then [ "memory_actual" ] else [];
-				  if List.mem Target cols then [ "target" ] else [] ] in
-	  Printf.fprintf oc "# for each domain: %s\n" (String.concat " " all)
 
 	let write_row oc host cols time =
 		Printf.fprintf oc "%.2f %Ld " time host.free_mem_kib;
@@ -462,158 +377,3 @@ module Gnuplot = struct
 		host.domains;
 	close_out oc
 end
-
-type io = {
-	verbose: bool;
-
-	make_host: unit -> string * host;
-	domain_setmaxmem: int -> int64 -> unit;
-	execute_action: action -> unit;
-	wait: float -> unit;
-	gettimeofday: unit -> float;
-	
-	target_host_free_mem_kib: int64;
-	free_memory_tolerance_kib: int64;
-}
-
-exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon everyone down we can't free this much *)
-exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
-
-let change_host_free_memory ?fistpoints io required_mem_kib success_condition = 
-  (* XXX: debugging *)
-  if io.verbose 
-  then debug "change_host_free_memory required_mem = %Ld KiB" required_mem_kib;
-
-  let acc = ref (Squeezer.make ()) in
-  let finished = ref false in
-  while not (!finished) do
-    let t = io.gettimeofday () in
-    let host_debug_string, host = io.make_host () in
-    let acc', declared_active_domids, declared_inactive_domids, result =
-      Squeezer.one_iteration ?fistpoints io.verbose success_condition !acc host required_mem_kib t in
-    acc := acc';
-    
-    (* Set the max_mem of a domain as follows:
-
-       If the VM has never been run && is paused -> use initial-reservation
-       If the VM is active                       -> use target
-       If the VM is inactive                     -> use min(target, actual)
-       
-       So active VMs may move up or down towards their target and either get there 
-       (while we actively monitor them) or are declared inactive.
-       Inactive VMs are allowed to free memory while we aren't looking but 
-       they are not to allocate more.
-       
-       Note that the concept of having 'never been run' is hidden from us by the
-       'make_host' function above. The data we receive here will show either an
-       inactive (paused) domain with target=actual=initial_reservation or an
-       active (unpaused) domain. So the we need only deal with 'active' vs 'inactive'.
-    *)
-    
-    (* Compile a list of new targets *)
-    let new_targets = match result with
-      | AdjustTargets actions ->
-	  List.map (fun a -> a.action_domid, a.new_target_kib) actions
-      | _ -> [] in
-    let new_target_direction domain = 
-      let new_target = if List.mem_assoc domain.domid new_targets then Some(List.assoc domain.domid new_targets) else None in
-      match new_target with
-      | None -> string_of_direction None
-      | Some t -> string_of_direction (direction_of_int64 domain.target_kib t) in
-    let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> short_string_of_domain domain ^ (new_target_direction domain)) host.domains)) in
-    debug "%s" debug_string;
-    
-	(* For each domid, decide what maxmem should be *)
-	let maxmems = IntMap.mapi
-	  (fun domid domain ->
-		   if List.mem domid declared_inactive_domids 
-		   then min domain.target_kib domain.memory_actual_kib
-		   else 
-			 if List.mem_assoc domid new_targets
-			 then List.assoc domid new_targets
-			 else domain.target_kib) host.domid_to_domain in
-
-	IntMap.iter io.domain_setmaxmem maxmems;
-
-    begin match result with
-    | Success ->
-		  if io.verbose
-		  then debug "Success: Host free memory = %Ld KiB" required_mem_kib;
-	finished := true
-    | Failed [] ->
-		  if io.verbose
-		  then debug "Failed to free %Ld KiB of memory: operation impossible within current dynamic_min limits of balloonable domains" required_mem_kib;
-		  raise (Cannot_free_this_much_memory (required_mem_kib, host.free_mem_kib));
-    | Failed domids ->
-		  let s = String.concat ", " (List.map string_of_int domids) in
-		  if io.verbose 
-		  then debug "Failed to free %Ld KiB of memory: the following domains have failed to meet their targets: [ %s ]"
-			required_mem_kib s;
-	raise (Domains_refused_to_cooperate domids)
-    | AdjustTargets actions ->
-		  (* Set all the balloon targets *)
-		  List.iter io.execute_action actions;
-		  io.wait 1.
-    end
-  done
-
-let free_memory fistpoints io required_mem_kib =
-  change_host_free_memory ?fistpoints io (required_mem_kib +* io.target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* io.target_host_free_mem_kib))
-
-let free_memory_range ?fistpoints io min_kib max_kib =
-  (* First compute the 'ideal' amount of free memory based on the proportional allocation policy *)
-  let domain = { domid = -1;
-		 can_balloon = true;
-		 dynamic_min_kib = min_kib; dynamic_max_kib = max_kib;
-		 target_kib = min_kib;
-		 memory_actual_kib = 0L;
-		 memory_max_kib = 0L;
-		 inaccuracy_kib = 4L;
-	       } in
-  let host = snd(io.make_host ())in
-  let host' = { host with domains = domain :: host.domains } in
-  let adjustments = Policy.compute_target_adjustments io.verbose host' io.target_host_free_mem_kib in
-  let target = 
-    if List.mem_assoc domain adjustments
-    then List.assoc domain adjustments
-    else min_kib in
-  debug "free_memory_range ideal target = %Ld" target;
-
-  change_host_free_memory ?fistpoints io (target +* io.target_host_free_mem_kib) (fun x -> x >= (min_kib +* io.target_host_free_mem_kib));
-  let host = snd(io.make_host ()) in
-  let usable_free_mem_kib = host.free_mem_kib -* io.target_host_free_mem_kib in
-  if usable_free_mem_kib < min_kib then begin
-    debug "WARNING usable_free_mem_kib (%Ld) < min_kib (%Ld) (difference = %Ld KiB)" usable_free_mem_kib min_kib (min_kib -* usable_free_mem_kib);
-  end;
-  max min_kib (min usable_free_mem_kib max_kib)
-
-let is_balanced ?fistpoints io x = Int64.sub x io.target_host_free_mem_kib < io.free_memory_tolerance_kib
-
-let balance_memory ?fistpoints io = 
-  try
-    change_host_free_memory ?fistpoints io io.target_host_free_mem_kib (is_balanced io);
-  with e -> debug "balance memory caught: %s" (Printexc.to_string e)
-
-(** Return true if the host memory is currently unbalanced and needs rebalancing *)
-let is_host_memory_unbalanced ?fistpoints io = 
-  let debug_string, host = io.make_host () in
-  let domains = List.map (fun d -> d.domid, d) host.domains in
-
-  let t = io.gettimeofday () in
-  let _, _, _, result = Squeezer.one_iteration ?fistpoints false
-    (is_balanced io) (Squeezer.make ()) host 
-    io.target_host_free_mem_kib (io.gettimeofday ()) in
-  
-  let is_new_target a = 
-    let existing = (List.assoc a.action_domid domains).target_kib in
-    a.new_target_kib <> existing in
-
-  match result with
-  | AdjustTargets ts ->
-      if List.fold_left (||) false (List.map is_new_target ts) then begin
-	debug "Memory is not currently balanced";
-	debug "%s" debug_string;
-	true
-      end else false
-  | _ -> false
-  

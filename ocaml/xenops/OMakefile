@@ -10,7 +10,7 @@ CFLAGS          += $(XEN_CFLAGS)
 OCAMLPACKS    += threads uuid mmap xc xb xs
 OCAMLFLAGS    += -thread
 
-LIBFILES = xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common
+LIBFILES = xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
@@ -48,6 +48,7 @@ OCamlProgram(xenvm, ../util/config xenvmlib xenvm)
 OCamlProgram(xenvm-cmd, xenvmlib xenvm-cmd)
 OCamlProgram(xal, xal_main)
 OCamlProgram(watch_test, watch_test)
+OCamlProgram(squeeze_test, squeeze_test)
 
 BIN_PROGS=list_domains
 DEBUG_PROGS=xs xal xenops xenvm xenvm-cmd watch_test
