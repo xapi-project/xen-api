@@ -23,6 +23,11 @@ open DD
 
 open Client
 
+(* Extra parameter added in rel_mnr: memory_required_kib which is the lowest
+   upper-bound on the amount of memory we know the domain will fit in. If this
+   is missing (e.g. during rolling upgrade) we fall back to *static_max*. *)
+let _memory_required_kib = "memory_required_kib"
+
 (* ------------------------------------------------------------------- *)
 (* Part 1: utility functions                                           *)
 
@@ -487,6 +492,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
     then raise (Api_errors.Server_error (Api_errors.host_disabled, [Ref.string_of vm]))
   in
   let vm_r = Db.VM.get_record ~__context ~self:vm in
+  let domid = Int64.to_int vm_r.API.vM_domid in
   let localhost = Helpers.get_localhost ~__context in
 
   (* transmitter can see this is localhost migration if he is same host as the specified destination host *)
@@ -530,8 +536,20 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 	     ~psecret:!Xapi_globs.pool_secret in
 	   finally
 	     (fun () ->
-		let path = sprintf "%s?ref=%s"
-	          Constants.migrate_uri (Ref.string_of vm) in
+		with_xc_and_xs
+		  (fun xc xs ->
+
+		(* The lowest upper-bound on the amount of memory the domain can consume during 
+		   the migration is the max of maxmem and memory_actual, assuming no reconfiguring
+		   of target happens during the process. *)
+		let info = Xc.domain_getinfo xc domid in
+		let totmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
+		let maxmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
+		let memory_required_kib = Int64.div (max totmem maxmem) 1024L in
+
+		let path = sprintf "%s?ref=%s&%s=%Ld"
+	          Constants.migrate_uri (Ref.string_of vm)
+		  _memory_required_kib memory_required_kib in
 		let task_id = Context.get_task_id __context in
 		let headers = Xmlrpcclient.connect_headers
 		  ~session_id:(Ref.string_of session_id) 
@@ -557,16 +575,15 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		  (* Transfer the memory image *)
 		  with_xal
 		    (fun xal ->
-		       with_xc_and_xs
-			 (fun xc xs ->
 			    transmitter ~xal ~__context localhost_migration insecure_fd (vm_migrate_failed vm localhost host) 
-			      host session_id vm xc xs live));
+			      host session_id vm xc xs live);
 		with e ->
 		  debug "Sender Caught exception: %s" (ExnHelper.string_of_exn e);
 		  debug "Sender Relocking VBDs";
 		  (* NB the domain might now be in a crashed state: rely on the event thread
 		     to do the cleanup asynchronously. *)
 		  raise_api_error e
+		  )
 	     ) (fun () -> 
 		  debug "Sender 8.Logging out of remote server";
 		  Client.Session.logout ~rpc:secure_rpc ~session_id
@@ -706,6 +723,13 @@ let handler req fd =
        let with_locks f = 
 	 if localhost_migration && (vm = dest_vm) then f () (* nothing *)
 	 else Locking_helpers.with_lock dest_vm (fun token () -> f ()) () in
+
+       (* NB this parameter will be present except when we're doing a rolling upgrade. *)
+       let memory_required_kib = 
+	 if List.mem_assoc _memory_required_kib req.Http.query
+	 then Int64.of_string (List.assoc _memory_required_kib req.Http.query)
+	 else Memory.kib_of_bytes_used (Memory_check.vm_compute_migrate_memory __context vm) in
+
        debug "Receiver 1. locking VM (if not localhost migration)";
        try
 	 with_locks
@@ -714,9 +738,6 @@ let handler req fd =
 	      with_xc_and_xs
 		(fun xc xs ->
 			(* XXX: on early failure consider calling TaskHelper.failed? *)
-			let memory_required_kib = Memory.kib_of_bytes_used
-                         (Memory_check.vm_compute_migrate_memory __context vm) in
-
 (*
 			Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
 			(fun () ->
