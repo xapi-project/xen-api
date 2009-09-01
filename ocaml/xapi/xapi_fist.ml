@@ -29,6 +29,8 @@ let allow_vlan_on_vlan            () = fistpoint "allow_vlan_on_vlan"
 let allow_forget_of_vlan_pif      () = fistpoint "allow_forget_of_vlan_pif"
 (** Pretend that VMs need no memory while starting or running.  *)
 let disable_memory_checks         () = fistpoint "disable_memory_checks"
+(** Disable randomisation within the host selection algorithm. *)
+let deterministic_host_selection  () = fistpoint "deterministic_host_selection"
 
 (** Used to simulate a very slow planner to test Pool.ha_prevent_restarts_for *)
 let simulate_blocking_planner () = fistpoint "simulate_blocking_planner"

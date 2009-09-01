@@ -377,177 +377,186 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
       "Number of unique recommendations does not match number of potential hosts" "Unknown"
   else
     Hashtbl.fold (fun k v tl -> (k,v) :: tl) recs []  
-  
-let possible_hosts ~__context ?vm ~choose_fn () = 
-  let all_hosts = Db.Host.get_all ~__context in
-  let choices = List.filter (fun host -> try choose_fn ~host; assert_host_is_live ~__context ~host; true with _ -> false) all_hosts in
-    begin
-      match vm with
-	  Some vm ->
-	    warn "VM %s could run on any of these hosts: [ %s ]"
-	      (Helpers.checknull (fun () -> Db.VM.get_name_label ~__context ~self:vm))
-	      (String.concat "; " (List.map (fun self -> Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self)) choices));
-	| None -> ()
-    end;
-    choices
 
-(* Typically called to select a host based on SR visibility *)
+(** Returns the subset of all hosts to which the given function [choose_fn]
+can be applied without raising an exception. If the optional [vm] argument is
+present, this function additionally prints a debug message that includes the
+names of the given VM and each of the possible hosts. *)
+let possible_hosts ~__context ?vm ~choose_fn () =
+	(* XXXX: This function uses exceptions to control the flow of execution.  *)
+	(* XXXX: This function mixes business logic with debugging functionality. *)
+	let all_hosts = Db.Host.get_all ~__context in
+	let choices = List.filter
+		(fun host ->
+			try choose_fn ~host; assert_host_is_live ~__context ~host; true
+			with _ -> false
+		)
+		all_hosts in
+	begin
+		match vm with
+		| Some vm ->
+			warn "VM %s could run on any of these hosts: [ %s ]"
+				(Helpers.checknull
+					(fun () -> Db.VM.get_name_label ~__context ~self:vm))
+				(String.concat "; "
+					(List.map
+						(fun self ->
+							Helpers.checknull
+								(fun () ->
+									Db.Host.get_name_label ~__context ~self)
+						)
+						choices
+					)
+				);
+		| None -> ()
+	end;
+	choices
+
+(** Returns a single host (from the set of all hosts) to which the given
+function [choose_fn] can be applied without raising an exception. Raises
+[Api_errors.no_hosts_available] if no such host exists. If the optional [vm]
+argument is present, then this function additionally prints a debug message
+that includes the names of the given VM and the subset of all hosts that
+satisfy the given function [choose_fn]. *)
 let choose_host ~__context ?vm ~choose_fn () =
-  let choices = possible_hosts ~__context ?vm ~choose_fn () in
-  if List.length choices = 0 then raise (Api_errors.Server_error (Api_errors.no_hosts_available, []));
-  List.nth choices (Random.int (List.length choices))
+	let choices = possible_hosts ~__context ?vm ~choose_fn () in
+	if List.length choices = 0
+	then raise (Api_errors.Server_error (Api_errors.no_hosts_available, []));
+	List.nth choices (Random.int (List.length choices))
 
+(** Returns the subset of all hosts on which the given [vm] can boot. This
+function also prints a debug message identifying the given [vm] and hosts. *)
 let get_possible_hosts_for_vm ~__context ~vm ~snapshot = 
-  possible_hosts ~__context ~vm ~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot) () 
+	possible_hosts ~__context ~vm
+		~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot) ()
 
+(** Performs an expensive and comprehensive check to determine whether the
+given [guest] can run on the given [host]. Returns true if and only if the
+guest can run on the host. *)
+let vm_can_run_on_host __context vm snapshot host =
+	let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
+	let host_live () =
+		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
+		Db.Host_metrics.get_live ~__context ~self:host_metrics in
+	let host_can_run_vm () =
+		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
+		true in
+	try host_enabled () && host_live () && host_can_run_vm ()
+	with _ -> false
+
+(** Selects a single host from the set of all hosts on which the given [vm]
+can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
-  let pool = Helpers.get_pool ~__context in
-  let master = Db.Pool.get_master ~__context ~self:pool in
+	let validate_host = vm_can_run_on_host __context vm snapshot in
+	Xapi_vm_placement.select_host __context vm validate_host
 
-  (* Only hosts which are both live AND enabled have any chance of starting a VM *)
-  let is_live_and_enabled host = 
-    try
-      Db.Host.get_enabled ~__context ~self:host
-	&& (let hm = Db.Host.get_metrics ~__context ~self:host in
-	    Db.Host_metrics.get_live ~__context ~self:hm)
-    with _ -> false in
-
-  (* Return true if the VM can run here. 
-     We assume this function is expensive and attempt to minimise the number of calls to it. *)
-  let can_boot_here host = 
-    try
-      assert_can_boot_here ~__context ~self:vm ~snapshot ~host;
-      true
-    with e ->
-      debug "Cannot start VM %s (%s) on Host %s (%s): %s" 
-	(Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm) (Ref.string_of host) (Db.Host.get_name_label ~__context ~self:host) 
-	(ExnHelper.string_of_exn e);
-      false in
-
-  let affinity = Db.VM.get_affinity ~__context ~self:vm in
-  let affinity_valid_ref = Db.is_valid_ref affinity in
-  if not affinity_valid_ref
-  then debug "VM %s (%s) has an invalid affinity reference" (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm);
-
-  (* if affinity is a possible choice then choose it; otherwise pick random choice *)
-  if affinity_valid_ref && (is_live_and_enabled affinity) && (can_boot_here affinity) then begin
-    debug "VM %s (%s) has affinity set to Host %s (%s): will start there"
-      (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm) (Ref.string_of affinity) (Db.Host.get_name_label ~__context ~self:affinity);
-    affinity
-  end else begin
-    (* Pre-select all live, enabled hosts *)
-    let hosts = List.filter (fun x -> x <> affinity && (is_live_and_enabled x)) (Db.Host.get_all ~__context) in
-    
-    (* Next use the approximate Host_metrics.memory_free to select where to start the VM. Note
-       we use the approximate rather than full calcuation because it's cheap and because once we select
-       a VM we'll inevitably do the full assert_can_boot_here anyway. *)
-    let memory_free_of_host host = 
-      try
-	let hm = Db.Host.get_metrics ~__context ~self:host in
-	let memory_free = Db.Host_metrics.get_memory_free ~__context ~self:hm in
-	(* bias away from the master *)
-	if host = master then Int64.div memory_free 2L else memory_free
-      with _ -> 0L in
-    let hosts_and_memories = List.map (fun host -> host, memory_free_of_host host) hosts in
-    (* Sort the hosts into most free memory first *)
-    let hosts = List.map fst (List.sort (fun (_, a) (_, b) -> compare b a) hosts_and_memories) in
-    
-    (* Given a function of generating random numbers in the range [0, 1) we return a selected item and the rest of the list *)
-    let select_one random_fn remaining = 
-      (* assuming 'random_fn' generates numbers [0, 1) we generate a sample and convert to a list index *)
-      let r = random_fn () in
-      let l = List.length remaining in
-      let idx = int_of_float (float_of_int l *. r) in
-      (* paranoia: cap the idx into the valid range *)
-      let idx = min (l-1) (max 0 idx) in
-      let choice = List.nth remaining idx in
-      (* we assume all items in 'remaining' are distinct *)
-      let remaining' = List.filter (fun x -> x <> choice) remaining in
-      choice, remaining' in
-
-    (* Given a source of randomness and a list of hosts, return the first randomly-chosen host which can host the VM *)
-    let rec find_first_possible_host random_fn hosts = 
-      if hosts = [] then raise (Api_errors.Server_error (Api_errors.no_hosts_available, []));
-      let choice, hosts' = select_one random_fn hosts in
-      (* this call is expensive *)
-      if can_boot_here choice then choice else (find_first_possible_host random_fn hosts') in
-
-    let uniform_random_fn () = Random.float 1. in
-    (* bias towards hosts with more memory by a simple transformation: *)
-    let biased_random_fn () = let x = uniform_random_fn () in x *. x in
-
-    let host = find_first_possible_host biased_random_fn hosts in
-    debug "Host %s (%s) is most suitable to start VM %s (%s)"
-      (Ref.string_of host) (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm);
-    host
-  end
-
-(* choose_host_for_vm will use WLB as long as it is enabled and there is no
-   pool.other_config["wlb_choose_host_disable"] = "true" *)
+(* choose_host_for_vm will use WLB as long as it is enabled and there *)
+(* is no pool.other_config["wlb_choose_host_disable"] = "true".       *)
 let choose_host_uses_wlb ~__context =
-  Workload_balancing.check_wlb_enabled ~__context &&
-    not (List.exists
-           (fun (k,v) ->
-              k = "wlb_choose_host_disable" && (String.lowercase v = "true"))
-           (Db.Pool.get_other_config ~__context
-              ~self:(Helpers.get_pool ~__context)))
+	Workload_balancing.check_wlb_enabled ~__context &&
+		not (
+			List.exists
+				(fun (k,v) ->
+					k = "wlb_choose_host_disable"
+					&& (String.lowercase v = "true"))
+				(Db.Pool.get_other_config ~__context
+					~self:(Helpers.get_pool ~__context)))
 
-(* Given a vm, give me back a host it can boot on, prioritising affinity host if one present *)
-(* WARNING: called holding the global lock from the message forwarding layer *)
+(** Given a virtual machine, returns a host it can boot on, giving   *)
+(** priority to an affinity host if one is present. WARNING: called  *)
+(** while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot = 
-  if choose_host_uses_wlb ~__context then
-  try
-    let rec filter_and_convert recs =
-      match recs with 
-        | (h, recom) :: tl ->
-          begin
-            debug "\n%s\n" (String.concat ";" recom);
-            match recom with
-              | ["WLB"; "0.0"; rec_id; zero_reason] -> filter_and_convert tl
-              | ["WLB"; stars; rec_id] -> (h, float_of_string stars, rec_id) :: filter_and_convert tl
-              | _ -> filter_and_convert tl
-          end
-        | [] -> []
-    in
-      begin 
-        let all_hosts =
-          (List.sort (fun (h, s, r) (h', s', r') -> if s < s' then 1 else if s > s' then -1 else 0)
-            (filter_and_convert (retrieve_wlb_recommendations ~__context ~vm ~snapshot)))
-        in
-        debug "Hosts sorted in priority: %s" (List.fold_left (fun a (h,s,r) -> a ^ (Printf.sprintf "%s %f," (Db.Host.get_name_label ~__context ~self:h) s) ) "" all_hosts);             
-        match all_hosts with
-         | (h,s,r)::_ -> 
-          debug "Wlb has recommended host %s" (Db.Host.get_name_label ~__context ~self:h);
-          let action = Db.Task.get_name_label ~__context ~self:(Context.get_task_id __context) in
-          let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-          Db.Task.set_other_config ~__context ~self:(Context.get_task_id __context) ~value:([("wlb_advised", r); ("wlb_action", action); ("wlb_action_obj_type", "VM"); ("wlb_action_obj_ref", (Ref.string_of vm)) ] @ oc); 
-          h
-         | _ -> debug "Wlb has no recommendations. Using original algorithm"; choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    end
-  with
-    | Api_errors.Server_error(error_type, error_detail) -> 
-        debug "Encountered error when using wlb for choosing host \"%s: %s\". Using original algorithm" error_type (String.concat "" error_detail);
-        (try
-          let uuid = Db.VM.get_uuid ~__context ~self:vm in
-          let message_body = 
-            Printf.sprintf "Wlb consultation for VM '%s' failed (pool uuid: %s)" 
-        	  (Db.VM.get_name_label ~__context ~self:vm)
-        	  (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
-          in
-          ignore(Xapi_message.create ~__context ~name:Api_messages.wlb_failed ~priority:3L ~cls:`VM ~obj_uuid:uuid ~body:message_body) 
-        with _ -> ());
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | Failure "float_of_string" -> 
-        debug "Star ratings from wlb could not be parsed to floats. Using original algorithm";
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | _ ->
-        debug "Encountered an unknown error when using wlb for choosing host. Using original algorithm";
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    else
-      begin
-        debug "Using wlb recommendations for choosing a host has been disabled or wlb is not available. Using original algorithm";
-        choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-      end
+	if choose_host_uses_wlb ~__context then
+		try
+			let rec filter_and_convert recs =
+				match recs with 
+				| (h, recom) :: tl ->
+					begin
+						debug "\n%s\n" (String.concat ";" recom);
+						match recom with
+						| ["WLB"; "0.0"; rec_id; zero_reason] ->
+							filter_and_convert tl
+						| ["WLB"; stars; rec_id] ->
+							(h, float_of_string stars, rec_id)
+								:: filter_and_convert tl
+						| _ -> filter_and_convert tl
+					end
+				| [] -> []
+			in
+			begin 
+				let all_hosts =
+					(List.sort
+						(fun (h, s, r) (h', s', r') ->
+							if s < s' then 1 else if s > s' then -1 else 0)
+						(filter_and_convert (retrieve_wlb_recommendations
+							~__context ~vm ~snapshot))
+					)
+				in
+				debug "Hosts sorted in priority: %s"
+					(List.fold_left
+						(fun a (h,s,r) ->
+							a ^ (Printf.sprintf "%s %f,"
+								(Db.Host.get_name_label ~__context ~self:h) s)
+						) "" all_hosts
+					);
+				match all_hosts with
+				| (h,s,r)::_ ->
+					debug "Wlb has recommended host %s"
+						(Db.Host.get_name_label ~__context ~self:h);
+					let action = Db.Task.get_name_label ~__context
+						~self:(Context.get_task_id __context) in
+					let oc = Db.Pool.get_other_config ~__context
+						~self:(Helpers.get_pool ~__context) in
+					Db.Task.set_other_config ~__context
+						~self:(Context.get_task_id __context)
+						~value:([
+							("wlb_advised", r);
+							("wlb_action", action);
+							("wlb_action_obj_type", "VM");
+							("wlb_action_obj_ref", (Ref.string_of vm))
+						] @ oc);
+					h
+				| _ ->
+					debug "Wlb has no recommendations. \
+						Using original algorithm";
+					choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+			end
+		with
+		| Api_errors.Server_error(error_type, error_detail) -> 
+			debug "Encountered error when using wlb for choosing host \
+				\"%s: %s\". Using original algorithm"
+				error_type
+				(String.concat "" error_detail);
+			begin
+				try
+					let uuid = Db.VM.get_uuid ~__context ~self:vm in
+					let message_body =
+						Printf.sprintf
+							"Wlb consultation for VM '%s' failed (pool uuid: %s)"
+							(Db.VM.get_name_label ~__context ~self:vm)
+							(Db.Pool.get_uuid ~__context
+								~self:(Helpers.get_pool ~__context))
+					in
+					ignore (Xapi_message.create ~__context
+						~name:Api_messages.wlb_failed ~priority:3L
+						~cls:`VM ~obj_uuid:uuid ~body:message_body)
+				with _ -> ()
+			end;
+			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+		| Failure "float_of_string" -> 
+			debug "Star ratings from wlb could not be parsed to floats. \
+				Using original algorithm";
+			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+		| _ ->
+			debug "Encountered an unknown error when using wlb for \
+				choosing host. Using original algorithm";
+			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+	else
+		begin
+			debug "Using wlb recommendations for choosing a host has been \
+				disabled or wlb is not available. Using original algorithm";
+			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
+		end
 
 type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.vM_t -> int64 -> unit
 
