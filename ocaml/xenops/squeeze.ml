@@ -208,24 +208,39 @@ module Proportional = struct
 			domains in
 		List.fold_left ( +* ) 0L freeable_memory_kib
 
+	(** Constrains [value] within the range [minimum] ... [maximum]. *)
+	let constrain minimum maximum value =
+		assert (minimum < maximum);
+		if value < minimum then minimum else
+		if value > maximum then maximum else value
+
 	(**
 		Given an amount of theoretically surplus memory (= host free memory +
 		that which would be freed by ballooning down to dynamic_min) produce a
 		set of balloon-target-set actions to divide it up amongst the given VMs
-		so that (target-min)/(max-min) is the same.
+		so that (target - min) / (max - min) is the same for all VMs.
 	*)
 	let allocate_memory_in_proportion surplus_memory_kib domains =
 		(* We assign surplus memory to domains in proportion to  *)
 		(* their dynamic ranges [min_i...max_i].                 *)
 		(* First we find the greatest \gamma such that:          *)
-		(*     \sigma i \in VM. \gamma.(max_i - min_i) = surplus *)
+		(*     \sigma i \in VM. \gamma.(max_i - min_i) ≤ surplus *)
+		(*     where 0 ≤ \gamma ≤ 1                              *)
 		(* Then we assign each guest a target t_i according to:  *)
 		(*     \forall i \in VM. t_i := \gamma.(max_i - min_i)   *)
 		let dynamic_ranges = List.map
 			(fun domain -> domain.dynamic_max_kib -* domain.dynamic_min_kib)
 			domains in
-		let gamma = Int64.to_float surplus_memory_kib /. (Int64.to_float 
-			(List.fold_left ( +* ) 0L dynamic_ranges)) in
+		let sum_of_dynamic_ranges = List.fold_left ( +* ) 0L dynamic_ranges in
+		(* The following divide operation can produce values from one *)
+		(* of the following ranges:                                   *)
+		(*     a. between 0 and 1 (when host memory is over-utilised) *)
+		(*     b. greater than 1 (when host memory is under-utilised) *)
+		(*     c. \infinity (if \forall i \in VM. min_i = max_i       *)
+		(* Constrain the result so that it satisfies 0 ≤ \gamma ≤ 1.  *) 
+		let gamma_unconstrained = Int64.to_float surplus_memory_kib /.
+			Int64.to_float sum_of_dynamic_ranges in
+		let gamma = constrain 0.0 1.0 gamma_unconstrained in
 		List.concat
 			(List.map 
 				(fun domain ->
