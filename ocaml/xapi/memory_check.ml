@@ -228,23 +228,14 @@ let host_compute_memory_overhead ~__context ~host =
 	(* to time and simply fetch the existing cached value from the database. *)
 	Db.Host.get_memory_overhead ~__context ~self:host
 
-let has_booted_or_will_boot_hvm ~__context ~vm =
-	match Db.VM.get_power_state ~__context ~self:vm with
-		| `Paused | `Running | `Suspended ->
-			Helpers.has_booted_hvm ~__context ~self:vm
-		| `Halted | `Unknown | _ ->
-			Helpers.will_boot_hvm ~__context ~self:vm
+let vm_compute_memory_overhead snapshot = 
+  let multiplier = snapshot.API.vM_HVM_shadow_multiplier in
+  let vcpu_count = snapshot.API.vM_VCPUs_max in
+  let static_max_bytes = snapshot.API.vM_memory_static_max in
+  let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
+  let memory_overhead_mib = 
+    if Helpers.is_hvm snapshot
+    then Memory.HVM.overhead_mib static_max_mib (Int64.to_int vcpu_count) multiplier
+    else Memory.Linux.overhead_mib in
+  Memory.bytes_of_mib memory_overhead_mib
 
-let vm_compute_memory_overhead ~__context ~vm =
-	let memory_overhead_mib =
-		if (has_booted_or_will_boot_hvm ~__context ~vm)
-		then begin
-			let multiplier = Db.VM.get_HVM_shadow_multiplier ~__context ~self:vm in
-			let vcpu_count = Db.VM.get_VCPUs_max ~__context ~self:vm in
-			let static_max_bytes = Db.VM.get_memory_static_max ~__context ~self:vm in
-			let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
-			Memory.HVM.overhead_mib static_max_mib (Int64.to_int vcpu_count) multiplier
-		end else begin
-			Memory.Linux.overhead_mib
-		end in
-	Memory.bytes_of_mib memory_overhead_mib
