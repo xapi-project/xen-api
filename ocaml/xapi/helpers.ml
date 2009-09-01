@@ -265,7 +265,8 @@ let get_boot_record_of_record ~string:lbr ~uuid:current_vm_uuid =
 
 let get_boot_record ~__context ~self = 
   let r = Db.VM.get_record_internal ~__context ~self in  
-  get_boot_record_of_record r.Db_actions.vM_last_booted_record r.Db_actions.vM_uuid
+  let lbr = get_boot_record_of_record r.Db_actions.vM_last_booted_record r.Db_actions.vM_uuid in
+  { lbr with API.vM_memory_target = 0L }
 
 
 let set_boot_record ~__context ~self newbootrec =
