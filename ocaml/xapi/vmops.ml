@@ -962,8 +962,6 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 
 		if target_bytes < snapshot.API.vM_memory_dynamic_min then begin
 		  error "target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld" target_bytes snapshot.API.vM_memory_dynamic_min overhead_bytes target_plus_overhead_bytes;
-		  error "All stop.";
-		  exit 1;
 		end;
 		assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
 		assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
