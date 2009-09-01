@@ -143,9 +143,9 @@ let scenario_a = {
 	should_succeed = true;
 	scenario_domains = [
 		new idealised_vm_with_limit
-			(domain_make 0 1000L 1500L 2000L 1500L) 100L 1250L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L) 100L 1250L;
 		new intermittently_stuck_vm
-			(domain_make 1 2500L 3500L 4500L 3500L) 500L 0.25;
+			(domain_make 1 true 2500L 3500L 4500L 3500L) 500L 0.25;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L
@@ -158,9 +158,9 @@ let scenario_b = {
 	should_succeed = true;
 	scenario_domains = [
 		new intermittently_stuck_vm
-			(domain_make 1 500L 3500L 4500L 3500L) 100L 3.;
+			(domain_make 1 true 500L 3500L 4500L 3500L) 100L 3.;
 		new intermittently_stuck_vm
-			(domain_make 0 500L 1500L 2500L 1500L) 100L 1.5;
+			(domain_make 0 true 500L 1500L 2500L 1500L) 100L 1.5;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L }
@@ -171,8 +171,8 @@ let scenario_c = {
 		freed";
 	should_succeed = false;
 	scenario_domains = [
-		new idealised_vm (domain_make 0 1000L 1500L 2000L 1500L) 100L;
-		new idealised_vm (domain_make 1 2000L 2500L 3000L 2500L) 100L;
+		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L) 100L;
+		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L) 100L;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1500L 
@@ -185,9 +185,9 @@ let scenario_d = {
 	should_succeed = false;
 	scenario_domains = [
 		new idealised_vm
-			(domain_make 0 1000L 1500L 2000L 1500L) 100L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L) 100L;
 		new idealised_vm_with_limit
-			(domain_make 1 2000L 2500L 3000L 2500L) 100L 2250L;
+			(domain_make 1 true 2000L 2500L 3000L 2500L) 100L 2250L;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L
@@ -254,16 +254,17 @@ let simulate scenario =
 	let acc = ref (Proportional.make ()) in
 	let i = ref 0 in
 
-	(* Phase 1: attempt to free memory *)
-	let finished = ref false in
-	while not (!finished) do
-		let host = make_host () in
-		if not (!finished) then begin
-			let t = float_of_int !i /. 10. in
-			let acc', result = Proportional.free_memory
-				!acc host scenario.required_mem_kib t in
-			acc := acc';
-			begin match result with
+	(* Change the free memory on the host *)
+	let change_memory success_condition host_target_kib = 
+
+		let finished = ref false in
+		while not (!finished) do
+			let host = make_host () in
+			if not (!finished) then begin
+				let t = float_of_int !i /. 10. in
+				let acc', _, _, result = Proportional.change_host_free_memory success_condition !acc host host_target_kib t in
+				acc := acc';
+				begin match result with
 				| Success ->
 					debug "%Ld KiB of memory has been freed"
 						scenario.required_mem_kib;
@@ -279,46 +280,29 @@ let simulate scenario =
 				| AdjustTargets actions ->
 					(* Set all the balloon targets *)
 					List.iter update_target actions
+				end;
+				(* Allow the balloon drivers to do some work *)
+				update_balloons t;
+
+				let host = make_host () in
+				assert_within_dynamic_range host;
+				Gnuplot.write_row oc host cols t;
+				incr i
+
 			end;
-			(* Allow the balloon drivers to do some work *)
-			update_balloons t;
+		done in
 
-			let host = make_host () in
-			assert_within_dynamic_range host;
-			Gnuplot.write_row oc host cols t;
-			incr i
+	(* Phase 1: attempt to free memory *)
+	debug "%s: attempting to free %Ld KiB" scenario.name scenario.required_mem_kib;
+	change_memory (fun x -> x >= scenario.required_mem_kib) scenario.required_mem_kib;
+	debug "%s: %Ld KiB of memory has been freed" scenario.name scenario.required_mem_kib;
 
-		end;
-	done;
-
-	debug "%Ld KiB of memory has been freed" scenario.required_mem_kib;
 	(* Phase 2: use some of this memory and return the rest to remaining VMs *)
 	host_free_mem_kib := !host_free_mem_kib -* 500L;
 
-	let finished = ref false in
-	while not (!finished) do
-		let host = make_host () in
-		if not (!finished) then begin
-			let t = float_of_int !i /. 10. in
-			let actions = Proportional.balance host in
-			(* Set all balloon targets *)
-			List.iter update_target actions;
-			(* Allow the balloon drivers to do some work *)
-			update_balloons t;
-			let host = make_host () in
-			assert_within_dynamic_range host;
-			Gnuplot.write_row oc host cols t;
-			incr i;
-			finished := host.free_mem_kib = 0L ||
-				(List.fold_left
-					(&&) true
-					(List.map
-						(fun d -> d.target_kib = d.memory_actual_kib)
-						host.domains
-					)
-				);
-		end
-	done;
+	(* Phase 3: give free memory back to VMs *)
+	change_memory (fun x -> x = 0L) 0L;
+	debug "%s: After rebalancing only %Ld KiB of memory is used" scenario.name !host_free_mem_kib;
 
 	if !host_free_mem_kib > 10L 
 	then failwith (
