@@ -473,8 +473,6 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* MTC: Normal XenMotion migration does not change the VM's power state *)
   Mtc.update_vm_state_if_necessary ~__context ~vm;
 
-  Memory_control.balance_memory ~xc ~xs;
-
   TaskHelper.set_progress ~__context 1.;
   
   debug "Receiver 8. signalling sender that we're done";

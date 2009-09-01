@@ -243,7 +243,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 		with_xc_and_xs 
 		  (fun xc xs -> 
 		     Domain.unpause ~xc domid;
-		     Memory_control.balance_memory ~xc ~xs);
+		  );
 		Vmops.plug_pcidevs ~__context ~vm domid;
 (*
 		(* hack to get xmtest to work *)
@@ -368,7 +368,6 @@ module Reboot = struct
            debug "%s phase 3/3: unpausing new domain (domid %d)" api_call_name domid;
            with_xc_and_xs (fun xc xs -> 
 			     Domain.unpause ~xc domid;
-			     Memory_control.balance_memory ~xc ~xs
 			  );
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
            Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
@@ -595,6 +594,7 @@ let suspend  ~__context ~vm =
 						debug "suspend phase 0/3: asking guest to balloon down";
 						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
 						Memory_control.balance_memory ~xc ~xs;
+
 						debug "suspend phase 1/3: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
 						(* the device un-hotplug the final 10% *)
@@ -679,7 +679,6 @@ let resume ~__context ~vm ~start_paused ~force =
 								(if start_paused then "not" else "");
 							if not start_paused then begin
 								Domain.unpause ~xc domid;
-								Memory_control.balance_memory ~xc ~xs;
 							end;
 							(* VM is now resident here *)
 							let localhost = Helpers.get_localhost ~__context in

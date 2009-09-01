@@ -292,11 +292,26 @@ let free_memory_range ~xc ~xs min_kib max_kib =
   end;
   max min_kib (min usable_free_mem_kib max_kib)
 
+let is_balanced x = Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib
+
 let balance_memory ~xc ~xs = 
   try
-    change_host_free_memory ~xc ~xs target_host_free_mem_kib 
-      (fun x -> Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib);
+    change_host_free_memory ~xc ~xs target_host_free_mem_kib is_balanced;
     if not (Memory.wait_xen_free_mem ~xc (Int64.sub target_host_free_mem_kib free_memory_tolerance_kib))
     then failwith "wait_xen_free_mem"
   with e -> debug "balance memory caught: %s" (Printexc.to_string e)
 
+(** Return true if the host memory is currently unbalanced and needs rebalancing *)
+let is_host_memory_unbalanced ~xc ~xs = 
+  let debug_string, host = make_host ~xc ~xs in
+  let t = Unix.gettimeofday () in
+  let _, _, _, result = Squeeze.Proportional.change_host_free_memory 
+    is_balanced (Squeeze.Proportional.make ()) host 
+    target_host_free_mem_kib (Unix.gettimeofday ()) in
+  match result with
+  | Squeeze.AdjustTargets _ ->
+      debug "Memory is not currently balanced";
+      debug "%s" debug_string;
+      true
+  | _ -> false
+  
