@@ -4,6 +4,8 @@ val get_free_memory_kib : xc:Xc.handle -> int64
 val get_scrub_memory_kib : xc:Xc.handle -> int64
 (** Returns the total amount of memory available in this host. *)
 val get_total_memory_mib : xc:Xc.handle -> int64
+(** Returns the total amount of memory available in this host. *)
+val get_total_memory_bytes : xc:Xc.handle -> int64
 
 (** The current page size (in bytes). *)
 val bytes_per_page : int64
