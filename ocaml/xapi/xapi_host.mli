@@ -150,6 +150,8 @@ val set_hostname_live :
 val is_in_emergency_mode : __context:'a -> bool
 val compute_free_memory :
   __context:Context.t -> host:[ `host ] Ref.t -> int64
+val compute_memory_overhead :
+  __context:Context.t -> host:API.ref_host -> int64
 val get_data_sources : __context:'a -> host:'b -> API.data_source_t list
 val record_data_source :
   __context:'a -> host:'b -> data_source:string -> unit

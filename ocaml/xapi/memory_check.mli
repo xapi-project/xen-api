@@ -70,3 +70,10 @@ val vm_compute_migrate_memory : __context:Context.t -> [`VM] Ref.t -> int64
 *)
 val host_compute_free_memory : ?dump_stats:bool -> __context:Context.t ->
 	host:[`host] Ref.t -> [`VM] Ref.t option -> int64
+
+val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
+	int64
+
+val vm_compute_memory_overhead : __context:Context.t -> vm:[`VM] Ref.t ->
+	int64
+	

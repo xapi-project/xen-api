@@ -1243,6 +1243,16 @@ let vm_atomic_set_resident_on = call
           ]
   ()
 
+let vm_compute_memory_overhead = call
+	~in_product_since:rel_midnight_ride
+	~name:"compute_memory_overhead"
+	~doc:"Computes the virtualization memory overhead of a VM."
+	~params:[Ref _vm, "vm", "The VM for which to compute the memory overhead"]
+	~pool_internal:false
+	~hide_from_docs:false
+	~result:(Int, "the virtualization memory overhead of the VM.")
+	()
+
 let vm_set_memory_dynamic_max = call ~flags:[`Session]
 	~in_product_since:rel_midnight_ride
 	~name:"set_memory_dynamic_max"
@@ -1737,6 +1747,16 @@ let host_compute_free_memory = call
 	~pool_internal:false
 	~hide_from_docs:false
 	~result:(Int, "the amount of free memory on the host.")
+	()
+
+let host_compute_memory_overhead = call
+	~in_product_since:rel_midnight_ride
+	~name:"compute_memory_overhead"
+	~doc:"Computes the virtualization memory overhead of a host."
+	~params:[Ref _host, "host", "The host for which to compute the memory overhead"]
+	~pool_internal:false
+	~hide_from_docs:false
+	~result:(Int, "the virtualization memory overhead of the host.")
 	()
 
 (* Diagnostics see if host is in emergency mode *)
@@ -2999,6 +3019,7 @@ let host =
 		 host_set_hostname_live;
 		 host_is_in_emergency_mode;
 		 host_compute_free_memory;
+		 host_compute_memory_overhead;
 		 host_tickle_heartbeat;
 		 host_sync_data;
 		 host_backup_rrds;
@@ -4641,6 +4662,7 @@ let vm =
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
+		vm_compute_memory_overhead;
 		vm_set_memory_dynamic_max;
 		vm_set_memory_dynamic_min;
 		vm_set_memory_dynamic_range;

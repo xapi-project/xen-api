@@ -207,3 +207,7 @@ let host_compute_free_memory ?(dump_stats=false) ~__context ~host
 	end;
 
 	host_mem_available
+
+let host_compute_memory_overhead ~__context ~host = 0L
+
+let vm_compute_memory_overhead ~__context ~vm = 0L
