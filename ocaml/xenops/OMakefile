@@ -10,7 +10,7 @@ CFLAGS          += $(XEN_CFLAGS)
 OCAMLPACKS    += threads uuid mmap xc xb xs
 OCAMLFLAGS    += -thread
 
-LIBFILES = xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state
+LIBFILES = xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
