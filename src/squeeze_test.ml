@@ -132,6 +132,7 @@ type scenario = {
 	should_succeed: bool;
 	scenario_domains: vm list;
 	host_free_mem_kib: int64;
+	host_emergency_pool_kib: int64;
 	required_mem_kib: int64;
 }
 
@@ -148,6 +149,7 @@ let scenario_a = {
 			(domain_make 1 true 2500L 3500L 4500L 3500L) 500L 0.25;
 	];
 	host_free_mem_kib = 0L;
+	host_emergency_pool_kib = 0L;
 	required_mem_kib = 1000L
 }
 
@@ -163,6 +165,7 @@ let scenario_b = {
 			(domain_make 0 true 500L 1500L 2500L 1500L) 100L 1.5;
 	];
 	host_free_mem_kib = 0L;
+	host_emergency_pool_kib = 0L;
 	required_mem_kib = 1000L }
 
 let scenario_c = {
@@ -175,6 +178,7 @@ let scenario_c = {
 		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L) 100L;
 	];
 	host_free_mem_kib = 0L;
+	host_emergency_pool_kib = 0L;
 	required_mem_kib = 1500L 
 }
 
@@ -190,14 +194,44 @@ let scenario_d = {
 			(domain_make 1 true 2000L 2500L 3000L 2500L) 100L 2250L;
 	];
 	host_free_mem_kib = 0L;
+	host_emergency_pool_kib = 0L;
 	required_mem_kib = 1000L
 }
 
+let scenario_e = {
+	name = "e";
+	description = "one domain needs to free but is stuck, other domain needs to allocate \
+		but can't because there is not enough free memory. We need to give up on the stuck \
+		domain first and then tell the other domain to free rather than allocate. We must not \
+		conclude the second domain is stuck because it can't allocate.";
+	should_succeed = true;
+	scenario_domains = [
+		(* The stuck domain is using more than it should be if the memory was freed and everything balanced *)
+		new stuck_vm
+			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L);
+		(* The working domain is using less than it should be if the memory was freed and everything balanced *)
+		new idealised_vm
+			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L) 100L;
+
+	];
+	host_free_mem_kib = 0L;
+	host_emergency_pool_kib = 0L;
+	required_mem_kib = 1000L;
+	(* The system has 3000L units of surplus memory. Ideally we'd give 1000L to the system and then split
+	   the remaining 2000L units proportionally amongst the domains: 500L to 0 and 1500L to 1. If both 
+	   domains were ideal then we could set 0's target to 5500L (down) and 1's target to 6500L (up)
+	   However since the stuck domain is stuck this strategy will fail. In this case we want the idealised
+	   VM to release the 1000L units of memory. However the likely failure mode is that it will have been
+	   asked to increase its allocation and been unable to do so because all host memory is exhausted. 
+	   It will then also have been marked as stuck and the operation will fail. *)
+}
+  
 let all_scenarios = [
 	scenario_a;
 	scenario_b;
 	scenario_c;
 	scenario_d;
+	scenario_e;
 ]
 	
 (** Fails if either memory_actual or target lie outside our dynamic range *)
@@ -223,6 +257,7 @@ let assert_within_dynamic_range host =
 (** Run a full simulation of the given scenario *)
 let simulate scenario = 
 	let host_free_mem_kib = ref scenario.host_free_mem_kib in
+	let emergency_pool_kib = scenario.host_emergency_pool_kib in
 	let all_domains = ref scenario.scenario_domains in
 
 	let domid_to_domain =
@@ -230,6 +265,7 @@ let simulate scenario =
 	in
 	let make_host () = {
 		free_mem_kib = !host_free_mem_kib;
+		emergency_pool_kib = emergency_pool_kib;
 		domains = List.map (fun d -> d#get_domain) !all_domains
 	} in
 	(* Update all the recorded balloon targets *)
