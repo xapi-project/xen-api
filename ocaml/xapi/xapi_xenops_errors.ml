@@ -46,6 +46,8 @@ let to_api_error = function
       Server_error(internal_error, [ sprintf "protocol failure while talking to xenguesthelper (%s)" x ])
   | Domain.Xenguest_failure x ->
       Server_error(internal_error, [ sprintf "received failure message from xenguesthelper: %s" x ])
+  | XenguestHelper.Domain_builder_error(fn, code, msg) ->
+      Server_error(domain_builder_error, [ fn; string_of_int code; msg ])
   | e -> e
 
 let handle_xenops_error f = 

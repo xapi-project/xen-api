@@ -8,6 +8,15 @@ let path = "/opt/xensource/libexec/xenguest"
 (** Where to place the last xenguesthelper debug log (just in case) *)
 let last_log_file = "/tmp/xenguesthelper-log"
 
+(* Exceptions which may propagate from the xenguest binary *)
+exception Xc_dom_allocate_failure of int * string
+exception Xc_dom_linux_build_failure of int * string
+exception Xc_domain_save_failure of int * string
+exception Xc_domain_resume_failure of int * string
+exception Xc_domain_restore_failure of int * string
+
+exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
+
 (** We do all our IO through the buffered channels but pass the 
     underlying fds as integers to the forked helper on the commandline. *)
 type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * int
@@ -101,9 +110,21 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
 (** For the simple case where we just want the successful result, return it.
     If we get an error message (or suspend) then throw an exception. *)
 let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
-  match non_debug_receive ~debug_callback cnx with
-  | Error x -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
-  | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
-  | Result x -> x
-  | Stdout _ | Stderr _ | Info _ -> assert false
-
+	match non_debug_receive ~debug_callback cnx with
+	| Error x ->
+		(* These error strings match those in xenguest_stubs.c *)
+		begin
+			match Stringext.String.split ~limit:3 ' ' x with
+			| [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
+			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xc_dom_allocate_failure    (int_of_string code, msg))
+			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xc_dom_linux_build_failure (int_of_string code, msg))
+			| [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
+			| [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
+			| [ "xc_domain_save"    ; code; msg ] -> raise (Xc_domain_save_failure     (int_of_string code, msg))
+			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xc_domain_resume_failure   (int_of_string code, msg))
+			| [ "xc_domain_restore" ; code; msg ] -> raise (Xc_domain_restore_failure  (int_of_string code, msg))
+			| _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
+		end
+	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+	| Result x -> x
+	| Stdout _ | Stderr _ | Info _ -> assert false

@@ -302,6 +302,8 @@ let xenapi_plugin_failure = "XENAPI_PLUGIN_FAILURE"
 
 let sr_attached = "SR_ATTACHED"
 
+let domain_builder_error = "DOMAIN_BUILDER_ERROR"
+
 let auth_already_enabled = "AUTH_ALREADY_ENABLED"
 let auth_unknown_type = "AUTH_UNKNOWN_TYPE"
 let auth_is_disabled = "AUTH_IS_DISABLED"
