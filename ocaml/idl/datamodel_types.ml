@@ -73,12 +73,18 @@ type api_value =
   | VMap of (api_value*api_value) list
   | VSet of api_value list
   | VRef of string
-      
-(** Each field has a qualifier associated with it: *)
-type qualifier = 
-    | StaticRO   (** field is set statically at install-time *)
-    | DynamicRO  (** field is computed dynamically from the guest *)
-    | RW         (** field is read / write *)
+
+(** Each database field has a qualifier associated with it: *)
+type qualifier =
+	| RW
+		(** Read-write database field whose initial value is specified at the
+		time of object construction. *)
+	| StaticRO
+		(** Read-only database field whose final value is specified at the time
+		of object construction. *)
+	| DynamicRO
+		(** Read-only database field whose value is computed dynamically and
+		not specified at the time of object construction. *)
 
 (** Release keeps track of which versions of opensource/internal products fields and messages are included in *)
 type release = {
