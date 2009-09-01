@@ -37,7 +37,6 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `changing_shadow_memory_live
 	| `changing_VCPUs_live 
 	| `data_source_op
-	| `get_cooperative
 	| `migrate
 	| `pause
 	| `pool_migrate
@@ -66,6 +65,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `reverting
 	| `snapshot
 	| `update_allowed_operations
+	| `get_cooperative
 	                                -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
