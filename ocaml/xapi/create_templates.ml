@@ -135,7 +135,7 @@ let blank_template =
     vM_memory_target = (256L ** mib);
     vM_memory_static_max = (256L ** mib);
     vM_memory_dynamic_max = (256L ** mib);
-    vM_memory_dynamic_min = (16L ** mib);
+    vM_memory_dynamic_min = (256L ** mib);
     vM_memory_static_min = 16L ** mib;
     vM_VCPUs_params = [];
     vM_VCPUs_max = 1L;
@@ -302,6 +302,7 @@ let windows_template root_disk_size version =
       vM_memory_static_max = (windows_memory_default ** mib);
       vM_memory_dynamic_max = (windows_memory_default ** mib);
       vM_memory_dynamic_min = (windows_memory_default ** mib);
+      vM_memory_target = (windows_memory_default ** mib);
       vM_memory_static_min = 16L ** mib;
       vM_other_config = 
       [
@@ -373,6 +374,7 @@ let create_all_templates rpc session_id =
 	  vM_memory_static_max = (sles_memory_default ** mib);
 	  vM_memory_dynamic_max = (sles_memory_default ** mib);
 	  vM_memory_dynamic_min = (sles_memory_default ** mib);
+	  vM_memory_target = (sles_memory_default ** mib);
           vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
       } in
   let sles11_install_template = sles10_install_template in
