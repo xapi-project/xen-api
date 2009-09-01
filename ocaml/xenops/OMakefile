@@ -52,7 +52,7 @@ OCamlProgram(xenvm, ../util/config xenvmlib xenvm)
 OCamlProgram(xenvm-cmd, xenvmlib xenvm-cmd)
 OCamlProgram(xal, xal_main)
 OCamlProgram(watch_test, watch_test)
-OCamlProgram(squeeze_test, squeeze_test)
+OCamlProgram(squeeze_test, squeeze_test squeeze_test_main)
 
 BIN_PROGS=list_domains squeezed_client
 DEBUG_PROGS=xs xal xenops xenvm xenvm-cmd watch_test
