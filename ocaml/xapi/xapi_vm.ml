@@ -607,12 +607,12 @@ let suspend  ~__context ~vm =
 						(* Record the final memory usage of the VM, so *)
 						(* that we know how much memory to free before *)
 						(* attempting to resume this VM in future.     *)
-						let final_memory_bytes = with_xc
-							(fun xc ->
-								let info = Xc.domain_getinfo xc domid in
-								Memory.bytes_of_pages
-									(Int64.of_nativeint
-										info.Xc.total_memory_pages)) in
+						let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
+						let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
+						(* Transform from total_memory_pages to ideal target *)
+						let tot_offset_mib = if di.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib in
+						let final_memory_bytes = Int64.sub final_memory_bytes (Memory.bytes_of_mib tot_offset_mib) in
+						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
 						let boot_record = Helpers.get_boot_record
 							~__context ~self:vm in
 						let boot_record_with_final_memory_usage = {
