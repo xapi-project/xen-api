@@ -1458,6 +1458,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		set_memory_static_range ~__context ~self ~min:value
 			~max:(Db.VM.get_memory_static_max ~__context ~self)
 
+	let set_memory_limits ~__context ~self
+			~static_min ~static_max ~dynamic_min ~dynamic_max =
+		info
+			"VM.set_memory_limits: self = %s; \
+			static_min = %Ld; static_max = %Ld; \
+			dynamic_min = %Ld; dynamic_max = %Ld"
+			(vm_uuid ~__context self)
+			static_min static_max dynamic_min dynamic_max;
+		with_vm_operation ~__context ~self ~doc:"VM.set_memory_limits"
+			~op:`changing_memory_limits
+		(fun () ->
+			Local.VM.set_memory_limits ~__context ~self
+				~static_min ~static_max ~dynamic_min ~dynamic_max)
+
 	let set_memory_target_live ~__context ~self ~target =
 		info "VM.set_memory_target_live: VM = '%s'; min = %Ld" (vm_uuid ~__context self) target;
 		let local_fn = Local.VM.set_memory_target_live ~self ~target in
