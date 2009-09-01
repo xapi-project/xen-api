@@ -551,8 +551,6 @@ let destroy ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate
 	if state <> `Running 
 	then Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 
-	Memory_control.balance_memory ~xc ~xs;
-
 	destroy_consoles ~__context ~vM:self;
 	(* to make debugging easier, set currently_attached to false for all
 	   VBDs and VIFs*)
