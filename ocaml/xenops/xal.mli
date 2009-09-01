@@ -77,6 +77,7 @@ val init : ?callback_introduce:(ctx -> domid -> unit)
         -> ?callback_release:(ctx -> domid -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
+	-> ?callback_memory_target:(ctx -> domid -> unit)
         -> ?monitor_devices:bool
         -> unit -> ctx
 val close : ctx -> unit
@@ -93,4 +94,5 @@ val loop : ?callback_introduce:(ctx -> domid -> unit)
         -> ?callback_release:(ctx -> domid -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
+	-> ?callback_memory_target:(ctx -> domid -> unit)
         -> unit -> unit

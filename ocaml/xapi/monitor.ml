@@ -112,6 +112,15 @@ let update_memory __context xc =
 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
 		    ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
 		in
+		let memory_target_opt = try Mutex.execute Xapi_guest_agent.mutex (fun () -> Some (Hashtbl.find Xapi_guest_agent.memory_targets domid)) with Not_found -> None in
+		let mem_target_ds = 
+		  Opt.map
+		    (fun memory_target ->
+		       (VM uuid,
+			ds_make ~name:"memory_target" ~description:"Target of VM balloon driver"
+			  ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
+		    ) memory_target_opt
+		in
 		let other_ds = 
 		  try
 		    let (_,_,_,_,g_a_memory,_) = Mutex.execute Xapi_guest_agent.mutex (fun () ->
@@ -122,9 +131,7 @@ let update_memory __context xc =
 			   ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
 		  with _ -> None
 		in
-		match other_ds with 
-		  | None -> main_mem_ds :: acc
-		  | Some ds -> main_mem_ds :: ds :: acc) [] doms
+		main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc) [] doms
 
 let update_loadavg () = 
   Host, ds_make ~name:"loadavg"

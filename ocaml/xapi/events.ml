@@ -543,6 +543,17 @@ let callback_guest_agent ctx domid =
 	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid)
     ) ()
 
+(** Handles updates to VM memory targets. *)
+let callback_memory_target ctx domid =
+  (* Be careful not to kill the main xal event thread *)
+  Helpers.log_exn_continue (Printf.sprintf "callback_memory_target (domid: %d)" domid)
+    (fun () ->
+       let xs = Xal.xs_of_ctx ctx in
+       let path = xs.Xs.getdomainpath domid in
+       let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xb.Noent -> None in
+       Opt.iter (Xapi_guest_agent.update_memory_target domid) target
+    ) ()
+
 let listen_xal () = 
   name_thread "xal_listen";
   debug "Events.listen_xal thread created";
@@ -553,7 +564,9 @@ let listen_xal () =
       Xal.loop 
 	~callback_release
 	~callback_devices
-	~callback_guest_agent ()
+	~callback_guest_agent
+	~callback_memory_target
+	()
     with e -> 
       error "Exception caught in xal_loop: %s" (ExnHelper.string_of_exn e);
       Thread.delay 5.
