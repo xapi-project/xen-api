@@ -739,6 +739,13 @@ let guest_get_api_access ~xs =
 	List.nth v 0, int_of_string (List.nth v 1),
 	List.nth v 2, List.nth v 3
 
+let set_memory_dynamic_range ~xs ~min ~max domid =
+	let kvs = [
+		"dynamic-min", string_of_int min;
+		"dynamic-max", string_of_int max;
+	] in
+	xs.Xs.writev (Printf.sprintf "%s/memory" (xs.Xs.getdomainpath domid)) kvs
+
 let add_ioport ~xc domid start_port end_port =
 	let nr_ports = end_port - start_port in
 	debug "ioport add %d %#x-%#x" domid start_port (start_port + nr_ports);

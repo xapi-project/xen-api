@@ -1227,7 +1227,6 @@ let vm_get_allowed_VIF_devices = call ~flags:[`Session] ~no_current_operations:t
   ~result:(Set String, "The allowed values")
   ()
 
-
 (* VM.atomic_set_resident_on *)
 (* an internal call that sets resident_on and clears the scheduled_to_be_resident_on atomically *)
 
@@ -1241,6 +1240,37 @@ let vm_atomic_set_resident_on = call
 	   Ref _host, "host", "The host to set resident_on to"
           ]
   ()
+
+let vm_set_memory_dynamic_max = call ~flags:[`Session]
+	~in_product_since:rel_midnight_ride
+	~name:"set_memory_dynamic_max"
+	~doc:"Set the value of the memory_dynamic_max field"
+	~params:[
+		Ref _vm, "self", "The VM to modify";
+		Int, "value", "The new value of memory_dynamic_max";
+	]
+	~errs:[] ()
+
+let vm_set_memory_dynamic_min = call ~flags:[`Session]
+	~in_product_since:rel_midnight_ride
+	~name:"set_memory_dynamic_min"
+	~doc:"Set the value of the memory_dynamic_min field"
+	~params:[
+		Ref _vm, "self", "The VM to modify";
+		Int, "value", "The new value of memory_dynamic_min";
+	]
+	~errs:[] ()
+
+let vm_set_memory_dynamic_range = call
+	~name:"set_memory_dynamic_range"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the minimum and maximum amounts of physical memory the VM is \
+		allowed to use."
+	~params:[
+		Ref _vm, "self", "The VM";
+		Int, "min", "The new minimum value";
+		Int, "max", "The new maximum value";
+	] ()
 
 (* When HA is enabled we need to prevent memory *)
 (* changes which will break the recovery plan.  *)
@@ -2470,8 +2500,8 @@ let guest_memory =
   [
     field "target" ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L));
     field "static_max" ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
-    field "dynamic_max" "Dynamic maximum (bytes)";
-    field "dynamic_min" "Dynamic minimum (bytes)";
+    field "dynamic_max" ~qualifier:StaticRO "Dynamic maximum (bytes)";
+    field "dynamic_min" ~qualifier:StaticRO "Dynamic minimum (bytes)";
     field "static_min" ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
   ]
 
@@ -4557,6 +4587,7 @@ let vm_operations =
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
+	    "changing_dynamic_range", "Changing the memory dynamic range";
 	    "changing_static_range", "Changing the memory static range";
 	    "changing_shadow_memory_live", "Changing the shadow memory settings";
 	    "changing_VCPUs_live", "Changing either the VCPUs_number or VCPUs_params";
@@ -4585,8 +4616,11 @@ let vm =
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
-		vm_set_memory_static_min;
+		vm_set_memory_dynamic_max;
+		vm_set_memory_dynamic_min;
+		vm_set_memory_dynamic_range;
 		vm_set_memory_static_max;
+		vm_set_memory_static_min;
 		vm_set_memory_static_range;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
