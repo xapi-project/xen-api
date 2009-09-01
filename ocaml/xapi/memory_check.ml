@@ -24,6 +24,13 @@ let vm_compute_required_memory vm_record guest_memory_kib =
 		then vm_compute_required_memory_for_hvm vm_record guest_memory_kib
 		else vm_compute_required_memory_for_pv  vm_record guest_memory_kib
 
+(** Different users will wish to use a different VM accounting policy, depending on how conservative they are *)
+type accounting_policy = 
+	| Static_max
+		(** use static_max: super conservative, useful for HA *)
+	| Dynamic_target
+		(** upper-bound on the VMs dynamic memory usage from the master's PoV *)
+
 (** Calculates the amount of system memory required in both 'normal' and 'shadow'  *)
 (** memory, to start a VM. If the given VM is a PV guest and if memory ballooning  *)
 (** is enabled, this function returns values derived from the VM's dynamic memory  *)
@@ -31,16 +38,12 @@ let vm_compute_required_memory vm_record guest_memory_kib =
 (** ballooning is not enabled or if the VM is an HVM guest, this function returns  *)
 (** values derived from the VM's static memory maximum (since currently HVM guests *)
 (** are not able to start in a pre-ballooned state).                               *)
-let vm_compute_start_memory ~__context vm_record =
+let vm_compute_start_memory ~__context ?(policy=Dynamic_target) vm_record =
 	if Xapi_fist.disable_memory_checks () then (0L, 0L) else
 	let memory_static_max = vm_record.API.vM_memory_static_max in
 	let ballooning_enabled = Helpers.ballooning_enabled_for_vm ~__context vm_record in
-	let memory_target = vm_record.API.vM_memory_target in
-	let memory_required = if Helpers.is_hvm vm_record
-		then memory_static_max
-		else if ballooning_enabled
-			then memory_target
-			else memory_static_max in
+	let memory_dynamic_min = vm_record.API.vM_memory_dynamic_min in
+	let memory_required = if ballooning_enabled && policy = Dynamic_target then memory_dynamic_min else memory_static_max in
 	vm_compute_required_memory vm_record (Memory.kib_of_bytes_used memory_required)
 
 (** Calculates the amount of system memory required in both 'normal' and *)
@@ -48,7 +51,7 @@ let vm_compute_start_memory ~__context vm_record =
 (** a memory balloon operation, this function returns the maximum amount *)
 (** of memory that the VM will need between now, and the point in future *)
 (** time when the operation completes.                                   *)
-let vm_compute_used_memory ~__context vm_ref =
+let vm_compute_used_memory ~__context policy vm_ref =
 	if Xapi_fist.disable_memory_checks () then (0L, 0L) else
 	(* Fetch records relating to the current memory state of the given VM:                   *)
 	(*   + the VM main record holds current values of memory_{dynamic_{min,max},target};     *)
@@ -66,69 +69,127 @@ let vm_compute_used_memory ~__context vm_ref =
 	(* of the current target and the asynchronously calculated memory usage: *)
 	let ballooning_enabled = Helpers.ballooning_enabled_for_vm ~__context vm_boot_record in
 	let memory_required =
-		if ballooning_enabled then max memory_target memory_actual
+        	if ballooning_enabled && policy = Dynamic_target then max memory_target memory_actual
 		else memory_static_max in
 	vm_compute_required_memory vm_boot_record (Memory.kib_of_bytes_used memory_required)
 
-(* Compute, from our managed data, how much memory is available on a host; this takes into account
-   both VMs that are resident_on the host and also VMs that are scheduled_to_be_resident_on the host.
-
-   If ignore_scheduled_vm is set then we do not consider this VM as having any resources allocated
-   via the scheduled_to_be_resident_on mechanism. This is used to ensure that, when we're executing
-   this function with a view to starting a VM, v, and further that v is scheduled_to_be_resident on
-   the specified host, that we do not count the resources required for v twice..
-
-   If 'dump_stats=true' then we write to the debug log where we think the memory is being used.
+(**
+	The Pool master's view of the total memory and memory consumers on a host.
+	This doesn't take into account dynamic changes i.e. those caused by
+	ballooning. Therefore if we ask a question like, 'is there <x> amount of
+	memory free to boot VM <y>' we will get one of 3 different answers:
+	1. yes:
+		the sum of the static_max's of all VMs with domains + the request
+		is less than the total free.
+	2. maybe:
+		depending on the behaviour of the balloon drivers in the guest we
+		may be able to free the memory.
+	3. no:
+		the sum of the dynamic_min's of all the VMs with domains + the
+		request is more than the total free.
 *)
-let host_compute_free_memory ?(dump_stats=false) ~__context ~host ignore_scheduled_vm =
-  (* Compute host free memory from what is actually running. Don't rely on reported
-     free memory, since this is an asychronously computed metric that's liable to change or
-     be out of date *)
-  let host_mem_total =
-    try Db.Host.get_boot_free_mem ~__context ~self:host
-    with _ -> raise (Api_errors.Server_error (Api_errors.host_cannot_read_metrics, [])) in
+type host_memory_summary = {
+	(** Amount of free memory sampled after booting Xen + crash kernel *)
+	host_free_memory_total: int64;
+	(** list of VMs which have a domain running here *)
+	resident: API.ref_VM list;
+	(** list of VMs which are in the process of having a domain created here *)
+	scheduled: API.ref_VM list;
+}
 
-  (* Get all the domains, including the control domain. *)
-  let domains = (Db.VM.get_all ~__context) in
+open Db_filter_types
 
-  (* consider resident_on and scheduled_to_be_resident_on independently: 
-     a VM migrating to localhost will be in both sets and should be counted twice *)
-  let resident_on =
-    List.filter (fun self -> Db.VM.get_resident_on ~__context ~self = host)
-      domains in
-  let scheduled_to_be_resident_on =
-    List.filter (fun self -> Db.VM.get_scheduled_to_be_resident_on ~__context ~self = host)
-      domains in
+(** Return a host's memory summary from live database contents. *)
+let get_host_memory_summary ~__context ~host = 
+	let host_free_memory_total =
+		try Db.Host.get_boot_free_mem ~__context ~self:host
+		with _ -> raise (
+			Api_errors.Server_error (
+				Api_errors.host_cannot_read_metrics, []))
+	in
+	let resident = Db.VM.get_refs_where ~__context
+		~expr:(Eq (Field "resident_on", Literal (Ref.string_of host))) in
+	let scheduled = Db.VM.get_refs_where ~__context
+		~expr:(Eq (Field "scheduled_to_be_resident_on", Literal (
+			Ref.string_of host))) in
+	{
+		host_free_memory_total = host_free_memory_total;
+		resident = resident;
+		scheduled = scheduled;
+	}
 
-  (* When we're considering starting ourselves, and the host has reserved resources ready for us,
-     then we need to make sure we don't count these reserved resources twice.. *)
-  let scheduled_to_be_resident_on =
-    match ignore_scheduled_vm with
-      None -> scheduled_to_be_resident_on (* no change *)
-    | Some ignore_me ->
-	List.filter (fun x -> x <> ignore_me) scheduled_to_be_resident_on in
+(**
+	Given a host's memory summary and a policy flag (i.e. whether to only
+	consider static_max or to consider dynamic balloon data) it returns the
+	amount of free memory on the host.
+*)
+let compute_free_memory ~__context summary policy =
+	let all_vms = summary.resident @ summary.scheduled in
+	let all_vm_memories = List.map (vm_compute_used_memory ~__context policy)
+		all_vms in
+	let total_vm_memory = List.fold_left Int64.add 0L
+		(List.map (fun (x, y) -> Int64.add x y) all_vm_memories) in
+	let host_mem_available = Int64.sub
+		summary.host_free_memory_total total_vm_memory in
+	max 0L host_mem_available
 
-  let all_vms = resident_on @ scheduled_to_be_resident_on in
-  
-  let total_running_vm_memory =
-    List.fold_left Int64.add 0L ((List.map (fun (x, y) -> Int64.add x y) (List.map (vm_compute_used_memory ~__context) all_vms))) in
-  let host_mem_available = Int64.sub host_mem_total total_running_vm_memory in
+(**
+	Compute, from our managed data, how much memory is available on a host; this
+	takes into account both VMs that are resident_on the host and also VMs that
+	are scheduled_to_be_resident_on the host.
 
-  if dump_stats then begin
-    let mib x = Int64.div (Int64.div x 1024L) 1024L in
-    debug "Memory_check: total host memory: %Ld (%Ld MiB)" host_mem_total (mib host_mem_total);
-    List.iter
-      (fun v -> 
-	 let main, shadow = vm_compute_used_memory ~__context v in
-	 debug "Memory_check: VM %s (%s): main memory %Ld (%Ld MiB); shadow memory %Ld (%Ld MiB)" 
-	   (Db.VM.get_uuid ~__context ~self:v)
-	   (if List.mem v resident_on then "resident here" else "scheduled to be resident here")
-	   main (mib main) shadow (mib shadow)) all_vms;
-    debug "Memory_check: total guest memory: %Ld (%Ld MiB)" 
-      total_running_vm_memory (mib total_running_vm_memory);
-    debug "Memory_check: available memory: %Ld (%Ld MiB)"
-      host_mem_available (mib host_mem_available)
-  end;
-  
-  host_mem_available
+	If ignore_scheduled_vm is set then we do not consider this VM as having any
+	resources allocated via the scheduled_to_be_resident_on mechanism. This is
+	used to ensure that, when we're executing this function with a view to
+	starting a VM, v, and further that v is scheduled_to_be_resident on the
+	specified host, that we do not count the resources required for v twice.
 
+	If 'dump_stats=true' then we write to the debug log where we think the
+	memory is being used.
+*)
+let host_compute_free_memory ?(dump_stats=false) ~__context ~host
+	ignore_scheduled_vm =
+	(*
+		Compute host free memory from what is actually running. Don't rely on
+		reported free memory, since this is an asychronously-computed metric
+		that's liable to change or be out of date.
+	*)
+	let summary = get_host_memory_summary ~__context ~host in
+	(*
+		When we're considering starting ourselves, and the host has reserved
+		resources ready for us, then we need to make sure we don't count these
+		reserved resources twice.
+	*)
+	let summary = { summary with scheduled = 
+		match ignore_scheduled_vm with
+		| None -> summary.scheduled (* no change *)
+		| Some ignore_me ->
+			List.filter (fun x -> x <> ignore_me) summary.scheduled
+	} in
+	let host_mem_available = compute_free_memory ~__context summary
+		Dynamic_target (* consider ballooning *) in
+
+	if dump_stats then begin
+		let mib x = Int64.div (Int64.div x 1024L) 1024L in
+		debug "Memory_check: total host memory: %Ld (%Ld MiB)"
+			summary.host_free_memory_total
+			(mib summary.host_free_memory_total);
+		List.iter
+			(fun v -> 
+				let main, shadow = vm_compute_used_memory ~__context
+					Static_max v in
+				debug "Memory_check: VM %s (%s): main memory %Ld (%Ld MiB); \
+					shadow memory %Ld (%Ld MiB)"
+					(Db.VM.get_uuid ~__context ~self:v)
+					(if List.mem v summary.resident
+						then "resident here"
+						else "scheduled to be resident here"
+					)
+					main (mib main) shadow (mib shadow)
+			)
+			(summary.scheduled @ summary.resident);
+		debug "Memory_check: available memory: %Ld (%Ld MiB)"
+			host_mem_available (mib host_mem_available)
+	end;
+
+	host_mem_available
