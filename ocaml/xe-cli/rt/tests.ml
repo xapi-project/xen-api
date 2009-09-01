@@ -628,8 +628,8 @@ let param (cli : Util.t_cli) vmid =
   let test () =
     let params = [("name-description","Testing testing!");
 		  ("user-version","100");
-		  ("memory-dynamic-max","10000");
-		  ("memory-dynamic-min","10000");
+		  ("VCPUs-max","2");
+		  ("PV-kernel","whatever");
 		] in
     log Info "Test: VM NAME='%s'" domainname;
     log Info "Testing setting/resetting parameters on stopped VM";
