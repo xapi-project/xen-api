@@ -539,13 +539,23 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		with_xc_and_xs
 		  (fun xc xs ->
 
+		(* We want to minimise the amount of memory the VM is currently using *)
+		let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+                let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+                let min = Int64.to_int (Int64.div min 1024L) in
+                let max = Int64.to_int (Int64.div max 1024L) in
+		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+		Squeeze_xen.balance_memory ~xc ~xs;
+		try
+		  begin
+
 		(* The lowest upper-bound on the amount of memory the domain can consume during 
 		   the migration is the max of maxmem and memory_actual, assuming no reconfiguring
 		   of target happens during the process. *)
 		let info = Xc.domain_getinfo xc domid in
 		let totmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
 		let maxmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
-		let memory_required_kib = Int64.div (max totmem maxmem) 1024L in
+		let memory_required_kib = Int64.div (Pervasives.max totmem maxmem) 1024L in
 
 		let path = sprintf "%s?ref=%s&%s=%Ld"
 	          Constants.migrate_uri (Ref.string_of vm)
@@ -583,6 +593,11 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		  (* NB the domain might now be in a crashed state: rely on the event thread
 		     to do the cleanup asynchronously. *)
 		  raise_api_error e
+		  end
+		with _ ->
+		  debug "Writing original memory policy back to xenstore";
+		  Domain.set_memory_dynamic_range ~xs ~min ~max domid;
+		  Squeeze_xen.balance_memory ~xc ~xs
 		  )
 	     ) (fun () -> 
 		  debug "Sender 8.Logging out of remote server";
