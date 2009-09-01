@@ -30,15 +30,20 @@ let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
-(** total_pages and max_pages both include the HVM VGA framebuffer but this memory is external to the guest's regular
-    address space. *)
-let domain_vga_kib di =
-  let vga_framebuffer_mib = if di.Xc.hvm_guest then Memory.HVM.xen_video_mib else Memory.Linux.xen_video_mib in
-  Memory.kib_of_mib vga_framebuffer_mib
+(** Return the extra amount we always add onto maxmem *) 
+let xen_max_offset_kib di =
+  let maxmem_mib = if di.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib in
+  Memory.kib_of_mib maxmem_mib
+
+(** When quiesced total_pages is always a certain amount above target. This accounts for 
+    most of it leaving a few 10s of KiB difference. *)
+let xen_tot_offset_kib di =
+  let totmem_mib = if di.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib in
+  Memory.kib_of_mib totmem_mib
 
 let domain_setmaxmem xc domid target_kib = 
   let di = Xc.domain_getinfo xc domid in
-  let maxmem_kib = domain_vga_kib di +* target_kib in
+  let maxmem_kib = xen_max_offset_kib di +* target_kib in
   debug "Xc.domain_setmaxmem domid=%d target=%Ld max=%Ld" domid target_kib maxmem_kib;
   Xc.domain_setmaxmem xc domid maxmem_kib
 
@@ -89,12 +94,12 @@ let make_host ~xc ~xs =
 				try
 					let path = xs.Xs.getdomainpath di.Xc.domid in
 					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
-					(* the VGA framebuffer appears in total_memory_pages and max_memory_pages but we want to ignore this *)
-					let vga_framebuffer_kib = domain_vga_kib di in
-					let memory_actual_kib = max 0L (memory_actual_kib -* vga_framebuffer_kib) in
+					(* The VGA framebuffer appears in total_memory_pages *)
+					let memory_actual_kib = max 0L (memory_actual_kib -* (xen_tot_offset_kib di)) in
 					(* dom0 is also special for some reason *)
 					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
-					let memory_max_kib = max 0L (memory_max_kib -* vga_framebuffer_kib) in
+					(* The VGA framebuffer and misc other stuff appears in max_memory_pages *)
+					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di)) in
 					let domain = 
 					  { Squeeze.
 						domid = di.Xc.domid;

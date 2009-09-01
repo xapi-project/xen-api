@@ -25,7 +25,8 @@ open Client
 
 (* Extra parameter added in rel_mnr: memory_required_kib which is the lowest
    upper-bound on the amount of memory we know the domain will fit in. If this
-   is missing (e.g. during rolling upgrade) we fall back to *static_max*. *)
+   is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.
+ *)
 let _memory_required_kib = "memory_required_kib"
 
 (* ------------------------------------------------------------------- *)
@@ -330,11 +331,18 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 (* Called with the VM locked (either by us or by the sender, depending on whether
    we are migrating to localhost or not) *)
 let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_required_kib =
+  debug "memory_required_kib = %Ld" memory_required_kib;
   let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-
   (* Since the initial memory target is read from vM_memory_target in _resume_domain we must
-     set this equal to memory_required_kib otherwise the domain will balloon up on unpause. *)
-  let snapshot = { snapshot with API.vM_memory_target = Int64.mul memory_required_kib 1024L } in
+     configure this to prevent the domain ballooning up and allocating more than memory_required_kib
+     of guest memory on unpause. *)
+  let snapshot = { snapshot with API.vM_memory_target = Memory.bytes_of_kib memory_required_kib } in
+
+  (* This is how much free host memory we're going to need: *)
+  let free_memory_required_kib = 
+    let (normal_bytes, shadow_bytes) = Memory_check.vm_compute_required_memory snapshot memory_required_kib in
+    debug "normal_bytes = %Ld; shadow_bytes = %Ld" normal_bytes shadow_bytes;
+    Memory.kib_of_bytes_used (Int64.add normal_bytes shadow_bytes) in
 
   (* MTC: If this is a protected VM, then return the peer VM configuration
    * for instantiation (the destination VM where we'll migrate to).  
@@ -382,11 +390,13 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
       (fun env (vdi,_) -> env || (Storage_access.VDI.check_enclosing_sr_for_capability __context Smint.Vdi_activate vdi))
       false needed_vdis in
 
+  let on_error_reply f x = try f x with e -> Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn e)); raise e in
+
   debug "Receiver 4b-pre1. Allocating memory";
-  let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
+  let reservation_id = on_error_reply (fun () -> Memory_control.reserve_memory ~__context ~xc ~xs ~kib:free_memory_required_kib) () in
   (* We create the domain using this as a template: *)
   debug "Receiver 4b. Creating new domain";
-  let domid = Vmops.create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
+  let domid = on_error_reply (fun () -> Vmops.create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id ()) () in
   let needed_vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 
   (try
@@ -552,12 +562,22 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		  begin
 
 		(* The lowest upper-bound on the amount of memory the domain can consume during 
-		   the migration is the max of maxmem and memory_actual, assuming no reconfiguring
-		   of target happens during the process. *)
+		   the migration is the max of maxmem and memory_actual (with our overheads subtracted), 
+		   assuming no reconfiguring of target happens during the process. *)
 		let info = Xc.domain_getinfo xc domid in
-		let totmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
-		let maxmem = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
-		let memory_required_kib = Int64.div (Pervasives.max totmem maxmem) 1024L in
+		let totmem = 
+		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib) in
+		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
+		  Int64.sub raw_bytes overhead_bytes in
+		let maxmem = 
+		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
+		  Int64.sub raw_bytes overhead_bytes in
+
+		let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
+		(* NB we send across the raw amount of memory needed and let the other side deal with it.
+		   The overheads will potentially change over migrate if we migrate to a machine with a 
+		   different version of Xen or perhaps HAP *)
 
 		let path = sprintf "%s?ref=%s&%s=%Ld"
 	          Constants.migrate_uri (Ref.string_of vm)
@@ -591,15 +611,15 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 			      host session_id vm xc xs live);
 		with e ->
 		  debug "Sender Caught exception: %s" (ExnHelper.string_of_exn e);
-		  debug "Sender Relocking VBDs";
 		  (* NB the domain might now be in a crashed state: rely on the event thread
 		     to do the cleanup asynchronously. *)
 		  raise_api_error e
 		  end
-		with _ ->
+		with e ->
 		  debug "Writing original memory policy back to xenstore";
 		  Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-		  Memory_control.balance_memory ~xc ~xs
+		  Memory_control.balance_memory ~xc ~xs;
+		  raise e
 		  )
 	     ) (fun () -> 
 		  debug "Sender 8.Logging out of remote server";

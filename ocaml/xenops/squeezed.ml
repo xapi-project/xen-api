@@ -34,24 +34,28 @@ let reserve_memory args =
   then [ _code, _error_missing_argument_code; _description, _kib ]
   else begin
     let session_id = List.assoc _session_id args 
-    and kib = List.assoc _kib args in
+    and kib = Int64.of_string (List.assoc _kib args) in
     let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    try
-      Debug.with_thread_associated (Printf.sprintf "reserve_memory(%s, %s)" session_id kib)
-	(fun () ->
-	   with_xc_and_xs
-	     (fun xc xs ->
-		Squeeze_xen.free_memory ~xc ~xs (Int64.of_string kib);
-		debug "reserved %s kib for reservation %s" kib reservation_id;
-		add_reservation xs _service session_id reservation_id kib
-	     )
-	) ();
-      [ _reservation_id, reservation_id ]
-    with
-    | Squeeze_xen.Cannot_free_this_much_memory _ ->
-	[ _code, _error_cannot_free_this_much_memory_code; _description, kib ]
-    | Squeeze_xen.Domains_refused_to_cooperate domids ->
-	[ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
+    if kib < 0L
+    then [ _code, _error_invalid_memory_value; _description, _kib ]
+    else begin
+      try
+	Debug.with_thread_associated (Printf.sprintf "reserve_memory(%s, %Ld)" session_id kib)
+	  (fun () ->
+	     with_xc_and_xs
+	       (fun xc xs ->
+		  Squeeze_xen.free_memory ~xc ~xs kib;
+		  debug "reserved %Ld kib for reservation %s" kib reservation_id;
+		  add_reservation xs _service session_id reservation_id (Int64.to_string kib)
+	       )
+	  ) ();
+	[ _reservation_id, reservation_id ]
+      with
+      | Squeeze_xen.Cannot_free_this_much_memory _ ->
+	  [ _code, _error_cannot_free_this_much_memory_code; _description, Int64.to_string kib ]
+      | Squeeze_xen.Domains_refused_to_cooperate domids ->
+	  [ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
+    end
   end
 
 (* val reserve_memory_range: session_id -> min -> max -> reservation_id *)
@@ -64,25 +68,35 @@ let reserve_memory_range args =
   then [ _code, _error_missing_argument_code; _description, _max ]
   else begin
     let session_id = List.assoc _session_id args in
-    let min = List.assoc _min args in
-    let max = List.assoc _max args in
+    let min = Int64.of_string (List.assoc _min args) in
+    let max = Int64.of_string (List.assoc _max args) in
     let reservation_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    try
-      Debug.with_thread_associated (Printf.sprintf "reserve_memory_range(%s, %s, %s)" session_id min max)
-	(fun () ->
-	   with_xc_and_xs
-	     (fun xc xs ->
-		let amount = Squeeze_xen.free_memory_range ~xc ~xs (Int64.of_string min) (Int64.of_string max) in
-		debug "reserved %Ld kib for reservation %s" amount reservation_id;
-		add_reservation xs _service session_id reservation_id (Int64.to_string amount);
-		[ _kib, Int64.to_string amount; _reservation_id, reservation_id ]
-	     )
-	) ()
-    with 
-    | Squeeze_xen.Cannot_free_this_much_memory _ ->
-	[ _code, _error_cannot_free_this_much_memory_code; _description, min ]
-    | Squeeze_xen.Domains_refused_to_cooperate domids ->
-	[ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
+    if min < 0L 
+    then [ _code, _error_invalid_memory_value; _description, _min ]
+    else 
+      if max < 0L
+      then [ _code, _error_invalid_memory_value; _description, _max ]
+      else 
+	if max < min
+	then [ _code, _error_invalid_memory_value; _description, _min ]
+	else begin
+	  try
+	    Debug.with_thread_associated (Printf.sprintf "reserve_memory_range(%s, %Ld, %Ld)" session_id min max)
+	      (fun () ->
+		 with_xc_and_xs
+		   (fun xc xs ->
+		      let amount = Squeeze_xen.free_memory_range ~xc ~xs min max in
+		      debug "reserved %Ld kib for reservation %s" amount reservation_id;
+		      add_reservation xs _service session_id reservation_id (Int64.to_string amount);
+		      [ _kib, Int64.to_string amount; _reservation_id, reservation_id ]
+		   )
+	      ) ()
+	  with 
+	  | Squeeze_xen.Cannot_free_this_much_memory _ ->
+	      [ _code, _error_cannot_free_this_much_memory_code; _description, Int64.to_string min ]
+	  | Squeeze_xen.Domains_refused_to_cooperate domids ->
+	      [ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
+	end
   end
   
 
