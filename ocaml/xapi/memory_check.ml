@@ -90,7 +90,8 @@ let vm_compute_resume_memory ~__context vm_ref =
 	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
 	let (_, shadow_bytes) = vm_compute_required_memory
 		vm_boot_record vm_boot_record.API.vM_memory_static_max in
-	let suspended_memory_usage_bytes = vm_boot_record.API.vM_memory_target in
+	(* CA-31759: use the live target field for this rather than the LBR to make upgrade easy *)
+	let suspended_memory_usage_bytes = Db.VM.get_memory_target ~__context ~self:vm_ref in
 	Int64.add suspended_memory_usage_bytes shadow_bytes
 
 let vm_compute_migrate_memory ~__context vm_ref =

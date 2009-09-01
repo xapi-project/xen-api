@@ -45,6 +45,8 @@ let upgrade_vm_records () =
 			let static_max = get Names.memory_static_max in
 			set Names.memory_dynamic_min static_max;
 			set Names.memory_dynamic_max static_max;
+			(* CA-31759: fix suspend/upgrade/resume *)
+			set Names.memory_target static_max;
 			debug "VM %s (%s) dynamic_{min,max} <- %Ld" (Db_backend.lookup_field_in_row vm_row Names.uuid) (Db_backend.lookup_field_in_row vm_row Names.name_label) static_max;
 		end;
 
