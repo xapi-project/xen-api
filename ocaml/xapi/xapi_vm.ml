@@ -872,6 +872,31 @@ let wait_memory_target_live ~__context ~self = Locking_helpers.with_lock self (f
 	wait_memory_target_live ~__context ~self ()
 ) ()
 
+let get_cooperative ~__context ~self = 
+  (* If the VM is not supposed to be capable of ballooning then return true *)
+  let vm_r = Db.VM.get_record ~__context ~self in
+  if not(Helpers.ballooning_enabled_for_vm ~__context vm_r) then begin
+    info "VM %s (%s) is co-operative because it does not support ballooning" (Ref.string_of self) vm_r.API.vM_name_label;
+    true
+  end else begin
+    (* If the VM is supposed to be capable of ballooning then we expect the RRD:memory to become equal to the RRD:memory_target
+       within a threshold time. *)
+    let target = ref 0L
+    and actual = ref 1L in
+    
+    let start = Unix.gettimeofday () in
+    while Unix.gettimeofday () -. start < Xapi_globs.cooperative_timeout && !target < !actual do
+      target := Int64.of_float (Monitor_rrds.query_vm_dss vm_r.API.vM_uuid "memory_target");
+      actual := Int64.of_float (Monitor_rrds.query_vm_dss vm_r.API.vM_uuid "memory");
+      if !target < !actual then Thread.delay 5.
+    done;
+    let cooperative = !target >= !actual in
+    info "VM %s (%s) is %s because after %.0f seconds target=%Ld actual=%Ld" (Ref.string_of self) vm_r.API.vM_name_label 
+      (if cooperative then "co-operative" else "unco-operative")
+      (Unix.gettimeofday () -. start) !target !actual;
+    cooperative
+end
+
 let set_shadow_multiplier_live ~__context ~self ~multiplier = Locking_helpers.with_lock self (fun token () ->
   set_shadow_multiplier_live ~__context ~self ~multiplier
 ) ()
