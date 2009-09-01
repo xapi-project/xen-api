@@ -9,41 +9,57 @@ open D
 	wich this operation can be performed. *)
 let allowed_power_states ~(op:API.vm_operations) =
 	let all_power_states =
-		[`Halted; `Paused; `Suspended; `Running]
-	in
+		[`Halted; `Paused; `Suspended; `Running] in
 	match op with
-	
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
-	| `import                         -> []
-
-	| `start | `start_on | `provision
+	| `import
+	                                -> []
 	| `destroy
-	| `make_into_template             -> [`Halted]
-
-	| `unpause                        -> [`Paused]
-
-	| `resume | `resume_on | `csvm    -> [`Suspended]
-
-	| `changing_shadow_memory_live | `changing_VCPUs_live 
-	| `awaiting_memory_live | `changing_memory_live
+	| `make_into_template
+	| `provision
+	| `start
+	| `start_on
+	                                -> [`Halted]
+	| `unpause
+	                                -> [`Paused]
+	| `csvm
+	| `resume
+	| `resume_on
+	                                -> [`Suspended]
+	| `awaiting_memory_live
+	| `clean_reboot
+	| `clean_shutdown
+	| `changing_memory_live
+	| `changing_shadow_memory_live
+	| `changing_VCPUs_live 
 	| `data_source_op
-	| `pool_migrate | `migrate | `suspend
-	| `send_sysrq | `send_trigger
-	| `pause | `snapshot_with_quiesce
-	| `clean_shutdown | `clean_reboot -> [`Running]
-
+	| `migrate
+	| `pause
+	| `pool_migrate
+	| `send_sysrq
+	| `send_trigger
+	| `snapshot_with_quiesce
+	| `suspend
+	                                -> [`Running]
+	| `clone
+	| `copy
 	| `create_template
-	| `clone | `copy | `export        -> [`Halted; `Suspended]
-
-	| `hard_reboot                    -> [`Paused; `Running]
-
-	| `get_boot_record | `checkpoint
-	| `hard_shutdown                  -> [`Paused; `Suspended; `Running]
-
-	| `assert_operation_valid | `update_allowed_operations
+	| `export
+	                                -> [`Halted; `Suspended]
+	| `hard_reboot
+	                                -> [`Paused; `Running]
+	| `checkpoint
+	| `get_boot_record
+	| `hard_shutdown
+	                                -> [`Paused; `Suspended; `Running]
+	| `assert_operation_valid
+	| `metadata_export 
 	| `power_state_reset
-	| `snapshot | `metadata_export 
-	| `revert | `reverting            -> all_power_states
+	| `revert
+	| `reverting
+	| `snapshot
+	| `update_allowed_operations
+	                                -> all_power_states
 
 (** check if [op] can be done in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~power_state ~op =
