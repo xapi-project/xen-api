@@ -70,6 +70,14 @@ let vm_compute_used_memory ~__context policy vm_ref =
 		else memory_static_max in
 	vm_compute_required_memory vm_boot_record (Memory.kib_of_bytes_used memory_required)
 
+let vm_compute_resume_memory ~__context vm_ref =
+	if Xapi_fist.disable_memory_checks () then 0L else
+	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
+	let (_, shadow_bytes) = vm_compute_required_memory
+		vm_boot_record vm_boot_record.API.vM_memory_static_max in
+	let suspended_memory_usage_bytes = vm_boot_record.API.vM_memory_target in
+	Int64.add suspended_memory_usage_bytes shadow_bytes
+
 (**
 	The Pool master's view of the total memory and memory consumers on a host.
 	This doesn't take into account dynamic changes i.e. those caused by
