@@ -1730,22 +1730,32 @@ let hook_no_hosts_available printer rpc session_id vm f =
 	  end;
 	raise e
 
+let vm_memory_dynamic_range_set printer rpc session_id params = 
+	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
+	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
+	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
+	(fun vm ->
+		Client.VM.set_memory_dynamic_range rpc session_id
+			(vm.getref ()) min max) params ["min"; "max"]
+	)
+
 let vm_memory_static_range_set printer rpc session_id params =
 	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
 	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
 	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
 	(fun vm ->
-		Client.VM.set_memory_static_range rpc session_id (vm.getref ()) min max)
-			params ["min"; "max"]
+		Client.VM.set_memory_static_range rpc session_id
+			(vm.getref ()) min max) params ["min"; "max"]
 	)
 
-let vm_memory_target_set printer rpc session_id params =
-	let target = List.assoc "target" params in
-	let target_bytes = Record_util.bytes_of_string "target" target in
+let vm_memory_target_set printer rpc session_id params = 
+	let target = Record_util.bytes_of_string "target"
+		(List.assoc "target" params) in
 	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
-		(fun vm ->
-			let vm=vm.getref () in
-			Client.VM.set_memory_target_live rpc session_id vm target_bytes) params ["target"])
+	(fun vm ->
+		Client.VM.set_memory_dynamic_range rpc session_id
+			(vm.getref ()) target target) params ["target"]
+	)
 
 let vm_memory_target_wait printer rpc session_id params =
 	ignore (do_vm_op ~include_control_vms:true printer rpc session_id
