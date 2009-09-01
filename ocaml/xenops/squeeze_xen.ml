@@ -20,6 +20,7 @@ let target_path              dom_path = dom_path ^ "/memory/target"
 let dynamic_min_path         dom_path = dom_path ^ "/memory/dynamic-min"
 let dynamic_max_path         dom_path = dom_path ^ "/memory/dynamic-max"
 let feature_balloon_path     dom_path = dom_path ^ "/control/feature-balloon"
+let memory_offset_path       dom_path = dom_path ^ "/memory/memory-offset"
 
 let ( ** ) = Int64.mul
 let ( +* ) = Int64.add
@@ -27,6 +28,8 @@ let ( -* ) = Int64.sub
 let mib = 1024L
 
 let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
+
+let exists xs path = try ignore(xs.Xs.read path); true with Xb.Noent -> false
 
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
@@ -86,7 +89,7 @@ let make_host ~xc ~xs =
 	let free_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.free_pages)
 	and scrub_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.scrub_pages) 
 	and total_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.total_pages) in
-	let free_mem_kib = Int64.add free_pages_kib scrub_pages_kib in
+	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
 
 	let domains = List.concat
 		(List.map
@@ -100,10 +103,33 @@ let make_host ~xc ~xs =
 					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
 					(* The VGA framebuffer and misc other stuff appears in max_memory_pages *)
 					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di)) in
+					let can_balloon = exists xs (feature_balloon_path path) in
+					(* Once the domain tells us it can balloon, we assume it's not currently ballooning and
+					   record the offset between memory_actual and target. We assume this is constant over the 
+					   lifetime of the domain. *)
+					let offset_kib = 
+					  if not can_balloon then 0L
+					  else begin
+					    try
+					      Int64.of_string (xs_read xs (memory_offset_path path))
+					    with Xb.Noent ->
+					      let target_kib = Int64.of_string (xs_read xs (target_path path)) in
+					      let offset_kib = memory_actual_kib -* target_kib in
+					      debug "domid %d just exposed feature-balloon; calibrating total_pages offset = %Ld KiB" di.Xc.domid offset_kib;
+					      Xs.transaction xs
+						(fun t ->
+						   (* Make sure the domain still exists *)
+						   ignore (xs.Xs.read path);
+						   t.Xst.write (memory_offset_path path) (Int64.to_string offset_kib)
+						);
+					      offset_kib
+					  end in
+					let memory_actual_kib = memory_actual_kib -* offset_kib in
+
 					let domain = 
 					  { Squeeze.
 						domid = di.Xc.domid;
-						can_balloon = (try ignore(xs.Xs.read (feature_balloon_path path)); true with Xb.Noent -> false);
+						can_balloon = can_balloon;
 						dynamic_min_kib = 0L;
 						dynamic_max_kib = 0L;
 						target_kib = 0L;
