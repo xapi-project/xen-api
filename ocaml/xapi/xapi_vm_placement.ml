@@ -63,7 +63,9 @@ let affinity_host_ids_of_guest __context guest =
 	let affinity_host = Db.VM.get_affinity ~__context ~self:guest in
 	let affinity_host_is_valid = Db_cache.DBCache.is_valid_ref
 		(Ref.string_of affinity_host) in
-	if affinity_host_is_valid then [Ref.string_of affinity_host] else []
+	if affinity_host_is_valid
+		then [Db.Host.get_uuid __context affinity_host]
+		else []
 
 (** Returns a single host (from the set of all hosts) on which the given [vm]
 can boot. @raise Api_errors.no_hosts_available if no such host exists. *)
