@@ -144,9 +144,9 @@ let scenario_a = {
 	should_succeed = true;
 	scenario_domains = [
 		new idealised_vm_with_limit
-			(domain_make 0 true 1000L 1500L 2000L 1500L) 100L 1250L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L 1250L;
 		new intermittently_stuck_vm
-			(domain_make 1 true 2500L 3500L 4500L 3500L) 500L 0.25;
+			(domain_make 1 true 2500L 3500L 4500L 3500L 0L) 500L 0.25;
 	];
 	host_free_mem_kib = 0L;
 	host_emergency_pool_kib = 0L;
@@ -160,9 +160,9 @@ let scenario_b = {
 	should_succeed = true;
 	scenario_domains = [
 		new intermittently_stuck_vm
-			(domain_make 1 true 500L 3500L 4500L 3500L) 100L 3.;
+			(domain_make 1 true 500L 3500L 4500L 3500L 0L) 100L 3.;
 		new intermittently_stuck_vm
-			(domain_make 0 true 500L 1500L 2500L 1500L) 100L 1.5;
+			(domain_make 0 true 500L 1500L 2500L 1500L 0L) 100L 1.5;
 	];
 	host_free_mem_kib = 0L;
 	host_emergency_pool_kib = 0L;
@@ -174,8 +174,8 @@ let scenario_c = {
 		freed";
 	should_succeed = false;
 	scenario_domains = [
-		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L) 100L;
-		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L) 100L;
+		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L;
+		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L 0L) 100L;
 	];
 	host_free_mem_kib = 0L;
 	host_emergency_pool_kib = 0L;
@@ -189,9 +189,9 @@ let scenario_d = {
 	should_succeed = false;
 	scenario_domains = [
 		new idealised_vm
-			(domain_make 0 true 1000L 1500L 2000L 1500L) 100L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L;
 		new idealised_vm_with_limit
-			(domain_make 1 true 2000L 2500L 3000L 2500L) 100L 2250L;
+			(domain_make 1 true 2000L 2500L 3000L 2500L 0L) 100L 2250L;
 	];
 	host_free_mem_kib = 0L;
 	host_emergency_pool_kib = 0L;
@@ -208,10 +208,10 @@ let scenario_e = {
 	scenario_domains = [
 		(* The stuck domain is using more than it should be if the memory was freed and everything balanced *)
 		new stuck_vm
-			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L);
+			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L 0L);
 		(* The working domain is using less than it should be if the memory was freed and everything balanced *)
 		new idealised_vm
-			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L) 100L;
+			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L 0L) 100L;
 
 	];
 	host_free_mem_kib = 0L;
@@ -263,11 +263,11 @@ let simulate scenario =
 	let domid_to_domain =
 		List.map (fun x -> x#get_domain.domid, x) !all_domains
 	in
-	let make_host () = {
-		free_mem_kib = !host_free_mem_kib;
-		emergency_pool_kib = emergency_pool_kib;
-		domains = List.map (fun d -> d#get_domain) !all_domains
-	} in
+	let make_host () = Squeeze.make_host
+		~free_mem_kib:!host_free_mem_kib
+		~emergency_pool_kib
+		~domains:(List.map (fun d -> d#get_domain) !all_domains)
+	in
 	(* Update all the recorded balloon targets *)
 	let update_target (action: action) =
 		let domain = List.assoc action.action_domid domid_to_domain in

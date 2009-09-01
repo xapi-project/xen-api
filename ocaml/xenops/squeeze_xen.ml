@@ -102,6 +102,7 @@ let make_host ~xc ~xs =
 						dynamic_max_kib = 0L;
 						target_kib = 0L;
 						memory_actual_kib = 0L;
+						memory_max_kib = memory_max_kib;
 					  } in
 					
 					(* If the domain has never run (detected by being paused, not shutdown and clocked up no CPU time)
@@ -116,9 +117,7 @@ let make_host ~xc ~xs =
 						let unaccounted_kib = max 0L (Int64.sub initial_reservation_kib memory_actual_kib) in
 						reserved_kib := Int64.add !reserved_kib unaccounted_kib;
 
-						[ Printf.sprintf "%d I%Ld A%Ld M%Ld" domain.Squeeze.domid 
-						    initial_reservation_kib memory_actual_kib memory_max_kib,
-						  { domain with Squeeze.
+						[ { domain with Squeeze.
 						      dynamic_min_kib = initial_reservation_kib;
 						      dynamic_max_kib = initial_reservation_kib;
 						      target_kib = initial_reservation_kib;
@@ -136,9 +135,7 @@ let make_host ~xc ~xs =
 						with _ ->
 							target_kib, target_kib
 						in
-						[ Printf.sprintf "%d T%Ld A%Ld M%Ld" domain.Squeeze.domid
-						    target_kib memory_actual_kib memory_max_kib,
-						  { domain with Squeeze.
+						 [ { domain with Squeeze.
 						      dynamic_min_kib = min_kib;
 						      dynamic_max_kib = max_kib;
 						      target_kib = target_kib;
@@ -162,15 +159,10 @@ let make_host ~xc ~xs =
 	debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
-	let host_debug_string = Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib in
-	let debug_string = String.concat "; " (host_debug_string :: (List.map fst domains)) in
-
-	debug_string,
-	{Squeeze.
-		domains = List.map snd domains;
-		free_mem_kib = Int64.sub free_mem_kib !reserved_kib;
-		emergency_pool_kib = low_mem_emergency_pool;
-	}
+	Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib,
+	Squeeze.make_host ~domains
+		~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib)
+		~emergency_pool_kib:low_mem_emergency_pool
 
 (** Best-effort update of a domain's memory target. *)
 let execute_action ~xc ~xs action =
@@ -205,8 +197,7 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 		let finished = ref false in
 		while not (!finished) do
 			let t = Unix.gettimeofday () in
-			let debug_string, host = make_host ~xc ~xs in
-			M.debug "%s" debug_string;
+			let host_debug_string, host = make_host ~xc ~xs in
 			let acc', declared_active, declared_inactive, result =
 				Squeeze.Proportional.change_host_free_memory success_condition !acc host required_mem_kib t in
 			acc := acc';
@@ -233,6 +224,13 @@ let change_host_free_memory ~xc ~xs required_mem_kib success_condition =
 			  | Squeeze.AdjustTargets actions ->
 			      List.map (fun a -> a.Squeeze.action_domid, a.Squeeze.new_target_kib) actions
 			  | _ -> [] in
+			let new_target_direction domain = 
+			  let new_target = if List.mem_assoc domain.Squeeze.domid new_targets then Some(List.assoc domain.Squeeze.domid new_targets) else None in
+			  match new_target with
+			  | None -> Squeeze.string_of_direction None
+			  | Some t -> Squeeze.string_of_direction (Squeeze.direction_of_int64 domain.Squeeze.target_kib t) in
+			let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> Squeeze.short_string_of_domain domain ^ (new_target_direction domain)) host.Squeeze.domains)) in
+			M.debug "%s" debug_string;
 			
 			(* Deal with inactive and 'never been run' domains *)
 			List.iter (fun domain -> 
@@ -286,7 +284,9 @@ let free_memory_range ~xc ~xs min_kib max_kib =
 		 can_balloon = true;
 		 dynamic_min_kib = min_kib; dynamic_max_kib = max_kib;
 		 target_kib = min_kib;
-		 memory_actual_kib = 0L } in
+		 memory_actual_kib = 0L;
+		 memory_max_kib = 0L
+	       } in
   let host = snd(make_host ~xc ~xs)in
   let host' = { host with Squeeze.domains = domain :: host.Squeeze.domains } in
   let adjustments = Squeeze.Proportional.compute_target_adjustments host' target_host_free_mem_kib in
@@ -316,14 +316,23 @@ let balance_memory ~xc ~xs =
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
 let is_host_memory_unbalanced ~xc ~xs = 
   let debug_string, host = make_host ~xc ~xs in
+  let domains = List.map (fun d -> d.Squeeze.domid, d) host.Squeeze.domains in
+
   let t = Unix.gettimeofday () in
   let _, _, _, result = Squeeze.Proportional.change_host_free_memory 
     is_balanced (Squeeze.Proportional.make ()) host 
     target_host_free_mem_kib (Unix.gettimeofday ()) in
+  
+  let is_new_target a = 
+    let existing = (List.assoc a.Squeeze.action_domid domains).Squeeze.target_kib in
+    a.Squeeze.new_target_kib <> existing in
+
   match result with
-  | Squeeze.AdjustTargets _ ->
-      debug "Memory is not currently balanced";
-      debug "%s" debug_string;
-      true
+  | Squeeze.AdjustTargets ts ->
+      if List.fold_left (||) false (List.map is_new_target ts) then begin
+	debug "Memory is not currently balanced";
+	debug "%s" debug_string;
+	true
+      end else false
   | _ -> false
   
