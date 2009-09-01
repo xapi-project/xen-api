@@ -612,9 +612,17 @@ let vm_powercycle_test s =
     (* SKIP *)
     ()
 
+let squeeze_test () = 
+  let test = make_test "Memory squeezer tests" 0 in
+  start test;
+  Squeeze_test.go ();
+  if List.length !Squeeze_test.failed_scenarios = 0
+  then success test
+  else failed test "one or more scenarios failed"
+
 let _ =
 
-  let possible_tests = [ "storage"; "vm-placement"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle" ] in
+  let possible_tests = [ "storage"; "vm-placement"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing" ] in
   let only_this_test = ref "" in (* default is run everything *)
   Arg.parse 
     [ "-single", Arg.Set_string only_this_test, Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " possible_tests) ;
@@ -638,6 +646,7 @@ let _ =
     (fun () ->
        (try
 	  maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
+	  maybe_run_test "squeezing" squeeze_test;
 	  maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
 	  maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
 	  maybe_run_test "http" Quicktest_http.run_from_within_quicktest;

@@ -53,7 +53,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings quicktest_vm_placement vm_placement)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test)
 OCamlProgram(stresstest, stresstest)
 OCamlProgram(fakeguestagent, fakeguestagent)
 
