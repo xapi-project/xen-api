@@ -111,11 +111,10 @@ let set_ha_restart_priority ~__context ~self ~value =
   if current <> value 
   then Db.VM.set_ha_restart_priority ~__context ~self ~value
 
-let compute_memory_overhead ~__context ~vm =
-	Memory_check.vm_compute_memory_overhead ~__context ~vm
+let compute_memory_overhead = compute_memory_overhead
 
 open Xapi_vm_memory_constraints
- 
+
 let set_memory_static_range ~__context ~self ~min ~max = 
 	(* Called on the master only when the VM is offline *)
 	if Db.VM.get_power_state ~__context ~self <> `Halted
@@ -132,7 +131,8 @@ let set_memory_static_range ~__context ~self ~min ~max =
 		Api_errors.Server_error (
 			Api_errors.memory_constraint_violation, ["min or max"]));
 	Db.VM.set_memory_static_min ~__context ~self ~value:min;
-	Db.VM.set_memory_static_max ~__context ~self ~value:max
+	Db.VM.set_memory_static_max ~__context ~self ~value:max;
+	update_memory_overhead ~__context ~vm:self
 
 (* These are always converted into set_memory_dynamic_range *)
 (* by the message forwarding layer:                         *)
@@ -164,7 +164,8 @@ let set_memory_limits ~__context ~self
 		Api_errors.memory_constraint_violation,
 		["Memory limits must be in valid order: \
 		static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"]));
-	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints
+	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
+	update_memory_overhead ~__context ~vm:self
 
 (* CA-12940: sanity check to make sure this never happens again *)
 let assert_power_state_is ~__context ~vm ~expected = 
@@ -207,8 +208,8 @@ let unpause  ~__context ~vm =
 *)
 
 let start  ~__context ~vm ~start_paused:paused ~force =
-  License_check.with_vm_license_check ~__context vm (fun () ->
-  Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
+	License_check.with_vm_license_check ~__context vm (fun () ->
+	Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
     (Printf.sprintf "VM.start %s" (Context.string_of_task __context))
   (fun () ->
      Locking_helpers.with_lock vm
@@ -703,50 +704,82 @@ let resume_on  ~__context ~vm ~host ~start_paused ~force =
 	assert_host_is_localhost ~__context ~host;
 	resume ~__context ~vm ~start_paused ~force
 
-let create ~__context ~name_label ~name_description
-           ~user_version ~is_a_template ~affinity
-           ~memory_target
-           ~memory_static_max
-           ~memory_dynamic_max
-           ~memory_dynamic_min
-           ~memory_static_min
-           ~vCPUs_params
-           ~vCPUs_max ~vCPUs_at_startup
-           ~actions_after_shutdown ~actions_after_reboot
-           ~actions_after_crash
-	   ~pV_bootloader
-           ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
-	   ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-           ~platform
-           ~pCI_bus ~other_config ~recommendations ~xenstore_data 
-	   ~ha_always_run ~ha_restart_priority ~tags 
-	   ~blocked_operations
-	   : API.ref_VM =
-  let gen_mac_seed()=Uuid.to_string (Uuid.make_uuid()) in
-  (* Add random mac_seed if there isn't one specified already *)
-  let other_config =
-    if not (List.mem_assoc Xapi_globs.mac_seed other_config) then
-      (Xapi_globs.mac_seed, gen_mac_seed())::other_config
-    else other_config
-  in
-    create ~__context ~name_label ~name_description
-      ~user_version ~is_a_template ~affinity
-      ~memory_target
-      ~memory_static_max
-      ~memory_dynamic_max
-      ~memory_dynamic_min
-      ~memory_static_min
-      ~vCPUs_params
-      ~vCPUs_max ~vCPUs_at_startup
-      ~actions_after_shutdown ~actions_after_reboot
-      ~actions_after_crash
-      ~pV_bootloader
-      ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args
-      ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-      ~platform
-      ~pCI_bus ~other_config ~recommendations ~xenstore_data 
-      ~ha_always_run ~ha_restart_priority ~tags
-      ~blocked_operations
+let create ~__context
+		~name_label
+		~name_description
+		~user_version
+		~is_a_template ~affinity
+		~memory_target
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_dynamic_min
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_max
+		~vCPUs_at_startup
+		~actions_after_shutdown
+		~actions_after_reboot
+		~actions_after_crash
+		~pV_bootloader
+		~pV_kernel
+		~pV_ramdisk
+		~pV_args
+		~pV_bootloader_args
+		~pV_legacy_args
+		~hVM_boot_policy
+		~hVM_boot_params
+		~hVM_shadow_multiplier
+		~platform
+		~pCI_bus
+		~other_config
+		~recommendations
+		~xenstore_data
+		~ha_always_run
+		~ha_restart_priority
+		~tags
+		~blocked_operations
+		: API.ref_VM =
+	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+	(* Add random mac_seed if there isn't one specified already *)
+	let other_config =
+		if not (List.mem_assoc Xapi_globs.mac_seed other_config)
+		then (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
+		else other_config in
+	create ~__context
+		~name_label
+		~name_description
+		~user_version
+		~is_a_template
+		~affinity
+		~memory_target
+		~memory_static_max
+		~memory_dynamic_max
+		~memory_dynamic_min
+		~memory_static_min
+		~vCPUs_params
+		~vCPUs_max
+		~vCPUs_at_startup
+		~actions_after_shutdown
+		~actions_after_reboot
+		~actions_after_crash
+		~pV_bootloader
+		~pV_kernel
+		~pV_ramdisk
+		~pV_args
+		~pV_bootloader_args
+		~pV_legacy_args
+		~hVM_boot_policy
+		~hVM_boot_params
+		~hVM_shadow_multiplier
+		~platform
+		~pCI_bus
+		~other_config
+		~recommendations
+		~xenstore_data
+		~ha_always_run
+		~ha_restart_priority
+		~tags
+		~blocked_operations
 
 let destroy  ~__context ~self = 
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -865,25 +898,58 @@ let provision ~__context ~vm =
 ) ()
 	  )
 
-let set_VCPUs_number_live ~__context ~self ~nvcpu = Locking_helpers.with_lock self (fun target () ->
+(** Sets the maximum number of VCPUs for a {b Halted} guest. *)
+let set_VCPUs_max ~__context ~self ~value =
+	if Db.VM.get_power_state ~__context ~self <> `Halted
+	then failwith "assertion_failed: set_VCPUs_max should only be \
+		called when the VM is Halted";
+	let vcpus_at_startup = Db.VM.get_VCPUs_at_startup ~__context ~self in
+	if value < 1L || value < vcpus_at_startup then invalid_value
+		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
+		(Int64.to_string value);
+	Db.VM.set_VCPUs_max ~__context ~self ~value;
+	update_memory_overhead ~__context ~vm:self
+
+(** Sets the number of startup VCPUs for a {b Halted} guest. *)
+let set_VCPUs_at_startup ~__context ~self ~value =
+	if Db.VM.get_power_state ~__context ~self <> `Halted
+	then failwith "assertion_failed: set_VCPUs_at_startup should only be \
+		called when the VM is Halted";
+	let vcpus_max = Db.VM.get_VCPUs_max ~__context ~self in
+	if value < 1L || value > vcpus_max then invalid_value
+		"VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
+		(Int64.to_string value);
+	Db.VM.set_VCPUs_at_startup ~__context ~self ~value;
+	update_memory_overhead ~__context ~vm:self
+
+(** Sets the number of VCPUs for a {b Running} PV guest.
+@raise Api_errors.operation_not_allowed if [self] is an HVM guest. *)
+let set_VCPUs_number_live ~__context ~self ~nvcpu =
+	Locking_helpers.with_lock self (fun target () ->
+	if Helpers.has_booted_hvm ~__context ~self then (
+		error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+			["HVM VMs cannot hotplug CPUs"]));
+	);
+
 	let at_boot_time = Helpers.get_boot_record ~__context ~self in
 	let domid = Helpers.domid_of_vm ~__context ~self in
 	let max = at_boot_time.API.vM_VCPUs_max in
 
-	if Helpers.has_booted_hvm ~__context ~self then (
-		error "VM.set_VCPUs_number_live: HVM VMs cannot hotplug cpus";
-		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,["HVM VMs cannot hotplug CPUs"]));
-	);
-	if nvcpu < 1L || nvcpu > max then (
-		error "VM.set_VCPUs_number_live: number vcpus of vcpu not in range allowed";
-		invalid_value "set_VCPUs_number_live" (Int64.to_string nvcpu);
-	);
+	if nvcpu < 1L || nvcpu > max then invalid_value
+		"VCPU values must satisfy: 0 < VCPUs ≤ VCPUs_max"
+		(Int64.to_string nvcpu);
 	(* We intend to modify the VCPUs_at_startup parameter to have the new target value *)
 	let new_boot_record = { at_boot_time with API.vM_VCPUs_at_startup = nvcpu } in
 	with_xs (fun xs ->
 		Vmops.set_cpus_number ~__context ~xs ~self domid new_boot_record
 	);
-	Helpers.set_boot_record ~__context ~self new_boot_record
+	Helpers.set_boot_record ~__context ~self new_boot_record;
+	(* Strictly speaking, PV guest memory overhead depends on the number of  *)
+	(* vCPUs. Although our current overhead calculation uses a conservative  *)
+	(* overestimate that ignores the real number of VCPUs, we still update   *)
+	(* the overhead in case our level of conservativeness changes in future. *)
+	update_memory_overhead ~__context ~vm:self
 ) ()
 
 let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
@@ -927,9 +993,15 @@ let get_cooperative ~__context ~self =
     cooperative
 end
 
-let set_shadow_multiplier_live ~__context ~self ~multiplier = Locking_helpers.with_lock self (fun token () ->
-  set_shadow_multiplier_live ~__context ~self ~multiplier
-) ()
+let set_HVM_shadow_multiplier ~__context ~self ~value =
+	set_HVM_shadow_multiplier ~__context ~self ~value
+
+let set_shadow_multiplier_live ~__context ~self ~multiplier =
+	Locking_helpers.with_lock self
+		(fun token () ->
+			set_shadow_multiplier_live ~__context ~self ~multiplier;
+			update_memory_overhead ~__context ~vm:self
+		) ()
 
 let send_sysrq ~__context ~vm ~key = Locking_helpers.with_lock vm (fun token () ->
   send_sysrq ~__context ~vm ~key
