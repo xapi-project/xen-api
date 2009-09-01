@@ -38,17 +38,20 @@ type domain = {
 	dynamic_max_kib: int64;
 	(** view from dom0 of how much memory this guest is using *)
 	memory_actual_kib: int64;
+	(** xen maxmem *)
+	memory_max_kib: int64;
 }
 
 let domain_make
-	domid can_balloon dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib =
+	domid can_balloon dynamic_min_kib target_kib dynamic_max_kib memory_actual_kib memory_max_kib =
 	{
 		domid = domid;
 		can_balloon = can_balloon;
 		dynamic_min_kib = dynamic_min_kib;
 		target_kib = target_kib;
 		dynamic_max_kib = dynamic_max_kib;
-		memory_actual_kib = memory_actual_kib
+		memory_actual_kib = memory_actual_kib;
+		memory_max_kib = memory_max_kib;
 	}
 
 let domain_to_string_pairs (x: domain) = 
@@ -60,17 +63,29 @@ let domain_to_string_pairs (x: domain) =
 		"target_kib", i64 x.target_kib;
 		"dynamic_max_kib", i64 x.dynamic_max_kib;
 		"memory_actual_kib", i64 x.memory_actual_kib;
+		"memory_max_kib", i64 x.memory_max_kib;
 	]
+
+module IntMap = Map.Make(struct type t = int let compare = compare end)
 
 (** Per-Host data *)
 type host = {
 	(** VMs running on this host *)
 	domains: domain list;
+	domain_set: domain IntMap.t;
 	(** total free memory on this host *)
 	free_mem_kib: int64;
 	(** size of the emergency pool; memory which cannot be used *)
 	emergency_pool_kib: int64;
 }
+
+let make_host ~domains ~free_mem_kib ~emergency_pool_kib = 
+  { 
+    domains = domains;
+    domain_set = List.fold_left (fun map domain -> IntMap.add domain.domid domain map) IntMap.empty domains;
+    free_mem_kib = free_mem_kib;
+    emergency_pool_kib = emergency_pool_kib;
+  }
 
 let string_pairs_to_string (x: (string * string) list) =
 	String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x)
@@ -134,9 +149,28 @@ type result =
 	| AdjustTargets of action list
 		(** we want to change the targets of some domains *)
 
+type direction = 
+  | Up 
+  | Down
+
+let string_of_direction = function
+  | Some Up -> "^" | Some Down -> "v" | None -> "x"
+
+let direction_of_actual memory_actual_kib target_kib = 
+  let delta_kib = memory_actual_kib -* target_kib in
+  let abs x = if x < 0L then 0L -* x else x in
+  if abs delta_kib <= 128L then None else (if target_kib > memory_actual_kib then Some Down else Some Up)
+
+let direction_of_int64 a b = if a = b then None else (if a > b then Some Down else Some Up)
+
 (** Work around the fact that the target may not be hit precisely *)
-let has_hit_target memory_actual_kib target_kib =
-  Int64.div memory_actual_kib 4L = (Int64.div target_kib 4L)
+let has_hit_target memory_actual_kib target_kib = direction_of_actual memory_actual_kib target_kib = None
+
+
+let short_string_of_domain domain = 
+  Printf.sprintf "%d T%Ld A%Ld M%Ld %s" domain.domid
+    domain.target_kib domain.memory_actual_kib domain.memory_max_kib
+    (string_of_direction (direction_of_actual domain.memory_actual_kib domain.target_kib))
 
 (** Generic code to guesstimate if a balloon driver is stuck *)
 module Stuckness_monitor = struct
