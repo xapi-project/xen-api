@@ -83,8 +83,8 @@ let vm_compute_migrate_memory ~__context vm_ref =
 	let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
 	let (_, shadow_bytes) = vm_compute_required_memory
 		vm_record vm_record.API.vM_memory_static_max in
-	(* For the moment, use an extremely conservative overestimate. *)
-	let current_memory_usage_bytes = vm_record.API.vM_memory_dynamic_max in
+	(* Only used when in rolling upgrade mode (from a pre-ballooning product): *)
+	let current_memory_usage_bytes = vm_record.API.vM_memory_static_max in
 	Int64.add current_memory_usage_bytes shadow_bytes
 
 (**
