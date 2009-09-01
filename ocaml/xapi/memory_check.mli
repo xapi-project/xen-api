@@ -48,6 +48,8 @@ val vm_compute_start_memory : __context:Context.t ->
 val vm_compute_used_memory : __context:Context.t -> accounting_policy ->
 	[`VM] Ref.t -> int64 * int64
 
+val vm_compute_resume_memory : __context:Context.t -> [`VM] Ref.t -> int64
+
 (**
 	Compute, from our managed data, how much memory is available on a host; this
 	takes into account both VMs that are resident_on the host and also VMs that
