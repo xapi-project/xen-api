@@ -1525,7 +1525,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	  let local_fn = Local.VM.get_cooperative ~self in
 	  with_vm_operation ~__context ~self ~doc:"VM.get_cooperative" ~op:`get_cooperative
 	    (fun () ->
-	       forward_vm_op ~local_fn ~__context ~vm:self
+	       if Db.VM.get_power_state ~__context ~self <> `Running
+	       then true 
+	       else forward_vm_op ~local_fn ~__context ~vm:self
 		 (fun session_id rpc -> Client.VM.get_cooperative rpc session_id self))
 
 	let set_HVM_shadow_multiplier ~__context ~self ~value =
