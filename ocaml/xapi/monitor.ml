@@ -36,6 +36,14 @@ open D
 
 let timeslice = ref 5
 
+(** Cache memory/target values *)
+let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
+let memory_targets_m = Mutex.create ()
+
+(** Flags unco-operative domains *)
+let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
+let uncooperative_domains_m = Mutex.create ()
+
 (*****************************************************)
 (* cpu related code                                  *)
 (*****************************************************)
@@ -112,7 +120,7 @@ let update_memory __context xc =
 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
 		    ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ())
 		in
-		let memory_target_opt = try Mutex.execute Xapi_guest_agent.mutex (fun () -> Some (Hashtbl.find Xapi_guest_agent.memory_targets domid)) with Not_found -> None in
+		let memory_target_opt = try Mutex.execute memory_targets_m (fun () -> Some (Hashtbl.find memory_targets domid)) with Not_found -> None in
 		let mem_target_ds = 
 		  Opt.map
 		    (fun memory_target ->
@@ -417,6 +425,9 @@ let read_all_dom0_stats __context =
     with_xc (fun xc ->
       let (vcpus,uuids,domids) = update_vcpus xc in
       Xapi_guest_agent.sync_cache domids;
+      Helpers.remove_other_keys memory_targets domids;
+      Helpers.remove_other_keys uncooperative_domains domids;
+
       (List.concat [
 	handle_exn "ha_stats" (fun () -> Xapi_ha_stats.all ()) [];
 	handle_exn "read_mem_metrics" (fun ()->read_mem_metrics xc) [];

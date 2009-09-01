@@ -922,3 +922,8 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 		~snapshot_of:(f src_record.API.vM_snapshot_of)
 		~snapshot_time:src_record.API.vM_snapshot_time
 		~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
+
+(** Remove all entries in this table except the valid_keys *)
+let remove_other_keys table valid_keys = 
+  let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
+  List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
