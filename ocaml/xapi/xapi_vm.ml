@@ -111,6 +111,9 @@ let set_ha_restart_priority ~__context ~self ~value =
   if current <> value 
   then Db.VM.set_ha_restart_priority ~__context ~self ~value
 
+let compute_memory_overhead ~__context ~vm =
+	Memory_check.vm_compute_memory_overhead ~__context ~vm
+
 open Xapi_vm_memory_constraints
  
 let set_memory_static_range ~__context ~self ~min ~max = 

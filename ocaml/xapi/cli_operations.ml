@@ -1730,6 +1730,17 @@ let hook_no_hosts_available printer rpc session_id vm f =
 	  end;
 	raise e
 
+let vm_compute_memory_overhead printer rpc session_id params =
+	ignore
+		(do_vm_op ~include_control_vms:true printer rpc session_id
+			(fun vm ->
+				let memory_overhead = Client.VM.compute_memory_overhead
+					rpc session_id (vm.getref ()) in
+				printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
+			)
+			params []
+		)
+
 let vm_memory_dynamic_range_set printer rpc session_id params = 
 	let min = Record_util.bytes_of_string "min" (List.assoc "min" params)
 	and max = Record_util.bytes_of_string "max" (List.assoc "max" params) in
@@ -1856,6 +1867,18 @@ let host_compute_free_memory printer rpc session_id params =
 			let free_memory = Client.Host.compute_free_memory rpc session_id host in
 			printer (Cli_printer.PMsg (Int64.to_string free_memory))
 		) params [])
+
+let host_compute_memory_overhead printer rpc session_id params =
+	ignore
+		(do_host_op rpc session_id ~multiple:false
+			(fun _ host ->
+				let host = host.getref () in
+				let memory_overhead = Client.Host.compute_memory_overhead
+					rpc session_id host in
+				printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
+			)
+			params []
+		)
 
 let host_get_server_certificate printer rpc session_id params =
   ignore (do_host_op rpc session_id ~multiple:false
