@@ -217,7 +217,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 		with_xc_and_xs 
 		  (fun xc xs -> 
 		     Domain.unpause ~xc domid;
-		     Squeeze_xen.balance_memory ~xc ~xs);
+		     Memory_control.balance_memory ~xc ~xs);
 		Vmops.plug_pcidevs ~__context ~vm domid;
 (*
 		(* hack to get xmtest to work *)
@@ -342,6 +342,7 @@ module Reboot = struct
            debug "%s phase 3/3: unpausing new domain (domid %d)" api_call_name domid;
            with_xc_and_xs (fun xc xs -> 
 			     Domain.unpause ~xc domid;
+			     Memory_control.balance_memory ~xc ~xs
 			  );
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
            Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
@@ -567,7 +568,7 @@ let suspend  ~__context ~vm =
 						   unnecessary caches etc. *)
 						debug "suspend phase 0/3: asking guest to balloon down";
 						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-						Squeeze_xen.balance_memory ~xc ~xs;
+						Memory_control.balance_memory ~xc ~xs;
 						debug "suspend phase 1/3: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
 						(* the device un-hotplug the final 10% *)
@@ -600,7 +601,7 @@ let suspend  ~__context ~vm =
 							~__context ~xc ~xs ~self:vm domid `Suspended;
 					with e ->
 						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-						Squeeze_xen.balance_memory ~xc ~xs;
+						Memory_control.balance_memory ~xc ~xs;
 						if is_paused then
 							(try Domain.pause ~xc domid with _ -> ());
 							raise e
@@ -634,10 +635,12 @@ let resume ~__context ~vm ~start_paused ~force =
 						Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
   (fun () ->
 *)
+						debug "resume phase 0/3: allocating memory";
+						let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
 							debug "resume phase 1/3: creating an empty domain";
-							let domid = Vmops.create ~__context ~xc ~xs ~self:vm
+							let domid = Vmops.create ~__context ~xc ~xs ~self:vm ~reservation_id
 								snapshot () in
-							Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid;
+
 							debug "resume phase 2/3: executing Vmops.restore";
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
@@ -648,8 +651,10 @@ let resume ~__context ~vm ~start_paused ~force =
 								~value:(Int64.of_int domid);
 							debug "resume phase 3/3: %s unpausing domain"
 								(if start_paused then "not" else "");
-							if not start_paused then
+							if not start_paused then begin
 								Domain.unpause ~xc domid;
+								Memory_control.balance_memory ~xc ~xs;
+							end;
 							(* VM is now resident here *)
 							let localhost = Helpers.get_localhost ~__context in
 							Helpers.call_api_functions ~__context

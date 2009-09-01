@@ -382,14 +382,14 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
       (fun env (vdi,_) -> env || (Storage_access.VDI.check_enclosing_sr_for_capability __context Smint.Vdi_activate vdi))
       false needed_vdis in
 
+  debug "Receiver 4b-pre1. Allocating memory";
+  let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
   (* We create the domain using this as a template: *)
   debug "Receiver 4b. Creating new domain";
-  let domid = Vmops.create ~__context ~xc ~xs ~self:vm snapshot () in
+  let domid = Vmops.create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
   let needed_vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 
   (try
-     Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid;
-
      if not delay_device_create_until_after_activate then
        begin
 	 debug "Receiver 5. Calling Vmops._restore_devices (domid = %d)" domid;
@@ -549,7 +549,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
                 let min = Int64.to_int (Int64.div min 1024L) in
                 let max = Int64.to_int (Int64.div max 1024L) in
 		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-		Squeeze_xen.balance_memory ~xc ~xs;
+		Memory_control.balance_memory ~xc ~xs;
 		try
 		  begin
 
@@ -601,7 +601,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		with _ ->
 		  debug "Writing original memory policy back to xenstore";
 		  Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-		  Squeeze_xen.balance_memory ~xc ~xs
+		  Memory_control.balance_memory ~xc ~xs
 		  )
 	     ) (fun () -> 
 		  debug "Sender 8.Logging out of remote server";

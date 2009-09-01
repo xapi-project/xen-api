@@ -78,13 +78,13 @@ let path = List.fold_left Filename.concat "/"
 let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xb.Noent -> []
 let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
+exception Server_not_registered
+exception Error of string * string
+exception Missing_argument of string
+exception Unknown_function of string
+
 module Rpc_internal = struct
   type handler = (string * string) list -> (string * string) list
-
-  exception Server_not_registered
-  exception Error of string * string
-  exception Missing_argument of string
-  exception Unknown_function of string
 
   let write_request xs service fn args = 
     let unique_id = Uuid.string_of_uuid (Uuid.make_uuid ()) in
@@ -203,8 +203,6 @@ module type RPC = sig
   type handler = (string * string) list -> (string * string) list
 
   val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> unit
-
-  exception Server_not_registered
 
   val client: xs:Xs.xsh -> service:string -> fn:string -> args:((string * string) list) -> (string * string) list
 
