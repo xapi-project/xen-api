@@ -1215,6 +1215,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	(fun () ->
 	   forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.suspend rpc session_id vm));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
+	debug "placeholder for retrieving the current value of memory-actual";
       let message_body = 
 	Printf.sprintf "VM '%s' suspended" 
 	  (Db.VM.get_name_label ~__context ~self:vm) 

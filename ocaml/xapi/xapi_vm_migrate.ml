@@ -324,10 +324,8 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 
 (* Called with the VM locked (either by us or by the sender, depending on whether
    we are migrating to localhost or not) *)
-let receiver ~__context ~localhost is_localhost_migration fd vm xc xs =
-  debug "Receiver 3.5 Checking enough memory is available";
+let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_required_kib =
   let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-  Vmops.check_enough_memory ~__context ~xc ~snapshot ~restore:true;
 
   (* MTC: If this is a protected VM, then return the peer VM configuration
    * for instantiation (the destination VM where we'll migrate to).  
@@ -381,6 +379,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs =
   let needed_vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 
   (try
+     Memory_control.allocate_memory_for_domain ~__context ~xc ~xs ~initial_reservation_kib:memory_required_kib domid;
+
      if not delay_device_create_until_after_activate then
        begin
 	 debug "Receiver 5. Calling Vmops._restore_devices (domid = %d)" domid;
@@ -712,17 +712,18 @@ let handler req fd =
 	      debug "Receiver 2. checking we have enough free memory";
 	      with_xc_and_xs
 		(fun xc xs ->
-		   (try 
-		      Vmops.check_enough_memory ~__context ~snapshot ~xc ~restore:true;
-		    with Api_errors.Server_error (code, params) as e ->
-		      (* Before sending back HTTP response, update the task object *)
-		      TaskHelper.failed ~__context (code, params);
-		      warn "denying migration: unable to proceed migration of VM on this host";
-		      Http_svr.headers fd (Http.http_406_notacceptable);
-		      raise e);
-		     debug "Receiver 3. sending back HTTP 200 OK";
-		     Http_svr.headers fd (Http.http_200_ok ());
-		     receiver ~__context ~localhost localhost_migration fd vm xc xs
+			(* XXX: on early failure consider calling TaskHelper.failed? *)
+			let memory_required_kib = 0L in
+(*
+			Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
+			(fun () ->
+*)
+				debug "Receiver 3. sending back HTTP 200 OK";
+				Http_svr.headers fd (Http.http_200_ok ());
+				receiver ~__context ~localhost localhost_migration fd vm xc xs memory_required_kib
+(*
+			)
+*)
 		)
 	   )
        with 

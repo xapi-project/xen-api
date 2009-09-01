@@ -561,7 +561,9 @@ let set_domain0_memory_target () =
 		let memory_target_bytes = Db.VM.get_memory_target ~__context ~self:domain0_ref in
 		let memory_target_kib = Int64.div memory_target_bytes 1024L in
 		Vmopshelpers.with_xs
-			(fun xs -> Balloon.set_memory_target ~xs 0 memory_target_kib);
+			(fun xs -> 
+			   Domain.set_memory_dynamic_range ~xs ~min:(Int64.to_int memory_target_kib) ~max:(Int64.to_int memory_target_kib) 0;
+			   Balloon.set_memory_target ~xs 0 memory_target_kib);
 		(* Wait for domain 0 to reach its memory target, but allow *)
 		(* a large margin of error and time out deterministically. *)
 		Xapi_vm_helpers.wait_memory_target_live ~__context ~self:domain0_ref ~timeout_seconds:20 () in
