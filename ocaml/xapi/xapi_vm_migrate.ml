@@ -24,8 +24,9 @@ open DD
 open Client
 
 (* Extra parameter added in rel_mnr: memory_required_kib which is the lowest
-   upper-bound on the amount of memory we know the domain will fit in. If this
-   is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.
+   upper-bound on the amount of memory we know the domain will fit in. This
+   is also used as a neutral target value post-migrate.
+   If this is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.
  *)
 let _memory_required_kib = "memory_required_kib"
 
@@ -333,16 +334,25 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_required_kib =
   debug "memory_required_kib = %Ld" memory_required_kib;
   let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-  (* Since the initial memory target is read from vM_memory_target in _resume_domain we must
-     configure this to prevent the domain ballooning up and allocating more than memory_required_kib
-     of guest memory on unpause. *)
-  let snapshot = { snapshot with API.vM_memory_target = Memory.bytes_of_kib memory_required_kib } in
+  (* CA-31764: the transmitted memory value may actually be > static_max if maxmem on the remote was
+     increased. If this happens we clip the target at static_max. If the domain has managed to 
+     allocate more than static_max (!) then it may not fit and the migrate will fail. *)
+  let target_kib = 
+    Memory.kib_of_bytes_used 
+      (let bytes = Memory.bytes_of_kib memory_required_kib in
+       if bytes > snapshot.API.vM_memory_static_max then begin
+	 warn "memory_required_bytes = %Ld > memory_static_max = %Ld; clipping" bytes snapshot.API.vM_memory_static_max;
+	 snapshot.API.vM_memory_static_max
+       end else bytes) in
 
-  (* This is how much free host memory we're going to need: *)
-  let free_memory_required_kib = 
-    let (normal_bytes, shadow_bytes) = Memory_check.vm_compute_required_memory snapshot memory_required_kib in
-    debug "normal_bytes = %Ld; shadow_bytes = %Ld" normal_bytes shadow_bytes;
-    Memory.kib_of_bytes_used (Int64.add normal_bytes shadow_bytes) in
+  (* Since the initial memory target is read from vM_memory_target in _resume_domain we must
+     configure this to prevent the domain ballooning up and allocating more than target_kib
+     of guest memory on unpause. *)
+  let snapshot = { snapshot with API.vM_memory_target = Memory.bytes_of_kib target_kib } in
+
+  let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
+  let free_memory_required_kib = Int64.add (Memory.kib_of_bytes_used overhead_bytes) memory_required_kib in
+  debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
 
   (* MTC: If this is a protected VM, then return the peer VM configuration
    * for instantiation (the destination VM where we'll migrate to).  
@@ -571,12 +581,12 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
 		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
 		  Int64.sub raw_bytes overhead_bytes in
-
+		(* CA-31764: maxmem may be larger than static_max if maxmem has been increased to initial-reservation. *)
 		let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
-		(* NB we send across the raw amount of memory needed and let the other side deal with it.
-		   The overheads will potentially change over migrate if we migrate to a machine with a 
-		   different version of Xen or perhaps HAP *)
 
+		(* We send this across to the other side as a new target value. The other side will
+		   need to add its own overheads e.g. if the machine has a different version of Xen
+		   or has HAP or something. *)
 		let path = sprintf "%s?ref=%s&%s=%Ld"
 	          Constants.migrate_uri (Ref.string_of vm)
 		  _memory_required_kib memory_required_kib in
