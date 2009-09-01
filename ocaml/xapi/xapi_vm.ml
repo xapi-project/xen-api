@@ -111,27 +111,30 @@ let set_ha_restart_priority ~__context ~self ~value =
   if current <> value 
   then Db.VM.set_ha_restart_priority ~__context ~self ~value
 
-let set_memory_static_max ~__context ~self ~value = 
-  let pool = Helpers.get_pool ~__context in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (Db.Pool.get_ha_overcommitted ~__context ~self:pool)) then begin
-    try
-      let r = Db.VM.get_record ~__context ~self in
-      let running = Db.is_valid_ref r.API.vM_resident_on in
-      (* If the VM is running on a host then consider what a reboot would look like *)
-      if running then begin
-       let vm_t = Helpers.get_boot_record_of_record r.API.vM_last_booted_record r.API.vM_uuid in
-       Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context 
-         ~leaving:[r.API.vM_resident_on, (self, vm_t)] ~arriving:[r.API.vM_resident_on, (self, { r with API.vM_memory_static_max = value } )] ();
-      end;
-      (* If the VM is not running but protected the block to fail safe *)
-      if not running && r.API.vM_ha_always_run
-      then raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []));
-      (* If it isn't running and isn't protected then the VM.start will be checked *)
-    with e ->
-      error "Caught exception in VM.set_memory_static_max self = %s; value = %Ld" (Ref.string_of self) value;
-      raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
-  end;      
-  Db.VM.set_memory_static_max ~__context ~self ~value
+open Xapi_vm_memory_constraints
+ 
+let set_memory_static_range ~__context ~self ~min ~max = 
+	(* Called on the master only when the VM is offline *)
+	if Db.VM.get_power_state ~__context ~self <> `Halted
+	then failwith "assertion_failed: set_memory_static_range should only be \
+		called when the VM is Halted";
+	(* Check the range constraints *)
+	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:self in
+	let constraints = {constraints with Vm_memory_constraints.
+		static_min = min;
+		static_max = max;
+	} in
+	if not (Vm_memory_constraints.valid ~constraints)
+	then raise (
+		Api_errors.Server_error (
+			Api_errors.memory_constraint_violation, ["min or max"]));
+	Db.VM.set_memory_static_min ~__context ~self ~value:min;
+	Db.VM.set_memory_static_max ~__context ~self ~value:max
+
+(* These are always converted into set_memory_static_range *)
+(* by the message forwarding layer:                        *)
+let set_memory_static_min ~__context ~self ~value = assert false
+let set_memory_static_max ~__context ~self ~value = assert false
 
 
 (* CA-12940: sanity check to make sure this never happens again *)

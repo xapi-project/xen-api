@@ -14,6 +14,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
+	| `changing_static_range
 	| `destroy
 	| `make_into_template
 	| `provision
@@ -262,7 +263,7 @@ let update_allowed_operations ~__context ~self =
 			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
-			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template]
+			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range ]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
 	let allowed =

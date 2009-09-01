@@ -1348,6 +1348,25 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm:self 
 	     (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
+	let set_memory_static_range ~__context ~self ~min ~max =
+		info "VM.set_memory_static_range: self = %s; min = %Ld; max = %Ld"
+			(vm_uuid ~__context self) min max;
+		with_vm_operation ~__context ~self ~doc:"VM.set_memory_static_range"
+			~op:`changing_static_range
+		(fun () -> Local.VM.set_memory_static_range ~__context ~self ~min ~max)
+
+	let set_memory_static_max ~__context ~self ~value =
+		info "VM.set_memory_static_max: VM = '%s'; value = %Ld"
+			(vm_uuid ~__context self) value;
+		set_memory_static_range ~__context ~self ~max:value
+			~min:(Db.VM.get_memory_static_min ~__context ~self)
+
+	let set_memory_static_min ~__context ~self ~value =
+		info "VM.set_memory_static_min: VM = '%s'; value = %Ld"
+			(vm_uuid ~__context self) value;
+		set_memory_static_range ~__context ~self ~min:value
+			~max:(Db.VM.get_memory_static_max ~__context ~self)
+
 	let set_memory_target_live ~__context ~self ~target =
 		info "VM.set_memory_target_live: VM = '%s'; min = %Ld" (vm_uuid ~__context self) target;
 		let local_fn = Local.VM.set_memory_target_live ~self ~target in
@@ -1451,10 +1470,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:host;
 	   Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null
 	)
-
-    let set_memory_static_max ~__context ~self ~value = 
-      info "VM.set_memory_static_max: VM = '%s'; value = %Ld" (vm_uuid ~__context self) value;
-      Local.VM.set_memory_static_max ~__context ~self ~value
 
     let create_new_blob ~__context ~vm ~name ~mime_type =
       info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s'" (vm_uuid ~__context vm) name mime_type;

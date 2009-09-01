@@ -1242,16 +1242,54 @@ let vm_atomic_set_resident_on = call
           ]
   ()
 
-(* When HA is enabled we need to prevent memory changes which will break the recovery plan *)
+(* When HA is enabled we need to prevent memory *)
+(* changes which will break the recovery plan.  *)
 let vm_set_memory_static_max = call ~flags:[`Session]
-  ~in_product_since:rel_orlando
-  ~name:"set_memory_static_max"
-  ~doc:"Set the value of the memory_static_max field"
-  ~params:[Ref _vm, "self", "The VM to modify";
-	   Int, "value", "The new value of memory_static_max"]
-  ~errs:[Api_errors.ha_operation_would_break_failover_plan]
-    ()
+	~in_product_since:rel_orlando
+	~name:"set_memory_static_max"
+	~doc:"Set the value of the memory_static_max field"
+	~errs:[Api_errors.ha_operation_would_break_failover_plan]
+	~params:[
+		Ref _vm, "self", "The VM to modify";
+		Int, "value", "The new value of memory_static_max";
+	] ()
 
+let vm_set_memory_static_min = call ~flags:[`Session]
+	~in_product_since:rel_midnight_ride
+	~name:"set_memory_static_min"
+	~doc:"Set the value of the memory_static_min field"
+	~errs:[]
+	~params:[
+		Ref _vm, "self", "The VM to modify";
+		Int, "value", "The new value of memory_static_min";
+	] ()
+
+let vm_set_memory_static_range = call
+	~name:"set_memory_static_range"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the static (ie boot-time) range of virtual memory that the VM is \
+		allowed to use."
+	~params:[Ref _vm, "self", "The VM";
+		Int, "min", "The new minimum value";
+		Int, "max", "The new maximum value";
+	] ()
+
+let vm_set_memory_target_live = call
+	~name:"set_memory_target_live"
+	~in_product_since:rel_rio
+	~doc:"Set the memory target for a running VM"
+	~params:[
+		Ref _vm, "self", "The VM";
+		Int, "target", "The target in bytes";
+	] ()
+
+let vm_wait_memory_target_live = call
+	~name:"wait_memory_target_live"
+	~in_product_since:rel_orlando
+	~doc:"Wait for a running VM to reach its current memory target"
+	~params:[
+		Ref _vm, "self", "The VM";
+	] ()
 
 (* VM.StartOn *)
 
@@ -1425,21 +1463,6 @@ let set_vcpus_number_live = call
   ~params:[Ref _vm, "self", "The VM";
            Int, "nvcpu", "The number of VCPUs" ]
   ()
-
-let vm_set_memory_target_live = call
-  ~name:"set_memory_target_live"
-  ~in_product_since:rel_rio
-  ~doc:"Set the memory target for a running VM"
-  ~params:[Ref _vm, "self", "The VM";
-	   Int, "target", "The target in bytes"]
-  ()
-
-let vm_wait_memory_target_live = call
-	~name:"wait_memory_target_live"
-	~in_product_since:rel_orlando
-	~doc:"Wait for a running VM to reach its current memory target"
-	~params:[Ref _vm, "self", "The VM"]
-	()
 
 let vm_set_shadow_multiplier_live = call
   ~name:"set_shadow_multiplier_live"
@@ -2449,7 +2472,7 @@ let guest_memory =
     field "static_max" ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
     field "dynamic_max" "Dynamic maximum (bytes)";
     field "dynamic_min" "Dynamic minimum (bytes)";
-    field "static_min" "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
+    field "static_min" ~qualifier:StaticRO "Statically-set (i.e. absolute) mininum (bytes). The value of this field indicates the least amount of memory this VM can boot with without crashing.";
   ]
 
 (** Host Memory *)
@@ -4534,6 +4557,7 @@ let vm_operations =
 	    vm_get_boot_record; vm_send_sysrq; vm_send_trigger ]
 	@ [ "changing_memory_live", "Changing the memory settings";
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
+	    "changing_static_range", "Changing the memory static range";
 	    "changing_shadow_memory_live", "Changing the shadow memory settings";
 	    "changing_VCPUs_live", "Changing either the VCPUs_number or VCPUs_params";
 	    "assert_operation_valid", "";
@@ -4561,6 +4585,9 @@ let vm =
 		vm_add_to_VCPUs_params_live;
 		vm_set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
 		vm_set_ha_always_run;        (* updates the allowed-operations of the VM *)
+		vm_set_memory_static_min;
+		vm_set_memory_static_max;
+		vm_set_memory_static_range;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
 		vm_set_shadow_multiplier_live;
@@ -4576,7 +4603,6 @@ let vm =
 		vm_get_possible_hosts;
 		vm_assert_can_boot_here;
 		vm_atomic_set_resident_on;
-		vm_set_memory_static_max;
 		vm_create_new_blob;
 		vm_assert_agile;
 		vm_update_snapshot_metadata;
