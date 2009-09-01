@@ -2,6 +2,7 @@
 	Simulation environment and set of unit tests for the domain memory balancer.
 *)
 
+open Pervasiveext
 open Squeeze
 
 (**
@@ -9,18 +10,16 @@ open Squeeze
 	responds at a given speed. Warning: make sure the balloon_rate * time_passed
 	is > 0 when rounded to an integer.
 *)
-let compute_memory_actual_delta
-		domain balloon_rate_kib_per_unit_time time_passed =
-	let kib_changed = Int64.of_float (time_passed *. (
-		Int64.to_float balloon_rate_kib_per_unit_time)) in
+let compute_memory_actual_delta domain rate time =
+	let max_change = Int64.of_float (time *. (Int64.to_float rate)) in
 	(* compute the direction of travel of the balloon *)
-	let vector =
-		if domain.memory_actual_kib > domain.target_kib then -1L else 1L in
-	let abs_distance_from_target =
-		(domain.target_kib -* domain.memory_actual_kib) ** vector in
+	let vector = if domain.memory_actual_kib > domain.target_kib then -1L else 1L in
+	let distance = (domain.target_kib -* domain.memory_actual_kib) ** vector in
+	(* We stop when we get to 'inaccuracy_kib' *)
+	let distance' = max 0L (distance -* domain.inaccuracy_kib) in
 	(* don't exceed the target *)
-	let abs_distance_to_move = min abs_distance_from_target kib_changed in
-	abs_distance_to_move ** vector
+	let distance'' = min distance' max_change in
+	distance'' ** vector
 
 class virtual vm initial_domain = object (self)
 	val mutable domain = initial_domain
@@ -48,16 +47,17 @@ class virtual vm initial_domain = object (self)
 		memory_actual so the host free memory total can be updated.
 	*)
 	method update host_free_mem time = 
-		let time_passed = time -. time_of_last_update in
-		(* We can release as much memory as we like but *)
-		(* we can't allocate more than is available     *)
-		let memory_actual_delta = min host_free_mem
-			(self#compute_memory_actual_delta time_passed) in
-		domain <- {domain with
-			memory_actual_kib = domain.memory_actual_kib +* memory_actual_delta
-		};
-		time_of_last_update <- time;
-		memory_actual_delta (* if -ve this means host memory increased *)
+	  let time_passed = time -. time_of_last_update in
+	  (* We can release as much memory as we like but *)
+	  (* we can't allocate more than is available     *)
+	  let delta = self#compute_memory_actual_delta time_passed in
+	  (* By construction it should never be possible for a domain to wish to allocate
+	     more memory than exists. *)
+	  if delta > host_free_mem
+	  then failwith (Printf.sprintf "Attempted to allocate more than host_free_mem domid = %d; delta = %Ld; free = %Ld" domain.domid delta host_free_mem);
+	  domain <- { domain with memory_actual_kib = domain.memory_actual_kib +* delta };
+	  time_of_last_update <- time;
+	  delta (* if -ve this means host memory increased *)
 end
 	
 (** Represents a VM whose balloon driver responds at a certain speed *)
@@ -132,8 +132,8 @@ type scenario = {
 	should_succeed: bool;
 	scenario_domains: vm list;
 	host_free_mem_kib: int64;
-	host_emergency_pool_kib: int64;
 	required_mem_kib: int64;
+	fistpoints: Squeeze.fistpoint list;
 }
 
 
@@ -144,13 +144,13 @@ let scenario_a = {
 	should_succeed = true;
 	scenario_domains = [
 		new idealised_vm_with_limit
-			(domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L 1250L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 0L 4L) 100L 1250L;
 		new intermittently_stuck_vm
-			(domain_make 1 true 2500L 3500L 4500L 3500L 0L) 500L 0.25;
+			(domain_make 1 true 2500L 3500L 4500L 3500L 0L 4L) 500L 0.25;
 	];
 	host_free_mem_kib = 0L;
-	host_emergency_pool_kib = 0L;
-	required_mem_kib = 1000L
+	required_mem_kib = 1000L;
+	fistpoints = [ ];
 }
 
 let scenario_b = {
@@ -160,13 +160,14 @@ let scenario_b = {
 	should_succeed = true;
 	scenario_domains = [
 		new intermittently_stuck_vm
-			(domain_make 1 true 500L 3500L 4500L 3500L 0L) 100L 3.;
+			(domain_make 1 true 500L 3500L 4500L 3500L 0L 4L) 100L 3.;
 		new intermittently_stuck_vm
-			(domain_make 0 true 500L 1500L 2500L 1500L 0L) 100L 1.5;
+			(domain_make 0 true 500L 1500L 2500L 1500L 0L 4L) 100L 1.5;
 	];
 	host_free_mem_kib = 0L;
-	host_emergency_pool_kib = 0L;
-	required_mem_kib = 1000L }
+	required_mem_kib = 1000L;
+	fistpoints = [ ];
+}
 
 let scenario_c = {
 	name = "c";
@@ -174,12 +175,12 @@ let scenario_c = {
 		freed";
 	should_succeed = false;
 	scenario_domains = [
-		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L;
-		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L 0L) 100L;
+		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L 0L 0L) 100L;
+		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L 0L 0L) 100L;
 	];
 	host_free_mem_kib = 0L;
-	host_emergency_pool_kib = 0L;
-	required_mem_kib = 1500L 
+	required_mem_kib = 1500L;
+	fistpoints = [ ]; 
 }
 
 let scenario_d = {
@@ -189,13 +190,13 @@ let scenario_d = {
 	should_succeed = false;
 	scenario_domains = [
 		new idealised_vm
-			(domain_make 0 true 1000L 1500L 2000L 1500L 0L) 100L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 0L 0L) 100L;
 		new idealised_vm_with_limit
-			(domain_make 1 true 2000L 2500L 3000L 2500L 0L) 100L 2250L;
+			(domain_make 1 true 2000L 2500L 3000L 2500L 0L 0L) 100L 2250L;
 	];
 	host_free_mem_kib = 0L;
-	host_emergency_pool_kib = 0L;
-	required_mem_kib = 1000L
+	required_mem_kib = 1000L;
+	fistpoints = [ ];
 }
 
 let scenario_e = {
@@ -208,14 +209,13 @@ let scenario_e = {
 	scenario_domains = [
 		(* The stuck domain is using more than it should be if the memory was freed and everything balanced *)
 		new stuck_vm
-			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L 0L);
+			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L 0L 0L);
 		(* The working domain is using less than it should be if the memory was freed and everything balanced *)
 		new idealised_vm
-			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L 0L) 100L;
+			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L 0L 0L) 100L;
 
 	];
 	host_free_mem_kib = 0L;
-	host_emergency_pool_kib = 0L;
 	required_mem_kib = 1000L;
 	(* The system has 3000L units of surplus memory. Ideally we'd give 1000L to the system and then split
 	   the remaining 2000L units proportionally amongst the domains: 500L to 0 and 1500L to 1. If both 
@@ -224,16 +224,44 @@ let scenario_e = {
 	   VM to release the 1000L units of memory. However the likely failure mode is that it will have been
 	   asked to increase its allocation and been unable to do so because all host memory is exhausted. 
 	   It will then also have been marked as stuck and the operation will fail. *)
+	fistpoints = [ ];
 }
   
+let scenario_f = {
+  scenario_e with
+    name = "f";
+    should_succeed = false;
+    fistpoints = [ Squeeze.DisableTwoPhaseTargetSets ];
+    (* Since one domain is trying to allocate and the other free (but is stuck), the allocating
+       domain will try to allocate more memory than is free on the host IF we disable our two-phase
+       setting of the domain targets. In real life, xen allocates memory from the top down, keeping
+       memory < 4GiB until the end. This is important because some small structures can only be placed
+       in memory < 4GiB. If we give this memory to a guest then the balloon driver may well only release
+       memory > 4GiB resulting in a system with memory free but memory allocation failures on domain create. *)
+}
+
+let scenario_g = {
+  scenario_a with
+    name = "g";
+    should_succeed = false;
+    fistpoints = [ Squeeze.DisableInaccuracyCompensation ];
+    (* The two domains are programmed to have an inaccuracy of 4KiB. We will conclude that the 
+       domains are both stuck if we don't take this into account. *)
+}
+
+(* scenario_a with < 24L after the balancing will fail *)
+
 let all_scenarios = [
 	scenario_a;
 	scenario_b;
 	scenario_c;
 	scenario_d;
 	scenario_e;
+	scenario_f;
+	scenario_g;
 ]
 	
+(*
 (** Fails if either memory_actual or target lie outside our dynamic range *)
 let assert_within_dynamic_range host = 
 	List.iter
@@ -253,102 +281,96 @@ let assert_within_dynamic_range host =
 				domain.target_kib "target"
 		)
 		host.domains
+*)
+
+let verify_memory_is_guaranteed_free host kib = 
+  (* Each domain could set its memory_actual to this much and still be considered ok *)
+  let extreme domain = domain.target_kib +* domain.inaccuracy_kib in
+  let increase domain = extreme domain -* domain.memory_actual_kib in
+  let total = List.fold_left ( +* ) 0L (List.map increase host.domains) in
+  if host.free_mem_kib -* total < kib
+  then failwith (Printf.sprintf "Memory not guaranteed free: free_mem = %Ld; total guests could take = %Ld; required free = %Ld" host.free_mem_kib total kib)
 
 (** Run a full simulation of the given scenario *)
 let simulate scenario = 
-	let host_free_mem_kib = ref scenario.host_free_mem_kib in
-	let emergency_pool_kib = scenario.host_emergency_pool_kib in
-	let all_domains = ref scenario.scenario_domains in
+  let host_free_mem_kib = ref scenario.host_free_mem_kib in
+  let all_domains = ref scenario.scenario_domains in
 
-	let domid_to_domain =
-		List.map (fun x -> x#get_domain.domid, x) !all_domains
-	in
-	let make_host () = Squeeze.make_host
-		~free_mem_kib:!host_free_mem_kib
-		~emergency_pool_kib
-		~domains:(List.map (fun d -> d#get_domain) !all_domains)
-	in
-	(* Update all the recorded balloon targets *)
-	let update_target (action: action) =
-		let domain = List.assoc action.action_domid domid_to_domain in
-		domain#set_target action.new_target_kib
-	in
-	(* Allow the simulated balloon drivers to change memory_actual_kib *)
-	(* and update host_free_memory accordingly.                        *)
-	let update_balloons time =
-		List.iter
-			(fun d ->
-				let delta = d#update !host_free_mem_kib time in
-				host_free_mem_kib :=
-					!host_free_mem_kib -* delta
-			)
-			!all_domains
-	in
+  let domid_to_domain = List.map (fun x -> x#get_domain.domid, x) !all_domains in
+  (* Update all the recorded balloon targets *)
+  let execute_action (action: action) =
+    let domain = List.assoc action.action_domid domid_to_domain in
+    domain#set_target action.new_target_kib
+  in
 
-	let oc = open_out (Printf.sprintf "%s.dat" scenario.name) in
-	let cols = [ Gnuplot.Memory_actual; Gnuplot.Target ] in
-	let acc = ref (Proportional.make ()) in
-	let i = ref 0 in
+  (* Allow the simulated balloon drivers to change memory_actual_kib *)
+  (* and update host_free_memory accordingly.                        *)
+  let update_balloons time =
+    List.iter
+      (fun d ->
+	 let delta = d#update !host_free_mem_kib time in
+	 host_free_mem_kib :=
+	   !host_free_mem_kib -* delta
+      )
+      !all_domains
+  in
 
-	(* Change the free memory on the host *)
-	let change_memory success_condition host_target_kib = 
+  let dat_oc = open_out (Printf.sprintf "%s.dat" scenario.name) in
+  let out_oc = open_out (Printf.sprintf "%s.out" scenario.name) in
+  debug_oc := out_oc;
 
-		let finished = ref false in
-		while not (!finished) do
-			let host = make_host () in
-			if not (!finished) then begin
-				let t = float_of_int !i /. 10. in
-				let acc', _, _, result = Proportional.change_host_free_memory success_condition !acc host host_target_kib t in
-				acc := acc';
-				begin match result with
-				| Success ->
-					debug "%Ld KiB of memory has been freed"
-						scenario.required_mem_kib;
-					finished := true
-				| Failed domains ->
-					failwith (Printf.sprintf "Failed to free %Ld KiB of memory \
-						(only %Ld KiB free) [stuck domains: %s]"
-						scenario.required_mem_kib !host_free_mem_kib
-						(String.concat ", "
-							(List.map string_of_int domains)
-						)
-					);
-				| AdjustTargets actions ->
-					(* Set all the balloon targets *)
-					List.iter update_target actions
-				end;
-				(* Allow the balloon drivers to do some work *)
-				update_balloons t;
+  let cols = [ Gnuplot.Memory_actual; Gnuplot.Target ] in
+  Gnuplot.write_header dat_oc cols;
+  let acc = ref (Squeezer.make ()) in
+  let i = ref 0 in
 
-				let host = make_host () in
-				assert_within_dynamic_range host;
-				Gnuplot.write_row oc host cols t;
-				incr i
+  let gettimeofday () = float_of_int !i /. 10. in
 
-			end;
-		done in
+  let make_host () = 
+    Squeeze.make_host
+      ~free_mem_kib:!host_free_mem_kib
+      ~domains:(List.map (fun d -> d#get_domain) !all_domains) in
 
-	(* Phase 1: attempt to free memory *)
-	debug "%s: attempting to free %Ld KiB" scenario.name scenario.required_mem_kib;
-	change_memory (fun x -> x >= scenario.required_mem_kib) scenario.required_mem_kib;
-	debug "%s: %Ld KiB of memory has been freed" scenario.name scenario.required_mem_kib;
+  let wait _ = 
+    incr i;
+    let t = gettimeofday () in
+    update_balloons t;
+    Gnuplot.write_row dat_oc (make_host ()) cols t in
+  
+  let io = {
+    Squeeze.gettimeofday = gettimeofday;
+    make_host = (fun () -> Printf.sprintf "F%Ld" !host_free_mem_kib, make_host ());
+    domain_setmaxmem = (fun domid kib -> ());
+    wait = wait;
+    execute_action = execute_action;
+    target_host_free_mem_kib = scenario.required_mem_kib;
+    free_memory_tolerance_kib = 0L;
+  } in
 
-	(* Phase 2: use some of this memory and return the rest to remaining VMs *)
-	host_free_mem_kib := !host_free_mem_kib -* 500L;
+  finally
+    (fun () ->
+       (* Phase 1: attempt to free memory *)
+       debug "%s: attempting to free %Ld KiB" scenario.name scenario.required_mem_kib;
+       Squeeze.change_host_free_memory ~fistpoints:scenario.fistpoints io scenario.required_mem_kib (fun x -> x >= scenario.required_mem_kib);
+       debug "%s: %Ld KiB of memory has been freed" scenario.name scenario.required_mem_kib;
+       
+       (* Check that even if all domains ballooned up to target + accuracy, this much memory would still be free *)
+       verify_memory_is_guaranteed_free (make_host ()) scenario.required_mem_kib;
 
-	(* Phase 3: give free memory back to VMs *)
-	change_memory (fun x -> x = 0L) 0L;
-	debug "%s: After rebalancing only %Ld KiB of memory is used" scenario.name !host_free_mem_kib;
-
-	if !host_free_mem_kib > 10L 
-	then failwith (
-		Printf.sprintf
-			"After the phase 2 balancer ran the host had %Ld KiB of memory left"
-			!host_free_mem_kib
-	);
-
-	close_out oc;
-	Gnuplot.write_gp scenario.name (make_host()) cols
+       (* Phase 2: use some of this memory and return the rest to remaining VMs *)
+       host_free_mem_kib := !host_free_mem_kib -* 500L;
+       
+       (* Phase 3: give free memory back to VMs *)
+       Squeeze.change_host_free_memory ~fistpoints:scenario.fistpoints io 0L (fun x -> x <= 32L);
+       debug "%s: After rebalancing only %Ld KiB of memory is used" scenario.name !host_free_mem_kib;
+       
+       verify_memory_is_guaranteed_free (make_host ()) 0L;
+    )
+    (fun () ->
+       close_out dat_oc;
+       close_out out_oc;
+       debug_oc := stderr;
+       Gnuplot.write_gp scenario.name (make_host()) cols)
 
 let failed_scenarios = ref []
 let scenario_error_table = ref []

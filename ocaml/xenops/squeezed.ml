@@ -30,12 +30,12 @@ let handle_memory_errors f =
   try
     f ()
   with
-  | Squeeze_xen.Cannot_free_this_much_memory (needed, free) ->
+  | Squeeze.Cannot_free_this_much_memory (needed, free) ->
       (* NB both needed and free have been inflated by the lowmem_emergency_pool etc *)
       let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib 
       and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
       [ _code, _error_cannot_free_this_much_memory_code; _description, Printf.sprintf "%Ld,%Ld" needed free ]
-  | Squeeze_xen.Domains_refused_to_cooperate domids ->
+  | Squeeze.Domains_refused_to_cooperate domids ->
       [ _code, _error_domains_refused_to_cooperate_code; _description, String.concat "," (List.map string_of_int domids) ]
 
 (* val reserve_memory: session_id -> kib -> reservation_id *)
