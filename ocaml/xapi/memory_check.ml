@@ -78,6 +78,15 @@ let vm_compute_resume_memory ~__context vm_ref =
 	let suspended_memory_usage_bytes = vm_boot_record.API.vM_memory_target in
 	Int64.add suspended_memory_usage_bytes shadow_bytes
 
+let vm_compute_migrate_memory ~__context vm_ref =
+	if Xapi_fist.disable_memory_checks () then 0L else
+	let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
+	let (_, shadow_bytes) = vm_compute_required_memory
+		vm_record vm_record.API.vM_memory_static_max in
+	(* For the moment, use an extremely conservative overestimate. *)
+	let current_memory_usage_bytes = vm_record.API.vM_memory_dynamic_max in
+	Int64.add current_memory_usage_bytes shadow_bytes
+
 (**
 	The Pool master's view of the total memory and memory consumers on a host.
 	This doesn't take into account dynamic changes i.e. those caused by
