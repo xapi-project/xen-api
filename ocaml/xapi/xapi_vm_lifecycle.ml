@@ -42,6 +42,8 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `snapshot_with_quiesce
 	| `suspend
 	                                -> [`Running]
+	| `changing_dynamic_range
+	                                -> [`Halted; `Running]
 	| `clone
 	| `copy
 	| `create_template
@@ -263,7 +265,8 @@ let update_allowed_operations ~__context ~self =
 			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
-			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range ]
+			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
+			`changing_dynamic_range]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
 	let allowed =

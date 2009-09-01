@@ -149,6 +149,9 @@ val get_api_access: xs: Xs.xsh -> domid -> string * int * string * string
 (** Get the API parameters that has been granted by domain 0 in domain U *)
 val guest_get_api_access: xs: Xs.xsh -> string * int * string * string
 
+(** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
+val set_memory_dynamic_range: xs: Xs.xsh -> min:int -> max:int -> domid -> unit
+
 (** Grant a domain access to a range of IO ports *)
 val add_ioport: xc: Xc.handle -> domid -> int -> int -> unit
 
