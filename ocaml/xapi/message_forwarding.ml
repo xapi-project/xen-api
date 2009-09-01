@@ -1474,6 +1474,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				forward_vm_op ~local_fn ~__context ~vm:self 
 					(fun session_id rpc -> Client.VM.wait_memory_target_live rpc session_id self))
 
+	let get_cooperative ~__context ~self = 
+	  info "VM.get_cooperative: VM = '%s'" (vm_uuid ~__context self);
+	  let local_fn = Local.VM.get_cooperative ~self in
+	  with_vm_operation ~__context ~self ~doc:"VM.get_cooperative" ~op:`get_cooperative
+	    (fun () ->
+	       forward_vm_op ~local_fn ~__context ~vm:self
+		 (fun session_id rpc -> Client.VM.get_cooperative rpc session_id self))
+
     let set_shadow_multiplier_live ~__context ~self ~multiplier =
       info "VM.set_shadow_multiplier_live: VM = '%s'; min = %f" (vm_uuid ~__context self) multiplier;
       let local_fn = Local.VM.set_shadow_multiplier_live ~self ~multiplier in

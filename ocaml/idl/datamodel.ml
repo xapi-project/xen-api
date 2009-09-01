@@ -1323,6 +1323,16 @@ let vm_wait_memory_target_live = call
 		Ref _vm, "self", "The VM";
 	] ()
 
+let vm_get_cooperative = call
+  ~name:"get_cooperative"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Return true if the VM is currently 'co-operative' i.e. is expected to reach a balloon target and actually has done"
+  ~params:[
+    Ref _vm, "self", "The VM";
+  ]
+  ~result:(Bool, "true if the VM is currently 'co-operative'; false otherwise")
+  ()
+
 (* VM.StartOn *)
 
 let vm_start_on = call
@@ -4591,6 +4601,7 @@ let vm_operations =
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
 	    "changing_dynamic_range", "Changing the memory dynamic range";
 	    "changing_static_range", "Changing the memory static range";
+	    "get_cooperative", "Querying the co-operativeness of the VM";
 	    "changing_shadow_memory_live", "Changing the shadow memory settings";
 	    "changing_VCPUs_live", "Changing either the VCPUs_number or VCPUs_params";
 	    "assert_operation_valid", "";
@@ -4626,6 +4637,7 @@ let vm =
 		vm_set_memory_static_range;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
+		vm_get_cooperative;
 		vm_set_shadow_multiplier_live;
 		vm_send_sysrq; vm_send_trigger;
 		vm_maximise_memory;
