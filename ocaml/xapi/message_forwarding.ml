@@ -1348,6 +1348,42 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm:self 
 	     (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
+	let set_memory_dynamic_range ~__context ~self ~min ~max =
+		info "VM.set_memory_dynamic_range: VM = '%s'; min = %Ld; max = %Ld"
+			(Ref.string_of self) min max;
+		let local_fn = Local.VM.set_memory_dynamic_range ~self ~min ~max in
+		with_vm_operation ~__context ~self ~doc:"VM.set_memory_dynamic_range"
+			~op:`changing_dynamic_range
+			(fun () ->
+				(* XXX: Perform basic parameter validation before forwarding
+				        to the slave. Do this after sorting out the last boot
+				        record via set_static_range. *)
+				(* XXX: Perform host memory 'reservation'. *)
+				let power_state = Db.VM.get_power_state ~__context ~self in
+				if power_state = `Running
+				then
+					forward_vm_op ~local_fn ~__context ~vm:self
+						(fun session_id rpc ->
+							Client.VM.set_memory_dynamic_range
+							rpc session_id self min max)
+				else if power_state = `Halted
+				then local_fn ~__context
+				else failwith
+					"assertion_failure: set_memory_dynamic_range: \
+					 power_state should be Halted or Running")
+
+	let set_memory_dynamic_max ~__context ~self ~value =
+		info "VM.set_memory_dynamic_max: VM = '%s'; value = %Ld"
+			(vm_uuid ~__context self) value;
+		set_memory_dynamic_range ~__context ~self ~max:value
+			~min:(Db.VM.get_memory_dynamic_min ~__context ~self)
+
+	let set_memory_dynamic_min ~__context ~self ~value =
+		info "VM.set_memory_dynamic_min: VM = '%s'; value = %Ld"
+			(vm_uuid ~__context self) value;
+		set_memory_dynamic_range ~__context ~self ~min:value
+			~max:(Db.VM.get_memory_dynamic_max ~__context ~self)
+
 	let set_memory_static_range ~__context ~self ~min ~max =
 		info "VM.set_memory_static_range: self = %s; min = %Ld; max = %Ld"
 			(vm_uuid ~__context self) min max;

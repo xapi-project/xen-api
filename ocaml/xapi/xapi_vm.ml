@@ -131,6 +131,10 @@ let set_memory_static_range ~__context ~self ~min ~max =
 	Db.VM.set_memory_static_min ~__context ~self ~value:min;
 	Db.VM.set_memory_static_max ~__context ~self ~value:max
 
+(* These are always converted into set_memory_dynamic_range *)
+(* by the message forwarding layer:                         *)
+let set_memory_dynamic_min ~__context ~self ~value = assert false
+let set_memory_dynamic_max ~__context ~self ~value = assert false
 (* These are always converted into set_memory_static_range *)
 (* by the message forwarding layer:                        *)
 let set_memory_static_min ~__context ~self ~value = assert false
@@ -789,6 +793,10 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu = Locking_helpers.with_lock se
 
 let add_to_VCPUs_params_live ~__context ~self ~key ~value = Locking_helpers.with_lock self (fun token () ->
   add_to_VCPUs_params_live ~__context ~self ~key ~value
+) ()
+
+let set_memory_dynamic_range ~__context ~self ~min ~max = Locking_helpers.with_lock self (fun token () ->
+	set_memory_dynamic_range ~__context ~self ~min ~max
 ) ()
 
 let set_memory_target_live ~__context ~self ~target = Locking_helpers.with_lock self (fun token () ->

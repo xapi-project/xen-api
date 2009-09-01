@@ -545,6 +545,38 @@ type set_cpus_number_fn = __context:Context.t -> self:API.ref_VM -> int -> API.v
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
 	raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
+let set_memory_dynamic_range ~__context ~self ~min ~max = 
+	(* NB called in either `Halted or `Running states *)
+	(* NB In phase 1 we use the dynamic_min as the balloon target. *)
+	let power_state = Db.VM.get_power_state ~__context ~self in
+	(* Check the range constraints *)
+	let constraints = 
+		if power_state = `Running 
+		then Vm_memory_constraints.get_live ~__context ~vm_ref:self 
+		else Vm_memory_constraints.get ~__context ~vm_ref:self in
+	let constraints = { constraints with Vm_memory_constraints.
+		dynamic_min = min;
+		target = min; (* phase 1 *)
+		dynamic_max = max } in
+	if not (Vm_memory_constraints.valid ~constraints)
+	then raise (Api_errors.Server_error(Api_errors.memory_constraint_violation,
+		["min or max"]));
+
+	Db.VM.set_memory_target ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
+	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
+	let target = Memory.kib_of_bytes_used min in
+
+	let domid = Helpers.domid_of_vm ~__context ~self in
+	Vmopshelpers.with_xs 
+	(fun xs -> 
+		Balloon.set_memory_target ~xs domid target;
+		Domain.set_memory_dynamic_range ~xs
+			~min:(Int64.to_int (Int64.div min 1024L))
+			~max:(Int64.to_int (Int64.div max 1024L))
+			domid;
+	)
+
 (** Sets the current memory target for a running VM, to the given *)
 (** value (in bytes), rounded down to the nearest page boundary.  *)
 (** Writes the new target to the database and also to XenStore.   *)

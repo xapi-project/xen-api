@@ -235,6 +235,12 @@ let set_cpus_mask ~__context ~xc ~self domid snapshot =
 		| None -> ()
 	)
 
+let write_memory_policy ~xs snapshot domid = 
+	Domain.set_memory_dynamic_range ~xs 
+		~min:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_min 1024L))
+		~max:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_max 1024L))
+		domid
+
 let update_vm_last_booted ~__context ~self =
 	let metrics = Db.VM.get_metrics ~__context ~self in
 	if metrics <> Ref.null then (
@@ -715,6 +721,11 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 		Domain.restore ~xc ~xs domid ~mem_max_kib ~mem_target_kib ~vcpus fd;
 	);
 	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile domid vifs at_boot_time in
+	(* write in the current policy info *)
+	write_memory_policy ~xs { at_boot_time with API.
+		vM_memory_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self;
+		vM_memory_dynamic_max = Db.VM.get_memory_dynamic_max ~__context ~self;
+	} domid;
 	create_console ~__context ~vM:self ~vncport ()
 
 (** In Rio suspend images had filenames of the form: 
@@ -1019,6 +1030,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
 			     create_console ~__context ~vM:vm ~vncport ();
+			     debug "writing memory policy";
+			     write_memory_policy ~xs snapshot domid;
 			     update_vm_last_booted ~__context ~self:vm
 			   with exn ->
 			     (* [Comment copied from similar pattern in "restore" fn above]:
