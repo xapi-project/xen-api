@@ -78,6 +78,9 @@ let reserve_memory ~__context ~xc ~xs ~kib =
 	      let results = call_daemon xs Squeezed_rpc._reserve_memory args in
 	      List.assoc Squeezed_rpc._reservation_id results
 	    with 
+	    | Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_invalid_memory_value ->
+		debug "Got error_invalid_memory_value from ballooning daemon";
+		failwith "error_invalid_memory_value" (* should never happen *)
 	    | Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
 		debug "Got error_cannot_free_this_much_memory from ballooning daemon";
 		let free = Memory.get_free_memory_kib ~xc in
@@ -110,6 +113,9 @@ let reserve_memory_range ~__context ~xc ~xs ~min ~max =
 	      debug "reserve_memory_range actual = %s" kib;
 	      Int64.of_string kib, reservation_id
 	    with 
+	    | Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_invalid_memory_value ->
+		debug "Got error_invalid_memory_value from ballooning daemon";
+		failwith "error_invalid_memory_value" (* should never happen *)
 	    | Squeezed_rpc.Error(code, descr) when code = Squeezed_rpc._error_cannot_free_this_much_memory_code ->
 		debug "Got error_cannot_free_this_much_memory from ballooning daemon";
 		let free = Memory.get_free_memory_kib ~xc in

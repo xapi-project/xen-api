@@ -118,10 +118,10 @@ module HVM = struct
 	let xen_extra_internal_mib = 1L
 	let xen_extra_external_mib = 1L
 
-	let xen_max_mib target_mib =
-		target_mib +++
-		xen_video_mib +++
-		xen_extra_internal_mib
+	let xen_tot_offset_mib = xen_video_mib
+	let xen_max_offset_mib = xen_video_mib +++ xen_extra_internal_mib
+
+	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
 
 	let xen_shadow_mib max_mib vcpu_count multiplier =
 		let vcpu_pages = 256L *** (Int64.of_int vcpu_count) in
@@ -175,6 +175,8 @@ module Linux = struct
 	let xen_video_mib = 0L
 	let xen_extra_internal_mib = 0L
 	let xen_extra_external_mib = 1L
+	let xen_tot_offset_mib = 0L
+	let xen_max_offset_mib = 0L
 	let xen_max_mib target_mib = target_mib
 	let xen_shadow_mib = 0L
 	let xen_overhead_mib = xen_extra_external_mib
@@ -183,6 +185,7 @@ module Linux = struct
 end
 
 (* === Miscellaneous functions ============================================== *)
+
 
 (** @deprecated Use [memory_check.vm_compute_start_memory] instead. *)
 let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
