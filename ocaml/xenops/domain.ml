@@ -391,12 +391,15 @@ let build_linux ~xc ~xs ~mem_max_kib ~mem_target_kib ~kernel ~cmdline ~ramdisk ~
 	let store_port, console_port =
 		build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib:0L ~vcpus domid in
 
-	let mem_target_mib = (Int64.to_int (Int64.div mem_target_kib 1024L)) in
+	let mem_max_mib    = Int64.to_int (Memory.mib_of_kib_free mem_max_kib   ) in
+	let mem_target_mib = Int64.to_int (Memory.mib_of_kib_free mem_target_kib) in
+
 	let cnx = XenguestHelper.connect
 	  [
 	    "-mode"; "linux_build";
 	    "-domid"; string_of_int domid;
-	    "-memsize"; string_of_int mem_target_mib;
+	    "-mem_max_mib"; string_of_int mem_max_mib;
+	    "-mem_start_mib"; string_of_int mem_target_mib;
 	    "-image"; kernel;
 	    "-ramdisk"; (match ramdisk with Some x -> x | None -> "");
 	    "-cmdline"; cmdline;
@@ -443,7 +446,8 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 	let store_port, console_port =
 		build_pre ~xc ~xs ~mem_max_kib:mem_max_kib' ~shadow_kib ~vcpus domid in
 
-	let mem_max_mib = (Int64.to_int (Int64.div mem_max_kib 1024L)) in
+	let mem_max_mib    = Int64.to_int (Memory.mib_of_kib_free mem_max_kib   ) in
+	let mem_target_mib = Int64.to_int (Memory.mib_of_kib_free mem_target_kib) in
 
 	let cnx = XenguestHelper.connect
 	  [
@@ -451,7 +455,8 @@ let build_hvm ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
 	    "-image"; kernel;
-	    "-memsize"; string_of_int mem_max_mib;
+	    "-mem_max_mib"; string_of_int mem_max_mib;
+	    "-mem_start_mib"; string_of_int mem_target_mib;
 	    "-vcpus"; string_of_int vcpus;
 	    "-pae"; string_of_bool pae;
 	    "-apic"; string_of_bool apic;
