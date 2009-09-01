@@ -464,6 +464,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* MTC: Normal XenMotion migration does not change the VM's power state *)
   Mtc.update_vm_state_if_necessary ~__context ~vm;
 
+  Memory_control.balance_memory ~xc ~xs;
+
   TaskHelper.set_progress ~__context 1.;
   
   debug "Receiver 8. signalling sender that we're done";
@@ -682,7 +684,6 @@ let handler req fd =
 
   Server_helpers.exec_with_forwarded_task ~session_id task_id ~origin:(Context.Http(req,fd)) (fun __context ->
        let localhost = Helpers.get_localhost ~__context in
-       let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 
        (* MTC: If this is a protected VM, then return the peer VM configuration
         * for instantiation (the destination VM where we'll migrate to).  
@@ -713,7 +714,9 @@ let handler req fd =
 	      with_xc_and_xs
 		(fun xc xs ->
 			(* XXX: on early failure consider calling TaskHelper.failed? *)
-			let memory_required_kib = 0L in
+			let memory_required_kib = Memory.kib_of_bytes_used
+                         (Memory_check.vm_compute_migrate_memory __context vm) in
+
 (*
 			Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
 			(fun () ->
