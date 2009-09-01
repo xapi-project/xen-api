@@ -87,14 +87,14 @@ val unpause: xc: Xc.handle -> domid -> unit
 (* val create_channels : xc:Xc.handle -> domid -> int * int *)
 
 (** Builds a linux guest in a fresh domain created with 'make' *)
-val build_linux: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
-              -> mem_target_kib:Int64.t -> kernel:string -> cmdline:string
+val build_linux: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
+              -> target_kib:Int64.t -> kernel:string -> cmdline:string
               -> ramdisk:string option -> vcpus:int -> domid
               -> domarch
 
 (** build an hvm domain in a fresh domain created with 'make' *)
-val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
-            -> mem_target_kib:Int64.t -> shadow_multiplier:float
+val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
+            -> target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
             -> pae:bool -> apic:bool -> acpi:bool -> nx:bool -> viridian:bool
             -> timeoffset:string -> domid
@@ -107,14 +107,14 @@ val build: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> domarch
 val resume: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
 
 (** restore a PV domain into a fresh domain created with 'make' *)
-val restore: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t 
-          -> mem_target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
+val restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t 
+          -> target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
           -> unit
 
 (** restore an HVM domain from the file descriptor into a fresh domain created
  *  with 'make' *)
-val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> mem_max_kib:Int64.t
-             -> mem_target_kib:Int64.t -> shadow_multiplier:float
+val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
+             -> target_kib:Int64.t -> shadow_multiplier:float
              -> vcpus:int -> pae:bool -> viridian:bool -> timeoffset:string
              -> domid -> Unix.file_descr
              -> unit

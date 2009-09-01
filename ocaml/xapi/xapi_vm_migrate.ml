@@ -565,10 +565,8 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		   the migration is the max of maxmem and memory_actual (with our overheads subtracted), 
 		   assuming no reconfiguring of target happens during the process. *)
 		let info = Xc.domain_getinfo xc domid in
-		let totmem = 
-		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_tot_offset_mib else Memory.Linux.xen_tot_offset_mib) in
-		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
-		  Int64.sub raw_bytes overhead_bytes in
+		let totmem =
+			Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
 		let maxmem = 
 		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
 		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in

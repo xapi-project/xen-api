@@ -14,9 +14,9 @@ let vm_compute_required_memory_for_hvm vm_record guest_memory_kib =
 	let target_mib = Memory.mib_of_kib_used guest_memory_kib in
 	let max_mib = Memory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
 	let footprint_mib =
-		Memory.HVM.xen_footprint_mib target_mib max_mib vcpu_count multiplier in
+		Memory.HVM.footprint_mib target_mib max_mib vcpu_count multiplier in
 	let shadow_mib =
-		Memory.HVM.xen_shadow_mib max_mib vcpu_count multiplier in
+		Memory.HVM.shadow_mib max_mib vcpu_count multiplier in
 	let normal_mib =
 		footprint_mib --- shadow_mib in
 	let normal_bytes = Memory.bytes_of_mib normal_mib in
@@ -28,7 +28,7 @@ let vm_compute_required_memory_for_hvm vm_record guest_memory_kib =
 let vm_compute_required_memory_for_pv vm_record guest_memory_kib =
 	let target_mib = Memory.mib_of_kib_used guest_memory_kib in
 	let footprint_mib = 
-		Memory.Linux.xen_footprint_mib target_mib in
+		Memory.Linux.footprint_mib target_mib in
 	let normal_bytes = Memory.bytes_of_mib footprint_mib in
 	(normal_bytes, 0L)
 
@@ -241,10 +241,10 @@ let vm_compute_memory_overhead ~__context ~vm =
 		then begin
 			let multiplier = Db.VM.get_HVM_shadow_multiplier ~__context ~self:vm in
 			let vcpu_count = Db.VM.get_VCPUs_max ~__context ~self:vm in
-			let max_bytes = Db.VM.get_memory_static_max ~__context ~self:vm in
-			let max_mib = Memory.mib_of_bytes_used max_bytes in
-			Memory.HVM.xen_overhead_mib max_mib (Int64.to_int vcpu_count) multiplier
+			let static_max_bytes = Db.VM.get_memory_static_max ~__context ~self:vm in
+			let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
+			Memory.HVM.overhead_mib static_max_mib (Int64.to_int vcpu_count) multiplier
 		end else begin
-			Memory.Linux.xen_overhead_mib
+			Memory.Linux.overhead_mib
 		end in
 	Memory.bytes_of_mib memory_overhead_mib
