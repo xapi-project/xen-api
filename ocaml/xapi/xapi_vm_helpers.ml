@@ -687,12 +687,12 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		     debug "Domid %d has %d MiB shadow; an increase of %d MiB requested; host has %d MiB free"
 		       domid curshadow needed_mib free_mem_mib;
 		     if free_mem_mib < needed_mib
-		     then raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, []));
+		     then raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
 		     if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
 		       warn "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
 		       (* Dump stats here: *)
 		       let (_ : int64) = Memory_check.host_compute_free_memory ~dump_stats:true ~__context ~host None in
-		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, []));
+		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
 		     end;
 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
 		     Xc.shadow_allocation_set xc domid newshadow;
