@@ -655,7 +655,8 @@ let vm_record rpc session_id vm =
      ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
    make_field ~name:"live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
    make_field ~name:"guest-metrics-last-updated" ~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
-
+   make_field ~name:"cooperative"
+     ~get:(fun () -> string_of_bool (Client.VM.get_cooperative rpc session_id vm)) ~expensive:true ()
  ]}
     
 

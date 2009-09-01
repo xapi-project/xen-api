@@ -521,3 +521,6 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Contains an XML key/value pair database containing the mapping from sku_type to sku_marketing_name *)
 let sku_marketing_name_db = "/etc/xensource/sku.db"
+
+(** Time after which we conclude that a VM really is unco-operative *)
+let cooperative_timeout = 30.
