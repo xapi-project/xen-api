@@ -610,15 +610,8 @@ let suspend  ~__context ~vm =
 						let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
 						let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
 						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
-						let boot_record = Helpers.get_boot_record
-							~__context ~self:vm in
-						let boot_record_with_final_memory_usage = {
-							boot_record with
-							API.vM_memory_target = final_memory_bytes} in
-						Helpers.set_boot_record ~__context ~self:vm
-							boot_record_with_final_memory_usage;
-						debug "final memory usage = %Ld bytes."
-							final_memory_bytes;
+						(* CA-31759: avoid using the LBR to simplify upgrade *)
+						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;
 						debug "suspend phase 3/3: destroying the domain";
 						Vmops.destroy ~clear_currently_attached:false
 							~__context ~xc ~xs ~self:vm domid `Suspended;

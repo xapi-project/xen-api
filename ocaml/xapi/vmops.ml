@@ -760,6 +760,9 @@ let restore ~__context ~xc ~xs ~self domid =
     (fun () ->
        let suspend_vdi = Db.VM.get_suspend_VDI ~__context ~self in
        let snapshot = Helpers.get_boot_record ~__context ~self in
+       (* CA-31759: we always use the live memory_target *)
+       let snapshot = { snapshot with API.vM_memory_target = Db.VM.get_memory_target ~__context ~self } in
+
        Sm_fs_ops.with_fs_vdi __context suspend_vdi
 	 (fun mount_point ->
 	    let filename = find_suspend_image mount_point in
