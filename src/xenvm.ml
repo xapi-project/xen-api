@@ -578,15 +578,15 @@ let start_vm xc xs cfg state =
 		(* build domain *)
 		let arch = if cfg.hvm then
 			Domain.build_hvm ~xc ~xs ~kernel:cfg.kernel
-					 ~vcpus:cfg.vcpus ~mem_max_kib:cfg.memory
-			                 ~mem_target_kib:cfg.memory ~shadow_multiplier:1.
+					 ~vcpus:cfg.vcpus ~static_max_kib:cfg.memory
+			                 ~target_kib:cfg.memory ~shadow_multiplier:1.
 					 ~pae:cfg.pae ~apic:cfg.apic ~acpi:cfg.acpi
 					 ~nx:cfg.nx ~viridian:cfg.viridian ~timeoffset:"0" domid
 		else
 			Domain.build_linux ~xc ~xs ~kernel:cfg.kernel
 					   ~ramdisk:cfg.initrd ~cmdline:cfg.cmdline
-					   ~vcpus:cfg.vcpus ~mem_max_kib:cfg.memory domid
-			                   ~mem_target_kib:cfg.memory
+					   ~vcpus:cfg.vcpus ~static_max_kib:cfg.memory domid
+			                   ~target_kib:cfg.memory
 			in
 		state.vm_arch <- arch;
 
@@ -618,12 +618,12 @@ let restart_vm xc xs cfg state fd =
 	try
 		(* rebuild domain *)
 		if cfg.hvm then
-			Domain.hvm_restore ~xc ~xs ~mem_max_kib:cfg.memory ~vcpus:cfg.vcpus
-			                   ~mem_target_kib:cfg.memory ~shadow_multiplier:1.
+			Domain.hvm_restore ~xc ~xs ~static_max_kib:cfg.memory ~vcpus:cfg.vcpus
+			                   ~target_kib:cfg.memory ~shadow_multiplier:1.
 					   ~pae:cfg.pae ~viridian:cfg.viridian ~timeoffset:"0" domid fd
 		else
-			Domain.restore ~xc ~xs ~mem_max_kib:cfg.memory
-			               ~mem_target_kib:cfg.memory
+			Domain.restore ~xc ~xs ~static_max_kib:cfg.memory
+			               ~target_kib:cfg.memory
 			               ~vcpus:cfg.vcpus domid fd;
 		let vnc_port = add_devices xc xs domid cfg state true in
 		state.vm_vnc_port <- vnc_port;

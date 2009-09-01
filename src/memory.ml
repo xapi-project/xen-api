@@ -87,63 +87,64 @@ let get_total_memory_bytes ~xc =
 
 (* === Domain memory breakdown ============================================== *)
 
-(*           ╤  ╔════════════════╗                       ╤            *)
-(*           │  ║ shadow         ║                       │            *)
-(*           │  ╠════════════════╣                       │            *)
-(*           │  ║ extra external ║                       │            *)
-(*  overhead │  ╠════════════════╣            ╤          │            *)
-(*           │  ║ extra internal ║            │          │            *)
-(*           │  ╠════════════════╣            │          │            *)
-(*           │  ║ video          ║            │          │ footprint  *)
-(*           ╪  ╠════════════════╣  ╤         │ xen      │            *)
-(*           │  ║                ║  │         │ maximum  │            *)
-(*           │  ║                ║  │         │          │            *)
-(*           │  ║ guest          ║  │ target  │          │            *)
-(*           │  ║                ║  │         │          │            *)
-(*    static │  ║                ║  │         │          │            *)
-(*   maximum │  ╠════════════════╣  ╧         ╧          ╧            *)
-(*           │  ║                ║                                    *)
-(*           │  ║                ║                                    *)
-(*           │  ║ balloon        ║                                    *)
-(*           │  ║                ║                                    *)
-(*           │  ║                ║                                    *)
-(*           ╧  ╚════════════════╝                                    *)
+(*           ╤  ╔════════════════╗                               ╤            *)
+(*           │  ║ shadow         ║                               │            *)
+(*           │  ╠════════════════╣                               │            *)
+(*  overhead │  ║ extra external ║                               │            *)
+(*           │  ╠════════════════╣                    ╤          │            *)
+(*           │  ║ extra internal ║                    │          │            *)
+(*           ╪  ╠════════════════╣          ╤         │          │            *)
+(*           │  ║ video          ║          │ actual  │          │ footprint  *)
+(*           │  ╠════════════════╣  ╤       │ /       │ xen      │            *)
+(*           │  ║                ║  │       │ start   │ maximum  │            *)
+(*           │  ║                ║  │       │ /       │          │            *)
+(*           │  ║ guest          ║  │       │ target  │          │            *)
+(*           │  ║                ║  │       │ /       │          │            *)
+(*    static │  ║                ║  │       │ total   │          │            *)
+(*   maximum │  ╟────────────────╢  │       ╧         ╧          ╧            *)
+(*           │  ║                ║  │                                         *)
+(*           │  ║                ║  │                                         *)
+(*           │  ║ balloon        ║  │ build                                   *)
+(*           │  ║                ║  │ maximum                                 *)
+(*           │  ║                ║  │                                         *)
+(*           ╧  ╚════════════════╝  ╧                                         *)
 
 (* === Domain memory breakdown: HVM guests ================================== *)
 
 module HVM = struct
 
-	let xen_video_mib = 4L
+	let video_mib = 4L
 
-	let xen_extra_internal_mib = 1L
-	let xen_extra_external_mib = 1L
+	let extra_internal_mib = 1L
+	let extra_external_mib = 1L
 
-	let xen_tot_offset_mib = xen_video_mib
-	let xen_max_offset_mib = xen_video_mib +++ xen_extra_internal_mib
+	let build_max_mib static_max_mib = static_max_mib --- video_mib
+	let build_start_mib target_mib = target_mib
 
+	let xen_max_offset_mib = extra_internal_mib
 	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
 
-	let xen_shadow_mib max_mib vcpu_count multiplier =
+	let shadow_mib static_max_mib vcpu_count multiplier =
 		let vcpu_pages = 256L *** (Int64.of_int vcpu_count) in
-		let p2m_map_pages = max_mib in
-		let shadow_resident_pages = max_mib in
+		let p2m_map_pages = static_max_mib in
+		let shadow_resident_pages = static_max_mib in
 		let total_mib = mib_of_pages_used
 			(vcpu_pages +++ p2m_map_pages +++ shadow_resident_pages) in
 		let total_mib_multiplied =
 			Int64.of_float ((Int64.to_float total_mib) *. multiplier) in
 		max 1L total_mib_multiplied
 
-	let xen_overhead_mib max_mib vcpu_count multiplier =
-		xen_video_mib +++
-		xen_extra_internal_mib +++
-		xen_extra_external_mib +++
-		(xen_shadow_mib max_mib vcpu_count multiplier)
+	let overhead_mib static_max_mib vcpu_count multiplier =
+		extra_internal_mib +++
+		extra_external_mib +++
+		(shadow_mib static_max_mib vcpu_count multiplier)
 
-	let xen_footprint_mib target_mib max_mib vcpu_count multiplier =
-		target_mib +++ (xen_overhead_mib max_mib vcpu_count multiplier)
+	let footprint_mib target_mib static_max_mib vcpu_count multiplier =
+		target_mib +++ (overhead_mib static_max_mib vcpu_count multiplier)
 
-	let round_shadow_multiplier max_mib vcpu_count requested_multiplier domid =
-		let shadow_mib = xen_shadow_mib max_mib vcpu_count in
+	let round_shadow_multiplier static_max_mib vcpu_count
+			requested_multiplier domid =
+		let shadow_mib = shadow_mib static_max_mib vcpu_count in
 		let requested_shadow_mib = shadow_mib requested_multiplier in
 		let default_shadow_mib = shadow_mib 1. in
 		Xc.with_intf (fun xc ->
@@ -172,28 +173,33 @@ end
 
 module Linux = struct
 
-	let xen_video_mib = 0L
-	let xen_extra_internal_mib = 0L
-	let xen_extra_external_mib = 1L
-	let xen_tot_offset_mib = 0L
+	let video_mib = 0L
+
+	let extra_internal_mib = 0L
+	let extra_external_mib = 1L
+
+	let build_max_mib static_max_mib = static_max_mib
+	let build_start_mib target_mib = target_mib
+
 	let xen_max_offset_mib = 0L
 	let xen_max_mib target_mib = target_mib
-	let xen_shadow_mib = 0L
-	let xen_overhead_mib = xen_extra_external_mib
-	let xen_footprint_mib target_mib = xen_extra_external_mib +++ target_mib
+
+	let shadow_mib = 0L
+
+	let overhead_mib = extra_external_mib
+	let footprint_mib target_mib = extra_external_mib +++ target_mib
 
 end
 
 (* === Miscellaneous functions ============================================== *)
-
 
 (** @deprecated Use [memory_check.vm_compute_start_memory] instead. *)
 let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
 	let max_mib = mib_of_kib_used mem_kib in
 	let target_mib = mib_of_kib_used mem_target_kib in
 	if hvm
-	then HVM.xen_footprint_mib target_mib max_mib vcpus shadow_multiplier
-	else Linux.xen_footprint_mib target_mib
+	then HVM.footprint_mib target_mib max_mib vcpus shadow_multiplier
+	else Linux.footprint_mib target_mib
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=256) requested_memory_kib =
 	let rec wait accumulated_wait_time_seconds =
