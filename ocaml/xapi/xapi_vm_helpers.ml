@@ -131,6 +131,7 @@ let create ~__context ~name_label ~name_description
 		~parent:Ref.null
 		~snapshot_info:[] ~snapshot_metadata:""
 		~resident_on ~scheduled_to_be_resident_on ~affinity
+		~memory_overhead:0L
 		~memory_static_max
 		~memory_dynamic_max
 		~memory_target
