@@ -444,7 +444,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	     ) in
 
 	     debug "Created domain with domid: %d" domid;
-	     Memory_control.transfer_reservation_to_domain ~xs ~reservation_id ~domid;
+	     Memory_control.transfer_reservation_to_domain ~__context ~xs ~reservation_id ~domid;
 
 	     begin try let sspf = (List.assoc "suppress-spurious-page-faults" snapshot.API.vM_other_config) in
 	     if sspf = "true" then Domain.suppress_spurious_page_faults ~xc domid;
@@ -462,7 +462,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 
 	     domid
 	  )
-    ) (fun () -> Memory_control.delete_reservation ~xs ~reservation_id)
+    ) (fun () -> Memory_control.delete_reservation ~__context ~xs ~reservation_id)
 
 (* Destroy a domain associated with this VM. Note the VM's power_state and domid might
    remain valid if the VM has a domain on another host (ie in the migrate case)
