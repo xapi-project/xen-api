@@ -35,6 +35,7 @@ type dev_event =
 	(* uuid, name, priority, data *)
 	| Message of string * string * int64 * string
 	| HotplugChanged of bool * string * string * string option * string option
+	| ChangeUncooperative of bool
 
 type xs_dev_state =
 	| Connecting
@@ -53,6 +54,7 @@ type internal_dev_event =
 	| IntMessage of string * string * int64 * string (* uuid, name, priority, body *)
 	| HotplugBackend of string option
 	| HotplugFrontend of string option
+	| Uncooperative of bool
 
 let string_of_dev_state = function
 	| Connecting -> "Connecting"
@@ -88,6 +90,8 @@ let string_of_dev_event ev =
 		sprintf "HotplugChanged on %s %s %s {%s->%s}" (string_of_b b) s i
 		        (string_of_string_opt old)
 		        (string_of_string_opt n)
+	| ChangeUncooperative b ->
+		sprintf "ChangeUncooperative %b" b
 
 type died_reason =
 	| Crashed
@@ -316,6 +320,7 @@ let domain_update ctx =
 		  sprintf "/local/domain/%d/data/updated" domid; (* guest agent *)
 		  sprintf "/local/domain/%d/messages" domid; (* messages *)
 		  sprintf "/local/domain/%d/memory/target" domid;
+		  sprintf "/local/domain/%d/memory/uncooperative" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
@@ -449,6 +454,9 @@ let other_watch xs w v =
 	| "" :: "vm" :: uuid :: "rtc" :: [ "timeoffset" ] ->
 		let data = xs.Xs.read w in
 		Some (-1, (Rtc (uuid, data)), "", "")
+	| "" :: "local" :: "domain" :: domid :: "memory" :: [ "uncooperative" ] ->
+		let uncooperative = try ignore (xs.Xs.read w); true with Xb.Noent -> false in
+		Some (int_of_string domid, Uncooperative uncooperative, "", "")
 (* disabled for CA-22306
 	| "" :: "local" :: "domain" :: domid :: "messages" :: id :: name :: priority :: [ "body" ] ->
 	    begin
@@ -582,6 +590,8 @@ let domain_device_event ctx w v =
 	| None                        -> ()
 	| Some (_, Rtc (uuid, value), _, _) ->
 		ctx.callback_devices ctx (-1) (ChangeRtc (uuid, value))
+	| Some (domid, Uncooperative x, _, _) ->
+		ctx.callback_devices ctx domid (ChangeUncooperative x)
 	| Some (_, IntMessage (uuid, name, priority, body), _, _) ->
 	        ctx.callback_devices ctx (-1) (Message (uuid, name, priority, body))
 	| Some (domid, BackThread (pid), ty, devid) ->

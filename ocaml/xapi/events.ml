@@ -397,7 +397,8 @@ let interesting_device_event = function
   | Xal.DevThread(("vbd" | "tap"), _, _) 
   | Xal.DevEject(("vbd" | "tap"), _)
   | Xal.ChangeRtc(_, _)
-  | Xal.Message(_, _, _, _) -> true
+  | Xal.Message(_, _, _, _)
+  | Xal.ChangeUncooperative _ -> true
   | _ -> false
 
 let callback_devices ctx domid dev_event = 
@@ -495,6 +496,15 @@ let callback_devices ctx domid dev_event =
 		  end
 	      | Xal.Message (uuid, name, priority, body) ->
 		  Xapi_alert.add ~name ~priority ~cls:`VM ~obj_uuid:uuid ~body
+	      | Xal.ChangeUncooperative x ->
+		  let vm = vm_of_domid ~__context domid in
+		  debug "VM %s is now %s" (Ref.string_of vm) (if x then "uncooperative" else "cooperative");
+		  Mutex.execute Monitor.uncooperative_domains_m
+		    (fun () ->
+		       if x 
+		       then Hashtbl.replace Monitor.uncooperative_domains domid ()
+		       else Hashtbl.remove Monitor.uncooperative_domains domid
+		    )
 	      | x -> debug "no handler for this event"
 		  
 	    with Vm_corresponding_to_domid_not_in_db domid ->
@@ -551,7 +561,7 @@ let callback_memory_target ctx domid =
        let xs = Xal.xs_of_ctx ctx in
        let path = xs.Xs.getdomainpath domid in
        let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xb.Noent -> None in
-       Opt.iter (Xapi_guest_agent.update_memory_target domid) target
+       Opt.iter (fun t -> Mutex.execute Monitor.memory_targets_m (fun () -> Hashtbl.replace Monitor.memory_targets domid t)) target;
     ) ()
 
 let listen_xal () = 
