@@ -1306,6 +1306,17 @@ let vm_set_memory_static_range = call
 		Int, "max", "The new maximum value";
 	] ()
 
+let vm_set_memory_limits = call
+	~name:"set_memory_limits"
+	~in_product_since:rel_midnight_ride
+	~doc:"Set the memory limits of this VM."
+	~params:[Ref _vm, "self", "The VM";
+		Int, "static_min", "The new value of memory_static_min.";
+		Int, "static_max", "The new value of memory_static_max.";
+		Int, "dynamic_min", "The new value of memory_dynamic_min.";
+		Int, "dynamic_max", "The new value of memory_dynamic_max.";
+	] ()
+
 let vm_set_memory_target_live = call
 	~name:"set_memory_target_live"
 	~in_product_since:rel_rio
@@ -4601,6 +4612,7 @@ let vm_operations =
 	    "awaiting_memory_live", "Waiting for the memory settings to change";
 	    "changing_dynamic_range", "Changing the memory dynamic range";
 	    "changing_static_range", "Changing the memory static range";
+	    "changing_memory_limits", "Changing the memory limits";
 	    "get_cooperative", "Querying the co-operativeness of the VM";
 	    "changing_shadow_memory_live", "Changing the shadow memory settings";
 	    "changing_VCPUs_live", "Changing either the VCPUs_number or VCPUs_params";
@@ -4635,6 +4647,7 @@ let vm =
 		vm_set_memory_static_max;
 		vm_set_memory_static_min;
 		vm_set_memory_static_range;
+		vm_set_memory_limits;
 		vm_set_memory_target_live;
 		vm_wait_memory_target_live;
 		vm_get_cooperative;
