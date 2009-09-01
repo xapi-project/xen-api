@@ -51,8 +51,8 @@ let get_session_id =
     drivers yet. *)
 let retry_if_not_cooperative f = 
   let start = Unix.gettimeofday () in
-  let interval = 5. in
-  let timeout = 30. in
+  let interval = 10. in
+  let timeout = 60. in
   let rec loop () = 
     try
       f ()

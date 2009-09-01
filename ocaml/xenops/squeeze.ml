@@ -25,6 +25,14 @@ let debug fmt =
        D.debug "%s" x
     ) fmt
 
+let error fmt =
+  Printf.kprintf 
+    (fun x -> 
+       Printf.fprintf stdout "[%.2f] %s\n" (Unix.gettimeofday() -. start) x; 
+       flush stdout;
+       D.error "%s" x
+    ) fmt
+
 (** Per-domain data *)
 type domain = {
 	domid: int;
@@ -183,7 +191,7 @@ module Stuckness_monitor = struct
 		and exclude it from our calculations. The effect is to ask the remaining
 		functioning balloon drivers to balloon down faster.
 	*)
-	let assume_balloon_driver_stuck_after = 2. (* seconds *)
+	let assume_balloon_driver_stuck_after = 5. (* seconds *)
 
 	type t = { memory_actual_updates: (int, int64 * float) Hashtbl.t;
 		   has_hit_targets: (int, bool) Hashtbl.t }
@@ -452,10 +460,15 @@ module Proportional = struct
 		  (if only_target_changes = [] then "" else "; however about to adjust targets")
  		  (if allocation_phase then "allocation phase" else "freeing phase");
 
+		(* If we have to blame a domain for being stuck, we don't blame it if it can't balloon. *)
+		let non_active_domains = List.concat (List.map (fun d -> try [ IntMap.find d host.domid_to_domain ] with Not_found -> []) non_active_domids) in
+		let non_active_can_balloon_domains = List.filter (fun d -> d.can_balloon) non_active_domains in
+		let non_active_can_balloon_domids = List.map (fun d -> d.domid) non_active_can_balloon_domains in
+
 		if (success && all_targets_reached && (only_target_changes = [])) || cant_allocate_any_more then x, declared_active_domids, declared_inactive_domids, Success
 		else 
 		  if target_too_big && all_targets_reached && (only_target_changes = [])
-		  then x, declared_active_domids, declared_inactive_domids, Failed non_active_domids
+		  then x, declared_active_domids, declared_inactive_domids, Failed non_active_can_balloon_domids (* can be [] *)
  		  else x, declared_active_domids, declared_inactive_domids, AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
 
 	let free_memory x h host_target_kib n = change_host_free_memory (fun x -> x >= host_target_kib) x h host_target_kib n 
