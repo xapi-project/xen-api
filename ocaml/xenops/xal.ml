@@ -131,6 +131,7 @@ type ctx = {
 	mutable callback_release: ctx -> domid -> unit;
 	mutable callback_devices: ctx -> domid -> dev_event -> unit;
 	mutable callback_guest_agent: ctx -> domid -> unit;
+	mutable callback_memory_target: ctx -> domid -> unit;
 	monitor_devices: bool;
 	mutable currents: (domid * state) list;
 	tbl: (domid, domstate) Hashtbl.t;
@@ -314,6 +315,7 @@ let domain_update ctx =
 		[ sprintf "/xapi/%d" domid;
 		  sprintf "/local/domain/%d/data/updated" domid; (* guest agent *)
 		  sprintf "/local/domain/%d/messages" domid; (* messages *)
+		  sprintf "/local/domain/%d/memory/target" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
@@ -508,6 +510,7 @@ let init ?(callback_introduce = callback_dom_null)
          ?(callback_release = callback_dom_null)
          ?(callback_devices = callback_dev_null)
 	 ?(callback_guest_agent = callback_dom_null)
+	 ?(callback_memory_target = callback_dom_null)
          ?(monitor_devices = false) () =
 	(* Make sure if this function fails to close any opened descriptors *)
 	let xs = Xs.daemon_open () in	
@@ -521,6 +524,7 @@ let init ?(callback_introduce = callback_dom_null)
 				callback_release = callback_release;
 				callback_devices = callback_devices;
 				callback_guest_agent = callback_guest_agent;
+				callback_memory_target = callback_memory_target;
 				monitor_devices = monitor_devices;
 				currents = [];
 				tbl = Hashtbl.create 20;
@@ -646,6 +650,10 @@ let process ?timeout ctx =
 		(* guest agent has updated state in xenstore *)
 		let domid = int_of_string (String.sub v 4 (String.length v - 4)) in
 		ctx.callback_guest_agent ctx domid
+	| x when String.endswith "/memory/target" x ->
+		(* someone has given the guest a new balloon target *)
+		let domid = int_of_string (String.sub v 4 (String.length v - 4)) in
+		ctx.callback_memory_target ctx domid
 	| _ ->
 		(* we should not come here if we don't monitor devices, just be careful *)
 		if ctx.monitor_devices then
@@ -699,9 +707,9 @@ let wait_release ctx ?timeout domid =
 				raise Timeout
 	)
 
-let loop ?callback_introduce ?callback_release ?callback_devices ?callback_guest_agent () =
+let loop ?callback_introduce ?callback_release ?callback_devices ?callback_guest_agent ?callback_memory_target () =
 	let ctx = init ?callback_introduce ?callback_release
-	               ?callback_devices ?callback_guest_agent ~monitor_devices:true () in
+	               ?callback_devices ?callback_guest_agent ?callback_memory_target ~monitor_devices:true () in
 
 	try
 		while true
