@@ -159,7 +159,7 @@ let string_of_direction = function
 let direction_of_actual memory_actual_kib target_kib = 
   let delta_kib = memory_actual_kib -* target_kib in
   let abs x = if x < 0L then 0L -* x else x in
-  if abs delta_kib <= 128L then None else (if target_kib > memory_actual_kib then Some Down else Some Up)
+  if abs delta_kib <= 4L then None else (if target_kib > memory_actual_kib then Some Down else Some Up)
 
 let direction_of_int64 a b = if a = b then None else (if a > b then Some Down else Some Up)
 
