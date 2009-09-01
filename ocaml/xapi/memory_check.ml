@@ -208,6 +208,9 @@ let host_compute_free_memory ?(dump_stats=false) ~__context ~host
 
 	host_mem_available
 
-let host_compute_memory_overhead ~__context ~host = 0L
+let host_compute_memory_overhead ~__context ~host =
+	(* We assume that the memory overhead of a host is constant with respect *)
+	(* to time and simply fetch the existing cached value from the database. *)
+	Db.Host.get_memory_overhead ~__context ~self:host
 
 let vm_compute_memory_overhead ~__context ~vm = 0L

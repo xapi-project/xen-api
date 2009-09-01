@@ -10,14 +10,7 @@ let ( --- ) = Int64.sub
 let ( *** ) = Int64.mul
 let ( /// ) = Int64.div
 
-(* === Host memory properties === **)
-
-let get_free_memory_kib ~xc =
-	Xc.pages_to_kib (Int64.of_nativeint (Xc.physinfo xc).Xc.free_pages)
-let get_scrub_memory_kib ~xc =
-	Xc.pages_to_kib (Int64.of_nativeint (Xc.physinfo xc).Xc.scrub_pages)
-let get_total_memory_mib ~xc =
-	Xc.pages_to_mib (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+(* === Memory conversion factors === *)
 
 let bytes_per_kib  = 1024L
 let bytes_per_mib  = 1048576L
@@ -72,6 +65,17 @@ let pages_of_kib_used   value = divide_rounding_up value kib_per_page
 let mib_of_bytes_used   value = divide_rounding_up value bytes_per_mib
 let mib_of_kib_used     value = divide_rounding_up value kib_per_mib
 let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
+
+(* === Host memory properties === **)
+
+let get_free_memory_kib ~xc =
+	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.free_pages)
+let get_scrub_memory_kib ~xc =
+	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.scrub_pages)
+let get_total_memory_mib ~xc =
+	mib_of_pages_free (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
+let get_total_memory_bytes ~xc =
+	bytes_of_pages (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
 
 (** See the calculations in tools/python/xen/xend *)
 module HVM = struct

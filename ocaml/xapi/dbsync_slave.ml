@@ -4,6 +4,7 @@ open Printf
 open Vmopshelpers
 open Create_misc
 open Client
+open Pervasiveext
 
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
@@ -472,14 +473,30 @@ let update_vms ~xal ~__context =
     List.iter managed_domain_running my_active_managed_domains;
     List.iter managed_domain_shutdown my_shutdown_managed_domains
 
-(* record host free memory in database *)
-let record_host_free_memory ~__context =
-  try
-    let bootfreemem =
-      Int64.of_string (Unixext.read_whole_file_to_string Xapi_globs.initial_host_free_memory_file) in
-      Db.Host.set_boot_free_mem ~__context ~self:!Xapi_globs.localhost_ref ~value:bootfreemem
-  with e ->
-    warn "Could not read host free memory file. This may prevent VMs from being started on this host. (%s)" (Printexc.to_string e)
+(* record host memory properties in database *)
+let record_host_memory_properties ~__context =
+	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
+	let boot_memory_string =
+		try
+			Some (Unixext.read_whole_file_to_string boot_memory_file)
+		with e ->
+			warn "Could not read host free memory file. This may prevent \
+			VMs from being started on this host. (%s)" (Printexc.to_string e);
+			None in
+	maybe
+		(fun boot_memory_string ->
+			let total_memory_bytes =
+				with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
+			let boot_memory_bytes = Int64.of_string boot_memory_string in
+			let overhead_memory_bytes = Int64.sub
+				total_memory_bytes boot_memory_bytes in
+			let self = !Xapi_globs.localhost_ref in
+			Db.Host.set_boot_free_mem ~__context ~self
+				~value:boot_memory_bytes;
+			Db.Host.set_memory_overhead ~__context ~self
+				~value:overhead_memory_bytes
+		)
+		boot_memory_string
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
    Committing commented out vsn of this because it might be useful again..
@@ -600,9 +617,9 @@ let update_env __context sync_keys =
     refresh_localhost_info ~__context;
   );
 
-  (* maybe record host free memory in database *)
-  switched_sync Xapi_globs.sync_record_host_free_memory (fun () ->
-    record_host_free_memory ~__context;
+  (* maybe record host memory properties in database *)
+  switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
+    record_host_memory_properties ~__context;
   );
 
   switched_sync Xapi_globs.sync_create_host_cpu (fun () ->
