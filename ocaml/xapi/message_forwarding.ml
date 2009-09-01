@@ -738,32 +738,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		finally_clear_host_operation ~__context ~host ?host_op ();
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null))	
 
-    (* Used by VM.clean_reboot and VM.hard_reboot to reserve enough memory to cover the
-       reboot operation. *)
-    let reserve_memory_for_vm_reboot ~__context ~vm f = 
-      let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
-      let new_snapshot = Db.VM.get_record ~__context ~self:vm in
-      let old_mem = current_snapshot.API.vM_memory_static_max in
-      let new_mem = new_snapshot.API.vM_memory_static_max in
-      let max_mem = max old_mem new_mem in
-      let host = Db.VM.get_resident_on ~__context ~self:vm in
-
-      with_global_lock
-	(fun () ->
-	   Xapi_vm_helpers.assert_can_reboot_here ~__context ~self:vm ~new_snapshot ~current_snapshot ~host;
-	   (* Bump the memory values in the current_snapshot if the new values are bigger.
-	      This reserves the memory on the host. *)
-	   if old_mem < new_mem
-	   then Helpers.set_boot_record ~__context ~self:vm { current_snapshot with API.vM_memory_static_max = new_mem }
-	);
-      try
-	f ()
-      with exn ->
-	(* on failure, assume the reboot didn't happen so revert the last_boot_record *)
-	if old_mem < new_mem
-	then Helpers.set_boot_record ~__context ~self:vm { current_snapshot with API.vM_memory_static_max = old_mem };
-	raise exn
-
 	(**
 		Used by VM.set_memory_dynamic_range to reserve enough memory for
 		increasing dynamic_min. Although a VM may actually be technically
@@ -1122,10 +1096,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.clean_reboot" ~op:`attach
 		  (fun vifs ->
-		     reserve_memory_for_vm_reboot ~__context ~vm 
-		       (fun () ->
-			  forward_vm_op ~local_fn ~__context ~vm 
-			    (fun session_id rpc -> Client.VM.clean_reboot rpc session_id vm)))));
+		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
+			change across reboot. *)
+		     forward_vm_op ~local_fn ~__context ~vm 
+		       (fun session_id rpc -> Client.VM.clean_reboot rpc session_id vm))));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
       let message_body = 
 	Printf.sprintf "VM '%s' rebooted cleanly" 
@@ -1192,10 +1166,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 		  (fun vifs ->
-		     reserve_memory_for_vm_reboot ~__context ~vm 
-		       (fun () ->
-			  forward_vm_op ~local_fn ~__context ~vm 
-			    (fun session_id rpc -> Client.VM.hard_reboot rpc session_id vm)))));
+		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
+			change across reboot. *)
+		     forward_vm_op ~local_fn ~__context ~vm 
+		       (fun session_id rpc -> Client.VM.hard_reboot rpc session_id vm))));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
       let message_body = 
 	Printf.sprintf "VM '%s' rebooted forcibly" 
@@ -1214,10 +1188,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     (fun vbds ->
 		with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
 		  (fun vifs ->
-		     reserve_memory_for_vm_reboot ~__context ~vm 
-		       (fun () ->
-			  forward_vm_op ~local_fn ~__context ~vm 
-			    (fun session_id rpc -> Client.VM.hard_reboot_internal rpc session_id vm))));
+		     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
+			change across reboot. *)
+		     forward_vm_op ~local_fn ~__context ~vm 
+		       (fun session_id rpc -> Client.VM.hard_reboot_internal rpc session_id vm)));
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
     
