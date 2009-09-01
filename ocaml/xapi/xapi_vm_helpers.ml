@@ -284,7 +284,7 @@ let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check
 	  debug "host %s; available_memory = %Ld; memory_required = %Ld"
 	    (Db.Host.get_name_label ~self:host ~__context) host_mem_available mem_reqd_for_vm;
 	  if host_mem_available < mem_reqd_for_vm then
-	    raise (Api_errors.Server_error (Api_errors.host_not_enough_free_memory, [Int64.to_string host_mem_available; Int64.to_string mem_reqd_for_vm])) in
+	    raise (Api_errors.Server_error (Api_errors.host_not_enough_free_memory, [Int64.to_string mem_reqd_for_vm; Int64.to_string host_mem_available])) in
 	    
 	  let is_network_available_on host net = 
 	    (* has the network been actualised by one or more PIFs? *)
