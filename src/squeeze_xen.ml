@@ -19,6 +19,7 @@ let initial_reservation_path dom_path = dom_path ^ "/memory/initial-reservation"
 let target_path              dom_path = dom_path ^ "/memory/target"
 let dynamic_min_path         dom_path = dom_path ^ "/memory/dynamic-min"
 let dynamic_max_path         dom_path = dom_path ^ "/memory/dynamic-max"
+let feature_balloon_path     dom_path = dom_path ^ "/control/feature-balloon"
 
 let ( ** ) = Int64.mul
 let ( +* ) = Int64.add
@@ -97,7 +98,7 @@ let make_host ~xc ~xs =
 					let domain = 
 					  { Squeeze.
 						domid = di.Xc.domid;
-						can_balloon = not di.Xc.paused;
+						can_balloon = (try ignore(xs.Xs.read (feature_balloon_path path)); true with Xb.Noent -> false);
 						dynamic_min_kib = 0L;
 						dynamic_max_kib = 0L;
 						target_kib = 0L;
