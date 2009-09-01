@@ -96,9 +96,9 @@ let is_rhel3 gmr =
 	match gmr with
 	| Some gmr ->
 		let version = gmr.Db_actions.vM_guest_metrics_os_version in
-		List.mem_assoc "distro" version
-		&& List.assoc "distro" version = "rhel"
-		&& List.assoc "major" version = "3"
+		true
+		&& List.mem_assoc "distro" version && List.assoc "distro" version = "rhel"
+		&& List.mem_assoc "major" version && List.assoc "major" version = "3"
 	| None ->
 		false
 
