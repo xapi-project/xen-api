@@ -699,7 +699,7 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 	let vcpus = Int64.to_int (at_boot_time.API.vM_VCPUs_max) in
 	let mem_max_kib = Int64.div (at_boot_time.API.vM_memory_static_max) 1024L in
 	let mem_target_kib = if ballooning_enabled 
-	  then Int64.div (Db.VM.get_memory_target ~__context ~self) 1024L (* Nb, current val, not boot-time *)
+	  then Int64.div at_boot_time.API.vM_memory_target 1024L (* suspend copies this number from total_pages *)
 	  else mem_max_kib in 
 
 	if hvm then (
