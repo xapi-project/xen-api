@@ -263,7 +263,7 @@ let assert_host_is_live ~__context ~host =
 (* We only check if a VM can boot here wrt the configuration snapshot. If the database is 
    modified in parallel then this check will be inaccurate. We must use the snapshot to 
    boot the VM... *)
-let assert_can_boot_here_common ~__context ~self ~host ~snapshot ~extra_memory do_memory_check = 
+let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check = 
 	(* First check to see if the VM is obviously malformed *)
 	validate_basic_parameters ~__context ~self ~snapshot;
         (* Check host is live *)
@@ -278,13 +278,11 @@ let assert_can_boot_here_common ~__context ~self ~host ~snapshot ~extra_memory d
 
 	let assert_enough_memory_available() =
 	  let host_mem_available = Memory_check.host_compute_free_memory ~__context ~host (Some self) in
-	  (* Extra memory reallocated to cover the reboot case *)
-	  let host_mem_available = Int64.add host_mem_available extra_memory in
 
 	  let main, shadow = Memory_check.vm_compute_start_memory ~__context snapshot in
 	  let mem_reqd_for_vm = Int64.add main shadow in
-	  debug "host %s; available_memory = %Ld (of which extra was %Ld); memory_required = %Ld"
-	    (Db.Host.get_name_label ~self:host ~__context) host_mem_available extra_memory mem_reqd_for_vm;
+	  debug "host %s; available_memory = %Ld; memory_required = %Ld"
+	    (Db.Host.get_name_label ~self:host ~__context) host_mem_available mem_reqd_for_vm;
 	  if host_mem_available < mem_reqd_for_vm then
 	    raise (Api_errors.Server_error (Api_errors.host_not_enough_free_memory, [Int64.to_string host_mem_available; Int64.to_string mem_reqd_for_vm])) in
 	    
@@ -343,15 +341,10 @@ let assert_can_boot_here_common ~__context ~self ~host ~snapshot ~extra_memory d
 	  if do_memory_check then assert_enough_memory_available()
 
 let assert_can_boot_here ~__context ~self ~host ~snapshot = 
-  assert_can_boot_here_common ~__context ~self ~host ~snapshot ~extra_memory:0L true 
-let assert_can_reboot_here ~__context ~self ~host ~current_snapshot ~new_snapshot : unit =
-  (* In the reboot case, make sure we 'give' the existing used memory back to the
-     host before deciding that it can't be done *)
-  let extra_memory = (fun (x,y) -> Int64.add x y) (Memory_check.vm_compute_start_memory ~__context current_snapshot) in
-  assert_can_boot_here_common ~__context ~self ~host ~snapshot:new_snapshot ~extra_memory true
+  assert_can_boot_here_common ~__context ~self ~host ~snapshot true 
 
 let assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot = 
-  assert_can_boot_here_common ~__context ~self ~host ~snapshot ~extra_memory:0L false 
+  assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
 
 let rec can_boot_on_all_no_memcheck ~__context ~self ~target_hosts ~snapshot =
   let host::hosts = target_hosts in
