@@ -15,11 +15,12 @@ let value_not_supported fld v reason =
 	raise (Api_errors.Server_error (Api_errors.value_not_supported, [ fld; v; reason ]))
 
 let compute_memory_overhead ~__context ~vm =
-	Memory_check.vm_compute_memory_overhead ~__context ~vm
+  let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
+    | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
+    | `Halted | `Unknown | _ -> Db.VM.get_record ~__context ~self:vm in
+  Memory_check.vm_compute_memory_overhead snapshot 
 
-let update_memory_overhead ~__context ~vm =
-	let memory_overhead = compute_memory_overhead ~__context ~vm in
-	Db.VM.set_memory_overhead ~__context ~self:vm ~value:memory_overhead
+let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
 
 (* Simple validation functions for fields ************************************************)
 let validate_vcpus ~__context ~vCPUs_max ~vCPUs_at_startup = 

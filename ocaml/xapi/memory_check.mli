@@ -74,6 +74,5 @@ val host_compute_free_memory : ?dump_stats:bool -> __context:Context.t ->
 val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
 	int64
 
-val vm_compute_memory_overhead : __context:Context.t -> vm:[`VM] Ref.t ->
-	int64
+val vm_compute_memory_overhead : API.vM_t -> int64
 	
