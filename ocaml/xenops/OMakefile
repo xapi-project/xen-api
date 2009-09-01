@@ -20,6 +20,7 @@ OCAML_LIBS += xenops
 OCamlDoc(../../doc/xenops, memory.mli)
 
 OCamlProgram(list_domains, list_domains table)
+OCamlProgram(memory_summary, memory_summary)
 
 # legacy
 OCamlProgram(create_domain, table xenops)
