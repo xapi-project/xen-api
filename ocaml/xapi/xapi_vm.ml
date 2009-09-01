@@ -140,6 +140,28 @@ let set_memory_dynamic_max ~__context ~self ~value = assert false
 let set_memory_static_min ~__context ~self ~value = assert false
 let set_memory_static_max ~__context ~self ~value = assert false
 
+let set_memory_limits ~__context ~self
+	~static_min ~static_max ~dynamic_min ~dynamic_max =
+	(* Called on the master only when the VM is halted. *)
+	if Db.VM.get_power_state ~__context ~self <> `Halted
+	then failwith "assertion_failed: set_memory_limits should only be \
+		called when the VM is Halted";
+	(* Support the redundant target field. *)
+	let target = dynamic_min in
+	(* Check that the new limits are in the correct order. *)
+	let constraints = {Vm_memory_constraints.
+		static_min  = static_min;
+		dynamic_min = dynamic_min;
+		target      = dynamic_min;
+		dynamic_max = dynamic_max;
+		static_max  = static_max;
+	} in
+	if not (Vm_memory_constraints.valid ~constraints)
+	then raise (Api_errors.Server_error (
+		Api_errors.memory_constraint_violation,
+		["Memory limits must be in valid order: \
+		static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"]));
+	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints
 
 (* CA-12940: sanity check to make sure this never happens again *)
 let assert_power_state_is ~__context ~vm ~expected = 

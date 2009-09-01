@@ -14,6 +14,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	(* a VM.import is done on file and not on VMs, so there is not power-state there! *)
 	| `import
 	                                -> []
+	| `changing_memory_limits
 	| `changing_static_range
 	| `destroy
 	| `make_into_template
