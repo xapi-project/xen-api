@@ -1748,6 +1748,21 @@ let vm_memory_static_range_set printer rpc session_id params =
 			(vm.getref ()) min max) params ["min"; "max"]
 	)
 
+let vm_memory_limits_set printer rpc session_id params =
+	let extract key =
+		Record_util.bytes_of_string key (List.assoc key params) in
+	let static_min = extract "static-min"
+	and static_max = extract "static-max"
+	and dynamic_min = extract "dynamic-min"
+	and dynamic_max = extract "dynamic-max" in
+	ignore (
+		do_vm_op ~include_control_vms:true printer rpc session_id
+			(fun vm ->
+				Client.VM.set_memory_limits rpc session_id (vm.getref ())
+					static_min static_max dynamic_min dynamic_max)
+			params ["static-min"; "static-max"; "dynamic-min"; "dynamic-max"]
+	)
+
 let vm_memory_target_set printer rpc session_id params = 
 	let target = Record_util.bytes_of_string "target"
 		(List.assoc "target" params) in
