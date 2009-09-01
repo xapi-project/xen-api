@@ -581,7 +581,7 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 (** Sets the current memory target for a running VM, to the given *)
 (** value (in bytes), rounded down to the nearest page boundary.  *)
 (** Writes the new target to the database and also to XenStore.   *)
-let set_memory_target_live ~__context ~self ~target =
+let set_memory_target_live ~__context ~self ~target = () (*
 	let bootrec = Helpers.get_boot_record ~__context ~self in
 	if not (Helpers.ballooning_enabled_for_vm ~__context bootrec) then
 		raise (Api_errors.Server_error (Api_errors.ballooning_disabled, []));
@@ -598,6 +598,7 @@ let set_memory_target_live ~__context ~self ~target =
 	Db.VM.set_memory_target ~__context ~self ~value:target;
 	let target = Memory.kib_of_bytes_used target in
 	Vmopshelpers.with_xs (fun xs -> Balloon.set_memory_target ~xs domid target)
+*)
 
 (** The default upper bound on the length of time to wait *)
 (** for a running VM to reach its current memory target.  *)
