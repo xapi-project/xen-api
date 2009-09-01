@@ -764,6 +764,52 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	then Helpers.set_boot_record ~__context ~self:vm { current_snapshot with API.vM_memory_static_max = old_mem };
 	raise exn
 
+	(**
+		Used by VM.set_memory_dynamic_range to reserve enough memory for
+		increasing dynamic_min. Although a VM may actually be technically
+		outside the range [dynamic_min, dynamic_max] we still ensure that *if*
+		all VMs are obeying our commands and ballooning to dynamic_min if we ask
+		*then* the sum of the dynamic_mins will fit on the host.
+	*)
+	let reserve_memory_for_dynamic_change ~__context ~vm
+			new_dynamic_min new_dynamic_max f = 
+		let host = Db.VM.get_resident_on ~__context ~self:vm in
+		let old_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+		let old_dynamic_max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+		let restore_old_values_on_error = ref false in
+		with_global_lock
+		(fun () ->
+			let host_mem_available = Memory_check.host_compute_free_memory
+				~__context ~host None in
+			let dynamic_min_change = Int64.sub old_dynamic_min
+				new_dynamic_min in
+			let new_host_mem_available = Int64.add host_mem_available
+				dynamic_min_change in
+			if new_host_mem_available < 0L
+			then raise (Api_errors.Server_error (
+				Api_errors.host_not_enough_free_memory, [
+				Int64.to_string (Int64.div (Int64.sub 0L dynamic_min_change) 1024L);
+				Int64.to_string (Int64.div host_mem_available 1024L);
+			]));
+			if dynamic_min_change < 0L then begin
+				restore_old_values_on_error := true;
+				Db.VM.set_memory_dynamic_min ~__context ~self:vm
+					~value:new_dynamic_min;
+				Db.VM.set_memory_dynamic_max ~__context ~self:vm
+					~value:new_dynamic_max;
+			end
+		);
+		try
+			f ()
+		with exn ->
+			if !restore_old_values_on_error then begin
+				Db.VM.set_memory_dynamic_min ~__context ~self:vm
+					~value:old_dynamic_min;
+				Db.VM.set_memory_dynamic_max ~__context ~self:vm
+					~value:old_dynamic_max;
+			end;
+			raise exn
+
     let forward_to_access_srs ~local_fn ~__context ~vm op =
       let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) () in
 	do_op_on ~local_fn ~__context ~host:suitable_host op
@@ -1355,22 +1401,30 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		with_vm_operation ~__context ~self ~doc:"VM.set_memory_dynamic_range"
 			~op:`changing_dynamic_range
 			(fun () ->
-				(* XXX: Perform basic parameter validation before forwarding
-				        to the slave. Do this after sorting out the last boot
-				        record via set_static_range. *)
-				(* XXX: Perform host memory 'reservation'. *)
+				(* XXX: Perform basic parameter validation, before forwarding *)
+				(*      to the slave. Do this after sorting out the last boot *)
+				(*      record via set_static_range.                          *)
 				let power_state = Db.VM.get_power_state ~__context ~self in
-				if power_state = `Running
-				then
-					forward_vm_op ~local_fn ~__context ~vm:self
-						(fun session_id rpc ->
-							Client.VM.set_memory_dynamic_range
-							rpc session_id self min max)
-				else if power_state = `Halted
-				then local_fn ~__context
-				else failwith
-					"assertion_failure: set_memory_dynamic_range: \
-					 power_state should be Halted or Running")
+				match power_state with
+				| `Running ->
+					(* If current dynamic_min is lower  *)
+					(* then we will block the operation *)
+					reserve_memory_for_dynamic_change ~__context ~vm:self
+						min max
+						(fun () ->
+							forward_vm_op ~local_fn ~__context ~vm:self
+								(fun session_id rpc ->
+									Client.VM.set_memory_dynamic_range
+										rpc session_id self min max
+								)
+						)
+				| `Halted ->
+					local_fn ~__context
+				| _ ->
+					failwith
+						"assertion_failure: set_memory_dynamic_range: \
+						 power_state should be Halted or Running"
+			)
 
 	let set_memory_dynamic_max ~__context ~self ~value =
 		info "VM.set_memory_dynamic_max: VM = '%s'; value = %Ld"
