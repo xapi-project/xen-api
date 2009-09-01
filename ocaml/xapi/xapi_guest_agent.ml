@@ -72,6 +72,7 @@ let other all_control =
 
 type m = (string * string) list
 let cache : (int, (m*m*m*m*m*float)) Hashtbl.t = Hashtbl.create 20
+let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
@@ -231,9 +232,15 @@ let sync_cache valid_domids =
       if not (List.mem domid valid_domids) 
       then begin 
 	Hashtbl.remove cache domid;
+	Hashtbl.remove memory_targets domid;
 	dead_domains := IntSet.remove domid !dead_domains
       end
     ) stored_domids)
+
+let update_memory_target domid target =
+  (* This function uses the 'sync_cache' mechanism above to GC entries from the hashtable when 
+     the domain disappears. It's not actually a guest agent thing. *)
+  Mutex.execute mutex (fun () -> Hashtbl.replace memory_targets domid target)
     
 let guest_metrics_liveness_thread () =
   ignore(Thread.create (fun () -> 
