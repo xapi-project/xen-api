@@ -646,7 +646,6 @@ let wait_memory_target_live ~__context ~self
 	() =
 	let raise_error error =
 		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
-	let memory_target_bytes = Db.VM.get_memory_target ~__context ~self in
 	let rec wait accumulated_wait_time_seconds =
 		if accumulated_wait_time_seconds > wait_memory_target_timeout_seconds
 			then raise_error Api_errors.vm_memory_target_wait_timeout;
@@ -658,7 +657,11 @@ let wait_memory_target_live ~__context ~self
 		let memory_actual_pages = Int64.of_nativeint domain_info.Xc.total_memory_pages in
 		let memory_actual_kib = Xc.pages_to_kib memory_actual_pages in 
 		let memory_actual_bytes = Memory.bytes_of_kib memory_actual_kib in
+		(* Fetch up-to-date value of target from xenstore. *)
+		let memory_target_kib = Int64.of_string (Vmopshelpers.with_xs (fun xs -> xs.Xs.read (xs.Xs.getdomainpath domain_id ^ "/memory/target"))) in
+		let memory_target_bytes = Memory.bytes_of_kib memory_target_kib in
 		let difference_bytes = Int64.abs (Int64.sub memory_actual_bytes memory_target_bytes) in
+		debug "memory_actual = %Ld; memory_target = %Ld; difference = %Ld %s tolerance (%Ld)" memory_actual_bytes memory_target_bytes difference_bytes (if difference_bytes <= tolerance_bytes then "<=" else ">") tolerance_bytes;
 		if difference_bytes <= tolerance_bytes then
 			(* The memory target has been reached: use the most *)
 			(* recent value of memory_actual to update the same *)
