@@ -586,6 +586,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
 		flags=[Host_selectors];
 	};
 
+	"host-compute-memory-overhead",
+	{
+		reqd=[];
+		optn=[];
+		help="Computes the virtualization memory overhead of a host.";
+		implementation=No_fd Cli_operations.host_compute_memory_overhead;
+		flags=[Host_selectors];
+	};
+
    "host-get-system-status-capabilities",
     {
       reqd=[];
@@ -721,6 +730,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation= No_fd Cli_operations.user_password_change;
       flags=[];
     };
+
+	"vm-compute-memory-overhead",
+	{
+		reqd=[];
+		optn=[];
+		help="Computes the virtualization memory overhead of a VM.";
+		implementation=No_fd Cli_operations.vm_compute_memory_overhead;
+		flags=[Vm_selectors];
+	};
 
 	"vm-memory-balloon",
 	{

@@ -1395,6 +1395,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm:self 
 	     (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
+	let compute_memory_overhead ~__context ~vm =
+		info "VM.compute_memory_overhead: vm = '%s'"
+			(vm_uuid ~__context vm);
+		Local.VM.compute_memory_overhead ~__context ~vm
+
 	let set_memory_dynamic_range ~__context ~self ~min ~max =
 		info "VM.set_memory_dynamic_range: VM = '%s'; min = %Ld; max = %Ld"
 			(Ref.string_of self) min max;
@@ -1946,6 +1951,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let compute_free_memory ~__context ~host =
 		info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context  host);
 		Local.Host.compute_free_memory ~__context ~host
+
+	let compute_memory_overhead ~__context ~host =
+		info "Host.compute_memory_overhead: host = '%s'"
+			(host_uuid ~__context host);
+		Local.Host.compute_memory_overhead ~__context ~host
 
     let get_servertime ~__context ~host =
       (* info "Host.get_servertime"; *) (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)

@@ -788,6 +788,9 @@ let is_in_emergency_mode ~__context =
 let compute_free_memory ~__context ~host =
 	Memory_check.host_compute_free_memory ~dump_stats:false ~__context ~host None
 
+let compute_memory_overhead ~__context ~host =
+	Memory_check.host_compute_memory_overhead ~__context ~host
+
 let get_data_sources ~__context ~host = Monitor_rrds.query_possible_host_dss ()
 
 let record_data_source ~__context ~host ~data_source = Monitor_rrds.add_host_ds data_source
