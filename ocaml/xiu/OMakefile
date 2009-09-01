@@ -7,12 +7,12 @@ OCamlProgram(xiu, xiu ../util/config)
 clean:
 	rm -rf $(CLEAN_OBJS) xiu
 
-.PHONE: install
+.PHONY: install
 install:
 	mkdir -p $(DIST)/staging/opt/xensource/libexec
 	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
 
-.PHONE: sdk-install
+.PHONY: sdk-install
 sdk-install:
 	mkdir -p $(DIST)/staging/opt/xensource/libexec
 	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
