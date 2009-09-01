@@ -32,6 +32,7 @@ let _reopen_logs = "reopen-logs"
 let _error_cannot_free_this_much_memory_code = "1000"
 let _error_domains_refused_to_cooperate_code = "1001"
 let _error_unknown_reservation               = "1002"
+let _error_invalid_memory_value              = "1003" (* -ve *)
 let _echo = "echo"
 
 (* Generic: *)

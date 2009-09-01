@@ -606,6 +606,7 @@ let hvm_restore ~xc ~xs ~mem_max_kib ~mem_target_kib ~shadow_multiplier ~vcpus ~
 	let mem_max_mib = Memory.mib_of_kib_used mem_max_kib in
 	let mem_target_mib = Memory.mib_of_kib_used mem_target_kib in
 
+	debug "hvm_restore mem_max_kib=%Ld mem_target_kib=%Ld" mem_max_kib mem_target_kib;
 	(* Sanity check. *)
 	assert (mem_target_mib <= mem_max_mib);
 
