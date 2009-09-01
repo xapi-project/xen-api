@@ -1880,6 +1880,24 @@ let host_evacuate = call
   ~params:[Ref _host, "host", "The host to evacuate"]
   ()
   
+let host_get_uncooperative_resident_VMs = call
+  ~in_product_since:rel_midnight_ride
+  ~name:"get_uncooperative_resident_VMs"
+  ~doc:"Return a set of VMs which are not co-operating with the host's memory control system"
+  ~params:[Ref _host, "self", "The host to query"]
+  ~result:((Set(Ref _vm)), "VMs which are not co-operating")
+  ()
+
+let host_get_uncooperative_domains = call
+  ~in_product_since:rel_midnight_ride
+  ~name:"get_uncooperative_domains"
+  ~doc:"Return the set of domain uuids which are not co-operating with the host's memory control system"
+  ~params:[Ref _host, "self", "The host to query"]
+  ~result:((Set(String)), "UUIDs of domains which are not co-operating")
+  ~pool_internal:true
+  ~hide_from_docs:true
+  ()
+
 let host_retrieve_wlb_evacuate_recommendations = call
   ~name:"retrieve_wlb_evacuate_recommendations"
   ~in_product_since:rel_george
@@ -3037,6 +3055,8 @@ let host =
 		 host_forget_data_source_archives;
 		 host_assert_can_evacuate;
 		 host_get_vms_which_prevent_evacuation;
+		 host_get_uncooperative_resident_VMs;
+		 host_get_uncooperative_domains;
 		 host_evacuate;
 		 host_signal_networking_change;
 		 host_notify;

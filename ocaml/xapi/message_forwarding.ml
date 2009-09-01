@@ -1760,6 +1760,27 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.emergency_ha_disable";
       Local.Host.emergency_ha_disable ~__context
 
+    let get_uncooperative_resident_VMs ~__context ~self = 
+      info "Host.get_uncooperative_resident_VMs host=%s" (Ref.string_of self);
+      let domains = Helpers.call_api_functions ~__context 
+	(fun rpc session_id -> 
+	   Client.Host.get_uncooperative_domains rpc session_id self) in
+      let vms = Db.VM.get_records_where ~__context 
+	~expr:(Db_filter_types.Eq(Db_filter_types.Field "resident_on", Db_filter_types.Literal (Ref.string_of self))) in
+      (* We are only interested in ones which can balloon *)
+      let vms = List.filter (fun (_, x) -> Helpers.ballooning_enabled_for_vm ~__context x) vms in
+      (* Remove all those not in the uncooperative domains list *)
+      let vms = List.filter (fun (_, x) -> List.mem x.API.vM_uuid domains) vms in
+      List.map fst vms
+
+    let get_uncooperative_domains ~__context ~self = 
+      info "Host.get_uncooperative_domains host=%s" (Ref.string_of self);
+      let local_fn = Local.Host.get_uncooperative_domains ~self in
+      do_op_on ~local_fn ~__context ~host:self
+	(fun session_id rpc ->
+	   Client.Host.get_uncooperative_domains rpc session_id self
+	)
+
     (* We can lose the connection during this operation if we're (e.g.) setting the management interface on a slave to a bond PIF.
        So we don't report error in these "success failures" we catch the "host cannot be contacted" exception and poll briefly to see
        if the management flag was set on the PIF we're working with. Since the slave sets this flag after bringing up the management
