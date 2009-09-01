@@ -524,3 +524,6 @@ let sku_marketing_name_db = "/etc/xensource/sku.db"
 
 (** Time after which we conclude that a VM really is unco-operative *)
 let cooperative_timeout = 30.
+
+(** Where the ballooning daemon writes the initial overhead value *)
+let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"

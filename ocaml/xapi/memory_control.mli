@@ -15,10 +15,10 @@ val reserve_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> kib:int6
 val reserve_memory_range: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> min:int64 -> max:int64 -> int64 * string
 
 (** Transfer the memory reserved by [reservation_id] to domain [domid] *)
-val transfer_reservation_to_domain: xs:Xs.xsh -> reservation_id:string -> domid:int -> unit
+val transfer_reservation_to_domain: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> domid:int -> unit
 
 (** Delete the reservation given by [reservation_id] *)
-val delete_reservation: xs:Xs.xsh -> reservation_id:string -> unit
+val delete_reservation: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> unit
 
 (** After some domain destruction event (or possibly other memory-changing event), rebalance memory allocations *)
-val balance_memory: xc:Xc.handle -> xs:Xs.xsh -> unit
+val balance_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> unit
