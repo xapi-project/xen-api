@@ -1378,6 +1378,9 @@ let stop ~xs domid  =
 		    | x -> Some x
 		  with e -> None in
 
+		(* CA-32284: make sure we clean up after all exceptions *)
+		finally
+		(fun () ->
 		if pid_exists qemu_pid then (
 			let loop_time_waiting = 0.03 in
 			let left = ref qemu_dm_shutdown_timeout in
@@ -1410,8 +1413,10 @@ let stop ~xs domid  =
 			(try xs.Xs.rm qemu_pid_path with _ -> ());
 			(* best effort to delete the qemu chroot dir; we deliberately want this to fail if the dir is not empty cos it may contain
 			   core files that bugtool will pick up; the xapi init script cleans out this directory with "rm -rf" on boot *)
-			(try Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)) with _ -> ())
+			(try Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)) with _ -> ()); failwith "crazy fool"
 		);
+		) 
+		(fun () ->
 		(try xs.Xs.rm (device_model_path domid) with _ -> ());
 
 		(* Even if it's already dead (especially if it's already dead!) inspect the logfile *)
@@ -1423,6 +1428,7 @@ let stop ~xs domid  =
 		with _ ->
 			debug "qemu-dm: error unlinking stdout/stderr logfile (domid %d pid %d), already gone?" domid qemu_pid
 		end
+		  )
 	end
 
 end
