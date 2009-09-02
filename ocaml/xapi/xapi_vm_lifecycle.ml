@@ -141,13 +141,15 @@ let need_pv_drivers_check ~power_state ~op =
 	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
 	power_state = `Running && List.mem op op_list
 
-(* templates support clone operations, destroy (if not default), export and provision. *)
+(* templates support clone operations, destroy (if not default), export, provision and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
 	let default_template =
 		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
 		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
 	in
-	if List.mem op [`clone; `copy; `export; `provision; `metadata_export; `create_template] || (op = `destroy && not default_template)
+	if false
+	  || List.mem op [`clone; `copy; `export; `provision; `metadata_export; `create_template; `changing_dynamic_range; `changing_static_range] 
+	  || (op = `destroy && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 
