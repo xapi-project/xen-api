@@ -580,15 +580,17 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 	Db.VM.set_memory_dynamic_min ~__context ~self ~value:min;
 	Db.VM.set_memory_dynamic_max ~__context ~self ~value:max;
 
-	let domid = Helpers.domid_of_vm ~__context ~self in
-	Vmopshelpers.with_xc_and_xs
-	(fun xc xs -> 
-		Domain.set_memory_dynamic_range ~xs
-			~min:(Int64.to_int (Int64.div min 1024L))
+	if power_state = `Running then begin
+	  let domid = Helpers.domid_of_vm ~__context ~self in
+	  Vmopshelpers.with_xc_and_xs
+	    (fun xc xs -> 
+	       Domain.set_memory_dynamic_range ~xs
+		 ~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
-			domid;
-		Memory_control.balance_memory ~__context ~xc ~xs
-	)
+		 domid;
+	       Memory_control.balance_memory ~__context ~xc ~xs
+	    )
+	end
 
 (** Sets the current memory target for a running VM, to the given *)
 (** value (in bytes), rounded down to the nearest page boundary.  *)
