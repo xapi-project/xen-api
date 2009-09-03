@@ -116,88 +116,106 @@ let find_guest_installer_network rpc session_id =
     warn "Guest installer network not found";
     None
 
-let blank_template = 
-  {	       
-    vM_name_label = "blank template";
-    vM_name_description = "a simple template example";
-    vM_blocked_operations = [];
-    vM_user_version = 1L;
-    vM_is_a_template = true;
-    vM_is_a_snapshot = false;
-    vM_snapshot_of = Ref.null;
-    vM_snapshots = [];
-    vM_transportable_snapshot_id = "";
-    vM_parent = Ref.null;
-    vM_children = [];
-    vM_snapshot_time = Date.never;
-    vM_snapshot_info = [];
-    vM_snapshot_metadata = "";
-    vM_memory_overhead = (0L ** mib);
-    vM_memory_target = (256L ** mib);
-    vM_memory_static_max = (256L ** mib);
-    vM_memory_dynamic_max = (256L ** mib);
-    vM_memory_dynamic_min = (256L ** mib);
-    vM_memory_static_min = 16L ** mib;
-    vM_VCPUs_params = [];
-    vM_VCPUs_max = 1L;
-    vM_VCPUs_at_startup = 1L;
-    vM_actions_after_shutdown = `destroy;
-    vM_actions_after_reboot = `restart;
-    vM_actions_after_crash = `restart;
-    vM_PV_bootloader = pv_bootloader; 
-    vM_PV_kernel = "";
-    vM_PV_ramdisk = "";
-    vM_PV_args = "";
-    vM_PV_bootloader_args = "";
-    vM_PV_legacy_args = "";
-    vM_HVM_boot_policy = "";
-    vM_HVM_boot_params = [ ];
-    vM_HVM_shadow_multiplier = 1.;
-    vM_platform = no_nx_platform_flags;
-    vM_PCI_bus = "";
-    vM_other_config = [];
-    vM_is_control_domain = false;
-    vM_ha_restart_priority = "";
-    vM_ha_always_run = false;
+(** Values of memory parameters for templates. *)
+type template_memory_parameters = {
+	memory_static_min_mib : int64;
+	memory_dynamic_min_mib : int64;
+	memory_dynamic_max_mib : int64;
+	memory_static_max_mib : int64;
+}
 
-    (* These are ignored by the create call but required by the record type *)
-    vM_uuid = "Invalid";
-    vM_power_state = `Running;
-    vM_suspend_VDI = Ref.null;
-    vM_resident_on = Ref.null;
-    vM_affinity = Ref.null;
-    vM_allowed_operations = [];
-    vM_current_operations = [];
-    vM_last_booted_record = "";
-    vM_consoles = [];
-    vM_VIFs = [];
-    vM_VBDs = [];
-    vM_crash_dumps = [];
-    vM_VTPMs = []; 
-    vM_domid = (-1L);
-    vM_domarch = "";
-    vM_last_boot_CPU_flags = [];
-    vM_metrics = Ref.null;
-    vM_guest_metrics = Ref.null;
-    vM_xenstore_data = [];
-    vM_recommendations = (recommendations ());
-    vM_blobs = [];
-    vM_tags = []
-  }
+(** Makes a default set of memory parameters from the given minimum value such
+that memory_dynamic_{min,max} = memory_static_max = 2 * memory_static_min. *)
+let default_memory_parameters memory_static_min_mib = {
+	memory_static_min_mib = memory_static_min_mib;
+	memory_dynamic_min_mib = memory_static_min_mib ** 2L;
+	memory_dynamic_max_mib = memory_static_min_mib ** 2L;
+	memory_static_max_mib = memory_static_min_mib ** 2L;
+}
 
-let other_install_media_template = 
-  { blank_template with 
-      vM_name_label = "Other install media";
-      vM_name_description = "Template which allows VM installation from install media";
-      vM_PV_bootloader = ""; 
-      vM_HVM_boot_policy = Constants.hvm_boot_policy_bios_order;
-      vM_HVM_boot_params = [ Constants.hvm_boot_params_order, "dc" ];
-      vM_other_config = [ install_methods_otherconfig_key, "cdrom" ];
-  }
+let blank_template memory = {
+	vM_name_label = "blank template";
+	vM_name_description = "a simple template example";
+	vM_blocked_operations = [];
+	vM_user_version = 1L;
+	vM_is_a_template = true;
+	vM_is_a_snapshot = false;
+	vM_snapshot_of = Ref.null;
+	vM_snapshots = [];
+	vM_transportable_snapshot_id = "";
+	vM_parent = Ref.null;
+	vM_children = [];
+	vM_snapshot_time = Date.never;
+	vM_snapshot_info = [];
+	vM_snapshot_metadata = "";
+	vM_memory_overhead = (0L ** mib);
+	vM_memory_static_max  = memory.memory_static_max_mib  ** mib;
+	vM_memory_dynamic_max = memory.memory_dynamic_max_mib ** mib;
+	vM_memory_target      = memory.memory_dynamic_max_mib ** mib;
+	vM_memory_dynamic_min = memory.memory_dynamic_min_mib ** mib;
+	vM_memory_static_min  = memory.memory_static_min_mib  ** mib;
+	vM_VCPUs_params = [];
+	vM_VCPUs_max = 1L;
+	vM_VCPUs_at_startup = 1L;
+	vM_actions_after_shutdown = `destroy;
+	vM_actions_after_reboot = `restart;
+	vM_actions_after_crash = `restart;
+	vM_PV_bootloader = pv_bootloader; 
+	vM_PV_kernel = "";
+	vM_PV_ramdisk = "";
+	vM_PV_args = "";
+	vM_PV_bootloader_args = "";
+	vM_PV_legacy_args = "";
+	vM_HVM_boot_policy = "";
+	vM_HVM_boot_params = [ ];
+	vM_HVM_shadow_multiplier = 1.;
+	vM_platform = no_nx_platform_flags;
+	vM_PCI_bus = "";
+	vM_other_config = [];
+	vM_is_control_domain = false;
+	vM_ha_restart_priority = "";
+	vM_ha_always_run = false;
+
+	(* These are ignored by the create call but required by the record type *)
+	vM_uuid = "Invalid";
+	vM_power_state = `Running;
+	vM_suspend_VDI = Ref.null;
+	vM_resident_on = Ref.null;
+	vM_affinity = Ref.null;
+	vM_allowed_operations = [];
+	vM_current_operations = [];
+	vM_last_booted_record = "";
+	vM_consoles = [];
+	vM_VIFs = [];
+	vM_VBDs = [];
+	vM_crash_dumps = [];
+	vM_VTPMs = []; 
+	vM_domid = (-1L);
+	vM_domarch = "";
+	vM_last_boot_CPU_flags = [];
+	vM_metrics = Ref.null;
+	vM_guest_metrics = Ref.null;
+	vM_xenstore_data = [];
+	vM_recommendations = (recommendations ());
+	vM_blobs = [];
+	vM_tags = []
+}
+
+let other_install_media_template memory = 
+{
+	(blank_template memory) with
+	vM_name_label = "Other install media";
+	vM_name_description =
+		"Template which allows VM installation from install media";
+	vM_PV_bootloader = ""; 
+	vM_HVM_boot_policy = Constants.hvm_boot_policy_bios_order;
+	vM_HVM_boot_params = [ Constants.hvm_boot_params_order, "dc" ];
+	vM_other_config = [ install_methods_otherconfig_key, "cdrom" ];
+}
 
 let preferred_sr = "" (* None *)
 
-let eli_install_template name distro nfs pv_args =
+let eli_install_template memory name distro nfs pv_args =
   let root = { device = "0"; size = (8L ** gib); sr = preferred_sr; bootable = true; _type = `system } in
   let distro_text = match distro with
   | "rhlike" -> "EL"
@@ -206,7 +224,7 @@ let eli_install_template name distro nfs pv_args =
   let text = if nfs then " or nfs:server:/<path>"
                     else ""
   in
-  { blank_template with
+  { (blank_template memory) with
       vM_name_label = name;
       vM_name_description = Printf.sprintf "Template that allows VM installation from Xen-aware %s-based distros. To use this template from the CLI, install your VM using vm-install, then set other-config-install-repository to the path to your network repository, e.g. http://<server>/<path>%s" distro_text text;
       vM_PV_bootloader = "eliloader";
@@ -233,7 +251,7 @@ let debian_xgt_template rpc session_id name_label short_name_label debian_xgt_na
     and swap = { device = "1"; size = (512L ** mib); sr = preferred_sr; bootable = false; _type = `system } in
     
     let (_: API.ref_VM) = find_or_create_template 
-      { blank_template with
+      { (blank_template (default_memory_parameters 128L)) with
 	  vM_name_label = name_label;
 	  vM_name_description = Printf.sprintf "Clones of this template will automatically provision their storage when first booted and install Debian %s. The disk configuration is stored in the other_config field." short_name_label;
 	  vM_other_config =
@@ -261,7 +279,7 @@ let p2v_server_template rpc session_id =
 	  debug "Skipping P2V server template because guest installer network missing"
       | Some net ->
 	  let vm = find_or_create_template
-	    { blank_template with
+	    { (blank_template (default_memory_parameters 256L)) with
 		vM_name_label = "XenSource P2V Server";
 		vM_name_description = "An internal utility template for use by the XenSource P2V client";
 		vM_other_config = [ Xapi_globs.grant_api_access, "internal";
@@ -292,31 +310,33 @@ let p2v_server_template rpc session_id =
 	  then ignore (Client.VIF.create ~rpc ~session_id ~device:"0" ~mAC:(Record_util.random_mac_local ()) ~vM:vm ~mTU:1500L ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~network:net ~other_config:[])
       end
 
-
-(* Make a Windows 2000 and a Windows 2003 template, with root_disk_size specified in gigabytes *)
-let windows_template root_disk_size version = 
-  let root = { device = "0"; size = (root_disk_size ** gib); sr = preferred_sr; bootable = false; _type = `system } in
-  let windows_memory_default = 512L in
-  { other_install_media_template with
-      vM_name_label = Printf.sprintf "Windows %s" version;
-      vM_name_description = Printf.sprintf "Clones of this template will automatically provision their storage when first booted and then reconfigure themselves with the optimal settings for Windows %s." version;
-      vM_memory_static_max = (windows_memory_default ** mib);
-      vM_memory_dynamic_max = (windows_memory_default ** mib);
-      vM_memory_dynamic_min = (windows_memory_default ** mib);
-      vM_memory_target = (windows_memory_default ** mib);
-      vM_memory_static_min = 16L ** mib;
-      vM_other_config = 
-      [
-	disks_key, Xml.to_string (xml_of_disks [ root ]);
-        install_methods_otherconfig_key, "cdrom"
-      ]
-  }
+(** Makes a Windows template using the given memory parameters in MiB, root disk
+size in GiB, and version string. *)
+let windows_template memory root_disk_size version = 
+	let root = {
+		device = "0";
+		size = (root_disk_size ** gib);
+		sr = preferred_sr;
+		bootable = false;
+		_type = `system
+	} in {
+		(other_install_media_template memory) with
+		vM_name_label = Printf.sprintf "Windows %s" version;
+		vM_name_description =
+			Printf.sprintf "Clones of this template will automatically \
+			provision their storage when first booted and then reconfigure \
+			themselves with the optimal settings for Windows %s." version;
+		vM_other_config = [
+			disks_key, Xml.to_string (xml_of_disks [ root ]);
+			install_methods_otherconfig_key, "cdrom"
+		]
+	}
 
 (* Make a Windows template which is the same as the normal Windows
    one in everything except that the NX platform flag is turned on *)
-let windows_template_nx root_disk_size version =
-  let tmpl = windows_template root_disk_size version in 
-  { tmpl with vM_platform = with_nx_platform_flags }
+let windows_template_nx memory root_disk_size version =
+	let tmpl = windows_template memory root_disk_size version in 
+	{ tmpl with vM_platform = with_nx_platform_flags }
 
 (* Create a CPS template for either 32- or 64-bit, with a higher shadow
    multiplier and the application_template=1 set in other_config *)
@@ -328,9 +348,9 @@ let cps_template tmplfn name =
      vM_name_description = descr; vM_name_label = name;
      vM_other_config = ("application_template", "1") :: tmpl.vM_other_config }
 
-let create_all_templates rpc session_id = 
+let create_all_templates rpc session_id =
   let rhel45_install_template name =
-      let bt = eli_install_template name "rhlike" true "graphical utf8 console=xvc0 xencons=xvc" in
+      let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8 console=xvc0 xencons=xvc" in
       { bt with
 	  vM_recommendations = recommendations ~vifs:3 ();
           vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") ::
@@ -345,7 +365,7 @@ let create_all_templates rpc session_id =
     } in
   (* the install_arch param should be passed in as either "i386" or "x86_64" ("i386" only support up to 16GB memory) *)
   let rhel50_install_template name install_arch =
-      let bt = eli_install_template name "rhlike" true "graphical utf8" in
+      let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
       let recommendations = if install_arch = "i386" then recommendations ~memory:16 () 
                                                      else recommendations ()
       in
@@ -361,26 +381,20 @@ let create_all_templates rpc session_id =
     } in
   (* the install_arch param should be passed in as either "i386" or "x86_64" *)
   let sles9_install_template name install_arch =
-      let bt = eli_install_template name "sleslike" true "console=ttyS0 xencons=ttyS" in
+      let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
       { bt with 
 	  vM_recommendations = recommendations ~vifs:3 ();
           vM_other_config = (install_methods_otherconfig_key, "nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
       } in
   let sles10_install_template name install_arch =
-      let bt = eli_install_template name "sleslike" true "console=ttyS0 xencons=ttyS" in
-      let sles_memory_default = 512L in
+      let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
       { bt with 
 	  vM_recommendations = recommendations ~vifs:3 ();
-	  vM_memory_static_min = (256L ** mib);
-	  vM_memory_static_max = (sles_memory_default ** mib);
-	  vM_memory_dynamic_max = (sles_memory_default ** mib);
-	  vM_memory_dynamic_min = (sles_memory_default ** mib);
-	  vM_memory_target = (sles_memory_default ** mib);
           vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
       } in
   let sles11_install_template = sles10_install_template in
   let debian_install_template name release install_arch =
-      let bt = eli_install_template name "debianlike" false " -- quiet console=hvc0" in
+      let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false " -- quiet console=hvc0" in
       { bt with 
           vM_other_config = (install_methods_otherconfig_key, "cdrom,http,ftp") :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
       } in
@@ -425,25 +439,30 @@ let create_all_templates rpc session_id =
       sles11_install_template "SUSE Linux Enterprise Server 11 x64" "x86_64";
       debian_install_template "Debian Lenny 5.0" "lenny" "i386"
     ] in
-    
-  let static_templates = 
-    [ other_install_media_template;
 
-      windows_template 8L "XP SP2";
-      windows_template 8L "XP SP3";
-      windows_template 8L "Server 2003";
-      windows_template_nx 8L "Server 2003 x64";
-      windows_template_nx 24L "Vista";
-      windows_template_nx 24L "Server 2008";
-      windows_template_nx 24L "Server 2008 x64";
-      cps_template windows_template "Citrix XenApp";
-      cps_template windows_template_nx "Citrix XenApp x64";
-      begin
-	let w2000sp4 = windows_template 8L "2000 SP4"
-	in {w2000sp4 with vM_name_description = "Windows 2000 Server SP4. "^(w2000sp4.vM_name_description)}
-      end
-    ] in
-    
+	let static_templates = [
+		other_install_media_template (default_memory_parameters 128L);
+		windows_template    (default_memory_parameters  256L)  8L "XP SP2";
+		windows_template    (default_memory_parameters  256L)  8L "XP SP3";
+		windows_template    (default_memory_parameters  256L)  8L "Server 2003";
+		windows_template_nx (default_memory_parameters  256L)  8L "Server 2003 x64";
+		windows_template_nx (default_memory_parameters  512L) 24L "Server 2008";
+		windows_template_nx (default_memory_parameters  512L) 24L "Server 2008 x64";
+		windows_template_nx (default_memory_parameters 1024L) 24L "Vista";
+		windows_template_nx (default_memory_parameters 1024L) 24L "7";
+		windows_template_nx (default_memory_parameters 2048L) 24L "7 x64";
+		cps_template (windows_template    (default_memory_parameters 256L)) "Citrix XenApp";
+		cps_template (windows_template_nx (default_memory_parameters 256L)) "Citrix XenApp x64";
+		begin
+			let w2000sp4 = windows_template (default_memory_parameters 128L) 8L "2000 SP4" in
+			{
+				w2000sp4 with vM_name_description =
+					"Windows 2000 Server SP4. " ^
+					(w2000sp4.vM_name_description)
+			}
+		end
+	] in
+
   (* put default_template key in static_templates other_config of static_templates: *)
   let static_templates =
     List.map (fun t -> {t with vM_other_config = default_template::t.vM_other_config}) static_templates in
