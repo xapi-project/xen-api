@@ -69,10 +69,10 @@ let initialise session_id template pool =
     Client.VM.add_to_xenstore_data ~rpc ~session_id ~self:template ~key:(Printf.sprintf "vm-data/provision/interfaces/%d/netmask" i) ~value:"255.255.255.0") interfaces;
 
   debug "Setting memory to 128 Megs";
-  Client.VM.set_memory_static_max rpc session_id template (Int64.mul 128L 1048576L);
   Client.VM.set_memory_static_min rpc session_id template (Int64.mul 128L 1048576L);
-  Client.VM.set_memory_dynamic_max rpc session_id template (Int64.mul 128L 1048576L);
   Client.VM.set_memory_dynamic_min rpc session_id template (Int64.mul 128L 1048576L);
+  Client.VM.set_memory_dynamic_max rpc session_id template (Int64.mul 128L 1048576L);
+  Client.VM.set_memory_static_max rpc session_id template (Int64.mul 128L 1048576L);
 
   Client.VM.remove_from_other_config rpc session_id template oc_key;
   Client.VM.add_to_other_config rpc session_id template oc_key pool.key;
