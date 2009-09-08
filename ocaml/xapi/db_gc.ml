@@ -290,7 +290,10 @@ let detect_rolling_upgrade ~__context =
 	(if pool_says_in_progress then "" else " not");
       (if actually_in_progress
        then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
-       else Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress);
+       else begin
+         Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
+         List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
+       end);
       (* Call out to an external script to allow external actions to be performed *)
       if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
 	let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
