@@ -3,7 +3,7 @@ module D = Debug.Debugger(struct let name = "xapi" (* this is set to 'xapi' deli
 open D
 
 open Stringext
-open Vm_memory_constraints
+open Vm_memory_constraints.Vm_memory_constraints
 
 (* ---------------------- upgrade db file from last release schema -> current schema.
 
@@ -22,8 +22,22 @@ module Names = Db_names
 
 let (+++) = Int64.add
 
-(* On upgrade to the first ballooning-enabled XenServer we reset dynamic_min
-and dynamic_max to sane defaults, to avoid upgrade triggering something bad. *)
+(** On upgrade to the first ballooning-enabled XenServer, we reset memory
+properties to safe defaults to avoid triggering something bad.
+{ul
+	{- For guest domains, we replace the current set of possibly-invalid memory
+	constraints {i s} with a new set of valid and unballooned constraints {i t}
+	such that:
+	{ol
+		{- t.dynamic_max := s.static_max}
+		{- t.target      := s.static_max}
+		{- t.dynamic_min := s.static_max}
+		{- t.static_min  := minimum (s.static_min, s.static_max}}
+	{- For control domains, we respect the administrator's choice of target:
+	{ol
+		{- t.dynamic_max := s.target}
+		{- t.dynamic_min := s.target}}}
+*)
 let upgrade_vm_records () =
 	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
 	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
@@ -48,15 +62,22 @@ let upgrade_vm_records () =
 					target;
 			end else begin
 				(* Note this will also transform templates *)
-				let static_max = get Names.memory_static_max in
-				set Names.memory_dynamic_min static_max;
-				set Names.memory_dynamic_max static_max;
-				(* CA-31759: fix suspend/upgrade/resume *)
-				set Names.memory_target static_max;
-				debug "VM %s (%s) dynamic_{min,max} <- %Ld"
+				let safe_constraints = reset_to_safe_defaults ~constraints:
+					{ static_min  = get Names.memory_static_min
+					; dynamic_min = get Names.memory_dynamic_min
+					; target      = get Names.memory_target
+					; dynamic_max = get Names.memory_dynamic_max
+					; static_max  = get Names.memory_static_max
+					} in
+				set Names.memory_static_min  (safe_constraints.static_min );
+				set Names.memory_dynamic_min (safe_constraints.dynamic_min);
+				set Names.memory_target      (safe_constraints.target     );
+				set Names.memory_dynamic_max (safe_constraints.dynamic_max);
+				set Names.memory_static_max  (safe_constraints.static_max );
+				debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
 					(Db_backend.lookup_field_in_row vm_row Names.uuid)
 					(Db_backend.lookup_field_in_row vm_row Names.name_label)
-					static_max;
+					safe_constraints.static_max;
 			end;
 		)
 		vm_rows

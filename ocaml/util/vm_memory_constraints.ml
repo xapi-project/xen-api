@@ -12,6 +12,10 @@ module type T = sig
 		static_max  : Int64.t;
 	}
 
+	(** Creates a set of memory constraints from the given tuple whose
+	elements appear in order of increasing size. *)
+	val create : (int64 * int64 * int64 * int64 * int64) -> t
+
 	(** Transforms the given set of memory constraints into a valid set,  *)
 	(** if possible, or else returns None. Any constraints returned by    *)
 	(** this function are guaranteed to be in valid order such that:      *)
@@ -37,7 +41,22 @@ module type T = sig
 	(** static_min <= dynamic_min <= target <= dynamic_max <= static_max *)
 	val valid : constraints:t -> bool
 
+	(** Takes the given set of possibly-invalid memory constraints {i s},
+	returning a new set of valid and unballooned constraints {i t} s.t.:
+	{ol
+		{- t.dynamic_max := s.static_max}
+		{- t.target      := s.static_max}
+		{- t.dynamic_min := s.static_max}
+		{- t.static_min  := minimum (s.static_min, s.static_max}}
+	*)
+	val reset_to_safe_defaults : constraints:t -> t
+
 end
+
+let ( ++ ) = Int64.add
+let ( -- ) = Int64.sub
+let ( ** ) = Int64.mul
+let ( // ) = Int64.div
 
 module Vm_memory_constraints : T = struct
 
@@ -48,6 +67,15 @@ module Vm_memory_constraints : T = struct
 		target      : Int64.t;
 		dynamic_max : Int64.t;
 		static_max  : Int64.t;
+	}
+
+	let create (static_min, dynamic_min, target, dynamic_max, static_max) =
+	{
+		static_min  = static_min;
+		dynamic_min = dynamic_min;
+		target      = target;
+		dynamic_max = dynamic_max;
+		static_max  = static_max;
 	}
 
 	let transform ~constraints:c =
@@ -77,5 +105,16 @@ module Vm_memory_constraints : T = struct
 			constraints.dynamic_max;
 			constraints.static_max
 		]
+
+	let reset_to_safe_defaults ~constraints = 
+		let max = constraints.static_max in
+		let min = constraints.static_min in
+		{
+			static_max  = max;
+			dynamic_max = max;
+			target      = max;
+			dynamic_min = max;
+			static_min  = if min < max then min else max
+	}
 
 end
