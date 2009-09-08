@@ -298,13 +298,28 @@ let default_values = [
 	Db_names.ha_always_run, "false";
 ]
 
+let extended_do_not_copy = [
+	Db_names.name_label;
+	Db_names.is_a_snapshot;
+	Db_names.is_a_template;
+	Db_names.snapshot_of;
+	Db_names.snapshot_time;
+	Db_names.transportable_snapshot_id
+] @ do_not_copy
+
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
 	debug "Reverting the fields of %s to the ones of %s" (Ref.string_of vm) (Ref.string_of snapshot);
 	let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
+	let post_MNR = snap_metadata = "" in
 	let snap_metadata =
-		try Helpers.vm_string_to_assoc snap_metadata 
-		with _ -> Helpers.vm_string_to_assoc (Helpers.vm_to_string snapshot) in
+		if post_MNR
+		then Helpers.vm_string_to_assoc snap_metadata 
+		else Helpers.vm_string_to_assoc (Helpers.vm_to_string vm) in
+	let do_not_copy =
+		if post_MNR
+		then do_not_copy
+		else extended_do_not_copy in
 	copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy ~default_values;
 	TaskHelper.set_progress ~__context 0.1
 

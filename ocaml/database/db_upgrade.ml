@@ -119,7 +119,7 @@ let non_generic_db_upgrade_rules () =
 		let ordered_snapshot_rows = List.sort compare snapshot_rows in
 		let rec aux = function
 			| [] -> ()
-			| [s] -> ()
+			| [s] -> Db_backend.set_field_in_row s Names.parent vm;
 			| s1 :: s2 :: t ->
 				Db_backend.set_field_in_row s2 Names.parent (Db_backend.lookup_field_in_row s1 Names.ref);
 				aux (s2 :: t) in
