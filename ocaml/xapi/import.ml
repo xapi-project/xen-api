@@ -150,14 +150,22 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 	(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
   let vm_record = { vm_record with API.vM_other_config = other_config } in
 
-  let vm_record = if not (vm_exported_pre_dmc x) then vm_record else begin
-    let static_max = vm_record.API.vM_memory_static_max in
-    debug "VM %s was exported pre-DMC; static_min, dynamic_{min,max} <- %Ld" vm_record.API.vM_name_label static_max;
-    { vm_record with 
-	API.vM_memory_dynamic_min = static_max; 
-	vM_memory_dynamic_max = static_max;
-	vM_memory_static_min = static_max }
-  end in
+	let vm_record =
+		if not (vm_exported_pre_dmc x)
+		then vm_record
+		else
+			begin
+				let static_max = vm_record.API.vM_memory_static_max in
+				debug "VM %s was exported pre-DMC; \
+					static_min, dynamic_{min,max} <- %Ld"
+					vm_record.API.vM_name_label static_max;
+				{vm_record with API.
+					vM_memory_dynamic_min = static_max;
+					vM_memory_dynamic_max = static_max;
+					vM_memory_static_min  = static_max;
+				}
+			end
+		in
 
   let vm = log_reraise
     ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
