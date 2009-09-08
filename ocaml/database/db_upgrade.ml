@@ -22,35 +22,44 @@ module Names = Db_names
 
 let (+++) = Int64.add
 
-(* On upgrade to the first ballooning-enabled XenServer we reset the dynamic_min, dynamic_max values
-   to sane defaults once. This is to avoid upgrade triggering something bad. *)
+(* On upgrade to the first ballooning-enabled XenServer we reset dynamic_min
+and dynamic_max to sane defaults, to avoid upgrade triggering something bad. *)
 let upgrade_vm_records () =
-	debug "Upgrading VM.memory_dynamic_{min,max} in guests and control domains.";
+	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
 	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
 	let vm_rows = Db_backend.get_rowlist vm_table in
 	(* Upgrade the memory constraints of each virtual machine. *)
-	List.iter (fun vm_row ->
-		(* Helper functions to access the database. *)
-		let get field_name = Int64.of_string (Db_backend.lookup_field_in_row vm_row field_name) in
-		let set field_name value = Db_backend.set_field_in_row vm_row field_name (Int64.to_string value) in
-
-		if (Db_backend.lookup_field_in_row vm_row Names.is_control_domain = "true") then
-		begin
-			let target = get Names.memory_target in
-			set Names.memory_dynamic_min target;
-			set Names.memory_dynamic_max target;
-			debug "VM %s (%s) dynamic_{min,max} <- %Ld" (Db_backend.lookup_field_in_row vm_row Names.uuid) (Db_backend.lookup_field_in_row vm_row Names.name_label) target;
-		end else begin
-			(* Note this will also transform templates *)
-			let static_max = get Names.memory_static_max in
-			set Names.memory_dynamic_min static_max;
-			set Names.memory_dynamic_max static_max;
-			(* CA-31759: fix suspend/upgrade/resume *)
-			set Names.memory_target static_max;
-			debug "VM %s (%s) dynamic_{min,max} <- %Ld" (Db_backend.lookup_field_in_row vm_row Names.uuid) (Db_backend.lookup_field_in_row vm_row Names.name_label) static_max;
-		end;
-
-	) vm_rows
+	List.iter
+		(fun vm_row ->
+			(* Helper functions to access the database. *)
+			let get field_name = Int64.of_string
+				(Db_backend.lookup_field_in_row vm_row field_name) in
+			let set field_name value = Db_backend.set_field_in_row
+				vm_row field_name (Int64.to_string value) in
+			if (Db_backend.lookup_field_in_row vm_row
+				Names.is_control_domain = "true")
+			then begin
+				let target = get Names.memory_target in
+				set Names.memory_dynamic_min target;
+				set Names.memory_dynamic_max target;
+				debug "VM %s (%s) dynamic_{min,max} <- %Ld"
+					(Db_backend.lookup_field_in_row vm_row Names.uuid)
+					(Db_backend.lookup_field_in_row vm_row Names.name_label)
+					target;
+			end else begin
+				(* Note this will also transform templates *)
+				let static_max = get Names.memory_static_max in
+				set Names.memory_dynamic_min static_max;
+				set Names.memory_dynamic_max static_max;
+				(* CA-31759: fix suspend/upgrade/resume *)
+				set Names.memory_target static_max;
+				debug "VM %s (%s) dynamic_{min,max} <- %Ld"
+					(Db_backend.lookup_field_in_row vm_row Names.uuid)
+					(Db_backend.lookup_field_in_row vm_row Names.name_label)
+					static_max;
+			end;
+		)
+		vm_rows
 
 (*
 let update_templates () =
