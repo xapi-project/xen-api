@@ -622,7 +622,7 @@ let squeeze_test () =
 
 let _ =
 
-  let possible_tests = [ "storage"; "vm-placement"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing" ] in
+  let possible_tests = [ "storage"; "vm-placement"; "vm-memory-constraints"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing" ] in
   let only_this_test = ref "" in (* default is run everything *)
   Arg.parse 
     [ "-single", Arg.Set_string only_this_test, Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " possible_tests) ;
@@ -647,6 +647,7 @@ let _ =
        (try
 	  maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
 	  maybe_run_test "squeezing" squeeze_test;
+	  maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
 	  maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
 	  maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
 	  maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
