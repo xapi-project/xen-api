@@ -9,6 +9,11 @@ open Pervasiveext
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 
+let ( ++ ) = Int64.add
+let ( -- ) = Int64.sub
+let ( ** ) = Int64.mul
+let ( // ) = Int64.div
+
 let trim_end s =
         let i = ref (String.length s - 1) in
         while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
@@ -488,21 +493,32 @@ let record_host_memory_properties ~__context =
 			let total_memory_bytes =
 				with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
 			let boot_memory_bytes = Int64.of_string boot_memory_string in
-			(* Some overhead is obvious i.e. it has already been used (e.g. xen, crash kernel).
-			   Some other overhead is non-obvious i.e. it appears free but can't be used (e.g. lowmem_emergency pool) *)
-			let obvious_overhead_memory_bytes = Int64.sub total_memory_bytes boot_memory_bytes in
+			(* Host memory overhead comes from multiple sources:         *)
+			(* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
+			(*    appears as used memory.                                *)
+			(* 2. non-obvious overhead: (e.g. low memory emergency pool) *)
+			(*    appears as free memory but can't be used in practice.  *)
+			let obvious_overhead_memory_bytes =
+				total_memory_bytes -- boot_memory_bytes in
 			let nonobvious_overhead_memory_kib = 
-			  try
-			    Vmopshelpers.with_xs
-			      (fun xs -> Int64.of_string (xs.Xs.read Xapi_globs.squeezed_reserved_host_memory))
-			  with _ ->
-			    error "Failed to read %s: host memory overhead may be too small" Xapi_globs.squeezed_reserved_host_memory;
-			    0L in
-			let nonobvious_overhead_memory_bytes = Memory.bytes_of_kib nonobvious_overhead_memory_kib in
+				try
+					Vmopshelpers.with_xs
+						(fun xs -> Int64.of_string
+							(xs.Xs.read
+								Xapi_globs.squeezed_reserved_host_memory))
+				with _ ->
+					error "Failed to read %s: \
+						host memory overhead may be too small"
+						Xapi_globs.squeezed_reserved_host_memory;
+					0L
+			in
+			let nonobvious_overhead_memory_bytes =
+				Memory.bytes_of_kib nonobvious_overhead_memory_kib in
 			let self = !Xapi_globs.localhost_ref in
 			Db.Host.set_boot_free_mem ~__context ~self
 				~value:boot_memory_bytes;
-			Db.Host.set_memory_overhead ~__context ~self ~value:(Int64.add obvious_overhead_memory_bytes nonobvious_overhead_memory_bytes);
+			Db.Host.set_memory_overhead ~__context ~self ~value:
+				(obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes);
 		)
 		boot_memory_string
 
