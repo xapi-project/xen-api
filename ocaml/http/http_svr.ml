@@ -96,6 +96,10 @@ let response_unauthorised label s =
   let myheaders = Http.http_401_unauthorised ~realm:label () in
   headers s myheaders
 
+let response_forbidden s =
+  headers s (Http.http_403_forbidden@["Content-Type: text/html"]);
+  output_http s ["<html><body><h1>403: Forbidden</h1></body></html>"]
+
 let response_file ?(hdrs=[]) ~mime_content_type s file =
   (* XXX: replace with Unixext.copy_file *)
   let st = Unix.LargeFile.stat file in
@@ -122,8 +126,7 @@ let response_file ?(hdrs=[]) ~mime_content_type s file =
 
 (** If no handler matches the request then call this callback *)
 let default_callback req bio = 
-  headers (Buf_io.fd_of bio) (Http.http_403_forbidden@["Content-Type: text/html"]);
-  output_http (Buf_io.fd_of bio) ["<html><body><h1>403: Forbidden</h1></body></html>"];
+  response_forbidden (Buf_io.fd_of bio);
   req.close := true
     
 
@@ -294,6 +297,10 @@ let handle_connection _ ss =
     | Http.Unauthorised realm ->
 	let fd = Buf_io.fd_of ic in
 	response_unauthorised realm fd;
+	finished := true;	  
+    | Http.Forbidden ->
+	let fd = Buf_io.fd_of ic in
+	response_forbidden fd;
 	finished := true;	  
     | exc ->
 	DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);

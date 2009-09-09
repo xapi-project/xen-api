@@ -6,6 +6,7 @@ open Pervasiveext
 
 exception Http_parse_failure
 exception Unauthorised of string
+exception Forbidden
 
 module D = Debug.Debugger(struct let name = "http" end)
 open D
