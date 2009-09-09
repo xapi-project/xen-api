@@ -127,7 +127,8 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      ../../xapi/hashtbl_xml \
 	      ../../xapi/localdb \
 	      rbac \
-	      rbac_audit 
+	      rbac_audit \
+	      ../../autogen/rbac_static
 
 _OCAMLPACKS = $(OCAMLPACKS)
 OCAMLPACKS = 

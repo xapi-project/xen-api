@@ -111,7 +111,6 @@ OCamlProgram(xapi, $(COMMON) \
 	../auth/parse_likewise \
 	xapi_subject \
 	xapi_role \
-	../autogen/rbac_static \
 	audit_log \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \

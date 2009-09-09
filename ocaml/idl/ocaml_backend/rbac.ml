@@ -155,13 +155,29 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?(__params) ~__context ~fn session_id
 			(Api_errors.rbac_permission_denied,[permission;msg]))
 	end
 
+let get_session_of_context ~__context ~permission =
+	try (Context.get_session_id __context)
+	with Failure _ -> raise (Api_errors.Server_error
+		(Api_errors.rbac_permission_denied,[permission;"no session in context"]))
+
+let assert_permission_name ~__context ~permission =
+	let session_id = get_session_of_context ~__context ~permission in
+	check ~__context ~fn:nofn session_id permission
+
 let assert_permission ~__context ~permission =
-	check ~__context ~fn:nofn (Context.get_session_id __context) permission
+	assert_permission_name ~__context ~permission:permission.role_name_label
+
+(* this is necessary to break dependency cycle between rbac and taskhelper *)
+let init_task_helper_rbac_has_permission_fn =
+	if !TaskHelper.rbac_assert_permission_fn = None
+	then TaskHelper.rbac_assert_permission_fn := Some(assert_permission)
+
+let has_permission_name ~__context ~permission =
+	let session_id = get_session_of_context ~__context ~permission in
+	is_access_allowed ~__context ~session_id ~permission
 
 let has_permission ~__context ~permission =
-	is_access_allowed ~__context 
-		~session_id:(Context.get_session_id __context)
-		~permission
+	has_permission_name ~__context ~permission:permission.role_name_label
 
 let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ~fn session_id action =
 	Server_helpers.exec_with_new_task "rbac_check"
