@@ -5837,5 +5837,6 @@ let public_http_actions_with_no_rbac_check =
 
 (* permissions not associated with any object message or field *)
 let extra_permissions = [
-	(extra_permission_task_destroy_any, _R_POOL_OP) (* only POOL_OP can destroy any tasks *)
+	(extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
+	("internal/vm.plug_pcidevs", _R_POOL_ADMIN); (* only POOL_ADMIN can execute xapi_vm.plug_pcidevs *)
 ]

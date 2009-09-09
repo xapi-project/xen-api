@@ -585,6 +585,7 @@ let pcidevs_of_vm ~__context ~vm =
 let plug_pcidevs ~__context ~vm domid =
   Helpers.log_exn_continue "plug_pcidevs"
     (fun () ->
+       Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
        let pcidevs = pcidevs_of_vm ~__context ~vm in
 
        if List.length pcidevs > 0 then begin
