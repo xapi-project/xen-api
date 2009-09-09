@@ -68,6 +68,18 @@ let console_of_request __context req =
   end;
   if is_vm then default_console_of_vm ~__context ~self:(Ref.of_string _ref) else (Ref.of_string _ref) 
     
+
+let rbac_check_for_control_domain __context (req:request) console_id permission =
+	let is_control_domain =
+		let vm_id = Db.Console.get_VM ~__context ~self:console_id in
+		Db.VM.get_is_control_domain ~__context ~self:vm_id
+	in
+	if is_control_domain then
+		let extra_dmsg = Printf.sprintf "for host console %s" (Ref.string_of console_id) in
+		let session_id = Xapi_http.get_session_id req in
+		Rbac.check_with_new_task ~extra_dmsg session_id permission ~fn:Rbac.nofn
+
+
 (* GET /console_uri?ref=.....
    Cookie: <session id> *)
 let handler proxy_fn (req: request) s =
@@ -76,6 +88,10 @@ let handler proxy_fn (req: request) s =
   Xapi_http.with_context "Connection to VM console" req s
     (fun __context ->
       let console = console_of_request __context req in
+      (* only sessions with 'http/connect_console/host_console' permission *)
+      (* can access dom0 host consoles *)
+      rbac_check_for_control_domain __context req console
+        Rbac_static.permission_http_connect_console_host_console.Db_actions.role_name_label;
       Http_svr.headers s (Http.http_200_ok ());
       
       proxy_fn __context console s)

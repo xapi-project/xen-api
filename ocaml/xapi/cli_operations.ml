@@ -681,7 +681,8 @@ let gen_cmds rpc session_id =
     (make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
     (make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
     (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @ 
-    (make_param_funs (Client.Role.get_all) (Client.Role.get_all_records_where) (Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
+    (make_param_funs (Client.Role.get_all) (fun ~rpc ~session_id ~expr -> Client.Role.get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions) 
+			(Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
 (*
     (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 *)

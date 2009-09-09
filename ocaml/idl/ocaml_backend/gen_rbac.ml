@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 (* Auto code-generator for the static relations between static roles and *)
 (* permissions in the datamodel. *)
 (* marcusg 21/07/2009*)
@@ -28,14 +15,11 @@ let rec role_idx = function
 	| (_,[])->(-1)
 	|(e1,e2::xs)-> if e1=e2 then 0 else 1+(role_idx (e1,xs))
 
-let internal_role_local_root = "_local_root_"
-
 (* the output of this function is used as input by the automatic tests *)
 let writer_csv static_roles_permissions static_permissions_roles =
 	(Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
 		(let t =Log.gettimestring () in (String.sub t 0 ((String.length t)-1)))
-		(* role titles are ordered by roles in roles_all *)
-		(List.fold_left (fun rr r->rr^r^",") "" Datamodel.roles_all)
+		(List.fold_left (fun rr (r,_)->rr^r^",") "" static_roles_permissions)
 	)
 	^List.fold_left
 		(fun acc (permission,roles) ->
@@ -43,7 +27,7 @@ let writer_csv static_roles_permissions static_permissions_roles =
 			^(List.fold_left 
 				(fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc) 
 				"" 
-				(List.rev Datamodel.roles_all) (* Xs are ordered by roles in roles_all *)
+				(List.rev Datamodel.roles_all)
 			)
 			^"\n"
 			^acc
@@ -79,9 +63,7 @@ let role_ref name = (ref_prefix ^ (role_uuid name))
 let permission_description = "A basic permission"
 let permission_name wire_name =
 	let s1 =replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
-	let s2 = replace_char s1 '/' '_' in
-	let s3 = Stringext.String.replace "*" "WILDCHAR" s2 in
-	Stringext.String.replace ":" "_" s3
+	replace_char s1 '/' '_'
 
 let permission_index = ref 0
 let writer_permission name nperms =
@@ -106,13 +88,7 @@ let permissions_label role = (Printf.sprintf "permissions_of_%s" (role_label rol
 
 let role_index = ref 0
 let writer_role name nroles =
-	let role_uuid = 
-	  if name = Datamodel.role_pool_admin
-	  (* pool-admin role has a fixed uuid because it's the default role in Datamodel subject's roles field *)
-	  then Constants.rbac_pool_admin_uuid 
-	  (* all the other roles use a hash as uuid *)
-	  else role_uuid name
-	in
+	let role_uuid = role_uuid name in
 	(*let role_ref = role_ref name in*)
 	let role_name_label =
 		(String.lowercase name) (* lowercase here asked by GUI team *)
@@ -206,21 +182,14 @@ let writer_stdout static_roles_permissions static_permissions_roles =
 (* a dictionary entry (xperm,extra-str-list::original-str-list), *)
 (* and returns the resulting dictionary *)
 let rec concat = function
-	| (xperm,rs,[]) ->
-		let (r1,r2)=(List.partition (fun (r,_)->r=internal_role_local_root) rs) in
-		let r,perms = match r1 with []->(internal_role_local_root,[])|r1::_->r1 in 
-		((r,xperm::perms)::r2)
+	| (xperm,rs,[]) -> rs
 	| (xperm,rs,xr::extra_rs) ->
 		let (r1,r2)=(List.partition (fun (r,_)->r=xr) rs) in
 		let r,perms = match r1 with []->(xr,[])|r1::_->r1 in 
 		concat (xperm,((r,xperm::perms)::r2),extra_rs)
 
-let get_key_permission_name permission key_name =
-  permission ^ "/key:" ^ key_name
-
 let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 	let msg_allowed_roles = x.msg_allowed_roles in
-	let msg_map_keys_roles = x.msg_map_keys_roles in
 	let wire_name = DU.wire_name ~sync:true obj x in
 	match msg_allowed_roles with
 		| None -> (
@@ -228,19 +197,7 @@ let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 				(* a message should have at least one role *)
 				failwith (Printf.sprintf "No roles for message %s" wire_name);
 			)
-		| Some(allowed_roles) -> 
-				let with_msg_roles_permissions =
-					(concat (wire_name,roles_permissions,allowed_roles))
-				in
-				List.fold_left
-					(fun rsps (k,rs)->
-						let wire_name_key = get_key_permission_name wire_name k in
-						match rs with
-						|None->failwith (Printf.sprintf "No roles for key %s" wire_name_key)
-						|Some(allowed_roles)->(concat (wire_name_key, rsps, allowed_roles))
-					)
-					with_msg_roles_permissions
-					msg_map_keys_roles
+		| Some(allowed_roles) -> concat (wire_name,roles_permissions,allowed_roles)
 
 let get_http_permissions_roles =
 	List.fold_left
@@ -260,11 +217,6 @@ let get_http_permissions_roles =
 		[]
 		Datamodel.http_actions
 
-let get_extra_permissions_roles =
-		List.map 
-			(fun (p,rs)->(p,Pervasiveext.default [] rs)) 
-			Datamodel.extra_permissions
-		
 (* Returns a (permission, static_role list) list generated from datamodel.ml *)
 let gen_roles_of_permissions roles_permissions =
 (*
@@ -316,31 +268,21 @@ let gen_permissions_of_static_roles highapi =
 	let http_roles_permissions = 
 		(gen_roles_of_permissions get_http_permissions_roles) (*http*)
 	in
-	let extra_roles_permisions = (* extra, not associated to api or http calls *)
-		(gen_roles_of_permissions get_extra_permissions_roles)
-	in
-	let roles_permissions = (*api+http+extra*)
+	let roles_permissions = (*api+http*)
 		List.rev
-			(List.fold_left
-				(List.fold_left (fun arps (hr,hps) -> (concat (hr,arps,hps))))
+			(List.fold_left (fun arps (hr,hps) -> (concat (hr,arps,hps)))
 				api_roles_permissions
-				[get_http_permissions_roles;get_extra_permissions_roles]
+				get_http_permissions_roles
 			)
 	in
 	
-	let _permissions_roles = gen_roles_of_permissions roles_permissions in
-	let _,permissions_roles = (* ignore the _local_root_ permission *)
-		List.partition (fun (r,_)->r=internal_role_local_root) _permissions_roles
-	in
+	let permissions_roles = gen_roles_of_permissions roles_permissions in
 	
 	if !Gen_server.enable_debugging
 		then begin (* for rbac_static.csv *)
 			writer_csv roles_permissions permissions_roles
 		end
 		else begin (* for rbac_static.ml *)
-			let _,roles_permissions = (* ignore the _local_root_ internal role *)
-				List.partition (fun (r,_)->r=internal_role_local_root) roles_permissions
-			in
 			writer_stdout roles_permissions permissions_roles
 		end
 

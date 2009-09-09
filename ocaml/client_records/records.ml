@@ -446,17 +446,11 @@ let role_record rpc session_id role =
   make_field ~name:"description"             ~get:(fun () -> (x ()).API.role_name_description) ();
   make_field ~name:"subroles"
      ~get:(fun () -> String.concat "; " 
-       (try 
-         List.map 
-           (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid)(*Ref.string_of*) 
-           (Client.Role.get_subroles rpc session_id role)
-        with _ -> []
-       )
+       (try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref)) with _ -> [])
       )
-     ~expensive:false
-     ~get_set:(fun () -> try List.map 
-       (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid) (*Ref.string_of*) 
-       (Client.Role.get_subroles rpc session_id role) with _ -> [])
+     ~expensive:true
+     ~get_set:(fun () -> try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref))
+       with _ -> [])
     ();
   (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
   (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)

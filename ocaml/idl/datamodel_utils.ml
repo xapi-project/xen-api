@@ -205,7 +205,8 @@ let new_messages_of_field x order fld =
 		 msg_custom_marshaller = false;
 		 msg_hide_from_docs = false;
 		 msg_pool_internal = false;
-		 msg_db_only = fld.internal_only
+		 msg_db_only = fld.internal_only;
+		 msg_allowed_roles = None
 	       } in
   let getter = { common with
 		   msg_name = prefix "get_";
@@ -215,6 +216,7 @@ let new_messages_of_field x order fld =
   		   msg_doc = (Printf.sprintf
                                 "Get the %s field of the given %s."
                                 (String.concat "/" fld.full_name) x.name);
+		   msg_allowed_roles = fld.field_getter_roles;
 		   msg_tag = FromField(Getter, fld) } in
   let setter = { common with
 		   msg_name = prefix "set_";
@@ -227,6 +229,7 @@ let new_messages_of_field x order fld =
 		   msg_doc = (Printf.sprintf
 	                        "Set the %s field of the given %s."
 	                        (String.concat "/" fld.full_name) x.name);
+		   msg_allowed_roles = fld.field_setter_roles;
 		   msg_tag = FromField(Setter, fld) } in
   match (fld.ty, fld.field_ignore_foreign_key) with
   | Set(Ref _), false -> if order = 0 then [getter] else []
@@ -241,6 +244,7 @@ let new_messages_of_field x order fld =
 	    msg_doc = (sprintf
                          "Add the given value to the %s field of the given %s.  If the value is already in that Set, then do nothing."
                          (String.concat "/" fld.full_name) x.name);
+	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Add, fld) };
 	{ common with
 	    msg_name = prefix "remove_";
@@ -250,6 +254,7 @@ let new_messages_of_field x order fld =
 	    msg_doc = (sprintf
                          "Remove the given value from the %s field of the given %s.  If the value is not in that Set, then do nothing."
                          (String.concat "/" fld.full_name) x.name);
+	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
   | Map(k, v), _ -> 
@@ -264,6 +269,7 @@ let new_messages_of_field x order fld =
 	    msg_doc = (sprintf
                          "Add the given key-value pair to the %s field of the given %s."
                          (String.concat "/" fld.full_name) x.name);
+	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Add, fld) };
 	{ common with
 	    msg_name = prefix "remove_from_";
@@ -273,6 +279,7 @@ let new_messages_of_field x order fld =
 	    msg_doc = (sprintf
                          "Remove the given key and its corresponding value from the %s field of the given %s.  If the key is not in that Map, then do nothing."
                          (String.concat "/" fld.full_name) x.name);
+	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
   | t, _ -> [
@@ -299,6 +306,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_hide_from_docs = false; msg_pool_internal = false;
 		 msg_session=false; msg_release=x.obj_release; msg_has_effect=false; msg_tag=Custom;
 		 msg_force_custom = x.force_custom_actions;
+		 msg_allowed_roles = None;
 		 msg_obj_name=x.name } in
   (* Constructor *)
   let ctor = { common with 
@@ -313,6 +321,7 @@ let messages_of_obj (x: obj) document_order : message list =
 	       msg_async = true;
 	       msg_session = true;
 	       msg_has_effect = true;
+	       msg_allowed_roles = x.obj_allowed_roles;
 	       msg_tag = FromObject Make } in
   (* Destructor *)
   let dtor = { common with
@@ -323,6 +332,7 @@ let messages_of_obj (x: obj) document_order : message list =
 	       msg_async = true;
 	       msg_session = true;
 	       msg_has_effect = true;
+	       msg_allowed_roles = x.obj_allowed_roles;
 	       msg_tag = FromObject Delete } in
   (* Get by UUID *)
   let uuid = { common with
@@ -333,6 +343,7 @@ let messages_of_obj (x: obj) document_order : message list =
 	       msg_async = false;
 	       msg_session = true;
 	       msg_has_effect = false;
+	       msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 	       msg_tag = FromObject GetByUuid } in
   (* Get by label *)
   let get_by_name_label = { common with
@@ -343,6 +354,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		       msg_async = false;
 		       msg_session = true;
 		       msg_has_effect = false;
+		       msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 		       msg_tag = FromObject GetByLabel } in	       
   (* Get Record *)
   let get_record = { common with
@@ -353,6 +365,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		     msg_async = false;
 		     msg_session = true;
 		     msg_has_effect = false;
+		     msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 		     msg_tag = FromObject GetRecord } in
 
   (* Get Record (private db version) *)
@@ -385,7 +398,9 @@ let messages_of_obj (x: obj) document_order : message list =
 		  msg_hide_from_docs = true } in
 
   (* Optional public version *)
-  let get_all_public = { get_all with msg_release = x.obj_release; msg_tag = FromObject GetAll; msg_hide_from_docs = false; msg_db_only = false } in
+  let get_all_public = { get_all with msg_release = x.obj_release; msg_tag = FromObject GetAll; msg_hide_from_docs = false; msg_db_only = false;
+    msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
+  } in
 
   (* And the 'get_all_records_where' semi-public function *)
   let get_all_records_where = { get_all_public with 
@@ -396,6 +411,7 @@ let messages_of_obj (x: obj) document_order : message list =
 						 ];
 				  msg_result = Some(Map(Ref x.name, Record x.name), "records of all matching objects");
 				  msg_release = {opensource=[]; internal=x.obj_release.internal; internal_deprecated_since=None};
+				  msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 				  msg_hide_from_docs = true;
 			      } in
   (* And the 'get_all_records' public function *)
@@ -405,6 +421,7 @@ let messages_of_obj (x: obj) document_order : message list =
 			    msg_params = [ ];
 			    msg_result = Some(Map(Ref x.name, Record x.name), "records of all objects");
 			    msg_release = {opensource=[]; internal=x.obj_release.internal; internal_deprecated_since=None};
+			    msg_allowed_roles = x.obj_implicit_msg_allowed_roles;
 			    msg_doc = doccomment x "get_all_records" } in
 
   let name_label = if obj_has_get_by_name_label x then [ get_by_name_label ] else [ ] in

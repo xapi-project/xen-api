@@ -43,7 +43,7 @@ let _ =
   Arg.parse
     [
       "-mode",
-      Arg.Symbol (["client"; "server"; "api"; "db"; "actions"; "sql"],
+      Arg.Symbol (["client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"],
 		  fun x -> mode := Some x),
       "Choose which file to output";
       "-filter",
@@ -76,4 +76,6 @@ let _ =
       Gen_api.gen_custom_actions api
   | Some "sql" ->
       Gen_api.gen_schema api
+  | Some "rbac" ->
+      Gen_api.gen_rbac api
   | Some x -> Printf.eprintf "Didn't recognise mode: %s\n" x

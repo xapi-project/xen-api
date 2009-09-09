@@ -9,6 +9,9 @@ exception Auth_failure of string
 exception Auth_service_error of string
 exception Subject_cannot_be_resolved
 
+(* required fields in subject.other_config *)
+let subject_information_field_subject_name = "subject-name"
+
 type t =
     {
       
