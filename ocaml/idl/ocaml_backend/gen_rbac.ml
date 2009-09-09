@@ -19,7 +19,8 @@ let rec role_idx = function
 let writer_csv static_roles_permissions static_permissions_roles =
 	(Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
 		(let t =Log.gettimestring () in (String.sub t 0 ((String.length t)-1)))
-		(List.fold_left (fun rr (r,_)->rr^r^",") "" static_roles_permissions)
+		(* role titles are ordered by roles in roles_all *)
+		(List.fold_left (fun rr r->rr^r^",") "" Datamodel.roles_all)
 	)
 	^List.fold_left
 		(fun acc (permission,roles) ->
@@ -27,7 +28,7 @@ let writer_csv static_roles_permissions static_permissions_roles =
 			^(List.fold_left 
 				(fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc) 
 				"" 
-				(List.rev Datamodel.roles_all)
+				(List.rev Datamodel.roles_all) (* Xs are ordered by roles in roles_all *)
 			)
 			^"\n"
 			^acc
@@ -217,6 +218,11 @@ let get_http_permissions_roles =
 		[]
 		Datamodel.http_actions
 
+let get_extra_permissions_roles =
+		List.map 
+			(fun (p,rs)->(p,Pervasiveext.default [] rs)) 
+			Datamodel.extra_permissions
+		
 (* Returns a (permission, static_role list) list generated from datamodel.ml *)
 let gen_roles_of_permissions roles_permissions =
 (*
@@ -268,11 +274,15 @@ let gen_permissions_of_static_roles highapi =
 	let http_roles_permissions = 
 		(gen_roles_of_permissions get_http_permissions_roles) (*http*)
 	in
-	let roles_permissions = (*api+http*)
+	let extra_roles_permisions = (* extra, not associated to api or http calls *)
+		(gen_roles_of_permissions get_extra_permissions_roles)
+	in
+	let roles_permissions = (*api+http+extra*)
 		List.rev
-			(List.fold_left (fun arps (hr,hps) -> (concat (hr,arps,hps)))
+			(List.fold_left
+				(List.fold_left (fun arps (hr,hps) -> (concat (hr,arps,hps))))
 				api_roles_permissions
-				get_http_permissions_roles
+				[get_http_permissions_roles;get_extra_permissions_roles]
 			)
 	in
 	
