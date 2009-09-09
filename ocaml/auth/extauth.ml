@@ -59,6 +59,7 @@ let event_name_after_subject_remove = "after-subject-remove"
 let event_name_after_xapi_initialize = "after-xapi-initialize"
 let event_name_before_extauth_disable = "before-extauth-disable"
 let event_name_after_extauth_enable = "after-extauth-enable"
+let event_name_after_roles_update = "after-roles-update"
 let get_event_params ~__context host =
 	let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
 	let service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in
