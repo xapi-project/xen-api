@@ -2831,9 +2831,10 @@ let guest_memory =
 	]
 
 (** Host Memory *)
-let host_memory = 
+let host_memory =
 	let field = field ~ty:Int in
 	[
+		field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~default_value:(Some (VInt 0L));
 		field ~qualifier:DynamicRO "overhead" "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
 	]
 

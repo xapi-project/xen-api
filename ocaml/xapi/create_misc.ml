@@ -344,6 +344,7 @@ let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabili
 			~name_description ~name_label ~uuid ~other_config:[]
 			~capabilities
 			~cpu_configuration:[]   (* !!! FIXME hard coding *)
+			~memory_total:0L        (* !!! FIXME hard coding *)
 			~memory_overhead:0L     (* !!! FIXME hard coding *)
 			~sched_policy:"credit"  (* !!! FIXME hard coding *)
 			~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
