@@ -7,8 +7,23 @@ open Attach_helpers
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+let allowed_dom0_directory_for_provision_scripts =
+  "/opt/xensource/packages/post-install-scripts/"
+
+let is_whitelisted script =
+  let safe_char = function 'a'..'z'-> true |'-'->true |'/'->true |_ -> false in
+  let safe_str str = List.fold_left (&&) true (List.map safe_char (Stringext.String.explode str)) in
+  (* make sure the script prefix is the allowed dom0 directory *)
+  (Stringext.String.startswith allowed_dom0_directory_for_provision_scripts script)
+  (* avoid ..-style attacks and other weird things *)
+  &&(safe_str script)
+let assert_script_is_whitelisted script =
+  if not (is_whitelisted script) then
+    raise (Api_errors.Server_error (Api_errors.permission_denied, [
+      (Printf.sprintf "illegal provision script %s" script)]))
+
 (** Execute the post install script of 'vm' having attached all the vbds to the 'install_vm' *)
-let post_install_script rpc session_id __context install_vm vm (script, vbds) = 
+let post_install_script rpc session_id __context install_vm vm (script, vbds) =
   (* Cancellable task *)
   TaskHelper.set_cancellable ~__context;
 
@@ -17,6 +32,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
   match script with
   | None -> () (* nothing to do *)
   | Some script ->
+      assert_script_is_whitelisted script;
       let vdis = List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds in
       let uuids = List.map (fun self -> Uuid.of_string (Client.VDI.get_uuid rpc session_id self)) vdis in
       with_vbds rpc session_id __context install_vm vdis `RW
