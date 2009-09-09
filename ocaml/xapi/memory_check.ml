@@ -235,14 +235,17 @@ let host_compute_memory_overhead ~__context ~host =
 	(* to time and simply fetch the existing cached value from the database. *)
 	Db.Host.get_memory_overhead ~__context ~self:host
 
-let vm_compute_memory_overhead snapshot = 
-  let multiplier = snapshot.API.vM_HVM_shadow_multiplier in
-  let vcpu_count = snapshot.API.vM_VCPUs_max in
-  let static_max_bytes = snapshot.API.vM_memory_static_max in
-  let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
-  let memory_overhead_mib = 
-    if Helpers.is_hvm snapshot
-    then Memory.HVM.overhead_mib static_max_mib (Int64.to_int vcpu_count) multiplier
-    else Memory.Linux.overhead_mib in
-  Memory.bytes_of_mib memory_overhead_mib
-
+let vm_compute_memory_overhead snapshot =
+	let memory_overhead_mib =
+		if Helpers.is_hvm snapshot
+		then begin
+			let static_max_bytes = snapshot.API.vM_memory_static_max in
+			let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
+			let multiplier = snapshot.API.vM_HVM_shadow_multiplier in
+			let vcpu_count = snapshot.API.vM_VCPUs_max in
+			Memory.HVM.overhead_mib
+				static_max_mib (Int64.to_int vcpu_count) multiplier
+		end else
+			Memory.Linux.overhead_mib
+	in
+	Memory.bytes_of_mib memory_overhead_mib
