@@ -316,6 +316,8 @@ let pool_auth_disable_failed = "POOL_AUTH_DISABLE_FAILED"
 let subject_cannot_be_resolved = "SUBJECT_CANNOT_BE_RESOLVED"
 let auth_service_error = "AUTH_SERVICE_ERROR"
 let subject_already_exists = "SUBJECT_ALREADY_EXISTS"
+let role_not_found = "ROLE_NOT_FOUND"
+let role_already_exists = "ROLE_ALREADY_EXISTS"
 
 let certificate_does_not_exist = "CERTIFICATE_DOES_NOT_EXIST"
 let certificate_already_exists = "CERTIFICATE_ALREADY_EXISTS"

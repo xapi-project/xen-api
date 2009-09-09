@@ -76,6 +76,7 @@ let _blob = "blob"
 let _message = "message"
 let _auth = "auth"
 let _subject = "subject"
+let _role = "role"
 
 (******************************************************************************************************************)
 (* Define additional RPCs for objects *)
@@ -159,6 +160,7 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?interna
     msg_db_only = db_only;
     msg_release = call_release;
     msg_has_effect = effect; msg_tag = tag; msg_obj_name="";
+    msg_force_custom = false;
     msg_errors = List.map (Hashtbl.find errors) errs; msg_secret = secret;
     msg_custom_marshaller = custom_marshaller;
     msg_no_current_operations = no_current_operations;
@@ -491,6 +493,12 @@ let _ =
     ~doc:"Error querying the external directory service." ();
   error Api_errors.subject_already_exists []
     ~doc:"Subject already exists." ();
+
+  (* RBAC *)
+  error Api_errors.role_not_found []
+    ~doc: "Role cannot be found." ();
+  error Api_errors.role_already_exists []
+    ~doc: "Role already exists." ();
 
   (* wlb errors*)
   error Api_errors.wlb_not_initialized []
@@ -2286,7 +2294,7 @@ let vbd_assert_attachable = call
 
 (** Make an object field record *)
 let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(internal_only = false)
-    ?internal_deprecated_since
+    ?internal_deprecated_since ?(ignore_foreign_key = false)
     ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true) name desc =
   
 
@@ -2298,7 +2306,8 @@ let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(interna
 	  full_name=[ name ];
 	  field_description=desc;
 	  field_persist=persist;
-	  field_has_effect = effect }
+	  field_has_effect = effect;
+	  field_ignore_foreign_key = ignore_foreign_key }
 
 let uid ?(in_oss_since=Some "3.0.3") refname = field ~in_oss_since ~qualifier:DynamicRO ~ty:(String) "uuid" "unique identifier/object reference"
 
@@ -2317,10 +2326,10 @@ let namespace ~name ~contents =
   Namespace(name, List.map prefix contents)
 
 (** Create an object and map the object name into the messages *)
-let create_obj ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_constructor_destructor ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db =
+let create_obj ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_constructor_destructor ?force_custom_actions:(force_custom_actions=false) ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db () =
     let msgs = List.map (fun m -> {m with msg_obj_name=name}) messages in
     { name = name; description = descr; messages = msgs; contents = contents;
-      doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor;
+      doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
       persist = persist; gen_events = gen_events; obj_release = {internal=get_product_releases in_product_since; opensource=get_oss_releases in_oss_since; internal_deprecated_since = internal_deprecated_since};
       in_database=in_db;
     }
@@ -2466,7 +2475,7 @@ let pbd_unplug = call
 let session = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session ~descr:"A session" ~gen_events:false
     ~doccomments:[]
-    ~messages:[session_login; session_logout; session_chpass; 
+    ~messages:[session_login; session_logout; session_chpass;
 	       slave_login; 
 	       slave_local_login; slave_local_login_with_password; local_logout;
 	       session_get_all_subject_identifiers; session_logout_subject_identifier;
@@ -2486,6 +2495,7 @@ let session =
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VDateTime(Date.of_float 0.))) ~ty:DateTime "validation_time" "time when session was last validated";
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		]
+	()
 
 (** Many of the objects have a set of names of various lengths: *)
 let names in_oss_since qual =
@@ -2561,7 +2571,8 @@ let task =
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
-    ])
+    ]) 
+    ()
 
 (** Many of the objects need to record IO bandwidth *)
 let iobandwidth =
@@ -2578,6 +2589,7 @@ let user =
 	field "fullname" "full name";
 	  field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
+    ()
 
 (** Guest Memory *)
 let guest_memory =
@@ -2651,6 +2663,7 @@ let host_crashdump =
       field ~qualifier:StaticRO ~ty:String ~in_oss_since:None ~internal_only:true "filename" "filename of crash dir";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
     ] 
+    ()
 
 (* New Miami pool patching mechanism *)
 
@@ -2729,7 +2742,7 @@ let pool_patch =
       field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set pool_patch_after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
       field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
     ] 
-
+	()
 
 (* Management of host patches. Just like the crash dumps it would be marginally neater if
    the patches were stored as VDIs. *)
@@ -2770,6 +2783,7 @@ let host_patch =
       field ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_patch) ~default_value:(Some (VRef "")) "pool_patch" "The patch applied";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
     ]
+    ()
 
 let host_bugreport_upload = call
   ~name:"bugreport_upload"
@@ -3135,6 +3149,7 @@ let host =
 
 
  ])
+	()
 
 let host_metrics = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_metrics ~descr:"The metrics associated with a host" ~gen_events:true
@@ -3146,6 +3161,7 @@ let host_metrics =
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
+	()
 
 (** HostCPU *)
 
@@ -3167,6 +3183,7 @@ let hostcpu =
 	field ~qualifier:DynamicRO ~persist:false ~ty:Float "utilisation" "the current CPU utilisation";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
 ]
+	()
 
 (** Disk and network interfaces are associated with QoS parameters: *)
 let qos devtype =
@@ -3235,6 +3252,7 @@ let network =
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
       field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
        ])
+     ()
 
 let pif_create_VLAN = call
   
@@ -3404,7 +3422,7 @@ let pif =
 	field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
       ]
-
+	()
 
 let pif_metrics = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_pif_metrics ~descr:"The metrics associated with a physical network interface"
@@ -3424,6 +3442,7 @@ let pif_metrics =
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
+	()
 
 let bond_create = call
   ~name:"create"
@@ -3452,6 +3471,7 @@ let bond =
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
     ]
+    ()
 
 let vlan_create = call
   ~name:"create"
@@ -3481,6 +3501,7 @@ let vlan =
        field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_miami "tag" "VLAN tag in use" ~default_value:(Some (VInt (-1L)));
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";	  
      ])
+    ()
 
  let pbd_set_device_config = call
    ~name:"set_device_config"
@@ -3506,6 +3527,7 @@ let pbd =
       field ~ty:Bool ~qualifier:DynamicRO "currently_attached" "is the SR currently attached on this host?";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
     ]
+    ()
 
 (* These are included in vbds and vifs -- abstracted here to keep both these uses consistent *)
 let device_status_fields =
@@ -3558,6 +3580,7 @@ let vif =
 	 [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) "metrics" "metrics associated with this VIF";
 	   field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated" "true if the MAC was autogenerated; false indicates it was set manually"
 	 ])
+	()
 
 let vif_metrics = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vif_metrics ~descr:"The metrics associated with a virtual network device"
@@ -3569,6 +3592,7 @@ let vif_metrics =
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
+	()
 
 let data_source =
   create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs" 
@@ -3583,7 +3607,7 @@ let data_source =
       field ~qualifier:DynamicRO ~ty:Float "max" "the maximum value of the data source";
       field ~qualifier:DynamicRO ~ty:Float "value" "current value of the data source" ]
       
-
+    ()
 
 let storage_operations =
   Enum ("storage_operations", 
@@ -3690,6 +3714,7 @@ let storage_repository =
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
       ])
+	()
 
 (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
 let sm_get_driver_filename = call
@@ -3719,6 +3744,7 @@ let storage_plugin =
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
        field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
      ])
+    ()
 
 (* --- rws: removed this after talking to Andy and Julian
 let filesystem =
@@ -3956,6 +3982,7 @@ let vdi =
 	field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime         "snapshot_time" "Date/time when this snapshot was created.";
 	field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
       ])
+	()
 
 (** Virtual disk interfaces have a mode parameter: *)
 let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed";
@@ -4006,6 +4033,7 @@ let vbd =
      @ device_status_fields @
        [ namespace ~name:"qos" ~contents:(qos "VBD"); ] @
        [ field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics) "metrics" "metrics associated with this VBD"; ])
+	()
 
 let vbd_metrics = 
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vbd_metrics ~descr:"The metrics associated with a virtual block device"
@@ -4017,7 +4045,7 @@ let vbd_metrics =
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
-
+	()
 
 let crashdump_destroy = call
   ~name:"destroy"
@@ -4039,6 +4067,7 @@ let crashdump =
        field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";      
      ])
+	()
 
 let pool_enable_ha = call
   ~in_product_since:rel_miami
@@ -4516,6 +4545,7 @@ let pool =
      field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise";
      field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled";
     ]
+	()
 
 (** Auth class *)
 let auth_get_subject_identifier = call ~flags:[`Session]
@@ -4560,20 +4590,129 @@ let auth =
       auth_get_subject_information_from_identifier;
       auth_get_group_membership;]
     ~contents:[]
-
+    ()
 
 (** Subject class *)
+let subject_create = call ~flags:[`Session]
+  ~name:"create"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    String, "subject_identifier", "the subject identifier, unique in the external directory service" ; 
+    Map(String, String), "other_config", "additional configuration" ;
+    (*new subjects must not have roles*)
+    ]
+  ~result:(Ref _subject, "The new subject just created")
+  ~doc:"This call adds a new role to a subject"
+  ()
+let subject_destroy = call ~flags:[`Session]
+  ~name:"destroy"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    Ref _subject, "self", "The subject to be destroyed"
+    ]
+  ~doc:"This call adds a new role to a subject"
+  ()
+let subject_add_to_roles = call ~flags:[`Session]
+  ~name:"add_to_roles"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    Ref _subject, "self", "The subject who we want to add the role to";
+    Ref _role, "role", "The unique role reference" ; 
+    ]
+  ~doc:"This call adds a new role to a subject"
+  ()
+let subject_remove_from_roles = call ~flags:[`Session]
+  ~name:"remove_from_roles"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    Ref _subject, "self", "The subject from whom we want to remove the role";
+    Ref _role, "role", "The unique role reference in the subject's roles field" ; 
+    ]
+  ~doc:"This call removes a role from a subject"
+  ()
+let subject_get_permissions_name_label = call ~flags:[`Session]
+  ~name:"get_permissions_name_label"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    Ref _subject, "self", "The subject whose permissions will be retrieved";
+    ]
+  ~result:(Set(String), "a list of permission names")
+  ~doc:"This call returns a list of permission names given a subject"
+  ()
 (* a subject is a user/group that can log in xapi *)
 let subject =
-  create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_subject ~descr:"A user or group that can log in xapi"
+  create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_subject ~descr:"A user or group that can log in xapi"
     ~gen_events:true
     ~doccomments:[]
-    ~messages: []
+    ~messages: [
+      subject_create;(*customized create: new subjects must not have roles*)
+      subject_destroy;
+      subject_add_to_roles;
+      subject_remove_from_roles;
+      subject_get_permissions_name_label;
+      ]
     ~contents:[uid ~in_oss_since:None _subject;
       field ~in_product_since:rel_george ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "subject_identifier" "the subject identifier, unique in the external directory service";
       field ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~qualifier:StaticRO ~ty:(Map(String, String)) "other_config" "additional configuration";
+      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:StaticRO(*DynamicRO*) ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
       ]
+    ()
 
+(** Role class *)
+let role_get_permissions_name_label = call ~flags:[`Session]
+  ~name:"get_permissions_name_label"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    Ref _role, "self", "the reference of a role";
+    ]
+  ~result:(Set(String), "a list of permission names")
+  ~doc:"This call returns a list of permission names given a role"
+  ()
+
+let role_get_by_permission_name_label = call ~flags:[`Session]
+  ~name:"get_by_permission_name_label"
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~params:[
+    String, "label", "The short friendly name of the role" ;
+    ]
+  ~result:(Set(Ref _role), "a list of references to roles")
+  ~doc:"This call returns a list of roles given a permission name"
+  ()
+
+(* A role defines a set of API call privileges associated with a subject *)
+(* A role is synonymous to permission or privilege *)
+(* A role is a recursive definition: it is either a basic role or it points to a set of roles *)
+(* - full/complete role: is the one meant to be used by the end-user, a root in the tree of roles *)
+(* - basic role: is the 1x1 mapping to each XAPI/HTTP call being protected, a leaf in the tree of roles *)
+(* - intermediate role: an intermediate node in the recursive tree of roles, usually not meant to the end-user *)
+let role =
+  create_obj ~in_db:true ~in_product_since:rel_midnight_ride ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_role ~descr:"A set of permissions associated with a subject"
+    ~gen_events:true
+    ~force_custom_actions:true
+    ~doccomments:[]
+    ~messages: [
+      (*RBAC2: get_permissions;*)
+      role_get_permissions_name_label;
+      (*RBAC2: get_by_permission;*)
+      role_get_by_permission_name_label;
+      ]
+    ~contents: [uid ~in_oss_since:None _role;
+      namespace ~name:"name" ~contents:(
+        [
+          field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "label" "a short user-friendly name for the role";
+          field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "description" "what this role is for";
+        ]);
+      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:StaticRO ~ty:(Set(Ref _role)) "subroles" "a list of pointers to other roles or permissions";
+      (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
+      ]
+    ()
 
 (** A virtual disk interface *)
 let vtpm =
@@ -4585,6 +4724,7 @@ let vtpm =
       [ uid _vtpm;
 	field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine"; 
 	field ~qualifier:StaticRO ~ty:(Ref _vm) "backend" "the domain where the backend is located" ]
+	()
 
 (** Console protocols *)
 let console_protocol = Enum("console_protocol", [
@@ -4606,6 +4746,7 @@ let console =
 	field  ~ty:(Map(String, String)) "other_config" "additional configuration";
 	field ~in_oss_since:None ~internal_only:true ~ty:Int "port" "port in dom0 on which the console server is listening";
       ]
+	()
 
 (* PV domain booting *)
 let pv =
@@ -4809,6 +4950,7 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
 
       ])
+	()
 
 let vm_memory_metrics = 
   [
@@ -4838,6 +4980,7 @@ let vm_metrics =
 	field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated" ~persist:false;
 	field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~persist:false;
       ]
+	()
 
 (* Some of this stuff needs to persist (like PV drivers vsns etc.) so we know about what's likely to be in the VM even when it's off.
    Other things don't need to persist, so we specify these on a per-field basis *)
@@ -4861,6 +5004,7 @@ let vm_guest_metrics =
       field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
     ]
+    ()
 
 (** events handling: *)
 
@@ -4916,6 +5060,7 @@ let event =
     ];
     persist = PersistNothing;
     in_database=false;
+    force_custom_actions=false;
   }
 
 (** Blobs - binary blobs of data *)
@@ -4944,6 +5089,7 @@ let blob =
       field ~qualifier:DynamicRO ~ty:Int "size" "Size of the binary data, in bytes";
       field ~qualifier:StaticRO ~ty:DateTime "last_updated" "Time at which the data in the blob was last updated";
       field ~qualifier:StaticRO ~ty:String "mime_type" "The mime type associated with this object. Defaults to 'application/octet-stream' if the empty string is supplied"]
+    ()
 
 let message =
   let cls =
@@ -5039,7 +5185,7 @@ let message =
       field ~qualifier:DynamicRO ~ty:String "obj_uuid" "The uuid of the object this message is associated with";
       field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
       field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
-
+    ()
     
 
 (*
@@ -5058,6 +5204,7 @@ let alert =
      field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "system" "system task";
      field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _task) "task" "task related to this alert (null reference if there's no task associated)";
     ]
+    ()
 *)
 
 (******************************************************************************************)
@@ -5068,6 +5215,7 @@ let all_system =
     session;
     auth;
     subject;
+    (role:Datamodel_types.obj);
     task;
     event;
     (* alert; *)
@@ -5155,6 +5303,10 @@ let all_relations =
     (_host_crashdump, "host"), (_host, "crashdumps");
     (_host_patch, "host"), (_host, "patches");
     (_host_patch, "pool_patch"), (_pool_patch, "host_patches");
+
+    (_subject, "roles"), (_subject, "roles");
+    (*(_subject, "roles"), (_role, "subjects");*)
+    (_role, "subroles"), (_role, "subroles");
   ]
 
 (** the full api specified here *)
@@ -5198,7 +5350,7 @@ let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_sourc
     or SR *)
 let expose_get_all_messages_for = [ _task; (* _alert; *) _host; _host_metrics; _hostcpu; _sr; _vm; _vm_metrics; _vm_guest_metrics;
 				    _network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
-				    _crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject ]
+				    _crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role ]
 
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

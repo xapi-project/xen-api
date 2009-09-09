@@ -680,7 +680,8 @@ let gen_cmds rpc session_id =
     (make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
     (make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
     (make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
-    (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config"] rpc session_id) @ 
+    (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @ 
+    (make_param_funs (Client.Role.get_all) (Client.Role.get_all_records_where) (Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
 (*
     (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 *)
@@ -1472,6 +1473,8 @@ let event_wait_gen rpc session_id classname record_matches =
       | "pbd" -> List.map (fun x -> (pbd_record rpc session_id x).fields) (Client.PBD.get_all rpc session_id)
       | "pool" -> List.map (fun x -> (pool_record rpc session_id x).fields) (Client.Pool.get_all rpc session_id)
       | "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
+      | "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
+      | "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
 (*      | "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
       | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
     in
@@ -3581,6 +3584,7 @@ let alert_destroy printer rpc session_id params =
   Client.Alert.destroy rpc session_id alert
 *)
 
+(*
 let subject_list printer rpc session_id params = 
   (* we get all subjects from the pool *)
   let subjects = Client.Subject.get_all_records rpc session_id in
@@ -3593,6 +3597,7 @@ let subject_list printer rpc session_id params =
   in
   let all = List.map table_of_subject subjects in
   printer (Cli_printer.PTable all)
+*)
 
 let subject_add printer rpc session_id params = 
   let subject_name = List.assoc "subject-name" params in
@@ -3608,6 +3613,44 @@ let subject_remove printer rpc session_id params =
   let subject_uuid = List.assoc "subject-uuid" params in
   let subject = Client.Subject.get_by_uuid ~rpc ~session_id ~uuid:subject_uuid in
   Client.Subject.destroy ~rpc ~session_id ~self:subject
+
+let subject_role_common rpc session_id params =
+  let role_uuid = if List.mem_assoc "role-uuid" params then List.assoc "role-uuid" params else "" in
+  let role_name = if List.mem_assoc "role-name" params then List.assoc "role-name" params else "" in
+  if role_uuid="" && role_name="" 
+    then failwith "Required parameter not found: role-uuid or role-name"
+  else
+  if role_uuid<>"" && role_name<>""
+    then failwith "Parameters role-uuid and role-name cannot be used together"
+  else
+  let subject_uuid = List.assoc "uuid" params in
+  let role = 
+    if role_uuid<>"" 
+      then Client.Role.get_by_uuid ~rpc ~session_id ~uuid:role_uuid
+      else begin
+        let roles = (Client.Role.get_by_name_label ~rpc ~session_id ~label:role_name) in
+        if List.length roles > 0 
+          then List.hd roles (* names are unique, there's either 0 or 1*)
+          else Ref.null (*role not found* raise (Api_errors.Server_error (Api_errors.role_not_found, []))*)
+      end
+  in
+  let subject = Client.Subject.get_by_uuid ~rpc ~session_id ~uuid:subject_uuid in
+  (subject,role)
+
+let subject_role_add printer rpc session_id params =
+  let (subject,role) = subject_role_common rpc session_id params in
+  Client.Subject.add_to_roles ~rpc ~session_id ~self:subject ~role
+
+let subject_role_remove printer rpc session_id params =
+  let (subject,role) = subject_role_common rpc session_id params in
+  Client.Subject.remove_from_roles ~rpc ~session_id ~self:subject ~role
+
+(* RBAC 2.0 only
+let role_create printer rpc session_id params = 
+  (*let id = List.assoc "id" params in*)
+  let name = List.assoc "name" params in
+  ignore (Client.Role.create ~rpc ~session_id ~name ~description:"" ~permissions:[] ~is_basic:false ~is_complete:false)
+*)
 
 let session_subject_identifier_list printer rpc session_id params =
   let subject_identifiers = Client.Session.get_all_subject_identifiers ~rpc ~session_id in

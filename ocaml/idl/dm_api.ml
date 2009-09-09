@@ -149,7 +149,7 @@ let check api emergency_calls =
 				   failwith "Can't have a Ref field with a side-effect: it makes the destructors too complicated"
 				 | x -> x) system in
   (* Sanity check 3: all Set(Ref _) fields should be DynamicRO *)
-  let (_: obj list) = map_field (function { ty = Set(Ref _); qualifier = q } as x-> 
+  let (_: obj list) = map_field (function { ty = Set(Ref _); qualifier = q; field_ignore_foreign_key=false } as x-> 
 				   if q <> DynamicRO
 				   then failwith (Printf.sprintf "Can't have a Set(Ref _) field which isn't DynamicRO: %s" (String.concat "/" x.full_name)) else x
 				 | x -> x) system in
@@ -162,7 +162,7 @@ let check api emergency_calls =
 				 | x -> x) system in
 
   (* Sanity check 5: no (Set Ref _) fields can have default values *)
-  let (_: obj list) = map_field (function { qualifier=q; release={internal=ir}; default_value=Some _; ty=ty } as x ->
+  let (_: obj list) = map_field (function { qualifier=q; release={internal=ir}; default_value=Some _; ty=ty; field_ignore_foreign_key=false } as x ->
 				   begin
 				     match ty with
 				       (Set (Ref _)) ->

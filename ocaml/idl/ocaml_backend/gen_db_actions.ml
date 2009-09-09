@@ -121,6 +121,12 @@ let string_to_dm tys : O.Module.t =
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys) ()
 
+(** True if a field is actually in this table, false if stored elsewhere
+    (ie Set(Ref _) are stored in foreign tables *)
+let field_in_this_table = function
+  | { DT.ty = DT.Set(DT.Ref _); DT.field_ignore_foreign_key = false } -> false
+  | _ -> true
+
 (* the function arguments are similar to the client, except the Make *)
 let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
   let arg_of_param = function
@@ -131,9 +137,7 @@ let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
 	    (* Client constructor takes all object fields regardless of qualifier
 	       but excluding Set(Ref _) types *)
 	    let fields = DU.fields_of_obj obj in
-	    let fields = List.filter (function { DT.ty = DT.Set(DT.Ref _) } -> false
-				    | _ -> true) fields in
-
+	    let fields = List.filter field_in_this_table fields in
 	    List.map Client.param_of_field fields
 	| _ -> failwith "arg_of_param: encountered a Record in an unexpected place"
 	end
@@ -142,12 +146,6 @@ let args_of_message (obj: obj) ( { msg_tag = tag } as msg) =
   let args = List.map arg_of_param msg.msg_params in
 
   List.concat (ref :: args)
-
-(** True if a field is actually in this table, false if stored elsewhere
-    (ie Set(Ref _) are stored in foreign tables *)
-let field_in_this_table = function
-  | { DT.ty = DT.Set(DT.Ref _) } -> false
-  | _ -> true
 
 (** True if a field is in the client side record (ie not an implementation field) *)
 let client_side_field f = not (f.DT.internal_only)
@@ -232,7 +230,7 @@ let db_action api : O.Module.t =
       let sql_fields = List.map (fun f -> Gen_schema.sql_of_id f.full_name) fields in
 	
       let of_field = function
-	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name } ->
+	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name; DT.field_ignore_foreign_key = false } ->
 	    Printf.sprintf "List.map %s.%s (List.assoc \"%s\" __set_refs)"
 	      _string_to_dm
 	      (OU.alias_of_ty (DT.Ref other))
@@ -303,7 +301,7 @@ let db_action api : O.Module.t =
 	    (Gen_schema.sql_of_id fld.DT.full_name)
 	    Client._self
       | FromField(Getter, { DT.ty = DT.Set(DT.Ref other);
-			    full_name = full_name }) ->
+			    full_name = full_name; DT.field_ignore_foreign_key = false }) ->
 	  read_set_ref obj other full_name
 (*
 	  (* Set(Ref t) is actually stored in the table t *)
