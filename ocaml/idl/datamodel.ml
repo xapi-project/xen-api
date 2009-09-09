@@ -2766,6 +2766,8 @@ let task_destroy = call ~flags:[`Session]
   ~params:[Ref _task, "self", "Reference to the task object"]
   ~allowed_roles:_R_VM_OP (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
   ()
+(* this permission allows to destroy any task, instead of only the owned ones *)
+let extra_permission_task_destroy_any = "task.destroy/any"
 
 let task_allowed_operations =
   Enum ("task_allowed_operations", List.map operation_enum [ task_cancel ])
@@ -2796,6 +2798,7 @@ let task =
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
+      (*field ~qualifier:DynamicRO ~in_product_since:rel_mnr ~default_value:(Some (VRef "")) ~ty:(Ref _subject) "owner" "Ref pointing to the subject owning this task.";*)
     ]) 
     ()
 
@@ -5831,3 +5834,8 @@ let public_http_actions_with_no_rbac_check =
 		"get_root";  (* Make sure that downloads, personal web pages etc do not go through RBAC asking for a password or session_id *)
 		             (* also, without this line, quicktest_http.ml fails on non_resource_cmd and bad_resource_cmd with a 401 instead of 404 *)
 	]
+
+(* permissions not associated with any object message or field *)
+let extra_permissions = [
+	(extra_permission_task_destroy_any, _R_POOL_OP) (* only POOL_OP can destroy any tasks *)
+]
