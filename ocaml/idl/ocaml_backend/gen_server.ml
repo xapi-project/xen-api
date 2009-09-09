@@ -16,12 +16,20 @@ let _concurrency = "Concurrency"
 
 let enable_debugging = ref false
 
+
+let is_session_arg arg =
+  let binding = O.string_of_param arg in
+  let converter = O.type_of_param arg in
+  ((binding = "session_id") && (converter = "ref_session"))
+
 let from_xmlrpc arg =
   let binding = O.string_of_param arg in
   let converter = O.type_of_param arg in
   let checksession =
-    if binding = "session_id" && converter = "ref_session" then
-      Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding (* ****** *)
+    if is_session_arg arg then
+      begin
+      (Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding) (* ****** *)
+      end
     else "" in
     Printf.sprintf "let %s = From.%s \"%s\" %s in%s"
       binding converter binding binding checksession
@@ -137,6 +145,15 @@ let operation (obj: obj) (x: message) =
     match l with
       [] -> []
     | x::xs -> (i,x)::(add_counts (i+1) xs) in
+  let has_session_arg =
+      if is_ctor then is_session_arg Client.session
+      else List.exists (fun a->is_session_arg a) args_without_default_values
+  in
+  let rbac_check_begin = if has_session_arg
+    then ["Rbac.check session_id __call ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
+    else []
+  in
+  let rbac_check_end = if has_session_arg then [") (*RBAC-END*)"] else [] in
   let unmarshall_code =
     (
       (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
@@ -206,7 +223,7 @@ let operation (obj: obj) (x: message) =
       common_let_decs @ side_effect_let_decs @ body_exp in
 
   let all = String.concat "\n        "
-    (comments @ set_intra_pool_only @ unmarshall_code @ (gen_body())) in
+    (comments @ set_intra_pool_only @ unmarshall_code @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
     
     ("    " ^ name_pattern_match ^ "\n" ^
     ("begin\n"

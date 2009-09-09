@@ -1,16 +1,3 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 module D = Debug.Debugger(struct let name="rbac" end)
 open D
 
@@ -95,82 +82,6 @@ let destroy_session_permissions_tbl ~session_id =
 			session_permissions_tbl
 			session_id
 
-(* create a key permission name that can be in the session *)
-let get_key_permission_name permission key_name =
-	permission ^ "/key:" ^ key_name
-
-(* create a key-error permission name that is never in the session *)
-let get_keyERR_permission_name permission err =
-	permission ^ "/keyERR:" ^ err
-
-let permission_of_action ?args ~keys _action =
-	(* all permissions are in lowercase, see gen_rbac.writer_ *)
-	let action = (String.lowercase _action) in
-	if (List.length keys) < 1
-	then (* most actions do not use rbac-guarded map keys in the arguments *)
-		action
-
-	else (* only actions with rbac-guarded map keys fall here *)
-	match args with
-	|None -> begin (* this should never happen *)
-			debug "DENYING access: no args for keyed-action %s" action;
-			get_keyERR_permission_name action "DENY_NOARGS" (* will always deny *)
-		end
-	|Some (arg_keys,arg_values) ->
-		if (List.length arg_keys) <> (List.length arg_values)
-		then begin (* this should never happen *)
-			debug "DENYING access: arg_keys and arg_values lengths don't match: arg_keys=[%s], arg_values=[%s]"
-				((List.fold_left (fun ss s->ss^s^",") "" arg_keys))
-				((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" arg_values))
-			;
-			get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)	
-		end
-		else (* keys and values have the same length *)
-		let rec get_permission_name_of_keys arg_keys arg_values =
-			match arg_keys,arg_values with
-			|[],[]|_,[]|[],_-> (* this should never happen *)
-				begin 
-					debug "DENYING access: no 'key' argument in the action %s" action;
-					get_keyERR_permission_name action "DENY_NOKEY" (* deny by default *)
-				end
-			|k::ks,v::vs->
-				if k<>"key" (* "key" is defined in datamodel_utils.ml *)
-				then
-					(get_permission_name_of_keys ks vs)
-				else (* found "key" in args *)
-					match v with
-					| Xml.Element("value",_,(Xml.PCData key_name_in_args)::[]) 
-					| Xml.Element("value",_,(Xml.Element("string",_,
-						(Xml.PCData key_name_in_args)::[]))::[]) ->
-					begin
-						(*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
-						try 
-						let key_name =
-							List.find
-							(fun key_name ->
-							 if Stringext.String.endswith "*" key_name
-							 then begin (* resolve wildcards at the end *)
-								 Stringext.String.startswith
-									 (String.sub key_name 0 ((String.length key_name) - 1))
-									 key_name_in_args
-							 end
-							 else (* no wildcards to resolve *)
-								 key_name = key_name_in_args
-							)
-							keys
-						in
-							get_key_permission_name action (String.lowercase key_name)
-						with Not_found -> (* expected, key_in_args is not rbac-protected *)
-							action
-					end
-					|_ -> begin (* this should never happen *)
-						 debug "DENYING access: wrong XML value [%s] in the 'key' argument of action %s" (Xml.to_string v) action;
-						 get_keyERR_permission_name action "DENY_NOVALUE"
-					end
-		in
-		get_permission_name_of_keys arg_keys arg_values
-
-
 let is_permission_in_session ~session_id ~permission ~session =
 	let find_linear elem set = List.exists (fun e -> e = elem) set in
 	let find_log elem set = Permission_set.mem elem set in
@@ -212,70 +123,38 @@ let is_access_allowed ~__context ~session_id ~permission =
 
 
 (* Execute fn if rbac access is allowed for action, otherwise fails. *)
+(* If do_rbac_on_entrypoint is true, clone session and make sure *)
+(* it is destroyed aftewards to avoid session leaking *)
 let nofn = fun () -> ()
-let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn session_id action =
-
-	let permission = permission_of_action action ?args ~keys in
+let check ?(extra_dmsg="") ?(extra_msg="") ~__context ~fn session_id action =
+	(* all permissions are in lowercase, see gen_rbac.writer_ *)
+	let permission = String.lowercase action in
 	
 	if (is_access_allowed ~__context ~session_id ~permission)
 	then (* allow access to action *)
 	begin
-		let sexpr_of_args =
-			Rbac_audit.allowed_pre_fn ~__context ~action ?args ()
-		in
-		try
-			let result = (fn ()) (* call rbac-protected function *)
-			in
-			Rbac_audit.allowed_post_fn_ok ~__context ~session_id ~action
-					~permission ?sexpr_of_args ?args ~result ();
-			result
-		with error-> (* catch all exceptions *)
-			begin
-				Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action 
-					~permission ?sexpr_of_args ?args ~error ();
-				raise error
-			end
+		(fn ()) (* call rbac-protected function *)
 	end
 	else (* deny access to action *)
 	begin
 		let msg=(Printf.sprintf "No permission in user session%s" extra_msg) in
 		debug "%s[%s]: %s %s %s" action permission msg (trackid session_id) extra_dmsg;
-		Rbac_audit.denied ~__context ~session_id ~action ~permission 
-			?args ();
 		raise (Api_errors.Server_error 
 			(Api_errors.rbac_permission_denied,[permission;msg]))
 	end
 
-let get_session_of_context ~__context ~permission =
-	try (Context.get_session_id __context)
-	with Failure _ -> raise (Api_errors.Server_error
-		(Api_errors.rbac_permission_denied,[permission;"no session in context"]))
-
-let assert_permission_name ~__context ~permission =
-	let session_id = get_session_of_context ~__context ~permission in
-	check ~__context ~fn:nofn session_id permission
-
 let assert_permission ~__context ~permission =
-	assert_permission_name ~__context ~permission:permission.role_name_label
-
-(* this is necessary to break dependency cycle between rbac and taskhelper *)
-let init_task_helper_rbac_has_permission_fn =
-	if !TaskHelper.rbac_assert_permission_fn = None
-	then TaskHelper.rbac_assert_permission_fn := Some(assert_permission)
-
-let has_permission_name ~__context ~permission =
-	let session_id = get_session_of_context ~__context ~permission in
-	is_access_allowed ~__context ~session_id ~permission
+	check ~__context ~fn:nofn (Context.get_session_id __context) permission
 
 let has_permission ~__context ~permission =
-	has_permission_name ~__context ~permission:permission.role_name_label
+	is_access_allowed ~__context 
+		~session_id:(Context.get_session_id __context)
+		~permission
 
-let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="check") 
-		?args ~fn session_id action =
-	let task_desc = task_desc^":"^action in
-	Server_helpers.exec_with_new_task task_desc
+let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ~fn session_id action =
+	Server_helpers.exec_with_new_task "rbac_check"
 		(fun __context -> 
-			check ~extra_dmsg ~extra_msg ~__context ?args ~fn session_id action
+			check ~extra_dmsg ~extra_msg ~__context ~fn session_id action
 		)
 
 (* used by xapi_http.ml to decide if rbac checks should be applied *)

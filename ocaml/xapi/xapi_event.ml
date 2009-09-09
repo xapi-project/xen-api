@@ -165,7 +165,7 @@ let assert_subscribed ~__context =
 	Mutex.execute event_lock
 	(fun () ->
 	   if not(Hashtbl.mem subscriptions session) 
-	   then raise (Api_errors.Server_error(Api_errors.session_not_registered, [ Ref.string_of session ])))
+	   then raise (Api_errors.Server_error(Api_errors.session_not_registered, [ Context.trackid_of_session (Some session) ])))
 
 (** Register an interest in events generated on objects of class <class_name> *)
 let register ~__context ~classes = 

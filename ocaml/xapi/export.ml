@@ -392,7 +392,7 @@ let handler (req: request) s =
 
   (* First things first, let's make sure that the request has a valid session or username/password *)
   
-  Xapi_http.assert_credentials_ok "VM.export" req;
+  Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req;
     
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)

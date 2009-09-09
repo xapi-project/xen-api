@@ -200,9 +200,8 @@ let timeout_sessions ~__context =
     List.iter
       (fun (s, active, uuid) ->
 	 debug "Session.destroy _ref=%s uuid=%s (last active %s): %s" (Ref.string_of s) uuid (Date.to_string (Date.of_float active)) doc;
-	 (* Unregister from the event system *)
-	 Xapi_event.on_session_deleted s;
-	 Db.Session.destroy ~__context ~self:s) sessions in
+	 Xapi_session.destroy_db_session ~__context ~self:s
+	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
   then debug "Number of sessions in database (%d) exceeds limit (%d): will delete the oldest" (List.length all_sessions) Xapi_globs.max_sessions;
