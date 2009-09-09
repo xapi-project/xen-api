@@ -62,6 +62,7 @@ type restrictions =
       enable_email : bool;
       enable_performance : bool;
       enable_wlb : bool;
+      enable_rbac : bool;
       restrict_connection : bool;
       platform_filter : bool;
       regular_nag_dialog : bool;
@@ -80,6 +81,7 @@ let to_compact_string (x: restrictions) =
     (if x.enable_email          then "email " else "      ") ^
     (if x.enable_performance    then "perf " else "     ") ^
     (if x.enable_wlb            then "WLB  " else "     ") ^
+    (if x.enable_rbac           then "RBAC " else "     ") ^
     (if x.restrict_connection   then "     " else "Cnx  ") ^
     (if x.platform_filter       then "     " else "Plat ") ^
     (if x.regular_nag_dialog    then " nag " else "     ")
@@ -98,6 +100,7 @@ let most_permissive =
     enable_email = true;
     enable_performance = true;
     enable_wlb = true;
+    enable_rbac = true;
     restrict_connection = false;
     platform_filter = false;
     regular_nag_dialog = false;
@@ -117,6 +120,7 @@ let least_permissive (a: restrictions) (b: restrictions) =
   enable_email          = a.enable_email          && b.enable_email;
   enable_performance    = a.enable_performance    && b.enable_performance;
   enable_wlb            = a.enable_wlb            && b.enable_wlb;
+  enable_rbac           = a.enable_rbac           && b.enable_rbac;
   restrict_connection   = a.restrict_connection   || b.restrict_connection;
   platform_filter       = a.platform_filter       || b.platform_filter;
   regular_nag_dialog    = a.regular_nag_dialog    || b.regular_nag_dialog;
@@ -145,6 +149,7 @@ let _platform_filter = "platform_filter"
 let _restrict_email_alerting = "restrict_email_alerting"
 let _restrict_historical_performance = "restrict_historical_performance"
 let _restrict_wlb = "restrict_wlb"
+let _restrict_rbac = "restrict_rbac"
 let _regular_nag_dialog = "regular_nag_dialog"
 
 let to_assoc_list (x: restrictions) = 
@@ -161,6 +166,7 @@ let to_assoc_list (x: restrictions) =
     (_restrict_email_alerting, string_of_bool (not x.enable_email));
     (_restrict_historical_performance, string_of_bool (not x.enable_performance));
     (_restrict_wlb, string_of_bool (not x.enable_wlb));
+    (_restrict_rbac, string_of_bool (not x.enable_rbac));
     (_regular_nag_dialog, string_of_bool x.regular_nag_dialog);
   ]
 
@@ -182,6 +188,7 @@ let of_assoc_list x =
     enable_email          = Opt.default most_permissive.enable_email          (Opt.map not (find bool_of_string _restrict_email_alerting));
     enable_performance    = Opt.default most_permissive.enable_performance    (Opt.map not (find bool_of_string _restrict_historical_performance));
     enable_wlb            = Opt.default most_permissive.enable_wlb            (Opt.map not (find bool_of_string _restrict_wlb));
+    enable_rbac           = Opt.default most_permissive.enable_rbac           (Opt.map not (find bool_of_string _restrict_rbac));
     regular_nag_dialog    = Opt.default most_permissive.regular_nag_dialog                 (find bool_of_string _regular_nag_dialog);
   }
 
@@ -202,6 +209,7 @@ let common_to_all_skus =
     enable_email = false;
     enable_performance = false;
     enable_wlb = false;
+    enable_rbac = false;
     regular_nag_dialog = true;
   }
 
@@ -221,6 +229,7 @@ let rec restrictions_of_sku = function
 	  enable_email = true;
 	  enable_performance = true;
 	  enable_wlb = true;
+	  enable_rbac = true;
 	  regular_nag_dialog = false;
       }
   | HP Express | Dell Express -> common_to_all_skus
@@ -271,3 +280,6 @@ let license_ok_for_pooling ~__context =
    enabled only on Enterprise and Platinum. *)
 let license_ok_for_wlb ~__context =
   (get()).enable_wlb
+
+let license_ok_for_rbac ~__context =
+  (get()).enable_rbac
