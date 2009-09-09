@@ -70,12 +70,10 @@ class PamSshConfig:
         os.rename(self.temp_fname, "/etc/pam.d/sshd")
         self.installed = True
         
-    def add_subject(self, session, opaque_ref):
+    def add_subject(self, sid):
         # Add a subject to the temporary file
         if self.installed:
             raise Exception, "Cannot add subject once installed "
-        rec = session.xenapi.subject.get_record(opaque_ref)
-        sid = rec['subject_identifier']
         lines = commands.getoutput("/opt/likewise/bin/lw-find-by-sid %s" % sid).split("\n")
         name_lines = filter(lambda x: x.startswith("Name:"), lines)
         if len(name_lines) != 1:
@@ -99,10 +97,15 @@ def rewrite_etc_pamd_ssh(session, args):
     # Rewrite the PAM SSH config using the latest info from Active Directory
     # and the list of subjects from xapi
     try:
-        subjects = session.xenapi.subject.get_all()
         config = PamSshConfig()
+        subjects = session.xenapi.subject.get_all()
+        admin_role = session.xenapi.role.get_by_name_label('pool-admin')[0]
+        # Add each subject which contains the admin role
         for opaque_ref in subjects:
-            config.add_subject(session, opaque_ref)
+            subject_rec = session.xenapi.subject.get_record(opaque_ref)
+            sid = subject_rec['subject_identifier']
+            if admin_role in subject_rec['roles']:
+                config.add_subject(sid)
         config.install()
         return str(True)
     except:
@@ -132,6 +135,9 @@ def after_subject_add(session, args):
 def after_subject_remove(session, args):
     return rewrite_etc_pamd_ssh(session, args)
 
+def after_roles_update(session, args):
+    return rewrite_etc_pamd_ssh(session, args)
+
 def before_extauth_disable(session, args):
     return revert_etc_pamd_ssh(session, args)
 
@@ -142,6 +148,7 @@ if __name__ == "__main__":
         "after-xapi-initialize": after_xapi_initialize, 
         "after-subject-add":     after_subject_add, 
         "after-subject-remove":  after_subject_remove, 
+        "after-roles-update":    after_roles_update, 
         "before-extauth-disable":before_extauth_disable,
     }
     XenAPIPlugin.dispatch(dispatch_tbl)
