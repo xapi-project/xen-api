@@ -110,6 +110,7 @@ OCamlProgram(xapi, $(COMMON) \
 	../auth/extauth_plugin_ADlikewise \
 	../auth/parse_likewise \
 	xapi_subject \
+	xapi_role \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
 	xapi_vm_snapshot \

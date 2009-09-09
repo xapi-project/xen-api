@@ -414,6 +414,52 @@ let subject_record rpc session_id subject =
   make_field ~name:"subject-identifier"       ~get:(fun () -> (x ()).API.subject_subject_identifier) (); 
   make_field ~name:"other-config"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.subject_other_config)
      ~get_map:(fun () -> (x ()).API.subject_other_config) ();
+  make_field ~name:"roles"
+     ~get:(fun () -> String.concat "; " 
+       (try 
+          List.map 
+            (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid) 
+            (Client.Subject.get_roles rpc session_id subject)
+        with _ -> []
+       )
+      )
+     ~expensive:false
+     ~get_set:(fun () -> try List.map
+        (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid) 
+        (Client.Subject.get_roles rpc session_id subject) with _ -> [])
+     ();
+]}
+
+let role_record rpc session_id role = 
+  let _ref = ref role in
+  let empty_record = ToGet (fun () -> Client.Role.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+[
+  make_field ~name:"uuid"             ~get:(fun () -> (x ()).API.role_uuid) ();
+  make_field ~name:"name"             ~get:(fun () -> (x ()).API.role_name_label) ();
+  make_field ~name:"description"             ~get:(fun () -> (x ()).API.role_name_description) ();
+  make_field ~name:"subroles"
+     ~get:(fun () -> String.concat "; " 
+       (try 
+         List.map 
+           (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid)(*Ref.string_of*) 
+           (Client.Role.get_subroles rpc session_id role)
+        with _ -> []
+       )
+      )
+     ~expensive:false
+     ~get_set:(fun () -> try List.map 
+       (fun self -> try Client.Role.get_name_label rpc session_id self with _ -> nid) (*Ref.string_of*) 
+       (Client.Role.get_subroles rpc session_id role) with _ -> [])
+    ();
+  (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
+  (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
 ]}
 
 (*
