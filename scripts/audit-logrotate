@@ -1,0 +1,7 @@
+/var/log/audit.log {
+    missingok
+    sharedscripts
+    postrotate
+	/opt/xensource/bin/xe log-reopen 2> /dev/null || true
+    endscript
+}

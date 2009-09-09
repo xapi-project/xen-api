@@ -5812,6 +5812,7 @@ let http_actions = [
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
 		      [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, []));
   ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, []));
+  ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)
   ("post_root", (Post, "/", false, [], _R_READ_ONLY, []));

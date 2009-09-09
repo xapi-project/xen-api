@@ -126,19 +126,31 @@ let is_access_allowed ~__context ~session_id ~permission =
 (* If do_rbac_on_entrypoint is true, clone session and make sure *)
 (* it is destroyed aftewards to avoid session leaking *)
 let nofn = fun () -> ()
-let check ?(extra_dmsg="") ?(extra_msg="") ~__context ~fn session_id action =
+let check ?(extra_dmsg="") ?(extra_msg="") ?(__params) ~__context ~fn session_id action =
 	(* all permissions are in lowercase, see gen_rbac.writer_ *)
 	let permission = String.lowercase action in
 	
 	if (is_access_allowed ~__context ~session_id ~permission)
 	then (* allow access to action *)
 	begin
-		(fn ()) (* call rbac-protected function *)
+		try
+			let result = (fn ()) (* call rbac-protected function *)
+			in
+			Rbac_audit.allowed_ok ~__context ~session_id ~action
+					~permission ~__params ~result ();
+			result
+		with error-> (* catch all exceptions *)
+			begin
+				Rbac_audit.allowed_error ~__context ~session_id ~action 
+					~permission ~__params ~error ();
+				raise error
+			end
 	end
 	else (* deny access to action *)
 	begin
 		let msg=(Printf.sprintf "No permission in user session%s" extra_msg) in
 		debug "%s[%s]: %s %s %s" action permission msg (trackid session_id) extra_dmsg;
+		Rbac_audit.denied ~__context ~session_id ~action ~permission ~__params ();
 		raise (Api_errors.Server_error 
 			(Api_errors.rbac_permission_denied,[permission;msg]))
 	end
