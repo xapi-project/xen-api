@@ -3509,18 +3509,18 @@ let network_create_new_blob = call
 let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
       ~messages:[ network_attach; network_pool_introduce; network_create_new_blob ] ~contents: 
       ([
       uid _network;
-      namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
-    ] @ (allowed_and_current_operations network_operations) @ [
+      namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW) ();
+    ] @ (allowed_and_current_operations ~writer_roles:_R_POOL_OP network_operations) @ [
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "list of connected vifs";
       field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
-      field ~ty:(Map(String, String)) "other_config" "additional configuration" ;
+      field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ;
       field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
-      field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
+      field ~writer_roles:_R_POOL_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
        ])
      ()
 
