@@ -51,34 +51,39 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
     begin
       Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check" (fun __context ->
         let session_id = (Ref.of_string (List.assoc "session_id" all)) in
-        try
-          validate_session __context session_id realm;
-          Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
-        with _ -> raise (Http.Unauthorised realm)
+        (try validate_session __context session_id realm;
+         with _ -> raise (Http.Unauthorised realm));
+        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+         with _ -> raise (Http.Forbidden));
       );
     end
   else
   if List.mem_assoc "pool_secret" all
   then begin
-    try
-      let session_id = Client.Session.slave_login inet_rpc (Helpers.get_localhost ()) (List.assoc "pool_secret" all) in
-      Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn;
-      Client.Session.logout inet_rpc session_id;
-      ()
+    let session_id = try
+      Client.Session.slave_login inet_rpc (Helpers.get_localhost ()) (List.assoc "pool_secret" all)
     with _ -> raise (Http.Unauthorised realm)
+    in
+    Pervasiveext.finally
+      (fun ()->
+        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+        with _ -> raise (Http.Forbidden)))
+      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
   end
   else
     begin
       match req.Http.auth with
 	| Some (Http.Basic(username, password)) ->
-	    begin
-	      try
-		let session_id = Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string in
-		Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn;
-		Client.Session.logout inet_rpc session_id;
-		()
-	      with _ ->
-		raise (Http.Unauthorised realm)		  
+	  begin
+	    let session_id = try
+	      Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string
+	    with _ -> raise (Http.Unauthorised realm)
+	    in
+	    Pervasiveext.finally
+	      (fun ()->
+	        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+	         with _ -> raise (Http.Forbidden)))
+	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
 	    end
 	| Some (Http.UnknownAuth x) ->
 	    raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))

@@ -15,6 +15,7 @@ module D :
 (** Exception raised when parsing start line of request *)
 exception Http_parse_failure
 exception Unauthorised of string
+exception Forbidden
 
 type authorization = 
     | Basic of string * string
