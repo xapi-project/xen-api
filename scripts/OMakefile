@@ -15,6 +15,7 @@ install:
 	$(IPROG) xapi-health-check $(DIST)/staging/opt/xensource/libexec
 	$(IPROG) license-check.py $(DIST)/staging/opt/xensource/libexec
 	$(IPROG) mail-alarm $(DIST)/staging/opt/xensource/libexec
+	$(IPROG) audit-logrotate $(DIST)/staging/etc/logrotate.d/audit
 	$(IPROG) xapi-logrotate $(DIST)/staging/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DIST)/staging/opt/xensource/bin/
 	$(IPROG) xapi-autostart-vms $(DIST)/staging/opt/xensource/bin/

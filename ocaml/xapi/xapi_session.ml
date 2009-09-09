@@ -110,6 +110,7 @@ let destroy_db_session ~__context ~self =
   (* see also task creation in context.ml *)
   (* CP-982: create tracking id in log files to link username to actions *)
   info "Session.destroy %s" (trackid self);
+	Rbac_audit.session_destroy ~__context ~session_id:self;
   Db.Session.destroy ~__context ~self;
   Rbac.destroy_session_permissions_tbl ~session_id:self
 
@@ -261,6 +262,7 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
 	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
 	                  ~rbac_permissions ~is_entrypoint_verified:false;
+	Rbac_audit.session_create ~__context ~session_id;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
 	let rpc = Helpers.make_rpc ~__context in
