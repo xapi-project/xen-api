@@ -102,3 +102,6 @@ let gen_db_actions highapi =
 
 let gen_schema highapi = 
   print_endline (Gen_schema.sql_schema highapi)
+
+let gen_rbac highapi =
+  print_endline (Gen_rbac.gen_permissions_of_static_roles highapi)

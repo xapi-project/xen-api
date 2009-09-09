@@ -23,7 +23,15 @@ let _task_id = "task_id"
 
 
 let operation_requires_side_effect ({ msg_tag = tag } as msg) = 
-  msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
+  (match msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
+    with None -> false | Some (mode) -> 
+      if mode=RW then true (*RW=force both setters and getters into custom_actions *)
+      else (*{Static/Dynamic}RO=force only getters into custom_actions *)
+        (match msg with
+        | { msg_tag = FromField((Setter|Add|Remove), _) } -> false
+        | { msg_tag = FromObject(Make|Delete) } -> false
+        | _ -> true)
+  )
   ||
   match tag with
   | FromField(Setter, fld) -> fld.DT.field_has_effect

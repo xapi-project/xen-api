@@ -358,7 +358,7 @@ let grant_guest_api_access ~xs ~self domid access_type =
           let session_id = ref (Ref.of_string "") in
 	  Server_helpers.exec_with_new_task "guest" ~task_in_database:true
 	    (fun __context ->
-              session_id := Xapi_session.login_no_password ~__context ~uname:(Some "root") ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
+              session_id := Xapi_session.login_no_password ~__context ~uname:(Some "root") ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~rbac_permissions:[]
                                   ~host:(Helpers.get_localhost ~__context);
               if access_type = InternalNetwork then begin
                 let gi_network = Helpers.get_guest_installer_network ~__context in

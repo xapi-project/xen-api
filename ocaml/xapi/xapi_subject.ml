@@ -43,6 +43,9 @@ let create ~__context ~subject_identifier ~other_config =
 	(* add the new subject to the db *)
 	let ref=Ref.make() in 
 	let uuid=Uuid.to_string (Uuid.make_uuid()) in
+	
+	(* TODO: CP-705: Free Edition: Newly created subjects will have the Pool Administrator role. *)
+	(* TODO: CP-705: Paid-for Edition: Newly created subjects will have an empty role. *)
 	Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config
 		~roles:[];(* we can only create a subject with no roles *)
 	
@@ -137,6 +140,8 @@ let get_permissions_name_label ~__context ~self =
 		)
 
 let add_to_roles ~__context ~self ~role =
+	
+	(* TODO: CP-705: Free Edition: Attempts to add or remove roles will fail with a LICENSE_RESTRICTION error.*)
 	if (Xapi_role.is_valid_role ~__context ~role)
 	then
 		begin
@@ -175,6 +180,8 @@ let add_to_roles ~__context ~self ~role =
 		end
 
 let remove_from_roles ~__context ~self ~role =
+
+	(* TODO: CP-705: Free Edition: Attempts to add or remove roles will fail with a LICENSE_RESTRICTION error.*)
 	if (List.mem role (Db.Subject.get_roles ~__context ~self))
 	then
 		Db.Subject.remove_roles ~__context ~self ~value:role

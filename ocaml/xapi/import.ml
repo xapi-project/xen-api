@@ -601,7 +601,7 @@ let metadata_handler (req: request) s =
 let handler (req: request) s = 
   req.close := true;
 
-  Xapi_http.assert_credentials_ok "VM.import" req;
+  Xapi_http.assert_credentials_ok "VM.import" ~http_action:"put_import" req;
 
   debug "import handler";
 

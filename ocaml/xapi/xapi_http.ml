@@ -29,7 +29,17 @@ open Http
 
 exception NoAuth
 
-let assert_credentials_ok realm (req: request) =
+let get_session_id (req: request) =
+  let all = req.cookie @ req.query in
+  if List.mem_assoc "session_id" all
+  then
+		let session_id = (Ref.of_string (List.assoc "session_id" all)) in
+		session_id
+	else
+		Ref.null
+
+let assert_credentials_ok realm ?(http_action=realm) (req: request) =
+  let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.cookie @ req.query in
   let subtask_of =
     if List.mem_assoc "subtask_of" all
@@ -40,8 +50,23 @@ let assert_credentials_ok realm (req: request) =
     (* Session ref has been passed in - check that it's OK *)
     begin
       Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check" (fun __context ->
-        validate_session __context (Ref.of_string (List.assoc "session_id" all)) realm)
+        let session_id = (Ref.of_string (List.assoc "session_id" all)) in
+        try
+          validate_session __context session_id realm;
+          Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+        with _ -> raise (Http.Unauthorised realm)
+      );
     end
+  else
+  if List.mem_assoc "pool_secret" all
+  then begin
+    try
+      let session_id = Client.Session.slave_login inet_rpc (Helpers.get_localhost ()) (List.assoc "pool_secret" all) in
+      Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn;
+      Client.Session.logout inet_rpc session_id;
+      ()
+    with _ -> raise (Http.Unauthorised realm)
+  end
   else
     begin
       match req.Http.auth with
@@ -49,6 +74,7 @@ let assert_credentials_ok realm (req: request) =
 	    begin
 	      try
 		let session_id = Client.Session.login_with_password inet_rpc username password Xapi_globs.api_version_string in
+		Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn;
 		Client.Session.logout inet_rpc session_id;
 		()
 	      with _ ->
@@ -56,8 +82,9 @@ let assert_credentials_ok realm (req: request) =
 	    end
 	| Some (Http.UnknownAuth x) ->
 	    raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
-	| _ -> 
-	    raise (Http.Unauthorised realm)
+	| _ -> begin 
+	    debug "No header credentials during http connection to %s" realm;
+	    raise (Http.Unauthorised realm) end
     end
 
 let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f = 
@@ -127,11 +154,14 @@ let svr_bind = Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog
 let add_handler (name, handler) =
 
   let action = List.assoc name Datamodel.http_actions in
+  let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
 
 	let h = match handler with
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
-			(try callback req ic
+			(try 
+				(if check_rbac then assert_credentials_ok name req); (* session and rbac checks *)
+				callback req ic
 			with
 			| Api_errors.Server_error(name, params) as e ->
 				error "Unhandled Api_errors.Server_error(%s, [ %s ])" name (String.concat "; " params);
@@ -140,7 +170,9 @@ let add_handler (name, handler) =
 		)
 	| Http_svr.FdIO callback ->
 		Http_svr.FdIO (fun req ic ->
-			(try callback req ic
+			(try 
+				(if check_rbac then assert_credentials_ok name req); (* session and rbac checks *)
+				callback req ic
 			with
 			| Api_errors.Server_error(name, params) as e ->
 				error "Unhandled Api_errors.Server_error(%s, [ %s ])" name (String.concat "; " params);
@@ -149,7 +181,7 @@ let add_handler (name, handler) =
 		)
 	in
 
-    match action with (meth, uri, sdk, sdkargs) ->
+    match action with (meth, uri, sdk, sdkargs, roles, sub_actions) ->
       let ty = match meth with
 	  Datamodel.Get -> Http.Get
 	| Datamodel.Put -> Http.Put

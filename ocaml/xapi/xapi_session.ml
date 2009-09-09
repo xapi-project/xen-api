@@ -26,8 +26,6 @@ let do_local_auth uname pwd =
 let do_local_change_password uname newpwd =
   Mutex.execute serialize_auth (fun () -> Pam.change_password uname newpwd)
 
-let get_allowed_messages  ~__context ~self = []
-
 let trackid session_id = (Context.trackid_of_session (Some session_id))
 
 (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
@@ -40,6 +38,31 @@ let get_subject_in_intersection ~__context subjects_in_db intersection =
 	List.find (fun subj -> (* is this the subject ref that returned the non-empty intersection?*)
 		(List.hd intersection) = (Db.Subject.get_subject_identifier ~__context ~self:subj)
 	) subjects_in_db
+
+let get_permissions ~__context ~subject_membership = (* see also rbac.ml *)
+	let get_union_of_subsets ~get_subset_fn ~set =
+		Listext.List.setify
+			(List.fold_left (* efficiently compute unions of subsets in set *) 
+				(fun accu elem -> List.rev_append (get_subset_fn elem) accu)
+				[]
+				set
+			)
+	in
+	let role_membership = 
+		get_union_of_subsets (*automatically removes duplicated roles*)
+			~get_subset_fn:(fun subj -> 
+				Db.Subject.get_roles ~__context ~self:subj)
+			~set:subject_membership
+	in
+	let permission_membership = 
+		get_union_of_subsets (*automatically removes duplicated perms*)
+			~get_subset_fn:(fun role -> 
+				try Xapi_role.get_permissions_name_label ~__context ~self:role
+				with _ -> [] (* if the role disappeared, ignore it *)
+				)
+			~set:role_membership
+	in
+	permission_membership
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
 let is_subject_suspended subject_identifier =
@@ -80,14 +103,15 @@ let is_subject_suspended subject_identifier =
 	end
 
 let destroy_db_session ~__context ~self = 
-  Xapi_event.on_session_deleted self;
+  Xapi_event.on_session_deleted self; (* unregister from the event system *)
   (* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
   (* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
   (* logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
   (* see also task creation in context.ml *)
   (* CP-982: create tracking id in log files to link username to actions *)
   info "Session.destroy %s" (trackid self);
-  Db.Session.destroy ~__context ~self
+  Db.Session.destroy ~__context ~self;
+  Rbac.destroy_session_permissions_tbl ~session_id:self
 
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
@@ -216,7 +240,7 @@ let revalidate_all_sessions ~__context =
 
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
-let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid =
+let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~rbac_permissions =
 	let session_id = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let user = Ref.null in (* always return a null reference to the deprecated user object *)
@@ -235,7 +259,8 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	                  ~this_user:user ~this_host:host ~pool:pool
 	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
-	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ())); 
+	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
+	                  ~rbac_permissions ~is_entrypoint_verified:false;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
 	let rpc = Helpers.make_rpc ~__context in
@@ -271,6 +296,7 @@ let slave_login ~__context ~host ~psecret =
   slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret;
   login_no_password ~__context ~uname:None ~host:host ~pool:true 
       ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
+      ~rbac_permissions:[]
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret = 
@@ -306,7 +332,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 		(* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
 		login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
 			~pool:false ~is_local_superuser:true ~subject:(Ref.null)(*~subject should be undefined here or not??? *)
-			~auth_user_sid:""
+			~auth_user_sid:"" ~rbac_permissions:[]
 	end 
 	else
 	let login_as_local_superuser ()= 
@@ -317,12 +343,15 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
 			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
 				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
+				~rbac_permissions:[]
 		end
 	in	
-	let thread_delay_and_raise_error uname msg =
+	let thread_delay_and_raise_error ?(error=Api_errors.session_authentication_failed) uname msg =
 		let some_seconds = 5.0 in
 		Thread.delay some_seconds; (* sleep a bit to avoid someone brute-forcing the password *)
-		raise (Api_errors.Server_error (Api_errors.session_authentication_failed,[uname;msg]))		
+		if error = Api_errors.session_authentication_failed (*default*)
+		then raise (Api_errors.Server_error (error,[uname;msg]))
+		else raise (Api_errors.Server_error (error,["session.login_with_password";msg]))
 	in
 	(	match (Db.Host.get_external_auth_type ~__context ~self:(Helpers.get_localhost ~__context)) with
 
@@ -413,10 +442,11 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 					) in
 					(* finds the intersection between group_membership_closure and pool's table of subject_ids *)
 					let subjects_in_db = Db.Subject.get_all ~__context in
-					let subject_ids_in_db = List.map (fun subj -> Db.Subject.get_subject_identifier ~__context ~self:subj) subjects_in_db in
+					let subject_ids_in_db = List.map (fun subj -> (subj,(Db.Subject.get_subject_identifier ~__context ~self:subj))) subjects_in_db in
 					let reflexive_membership_closure = subject_identifier::group_membership_closure in
 					(* returns all elements of reflexive_membership_closure that are inside subject_ids_in_db *)
-					let intersection = Listext.List.intersect reflexive_membership_closure subject_ids_in_db in
+					let intersect ext_sids db_sids = List.filter (fun (subj,db_sid) -> List.mem db_sid ext_sids) db_sids in
+					let intersection = intersect reflexive_membership_closure subject_ids_in_db in
 
 					(* 2.3. finally, we create the session for the authenticated subject if any membership intersection was found *)
 					let in_intersection = (List.length intersection > 0) in
@@ -427,12 +457,38 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 						thread_delay_and_raise_error uname msg
 					end
 					else
+						
+					(* compute RBAC structures for the session *)
+					let subject_membership = (List.map (fun (subj_ref,sid) -> subj_ref) intersection) in
+					debug "subject membership intersection with subject-list=[%s]"
+						(List.fold_left 
+							(fun i (subj_ref,sid)-> 
+								let subj_ref= 
+									try (* attempt to resolve subject_ref -> subject_name *)
+										List.assoc
+											Auth_signature.subject_information_field_subject_name
+											(Db.Subject.get_other_config ~__context ~self:subj_ref)
+									with _ -> Ref.string_of subj_ref
+								in if i="" then subj_ref^" ("^sid^")"
+									else i^","^subj_ref^" ("^sid^")"
+							)
+							""
+							intersection
+					);
+					let rbac_permissions = get_permissions ~__context ~subject_membership in
+					(* CP-1260: If a subject has no roles assigned, then authentication will fail with an error such as PERMISSION_DENIED.*)
+					if List.length rbac_permissions < 1 then
+						let msg = (Printf.sprintf "Subject %s (identifier %s) has no roles in this pool" uname subject_identifier) in 
+						info "%s" msg; 
+						thread_delay_and_raise_error uname msg ~error:Api_errors.rbac_permission_denied
+					else
+						
 					begin (* non-empty intersection: externally-authenticated subject has login rights in the pool *)
 						let subject = (* return reference for the subject obj in the db *)
 						              (* obs: this obj ref can point to either a user or a group contained in the local subject db list *) 
 							(try 
 								List.find (fun subj -> (* is this the subject ref that returned the non-empty intersection?*)
-									(List.hd intersection) = (Db.Subject.get_subject_identifier ~__context ~self:subj) 
+									(List.hd intersection) = (subj,(Db.Subject.get_subject_identifier ~__context ~self:subj)) 
 								) subjects_in_db (* goes through exactly the same subject list that we went when computing the intersection, *)
 								                 (* so that no one is able to undetectably remove/add another subject with the same subject_identifier *)
 								                 (* between that time 2.2 and now 2.3 *)
@@ -445,6 +501,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 						) in 
 						login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
 							~pool:false ~is_local_superuser:false ~subject:subject ~auth_user_sid:subject_identifier
+							~rbac_permissions
 					end
 				(* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
 				with

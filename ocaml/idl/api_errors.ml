@@ -318,6 +318,7 @@ let auth_service_error = "AUTH_SERVICE_ERROR"
 let subject_already_exists = "SUBJECT_ALREADY_EXISTS"
 let role_not_found = "ROLE_NOT_FOUND"
 let role_already_exists = "ROLE_ALREADY_EXISTS"
+let rbac_permission_denied = "RBAC_PERMISSION_DENIED"
 
 let certificate_does_not_exist = "CERTIFICATE_DOES_NOT_EXIST"
 let certificate_already_exists = "CERTIFICATE_ALREADY_EXISTS"

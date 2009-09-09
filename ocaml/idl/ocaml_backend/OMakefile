@@ -17,7 +17,7 @@ OCAML_LIBS += ../../sexpr/sexpr
 OCAMLPACKS += stdext uuid
 
 # only gen_api requires datamodel library:
-GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common ../sql_backend/gen_schema xMLRPC ../sql_backend/locking ../../util/date ../api_lowlevel
+GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../sql_backend/gen_schema xMLRPC ../sql_backend/locking ../../util/date ../api_lowlevel
 OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper ../../util/encodings)
 
 FILTER = closed # or opensource or closed or debug or implementation
@@ -40,9 +40,16 @@ $(AUTOGEN_DIR)/custom_actions.ml: gen_api_main
 $(AUTOGEN_DIR)/db_schema.sql: gen_api_main
 	./gen_api_main -filterinternal false -filter nothing -mode sql > $(AUTOGEN_DIR)/db_schema.sql  # note: we do not filter internal fields/messages here
 
+$(AUTOGEN_DIR)/rbac_static.ml: gen_api_main
+	./gen_api_main -filterinternal true -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.ml
+
+$(AUTOGEN_DIR)/rbac_static.csv: gen_api_main
+	./gen_api_main -filterinternal true -gendebug -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.csv
+
 .PHONY:autogen_idl
 autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/server.ml \
-	$(AUTOGEN_DIR)/db_actions.ml $(AUTOGEN_DIR)/custom_actions.ml $(AUTOGEN_DIR)/db_schema.sql
+	$(AUTOGEN_DIR)/db_actions.ml $(AUTOGEN_DIR)/custom_actions.ml $(AUTOGEN_DIR)/db_schema.sql \
+	$(AUTOGEN_DIR)/rbac_static.ml $(AUTOGEN_DIR)/rbac_static.csv
 
 #autogen_idl: gen_api_main
 	#./gen_api_main -filter $(FILTER) -mode client   > $(AUTOGEN_DIR)/client.ml
@@ -51,6 +58,8 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 	#./gen_api_main -filter implementation -mode db       > $(AUTOGEN_DIR)/db_actions.ml
 	#./gen_api_main -filter $(FILTER) -mode actions  > $(AUTOGEN_DIR)/custom_actions.ml
 	#./gen_api_main -filter implementation -mode sql > $(AUTOGEN_DIR)/db_schema.sql
+	#./gen_api_main -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.ml
+	#./gen_api_main -gendebug -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.csv
 
 .PHONY: install
 install:
@@ -116,7 +125,8 @@ SERVER_OBJS = ../sql_backend/gen_schema locking_helpers \
 	      ../../xapi/pool_role \
 	      ../../xapi/xapi_inventory \
 	      ../../xapi/hashtbl_xml \
-	      ../../xapi/localdb
+	      ../../xapi/localdb \
+	      rbac 
 
 _OCAMLPACKS = $(OCAMLPACKS)
 OCAMLPACKS = 
@@ -131,4 +141,4 @@ OCAMLPACKS=$(_OCAMLPACKS)
 
 .PHONY: clean
 clean:
-	rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot doc/* xmlrpc_doc/* aPI.ml client.ml server.ml gen_api gen_api.run gen_api.opt write_out_api write_out_client write_out_db_actions write_out_server gen_api_main
+	rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot doc/* xmlrpc_doc/* aPI.ml client.ml server.ml rbac_static.ml rbac_static.csv gen_api gen_api.run gen_api.opt write_out_api write_out_client write_out_db_actions write_out_server gen_api_main
