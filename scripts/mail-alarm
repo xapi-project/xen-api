@@ -399,6 +399,7 @@ def main():
         chld_stdin.write(msg.generate_email_body())
         chld_stdin.close()
         chld_stdout.close()
+        os.wait()
 
     finally:
         os.unlink(fname)
