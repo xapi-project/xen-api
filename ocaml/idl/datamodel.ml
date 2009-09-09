@@ -5012,7 +5012,9 @@ let subject =
       field ~in_product_since:rel_george ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "subject_identifier" "the subject identifier, unique in the external directory service";
       field ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~qualifier:StaticRO ~ty:(Map(String, String)) "other_config" "additional configuration";
       (* DynamicRO fields do not show up in the constructor, as it should be because a subject must be created without receiving any roles as a parameter *)
-      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
+      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [ 
+        (VRef "OpaqueRef:0165f154-ba3e-034e-6b27-5d271af109ba")])) (* pool-admin, according to rbac_static.ml *)
+        ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
       ]
     ()
 
