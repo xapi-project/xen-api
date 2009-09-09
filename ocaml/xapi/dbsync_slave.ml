@@ -480,6 +480,10 @@ let update_vms ~xal ~__context =
 
 (* record host memory properties in database *)
 let record_host_memory_properties ~__context =
+	let self = !Xapi_globs.localhost_ref in
+	let total_memory_bytes =
+		with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
+	Db.Host.set_memory_total ~__context ~self ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
 	let boot_memory_string =
 		try
@@ -490,8 +494,6 @@ let record_host_memory_properties ~__context =
 			None in
 	maybe
 		(fun boot_memory_string ->
-			let total_memory_bytes =
-				with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
 			let boot_memory_bytes = Int64.of_string boot_memory_string in
 			(* Host memory overhead comes from multiple sources:         *)
 			(* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
@@ -514,7 +516,6 @@ let record_host_memory_properties ~__context =
 			in
 			let nonobvious_overhead_memory_bytes =
 				Memory.bytes_of_kib nonobvious_overhead_memory_kib in
-			let self = !Xapi_globs.localhost_ref in
 			Db.Host.set_boot_free_mem ~__context ~self
 				~value:boot_memory_bytes;
 			Db.Host.set_memory_overhead ~__context ~self ~value:
