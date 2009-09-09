@@ -112,6 +112,7 @@ OCamlProgram(xapi, $(COMMON) \
 	xapi_subject \
 	xapi_role \
 	../autogen/rbac_static \
+	audit_log \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
 	xapi_vm_snapshot \

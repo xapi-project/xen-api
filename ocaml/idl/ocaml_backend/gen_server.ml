@@ -150,7 +150,7 @@ let operation (obj: obj) (x: message) =
       else List.exists (fun a->is_session_arg a) args_without_default_values
   in
   let rbac_check_begin = if has_session_arg
-    then ["Rbac.check session_id __call ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
+    then ["Rbac.check session_id __call ~__params ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
     else []
   in
   let rbac_check_end = if has_session_arg then [") (*RBAC-END*)"] else [] in
