@@ -1934,7 +1934,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 
 *)
-
+(*
     "subject-list",
     {
       reqd=[]; 
@@ -1943,7 +1943,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation= No_fd Cli_operations.subject_list;
       flags=[]
     };
-
+*)
     "subject-add",
     {
       reqd=["subject-name"];
@@ -1962,6 +1962,34 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       flags=[]
     };
 
+    "subject-role-add",
+    {
+      reqd=["uuid"];
+      optn=["role-name"; "role-uuid"];
+      help="Add a role to a subject";
+      implementation= No_fd Cli_operations.subject_role_add;
+      flags=[]
+    };
+
+    "subject-role-remove",
+    {
+      reqd=["uuid"];
+      optn=["role-name"; "role-uuid"];
+      help="Remove a role from a subject";
+      implementation= No_fd Cli_operations.subject_role_remove;
+      flags=[]
+    };
+
+(*  RBAC 2.0 only
+    "role-create",
+    {
+      reqd=["id";"name"];
+      optn=[]; 
+      help="Add a role to the pool";
+      implementation= No_fd Cli_operations.role_create;
+      flags=[]
+    };
+*)
     "session-subject-identifier-list",
     {
       reqd=[];

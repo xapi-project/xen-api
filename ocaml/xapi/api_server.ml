@@ -10,6 +10,7 @@ module Actions = struct
   module Session = Xapi_session
   module Auth = Xapi_auth
   module Subject = Xapi_subject
+  module Role = Xapi_role
   module Event = Xapi_event
   module Alert = Xapi_alert
   module VM = struct

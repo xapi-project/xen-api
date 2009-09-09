@@ -22,7 +22,10 @@ let _task_id = "task_id"
 *)
 
 
-let operation_requires_side_effect ({ msg_tag = tag } as msg) = match tag with
+let operation_requires_side_effect ({ msg_tag = tag } as msg) = 
+  msg.DT.msg_force_custom (* this flag always forces msg into custom_actions.ml *)
+  ||
+  match tag with
   | FromField(Setter, fld) -> fld.DT.field_has_effect
   | FromObject(GetRecord | GetByUuid | GetByLabel | GetAll | GetAllRecordsWhere | GetAllRecords) -> false
   | FromObject(_) -> true

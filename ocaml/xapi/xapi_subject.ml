@@ -43,7 +43,8 @@ let create ~__context ~subject_identifier ~other_config =
 	(* add the new subject to the db *)
 	let ref=Ref.make() in 
 	let uuid=Uuid.to_string (Uuid.make_uuid()) in
-	Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config;
+	Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config
+		~roles:[];(* we can only create a subject with no roles *)
 	
 	(* CP-709: call extauth hook-script after subject.add *)
 	(* we fork this call in a new thread so that subject.add *)
@@ -117,4 +118,74 @@ let update_all_subjects ~__context =
 			(* ignore this exception e, do not raise it again *)
 		end
 	) subjects
+
+(* This function returns all permissions associated with a subject *)
+let get_permissions_name_label ~__context ~self =
+	(* for each role in subject.roles:
+	  fold get_all_permissions ~__context ~role
+	  setify
+	*)
+	Listext.List.setify
+		(List.fold_left 
+			(fun accu role -> 
+				List.rev_append 
+					(Xapi_role.get_permissions_name_label ~__context ~self:role)
+					accu
+			)
+			[]
+			(Db.Subject.get_roles ~__context ~self)
+		)
+
+let add_to_roles ~__context ~self ~role =
+	if (Xapi_role.is_valid_role ~__context ~role)
+	then
+		begin
+			if (List.mem role (Db.Subject.get_roles ~__context ~self))
+			then
+				begin
+					debug "subject %s already has role %s"
+						(Db.Subject.get_subject_identifier
+							~__context
+							~self
+						)
+						(Ref.string_of role); 
+					raise (Api_errors.Server_error
+						(Api_errors.role_already_exists, []))
+				end
+			else
+				(debug "adding role %s to subject %s"
+						(Ref.string_of role) 
+						(Db.Subject.get_subject_identifier
+							~__context
+							~self
+						);
+				Db.Subject.add_roles ~__context ~self ~value:role;
+				debug "subject %s: roles=%s" 
+					(Db.Subject.get_subject_identifier
+							~__context
+							~self
+					)
+					(List.fold_left (fun rr r-> rr^(Ref.string_of r)^",") "" (Db.Subject.get_roles ~__context ~self))
+				)
+		end
+	else
+		begin
+			debug "role %s is not valid" (Ref.string_of role);
+			raise (Api_errors.Server_error(Api_errors.role_not_found, []))
+		end
+
+let remove_from_roles ~__context ~self ~role =
+	if (List.mem role (Db.Subject.get_roles ~__context ~self))
+	then
+		Db.Subject.remove_roles ~__context ~self ~value:role
+	else
+		begin
+			debug "subject %s does not have role %s"
+				(Db.Subject.get_subject_identifier
+					~__context
+					~self
+				)
+				(Ref.string_of role); 
+			raise (Api_errors.Server_error (Api_errors.role_not_found, []))
+		end
 

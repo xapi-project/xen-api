@@ -125,6 +125,7 @@ and message = {
     msg_db_only: bool; (* this is a db_* only message; not exposed through api *)
     msg_release: release;
     msg_has_effect: bool; (* if true it appears in the custom operations *)
+    msg_force_custom: bool; (* unlike msg_has_effect, msg_force_custom always forces msg into custom operations, see gen_empty_custom.ml *)
     msg_no_current_operations: bool; (* if true it doesnt appear in the current operations *)
     msg_tag: tag;
     msg_obj_name: string;
@@ -143,6 +144,7 @@ and field = {
     ty: ty;
     field_description: string;
     field_has_effect: bool;
+    field_ignore_foreign_key: bool;
 }
 
 and error = { 
@@ -178,6 +180,7 @@ type obj = { name : string;
 	     messages : message list;
 	     doccomments : (string * string) list;
 	     gen_constructor_destructor: bool;
+	     force_custom_actions: bool;
 	     gen_events: bool;
 	     persist: persist_option;
 	     obj_release: release;

@@ -198,6 +198,7 @@ let new_messages_of_field x order fld =
 		 msg_secret = false;
 		 msg_release = fld.release;
 		 msg_has_effect = fld.field_has_effect;
+		 msg_force_custom = x.force_custom_actions;
 		 msg_no_current_operations = false;
 		 msg_tag = Custom;
 		 msg_obj_name = x.name;
@@ -227,9 +228,9 @@ let new_messages_of_field x order fld =
 	                        "Set the %s field of the given %s."
 	                        (String.concat "/" fld.full_name) x.name);
 		   msg_tag = FromField(Setter, fld) } in
-  match fld.ty with
-  | Set(Ref _) -> if order = 0 then [getter] else []
-  | Set(t) -> 
+  match (fld.ty, fld.field_ignore_foreign_key) with
+  | Set(Ref _), false -> if order = 0 then [getter] else []
+  | Set(t), _ -> 
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -251,7 +252,7 @@ let new_messages_of_field x order fld =
                          (String.concat "/" fld.full_name) x.name);
 	    msg_tag = FromField(Remove, fld) };
       ]
-  | Map(k, v) -> 
+  | Map(k, v), _ -> 
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -274,7 +275,7 @@ let new_messages_of_field x order fld =
                          (String.concat "/" fld.full_name) x.name);
 	    msg_tag = FromField(Remove, fld) };
       ]
-  | t -> [
+  | t, _ -> [
       if order = 0 then getter else setter
     ] 
 
@@ -297,6 +298,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_no_current_operations = false;
 		 msg_hide_from_docs = false; msg_pool_internal = false;
 		 msg_session=false; msg_release=x.obj_release; msg_has_effect=false; msg_tag=Custom;
+		 msg_force_custom = x.force_custom_actions;
 		 msg_obj_name=x.name } in
   (* Constructor *)
   let ctor = { common with 

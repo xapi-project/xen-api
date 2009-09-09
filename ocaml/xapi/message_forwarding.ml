@@ -459,6 +459,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
+  module Role = Local.Role
   module Task = Local.Task
   module Event = Local.Event
   (* module Alert = Local.Alert *)
