@@ -754,8 +754,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let restore_old_values_on_error = ref false in
 		with_global_lock
 		(fun () ->
-			let host_mem_available = Memory_check.host_compute_free_memory
-				~__context ~host None in
+			let host_mem_available =
+				Memory_check.host_compute_free_memory_with_maximum_compression
+					~__context ~host None in
 			let dynamic_min_change = Int64.sub old_dynamic_min
 				new_dynamic_min in
 			let new_host_mem_available = Int64.add host_mem_available

@@ -34,14 +34,6 @@ type accounting_policy =
 val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
 	host_memory_summary
 
-(**
-	Given a host's memory summary and a policy flag (i.e. whether to only
-	consider static_max or to consider dynamic balloon data) it returns the
-	amount of free memory on the host.
-*)
-val compute_free_memory : __context:Context.t -> host_memory_summary ->
-	accounting_policy -> int64
-
 val vm_compute_required_memory : API.vM_t -> int64 -> int64 * int64
 
 val vm_compute_start_memory : __context:Context.t ->
@@ -53,6 +45,14 @@ val vm_compute_used_memory : __context:Context.t -> accounting_policy ->
 val vm_compute_resume_memory : __context:Context.t -> [`VM] Ref.t -> int64
 
 val vm_compute_migrate_memory : __context:Context.t -> [`VM] Ref.t -> int64
+
+(**
+	Given a host's memory summary and a policy flag (i.e. whether to only
+	consider static_max or to consider dynamic balloon data) it returns a
+	hypothetical amount of free memory on the host.
+*)
+val host_compute_free_memory_with_policy : __context:Context.t ->
+	host_memory_summary -> accounting_policy -> int64
 
 (**
 	Compute, from our managed data, how much memory is available on a host; this
@@ -68,8 +68,8 @@ val vm_compute_migrate_memory : __context:Context.t -> [`VM] Ref.t -> int64
 	If 'dump_stats=true' then we write to the debug log where we think the
 	memory is being used.
 *)
-val host_compute_free_memory : ?dump_stats:bool -> __context:Context.t ->
-	host:[`host] Ref.t -> [`VM] Ref.t option -> int64
+val host_compute_free_memory_with_maximum_compression : ?dump_stats:bool ->
+	__context:Context.t -> host:[`host] Ref.t -> [`VM] Ref.t option -> int64
 
 val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
 	int64
