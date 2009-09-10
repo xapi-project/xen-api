@@ -94,3 +94,7 @@ let pool_join_mem_stat_max = "pool_join_memory_static_max"
 let pool_join_mem_dyn_min = "pool_join_memory_dynamic_min"
 let pool_join_mem_dyn_max = "pool_join_memory_dynamic_max"
 let pool_join_mem_target = "pool_join_memory_target"
+
+(* The unique static rbac ref for the pool-admin role in the roles table *)
+let rbac_pool_admin_uuid = "0165f154-ba3e-034e-6b27-5d271af109ba"
+
