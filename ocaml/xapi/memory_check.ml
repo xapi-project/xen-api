@@ -75,11 +75,8 @@ let vm_compute_used_memory ~__context policy vm_ref =
 	if Xapi_fist.disable_memory_checks () then (0L, 0L) else
 	let vm_main_record = Db.VM.get_record ~__context ~self:vm_ref in
 	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
-	(* Extract the current memory state from the fetched records: *)
 	let memory_static_max = vm_boot_record.API.vM_memory_static_max in
 	let memory_dynamic_min = vm_main_record.API.vM_memory_dynamic_min in
-	(* When phase proportional ballooning is enabled, we trust that *)
-	(* we will be able to balloon guests down to their dynamic_min. *)
 	let ballooning_enabled =
 		Helpers.ballooning_enabled_for_vm ~__context vm_boot_record in
 	let memory_required =
