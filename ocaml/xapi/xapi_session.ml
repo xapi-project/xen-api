@@ -261,7 +261,7 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
 	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
-	                  ~rbac_permissions ~is_entrypoint_verified:false;
+	                  ~rbac_permissions;
 	Rbac_audit.session_create ~__context ~session_id;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
