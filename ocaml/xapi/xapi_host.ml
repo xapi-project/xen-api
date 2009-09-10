@@ -788,7 +788,9 @@ let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode
 
 let compute_free_memory ~__context ~host =
-	Memory_check.host_compute_free_memory ~dump_stats:false ~__context ~host None
+	(*** XXX: Use a more appropriate free memory calculation here. *)
+	Memory_check.host_compute_free_memory_with_maximum_compression
+		~dump_stats:false ~__context ~host None
 
 let compute_memory_overhead ~__context ~host =
 	Memory_check.host_compute_memory_overhead ~__context ~host

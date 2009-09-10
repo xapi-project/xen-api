@@ -156,7 +156,7 @@ let get_host_memory_summary ~__context ~host =
 	consider static_max or to consider dynamic balloon data) it returns the
 	amount of free memory on the host.
 *)
-let compute_free_memory ~__context summary policy =
+let host_compute_free_memory_with_policy ~__context summary policy =
 	let all_vms = summary.resident @ summary.scheduled in
 	let all_vm_memories = List.map (vm_compute_used_memory ~__context policy)
 		all_vms in
@@ -180,7 +180,8 @@ let compute_free_memory ~__context summary policy =
 	If 'dump_stats=true' then we write to the debug log where we think the
 	memory is being used.
 *)
-let host_compute_free_memory ?(dump_stats=false) ~__context ~host
+let host_compute_free_memory_with_maximum_compression
+		?(dump_stats=false) ~__context ~host
 	ignore_scheduled_vm =
 	(*
 		Compute host free memory from what is actually running. Don't rely on
@@ -199,8 +200,8 @@ let host_compute_free_memory ?(dump_stats=false) ~__context ~host
 		| Some ignore_me ->
 			List.filter (fun x -> x <> ignore_me) summary.scheduled
 	} in
-	let host_mem_available = compute_free_memory ~__context summary
-		Dynamic_min (* consider ballooning *) in
+	let host_mem_available = host_compute_free_memory_with_policy
+		~__context summary Dynamic_min (* consider ballooning *) in
 
 	if dump_stats then begin
 		let mib x = Int64.div (Int64.div x 1024L) 1024L in
