@@ -89,7 +89,13 @@ let permissions_label role = (Printf.sprintf "permissions_of_%s" (role_label rol
 
 let role_index = ref 0
 let writer_role name nroles =
-	let role_uuid = role_uuid name in
+	let role_uuid = 
+	  if name = Datamodel.role_pool_admin
+	  (* pool-admin role has a fixed uuid because it's the default role in Datamodel subject's roles field *)
+	  then Constants.rbac_pool_admin_uuid 
+	  (* all the other roles use a hash as uuid *)
+	  else role_uuid name
+	in
 	(*let role_ref = role_ref name in*)
 	let role_name_label =
 		(String.lowercase name) (* lowercase here asked by GUI team *)
