@@ -103,12 +103,14 @@ let non_cdrom_vdis (x: header) =
 let assert_can_restore_backup rpc session_id (x: header) =
   let all_vms = List.filter (fun x -> x.cls = Datamodel._vm) x.objects in
   let all_vms = List.map (fun x -> API.From.vM_t "" x.snapshot) all_vms in
+  let all_vms = List.filter (fun x -> try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id x.API.vM_uuid in false with _ -> true) all_vms in
+
   let get_mac_seed (vm: API.vM_t): string option = 
     if List.mem_assoc Xapi_globs.mac_seed vm.API.vM_other_config
     then Some(List.assoc Xapi_globs.mac_seed vm.API.vM_other_config)
     else None in
 
-  let existing_vms = Client.VM.get_all_records_where rpc session_id "true" in
+  let existing_vms = Client.VM.get_all_records rpc session_id in
   (* Make a table of seed -> VM reference, for error message generation *)
   let existing_seeds_table = List.map (fun (r, rr) -> get_mac_seed rr, Ref.string_of r) existing_vms in
   let existing_seeds : string option list = List.map fst existing_seeds_table in
@@ -129,18 +131,26 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   let task_id = Ref.string_of (Context.get_task_id __context) in
   let vm_record = API.From.vM_t "" x.snapshot in
   (* Do not create a VM which already exists if we do a full restore *)
-  let already_existing_VM () =
-	  try let (_:[`VM] Ref.t) = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in true
-	  with _ -> false in
-  if not (config.full_restore && already_existing_VM ()) then begin
+
+  let get_vm_uuid () = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in
+  let get_vm_name () = try List.hd (Client.VM.get_by_name_label rpc session_id vm_record.API.vM_name_label) with _ -> Ref.null in
+  let vm_uuid_exists () = try ignore (get_vm_uuid ()); true with _ -> false in
+
+  if config.full_restore && vm_uuid_exists () then begin
+	let vm = get_vm_uuid () in
+	state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
+	state.table <- (x.cls, Ref.string_of vm, Ref.string_of vm) :: state.table
+  end else
+
   (* if the VM is a default template, then pick-up the one with the same name *)
   if vm_record.API.vM_is_a_template
 	&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
 	&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
   then begin
-	let template = try List.hd (Db.VM.get_by_name_label ~__context ~label:vm_record.API.vM_name_label) with _ -> Ref.null in
+	let template = get_vm_name () in
 	state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
-  end else
+  end else begin
+
   (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
   let other_config = List.filter 
     (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
@@ -391,6 +401,16 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
  *)
 let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit = 
   let vbd_record = API.From.vBD_t "" x.snapshot in
+
+  let get_vbd () = Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid in
+  let vbd_exists () = try ignore (get_vbd ()); true with _ -> false in 
+
+  if config.full_restore && vbd_exists () then begin
+	let vbd = get_vbd () in
+	state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table;
+	state.table <- (x.cls, Ref.string_of vbd, Ref.string_of vbd) :: state.table
+  end else
+
   let vm = log_reraise 
     ("Failed to find VBD's VM: " ^ (Ref.string_of vbd_record.API.vBD_VM))
     (lookup vbd_record.API.vBD_VM) state.table in
@@ -431,6 +451,16 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
     The VM and Network must have already been handled first. *)
 let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
   let vif_record = API.From.vIF_t "" x.snapshot in
+
+  let get_vif () = Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid in
+  let vif_exists () = try ignore (get_vif ()); true with _ -> false in
+
+  if config.full_restore && vif_exists () then begin
+	let vif = get_vif () in
+	state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table;
+	state.table <- (x.cls, Ref.string_of vif, Ref.string_of vif) :: state.table
+  end else
+
   (* If not restoring a full backup then blank the MAC so it is regenerated *)
   let vif_record = { vif_record with API.vIF_MAC = 
       if config.full_restore then vif_record.API.vIF_MAC else "" } in
@@ -585,6 +615,7 @@ let metadata_handler (req: request) s =
 
 	 let vmrefs = List.map (fun (cls,id,r) -> Ref.of_string r)
 	   (List.filter (fun (cls,id,r) -> cls=Datamodel._vm) table) in
+     let vmrefs = Listext.List.setify vmrefs in
 	 complete_import ~__context vmrefs;
 	 info "import_metadata successful";
        with e ->
