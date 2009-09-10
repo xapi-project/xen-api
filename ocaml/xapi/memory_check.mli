@@ -23,12 +23,12 @@ type host_memory_summary = {
 }
 
 (** Different users will wish to use a different VM accounting policy, depending
-    on how conservative they are. *)
+on how conservative or liberal they are. *)
 type accounting_policy = 
 	| Static_max
-		(** use static_max: super conservative, useful for HA *)
-	| Dynamic_target
-		(** upper-bound on the VMs dynamic memory usage from the master's PoV *)
+		(** use static_max: conservative: useful for HA. *)
+	| Dynamic_min
+		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
 (** Return a host's memory summary from live database contents. *)
 val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
