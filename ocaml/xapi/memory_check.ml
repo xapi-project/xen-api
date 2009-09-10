@@ -43,9 +43,9 @@ let vm_compute_required_memory vm_record guest_memory_kib =
 on how conservative or liberal they are. *)
 type accounting_policy = 
 	| Static_max
-		(** use static_max: super conservative, useful for HA *)
-	| Dynamic_target
-		(** upper-bound on the VMs dynamic memory usage from the master's PoV *)
+		(** use static_max: conservative: useful for HA. *)
+	| Dynamic_min
+		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
 (** Calculates the amount of memory required in both 'normal' and 'shadow'
 memory, to start a VM. If the given VM is a PV guest and if memory ballooning
@@ -54,14 +54,14 @@ target (since PV guests are able to start in a pre-ballooned state). If memory
 ballooning is not enabled or if the VM is an HVM guest, this function returns
 values derived from the VM's static memory maximum (since currently HVM guests
 are not able to start in a pre-ballooned state). *)
-let vm_compute_start_memory ~__context ?(policy=Dynamic_target) vm_record =
+let vm_compute_start_memory ~__context ?(policy=Dynamic_min) vm_record =
 	if Xapi_fist.disable_memory_checks () then (0L, 0L) else
 	let memory_static_max = vm_record.API.vM_memory_static_max in
 	let ballooning_enabled =
 		Helpers.ballooning_enabled_for_vm ~__context vm_record in
 	let memory_dynamic_min = vm_record.API.vM_memory_dynamic_min in
 	let memory_required =
-		if ballooning_enabled && policy = Dynamic_target
+		if ballooning_enabled && policy = Dynamic_min
 		then memory_dynamic_min
 		else memory_static_max in
 	vm_compute_required_memory vm_record
@@ -83,7 +83,7 @@ let vm_compute_used_memory ~__context policy vm_ref =
 	let ballooning_enabled =
 		Helpers.ballooning_enabled_for_vm ~__context vm_boot_record in
 	let memory_required =
-		if ballooning_enabled && policy = Dynamic_target 
+		if ballooning_enabled && policy = Dynamic_min
 		then memory_dynamic_min
 		else memory_static_max in
 	vm_compute_required_memory vm_boot_record
@@ -203,7 +203,7 @@ let host_compute_free_memory ?(dump_stats=false) ~__context ~host
 			List.filter (fun x -> x <> ignore_me) summary.scheduled
 	} in
 	let host_mem_available = compute_free_memory ~__context summary
-		Dynamic_target (* consider ballooning *) in
+		Dynamic_min (* consider ballooning *) in
 
 	if dump_stats then begin
 		let mib x = Int64.div (Int64.div x 1024L) 1024L in
