@@ -444,14 +444,14 @@ let role_record rpc session_id role =
   make_field ~name:"uuid"             ~get:(fun () -> (x ()).API.role_uuid) ();
   make_field ~name:"name"             ~get:(fun () -> (x ()).API.role_name_label) ();
   make_field ~name:"description"             ~get:(fun () -> (x ()).API.role_name_description) ();
-  make_field ~name:"subroles"
+  (*make_field ~name:"subroles"
      ~get:(fun () -> String.concat "; " 
        (try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref)) with _ -> [])
       )
      ~expensive:true
      ~get_set:(fun () -> try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref))
        with _ -> [])
-    ();
+    ();*)
   (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
   (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
 ]}
