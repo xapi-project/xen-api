@@ -277,7 +277,9 @@ let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check
 	let reqd_nets = List.map (fun self -> Db.VIF.get_network ~__context ~self) vifs in
 
 	let assert_enough_memory_available() =
-	  let host_mem_available = Memory_check.host_compute_free_memory ~__context ~host (Some self) in
+		let host_mem_available =
+			Memory_check.host_compute_free_memory_with_maximum_compression
+				~__context ~host (Some self) in
 
 	  let main, shadow = Memory_check.vm_compute_start_memory ~__context snapshot in
 	  let mem_reqd_for_vm = Int64.add main shadow in
@@ -709,7 +711,9 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 
 		(* Make sure enough free memory exists *)
 		let host = Db.VM.get_resident_on ~__context ~self in
-		let free_mem_b = Memory_check.host_compute_free_memory ~__context ~host None in
+		let free_mem_b =
+			Memory_check.host_compute_free_memory_with_maximum_compression
+				~__context ~host None in
 		let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
 		let multiplier_to_record = Xc.with_intf
 		  (fun xc ->
@@ -722,7 +726,9 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		     if not(Memory.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
 		       warn "Failed waiting for Xen to free %d MiB: some memory is not properly accounted" needed_mib;
 		       (* Dump stats here: *)
-		       let (_ : int64) = Memory_check.host_compute_free_memory ~dump_stats:true ~__context ~host None in
+		       let (_ : int64) =
+		         Memory_check.host_compute_free_memory_with_maximum_compression
+		           ~dump_stats:true ~__context ~host None in
 		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
 		     end;
 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;

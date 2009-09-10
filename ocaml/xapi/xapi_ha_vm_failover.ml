@@ -42,7 +42,7 @@ let short_string_of_ref x =
 (** Return a VM -> Host plan for the Host.evacuate code. We assume the VMs are all agile. The returned plan may
     be incomplete if there was not enough memory. *)
 let compute_evacuation_plan ~__context total_hosts remaining_hosts vms_and_snapshots = 
-  let hosts = List.map (fun host -> host, (Memory_check.host_compute_free_memory ~__context ~host None)) remaining_hosts in  
+  let hosts = List.map (fun host -> host, (Memory_check.host_compute_free_memory_with_maximum_compression ~__context ~host None)) remaining_hosts in  
   let vms = List.map (fun (vm, snapshot) -> vm, total_memory_of_vm ~__context Memory_check.Dynamic_min snapshot) vms_and_snapshots in
 
   let config = { Binpack.hosts = hosts; vms = vms; placement = []; total_hosts = total_hosts; num_failures = 1 } in
@@ -193,7 +193,7 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
     (fun host -> 
        (* Ultra-conservative assumption: plan using VM static_max values. *)
        let summary = Memory_check.get_host_memory_summary ~__context ~host in
-       let currently_free = Memory_check.compute_free_memory ~__context summary Memory_check.Static_max in
+       let currently_free = Memory_check.host_compute_free_memory_with_policy ~__context summary Memory_check.Static_max in
        let sum = List.fold_left Int64.add 0L in
        let arriving = List.filter (fun (h, _) -> h = host) change.old_vms_arriving in
        let arriving_memory = sum (List.map (fun (_, (vm_ref, snapshot)) -> total_memory_of_vm ~__context Memory_check.Static_max snapshot) arriving) in
