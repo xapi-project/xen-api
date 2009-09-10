@@ -17,8 +17,6 @@ let wait_for_clone ?progress_minmax ~__context task =
 	let cancel_task () =
 		(* Signal the VDI copy sub-task to cancel *)
 		Db_actions.DB_Action.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of main_task, `cancel)];
-		(* Now we're safe to die *)
-		raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
 	in
 
 	(* Listen for status and progress events on the task *)
@@ -117,6 +115,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 
 	let fold_function (acc,done_so_far) (vbd,size) =
 		try
+			if TaskHelper.is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled, []));
 			let vbd_r = Client.VBD.get_record rpc session_id vbd in
 			(* If the VBD is empty there is no VDI to copy. *)
 			(* If the VBD is a CD then eject it (we cannot make copies of ISOs: they're identified *)
