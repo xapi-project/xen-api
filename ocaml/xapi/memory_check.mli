@@ -14,8 +14,8 @@
 		request is more than the total free.
 *)
 type host_memory_summary = {
-	(** Amount of free memory sampled after booting Xen + crash kernel *)
-	host_free_memory_total: int64;
+	(** The maximum amount of memory that guests can use on this host. *)
+	host_maximum_guest_memory_bytes: int64;
 	(** list of VMs which have a domain running here *)
 	resident: API.ref_VM list;
 	(** list of VMs which are in the process of having a domain created here *)

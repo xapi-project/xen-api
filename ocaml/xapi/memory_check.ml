@@ -125,8 +125,8 @@ let vm_compute_migrate_memory ~__context vm_ref =
 		request is more than the total free.
 *)
 type host_memory_summary = {
-	(** Amount of free memory sampled after booting Xen + crash kernel *)
-	host_free_memory_total: int64;
+	(** The maximum amount of memory that guests can use on this host. *)
+	host_maximum_guest_memory_bytes: int64;
 	(** list of VMs which have a domain running here *)
 	resident: API.ref_VM list;
 	(** list of VMs which are in the process of having a domain created here *)
@@ -136,20 +136,20 @@ type host_memory_summary = {
 open Db_filter_types
 
 (** Return a host's memory summary from live database contents. *)
-let get_host_memory_summary ~__context ~host = 
-	let host_free_memory_total =
-		try Db.Host.get_boot_free_mem ~__context ~self:host
-		with _ -> raise (
-			Api_errors.Server_error (
-				Api_errors.host_cannot_read_metrics, []))
-	in
+let get_host_memory_summary ~__context ~host =
+	let host_memory_total_bytes =
+		Db.Host.get_memory_total ~__context ~self:host in
+	let host_memory_overhead_bytes =
+		Db.Host.get_memory_overhead ~__context ~self:host in
+	let host_maximum_guest_memory_bytes =
+		host_memory_total_bytes --- host_memory_overhead_bytes in
 	let resident = Db.VM.get_refs_where ~__context
 		~expr:(Eq (Field "resident_on", Literal (Ref.string_of host))) in
 	let scheduled = Db.VM.get_refs_where ~__context
 		~expr:(Eq (Field "scheduled_to_be_resident_on", Literal (
 			Ref.string_of host))) in
 	{
-		host_free_memory_total = host_free_memory_total;
+		host_maximum_guest_memory_bytes = host_maximum_guest_memory_bytes;
 		resident = resident;
 		scheduled = scheduled;
 	}
@@ -166,7 +166,7 @@ let compute_free_memory ~__context summary policy =
 	let total_vm_memory = List.fold_left Int64.add 0L
 		(List.map (fun (x, y) -> Int64.add x y) all_vm_memories) in
 	let host_mem_available = Int64.sub
-		summary.host_free_memory_total total_vm_memory in
+		summary.host_maximum_guest_memory_bytes total_vm_memory in
 	max 0L host_mem_available
 
 (**
@@ -208,8 +208,8 @@ let host_compute_free_memory ?(dump_stats=false) ~__context ~host
 	if dump_stats then begin
 		let mib x = Int64.div (Int64.div x 1024L) 1024L in
 		debug "Memory_check: total host memory: %Ld (%Ld MiB)"
-			summary.host_free_memory_total
-			(mib summary.host_free_memory_total);
+			summary.host_maximum_guest_memory_bytes
+			(mib summary.host_maximum_guest_memory_bytes);
 		List.iter
 			(fun v -> 
 				let main, shadow = vm_compute_used_memory ~__context
