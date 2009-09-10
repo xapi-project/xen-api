@@ -2714,7 +2714,6 @@ let session =
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VDateTime(Date.of_float 0.))) ~ty:DateTime "validation_time" "time when session was last validated";
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
-		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VBool false)) ~ty:Bool "is_entrypoint_verified" "if this session is running inside an RBAC-allowed XAPI entry point"
 		]
 	()
 
@@ -2798,7 +2797,6 @@ let task =
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
-      (*field ~qualifier:DynamicRO ~in_product_since:rel_mnr ~default_value:(Some (VRef "")) ~ty:(Ref _subject) "owner" "Ref pointing to the subject owning this task.";*)
     ]) 
     ()
 
