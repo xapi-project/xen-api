@@ -42,12 +42,15 @@ let really_run rpc session () =
 	let with_dummySR_failure f =
 		try f ()
 		with 
-			| Api_errors.Server_error("SR_BACKEND_FAILURE_1", _) -> manager.failure ();
+			| Api_errors.Server_error("SR_BACKEND_FAILURE_1", _) ->
+                            Printf.printf "Received error. Failure is inevitable.\n%!";
+                            manager.failure ();
 			| _ -> ()
 	in
 	
 	(* start/force_shutdown loop for the VM *)
 	let rec start_loop n =
+		Printf.printf "Start/shutdown loop: %d iterations remaining\n%!" n;
 		if n <> 0 && manager.continue () then begin
 			with_dummySR_failure 
 				(fun () -> 
