@@ -2,7 +2,7 @@
 val summarise : unit -> (string * string) list
 
 (** Time the given function and attribute the result to the named population *)
-val time_this : string -> (unit -> unit) -> unit
+val time_this : string -> (unit -> 'a) -> 'a
 
 type dbcallty = Read | Write | Create | Drop
 val log_db_call : string option -> string -> dbcallty -> unit
