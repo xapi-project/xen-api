@@ -29,14 +29,6 @@ module L=Debug.Debugger(struct let name="license" end)
 module W=Debug.Debugger(struct let name="watchdog" end)
 
 
-let show_config () =
-  debug "Server configuration:";
-  debug "product_version: %s" Version.product_version;
-  debug "product_brand: %s" Version.product_brand;
-  debug "build_number: %s" Version.build_number;
-  debug "hg changeset: %s" Version.hg_id;
-  debug "version: %d.%d" Xapi_globs.version_major Xapi_globs.version_minor
-
 let check_control_domain () =
   let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
@@ -761,7 +753,7 @@ let server_init() =
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
     "Reading pool secret", [], Helpers.get_pool_secret;
-    "Logging xapi version info", [], show_config;
+    "Logging xapi version info", [], Helpers.dump_config;
     "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
     "Setting up domain 0 xenstore keys", [], domain0_setup;
