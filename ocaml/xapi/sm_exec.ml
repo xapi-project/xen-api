@@ -13,9 +13,10 @@ module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
 
 let sm_dir = "/opt/xensource/sm"
+let sm_daemon_dir = "/var/xapi/sm"
 
 let cmd_name driver = sprintf "%s/%sSR" sm_dir driver
-
+let daemon_path driver = sprintf "%s/%s" sm_daemon_dir driver
 
 (*********************************************************************************************)
 (* Random utility functions *)
@@ -144,20 +145,33 @@ let with_session sr f =
   let session_id = create_session () in
   Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
-let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
+let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (call: call) =
   let do_call call = 
     let xml = xmlrpc_of_call call in
-    let args = [| cmd_name driver; Xml.to_string xml |] in
-    Array.iter (fun txt -> debug "'%s'" txt) args;
-    
-    let output, stderr = match context with
-      | None           -> spawn_internal args
-      | Some __context ->
-	  let cb_set pid = TaskHelper.set_external_pid ~__context pid
-	  and cb_clear () = TaskHelper.clear_external_pid ~__context in
-	  spawn_internal ~cb_set ~cb_clear args in
-    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
-    match methodResponse (Xml.parse_string output) with
+
+    let name = Printf.sprintf "sm_exec: %s" call.cmd in
+
+    let (xml,stderr) = Stats.time_this name (fun () -> 
+      match ty with 
+	| Daemon ->
+	    (Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:(daemon_path driver) ~path:(Printf.sprintf "/%s" driver) xml,"")
+	| Executable ->
+	    let args = [| cmd_name driver; Xml.to_string xml |] in
+	    Array.iter (fun txt -> debug "'%s'" txt) args;
+	    let output, stderr = 
+	      match context with
+		| None           -> 
+		    spawn_internal args
+		| Some __context ->
+		    let cb_set pid = TaskHelper.set_external_pid ~__context pid
+		    and cb_clear () = TaskHelper.clear_external_pid ~__context in
+		    spawn_internal ~cb_set ~cb_clear args
+	    in
+	    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
+	    ((Xml.parse_string output),stderr))
+    in
+
+    match methodResponse xml with
     | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
     | XMLRPC.Fault(39l, _) ->
 	raise (Api_errors.Server_error (Api_errors.sr_not_empty, []))
@@ -222,7 +236,7 @@ let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
-let parse_sr_get_driver_info driver (xml: Xml.xml) = 
+let parse_sr_get_driver_info driver ty (xml: Xml.xml) = 
   let info = XMLRPC.From.structure xml in
   debug "parsed structure";
   (* Parse the standard strings *)
@@ -274,36 +288,54 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
     sr_driver_required_api_version = required_api_version;
     sr_driver_capabilities = capabilities;
     sr_driver_configuration = configuration;
-    sr_driver_text_capabilities = text_capabilities
+    sr_driver_text_capabilities = text_capabilities;
+    sr_driver_type = ty;
   }
 
-let sr_get_driver_info driver = 
+let sr_get_driver_info driver ty = 
   let call = make_call (None,[]) "sr_get_driver_info" [] in
-  parse_sr_get_driver_info driver (exec_xmlrpc ~needs_session:false driver call)
+  parse_sr_get_driver_info driver ty (exec_xmlrpc ~needs_session:false ty driver call)
     
-(* Return an association list of driver name * driver_info *)
-let get_supported () =
-  let supported = ref [] in
-  begin
-    try Array.iter 
-      (fun entry ->
-	if String.endswith "SR" entry then (
-	  let driver = String.sub entry 0 (String.length entry - 2) in
-	  try
-	    debug "Checking driver: %s" driver;
-	    Unix.access (cmd_name driver) [ Unix.X_OK ]; 
-	    let info = sr_get_driver_info driver in
-	    supported := (driver, info) :: !supported;
-	    debug "Driver supported!"
-	  with e -> 
-	    debug "Got exception: %s" (Printexc.to_string e);
-	    log_backtrace ();
-	    debug "Rejected plugin: %s" driver
-	)
-      ) (Sys.readdir sm_dir);
-    with _ -> ();
-  end;
-  !supported
+(* Call the supplied function (passing driver name and driver_info) for every
+ * backend and daemon found. *)
+let get_supported add_fn =
+  let check_driver entry =
+      if String.endswith "SR" entry then (
+        let driver = String.sub entry 0 (String.length entry - 2) in
+        try
+          debug "Checking executable driver: %s" driver;
+          Unix.access (cmd_name driver) [ Unix.X_OK ];
+          let info = sr_get_driver_info driver Executable in
+          add_fn driver info;
+          debug "Driver %s supported (executable)" driver
+        with e ->
+          debug "Got exception while checking driver %s: %s" driver (Printexc.to_string e);
+          log_backtrace ();
+          debug "Rejected plugin: %s" driver
+      ) in
+
+  let check_daemon entry =
+    try
+      debug "Checking daemon driver: %s" entry;
+      let info = sr_get_driver_info entry Daemon in
+      add_fn entry info;
+      debug "Driver %s supported (daemon)" entry
+    with e ->
+      debug "Got exception while checking daemon %s: %s" entry (Printexc.to_string e);
+      log_backtrace ();
+      debug "Rejected plugin: %s" entry
+  in
+
+  List.iter 
+    (fun (f, dir) ->
+      debug "Scanning directory %s for SM backends..." dir;
+      try Array.iter f (Sys.readdir dir)
+      with _ ->
+        log_backtrace ();
+        error "Error checking directory %s for SM backends" dir
+    ) 
+    [ check_driver, sm_dir;
+      check_daemon, sm_daemon_dir; ]
 
 (*********************************************************************)
 
