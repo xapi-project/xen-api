@@ -13,6 +13,7 @@ open Unixext
 open Pervasiveext
 
 let handler (req: request) (s: Unix.file_descr) =
+  req.close := true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
       let vdi = 
@@ -25,7 +26,7 @@ let handler (req: request) (s: Unix.file_descr) =
 	    error "Chunked encoding not yet implemented in the import code";
 	    Http_svr.headers s http_403_forbidden;
 	    raise (Failure "import code cannot handle chunked encoding")
-	| None, _ ->
+	| None, Some len ->
 	    let headers = Http.http_200_ok ~keep_alive:false () @
 	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 		content_type ] in
@@ -37,7 +38,7 @@ let handler (req: request) (s: Unix.file_descr) =
 		   (fun device ->
 		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
 		      finally 
-			(fun () -> Unixext.copy_file s fd)
+			(fun () -> Unixext.copy_file ~limit:len s fd)
 			(fun () -> Unix.close fd)
 		   )
 	      );
