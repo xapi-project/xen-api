@@ -214,10 +214,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	       Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
 	     with _ -> ());
 
-	  (* XXX: hack pending addition of feature flag *)
-	  if up_to_date then
-	    Vmopshelpers.with_xs (fun xs -> xs.Xs.write (xs.Xs.getdomainpath domid ^ "/control/feature-balloon") "ohyes");
-
 	  (* We base some of our allowed-operations decisions on the PV driver version *)
 	  if pv_drivers_version_cached <> pv_drivers_version then begin
 	    Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
