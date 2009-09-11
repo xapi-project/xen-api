@@ -31,6 +31,8 @@ let all_capabilities =
     Vdi_resize_online
   ]
 
+type sm_type = Executable | Daemon
+
 type sr_driver_info = {
         sr_driver_filename: string;
 	sr_driver_name: string;
@@ -42,6 +44,7 @@ type sr_driver_info = {
 	sr_driver_capabilities: capability list;
 	sr_driver_text_capabilities: string list;
 	sr_driver_configuration: (string * string) list;
+	sr_driver_type : sm_type;
 }
 
 exception Backend_missing_field of string
