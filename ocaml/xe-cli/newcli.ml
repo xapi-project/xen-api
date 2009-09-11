@@ -270,9 +270,10 @@ let main_loop ifd ofd =
 		if not (Sys.file_exists filename) then
 			raise (ClientSideError (Printf.sprintf "file '%s' does not exist" filename));
 		let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0 in
+		let stat = Unix.LargeFile.fstat fd in
 		let ic, oc = open_tcp server in
 		debug "PUTting to path [%s]\n%!" path;
-		Printf.fprintf oc "PUT %s HTTP/1.0\r\n\r\n" path;
+		Printf.fprintf oc "PUT %s HTTP/1.0\r\ncontent-length: %Ld\r\n\r\n" path stat.Unix.LargeFile.st_size;
 		flush oc;
 		let resultline = input_line ic in
 		(* Get the result header immediately *)
