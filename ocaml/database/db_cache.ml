@@ -199,20 +199,28 @@ struct
 		 end;
 
 		 let events_old_val =
-		   if is_valid_ref current_val then 
-		   Eventgen.events_of_other_tbl_refs
-		     (List.map (fun (tbl,fld) ->
-				  (tbl, current_val, Eventgen.find_get_record tbl ~__context:context ~self:current_val)) other_tbl_refs_for_this_field) 
+		   if is_valid_ref current_val then begin
+		     List.iter (fun (tbl, fld) ->
+		       let row = lookup_row_in_table (lookup_table_in_cache Db_backend.cache tbl) tbl current_val in
+		       bump_event_number_in_row row) other_tbl_refs_for_this_field;
+		     Eventgen.events_of_other_tbl_refs
+		       (List.map (fun (tbl,fld) ->
+		         (tbl, current_val, Eventgen.find_get_record tbl ~__context:context ~self:current_val)) other_tbl_refs_for_this_field);
+		   end
 		   else []
 		in
 		 
 		 let events_new_val =
-		   if is_valid_ref newval then
-		   Eventgen.events_of_other_tbl_refs
-		     (List.map (fun (tbl,fld) ->
-				  (tbl, newval, Eventgen.find_get_record tbl ~__context:context ~self:newval)) other_tbl_refs_for_this_field) 
-		  else [] 
-		in
+		   if is_valid_ref newval then begin
+		     List.iter (fun (tbl, fld) -> 
+		       let row = lookup_row_in_table (lookup_table_in_cache Db_backend.cache tbl) tbl newval in
+		       bump_event_number_in_row row) other_tbl_refs_for_this_field;
+		     Eventgen.events_of_other_tbl_refs
+		       (List.map (fun (tbl,fld) ->
+		         (tbl, newval, Eventgen.find_get_record tbl ~__context:context ~self:newval)) other_tbl_refs_for_this_field);
+		   end
+		   else [] 
+		 in
 		 
 		 (* Generate event *)
 		 let snapshot = Eventgen.find_get_record tblname ~__context:context ~self:objref in
@@ -313,7 +321,10 @@ struct
 		      let (kv,_) = read_record tblname objref in 
 		      let fld_value = List.assoc fld kv in
 		      if is_valid_ref fld_value 
-		      then (remote_tbl, fld_value, Eventgen.find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu 
+		      then begin
+		        bump_event_number_in_row (lookup_row_in_table (lookup_table_in_cache cache remote_tbl) remote_tbl fld_value);
+		        (remote_tbl, fld_value, Eventgen.find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu
+		      end
 		      else accu) 
           [] other_tbl_refs in
 	fun () ->
@@ -364,7 +375,10 @@ struct
 	  List.fold_left (fun accu (tbl,fld) ->
 		      let fld_value = List.assoc fld kvs in
 		      if is_valid_ref fld_value 
-		      then (tbl, fld_value, Eventgen.find_get_record tbl ~__context:context ~self:fld_value) :: accu
+		      then begin
+		        bump_event_number_in_row (lookup_row_in_table (lookup_table_in_cache cache tbl) tbl fld_value);
+		        (tbl, fld_value, Eventgen.find_get_record tbl ~__context:context ~self:fld_value) :: accu
+		      end
 		      else accu) 
 		      [] other_tbl_refs in
 	let record = snapshot() in

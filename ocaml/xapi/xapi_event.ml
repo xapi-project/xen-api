@@ -12,10 +12,6 @@ let max_stored_events = 500
 (** Limit the maximum age of an event in the event queue to this value in seconds: *)
 let max_event_age = 15. *. 60. (* 15 minutes *)
 
-(** Ordered list of events, newest first *)
-let queue = ref []
-(** Monotonically increasing event ID. One higher than the highest event ID in the queue *)
-let id = ref 0L 
 (** When we GC events we track how many we've deleted so we can send an error to the client *)
 let highest_forgotten_id = ref (-1L)
 
@@ -26,18 +22,18 @@ type subscription =
 
 let subscription_of_string x = if x = "*" then All else Class x
 
-let event_matches subs ev = List.mem All subs || (List.mem (Class ev.ty) subs)
+let event_matches subs ty = List.mem All subs || (List.mem (Class ty) subs)
 
 (** Every session that calls 'register' gets a subscription*)
 type subscription_record = {
-	mutable last_id: int64;           (** last event ID to sent to this client *)
+	mutable last_id: int64;           (** last event ID (generation count) to sent to this client *)
+	mutable cur_id: int64;            (** Most current generation count relevant to the client *)
 	mutable subs: subscription list;  (** list of all the subscriptions *)
 	m: Mutex.t;                       (** protects access to the mutable fields in this record *)
                                           (** can be called with the event_lock also held *)
 	session: API.ref_session;         (** session which owns this subscription *)
 	mutable session_invalid: bool;    (** set to true if the associated session has been deleted *)
 }
-
 
 (** Thrown if the user requests events which we don't have because we've thrown
     then away. This should only happen if the client (or network) becomes unresponsive
@@ -54,92 +50,21 @@ let subscriptions = Hashtbl.create 10
 let event_lock = Mutex.create ()
 let newevents = Condition.create ()
 
-(** This function takes a set of events (requested by the client) and removes
-    redundancies (like multiple Mods of the same object or Mod of a deleted object).
-    NB we cannot safely remove object Deletes because a client might receive the Add event
-    if one call and a Del event in a subsequent call.
-    NB events are stored in reverse order. *)
-let coalesce_events events = 
-	(* We're not trying to be super-efficient here, we scan the list multiple times. 
-	   Let's keep the queue short. *)
-	let refs_of_op op events = List.concat 
-		(List.map (function { op = op'; reference = reference } -> 
-			     if op = op' then [ reference ] else []) events) in
-
-	let dummy x = { x with op = Dummy } in
-
-	(* If an object has been deleted, remove any Modification events *)
-	let all_dead = refs_of_op Del events in
-	let events' = List.map (function { op = Mod; reference = reference } as x ->
-				 if List.mem reference all_dead 
-				 then dummy x else x
-				| x -> x) events in
-
-	(* If one Mod event has been seen, remove the rest (we keep the latest (ie 
-	   the first one in the list) since the list is reversed)) *)
-	let events' = List.rev (snd (List.fold_left 
-	  (fun (already_seen, acc) x -> 
-	     if x.op = Mod then
-	       let x = if List.mem x.reference already_seen then dummy x else x in
-	       x.reference :: already_seen, x :: acc
-	     else already_seen, x :: acc) ([], []) events')) in
-
-	(* For debugging we may wish to keep the dummy events so we can account for 
-	   every event ID. However normally we want to zap them. *)
-	let events' = List.filter (fun ev -> ev.op <> Dummy) events' in
-	(* debug "Removed %d redundant events" (List.length events - (List.length events')); *)
-	events'
-
+(* Called with the db_lock held *)
 let event_add ?snapshot ty op reference  =
-
   let gen_events_for tbl =
     let objs = List.filter (fun x->x.Datamodel_types.gen_events) (Dm_api.objects_of_api Datamodel.all_api) in
     let objs = List.map (fun x->x.Datamodel_types.name) objs in
-      List.mem tbl objs in
-
-    if not (gen_events_for ty) then ()
-    else
-      begin
-
-	let ts = Unix.time () in
-	let op = op_of_string op in
-
-	Mutex.execute event_lock
-	(fun () ->
-		let ev = { id = !id; ts = ts; ty = String.lowercase ty; op = op; reference = reference; 
-			   snapshot = snapshot } in
-
-		let all_subs = Hashtbl.fold (fun _ s acc -> s.subs @ acc) subscriptions [] in
-		if event_matches all_subs ev then begin
-			queue := ev :: !queue;
-			(* debug "Adding event %Ld: %s" (!id) (string_of_event ev); *)
-			id := Int64.add !id Int64.one;
-			Condition.broadcast newevents;
-		end else begin
-			(* debug "Dropping event %s" (string_of_event ev) *)
-		end;
-		
-		(* Remove redundant events from the queue *)
-		(* queue := coalesce_events !queue;*)
-		
-		(* GC the events in the queue *)
-		let young, old = List.partition (fun ev -> ts -. ev.ts <= max_event_age) !queue in
-		let too_many = List.length young - max_stored_events in
-		let to_keep, to_drop = if too_many <= 0 then young, old
-		  else
-		    (* Reverse-sort by ID and preserve the first 'max_stored_events' *)
-		    let lucky, unlucky = 
-		      List.chop max_stored_events (List.sort (fun a b -> compare b.id a.id) young) in
-		    lucky, old @ unlucky in
-		queue := to_keep;
-		(* Remember the highest ID of the list of events to drop *)
-		if to_drop <> [] then
-		highest_forgotten_id := (List.hd to_drop).id;
-		(* debug "After event queue GC: keeping %d; dropping %d (highest dropped id = %Ld)" 
-		  (List.length to_keep) (List.length to_drop) !highest_forgotten_id *)
-	)
-      end
-
+    List.mem tbl objs in
+  if not (gen_events_for ty) then ()
+  else
+    Mutex.execute event_lock
+      (fun () ->
+        Hashtbl.iter (fun _ s -> 
+          if event_matches s.subs ty then begin
+            s.cur_id <- Db_cache_types.get_current_event_number ();
+            Condition.broadcast newevents 
+          end) subscriptions)
 
 (* This calls through autogen/db_action, through the Db_int module included in there (which is
      actually ocaml/idl/sql_backend/autogen_helpers/db_action_helper.ml), into Internal module
@@ -147,15 +72,19 @@ let event_add ?snapshot ty op reference  =
 let register_hooks () =
 	Db_action_helper.events_register event_add
 
+let get_current_id ~__context = Db_lock.with_lock Db_cache_types.get_current_event_number
+
 (** Return the subscription associated with a session, or create a new blank one if none
     has yet been created. *)
 let get_subscription ~__context = 
 	let session = Context.get_session_id __context in
+	let cur_id = get_current_id ~__context in
 	Mutex.execute event_lock
 	(fun () ->
 	   if Hashtbl.mem subscriptions session then Hashtbl.find subscriptions session
 	   else 
-	     let subscription = { last_id = !id; subs = []; m = Mutex.create(); session = session; session_invalid = false } in
+	     let subscription = { last_id = cur_id; cur_id = cur_id;
+	       subs = []; m = Mutex.create(); session = session; session_invalid = false } in
 	     Hashtbl.replace subscriptions session subscription;
 	     subscription)
 
@@ -196,72 +125,112 @@ let session_is_invalid sub = Mutex.execute sub.m (fun () -> sub.session_invalid)
 
 (** Blocks the caller until the current ID has changed OR the session has been 
     invalidated. *)
-let wait subscription from_id = 
-	let result = ref 0L in
-	Mutex.execute event_lock
-	  (fun () ->
-	     (* NB we occasionally grab the specific session lock while holding the general lock *)
-	     while !id = from_id && not (session_is_invalid subscription) do Condition.wait newevents event_lock done;
-	     result := !id);
-	if session_is_invalid subscription
-	then raise (Api_errors.Server_error(Api_errors.session_invalid, [ Ref.string_of subscription.session ]))
-	else !result
+let wait_until_id_reached subscription from_id =
+  Mutex.execute event_lock
+    (fun () ->
+      while from_id = subscription.cur_id && not (session_is_invalid subscription) do Condition.wait newevents event_lock done;
+    );
+  if session_is_invalid subscription
+  then raise (Api_errors.Server_error(Api_errors.session_invalid, [ Ref.string_of subscription.session ]))
+  else ()
 
-
-(** Internal function to return a list of events between a start and an end ID. 
-    We assume that our 64bit counter never wraps. *)
-let events_read id_start id_end =
-	let check_ev ev = id_start <= ev.id && ev.id < id_end in
-
-	let some_events_lost = ref false in
-	let selected_events = Mutex.execute event_lock
-	  (fun () ->
-	     some_events_lost := !highest_forgotten_id >= id_start;
-	     List.find_all (fun ev -> check_ev ev) !queue) in
-	(* Note we may actually retrieve fewer events than we expect because the
-	   queue may have been coalesced. *)
-	if !some_events_lost (* is true *) then events_lost ();
-
-	(* NB queue is kept in reverse order *)
-	List.rev selected_events
-
-(** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
-	assert_subscribed ~__context;
+  assert_subscribed ~__context;
 
-	let subscription = get_subscription ~__context in
+  let sub = get_subscription ~__context in
 
-	(* Return a <from_id, end_id> exclusive range that is guaranteed to be specific to this 
-	   thread. Concurrent calls will grab wholly disjoint ranges. Note the range might be
-	   empty. *)
-	let grab_range () = 
-		(* Briefly hold both the general and the specific mutex *)
-	  	Mutex.execute event_lock 
-		  (fun () -> Mutex.execute subscription.m
-		     (fun () ->
-			let last_id = subscription.last_id in
-			(* Bump our last_id counter: these events don't have to be looked at again *)
-			subscription.last_id <- !id ;
-			last_id, !id)) in
-	(* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
-	let rec grab_nonempty_range () = 
-		let last_id, end_id = grab_range () in
-		if last_id = end_id then begin
-			wait subscription end_id; 
-			grab_nonempty_range ()
-		end else last_id, end_id in
+  let all_event_tables =
+    let objs = List.filter (fun x->x.Datamodel_types.gen_events) (Dm_api.objects_of_api Datamodel.all_api) in
+    let objs = List.map (fun x->x.Datamodel_types.name) objs in
+    objs
+  in
 
-	let last_id, end_id = grab_nonempty_range () in
-	(* debug "next examining events in range %Ld <= x < %Ld" last_id end_id; *)
-	(* Are any of the new events interesting? *)
-	let events = events_read last_id end_id in
-	let subs = Mutex.execute subscription.m (fun () -> subscription.subs) in
-	let relevant = List.filter (event_matches subs) events in
-	(* debug "number of relevant events = %d" (List.length relevant); *)
-	if relevant = [] then next ~__context 
-	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
+  let all_subs = Mutex.execute sub.m (fun () -> Hashtbl.fold (fun _ s acc -> s.subs @ acc) subscriptions []) in
+  let tables = List.filter (fun table -> event_matches all_subs table) all_event_tables in
 
-let get_current_id ~__context = Mutex.execute event_lock (fun () -> !id)
+  let grab_range () = 
+    List.fold_left (fun acc table ->
+      try
+        Db_cache_types.fold_over_recent_rows 
+          (fun ctime mtime dtime objref (creates,mods,deletes,last) ->
+            debug "Event.next: found event with ctime: %Ld mtime:%Ld dtime:%Ld objref:%s" ctime mtime dtime objref;
+            let last = max last (max mtime dtime) in (* mtime guaranteed to always be larger than ctime *)
+            if dtime > 0L then begin
+              if ctime > sub.last_id then 
+                (creates,mods,deletes,last) (* It was created and destroyed since the last update *)
+              else
+                (creates,mods,(table, objref, dtime)::deletes,last) (* It might have been modified, but we can't tell now *)
+            end else begin
+              ((if ctime > sub.last_id then (table, objref, ctime)::creates else creates),
+              (if mtime > sub.last_id then (table, objref, mtime)::mods else mods),
+              deletes, last)
+            end
+          ) (Db_cache_types.lookup_table_in_cache Db_backend.cache table) sub.last_id acc
+      with Db_cache_types.Too_many_deletion_events -> events_lost()
+    ) ([],[],[],sub.last_id) tables
+  in
+  
+  let rec grab_nonempty_range () =
+    let (creates,mods,deletes,last) as result = Db_lock.with_lock grab_range in
+    if List.length creates = 0 && List.length mods = 0 && List.length deletes = 0 
+    then 
+      (
+        sub.last_id <- last; (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
+        sub.cur_id <- last; (*                   last id the client got is equivalent to the current one. *)
+        wait_until_id_reached sub last;
+        (* Wait for an imperceptibly small time just in case there are other
+         * events happening cotemporaneously that we can bundle up together. *)
+        Thread.delay 0.05;
+        grab_nonempty_range ())
+    else
+      result
+  in
+
+  let creates,mods,deletes,last = grab_nonempty_range () in
+
+  sub.last_id <- last;
+
+  let delevs = List.fold_left (fun acc (table, objref, dtime) ->
+    if event_matches sub.subs table then begin
+      let ev = {id=dtime;
+        ts=0.0;
+        ty=String.lowercase table;
+        op=Del;
+        reference=objref;
+        snapshot=None} in
+      ev::acc
+    end else acc
+  ) [] deletes in
+
+  let modevs = List.fold_left (fun acc (table, objref, mtime) ->
+    if event_matches sub.subs table then begin
+      let serialiser = Eventgen.find_get_record table in
+      let xml = serialiser ~__context ~self:objref () in
+      let ev = { id=mtime;
+        ts=0.0;
+        ty=String.lowercase table;
+        op=Mod;
+        reference=objref;
+        snapshot=Some xml } in
+      ev::acc
+    end else acc
+  ) delevs mods in
+  
+  let createevs = List.fold_left (fun acc (table, objref, ctime) ->
+    if event_matches sub.subs table then begin
+      let serialiser = Eventgen.find_get_record table in
+      let xml = serialiser ~__context ~self:objref () in
+      let ev = { id=ctime;
+        ts=0.0;
+        ty=String.lowercase table;
+        op=Add;
+        reference=objref;
+        snapshot=Some xml } in
+      ev::acc
+    end else acc
+  ) modevs creates in
+  
+  XMLRPC.To.array (List.map xmlrpc_of_event createevs)
 
 (** Inject an unnecessary update as a heartbeat. This will:
     1. hopefully prevent some firewalls from silently closing the connection

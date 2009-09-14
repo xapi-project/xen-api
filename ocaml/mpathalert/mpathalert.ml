@@ -107,14 +107,18 @@ let listener rpc session queue =
 	(* proceed events *)
 	let proceed event =
 		match Event_helper.record_of_event event with
-		| Event_helper.PBD (pbd_ref, pbd_rec) ->
+		| Event_helper.PBD (pbd_ref, None) ->
+			begin match event.op with
+			| Del ->
+				debug "Processing a DEL event";
+				remove_from_snapshot pbd_ref
+			| _ -> () (* this should never happen: only deletes have no record in the event *)
+			end
+		| Event_helper.PBD (pbd_ref, Some pbd_rec) ->
 			begin match event.op with
 			| Add -> 
 				debug "Processing an ADD event";
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
-			| Del ->
-				debug "Processing a DEL event";
-				remove_from_snapshot pbd_ref
 			| Mod ->
 				debug "Processing a MOD event";
 				let alerts = create_alerts rpc session (get_snapshot pbd_ref) (pbd_ref, pbd_rec, event.ts) in
