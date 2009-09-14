@@ -4,6 +4,8 @@
 open Threadext
 open Client
 
+open Db_cache_types
+
 module D = Debug.Debugger(struct let name="pool_db_sync" end)
 open D
 
@@ -45,17 +47,17 @@ let restore_from_xml __context dry_run (xml_filename: string) =
   version_check manifest;
   (* To prevent duplicate installation_uuids or duplicate IP address confusing the
      "no other masters" check we remove all hosts from the backup except the master. *)
-  let hosts = Hashtbl.find unmarshalled_db "host" in
-  let uuid_to_ref = Hashtbl.fold 
-    (fun _ref r acc -> (Hashtbl.find r "uuid", _ref)::acc) hosts [] in
+  let hosts = lookup_table_in_cache unmarshalled_db "host" in
+  let uuid_to_ref = fold_over_rows
+    (fun _ref r acc -> (lookup_field_in_row r "uuid", _ref)::acc) hosts [] in
   (* This should never happen by construction: *)
   if not(List.mem_assoc manifest.Db_cache_types.installation_uuid uuid_to_ref)
   then failwith "Master host's UUID not present in the backup file";
   let master = List.assoc manifest.Db_cache_types.installation_uuid uuid_to_ref in
   (* Remove all slaves from the database *)
-  let hosts' = Hashtbl.create 10 in
-  Hashtbl.iter (fun _ref r -> if _ref = master then Hashtbl.add hosts' master r) hosts;
-  Hashtbl.replace unmarshalled_db "host" hosts';
+  let hosts' = create_empty_table () in
+  iter_over_rows (fun _ref r -> if _ref = master then set_row_in_table hosts' master r) hosts;
+  set_table_in_cache unmarshalled_db "host" hosts';
   debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
   debug "Previous master: %s" manifest.Db_cache_types.installation_uuid;
   
@@ -91,22 +93,24 @@ let restore_from_xml __context dry_run (xml_filename: string) =
      
      PIFs whose device name are not recognised or those belonging to (now dead) 
      slaves are forgotten. *)
-  let pifs = Hashtbl.find unmarshalled_db "PIF" in
-  let pifs' = Hashtbl.create 10 in
+  let pifs = lookup_table_in_cache unmarshalled_db "PIF" in
+  let pifs' = create_empty_table () in
   let found_mgmt_if = ref false in
   let ifs_in_backup = ref [] in
-  Hashtbl.iter 
+  iter_over_rows 
     (fun _ref r ->
-       if Hashtbl.find r "host" = master then begin
-	 let device = Hashtbl.find r "device" in
+       if lookup_field_in_row r "host" = master then begin
+	 let device = lookup_field_in_row r "device" in
 	 ifs_in_backup := device :: !ifs_in_backup;
 
-	 let uuid = Hashtbl.find r "uuid" in
-	 let physical = bool_of_string (Hashtbl.find r "physical") in
+	 let uuid = lookup_field_in_row r "uuid" in
+	 let physical = bool_of_string (lookup_field_in_row r "physical") in
 
-	 let pif = Hashtbl.copy r in
+	 let pif = create_empty_row () in
+	 iter_over_fields (fun k v -> set_field_in_row pif k v) r;
+
 	 let is_mgmt = Some device = mgmt_dev in
-	 Hashtbl.replace pif "management" (string_of_bool is_mgmt);
+	 set_field_in_row pif "management" (string_of_bool is_mgmt);
 	 if is_mgmt then found_mgmt_if := true;
 
 	 (* We only need to rewrite the MAC addresses of physical PIFs *)
@@ -118,19 +122,19 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 	   (* Otherwise rewrite the MAC address to match the current machine
 	      and set the management flag accordingly *)
 	   let existing_pif = List.assoc device device_to_ref in
-	   Hashtbl.replace pif "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif);
+	   set_field_in_row pif "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif);
 	 end;
 	 
 	 debug "Rewriting PIF uuid %s device %s (management %s -> %s) MAC %s -> %s"
-	   uuid device (Hashtbl.find r "management") (Hashtbl.find pif "management")
-	   (Hashtbl.find r "MAC") (Hashtbl.find pif "MAC");
-	 Hashtbl.add pifs' _ref pif
+	   uuid device (lookup_field_in_row r "management") (lookup_field_in_row pif "management")
+	   (lookup_field_in_row r "MAC") (lookup_field_in_row pif "MAC");
+	 set_row_in_table pifs' _ref pif
        end else begin
 	 (* don't bother copying forgotten slave PIFs *)
-	 debug "Forgetting slave PIF uuid %s" (Hashtbl.find r "uuid")
+	 debug "Forgetting slave PIF uuid %s" (lookup_field_in_row r "uuid")
        end
     ) pifs;
-  Hashtbl.replace unmarshalled_db "PIF" pifs';
+  set_table_in_cache unmarshalled_db "PIF" pifs';
   (* Check that management interface was synced up *)
   if not(!found_mgmt_if) && mgmt_dev <> None
   then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));

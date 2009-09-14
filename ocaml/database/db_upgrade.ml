@@ -2,6 +2,7 @@
 module D = Debug.Debugger(struct let name = "xapi" (* this is set to 'xapi' deliberately! :) *) end)
 open D
 
+open Db_cache_types
 open Stringext
 open Vm_memory_constraints.Vm_memory_constraints
 
@@ -40,25 +41,24 @@ properties to safe defaults to avoid triggering something bad.
 *)
 let upgrade_vm_records () =
 	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
-	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
-	let vm_rows = Db_backend.get_rowlist vm_table in
+	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
+	let vm_rows = get_rowlist vm_table in
 	(* Upgrade the memory constraints of each virtual machine. *)
 	List.iter
 		(fun vm_row ->
 			(* Helper functions to access the database. *)
 			let get field_name = Int64.of_string
-				(Db_backend.lookup_field_in_row vm_row field_name) in
-			let set field_name value = Db_backend.set_field_in_row
+				(lookup_field_in_row vm_row field_name) in
+			let set field_name value = set_field_in_row
 				vm_row field_name (Int64.to_string value) in
-			if (Db_backend.lookup_field_in_row vm_row
-				Names.is_control_domain = "true")
+			if (lookup_field_in_row vm_row Names.is_control_domain = "true")
 			then begin
 				let target = get Names.memory_target in
 				set Names.memory_dynamic_min target;
 				set Names.memory_dynamic_max target;
 				debug "VM %s (%s) dynamic_{min,max} <- %Ld"
-					(Db_backend.lookup_field_in_row vm_row Names.uuid)
-					(Db_backend.lookup_field_in_row vm_row Names.name_label)
+					(lookup_field_in_row vm_row Names.uuid)
+					(lookup_field_in_row vm_row Names.name_label)
 					target;
 			end else begin
 				(* Note this will also transform templates *)
@@ -75,8 +75,8 @@ let upgrade_vm_records () =
 				set Names.memory_dynamic_max (safe_constraints.dynamic_max);
 				set Names.memory_static_max  (safe_constraints.static_max );
 				debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
-					(Db_backend.lookup_field_in_row vm_row Names.uuid)
-					(Db_backend.lookup_field_in_row vm_row Names.name_label)
+					(lookup_field_in_row vm_row Names.uuid)
+					(lookup_field_in_row vm_row Names.name_label)
 					safe_constraints.static_max;
 			end;
 		)
@@ -84,13 +84,13 @@ let upgrade_vm_records () =
 
 (*
 let update_templates () =
-	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
-	let vm_rows = Db_backend.get_rowlist vm_table in
+	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
+	let vm_rows = get_rowlist vm_table in
 	(* Upgrade the memory constraints of each virtual machine. *)
 	List.iter (fun vm_row ->
 		(* CA-18974: We accidentally shipped Miami creating duplicate keys in template other-config; need to strip these out across
 		   upgrade *)
-		let other_config = Db_backend.lookup_field_in_row vm_row Names.other_config in
+		let other_config = lookup_field_in_row vm_row Names.other_config in
 		let other_config_kvs = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config in
 		(* so it turns out that it was actually the (k,v) pair as a whole that was duplicated,
 		   so we can just call setify on the whole key,value pair list directly;
@@ -98,35 +98,35 @@ let update_templates () =
 		let dups_removed = Listext.List.setify other_config_kvs in
 		(* marshall again and write back to dbrow *)
 		let dups_removed = String_marshall_helper.map (fun x->x) (fun x->x) dups_removed in
-		Db_backend.set_field_in_row vm_row Names.other_config dups_removed;
+		set_field_in_row vm_row Names.other_config dups_removed;
 
-		if bool_of_string (Db_backend.lookup_field_in_row vm_row Names.is_a_template) &&
+		if bool_of_string (lookup_field_in_row vm_row Names.is_a_template) &&
 		  (List.mem_assoc Xapi_globs.default_template_key other_config_kvs) then
 		    let default_template_key_val = List.assoc Xapi_globs.default_template_key other_config_kvs in
 		    if default_template_key_val="true" then
 		      begin
 			(* CA-18035: Add viridian flag to built-in templates (_not custom ones_) across upgrade *)
-			let platform = Db_backend.lookup_field_in_row vm_row Names.platform in
+			let platform = lookup_field_in_row vm_row Names.platform in
 			let platform_kvs = String_unmarshall_helper.map (fun x->x) (fun x->x) platform in
 			let platform_kvs =
 			  if not (List.mem_assoc Xapi_globs.viridian_key_name platform_kvs) then
 			    (Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value)::platform_kvs else platform_kvs in
 			let platform_kvs = String_marshall_helper.map (fun x->x) (fun x->x) platform_kvs in
-			Db_backend.set_field_in_row vm_row Names.platform platform_kvs;
+			set_field_in_row vm_row Names.platform platform_kvs;
 
 			(* CA-19924 If template name is "Red Hat Enterprise Linux 5.2" || "Red Hat Enterprise Linux 5.2 x64" then we need to ensure that
 			   we have ("machine-address-size", "36") in other_config. This is because the RHEL5.2 template changed between beta1 and beta2
 			   and we need to make sure it's the same after upgrade..
 			*)
-			let template_name_label = Db_backend.lookup_field_in_row vm_row Names.name_label in
-			let other_config = Db_backend.lookup_field_in_row vm_row Names.other_config in
+			let template_name_label = lookup_field_in_row vm_row Names.name_label in
+			let other_config = lookup_field_in_row vm_row Names.other_config in
 			let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config in
 			let other_config =
 			  if (template_name_label="Red Hat Enterprise Linux 5.2" || template_name_label="Red Hat Enterprise Linux 5.2 x64")
 			    && (not (List.mem_assoc Xapi_globs.machine_address_size_key_name other_config)) then
 			      (Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)::other_config else other_config in
 			let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
-			Db_backend.set_field_in_row vm_row Names.other_config other_config
+			set_field_in_row vm_row Names.other_config other_config
 
 		      end
 	) vm_rows
@@ -136,22 +136,22 @@ let update_templates () =
 let non_generic_db_upgrade_rules () =
 
 	(* GEORGE -> MIDNIGHT RIDE *)
-	let vm_table = Db_backend.lookup_table_in_cache Names.vm in
-	let vm_rows = Db_backend.get_rowlist vm_table in
+	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
+	let vm_rows = get_rowlist vm_table in
 	let update_snapshots vm_row =
-		let vm = Db_backend.lookup_field_in_row vm_row Names.ref in
-		let snapshot_rows = List.filter (fun s -> Db_backend.lookup_field_in_row s Names.snapshot_of = vm) vm_rows in
-		let snapshot_rows = List.filter (fun s -> Db_backend.lookup_field_in_row s Names.parent = Ref.string_of Ref.null) snapshot_rows in
+		let vm = lookup_field_in_row vm_row Names.ref in
+		let snapshot_rows = List.filter (fun s -> lookup_field_in_row s Names.snapshot_of = vm) vm_rows in
+		let snapshot_rows = List.filter (fun s -> lookup_field_in_row s Names.parent = Ref.string_of Ref.null) snapshot_rows in
 		let compare s1 s2 =
-			let t1 = Db_backend.lookup_field_in_row s1 Names.snapshot_time in
-			let t2 = Db_backend.lookup_field_in_row s2 Names.snapshot_time in
+			let t1 = lookup_field_in_row s1 Names.snapshot_time in
+			let t2 = lookup_field_in_row s2 Names.snapshot_time in
 			compare t1 t2 in
 		let ordered_snapshot_rows = List.sort compare snapshot_rows in
 		let rec aux = function
 			| [] -> ()
-			| [s] -> Db_backend.set_field_in_row s Names.parent vm;
+			| [s] -> set_field_in_row s Names.parent vm;
 			| s1 :: s2 :: t ->
-				Db_backend.set_field_in_row s2 Names.parent (Db_backend.lookup_field_in_row s1 Names.ref);
+				set_field_in_row s2 Names.parent (lookup_field_in_row s1 Names.ref);
 				aux (s2 :: t) in
 		aux ordered_snapshot_rows in
 	List.iter update_snapshots vm_rows;
@@ -188,21 +188,23 @@ let upgrade_from_last_release dbconn =
      backend you're not so lucky, so this needs to be made explicit..
   *)
   let create_blank_table_in_cache tblname =
-    let newtbl = Hashtbl.create 20 in
-    Db_backend.set_table_in_cache tblname newtbl in
+    let newtbl = create_empty_table () in
+    set_table_in_cache Db_backend.cache tblname newtbl in
   List.iter create_blank_table_in_cache table_names_new_in_this_release;
 
   (* for each table, go through and fill in missing default values *)
   let add_default_fields_to_tbl tblname =
-    let tbl = Db_backend.lookup_table_in_cache tblname in
-    let rows = Db_backend.get_rowlist tbl in
-    let add_fields_to_row r =
-      let kvs = Hashtbl.fold (fun k v env -> (k,v)::env) r [] in
+    let tbl = lookup_table_in_cache Db_backend.cache tblname in
+    let rows = get_rowlist tbl in
+    let add_fields_to_row objref r =
+      let kvs = fold_over_fields (fun k v env -> (k,v)::env) r [] in
       let new_kvs = Db_backend.add_default_kvs kvs tblname in
       (* now blank r and fill it with new kvs: *)
-      Hashtbl.clear r;
-      List.iter (fun (k,v) -> Hashtbl.replace r k v) new_kvs in
-    List.iter add_fields_to_row rows in
+      let newrow = create_empty_row () in
+      List.iter (fun (k,v) -> set_field_in_row newrow k v) new_kvs;
+      set_row_in_table tbl objref newrow
+    in
+    iter_over_rows add_fields_to_row tbl in
 
   (* Go and fill in default values *)
   List.iter add_default_fields_to_tbl table_names_in_last_release;
@@ -219,8 +221,8 @@ let upgrade_from_last_release dbconn =
   List.iter
     (fun tname ->
 	   Db_dirty.set_all_dirty_table_status tname;
-	   let rows = Db_backend.get_rowlist (Db_backend.lookup_table_in_cache tname) in
-	   let objrefs = List.map (fun row -> Db_backend.lookup_field_in_row row Db_backend.reference_fname) rows in
+	   let rows = get_rowlist (lookup_table_in_cache Db_backend.cache tname) in
+	   let objrefs = List.map (fun row -> lookup_field_in_row row Db_backend.reference_fname) rows in
 	   List.iter (fun objref->Db_dirty.set_all_row_dirty_status objref Db_dirty.New) objrefs
     )
     table_names_in_last_release;

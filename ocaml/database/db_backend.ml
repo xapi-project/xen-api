@@ -1,6 +1,7 @@
 open Db_exn
 open Db_lock
 open Db_action_helper
+open Db_cache_types
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
@@ -71,12 +72,8 @@ let uuid_fname = "uuid"
 let db_FLUSH_TIMER=2.0 (* flush db write buffer every db_FLUSH_TIMER seconds *)
 let display_sql_writelog_val = ref true (* compute/write sql-writelog debug string *)
 
-(* The data itself in the cache lives in these tables: *)
-type row = (string,string) Hashtbl.t
-type table = (string, row) Hashtbl.t
-type cache = (string,table) Hashtbl.t
-
-let cache : cache = Hashtbl.create 20
+(* The cache itself: *)
+let cache : Db_cache_types.cache = create_empty_cache ()
 
 (* Keep track of all references, and which class a reference belongs to: *)
 let ref_table_map : (string,string) Hashtbl.t = Hashtbl.create 100
@@ -89,52 +86,6 @@ let add_ref_to_table_map objref tblname =
 let remove_ref_from_table_map objref =
   Hashtbl.remove ref_table_map objref
 
-(* Our versions of hashtbl.find *)
-let lookup_field_in_row row fld =
-  try
-    Hashtbl.find row fld
-  with Not_found -> raise (DBCache_NotFound ("missing field",fld,""))
-    
-let lookup_table_in_cache tbl =
-  try
-    Hashtbl.find cache tbl
-  with Not_found -> raise (DBCache_NotFound ("missing table",tbl,""))
-
-let lookup_row_in_table tbl tblname objref =
-  try
-    Hashtbl.find tbl objref
-  with Not_found -> raise (DBCache_NotFound ("missing row",tblname,objref))
-
-let get_rowlist tbl =
-  Hashtbl.fold (fun k d env -> d::env) tbl []
-
-let get_reflist tbl =
-  Hashtbl.fold (fun k d env -> k::env) tbl []
-
-(* Read column, fname, from database rows: *)
-let get_column tblname fname =
-  let rec f rows col_so_far =
-    match rows with
-      [] -> col_so_far
-    | (r::rs) ->
-	let r_uuid = try Some (Hashtbl.find r fname) with _ -> None in
-	match r_uuid with
-	  None -> f rs col_so_far
-	| (Some u) -> f rs (u::col_so_far) in
-  f (get_rowlist (lookup_table_in_cache tblname)) []
-
-(* Our versions of hashtbl.replace -- this one really is just same fn for now! *)
-let set_field_in_row row fldname newval =
-  Hashtbl.replace row fldname newval
-
-let set_table_in_cache tblname newtbl =
-  Hashtbl.replace cache tblname newtbl
-
-(* Find row with specified reference in specified table *)
-let find_row (tblname:string) (objref:string) :row =
-  let tbl = lookup_table_in_cache tblname in
-  lookup_row_in_table tbl tblname objref
-
 (* Given a (possibly partial) new row to write, check if any db
    constraints are violated *)
 let check_unique_table_constraints tblname newrow =
@@ -142,35 +93,18 @@ let check_unique_table_constraints tblname newrow =
     match opt_value with
       None -> ()
     | Some v ->
-	if List.mem v (get_column tblname fname) then begin
+	if List.mem v (get_column cache tblname fname) then begin
 	  error "Uniqueness constraint violation: table %s field %s value %s" tblname fname v;
 	  (* Note: it's very important that the Uniqueness_constraint_violation exception is thrown here, since
 	     this is what is caught/marshalled over the wire in the remote case.. Do not be tempted to make this
 	     an API exception! :) *)
 	  raise (Uniqueness_constraint_violation ( tblname, fname, v )) 
 	end in
-  let new_uuid = try Some (Hashtbl.find newrow uuid_fname) with _ -> None in
-  let new_ref = try Some (Hashtbl.find newrow reference_fname) with _ -> None in
+  let new_uuid = try Some (lookup_field_in_row newrow uuid_fname) with _ -> None in
+  let new_ref = try Some (lookup_field_in_row newrow reference_fname) with _ -> None in
   check_unique_constraint tblname uuid_fname new_uuid;
   check_unique_constraint tblname reference_fname new_ref
 
-(** Return a snapshot of the database cache suitable for slow marshalling across the network *)
-let snapshot (cache: Db_cache_types.cache) : Db_cache_types.cache = 
-  Db_lock.with_lock 
-    (fun () ->
-       let row table rf vals = 
-	 let result = Hashtbl.create 10 in
-	 Hashtbl.iter (Hashtbl.add result) vals;
-	 Hashtbl.add table rf result in
-       
-       let table cache name tbl = 
-	 let result = Hashtbl.create 10 in
-	 Hashtbl.iter (row result) tbl;
-	 Hashtbl.add cache name result in
-       
-       let result = Hashtbl.create 10 in  
-       Hashtbl.iter (table result) cache;
-       result)
 
 (* --------------------- Util functions to support incremental index generation *)
 
@@ -229,7 +163,7 @@ let add_default_kvs kvs tblname =
 let blow_away_non_persistent_fields() =
   (* for each table, go through and blow away any non-persistent fields *)
   let remove_non_persistent_field_values_from_tbl tblname =
-    let tbl = lookup_table_in_cache tblname in
+    let tbl = lookup_table_in_cache cache tblname in
     let rows = get_rowlist tbl in
     let this_obj = List.find (fun obj-> (Gen_schema.sql_of_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
     let non_persist_fields = List.filter (fun f -> not f.Datamodel_types.field_persist) (flatten_fields this_obj.Datamodel_types.contents []) in
@@ -240,7 +174,7 @@ let blow_away_non_persistent_fields() =
 	let process_row r =
 	  List.iter
 	    (fun (ftype,f) ->
-	       Hashtbl.replace r (Gen_schema.sql_of_id f.Datamodel_types.full_name) (Datamodel_values.gen_empty_db_val ftype))
+	      set_field_in_row r (Gen_schema.sql_of_id f.Datamodel_types.full_name) (Datamodel_values.gen_empty_db_val ftype))
 	    non_persist_fields_and_types in
 	List.iter process_row rows
       end in
@@ -262,8 +196,8 @@ let post_restore_hook manifest =
 		 uuid (Printexc.to_string e);
 	       None) in
   
-  let master_host_record = find_row_by_uuid uuid_of_master_in_db (lookup_table_in_cache "host") in
-  let master_dom0_record = find_row_by_uuid uuid_of_master_dom0_in_db (lookup_table_in_cache "VM") in
+  let master_host_record = find_row_by_uuid uuid_of_master_in_db (lookup_table_in_cache cache "host") in
+  let master_dom0_record = find_row_by_uuid uuid_of_master_dom0_in_db (lookup_table_in_cache cache "VM") in
 
   (* update master host record in db, so it has my installation uuid from my inventory file *)
   begin

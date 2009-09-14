@@ -1,6 +1,7 @@
 module D = Debug.Debugger(struct let name = "xapi-db-process" end)
 open D
 
+open Db_cache_types
 open Pervasiveext
 
 let format = ref ""
@@ -108,10 +109,10 @@ let do_read_gencount() =
 let find_my_host_row() =
   Xapi_inventory.read_inventory ();
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
-  let host_table = Db_backend.lookup_table_in_cache "host" in
-  let host_rows  = Db_backend.get_rowlist host_table in
+  let host_table = lookup_table_in_cache Db_backend.cache "host" in
+  let host_rows  = get_rowlist host_table in
   List.find 
-    (fun row -> let row_uuid = Db_backend.lookup_field_in_row row "uuid" in
+    (fun row -> let row_uuid = lookup_field_in_row row "uuid" in
      localhost_uuid=row_uuid) host_rows
 
 let _iscsi_iqn = "iscsi_iqn"
@@ -120,7 +121,7 @@ let _other_config = "other_config"
 let do_read_hostiqn() =
   read_in_database();
   let localhost_row = find_my_host_row() in
-  let other_config_sexpr = Db_backend.lookup_field_in_row localhost_row _other_config in
+  let other_config_sexpr = lookup_field_in_row localhost_row _other_config in
   let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
   Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
@@ -131,7 +132,7 @@ let do_write_hostiqn() =
   read_in_database();
   let localhost_row = find_my_host_row() in
   (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
-  let other_config_sexpr = Db_backend.lookup_field_in_row localhost_row _other_config in
+  let other_config_sexpr = lookup_field_in_row localhost_row _other_config in
   let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
   let other_config =
     if List.mem_assoc _iscsi_iqn other_config then
@@ -141,13 +142,13 @@ let do_write_hostiqn() =
       (* ... otherwise add new key/value pair *)
       (_iscsi_iqn,new_iqn)::other_config in
   let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
-  Db_backend.set_field_in_row localhost_row _other_config other_config;
+  set_field_in_row localhost_row _other_config other_config;
   write_out_databases()
 
 let do_am_i_in_the_database () = 
   read_in_database();
   try
-    let (_: Db_backend.row) = find_my_host_row() in
+    let (_: Db_cache_types.row) = find_my_host_row() in
     Printf.printf "true"
   with _ ->
     Printf.printf "false"

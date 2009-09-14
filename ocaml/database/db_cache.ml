@@ -120,9 +120,9 @@ struct
     let stats () = 
       with_lock 
 	(fun () ->
-	   Hashtbl.fold (fun name tbl acc ->
-			   let size = Hashtbl.fold (fun _ _ acc -> acc + 1) tbl 0 in
-			   (name, size) :: acc) cache [])
+	  fold_over_tables (fun name tbl acc ->
+	    let size = fold_over_rows (fun _ _ acc -> acc + 1) tbl 0 in
+	    (name, size) :: acc) cache [])
 
     let flush_dirty dbconn = Db_connections.flush_dirty_and_maybe_exit dbconn None
     let flush_and_exit dbconn ret_code = ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
@@ -131,13 +131,13 @@ struct
     let read_field context tblname fldname objref =
       with_lock
 	(fun () ->
-	   let row = find_row tblname objref in
+	   let row = find_row cache tblname objref in
 	   lookup_field_in_row row fldname)
 
     let table_of_kvs kvs =
-      let hashtbl = Hashtbl.create (List.length kvs) in
-      List.iter (fun (k,v)->Hashtbl.replace hashtbl k v) kvs;
-      hashtbl
+      let row = create_empty_row () in
+      List.iter (fun (k,v)-> set_field_in_row row k v) kvs;
+      row
 
     let save_in_redo_log context entry =
       if Redo_log.is_enabled() then begin
@@ -171,7 +171,7 @@ struct
 	   else if fldname=name_label_fname then
 	     Ref_index.update_name_label objref newval;
 
-	   let row = find_row tblname objref in
+	   let row = find_row cache tblname objref in
 	   let current_val = lookup_field_in_row row fldname in
 
 	   let other_tbl_refs = Eventgen.follow_references tblname in
@@ -231,7 +231,7 @@ struct
 	     try Hashtbl.find indexes (rcd.table, rcd.where_field, rcd.return)
 	     with _ ->
 	       begin
-		 let tbl = lookup_table_in_cache rcd.table in
+		 let tbl = lookup_table_in_cache cache rcd.table in
 		 let rows = get_rowlist tbl in
 		 let new_index = Hashtbl.create (List.length rows) in
 		 let rec populate_index rows =
@@ -258,8 +258,8 @@ struct
     let read_record tbl objref  =
       with_lock
 	(fun ()->
-	   let row = find_row tbl objref (* !! need fields as well as values here !! *) in
-	   let fvlist = Hashtbl.fold (fun k d env -> (k,d)::env) row [] in
+	   let row = find_row cache tbl objref (* !! need fields as well as values here !! *) in
+	   let fvlist = fold_over_fields (fun k d env -> (k,d)::env) row [] in
 	   let get_set_ref tbl fld objref =
 	     read_set_ref {table=tbl; return=reference_fname;
 			   where_field=fld; where_value=objref} in
@@ -328,9 +328,9 @@ struct
 	   let mod_events = lazily_generate_mod_events () in
 
 	   invalidate_indexes tblname;
-	   let tbl = lookup_table_in_cache tblname in
+	   let tbl = lookup_table_in_cache cache tblname in
 
-	   Hashtbl.remove tbl objref;
+	   remove_row_from_table tbl objref;
 	   
 	   (* Notify each db connection of delete *)
 	   List.iter (fun dbconn->Db_connections.notify_delete dbconn tblname objref) (Db_conn_store.read_db_connections());
@@ -377,9 +377,9 @@ struct
 	   W.debug "create_row %s (%s) [%s]" tblname new_objref (String.concat "," (List.map (fun (k,v)->"("^k^","^"v"^")") kvs));
 	   invalidate_indexes tblname;
 	   let newrow = table_of_kvs kvs in
-	   let tbl = lookup_table_in_cache tblname in
+	   let tbl = lookup_table_in_cache cache tblname in
 	   check_unique_table_constraints tblname newrow;
-	   Hashtbl.replace tbl new_objref newrow;
+	   set_row_in_table tbl new_objref newrow;
 	   if (this_table_persists tblname) then
 	     begin
 	       Db_dirty.set_all_row_dirty_status new_objref Db_dirty.New;
@@ -400,7 +400,7 @@ struct
     let read_field_where rcd =
       with_lock
 	(fun () ->
-           let tbl = lookup_table_in_cache rcd.table in
+           let tbl = lookup_table_in_cache cache rcd.table in
            let rec do_find tbl acc =
              match tbl with
                [] -> acc
@@ -416,7 +416,7 @@ struct
     let read_refs tblname =
       with_lock
 	(fun () ->
-	   get_reflist (lookup_table_in_cache tblname))
+	   get_reflist (lookup_table_in_cache cache tblname))
 
     let populate_from connection_spec =
       Db_connections.populate connection_spec db_table_names;
@@ -586,7 +586,7 @@ struct
     let find_refs_with_filter (tblname: string) (expr: Db_filter_types.expr) = 
       with_lock
 	(fun ()->
-	   let tbl = lookup_table_in_cache tblname in
+	   let tbl = lookup_table_in_cache cache tblname in
 	   let rows = get_rowlist tbl in
 	   let eval_val row = function
 	     | Db_filter_types.Literal x -> x
@@ -632,7 +632,7 @@ struct
 	end in
       with_lock
 	(fun () ->
-	   let row = find_row tbl objref in
+	   let row = find_row cache tbl objref in
 	   let existing_str = lookup_field_in_row row fld in
 	   let existing = parse_sexpr existing_str in
 	   let processed = proc_fn existing in
