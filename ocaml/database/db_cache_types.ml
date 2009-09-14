@@ -2,12 +2,18 @@ open Db_exn
 
 type row = { 
   creation_event_number : Int64.t;
+  mutable objref : string;
   mutable row_event_number : Int64.t;
-  fields : (string, string) Hashtbl.t }
-type table = {
+  mutable next : row option;
+  mutable prev : row option;
+  mutable container_table : table option;
+  fields : (string, string) Hashtbl.t } 
+    
+and table = {
   deletering : (Int64.t * Int64.t * string) Ring.t;
-  rows : (string, row) Hashtbl.t }
-
+  rows : (string, row) Hashtbl.t; 
+  mutable listhd : row option }
+    
 type cache = (string, table) Hashtbl.t
 
 let deleteringsize = 500
@@ -55,6 +61,31 @@ let gen_manifest gen_count =
 
 let event_number = ref 0L
 
+let remove_row_from_list row table =
+  (match row.next with 
+    | None -> ()
+    | Some row' -> row'.prev <- row.prev);
+  (match row.prev with 
+    | None -> ()
+    | Some row' -> row'.next <- row.next);
+  (match table.listhd with
+    | Some row' -> if row.objref = row'.objref then table.listhd <- row.next
+    | None -> ());
+  row.next <- None;
+  row.prev <- None
+
+let add_row_to_list_head row table =
+  (match table.listhd with 
+    | Some row' -> row'.prev <- Some row
+    | None -> ());
+  row.prev <- None;
+  row.next <- table.listhd;
+  table.listhd <- Some row
+
+let change_row row table =
+  remove_row_from_list row table;
+  add_row_to_list_head row table
+
 (* Our versions of hashtbl.find *)
 let lookup_field_in_row row fld =
   try
@@ -83,17 +114,23 @@ let iter_over_fields func row =
 let set_field_in_row row fldname newval =
   event_number := Int64.add 1L !event_number;
   row.row_event_number <- !event_number;
+  (match row.container_table with
+    | Some table -> change_row row table
+    | _ -> ());
   Hashtbl.replace row.fields fldname newval
 
 let set_row_in_table table objref newval =
+  newval.objref <- objref;
+  newval.container_table <- Some table;
+  change_row newval table;
   Hashtbl.replace table.rows objref newval
 
 let set_table_in_cache cache tblname newtbl =
   Hashtbl.replace cache tblname newtbl
 
-let create_empty_row () = {creation_event_number = !event_number; row_event_number = !event_number; fields = Hashtbl.create 20}
+let create_empty_row () = {creation_event_number = !event_number; row_event_number = !event_number; prev=None; next=None; container_table = None; fields = Hashtbl.create 20; objref=""}
 
-let create_empty_table () = {deletering = Ring.make deleteringsize (0L,0L,""); rows = Hashtbl.create 20}
+let create_empty_table () = {deletering = Ring.make deleteringsize (0L,0L,""); rows = Hashtbl.create 20; listhd = None}
 
 let create_empty_cache () = Hashtbl.create 20
 
@@ -106,6 +143,8 @@ let fold_over_tables func cache acc = Hashtbl.fold func cache acc
 let remove_row_from_table tbl objref = 
   event_number := Int64.add 1L !event_number;
   Ring.push tbl.deletering ((lookup_row_in_table tbl "" objref).creation_event_number, !event_number, objref);
+  let row = Hashtbl.find tbl.rows objref in
+  remove_row_from_list row tbl;
   Hashtbl.remove tbl.rows objref
 
 let get_rowlist tbl =
@@ -135,33 +174,42 @@ let get_column cache tblname fname =
 let snapshot cache : cache = 
   Db_lock.with_lock 
     (fun () ->
-       let row table rf vals = 
-	 let newrow = create_empty_row () in
-	 iter_over_fields (set_field_in_row newrow) vals;
-	 set_row_in_table table rf newrow in
-       
-       let table cache name tbl = 
-	 let newtable = create_empty_table () in
-	 iter_over_rows (row newtable) tbl;
-	 set_table_in_cache cache name newtable in
-       
-       let newcache = create_empty_cache () in  
-       iter_over_tables (table newcache) cache;
-       newcache)
+      let row table rf vals = 
+        let newrow = create_empty_row () in
+        iter_over_fields (set_field_in_row newrow) vals;
+        set_row_in_table table rf newrow in
+
+      let table cache name tbl = 
+        let newtable = create_empty_table () in
+        iter_over_rows (row newtable) tbl;
+        set_table_in_cache cache name newtable in
+
+      let newcache = create_empty_cache () in  
+      iter_over_tables (table newcache) cache;
+      newcache)
 
 let bump_event_number_in_row row =
   event_number := Int64.add 1L !event_number;
-  row.row_event_number <- !event_number
+  row.row_event_number <- !event_number;
+  match row.container_table with
+  | Some table -> change_row row table
+  | None -> ()
 
 exception Too_many_deletion_events
 
 (* The exception is raised when the specified gencount is older than the oldest
  * item in the deletering. *)
 let fold_over_recent_rows func table gencount acc =
-  let acc = fold_over_rows (fun objref row acc ->
-    if (row.creation_event_number > gencount || row.row_event_number > gencount) 
-    then func row.creation_event_number row.row_event_number 0L objref acc
-    else acc) table acc in
+  let rec fold func cur acc =
+    match cur with
+    | None -> acc
+    | Some row ->
+        if row.row_event_number <= gencount
+        then acc
+        else
+          fold func row.next (func row.creation_event_number row.row_event_number 0L row.objref acc)
+  in
+  let acc = fold func table.listhd acc in
   let rec deleteloop i acc =
     if i>deleteringsize then raise Too_many_deletion_events else begin
       let (ctime,dtime,objref) = Ring.peek table.deletering i in
