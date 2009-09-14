@@ -564,19 +564,23 @@ let handle_licensing () =
        Xapi_host.copy_license_to_db ~__context
     )
 
-(* Write the memory policy to xenstore and trigger the ballooning daemon *)
-let control_domain_memory () = 
-  if !Xapi_globs.on_system_boot then begin
-    Server_helpers.exec_with_new_task "control domain memory"
-      (fun __context ->
-	 Helpers.call_api_functions ~__context
-	   (fun rpc session_id ->
-	      let self = Helpers.get_domain_zero ~__context in
-	      let vm_r = Db.VM.get_record ~__context ~self in
-	      Client.Client.VM.set_memory_dynamic_range rpc session_id self vm_r.API.vM_memory_dynamic_min vm_r.API.vM_memory_dynamic_max
-	   )
-      )
-  end else debug "Not on_system_boot so nothing to do"
+(** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
+let control_domain_memory () =
+	(* We write this policy regardless of whether or not on_system_boot *)
+	(* is true, since Xapi sets on_system_boot to false for the initial *)
+	(* Xapi restart after a database upgrade.                           *)
+	Server_helpers.exec_with_new_task "control domain memory"
+		(fun __context ->
+			Helpers.call_api_functions ~__context
+				(fun rpc session_id ->
+					let self = Helpers.get_domain_zero ~__context in
+					let vm_r = Db.VM.get_record ~__context ~self in
+					Client.Client.VM.set_memory_dynamic_range
+						rpc session_id self
+						vm_r.API.vM_memory_dynamic_min
+						vm_r.API.vM_memory_dynamic_max
+				)
+		)
 
 let startup_script () = 
   if (try Unix.access Xapi_globs.startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
