@@ -38,7 +38,7 @@ module To = struct
   (* Marshal a whole database table to an Xmlm output abstraction *)
   let table (output: Xmlm.output) name (tbl: table) = 
     let record rf (row: row) = 
-      let (tag: Xmlm.tag) = make_tag "row" (("ref", rf) :: (Hashtbl.fold (fun k v acc -> (k, Xml_spaces.protect v) :: acc) row [])) in
+      let (tag: Xmlm.tag) = make_tag "row" (("ref", rf) :: (fold_over_fields (fun k v acc -> (k, Xml_spaces.protect v) :: acc) row [])) in
       Xmlm.output_signal output (`S tag);
       Xmlm.output_signal output `E in
     let tag = make_tag "table" [ "name", name ] in
@@ -47,7 +47,7 @@ module To = struct
        that all tables will be present. However, if the table is marked as "don't persist" then we
        don't write any row entries: *)
     if Db_backend.this_table_persists name then
-      Hashtbl.iter record tbl;
+      iter_over_rows record tbl;
     Xmlm.output_signal output `E
 	
   (* Write out a manifest *)
@@ -71,7 +71,7 @@ module To = struct
   let cache (output: Xmlm.output) (m, cache) : unit =
     Xmlm.output_signal output (`S (make_tag "database" []));
     manifest output m;
-    Hashtbl.iter (table output) cache;
+    iter_over_tables (table output) cache;
     Xmlm.output_signal output `E
 
   let fd (fd: Unix.file_descr) (m, c) : unit = 
@@ -93,11 +93,11 @@ module From = struct
     let s (tag: Xmlm.tag) ((cache, table, manifest) as acc) = match tag with
       | (_, ("database" | "manifest")), _ -> acc
       | (_, "table"), [ (_, "name"), _ ] ->
-	  cache, Hashtbl.create 10, manifest
+	  cache, create_empty_table (), manifest
       | (_, "row"), ((_, "ref"), rf) :: rest ->
-	  let row = Hashtbl.create 10 in
-	  List.iter (fun (("", k), v) -> Hashtbl.add row k (Xml_spaces.unprotect v)) rest;
-	  Hashtbl.add table rf row;
+	  let row = create_empty_row () in
+	  List.iter (fun (("", k), v) -> set_field_in_row row k (Xml_spaces.unprotect v)) rest;
+	  set_row_in_table table rf row;
 	  acc
       | (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
 	  (cache, table, (k, v) :: manifest)
@@ -106,10 +106,10 @@ module From = struct
     let e tag ((cache, table, manifest) as acc) = match tag with
       | (_, ("database" | "manifest" | "row" | "pair")), _ -> acc
       | (_, "table"), [ (_, "name"), name ] ->
-	  Hashtbl.add cache name table;
+	  set_table_in_cache cache name table;
 	  acc
       | (_, name), _ -> raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name)) in
-    let (cache, _, manifest) = Xmlm.input ~s ~e (Hashtbl.create 10, Hashtbl.create 10, []) input in
+    let (cache, _, manifest) = Xmlm.input ~s ~e (create_empty_cache (), create_empty_table (), []) input in
     (* Manifest is actually a record *)
     let manifest = { 
       installation_uuid = List.assoc _installation_uuid manifest;
