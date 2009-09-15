@@ -10,7 +10,7 @@ section
 
 section
 
-	OCAMLPACKS += uuid log xc xb xs sqlite3 mmap
+	OCAMLPACKS += uuid log xc xb xs mmap
 	OCAML_CLIBS = ../xenops/statdev_stubs ../netdev/netdev_stubs
 
 	OCamlProgram(fatxe, cli options \
@@ -61,22 +61,18 @@ section
 		../database/master_connection \
 		../database/string_marshall_helper \
 		../database/string_unmarshall_helper \
-		../database/backend_sqlite \
 		../database/backend_xml \
 		../util/config \
 		../http/http_svr \
 		../gpg/gpg \
 		../util/server_io \
-		../util/sql \
-		../util/sqlcommon \
-		../util/sqlsqlite3 \
 		../autogen/db_actions \
 		../idl/ocaml_backend/exnHelper \
 		../idl/ocaml_backend/taskHelper \
 		../idl/ocaml_backend/locking_helpers \
 		../idl/ocaml_backend/server_helpers \
 		../idl/ocaml_backend/context \
-		../idl/sql_backend/gen_schema \
+		../database/escaping \
 		../sexpr/sExpr \
 		../sexpr/sExprParser \
 		../sexpr/sExprLexer \

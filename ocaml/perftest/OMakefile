@@ -9,7 +9,6 @@ OCamlProgram(cumulative_time, cumulative_time gnuplot testtypes perfdebug graphu
 
 section
 	OCAML_LIBS+=../sexpr/sexpr ../idl/ocaml_backend/server ../util/debug
-	OCAMLPACKS+=sqlite3
 	OCamlProgram(xmlrpcserver, xmlrpcserver)
 
 .PHONY: clean

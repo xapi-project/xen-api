@@ -3,7 +3,7 @@ OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory
 		../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
 		../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
 OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
-                 ../autogen ../idl/sql_backend/ ../database/ \
+                 ../autogen ../database/ \
                  ../http/ ../xenops ../muxdemux ../xva \
 		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
 

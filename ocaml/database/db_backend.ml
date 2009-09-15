@@ -18,14 +18,14 @@ let try_and_delete_db_file file =
 let api_objs = Dm_api.objects_of_api Datamodel.all_api
 let api_relations = Dm_api.relations_of_api Datamodel.all_api
 let db_table_names = 
-  List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) api_objs
+  List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) api_objs
 
 (* Build a table that maps table names onto their persistency options *)
 let table_persist_options = Hashtbl.create 20
 let _ =
   begin
     let objs = Dm_api.objects_of_api Datamodel.all_api in
-    List.iter (fun x->Hashtbl.replace table_persist_options (Gen_schema.sql_of_obj x).Datamodel_types.name x.Datamodel_types.persist) objs
+    List.iter (fun x->Hashtbl.replace table_persist_options (Escaping.escape_obj x).Datamodel_types.name x.Datamodel_types.persist) objs
   end
 
 let this_table_persists tblname = (Hashtbl.find table_persist_options tblname)=Datamodel_types.PersistEverything
@@ -46,8 +46,8 @@ let _ =
       (fun obj->
 	 let fields = flatten_fields obj.Datamodel_types.contents [] in
 	 List.iter (fun f->Hashtbl.replace field_persist_options
-		      ((Gen_schema.sql_of_obj obj).Datamodel_types.name (* table name *),
-		       (Gen_schema.sql_of_id f.Datamodel_types.full_name) (* field name *))
+		      ((Escaping.escape_obj obj).Datamodel_types.name (* table name *),
+		       (Escaping.escape_id f.Datamodel_types.full_name) (* field name *))
 		      f.Datamodel_types.field_persist) fields
       )
       objs
@@ -59,10 +59,10 @@ let persist_field_changes tblname fldname =
 (* --------------------- Some field-name constants *)
     
 (** Table column name which contains the reference *)
-let reference_fname = Gen_schema.reference
+let reference_fname = Escaping.reference
 
 (** Table column name which contains the name_label *)
-let name_label_fname = Gen_schema.sql_of_id ["name";"label"]
+let name_label_fname = Escaping.escape_id ["name";"label"]
 
 (** Table column name which contains the uuid *)
 let uuid_fname = "uuid"
@@ -145,10 +145,10 @@ let add_default_kvs kvs tblname =
       Some v -> Datamodel_values.to_db_string v
     | None -> "" (* !!! Should never happen *) in
   
-  let this_obj = List.find (fun obj-> (Gen_schema.sql_of_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
+  let this_obj = List.find (fun obj-> (Escaping.escape_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
   let default_fields = List.filter (fun f -> f.Datamodel_types.default_value <> None) (flatten_fields this_obj.Datamodel_types.contents []) in
   let default_values = List.map gen_db_string_value default_fields in
-  let default_field_names = List.map (fun f -> Gen_schema.sql_of_id f.Datamodel_types.full_name) default_fields in
+  let default_field_names = List.map (fun f -> Escaping.escape_id f.Datamodel_types.full_name) default_fields in
   let all_default_kvs = List.combine default_field_names default_values in
   (* only add kv pairs for keys that have not already been supplied to create_row call (in kvs argument) *)
   let keys_supplied = List.map fst kvs in
@@ -165,7 +165,7 @@ let blow_away_non_persistent_fields() =
   let remove_non_persistent_field_values_from_tbl tblname =
     let tbl = lookup_table_in_cache cache tblname in
     let rows = get_rowlist tbl in
-    let this_obj = List.find (fun obj-> (Gen_schema.sql_of_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
+    let this_obj = List.find (fun obj-> (Escaping.escape_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
     let non_persist_fields = List.filter (fun f -> not f.Datamodel_types.field_persist) (flatten_fields this_obj.Datamodel_types.contents []) in
     let non_persist_fields_and_types = List.map (fun f -> f.Datamodel_types.ty, f) non_persist_fields in
     (* if this table doesn't have any non persistent fields then there's nothing to do... *)
@@ -174,11 +174,11 @@ let blow_away_non_persistent_fields() =
 	let process_row r =
 	  List.iter
 	    (fun (ftype,f) ->
-	      set_field_in_row r (Gen_schema.sql_of_id f.Datamodel_types.full_name) (Datamodel_values.gen_empty_db_val ftype))
+	      set_field_in_row r (Escaping.escape_id f.Datamodel_types.full_name) (Datamodel_values.gen_empty_db_val ftype))
 	    non_persist_fields_and_types in
 	List.iter process_row rows
       end in
-  List.iter remove_non_persistent_field_values_from_tbl (List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) api_objs)
+  List.iter remove_non_persistent_field_values_from_tbl (List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) api_objs)
   
 (* after restoring from backup, we take the master's host record and make it reflect us *)
 let post_restore_hook manifest =

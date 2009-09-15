@@ -83,7 +83,7 @@ struct
   let db_get_by_name_label tbl label = 
     DBCache.read_field_where
       {table=tbl; return=reference;
-       where_field=(Gen_schema.sql_of_id ["name"; "label"]);
+       where_field=(Escaping.escape_id ["name"; "label"]);
        where_value=label}
   
   (** Returns all references in tbl *)

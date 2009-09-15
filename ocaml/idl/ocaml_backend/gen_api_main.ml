@@ -74,8 +74,6 @@ let _ =
       Gen_api.gen_db_actions api
   | Some "actions" ->
       Gen_api.gen_custom_actions api
-  | Some "sql" ->
-      Gen_api.gen_schema api
   | Some "rbac" ->
       Gen_api.gen_rbac api
   | Some x -> Printf.eprintf "Didn't recognise mode: %s\n" x

@@ -31,8 +31,7 @@ let read_from_redo_log staging_path =
     
           (* Read from the file into the cache *)
           let fake_conn_db_file = { Parse_db_conf.dummy_conf with
-            Parse_db_conf.path = temp_file;
-            format = Parse_db_conf.Xml
+            Parse_db_conf.path = temp_file
           } in
           (* ideally, the reading from the file would also respect the latest_response_time *)
           ignore (Backend_xml.populate_and_read_manifest fake_conn_db_file);
