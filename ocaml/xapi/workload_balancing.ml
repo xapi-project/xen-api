@@ -196,10 +196,10 @@ let encoded_auth un pw =
     Base64.encode (Printf.sprintf "%s:%s" un pw)
 
 let wlb_encoded_auth ~__context =
-  let pool = Helpers.get_pool ~__context in
-    encoded_auth
-      (Db.Pool.get_wlb_username ~__context ~self:pool)
-      (Db.Pool.get_wlb_password ~__context ~self:pool)
+	let pool = Helpers.get_pool ~__context in
+	encoded_auth
+		(Db.Pool.get_wlb_username ~__context ~self:pool)
+		(Db.Pool.get_wlb_password ~__context ~self:pool)
       
 let generate_safe_param tag_name tag_value =
   Xml.to_string (Xml.Element(tag_name, [], [Xml.PCData tag_value])) 
@@ -403,61 +403,59 @@ let retrieve_vm_recommendations ~__context ~vm =
   perform_wlb_request ~meth:"VMGetRecommendations" ~params ~handle_response 
     ~__context ()
   
-let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password 
-  ~xenserver_username ~xenserver_password =
-  assert_wlb_licensed ~__context;
-  let pool = Helpers.get_pool ~__context in
-  let master = Db.Pool.get_master ~__context ~self:pool in
-  let params = (sprintf "%s\n%s\n%s\n%s\n" 
-    (generate_safe_param "Password" xenserver_password)
-    (pool_uuid_param ~__context)
-    (generate_safe_param "UserName" xenserver_username)
-    (generate_safe_param "XenServerUrl" 
-      (sprintf "http://%s:80/" 
-        (Db.Host.get_address ~__context ~self:master)))) 
-  in
-  let handle_response inner_xml =
-      (*A succesful result has an ID inside the addxenserverresult *)
-      match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
-      | _ ->
-        Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
-        Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_password;
-        Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
-  in
-  Mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
-    ~meth:"AddXenServer" ~params 
-    ~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url 
-    ~handle_response ~__context)
+let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password =
+	assert_wlb_licensed ~__context;
+	let pool = Helpers.get_pool ~__context in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	let params = (sprintf "%s\n%s\n%s\n%s\n" 
+		(generate_safe_param "Password" xenserver_password)
+		(pool_uuid_param ~__context)
+		(generate_safe_param "UserName" xenserver_username)
+		(generate_safe_param "XenServerUrl" 
+			(sprintf "http://%s:80/" 
+				(Db.Host.get_address ~__context ~self:master)))) 
+	in
+	let handle_response inner_xml =
+		(*A succesful result has an ID inside the addxenserverresult *)
+		match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
+		| _ ->
+			Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
+			Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_password;
+			Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
+	in
+	Mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
+		~meth:"AddXenServer" ~params 
+		~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url 
+		~handle_response ~__context)
  
 let decon_wlb ~__context =
-  let clear_wlb_config ~__context ~pool = 
-    Db.Pool.set_wlb_username ~__context ~self:pool ~value:"";
-    Db.Pool.set_wlb_password ~__context ~self:pool ~value:"";
-    Db.Pool.set_wlb_url ~__context ~self:pool ~value:"";
-    Db.Pool.set_wlb_enabled ~__context ~self:pool ~value:false
-  in
-  let pool = Helpers.get_pool ~__context in
-  let handle_response inner_xml =
-  (* A succesful result is empty. Check this before clearing config *)
-    if (is_childless inner_xml)
-    then 
-      clear_wlb_config ~__context ~pool
-    else
-      (*child elements are errors. Raise an  exception to force an error check *)         
-      raise (Xml_parse_failure
-        "Expected blank result from a deconfigure")
-  in
-  if Db.Pool.get_wlb_url ~__context ~self:pool = ""
-  then
-    raise_not_initialized()
-  (*if wlb not enabled then clear the config but dont attempt to call the server for the removexenserver *)
-  else if not (Db.Pool.get_wlb_enabled ~__context ~self:pool)
-  then
-    clear_wlb_config ~__context ~pool
-  else
-    let params = pool_uuid_param ~__context in
-    Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
-      ~params ~handle_response ~__context)
+	let clear_wlb_config ~__context ~pool = 
+		Db.Pool.set_wlb_username ~__context ~self:pool ~value:"";
+		Db.Pool.set_wlb_password ~__context ~self:pool ~value:"";
+		Db.Pool.set_wlb_url ~__context ~self:pool ~value:"";
+		Db.Pool.set_wlb_enabled ~__context ~self:pool ~value:false
+	in
+	let pool = Helpers.get_pool ~__context in
+	let handle_response inner_xml =
+		(* A succesful result is empty. Check this before clearing config *)
+		if (is_childless inner_xml)
+		then 
+			clear_wlb_config ~__context ~pool
+		else
+			(*child elements are errors. Raise an  exception to force an error check *)         
+			raise (Xml_parse_failure "Expected blank result from a deconfigure")
+	in
+	if Db.Pool.get_wlb_url ~__context ~self:pool = ""
+	then
+		raise_not_initialized()
+		(*if wlb not enabled then clear the config but dont attempt to call the server for the removexenserver *)
+	else if not (Db.Pool.get_wlb_enabled ~__context ~self:pool)
+	then
+		clear_wlb_config ~__context ~pool
+	else
+		let params = pool_uuid_param ~__context in
+		Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
+			~params ~handle_response ~__context)
 
 let send_wlb_config ~__context ~config =
   assert_wlb_licensed ~__context;

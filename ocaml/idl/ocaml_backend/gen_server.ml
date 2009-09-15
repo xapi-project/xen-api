@@ -23,16 +23,16 @@ let is_session_arg arg =
   ((binding = "session_id") && (converter = "ref_session"))
 
 let from_xmlrpc arg =
-  let binding = O.string_of_param arg in
-  let converter = O.type_of_param arg in
-  let checksession =
-    if is_session_arg arg then
-      begin
-      (Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding) (* ****** *)
-      end
-    else "" in
-    Printf.sprintf "let %s = From.%s \"%s\" %s in%s"
-      binding converter binding binding checksession
+	let binding = O.string_of_param arg in
+	let converter = O.type_of_param arg in
+	let checksession =
+		if is_session_arg arg then
+			begin
+				(Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding) (* ****** *)
+			end
+		else "" in
+	Printf.sprintf "let %s = From.%s \"%s\" %s in%s"
+	binding converter binding binding checksession
 
 let read_msg_parameter msg_parameter =
   from_xmlrpc 
@@ -188,39 +188,39 @@ let operation (obj: obj) (x: message) =
       | FromObject _ -> false
       | Custom -> true in
     
-  let gen_body () =
-    let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
-    let type_xml = XMLRPC.TypeToXML.marshal ret in
-    let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
-    let cls = OU.ocaml_of_obj_name obj.DT.name in
-    let common_let_decs =
-      [
-       "let marshaller = "^result_marshaller^" in";
-       "let local_op = fun ~__context ->("^module_prefix^"."^impl_fn^") in";
-       "let supports_async = "^(if has_async then "true" else "false")^" in";
-       "let generate_task_for = "^(string_of_bool (not (List.mem obj.name DM.no_task_id_for)))^" in" ] in
-    let side_effect_let_decs =
-      if Gen_empty_custom.operation_requires_side_effect x then
-	[
-	  Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (%s.%s) in" _forward impl_fn
-	]
-      else 
-	[
-	  Printf.sprintf "%s \"%s\";"
-	    (if may_be_side_effecting x then "ApiLogSideEffect.info" else "ApiLogRead.info")
-	    wire_name
-	] in
+	let gen_body () =
+		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
+		let type_xml = XMLRPC.TypeToXML.marshal ret in
+		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
+		let cls = OU.ocaml_of_obj_name obj.DT.name in
+		let common_let_decs =
+			[
+				"let marshaller = "^result_marshaller^" in";
+				"let local_op = fun ~__context ->("^module_prefix^"."^impl_fn^") in";
+				"let supports_async = "^(if has_async then "true" else "false")^" in";
+				"let generate_task_for = "^(string_of_bool (not (List.mem obj.name DM.no_task_id_for)))^" in" ] in
+		let side_effect_let_decs =
+			if Gen_empty_custom.operation_requires_side_effect x then
+				[
+					Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (%s.%s) in" _forward impl_fn
+				]
+			else 
+				[
+					Printf.sprintf "%s \"%s\";"
+					(if may_be_side_effecting x then "ApiLogSideEffect.info" else "ApiLogRead.info")
+					wire_name
+				] in
 
-    let body_exp =
-      [
-	Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
-	  (if x.msg_session then "~session_id" else "")
-	  (if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
-	  (Xml.to_string type_xml);
-(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
-	"resp"
-      ] in
-      common_let_decs @ side_effect_let_decs @ body_exp in
+		let body_exp =
+			[
+				Printf.sprintf "let resp = Server_helpers.do_dispatch %s %s \"%s\" __async supports_async __call local_op marshaller fd http_req __label generate_task_for in"
+				(if x.msg_session then "~session_id" else "")
+				(if Gen_empty_custom.operation_requires_side_effect x then "~forward_op" else "")
+				(Xml.to_string type_xml);
+				(*	"P.debug \"Server XML response: %s\" (Xml.to_string (XMLRPC.To.methodResponse resp));"; *)
+				"resp"
+			] in
+		common_let_decs @ side_effect_let_decs @ body_exp in
 
   let all = String.concat "\n        "
     (comments @ set_intra_pool_only @ unmarshall_code @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in

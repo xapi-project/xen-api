@@ -659,36 +659,36 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 
 
 let gen_cmds rpc session_id = 
-  (make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @ 
-  (make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @ 
-  (make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @ 
-  (make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @ 
-    (make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
-    (make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
-    (make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
-    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
-    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id) @
-    (make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id) @
-    (make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
-    (make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
+	(make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @ 
+	(make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @ 
+	(make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @ 
+	(make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @ 
+	(make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
+	(make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
+	(make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
+	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "vm" [("is-a-template","false")] ["name-label";"uuid";"power-state"] rpc session_id) @
+	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "template" [("is-a-template","true");("is-a-snapshot","false")] ["name-label";"name-description";"uuid"] rpc session_id) @
+	(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"] rpc session_id) @
+	(make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
+	(make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
 
-    (make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
-    (make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
-    (make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
-    (make_param_funs (Client.VBD.get_all) (Client.VBD.get_all_records_where) (Client.VBD.get_by_uuid) (vbd_record) "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id) @
-    (make_param_funs (Client.SR.get_all) (Client.SR.get_all_records_where) (Client.SR.get_by_uuid) (sr_record) "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id) @
-    (make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
-    (make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
-    (make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
-    (make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @ 
-    (make_param_funs (Client.Role.get_all) (fun ~rpc ~session_id ~expr -> Client.Role.get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions) 
-			(Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
+	(make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
+	(make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
+	(make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
+	(make_param_funs (Client.VBD.get_all) (Client.VBD.get_all_records_where) (Client.VBD.get_by_uuid) (vbd_record) "vbd" [] ["uuid";"vm-uuid";"vm-name-label";"vdi-uuid";"device"; "empty"] rpc session_id) @
+	(make_param_funs (Client.SR.get_all) (Client.SR.get_all_records_where) (Client.SR.get_by_uuid) (sr_record) "sr" [] ["uuid";"name-label";"name-description";"host";"type";"content-type"] rpc session_id) @
+	(make_param_funs (Client.SM.get_all) (Client.SM.get_all_records_where) (Client.SM.get_by_uuid) (sm_record) "sm" [] ["uuid";"type"; "name-label";"name-description";"vendor"; "copyright"; "configuration"] rpc session_id) @
+	(make_param_funs (Client.PBD.get_all) (Client.PBD.get_all_records_where) (Client.PBD.get_by_uuid) (pbd_record) "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id) @
+	(make_param_funs (Client.Task.get_all) (Client.Task.get_all_records_where) (Client.Task.get_by_uuid) (task_record) "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id) @ 
+	(make_param_funs (Client.Subject.get_all) (Client.Subject.get_all_records_where) (Client.Subject.get_by_uuid) (subject_record) "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id) @ 
+	(make_param_funs (Client.Role.get_all) (fun ~rpc ~session_id ~expr -> Client.Role.get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions) 
+		(Client.Role.get_by_uuid) (role_record) "role" [] ["uuid";"name";"description";"subroles"] rpc session_id) @ 
 (*
-    (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
+	(make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 *)
-    (make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
+	(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
 (*
-    @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
+	@ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 *)
 
 (* NB, might want to put these back in at some point
@@ -881,12 +881,12 @@ let pool_recover_slaves printer rpc session_id params =
     printer (Cli_printer.PList host_uuids)
 
 let pool_initialize_wlb printer rpc session_id params =
-  let wlb_url = List.assoc "wlb_url" params in
-  let wlb_username = List.assoc "wlb_username" params in
-  let wlb_password = List.assoc "wlb_password" params in
-  let xenserver_username = List.assoc "xenserver_username" params in
-  let xenserver_password = List.assoc "xenserver_password" params in
-  Client.Pool.initialize_wlb ~rpc ~session_id ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
+	let wlb_url = List.assoc "wlb_url" params in
+	let wlb_username = List.assoc "wlb_username" params in
+	let wlb_password = List.assoc "wlb_password" params in
+	let xenserver_username = List.assoc "xenserver_username" params in
+	let xenserver_password = List.assoc "xenserver_password" params in
+	Client.Pool.initialize_wlb ~rpc ~session_id ~wlb_url ~wlb_username ~wlb_password ~xenserver_username ~xenserver_password
 
 let pool_deconfigure_wlb printer rpc session_id params =
   Client.Pool.deconfigure_wlb ~rpc ~session_id
@@ -1453,80 +1453,81 @@ let diagnostic_event_deltas fd printer rpc session_id params =
 exception Finished
 
 let event_wait_gen rpc session_id classname record_matches =
-  (* Immediately register *)
-  let classes = [classname] in
-  Client.Event.register ~rpc ~session_id ~classes;
+	(* Immediately register *)
+	let classes = [classname] in
+	Client.Event.register ~rpc ~session_id ~classes;
 
-  debug "Registered for events";
+	debug "Registered for events";
 
-  (* Check to see if the condition is already satisfied - get all objects of whatever class specified... *)
-  let poll () = 
-    let current_tbls = 
-      match classname with
-      | "vm" -> List.map (fun x -> (vm_record rpc session_id x).fields) (Client.VM.get_all rpc session_id)
-      | "vdi" -> List.map (fun x -> (vdi_record rpc session_id x).fields) (Client.VDI.get_all rpc session_id)
-      | "sr" -> List.map (fun x -> (sr_record rpc session_id x).fields) (Client.SR.get_all rpc session_id)
-      | "host" -> List.map (fun x -> (host_record rpc session_id x).fields) (Client.Host.get_all rpc session_id)
-      | "network" -> List.map (fun x -> (net_record rpc session_id x).fields) (Client.Network.get_all rpc session_id)
-      | "vif" -> List.map (fun x -> (vif_record rpc session_id x).fields) (Client.VIF.get_all rpc session_id)
-      | "pif" -> List.map (fun x -> (pif_record rpc session_id x).fields) (Client.PIF.get_all rpc session_id)
-      | "vbd" -> List.map (fun x -> (vbd_record rpc session_id x).fields) (Client.VBD.get_all rpc session_id)
-      | "pbd" -> List.map (fun x -> (pbd_record rpc session_id x).fields) (Client.PBD.get_all rpc session_id)
-      | "pool" -> List.map (fun x -> (pool_record rpc session_id x).fields) (Client.Pool.get_all rpc session_id)
-      | "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
-      | "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
-      | "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
-(*      | "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
-      | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
-    in
+	(* Check to see if the condition is already satisfied - get all objects of whatever class specified... *)
+	let poll () = 
+		let current_tbls = 
+			match classname with
+				| "vm" -> List.map (fun x -> (vm_record rpc session_id x).fields) (Client.VM.get_all rpc session_id)
+				| "vdi" -> List.map (fun x -> (vdi_record rpc session_id x).fields) (Client.VDI.get_all rpc session_id)
+				| "sr" -> List.map (fun x -> (sr_record rpc session_id x).fields) (Client.SR.get_all rpc session_id)
+				| "host" -> List.map (fun x -> (host_record rpc session_id x).fields) (Client.Host.get_all rpc session_id)
+				| "network" -> List.map (fun x -> (net_record rpc session_id x).fields) (Client.Network.get_all rpc session_id)
+				| "vif" -> List.map (fun x -> (vif_record rpc session_id x).fields) (Client.VIF.get_all rpc session_id)
+				| "pif" -> List.map (fun x -> (pif_record rpc session_id x).fields) (Client.PIF.get_all rpc session_id)
+				| "vbd" -> List.map (fun x -> (vbd_record rpc session_id x).fields) (Client.VBD.get_all rpc session_id)
+				| "pbd" -> List.map (fun x -> (pbd_record rpc session_id x).fields) (Client.PBD.get_all rpc session_id)
+				| "pool" -> List.map (fun x -> (pool_record rpc session_id x).fields) (Client.Pool.get_all rpc session_id)
+				| "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
+				| "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
+				| "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
+(*				| "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
+				| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
+		in
 
-    debug "Getting all records";
-    (* Records of every object of the class specified *)
-    let all_recs = List.map (List.map (fun r -> (r.name,(fun () -> safe_get_field r)))) current_tbls in
-    
-    debug "Got %d records" (List.length all_recs);
-    
-    (* true if anything matches now *)
-    let find_any_match recs =
-      let ls = List.map record_matches recs in
-      (List.length (List.filter (fun x -> x) ls)) > 0
-    in
-    find_any_match all_recs in
+		debug "Getting all records";
+		(* Records of every object of the class specified *)
+		let all_recs = List.map (List.map (fun r -> (r.name,(fun () -> safe_get_field r)))) current_tbls in
 
-  finally
-    (fun () ->
-       if not(poll ()) then
-	 try
-	   while true do
-	     try
-	       let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
-	       let doevent event = 
-		 let tbl = match Event_helper.record_of_event event with
-		   | Event_helper.VM (r,Some x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.VDI (r,Some x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.SR (r,Some x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.Host (r,Some x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.Network (r,Some x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.VIF (r,Some x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.PIF (r,Some x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.VBD (r,Some x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.PBD (r,Some x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.Pool (r,Some x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | Event_helper.Task (r,Some x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
-		   | _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
-		 in
-		 let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
-		 if record_matches record then raise Finished 
-	       in
-	       List.iter doevent (List.filter (fun e -> e.Event_types.snapshot <> None) events)
-	     with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
-	       debug "Got EVENTS_LOST; reregistering";
-	       Client.Event.unregister ~rpc ~session_id ~classes;
-	       Client.Event.register ~rpc ~session_id ~classes;
-	       if poll() then raise Finished
-	   done	   
-	 with Finished -> ()
-    ) (fun () -> Client.Event.unregister ~rpc ~session_id ~classes) (* We're done. Unregister and finish *) 
+		debug "Got %d records" (List.length all_recs);
+
+		(* true if anything matches now *)
+		let find_any_match recs =
+			let ls = List.map record_matches recs in
+			(List.length (List.filter (fun x -> x) ls)) > 0
+		in
+		find_any_match all_recs
+	in
+
+	finally
+		(fun () ->
+			if not(poll ()) then
+				try
+					while true do
+						try
+							let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
+							let doevent event = 
+								let tbl = match Event_helper.record_of_event event with
+									| Event_helper.VM (r,Some x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VDI (r,Some x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.SR (r,Some x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Host (r,Some x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Network (r,Some x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VIF (r,Some x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.PIF (r,Some x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VBD (r,Some x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.PBD (r,Some x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Pool (r,Some x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Task (r,Some x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
+								in
+								let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
+								if record_matches record then raise Finished 
+							in
+							List.iter doevent (List.filter (fun e -> e.Event_types.snapshot <> None) events)
+						with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
+							debug "Got EVENTS_LOST; reregistering";
+							Client.Event.unregister ~rpc ~session_id ~classes;
+							Client.Event.register ~rpc ~session_id ~classes;
+							if poll() then raise Finished
+					done
+				with Finished -> ()
+		) (fun () -> Client.Event.unregister ~rpc ~session_id ~classes) (* We're done. Unregister and finish *) 
 
 
 let event_wait printer rpc session_id params =
