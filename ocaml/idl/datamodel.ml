@@ -2495,8 +2495,14 @@ let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(interna
 	  field_getter_roles = reader_roles;
 	  }
 
-let uid ?(in_oss_since=Some "3.0.3") refname = field ~in_oss_since ~qualifier:DynamicRO ~ty:(String) "uuid" "unique identifier/object reference"
-  ~writer_roles:_R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
+let uid ?(in_oss_since=Some "3.0.3") refname =
+	field
+		~in_oss_since
+		~qualifier:DynamicRO
+		~ty:(String)
+		~writer_roles:_R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
+		"uuid"
+		"unique identifier/object reference"
 
 let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) operations_type =
   [ 
@@ -4846,72 +4852,92 @@ let pool_disable_redo_log = call
 
 (** A pool class *)
 let pool =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pool ~descr:"Pool-wide information"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [pool_join; pool_join_force; pool_eject; pool_initial_auth; pool_transition_to_master; pool_slave_reset_master;
-		pool_recover_slaves; pool_hello; pool_ping_slave; pool_create_VLAN; pool_create_VLAN_from_PIF; pool_slave_network_report;
-	       pool_enable_ha; pool_disable_ha;
-	       pool_sync_database;
-	       pool_designate_new_master;
-	       pool_ha_prevent_restarts_for;
-	       pool_ha_failover_plan_exists;
-	       pool_ha_compute_max_host_failures_to_tolerate;
-	       pool_ha_compute_hypothetical_max_host_failures_to_tolerate;
-	       pool_ha_compute_vm_failover_plan;
-	       pool_set_ha_host_failures_to_tolerate;
-	       pool_create_new_blob;
-	       pool_ha_schedule_plan_recomputation;
-	       pool_enable_binary_storage;
-	       pool_disable_binary_storage;
-	       pool_enable_external_auth;
-	       pool_disable_external_auth;
-	       pool_detect_nonhomogeneous_external_auth;
-	       pool_initialize_wlb;
-	       pool_deconfigure_wlb;
-	       pool_send_wlb_configuration;
-	       pool_retrieve_wlb_configuration;
-	       pool_retrieve_wlb_recommendations;
-	       pool_send_test_post;
-	       pool_certificate_install;
-	       pool_certificate_uninstall;
-	       pool_certificate_list;
-	       pool_crl_install;
-	       pool_crl_uninstall;
-	       pool_crl_list;
-	       pool_certificate_sync;
-	       pool_enable_redo_log;
-	       pool_disable_redo_log;
-	       ]
-    ~contents:
-    [uid ~in_oss_since:None _pool;
-     field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label" "Short name";
-     field ~in_oss_since:None ~qualifier:RW ~ty:String "name_description" "Description";
-     field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "master" "The host that is pool master";
-     field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs";
-     field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR" "The SR in which VDIs for suspend images are created";
-     field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR" "The SR in which VDIs for crash dumps are created";
-     field ~writer_roles:_R_VM_OP ~in_oss_since:None ~ty:(Map(String, String)) "other_config" "additional configuration";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "ha_enabled" "true if HA is enabled on the pool, false otherwise";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "ha_configuration" "The current HA configuration";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles" "HA statefile VDIs in use";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "ha_host_failures_to_tolerate" "Number of host failures to tolerate before the Pool is declared to be overcommitted";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "ha_plan_exists_for" "Number of future host failures we have managed to find a plan for. Once this reaches zero any future host failures will cause the failure of protected VMs.";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "ha_allow_overcommit" "If set to false then operations which would cause the Pool to become overcommitted will be blocked.";
-     field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "ha_overcommitted" "True if the Pool is considered to be overcommitted i.e. if there exist insufficient physical resources to tolerate the configured number of host failures";
-     field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this pool";
-     field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
-     field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "gui_config" "gui-specific configuration for pool";
-     field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host";
-     field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host";
-     field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_password" "Password for accessing the workload balancing host";
-     field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise";
-     field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification.";
-     field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise";
-     field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled";
-    ]
-	()
+	create_obj
+		~in_db:true
+		~in_product_since:rel_rio
+		~in_oss_since:None
+		~internal_deprecated_since:None
+		~persist:PersistEverything
+		~gen_constructor_destructor:false
+		~name:_pool
+		~descr:"Pool-wide information"
+		~gen_events:true
+		~doccomments:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~messages:
+			[ pool_join
+			; pool_join_force
+			; pool_eject
+			; pool_initial_auth
+			; pool_transition_to_master
+			; pool_slave_reset_master
+			; pool_recover_slaves
+			; pool_hello
+			; pool_ping_slave
+			; pool_create_VLAN
+			; pool_create_VLAN_from_PIF
+			; pool_slave_network_report
+			; pool_enable_ha
+			; pool_disable_ha
+			; pool_sync_database
+			; pool_designate_new_master
+			; pool_ha_prevent_restarts_for
+			; pool_ha_failover_plan_exists
+			; pool_ha_compute_max_host_failures_to_tolerate
+			; pool_ha_compute_hypothetical_max_host_failures_to_tolerate
+			; pool_ha_compute_vm_failover_plan
+			; pool_set_ha_host_failures_to_tolerate
+			; pool_create_new_blob
+			; pool_ha_schedule_plan_recomputation
+			; pool_enable_binary_storage
+			; pool_disable_binary_storage
+			; pool_enable_external_auth
+			; pool_disable_external_auth
+			; pool_detect_nonhomogeneous_external_auth
+			; pool_initialize_wlb
+			; pool_deconfigure_wlb
+			; pool_send_wlb_configuration
+			; pool_retrieve_wlb_configuration
+			; pool_retrieve_wlb_recommendations
+			; pool_send_test_post
+			; pool_certificate_install
+			; pool_certificate_uninstall
+			; pool_certificate_list
+			; pool_crl_install
+			; pool_crl_uninstall
+			; pool_crl_list
+			; pool_certificate_sync
+			; pool_enable_redo_log
+			; pool_disable_redo_log
+			]
+		~contents:
+			[uid ~in_oss_since:None _pool
+			; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label" "Short name"
+			; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_description" "Description"
+			; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "master" "The host that is pool master"
+			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
+			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR" "The SR in which VDIs for suspend images are created"
+			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR" "The SR in which VDIs for crash dumps are created"
+			; field ~writer_roles:_R_VM_OP ~in_oss_since:None ~ty:(Map(String, String)) "other_config" "additional configuration"
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "ha_enabled" "true if HA is enabled on the pool, false otherwise"
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "ha_configuration" "The current HA configuration"
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles" "HA statefile VDIs in use"
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "ha_host_failures_to_tolerate" "Number of host failures to tolerate before the Pool is declared to be overcommitted"
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "ha_plan_exists_for" "Number of future host failures we have managed to find a plan for. Once this reaches zero any future host failures will cause the failure of protected VMs."
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "ha_allow_overcommit" "If set to false then operations which would cause the Pool to become overcommitted will be blocked."
+			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "ha_overcommitted" "True if the Pool is considered to be overcommitted i.e. if there exist insufficient physical resources to tolerate the configured number of host failures"
+			; field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this pool"
+			; field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
+			; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "gui_config" "gui-specific configuration for pool"
+			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_url" "Url for the configured workload balancing host"
+			; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
+			; field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_password" "Password for accessing the workload balancing host"
+			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
+			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
+			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
+			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
+			]
+		()
 
 (** Auth class *)
 let auth_get_subject_identifier = call ~flags:[`Session]
@@ -5613,50 +5639,50 @@ let alert =
 
 (** All the objects in the system in order they will appear in documentation: *)
 let all_system =
-  [
-    session;
-    auth;
-    subject;
-    (role:Datamodel_types.obj);
-    task;
-    event;
-    (* alert; *)
+	[
+		session;
+		auth;
+		subject;
+		(role:Datamodel_types.obj);
+		task;
+		event;
+		(* alert; *)
 
-    pool;
-    pool_patch;
+		pool;
+		pool_patch;
 
-    vm;
-    vm_metrics;
-    vm_guest_metrics;
-    host;
-    host_crashdump;
-    host_patch;
-    host_metrics;
-    hostcpu;
-    (* network_manager; *)
-    network;
-    vif;
-    vif_metrics;
-    pif;
-    pif_metrics;
-    bond;
-    vlan;
-    storage_plugin;
-    storage_repository;
-    vdi;
-    vbd;
-    vbd_metrics;
-    pbd;
-    crashdump;
-    (* misc *)
-    vtpm;
-    console;
-    (* filesystem; *)
-    user; 
-    data_source;
-    blob;
-    message;
-  ]
+		vm;
+		vm_metrics;
+		vm_guest_metrics;
+		host;
+		host_crashdump;
+		host_patch;
+		host_metrics;
+		hostcpu;
+		(* network_manager; *)
+		network;
+		vif;
+		vif_metrics;
+		pif;
+		pif_metrics;
+		bond;
+		vlan;
+		storage_plugin;
+		storage_repository;
+		vdi;
+		vbd;
+		vbd_metrics;
+		pbd;
+		crashdump;
+		(* misc *)
+		vtpm;
+		console;
+		(* filesystem; *)
+		user; 
+		data_source;
+		blob;
+		message;
+	]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -5751,8 +5777,8 @@ let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_sourc
     a user to enumerate all the VBDs or VDIs directly: that must be through a VM
     or SR *)
 let expose_get_all_messages_for = [ _task; (* _alert; *) _host; _host_metrics; _hostcpu; _sr; _vm; _vm_metrics; _vm_guest_metrics;
-				    _network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
-				    _crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role ]
+	_network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
+	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role ]
 
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

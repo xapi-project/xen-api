@@ -11,44 +11,48 @@ open D
    in db, API, CLI: we are under no illusions about it being secure.. ;) *)
 
 let rot_str s r =
-  let str = String.copy s in
-    for i=0 to (String.length str)-1
-    do
-      str.[i] <- Char.chr (((Char.code (str.[i])) + r) mod 255)
-    done;
-    str
+	let str = String.copy s in
+	for i=0 to (String.length str)-1
+		do
+			str.[i] <- Char.chr (((Char.code (str.[i])) + r) mod 255)
+		done;
+	str
 
 let transform_string str =
-  Base64.encode (rot_str str 13)
+	Base64.encode (rot_str str 13)
 
 let untransform_string str =
-  rot_str (Base64.decode str) (0-13)
+	rot_str (Base64.decode str) (0-13)
 
 (* fns for hiding and restoring plaintext passwords in device config *)
 let transform_password_device_config devconf =
-  let plaintext_key_names = List.map fst Xapi_globs.hidden_fields in
-  List.map (fun (k,v)->
-	      if List.mem k plaintext_key_names then
-		let transformed_key_name = List.assoc k Xapi_globs.hidden_fields in
-		(transformed_key_name, transform_string v)
-	      else (k,v)) devconf
+	let plaintext_key_names = List.map fst Xapi_globs.hidden_fields in
+	List.map (fun (k,v)->
+		if List.mem k plaintext_key_names then
+			let transformed_key_name = List.assoc k Xapi_globs.hidden_fields in
+			(transformed_key_name, transform_string v)
+		else (k,v)) devconf
+
 let untransform_password_device_config devconf =
-  let transformed_key_names = List.map snd Xapi_globs.hidden_fields in
-  List.map (fun (k,v)->
-	      (k,if (List.mem k transformed_key_names) then untransform_string v else v)) devconf
+	let transformed_key_names = List.map snd Xapi_globs.hidden_fields in
+	List.map (fun (k,v)->
+		(k,if (List.mem k transformed_key_names) then untransform_string v else v)) devconf
 
 let create_common ~__context ~host ~sR ~device_config ~currently_attached ~other_config =
-  let pbds = Db.SR.get_PBDs ~__context ~self:sR in
-  if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds 
-  then raise (Api_errors.Server_error (Api_errors.pbd_exists, [
-    Ref.string_of sR; Ref.string_of host; Ref.string_of (List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds)]));
-  let ref = Ref.make() in
-  let uuid = Uuid.to_string (Uuid.make_uuid()) in
-    (* The only way you can set a device_config string is via this call, so we apply the
-       trivial password manipulation to CIFs passwords here, and then decode in the sm_iso backend *)
-  let device_config = transform_password_device_config device_config in
-    Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config:[];
-    ref
+	let pbds = Db.SR.get_PBDs ~__context ~self:sR in
+	if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds 
+	then raise (Api_errors.Server_error (Api_errors.pbd_exists,
+		[ Ref.string_of sR
+		; Ref.string_of host
+		; Ref.string_of (List.find (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds)
+		]));
+	let ref = Ref.make() in
+	let uuid = Uuid.to_string (Uuid.make_uuid()) in
+	(* The only way you can set a device_config string is via this call, so we apply the
+	trivial password manipulation to CIFs passwords here, and then decode in the sm_iso backend *)
+	let device_config = transform_password_device_config device_config in
+	Db.PBD.create ~__context ~ref ~uuid ~host ~sR ~device_config ~currently_attached ~other_config:[];
+	ref
 
 let create ~__context ~host ~sR ~device_config ~other_config = create_common ~__context ~host ~sR ~device_config ~currently_attached:false ~other_config
 
@@ -130,9 +134,9 @@ let unplug ~__context ~self =
       end
 
 let destroy ~__context ~self =
-  if Db.PBD.get_currently_attached ~__context ~self
-  then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["PBD is currently attached"]));
-  Db.PBD.destroy ~__context ~self
+	if Db.PBD.get_currently_attached ~__context ~self
+	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["PBD is currently attached"]));
+	Db.PBD.destroy ~__context ~self
 
 let set_device_config ~__context ~self ~value = 
   (* Only allowed from the SM plugin *)
