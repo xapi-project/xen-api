@@ -77,6 +77,7 @@ let _message = "message"
 let _auth = "auth"
 let _subject = "subject"
 let _role = "role"
+let _secret = "secret"
 
 
 (** All the various static role names *)
@@ -2495,12 +2496,13 @@ let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(interna
 	  field_getter_roles = reader_roles;
 	  }
 
-let uid ?(in_oss_since=Some "3.0.3") refname =
+let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) refname =
 	field
 		~in_oss_since
 		~qualifier:DynamicRO
 		~ty:(String)
 		~writer_roles:_R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
+		~reader_roles
 		"uuid"
 		"unique identifier/object reference"
 
@@ -5615,6 +5617,37 @@ let message =
       field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
     ()
     
+let secret =
+	let introduce = call
+		~name:"introduce"
+		~in_product_since:rel_midnight_ride
+		~params:[String, "uuid", ""; String, "secret", ""]
+		~flags:[`Session]
+		~result:(Ref _secret, "")
+		~secret:true
+		~hide_from_docs:true
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	create_obj
+		~descr:"A secret"
+		~doccomments:[]
+		~gen_constructor_destructor:true
+		~gen_events:true
+		~in_db:true
+		~in_oss_since:None
+		~in_product_since:rel_midnight_ride
+		~internal_deprecated_since:None
+		~messages:[introduce]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~implicit_messages_allowed_roles:_R_POOL_OP
+		~name:_secret
+		~persist:PersistEverything
+		~contents:
+			[ uid ~reader_roles:_R_POOL_OP _secret
+			; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "secret" "the secret"
+			]
+		()
 
 (*
 
@@ -5682,6 +5715,7 @@ let all_system =
 		data_source;
 		blob;
 		message;
+		secret;
 	]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5778,7 +5812,7 @@ let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_sourc
     or SR *)
 let expose_get_all_messages_for = [ _task; (* _alert; *) _host; _host_metrics; _hostcpu; _sr; _vm; _vm_metrics; _vm_guest_metrics;
 	_network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
-	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role ]
+	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role; _secret ]
 
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

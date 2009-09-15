@@ -3055,4 +3055,6 @@ end
   module Message = Local.Message
 
   module Data_source = struct end
+
+	module Secret = Local.Secret
 end

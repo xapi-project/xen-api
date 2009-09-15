@@ -687,6 +687,7 @@ let gen_cmds rpc session_id =
 	(make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 *)
 	(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
+	@ (make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id)
 (*
 	@ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 *)
@@ -1476,6 +1477,7 @@ let event_wait_gen rpc session_id classname record_matches =
 				| "task" -> List.map (fun x -> (task_record rpc session_id x).fields) (Client.Task.get_all rpc session_id)
 				| "subject" -> List.map (fun x -> (subject_record rpc session_id x).fields) (Client.Subject.get_all rpc session_id)
 				| "role" -> List.map (fun x -> (role_record rpc session_id x).fields) (Client.Role.get_all rpc session_id)
+				| "secret" -> List.map (fun x -> (secret_record rpc session_id x).fields) (Client.Secret.get_all rpc session_id)
 (*				| "alert" -> List.map (fun x -> (alert_record rpc session_id x).fields) (Client.Alert.get_all rpc session_id) *)
 				| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
 		in
@@ -1514,6 +1516,7 @@ let event_wait_gen rpc session_id classname record_matches =
 									| Event_helper.PBD (r,Some x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
 									| Event_helper.Pool (r,Some x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
 									| Event_helper.Task (r,Some x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Secret (r,Some x) -> let record = secret_record rpc session_id r in record.setrefrec (r, x); record.fields
 									| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
 								in
 								let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
@@ -3669,6 +3672,17 @@ let session_subject_identifier_logout printer rpc session_id params =
 let session_subject_identifier_logout_all printer rpc session_id params =
   let subject_identifiers = Client.Session.get_all_subject_identifiers ~rpc ~session_id in
   List.iter (fun subject_identifier -> Client.Session.logout_subject_identifier ~rpc ~session_id ~subject_identifier) subject_identifiers
+
+let secret_create printer rpc session_id params =
+	let secret = List.assoc "secret" params in
+	let ref = Client.Secret.create ~rpc ~session_id ~secret in
+	let uuid = Client.Secret.get_uuid ~rpc ~session_id ~self:ref in
+	printer (Cli_printer.PList [uuid])
+
+let secret_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.Secret.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.Secret.destroy ~rpc ~session_id ~self:ref
 
 let regenerate_built_in_templates printer rpc session_id params = 
   Create_templates.create_all_templates rpc session_id

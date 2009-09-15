@@ -26,6 +26,7 @@ type event_record =
 	| User of             [`User] Ref.t * API.user_t option
 	| Pool of             [`pool] Ref.t *  API.pool_t option
 	| Message of          [`message] Ref.t * API.message_t option
+	| Secret of           [`secret] Ref.t * API.secret_t option
 
 let record_of_event ev =
 	let xmlrpc = ev.Event_types.snapshot in
@@ -55,3 +56,4 @@ let record_of_event ev =
 		| "user" ->             User (Ref.of_string ev.Event_types.reference, may (API.From.user_t "") xmlrpc)
 		| "pool" ->             Pool (Ref.of_string ev.Event_types.reference, may (API.From.pool_t "") xmlrpc)
 		| "message" ->          Message (Ref.of_string ev.Event_types.reference, may (API.From.message_t "") xmlrpc)
+		| "secret" ->           Secret (Ref.of_string ev.Event_types.reference, may (API.From.secret_t "") xmlrpc)
