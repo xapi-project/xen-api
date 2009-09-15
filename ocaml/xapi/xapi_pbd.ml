@@ -100,8 +100,10 @@ let unplug ~__context ~self =
 
 let destroy ~__context ~self =
 	if Db.PBD.get_currently_attached ~__context ~self
-	then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["PBD is currently attached"]));
-	Db.PBD.destroy ~__context ~self
+		then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["PBD is currently attached"]));
+	let device_cfg = Db.PBD.get_device_config ~__context ~self in
+	Db.PBD.destroy ~__context ~self;
+	Xapi_secret.clean_out_passwds ~__context device_cfg
 
 let set_device_config ~__context ~self ~value = 
   (* Only allowed from the SM plugin *)
