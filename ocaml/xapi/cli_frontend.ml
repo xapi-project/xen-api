@@ -2035,6 +2035,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.regenerate_built_in_templates;
       flags=[Hidden];
     };
+
+		"secret-create",
+			{ reqd = ["secret"]
+			; optn = []
+			; help = "Create a secret"
+			; implementation = No_fd Cli_operations.secret_create
+			; flags = []
+			};
+
+		"secret-destroy",
+			{ reqd = ["uuid"]
+			; optn = []
+			; help = "Destroy a secret"
+			; implementation = No_fd Cli_operations.secret_destroy
+			; flags = []
+			};
     
   ]
 
