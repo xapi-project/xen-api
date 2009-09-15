@@ -375,6 +375,17 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 
 	new_pif_ref
 
+let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret) : API.ref_secret =
+	let my_uuid = secret.API.secret_uuid in
+	let my_secret = secret.API.secret_secret in
+	let new_secret_ref =
+		try Client.Secret.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
+		with _ ->
+			debug "Found no secret with uuid = '%s' on master, so creating one." my_uuid;
+			Client.Secret.introduce ~rpc ~session_id ~uuid:my_uuid ~secret:my_secret
+	in
+	new_secret_ref
+
 let protect_exn f x =
 	try Some (f x)
 	with _ -> None
@@ -412,6 +423,12 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 	let my_pifs = Db.PIF.get_all_records ~__context in
 	let (_ : API.ref_PIF option list) =
 		List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
+
+	(* update Secrets *)
+	let my_secrets = Db.Secret.get_all_records ~__context in
+	let (_ : API.ref_secret option list) =
+		List.map (protect_exn (create_or_get_secret_on_master __context rpc session_id)) my_secrets
+	in
 
 	()
 

@@ -1136,6 +1136,24 @@ let blob_record rpc session_id blob =
     make_field ~name:"mime-type" ~get:(fun () -> (x ()).API.blob_mime_type) ();
   ]}
 
+let secret_record rpc session_id secret =
+	let _ref = ref secret in
+	let empty_record = ToGet (fun () ->
+		Client.Secret.get_record ~rpc ~session_id ~self:!_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{ setref = (fun r -> _ref := r; record := empty_record )
+	; setrefrec = (fun (a, b) -> _ref := a; record := Got b )
+	; record = x
+	; getref = (fun () -> !_ref )
+	; fields =
+		[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.secret_uuid) ()
+		; make_field ~name:"secret" ~get:(fun () -> (x ()).API.secret_secret)
+			~set:(fun x ->
+				Client.Secret.set_secret ~rpc ~session_id ~self:!_ref ~value:x)
+			()
+		]
+	}
 
 (*let record_from_ref rpc session_id ref =
   let all = [
@@ -1159,4 +1177,4 @@ let blob_record rpc session_id blob =
 	_ -> false
   in
   try let (n,r) = List.find findfn all in (n,r ref) with _ -> ("Unknown",[])
-*)
+	*)

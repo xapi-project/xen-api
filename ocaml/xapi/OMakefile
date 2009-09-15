@@ -231,6 +231,7 @@ OCamlProgram(xapi, $(COMMON) \
 	workload_balancing \
 	wlb_reports \
 	remote_requests \
+	xapi_secret \
 	certificates)
 
 OCamlProgram(bootloader, bootloader bootloader_test)
