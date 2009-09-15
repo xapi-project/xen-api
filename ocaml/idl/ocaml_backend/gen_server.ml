@@ -25,14 +25,7 @@ let is_session_arg arg =
 let from_xmlrpc arg =
 	let binding = O.string_of_param arg in
 	let converter = O.type_of_param arg in
-	let checksession =
-		if is_session_arg arg then
-			begin
-				(Printf.sprintf "\n        Session_check.check intra_pool_only %s;" binding) (* ****** *)
-			end
-		else "" in
-	Printf.sprintf "let %s = From.%s \"%s\" %s in%s"
-	binding converter binding binding checksession
+	Printf.sprintf "let %s = From.%s \"%s\" %s in" binding converter binding binding
 
 let read_msg_parameter msg_parameter =
   from_xmlrpc 
@@ -188,6 +181,12 @@ let operation (obj: obj) (x: message) =
       | FromObject _ -> false
       | Custom -> true in
     
+		let session_check_exp =
+			if x.msg_session
+				then [ "Session_check.check intra_pool_only session_id;" ]
+				else []
+			in
+
 	let gen_body () =
 		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
 		let type_xml = XMLRPC.TypeToXML.marshal ret in
@@ -223,7 +222,7 @@ let operation (obj: obj) (x: message) =
 		common_let_decs @ side_effect_let_decs @ body_exp in
 
   let all = String.concat "\n        "
-    (comments @ set_intra_pool_only @ unmarshall_code @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
+    (comments @ set_intra_pool_only @ unmarshall_code @ session_check_exp @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
     
     ("    " ^ name_pattern_match ^ "\n" ^
     ("begin\n"
