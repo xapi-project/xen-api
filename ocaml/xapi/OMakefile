@@ -232,6 +232,7 @@ OCamlProgram(xapi, $(COMMON) \
 	wlb_reports \
 	remote_requests \
 	xapi_secret \
+	../database/db_hiupgrade \
 	certificates)
 
 OCamlProgram(bootloader, bootloader bootloader_test)
