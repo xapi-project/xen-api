@@ -66,9 +66,6 @@ let event_add ?snapshot ty op reference  =
             Condition.broadcast newevents 
           end) subscriptions)
 
-(* This calls through autogen/db_action, through the Db_int module included in there (which is
-     actually ocaml/idl/sql_backend/autogen_helpers/db_action_helper.ml), into Internal module
-     in that file and finally into events_register. Nice! ;) *)
 let register_hooks () =
 	Db_action_helper.events_register event_add
 

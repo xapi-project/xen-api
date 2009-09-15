@@ -168,24 +168,23 @@ let upgrade_from_last_release dbconn =
   let objs_in_last_release =
     List.filter (fun x -> List.mem old_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
   let table_names_in_last_release =
-    List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) objs_in_last_release in
+    List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) objs_in_last_release in
 
   let objs_in_this_release =
     List.filter (fun x -> List.mem this_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
   let table_names_in_this_release =
-    List.map (fun x->Gen_schema.sql_of_obj x.Datamodel_types.name) objs_in_this_release in
+    List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) objs_in_this_release in
 
   let table_names_new_in_this_release =
     List.filter (fun tblname -> not (List.mem tblname table_names_in_last_release)) table_names_in_this_release in
   
   (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
-  Db_connections.populate dbconn table_names_in_last_release;
+  Backend_xml.populate dbconn;
 
   (* we also have to ensure that the in-memory cache contains the new tables added in this release that will not have been
      created by the proceeding populate (cos this is restricted to table names in last release). Unless the new tables are
-     explicitly added to the in-memory cache they will not be written out into the new db file across upgrade. [Turns out
-     you get away with this in the sqlite backend since there the tables are created from the schema_file; in the XML
-     backend you're not so lucky, so this needs to be made explicit..
+     explicitly added to the in-memory cache they will not be written out into the new db file across upgrade. In the XML
+     backend there's no schema file from which tables are created, so this needs to be made explicit..
   *)
   let create_blank_table_in_cache tblname =
     let newtbl = create_empty_table () in
@@ -235,7 +234,7 @@ exception Schema_mismatch
 (* Maybe upgrade most recent db *)
 let maybe_upgrade most_recent_db =
   debug "Considering upgrade...";
-  let major_vsn, minor_vsn = Db_connections.read_schema_vsn most_recent_db in
+  let major_vsn, minor_vsn = Backend_xml.read_schema_vsn most_recent_db in
   debug "Db has schema major_vsn=%d, minor_vsn=%d (current is %d %d) (last is %d %d)" major_vsn minor_vsn Datamodel.schema_major_vsn Datamodel.schema_minor_vsn Datamodel.last_release_schema_major_vsn Datamodel.last_release_schema_minor_vsn;
   begin
     if major_vsn=Datamodel.schema_major_vsn && minor_vsn=Datamodel.schema_minor_vsn then

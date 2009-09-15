@@ -5,12 +5,10 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 type db_connection_mode = Write_limit | No_limit
-type db_format = Xml | Sqlite
 
 type db_connection =
     {path:string;
      mode:db_connection_mode;
-     format:db_format;
      compress:bool;
      write_limit_period:int;
      write_limit_write_cycles:int;
@@ -23,7 +21,7 @@ let default_write_cycles = 10
 
 (* a useful "empty" config value *)
 let dummy_conf =
-  {path=""; mode=No_limit; format=Sqlite;
+  {path=""; mode=No_limit;
    write_limit_period=default_write_limit_period;
    write_limit_write_cycles=default_write_cycles;
    compress=false;
@@ -33,25 +31,13 @@ let dummy_conf =
 
 (* the db conf that we use for temporary backup/restore files *)
 let backup_file_dbconn = {dummy_conf with
-			    path=Xapi_globs.db_temporary_restore_path;
-			    format=Xml
+			    path=Xapi_globs.db_temporary_restore_path
 			 }
 
 (* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
 let db_snapshot_dbconn = {dummy_conf with
-  path=Xapi_globs.snapshot_db;
-  format=Xml
+  path=Xapi_globs.snapshot_db
 }
-
-let from_format v =
-  match v with
-    Xml -> "xml"
-  | Sqlite -> "sqlite"
-
-let to_format s =
-  match s with
-    "xml"->Xml
-  | "sqlite"->Sqlite
 
 let from_mode v =
   match v with
@@ -62,8 +48,8 @@ let from_block r =
   String.concat ""
     [
       Printf.sprintf
-	"[%s]\nmode:%s\nformat:%s\ncompress:%b\nis_on_remote_storage:%b\n"
-	r.path (from_mode r.mode) (from_format r.format) r.compress
+	"[%s]\nmode:%s\nformat:xml\ncompress:%b\nis_on_remote_storage:%b\n"
+	r.path (from_mode r.mode) r.compress
 	r.is_on_remote_storage;
       if r.mode = Write_limit then
 	Printf.sprintf "write_limit_period:%d\nwrite_limit_write_cycles:%d\n"
@@ -119,7 +105,6 @@ let parse_db_conf s =
 	else default in
       {path=path;
        mode=maybe_put_in "mode" (* key name *) No_limit (* default if key not present *) to_mode (* fn to conv string->mode type *);
-       format=maybe_put_in "format" Sqlite to_format;
        compress = maybe_put_in "compress" false bool_of_string;
        is_on_remote_storage = maybe_put_in "is_on_remote_storage" false bool_of_string;
        write_limit_period=maybe_put_in "write_limit_period" default_write_limit_period int_of_string;

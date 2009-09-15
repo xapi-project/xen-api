@@ -16,7 +16,7 @@ let _db_action = Gen_db_actions._db_action
     (ie Set(Ref _) are stored in foreign tables *)
 let field_in_this_table = Gen_db_actions.field_in_this_table 
 
-(*  Gen_schema.sql_of_id f.full_name *)
+(*  Escaping.escape_id f.full_name *)
 
 let _db_exists = "Db_exists"
 

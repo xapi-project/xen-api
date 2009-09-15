@@ -3,7 +3,7 @@
 exception Cannot_read_schema_version
 
 (** Table column name which contains the reference *)
-let reference = Gen_schema.reference
+let reference = Escaping.reference
 
 (** Table column name which contains the uuid *)
 let uuid = "uuid"
@@ -12,11 +12,6 @@ open Threadext
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
-
-(*module Sql = struct
-  include Sql
-  include Sqlsqlite3
-end*)
 
 (* General DB utils *)
 

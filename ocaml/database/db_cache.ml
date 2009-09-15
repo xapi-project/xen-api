@@ -7,7 +7,7 @@
    the Db.* API (or, absolute worst-case (!) via the DB_ACCESS layer)
 
    The DBCache module contains 2 instances of the DB_CACHE module type: one instance for pool
-   masters (that is an in-memory db-cache, with async write log pushed to sqlite db for persistent
+   masters (that is an in-memory db-cache, with async write log pushed to database for persistent
    store); and one instance for pool slaves (that calls a marshalling protocol that retrieves/
    modifies directly from the ppol master).
 
@@ -289,9 +289,9 @@ struct
 	       [] -> []
 	     | ({Datamodel_types.ty = Datamodel_types.Set(Datamodel_types.Ref clsname); full_name = full_name}::fs) ->
 		 let obj', fld' = look_up_related_table_and_field obj clsname full_name in
-		 (Gen_schema.sql_of_obj obj.Datamodel_types.name, (* local classname *)
-		  Gen_schema.sql_of_id full_name, (* local field *)
-		  Gen_schema.sql_of_obj obj', (* remote classname *)
+		 (Escaping.escape_obj obj.Datamodel_types.name, (* local classname *)
+		  Escaping.escape_id full_name, (* local field *)
+		  Escaping.escape_obj obj', (* remote classname *)
 		  fld' (* remote fieldname *))::(set_refs fs)
 	     | _::fs -> set_refs fs in
 	   
@@ -344,7 +344,7 @@ struct
 	   remove_row_from_table tbl objref;
 	   
 	   (* Notify each db connection of delete *)
-	   List.iter (fun dbconn->Db_connections.notify_delete dbconn tblname objref) (Db_conn_store.read_db_connections());
+	   List.iter (fun dbconn->Backend_xml.notify_delete dbconn tblname objref) (Db_conn_store.read_db_connections());
 
 	   if (this_table_persists tblname) then
 	     begin
@@ -433,7 +433,7 @@ struct
 	   get_reflist (lookup_table_in_cache cache tblname))
 
     let populate_from connection_spec =
-      Db_connections.populate connection_spec db_table_names;
+      Backend_xml.populate connection_spec;
       Db_backend.blow_away_non_persistent_fields()
 
     let sync_all_db_connections() =
@@ -466,15 +466,13 @@ struct
 	  (if available). This isn't a full flushing connection per-se but
 	  is only considered as a population source. *)
       let fake_ha_dbconn = { Parse_db_conf.dummy_conf with
-        Parse_db_conf.path = Xapi_globs.ha_metadata_db;
-        format = Parse_db_conf.Xml } in
+        Parse_db_conf.path = Xapi_globs.ha_metadata_db } in
       let connections = 
 		if Sys.file_exists Xapi_globs.ha_metadata_db
 		then fake_ha_dbconn :: connections else connections in
 
       let fake_gen_dbconn = { Parse_db_conf.dummy_conf with
-        Parse_db_conf.path = Xapi_globs.gen_metadata_db;
-        format = Parse_db_conf.Xml } in
+        Parse_db_conf.path = Xapi_globs.gen_metadata_db } in
       let connections = 
 		if Sys.file_exists Xapi_globs.gen_metadata_db
 		then fake_gen_dbconn :: connections else connections in
@@ -509,7 +507,7 @@ struct
 		    Db_upgrade.maybe_upgrade most_recent_db;
 	
 		  (* populate from most recent database *)
-		  Db_connections.populate most_recent_db db_table_names;
+		  Backend_xml.populate most_recent_db;
 		  post_populate_hook ()
 		end
 

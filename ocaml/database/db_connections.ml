@@ -33,23 +33,6 @@ let pick_most_recent_db connections =
 let preferred_write_db () =
   List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)  
 
-(* ------------------- Fns that dispatch to generic backends *)
-
-let notify_delete dbconn tblname objref =
-  match dbconn.Parse_db_conf.format with
-    Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-  | _ -> ()
-
-let read_schema_vsn dbconn =
-  match dbconn.Parse_db_conf.format with
-    Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-  | Parse_db_conf.Xml -> Backend_xml.read_schema_vsn dbconn    
-  
-let populate dbconn table_names =
-  match dbconn.Parse_db_conf.format with
-    Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-  | Parse_db_conf.Xml -> Backend_xml.populate dbconn table_names
-
 (* This is set by signal handlers. It instructs the db thread to call exit after the next flush *)
 let exit_on_next_flush = ref false
 
@@ -83,10 +66,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        let flush_conn dbconn =
-	 let was_anything_flushed =
-	     match dbconn.Parse_db_conf.format with
-	     Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-	   | Parse_db_conf.Xml -> Backend_xml.flush_dirty dbconn in
+	 let was_anything_flushed = Backend_xml.flush_dirty dbconn in
 	 if was_anything_flushed then
 	   Generation.write_out dbconn;
      was_anything_flushed in
@@ -121,26 +101,20 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 
 let create_empty_db dbconn =
   Generation.create_fresh dbconn;
-  match dbconn.Parse_db_conf.format with
-    Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-  | Parse_db_conf.Xml -> Backend_xml.create_empty_db dbconn
+  Backend_xml.create_empty_db dbconn
   
 let maybe_create_new_db dbconn =
   if not (Sys.file_exists dbconn.Parse_db_conf.path) then
     begin
       Generation.create_fresh dbconn;
-      match dbconn.Parse_db_conf.format with
-	Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-      | Parse_db_conf.Xml -> Backend_xml.create_empty_db dbconn
+      Backend_xml.create_empty_db dbconn
     end
 
 let force_flush_all dbconn =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        begin
-	 match dbconn.Parse_db_conf.format with
-	   Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-	 | Parse_db_conf.Xml -> Backend_xml.force_flush_all dbconn None
+	 Backend_xml.force_flush_all dbconn None
        end;
        Generation.write_out dbconn
     )
@@ -149,9 +123,7 @@ let force_flush_specified_cache dbconn generation_count cache =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        begin
-	 match dbconn.Parse_db_conf.format with
-	   Parse_db_conf.Sqlite -> failwith "sqlite backend removed"
-	 | Parse_db_conf.Xml -> Backend_xml.force_flush_all dbconn (Some cache)
+	 Backend_xml.force_flush_all dbconn (Some cache)
        end;
        Generation.write_out_specified_count dbconn generation_count
     )
