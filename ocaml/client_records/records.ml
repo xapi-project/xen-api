@@ -1073,32 +1073,33 @@ let sr_record rpc session_id sr =
   ]}
     
 let pbd_record rpc session_id pbd =
-  let _ref = ref pbd in
-  let empty_record = ToGet (fun () -> Client.PBD.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let sanitize_s2s kv = match kv with
-      (k, v) when (String.endswith "transformed" k) -> (k, "undisclosed")
-    | e -> e in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-  [
-    make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pBD_uuid) ();
-    make_field ~name:"host" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ~deprecated:true ();
-    make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ();
-    make_field ~name:"sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_SR) ();
-    make_field ~name:"device-config"
-      ~get:(fun () -> Record_util.s2sm_to_string "; " (List.map sanitize_s2s (x ()).API.pBD_device_config))
-      ~get_map:(fun () -> List.map sanitize_s2s (x ()).API.pBD_device_config) ();
-    make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool (x ()).API.pBD_currently_attached) ();
-    make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pBD_other_config) 
-      ~add_to_map:(fun k v -> Client.PBD.add_to_other_config rpc session_id pbd k v)
-      ~remove_from_map:(fun k -> Client.PBD.remove_from_other_config rpc session_id pbd k) 
-      ~get_map:(fun () -> (x ()).API.pBD_other_config) ();
-  ]}
+	let _ref = ref pbd in
+	let empty_record = ToGet (fun () -> Client.PBD.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let sanitize_s2s kv = match kv with
+		(k, v) when (String.endswith "transformed" k) -> (k, "undisclosed")
+		| e -> e
+	in
+	let x () = lzy_get record in
+		{ setref=(fun r -> _ref := r; record := empty_record )
+		; setrefrec=(fun (a,b) -> _ref := a; record := Got b)
+		; record=x
+		; getref=(fun () -> !_ref)
+		; fields = 
+			[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pBD_uuid) ()
+			; make_field ~name:"host" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ~deprecated:true ()
+			; make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ()
+			; make_field ~name:"sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_SR) ()
+			; make_field ~name:"device-config"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (List.map sanitize_s2s (x ()).API.pBD_device_config))
+				~get_map:(fun () -> List.map sanitize_s2s (x ()).API.pBD_device_config) ()
+			; make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool (x ()).API.pBD_currently_attached) ()
+			; make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pBD_other_config) 
+				~add_to_map:(fun k v -> Client.PBD.add_to_other_config rpc session_id pbd k v)
+				~remove_from_map:(fun k -> Client.PBD.remove_from_other_config rpc session_id pbd k) 
+				~get_map:(fun () -> (x ()).API.pBD_other_config) ()
+			]
+		}
 
 let session_record rpc session_id session =
   let _ref = ref session in

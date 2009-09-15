@@ -38,24 +38,24 @@ let plug_unplugged_pbds __context rpc session_id =
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me = 
-  let pbds = Client.SR.get_PBDs rpc session_id sr in
-  let pbds = List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds in
-  (* Check not more than 1 pbd in the database *)
-  let pbds =
-    if List.length pbds > 1 
-    then
-      begin
-	(* shouldn't happen... delete all but first pbd to make db consistent again *)
-	List.iter (fun pbd->Client.PBD.destroy rpc session_id pbd) (List.tl pbds);
-	[List.hd pbds]
-      end
-    else pbds in
-  if List.length pbds = 0 (* If there's no PBD, create it *)
-  then
-    Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr 
-      ~device_config:device_config ~other_config:[]
-  else
-    List.hd pbds (* Otherwise, return the current one *)
+	let pbds = Client.SR.get_PBDs rpc session_id sr in
+	let pbds = List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds in
+	(* Check not more than 1 pbd in the database *)
+	let pbds =
+		if List.length pbds > 1 
+			then begin
+				(* shouldn't happen... delete all but first pbd to make db consistent again *)
+				List.iter (fun pbd->Client.PBD.destroy rpc session_id pbd) (List.tl pbds);
+				[List.hd pbds]
+				end
+			else pbds
+	in
+	if List.length pbds = 0 (* If there's no PBD, create it *)
+		then
+			Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr 
+				~device_config:device_config ~other_config:[]
+		else
+			List.hd pbds (* Otherwise, return the current one *)
 
 
 let create_storage (me: API.ref_host) rpc session_id __context : unit =
@@ -70,7 +70,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
     let maybe_create_pbd_for_shared_sr s =
       let mpbd,mpbd_rec = List.find (fun (_,pbdr)->pbdr.API.pBD_SR = s) master_pbds in
       let master_devconf = mpbd_rec.API.pBD_device_config in
-	maybe_create_pbd rpc session_id s master_devconf me (* copy device config from master *) in
+       maybe_create_pbd rpc session_id s master_devconf me (* copy device config from master *) in
       List.iter (fun s -> try ignore (maybe_create_pbd_for_shared_sr s) with _ -> ()) shared_sr_refs
   in
 

@@ -8,15 +8,15 @@ open Client
 
 (* create pool record (if master and not one already there) *)
 let create_pool_record ~__context =
-  let pools = Db.Pool.get_all ~__context in
-  if pools=[] then
-    Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.make_uuid()))
-      ~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
-      ~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null ~other_config:[]
-      ~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
-      ~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] 
-      ~wlb_url:"" ~wlb_username:"" ~wlb_password:"" ~wlb_enabled:false ~wlb_verify_cert:false
-      ~redo_log_enabled:false ~redo_log_vdi:Ref.null
+	let pools = Db.Pool.get_all ~__context in
+	if pools=[] then
+		Db.Pool.create ~__context ~ref:(Ref.make()) ~uuid:(Uuid.to_string (Uuid.make_uuid()))
+			~name_label:"" ~name_description:"" ~master:(Helpers.get_localhost ~__context) 
+			~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null ~other_config:[]
+			~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
+			~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] 
+			~wlb_url:"" ~wlb_username:"" ~wlb_password:"" ~wlb_enabled:false ~wlb_verify_cert:false
+			~redo_log_enabled:false ~redo_log_vdi:Ref.null
 
 let set_master_ip ~__context =
   let ip =
