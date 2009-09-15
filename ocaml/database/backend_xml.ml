@@ -48,7 +48,7 @@ let populate_and_read_manifest dbconn =
   iter_over_tables (fun name table -> set_table_in_cache cache name table) unmarshalled_db;
   manifest
 
-let populate dbconn tbls =
+let populate dbconn =
   ignore (populate_and_read_manifest dbconn)
 
 let atomically_write_to_db_file filename marshall =
@@ -157,6 +157,11 @@ let flush_dirty dbconn =
 let force_flush_all dbconn optional_cache =
   flush_common dbconn optional_cache
   
+(* Does nothing. This is just a hook (left over from the sqlite days) in case we
+ * ever want to be notified of an object's deletion. *)
+let notify_delete dbconn tblname objref =
+  ()
+
 let read_schema_vsn dbconn =
   (* inefficient to read whole db file just to parse schema vsn; but since this fn is
      only called at startup I don't think we care.. *)

@@ -4,16 +4,12 @@ open D
 open Db_cache_types
 open Pervasiveext
 
-let format = ref ""
+let compress = ref false
 let filename = ref ""
 let operation = ref ""
 let config = ref ""
 let iqn = ref ""
 let xmltostdout = ref false
-
-let _format_sqlite = "sqlite"
-let _format_xml = "xml"
-let _format_xml_compressed = "xmlcompressed"
 
 let init_logs() =
   Logs.append "xapi-db-process" Log.Info "syslog:xapi_db_process"
@@ -23,18 +19,16 @@ let fatal_error s =
   print_string "\n";
   exit 1
   
-type operation = Db_transform | Read_gencount | Read_hostiqn | Write_hostiqn
+type operation = Write_database | Read_gencount | Read_hostiqn | Write_hostiqn
 		 | Am_i_in_the_database | Unknown of string
 let parse_operation s =
   match (String.lowercase s) with
-    "db_transform" -> Db_transform
+  | "write_db" -> Write_database
   | "read_gencount" -> Read_gencount
   | "read_hostiqn" -> Read_hostiqn
   | "write_hostiqn" -> Write_hostiqn
   | "am_i_in_the_database" -> Am_i_in_the_database
   | s                      -> (Unknown s)
-
-let valid_formats = [_format_sqlite; _format_xml; _format_xml_compressed]
 
 let initialise_db_connections() =
   let dbs = Parse_db_conf.parse_db_conf 
@@ -63,33 +57,26 @@ let write_out_database filename =
   Db_connections.force_flush_all
     {Parse_db_conf.dummy_conf with
        Parse_db_conf.path=filename;
-       Parse_db_conf.format=
-	(if !format=_format_sqlite then Parse_db_conf.Sqlite
-	 else if !format=_format_xml then Parse_db_conf.Xml
-	 else if !format=_format_xml_compressed then Parse_db_conf.Xml
-	 else raise UnknownFormat);
        Parse_db_conf.mode=Parse_db_conf.No_limit;
-       Parse_db_conf.compress=(!format="xmlcompressed")
+       Parse_db_conf.compress=(!compress)
     }
 
 let help_pad = "      "
 let operation_list =
   String.concat "\n"
     (List.map (fun s -> help_pad^s)
-       ["db_transform  -- transform database into new format";
-	"read_gencount -- read maximum gencount of databases listed in db.conf";
+       ["write_db      -- output the database";
+        "read_gencount -- read maximum gencount of databases listed in db.conf";
         "read_hostiqn  -- read the initiator IQN for this host from the db host table";
-	"write_hostiqn -- write a new initiator IQN for this host into all db's host tables"
+        "write_hostiqn -- write a new initiator IQN for this host into all db's host tables"
        ]
     )
-    
-let do_db_transform() =
+
+let do_write_database() =
   if (not !xmltostdout) then
     begin
       if !filename = "" then
-	fatal_error "No filename specified, and xmltostdout option not set\n";
-      if not (List.mem !format valid_formats) then
-	fatal_error "Invalid format specified\n"
+        fatal_error "No filename specified, and xmltostdout option not set\n"
     end;
   begin
     read_in_database();
@@ -98,7 +85,7 @@ let do_db_transform() =
     else
       write_out_database !filename
   end
-
+    
 let do_read_gencount() =
   initialise_db_connections();
   let connections = Db_conn_store.read_db_connections () in
@@ -156,21 +143,21 @@ let do_am_i_in_the_database () =
 let _ =
   init_logs();
   Arg.parse ([
-	       "-format", Arg.Set_string format, "format to write out ("^(String.concat ", " valid_formats )^")";
+	       "-compress", Arg.Set compress, "whether to compress the XML output";
                "-config", Arg.Set_string config, "config file to read";
 	       "-filename", Arg.Set_string filename, "filename to write to";
-	       "-xmltostdout", Arg.Set xmltostdout, "write XML db to stdout [format/filename ignored if this option is present]";
-	       "-operation", Arg.Set_string operation, "operation to perform:\n"^operation_list^"\n"^help_pad^"(defaults to db_transform if no operation specified)";
+	       "-xmltostdout", Arg.Set xmltostdout, "write XML db to stdout [compress/filename ignored if this option is present]";
+	       "-operation", Arg.Set_string operation, "operation to perform:\n"^operation_list^"\n"^help_pad^"(defaults to write_db if no operation specified)";
 	       "-hostiqn", Arg.Set_string iqn, "hostiqn value"
 	     ])
     (fun x -> print_string ("Warning, ignoring unknown argument: "^x))
     "XE database tool";
   if !operation = "" then
-    operation := "db_transform";
+    operation := "write_db";
   info "xapi-db-process executed: operation='%s'" !operation;
   match parse_operation !operation with
-    Db_transform ->
-      do_db_transform()
+  | Write_database ->
+      do_write_database()
   | Read_gencount ->
       do_read_gencount()
   | Read_hostiqn ->

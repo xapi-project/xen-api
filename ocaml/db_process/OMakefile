@@ -2,7 +2,7 @@ OCAMLPACKS += unix xmlm xml-light2 uuid
 OCAML_LIBS += ../sexpr/sexpr ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
 		../util/backtrace ../util/sanitycheck ../util/sigutil ../util/encodings
 OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
-                 ../autogen ../idl/sql_backend/ ../database/ \
+                 ../autogen ../database/ \
                  ../http/ ../xenops ../muxdemux ../xva \
 		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../xapi
 
