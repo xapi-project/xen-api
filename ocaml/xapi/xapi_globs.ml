@@ -160,13 +160,6 @@ let miami_tools_sr_name = "XenServer Tools"
 
 let tools_sr_dir = "/opt/xensource/packages/iso"
 
-(* (k, k') map: if k is in the devconf then it is replaced with k' and the value transformed *)
-(* XXX: these are the ones the Miami-only db_upgrade code uses: *)
-let hidden_fields_to_upgrade = [ "cifspassword", "cifspassword_transformed"; 
-				 "password", "password_transformed"; ]
-(* XXX: this is the main list. Perhaps this should be moved into the backends? *)
-let hidden_fields = hidden_fields_to_upgrade @ [ "chappassword", "chappassword_transformed" ]
-
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 

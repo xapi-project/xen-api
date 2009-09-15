@@ -254,12 +254,10 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 			~name_description ~_type ~content_type ~shared ~sm_config
 	in 
 
-	(* We have to transform_password_device config here on the sr_create call, since the backends will be expecting
-	transformed passwords.. *)
 	begin
 		try 
 			let subtask_of = Some (Context.get_task_id __context) in
-			Sm.sr_create (subtask_of, Sm.sm_master true :: (Xapi_pbd.transform_password_device_config device_config)) _type sr_ref physical_size;
+			Sm.sr_create (subtask_of, Sm.sm_master true :: device_config) _type sr_ref physical_size;
 		with
 		| Smint.Not_implemented_in_backend ->
 				Db.SR.destroy ~__context ~self:sr_ref;
@@ -373,7 +371,7 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 	if not(List.mem _type (Sm.supported_drivers ()))
 	then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
 	let subtask_of = Some (Context.get_task_id __context) in
-	Sm.sr_probe (subtask_of, Sm.sm_master true :: (Xapi_pbd.transform_password_device_config device_config)) _type sm_config
+	Sm.sr_probe (subtask_of, Sm.sm_master true :: device_config) _type sm_config
 
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
