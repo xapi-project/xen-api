@@ -41,7 +41,6 @@ install:
 	$(IPROG) xen-backend.rules $(DIST)/staging/etc/udev/
 	$(IPROG) xen-frontend.rules $(DIST)/staging/etc/udev/
 	$(IPROG) generate_ssl_cert $(LIBEXEC)/
-	$(IPROG) database-upgrade.sh $(DIST)/staging/opt/xensource/bin/
 	$(IPROG) fix_firewall.sh $(DIST)/staging/opt/xensource/bin/
 	mkdir -p $(DIST)/staging/opt/xensource/debug
 	$(IPROG) debug_ha_query_liveset $(DIST)/staging/opt/xensource/debug
