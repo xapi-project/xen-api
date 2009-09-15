@@ -137,6 +137,10 @@ let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) uuid =
 
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
 
+		(* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
+		   the domid hasn't changed (consider cross-host migrate) *)
+		xs.Xs.write (dom_path ^ "/unique-domain-id") (Uuid.string_of_uuid (Uuid.make_uuid ()));
+
 		debug "Created domain with id: %d" domid;
 		domid
 	with e ->
