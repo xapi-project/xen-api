@@ -27,3 +27,18 @@ let clean_out_passwds ~__context strmap =
 	let check_key (k, _) = String.endswith "password_secret" k in
 	let secrets = List.map snd (List.filter check_key strmap) in
 	List.iter delete_secret secrets
+
+(* Modify a ((string * string) list) by duplicating all the passwords found in
+* it *)
+let duplicate_passwds ~__context strmap =
+	let check_key k = String.endswith "password_secret" k in
+	let possibly_duplicate (k, v) = if check_key k
+		then 
+			let sr = Db.Secret.get_by_uuid ~__context ~uuid:v in
+			let s = Db.Secret.get_secret ~__context ~self:sr in
+			let new_sr = create ~__context ~secret:s in
+			let new_uuid = Db.Secret.get_uuid ~__context ~self:new_sr in
+			(k, new_uuid)
+		else (k, v)
+	in
+	List.map possibly_duplicate strmap
