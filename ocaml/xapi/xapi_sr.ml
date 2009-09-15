@@ -270,8 +270,11 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 
 	let pbds =
 		if shared then
-			List.map (fun h->Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host:h ~other_config:[])
-			(Db.Host.get_all ~__context)
+			let create_on_host host =
+				let dev_cfg = Xapi_secret.duplicate_passwds ~__context device_config in
+				Xapi_pbd.create ~__context ~sR:sr_ref ~device_config:dev_cfg ~host ~other_config:[]
+			in
+			List.map create_on_host (Db.Host.get_all ~__context)
 		else
 			[Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
 	in
@@ -325,9 +328,11 @@ let destroy  ~__context ~sr =
 
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
+	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
 	(* Let's not call detach because the backend throws an error *)
 	Db.SR.destroy ~__context ~self:sr;
+	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	(* Safe to delete all the PBD records because we called 'check_no_pbds_attached' earlier *)
 	List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
 	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
