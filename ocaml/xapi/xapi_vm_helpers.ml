@@ -348,13 +348,6 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot =
 let assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot = 
   assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
 
-let rec can_boot_on_all_no_memcheck ~__context ~self ~target_hosts ~snapshot =
-  let host::hosts = target_hosts in
-    assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot;
-    match hosts with
-      | [] -> true
-      | _  -> can_boot_on_all_no_memcheck ~__context ~self ~target_hosts:hosts ~snapshot
-
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)

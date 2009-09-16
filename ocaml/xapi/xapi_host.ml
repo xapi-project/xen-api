@@ -193,7 +193,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   List.iter (fun (vm, _) -> Hashtbl.replace plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) unprotected_vms;
   let migratable_vms, unmigratable_vms = List.partition (fun (vm, record) ->
     begin
-      try Xapi_vm_helpers.can_boot_on_all_no_memcheck ~__context ~self:vm ~target_hosts ~snapshot:record
+      try 
+	List.iter (fun host -> Xapi_vm_helpers.assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot:record) target_hosts;
+	true
       with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
     end) protected_vms in
   (* Check the PV drivers versions are up to date (so migration is possible). Note that we are more strict
