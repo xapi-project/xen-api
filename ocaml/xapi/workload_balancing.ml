@@ -380,8 +380,8 @@ let retrieve_vm_recommendations ~__context ~vm =
         | Xml_parse_failure error ->
           (* let this parse error carry on upwards,  perform_wlb_request will catch it and check the rest of the xml for an error code *)
           raise (Xml_parse_failure error)
-        | Db_access.DB_Access.Read_missing_uuid (_,_,_)
-        | Db_access.DB_Access.Too_many_values (_,_,_) -> 
+        | Db_cache.Read_missing_uuid (_,_,_)
+        | Db_cache.Too_many_values (_,_,_) -> 
           raise_malformed_response' "VMGetRecommendations" 
             "Invalid VM or host UUID" "unknown"
     in
@@ -589,8 +589,8 @@ let get_opt_recommendations ~__context =
     match result_map with (map, opt_id) ->
       List.map (fun kvs -> remap None None None None None opt_id kvs) map
   with
-  | Db_access.DB_Access.Read_missing_uuid (_,_,_)
-  | Db_access.DB_Access.Too_many_values (_,_,_) ->
+  | Db_cache.Read_missing_uuid (_,_,_)
+  | Db_cache.Too_many_values (_,_,_) ->
     raise_malformed_response' "GetOptimizationRecommendations" "Invalid VM or host UUID" "unknown"
    
     
@@ -665,8 +665,8 @@ let get_evacuation_recoms ~__context ~uuid =
   try
     List.map (fun kvs -> remap None None None kvs) result_map
   with
-  | Db_access.DB_Access.Read_missing_uuid (_,_,_)
-  | Db_access.DB_Access.Too_many_values (_,_,_) ->
+  | Db_cache.Read_missing_uuid (_,_,_)
+  | Db_cache.Too_many_values (_,_,_) ->
     raise_malformed_response' "HostGetRecommendations"
       "Invalid VM or host UUID" "unknown"
 

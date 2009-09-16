@@ -4,7 +4,7 @@
    The dbcache provides low-level access to the data in the db (both getting and setting).
    It is below the event-level: calling the functions in this module will not cause any events
    to be generated. For that reason, regular xapi code accessing the database must call in via
-   the Db.* API (or, absolute worst-case (!) via the DB_ACCESS layer)
+   the Db.* API.
 
    The DBCache module contains 2 instances of the DB_CACHE module type: one instance for pool
    masters (that is an in-memory db-cache, with async write log pushed to database for persistent
@@ -31,6 +31,9 @@ type database_mode = Master | Slave
 let database_mode : database_mode option ref = ref None 
 
 exception Must_initialise_database_mode
+
+exception Read_missing_uuid of (*class*) string * (*ref*) string * (*uuid*) string
+exception Too_many_values of   (*class*) string * (*ref*) string * (*uuid*) string
 
 (** Interface of DB_Cache implementations *)
 module type DB_CACHE =
@@ -63,6 +66,8 @@ sig
   val is_valid_ref : string -> bool
   val read_refs : string -> string list
   val read_field_where : Db_cache_types.where_record -> string list
+  val db_get_by_uuid : string -> string -> string
+  val db_get_by_name_label : string -> string -> string list
   val read_set_ref : Db_cache_types.where_record -> string list
   val create_row : Context.t -> string -> (string*string) list -> string -> unit
   val delete_row : Context.t -> string -> string -> unit
@@ -368,6 +373,9 @@ struct
       (* fill in default values specifed in datamodel if kv pairs for these are not supplied already *)
       let kvs = add_default_kvs kvs tblname in
 
+      (* add the reference to the row itself *)
+      let kvs = (reference, new_objref) :: kvs in
+
       let generate_create_event() =
 	let snapshot = Eventgen.find_get_record tblname ~__context:context ~self:new_objref in
 	let other_tbl_refs = Eventgen.follow_references tblname in
@@ -425,6 +433,21 @@ struct
            let rows = get_rowlist tbl in
            do_find rows []
 	)
+
+    let db_get_by_uuid tbl uuid_val =
+      match (read_field_where
+               {table=tbl; return=reference;
+               where_field=uuid; where_value=uuid_val}) with
+      | [] -> raise (Read_missing_uuid (tbl, "", uuid_val))
+      | [r] -> r
+      | _ -> raise (Too_many_values (tbl, "", uuid_val))
+
+    (** Return reference fields from tbl that matches specified name_label field *)
+    let db_get_by_name_label tbl label =
+      read_field_where
+        {table=tbl; return=reference;
+        where_field=(Escaping.escape_id ["name"; "label"]);
+        where_value=label}
 
     (* Read references from tbl *)
     let read_refs tblname =
@@ -595,6 +618,7 @@ struct
       populate_cache();
       spawn_db_flush_threads()
 
+    (* Return a list of all the references for which the expression returns true. *)
     let find_refs_with_filter (tblname: string) (expr: Db_filter_types.expr) = 
       with_lock
 	(fun ()->
@@ -761,6 +785,20 @@ struct
 	"read_field_where"
 	x
 
+    let db_get_by_uuid t u =
+      do_remote_call
+	marshall_db_get_by_uuid_args
+	unmarshall_db_get_by_uuid_response
+	"db_get_by_uuid"
+	(t,u)
+
+    let db_get_by_name_label t l =
+      do_remote_call
+	marshall_db_get_by_name_label_args
+	unmarshall_db_get_by_name_label_response
+	"db_get_by_name_label"
+	(t,l)
+
     let read_set_ref x =
       do_remote_call
 	marshall_read_set_ref_args
@@ -878,6 +916,10 @@ struct
     (sw Master.read_refs Slave.read_refs) s
   let read_field_where w =
     (sw Master.read_field_where Slave.read_field_where) w
+  let db_get_by_uuid t u =
+    (sw Master.db_get_by_uuid Slave.db_get_by_uuid) t u
+  let db_get_by_name_label t l =
+    (sw Master.db_get_by_name_label Slave.db_get_by_name_label) t l
   let read_set_ref w =
     (sw Master.read_set_ref Slave.read_set_ref) w
   let create_row context s1 s2 s3 =
