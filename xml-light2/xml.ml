@@ -195,3 +195,19 @@ let to_bigbuffer xml =
 	let buffer = Bigbuffer.make () in
 	to_fct xml (fun s -> Bigbuffer.append_substring buffer s 0 (String.length s));
 	buffer
+
+(* helpers functions *)
+exception Not_pcdata of string
+exception Not_element of string
+
+let pcdata = function
+	| PCData x -> x
+	| e -> raise (Not_pcdata (to_string e))
+
+let children = function
+	| Element (_,_,c) -> c
+	| e -> raise (Not_element (to_string e))
+
+let tag = function
+	| Element (x,_,_) -> x
+	| e -> raise (Not_element (to_string e))
