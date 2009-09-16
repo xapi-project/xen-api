@@ -26,7 +26,6 @@ section:
 install:
 	mkdir -p $(LIBEXEC)
 	$(IPROG) block_device_io $(LIBEXEC)
-	$(IPROG) dbupdate $(LIBEXEC)
 
 .PHONY: sdk-install
 sdk-install: install
