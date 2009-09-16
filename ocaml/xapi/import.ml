@@ -179,6 +179,9 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 			}
 		end else vm_record
 	in
+	let vm_record = {vm_record with API.
+		vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
+	} in
 
   let vm = log_reraise
     ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
