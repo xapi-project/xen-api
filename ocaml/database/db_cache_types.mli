@@ -47,13 +47,3 @@ val get_column : cache -> string -> string -> string list
 val find_row : cache -> string -> string -> row
 val remove_row_from_table : table -> string -> unit
 val snapshot : cache -> cache
-
-(* This only exists because we want to artificially create events where
-   relationships exist between database tables. If the relationships were
-   stored explicitly in the rows, this wouldn't be necessary *)
-val bump_event_number_in_row : row -> unit
-
-(* These are for the event mechanism *)
-exception Too_many_deletion_events
-val fold_over_recent_rows : (int64 -> int64 -> int64 -> string -> 'a -> 'a) -> table -> int64 -> 'a -> 'a
-val get_current_event_number : unit -> int64
