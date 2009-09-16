@@ -78,7 +78,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	      $(AUTOGEN_HELPER_DIR)/db_remote_marshall \
 	      $(AUTOGEN_HELPER_DIR)/db_remote_cache_access \
 	      $(AUTOGEN_HELPER_DIR)/db_cache_types \
-	      $(AUTOGEN_HELPER_DIR)/db_access \
               $(AUTOGEN_HELPER_DIR)/db_filter \
 	      $(AUTOGEN_HELPER_DIR)/db_filter_parse \
 	      $(AUTOGEN_HELPER_DIR)/db_filter_lex \
