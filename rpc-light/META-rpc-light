@@ -1,0 +1,11 @@
+version = "0.1"
+description = "RPC light: lightweight library to convert plain ML types to and from RPC values"
+
+package "syntax"
+  (
+  version = "0.1"
+  description = "pa-rpc: library to marshalling/unmarshalling ML types to/from Rpc.t"
+  requires = "type-conv.syntax"
+  archive(syntax,preprocessor) = "pa_rpc.cma"
+  archive(syntax,toploop) = "pa_rpc.cma"
+  )

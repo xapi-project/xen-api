@@ -18,6 +18,7 @@ all:
 	$(MAKE) -C log
 	$(MAKE) -C sha1
 	$(MAKE) -C xml-light2
+	$(MAKE) -C rpc-light
  
 allxen:
 	$(MAKE) -C mmap
@@ -35,6 +36,7 @@ install:
 	$(MAKE) -C log install
 	$(MAKE) -C sha1 install
 	$(MAKE) -C xml-light2 install
+	$(MAKE) -C rpc-light install
 
 installxen:
 	$(MAKE) -C mmap install
@@ -52,6 +54,7 @@ uninstall:
 	$(MAKE) -C log uninstall
 	$(MAKE) -C sha1 uninstall
 	$(MAKE) -C xml-light2 uninstall
+	$(MAKE) -C rpc-light uninstall
 
 uninstallxen:
 	$(MAKE) -C eventchn uninstall
@@ -102,6 +105,7 @@ clean:
 	make -C log clean
 	make -C sha1 clean
 	make -C xml-light2 clean
+	make -C rpc-light clean
 	rm -f $(OUTPUT_API_PKG)
 
 cleanxen:
