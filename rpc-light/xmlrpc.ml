@@ -5,16 +5,48 @@ let debug (fmt: ('a, unit, string, unit) format4) : 'a =
 	kprintf (fun s -> if !debug then begin print_string s; print_newline (); flush stdout end) fmt
 
 (* marshalling/unmarshalling code *)
-let rec to_string = function
-	| Rpc.Int i  -> sprintf "<value><int>%i</int></value>" i
-	| Rpc.Bool b -> sprintf "<value><bool>%b</bool></value>" b
-	| Rpc.String s -> sprintf "<value><string>%s</string></value>" s
-	| Rpc.Double d -> sprintf "<value><double>%f</double></value>" d
-	| Rpc.Array a -> sprintf "<value><array><data>%s</data></array></value>" (String.concat "" (List.map to_string a))
+let rec buffer_add_value buf = function
+	| Rpc.Int i  ->
+		Buffer.add_string buf "<value><int>";
+		Buffer.add_string buf (string_of_int i);
+		Buffer.add_string buf "</int></value>"
+
+	| Rpc.Bool b ->
+		Buffer.add_string buf "<value><bool>";
+		Buffer.add_string buf (string_of_bool b);
+		Buffer.add_string buf "</bool></value>"
+
+	| Rpc.String s ->
+		Buffer.add_string buf "<value><string>";
+		Buffer.add_string buf s;
+		Buffer.add_string buf "</string></value>"
+
+	| Rpc.Double d ->
+		Buffer.add_string buf "<value><double>";
+		Buffer.add_string buf (string_of_float d);
+		Buffer.add_string buf "</double></value>"
+
+	| Rpc.Array a ->
+		Buffer.add_string buf "<value><array><data>";
+		List.iter (buffer_add_value buf) a;
+		Buffer.add_string buf "</data></array></value>"
+
 	| Rpc.Struct f ->
-		let members =
-			List.map (fun (name, value) -> sprintf "<member><name>%s</name>%s</member>" name (to_string value)) f in
-		sprintf "<value><struct>%s</struct></value>" (String.concat "" members)
+		let buffer_add_member (name, value) =
+			Buffer.add_string buf "<member><name>";
+			Buffer.add_string buf name;
+			Buffer.add_string buf "</name>";
+			buffer_add_value buf value;
+			Buffer.add_string buf "</member>"
+		in
+		Buffer.add_string buf "<value><struct>";
+		List.iter buffer_add_member f;
+		Buffer.add_string buf "</struct></value>"
+
+let to_string x =
+	let buf = Buffer.create 128 in
+	buffer_add_value buf x;
+	Buffer.contents buf
 
 exception Parse_error of string * string
 
