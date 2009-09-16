@@ -8,6 +8,11 @@ open D
 
 open Stringext
 
+let upgrade_vm_memory_overheads ~__context () =
+	List.iter
+		(fun vm -> Xapi_vm_helpers.update_memory_overhead ~__context ~vm)
+		(Db.VM.get_all ~__context)
+
 let upgrade_wlb_configuration ~__context () =
 	(* there can be only one pool *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
@@ -33,7 +38,8 @@ let upgrade_wlb_configuration ~__context () =
 *)
 let hi_level_db_upgrade_rules ~__context () =
 	try
-		upgrade_wlb_configuration ~__context ()
+		upgrade_vm_memory_overheads ~__context ();
+		upgrade_wlb_configuration ~__context ();
 	with e ->
 		error
 			"Could not perform high-level database upgrade: '%s'"
