@@ -1,16 +1,8 @@
 open Db_exn
 
-type row = { 
-  creation_event_number : Int64.t;
-  mutable row_event_number : Int64.t;
-  fields : (string, string) Hashtbl.t }
-type table = {
-  deletering : (Int64.t * Int64.t * string) Ring.t;
-  rows : (string, row) Hashtbl.t }
-
+type row = (string, string) Hashtbl.t 
+type table = (string, row) Hashtbl.t
 type cache = (string, table) Hashtbl.t
-
-let deleteringsize = 500
 
 type where_record = {table:string; return:string; where_field:string; where_value:string}
 type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
@@ -53,12 +45,10 @@ let gen_manifest gen_count =
     generation_count = gen_count
   }
 
-let event_number = ref 0L
-
 (* Our versions of hashtbl.find *)
 let lookup_field_in_row row fld =
   try
-    Hashtbl.find row.fields fld
+    Hashtbl.find row fld
   with Not_found -> raise (DBCache_NotFound ("missing field",fld,""))
     
 let lookup_table_in_cache cache tbl =
@@ -68,45 +58,40 @@ let lookup_table_in_cache cache tbl =
 
 let lookup_row_in_table tbl tblname objref =
   try
-    Hashtbl.find tbl.rows objref
+    Hashtbl.find tbl objref
   with Not_found -> raise (DBCache_NotFound ("missing row",tblname,objref))
 
 let iter_over_rows func table =
-  Hashtbl.iter func table.rows
+  Hashtbl.iter func table
 
 let iter_over_tables func cache =
   Hashtbl.iter func cache
 
 let iter_over_fields func row =
-  Hashtbl.iter func row.fields
+  Hashtbl.iter func row
   
 let set_field_in_row row fldname newval =
-  event_number := Int64.add 1L !event_number;
-  row.row_event_number <- !event_number;
-  Hashtbl.replace row.fields fldname newval
+  Hashtbl.replace row fldname newval
 
 let set_row_in_table table objref newval =
-  Hashtbl.replace table.rows objref newval
+  Hashtbl.replace table objref newval
 
 let set_table_in_cache cache tblname newtbl =
   Hashtbl.replace cache tblname newtbl
 
-let create_empty_row () = {creation_event_number = !event_number; row_event_number = !event_number; fields = Hashtbl.create 20}
+let create_empty_row () = Hashtbl.create 20
 
-let create_empty_table () = {deletering = Ring.make deleteringsize (0L,0L,""); rows = Hashtbl.create 20}
+let create_empty_table () = Hashtbl.create 20
 
 let create_empty_cache () = Hashtbl.create 20
 
-let fold_over_fields func row acc = Hashtbl.fold func row.fields acc
+let fold_over_fields func row acc = Hashtbl.fold func row acc
 
-let fold_over_rows func table acc = Hashtbl.fold func table.rows acc
+let fold_over_rows func table acc = Hashtbl.fold func table acc
 
 let fold_over_tables func cache acc = Hashtbl.fold func cache acc
 
-let remove_row_from_table tbl objref = 
-  event_number := Int64.add 1L !event_number;
-  Ring.push tbl.deletering ((lookup_row_in_table tbl "" objref).creation_event_number, !event_number, objref);
-  Hashtbl.remove tbl.rows objref
+let remove_row_from_table tbl objref = Hashtbl.remove tbl objref
 
 let get_rowlist tbl =
   fold_over_rows (fun k d env -> d::env) tbl []
@@ -148,27 +133,3 @@ let snapshot cache : cache =
        let newcache = create_empty_cache () in  
        iter_over_tables (table newcache) cache;
        newcache)
-
-let bump_event_number_in_row row =
-  event_number := Int64.add 1L !event_number;
-  row.row_event_number <- !event_number
-
-exception Too_many_deletion_events
-
-(* The exception is raised when the specified gencount is older than the oldest
- * item in the deletering. *)
-let fold_over_recent_rows func table gencount acc =
-  let acc = fold_over_rows (fun objref row acc ->
-    if (row.creation_event_number > gencount || row.row_event_number > gencount) 
-    then func row.creation_event_number row.row_event_number 0L objref acc
-    else acc) table acc in
-  let rec deleteloop i acc =
-    if i>deleteringsize then raise Too_many_deletion_events else begin
-      let (ctime,dtime,objref) = Ring.peek table.deletering i in
-      if dtime <= gencount then acc else
-        deleteloop (i+1) (func ctime 0L dtime objref acc)
-    end
-  in deleteloop 0 acc
-    
-let get_current_event_number () =
-  !event_number
