@@ -127,7 +127,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/graph/graph \
 	ocaml/rfb/rfb_randomtest \
 	ocaml/database/unit_test_marshall \
-	ocaml/database/dbupdate \
 	ocaml/database/block_device_io \
 	ocaml/fdhelper/closeandexec \
 	ocaml/fdhelper/closeandexec_static \
