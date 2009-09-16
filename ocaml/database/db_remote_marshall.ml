@@ -116,6 +116,26 @@ let marshall_read_field_where_response sl =
 let unmarshall_read_field_where_response xml =
   unmarshall_stringlist xml
 
+(* db_get_by_uuid *)
+let marshall_db_get_by_uuid_args (s1,s2) =
+  marshall_2strings (s1,s2)
+let unmarshall_db_get_by_uuid_args xml =
+  unmarshall_2strings xml
+let marshall_db_get_by_uuid_response s =
+  XMLRPC.To.string s
+let unmarshall_db_get_by_uuid_response xml =
+  XMLRPC.From.string xml
+
+(* db_get_by_name_label *)
+let marshall_db_get_by_name_label_args (s1,s2) =
+  marshall_2strings (s1,s2)
+let unmarshall_db_get_by_name_label_args xml =
+  unmarshall_2strings xml
+let marshall_db_get_by_name_label_response sl =
+  marshall_stringlist sl
+let unmarshall_db_get_by_name_label_response xml =
+  unmarshall_stringlist xml
+
 (* read_set_ref *)
 let marshall_read_set_ref_args w = marshall_where_rec w
 let unmarshall_read_set_ref_args xml = unmarshall_where_rec xml

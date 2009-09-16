@@ -48,7 +48,6 @@ section
 		../database/db_upgrade \
 		../database/db_exn \
 		../database/db_cache \
-		../database/db_access \
 		../database/db_action_helper \
 		../database/db_connections \
 		../database/db_conn_store \
