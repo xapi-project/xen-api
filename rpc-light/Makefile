@@ -1,49 +1,52 @@
 OCAMLC = ocamlfind ocamlc
 OCAMLOPT = ocamlfind ocamlopt
-OCAMLFLAGS = -annot -g
-PACKS = xmlm
+OCAMLFLAGS = -annot
 
-ICAMLP4 = -I $(shell ocamlfind query camlp4) -I $(shell ocamlfind query type-conv)
-DOCDIR  = /myrepos/xen-api-libs.hg/doc
-TARGETS = \
-	rpc.cmi rpc.cmo rpc.o rpc.cmx \
-	pa_rpc.cma \
-	xmlrpc.cmi xmlrpc.cmo xmlrpc.o xmlrpc.cmx \
-	jsonrpc.cmi jsonrpc.cmo jsonrpc.o jsonrpc.cmx
+ICAMLP4=-I $(shell ocamlfind query camlp4) -I $(shell ocamlfind query type-conv)
 
 .PHONY: all clean
-all: $(TARGETS)
+all: pa_rpc.cma xmlrpc.cma xmlrpc.cmxa
 
-pa_rpc.cma: rpc.cmo p4_rpc.cmo pa_rpc.cmo
+pa_rpc.cma: rpc.cmo pa_rpc.cmo
 	$(OCAMLC) -a $(ICAMLP4) -o $@ $^
 
-pa_rpc.cmo: pa_rpc.ml p4_rpc.cmo
+xmlrpc.cmxa: rpc.cmx xmlrpc.cmx
+	$(OCAMLOPT) -a -o $@ $^
+
+xmlrpc.cma: rpc.cmo xmlrpc.cmo
+	$(OCAMLC) -a -o $@ $^
+
+
+xmlrpc.cmx: xmlrpc.ml
+	$(OCAMLOPT) $(OCAMLFLAGS) -c -I ../xml-light2 -o $@ $<
+
+xmlrpc.cmo: xmlrpc.ml
+	$(OCAMLC) $(OCAMLFLAGES) -c -I ../xml-light2 -o $@ $<
+
+
+rpc.cmx: rpc.ml
+	$(OCAMLOPT) $(OCAMLFLAGS) -c -o $@ $<
+
+rpc.cmo: rpc.ml
+	$(OCAMLC) $(OCAMLFLAGS) -c -o $@ $<
+
+
+pa_rpc.cmo: pa_rpc.ml
 	$(OCAMLC) $(OCAMLFLAGS) -c -package camlp4,type-conv -pp "camlp4orf" $(ICAMLP4) $@ $<
 
-p4_rpc.cmo: p4_rpc.ml rpc.cmo
-	$(OCAMLC) $(OCAMLFLAGS) -c -package camlp4,type-conv -pp "camlp4orf" $(ICAMLP4) $@ $<
-
-%.o %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $<
-
-%.cmo: %.ml
-	$(OCAMLC) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $<
-
-%.cmi: %.mli %.ml
-	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $<
 
 .PHONY: install
-install: INSTALL_PATH = $(DESTDIR)$(shell ocamlfind printconf destdir)
-install: all
-	ocamlfind install -destdir $(INSTALL_PATH) rpc-light META $(TARGETS)
+install: rpc.cmi pa_rpc.cma xmlrpc.cma xmlrpc.cmxa
+	cp META-xmlrpc META
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) xmlrpc META xmlrpc.cma xmlrpc.cmxa xmlrpc.cmi rpc.cmi xmlrpc.cmx rpc.cmx xmlrpc.a xmlrpc.o
+	cp META-rpc-light META
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) rpc-light META pa_rpc.cma pa_rpc.cmi
+	rm META
 
 .PHONY: uninstall
 uninstall:
+	ocamlfind remove xmlrpc
 	ocamlfind remove rpc-light
-
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "rpc-light" "package" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
 
 clean:
 	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.o *.cmi *.a
