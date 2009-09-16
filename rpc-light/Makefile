@@ -17,11 +17,14 @@ xmlrpc.cma: rpc.cmo xmlrpc.cmo
 	$(OCAMLC) -a -o $@ $^
 
 
-xmlrpc.cmx: xmlrpc.ml
+xmlrpc.cmx: xmlrpc.ml xmlrpc.cmi
 	$(OCAMLOPT) $(OCAMLFLAGS) -c -I ../xml-light2 -o $@ $<
 
-xmlrpc.cmo: xmlrpc.ml
+xmlrpc.cmo: xmlrpc.ml xmlrpc.cmi
 	$(OCAMLC) $(OCAMLFLAGES) -c -I ../xml-light2 -o $@ $<
+
+xmlrpc.cmi: xmlrpc.mli
+	$(OCAMLOPT) $(OCAMLFLAGS) -c -I ../xml-light2 -o $@ $<
 
 
 rpc.cmx: rpc.ml
