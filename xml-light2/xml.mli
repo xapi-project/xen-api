@@ -22,3 +22,10 @@ val to_fct_fmt : xml -> (string -> unit) -> unit
 val to_string : xml -> string
 val to_string_fmt : xml -> string
 val to_bigbuffer : xml -> Bigbuffer.t
+
+(** helper functions *)
+exception Not_pcdata of string
+exception Not_element of string
+val pcdata : xml -> string
+val children : xml -> xml list
+val tag : xml -> string
