@@ -102,6 +102,12 @@ struct
 	  | "read_records_where" ->
 	      let (s,e) = unmarshall_read_records_where_args args in
 		success (marshall_read_records_where_response (DBCache.read_records_where s e))
+	  | "db_get_by_uuid" ->
+	      let (s,e) = unmarshall_db_get_by_uuid_args args in
+		success (marshall_db_get_by_uuid_response (DBCache.db_get_by_uuid s e))
+	  | "db_get_by_name_label" ->
+	      let (s,e) = unmarshall_db_get_by_name_label_args args in
+		success (marshall_db_get_by_name_label_response (DBCache.db_get_by_name_label s e))
 	  | _ -> raise (DBCacheListenerUnknownMessageName fn_name)
       with
 	  Duplicate_key (c,f,u,k) ->
