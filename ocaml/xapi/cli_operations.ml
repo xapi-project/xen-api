@@ -3650,6 +3650,31 @@ let subject_role_remove printer rpc session_id params =
   let (subject,role) = subject_role_common rpc session_id params in
   Client.Subject.remove_from_roles ~rpc ~session_id ~self:subject ~role
 
+let audit_log_get fd printer rpc session_id params =
+  let filename = List.assoc "filename" params in
+  let since =
+    if List.mem_assoc "since" params
+		then (* make sure since has a reasonable length *)
+			let unsanitized_since = List.assoc "since" params in
+			if String.length unsanitized_since > 255
+			then String.sub unsanitized_since 0 255
+			else unsanitized_since
+		else ""
+  in
+  let label = Printf.sprintf "audit-log-get%sinto file %s"
+		(if since="" then " " else Printf.sprintf " (since \"%s\") " since)
+		(if String.length filename <= 255
+		 then filename (* make sure filename has a reasonable length in the logs *)
+		 else String.sub filename 0 255
+		)
+	in
+	let query = 
+		if since="" then ""
+		else Printf.sprintf "since=%s" (Http.urlencode since)
+	in
+  download_file_with_task
+    fd rpc session_id filename Constants.audit_log_uri query label label
+
 (* RBAC 2.0 only
 let role_create printer rpc session_id params = 
   (*let id = List.assoc "id" params in*)
