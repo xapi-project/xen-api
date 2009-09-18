@@ -2037,7 +2037,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 
 		"secret-create",
-			{ reqd = ["secret"]
+			{ reqd = ["value"]
 			; optn = []
 			; help = "Create a secret"
 			; implementation = No_fd Cli_operations.secret_create

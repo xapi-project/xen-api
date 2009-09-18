@@ -1144,9 +1144,9 @@ let secret_record rpc session_id secret =
 	; getref = (fun () -> !_ref )
 	; fields =
 		[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.secret_uuid) ()
-		; make_field ~name:"secret" ~get:(fun () -> (x ()).API.secret_secret)
+		; make_field ~name:"value" ~get:(fun () -> (x ()).API.secret_value)
 			~set:(fun x ->
-				Client.Secret.set_secret ~rpc ~session_id ~self:!_ref ~value:x)
+				Client.Secret.set_value ~rpc ~session_id ~self:!_ref ~value:x)
 			()
 		]
 	}

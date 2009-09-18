@@ -3674,8 +3674,8 @@ let session_subject_identifier_logout_all printer rpc session_id params =
   List.iter (fun subject_identifier -> Client.Session.logout_subject_identifier ~rpc ~session_id ~subject_identifier) subject_identifiers
 
 let secret_create printer rpc session_id params =
-	let secret = List.assoc "secret" params in
-	let ref = Client.Secret.create ~rpc ~session_id ~secret in
+	let value = List.assoc "value" params in
+	let ref = Client.Secret.create ~rpc ~session_id ~value in
 	let uuid = Client.Secret.get_uuid ~rpc ~session_id ~self:ref in
 	printer (Cli_printer.PList [uuid])
 
