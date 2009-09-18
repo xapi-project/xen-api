@@ -11,7 +11,7 @@ module D = Debug.Debugger(struct let name="rbac_audit" end)
           o $xapi task name/id
           o 'audit' (the record key indicating an API call audit record)
 
-    * Extra RBAC-specific fields for _side-effecting_ API calls (CP-706)
+    * Extra RBAC-specific fields for _side-effecting_ API calls (CP-706) as s-exprs
       (ie. read-only calls to DB fields are not currently logged):
           o $session's trackid
           o $session's subject_identifier (when available)
@@ -20,7 +20,7 @@ module D = Debug.Debugger(struct let name="rbac_audit" end)
           o ('OK'|'ERROR:'$exception/error code field)
           o $call type ('api'|'http')
           o $api/http call name [for http-level operations, at least import/export,host/pool-backup,guest/host-console-access]
-          o $important-call-parameters (eg. vm_uuid, host_uuid), separated by commas
+          o $important-call-parameters (eg. vm_uuid, host_uuid), as s-exprs
                 + human-readable names for each important-call-parameters (eg. vm_name, host_name)
 *)
 
@@ -113,46 +113,67 @@ let wrap fn =
 	with e -> (* never bubble up the error here *) 
 		D.debug "error %s" (ExnHelper.string_of_exn e)
 
+let sexpr_of __context session_id allowed_denied ok_error result_error action __params =
+  let result_error = 
+		if result_error = "" then result_error else ":"^result_error
+	in
+	SExpr.Node (
+		SExpr.String (trackid session_id)::
+    SExpr.String (get_subject_identifier __context session_id)::
+    SExpr.String (get_subject_name __context session_id)::
+		SExpr.String (allowed_denied)::		
+		SExpr.String (ok_error ^ result_error)::
+    SExpr.String (call_type_of action)::
+    SExpr.String action::
+    SExpr.Node (SExpr.String (call_parameters action __params)::[] )::
+		[]
+	)
+
+let audit_line_of __context session_id allowed_denied ok_error result_error action __params =
+	(* TODO: make sure there are no \n in the resulting string from the s-exprs *)
+	Audit.debug "%s"
+		(SExpr.string_of 
+			 (sexpr_of __context session_id allowed_denied 
+					ok_error result_error action __params
+			 )
+		)
+
 let allowed_ok ~__context ~session_id ~action ~permission ?__params ?result () =
 	wrap (fun () ->
-		if has_to_audit action then
-		Audit.debug "%s|%s|%s|ALLOWED|OK|%s|%s|%s"
-			(trackid session_id)
-			(get_subject_identifier __context session_id)
-			(get_subject_name __context session_id)
-			(call_type_of action)
-			action
-			(call_parameters action __params)
+		if has_to_audit action then 
+			audit_line_of __context session_id "ALLOWED" "OK" "" action __params
 	)
 
 let allowed_error ~__context ~session_id ~action ~permission ?__params ?error () =
 	wrap (fun () ->
 		if has_to_audit action then
-		Audit.debug "%s|%s|%s|ALLOWED|ERROR|%s|%s|%s"
-			(trackid session_id)
-			(get_subject_identifier __context session_id)
-			(get_subject_name __context session_id)
-			(call_type_of action)
-			action
-			(call_parameters action __params)
+			let error_str = 
+				match error with
+				| None -> ""
+				| Some error -> (ExnHelper.string_of_exn error)
+			in
+			audit_line_of __context session_id "ALLOWED" "ERROR" error_str
+				action __params
 	)
 	
 let denied ~__context ~session_id ~action ~permission ?__params () =
 	wrap (fun () ->
 		if has_to_audit action then
-		Audit.debug "%s|%s|%s|DENIED||%s|%s|%s"
-			(trackid session_id)
-			(get_subject_identifier __context session_id)
-			(get_subject_name __context session_id)
-			(call_type_of action)
-			action
-			(call_parameters action __params)
+			audit_line_of __context session_id "DENIED" "" "" action __params
 	)
 
 let session_destroy ~__context ~session_id =
+(*	
+	(* this is currently only creating spam in the audit log *)
 	let action="session.destroy" in
 	allowed_ok ~__context ~session_id ~action ~permission:action ()
+*)
+	()
 
 let session_create ~__context ~session_id =
+(*
+	(* this is currently only creating spam in the audit log *)
 	let action="session.create" in
 	allowed_ok ~__context ~session_id ~action ~permission:action ()
+*)
+	()
