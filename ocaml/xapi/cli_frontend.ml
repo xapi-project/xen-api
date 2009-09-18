@@ -1980,6 +1980,15 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       flags=[]
     };
 
+    "audit-log-get",
+    {
+      reqd=["filename"];
+      optn=["since"];
+      help="Write the audit log of the pool to <filename>";
+      implementation= With_fd Cli_operations.audit_log_get;
+      flags=[]
+    };
+
 (*  RBAC 2.0 only
     "role-create",
     {
