@@ -573,7 +573,7 @@ let vm_record rpc session_id vm =
 			make_field ~name:"memory-overhead"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_overhead) ();
 			make_field ~name:"memory-target"
-				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_target) ();
+				~get:(fun () -> Int64.to_string (Int64.of_float (Client.VM.query_data_source rpc session_id !_ref "memory_target"))) ();
 			make_field ~name:"memory-static-max"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_max)
 				~set:(fun x -> Client.VM.set_memory_static_max rpc session_id vm (Record_util.bytes_of_string "memory-static-max" x)) ();
