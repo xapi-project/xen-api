@@ -2750,7 +2750,7 @@ let task_cancel = call
   ~doc:"Request that a task be cancelled. Note that a task may fail to be cancelled and may complete or fail normally and note that, even when a task does cancel, it might take an arbitrary amount of time."
   ~params:[Ref _task, "task", "The task"]
   ~errs:[Api_errors.operation_not_allowed]
-  ~allowed_roles:_R_VM_OP (* POOL_OP can cancel any tasks, others can cancel only owned tasks *)
+  ~allowed_roles:_R_READ_ONLY (* POOL_OP can cancel any tasks, others can cancel only owned tasks *)
   ()
 
 
@@ -2762,7 +2762,7 @@ let task_create = call ~flags:[`Session]
   ~params:[String, "label", "short label for the new task";
    String, "description", "longer description for the new task"]
   ~result:(Ref _task, "The reference of the created task object")
-  ~allowed_roles:_R_VM_OP (* any non-read-only subject can create tasks *)
+  ~allowed_roles:_R_READ_ONLY (* any subject can create tasks *)
   ()
 
 let task_destroy = call ~flags:[`Session]
@@ -2771,7 +2771,7 @@ let task_destroy = call ~flags:[`Session]
   ~name:"destroy"
   ~doc:"Destroy the task object"
   ~params:[Ref _task, "self", "Reference to the task object"]
-  ~allowed_roles:_R_VM_OP (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
+  ~allowed_roles:_R_READ_ONLY (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
   ()
 (* this permission allows to destroy any task, instead of only the owned ones *)
 let extra_permission_task_destroy_any = "task.destroy/any"
