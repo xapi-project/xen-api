@@ -200,7 +200,7 @@ let wlb_encoded_auth ~__context =
 	let secret_ref = Db.Pool.get_wlb_password ~__context ~self:pool in
 	encoded_auth
 		(Db.Pool.get_wlb_username ~__context ~self:pool)
-		(Db.Secret.get_secret ~__context ~self:secret_ref)
+		(Db.Secret.get_value ~__context ~self:secret_ref)
       
 let generate_safe_param tag_name tag_value =
   Xml.to_string (Xml.Element(tag_name, [], [Xml.PCData tag_value])) 
@@ -420,7 +420,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
 		(*A succesful result has an ID inside the addxenserverresult *)
 		match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
 		| _ ->
-			let wlb_secret_ref = Xapi_secret.create ~__context ~secret:wlb_password in
+			let wlb_secret_ref = Xapi_secret.create ~__context ~value:wlb_password in
 			Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
 			Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref;
 			Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
