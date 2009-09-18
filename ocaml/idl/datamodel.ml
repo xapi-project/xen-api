@@ -5621,7 +5621,7 @@ let secret =
 	let introduce = call
 		~name:"introduce"
 		~in_product_since:rel_midnight_ride
-		~params:[String, "uuid", ""; String, "secret", ""]
+		~params:[String, "uuid", ""; String, "value", ""]
 		~flags:[`Session]
 		~result:(Ref _secret, "")
 		~secret:true
@@ -5645,7 +5645,7 @@ let secret =
 		~persist:PersistEverything
 		~contents:
 			[ uid ~reader_roles:_R_POOL_OP _secret
-			; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "secret" "the secret"
+			; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "value" "the secret"
 			]
 		()
 
