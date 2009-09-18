@@ -509,198 +509,231 @@ let console_record rpc session_id console =
   ]}
 
 let vm_record rpc session_id vm =
-  let _ref = ref vm in
-  let empty_record = ToGet (fun () -> Client.VM.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  let empty_metrics = ToGet (fun () -> try Some (Client.VM_metrics.get_record rpc session_id (x ()).API.vM_metrics) with _ -> None) in
-  let metrics = ref empty_metrics in
-  let xm () = lzy_get metrics in
-  let empty_guest_metrics = ToGet (fun () -> try Some (Client.VM_guest_metrics.get_record rpc session_id (x ()).API.vM_guest_metrics) with _ -> None) in
-  let guest_metrics = ref empty_guest_metrics in
-  let get_vcpus_utilisation () =
-    let nvcpus = default 0 (may (fun m -> Int64.to_int m.API.vM_metrics_VCPUs_number) (xm ())) in
-    let rec inner n =
-      if n=nvcpus then [] else
-	(string_of_int n,string_of_float (Client.VM.query_data_source rpc session_id !_ref (Printf.sprintf "cpu%d" n)))::(inner (n+1))
-    in inner 0
-  in
-  let xgm () = lzy_get guest_metrics in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-  [
-   make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.vM_uuid) ();
-   make_field ~name:"name-label"          ~get:(fun () -> (x ()).API.vM_name_label)
-     ~set:(fun x -> Client.VM.set_name_label rpc session_id vm x) ();
-   make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.vM_name_description) 
-     ~set:(fun x -> Client.VM.set_name_description rpc session_id vm x) ();
-   make_field ~name:"user-version"        ~get:(fun () -> Int64.to_string (x ()).API.vM_user_version)
-     ~set:(fun x -> Client.VM.set_user_version rpc session_id vm (safe_i64_of_string "user-version" x)) ();
-   
-   make_field ~name:"is-a-template"       ~get:(fun () -> string_of_bool (x ()).API.vM_is_a_template)
-     ~set:(fun x -> Client.VM.set_is_a_template rpc session_id vm (safe_bool_of_string "is-a-template" x)) ();
-
-   make_field ~name:"is-a-snapshot"  ~get:(fun () -> string_of_bool (x ()).API.vM_is_a_snapshot) ();
-   make_field ~name:"snapshot_of"    ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_of) ();
-   make_field ~name:"snapshots"      ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_snapshots)) ();
-   make_field ~name:"snapshot_time"  ~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time) ();
-   make_field ~name:"transportable-snapshot-id" ~hidden:true ~get:(fun () -> (x()).API.vM_transportable_snapshot_id) ();
-   make_field ~name:"snapshot-info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_snapshot_info) ();
-
-   make_field ~name:"parent"       ~get:(fun () -> get_uuid_from_ref (x()).API.vM_parent) ();
-   make_field ~name:"children"     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_children)) ();
-
-   make_field ~name:"is-control-domain"   ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain) ();
-   make_field ~name:"power-state"         ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state) ();
-   make_field ~name:"memory-actual" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) )) ();
-   make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_overhead) ();
-   make_field ~name:"memory-target"  ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_target) ();
-   make_field ~name:"memory-static-max"   ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_max)
-     ~set:(fun x -> Client.VM.set_memory_static_max rpc session_id vm (Record_util.bytes_of_string "memory-static-max" x)) ();
-   make_field ~name:"memory-dynamic-max"  ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_max)
-     ~set:(fun x -> Client.VM.set_memory_dynamic_max rpc session_id vm (Record_util.bytes_of_string "memory-dynamic-max" x)) 
-     ();
-   make_field ~name:"memory-dynamic-min"  ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_min)
-     ~set:(fun x -> Client.VM.set_memory_dynamic_min rpc session_id vm (Record_util.bytes_of_string "memory-dynamic-min" x)) 
-     ();
-   make_field ~name:"memory-static-min"   ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_min)
-     ~set:(fun x -> Client.VM.set_memory_static_min rpc session_id vm (Record_util.bytes_of_string "memory-static-min" x)) 
-     ();
-   make_field ~name:"suspend-VDI-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
-
-   make_field ~name:"VCPUs-params"        ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
-     ~add_to_map:(fun k v -> Client.VM.add_to_VCPUs_params rpc session_id vm k v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_VCPUs_params rpc session_id vm k) 
-     ~get_map:(fun () -> (x ()).API.vM_VCPUs_params) ();
-   
-   make_field ~name:"VCPUs-max"           ~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_max)
-     ~set:(fun x -> Client.VM.set_VCPUs_max rpc session_id vm (safe_i64_of_string "VCPUs-max" x)) ();
-   make_field ~name:"VCPUs-at-startup"    ~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_at_startup)
-     ~set:(fun x -> Client.VM.set_VCPUs_at_startup rpc session_id vm (safe_i64_of_string "VCPUs-at-startup" x)) ();
-   make_field ~name:"actions-after-shutdown"
-     ~get:(fun () -> Record_util.on_normal_exit_to_string (x ()).API.vM_actions_after_shutdown)
-     ~set:(fun x -> Client.VM.set_actions_after_shutdown rpc session_id vm (Record_util.string_to_on_normal_exit x))
-     ();
-   make_field ~name:"actions-after-reboot"
-     ~get:(fun () -> Record_util.on_normal_exit_to_string (x ()).API.vM_actions_after_reboot)
-     ~set:(fun x -> Client.VM.set_actions_after_reboot rpc session_id vm (Record_util.string_to_on_normal_exit x))
-     ();
-   make_field ~name:"actions-after-crash" 
-     ~get:(fun () -> Record_util.on_crash_behaviour_to_string (x ()).API.vM_actions_after_crash)
-     ~set:(fun x -> Client.VM.set_actions_after_crash rpc session_id vm (Record_util.string_to_on_crash_behaviour x))
-     ();
-   make_field ~name:"console-uuids" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_consoles))
-     ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles) ();
-   make_field ~name:"platform" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
-     ~add_to_map:(fun k v -> Client.VM.add_to_platform rpc session_id vm k v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_platform rpc session_id vm k) 
-     ~get_map:(fun () -> (x ()).API.vM_platform) ();
-   make_field ~name:"allowed-operations"
-     ~get:(fun () -> String.concat "; " (List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations)) 
-     ~get_set:(fun () -> List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations) ();
-   make_field ~name:"current-operations"
-     ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vm_operation_to_string b) (x ()).API.vM_current_operations)) 
-     ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vm_operation_to_string b) (x ()).API.vM_current_operations) ();    
-   make_field ~name:"blocked-operations"
-     ~get:(fun () -> Record_util.s2sm_to_string "; " (List.map (fun (k, v) -> Record_util.vm_operation_to_string k, v) ((x ()).API.vM_blocked_operations)))
-     ~add_to_map:(fun k v -> Client.VM.add_to_blocked_operations rpc session_id vm (Record_util.string_to_vm_operation k) v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_blocked_operations rpc session_id vm (Record_util.string_to_vm_operation k))
-     ~get_map:(fun () -> List.map (fun (k, v) -> Record_util.vm_operation_to_string k, v) ((x ()).API.vM_blocked_operations))
-     ();
-
-   (* These two don't work on Dom-0 at the moment, so catch the exception *)
-   make_field ~name:"allowed-VBD-devices"
-     ~get:(fun () -> String.concat "; " (try Client.VM.get_allowed_VBD_devices rpc session_id vm with _ -> [])) ~expensive:true 
-     ~get_set:(fun () -> try Client.VM.get_allowed_VBD_devices rpc session_id vm with _ -> []) ();
-   make_field ~name:"allowed-VIF-devices"
-     ~get:(fun () -> String.concat "; " (try Client.VM.get_allowed_VIF_devices rpc session_id vm with _ -> [])) ~expensive:true 
-     ~get_set:(fun () -> try Client.VM.get_allowed_VIF_devices rpc session_id vm with _ -> []) ();
-   make_field ~name:"possible-hosts"
-     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (Client.VM.get_possible_hosts rpc session_id vm))) ~expensive:true ();
-
-   make_field ~name:"HVM-boot-policy"      ~get:(fun () -> (x ()).API.vM_HVM_boot_policy)
-     ~set:(fun x -> Client.VM.set_HVM_boot_policy rpc session_id vm x) ();
-   make_field ~name:"HVM-boot-params"      ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_HVM_boot_params)
-     ~add_to_map:(fun k v -> Client.VM.add_to_HVM_boot_params rpc session_id vm k v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_HVM_boot_params rpc session_id vm k) 
-     ~get_map:(fun () -> (x ()).API.vM_HVM_boot_params) ();
-   make_field ~name:"HVM-shadow-multiplier" ~get:(fun () -> string_of_float (x ()).API.vM_HVM_shadow_multiplier)
-     ~set:(fun x -> Client.VM.set_HVM_shadow_multiplier rpc session_id vm (float_of_string x)) ();
-   make_field ~name:"PV-kernel"            ~get:(fun () -> (x ()).API.vM_PV_kernel)
-     ~set:(fun x -> Client.VM.set_PV_kernel rpc session_id vm x) ();  
-   make_field ~name:"PV-ramdisk"           ~get:(fun () -> (x ()).API.vM_PV_ramdisk)
-     ~set:(fun x -> Client.VM.set_PV_ramdisk rpc session_id vm x) ();
-   make_field ~name:"PV-args"              ~get:(fun () -> (x ()).API.vM_PV_args)
-     ~set:(fun x -> Client.VM.set_PV_args rpc session_id vm x) ();
-   make_field ~name:"PV-legacy-args"       ~get:(fun () -> (x ()).API.vM_PV_legacy_args)
-     ~set:(fun x -> Client.VM.set_PV_legacy_args rpc session_id vm x) ();
-   make_field ~name:"PV-bootloader"        ~get:(fun () -> (x ()).API.vM_PV_bootloader)
-     ~set:(fun x -> Client.VM.set_PV_bootloader rpc session_id vm x) ();
-   make_field ~name:"PV-bootloader-args"   ~get:(fun () -> (x ()).API.vM_PV_bootloader_args)
-     ~set:(fun x -> Client.VM.set_PV_bootloader_args rpc session_id vm x) ();
-   
-   make_field ~name:"last-boot-CPU-flags"  
-     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_last_boot_CPU_flags) ();
-   make_field ~name:"last-boot-record" ~expensive:true
-     ~get:(fun () -> "'" ^ ((x ()).API.vM_last_booted_record) ^ "'") ();
-
-   make_field ~name:"resident-on"
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_resident_on) ();
-   make_field ~name:"affinity"
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_affinity)
-     ~set:(fun x -> if x="" then Client.VM.set_affinity rpc session_id vm Ref.null else Client.VM.set_affinity rpc session_id vm (Client.Host.get_by_uuid rpc session_id x)) ();
-
-   make_field ~name:"other-config"         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_other_config)
-     ~add_to_map:(fun k v -> Client.VM.add_to_other_config rpc session_id vm k v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_other_config rpc session_id vm k) 
-     ~get_map:(fun () -> (x ()).API.vM_other_config) ();
-   make_field ~name:"dom-id"
-     ~get:(fun () -> Int64.to_string (x ()).API.vM_domid) ();
-   make_field ~name:"recommendations"  ~get:(fun () -> (x ()).API.vM_recommendations) ();
-   make_field ~name:"xenstore-data" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_xenstore_data) 
-     ~add_to_map:(fun k v -> Client.VM.add_to_xenstore_data rpc session_id vm k v)
-     ~remove_from_map:(fun k -> Client.VM.remove_from_xenstore_data rpc session_id vm k) 
-     ~get_map:(fun () -> (x ()).API.vM_xenstore_data) ();
-   make_field ~name:"ha-always-run" ~get:(fun () -> string_of_bool ((x ()).API.vM_ha_always_run)) ~set:(fun x -> Client.VM.set_ha_always_run rpc session_id vm (bool_of_string x)) ();
-   make_field ~name:"ha-restart-priority" ~get:(fun () -> (x ()).API.vM_ha_restart_priority) ~set:(fun x -> Client.VM.set_ha_restart_priority rpc session_id vm x) ();
-   make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.vM_blobs) ();
-   make_field ~name:"start-time"
-     ~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_start_time) (xm ()) )) ();
-   make_field ~name:"install-time"
-     ~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_install_time) (xm ()) )) ();
-
-   make_field ~name:"VCPUs-number" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_VCPUs_number) (xm ()) )) ();
-
-   make_field ~name:"VCPUs-utilisation" ~get:(fun () -> 
-     try
-       let info = get_vcpus_utilisation () in
-       String.concat "; " (List.map (fun (a,b) -> Printf.sprintf "%s: %s" a b) info)
-     with _ -> "")
-     ~get_map:(fun () -> try get_vcpus_utilisation () with _ -> []) ~expensive:true ();
-   
-   make_field ~name:"os-version" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ())))
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_os_version) (xgm ()))) ();
-   make_field ~name:"PV-drivers-version" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) )) 
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
-   make_field ~name:"PV-drivers-up-to-date" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
-   make_field ~name:"memory" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ()))) 
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_memory) (xgm ()))) ();
-   make_field ~name:"disks" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) )) 
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
-   make_field ~name:"networks" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) )) 
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
-   make_field ~name:"other" ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) )) 
-     ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
-   make_field ~name:"live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
-   make_field ~name:"guest-metrics-last-updated" ~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
-   make_field ~name:"cooperative"
-     (* NB this can receive VM_IS_SNAPSHOT *)
-     ~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true)) ~expensive:true ()
- ]}
-    
+	let _ref = ref vm in
+	let empty_record = ToGet (fun () -> Client.VM.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	let empty_metrics = ToGet (fun () -> try Some (Client.VM_metrics.get_record rpc session_id (x ()).API.vM_metrics) with _ -> None) in
+	let metrics = ref empty_metrics in
+	let xm () = lzy_get metrics in
+	let empty_guest_metrics = ToGet (fun () -> try Some (Client.VM_guest_metrics.get_record rpc session_id (x ()).API.vM_guest_metrics) with _ -> None) in
+	let guest_metrics = ref empty_guest_metrics in
+	let get_vcpus_utilisation () =
+		let nvcpus = default 0 (may (fun m -> Int64.to_int m.API.vM_metrics_VCPUs_number) (xm ())) in
+		let rec inner n =
+			if n=nvcpus then [] else
+				(string_of_int n,string_of_float (Client.VM.query_data_source rpc session_id !_ref (Printf.sprintf "cpu%d" n)))::(inner (n+1))
+		in
+		inner 0
+	in
+	let xgm () = lzy_get guest_metrics in
+	{
+		setref = (fun r -> _ref := r; record := empty_record );
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields =
+		[
+			make_field ~name:"uuid"
+				~get:(fun () -> (x ()).API.vM_uuid) ();
+			make_field ~name:"name-label"
+				~get:(fun () -> (x ()).API.vM_name_label)
+				~set:(fun x -> Client.VM.set_name_label rpc session_id vm x) ();
+			make_field ~name:"name-description"
+				~get:(fun () -> (x ()).API.vM_name_description)
+				~set:(fun x -> Client.VM.set_name_description rpc session_id vm x) ();
+			make_field ~name:"user-version"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_user_version)
+				~set:(fun x -> Client.VM.set_user_version rpc session_id vm (safe_i64_of_string "user-version" x)) ();
+			make_field ~name:"is-a-template"
+				~get:(fun () -> string_of_bool (x ()).API.vM_is_a_template)
+				~set:(fun x -> Client.VM.set_is_a_template rpc session_id vm (safe_bool_of_string "is-a-template" x)) ();
+			make_field ~name:"is-a-snapshot"
+				~get:(fun () -> string_of_bool (x ()).API.vM_is_a_snapshot) ();
+			make_field ~name:"snapshot_of"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_of) ();
+			make_field ~name:"snapshots"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_snapshots)) ();
+			make_field ~name:"snapshot_time"
+				~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time) ();
+			make_field ~name:"transportable-snapshot-id" ~hidden:true
+				~get:(fun () -> (x()).API.vM_transportable_snapshot_id) ();
+			make_field ~name:"snapshot-info"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_snapshot_info) ();
+			make_field ~name:"parent"
+				~get:(fun () -> get_uuid_from_ref (x()).API.vM_parent) ();
+			make_field ~name:"children"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_children)) ();
+			make_field ~name:"is-control-domain"
+				~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain) ();
+			make_field ~name:"power-state"
+				~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state) ();
+			make_field ~name:"memory-actual"
+				~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) )) ();
+			make_field ~name:"memory-overhead"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_overhead) ();
+			make_field ~name:"memory-target"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_target) ();
+			make_field ~name:"memory-static-max"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_max)
+				~set:(fun x -> Client.VM.set_memory_static_max rpc session_id vm (Record_util.bytes_of_string "memory-static-max" x)) ();
+			make_field ~name:"memory-dynamic-max"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_max)
+				~set:(fun x -> Client.VM.set_memory_dynamic_max rpc session_id vm (Record_util.bytes_of_string "memory-dynamic-max" x)) ();
+			make_field ~name:"memory-dynamic-min"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_min)
+				~set:(fun x -> Client.VM.set_memory_dynamic_min rpc session_id vm (Record_util.bytes_of_string "memory-dynamic-min" x)) ();
+			make_field ~name:"memory-static-min"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_min)
+				~set:(fun x -> Client.VM.set_memory_static_min rpc session_id vm (Record_util.bytes_of_string "memory-static-min" x)) ();
+			make_field ~name:"suspend-VDI-uuid"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
+			make_field ~name:"VCPUs-params"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
+				~add_to_map:(fun k v -> Client.VM.add_to_VCPUs_params rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_VCPUs_params rpc session_id vm k) 
+				~get_map:(fun () -> (x ()).API.vM_VCPUs_params) ();
+			make_field ~name:"VCPUs-max"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_max)
+				~set:(fun x -> Client.VM.set_VCPUs_max rpc session_id vm (safe_i64_of_string "VCPUs-max" x)) ();
+			make_field ~name:"VCPUs-at-startup"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_at_startup)
+				~set:(fun x -> Client.VM.set_VCPUs_at_startup rpc session_id vm (safe_i64_of_string "VCPUs-at-startup" x)) ();
+			make_field ~name:"actions-after-shutdown"
+				~get:(fun () -> Record_util.on_normal_exit_to_string (x ()).API.vM_actions_after_shutdown)
+				~set:(fun x -> Client.VM.set_actions_after_shutdown rpc session_id vm (Record_util.string_to_on_normal_exit x)) ();
+			make_field ~name:"actions-after-reboot"
+				~get:(fun () -> Record_util.on_normal_exit_to_string (x ()).API.vM_actions_after_reboot)
+				~set:(fun x -> Client.VM.set_actions_after_reboot rpc session_id vm (Record_util.string_to_on_normal_exit x)) ();
+			make_field ~name:"actions-after-crash"
+				~get:(fun () -> Record_util.on_crash_behaviour_to_string (x ()).API.vM_actions_after_crash)
+				~set:(fun x -> Client.VM.set_actions_after_crash rpc session_id vm (Record_util.string_to_on_crash_behaviour x)) ();
+			make_field ~name:"console-uuids"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_consoles))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles) ();
+			make_field ~name:"platform"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
+				~add_to_map:(fun k v -> Client.VM.add_to_platform rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_platform rpc session_id vm k) 
+				~get_map:(fun () -> (x ()).API.vM_platform) ();
+			make_field ~name:"allowed-operations"
+				~get:(fun () -> String.concat "; " (List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations)) 
+				~get_set:(fun () -> List.map Record_util.vm_operation_to_string (x ()).API.vM_allowed_operations) ();
+			make_field ~name:"current-operations"
+				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vm_operation_to_string b) (x ()).API.vM_current_operations)) 
+				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vm_operation_to_string b) (x ()).API.vM_current_operations) ();
+			make_field ~name:"blocked-operations"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (List.map (fun (k, v) -> Record_util.vm_operation_to_string k, v) ((x ()).API.vM_blocked_operations)))
+				~add_to_map:(fun k v -> Client.VM.add_to_blocked_operations rpc session_id vm (Record_util.string_to_vm_operation k) v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_blocked_operations rpc session_id vm (Record_util.string_to_vm_operation k))
+				~get_map:(fun () -> List.map (fun (k, v) -> Record_util.vm_operation_to_string k, v) ((x ()).API.vM_blocked_operations)) ();
+			(* These two don't work on Dom-0 at the moment, so catch the exception *)
+			make_field ~name:"allowed-VBD-devices"
+				~get:(fun () -> String.concat "; " (try Client.VM.get_allowed_VBD_devices rpc session_id vm with _ -> [])) ~expensive:true 
+				~get_set:(fun () -> try Client.VM.get_allowed_VBD_devices rpc session_id vm with _ -> []) ();
+			make_field ~name:"allowed-VIF-devices"
+				~get:(fun () -> String.concat "; " (try Client.VM.get_allowed_VIF_devices rpc session_id vm with _ -> [])) ~expensive:true 
+				~get_set:(fun () -> try Client.VM.get_allowed_VIF_devices rpc session_id vm with _ -> []) ();
+			make_field ~name:"possible-hosts"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (Client.VM.get_possible_hosts rpc session_id vm))) ~expensive:true ();
+			make_field ~name:"HVM-boot-policy"
+				~get:(fun () -> (x ()).API.vM_HVM_boot_policy)
+				~set:(fun x -> Client.VM.set_HVM_boot_policy rpc session_id vm x) ();
+			make_field ~name:"HVM-boot-params"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_HVM_boot_params)
+				~add_to_map:(fun k v -> Client.VM.add_to_HVM_boot_params rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_HVM_boot_params rpc session_id vm k)
+				~get_map:(fun () -> (x ()).API.vM_HVM_boot_params) ();
+			make_field ~name:"HVM-shadow-multiplier"
+				~get:(fun () -> string_of_float (x ()).API.vM_HVM_shadow_multiplier)
+				~set:(fun x -> Client.VM.set_HVM_shadow_multiplier rpc session_id vm (float_of_string x)) ();
+			make_field ~name:"PV-kernel"
+				~get:(fun () -> (x ()).API.vM_PV_kernel)
+				~set:(fun x -> Client.VM.set_PV_kernel rpc session_id vm x) ();
+			make_field ~name:"PV-ramdisk"
+				~get:(fun () -> (x ()).API.vM_PV_ramdisk)
+				~set:(fun x -> Client.VM.set_PV_ramdisk rpc session_id vm x) ();
+			make_field ~name:"PV-args"
+				~get:(fun () -> (x ()).API.vM_PV_args)
+				~set:(fun x -> Client.VM.set_PV_args rpc session_id vm x) ();
+			make_field ~name:"PV-legacy-args"
+				~get:(fun () -> (x ()).API.vM_PV_legacy_args)
+				~set:(fun x -> Client.VM.set_PV_legacy_args rpc session_id vm x) ();
+			make_field ~name:"PV-bootloader"
+				~get:(fun () -> (x ()).API.vM_PV_bootloader)
+				~set:(fun x -> Client.VM.set_PV_bootloader rpc session_id vm x) ();
+			make_field ~name:"PV-bootloader-args"
+				~get:(fun () -> (x ()).API.vM_PV_bootloader_args)
+				~set:(fun x -> Client.VM.set_PV_bootloader_args rpc session_id vm x) ();
+			make_field ~name:"last-boot-CPU-flags"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_last_boot_CPU_flags) ();
+			make_field ~name:"last-boot-record" ~expensive:true
+				~get:(fun () -> "'" ^ ((x ()).API.vM_last_booted_record) ^ "'") ();
+			make_field ~name:"resident-on"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_resident_on) ();
+			make_field ~name:"affinity"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_affinity)
+				~set:(fun x -> if x="" then Client.VM.set_affinity rpc session_id vm Ref.null else Client.VM.set_affinity rpc session_id vm (Client.Host.get_by_uuid rpc session_id x)) ();
+			make_field ~name:"other-config"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_other_config)
+				~add_to_map:(fun k v -> Client.VM.add_to_other_config rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_other_config rpc session_id vm k) 
+				~get_map:(fun () -> (x ()).API.vM_other_config) ();
+			make_field ~name:"dom-id"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_domid) ();
+			make_field ~name:"recommendations"
+				~get:(fun () -> (x ()).API.vM_recommendations) ();
+			make_field ~name:"xenstore-data"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_xenstore_data) 
+				~add_to_map:(fun k v -> Client.VM.add_to_xenstore_data rpc session_id vm k v)
+				~remove_from_map:(fun k -> Client.VM.remove_from_xenstore_data rpc session_id vm k) 
+				~get_map:(fun () -> (x ()).API.vM_xenstore_data) ();
+			make_field ~name:"ha-always-run"
+				~get:(fun () -> string_of_bool ((x ()).API.vM_ha_always_run))
+				~set:(fun x -> Client.VM.set_ha_always_run rpc session_id vm (bool_of_string x)) ();
+			make_field ~name:"ha-restart-priority"
+				~get:(fun () -> (x ()).API.vM_ha_restart_priority)
+				~set:(fun x -> Client.VM.set_ha_restart_priority rpc session_id vm x) ();
+			make_field ~name:"blobs"
+				~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.vM_blobs) ();
+			make_field ~name:"start-time"
+				~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_start_time) (xm ()) )) ();
+			make_field ~name:"install-time"
+				~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_install_time) (xm ()) )) ();
+			make_field ~name:"VCPUs-number"
+				~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_VCPUs_number) (xm ()) )) ();
+			make_field ~name:"VCPUs-utilisation"
+				~get:(fun () -> try let info = get_vcpus_utilisation () in String.concat "; " (List.map (fun (a,b) -> Printf.sprintf "%s: %s" a b) info) with _ -> "")
+				~get_map:(fun () -> try get_vcpus_utilisation () with _ -> []) ~expensive:true ();
+			make_field ~name:"os-version"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ())))
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_os_version) (xgm ()))) ();
+			make_field ~name:"PV-drivers-version"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) )) 
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
+			make_field ~name:"PV-drivers-up-to-date"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
+			make_field ~name:"memory"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ()))) 
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_memory) (xgm ()))) ();
+			make_field ~name:"disks"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) )) 
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
+			make_field ~name:"networks"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) )) 
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
+			make_field ~name:"other"
+				~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) )) 
+				~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
+			make_field ~name:"live"
+				~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
+			make_field ~name:"guest-metrics-last-updated"
+				~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
+			make_field ~name:"cooperative"
+				(* NB this can receive VM_IS_SNAPSHOT *)
+				~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true)) ~expensive:true ()
+		]
+	}
 
 let host_crashdump_record rpc session_id host = 
   let _ref = ref host in
