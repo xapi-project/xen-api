@@ -123,8 +123,6 @@ let is_access_allowed ~__context ~session_id ~permission =
 
 
 (* Execute fn if rbac access is allowed for action, otherwise fails. *)
-(* If do_rbac_on_entrypoint is true, clone session and make sure *)
-(* it is destroyed aftewards to avoid session leaking *)
 let nofn = fun () -> ()
 let check ?(extra_dmsg="") ?(extra_msg="") ?(__params) ~__context ~fn session_id action =
 	(* all permissions are in lowercase, see gen_rbac.writer_ *)
