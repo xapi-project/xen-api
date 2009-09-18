@@ -6,10 +6,16 @@ open Stringext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"
 
+let line_timestamp_length = 21 (* the timestamp length at the debug line *)
+let line_before_timestamp_length = 1 (* [ at the beginning of the line *)
+
 let write_line line fd since =
-	if String.length line > 22
+	if String.length line > 
+		(line_timestamp_length + line_before_timestamp_length)
 	then
-	let line_timestamp = String.sub line 1 21 in
+	let line_timestamp =
+		String.sub line line_before_timestamp_length line_timestamp_length
+	in
 	if since="" or ((String.compare line_timestamp since) >= 0)
 	then
 	let len = String.length line in
