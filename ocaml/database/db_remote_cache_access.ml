@@ -116,5 +116,9 @@ struct
 	    failure "dbcache_notfound" (marshall_3strings (s1,s2,s3))
 	| Uniqueness_constraint_violation (s1,s2,s3) ->
 	    failure "uniqueness_constraint_violation" (marshall_3strings (s1,s2,s3))
+	| Read_missing_uuid (s1,s2,s3) ->
+	    failure "read_missing_uuid" (marshall_3strings (s1,s2,s3))
+	| Too_many_values (s1,s2,s3) ->
+	    failure "too_many_values" (marshall_3strings (s1,s2,s3))
 	| e -> raise e
 end
