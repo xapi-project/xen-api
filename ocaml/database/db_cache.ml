@@ -727,6 +727,12 @@ struct
 	    | "uniqueness_constraint_violation" ->
 		let (x,y,z) = unmarshall_3strings exn_params_xml in
 		raise (Uniqueness_constraint_violation (x,y,z))
+	    | "read_missing_uuid" ->
+		let (x,y,z) = unmarshall_3strings exn_params_xml in
+		raise (Read_missing_uuid (x,y,z))
+	    | "too_many_values" ->
+		let (x,y,z) = unmarshall_3strings exn_params_xml in
+		raise (Too_many_values (x,y,z))
 	    | _ -> raise DB_remote_marshall_error
 	  end
       | _ -> raise Remote_db_server_returned_unknown_exception
