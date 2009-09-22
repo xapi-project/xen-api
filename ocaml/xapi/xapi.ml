@@ -781,7 +781,7 @@ let server_init() =
      then try and bring up networking again (now racing with itself since dhclient will already be 
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
-	"hi-level dababase upgrade", [], Db_hiupgrade.hi_level_db_upgrade_rules ~__context;
+	"hi-level database upgrade", [ Startup.OnlyMaster ], Db_hiupgrade.hi_level_db_upgrade_rules ~__context;
     "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], Redo_log_alert.loop;
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
