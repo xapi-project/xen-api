@@ -1,7 +1,3 @@
-(* Copyright (C) 2006 Xensource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
-
 (*open OUnit*)
 open Printf
 

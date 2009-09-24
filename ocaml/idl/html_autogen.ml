@@ -1,14 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006, 2007 Xensource Inc
-
-   Contacts: Dave Scott    <david.scott@xensource.com>
-
- 
-   Generate a tree of HTML fragments from the datamodel
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 open Stringext
 

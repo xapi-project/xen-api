@@ -1,7 +1,4 @@
 (* 
- * Copyright (c) Citrix Systems 2008. All rights reserved 
- * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- *
  * Helpers for upgrading from a normal XML database to a protected XML database, where multiple spaces, '\t', '\n', '\r' and '\'
  * are protected inside attributes.
  *)

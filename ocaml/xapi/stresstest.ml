@@ -1,7 +1,4 @@
 (*
- * Copyright (C) 2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * Cluster stress testing for rio
  *)
 

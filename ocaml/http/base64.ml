@@ -1,11 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Code to handle base64 encoded strings, based on:
- * http://en.wikipedia.org/wiki/Base64
- *)
-
 open Stringext
 
 let code = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"

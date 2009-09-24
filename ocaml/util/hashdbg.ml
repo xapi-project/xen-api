@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2008 Citrix Ltd.
- * Author: Vincent Hanquez <vincent@xensource.com>
- *)
 
 let hashdbg_log = ref (fun _ -> ())
 let hashdbg_raise = ref false

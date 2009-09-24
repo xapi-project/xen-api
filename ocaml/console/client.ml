@@ -1,10 +1,3 @@
-(*
- * Copyright (C) 2006 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * console client rewrite
- *)
-
 let init_term () =
 	let attr = Unix.tcgetattr Unix.stdin in
 

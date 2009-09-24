@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
  * CLI support for stand-alone VM import command which can handle XVA directories
  * (the export format of Zurich)
  *)

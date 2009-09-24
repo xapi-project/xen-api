@@ -1,5 +1,3 @@
- (* Copyright (C) XenSource 2007 *)
-
 open Pervasiveext
 open Stringext
 open Unixext

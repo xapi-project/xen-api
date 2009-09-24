@@ -1,12 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Jon Harrop    <jon.harrop@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-
-   ------------------------------------------------------------------- *)
-
 open Stringext
 open Datamodel_types
 

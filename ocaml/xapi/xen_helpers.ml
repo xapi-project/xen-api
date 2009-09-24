@@ -1,7 +1,4 @@
 (*
- * Copyright (C) 2006-2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * Helpers for Xen-specific functionality (i.e. that which is not needed by
  * the fakeserver).
  *)

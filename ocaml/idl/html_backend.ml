@@ -1,14 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <david.scott@xensource.com>
-
- 
-   HTML backend for datamodel
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 open Stringext
 open Pervasiveext

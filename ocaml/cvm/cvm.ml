@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006 XenSource Inc
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
  * Temporarly give access to vm creation into the database until we
  * are able to get them from template.
  *)

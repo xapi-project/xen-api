@@ -1,7 +1,5 @@
 (** Common code between the fake and real servers for dealing with VIFs *)
 
-(* (C) XenSource 2006-2007 *)
-
 open Stringext
 
 module D=Debug.Debugger(struct let name="xapi" end)

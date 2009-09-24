@@ -1,16 +1,6 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <david.scott@xensource.com>
-
-   Listens on a Unix domain socket; accepts connections; forks
+(* Listens on a Unix domain socket; accepts connections; forks
    child process; rebinds stdin/stdout to the client socket; execs
-   a command.
-
-   Useful to handling stunnel on Unix machines.
-
-   ------------------------------------------------------------------ *)
+   a command. Useful to handling stunnel on Unix machines. *)
 
 let socket = ref ""
 let args = ref []

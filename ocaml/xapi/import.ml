@@ -1,10 +1,4 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- * Copyright (c) 2008 Citrix Systems Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * HTTP handler for importing a VM from a stream
- *)
+(* HTTP handler for importing a VM from a stream *)
 
 module D=Debug.Debugger(struct let name="import" end)
 open D

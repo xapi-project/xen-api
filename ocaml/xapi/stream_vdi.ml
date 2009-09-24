@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006, 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Utility functions for streaming VDI images
- *)
+(* Utility functions for streaming VDI images *)
 
 open Stringext
 open Debug

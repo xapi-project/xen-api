@@ -1,8 +1,3 @@
-(* 
- * Copyright (c) Citrix Systems 2008. All rights reserved 
- * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- *)
-
 (** Permission management *)
 
 (** There are two kinds of permissions: the first one is related to nodes and the second one is related to connections. 

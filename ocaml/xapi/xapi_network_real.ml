@@ -1,7 +1,5 @@
 (** 'Real' network backend *)
 
-(* (C) XenSource 2006-2007 *)
-
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 

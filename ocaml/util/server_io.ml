@@ -1,13 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <david.scott@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-
-   Utility functions to handle threaded servers
-
-   ------------------------------------------------------------------- *)
 
 open Unix
 open Pervasiveext

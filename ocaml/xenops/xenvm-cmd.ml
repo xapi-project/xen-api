@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * connect to the mini monitor for a specific vm and send command
- *)
+(* connect to the mini monitor for a specific vm and send command *)
 
 open Printf
 

@@ -1,13 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
- 
-   Dot backend for datamodel
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 
 open Datamodel_types

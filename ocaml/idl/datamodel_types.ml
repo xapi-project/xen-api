@@ -1,18 +1,6 @@
 
 (** Data Model and Message Specification for Xen Management Tools *)
 
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-             Jon Harrop    <jon.harrop@xensource.com>
- 
-   Data Model and Message Specification for Xen Management Tools
-
-   ------------------------------------------------------------------- *)
-
 (*
 
   IMPORTANT NOTICE: This file is a critical dependency to the whole
