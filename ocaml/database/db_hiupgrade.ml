@@ -1,3 +1,16 @@
+(*
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
 (* DB upgrade steps that would be difficult to do in db_upgrade.ml
    This module is an ugly hack to work around the problems with creating new
    rows in db_upgrade.ml:non_generic_db_upgrade_rules (a context is required,
