@@ -7,7 +7,7 @@ set -e
 UPSTREAM_URL=http://hg.uk.xensource.com/carbon/trunk
 REPO=/root/repo
 
-if [ -z "$(cat /etc/redhat-release | grep 'XenServer DDK')" ]; then
+if [ -z "$(cat /etc/redhat-release | grep 'XenCloud DDK')" ]; then
    echo WARNING: this does not appear to be a XenCloud build appliance
 fi
 
@@ -19,7 +19,7 @@ for repo in dist-ocaml.hg api-libs.hg api.hg; do
 	echo Cloning $UPSTREAM_URL/$repo to $REPO/$repo
 	hg clone $UPSTREAM_URL/$repo $REPO/$repo
     else
-	echo $REPO/$repo already exists; no need to re-clone
+	echo "$REPO/$repo already exists; no need to re-clone"
     fi
 done
 
