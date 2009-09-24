@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * api to connect/start mini monitor
- *)
+(* api to connect/start mini monitor *)
 
 (** xenvm library *)
 

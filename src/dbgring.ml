@@ -1,5 +1,3 @@
-(* *)
-
 let xenstored_proc_port = "/proc/xen/xsd_port"
 let xenstored_proc_kva = "/proc/xen/xsd_kva"
 
