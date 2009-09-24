@@ -2,8 +2,6 @@
 #
 # Copyright (c) Citrix Systems 2007, 2008. All rights reserved.
 #
-# Author Vincent Hanquez <vincent@xensource.com>
-#
 # Generate a ssl certificate file to use with stunnel
 #
 
