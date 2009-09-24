@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 let none = 0
 let test_eagain = ref false
 let do_coalesce = ref false

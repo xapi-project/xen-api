@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * Xen/Xenstored Abstraction Layer
  *
  * XAL is in charge of abstracting domain and devices events.

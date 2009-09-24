@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author: Vincent Hanquez <vincent@xensource.com>
- *         David Scott <david.scott@xensource.com>
- *)
-
 open Stringext
 
 module Internal = struct

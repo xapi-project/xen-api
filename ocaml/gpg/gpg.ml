@@ -1,7 +1,5 @@
 (** Wrapper around gpg *)
 
-(* Copyright (C) XenSource 2007 *)
-
 open Stringext
 open Pervasiveext
 

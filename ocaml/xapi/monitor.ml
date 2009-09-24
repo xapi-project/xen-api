@@ -1,8 +1,4 @@
-(* Copyright (C) 2006 XenSource Ltd.  
- * Author Vincent Hanquez <vincent@xensource.com>
- * 
- * Guest monitoring
- *)
+(* Guest monitoring *)
  
 (* This module is the primary guest monitoring module, and has the
  * loop that runs the monitoring code. It is also responsible for

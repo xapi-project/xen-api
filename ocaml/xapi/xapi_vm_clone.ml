@@ -1,5 +1,3 @@
-(* (C) XenSource 2006-2007 *)
-
 open Client
 open Pervasiveext
 

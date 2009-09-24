@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * Create one VM from a configuration file that is managed by one monitor.
- *)
-
 open Printf
 open Pervasiveext
 open Stringext

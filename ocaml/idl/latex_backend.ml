@@ -1,14 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
- 
-   Latex backend for datamodel
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 
 open Datamodel_types

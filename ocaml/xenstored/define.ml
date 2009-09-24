@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 let xenstored_major = 1
 let xenstored_minor = 0
 

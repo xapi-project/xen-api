@@ -1,8 +1,3 @@
-(*
- * Copyright (C) 2006 Xensource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
-
 let avg_fct arr =
 	let sum = ref 0. in
 	Array.iter (fun v -> sum := !sum +. v) arr;

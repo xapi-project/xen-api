@@ -1,6 +1,4 @@
 
-(** Copyright (C) XenSource 2007 *)
-
 (** Take a list of file descriptors, a program and a set of arguments. Close
     all fds except the set provided and then exec the supplied program. *)
 

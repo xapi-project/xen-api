@@ -1,4 +1,3 @@
-(* Copyright (C) 2007 XenSource Inc *)
 
 open Pervasiveext
 

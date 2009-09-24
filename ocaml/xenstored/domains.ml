@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 type domains = {
 	eventchn: Event.t;
 	table: (Xc.domid, Domain.t) Hashtbl.t;

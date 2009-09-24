@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 let enable = ref false
 let xs_daemon_database = "/var/run/xenstored/db"
 

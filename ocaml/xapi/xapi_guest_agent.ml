@@ -2,8 +2,6 @@
     Note this only deals with relatively static data (like version numbers) and
     not dynamic performance data. *)
 
-(* (C) XenSource 2007 *)
-
 open Stringext
 open Threadext
 

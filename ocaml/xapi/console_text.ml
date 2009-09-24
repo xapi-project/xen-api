@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006,2007 XenSource Inc.
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * HTTP handler for connecting to a VM's console (VT100 or VNC)
- *)
+(* HTTP handler for connecting to a VM's console (VT100 or VNC) *)
 
 open Printf
 open Debug

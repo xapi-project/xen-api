@@ -1,7 +1,5 @@
 (** Detect when PV drivers are out of date *)
 
-(* (C) XenSource 2006-2007 *)
-
 open Stringext
 open Printf
 

@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006,2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Common definitions and functions shared between the import and export code
- *)
+(* Common definitions and functions shared between the import and export code *)
 
 (** Represents a database record (the reference gets converted to a small string) *)
 type obj = { cls: string; id: string; snapshot: XMLRPC.xmlrpc }

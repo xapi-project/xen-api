@@ -1,17 +1,5 @@
 (** Data Model and Message Specification for Xen Management Tools *)
 
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006-2007 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-             Ewan Mellor   <ewan.mellor@xensource.com>
- 
-   Data Model and Message Specification for Xen Management Tools
-
-   ------------------------------------------------------------------- *)
-
 open Datamodel_types
 
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.

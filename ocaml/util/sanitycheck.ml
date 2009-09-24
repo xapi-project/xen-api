@@ -1,5 +1,4 @@
 
-(* Copyright (C) 2007 XenSource Inc *)
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 

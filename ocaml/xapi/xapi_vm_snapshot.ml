@@ -1,8 +1,3 @@
-(* 
- * Copyright (c) Citrix Systems 2008-2009. All rights reserved 
- * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- *)
-
 open Client
 open Vmopshelpers
 

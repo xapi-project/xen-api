@@ -1,7 +1,5 @@
 (** Common code between the fake and real servers for dealing with VMs *)
 
-(* (C) XenSource 2006-2007 *)
-
 open Stringext
 open Printf
 open Xapi_vm_memory_constraints

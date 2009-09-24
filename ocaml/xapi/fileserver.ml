@@ -1,7 +1,4 @@
 (* 
- * Copyright (c) 2006 XenSource Inc.
- * Author: Jon Ludlam <jludlam@xensource.com>
- *
  * HTTP handler for serving files in the rt subdir
  *)
 

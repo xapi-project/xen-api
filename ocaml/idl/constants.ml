@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006, 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * constants which are global across all the tools
- *)
+(* constants which are global across all the tools *)
 
 let import_vdi_uri = "/import_vdi"                    (* Currently unused *)
 let import_raw_vdi_uri = "/import_raw_vdi"            (* ocaml/xapi/import_raw_vdi.ml *)

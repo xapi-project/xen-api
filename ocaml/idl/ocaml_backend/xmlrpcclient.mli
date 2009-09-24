@@ -1,14 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-             Jon Ludlam    <jludlam@xensource.com>
-
-   Simple HTTP 1.0/1.1 and XMLRPC client functions
-
-   ------------------------------------------------------------------- *)
-
 (** Thrown when an explicit HTTP rejection is received (although note we don't
     parse enough of the response to be sure... but it was non-empty at least) *)
 exception Http_request_rejected of string

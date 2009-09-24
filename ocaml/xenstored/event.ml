@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 (**************** high level binding ****************)
 type t = {
 	fd: Unix.file_descr;

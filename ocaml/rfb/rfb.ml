@@ -1,13 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006, 2007 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-
-   RFB protocol handling
-
-   ------------------------------------------------------------------- *)
-
 open Stringext
 
 (* TODO:

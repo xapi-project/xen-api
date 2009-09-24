@@ -1,7 +1,3 @@
-(*
-open GenOCaml
-*)
-
 open Listext
 
 module DT = Datamodel_types

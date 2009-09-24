@@ -1,8 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
-
 module D=Debug.Debugger(struct let name="startup" end)
 open D
 

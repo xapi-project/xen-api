@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * Xenops test suite
- *)
-
 open Printf
 open Stringext
 

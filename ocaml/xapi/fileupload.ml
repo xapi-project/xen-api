@@ -1,7 +1,4 @@
 (* 
- * Copyright (c) 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
  * HTTP handler for file uploads (must have chunked encodings)
  * To provoke curl into using chunked encodings, feed it data from stdin eg
  *   cat foo | curl -T - http://server:port/upload

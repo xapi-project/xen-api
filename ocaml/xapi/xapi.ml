@@ -1,16 +1,3 @@
-
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Richard Sharp <richard.sharp@xensource.com>
-   Dave Scott    <dscott@xensource.com>
-   Jon Harrop    <jharrop@xensource.com>
-
-   XMLRPC server to actuate Xen Enterprise API calls over XML-RPC
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 open Stringext
 open Vmopshelpers
