@@ -1,8 +1,4 @@
 /*
- * Copyright (c) 2006 XenSource Inc.
- * Author Dave Scott <dave.scott@xensource.com>
- *
- * All rights reserved.
  */
 
 #include <unistd.h>

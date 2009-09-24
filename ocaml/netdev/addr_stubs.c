@@ -1,6 +1,4 @@
 /*
- * Copyright (c) 2007 XenSource Inc.
- * Author: Vincent Hanquez <vincent@xensource.com>
  */
 
 #include <ifaddrs.h>

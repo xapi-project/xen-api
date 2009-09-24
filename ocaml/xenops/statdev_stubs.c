@@ -1,6 +1,4 @@
 /*
- * Copyright (C) 2007 Xensource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
  */
 
 #include <sys/types.h>
