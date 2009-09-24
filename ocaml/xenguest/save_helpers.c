@@ -1,7 +1,7 @@
 /*
  * Copied from xen-unstable.hg:tools/xcutils/xc_save.c
  * Covered by the same copyright as that file (GPLv2)
- * Modifications (c) XenSource Inc. 2007
+ * Modifications (c) Citrix Systems Inc
  */
 
 #include <err.h>
