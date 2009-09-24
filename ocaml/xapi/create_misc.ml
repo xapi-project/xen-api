@@ -1,7 +1,5 @@
 (** Create miscellaneous DB records needed by both the real and fake servers *)
 
-(* (C) 2006-2007 XenSource *)
-
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Printf

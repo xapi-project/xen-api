@@ -1,5 +1,3 @@
-(* Copyright (C) 2007 XenSource *)
-
 (* Code to parse the XenSource inventory file *)
 
 open Pervasiveext

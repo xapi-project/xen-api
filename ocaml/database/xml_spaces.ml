@@ -1,8 +1,3 @@
-(* 
- * Copyright (c) Citrix Systems 2008. All rights reserved 
- * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- *)
-
 (* we pick here a valid XML character which is not used too often in state.db (ie. not '\') *)
 let protect_char = '%'
 

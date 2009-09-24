@@ -1,6 +1,4 @@
 
-(** Copyright (C) XenSource 2007 *)
-
 open Http
 open Pervasiveext
 open Forkhelpers

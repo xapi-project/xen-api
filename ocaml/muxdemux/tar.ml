@@ -1,12 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-
-   Simple routines to read and write tar-format streams
-
-   ------------------------------------------------------------------- *)
 
 open Stringext
 open Unixext

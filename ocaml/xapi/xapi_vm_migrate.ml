@@ -1,14 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006, 2007 Xensource Inc
-
-   Contacts: David Scott     <dave.scott@xensource.com>
-             Vincent Hanquez <vincent@xensource.com>
-
-   Code to control VM migration
-
-   ------------------------------------------------------------------- *)
-
 (* We only currently support within-pool live or dead migration.
    Unfortunately in the cross-pool case, two hosts must share the same SR and
    co-ordinate tapdisk locking. We have not got code for this. 

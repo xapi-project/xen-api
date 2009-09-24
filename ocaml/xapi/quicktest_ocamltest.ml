@@ -1,6 +1,4 @@
 (* Functions for running ocamltest tests as part of quicktest. *)
-(* Author: Jonathan Knowles                                    *)
-(* Copyright: 2008 Citrix Systems Research & Development Ltd.  *)
 
 open Ocamltest
 open Printf

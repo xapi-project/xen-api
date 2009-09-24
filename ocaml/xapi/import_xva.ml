@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006, 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Import code specific to Zurich/Geneva-style XVA VM exports
- *)
+(* Import code specific to Zurich/Geneva-style XVA VM exports *)
 
 open Stringext
 open Http

@@ -1,5 +1,4 @@
 (* MIME handling for HTTP responses *)
-(* (c) XenSource 2006, Anil Madhavapeddy *)
 
 open Stringext
 open Printf

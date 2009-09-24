@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Ltd
- * Author Vincent Hanquez <vincent@xensource.com>
- * 
- * RSS v2 writer code
- *)
-
 type item_info = {
 	item_title: string;
 	item_link: string option;

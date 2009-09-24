@@ -1,5 +1,4 @@
-(* Copyright (C) 2008 Citrix.
- * 
+(*
  * RRD maintainence code
  * 
  * This module is primarily concerned with the lifecycle of RRDs. They

@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006, 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Functions for handling the export format 'XVA' as used by Zurich
- *)
-
 open Stringext
 
 module D=Debug.Debugger(struct let name="xva" end)

@@ -1,7 +1,5 @@
 (** Use the API to register a set of default SRs with the server. *)
 
-(* (C) XenSource 2006-2007 *)
-
 open Client
 module D=Debug.Debugger(struct let name="xapi" end)
 open D

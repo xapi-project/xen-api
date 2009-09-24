@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
  * import of VMs: driver which allows VMs to be imported from the local filesystem
  * (no network transport)
  *)

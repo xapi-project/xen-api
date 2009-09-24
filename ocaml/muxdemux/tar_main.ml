@@ -1,12 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-
-   Simple 'tar'-like program to test the Tar module
-
-   ------------------------------------------------------------------- *)
 
 open Debug
 open Tar

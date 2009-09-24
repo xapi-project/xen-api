@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006-2007 XenSource Inc.
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
  * storage manager interface
  *)
 

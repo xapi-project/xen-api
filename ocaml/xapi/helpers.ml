@@ -1,7 +1,4 @@
 (*
- * Copyright (C) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * Provide some helpers for XAPI
  *)
 

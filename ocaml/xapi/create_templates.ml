@@ -1,12 +1,4 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2007 Xensource Inc
-
-   Contacts: David Scott     <dave.scott@xensource.com>
-
-   Code to create a set of built-in templates (eg on the fakeserver)
-
-   ------------------------------------------------------------------- *)
+(* Code to create a set of built-in templates (eg on the fakeserver) *)
 
 open API
 open Xapi_templates

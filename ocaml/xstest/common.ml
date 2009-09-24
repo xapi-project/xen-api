@@ -1,8 +1,3 @@
-(*
- * Copyright (C) 2007 Citrix System
- * Author Vincent Hanquez <vincent.hanquez@eu.citrix.com>
- *)
-
 (***************************************************************************
  *      Generic Common Code.
  * the following code provide common for the most basic interface to xenbus.

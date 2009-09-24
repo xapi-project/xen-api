@@ -1,13 +1,3 @@
-(*
- * Copyright (C) 2007-2008 XenSource Ltd.
- *
- * Authors:
- * Vincent Hanquez <vincent@xensource.com>
- * Jonathan Knowles <jonathan.knowles@citrix.com>
- *
- * Provides functions relating to character and string encodings.
- *)
-
 exception UCS_value_out_of_range
 exception UCS_value_prohibited_in_UTF8
 exception UCS_value_prohibited_in_XML

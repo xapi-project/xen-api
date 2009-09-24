@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2007 XenSource Ltd.
- *)
-
 open Monitor_types
 
 let marshall_vifs l =

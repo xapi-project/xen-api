@@ -1,10 +1,4 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Functions to help create HTTP handlers which check the user is 
- * properly authenticated.
- *)
+(* Functions to help create HTTP handlers which check the user is properly authenticated. *)
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

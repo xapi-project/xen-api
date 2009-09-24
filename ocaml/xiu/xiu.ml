@@ -1,8 +1,3 @@
-(*
- * Copyright (c) 2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
-
 open Printf
 open Pervasiveext
 

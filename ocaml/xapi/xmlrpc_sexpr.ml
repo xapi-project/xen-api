@@ -1,6 +1,5 @@
 (** Functions for converting between xml-rpc and a more
     compact representation based on s-expressions.
-    v1 marcusg@eu.citrix.com
 *)
 
 open Xml

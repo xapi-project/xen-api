@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc.
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * storage manager backend: external operations through exec
- *)
+(* storage manager backend: external operations through exec *)
 open Pervasiveext
 open Stringext
 open Printf

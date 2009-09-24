@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2006-2007 XenSource Ltd.
- *)
-
 open Listext
 open Threadext
 open Monitor_types

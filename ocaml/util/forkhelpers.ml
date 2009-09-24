@@ -1,5 +1,3 @@
-(* Copyright (C) XenSource 2007 *)
-
 (* Functions to safely fork potentially long-running sub-processes without
    leaking file descriptors or accidentally deadlocking the parent process. *)
 

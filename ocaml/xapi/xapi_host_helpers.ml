@@ -1,7 +1,5 @@
 (** Common code between the fake and real servers for dealing with Hosts *)
 
-(* (C) XenSource 2006-2007 *)
-
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 

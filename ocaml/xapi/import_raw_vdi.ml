@@ -1,8 +1,4 @@
-(*
- * Copyright (c) 2007 XenSource Inc.
- *
- * HTTP handler for importing a raw VDI
- *)
+(* HTTP handler for importing a raw VDI *)
 
 module D=Debug.Debugger(struct let name="import" end)
 open D

@@ -1,15 +1,4 @@
 
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-             Ewan Mellor   <ewan.mellor@xensource.com>
- 
-   DTD backend for datamodel
-
-   ------------------------------------------------------------------- *)
-
 open Printf
 open Listext
 

@@ -1,6 +1,4 @@
 (* A unit testing framework for OCaml.                        *)
-(* Author: Jonathan Knowles                                   *)
-(* Copyright: 2008 Citrix Systems Research & Development Ltd. *)
 
 open Printf
 

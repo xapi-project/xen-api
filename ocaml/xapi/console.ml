@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2006,2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
  * HTTP handler for connecting to a VM's VNC console.
  * Handler should be passed a reference to either a VM (in which case the 'default' VNC
  * console will be chosen) or a console object.

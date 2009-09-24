@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 exception Limit_reached
 exception Data_too_big
 exception Transaction_opened

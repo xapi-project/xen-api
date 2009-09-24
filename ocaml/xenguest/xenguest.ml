@@ -1,9 +1,3 @@
-(* Copyright (c) 2005-2006 XenSource Inc. *)
-
-
-(** *)
-
-
 type suspend_flags = Debug | Live
 
 type handle

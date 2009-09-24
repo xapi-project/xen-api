@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006,2007 XenSource Inc.
- * Author: David Scott <david.scott@xensource.com>
- *
- * Code to output a subset of database records, marshalled in XMLRPC format
- *)
+(* Code to output a subset of database records, marshalled in XMLRPC format *)
 
 (* The general plan:
  *

@@ -1,13 +1,3 @@
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Dave Scott    <dscott@xensource.com>
-
-   Helper functions for manipulating Task objects
-
-   ------------------------------------------------------------------- *)
-
 module D = Debug.Debugger(struct let name = "taskhelper" end)
 module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
 open D

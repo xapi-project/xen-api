@@ -1,9 +1,4 @@
-(*
- * Copyright (c) 2006 XenSource Inc
- * Author: Vincent Hanquez <vincent@xensource.com>
- *
- * test GTK UI ;)
- *)
+(* test GTK UI *)
 
 open Printf
 open Stringext

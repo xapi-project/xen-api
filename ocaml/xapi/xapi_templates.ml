@@ -1,14 +1,4 @@
 
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2007 Xensource Inc
-
-   Contacts: David Scott     <dave.scott@xensource.com>
-
-   Code to deal with VM 'templates'
-
-   ------------------------------------------------------------------- *)
-
 (* Here we define a template to be a VM with 'is_a_template = true' which,
    when initially booted after having been cloned, inspects its own
    configuration (stored by the UI/CLI in VM.other_config) and uses the API

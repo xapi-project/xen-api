@@ -1,8 +1,3 @@
-(* 
- * Copyright (c) Citrix Systems 2008. All rights reserved 
- * Author: Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- *)
-
 (** Node names *)
 
 (** Xenstore nodes names are often the same, ie. "local", "domain", "device", ... so it is worth to 

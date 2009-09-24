@@ -1,12 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *
- * simple almost fake linux guest agent
- *)
-
 open Stringext
 open Printf
 

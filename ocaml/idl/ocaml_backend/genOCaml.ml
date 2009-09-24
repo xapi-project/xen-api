@@ -1,14 +1,4 @@
 (** Convert backend API into OCaml code. *)
-
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Jon Harrop    <jon.harrop@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-
-   ------------------------------------------------------------------- *)
-
 open Datamodel_types
 open Format
 open Ocaml_utils

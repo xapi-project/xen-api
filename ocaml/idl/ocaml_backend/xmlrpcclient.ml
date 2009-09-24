@@ -1,15 +1,3 @@
-
-(* ------------------------------------------------------------------
-
-   Copyright (c) 2006 Xensource Inc
-
-   Contacts: Jon Harrop    <jon.harrop@xensource.com>
-             Dave Scott    <dscott@xensource.com>
-             Richard Sharp <richard.sharp@xensource.com>
-
-   Simple HTTP 1.0 and XMLRPC client functions
-
-   ------------------------------------------------------------------- *)
 open Stringext
 open Pervasiveext
 open Threadext

@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2007 Xensource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * Simulate guest agent writing datas, with random (good|bad) strings.
  * Mostly to test the agent, to filter the bad string correctly.
  *)
