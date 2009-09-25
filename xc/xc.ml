@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2006-2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
 
 (** *)
 type domid = int

@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 type t =
 {
 	tid: int;

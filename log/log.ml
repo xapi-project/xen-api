@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2006 XenSource LTD
- * Author: Vincent Hanquez <vincent@xensource.com>
- *)
 
 open Printf
 open Threadext

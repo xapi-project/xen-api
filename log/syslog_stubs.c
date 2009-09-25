@@ -1,7 +1,3 @@
-/*
- * Copyright (C) 2006 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- */
 
 #include <syslog.h>
 #include <caml/mlvalues.h>

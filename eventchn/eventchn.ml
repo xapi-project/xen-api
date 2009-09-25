@@ -1,10 +1,3 @@
-(*
- * Copyright (c) 2006-2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
-
 exception Error of string
 
 external init: unit -> Unix.file_descr = "stub_eventchn_init"

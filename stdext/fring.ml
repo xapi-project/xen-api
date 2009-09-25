@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006-2008 Citrix Systems Ltd.
- * Authors Vincent Hanquez   <vincent@xensource.com>
- *         Thomas Gazagnaire <thomas.gazagnaire@citrix.com>
- * All rights reserved.
- *)
 
 type t = { size: int; mutable current: int; data: (float,Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t ; }
 

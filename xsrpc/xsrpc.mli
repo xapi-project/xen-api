@@ -1,8 +1,3 @@
-(*
- * Copyright (C) 2008 Citrix Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- *)
 
 type t
 

@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2006-2007 XenSource LTD
- * Author: Vincent Hanquez <vincent@xensource.com>
- *)
 
 type keylogger =
 {

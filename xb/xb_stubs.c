@@ -1,10 +1,3 @@
-/*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- */
-
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/mman.h>

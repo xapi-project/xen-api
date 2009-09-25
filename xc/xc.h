@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- */
 
 #define __XEN_TOOLS__
 

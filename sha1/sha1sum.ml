@@ -1,6 +1,3 @@
-(* Copyright (C) 2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
 let channel chan len =
 	let ctx = Sha1.init ()
 	and buf = String.create 4096 in
