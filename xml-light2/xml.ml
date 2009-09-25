@@ -1,7 +1,4 @@
 (*
- * Copyright (c) 2007 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
  * This is a replacement interface for xml-light that use the superior xmlm
  * engine to parse stuff. Also the output functions SKIP characters that are
  * not allowed in XML.

@@ -1,8 +1,3 @@
-(*
- * Copyright (C) 2006 XenSource Ltd.
- * Author: Vincent Hanquez <vincent@xensource.com>
- * Author: Anil Madhavapeddy <anil@xensource.com>
- *)
 
 module Mutex = struct
     include Mutex

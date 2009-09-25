@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- */
 
 #ifndef FAKE_MARSHALL_H
 #define FAKE_MARSHALL_H

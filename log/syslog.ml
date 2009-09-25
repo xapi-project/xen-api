@@ -1,7 +1,3 @@
-(*
- * Copyright (C) 2006 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *)
 
 type level = Emerg | Alert | Crit | Err | Warning | Notice | Info | Debug
 type options = Cons | Ndelay | Nowait | Odelay | Perror | Pid

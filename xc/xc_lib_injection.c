@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- */
 
 #ifdef WITH_INJECTION_CAPABILITY
 #include "../fake/using.h"

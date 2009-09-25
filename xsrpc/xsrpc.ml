@@ -1,9 +1,3 @@
-(*
- * Copyright (C) 2008 Citrix Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * Xenstore RPC
- *)
 
 (*
  * everything RPC related stuff happens in : /local/domain/<domid>/RPC

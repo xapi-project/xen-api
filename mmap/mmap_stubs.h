@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- */
 
 #ifndef C_MMAP_H
 #define C_MMAP_H
