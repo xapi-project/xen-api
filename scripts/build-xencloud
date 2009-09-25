@@ -14,7 +14,7 @@ fi
 echo "Placing repositories in ${REPO}"
 mkdir -p ${REPO}
 
-for repo in dist-ocaml.hg api-libs.hg api.hg; do
+for repo in xen-dist-ocaml.hg xen-api-libs.hg xen-api.hg; do
     if [ ! -e "$REPO/$repo" ]; then
 	echo Cloning $UPSTREAM_URL/$repo to $REPO/$repo
 	hg clone $UPSTREAM_URL/$repo $REPO/$repo
@@ -24,14 +24,14 @@ for repo in dist-ocaml.hg api-libs.hg api.hg; do
 done
 
 echo "Building ocaml packages"
-cd $REPO/dist-ocaml.hg
+cd $REPO/xen-dist-ocaml.hg
 make
 make clean
 echo "Building XenCloud-specific libraries"
-cd $REPO/api-libs.hg
+cd $REPO/xen-api-libs.hg
 ./rebuild
 echo "Building XenCloud toolstack"
-cd $REPO/api.hg
+cd $REPO/xen-api.hg
 make
 make install
-echo "XenCloud toolstack in $REPO/api.hg/dist/staging"
+echo "XenCloud toolstack in $REPO/xen-api.hg/dist/staging"
