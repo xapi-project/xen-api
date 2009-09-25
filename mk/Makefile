@@ -29,7 +29,7 @@ export BUILD_NUMBER
 export PRODUCT_BRAND
 export PRODUCT_VERSION
 
-REPO=$(call hg_loc,api)
+REPO=$(call hg_loc,xen-api)
 
 .PHONY: build
 build: $(OUTPUT_PKG) $(MY_OBJ_DIR)/.rpmbuild.cli.stamp $(MY_SOURCES)/MANIFEST
@@ -42,7 +42,7 @@ $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XENGUEST_SRC)
 	echo api gpl file $(JQUERY_TV_DIST) >> $@
 
 $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI) \
-  $(OUTPUT_XENOPS_RT) $(OUTPUT_XENGUEST_SRC): $(call hg_req,api) $(MY_MAIN_PACKAGES)/.dirstamp
+  $(OUTPUT_XENOPS_RT) $(OUTPUT_XENGUEST_SRC): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
 	rm -rf $(REPO)/dist
 	$(MAKE) clean
 	$(MAKE) -C $(REPO)
