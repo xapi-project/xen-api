@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- *)
-
 type operation = Debug | Directory | Read | Getperms |
                  Watch | Unwatch | Transaction_start |
                  Transaction_end | Introduce | Release |

@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Ltd.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
 
 type 'a t = { size: int; mutable current: int; data: 'a array; }
 

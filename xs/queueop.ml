@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
 
 let data_concat ls = (String.concat "\000" ls) ^ "\000"
 let queue_path ty (tid: int) (path: string) con =

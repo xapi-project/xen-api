@@ -1,10 +1,3 @@
-/*
- * Copyright (c) 2006-2007 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- */
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

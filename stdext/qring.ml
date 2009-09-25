@@ -1,9 +1,3 @@
-(*
- * Copyright 2008 Citrix Ltd.
- * Author Vincent Hanquez <vincent.hanquez@eu.citrix.com>
- *
- * efficient circular string queue
- *)
 type t = {
 	sz: int;
 	data: string;

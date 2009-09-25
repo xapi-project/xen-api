@@ -1,9 +1,3 @@
-(*
- * Copyright (c) 2006 XenSource Inc.
- * Author Vincent Hanquez <vincent@xensource.com>
- *
- * All rights reserved.
- *)
 exception Partial_not_empty
 exception Unexpected_packet of string
 

@@ -1,4 +1,3 @@
-/* Copyright (c) 2005-2006 XenSource Inc. */
 
 #define _XOPEN_SOURCE 600
 #include <stdlib.h>
