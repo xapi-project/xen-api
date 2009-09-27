@@ -90,7 +90,6 @@ install:
 	$(IPROG) plugins/perfmon $(DIST)/staging/etc/xapi.d/plugins/
 	$(IPROG) plugins/extauth-hook $(DIST)/staging/etc/xapi.d/plugins/
 	$(IPROG) plugins/extauth-hook-AD.py $(DIST)/staging/etc/xapi.d/plugins/
-	$(IDATA) sku.db $(DIST)/staging/etc/xensource
 	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
 
 .PHONY: sdk-install
