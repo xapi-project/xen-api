@@ -33,8 +33,8 @@ open D
 let filename = ref ""
 
 (* Defaults *)
-let sku = "XE Express"
-let theFuture () = Unix.gettimeofday () +. 30. *. 24. *. 60. *. 60. (* 30 days in the future *)
+let sku = "XE Enterprise"
+let theFuture () = 2_147_483_647.0 (* 2038 *)
 let default_version = Version.product_version
 let default_sockets = 1
 let default_productcode = ""
