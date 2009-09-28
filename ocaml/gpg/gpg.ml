@@ -23,7 +23,6 @@ open D
 let filename = ref ""
 
 let gpg_binary_path = "/usr/bin/gpg"
-let gpg_limiter_path = "/opt/xensource/libexec/gpg-limiter.sh"
 let gpg_homedir = "/opt/xensource/gpg/"
 let gpg_pub_keyring = gpg_homedir^"pubring.gpg"
 let allowed_gpg_checksum =
@@ -31,8 +30,6 @@ let allowed_gpg_checksum =
 	  "f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
 	  "aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
 	  "044d1327ea42400ac590195e0ec1e7e6"; ]
-
-let allowed_limiter_checksum = ["2cc874e5610243f86470639104f56c92"]
 
 exception InvalidSignature
 
@@ -87,17 +84,10 @@ let common ty filename signature size f =
   in
   (* Let's check the checksums of gpg and its helper script for oem *)
   let gpg_binary_sum = simple_checksum gpg_binary_path in
-  let gpg_limiter_sum = simple_checksum gpg_limiter_path in
   if not (List.mem gpg_binary_sum allowed_gpg_checksum) then
     raise InvalidSignature;
-  if not (List.mem gpg_limiter_sum allowed_limiter_checksum) then
-    raise InvalidSignature;
 
-  let gpg_path = 
-    match ty with
-      | `signed_cleartext -> gpg_binary_path
-      | `detached_signature -> gpg_limiter_path
-  in
+  let gpg_path = gpg_binary_path in
 
   finally  (* make sure I close all my open fds in the end *)
     (fun () ->
