@@ -88,12 +88,20 @@ $(OUTPUT_XAPI_PKG): $(MY_OBJ_DIR)/.dirstamp $(MY_OUTPUT_DIR)/.dirstamp
 	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging installxen
 	tar -C $(DESTDIR) -zcf $@ .
 
+OUTPUT_SRC := $(MY_OUTPUT_DIR)/xen-api-libs-src.tar.bz2
+
+$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_SRC)
+	echo api lgpl-with-linking-exception file $(OUTPUT_SRC) > $@
+
+$(OUTPUT_SRC):
+	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
+
 .PHONY: api-libs
-api-libs: $(OUTPUT_API_PKG)
+api-libs: $(OUTPUT_API_PKG) $(MY_SOURCES)/MANIFEST
 	@ :
 
 .PHONY: xapi-libs
-xapi-libs: $(OUTPUT_XAPI_PKG)
+xapi-libs: $(OUTPUT_XAPI_PKG) $(MY_SOURCES)/MANIFEST
 	@ :
 
 .PHONY: clean
