@@ -2,7 +2,7 @@ Summary: @PRODUCT_BRAND@ CLI by @COMPANY_NAME_SHORT@.
 Name: xe-cli
 Version: @PRODUCT_VERSION@
 Release: @BUILD_NUMBER@
-License: Copyright @COPYRIGHT_YEARS@ @COMPANY_NAME_LEGAL@ All Rights Reserved
+License: LGPL + static linking exception
 Group: System/Management
 URL: http://www.citrix.com
 Source0: xe
