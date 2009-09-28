@@ -14,7 +14,7 @@ OUTPUT_XENOPS_RT := $(MY_OUTPUT_DIR)/xenops-regress.tar.gz
 OUTPUT_FAKESERVER := $(MY_OUTPUT_DIR)/fakeserver.tar.bz2
 OUTPUT_DOCS := $(MY_OUTPUT_DIR)/sdkiso
 OUTPUT_WEBZIP := $(MY_OUTPUT_DIR)/sdk-html.zip
-OUTPUT_XENGUEST_SRC := $(MY_OUTPUT_DIR)/xenguest-src.tar.bz2
+OUTPUT_SRC := $(MY_OUTPUT_DIR)/xen-api-src.tar.bz2
 OUTPUT_PATCH := $(MY_OUTPUT_DIR)/testpatch.asc
 OUTPUT_DATAMODEL_DIR := $(MY_OUTPUT_DIR)/datamodel
 
@@ -36,13 +36,16 @@ build: $(OUTPUT_PKG) $(MY_OBJ_DIR)/.rpmbuild.cli.stamp $(MY_SOURCES)/MANIFEST
 	$(call mkdir_clean,$(MY_LINUX_CDFILES)/client_install)
 	install -m 755 -o root -g root $(RPM_RPMSDIR)/i386/xe-cli-*.rpm $(MY_LINUX_CDFILES)/client_install/
 
-$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XENGUEST_SRC)
-	echo api gpl file $(OUTPUT_XENGUEST_SRC) > $@
+$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_SRC)
+	echo api gpl+lgpl-with-linking-exception file $(OUTPUT_SRC) > $@
 	echo api gpl file $(JQUERY_PACK_DIST) >> $@
 	echo api gpl file $(JQUERY_TV_DIST) >> $@
 
+$(OUTPUT_SRC):
+	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
+
 $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI) \
-  $(OUTPUT_XENOPS_RT) $(OUTPUT_XENGUEST_SRC): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
+  $(OUTPUT_XENOPS_RT): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
 	rm -rf $(REPO)/dist
 	$(MAKE) clean
 	$(MAKE) -C $(REPO)
@@ -58,7 +61,6 @@ $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI) \
 	mkdir -p $(REPO)/dist/staging/var/opt/xen/iso_import
 	cp $(REPO)/dist/staging/opt/xensource/bin/xapi $(OUTPUT_XAPI)
 	tar -C $(REPO)/dist/staging -jcf $(OUTPUT_PKG) .
-	tar -C $(REPO)/dist -jcf $(OUTPUT_XENGUEST_SRC) xenguest-src
 	tar -C $(REPO)/dist/cli-rt -zcf $(OUTPUT_CLI_RT) .
 	tar -C $(REPO)/dist/cli-regress-geneva -zcf $(OUTPUT_CLI_RT_GENEVA) .
 	install -m 755 -o root -g root $(REPO)/dist/staging/opt/xensource/bin/xe $(MY_OUTPUT_DIR)/xe
@@ -98,5 +100,5 @@ $(MY_OBJ_DIR)/.rpmbuild.cli.stamp: $(RPM_DIRECTORIES) $(RPM_SPECSDIR)/xe.spec $(
 
 .PHONY: clean
 clean:
-	rm -f $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_CLI) $(OUTPUT_XENOPS_RT) $(OUTPUT_WEBZIP)
+	rm -f $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_CLI) $(OUTPUT_XENOPS_RT) $(OUTPUT_WEBZIP) $(OUTPUT_SRC)
 	$(MAKE) -C $(REPO) clean
