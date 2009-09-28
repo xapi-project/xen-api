@@ -39,8 +39,8 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.6"
-let xencenter_max_verstring = "1.6"
+let xencenter_min_verstring = "100.0"
+let xencenter_max_verstring = "100.1"
 
 (* linux pack vsn key (put in host.software_version) *)
 let linux_pack_vsn_key = "package-linux"
