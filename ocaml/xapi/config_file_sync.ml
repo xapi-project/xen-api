@@ -21,6 +21,7 @@ let config_file_sync_handler (req: Http.request) s =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
+      req.Http.close := true;
       debug "sending headers";
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
       debug "writing dom0 config files";
@@ -29,21 +30,29 @@ let config_file_sync_handler (req: Http.request) s =
     )
 
 let fetch_config_files ~master_address ~pool_secret =
-  let headers = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
-    Http.Get master_address Constants.config_sync_uri in
-  let st_proc = Xmlrpcclient.get_reusable_stunnel
-    ~write_to_log:Xmlrpcclient.write_to_log master_address Xapi_globs.default_ssl_port in
-  Pervasiveext.finally
-    (fun () ->
-       debug "Requesting config files from master";
-       let fd = st_proc.Stunnel.fd in
-       (* no content length since it's streaming *)
-       let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
-       let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
-       let config_files = Unixext.read_whole_file 1024 1024 fd in
-       config_files
+  
+  Server_helpers.exec_with_new_task "fetch_config_files" 
+    (fun __context ->
+       Helpers.call_api_functions ~__context 
+	 (fun rpc session_id ->
+
+	    let headers = Xapi_http.http_request ~cookie:[ "session_id", Ref.string_of session_id ]
+	      Http.Get master_address Constants.config_sync_uri in
+	    let st_proc = Xmlrpcclient.get_reusable_stunnel
+	      ~write_to_log:Xmlrpcclient.write_to_log master_address Xapi_globs.default_ssl_port in
+	    Pervasiveext.finally
+	      (fun () ->
+		 debug "Requesting config files from master";
+		 let fd = st_proc.Stunnel.fd in
+		 (* no content length since it's streaming *)
+		 let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
+		 let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
+		 let config_files = Unixext.read_whole_file 1024 1024 fd in
+		 config_files
+	      )
+	      (fun () -> Stunnel.disconnect st_proc)
+	 )
     )
-    (fun () -> Stunnel.disconnect st_proc)
     
   (* Invoked on slave as a notification that config files may have changed. Slaves can use
      this to decide whether to sync the new config files if the hash is different from the
