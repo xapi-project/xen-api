@@ -23,7 +23,7 @@ val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
 val readfile_line : (string -> 'a) -> string -> unit
 val read_whole_file : int -> int -> Unix.file_descr -> string
 val read_whole_file_to_string : string -> string
-val atomic_write_to_file : string -> (Unix.file_descr -> 'a) -> 'a
+val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val write_string_to_file : string -> string -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64

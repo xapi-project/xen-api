@@ -138,11 +138,12 @@ let read_whole_file_to_string fname =
 
 (** Opens a temp file, applies the fd to the function, when the function completes, renames the file
     as required. *)
-let atomic_write_to_file fname f =
+let atomic_write_to_file fname perms f =
   let tmp = Filenameext.temp_file_in_dir fname in
+  Unix.chmod tmp perms;
   Pervasiveext.finally
     (fun () ->
-      let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
+      let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
       let result = Pervasiveext.finally
 	(fun () -> f fd)
 	(fun () -> Unix.close fd) in
@@ -153,7 +154,7 @@ let atomic_write_to_file fname f =
 
 (** Atomically write a string to a file *)
 let write_string_to_file fname s =
-  atomic_write_to_file fname (fun fd ->
+  atomic_write_to_file fname 0o644 (fun fd ->
     let len = String.length s in
     let written = Unix.write fd s 0 len in
     if written <> len then (failwith "Short write occured!"))
