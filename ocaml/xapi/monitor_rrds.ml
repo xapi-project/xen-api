@@ -186,7 +186,7 @@ let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid body =
       if exists then begin
       	Unixext.mkdir_safe Xapi_globs.xapi_rrd_location 0o755;
 	let base_filename = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
-	Unixext.atomic_write_to_file (base_filename ^ ".gz")
+	Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
 	  (fun fd -> 
 	    Gzip.compress fd (fun fd ->
 	      let len = String.length body in 
