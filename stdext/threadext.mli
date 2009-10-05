@@ -42,3 +42,7 @@ module Delay :
     (** Sends a signal to a waiting thread. See 'wait' *)
     val signal : t -> unit
   end
+  
+(** Keeps a thread alive without doing anything. Used e.g. in XML/RPC daemons. *)
+val keep_alive: unit -> unit
+
