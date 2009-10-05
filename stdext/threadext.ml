@@ -162,3 +162,9 @@ module Delay = struct
 	 | None -> x.signalled <- true 	 (* If the wait hasn't happened yet then store up the signal *)
       )
 end
+
+let keep_alive () =
+	while true do
+		Thread.delay 20000.
+	done
+	
