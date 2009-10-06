@@ -384,14 +384,13 @@ let stop (key: server) =
 exception Client_requested_size_over_limit
 
 (** Read the body of an HTTP request (requires a content-length: header). *)
-let read_body ~limit req bio =
-  match req.content_length with
-  | None -> failwith "We require a content-length: HTTP header"
-  | Some length ->
-      let length = Int64.to_int length in
-      if length > limit then
-	raise Client_requested_size_over_limit;
-      Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
+let read_body ?limit req bio =
+	match req.content_length with
+	| None -> failwith "We require a content-length: HTTP header"
+	| Some length ->
+		let length = Int64.to_int length in
+		maybe (fun l -> if length > l then raise Client_requested_size_over_limit) limit;
+		Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
 
 module Chunked = struct
     type t = { mutable current_size : int; mutable current_offset : int;

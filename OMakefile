@@ -107,7 +107,9 @@ OCAML_PHASE3_XEN = \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
 	ocaml/netdev/brctl \
-	ocaml/p2v/p2v
+	ocaml/p2v/p2v \
+	ocaml/v6/v6testd \
+	ocaml/v6/v6d-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauthx \

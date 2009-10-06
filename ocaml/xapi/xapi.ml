@@ -557,9 +557,8 @@ let record_boot_time_host_free_memory () =
 let handle_licensing () = 
   Server_helpers.exec_with_new_task "Licensing host"
     (fun __context ->
-       let localhost = Helpers.get_localhost ~__context in
-       let existing_license_params = Db.Host.get_license_params ~__context ~self:localhost in
-       License.initialise existing_license_params;
+       let host = Helpers.get_localhost ~__context in
+       License.initialise ~__context ~host;
        (* Copy resulting license to the database *)
        Xapi_host.copy_license_to_db ~__context
     )

@@ -1,7 +1,7 @@
 OCAMLPACKS += xmlm xml-light2 xc
 OCAMLINCLUDES += ../http
 #OCAMLINCLUDES += ../sexpr ../uuid ../idl ../idl/ocaml_backend ../log \
-OCAMLINCLUDES += ../xapi ../gpg
+OCAMLINCLUDES += ../xapi ../gpg ../idl/ocaml_backend ../v6
 
 
 .PHONY: clean

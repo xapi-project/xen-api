@@ -164,6 +164,11 @@ _xe()
                                 esac
                                 return 0
                                 ;;
+            edition) # for host-apply-edition (licensing)
+                IFS=$'\n,'
+                COMPREPLY=( $(compgen -W "free ,enterprise ,platinum " -- ${value}) )
+                return 0
+                ;;
 			*)
 				snd=`echo ${param} | cut -d- -f2`
 				fst=`echo ${param} | cut -d- -f1`
