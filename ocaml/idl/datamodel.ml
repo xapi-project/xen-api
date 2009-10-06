@@ -275,6 +275,13 @@ let _ =
   error Api_errors.license_does_not_support_xha []
     ~doc:"XHA cannot be enabled because this host's license does not allow it" ();
 
+  error Api_errors.invalid_edition ["edition"]
+    ~doc:"The edition you supplied is invalid. Valid editions are 'free', 'enterprise' and 'platinum'." ();
+  error Api_errors.license_checkout_error ["edition"]
+    ~doc:"The license for the edition you requested is not available." ();
+  error Api_errors.license_file_deprecated []
+    ~doc:"This license file is no longer accepted. Please upgrade to the new licensing system." ();
+
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
 
@@ -3076,6 +3083,9 @@ let host_create_params =
     {param_type=String; param_name="external_auth_type"; param_doc="type of external authentication service configured; empty if none configured"; param_release=george_release; param_default=Some(VString "")};
     {param_type=String; param_name="external_auth_service_name"; param_doc="name of external authentication service configured; empty if none configured"; param_release=george_release; param_default=Some(VString "")};
     {param_type=Map(String,String); param_name="external_auth_configuration"; param_doc="configuration specific to external authentication service"; param_release=george_release; param_default=Some(VMap [])};
+    {param_type=Map(String,String); param_name="license_params"; param_doc="State of the current license"; param_release=midnight_ride_release; param_default=Some(VMap [])};
+    {param_type=String; param_name="edition"; param_doc="XenServer edition"; param_release=midnight_ride_release; param_default=Some(VString "")};
+    {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
   ]
 
 let host_create = call
@@ -3307,13 +3317,24 @@ let host_disable_external_auth = call ~flags:[`Session]
 let host_set_license_params = call
   ~name:"set_license_params"
   ~in_product_since:rel_orlando (* actually update 3 aka floodgate *)
-  ~doc:"Set the new license details in the database, trigger a recomputation of the pool SKUU"
+  ~doc:"Set the new license details in the database, trigger a recomputation of the pool SKU"
   ~params:[ 
     Ref _host, "self", "The host";
     Map(String, String), "value", "The license_params"
   ]
   ~hide_from_docs:true
   ~pool_internal:true
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let host_apply_edition = call ~flags:[`Session]
+  ~name:"apply_edition"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Change to another edition, or reactivate it after a license has expired. Possible editions are 'free', 'enterprise', and 'platinum'. Upgrading from free to enterprise or platinum is subject to the successful checkout of an appropriate license from the license server."
+  ~params:[ 
+    Ref _host, "host", "The host";
+    String, "edition", "The requested edition"
+  ]
   ~allowed_roles:_R_POOL_OP
   ()
 
@@ -3383,6 +3404,7 @@ let host =
 		 host_attach_static_vdis;
 		 host_detach_static_vdis;
 		 host_set_localdb_key;
+		 host_apply_edition;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3409,7 +3431,7 @@ let host =
 	field ~in_oss_since:None ~qualifier:RW ~ty:String "hostname" "The hostname of this host";
 	field ~in_oss_since:None ~qualifier:RW ~ty:String "address" "The address by which this host can be contacted from any other host in the pool";
 	field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) "metrics" "metrics associated with this host";
-	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map (String,String)) "license_params" "The key/value pairs read from the license file";
+	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map (String,String)) "license_params" "State of the current license";
 	field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "boot_free_mem" "Free memory on host at boot time";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles" "The set of statefiles accessible from this host";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_network_peers" "The set of hosts visible via the network from this host";
@@ -3418,7 +3440,8 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VString "")) ~ty:String "external_auth_type" "type of external authentication service configured; empty if none configured.";
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VString "")) ~ty:String "external_auth_service_name" "name of external authentication service configured; empty if none configured.";
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "external_auth_configuration" "configuration specific to external authentication service";
-
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "XenServer edition";
+	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
 
  ])
 	()

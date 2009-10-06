@@ -1,0 +1,9 @@
+/var/log/v6d.log {
+    missingok
+    notifempty
+    size 30k
+    sharedscripts
+    postrotate
+        /opt/xensource/bin/v6d-reopen-logs 2> /dev/null > /dev/null || true
+    endscript
+}

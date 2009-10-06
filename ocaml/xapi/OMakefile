@@ -5,7 +5,7 @@ OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory
 OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
                  ../autogen ../database/ \
                  ../http/ ../xenops ../muxdemux ../xva \
-		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
+		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util ../v6
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -233,7 +233,8 @@ OCamlProgram(xapi, $(COMMON) \
 	remote_requests \
 	xapi_secret \
 	../database/db_hiupgrade \
-	certificates)
+	certificates \
+	../v6/v6client)
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 

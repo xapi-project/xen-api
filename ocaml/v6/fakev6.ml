@@ -1,0 +1,39 @@
+(*
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
+module D=Debug.Debugger(struct let name="v6api" end)
+open D
+
+(** An example implementation of a licensing service which always returns "real" 
+    licenses that never expire. *)
+
+let initialise address port edition =
+	(* check edition  *)
+	if not (List.mem edition ["STD"; "ADV"; "ENT"; "PLT"]) then
+		failwith "unknown edition";
+
+	("real", Int32.of_int (-1))
+		
+let shutdown () =
+	debug "shutdown";
+	true
+
+let reopen_logs () =
+	try
+		debug "Reopening logfiles";
+		Logs.reopen ();
+		debug "Logfiles reopened";
+		true
+	with _ -> false
+	  

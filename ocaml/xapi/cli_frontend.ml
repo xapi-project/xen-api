@@ -1743,6 +1743,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_license_view;
       flags=[];
     };
+    "host-apply-edition",
+    {
+      reqd=["edition"];
+      optn=["host-uuid"; "license-server-address"; "license-server-port"];
+      help="Change to another edition, or reactivate it after a license has expired. Possible editions are 'free', 'enterprise', and 'platinum'. Upgrading from free to enterprise or platinum is subject to the successful checkout of an appropriate license from the license server.";
+      implementation=No_fd Cli_operations.host_apply_edition;
+      flags=[];
+    };
    "host-evacuate",
     {
       reqd=["uuid"];

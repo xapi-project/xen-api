@@ -366,6 +366,7 @@ let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabili
 			~external_auth_type:""
 			~external_auth_service_name:""
 			~external_auth_configuration:[]
+			~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
 		;
 		ref
 	    | Some ref -> ref in

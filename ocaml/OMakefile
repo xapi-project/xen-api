@@ -57,4 +57,6 @@ OCAML_LIBS += \
 	perftest \
 	lvhdrt \
 	mpathalert \
-	multipathrt
+	multipathrt \
+	v6
+	

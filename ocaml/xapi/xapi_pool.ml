@@ -233,7 +233,10 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 				~address:host.API.host_address
 				~external_auth_type:host.API.host_external_auth_type
 				~external_auth_service_name:host.API.host_external_auth_service_name
-				~external_auth_configuration:host.API.host_external_auth_configuration in
+				~external_auth_configuration:host.API.host_external_auth_configuration
+				~license_params:host.API.host_license_params
+				~edition:host.API.host_edition
+				~license_server:host.API.host_license_server in
 
 			(* Copy other-config into newly created host record: *)
 			no_exn (fun () -> Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:host.API.host_other_config) ();

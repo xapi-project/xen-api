@@ -269,6 +269,10 @@ let license_processing_error = "LICENSE_PROCESSING_ERROR"
 let license_cannot_downgrade_in_pool = "LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL"
 let license_does_not_support_xha = "LICENSE_DOES_NOT_SUPPORT_XHA"
 
+let invalid_edition = "INVALID_EDITION"
+let license_checkout_error = "LICENSE_CHECKOUT_ERROR"
+let license_file_deprecated = "LICENSE_FILE_DEPRECATED"
+
 let xmlrpc_unmarshal_failure = "XMLRPC_UNMARSHAL_FAILURE"
 
 let duplicate_vm = "DUPLICATE_VM"
