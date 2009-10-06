@@ -124,7 +124,11 @@ val create :
   address:string ->
   external_auth_type:string ->
   external_auth_service_name:string ->
-  external_auth_configuration:(string * string) list -> [ `host ] Ref.t
+  external_auth_configuration:(string * string) list ->
+  license_params:(string * string) list ->
+  edition:string ->
+  license_server:(string * string) list ->
+  [ `host ] Ref.t
 val destroy : __context:Context.t -> self:API.ref_host -> unit
 val ha_disable_failover_decisions : __context:'a -> host:'b -> unit
 val ha_disarm_fencing : __context:'a -> host:'b -> unit
@@ -250,3 +254,13 @@ val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> 
 val update_pool_secret :
   __context:'a -> host:'b -> pool_secret:string -> unit
 
+(** {2 Licensing} *)
+
+val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit
+(** Attempt to activate the given edition (one of "free", "enterprise" or "platinum".
+ *  In needed, the function automatically checks v6 licenses in and out
+ *  from the license server (via the v6 deamon). If the requested edition is not
+ *  available, the call will fail with an exception, leaving the edition as it is.
+ *  Also call this function to change to a different license server, after the
+ *  connection details in host.license_server have been amended. *)
+ 

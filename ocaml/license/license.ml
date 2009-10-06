@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* There are 2 ways that a license can be registered by xapi. The
+(* OLD:
+ * There are 2 ways that a license can be registered by xapi. The
  * first is on startup, when the file /etc/xensource/license is read,
  * and the second is the api call 'host.license_apply'. There are also
  * 2 possible problems with a license - that it might have expired, and
@@ -34,10 +35,30 @@ let filename = ref ""
 
 (* Defaults *)
 let sku = "XE Enterprise"
-let theFuture () = 2_147_483_647.0 (* 2038 *)
+
+(* round a date, given by Unix.time, to days *)
+let round_to_days d =
+	let days = (int_of_float d) / (24 * 3600) in
+	(float_of_int days) *. 24. *. 3600.
+	
+let grace30days () =
+	if Xapi_fist.reduce_grace_period () then
+		Unix.time () +. 15. *. 60. (* 15 minutes in the future *)
+	else
+		round_to_days (Unix.time () +. 30. *. 24. *. 60. *. 60.) (* 30 days in the future *)
+
+let grace4days () =
+	if Xapi_fist.reduce_upgrade_grace_period () then
+		Unix.time () +. 15. *. 60. (* 15 minutes in the future *)
+	else
+		round_to_days (Unix.time () +. 4. *. 24. *. 60. *. 60.) (* 4 days in the future *)
+
 let default_version = Version.product_version
 let default_sockets = 1
 let default_productcode = ""
+
+let sku_and_name_of_edition = function
+| _ -> "undefined", "Undefined"
 
 (* Convert the sku_type encoded and signed in the license into a sku_marketing_name by looking up the
    key in an XML table stored in the dom0. *)
@@ -67,6 +88,7 @@ type license =
       sockets   : int;
       productcode : string;
       expiry : float;  (* Using the result of Unix.time for this field atm *)
+      grace : bool; (* indicates whether the current license is a grace license *)
 
       name : string;
       company : string;
@@ -87,6 +109,7 @@ let _serialnumber = "serialnumber"
 let _sockets = "sockets"
 let _productcode = "productcode"
 let _expiry = "expiry"
+let _grace = "grace"
 let _name = "name"
 let _company = "company"
 let _address1 = "address1"
@@ -104,6 +127,7 @@ let to_assoc_list (x: license) =
     _sockets, string_of_int x.sockets;
     _productcode, x.productcode;
     _expiry, Date.to_string (Date.of_float x.expiry);
+    _grace, string_of_bool x.grace;
     _name, x.name;
     _company, x.company;
     _address1, x.address1;
@@ -128,6 +152,7 @@ let of_assoc_list (x: (string * string) list) =
     sockets = (try int_of_string (find _sockets) with _ -> 1); (* sockets are now irrelevant *)
     productcode = find _productcode;
     expiry = (Date.to_float (Date.of_string (find _expiry)));
+    grace = false; (* NOTE: 'grace' key left out for backwards compatibility *)
     name = find _name;
     company = find _company;
     address1 = find _address1;
@@ -147,7 +172,8 @@ let default () =
       serialnumber = "";
       sockets = default_sockets;
       productcode = default_productcode;
-      expiry = theFuture ();
+      expiry = grace30days ();
+      grace = false;
       name = "";
       company = "";
       address1 = "";
@@ -165,9 +191,7 @@ exception LicenseParseError
 exception LicenseCannotReadFile
 exception LicenseFieldMissing of string
 exception License_expired of license
-
-
-
+exception License_file_deprecated
 
 (* Calls to obtain info about license *)
 
@@ -195,7 +219,8 @@ let validate_signature fname =
 	    debug "No fingerprint!";
 	    raise Gpg.InvalidSignature);
       Unixext.read_whole_file 500 500 fd)
-
+      
+(* only activation keys are accepted as license files since XS 6.0 *)
 let parse_license license_data =
   let lic_xml = Xml.parse_string license_data in
 
@@ -210,38 +235,47 @@ let parse_license license_data =
     with Not_found -> "" in
 
   match lic_xml with
-    | Xml.Element("xe_license", attrs, _) ->
+  | Xml.Element("xe_license", attrs, _) ->
 	let sku = readfld "sku_type" attrs in
-	{sku = sku;
-	 version = readfld "version" attrs;
-	 serialnumber = readfld "serialnumber" attrs;
-	 sockets = int_of_string (readfld "sockets" attrs); 
-  	 productcode = (readfld "productcode" attrs);
-	 expiry = float_of_string (readfld "expiry" attrs);
-	 name = maybe_readfld "name" attrs;
-	 company = maybe_readfld "company" attrs;
-	 address1 = maybe_readfld "address1" attrs;
-	 address2 = maybe_readfld "address2" attrs;
-	 city = maybe_readfld "city" attrs;
-	 state = maybe_readfld "state" attrs;
-	 postalcode = maybe_readfld "postalcode" attrs;
-	 country = maybe_readfld "country" attrs;
-	 sku_marketing_name = marketing_string_of_sku sku;
-	}
-    | _ -> raise LicenseParseError
+	(* we now only accept activation keys for the free edition fo XS *)
+	if sku <> "XE Express" then
+		raise License_file_deprecated
+	else
+		{sku = sku;
+		 version = readfld "version" attrs;
+		 serialnumber = readfld "serialnumber" attrs;
+		 sockets = int_of_string (readfld "sockets" attrs); 
+	  	 productcode = (readfld "productcode" attrs);
+		 expiry = float_of_string (readfld "expiry" attrs);
+		 grace = false;
+		 name = maybe_readfld "name" attrs;
+		 company = maybe_readfld "company" attrs;
+		 address1 = maybe_readfld "address1" attrs;
+		 address2 = maybe_readfld "address2" attrs;
+		 city = maybe_readfld "city" attrs;
+		 state = maybe_readfld "state" attrs;
+		 postalcode = maybe_readfld "postalcode" attrs;
+		 country = maybe_readfld "country" attrs;
+		 sku_marketing_name = marketing_string_of_sku sku;
+		}
+  | _ -> raise LicenseParseError
 
+(* only activation keys are accepted as license files since XS 6.0 *)
 let read_license_file fname =
   try
     Unix.access fname [Unix.F_OK];
     let license_data = validate_signature fname in
     let newlicense = parse_license license_data in
       Some newlicense
-  with e ->
+  with 
+  | License_file_deprecated -> raise License_file_deprecated
+  | e ->
     begin
       debug "Failed to read license file: %s" (Printexc.to_string e);
       None
     end
 
+(* only activation keys are accepted as license files since XS 6.0 *)
 let do_parse_and_validate fname =
   try
     let _ = try Unix.access fname [Unix.F_OK] with _ -> raise LicenseCannotReadFile in
@@ -259,42 +293,89 @@ let do_parse_and_validate fname =
       | Gpg.InvalidSignature -> warn "License application failed: invalid signature on license file."
       | LicenseFieldMissing fname -> warn "License application failed: essential field '%s' missing from license." fname
       | LicenseParseError -> warn "License application failed: reverting to previous license"
+      | License_file_deprecated -> warn "License application failed: deprecated license file"
       | e -> warn "License application failed: exception '%s' in license parsing." (Printexc.to_string e);
 	  log_backtrace ());
     raise e
 
+let write_grace_to_file grace_expiry =
+	let grace_expiry_str = string_of_float grace_expiry in
+	Unixext.write_string_to_file Xapi_globs.upgrade_grace_file grace_expiry_str
 
-(* xapi calls this first. We make sure that if a license exists on disk, we apply that, even if it's expired.       *)
-(* If any other error occurs (eg file is missing or invalid) then we use a default FG-Free (ie Express) license     *)
-(* carefully setting the expiry date to the minimum of the existing expiry and (now + 30 days). If no existing      *)
-(* expiry exists then we use (now + 30 days). In any case we always leave a (possibly expired) license in the above *)
-(* reference.                                                                                                       *)
-let initialise existing_license_params =
-  (* Called if no parsable license exists on disk to generate a fresh one with expiry = min(existing, now+30 days)  *)
-  let make_default () =
-    let x = default () in
+let read_grace_from_file () =
+	try
+		let grace_expiry_str = Unixext.read_whole_file_to_string Xapi_globs.upgrade_grace_file in
+		float_of_string grace_expiry_str
+	with _ -> 0.
 
-    let info_generating_fresh () = 
-      info "Invalid existing license (license_params = [ %s ]); generating a fresh one" (String.concat ", " (List.map (fun (k, v) -> k ^ " = " ^ v) existing_license_params)) in
-    try
-      let existing = of_assoc_list existing_license_params in
-      if x.sku = existing.sku then begin
-	if existing.expiry < x.expiry
-	then info "Existing %s pseudo-license with expiry date %s still in effect" existing.sku (Date.to_string (Date.of_float existing.expiry))
-	else info_generating_fresh ();
-	{ x with expiry = min x.expiry existing.expiry } 
-      end else begin
-	info_generating_fresh ();
-	x
-      end
-    with _ ->
-      info_generating_fresh ();
-      x in
-      
-  try
-    do_parse_and_validate !filename;
-    info "Existing %s license with expiry date %s still in effect" !license.sku (Date.to_string (Date.of_float !license.expiry))
-  with
-  | License_expired l -> license := l (* keep expired license *)
-  | _ -> license := (make_default ())
-
+(* xapi calls this function upon startup *)
+let initialise ~__context ~host =
+	let existing_license_params = Db.Host.get_license_params ~__context ~self:host in
+	let existing_edition = Db.Host.get_edition ~__context ~self:host in
+	let default = default () in
+	let new_license = try 
+		let existing_license = of_assoc_list existing_license_params in
+		match existing_edition with
+		| "free" ->
+			(* old Floodgate-free behaviour *)
+			begin try
+				do_parse_and_validate !filename;
+				info "Existing free license with expiry date %s still in effect." (Date.to_string (Date.of_float !license.expiry));
+				!license (* do_parse_and_validate already sets !license *)
+			with
+			| License_expired l -> l (* keep expired license *)
+			| _ ->
+				(* activation file does not exist or is invalid *)
+				if existing_license.expiry < default.expiry then begin
+					info "Existing free license with expiry date %s still in effect." (Date.to_string (Date.of_float existing_license.expiry));
+					{default with expiry = existing_license.expiry}
+				end else begin
+					info "Generating new free license, which needs to be activated in 30 days.";
+					default
+				end
+			end
+		| "enterprise" | "platinum" ->
+			(* existing license is a v6 Essentials license -> try to check one out again *)
+			V6client.get_v6_license ~__context ~host ~edition:existing_edition;
+			begin match !V6client.licensed with 
+			| None ->
+				let upgrade_grace = read_grace_from_file () > Unix.time () in
+				if upgrade_grace then begin
+					info "No %s license is available, but we are still in the upgrade grace period." existing_edition;
+					{existing_license with grace = true}
+				end else begin
+					info "No %s license is available. Essentials features have been disabled." existing_edition;
+					{existing_license with expiry = 0.} (* expiry date 0 means 01-01-1970, so always expired *)
+				end
+			| Some license ->
+				info "Successfully checked out %s license." existing_edition;
+				(* delete upgrade-grace file, if it exists *)
+				Unixext.unlink_safe Xapi_globs.upgrade_grace_file;
+				if !V6client.grace then
+					{existing_license with grace = true; expiry = !V6client.expires}
+				else
+					{existing_license with grace = false; expiry = !V6client.expires}
+			end
+		| "" -> 
+			(* upgrade from pre-MNR *)
+			if existing_license.sku = "XE Express" then begin
+				info "Upgrade from free: set to free edition.";
+				(* all existing license_params are kept; only fill in edition field *)
+				Db.Host.set_edition ~__context ~self:host ~value:"free";
+				{default with expiry = existing_license.expiry}
+			end else begin
+				info "Upgrade from Essentials: transition to enterprise edition (4-day grace license).";
+				Db.Host.set_edition ~__context ~self:host ~value:"enterprise";
+				let grace_expiry = grace4days () in
+				write_grace_to_file grace_expiry;
+				Unixext.unlink_safe !filename;
+				let sku, name = sku_and_name_of_edition "enterprise" in
+				{default with sku = sku; expiry = grace_expiry; grace = true; sku_marketing_name = name}
+			end
+		| _ ->
+			warn "Edition field corrupted; generating a new free license, which needs to be activated in 30 days.";
+			default
+		with _ -> info "Generating new free license, which needs to be activated in 30 days."; default
+	in
+	license := new_license
+	

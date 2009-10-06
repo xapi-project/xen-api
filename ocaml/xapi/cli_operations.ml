@@ -2512,6 +2512,42 @@ let host_license_view printer rpc session_id params =
   let params = List.filter (fun (x, _) -> not (List.mem x tohide)) params in
   printer (Cli_printer.PTable [params])
 
+let host_apply_edition printer rpc session_id params =
+  let host = 
+    if List.mem_assoc "host-uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    else
+      get_host_from_session rpc session_id in
+  let edition = List.assoc "edition" params in
+  if List.mem_assoc "license-server-address" params then begin
+    let address = List.assoc "license-server-address" params in
+    Client.Host.remove_from_license_server rpc session_id host "address";
+    Client.Host.add_to_license_server rpc session_id host "address" address
+  end;
+  if List.mem_assoc "license-server-port" params then begin
+    let port = List.assoc "license-server-port" params in
+    let port_int = try int_of_string port with _ -> -1 in
+    if port_int < 0 || port_int > 65535 then
+      printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.")
+    else begin
+      Client.Host.remove_from_license_server rpc session_id host "port";
+      Client.Host.add_to_license_server rpc session_id host "port" port
+    end
+  end;
+  try
+    Client.Host.apply_edition rpc session_id host edition
+  with
+  | Api_errors.Server_error (name, args) when name = Api_errors.license_checkout_error ->
+    let now = (Unix.gettimeofday ()) in
+    let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
+    let print_if_checkout_error (ref, msg) =
+      if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
+        (* the body of the alert message is specified in the v6 daemon *)
+        printer (Cli_printer.PStderr msg.API.message_body)
+    in
+    List.iter print_if_checkout_error alerts
+  | e -> raise e
+
 let host_evacuate printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in

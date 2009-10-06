@@ -552,6 +552,7 @@ let license_apply ~__context ~host ~contents =
 	Unixext.unlink_safe tmp;
 	match e with
 	  | License.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
+	  | License.License_file_deprecated -> raise (Api_errors.Server_error(Api_errors.license_file_deprecated, []))
 	  | (Api_errors.Server_error (x,y)) -> raise (Api_errors.Server_error (x,y)) (* pass through api exceptions *)
 	  | e ->
 	      begin
@@ -559,7 +560,7 @@ let license_apply ~__context ~host ~contents =
 		raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
 	      end
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration =
+let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
   let xapi_verstring = Create_misc.get_xapi_verstring() in
   let info = Create_misc.read_localhost_info () in
   let software_version =
@@ -594,9 +595,10 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
     ~logging:[] ~hostname ~address
     ~metrics
-    ~license_params:[] ~allowed_operations:[] ~current_operations:[] ~boot_free_mem:0L 
+    ~license_params ~allowed_operations:[] ~current_operations:[] ~boot_free_mem:0L 
       ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
       ~external_auth_type ~external_auth_service_name ~external_auth_configuration
+    ~edition ~license_server
   in
     ref
 
@@ -1140,4 +1142,60 @@ let update_pool_secret ~__context ~host ~pool_secret =
 let set_localdb_key ~__context ~host ~key ~value =
 	Localdb.put key value;
 	debug "Local-db key '%s' has been set to '%s'" key value
-	
+
+(* Licensing *)
+		
+let apply_edition ~__context ~host ~edition =
+	debug "apply_edition to %s" edition;
+	let current_edition = Db.Host.get_edition ~__context ~self:host in
+	let current_license = !License.license in
+	let default = License.default () in
+	let new_license = match edition with
+	| "free" ->	
+		if current_edition = "free" then begin
+			info "The host's edition is already 'free'. No change.";
+			current_license
+		end else begin
+			info "Downgrading from %s to free edition." current_edition;			
+			(* CA-27011: if HA is enabled block the application from downgrading to free *)
+			let pool = List.hd (Db.Pool.get_all ~__context) in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool then
+				raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
+			else begin
+				V6client.release_v6_license ();
+				Unixext.unlink_safe !License.filename; (* delete activation key, if it exists *)
+				default (* default is free edition with 30 day grace validity *)
+			end
+		end
+	| "enterprise" | "platinum" ->
+		(* Try to get the a v6 license; if one has already been checked out,
+		 * it will be automatically checked back in. *)
+		if current_edition = "free" then
+			info "Upgrading from free to %s edition..." edition
+		else
+			info "(Re)applying %s license..." edition;
+			
+		V6client.get_v6_license ~__context ~host ~edition;
+		begin match !V6client.licensed with 
+		| None -> 
+			error "License could not be checked out. Edition is not changed.";
+			V6client.release_v6_license ();
+			raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
+		| Some license ->
+			let sku, name = License.sku_and_name_of_edition edition in
+			let basic = {default with License.sku = sku; License.sku_marketing_name = name;
+				License.expiry = !V6client.expires} in
+			if !V6client.grace then
+				{basic with License.grace = true}
+			else
+				basic
+		end
+	| _ ->
+		error "Invalid edition ('%s')!" edition;
+		raise (Api_errors.Server_error (Api_errors.invalid_edition, [edition]))
+	in
+	License.license := new_license;
+	Db.Host.set_edition ~__context ~self:host ~value:edition;
+	copy_license_to_db ~__context; (* update host.license_params, pool sku and restrictions *)
+	Unixext.unlink_safe Xapi_globs.upgrade_grace_file (* delete upgrade-grace file, if it exists *)
+

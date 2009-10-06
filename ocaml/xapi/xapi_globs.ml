@@ -42,6 +42,9 @@ let tools_version = ref (-1, -1, -1, -1)
 let xencenter_min_verstring = "100.0"
 let xencenter_max_verstring = "100.1"
 
+(** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
+let dbv = "2009.0201"
+
 (* linux pack vsn key (put in host.software_version) *)
 let linux_pack_vsn_key = "package-linux"
 let installed = "installed"
@@ -123,6 +126,7 @@ let _api_vendor_implementation = "API_vendor_implementation"
 let _xapi_major = "xapi_major"
 let _xapi_minor = "xapi_minor"
 let _export_vsn = "export_vsn"
+let _dbv = "dbv"
 
 (* Used to differentiate between 
    Rio beta2 (0) [no inline checksums, end-of-tar checksum table],
@@ -135,7 +139,8 @@ let software_version = [ _product_version, Version.product_version;
 			 _build_number,    Version.build_number;
 			 _hg_id,           Version.hg_id;
 			 _hostname,        Version.hostname;
-			 _date,            Version.date ]
+			 _date,            Version.date;
+			 _dbv, 			   dbv ]
 
 let pygrub_path = "/usr/bin/pygrub"
 let eliloader_path = "/usr/bin/eliloader"
@@ -527,6 +532,10 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Contains an XML key/value pair database containing the mapping from sku_type to sku_marketing_name *)
 let sku_marketing_name_db = "/etc/xensource/sku.db"
+
+(** Directory used by the v6 license policy engine for caching *)
+let upgrade_grace_file = "/var/xapi/ugp"
+
 
 (** Time after which we conclude that a VM really is unco-operative *)
 let cooperative_timeout = 30.

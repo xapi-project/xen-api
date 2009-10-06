@@ -194,8 +194,8 @@ module From = struct
     singleton ["methodResponse"]
       (function
        | Xml.Element("params", _, _) as xml -> begin match success xml with
-	 | [ xml ] -> status xml
-	 | _ -> rtte "Expected single return value (struct status)" xml
+       | [ xml ] -> status xml
+       | _ -> rtte "Expected single return value (struct status)" xml
 	 end
        | Xml.Element("fault", _, _) as xml ->
 	   Fault (fault id xml)

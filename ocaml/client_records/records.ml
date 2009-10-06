@@ -912,6 +912,8 @@ let host_record rpc session_id host =
     make_field ~name:"external-auth-service-name" ~get:(fun () -> (x ()).API.host_external_auth_service_name) ();
     make_field ~name:"external-auth-configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_external_auth_configuration)
       ~get_map:(fun () -> (x ()).API.host_external_auth_configuration) ();
+    make_field ~name:"edition" ~get:(fun () -> (x ()).API.host_edition) ();
+    make_field ~name:"license-server" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_license_server) ~get_map:(fun () -> (x ()).API.host_license_server) ();
   ]}
 
 let vdi_record rpc session_id vdi =
