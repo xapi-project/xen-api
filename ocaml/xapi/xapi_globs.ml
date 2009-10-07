@@ -543,3 +543,39 @@ let cooperative_timeout = 30.
 
 (** Where the ballooning daemon writes the initial overhead value *)
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
+
+(* BIOS strings *)
+let generic_bios_strings =
+	["bios-vendor", "Xen";
+	 "bios-version", "";
+	 "system-manufacturer", "Xen";
+	 "system-product-name", "HVM domU";
+	 "system-version", "";
+	 "system-serial-number", "";
+	 "oem-1", "Xen";
+	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
+	 "hp-rombios", ""]
+
+let old_dell_bios_strings =
+	["bios-vendor", "Dell Inc.";
+	 "bios-version", "1.9.9";
+	 "system-manufacturer", "Dell Inc.";
+	 "system-product-name", "PowerEdge";
+	 "system-version", "";
+	 "system-serial-number", "3.3.1";
+	 "oem-1", "Dell System";
+	 "oem-2", "5[0000]";
+	 "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
+	 "hp-rombios", ""]
+	 
+let old_hp_bios_strings =
+	["bios-vendor", "Xen";
+	 "bios-version", "3.3.1";
+	 "system-manufacturer", "HP";
+	 "system-product-name", "ProLiant Virtual Platform";
+	 "system-version", "3.3.1";
+	 "system-serial-number", "e30aecc3-e587-5a95-9537-7c306759bced";
+	 "oem-1", "Xen";
+	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
+	 "hp-rombios", "COMPAQ"]
+	 

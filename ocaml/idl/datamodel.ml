@@ -1749,7 +1749,7 @@ let vm_copy_bios_strings = call
   ~doc:"Copy the BIOS strings from the given host to this VM"
   ~params:[Ref _vm, "vm", "The VM to modify";
 	   Ref _host, "host", "The host to copy the BIOS strings from";]
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_VM_ADMIN
   ()
 
 (* ------------------------------------------------------------------------------------------------------------
