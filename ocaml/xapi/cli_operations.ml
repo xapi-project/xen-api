@@ -3082,7 +3082,7 @@ let vm_is_bios_customized printer rpc session_id params =
   	let bios_strings = Client.VM.get_bios_strings rpc session_id (vm.getref ()) in
   	if List.length bios_strings = 0 then
 	  printer (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
-  	else if bios_strings = Bios_strings.generic_bios_strings then
+  	else if bios_strings = Xapi_globs.generic_bios_strings then
 	  printer (Cli_printer.PMsg "This VM is BIOS-generic.")
 	else
 	  printer (Cli_printer.PMsg "This VM is BIOS-customized.")
