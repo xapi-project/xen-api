@@ -26,15 +26,6 @@ open D
 
 let listen_addr = Unix.ADDR_INET(Unix.inet_addr_of_string "0.0.0.0", 81)
 
-(* connect and get session id *)
-let xs = Xs.domain_open ()
-let host, port, _session_id, vm = Domain.guest_get_api_access ~xs 
-
-(* get vm and session references *)
-let this_vm = Ref.of_string vm
-and _session_id = Ref.of_string _session_id
-and rpc xml = Xmlrpcclient.do_secure_xml_rpc ~host ~version:"1.1" ~port ~path:"/" xml
-
 let assert_dir path mode =
     if not (Sys.file_exists path) then Unix.mkdir path mode
 
@@ -155,7 +146,9 @@ let get_process_output ?(handler=(fun _ _ -> failwith "internal error")) cmd : s
 module RuntimeEnv = struct
     exception AdminInterfaceError
     exception ErrorFindingIP
+    exception ErrorFindingGateway
 
+(*
     let get_iface_ip iface =
         let ifconfig = get_process_output ("/sbin/ifconfig " ^ iface) in 
         let lines = String.split '\n' ifconfig in
@@ -168,19 +161,55 @@ module RuntimeEnv = struct
             | [ip] -> ip_substr ip
             | _ -> raise ErrorFindingIP
 
-    let configure_networking session_id rpc =
-        let set_other_config_value ~session_id ~rpc ~self ~key ~value =
-            let () = try
-                Client.VM.remove_from_other_config ~session_id ~rpc ~key ~self:this_vm
-            with exn -> () in
-            Client.VM.add_to_other_config ~session_id ~rpc ~self:this_vm ~key ~value
-        in
+    let get_gateway_ip () = (* route does not contain default route to dom0 *)
+        let route = get_process_output ("/sbin/route") in 
+				debug "output of /sbin/route: %s" route;
+        let lines = String.split '\n' route in
+        let ip_substr x = 
+					  let x = String.sub_to_end x (String.length "default") in
+            let plain = String.strip String.isspace x in
+            let fst = 0 in
+            let len = (String.index_from plain fst ' ') - fst in
+            String.sub plain fst len in
+        match List.filter (fun x ->String.has_substr x "default") lines with
+            | [ip] -> ip_substr ip
+            | _ -> raise ErrorFindingGateway
+*)
+
+    let configure_networking () =
         run_checked_sync "dhclient eth0";
-        (* write our IP address to the other_config field so that the client
+        (* write our IP address to the guest-metrics field so that the client
            knows how to connect to us. *)
+(*
         let x = get_iface_ip "eth0" in
-        debug "got ip: %s; writing to other-config" x;
-        set_other_config_value ~session_id ~rpc ~self:this_vm ~key:"ip" ~value:x
+        debug "got ip: %s; writing to guest-metrics" x;
+*)
+(*
+				let gw = get_gateway_ip () in
+				debug "got gateway to Dom0: %s; writing to guest-metrics" gw;
+*)
+        let xs = Xs.domain_open () in
+        finally
+          (fun () -> (* signal p2v client via VM-guest-metrics.get_networks *)
+            (* guest-metrics needs the pv driver version numbers and data/updated key *)
+            xs.Xs.write "attr" "";
+            xs.Xs.write "attr/PVAddons" "";
+            xs.Xs.write "attr/PVAddons/MajorVersion" "5";
+            xs.Xs.write "attr/PVAddons/MinorVersion" "5";
+            xs.Xs.write "attr/PVAddons/MicroVersion" "7";
+            (* reporting IP address to any VM-guest-metrics.get_networks callers *)
+            xs.Xs.write "attr/eth0" "";
+(*
+            xs.Xs.write "attr/eth0/ip" x;
+            xs.Xs.write "attr/eth0/gw" (xs.Xs.read "ip");
+*)
+						let dom0_ip = xs.Xs.read "ip" in
+						debug "got gateway ip to Dom0: %s; writing to guest-metrics" dom0_ip;
+						(* this field is used to pass the dom0 ip back to p2v client *)
+						xs.Xs.write "attr/eth0/ip" dom0_ip;
+            xs.Xs.write "data/updated" "1";
+          )
+          (fun () -> Xs.close xs)
 end
 
 module Compression = struct
@@ -327,20 +356,33 @@ let exn_to_http sock fn =
     try fn ()
     with
       | Api_errors.Server_error(code, params) as e -> begin
+					  debug "exn_to_http: API Error:%s %s" (Api_errors.to_string e) (ExnHelper.string_of_exn e);
             Http.output_http sock Http.http_500_internal_error;
             ignore (unix_really_write sock ("\r\nAPI Error: "^Api_errors.to_string e))
         end
       | Failure e -> begin
+ 					  debug "exn_to_http: Failure: %s" e;
             Http.output_http sock Http.http_500_internal_error;
             ignore (unix_really_write sock ("\r\nServer error: "^e))
         end
       | exn -> begin
+ 					  debug "exn_to_http: general: %s" (ExnHelper.string_of_exn exn);
             Http.output_http sock Http.http_500_internal_error;
         end
 
+
+let get_client_context_of_req req bio =
+  let session_id = Ref.of_string (select_arg bio req.Http.query "session_id") in
+  let host = (select_arg bio req.Http.query "host") in
+  let port = int_of_string (select_arg bio req.Http.query "port") in
+  let this_vm = Ref.of_string (select_arg bio req.Http.query "vm_id") in
+  let rpc xml = Xmlrpcclient.do_secure_xml_rpc ~host ~version:"1.1" ~port ~path:"/" xml in
+  (session_id,host,port,this_vm,rpc)
+
+
 (** Create a disk with numbered ID exposed over HTTP: add to ID -> VBD map;
     create a vbd for the vdi and attach the disk locally. *)
-let make_disk volume sr size bootable session_id =
+let make_disk volume sr size bootable session_id rpc this_vm =
     let vmuuid = Client.VM.get_uuid ~rpc ~session_id ~self:this_vm in
     let vdi = Client.VDI.create ~rpc ~session_id ~sR:sr 
         ~name_label:"Automatically created." ~name_description:""
@@ -361,17 +403,17 @@ let make_disk volume sr size bootable session_id =
 
 (** HTTP callback for make-disk *)
 let make_disk_callback req bio =
-    let volume = select_arg bio req.Http.query "volume"
-    and size = Int64.of_string (select_arg bio req.Http.query "size")
-    and bootable = select_arg bio req.Http.query "bootable" = "true"
-    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id")
-    and sr_uuid = select_arg bio req.Http.query "sr" in
-
     let s = Buf_io.fd_of bio in
     exn_to_http s (fun () ->
-        let sr = Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid in
-        make_disk volume sr size bootable session_id;
-        Http.output_http s (Http.http_200_ok ())
+			let volume = select_arg bio req.Http.query "volume"
+			and size = Int64.of_string (select_arg bio req.Http.query "size")
+			and bootable = select_arg bio req.Http.query "bootable" = "true"
+			and (session_id,host,port,this_vm,rpc) = get_client_context_of_req req bio 
+			and sr_uuid = select_arg bio req.Http.query "sr" in
+
+      let sr = Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid in
+      make_disk volume sr size bootable session_id rpc this_vm;
+      Http.output_http s (Http.http_200_ok ())
     )
 
 (** Partition a disk according to a list of sizes.  Only deals with 
@@ -530,7 +572,7 @@ let strindex str searchstr =
 
 exception GrubConfigError
 
-let paravirtualise root_vol boot_merged session_id =
+let paravirtualise root_vol boot_merged session_id rpc this_vm =
     (* set bootloader params -- assume grub for now: *)
     Client.VM.set_PV_bootloader ~session_id ~rpc ~self:this_vm ~value:"pygrub";
     Client.VM.set_PV_kernel ~session_id ~rpc ~self:this_vm ~value:"";
@@ -691,12 +733,12 @@ let paravirtualise root_vol boot_merged session_id =
 
 let paravirtualise_callback req bio =
     let root_disk = select_arg bio req.Http.query "root-vol"
-    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id")
+    and (session_id,host,port,this_vm,rpc) = get_client_context_of_req req bio 
     and boot_merged = (select_arg bio req.Http.query "boot-merged") = "true" in
 
     let s = Buf_io.fd_of bio in 
     try
-        paravirtualise root_disk boot_merged session_id;
+        paravirtualise root_disk boot_merged session_id rpc this_vm;
         Http.output_http s (Http.http_200_ok ())
     with
       | Failure e -> begin
@@ -712,7 +754,7 @@ let paravirtualise_callback req bio =
             ignore (unix_really_write s "\r\nInternal server error.")
         end
 
-let completed session_id () =
+let completed session_id rpc this_vm () =
     (* remove xvdp, the P2V server ISO: *)
     let vbds = Client.VM.get_VBDs ~rpc ~session_id ~self:this_vm in
     let is_xvdp x = (Client.VBD.get_device ~rpc ~session_id ~self:x = "xvdp") in
@@ -727,11 +769,11 @@ let completed session_id () =
 
 let completed_callback req bio =
     let s = Buf_io.fd_of bio
-    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id") in
+    and (session_id,host,port,this_vm,rpc) = get_client_context_of_req req bio in
     Http.output_http s (Http.http_200_ok ());
     (* close the socket ehre since we won't get to the normal cleanup code *)
     Unix.close s;
-    completed session_id ()
+    completed session_id rpc this_vm ()
 
 let _ = 
     Stunnel.init_stunnel_path ();
@@ -742,7 +784,7 @@ let _ =
 
     debug "hello";
 
-    RuntimeEnv.configure_networking _session_id rpc;
+    RuntimeEnv.configure_networking ();
 
     Http_svr.add_handler Http.Get "/make-disk" (Http_svr.BufIO make_disk_callback);
     Http_svr.add_handler Http.Get "/partition-disk" (Http_svr.BufIO partition_disk_callback);
