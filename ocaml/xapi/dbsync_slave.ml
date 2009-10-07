@@ -720,4 +720,11 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_patch_update_db (fun () ->
     debug "checking patch status";
     Xapi_pool_patch.update_db ~__context
-  )
+  );
+  
+  switched_sync Xapi_globs.sync_bios_strings (fun () ->
+    debug "get BIOS strings on startup";
+    if Db.Host.get_bios_strings ~__context ~self:localhost = [] then
+      Bios_strings.set_host_bios_strings ~__context ~host:localhost
+  );
+
