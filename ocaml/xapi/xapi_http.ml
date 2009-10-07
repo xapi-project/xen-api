@@ -157,21 +157,23 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
 	        | _ -> raise (Http.Unauthorised label)
 	    end 
     in
-    let login_perform_logout __context =
-      validate_session __context session_id label;
-      if not must_logout then Xapi_session.consider_touching_session inet_rpc session_id ();
-      Pervasiveext.finally 
-        (fun () -> f __context)
-        (fun () -> 
-           if must_logout 
-           then Helpers.log_exn_continue "Logging out" 
-	         (fun session_id -> Client.Session.logout inet_rpc session_id) session_id
-        )
-    in
-    begin match task_id with
+    Pervasiveext.finally
+      (fun () ->
+        let login_perform_logout __context =
+          validate_session __context session_id label;
+          if not must_logout then Xapi_session.consider_touching_session inet_rpc session_id ();
+          f __context
+        in
+        begin match task_id with
         | None -> Server_helpers.exec_with_new_task ?subtask_of ~session_id ~task_in_database:(not dummy) ~origin:(Context.Http(req,s)) label login_perform_logout 
         | Some task_id -> Server_helpers.exec_with_forwarded_task ~session_id ~origin:(Context.Http(req,s)) task_id login_perform_logout
-    end
+        end
+      )
+      (fun () -> 
+        if must_logout 
+        then Helpers.log_exn_continue "Logging out" 
+	        (fun session_id -> Client.Session.logout inet_rpc session_id) session_id
+      )
   with Http.Unauthorised s as e -> 
     let fail __context = 
       TaskHelper.failed ~__context (Api_errors.session_authentication_failed, [])
