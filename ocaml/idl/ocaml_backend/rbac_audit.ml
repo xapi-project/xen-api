@@ -101,21 +101,28 @@ let get_subject_name __context session_id =
 		)
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
-let get_obj_name_of_ref obj_ref =
+let get_obj_of_ref_common obj_ref fn =
 		let indexrec = Ref_index.lookup obj_ref in
 		match indexrec with
 		|	None ->
 				if Stringext.String.startswith Ref.ref_prefix obj_ref
 				then Some("") (* it's a ref, just not in the db cache *)
 				else None
-		| Some indexrec -> indexrec.Ref_index.name_label
+		| Some indexrec -> fn indexrec
 
-let get_sexpr_triplet name name_of_ref_value ref_value : SExpr.t =
+let get_obj_name_of_ref obj_ref =
+	get_obj_of_ref_common obj_ref (fun irec -> irec.Ref_index.name_label)
+
+let get_obj_uuid_of_ref obj_ref =
+	get_obj_of_ref_common obj_ref (fun irec -> Some(irec.Ref_index.uuid))
+
+let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
 	SExpr.Node
-		(
+		( (* s-expr lib should properly escape malicious values *)
 			(SExpr.String name)::
-			(SExpr.String name_of_ref_value)::
-			(SExpr.String ref_value):: (* s-expr lib should properly escape malicious values *)
+			(SExpr.String name_of_ref)::
+			(SExpr.String uuid_of_ref)::
+			(SExpr.String ref_value):: 
 			[]
 		)
 
@@ -127,12 +134,16 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list=
 		(fun obj_ref ->
 			match obj_ref with
 				|SExpr.Node (SExpr.String name::SExpr.String ""::
-						SExpr.String ref_value::[]) ->
-					get_sexpr_triplet
+						SExpr.String ""::SExpr.String ref_value::[]) ->
+					get_sexpr_arg
 						name
 						(match (get_obj_name_of_ref ref_value) with 
 							 | None -> "" (* ref_value is not a ref! *)
 							 | Some obj_name -> obj_name (* the missing name *)
+						)
+						(match (get_obj_uuid_of_ref ref_value) with 
+							 | None -> "" (* ref_value is not a ref! *)
+							 | Some obj_uuid -> obj_uuid (* the missing uuid *)
 						)
 						ref_value
 				|_->obj_ref (* do nothing if not a triplet *)
@@ -156,13 +167,13 @@ let populate_audit_record_with_obj_names_of_refs line =
 				else
 				let (args:SExpr.t) = List.hd (List.rev els) in
 				(match List.partition (fun (e:SExpr.t) ->e<>args) els with
-					|prefix, ((SExpr.Node triplet_list)::[]) ->
+					|prefix, ((SExpr.Node arg_list)::[]) ->
 						(* paste together the prefix of original audit record *) 
 						before_sexpr_str^" "^
 						(SExpr.string_of 
 						(SExpr.Node (
 							prefix@
-							((SExpr.Node (get_obj_names_of_refs triplet_list))::
+							((SExpr.Node (get_obj_names_of_refs arg_list))::
 							[])
 						))
 						)
@@ -179,7 +190,7 @@ let populate_audit_record_with_obj_names_of_refs line =
 
 (* Given an action and its parameters, *)
 (* return the marshalled uuid params and corresponding names *)
-let rec string_of_parameters action args : SExpr.t list =
+let rec sexpr_of_parameters action args : SExpr.t list =
 	match args with
 	| None -> []
 	| Some (str_names,xml_values) -> 
@@ -193,15 +204,15 @@ let rec string_of_parameters action args : SExpr.t list =
 			if str_name = "session_id" 
 			then params (* ignore session_id param *)
 			else 
-			let str_args_of name xml_value =
+			let sexpr_args_of name xml_value =
 				match xml_value with
 				| Xml.PCData value -> (
-					match get_obj_name_of_ref value with
-						|None -> params (* ignore values that are not a ref *)
-						|Some name_of_ref_value ->
+					match (get_obj_name_of_ref value, get_obj_uuid_of_ref value ) with
+						|Some name_of_ref_value, Some uuid_of_ref_value ->
 							let (myparam:SExpr.t) = 
-								get_sexpr_triplet name name_of_ref_value value
+								get_sexpr_arg name name_of_ref_value uuid_of_ref_value value
 							in myparam::params
+						|_,_ -> params (* ignore values that are not a ref *)
 					)
 				|_-> params
 			in
@@ -210,7 +221,7 @@ let rec string_of_parameters action args : SExpr.t list =
 			then match xml_value with 
 				| Xml.Element (_,_,(Xml.Element ("struct",_,iargs))::[]) ->
 						let (myparam:SExpr.t list) =
-							(string_of_parameters action (Some
+							(sexpr_of_parameters action (Some
 							(List.fold_right
 								(fun xml_arg (acc_xn,acc_xv) ->
 									match xml_arg with
@@ -235,7 +246,7 @@ let rec string_of_parameters action args : SExpr.t list =
 							)
 						))
 						in params@myparam
-				| xml_value -> str_args_of str_name xml_value
+				| xml_value -> sexpr_args_of str_name xml_value
 			else 
 			(* the expected list of xml arguments *)
 			begin
@@ -251,7 +262,7 @@ let rec string_of_parameters action args : SExpr.t list =
 						)
 					| _ -> str_name,xml_value
 				in
-				str_args_of name filtered_xml_value
+				sexpr_args_of name filtered_xml_value
 			end
 		)
 		[]
@@ -297,7 +308,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args act
     SExpr.String (call_type_of action)::
 		(*SExpr.String (Helper_hostname.get_hostname ())::*)
     SExpr.String action::
-    (SExpr.Node (string_of_parameters action args))::
+    (SExpr.Node (sexpr_of_parameters action args))::
 		[]
 	)
 
