@@ -137,8 +137,7 @@ let is_access_allowed ~__context ~session_id ~permission =
 
 (* Execute fn if rbac access is allowed for action, otherwise fails. *)
 let nofn = fun () -> ()
-let check ?(extra_dmsg="") ?(extra_msg="") ?args ~__context ~fn 
-		?(after_audit_fn) session_id action =
+let check ?(extra_dmsg="") ?(extra_msg="") ?args ~__context ~fn session_id action =
 
 	(* all permissions are in lowercase, see gen_rbac.writer_ *)
 	let permission = String.lowercase action in
@@ -150,12 +149,12 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?args ~__context ~fn
 			let result = (fn ()) (* call rbac-protected function *)
 			in
 			Rbac_audit.allowed_ok ~__context ~session_id ~action
-					~permission ?args ~result ?after_audit_fn ();
+					~permission ?args ~result ();
 			result
 		with error-> (* catch all exceptions *)
 			begin
 				Rbac_audit.allowed_error ~__context ~session_id ~action 
-					~permission ?args ~error ?after_audit_fn ();
+					~permission ?args ~error ();
 				raise error
 			end
 	end
@@ -164,7 +163,7 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?args ~__context ~fn
 		let msg=(Printf.sprintf "No permission in user session%s" extra_msg) in
 		debug "%s[%s]: %s %s %s" action permission msg (trackid session_id) extra_dmsg;
 		Rbac_audit.denied ~__context ~session_id ~action ~permission 
-			?args ?after_audit_fn ();
+			?args ();
 		raise (Api_errors.Server_error 
 			(Api_errors.rbac_permission_denied,[permission;msg]))
 	end
@@ -193,11 +192,12 @@ let has_permission_name ~__context ~permission =
 let has_permission ~__context ~permission =
 	has_permission_name ~__context ~permission:permission.role_name_label
 
-let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="rbac_check") 
-		?args ?after_audit_fn ~fn session_id action =
+let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="check") 
+		?args ~fn session_id action =
+	let task_desc = task_desc^":"^action in
 	Server_helpers.exec_with_new_task task_desc
 		(fun __context -> 
-			check ~extra_dmsg ~extra_msg ~__context ?args ?after_audit_fn  ~fn session_id action
+			check ~extra_dmsg ~extra_msg ~__context ?args ~fn session_id action
 		)
 
 (* used by xapi_http.ml to decide if rbac checks should be applied *)
