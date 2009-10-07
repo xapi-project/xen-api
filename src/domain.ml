@@ -791,28 +791,6 @@ let vcpu_affinity_get ~xc domid vcpu =
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xc.domain_getinfo xc domid).Xc.handle
 
-let grant_api_access ~xs domid mac ip port session vmref =
-	let kvs = [
-	        "mac", mac;
-		"ip", ip;
-		"port", string_of_int port;
-		"session_id", session;
-		"vm_ref", vmref;
-	] in
-	xs.Xs.writev (xs.Xs.getdomainpath domid) kvs
-
-let get_api_access ~xs domid =
-	let keys = [ "ip"; "port"; "session_id"; "vm_ref" ] in
-	let v = xs.Xs.readv (xs.Xs.getdomainpath domid) keys in
-	List.nth v 0, int_of_string (List.nth v 1),
-	List.nth v 2, List.nth v 3
-
-let guest_get_api_access ~xs =
-	let keys = [ "ip"; "port"; "session_id"; "vm_ref" ] in
-	let v = xs.Xs.readv "" keys in
-	List.nth v 0, int_of_string (List.nth v 1),
-	List.nth v 2, List.nth v 3
-
 let set_memory_dynamic_range ~xs ~min ~max domid =
 	let kvs = [
 		"dynamic-min", string_of_int min;
