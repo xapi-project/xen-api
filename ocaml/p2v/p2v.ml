@@ -146,9 +146,8 @@ let get_process_output ?(handler=(fun _ _ -> failwith "internal error")) cmd : s
 module RuntimeEnv = struct
     exception AdminInterfaceError
     exception ErrorFindingIP
-    exception ErrorFindingGateway
+    exception ErrorFindingDefaultGateway
 
-(*
     let get_iface_ip iface =
         let ifconfig = get_process_output ("/sbin/ifconfig " ^ iface) in 
         let lines = String.split '\n' ifconfig in
@@ -161,33 +160,29 @@ module RuntimeEnv = struct
             | [ip] -> ip_substr ip
             | _ -> raise ErrorFindingIP
 
-    let get_gateway_ip () = (* route does not contain default route to dom0 *)
+    let get_gateway_ip () = (* router ip from xapi_udhcpd.write_config *)
         let route = get_process_output ("/sbin/route") in 
-				debug "output of /sbin/route: %s" route;
+        debug "output of /sbin/route: %s" route;
         let lines = String.split '\n' route in
         let ip_substr x = 
-					  let x = String.sub_to_end x (String.length "default") in
+            let x = String.sub_to_end x (String.length "default") in
             let plain = String.strip String.isspace x in
             let fst = 0 in
             let len = (String.index_from plain fst ' ') - fst in
             String.sub plain fst len in
         match List.filter (fun x ->String.has_substr x "default") lines with
             | [ip] -> ip_substr ip
-            | _ -> raise ErrorFindingGateway
-*)
+            | _ -> raise ErrorFindingDefaultGateway
 
     let configure_networking () =
         run_checked_sync "dhclient eth0";
         (* write our IP address to the guest-metrics field so that the client
            knows how to connect to us. *)
-(*
         let x = get_iface_ip "eth0" in
         debug "got ip: %s; writing to guest-metrics" x;
-*)
-(*
-				let gw = get_gateway_ip () in
-				debug "got gateway to Dom0: %s; writing to guest-metrics" gw;
-*)
+        let gw = get_gateway_ip () in
+        debug "got gateway to Dom0: %s; writing to guest-metrics" gw;
+
         let xs = Xs.domain_open () in
         finally
           (fun () -> (* signal p2v client via VM-guest-metrics.get_networks *)
@@ -196,17 +191,10 @@ module RuntimeEnv = struct
             xs.Xs.write "attr/PVAddons" "";
             xs.Xs.write "attr/PVAddons/MajorVersion" "5";
             xs.Xs.write "attr/PVAddons/MinorVersion" "5";
-            xs.Xs.write "attr/PVAddons/MicroVersion" "7";
+            xs.Xs.write "attr/PVAddons/MicroVersion" "8";
             (* reporting IP address to any VM-guest-metrics.get_networks callers *)
             xs.Xs.write "attr/eth0" "";
-(*
-            xs.Xs.write "attr/eth0/ip" x;
-            xs.Xs.write "attr/eth0/gw" (xs.Xs.read "ip");
-*)
-						let dom0_ip = xs.Xs.read "ip" in
-						debug "got gateway ip to Dom0: %s; writing to guest-metrics" dom0_ip;
-						(* this field is used to pass the dom0 ip back to p2v client *)
-						xs.Xs.write "attr/eth0/ip" dom0_ip;
+            xs.Xs.write "attr/eth0/ip" gw;
             xs.Xs.write "data/updated" "1";
           )
           (fun () -> Xs.close xs)
@@ -356,17 +344,17 @@ let exn_to_http sock fn =
     try fn ()
     with
       | Api_errors.Server_error(code, params) as e -> begin
-					  debug "exn_to_http: API Error:%s %s" (Api_errors.to_string e) (ExnHelper.string_of_exn e);
+            debug "exn_to_http: API Error:%s %s" (Api_errors.to_string e) (ExnHelper.string_of_exn e);
             Http.output_http sock Http.http_500_internal_error;
             ignore (unix_really_write sock ("\r\nAPI Error: "^Api_errors.to_string e))
         end
       | Failure e -> begin
- 					  debug "exn_to_http: Failure: %s" e;
+            debug "exn_to_http: Failure: %s" e;
             Http.output_http sock Http.http_500_internal_error;
             ignore (unix_really_write sock ("\r\nServer error: "^e))
         end
       | exn -> begin
- 					  debug "exn_to_http: general: %s" (ExnHelper.string_of_exn exn);
+            debug "exn_to_http: general: %s" (ExnHelper.string_of_exn exn);
             Http.output_http sock Http.http_500_internal_error;
         end
 
