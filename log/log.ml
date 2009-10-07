@@ -202,7 +202,7 @@ let set t level = t.level <- level
 
 let gettimestring () =
 	let time = Unix.gettimeofday () in
-	let tm = Unix.localtime time in
+	let tm = Unix.gmtime time in
         let msec = time -. (floor time) in
 	sprintf "%d%.2d%.2d %.2d:%.2d:%.2d.%.3d|" (1900 + tm.Unix.tm_year)
 	        (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
