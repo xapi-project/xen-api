@@ -99,12 +99,12 @@ let roles_all =
 		role_read_only
 	]
 let role_description = [
-	role_pool_admin,"The Pool Administrator role can do anything";
-	role_pool_operator,"The Pool Operator can do anything but access Dom0 and manage subjects and roles";
-	role_vm_power_admin,"The VM Power Administrator role can do anything affecting VM properties across the pool";
-	role_vm_admin,"The VM Administrator role can do anything to a VM";
-	role_vm_operator,"The VM Operator role can do anything to an already existing VM";
-	role_read_only,"The Read-Only role can only read values";
+	role_pool_admin,"The Pool Administrator role has full access to all features and settings, including accessing Dom0 and managing subjects, roles and external authentication";
+	role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches, high availability (HA) and workload balancing (WLB)";
+	role_vm_power_admin,"The VM Power Administrator role has full access to VM and template management and can choose where to start VMs and use the dynamic memory control and VM snapshot features";
+	role_vm_admin,"The VM Administrator role can manage VMs and templates";
+	role_vm_operator,"The VM Operator role can use VMs and interact with VM consoles";
+	role_read_only,"The Read-Only role can log in with basic read-only access";
 ]
 (* obtain all roles with at least the specified role privileges *)
 let roles_gte role = 
