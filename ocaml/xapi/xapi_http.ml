@@ -45,6 +45,17 @@ let get_session_id (req: request) =
 	else
 		Ref.null
 
+
+let append_to_master_audit_log __context line =
+  (* http actions are not automatically written to the master's audit log *)
+  (* it is necessary to do that manually from the slaves *)
+	if  Pool_role.is_slave () then
+	begin
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.Pool.audit_log_append ~rpc ~session_id  ~line
+		)
+	end
+
 let assert_credentials_ok realm ?(http_action=realm) (req: request) =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.cookie @ req.query in
@@ -61,6 +72,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
         (try validate_session __context session_id realm;
          with _ -> raise (Http.Unauthorised realm));
         (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+					 ~after_audit_fn:(append_to_master_audit_log)
          with _ -> raise (Http.Forbidden));
       );
     end
@@ -74,6 +86,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
     Pervasiveext.finally
       (fun ()->
         (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+					 ~after_audit_fn:(append_to_master_audit_log)
         with _ -> raise (Http.Forbidden)))
       (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
   end
@@ -89,6 +102,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
 	    Pervasiveext.finally
 	      (fun ()->
 	        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+						 ~after_audit_fn:(append_to_master_audit_log)
 	         with _ -> raise (Http.Forbidden)))
 	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
 	    end

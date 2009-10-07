@@ -4897,6 +4897,17 @@ let pool_disable_redo_log = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pool_audit_log_append = call
+	~in_oss_since:None
+  ~pool_internal:true
+  ~hide_from_docs:true
+	~in_product_since:rel_midnight_ride
+	~name:"audit_log_append"
+	~params:[String, "line", "line to be appended to the audit log"]
+	~doc:"Append a line to the audit log on the master."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -4956,6 +4967,7 @@ let pool =
 			; pool_certificate_sync
 			; pool_enable_redo_log
 			; pool_disable_redo_log
+			; pool_audit_log_append
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool
