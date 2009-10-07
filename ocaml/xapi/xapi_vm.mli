@@ -1,22 +1,23 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
-(** Module that defines API functions for VM objects
- * @group XenAPI functions
- *)
+(** Module that defines API functions (messages) for [vm] objects *)
 
 (** {2 (Fill in Title!)} *)
 
+module D :
+  sig
+    val get_thread_id : unit -> int
+    val name_thread : string -> unit
+    val remove_thread_name : unit -> unit
+    val get_thread_name : unit -> string
+    val get_task : unit -> string
+    val output :
+      (string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a) ->
+      ('a, unit, string, unit) format4 -> 'a
+    val debug : ('a, unit, string, unit) format4 -> 'a
+    val warn : ('a, unit, string, unit) format4 -> 'a
+    val info : ('a, unit, string, unit) format4 -> 'a
+    val error : ('a, unit, string, unit) format4 -> 'a
+    val log_backtrace : unit -> unit
+  end
 exception InvalidOperation of string
 val assert_operation_valid :
   __context:Context.t -> self:[ `VM ] Ref.t -> op:API.vm_operations -> unit
@@ -47,6 +48,7 @@ val set_actions_after_crash :
   unit
 val set_is_a_template :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
+val valid_restart_priorities : string list
 val validate_restart_priority : bool -> string -> unit
 val set_ha_always_run :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
@@ -79,7 +81,8 @@ val assert_power_state_is :
             | `Running
             | `ShuttingDown
             | `Suspended
-            > `Halted `Paused `Running `Suspended ] ->
+            | `Unknown
+            > `Halted `Paused `Running `Suspended `Unknown ] ->
   unit
 val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
 val pause_already_locked : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
@@ -97,26 +100,27 @@ module TwoPhase :
     type args = {
       __context : Context.t;
       vm : API.ref_VM;
+      token : Locking_helpers.token option;
       api_call_name : string;
       clean : bool;
     }
     type t = { in_guest : args -> unit; in_dom0 : args -> unit; }
+    val execute : args -> t -> unit
   end
 module Reboot :
   sig
     val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
     val in_dom0 : TwoPhase.args -> unit
     val actions : TwoPhase.t
   end
 module Shutdown :
   sig
     val in_guest : TwoPhase.args -> unit
-	val in_dom0_already_locked : TwoPhase.args -> unit
     val in_dom0 : TwoPhase.args -> unit
     val actions : TwoPhase.t
   end
 val of_action : [< `destroy | `restart ] -> TwoPhase.t
+val impose_external_api_policy : TwoPhase.t -> TwoPhase.t
 val record_shutdown_details :
   __context:Context.t ->
   vm:[ `VM ] Ref.t ->
@@ -181,10 +185,7 @@ val create :
   xenstore_data:(string * string) list ->
   ha_always_run:bool ->
   ha_restart_priority:string ->
-  tags:string list -> blocked_operations:'a ->
-  protection_policy:[ `VMPP ] Ref.t ->
-  is_snapshot_from_vmpp:bool
--> API.ref_VM
+  tags:string list -> blocked_operations:'a -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
@@ -192,6 +193,8 @@ val snapshot :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
 val snapshot_with_quiesce :
   __context:Context.t -> vm:[ `VM ] Ref.t -> new_name:string -> [ `VM ] Ref.t
+val create_template :
+  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
 val revert : __context:Context.t -> snapshot:[ `VM ] Ref.t -> unit
 val checkpoint :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
@@ -248,16 +251,10 @@ val create_new_blob :
   __context:Context.t ->
   vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
 
-(** {2 Experimental support for S3 suspend/ resume} *)
-
-val s3_suspend : __context:Context.t -> vm:API.ref_VM -> unit
-val s3_resume : __context:Context.t -> vm:API.ref_VM -> unit
-
 (** {2 BIOS strings} *)
 
 val copy_bios_strings :
-  __context:Context.t -> vm:[ `VM ] Ref.t -> host:[ `host ] Ref.t -> unit
+  __context:Context.t -> vm:[ `VM ] Ref.t -> host:'a -> unit
 (** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings
  *  had already been set. *)
 
-val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
