@@ -1313,6 +1313,9 @@ let disable_redo_log ~__context =
 
 (* internal intra-pool call to allow slaves to log http actions on the master *)
 let audit_log_append ~__context ~line =
+	(* populate friendly names for the references of the call arguments *)
+	(* this is necessary here because the slave doesn't have access to these names *)
+	let line = Rbac_audit.populate_audit_record_with_obj_names_of_refs line in
 	(* copy audit record from slave exactly as it is, without any new prefixes *)
 	Rbac_audit.append_line ~raw:true "%s" line;
 	()

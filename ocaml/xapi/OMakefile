@@ -116,7 +116,6 @@ OCamlProgram(xapi, $(COMMON) \
 	vm_placement \
 	xapi_vm_placement \
 	xapi_vm_helpers \
-	xmlrpc_sexpr \
 	memory_check \
 	xapi_vm_memory_constraints \
 	xapi_vbd_helpers \
