@@ -25,7 +25,14 @@ type imp =
 
 (* FIXME: print warnings to the standard error channel when a user invokes a deprecated command. *)
 
-type flag = Vm_selectors | Host_selectors | Standard | Neverforward | Hidden | Deprecated of string list
+(** special options for CLI commands *)
+type flag = 
+| Vm_selectors (** adds a "vm" parameter for the name of a VM (rather than a UUID) *)
+| Host_selectors (** a "host" parameter for the name of a host (rather than a UUID) *)
+| Standard (** includes the command in the list of common commands displayed by "xe help" *)
+| Neverforward 
+| Hidden 
+| Deprecated of string list
 
 type cmd_spec =
     {reqd:string list;

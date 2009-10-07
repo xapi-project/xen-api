@@ -351,3 +351,6 @@ let ssl_verify_error = "SSL_VERIFY_ERROR"
 
 let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
 let redo_log_is_enabled = "REDO_LOG_IS_ENABLED"
+
+let vm_bios_strings_already_set = "VM_BIOS_STRINGS_ALREADY_SET"
+

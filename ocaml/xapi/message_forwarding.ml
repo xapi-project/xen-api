@@ -1619,6 +1619,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s'" (vm_uuid ~__context vm) name mime_type;
       Local.VM.create_new_blob ~__context ~vm ~name ~mime_type
 
+	let copy_bios_strings ~__context ~vm ~host =
+		info "VM.copy_bios_strings: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
+		Local.VM.copy_bios_strings ~__context ~vm ~host
   end
 
   module VM_metrics = struct
