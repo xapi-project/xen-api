@@ -42,11 +42,12 @@ let trackid session_id = (Context.trackid_of_session (Some session_id))
 open Db_actions
 open Db_filter_types
 
+
+let is_http action = 
+	Stringext.String.startswith Datamodel.rbac_http_permission_prefix action
+
 let call_type_of ~action =
-	let is_http = 
-		Stringext.String.startswith Datamodel.rbac_http_permission_prefix action
-	in
-	if is_http then "HTTP" else "API"
+	if is_http action then "HTTP" else "API"
 
 let str_local_session = "LOCAL_SESSION"
 let str_local_superuser = "LOCAL_SUPERUSER"
@@ -140,27 +141,34 @@ let sexpr_of __context session_id allowed_denied ok_error result_error action __
 		SExpr.String (allowed_denied)::		
 		SExpr.String (ok_error ^ result_error)::
     SExpr.String (call_type_of action)::
+		SExpr.String (Helper_hostname.get_hostname ())::
     SExpr.String action::
     SExpr.Node (SExpr.String (call_parameters action __params)::[] )::
 		[]
 	)
 
-let audit_line_of __context session_id allowed_denied ok_error result_error action __params =
+let append_line = Audit.debug
+
+let audit_line_of __context session_id allowed_denied ok_error result_error action 
+	__params after_audit_fn =
 	(* TODO: make sure there are no \n in the resulting string from the s-exprs *)
-	Audit.debug "%s"
+	let line = 
 		(SExpr.string_of 
 			 (sexpr_of __context session_id allowed_denied 
 					ok_error result_error action __params
 			 )
 		)
+	in
+	append_line "%s" line;
+	match after_audit_fn with | None -> () | Some fn -> fn __context line
 
-let allowed_ok ~__context ~session_id ~action ~permission ?__params ?result () =
+let allowed_ok ~__context ~session_id ~action ~permission ?__params ?result ?after_audit_fn () =
 	wrap (fun () ->
 		if has_to_audit action then 
-			audit_line_of __context session_id "ALLOWED" "OK" "" action __params
+			audit_line_of __context session_id "ALLOWED" "OK" "" action __params after_audit_fn
 	)
 
-let allowed_error ~__context ~session_id ~action ~permission ?__params ?error () =
+let allowed_error ~__context ~session_id ~action ~permission ?__params ?error ?after_audit_fn () =
 	wrap (fun () ->
 		if has_to_audit action then
 			let error_str = 
@@ -169,13 +177,13 @@ let allowed_error ~__context ~session_id ~action ~permission ?__params ?error ()
 				| Some error -> (ExnHelper.string_of_exn error)
 			in
 			audit_line_of __context session_id "ALLOWED" "ERROR" error_str
-				action __params
+				action __params after_audit_fn
 	)
 	
-let denied ~__context ~session_id ~action ~permission ?__params () =
+let denied ~__context ~session_id ~action ~permission ?__params ?after_audit_fn () =
 	wrap (fun () ->
 		if has_to_audit action then
-			audit_line_of __context session_id "DENIED" "" "" action __params
+			audit_line_of __context session_id "DENIED" "" "" action __params after_audit_fn
 	)
 
 let session_destroy ~__context ~session_id =

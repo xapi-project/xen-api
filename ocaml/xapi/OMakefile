@@ -45,8 +45,6 @@ COMMON = \
 	../gpg/gpg \
         ../license/license \
 	helpers \
-	helper_hostname \
-	helper_process \
 	at_least_once_more \
 	create_templates \
 	fileserver

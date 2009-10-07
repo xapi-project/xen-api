@@ -1310,3 +1310,7 @@ let disable_redo_log ~__context =
 	end;
 	info "The redo log is now disabled"
 	
+
+(* internal intra-pool call to allow slaves to log http actions on the master *)
+let audit_log_append ~__context ~line =
+	Rbac_audit.append_line "%s" line
