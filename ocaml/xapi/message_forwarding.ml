@@ -1621,7 +1621,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	let copy_bios_strings ~__context ~vm ~host =
 		info "VM.copy_bios_strings: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
-		Local.VM.copy_bios_strings ~__context ~vm ~host
+		let local_fn = Local.VM.copy_bios_strings ~vm ~host in
+		let remote_fn session_id rpc = Client.VM.copy_bios_strings rpc session_id vm host in
+		do_op_on ~local_fn ~__context ~host remote_fn
   end
 
   module VM_metrics = struct

@@ -1,0 +1,260 @@
+(** Module that defines API functions (messages) for [vm] objects *)
+
+(** {2 (Fill in Title!)} *)
+
+module D :
+  sig
+    val get_thread_id : unit -> int
+    val name_thread : string -> unit
+    val remove_thread_name : unit -> unit
+    val get_thread_name : unit -> string
+    val get_task : unit -> string
+    val output :
+      (string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a) ->
+      ('a, unit, string, unit) format4 -> 'a
+    val debug : ('a, unit, string, unit) format4 -> 'a
+    val warn : ('a, unit, string, unit) format4 -> 'a
+    val info : ('a, unit, string, unit) format4 -> 'a
+    val error : ('a, unit, string, unit) format4 -> 'a
+    val log_backtrace : unit -> unit
+  end
+exception InvalidOperation of string
+val assert_operation_valid :
+  __context:Context.t -> self:[ `VM ] Ref.t -> op:API.vm_operations -> unit
+val update_allowed_operations :
+  __context:Context.t -> self:[ `VM ] Ref.t -> unit
+val assert_can_boot_here :
+  __context:Context.t -> self:[ `VM ] Ref.t -> host:API.ref_host -> unit
+val retrieve_wlb_recommendations :
+  __context:Context.t ->
+  vm:[ `VM ] Ref.t -> (API.ref_host * string list) list
+val assert_agile : __context:Context.t -> self:[ `VM ] Ref.t -> unit
+val immediate_complete : __context:Context.t -> unit
+val set_actions_after_shutdown :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
+val set_actions_after_reboot :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
+val set_actions_after_crash :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t ->
+  value:[< `coredump_and_destroy
+         | `coredump_and_restart
+         | `destroy
+         | `preserve
+         | `rename_restart
+         | `restart ] ->
+  unit
+val set_is_a_template :
+  __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
+val valid_restart_priorities : string list
+val validate_restart_priority : bool -> string -> unit
+val set_ha_always_run :
+  __context:Context.t -> self:API.ref_VM -> value:bool -> unit
+val assert_ha_always_run_is_true :
+  __context:Context.t -> vm:API.ref_VM -> unit
+val assert_ha_always_run_is_false :
+  __context:Context.t -> vm:API.ref_VM -> unit
+val set_ha_restart_priority :
+  __context:Context.t -> self:API.ref_VM -> value:string -> unit
+val compute_memory_overhead :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> int64
+val set_memory_static_range :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t -> min:Int64.t -> max:Int64.t -> unit
+val set_memory_dynamic_min : __context:'a -> self:'b -> value:'c -> 'd
+val set_memory_dynamic_max : __context:'a -> self:'b -> value:'c -> 'd
+val set_memory_static_min : __context:'a -> self:'b -> value:'c -> 'd
+val set_memory_static_max : __context:'a -> self:'b -> value:'c -> 'd
+val set_memory_limits :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t ->
+  static_min:Int64.t ->
+  static_max:Int64.t -> dynamic_min:Int64.t -> dynamic_max:Int64.t -> unit
+val assert_power_state_is :
+  __context:Context.t ->
+  vm:[ `VM ] Ref.t ->
+  expected:[< `Halted
+            | `Migrating
+            | `Paused
+            | `Running
+            | `ShuttingDown
+            | `Suspended
+            | `Unknown
+            > `Halted `Paused `Running `Suspended `Unknown ] ->
+  unit
+val assert_not_ha_protected : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
+val pause_already_locked : __context:Context.t -> vm:[ `VM ] Ref.t -> unit
+val pause : __context:Context.t -> vm:API.ref_VM -> unit
+val unpause : __context:Context.t -> vm:API.ref_VM -> unit
+val start :
+  __context:Context.t ->
+  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+val assert_host_is_localhost : __context:'a -> host:API.ref_host -> unit
+val start_on :
+  __context:Context.t ->
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+module TwoPhase :
+  sig
+    type args = {
+      __context : Context.t;
+      vm : API.ref_VM;
+      token : Locking_helpers.token option;
+      api_call_name : string;
+      clean : bool;
+    }
+    type t = { in_guest : args -> unit; in_dom0 : args -> unit; }
+    val execute : args -> t -> unit
+  end
+module Reboot :
+  sig
+    val in_guest : TwoPhase.args -> unit
+    val in_dom0 : TwoPhase.args -> unit
+    val actions : TwoPhase.t
+  end
+module Shutdown :
+  sig
+    val in_guest : TwoPhase.args -> unit
+    val in_dom0 : TwoPhase.args -> unit
+    val actions : TwoPhase.t
+  end
+val of_action : [< `destroy | `restart ] -> TwoPhase.t
+val impose_external_api_policy : TwoPhase.t -> TwoPhase.t
+val record_shutdown_details :
+  __context:Context.t ->
+  vm:[ `VM ] Ref.t ->
+  Xal.died_reason ->
+  string ->
+  [< `coredump_and_destroy
+   | `coredump_and_restart
+   | `destroy
+   | `preserve
+   | `rename_restart
+   | `restart ] ->
+  unit
+val hard_reboot : __context:Context.t -> vm:API.ref_VM -> unit
+val hard_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
+val clean_reboot : __context:Context.t -> vm:API.ref_VM -> unit
+val clean_shutdown : __context:Context.t -> vm:API.ref_VM -> unit
+val hard_reboot_internal : __context:Context.t -> vm:API.ref_VM -> unit
+val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
+val suspend : __context:Context.t -> vm:API.ref_VM -> unit
+val resume :
+  __context:Context.t ->
+  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+val resume_on :
+  __context:Context.t ->
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+val create :
+  __context:Context.t ->
+  name_label:string ->
+  name_description:string ->
+  user_version:int64 ->
+  is_a_template:bool ->
+  affinity:[ `host ] Ref.t ->
+  memory_target:int64 ->
+  memory_static_max:int64 ->
+  memory_dynamic_max:int64 ->
+  memory_dynamic_min:int64 ->
+  memory_static_min:int64 ->
+  vCPUs_params:(string * string) list ->
+  vCPUs_max:int64 ->
+  vCPUs_at_startup:int64 ->
+  actions_after_shutdown:[< `destroy | `restart ] ->
+  actions_after_reboot:[< `destroy | `restart ] ->
+  actions_after_crash:[< `coredump_and_destroy
+                       | `coredump_and_restart
+                       | `destroy
+                       | `preserve
+                       | `rename_restart
+                       | `restart ] ->
+  pV_bootloader:string ->
+  pV_kernel:string ->
+  pV_ramdisk:string ->
+  pV_args:string ->
+  pV_bootloader_args:string ->
+  pV_legacy_args:string ->
+  hVM_boot_policy:string ->
+  hVM_boot_params:(string * string) list ->
+  hVM_shadow_multiplier:float ->
+  platform:(string * string) list ->
+  pCI_bus:string ->
+  other_config:(string * string) list ->
+  recommendations:string ->
+  xenstore_data:(string * string) list ->
+  ha_always_run:bool ->
+  ha_restart_priority:string ->
+  tags:string list -> blocked_operations:'a -> API.ref_VM
+val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
+val clone :
+  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
+val snapshot :
+  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
+val snapshot_with_quiesce :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> new_name:string -> [ `VM ] Ref.t
+val create_template :
+  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
+val revert : __context:Context.t -> snapshot:[ `VM ] Ref.t -> unit
+val checkpoint :
+  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
+val copy :
+  __context:Context.t ->
+  vm:API.ref_VM -> new_name:string -> sr:API.ref_SR -> [ `VM ] Ref.t
+val provision : __context:Context.t -> vm:API.ref_VM -> unit
+val set_VCPUs_max :
+  __context:Context.t -> self:[ `VM ] Ref.t -> value:int64 -> unit
+val set_VCPUs_at_startup :
+  __context:Context.t -> self:[ `VM ] Ref.t -> value:int64 -> unit
+val set_VCPUs_number_live :
+  __context:Context.t -> self:API.ref_VM -> nvcpu:int64 -> unit
+val add_to_VCPUs_params_live :
+  __context:'a -> self:API.ref_VM -> key:'b -> value:'c -> 'd
+val set_memory_dynamic_range :
+  __context:Context.t ->
+  self:API.ref_VM -> min:Int64.t -> max:Int64.t -> unit
+val set_memory_target_live :
+  __context:'a -> self:API.ref_VM -> target:'b -> unit
+val wait_memory_target_live : __context:Context.t -> self:API.ref_VM -> unit
+val get_cooperative : __context:'a -> self:[ `VM ] Ref.t -> bool
+val set_HVM_shadow_multiplier :
+  __context:Context.t -> self:[ `VM ] Ref.t -> value:float -> unit
+val set_shadow_multiplier_live :
+  __context:Context.t -> self:API.ref_VM -> multiplier:float -> unit
+val send_sysrq : __context:'a -> vm:API.ref_VM -> key:'b -> 'c
+val send_trigger : __context:'a -> vm:API.ref_VM -> trigger:'b -> 'c
+val get_boot_record : __context:'a -> self:API.ref_VM -> API.vM_t
+val get_data_sources :
+  __context:Context.t -> self:[ `VM ] Ref.t -> API.data_source_t list
+val record_data_source :
+  __context:Context.t -> self:[ `VM ] Ref.t -> data_source:string -> unit
+val query_data_source :
+  __context:Context.t -> self:[ `VM ] Ref.t -> data_source:string -> float
+val forget_data_source_archives :
+  __context:Context.t -> self:[ `VM ] Ref.t -> data_source:string -> unit
+val get_possible_hosts :
+  __context:Context.t -> vm:API.ref_VM -> API.ref_host list
+val get_allowed_VBD_devices :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> string list
+val get_allowed_VIF_devices :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> string list
+val reserve_vbds_and_vifs :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> (unit -> 'a) -> 'a
+val csvm : __context:Context.t -> vm:API.ref_VM -> [ `VM ] Ref.t
+val maximise_memory :
+  __context:Context.t ->
+  self:[ `VM ] Ref.t -> total:int64 -> approximate:bool -> int64
+val atomic_set_resident_on : __context:'a -> vm:'b -> host:'c -> 'd
+val update_snapshot_metadata :
+  __context:'a -> vm:'b -> snapshot_of:'c -> snapshot_time:'d -> 'e
+val create_new_blob :
+  __context:Context.t ->
+  vm:[ `VM ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
+
+(** {2 BIOS strings} *)
+
+val copy_bios_strings :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> host:'a -> unit
+(** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings
+ *  had already been set. *)
+
