@@ -112,7 +112,8 @@ let roles_gte role =
 		|x::xs->if x=role then x::[] else x::gte xs in
 	gte roles_all
 (* shortcuts to subsets of greater than or equal roles *)
-let _R_POOL_ADMIN = Some(roles_gte role_pool_admin) (* = root only *)
+let _R_LOCAL_ROOT_ONLY = Some([]) (* only local root, emergency and pool-secret *)
+let _R_POOL_ADMIN = Some(roles_gte role_pool_admin)
 let _R_POOL_OP = Some(roles_gte role_pool_operator)
 let _R_VM_POWER_ADMIN = Some(roles_gte role_vm_power_admin)
 let _R_VM_ADMIN = Some(roles_gte role_vm_admin)
@@ -983,7 +984,7 @@ let session_chpass = call ~flags:[`Session]
 	  ]
   ~in_product_since:rel_rio
   ~in_oss_since:None
-  ~allowed_roles:_R_POOL_ADMIN (*only root can change passwords*)
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY (*not even pool-admin can change passwords, only root*)
   ()
 
 (* static function for class session *)
