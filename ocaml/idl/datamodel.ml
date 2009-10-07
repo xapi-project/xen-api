@@ -5692,7 +5692,7 @@ let secret =
 		~descr:"A secret"
 		~doccomments:[]
 		~gen_constructor_destructor:true
-		~gen_events:true
+		~gen_events:false
 		~in_db:true
 		~in_oss_since:None
 		~in_product_since:rel_midnight_ride
