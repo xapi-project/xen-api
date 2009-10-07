@@ -153,16 +153,6 @@ val vcpu_affinity_get: xc: Xc.handle -> domid -> int -> bool array
 (** Get the uuid from a specific domain *)
 val get_uuid: xc: Xc.handle -> Xc.domid -> [`domain] Uuid.t
 
-(** Write values (host,port,session,vmref) to grant API access to domain domid *)
-val grant_api_access: xs: Xs.xsh -> domid -> string
-                   -> string -> int -> string -> string -> unit
-
-(** Get the API parameters that has been granted by domain 0 in the specified domain *)
-val get_api_access: xs: Xs.xsh -> domid -> string * int * string * string
-
-(** Get the API parameters that has been granted by domain 0 in domain U *)
-val guest_get_api_access: xs: Xs.xsh -> string * int * string * string
-
 (** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
 val set_memory_dynamic_range: xs: Xs.xsh -> min:int -> max:int -> domid -> unit
 

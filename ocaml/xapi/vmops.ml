@@ -373,40 +373,6 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	| Bootloader.Error x ->
 		raise (Api_errors.Server_error(Api_errors.bootloader_failed, [ Ref.string_of self; Printf.sprintf "Error from bootloader: %s" x ]))
 
-let grant_guest_api_access ~xs ~self domid access_type =
-	(* Here we write into the store a URL the guest can use to invoke functions in the API.
-	   We only do this if: 
-	   (1) The guest has the key 'grant_api_access' in its other-config (this is removed when it's checked)
-	   (2) If grant_api_access is 'internal' and the guest has a VIF on the guest installer network, or grant_api_access is the empty string.
-	   In future we might want to:
-	   (3) limit the access rights associated with this session *)
-        try
-	  let port = !Xapi_globs.https_port in
-	  let ip = ref "" in
-	  let mac = ref "" in
-          let session_id = ref (Ref.of_string "") in
-	  Server_helpers.exec_with_new_task "guest" ~task_in_database:true
-	    (fun __context ->
-              session_id := Xapi_session.login_no_password ~__context ~uname:(Some "root") ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~rbac_permissions:[]
-                                  ~host:(Helpers.get_localhost ~__context);
-              if access_type = InternalNetwork then begin
-                let gi_network = Helpers.get_guest_installer_network ~__context in
-                (* Next line could fail if someone has screwed with the network *)
-                ip := List.assoc "ip_begin" (Db.Network.get_other_config ~__context ~self:gi_network);
-                (* Note that xapi creates a proxy on this ip address that communicates directly with the master *)
-                let vifs = Db.VM.get_VIFs ~__context ~self in
-                (* Next line will fail if there's no VIF on the guest installer network *)
-                let vif = List.find (fun vif -> Db.VIF.get_network ~__context ~self:vif = gi_network) vifs in
-	        mac := Db.VIF.get_MAC ~__context ~self:vif;
-              end else if access_type = FirstNetwork then begin
-                ip := Helpers.get_main_ip_address ~__context
-              end;
-	    );
-          let session_id_ref = Ref.string_of !session_id in
-	  let vmref = Ref.string_of self in
-	  Domain.grant_api_access ~xs domid !mac !ip port session_id_ref vmref
-	with e -> error "Caught exception '%s': not granting guest access" (ExnHelper.string_of_exn e); ()
-
 let general_domain_create_check ~__context ~vm ~snapshot =
     (* If guest will boot HVM check that this host has HVM capabilities *)
     let hvm = Helpers.is_hvm snapshot in
@@ -480,16 +446,6 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	     begin try let sspf = (List.assoc "suppress-spurious-page-faults" snapshot.API.vM_other_config) in
 	     if sspf = "true" then Domain.suppress_spurious_page_faults ~xc domid;
              with _ -> () end;
-	     
-	     let other_config = Db.VM.get_other_config ~__context ~self in
-	     if List.mem_assoc Xapi_globs.grant_api_access other_config then (
-           let access_type = match List.assoc "grant_api_access" other_config with
-             | "internal" -> InternalNetwork
-             | _ -> FirstNetwork
-           in
-	       Db.VM.remove_from_other_config ~__context ~self ~key:Xapi_globs.grant_api_access;
-	       grant_guest_api_access ~xs ~self domid access_type;
-	     );
 
 	     domid
 	  )
@@ -501,17 +457,6 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
    much as possible.
  *)
 let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate_devices=true) ~__context ~xc ~xs ~self domid =
-  (* destroy the session *)
-  Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying domid %d guest session" domid)
-    (fun () ->
-       try
-	 let ip, port, session_id, vm_ref = Domain.get_api_access ~xs domid in
-	 if vm_ref = Ref.string_of self then begin
-	   debug "Destroying guest session"; 
-	   Server_helpers.exec_with_new_task ~session_id:(Ref.of_string session_id) "guest" (fun __context -> Xapi_session.logout ~__context)
-	 end
-       with Xb.Noent -> () (* this is the common-case: remove log spam *)
-    ) ();
 
   Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
     (fun () -> Domain.destroy ~preserve_xs_vm ~xc ~xs domid) ();
