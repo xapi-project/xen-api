@@ -56,7 +56,7 @@ let append_to_master_audit_log __context line =
 		)
 	end
 
-let assert_credentials_ok realm ?(http_action=realm) (req: request) =
+let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: request) =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.cookie @ req.query in
   let subtask_of =
@@ -71,7 +71,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
         let session_id = (Ref.of_string (List.assoc "session_id" all)) in
         (try validate_session __context session_id realm;
          with _ -> raise (Http.Unauthorised realm));
-        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+        (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
          with _ -> raise (Http.Forbidden));
       );
@@ -85,7 +85,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
     in
     Pervasiveext.finally
       (fun ()->
-        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+        (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
         with _ -> raise (Http.Forbidden)))
       (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
@@ -101,7 +101,7 @@ let assert_credentials_ok realm ?(http_action=realm) (req: request) =
 	    in
 	    Pervasiveext.finally
 	      (fun ()->
-	        (try Rbac.check_with_new_task session_id http_permission ~fn:Rbac.nofn
+	        (try Rbac.check_with_new_task session_id http_permission ~fn
 						 ~after_audit_fn:(append_to_master_audit_log)
 	         with _ -> raise (Http.Forbidden)))
 	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
@@ -186,8 +186,11 @@ let add_handler (name, handler) =
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
 			(try 
-				(if check_rbac then assert_credentials_ok name req); (* session and rbac checks *)
-				callback req ic
+				if check_rbac 
+				then (* rbac checks *)
+					assert_credentials_ok name req ~fn:(fun () -> callback req ic)
+				else (* no rbac checks *)
+					callback req ic
 			with
 			| Api_errors.Server_error(name, params) as e ->
 				error "Unhandled Api_errors.Server_error(%s, [ %s ])" name (String.concat "; " params);
