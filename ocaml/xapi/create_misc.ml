@@ -306,26 +306,58 @@ let create_root_user ~__context =
 	let all = Db.User.get_records_where ~__context ~expr:(Eq(Field "short_name", Literal short_name)) in
 	if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
-let make_software_version xapi_verstring xen_verstring linux_verstring
-                          xencenter_min_verstring xencenter_max_verstring
-			  oem_manufacturer oem_model oem_build_number
-			  machine_serial_number machine_serial_name
-			  =
-  let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
-  [ "xapi", xapi_verstring;
-    "xen", xen_verstring;
-    "linux", linux_verstring;
-    "xencenter_min", xencenter_min_verstring;
-    "xencenter_max", xencenter_max_verstring;
-  ] @
-    (option_to_list "oem_manufacturer" oem_manufacturer) @
-    (option_to_list "oem_model" oem_model) @
-    (option_to_list "oem_build_number" oem_build_number) @
-    (option_to_list "machine_serial_number" machine_serial_number) @
-    (option_to_list "machine_serial_name" machine_serial_name)
-
 let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor    
+  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor  
+  
+(** Create assoc list of Supplemental-Pack information *)
+let make_packs_info () =
+	let packs_dir = "/etc/xensource/installed-repos/" in
+	try
+		let packs = Sys.readdir packs_dir in
+		let get_pack_details fname =
+			try
+				let xml = Xml.parse_file (packs_dir ^ fname ^ "/XS-REPOSITORY") in
+				match xml with
+				| Xml.Element (name, attr, children) -> 
+					let originator = List.assoc "originator" attr in
+					let name = List.assoc "name" attr in
+					let version = List.assoc "version" attr in
+					let build = 
+						if List.mem_assoc "build" attr then Some (List.assoc "build" attr)
+						else None
+					in
+					let description = 
+						match List.hd children with Xml.Element (_, _, children) -> 
+							match List.hd children with Xml.PCData s -> s in
+					let param_name = originator ^ ":" ^ name in
+					let value = description ^ ", version " ^ version ^
+						match build with
+						| Some build -> ", build " ^ build
+						| None -> ""
+					in
+					[(param_name, value)]
+			with _ -> []
+		in
+		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
+	with _ -> []
+  
+(** Create a complete assoc list of version information *)
+	let make_software_version () =
+	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
+	let info = read_localhost_info () in
+	Xapi_globs.software_version @
+	["xapi", get_xapi_verstring ();
+	"xen", info.xen_verstring;
+	"linux", info.linux_verstring;
+	"xencenter_min", Xapi_globs.xencenter_min_verstring;
+	"xencenter_max", Xapi_globs.xencenter_max_verstring;
+	] @
+	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
+	(option_to_list "oem_model" info.oem_model) @
+	(option_to_list "oem_build_number" info.oem_build_number) @
+	(option_to_list "machine_serial_number" info.machine_serial_number) @
+	(option_to_list "machine_serial_name" info.machine_serial_name) @
+	make_packs_info ()
 
 (** Create a record for a host if it doesn't exist already (identified by uuid) *)
 let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabilities ~hostname ~uuid ~address =
