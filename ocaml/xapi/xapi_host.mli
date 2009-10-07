@@ -114,7 +114,7 @@ val ask_host_if_it_is_a_slave :
     to make sure. *)
 val is_host_alive : __context:Context.t -> host:API.ref_host -> bool
 
-val license_apply : __context:Context.t -> host:'a -> contents:string -> unit
+val license_apply : __context:Context.t -> host:API.ref_host -> contents:string -> unit
 val create :
   __context:Context.t ->
   uuid:string ->
