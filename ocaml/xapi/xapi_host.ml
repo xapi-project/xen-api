@@ -514,6 +514,8 @@ let is_host_alive ~__context ~host =
   end
 
 let license_apply ~__context ~host ~contents =
+  let edition = Db.Host.get_edition ~__context ~self:host in
+  if edition <> "free" then raise (Api_errors.Server_error(Api_errors.activation_while_not_free, []));
   let license = Base64.decode contents in
   let tmp = Filenameext.temp_file_in_dir !License.filename in
   let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
