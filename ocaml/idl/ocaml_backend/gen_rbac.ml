@@ -28,6 +28,8 @@ let rec role_idx = function
 	| (_,[])->(-1)
 	|(e1,e2::xs)-> if e1=e2 then 0 else 1+(role_idx (e1,xs))
 
+let internal_role_local_root = "_local_root_"
+
 (* the output of this function is used as input by the automatic tests *)
 let writer_csv static_roles_permissions static_permissions_roles =
 	(Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
@@ -202,7 +204,10 @@ let writer_stdout static_roles_permissions static_permissions_roles =
 (* a dictionary entry (xperm,extra-str-list::original-str-list), *)
 (* and returns the resulting dictionary *)
 let rec concat = function
-	| (xperm,rs,[]) -> rs
+	| (xperm,rs,[]) ->
+		let (r1,r2)=(List.partition (fun (r,_)->r=internal_role_local_root) rs) in
+		let r,perms = match r1 with []->(internal_role_local_root,[])|r1::_->r1 in 
+		((r,xperm::perms)::r2)
 	| (xperm,rs,xr::extra_rs) ->
 		let (r1,r2)=(List.partition (fun (r,_)->r=xr) rs) in
 		let r,perms = match r1 with []->(xr,[])|r1::_->r1 in 
@@ -305,13 +310,19 @@ let gen_permissions_of_static_roles highapi =
 			)
 	in
 	
-	let permissions_roles = gen_roles_of_permissions roles_permissions in
+	let _permissions_roles = gen_roles_of_permissions roles_permissions in
+	let _,permissions_roles = (* ignore the _local_root_ permission *)
+		List.partition (fun (r,_)->r=internal_role_local_root) _permissions_roles
+	in
 	
 	if !Gen_server.enable_debugging
 		then begin (* for rbac_static.csv *)
 			writer_csv roles_permissions permissions_roles
 		end
 		else begin (* for rbac_static.ml *)
+			let _,roles_permissions = (* ignore the _local_root_ internal role *)
+				List.partition (fun (r,_)->r=internal_role_local_root) roles_permissions
+			in
 			writer_stdout roles_permissions permissions_roles
 		end
 
