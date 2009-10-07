@@ -214,7 +214,8 @@ let gettimestring () =
 let filesize = ref 0 
 let mutex = Mutex.create ()
 
-let output t ?(key="") ?(extra="") priority (message: string) =
+let output_common t ?(raw=false) ?(key="") ?(extra="") priority (message: string) =
+  let result_string = ref "" in
   let construct_string withtime =
 		(*let key = if key = "" then [] else [ key ] in
 		let extra = if extra = "" then [] else [ extra ] in
@@ -223,8 +224,14 @@ let output t ?(key="") ?(extra="") priority (message: string) =
 		  @ [ sprintf "%5s" (string_of_level priority) ] @ extra @ key @ [ message ] in
 (*		let items = !extra_hook items in*)
 		String.concat " " items*)
+		result_string := (
+			if raw
+			then Printf.sprintf "%s" message
+			else
     Printf.sprintf "[%s%.5s|%s] %s" 
       (if withtime then gettimestring () else "") (string_of_level priority) extra message
+    );
+    !result_string
 	in
 	(* Keep track of how much we write out to streams, so that we can *)
 	(* log-rotate at appropriate times *)
@@ -236,7 +243,7 @@ let output t ?(key="") ?(extra="") priority (message: string) =
         in
 
 	if String.length message > 0 then
-	match t.output with
+	(match t.output with
 	| Syslog k      ->
 		let sys_prio = match priority with
 		| Debug -> Syslog.Debug
@@ -251,6 +258,14 @@ let output t ?(key="") ?(extra="") priority (message: string) =
 		| None -> ())
 	| Nil           -> ()
 	| String s      -> (s := (construct_string true)::!s)
+	);
+	!result_string
+
+let output t ?(key="") ?(extra="") priority (message: string) =
+	ignore(output_common t ~key ~extra priority message)
+
+let output_and_return t ?(raw=false) ?(key="") ?(extra="") priority (message: string) =
+	output_common t ~raw ~key ~extra priority message
 
 let log t level (fmt: ('a, unit, string, unit) format4): 'a =
 	let b = (int_of_level t.level) <= (int_of_level level) in
