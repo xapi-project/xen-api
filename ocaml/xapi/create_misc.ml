@@ -311,12 +311,11 @@ let get_xapi_verstring () =
   
 (** Create assoc list of Supplemental-Pack information *)
 let make_packs_info () =
-	let packs_dir = "/etc/xensource/installed-repos/" in
 	try
-		let packs = Sys.readdir packs_dir in
+		let packs = Sys.readdir Xapi_globs.packs_dir in
 		let get_pack_details fname =
 			try
-				let xml = Xml.parse_file (packs_dir ^ fname ^ "/XS-REPOSITORY") in
+				let xml = Xml.parse_file (Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY") in
 				match xml with
 				| Xml.Element (name, attr, children) -> 
 					let originator = List.assoc "originator" attr in
@@ -326,9 +325,10 @@ let make_packs_info () =
 						if List.mem_assoc "build" attr then Some (List.assoc "build" attr)
 						else None
 					in
-					let description = 
-						match List.hd children with Xml.Element (_, _, children) -> 
-							match List.hd children with Xml.PCData s -> s in
+					let description = match children with
+						| Xml.Element(_, _, (Xml.PCData s) :: _) :: _ -> s
+						| _ -> failwith "error with parsing pack data"
+					in
 					let param_name = originator ^ ":" ^ name in
 					let value = description ^ ", version " ^ version ^
 						match build with
@@ -336,13 +336,14 @@ let make_packs_info () =
 						| None -> ""
 					in
 					[(param_name, value)]
-			with _ -> []
+				| _ -> failwith "error while parsing pack data!"
+			with _ -> debug "error while parsing pack data for %s!" fname; []
 		in
 		Array.fold_left (fun l fname -> get_pack_details fname @ l) [] packs
 	with _ -> []
   
 (** Create a complete assoc list of version information *)
-	let make_software_version () =
+let make_software_version () =
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
 	Xapi_globs.software_version @

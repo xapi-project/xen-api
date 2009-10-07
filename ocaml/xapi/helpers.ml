@@ -635,10 +635,6 @@ let is_valid_MAC mac =
     let validchar c = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') in
     List.length l = 6 && (List.fold_left (fun acc s -> acc && String.length s = 2 && validchar s.[0] && validchar s.[1]) true l)
 
-(** OBSOLETE: Returns true if the Linux Pack has been installed; false otherwise *)
-let linux_pack_is_installed() =
-  try Unix.access Xapi_globs.linux_pack_installed_stamp_file_path [ Unix.F_OK ]; true with _ -> false
-
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address address = 
   let inet_addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
