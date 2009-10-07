@@ -71,15 +71,8 @@ let get_start_time () =
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 let refresh_localhost_info ~__context =
   let host = !Xapi_globs.localhost_ref in
-  let info = Create_misc.read_localhost_info() in
-  let software_version = Xapi_globs.software_version @
-    (Create_misc.make_software_version (get_xapi_verstring()) info.xen_verstring info.linux_verstring
-       Xapi_globs.xencenter_min_verstring Xapi_globs.xencenter_max_verstring
-       info.oem_manufacturer info.oem_model info.oem_build_number
-       info.machine_serial_number
-       info.machine_serial_name) in
-  let software_version = software_version @ (if Helpers.linux_pack_is_installed() then [(Xapi_globs.linux_pack_vsn_key,Xapi_globs.installed)] else []) in
-
+  let info = read_localhost_info () in
+  let software_version = Create_misc.make_software_version () in
   Xapi_globs.localhost_software_version := software_version; (* Cache this *)
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)

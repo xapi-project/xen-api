@@ -254,6 +254,11 @@ val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> 
 val update_pool_secret :
   __context:'a -> host:'b -> pool_secret:string -> unit
 
+(** {2 Supplemental Packs} *)
+
+val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
+(** Refresh the list of Supplemental Packs in the host.software_version field. *)
+
 (** {2 Licensing} *)
 
 val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit

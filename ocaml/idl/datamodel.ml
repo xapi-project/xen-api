@@ -2333,7 +2333,7 @@ let host_update_master = call
 
 let host_set_localdb_key = call
   ~name:"set_localdb_key"
-	~in_product_since:rel_midnight_ride
+  ~in_product_since:rel_midnight_ride
   ~doc:"Set a key in the local DB of the host."
   ~params:[Ref _host, "host", "The Host to modify";
     String, "key", "Key to change";
@@ -2344,6 +2344,14 @@ let host_set_localdb_key = call
   ~allowed_roles:_R_POOL_OP
   () 
 
+let host_refresh_pack_info = call
+  ~name:"refresh_pack_info"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Refresh the list of installed Supplemental Packs."
+  ~params:[Ref _host, "host", "The Host to modify"]
+  ~allowed_roles:_R_POOL_OP
+  () 
+  
 (* ------------------------------------------------------------------------------------------------------------
    VDI Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -3417,6 +3425,7 @@ let host =
 		 host_detach_static_vdis;
 		 host_set_localdb_key;
 		 host_apply_edition;
+		 host_refresh_pack_info;
 		 ]
       ~contents:
         ([ uid _host;

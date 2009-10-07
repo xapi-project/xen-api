@@ -561,16 +561,7 @@ let license_apply ~__context ~host ~contents =
 	      end
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
-  let xapi_verstring = Create_misc.get_xapi_verstring() in
-  let info = Create_misc.read_localhost_info () in
-  let software_version =
-    Create_misc.make_software_version xapi_verstring info.xen_verstring info.linux_verstring
-      Xapi_globs.xencenter_min_verstring Xapi_globs.xencenter_max_verstring
-      info.oem_manufacturer info.oem_model info.oem_build_number
-      info.machine_serial_number
-      info.machine_serial_name
-      in
-
+  let software_version = Create_misc.make_software_version () in
   let metrics = Ref.make () in
   Db.Host_metrics.create ~__context ~ref:metrics 
     ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
@@ -980,6 +971,11 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 		end
 	else
 	begin (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
+	
+let refresh_pack_info ~__context ~host =
+	debug "Refreshing software_version";
+	let software_version = Create_misc.make_software_version () in
+	Db.Host.set_software_version ~__context ~self:host ~value:software_version
 	
 		(* we try to use the configuration to set up the new external authentication service *)
 		try

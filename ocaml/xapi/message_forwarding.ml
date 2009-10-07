@@ -2099,6 +2099,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Host.apply_edition ~host ~edition in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.apply_edition rpc session_id host edition)
 
+    let refresh_pack_info ~__context ~host = 
+      info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Host.refresh_pack_info ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.refresh_pack_info rpc session_id host)
 end
 
   module Host_crashdump = struct
