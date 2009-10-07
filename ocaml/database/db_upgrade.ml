@@ -145,6 +145,54 @@ let update_templates () =
 	) vm_rows
 *)
 
+(* GEORGE OEM -> BODIE/MNR *)	
+let upgrade_bios_strings () =
+	let oem_manufacturer =
+		try
+			let ic = open_in "/var/tmp/.previousInventory" in
+			let rec find_oem_manufacturer () =
+				let line = input_line ic in
+				match Xapi_inventory.parse_inventory_entry line with
+				| Some (k, v) when k = "OEM_MANUFACTURER" -> Some v
+				| Some _ -> find_oem_manufacturer () 
+				| None -> None
+			in
+			Pervasiveext.finally (find_oem_manufacturer) (fun () -> close_in ic)
+		with _ -> None
+	in
+	let update_all bios_strings =
+		(* update hosts *)
+		let host_table = lookup_table_in_cache Db_backend.cache Names.host in
+		let host_rows = get_rowlist host_table in
+		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
+		let update host_row =
+			set_field_in_row host_row Names.bios_strings bios_strings_kvs
+		in
+		List.iter update host_rows;
+		(* update VMs, except templates *)
+		let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
+		let vm_rows = get_rowlist vm_table in
+		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
+		let update vm_row =
+			set_field_in_row vm_row Names.bios_strings bios_strings_kvs
+		in
+		List.iter update vm_rows
+	in
+	match oem_manufacturer with
+	| Some oem ->
+		info "Upgrade from OEM edition (%s)." oem;
+		if String.has_substr oem "HP" then begin
+			debug "Using old HP BIOS strings";
+			update_all Xapi_globs.old_hp_bios_strings
+		end else if String.has_substr oem "Dell" then begin
+			debug "Using old Dell BIOS strings";
+			update_all Xapi_globs.old_dell_bios_strings
+		end		
+	| None ->
+		info "Upgrade from retail edition.";
+		debug "Using generic BIOS strings";
+		update_all Xapi_globs.generic_bios_strings
+
 (* !!! This fn is release specific: REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES *)
 let non_generic_db_upgrade_rules () =
 
@@ -169,7 +217,8 @@ let non_generic_db_upgrade_rules () =
 		aux ordered_snapshot_rows in
 	List.iter update_snapshots vm_rows;
 
-	upgrade_vm_records () (* for DMC *)
+	upgrade_vm_records (); (* for DMC *)
+	upgrade_bios_strings () (* GEORGE OEM -> BODIE/MNR *)	
 
 let upgrade_from_last_release dbconn =
   debug "Database schema version is that of last release: attempting upgrade";
