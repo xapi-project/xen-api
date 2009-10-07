@@ -487,6 +487,15 @@ let dev_zero = "/dev/zero"
 let wlb_timeout = "wlb_timeout"
 let default_wlb_timeout = 30.0
 
+(** {2 Settings relating to dynamic memory control} *)
+
+(** A pool-wide configuration key that specifies for HVM guests a lower bound
+    for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
+let memory_ratio_hvm = ("memory-ratio-hvm", "0.50")
+
+(** A pool-wide configuration key that specifies for PV guests a lower bound
+    for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
+let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {2 Settings for the redo-log} *)
 
