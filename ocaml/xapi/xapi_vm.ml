@@ -238,6 +238,13 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 	   layer has already done it and it's very expensive on a slave *)
 
 	assert_ha_always_run_is_true ~__context ~vm;
+	
+	(* check BIOS strings: set to generic values if empty *)
+	let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
+	if bios_strings = [] then begin
+		info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:Bios_strings.generic_bios_strings
+	end;
 
 	debug "start: bringing up domain in the paused state";
 	Vmops.start_paused
