@@ -147,20 +147,21 @@ let sexpr_of __context session_id allowed_denied ok_error result_error action __
 		[]
 	)
 
-let append_line = Audit.debug
+let append_line = Audit.audit
 
 let audit_line_of __context session_id allowed_denied ok_error result_error action 
 	__params after_audit_fn =
-	(* TODO: make sure there are no \n in the resulting string from the s-exprs *)
-	let line = 
+	let _line = 
 		(SExpr.string_of 
 			 (sexpr_of __context session_id allowed_denied 
 					ok_error result_error action __params
 			 )
 		)
 	in
-	append_line "%s" line;
-	match after_audit_fn with | None -> () | Some fn -> fn __context line
+	let line = Stringext.String.replace "\n" " " _line in (* no \n in line *)
+	let audit_line = append_line "%s" line in
+	D.debug "line=%s, audit_line=%s" line audit_line;
+	match after_audit_fn with | None -> () | Some fn -> fn __context audit_line
 
 let allowed_ok ~__context ~session_id ~action ~permission ?__params ?result ?after_audit_fn () =
 	wrap (fun () ->
