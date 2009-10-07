@@ -80,7 +80,11 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 
 		(* Get the uuid of the snapshot VM *)
 		debug "wait_for_snapshot: getting uuid of the snapshot VM";
-		let snapshot_uuid = xs.Xs.read (snapshot_path ~xs ~domid "snapuuid") in
+		let snapshot_uuid =
+			try xs.Xs.read (snapshot_path ~xs ~domid "snapuuid")
+			with _ ->
+				error "The snapshot has not been correctly created; does snapwatchd created a full VM snapshot?";
+				raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
 		let snapshot_ref = Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid in
 
 		Db.VM.set_transportable_snapshot_id ~__context ~self:snapshot_ref ~value:snapid;
