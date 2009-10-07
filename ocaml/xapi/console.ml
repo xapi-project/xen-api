@@ -88,6 +88,7 @@ let rbac_check_for_control_domain __context (req:request) console_id permission 
 		let extra_dmsg = Printf.sprintf "for host console %s" (Ref.string_of console_id) in
 		let session_id = Xapi_http.get_session_id req in
 		Rbac.check_with_new_task ~extra_dmsg session_id permission ~fn:Rbac.nofn
+			~args:(Xapi_http.rbac_audit_params_of req)
 
 
 (* GET /console_uri?ref=.....
