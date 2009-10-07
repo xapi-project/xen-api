@@ -193,8 +193,9 @@ let has_permission_name ~__context ~permission =
 let has_permission ~__context ~permission =
 	has_permission_name ~__context ~permission:permission.role_name_label
 
-let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?args ?after_audit_fn ~fn session_id action =
-	Server_helpers.exec_with_new_task "rbac_check"
+let check_with_new_task ?(extra_dmsg="") ?(extra_msg="") ?(task_desc="rbac_check") 
+		?args ?after_audit_fn ~fn session_id action =
+	Server_helpers.exec_with_new_task task_desc
 		(fun __context -> 
 			check ~extra_dmsg ~extra_msg ~__context ?args ?after_audit_fn  ~fn session_id action
 		)
