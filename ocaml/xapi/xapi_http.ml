@@ -56,6 +56,16 @@ let append_to_master_audit_log __context line =
 		)
 	end
 
+let rbac_audit_params_of (req:request) =
+	let all = req.cookie @ req.query in
+	List.fold_right (fun (n,v) (acc_n,acc_v) ->
+											(n::acc_n,
+												 (Xml.PCData v)::acc_v
+												)
+											)
+	all
+	([],[])
+
 let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: request) =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.cookie @ req.query in
@@ -73,6 +83,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
          with _ -> raise (Http.Unauthorised realm));
         (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
+					 ~args:(rbac_audit_params_of req)
          with _ -> raise (Http.Forbidden));
       );
     end
@@ -87,6 +98,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
       (fun ()->
         (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
+					 ~args:(rbac_audit_params_of req)
         with _ -> raise (Http.Forbidden)))
       (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
   end
@@ -103,6 +115,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 	      (fun ()->
 	        (try Rbac.check_with_new_task session_id http_permission ~fn
 						 ~after_audit_fn:(append_to_master_audit_log)
+						 ~args:(rbac_audit_params_of req)
 	         with _ -> raise (Http.Forbidden)))
 	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
 	    end
