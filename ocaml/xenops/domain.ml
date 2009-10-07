@@ -92,7 +92,7 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 
-let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) uuid =
+let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) ?(bios_strings=[]) uuid =
 	let ssidref = 0l in
 
 	let flags = if hvm then [ Xc.CDF_HVM; Xc.CDF_HAP ] else [] in
@@ -147,6 +147,9 @@ let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) uuid =
 		xs.Xs.writev dom_path xsdata;
 		xs.Xs.writev dom_path (List.map (fun (k,v) ->
 			("platform/" ^ k, v)) platformdata);
+			
+		xs.Xs.writev dom_path (List.map (fun (k,v) ->
+			("bios-strings/" ^ k, v)) bios_strings);
 
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
 

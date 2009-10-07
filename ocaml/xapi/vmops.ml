@@ -459,13 +459,15 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	    ~other_config:[];
 	  Db.VM.set_metrics ~__context ~self ~value:metrics
 	end;
+	
+	let bios_strings = Db.VM.get_bios_strings ~__context ~self in
 
  	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	Xapi_xenops_errors.handle_xenops_error
 	  (fun () ->
 	     info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
 	     let domid = (try 
-		Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~name:snapshot.API.vM_name_label uuid 
+		Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~bios_strings ~name:snapshot.API.vM_name_label uuid 
 	      with e ->
 		info "Domain.make threw %s" (ExnHelper.string_of_exn e);
 		info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
