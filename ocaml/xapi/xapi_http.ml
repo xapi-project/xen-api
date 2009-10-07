@@ -73,6 +73,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
     else None in
+	let rbac_task_desc = "handler:"^http_permission in
   if List.mem_assoc "session_id" all
   then
     (* Session ref has been passed in - check that it's OK *)
@@ -84,6 +85,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
         (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
 					 ~args:(rbac_audit_params_of req)
+					 ~task_desc:rbac_task_desc
          with _ -> raise (Http.Forbidden));
       );
     end
@@ -99,6 +101,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
         (try Rbac.check_with_new_task session_id http_permission ~fn
 					 ~after_audit_fn:(append_to_master_audit_log)
 					 ~args:(rbac_audit_params_of req)
+					 ~task_desc:rbac_task_desc
         with _ -> raise (Http.Forbidden)))
       (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
   end
@@ -116,6 +119,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 	        (try Rbac.check_with_new_task session_id http_permission ~fn
 						 ~after_audit_fn:(append_to_master_audit_log)
 						 ~args:(rbac_audit_params_of req)
+						 ~task_desc:rbac_task_desc
 	         with _ -> raise (Http.Forbidden)))
 	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
 	    end
