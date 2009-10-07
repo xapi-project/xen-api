@@ -16,6 +16,7 @@ open D
 
 open Http
 open Stringext
+open Pervasiveext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"
 
@@ -23,7 +24,7 @@ let line_timestamp_length = 21 (* the timestamp length at the debug line *)
 let line_before_timestamp_length = 1 (* [ at the beginning of the line *)
 
 let write_line line fd since =
-	if String.length line > 
+	if String.length line >
 		(line_timestamp_length + line_before_timestamp_length)
 	then
 	let line_timestamp =
@@ -34,29 +35,67 @@ let write_line line fd since =
 	let len = String.length line in
 	ignore(Unix.write fd line 0 len)
 
-let transfer_audit_file _path fd_out since =
+let transfer_audit_file _path compression fd_out since =
 	let path = Unixext.resolve_dot_and_dotdot _path in
-	if (String.startswith audit_log_whitelist_prefix path)
-		&& (Unixext.file_exists path)
-	then
-	try
-		Unixext.readfile_line
-			(fun line -> write_line (line^"\n") fd_out since)
-			path
-	with e -> begin
-		debug "error reading audit log file %s: %s" path (ExnHelper.string_of_exn e)
+	let in_whitelist = (String.startswith audit_log_whitelist_prefix path) in
+	if in_whitelist then
+	let file_exists = (Unixext.file_exists path) in
+	if file_exists then
+	begin
+		debug "transfer_audit_file path=%s,compression=[%s],since=%s" path compression since;
+		try
+			if compression="" (* uncompressed *)
+			then begin
+				Unixext.readfile_line
+					(fun line -> write_line (line^"\n") fd_out since)
+					path
+			end
+			else if compression="gz"
+			then (
+				Unixext.with_file path [ Unix.O_RDONLY ] 0o0
+					(fun gz_fd_in ->
+						Gzip.decompress_passive gz_fd_in
+							(fun fd_in -> (*fd_in is closed by gzip module*)
+								let cin = Unix.in_channel_of_descr fd_in in
+								try
+									while true do
+										let line = input_line cin in
+										write_line (line^"\n") fd_out since
+									done
+								with End_of_file -> () (* ok, expected *)
+							)
+					)
+			)
+			else (
+				(* nothing to do with an unknown file format *)
+				debug "unknown compression format %s in audit log file %s" compression path
+			)
+		with e -> begin
+			debug "error reading audit log file %s: %s" path (ExnHelper.string_of_exn e);
+			raise e
+		end
 	end
 
 let transfer_all_audit_files fd_out since =
-	(* go through audit.log.n->0 first, ascending order of time *)
-	for i=100 downto 0 do
+	let atransfer _infix _suffix =
+		let infix = if _infix="" then "" else "."^_infix in
+		let suffix = if _suffix="" then "" else "."^_suffix in
 		transfer_audit_file
-			(audit_log_whitelist_prefix^"."^(string_of_int i))
+			(audit_log_whitelist_prefix^infix^suffix)
+			_suffix
 			fd_out
 			since
+	in
+	let atransfer_try_gz infix =
+		ignore_exn (fun ()->atransfer infix "gz");(* try the compressed file *)
+		ignore_exn (fun ()->atransfer infix "") (* then the uncompressed one *)
+	in
+	(* go through audit.log.n->0 first, ascending order of time *)
+	for i=100 downto 0 do
+		atransfer_try_gz (string_of_int i)
 	done;
 	(* finally transfer /var/log/audit.log (the latest one in time) *)
-	transfer_audit_file audit_log_whitelist_prefix fd_out since
+	atransfer_try_gz ""
 
 
 (* map the ISO8601 timestamp format into the one in our logs *)
@@ -103,4 +142,3 @@ let handler (req: request) (bio: Buf_io.t) =
 			 (* then the contents *)
 			 transfer_all_audit_files s since
 		)
-
