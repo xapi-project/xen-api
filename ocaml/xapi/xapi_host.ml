@@ -598,7 +598,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~license_params ~allowed_operations:[] ~current_operations:[] ~boot_free_mem:0L 
       ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
       ~external_auth_type ~external_auth_service_name ~external_auth_configuration
-    ~edition ~license_server
+    ~edition ~license_server ~bios_strings:[]
   in
     ref
 

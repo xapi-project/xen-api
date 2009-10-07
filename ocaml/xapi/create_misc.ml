@@ -173,7 +173,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 		~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[] ~user_version:1L
 		~ha_restart_priority:"" ~ha_always_run:false ~recommendations:""
 		~last_boot_CPU_flags:[] ~last_booted_record:""
-		~guest_metrics:Ref.null ~metrics;
+		~guest_metrics:Ref.null ~metrics
+		~bios_strings:[];
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
 and create_domain_zero_console_record ~__context ~domain_zero_ref =
@@ -367,6 +368,7 @@ let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabili
 			~external_auth_service_name:""
 			~external_auth_configuration:[]
 			~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
+                        ~bios_strings:[]
 		;
 		ref
 	    | Some ref -> ref in

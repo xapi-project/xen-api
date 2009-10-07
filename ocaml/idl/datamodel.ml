@@ -872,6 +872,9 @@ let _ =
   error Api_errors.redo_log_is_enabled [] 
 	~doc:"The operation could not be performed because a redo log is enabled on the Pool." ();
 	
+  error Api_errors.vm_bios_strings_already_set []
+    ~doc:"The BIOS strings for this VM have already been set and cannot be changed anymore." ();
+	
   ()
 
 
@@ -1737,6 +1740,15 @@ let vm_create_new_blob = call
 	   String, "name", "The name associated with the blob";
 	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
+let vm_copy_bios_strings = call
+  ~name: "copy_bios_strings"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Copy the BIOS strings from the given host to this VM"
+  ~params:[Ref _vm, "vm", "The VM to modify";
+	   Ref _host, "host", "The host to copy the BIOS strings from";]
   ~allowed_roles:_R_POOL_ADMIN
   ()
 
@@ -3442,7 +3454,7 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "external_auth_configuration" "configuration specific to external authentication service";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "XenServer edition";
 	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
-
+        field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
  ])
 	()
 
@@ -5322,6 +5334,7 @@ let vm =
 		vm_assert_agile;
 		vm_update_snapshot_metadata;
 		vm_retrieve_wlb_recommendations;
+		vm_copy_bios_strings;
 		]
       ~contents:
       ([ uid _vm;
@@ -5382,6 +5395,7 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VRef "")) ~ty:(Ref _vm)       "parent"       "Ref pointing to the parent of this VM";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
 
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
       ])
 	()
 

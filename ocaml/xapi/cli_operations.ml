@@ -2001,13 +2001,20 @@ let vm_install_real printer rpc session_id template name description params =
         then Client.VM.copy rpc session_id template name (Client.SR.get_by_uuid rpc session_id sr_uuid)
         else Client.VM.clone rpc session_id template name 
       in
-    try
+    try      
       Client.VM.set_name_description rpc session_id new_vm description;
       rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
       Client.VM.provision rpc session_id new_vm;
-      (* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *) 
+      (* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *)       
+      
+      (* copy BIOS strings if needed *)
+      if List.mem_assoc "copy-bios-strings-from" params then begin
+	let host = Client.Host.get_by_uuid rpc session_id (List.assoc "copy-bios-strings-from" params) in
+	Client.VM.copy_bios_strings rpc session_id new_vm host
+      end;
+      debug "hello";
       let vm_uuid = Client.VM.get_uuid rpc session_id new_vm in
-	printer (Cli_printer.PList [vm_uuid])
+      printer (Cli_printer.PList [vm_uuid])
     with
 	e ->
 	  begin
@@ -2060,8 +2067,7 @@ let vm_install printer rpc session_id params =
   let new_name = List.assoc "new-name-label" params in
   let new_description = "Installed via xe CLI" in (* Client.VM.get_name_description rpc session_id template in *)
   vm_install_real printer rpc session_id template new_name new_description params
-
-
+  
 
 let vm_uninstall_common fd printer rpc session_id params vms =
   let toremove = ref [] in
@@ -3065,6 +3071,24 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
   export_common fd printer rpc session_id params filename num preserve_power_state (vm_record rpc session_id ref)
 
+let vm_copy_bios_strings printer rpc session_id params =
+  let host = Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) in
+  let op vm = 
+  	Client.VM.copy_bios_strings rpc session_id (vm.getref ()) host in
+  ignore(do_vm_op printer rpc session_id op params ["host-uuid"])
+
+let vm_is_bios_customized printer rpc session_id params =
+  let op vm =
+  	let bios_strings = Client.VM.get_bios_strings rpc session_id (vm.getref ()) in
+  	if List.length bios_strings = 0 then
+	  printer (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
+  	else if List.mem_assoc "bios_vendor" bios_strings && List.assoc "bios_vendor" bios_strings = "Xen" then
+	  printer (Cli_printer.PMsg "This VM is BIOS-generic.")
+	else
+	  printer (Cli_printer.PMsg "This VM is BIOS-customized.")
+  in
+  ignore(do_vm_op printer rpc session_id op params [])
+  
 let template_export fd printer = vm_export_aux "template" fd printer
 let snapshot_export fd printer = vm_export_aux "snapshot" fd printer
 

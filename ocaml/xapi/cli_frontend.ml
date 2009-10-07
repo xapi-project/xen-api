@@ -912,7 +912,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-install",
    {
      reqd=["new-name-label"];
-     optn=["sr-name-label";"sr-uuid";"template"];
+     optn=["sr-name-label";"sr-uuid";"template";"copy-bios-strings-from"];
      help="Install a new VM from a template. The template parameter can match either the template name or the uuid.";
      implementation= No_fd Cli_operations.vm_install;
      flags=[Standard];
@@ -1152,6 +1152,24 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       help="Export a VM to <filename>.";
       implementation= With_fd Cli_operations.vm_export;
       flags=[Standard; Vm_selectors];
+    };
+
+   "vm-copy-bios-strings",
+    {
+      reqd=["host-uuid"];
+      optn=[];
+      help="Copy the BIOS strings of the given host to the VM.";
+      implementation= No_fd Cli_operations.vm_copy_bios_strings;
+      flags=[Vm_selectors];
+    };
+
+   "vm-is-bios-customized",
+    {
+      reqd=[];
+      optn=[];
+      help="Indicates whether the BIOS strings of the VM have been customized.";
+      implementation= No_fd Cli_operations.vm_is_bios_customized;
+      flags=[Vm_selectors];
     };
 
    "snapshot-export-to-template",

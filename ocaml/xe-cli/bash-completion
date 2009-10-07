@@ -164,6 +164,10 @@ _xe()
                                 esac
                                 return 0
                                 ;;
+            copy-bios-strings-from) # for vm-install
+                COMPREPLY=`${xe} host-list params=uuid --minimal 2>/dev/null`
+                return 0
+                ;;
             edition) # for host-apply-edition (licensing)
                 IFS=$'\n,'
                 COMPREPLY=( $(compgen -W "free ,enterprise ,platinum " -- ${value}) )

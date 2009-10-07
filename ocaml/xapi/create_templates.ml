@@ -203,7 +203,9 @@ let blank_template memory = {
 	vM_xenstore_data = [];
 	vM_recommendations = (recommendations ());
 	vM_blobs = [];
-	vM_tags = []
+	vM_tags = [];
+	
+	vM_bios_strings = [];
 }
 
 let other_install_media_template memory = 

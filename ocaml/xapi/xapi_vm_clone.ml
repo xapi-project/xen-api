@@ -302,7 +302,8 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~xenstore_data:all.Db_actions.vM_xenstore_data
 		~ha_restart_priority:all.Db_actions.vM_ha_restart_priority
 		~ha_always_run:false
-		~tags:all.Db_actions.vM_tags;
+		~tags:all.Db_actions.vM_tags
+		~bios_strings:all.Db_actions.vM_bios_strings;
 
 	ref, uuid
 
