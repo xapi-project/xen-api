@@ -48,6 +48,7 @@ val gettimestring : unit -> string
 val filesize : int ref
 val mutex : Mutex.t
 val output : t -> ?key:string -> ?extra:string -> level -> string -> unit
+val output_and_return : t -> ?raw:bool -> ?key:string -> ?extra:string -> level -> string -> string
 val log : t -> level -> ('a, unit, string, unit) format4 -> 'a
 val debug : t -> ('a, unit, string, unit) format4 -> 'a
 val info : t -> ('a, unit, string, unit) format4 -> 'a
