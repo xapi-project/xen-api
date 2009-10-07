@@ -1079,3 +1079,8 @@ let create_new_blob ~__context ~vm ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
   Db.VM.add_to_blobs ~__context ~self:vm ~key:name ~value:blob;
   blob
+  
+let copy_bios_strings ~__context ~vm ~host =
+	debug "copy BIOS strings from host";
+	Db.VM.add_to_bios_strings ~__context ~self:vm ~key:"test" ~value:"string"
+	

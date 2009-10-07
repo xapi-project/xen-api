@@ -172,7 +172,8 @@ let create ~__context ~name_label ~name_description
 		~last_booted_record:"" ~xenstore_data ~recommendations
 		~blobs:[]
 		~ha_restart_priority
-		~ha_always_run ~tags;
+		~ha_always_run ~tags
+		~bios_strings:[];
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	update_memory_overhead ~__context ~vm:vm_ref;
