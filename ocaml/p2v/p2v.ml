@@ -28,11 +28,11 @@ let listen_addr = Unix.ADDR_INET(Unix.inet_addr_of_string "0.0.0.0", 81)
 
 (* connect and get session id *)
 let xs = Xs.domain_open ()
-let host, port, session_id, vm = Domain.guest_get_api_access ~xs 
+let host, port, _session_id, vm = Domain.guest_get_api_access ~xs 
 
 (* get vm and session references *)
 let this_vm = Ref.of_string vm
-and session_id = Ref.of_string session_id
+and _session_id = Ref.of_string _session_id
 and rpc xml = Xmlrpcclient.do_secure_xml_rpc ~host ~version:"1.1" ~port ~path:"/" xml
 
 let assert_dir path mode =
@@ -340,7 +340,7 @@ let exn_to_http sock fn =
 
 (** Create a disk with numbered ID exposed over HTTP: add to ID -> VBD map;
     create a vbd for the vdi and attach the disk locally. *)
-let make_disk volume sr size bootable =
+let make_disk volume sr size bootable session_id =
     let vmuuid = Client.VM.get_uuid ~rpc ~session_id ~self:this_vm in
     let vdi = Client.VDI.create ~rpc ~session_id ~sR:sr 
         ~name_label:"Automatically created." ~name_description:""
@@ -364,12 +364,13 @@ let make_disk_callback req bio =
     let volume = select_arg bio req.Http.query "volume"
     and size = Int64.of_string (select_arg bio req.Http.query "size")
     and bootable = select_arg bio req.Http.query "bootable" = "true"
+    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id")
     and sr_uuid = select_arg bio req.Http.query "sr" in
 
     let s = Buf_io.fd_of bio in
     exn_to_http s (fun () ->
         let sr = Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid in
-        make_disk volume sr size bootable;
+        make_disk volume sr size bootable session_id;
         Http.output_http s (Http.http_200_ok ())
     )
 
@@ -529,7 +530,7 @@ let strindex str searchstr =
 
 exception GrubConfigError
 
-let paravirtualise root_vol boot_merged =
+let paravirtualise root_vol boot_merged session_id =
     (* set bootloader params -- assume grub for now: *)
     Client.VM.set_PV_bootloader ~session_id ~rpc ~self:this_vm ~value:"pygrub";
     Client.VM.set_PV_kernel ~session_id ~rpc ~self:this_vm ~value:"";
@@ -690,11 +691,12 @@ let paravirtualise root_vol boot_merged =
 
 let paravirtualise_callback req bio =
     let root_disk = select_arg bio req.Http.query "root-vol"
+    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id")
     and boot_merged = (select_arg bio req.Http.query "boot-merged") = "true" in
 
     let s = Buf_io.fd_of bio in 
     try
-        paravirtualise root_disk boot_merged;
+        paravirtualise root_disk boot_merged session_id;
         Http.output_http s (Http.http_200_ok ())
     with
       | Failure e -> begin
@@ -710,7 +712,7 @@ let paravirtualise_callback req bio =
             ignore (unix_really_write s "\r\nInternal server error.")
         end
 
-let completed () =
+let completed session_id () =
     (* remove xvdp, the P2V server ISO: *)
     let vbds = Client.VM.get_VBDs ~rpc ~session_id ~self:this_vm in
     let is_xvdp x = (Client.VBD.get_device ~rpc ~session_id ~self:x = "xvdp") in
@@ -724,11 +726,12 @@ let completed () =
     run_checked_sync "halt"
 
 let completed_callback req bio =
-    let s = Buf_io.fd_of bio in
+    let s = Buf_io.fd_of bio
+    and session_id = Ref.of_string (select_arg bio req.Http.query "session_id") in
     Http.output_http s (Http.http_200_ok ());
     (* close the socket ehre since we won't get to the normal cleanup code *)
     Unix.close s;
-    completed ()
+    completed session_id ()
 
 let _ = 
     Stunnel.init_stunnel_path ();
@@ -739,7 +742,7 @@ let _ =
 
     debug "hello";
 
-    RuntimeEnv.configure_networking session_id rpc;
+    RuntimeEnv.configure_networking _session_id rpc;
 
     Http_svr.add_handler Http.Get "/make-disk" (Http_svr.BufIO make_disk_callback);
     Http_svr.add_handler Http.Get "/partition-disk" (Http_svr.BufIO partition_disk_callback);
