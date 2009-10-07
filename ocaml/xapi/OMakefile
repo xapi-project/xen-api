@@ -234,7 +234,8 @@ OCamlProgram(xapi, $(COMMON) \
 	xapi_secret \
 	../database/db_hiupgrade \
 	certificates \
-	../v6/v6client)
+	../v6/v6client \
+	bios_strings)
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 
