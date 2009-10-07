@@ -115,7 +115,9 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	      ../../xapi/localdb \
 	      rbac \
 	      rbac_audit \
-	      ../../autogen/rbac_static
+	      ../../autogen/rbac_static \
+	      ../../xapi/helper_hostname \
+	      ../../xapi/helper_process
 
 _OCAMLPACKS = $(OCAMLPACKS)
 OCAMLPACKS = 
