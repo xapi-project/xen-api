@@ -118,6 +118,9 @@ let has_to_audit action =
 				"session.logout"; (* rbac_audit calls, because after logout *)
 				                  (* the session is destroyed and no audit is possible*)
 				"event.next"; (* this action is just spam in the audit log*)
+				"http/get_rrd_updates"; (* spam *)
+				"http/post_remote_db_access"; (* spam *)
+				"host.tickle_heartbeat"; (* spam *)
 			]
 	)
 
