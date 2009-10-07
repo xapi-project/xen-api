@@ -45,9 +45,9 @@ let xencenter_max_verstring = "100.1"
 (** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
 let dbv = "2009.0201"
 
-(* linux pack vsn key (put in host.software_version) *)
-let linux_pack_vsn_key = "package-linux"
-let installed = "installed"
+(* linux pack vsn key in host.software_version (used for a pool join restriction *)
+let linux_pack_vsn_key = "xs:linux"
+let packs_dir = "/etc/xensource/installed-repos"
 
 let ssl_pid = ref 0
 
@@ -212,8 +212,6 @@ let ha_metadata_db = "/var/xapi/ha_metadata.db"
 let gen_metadata_db = "/var/xapi/gen_metadata.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
-
-let linux_pack_installed_stamp_file_path = "/opt/xensource/packs/xs:linux"
 
 (* A comma-separated list of extra xenstore paths to watch in the migration code during
    the disk flushing *)
