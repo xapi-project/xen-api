@@ -160,16 +160,7 @@ let upgrade_bios_strings () =
 			Pervasiveext.finally (find_oem_manufacturer) (fun () -> close_in ic)
 		with _ -> None
 	in
-	let update_all bios_strings =
-		(* update hosts *)
-		let host_table = lookup_table_in_cache Db_backend.cache Names.host in
-		let host_rows = get_rowlist host_table in
-		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
-		let update host_row =
-			set_field_in_row host_row Names.bios_strings bios_strings_kvs
-		in
-		List.iter update host_rows;
-		(* update VMs, except templates *)
+	let update_vms bios_strings =
 		let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
 		let vm_rows = get_rowlist vm_table in
 		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
@@ -183,15 +174,15 @@ let upgrade_bios_strings () =
 		info "Upgrade from OEM edition (%s)." oem;
 		if String.has_substr oem "HP" then begin
 			debug "Using old HP BIOS strings";
-			update_all Xapi_globs.old_hp_bios_strings
+			update_vms Xapi_globs.old_hp_bios_strings
 		end else if String.has_substr oem "Dell" then begin
 			debug "Using old Dell BIOS strings";
-			update_all Xapi_globs.old_dell_bios_strings
+			update_vms Xapi_globs.old_dell_bios_strings
 		end		
 	| None ->
 		info "Upgrade from retail edition.";
 		debug "Using generic BIOS strings";
-		update_all Xapi_globs.generic_bios_strings
+		update_vms Xapi_globs.generic_bios_strings
 
 (* !!! This fn is release specific: REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES *)
 let non_generic_db_upgrade_rules () =

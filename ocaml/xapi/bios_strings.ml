@@ -34,20 +34,23 @@ let get_bios_string name =
 		else str
 	with _ -> ""
 
-(* obtain the Type 11 OEM strings from dmidecode *)
+(* Obtain the Type 11 OEM strings from dmidecode, and prepend with the standard ones. *)
 let get_oem_strings () =
+	let standard = Xapi_globs.standard_type11_strings in
 	try
 		let result, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-t11"; "-q"] in
 		let result = trim (remove_invisible result) in
+		let n = List.length standard in
 		let rec loop index a =
 			try
 				let b = String.index_from result a ':' in
 				let c = String.index_from result b '\n' in
-				(index, String.sub result (b+2) (c-b-2)) :: loop (index+1) c
+				let str = "oem-" ^ (string_of_int (index + n)) in
+				(str, String.sub result (b+2) (c-b-2)) :: loop (index+1) c
 			with _ -> []
 		in
-		loop 1 0
-	with _ -> []
+		standard @ (loop 1 0)
+	with _ -> standard
 
 (* Get the HP-specific ROMBIOS OEM string:
  * 6 bytes from the memory starting at 0xfffea *)
@@ -65,27 +68,15 @@ let get_hp_rombios () =
 
 let set_host_bios_strings ~__context ~host =
 	info "Setting host BIOS strings.";
-	(* first clear the current strings *)
-	Db.Host.set_bios_strings ~__context ~self:host ~value:[];
-	
 	(* named BIOS strings *)
-	let fetch_and_add_string str =
-		let value = get_bios_string str in
-		Db.Host.add_to_bios_strings ~__context ~self:host ~key:str ~value:value
-	in
 	let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
 		"system-product-name"; "system-version"; "system-serial-number"] in
-	List.iter fetch_and_add_string dmidecode_strings;
-	
+	let named_strings = List.map (fun str -> str, (get_bios_string str)) dmidecode_strings in
 	(* type 11 OEM strings *)
 	let oem_strings = get_oem_strings () in
-	let add_oem_string (index, value) =
-		let str = "oem-" ^ (string_of_int index) in
-		Db.Host.add_to_bios_strings ~__context ~self:host ~key:str ~value:value
-	in
-	List.iter add_oem_string oem_strings;
-
 	(* HP-specific ROMBIOS OEM string *)
-	let hp_rombios = get_hp_rombios () in
-	Db.Host.add_to_bios_strings ~__context ~self:host ~key:"hp-rombios" ~value:hp_rombios
+	let hp_rombios = ["hp-rombios", get_hp_rombios ()] in
+	(* combine *)
+	let bios_strings = named_strings @ oem_strings @ hp_rombios in
+	Db.Host.set_bios_strings ~__context ~self:host ~value:bios_strings
 	
