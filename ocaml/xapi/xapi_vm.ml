@@ -1082,74 +1082,12 @@ let create_new_blob ~__context ~vm ~name ~mime_type =
   
 (* BIOS strings *)
 
-let dmidecode_prog = "/usr/sbin/dmidecode"
-
-(* obtain the BIOS string with the given name from dmidecode *)
-let get_bios_string name =
-	try
-		let pid, pipe = Unixext.execv_get_output dmidecode_prog [| dmidecode_prog; "-s"; name |] in
-		let buf = String.create 256 in
-		let nread = Unix.read pipe buf 0 256 in
-		String.sub buf 0 nread
-	with _ -> ""
-
-(* obtain the Type 11 OEM strings from dmidecode *)
-let get_oem_strings () =
-	try
-		let pid, pipe = Unixext.execv_get_output dmidecode_prog [| dmidecode_prog; "-t11"; "-q" |] in
-		let buf = String.create 1024 in
-		let nread = Unix.read pipe buf 0 1024 in
-		let result = String.sub buf 0 nread in
-		let rec loop index a =
-			try
-				let b = String.index_from result a ':' in
-				let c = String.index_from result b '\n' in
-				(index, String.sub result (b+2) (c-b-2)) :: loop (index+1) c
-			with _ -> []
-		in
-		loop 1 0
-	with _ -> []
-
-(* Get the HP-specific ROMBIOS OEM string:
- * 6 bytes from the memory starting at 0xffea *)
-let get_hp_rombios () =
-	let hp_rombios = String.make 6 ' ' in
-	begin try
-		let mem = Unix.openfile "/dev/mem" [Unix.O_RDONLY] 0 in
-		Unix.lseek mem 0xffea Unix.SEEK_SET;
-		ignore (Unix.read mem hp_rombios 0 6)
-	with _ -> ()
-	end;
-	hp_rombios
-
 let copy_bios_strings ~__context ~vm ~host =
-	debug "copy BIOS strings from host";
 	(* only allow to fill in BIOS strings if they are not yet set *)
 	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
 	if List.length current_strings > 0 then
 		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
-	
-	(* first clear the current strings *)
-	Db.VM.set_bios_strings ~__context ~self:vm ~value:[];
-	
-	(* named BIOS strings *)
-	let fetch_and_add_string str =
-		let value = get_bios_string str in
-		Db.VM.add_to_bios_strings ~__context ~self:vm ~key:str ~value:value
-	in
-	let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
-		"system-product-name"; "system-version"; "system-serial-number"] in
-	List.iter fetch_and_add_string dmidecode_strings;
-	
-	(* type 11 OEM strings *)
-	let oem_strings = get_oem_strings () in
-	let add_oem_string (index, value) =
-		let str = "oem-" ^ (string_of_int index) in
-		Db.VM.add_to_bios_strings ~__context ~self:vm ~key:str ~value:value
-	in
-	List.iter add_oem_string oem_strings;
-
-	(* HP-specific ROMBIOS OEM string *)
-	let hp_rombios = get_hp_rombios () in
-	Db.VM.add_to_bios_strings ~__context ~self:vm ~key:"hp-rombios" ~value:hp_rombios
+	else
+		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings
 	

@@ -348,6 +348,7 @@ let sync_resynchronise_pif_currently_attached = "sync_resynchronise_pif_currentl
 let sync_patch_update_db = "sync_patch_update_db"
 let sync_pbd_reset = "sync_pbd_reset"
 let sync_dechainify_vlans = "sync_dechainify_vlans"
+let sync_bios_strings = "sync_bios_strings"
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
