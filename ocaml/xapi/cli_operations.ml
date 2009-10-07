@@ -2551,7 +2551,10 @@ let host_apply_edition printer rpc session_id params =
         (* the body of the alert message is specified in the v6 daemon *)
         printer (Cli_printer.PStderr msg.API.message_body)
     in
-    List.iter print_if_checkout_error alerts
+    if alerts = [] then
+      printer (Cli_printer.PStderr "Internal error: the licensing daemon was not found.")
+    else
+      List.iter print_if_checkout_error alerts
   | e -> raise e
 
 let host_evacuate printer rpc session_id params =

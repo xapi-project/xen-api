@@ -282,7 +282,9 @@ let _ =
     ~doc:"The license for the edition you requested is not available." ();
   error Api_errors.license_file_deprecated []
     ~doc:"This license file is no longer accepted. Please upgrade to the new licensing system." ();
-
+  error Api_errors.activation_while_not_free []
+    ~doc:"An activation key can only be applied when the edition is set to 'free'." ();
+    
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
 
