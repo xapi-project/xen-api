@@ -87,8 +87,8 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 		Db.VM.set_name_label ~__context ~self:snapshot_ref ~value:new_name;
 
 		(* update the snapshot-info field *)
-		Db.VM.remove_from_other_config ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type;
-		Db.VM.add_to_other_config ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type ~value:Xapi_vm_clone.quiesced;
+		Db.VM.remove_from_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type;
+		Db.VM.add_to_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type ~value:Xapi_vm_clone.quiesced;
 
 		snapshot_ref
 
