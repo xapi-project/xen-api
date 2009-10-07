@@ -46,15 +46,26 @@ let get_session_id (req: request) =
 		Ref.null
 
 
-let append_to_master_audit_log __context line =
+let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
   (* it is necessary to do that manually from the slaves *)
-	if  Pool_role.is_slave () then
-	begin
+	if Stringext.String.startswith
+		Datamodel.rbac_http_permission_prefix
+		action
+	then
+	if Pool_role.is_slave ()
+	then begin
 		Helpers.call_api_functions ~__context (fun rpc session_id ->
 			Client.Pool.audit_log_append ~rpc ~session_id  ~line
 		)
 	end
+
+(* static call-back from rbac-audit into append_to_master_audit_log function *)
+(* used to avoid cycle dependency between xapi_http and rbac_audit *)
+let init_fn_append_to_master_audit_log =
+	if !Rbac_audit.fn_append_to_master_audit_log = None
+	then Rbac_audit.fn_append_to_master_audit_log := Some(append_to_master_audit_log)
+
 
 let rbac_audit_params_of (req:request) =
 	let all = req.cookie @ req.query in
@@ -73,7 +84,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
     else None in
-	let rbac_task_desc = "handler:"^http_permission in
+	let rbac_task_desc = "handler" in
   if List.mem_assoc "session_id" all
   then
     (* Session ref has been passed in - check that it's OK *)
@@ -83,7 +94,6 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
         (try validate_session __context session_id realm;
          with _ -> raise (Http.Unauthorised realm));
         (try Rbac.check_with_new_task session_id http_permission ~fn
-					 ~after_audit_fn:(append_to_master_audit_log)
 					 ~args:(rbac_audit_params_of req)
 					 ~task_desc:rbac_task_desc
          with _ -> raise (Http.Forbidden));
@@ -99,7 +109,6 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
     Pervasiveext.finally
       (fun ()->
         (try Rbac.check_with_new_task session_id http_permission ~fn
-					 ~after_audit_fn:(append_to_master_audit_log)
 					 ~args:(rbac_audit_params_of req)
 					 ~task_desc:rbac_task_desc
         with _ -> raise (Http.Forbidden)))
@@ -117,7 +126,6 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 	    Pervasiveext.finally
 	      (fun ()->
 	        (try Rbac.check_with_new_task session_id http_permission ~fn
-						 ~after_audit_fn:(append_to_master_audit_log)
 						 ~args:(rbac_audit_params_of req)
 						 ~task_desc:rbac_task_desc
 	         with _ -> raise (Http.Forbidden)))
