@@ -95,7 +95,7 @@ module Debugger = functor(Brand: BRAND) -> struct
   let get_task () =
     default "" (may (fun s -> s) (get_task_from_thread ()))
 
-  let output (f:string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a) fmt =
+  let output (f:string -> ?extra:string -> ('a, unit, string, 'b) format4 -> 'a) fmt =
     let extra = 
       Printf.sprintf "%s|%s|%s|%s" 
       (!get_hostname ()) 
@@ -104,11 +104,22 @@ module Debugger = functor(Brand: BRAND) -> struct
       Brand.name
     in
     f Brand.name ~extra fmt
+
+	let output_and_return ?raw (f:string -> ?raw:bool -> ?extra:string -> ('a, unit, string, 'b) format4 -> 'a) fmt =
+    let extra =
+      Printf.sprintf "%s|%s|%s|%s"
+      (!get_hostname ())
+      (get_thread_name ())
+      (get_task ())
+      Brand.name
+    in
+    f Brand.name ?raw ~extra fmt
     
   let debug fmt = output Logs.debug fmt
   let warn fmt = output Logs.warn fmt
   let info fmt = output Logs.info fmt
   let error fmt = output Logs.error fmt
+  let audit ?raw fmt = output_and_return ?raw Logs.audit fmt
 
   let log_backtrace () =
     let backtrace = Backtrace.get_backtrace () in
