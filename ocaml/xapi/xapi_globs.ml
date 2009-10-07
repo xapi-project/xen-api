@@ -543,6 +543,11 @@ let cooperative_timeout = 30.
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 
 (* BIOS strings *)
+
+let standard_type11_strings =
+	["oem-1", "Xen";
+	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
+	 
 let generic_bios_strings =
 	["bios-vendor", "Xen";
 	 "bios-version", "";
@@ -550,9 +555,7 @@ let generic_bios_strings =
 	 "system-product-name", "HVM domU";
 	 "system-version", "";
 	 "system-serial-number", "";
-	 "oem-1", "Xen";
-	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-	 "hp-rombios", ""]
+	 "hp-rombios", ""] @ standard_type11_strings
 
 let old_dell_bios_strings =
 	["bios-vendor", "Dell Inc.";
