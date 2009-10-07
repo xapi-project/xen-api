@@ -254,7 +254,7 @@ val create_new_blob :
 (** {2 BIOS strings} *)
 
 val copy_bios_strings :
-  __context:Context.t -> vm:[ `VM ] Ref.t -> host:'a -> unit
+  __context:Context.t -> vm:[ `VM ] Ref.t -> host:[ `host ] Ref.t -> unit
 (** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings
  *  had already been set. *)
 
