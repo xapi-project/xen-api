@@ -971,12 +971,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 		end
 	else
 	begin (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-	
-let refresh_pack_info ~__context ~host =
-	debug "Refreshing software_version";
-	let software_version = Create_misc.make_software_version () in
-	Db.Host.set_software_version ~__context ~self:host ~value:software_version
-	
+		
 		(* we try to use the configuration to set up the new external authentication service *)
 		try
 		(* we persist as much set up configuration now as we can *)
@@ -1195,3 +1190,7 @@ let apply_edition ~__context ~host ~edition =
 	copy_license_to_db ~__context; (* update host.license_params, pool sku and restrictions *)
 	Unixext.unlink_safe Xapi_globs.upgrade_grace_file (* delete upgrade-grace file, if it exists *)
 
+let refresh_pack_info ~__context ~host =
+	debug "Refreshing software_version";
+	let software_version = Create_misc.make_software_version () in
+	Db.Host.set_software_version ~__context ~self:host ~value:software_version
