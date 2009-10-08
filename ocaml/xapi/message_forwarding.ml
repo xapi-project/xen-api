@@ -1083,7 +1083,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.unpause rpc session_id vm));
       update_vbd_operations ~__context ~vm;
       update_vif_operations ~__context ~vm
-    
+
     let clean_shutdown ~__context ~vm =
       info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.clean_shutdown ~vm in
@@ -1618,6 +1618,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let create_new_blob ~__context ~vm ~name ~mime_type =
       info "VM.create_new_blob: VM = '%s'; name = '%s'; MIME type = '%s'" (vm_uuid ~__context vm) name mime_type;
       Local.VM.create_new_blob ~__context ~vm ~name ~mime_type
+
+    let s3_suspend ~__context ~vm =
+      info "VM.s3_suspend: VM = '%s'" (vm_uuid ~__context vm);
+      let local_fn = Local.VM.s3_suspend ~vm in
+      forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.s3_suspend rpc session_id vm)
+
+    let s3_resume ~__context ~vm =
+      info "VM.s3_resume: VM = '%s'" (vm_uuid ~__context vm);
+      let local_fn = Local.VM.s3_resume ~vm in
+      forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.s3_resume rpc session_id vm)
+
 
 	let copy_bios_strings ~__context ~vm ~host =
 		info "VM.copy_bios_strings: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
