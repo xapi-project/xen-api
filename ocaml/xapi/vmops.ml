@@ -571,6 +571,9 @@ let plug_pcidevs ~__context ~vm domid =
        end;
     ) ()
 
+let has_platform_flag platform feature =
+  try bool_of_string (List.assoc feature platform) with _ -> false
+
 (* Create the qemu-dm device emulator process. Has to be done after the
    disks and vifs have already been added.
    Returns the port number of the default VNC console. *)
@@ -601,10 +604,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		) in
 
 		let platform = snapshot.API.vM_platform in
-		let map_to_bool feature =
-			try bool_of_string (List.assoc feature platform)
-			with _ -> false in
-		let acpi = map_to_bool "acpi" in
+		let acpi = has_platform_flag platform "acpi" in
 		let serial = try List.assoc "hvm_serial" other_config with _ -> "pty" in
 		let vnc_keymap = try List.assoc "keymap" platform with _ -> "en-us" in
 		let pci_emulations =
@@ -709,12 +709,9 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 
 	if hvm then (
 		let platform = at_boot_time.API.vM_platform in
-		let map_to_bool feature =
-			try bool_of_string (List.assoc feature platform)
-			with _ -> false in
 		let shadow_multiplier = at_boot_time.API.vM_HVM_shadow_multiplier in
-		let pae = map_to_bool "pae" in
-		let viridian = map_to_bool "viridian" in
+		let pae = has_platform_flag platform "pae" in
+		let viridian = has_platform_flag platform "viridian" in
 		Domain.hvm_restore ~xc ~xs domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		                   ~pae ~viridian ~timeoffset fd;
 	) else (
