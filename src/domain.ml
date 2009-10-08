@@ -611,7 +611,7 @@ let resume ~xc ~xs ~hvm ~cooperative domid =
 	resume_post ~xc	~xs domid;
 	if hvm then Device.Dm.resume ~xs domid
 
-let restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
+let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
