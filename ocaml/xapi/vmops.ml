@@ -433,11 +433,20 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	  (fun () ->
 	     info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
 	     let domid = (try 
-		Domain.make ~xc ~xs ~hvm ~xsdata ~platformdata ~bios_strings ~name:snapshot.API.vM_name_label uuid 
-	      with e ->
-		info "Domain.make threw %s" (ExnHelper.string_of_exn e);
-		info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
-		raise e
+			     let info = {
+ 				     Domain.ssidref = 0l;
+ 				     Domain.hvm = hvm;
+ 				     Domain.hap = hvm;
+ 				     Domain.name = snapshot.API.vM_name_label;
+ 				     Domain.platformdata = platformdata;
+ 				     Domain.xsdata = xsdata;
+				     Domain.bios_strings = bios_strings;
+ 			     } in
+			     Domain.make ~xc ~xs info uuid
+		     with e ->
+			     info "Domain.make threw %s" (ExnHelper.string_of_exn e);
+			     info "Memory free = %Ld; scrub = %Ld" (Memory.get_free_memory_kib ~xc) (Memory.get_scrub_memory_kib ~xc);
+			     raise e
 	     ) in
 
 	     debug "Created domain with domid: %d" domid;

@@ -25,6 +25,16 @@ exception Xenguest_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
+type create_info = {
+	ssidref: int32;
+	hvm: bool;
+	hap: bool;
+	name: string;
+	xsdata: (string * string) list;
+	platformdata: (string * string) list;
+	bios_strings: (string * string) list;
+}
+
 type build_hvm_info = {
 	pae: bool;
 	apic: bool;
@@ -59,10 +69,7 @@ val domarch_of_string : string -> domarch
 val hvmloader : string
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?name:string ->
-          ?xsdata:((string * string) list) ->
-          ?platformdata:((string * string) list) ->
-          ?bios_strings:((string * string) list) -> [`domain] Uuid.t -> domid
+val make: xc:Xc.handle -> xs:Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
 
 (** 'types' of shutdown request *)
 type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | Unknown of int
