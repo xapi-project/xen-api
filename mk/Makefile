@@ -10,7 +10,6 @@ OUTPUT_XAPI := $(MY_OUTPUT_DIR)/xapi
 OUTPUT_CLI := $(MY_OUTPUT_DIR)/xe
 OUTPUT_CLI_RT := $(MY_OUTPUT_DIR)/cli-regress.tar.gz
 OUTPUT_CLI_RT_GENEVA := $(MY_OUTPUT_DIR)/cli-regress-geneva.tar.gz
-OUTPUT_XENOPS_RT := $(MY_OUTPUT_DIR)/xenops-regress.tar.gz
 OUTPUT_FAKESERVER := $(MY_OUTPUT_DIR)/fakeserver.tar.bz2
 OUTPUT_DOCS := $(MY_OUTPUT_DIR)/sdkiso
 OUTPUT_WEBZIP := $(MY_OUTPUT_DIR)/sdk-html.zip
@@ -44,17 +43,12 @@ $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_SRC)
 $(OUTPUT_SRC):
 	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
 
-$(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI) \
-  $(OUTPUT_XENOPS_RT): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
+$(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
 	rm -rf $(REPO)/dist
 	$(MAKE) clean
 	$(MAKE) -C $(REPO)
-	$(call mkdir_clean,$(MY_OBJ_DIR)/xenops-rt)
-	install -m 755 -o root -g root $(REPO)/ocaml/xenops/xenvm $(MY_OBJ_DIR)/xenops-rt/xenvm
-	install -m 755 -o root -g root $(REPO)/ocaml/xenops-ts/runtest $(MY_OBJ_DIR)/xenops-rt/runtest
 	install -m 755 -o root -g root $(REPO)/ocaml/p2v/p2v $(MY_OUTPUT_DIR)/p2v-server
 	install -m 755 -o root -g root $(REPO)/ocaml/fdhelper/closeandexec_static $(MY_OUTPUT_DIR)/closeandexec_static
-	tar -C $(MY_OBJ_DIR)/xenops-rt -zcf $(OUTPUT_XENOPS_RT) .
 	$(MAKE) -C $(REPO) install
 	mkdir -p $(REPO)/dist/staging/var/xapi
 	mkdir -p $(REPO)/dist/staging/var/log/xen
@@ -100,5 +94,5 @@ $(MY_OBJ_DIR)/.rpmbuild.cli.stamp: $(RPM_DIRECTORIES) $(RPM_SPECSDIR)/xe.spec $(
 
 .PHONY: clean
 clean:
-	rm -f $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_CLI) $(OUTPUT_XENOPS_RT) $(OUTPUT_WEBZIP) $(OUTPUT_SRC)
+	rm -f $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_CLI) $(OUTPUT_WEBZIP) $(OUTPUT_SRC)
 	$(MAKE) -C $(REPO) clean
