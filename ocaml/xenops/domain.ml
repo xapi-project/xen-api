@@ -265,6 +265,10 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	debug "Domain.destroy: all known devices = [ %a ]" (fun () -> String.concat "; ")
           (List.map string_of_device all_devices);
 
+	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
+	let all_pci_devices = List.filter (fun device -> device.backend.kind = Pci) all_devices in
+	List.iter (fun pcidev -> Device.PCI.reset ~xs pcidev) all_pci_devices;
+
 	(* Now we should kill the domain itself *)
 	debug "Domain.destroy calling Xc.domain_destroy (domid %d)" domid;
 	log_exn_continue "Xc.domain_destroy" (Xc.domain_destroy xc) domid;
@@ -364,10 +368,24 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib domid =
 	debug "build_pre domid=%d; max=%Ld MiB; shadow=%Ld MiB"
 		domid xen_max_mib shadow_mib;
 	let shadow_mib = Int64.to_int shadow_mib in
+
 	let dom_path = xs.Xs.getdomainpath domid in
-	let use_vmxassist =
-	  try bool_of_string (xs.Xs.read (dom_path ^ "/platform/vmxassist"))
-	  with _ -> false in
+	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
+	let has_platform_flag flag = try bool_of_string (read_platform flag) with _ -> false in
+	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
+	let use_vmxassist = has_platform_flag "vmxassist" in
+	let timer_mode = int_platform_flag "timer_mode" in
+	let hpet = int_platform_flag "hpet" in
+	let vpt_align = int_platform_flag "vpt_align" in
+
+	let maybe_exn_ign name f opt =
+          maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
+        in
+
+	maybe_exn_ign "timer mode" (fun mode -> Xc.domain_set_timer_mode xc domid mode) timer_mode;
+        maybe_exn_ign "hpet" (fun hpet -> Xc.domain_set_hpet xc domid hpet) hpet;
+        maybe_exn_ign "vpt align" (fun vpt_align -> Xc.domain_set_vpt_align xc domid vpt_align) vpt_align;
+
 	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
 	Xc.domain_setmaxmem xc domid (Memory.kib_of_mib xen_max_mib);

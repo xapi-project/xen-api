@@ -974,7 +974,7 @@ let grant_access_resources xc domid resources v =
 		)
 	) resources
 
-let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt pcidevs domid devid =
+let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcidevs domid devid =
 	let pcidevs = List.map (fun (domain, bus, slot, func) ->
 		let (irq, resources, driver) = get_from_system domain bus slot func in
 		{ domain = domain; bus = bus; slot = slot; func = func;
@@ -1001,6 +1001,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt pcidevs domid devid =
 		frontend = { domid = domid; kind = Pci; devid = devid };
 	} in
 
+	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
 	let xsdevs = List.mapi (fun i dev ->
 		sprintf "dev-%d" i, sprintf "%04x:%02x:%02x.%02x" dev.domain dev.bus dev.slot dev.func;
 	) pcidevs in
@@ -1016,11 +1017,11 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt pcidevs domid devid =
 		"backend-id", "0";
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 	] in
-	Generic.add_device ~xs device (xsdevs @ backendlist) frontendlist [];
+	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
-let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt pcidevs domid devid =
-	try add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt pcidevs domid devid
+let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
+	try add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid
 	with exn ->
 		raise (Cannot_add (pcidevs, exn))
 
@@ -1048,8 +1049,19 @@ let write_string_to_file file s =
 	Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
 let do_flr device =
+  debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	try write_string_to_file doflr device with _ -> ()
+	let script = "/opt/xensource/libexec/pci-flr" in
+	let callscript =
+                let f s devstr =
+	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])
+			        with _ -> ()
+			in
+			f
+		in
+        callscript "flr-pre" device;
+        ( try write_string_to_file doflr device with _ -> (); );
+        callscript "flr-post" device
 
 let bind pcidevs =
 	let bind_to_pciback device =
@@ -1069,7 +1081,8 @@ let bind pcidevs =
 		| None           ->
 			bind_to_pciback devstr
 		| Some "pciback" ->
-			debug "pci: device %s already bounded to pciback" devstr
+			debug "pci: device %s already bounded to pciback" devstr;
+		        do_flr devstr		    
 		| Some d         ->
 			debug "pci: unbounding device %s from driver %s" devstr d;
 			let f = s ^ "/driver/unbind" in
@@ -1266,10 +1279,18 @@ module Dm = struct
  /usr/lib/xen/bin/qemu-dm -d 39 -m 256 -boot cd -serial pty -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1
 *)
 
+(* How the display appears to the guest *)
+type disp_intf_opt =
+    | Std_vga
+    | Cirrus
+
+(* Display output / keyboard input *)
 type disp_opt =
 	| NONE
-	| VNC of bool * int * string (* auto-allocate, port if previous false, keymap *)
-	| SDL of string (* X11 display *)
+	| VNC of disp_intf_opt * bool * int * string (* auto-allocate, port if previous false, keymap *)
+	| SDL of disp_intf_opt * string (* X11 display *)
+	| Passthrough of int option
+	| Intel of disp_intf_opt * int option
 
 type info = {
 	memory: int64;
@@ -1281,6 +1302,16 @@ type info = {
 	acpi: bool;
 	disp: disp_opt;
 	pci_emulations: string list;
+
+	(* Xenclient extras *)
+	xenclient_enabled : bool;
+	hvm : bool;
+	sound : string option;
+	power_mgmt : int option;
+	oem_features : int option;
+	inject_sci : int option;
+	videoram : int;
+
 	extras: (string * string option) list;
 }
 
@@ -1307,6 +1338,39 @@ let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 (* Where qemu writes its state and is signalled *)
 let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
 
+(* Xenclient specific paths *)
+let power_mgmt_path domid = sprintf "/local/domain/0/device-model/%d/xen_extended_power_mgmt" domid
+let oem_features_path domid = sprintf "/local/domain/0/device-model/%d/oem_features" domid
+let inject_sci_path domid = sprintf "/local/domain/0/device-model/%d/inject-sci" domid
+
+let xenclient_specific ~xs info domid =
+  (match info.power_mgmt with 
+    | Some i -> begin
+	try 
+	  if (Unix.stat "/proc/acpi/battery").Unix.st_kind == Unix.S_DIR then
+	    xs.Xs.write (power_mgmt_path domid) (string_of_int i);
+	with _ -> ()
+      end
+    | None -> ());
+  
+  (match info.oem_features with 
+    | Some i -> xs.Xs.write (oem_features_path domid) (string_of_int i);
+    | None -> ());
+  
+  (match info.inject_sci with 
+    | Some i -> xs.Xs.write (inject_sci_path domid) (string_of_int i)
+    | None -> ());
+  
+  let sound_options =
+    match info.sound with
+      | None        -> []
+      | Some device -> [ "-soundhw"; device ]
+  in
+
+  ["-videoram"; string_of_int info.videoram;
+   "-M"; (if info.hvm then "xenfv" else "xenpv")] 
+  @ sound_options
+   
 let signal ~xs ~domid ?wait_for ?param cmd =
 	let cmdpath = device_model_path domid in
 	Xs.transaction xs (fun t ->
@@ -1350,15 +1414,43 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 
 	let log = logfile domid in
 	let restorefile = sprintf "/tmp/xen.qemu-dm.%d" domid in
+	let vga_type_opts x = 
+	  match x with
+	    | Std_vga -> ["-std-vga"]
+	    | Cirrus -> []
+	in
+	let dom0_input_opts x =
+	  (maybe_with_default [] (fun i -> ["-dom0-input"; string_of_int i]) x)
+	in
 	let disp_options, wait_for_port =
 		match info.disp with
-		| NONE                     -> [], false
-		| SDL (x11name)            -> [], false
-		| VNC (auto, port, keymap) ->
-			if auto
-			then [ "-vncunused"; "-k"; keymap ], true
-			else [ "-vnc"; string_of_int port; "-k"; keymap ], true
-		in
+		| NONE -> 
+		    ([], false)
+		| Passthrough dom0_input -> 
+		    let vga_type_opts = ["-vga-passthrough"] in
+		    let dom0_input_opts = dom0_input_opts dom0_input in
+		    (vga_type_opts @ dom0_input_opts), false		
+		| SDL (opts,x11name) ->
+		    ( [], false)
+		| VNC (disp_intf, auto, port, keymap) ->
+		    let vga_type_opts = vga_type_opts disp_intf in
+		    let vnc_opts = 
+		      if auto
+		      then [ "-vncunused"; "-k"; keymap ]
+		      else [ "-vnc"; string_of_int port; "-k"; keymap ]
+		    in
+		    (vga_type_opts @ vnc_opts), true
+		| Intel (opt,dom0_input) -> 
+		    let vga_type_opts = vga_type_opts opt in
+		    let dom0_input_opts = dom0_input_opts dom0_input in
+		    (["-intel"] @ vga_type_opts @ dom0_input_opts), false
+	in
+
+	let xenclient_specific_options = 
+	  if info.xenclient_enabled 
+	  then xenclient_specific ~xs info domid
+	  else [] 
+	in
 
 	let l = [ string_of_int domid; (* absorbed by qemu-dm-wrapper *)
 		  log;                 (* absorbed by qemu-dm-wrapper *)
@@ -1372,6 +1464,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
 	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
+	   @ xenclient_specific_options
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 		in
 	(* Now add the close fds wrapper *)
