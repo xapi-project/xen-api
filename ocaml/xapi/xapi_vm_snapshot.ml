@@ -321,13 +321,13 @@ let extended_do_not_copy = [
 
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
-	debug "Reverting the fields of %s to the ones of %s" (Ref.string_of vm) (Ref.string_of snapshot);
 	let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
-	let post_MNR = snap_metadata = "" in
+	let post_MNR = snap_metadata <> "" in
+	debug "Reverting the fields of %s to the ones of %s (%s)" (Ref.string_of vm) (Ref.string_of snapshot) (if post_MNR then "post-MNR" else "pre-MNR");
 	let snap_metadata =
 		if post_MNR
 		then Helpers.vm_string_to_assoc snap_metadata 
-		else Helpers.vm_string_to_assoc (Helpers.vm_to_string vm) in
+		else Helpers.vm_string_to_assoc (Helpers.vm_to_string snapshot) in
 	let do_not_copy =
 		if post_MNR
 		then do_not_copy
