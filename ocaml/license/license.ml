@@ -375,7 +375,20 @@ let initialise ~__context ~host =
 		| _ ->
 			warn "Edition field corrupted; generating a new free license, which needs to be activated in 30 days.";
 			default
-		with _ -> info "Generating new free license, which needs to be activated in 30 days."; default
+		with _ ->
+			(* no license_params -> first boot *)
+			Db.Host.set_edition ~__context ~self:host ~value:"free";
+			begin try
+				do_parse_and_validate !filename;
+				info "Found a free-license activation key with expiry date %s." (Date.to_string (Date.of_float !license.expiry));
+				!license (* do_parse_and_validate already sets !license *)
+			with
+			| License_expired l -> l (* keep expired license *)
+			| _ ->
+				(* activation file does not exist or is invalid *)
+				info "Generating new free license, which needs to be activated in 30 days.";
+				default
+			end
 	in
 	license := new_license
 	
