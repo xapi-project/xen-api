@@ -309,15 +309,13 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	  else mem_max_kib in
 	try
 	let domarch = (match Helpers.boot_method_of_vm ~__context ~vm:snapshot with
-	| Helpers.HVM { Helpers.pae = pae;
-	                apic = apic; acpi = acpi;
-	                nx = nx; viridian = viridian; timeoffset = timeoffset; } ->
+	| Helpers.HVM { Helpers.timeoffset = timeoffset; } ->
 		let kernel_path = Domain.hvmloader in
 		let shadow_multiplier = snapshot.API.vM_HVM_shadow_multiplier in
-		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld pae:%b apic:%b acpi:%b nx:%b viridian:%b timeoffset:%s"
-		      kernel_path vcpus mem_max_kib mem_target_kib pae apic acpi nx viridian timeoffset;
+		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld timeoffset:%s"
+		      kernel_path vcpus mem_max_kib mem_target_kib timeoffset;
 		let arch = Domain.build_hvm xc xs mem_max_kib mem_target_kib shadow_multiplier vcpus kernel_path
-		     pae apic acpi nx viridian timeoffset domid in
+		  timeoffset domid in
 		(* Since our shadow allocation might have been increased by Xen we need to 
 		   update the shadow_multiplier now. Nb. the last_boot_record wont 
 		   necessarily have the right value in! *)
@@ -710,10 +708,8 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 	if hvm then (
 		let platform = at_boot_time.API.vM_platform in
 		let shadow_multiplier = at_boot_time.API.vM_HVM_shadow_multiplier in
-		let pae = has_platform_flag platform "pae" in
-		let viridian = has_platform_flag platform "viridian" in
 		Domain.hvm_restore ~xc ~xs domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-		                   ~pae ~viridian ~timeoffset fd;
+		                   ~timeoffset fd;
 	) else (
 		Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	);
