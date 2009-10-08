@@ -58,11 +58,12 @@ type table = (string * string * string) list
     functions to delete all the objects we've created, in the event of error. *)
 type state = { 
   mutable table: table;
+  mutable created_vms: table;
   mutable cleanup: (Context.t -> (Xml.xml -> Xml.xml) -> API.ref_session -> unit) list;
   export: obj list;
 }
 
-let initial_state export = { table = []; cleanup = []; export = export }
+let initial_state export = { table = []; created_vms = []; cleanup = []; export = export }
 
 let log_reraise msg f x = try f x with e -> error "Import failed: %s" msg; raise e
 
@@ -255,7 +256,8 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
   Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:`import;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
 
-  state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table
+  state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
+  state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms;
   end
 
 (** Create the guest metrics *)
@@ -623,8 +625,7 @@ let metadata_handler (req: request) s =
 		      debug "Imported object type %s: external ref: %s internal ref: %s"
 			cls id r) table;
 
-	 let vmrefs = List.map (fun (cls,id,r) -> Ref.of_string r)
-	   (List.filter (fun (cls,id,r) -> cls=Datamodel._vm) table) in
+	 let vmrefs = List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms in
      let vmrefs = Listext.List.setify vmrefs in
 	 complete_import ~__context vmrefs;
 	 info "import_metadata successful";
@@ -764,8 +765,7 @@ let handler (req: request) s =
 			      end;
 			    end;
 			  (* return vmrefs *)
-			  List.map (fun (cls,id,r) -> Ref.of_string r) 
-			    (List.filter (fun (cls,id,r) -> cls=Datamodel._vm) table)
+			  Listext.List.setify (List.map (fun (cls,id,r) -> Ref.of_string r) state.created_vms)
 			    
 			with e ->
 			  error "Caught exception during import: %s" (ExnHelper.string_of_exn e);
