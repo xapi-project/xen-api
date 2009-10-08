@@ -152,6 +152,19 @@ sig
 		| VNC of bool * int * string (* auto-allocate, port if previous false, keymap *)
 		| SDL of string (* X11 display *)
 
+	type info = {
+		memory: int64;
+		boot: string;
+		serial: string;
+		vcpus: int;
+		usb: string list;
+		nics: (string * string) list;
+		acpi: bool;
+		disp: disp_opt;
+		pci_emulations: string list;
+		extras: (string * string option) list;
+	}
+
 	val write_logfile_to_log : int -> unit
 	val unlink_logfile : int -> unit
 
@@ -160,20 +173,8 @@ sig
 	val signal : xs:Xs.xsh -> domid:Xc.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
-	val start : xs:Xs.xsh -> dmpath:string -> memory:int64
-		 -> boot:string -> serial:string -> vcpus:int
-		 -> ?usb:string list -> ?nics:(string * string) list
-	         -> ?acpi:bool -> disp:disp_opt -> ?pci_emulations:string list
-		 -> ?extras:(string * string option) list
-		 -> ?timeout:float -> Xc.domid
-		 -> int
-	val restore : xs:Xs.xsh -> dmpath:string -> memory:int64
-		   -> boot:string -> serial:string -> vcpus:int
-		   -> ?usb:string list -> ?nics:(string * string) list
-	           -> ?acpi:bool -> disp:disp_opt -> ?pci_emulations:string list
-		   -> ?extras:(string * string option) list
-		   -> ?timeout:float -> Xc.domid
-		   -> int
+	val start : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
+	val restore : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
 	val suspend : xs:Xs.xsh -> Xc.domid -> unit
 	val resume : xs:Xs.xsh -> Xc.domid -> unit
 	val stop : xs:Xs.xsh -> Xc.domid -> unit

@@ -292,8 +292,19 @@ let list_pci ~xc ~xs ~domid =
 
 let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 	let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
-	Device.Dm.start ~xs ~dmpath ~memory:static_max_kib ~boot ~serial:"pty"
-	                ~vcpus ~disp:Device.Dm.NONE domid
+	let info = {
+ 	  Device.Dm.memory = static_max_kib;
+ 	  Device.Dm.boot = boot;
+ 	  Device.Dm.serial = "pty";
+ 	  Device.Dm.vcpus = vcpus;
+ 	  Device.Dm.nics = [];
+ 	  Device.Dm.pci_emulations = [];
+ 	  Device.Dm.usb = [];
+ 	  Device.Dm.acpi = true;
+ 	  Device.Dm.disp = Device.Dm.NONE;
+ 	  Device.Dm.extras = []
+ 	} in
+	Device.Dm.start ~xs ~dmpath info domid
 
 let add_ioport ~xc ~domid ~ioport_start ~ioport_end =
 	Domain.add_ioport ~xc domid ioport_start ioport_end
