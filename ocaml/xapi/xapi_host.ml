@@ -195,6 +195,17 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   let all_user_vms = List.filter (fun (_, record) -> not record.API.vM_is_control_domain) all_vms in
 
   let plans = Hashtbl.create 10 in
+  
+   
+  if target_hosts = [] 
+  then 
+       begin
+      List.iter (fun (vm, _) -> Hashtbl.add plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) all_user_vms;
+      plans
+    end
+  else 
+    begin
+      
   (* If HA is enabled we require that non-protected VMs are suspended. This gives us the property that
      the result obtained by executing the evacuation plan and disabling the host looks the same (from the HA 
      planner's PoV) to the result obtained following a host failure and VM restart. *)
@@ -237,6 +248,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	       if not(Hashtbl.mem plans vm) then Hashtbl.add plans vm (Migrate host)
 	    ) plan;
   plans
+ end
   
 (* Old Miami style function with the strange error encoding *)
 let assert_can_evacuate ~__context ~host =
