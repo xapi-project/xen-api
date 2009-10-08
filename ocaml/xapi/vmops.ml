@@ -586,11 +586,16 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	let vifs = List.stable_sort (fun a b -> compare a.Vm_config.devid b.Vm_config.devid) vifs in
 	let nics = List.map (fun vif -> vif.Vm_config.mac, vif.Vm_config.bridge) vifs in
 
+	let hvm = Helpers.is_hvm snapshot in
+
+	let platform = snapshot.API.vM_platform in
+	let pv_qemu = Xapi_globs.xenclient_enabled && (has_platform_flag platform "pv_qemu") in
+	
 	(* Examine the boot method if the guest is HVM and do something about it *)
-	if Helpers.is_hvm snapshot then begin
+	if hvm || pv_qemu then begin
 	        let policy = snapshot.API.vM_HVM_boot_policy in
 
-		if policy <> Constants.hvm_boot_policy_bios_order then
+		if (policy <> Constants.hvm_boot_policy_bios_order) && (not pv_qemu) then
 			failwith (sprintf "Unknown HVM boot policy: %s" policy);
 
 		let params = snapshot.API.vM_HVM_boot_params in
@@ -605,6 +610,13 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		let acpi = has_platform_flag platform "acpi" in
 		let serial = try List.assoc "hvm_serial" other_config with _ -> "pty" in
 		let vnc_keymap = try List.assoc "keymap" platform with _ -> "en-us" in
+
+		(* Xenclient specific *)
+		let dom0_input = try if Xapi_globs.xenclient_enabled then Some (int_of_string (List.assoc "dom0_input" platform)) else None with _ -> 
+		  warn "failed to parse dom0_input platform flag.";
+		  None
+		in
+
 		let pci_emulations =
 			let rstr = Restrictions.get () in
 			let s = try Some (List.assoc "mtc_pci_emulations" other_config) with _ -> None in
@@ -623,7 +635,25 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			in
 		let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
 		let dmstart = if restore then Device.Dm.restore else Device.Dm.start in
-		let disp = Device.Dm.VNC (true, 0, vnc_keymap) in
+
+		(* Display and input devices are usually conflated *)
+		let disp,usb = 
+		  let default_disp_usb = (Device.Dm.VNC (Device.Dm.Cirrus, true, 0, vnc_keymap), ["tablet"]) in
+		  if Xapi_globs.xenclient_enabled then begin 
+		    try 
+		      match List.assoc "vga_mode" platform with
+			| "passthrough" -> 
+			    (Device.Dm.Passthrough dom0_input,[])
+			| "intel" ->
+			    (Device.Dm.Intel (Device.Dm.Std_vga,dom0_input),[])
+			| "none" -> 
+			    (Device.Dm.NONE,[])
+		    with _ -> 
+		      warn "Failed to parse 'vga_mode' parameter - expecting 'passthrough' or 'intel'. Defaulting to VNC mode";
+		      default_disp_usb
+		  end else default_disp_usb		    
+		in
+
 		let info = {
 			Device.Dm.memory = mem_max_kib;
 			Device.Dm.boot = boot;
@@ -631,9 +661,18 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			Device.Dm.vcpus = vcpus;
 			Device.Dm.nics = nics;
 			Device.Dm.pci_emulations = pci_emulations;
-			Device.Dm.usb = [ "tablet" ];
+			Device.Dm.usb = usb;
 			Device.Dm.acpi = acpi;
 			Device.Dm.disp = disp;
+
+			Device.Dm.xenclient_enabled=Xapi_globs.xenclient_enabled;
+			Device.Dm.hvm=hvm;
+			Device.Dm.sound=None;
+			Device.Dm.power_mgmt=None;
+			Device.Dm.oem_features=None;
+			Device.Dm.inject_sci = None;
+			Device.Dm.videoram=4;
+
 			Device.Dm.extras = [];
 		} in
 		dmstart ~xs ~dmpath info domid
@@ -644,6 +683,9 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		if not disable_pv_vnc then Device.PV_Vnc.start ~xs domid ?statefile:vnc_statefile else 0
 	end
 
+let create_vfb_vkbd ~xc ~xs protocol domid =
+  Device.Vfb.add ~xc ~xs ~hvm:false ~protocol domid;
+  Device.Vkbd.add ~xc ~xs ~hvm:false ~protocol domid
 
 (* get VBDs required to resume *)
 let get_VBDs_required_on_resume ~__context ~vm =
@@ -984,6 +1026,10 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 		      progress_cb 0.35;
 
 		      let hvm = Helpers.is_hvm snapshot in			
+
+		      if Xapi_globs.xenclient_enabled then 
+			Domain.cpuid_apply ~xc ~hvm domid;
+
 		      (* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
 		      let vbds = 
 			if hvm then vbds
@@ -1024,6 +1070,9 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 				  let pcis = pcidevs_of_vm ~__context ~vm in
 				  attach_pcis ~__context ~xc ~xs ~hvm domid pcis;
 			       ) ();
+
+			     if (Xapi_globs.xenclient_enabled) && (not hvm) && (has_platform_flag snapshot.API.vM_platform "pv_qemu") then
+
 			     progress_cb 0.75;
 			     debug "adjusting CPU number against startup-number";
 			     set_cpus_number ~__context ~xs ~self:vm domid snapshot;

@@ -132,11 +132,11 @@ sig
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
+	       -> ?flrscript:string option -> (int * int * int * int) list -> Xc.domid -> int -> unit
 	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
 	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
+	val reset : xs:Xs.xsh -> device -> unit
 	val bind : (int * int * int * int) list -> unit
-
 	val plug : xc:Xc.handle -> xs:Xs.xsh
 		-> (int * int * int * int) -> Xc.domid -> int -> unit
 	val unplug : xc:Xc.handle -> xs:Xs.xsh
@@ -157,10 +157,16 @@ end
 
 module Dm :
 sig
+	type disp_intf_opt =
+	    | Std_vga
+	    | Cirrus
+
 	type disp_opt =
 		| NONE
-		| VNC of bool * int * string (* auto-allocate, port if previous false, keymap *)
-		| SDL of string (* X11 display *)
+		| VNC of disp_intf_opt * bool * int * string (* auto-allocate, port if previous false, keymap *)
+		| SDL of disp_intf_opt * string (* X11 display *)
+		| Passthrough of int option
+		| Intel of disp_intf_opt * int option
 
 	type info = {
 		memory: int64;
@@ -172,6 +178,16 @@ sig
 		acpi: bool;
 		disp: disp_opt;
 		pci_emulations: string list;
+
+		(* Xenclient extras *)
+		xenclient_enabled: bool;
+		hvm: bool;
+		sound: string option;
+		power_mgmt: int option;
+		oem_features: int option;
+		inject_sci: int option;
+		videoram: int;
+	       
 		extras: (string * string option) list;
 	}
 
