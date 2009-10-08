@@ -673,6 +673,19 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~p
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port [] vm_stuff
 
+let restore ~xc ~xs info domid fd =
+	let restore_fct = match info.priv with
+	| BuildHVM hvminfo ->
+		hvm_restore ~shadow_multiplier:hvminfo.shadow_multiplier
+		            ~pae:hvminfo.pae ~viridian:hvminfo.viridian
+		            ~timeoffset:hvminfo.timeoffset
+	| BuildPV pvinfo   ->
+		pv_restore
+		in
+	restore_fct ~xc ~xs
+	            ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus
+	            domid fd
+
 type suspend_flag = Live | Debug
 
 (* suspend register the callback function that will be call by linux_save

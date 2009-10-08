@@ -140,6 +140,9 @@ val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
              -> domid -> Unix.file_descr
              -> unit
 
+(** Restore a domain using the info provided *)
+val restore: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
+
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
