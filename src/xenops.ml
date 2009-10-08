@@ -301,6 +301,15 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
  	  Device.Dm.usb = [];
  	  Device.Dm.acpi = true;
  	  Device.Dm.disp = Device.Dm.NONE;
+
+	  Device.Dm.xenclient_enabled=false;
+	  Device.Dm.hvm=false;
+	  Device.Dm.sound=None;
+	  Device.Dm.power_mgmt=None;
+	  Device.Dm.oem_features=None;
+	  Device.Dm.inject_sci=None;
+	  Device.Dm.videoram=0;
+
  	  Device.Dm.extras = []
  	} in
 	Device.Dm.start ~xs ~dmpath info domid
