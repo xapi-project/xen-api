@@ -137,7 +137,7 @@ let suspend_domain_and_destroy ~xc ~xs ~domid ~file =
 
 let restore_domain ~xc ~xs ~domid ~vcpus ~static_max_kib ~target_kib ~file =
 	let fd = Unix.openfile file [ Unix.O_RDONLY ] 0o400 in
-	Domain.restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+	Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	Unix.close fd
 
 let balloon_domain ~xs ~domid ~mem_mib =

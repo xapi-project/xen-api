@@ -128,7 +128,7 @@ val build: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> domarch
 val resume: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
 
 (** restore a PV domain into a fresh domain created with 'make' *)
-val restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t 
+val pv_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t 
           -> target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
           -> unit
 
