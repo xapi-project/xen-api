@@ -1202,6 +1202,19 @@ type disp_opt =
 	| VNC of bool * int * string (* auto-allocate, port if previous false, keymap *)
 	| SDL of string (* X11 display *)
 
+type info = {
+	memory: int64;
+	boot: string;
+	serial: string;
+	vcpus: int;
+	usb: string list;
+	nics: (string * string) list;
+	acpi: bool;
+	disp: disp_opt;
+	pci_emulations: string list;
+	extras: (string * string option) list;
+}
+
 (* Path to redirect qemu's stdout and stderr *)
 let logfile domid = Printf.sprintf "/tmp/qemu.%d" domid
 
@@ -1246,14 +1259,13 @@ let get_state ~xs domid =
 	with _ -> None
 
 (* Returns the allocated vnc port number *)
-let __start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
-            ~acpi ~disp ?(pci_emulations=[]) ~extras ~restore ?(timeout=qemu_dm_ready_timeout) domid =
+let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	let usb' =
-		if usb = [] then
+		if info.usb = [] then
 			[]
 		else
 			("-usb" :: (List.concat (List.map (fun device ->
-					   [ "-usbdevice"; device ]) usb))) in
+					   [ "-usbdevice"; device ]) info.usb))) in
 	(* qemu need a different id for every vlan, or things get very bad *)
 	let vlan_id = ref 0 in
 	let if_number = ref 0 in
@@ -1264,13 +1276,13 @@ let __start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
 		incr if_number;
 		incr vlan_id;
 		r
-	) nics in
+	) info.nics in
 	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in
 	let restorefile = sprintf "/tmp/xen.qemu-dm.%d" domid in
 	let disp_options, wait_for_port =
-		match disp with
+		match info.disp with
 		| NONE                     -> [], false
 		| SDL (x11name)            -> [], false
 		| VNC (auto, port, keymap) ->
@@ -1283,15 +1295,15 @@ let __start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
 		  log;                 (* absorbed by qemu-dm-wrapper *)
 		  (* everything else goes straight through to qemu-dm: *)
 		  "-d"; string_of_int domid;
-		  "-m"; Int64.to_string (Int64.div memory 1024L);
-		  "-boot"; boot;
-		  "-serial"; serial;
-		  "-vcpus"; string_of_int vcpus; ]
+		  "-m"; Int64.to_string (Int64.div info.memory 1024L);
+		  "-boot"; info.boot;
+		  "-serial"; info.serial;
+		  "-vcpus"; string_of_int info.vcpus; ]
 	   @ disp_options @ usb' @ (List.concat nics')
-	   @ (if acpi then [ "-acpi" ] else [])
+	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
-	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev pci_emulations))
-	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
+	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
+	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 		in
 	(* Now add the close fds wrapper *)
 	let cmdline = Forkhelpers.close_and_exec_cmdline [] dmpath l in
@@ -1344,16 +1356,8 @@ let __start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
 	) else
 		(-1)	
 
-
-let start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
-          ?(acpi=false) ~disp ?(pci_emulations=[]) ?(extras=[]) ?timeout domid =
-	__start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ~usb
-	        ~nics ~acpi ~disp ~pci_emulations ~restore:false ~extras ?timeout domid
-
-let restore ~xs ~dmpath ~memory ~boot ~serial ~vcpus ?(usb=[]) ?(nics=[])
-            ?(acpi=false) ~disp ?(pci_emulations=[]) ?(extras=[]) ?timeout domid =
-	__start ~xs ~dmpath ~memory ~boot ~serial ~vcpus ~usb
-	        ~nics ~acpi ~disp ~pci_emulations ~restore:true ~extras ?timeout domid
+let start ~xs ~dmpath ?timeout info domid = __start ~xs ~restore:false ~dmpath ?timeout info domid
+let restore ~xs ~dmpath ?timeout info domid = __start ~xs ~restore:true ~dmpath ?timeout info domid
 
 (* suspend/resume is a done by sending signals to qemu *)
 let suspend ~xs domid =

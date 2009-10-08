@@ -626,10 +626,19 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
 		let dmstart = if restore then Device.Dm.restore else Device.Dm.start in
 		let disp = Device.Dm.VNC (true, 0, vnc_keymap) in
-		dmstart ~xs ~dmpath ~memory:mem_max_kib
-		        ~boot ~serial ~vcpus
-		        ~usb:["tablet"] ~nics:nics ~acpi
-		        ~disp ~pci_emulations domid;
+		let info = {
+			Device.Dm.memory = mem_max_kib;
+			Device.Dm.boot = boot;
+			Device.Dm.serial = serial;
+			Device.Dm.vcpus = vcpus;
+			Device.Dm.nics = nics;
+			Device.Dm.pci_emulations = pci_emulations;
+			Device.Dm.usb = [ "tablet" ];
+			Device.Dm.acpi = acpi;
+			Device.Dm.disp = disp;
+			Device.Dm.extras = [];
+		} in
+		dmstart ~xs ~dmpath info domid
 	end else begin
 	        (* if we have a "disable_pv_vnc" entry in other_config we disable
 		   VNC for PV *)
