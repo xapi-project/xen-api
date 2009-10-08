@@ -164,7 +164,7 @@ let make ~xc ~xs info uuid =
 		debug "Caught exception in domid %d creation: %s" domid (Printexc.to_string e);
 		raise e
 
-type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | Unknown of int
+type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
 
 (** Strings suitable for putting in the control/shutdown xenstore entry *)
 let string_of_shutdown_reason = function
@@ -173,6 +173,7 @@ let string_of_shutdown_reason = function
 	| Suspend  -> "suspend"
         | Crash    -> "crash" (* this one makes no sense to send to a guest *)
 	| Halt     -> "halt"
+	| S3Suspend -> "s3"
 	| Unknown x -> sprintf "(unknown %d)" x (* or this one *)
 
 (** Decode the shutdown_reason contained within the dominfo struct *)
@@ -190,6 +191,7 @@ let shutdown_to_xc_shutdown = function
 	| Suspend  -> Xc.Suspend
 	| Crash    -> Xc.Crash
 	| Halt     -> Xc.Halt
+	| S3Suspend -> raise (Invalid_argument "unknown")
 	| Unknown _-> raise (Invalid_argument "unknown")
 
 (** Immediately change the domain state to shutdown *)

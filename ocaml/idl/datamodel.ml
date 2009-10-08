@@ -1735,6 +1735,25 @@ let vm_migrate = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_s3_suspend = call
+  ~name: "s3_suspend"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Try to put the VM into ACPI S3 state"
+  ~params:[Ref _vm, "vm", "The VM"]
+  ~hide_from_docs:true
+  ~allowed_roles:_R_VM_OP
+  ()
+
+let vm_s3_resume = call 
+  ~name: "s3_resume"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Try to resume the VM from ACPI S3 state"
+  ~params:[Ref _vm, "vm", "The VM"]
+  ~hide_from_docs:true
+  ~allowed_roles:_R_VM_OP
+  ()
+	   
+
 let vm_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
@@ -5355,6 +5374,8 @@ let vm =
 		vm_assert_can_boot_here;
 		vm_atomic_set_resident_on;
 		vm_create_new_blob;
+		vm_s3_suspend;
+		vm_s3_resume;
 		vm_assert_agile;
 		vm_update_snapshot_metadata;
 		vm_retrieve_wlb_recommendations;

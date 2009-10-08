@@ -67,7 +67,7 @@ val hvmloader : string
 val make: xc:Xc.handle -> xs:Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
 
 (** 'types' of shutdown request *)
-type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | Unknown of int
+type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
 
 (** string versions of the shutdown_reasons, suitable for writing into control/shutdown *)
 val string_of_shutdown_reason : shutdown_reason -> string
