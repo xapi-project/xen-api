@@ -236,11 +236,11 @@ let linux_build_real domid mem_max_mib mem_start_mib image ramdisk cmdline featu
 		                    Nativeint.to_string console_mfn; proto ]
 	)
 
-let hvm_build_real domid mem_max_mib mem_start_mib image vcpus pae apic acpi nx viridian store_port =
+let hvm_build_real domid mem_max_mib mem_start_mib image vcpus store_port =
 	with_xenguest (fun xc ->
 		let store_mfn =
 			Xenguest.hvm_build xc domid mem_max_mib mem_start_mib image
-			                   vcpus pae apic acpi nx viridian store_port in
+			                   vcpus store_port in
 		Nativeint.to_string store_mfn
 	)
 
@@ -250,27 +250,27 @@ let domain_save_real fd domid x y flags hvm =
 		""
 	)
 
-let domain_restore_real fd domid store_port console_port hvm pae viridian =
+let domain_restore_real fd domid store_port console_port hvm =
 	with_xenguest (fun xc ->
 		let store_mfn, console_mfn =
 		Xenguest.domain_restore xc fd domid store_port
-					console_port hvm pae viridian in
+					console_port hvm in
 		String.concat " "  [ Nativeint.to_string store_mfn;
 				     Nativeint.to_string console_mfn ]
 	)
 
 (** fake operations *)
 let linux_build_fake domid mem_max_mib mem_start_mib image ramdisk cmdline features flags store_port console_port = "10 10 x86-32"
-let hvm_build_fake domid mem_max_mib mem_start_mib image vcpus pae apic acpi nx viridian store_port = "2901"
+let hvm_build_fake domid mem_max_mib mem_start_mib image vcpus store_port = "2901"
 let domain_save_fake fd domid x y flags hvm = Unix.sleep 1; ignore (suspend_callback domid); ""
-let domain_restore_fake fd domid store_port console_port hvm pae viridian = "10 10"
+let domain_restore_fake fd domid store_port console_port hvm = "10 10"
 
 (** operation vector *)
 type ops = {
 	linux_build: int -> int -> int -> string -> string option -> string -> string -> int -> int -> int -> string;
-	hvm_build: int -> int -> int -> string -> int -> bool -> bool -> bool -> bool -> bool -> int -> string;
+	hvm_build: int -> int -> int -> string -> int -> int -> string;
 	domain_save: Unix.file_descr -> int -> int -> int -> Xenguest.suspend_flags list -> bool -> string;
-	domain_restore: Unix.file_descr -> int -> int -> int -> bool -> bool -> bool -> string;
+	domain_restore: Unix.file_descr -> int -> int -> int -> bool -> string;
 }
 
 (* main *)
@@ -290,11 +290,6 @@ let _ =
 	add_param "mem_max_mib" "maximum memory allocation / MiB";
 	add_param "mem_start_mib" "initial memory allocation / MiB";
 	add_param "vcpus" "number of HVM VCPUs";
-	add_param "pae" "true to enable PAE mode for HVM";
-	add_param "apic" "true to enable APIC for HVM";
-	add_param "acpi" "true to enable ACPI for HVM";
-	add_param "nx" "true to enable NX for HVM";
-	add_param "viridian" "true to enable Viridian enlightenments";
 	add_param "fork" "true to fork a background thread to capture stdout and stderr";
 
 	let fake = ref false in
@@ -379,15 +374,13 @@ let _ =
 	      | Some "restore" ->
 		  debug "restore mode selected";
 		  let hvm = if !mode = (Some "hvm_restore") then true else false in
-		  require ([ "domid"; "fd"; "store_port"; "console_port"; ] @ (if hvm then [ "pae" ] else []));
+		  require [ "domid"; "fd"; "store_port"; "console_port"; ];
 		  let fd = file_descr_of_int (int_of_string (get_param "fd"))
 		  and domid = int_of_string (get_param "domid")
 		  and store_port = int_of_string (get_param "store_port")
-		  and console_port = int_of_string (get_param "console_port")
-		  and pae = try bool_of_string (get_param "pae") with _ -> false
-		  and viridian = try bool_of_string (get_param "viridian") with _ -> false in
+		  and console_port = int_of_string (get_param "console_port") in
 
-		  with_logging (fun () -> ops.domain_restore fd domid store_port console_port hvm pae viridian)
+		  with_logging (fun () -> ops.domain_restore fd domid store_port console_port hvm)
 	      | Some "linux_build" ->
 		  debug "linux_build mode selected";
 		  require [ "domid"; "mem_max_mib"; "mem_start_mib"; "image"; "ramdisk"; "cmdline"; "features"; "flags";
@@ -408,22 +401,16 @@ let _ =
 		                          cmdline features flags store_port console_port)
 	      | Some "hvm_build" ->
 		  debug "hvm_build mode selected";
-		  require [ "domid"; "mem_max_mib"; "mem_start_mib"; "image"; "vcpus"; "pae";
-			    "apic"; "acpi"; "nx"; "viridian"; "store_port" ];
+		  require [ "domid"; "mem_max_mib"; "mem_start_mib"; "image"; "vcpus"; "store_port" ];
 		  let domid = int_of_string (get_param "domid")
 		  and mem_max_mib = int_of_string (get_param "mem_max_mib")
 		  and mem_start_mib = int_of_string (get_param "mem_start_mib")
 		  and image = get_param "image"
 		  and vcpus = int_of_string (get_param "vcpus")
-		  and pae = bool_of_string (get_param "pae")
-		  and acpi = bool_of_string (get_param "acpi")
-		  and apic = bool_of_string (get_param "apic")
-		  and nx = bool_of_string (get_param "nx")
-		  and viridian = bool_of_string (get_param "viridian")
 		  and store_port = int_of_string (get_param "store_port") in
 
 		  with_logging (fun () -> ops.hvm_build domid mem_max_mib mem_start_mib image
-		                          vcpus pae apic acpi nx viridian store_port)
+		                          vcpus store_port)
 	      | Some "test" ->
 		  debug "test mode selected";
 		  with_logging (fun () -> ignore(Unix.system "/tmp/test"); "result")

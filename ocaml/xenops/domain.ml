@@ -34,11 +34,6 @@ type create_info = {
 }
 
 type build_hvm_info = {
-	pae: bool;
-	apic: bool;
-	acpi: bool;
-	nx: bool;
-	viridian: bool;
 	shadow_multiplier: float;
 	timeoffset: string;
 }
@@ -476,7 +471,7 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 
 (** build hvm type of domain *)
 let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~pae ~apic ~acpi ~nx ~viridian ~timeoffset domid =
+              ~kernel ~timeoffset domid =
 	assert_file_is_readable kernel;
 
 	(* Convert memory configuration values into the correct units. *)
@@ -508,11 +503,6 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
 	    "-vcpus"; string_of_int vcpus;
-	    "-pae"; string_of_bool pae;
-	    "-apic"; string_of_bool apic;
-	    "-acpi"; string_of_bool acpi;
-	    "-nx"; string_of_bool nx;
-	    "-viridian"; string_of_bool viridian;
 	    "-fork"; "true";
 	  ] [] in
 	let line = finally
@@ -551,8 +541,7 @@ let build ~xc ~xs info domid =
 	| BuildHVM hvminfo ->
 		build_hvm ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~pae:hvminfo.pae ~apic:hvminfo.apic ~acpi:hvminfo.acpi
-		          ~nx:hvminfo.nx ~viridian:hvminfo.viridian ~timeoffset:hvminfo.timeoffset domid
+		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset domid
 	| BuildPV pvinfo   ->
 		build_linux ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
@@ -640,7 +629,7 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
 		domid store_mfn store_port local_stuff []
 
-let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~pae ~viridian ~timeoffset domid fd =
+let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
 
 	(* Convert memory configuration values into the correct units. *)
 	let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -658,14 +647,9 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~p
 	let store_port, console_port =
 		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
 
-	let extras = [
-		"-pae"; string_of_bool pae;
-		"-viridian"; string_of_bool viridian;
-	] in
-
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:true
 	                                            ~store_port ~console_port
-	                                            ~vcpus ~extras domid fd in
+	                                            ~vcpus ~extras:[] domid fd in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
@@ -677,8 +661,7 @@ let restore ~xc ~xs info domid fd =
 	let restore_fct = match info.priv with
 	| BuildHVM hvminfo ->
 		hvm_restore ~shadow_multiplier:hvminfo.shadow_multiplier
-		            ~pae:hvminfo.pae ~viridian:hvminfo.viridian
-		            ~timeoffset:hvminfo.timeoffset
+		  ~timeoffset:hvminfo.timeoffset
 	| BuildPV pvinfo   ->
 		pv_restore
 		in

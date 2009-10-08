@@ -203,7 +203,7 @@ let get_size_with_suffix s =
 
 
 (** An HVM boot has the following user-settable parameters: *)
-type hvm_boot_t = { pae: bool; apic: bool; acpi: bool; nx: bool; viridian: bool; timeoffset: string }
+type hvm_boot_t = { timeoffset: string }
 
 (** A 'direct' PV boot (one that is not indirected through a bootloader) has
     the following options: *)
@@ -230,8 +230,7 @@ let string_of_option opt = match opt with None -> "(none)" | Some s -> s
 let string_of_boot_method = function
   | HVM x -> 
       let bool = function true -> "enabled" | false -> "disabled" in
-      Printf.sprintf "HVM with PAE %s; APIC %s; ACPI %s; NX %s; VIRIDIAN: %s	"
-    (bool x.pae) (bool x.apic) (bool x.acpi) (bool x.nx) (bool x.viridian)
+      "HVM"
   | DirectPV x ->
       Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
     x.kernel x.kernel_args (string_of_option x.ramdisk)
@@ -311,17 +310,9 @@ let set_boot_record ~__context ~self newbootrec =
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm = 
     if vm.API.vM_HVM_boot_policy <> "" then begin
-        (* HVM *)
-        let map_to_bool feature =
-            try bool_of_string (List.assoc feature vm.API.vM_platform)
-            with _ -> false in
         (* hvm_boot describes the HVM boot order. How? as a qemu-dm -boot param? *)
-        let pae = map_to_bool "pae" and apic = map_to_bool "apic"
-        and acpi = map_to_bool "acpi" and nx = map_to_bool "nx"
-	and viridian = map_to_bool "viridian"
-        and timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
-
-        HVM { pae = pae; apic = apic; acpi = acpi; nx = nx; viridian = viridian; timeoffset = timeoffset }
+	let timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
+        HVM { timeoffset = timeoffset }
     end else begin
         (* PV *)
         if vm.API.vM_PV_bootloader = "" then begin

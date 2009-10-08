@@ -30,13 +30,12 @@ external linux_build : handle -> domid -> int -> int -> string ->
 
 (** build a hvm domain *)
 external hvm_build : handle -> domid -> int -> int -> string ->
-                     int -> bool -> bool -> bool -> bool ->
-                     bool -> int -> nativeint
+                     int -> int -> nativeint
 	= "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
 
 (** build a hvm domain from memory *)
 external hvm_build_mem : handle -> domid -> int -> string -> nativeint
-                      -> int -> bool -> bool -> bool -> bool -> bool -> int -> nativeint
+                      -> int -> int -> nativeint
        = "stub_xc_hvm_build_mem_bytecode" "stub_xc_hvm_build_mem_native"
 
 (** resume an uncooperative domain *)
@@ -45,7 +44,7 @@ external domain_resume_slow : handle -> domid -> unit
 
 (** restore a domain *)
 external domain_restore : handle -> Unix.file_descr -> domid
-                       -> int -> int -> bool -> bool -> bool
+                       -> int -> int -> bool
                        -> nativeint * nativeint
        = "stub_xc_domain_restore_bytecode" "stub_xc_domain_restore"
 
