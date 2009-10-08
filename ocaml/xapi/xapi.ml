@@ -38,38 +38,9 @@ let check_control_domain () =
     with_xc (fun xc -> Xc.domain_sethandle xc 0 uuid)
   )
 
-(** Perform some startup sanity checks: make sure xenstored and xenconsoled are
-    running but xenagentd and xend are not. Check that the bridge xenbr0 exists
-    (as created by the /etc/xen/scripts/network-bridge script) *)
+(** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
+    instead we rely on the init.d scripts to start other services. *)
 let startup_check () =
-  let pid_of_process x =
-    let ic = Unix.handle_unix_error Unix.open_process_in
-      (Printf.sprintf "/bin/ps -C \"%s\" -o pid=" x) in
-    let result = try
-      let line = input_line ic in
-      Some (int_of_string (String.strip String.isspace line))
-    with _ -> None in
-    ignore(Unix.close_process_in ic);
-    result in
-  let debug_and_error s = debug s; error s in
-  let xenstored = pid_of_process "xenstored" in
-  let xenconsoled = pid_of_process "xenconsoled" in
-  let blktapctrl = pid_of_process "blktapctrl" in
-  if xenstored = None then
-    begin
-      debug_and_error "xapi exiting because xenstored not present";
-      failwith "You must start xenstored";
-    end;
-  if xenconsoled = None then
-    begin
-      debug_and_error "xapi observes that xenconsoled is not running";
-      (*failwith "You must start xenconsoled"; *)
-    end;
-  if blktapctrl = None then
-    begin
-      debug_and_error "xapi observes that blktapctrl is not present";
-      (*failwith "You must start blktapctrl"; *)
-    end;
   Sanitycheck.check_for_bad_link ()
     
 (* Tell the dbcache whether we're a master or a slave *)
