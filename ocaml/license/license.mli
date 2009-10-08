@@ -65,11 +65,6 @@ exception LicenseFieldMissing of string
 exception License_expired of license
 exception License_file_deprecated
 
-val grace30days : unit -> float
-(** Obtain a date that lies 30 days in the future to set as grace expiry date *)
-val grace4days : unit -> float
-(** Obtain a date that lies 4 days in the future to set as grace expiry date *)
-
 val sku_and_name_of_edition : string -> string * string
 (** map an edition string to an sku name and a marketing name *)
 
