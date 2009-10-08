@@ -1343,7 +1343,7 @@ let vm_atomic_set_resident_on = call
   ~params:[Ref _vm, "vm", "The VM to modify";
 	   Ref _host, "host", "The host to set resident_on to"
           ]
-  ~allowed_roles:_R_VM_POWER_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let vm_compute_memory_overhead = call
@@ -1578,7 +1578,7 @@ let vm_hardReboot_internal = call
   ~params:[Ref _vm, "vm", "The VM to reboot"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
   
 (* VM.Hibernate *)
@@ -1785,7 +1785,7 @@ let host_ha_disable_failover_decisions = call
   ~params:[Ref _host, "host", "The Host to disable failover decisions for"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_ha_disarm_fencing = call
@@ -1795,7 +1795,7 @@ let host_ha_disarm_fencing = call
   ~params:[Ref _host, "host", "The Host to disarm"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_ha_stop_daemon = call
@@ -1805,7 +1805,7 @@ let host_ha_stop_daemon = call
   ~params:[Ref _host, "host", "The Host whose daemon should be stopped"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_ha_release_resources = call
@@ -1815,7 +1815,7 @@ let host_ha_release_resources = call
   ~params:[Ref _host, "host", "The Host whose resources should be cleaned up"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 
@@ -1835,7 +1835,7 @@ let host_local_assert_healthy = call ~flags:[`Session]
 	  Api_errors.license_does_not_support_pooling;
 	  Api_errors.ha_should_be_fenced;
 	]
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_preconfigure_ha = call
@@ -1849,7 +1849,7 @@ let host_preconfigure_ha = call
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()  
 
 let host_ha_join_liveset = call
@@ -1859,7 +1859,7 @@ let host_ha_join_liveset = call
   ~params:[Ref _host, "host", "The Host whose HA datmon to start"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_ha_wait_for_shutdown_via_statefile = call
@@ -1869,7 +1869,7 @@ let host_ha_wait_for_shutdown_via_statefile = call
   ~params:[Ref _host, "host", "The Host whose HA subsystem to query"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 (*
 let host_query_ha = call ~flags:[`Session]
@@ -1892,7 +1892,7 @@ let host_request_backup = call ~flags:[`Session]
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_request_config_file_sync = call ~flags:[`Session]
@@ -1904,7 +1904,7 @@ let host_request_config_file_sync = call ~flags:[`Session]
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 
@@ -1919,7 +1919,7 @@ let host_propose_new_master = call ~flags:[`Session]
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_abort_new_master = call ~flags:[`Session]
@@ -1929,7 +1929,7 @@ let host_abort_new_master = call ~flags:[`Session]
   ~params:[String, "address", "The address of the Host which is proposed as the new master"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()  
 
 let host_commit_new_master = call ~flags:[`Session]
@@ -1939,7 +1939,7 @@ let host_commit_new_master = call ~flags:[`Session]
   ~params:[String, "address", "The address of the Host which should be committed as the new master"]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_compute_free_memory = call
@@ -1983,7 +1983,7 @@ let host_signal_networking_change = call ~flags:[`Session]
   ~doc:"Signals that the management IP address or hostname has been changed beneath us."
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_notify = call
@@ -1994,7 +1994,7 @@ let host_notify = call
            String, "params", "arguments of the notification (can be empty)"; ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_syslog_reconfigure = call
@@ -2089,7 +2089,7 @@ let host_get_uncooperative_domains = call
   ~result:((Set(String)), "UUIDs of domains which are not co-operating")
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_READ_ONLY
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_retrieve_wlb_evacuate_recommendations = call
@@ -2250,7 +2250,7 @@ let host_attach_static_vdis = call
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   () 
 
 let host_detach_static_vdis = call
@@ -2262,7 +2262,7 @@ let host_detach_static_vdis = call
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_forget_data_source_archives = call
@@ -2316,7 +2316,7 @@ let host_enable_binary_storage = call
   ~pool_internal:true
   ~doc:"Enable binary storage on a particular host, for storing RRDs, messages and blobs"
   ~params:[Ref _host, "host", "The host"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_disable_binary_storage = call
@@ -2326,7 +2326,7 @@ let host_disable_binary_storage = call
   ~pool_internal:true
   ~doc:"Disable binary storage on a particular host, deleting stored RRDs, messages and blobs"
   ~params:[Ref _host, "host", "The host"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_update_pool_secret = call
@@ -2338,7 +2338,7 @@ let host_update_pool_secret = call
 	~params:[
 		Ref _host, "host", "The host";
 		String, "pool_secret", "The new pool secret" ]
-  ~allowed_roles:_R_VM_POWER_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
 	()
 
 let host_update_master = call
@@ -2350,7 +2350,7 @@ let host_update_master = call
 	~params:[
 		Ref _host, "host", "The host";
 		String, "master_address", "The new master address" ]
-  ~allowed_roles:_R_VM_POWER_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
 	()
 
 let host_set_localdb_key = call
@@ -2363,7 +2363,7 @@ let host_set_localdb_key = call
 	  ]
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   () 
 
 let host_refresh_pack_info = call
@@ -3182,7 +3182,7 @@ let host_tickle_heartbeat = call ~flags:[`Session]
   ~doc:"Needs to be called every 30 seconds for the master to believe the host is alive"
   ~pool_internal:true
   ~hide_from_docs:true
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_sync_data = call ~flags:[`Session]
@@ -3233,7 +3233,7 @@ let host_certificate_install = call
   ~params:[Ref _host, "host", "The host";
            String, "name", "A name to give the certificate";
            String, "cert", "The certificate"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_certificate_uninstall = call
@@ -3245,7 +3245,7 @@ let host_certificate_uninstall = call
   ~doc:"Remove an SSL certificate from this host."
   ~params:[Ref _host, "host", "The host";
            String, "name", "The certificate name"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_certificate_list = call
@@ -3257,7 +3257,7 @@ let host_certificate_list = call
   ~doc:"List all installed SSL certificates."
   ~params:[Ref _host, "host", "The host"]
   ~result:(Set(String),"All installed certificates")
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_crl_install = call
@@ -3270,7 +3270,7 @@ let host_crl_install = call
   ~params:[Ref _host, "host", "The host";
            String, "name", "A name to give the CRL";
            String, "crl", "The CRL"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_crl_uninstall = call
@@ -3282,7 +3282,7 @@ let host_crl_uninstall = call
   ~doc:"Remove an SSL certificate revocation list from this host."
   ~params:[Ref _host, "host", "The host";
            String, "name", "The CRL name"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_crl_list = call
@@ -3294,7 +3294,7 @@ let host_crl_list = call
   ~doc:"List all installed SSL certificate revocation lists."
   ~params:[Ref _host, "host", "The host"]
   ~result:(Set(String),"All installed CRLs")
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_certificate_sync = call
@@ -3305,7 +3305,7 @@ let host_certificate_sync = call
   ~name:"certificate_sync"
   ~doc:"Resync installed SSL certificates and CRLs."
   ~params:[Ref _host, "host", "The host"]
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_get_server_certificate = call
@@ -3366,7 +3366,7 @@ let host_set_license_params = call
   ]
   ~hide_from_docs:true
   ~pool_internal:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let host_apply_edition = call ~flags:[`Session]
@@ -4725,7 +4725,7 @@ let pool_ha_schedule_plan_recomputation = call
   ~params:[]
   ~hide_from_docs:true
   ~pool_internal:true
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
 let pool_enable_binary_storage = call
