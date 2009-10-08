@@ -62,7 +62,16 @@ let is_hvm ~xc domid =
 
 let create_domain ~xc ~xs ~hvm =
 	let uuid = Uuid.make_uuid () in
-	let domid = Domain.make ~xc ~xs ~hvm uuid in
+	let info = {
+		Domain.ssidref = 0l;
+		Domain.hvm = hvm;
+		Domain.hap = hvm;
+		Domain.name = "";
+		Domain.xsdata = [];
+		Domain.platformdata = [];
+		Domain.bios_strings = [];
+	} in
+	let domid = Domain.make ~xc ~xs info uuid in
 	printf "%u\n" domid
 
 let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_max_kib ~target_kib =

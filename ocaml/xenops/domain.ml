@@ -23,6 +23,16 @@ open Device_common
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 
+type create_info = {
+	ssidref: int32;
+	hvm: bool;
+	hap: bool;
+	name: string;
+	xsdata: (string * string) list;
+	platformdata: (string * string) list;
+	bios_strings: (string * string) list;
+}
+
 type build_hvm_info = {
 	pae: bool;
 	apic: bool;
@@ -91,15 +101,13 @@ let domarch_of_string = function
 	| "x32" -> Arch_X32
 	| _     -> Arch_native
 
-
-let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) ?(bios_strings=[]) uuid =
-	let ssidref = 0l in
-
-	let flags = if hvm then [ Xc.CDF_HVM; Xc.CDF_HAP ] else [] in
-	let domid = Xc.domain_create xc ssidref flags uuid in
-	let name = if name <> "" then name else sprintf "Domain-%d" domid in
+let make ~xc ~xs info uuid =
+	let flags =
+		(if info.hvm then [ Xc.CDF_HVM ] else []) @
+		(if (info.hvm && info.hap) then [ Xc.CDF_HAP ] else []) in
+	let domid = Xc.domain_create xc info.ssidref flags uuid in
+	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
 	try
-
 		let dom_path = xs.Xs.getdomainpath domid in
 		let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
 		let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
@@ -144,12 +152,10 @@ let make ~xc ~xs ~hvm ?(name="") ?(xsdata=[]) ?(platformdata=[]) ?(bios_strings=
 			"name", name;
 		];
 
-		xs.Xs.writev dom_path xsdata;
-		xs.Xs.writev dom_path (List.map (fun (k,v) ->
-			("platform/" ^ k, v)) platformdata);
-			
-		xs.Xs.writev dom_path (List.map (fun (k,v) ->
-			("bios-strings/" ^ k, v)) bios_strings);
+		xs.Xs.writev dom_path info.xsdata;
+		xs.Xs.writev (dom_path ^ "/platform") info.platformdata;
+	
+		xs.Xs.writev (dom_path ^ "/bios-strings") info.bios_strings;
 
 		xs.Xs.write (dom_path ^ "/control/platform-feature-multiprocessor-suspend") "1";
 
