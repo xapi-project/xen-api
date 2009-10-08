@@ -546,7 +546,7 @@ CAMLprim value stub_xc_send_debug_keys(value xc_handle, value keys)
 CAMLprim value stub_xc_physinfo(value xc_handle)
 {
 	CAMLparam1(xc_handle);
-	CAMLlocal1(physinfo);
+	CAMLlocal3(physinfo, cap_list, tmp);
 	xc_physinfo_t c_physinfo;
 	int r;
 
@@ -557,7 +557,17 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 	if (r)
 		failwith_xc();
 
-	physinfo = caml_alloc_tuple(9);
+	tmp = cap_list = Val_emptylist;
+	for (r = 0; r < 2; r++) {
+		if ((c_physinfo.capabilities >> r) & 1) {
+			tmp = caml_alloc_small(2, Tag_cons);
+			Field(tmp, 0) = Val_int(r);
+			Field(tmp, 1) = cap_list;
+			cap_list = tmp;
+		}
+	}
+
+	physinfo = caml_alloc_tuple(10);
 	Store_field(physinfo, 0, Val_int(COMPAT_FIELD_physinfo_get_nr_cpus(c_physinfo)));
 	Store_field(physinfo, 1, Val_int(c_physinfo.threads_per_core));
 	Store_field(physinfo, 2, Val_int(c_physinfo.cores_per_socket));
@@ -567,6 +577,7 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 	Store_field(physinfo, 6, caml_copy_nativeint(c_physinfo.total_pages));
 	Store_field(physinfo, 7, caml_copy_nativeint(c_physinfo.free_pages));
 	Store_field(physinfo, 8, caml_copy_nativeint(c_physinfo.scrub_pages));
+	Store_field(physinfo, 9, cap_list);
 
 	CAMLreturn(physinfo);
 }
@@ -1132,13 +1143,13 @@ CAMLprim value stub_xc_domain_deassign_device(value xc_handle, value domid, valu
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xc_watchdog(value handle, value id, value timeout)
+CAMLprim value stub_xc_watchdog(value handle, value domid, value timeout)
 {
-	CAMLparam3(handle, id, timeout);
+	CAMLparam3(handle, domid, timeout);
 	int ret;
 	unsigned int c_timeout = Int32_val(timeout);
 
-	ret = xc_domain_watchdog(_H(handle), Int_val(id), c_timeout);
+	ret = xc_domain_watchdog(_H(handle), _D(domid), c_timeout);
 	if (ret < 0)
 		failwith_xc();
 
@@ -1161,6 +1172,40 @@ CAMLprim value stub_xc_domain_send_s3resume(value handle, value domid)
 {
 	CAMLparam2(handle, domid);
 	xc_domain_send_s3resume(_H(handle), _D(domid));
+	CAMLreturn(Val_unit);
+}
+
+
+CAMLprim value stub_xc_domain_set_timer_mode(value handle, value id, value mode)
+{
+	CAMLparam3(handle, id, mode);
+	int ret;
+
+	ret = xc_domain_set_timer_mode(_H(handle), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc();
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xc_domain_set_hpet(value handle, value id, value mode)
+{
+	CAMLparam3(handle, id, mode);
+	int ret;
+
+	ret = xc_domain_set_hpet(_H(handle), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc();
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xc_domain_set_vpt_align(value handle, value id, value mode)
+{
+	CAMLparam3(handle, id, mode);
+	int ret;
+
+	ret = xc_domain_set_vpt_align(_H(handle), _D(id), Int_val(mode));
+	if (ret < 0)
+		failwith_xc();
 	CAMLreturn(Val_unit);
 }
 
