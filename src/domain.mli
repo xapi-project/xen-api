@@ -36,11 +36,6 @@ type create_info = {
 }
 
 type build_hvm_info = {
-	pae: bool;
-	apic: bool;
-	acpi: bool;
-	nx: bool;
-	viridian: bool;
 	shadow_multiplier: float;
 	timeoffset: string;
 }
@@ -117,7 +112,6 @@ val build_linux: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
 val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
             -> target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
-            -> pae:bool -> apic:bool -> acpi:bool -> nx:bool -> viridian:bool
             -> timeoffset:string -> domid
             -> domarch
 
@@ -136,7 +130,7 @@ val pv_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
  *  with 'make' *)
 val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
              -> target_kib:Int64.t -> shadow_multiplier:float
-             -> vcpus:int -> pae:bool -> viridian:bool -> timeoffset:string
+             -> vcpus:int -> timeoffset:string
              -> domid -> Unix.file_descr
              -> unit
 

@@ -79,10 +79,9 @@ let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_
 	                                             kernel cmdline ramdisk vcpus domid in
 	printf "built domain: %u\n" domid
 
-let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib ~pae ~apic ~acpi ~nx ~viridian =
+let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel pae apic acpi nx viridian
-	                                           "0" domid in
+	                                           vcpus kernel "0" domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
@@ -478,11 +477,6 @@ let do_cmd_parsing cmd =
 	]
 	and hvm_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
-		"-pae", Arg.Set pae, "set PAE to true";
-		"-acpi", Arg.Set acpi, "set ACPI to true";
-		"-apic", Arg.Set apic, "set APIC to true";
-		"-nx", Arg.Set nx, "set NX to true";
-		"-viridian", Arg.Set viridian, "set VIRIDIAN to true";
 	]
 	and normal_build = [
 		"-kernel", Arg.Set_string kernel, "kernel to build with";
@@ -679,8 +673,7 @@ let _ =
 			build_domain ~xc ~xs ~kernel ~ramdisk ~cmdline ~vcpus ~static_max_kib ~target_kib ~domid)
 	| "build_hvm"     ->
 		assert_domid (); assert_vcpus ();
-		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~pae
-						       ~apic ~acpi ~nx ~viridian ~domid)
+		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~domid)
 	| "setmaxmem"     ->
 		assert_domid ();
 		with_xc (fun xc -> Xc.domain_setmaxmem xc domid max_kib) (* call takes pages *)
