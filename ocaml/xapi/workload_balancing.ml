@@ -668,8 +668,8 @@ let get_evacuation_recoms ~__context ~uuid =
   | [] ->
     begin
       match (vm, host, rec_id) with
-      | (Some vm', Some host', Some rec_id') ->
-        (vm', ["WLB"; host'; val_num (rec_id')])
+    | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; val_num (rec_id')])
+    | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; val_num (rec_id')])
       | _ ->
         raise_malformed_response' "HostGetRecommendations"
           "Missing VmUuid, RecID or HostUuid" "unknown"
