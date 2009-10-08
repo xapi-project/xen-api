@@ -709,7 +709,7 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 		Domain.hvm_restore ~xc ~xs domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		                   ~pae ~viridian ~timeoffset fd;
 	) else (
-		Domain.restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
+		Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	);
 	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile domid vifs at_boot_time in
 	(* write in the current policy info *)

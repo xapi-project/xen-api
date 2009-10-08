@@ -86,7 +86,7 @@ let with_domainrestore_nodisk from cfg xc xs f =
 			let mem_kib = cfg.domain_mem in
 			let vcpus = cfg.domain_vcpus in
 			info "restoring linux";
-			Domain.restore ~xc ~xs ~mem_kib ~vcpus domid fd;
+			Domain.pv_restore ~xc ~xs ~mem_kib ~vcpus domid fd;
 			info "linux restored";
 		) (fun () -> Unix.close fd);
 		f domid
