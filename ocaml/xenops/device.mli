@@ -145,6 +145,16 @@ sig
 	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
 end
 
+module Vfb :
+sig
+	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
+end
+
+module Vkbd :
+sig 
+	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
+end
+
 module Dm :
 sig
 	type disp_opt =
