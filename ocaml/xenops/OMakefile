@@ -48,14 +48,12 @@ section
 	OCAMLPACKS = unix mmap xc xb xs
 	OCamlProgram(xs, xenstore_readdir)
 
-OCamlProgram(xenvm, ../util/config xenvmlib xenvm)
-OCamlProgram(xenvm-cmd, xenvmlib xenvm-cmd)
 OCamlProgram(xal, xal_main)
 OCamlProgram(watch_test, watch_test)
 OCamlProgram(squeeze_test, squeeze_test squeeze_test_main)
 
 BIN_PROGS=list_domains squeezed_client
-DEBUG_PROGS=xs xal xenops xenvm xenvm-cmd watch_test
+DEBUG_PROGS=xs xal xenops watch_test
 SYMLINK_PROGS=destroy_domain shutdown_domain create_domain build_domain build_hvm add_vbd add_vif unpause_domain pause_domain suspend_domain restore_domain
 OTHER_PROGS=fence dbgring squeezed
 
