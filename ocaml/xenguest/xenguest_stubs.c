@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdarg.h>
+#include <syslog.h>
 
 #include <xenctrl.h>
 #include <xenguest.h>
@@ -47,6 +48,87 @@
 #endif
 
 #include <stdio.h>
+
+/* The following boolean flags are all set by their value
+   in the platform area of xenstore. The only value that
+   is considered true is the string 'true' */
+struct flags {
+  int nx;
+  int viridian;
+  int pae;
+  int acpi;
+  int apic;
+  int acpi_s3;
+  int acpi_s4;
+};
+
+static int pasprintf(char **buf, const char *fmt, ...)
+{
+    va_list ap;
+    int ret = 0;
+
+    if (*buf)
+        free(*buf);
+    va_start(ap, fmt);
+    if (vasprintf(buf, fmt, ap) == -1) {
+        buf = NULL;
+        ret = -1;
+    }
+    va_end(ap);
+    return ret;
+}
+
+static unsigned int
+xenstore_get(char *key, int domid)
+{
+    char *buf = NULL, *path = NULL, *s;
+    unsigned int value = 0;
+    struct xs_handle *xsh = NULL;
+
+    xsh = xs_daemon_open();
+    if (xsh == NULL)
+           return 0;
+
+    path = xs_get_domain_path(xsh, domid);
+    if (path == NULL)
+        goto out;
+    pasprintf(&buf, "%s/platform/%s", path, key);
+
+    s = xs_read(xsh, XBT_NULL, buf, NULL);
+    if (s) {
+       if (!strcasecmp(s, "true"))
+           value = 1;
+       else if (sscanf(s, "%d", &value) != 1)
+           value = 0;
+       free(s);
+    }
+
+  out:
+    xs_daemon_close(xsh);
+    free(path);
+    free(buf);
+    return value;
+}
+
+static void 
+get_flags(struct flags *f, int domid) 
+{
+  f->nx       = xenstore_get("nx",domid);
+  f->viridian = xenstore_get("viridian",domid);
+  f->apic     = xenstore_get("apic",domid);
+  f->acpi     = xenstore_get("acpi",domid);
+  f->pae      = xenstore_get("pae",domid);
+  f->acpi_s4  = xenstore_get("acpi_s4",domid);
+  f->acpi_s3  = xenstore_get("acpi_s3",domid);
+
+  openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
+  syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
+  syslog(LOG_INFO|LOG_DAEMON,"nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
+	 f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  closelog();
+  
+}
+
 
 static void failwith_oss_xc(char *fct)
 {
@@ -168,62 +250,15 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 	                                  argv[8], argv[9], argv[10]);
 }
 
-static int pasprintf(char **buf, const char *fmt, ...)
-{
-    va_list ap;
-    int ret = 0;
-
-    if (*buf)
-        free(*buf);
-    va_start(ap, fmt);
-    if (vasprintf(buf, fmt, ap) == -1) {
-        buf = NULL;
-        ret = -1;
-    }
-    va_end(ap);
-    return ret;
-}
-
-static unsigned int
-xenstore_get(char *key, int domid)
-{
-    char *buf = NULL, *path = NULL, *s;
-    unsigned int value = 0;
-    struct xs_handle *xsh = NULL;
-
-    xsh = xs_daemon_open();
-    if (xsh == NULL)
-           return 0;
-
-    path = xs_get_domain_path(xsh, domid);
-    if (path == NULL)
-        goto out;
-    pasprintf(&buf, "%s/platform/%s", path, key);
-
-    s = xs_read(xsh, XBT_NULL, buf, NULL);
-    if (s) {
-       if (!strcasecmp(s, "true"))
-           value = 1;
-       else if (sscanf(s, "%d", &value) != 1)
-           value = 0;
-       free(s);
-    }
-
-  out:
-    xs_daemon_close(xsh);
-    free(path);
-    free(buf);
-    return value;
-}
-
-static int hvm_build_set_params(int handle, int domid,
-                                int apic, int acpi, int pae, int nx, int viridian, int vcpus,
-                                int store_evtchn, unsigned long *store_mfn, 
-                                uint32_t frames)
+static int hvm_build_set_params(int handle, int domid, int vcpus,
+                                int store_evtchn, unsigned long *store_mfn)
 {
 	struct hvm_info_table *va_hvm;
 	uint8_t *va_map, sum;
 	int i;
+
+	struct flags f;
+	get_flags(&f,domid);
 
 	va_map = xc_map_foreign_range(handle, domid,
 			    XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
@@ -232,44 +267,25 @@ static int hvm_build_set_params(int handle, int domid,
 		return -1;
 
 	va_hvm = (struct hvm_info_table *)(va_map + HVM_INFO_OFFSET);
-	memset(va_hvm, 0, sizeof(*va_hvm));
-	strncpy(va_hvm->signature, "HVM INFO", 8);
-	va_hvm->length = sizeof(struct hvm_info_table);
-	va_hvm->acpi_enabled = acpi;
-	va_hvm->apic_mode = apic;
+	va_hvm->acpi_enabled = f.acpi;
+	va_hvm->apic_mode = f.apic;
 	va_hvm->nr_vcpus = vcpus;
-
-#ifdef HVM_PARAM_VPT_ALIGN /* Ugly test for xen version with these fields */
-        if ( frames <= (HVM_BELOW_4G_RAM_END >> 12) ) {
-            va_hvm->low_mem_pgend = frames;
-            va_hvm->high_mem_pgend = 0;
-        } else {
-            va_hvm->low_mem_pgend = (HVM_BELOW_4G_RAM_END >> 12);
-            va_hvm->high_mem_pgend = 0x100000 + frames - va_hvm->low_mem_pgend;
-        }
-        /* PFN of the bufioreq page: here to 4G is out of bounds */
-        {
-            unsigned long pfn;
-            xc_get_hvm_param(handle, domid, HVM_PARAM_BUFIOREQ_PFN, &pfn);
-            va_hvm->reserved_mem_pgstart = pfn;
-        }
-#endif
-
-        va_hvm->s4_enabled = xenstore_get("acpi_s4", domid);
-        va_hvm->s3_enabled = xenstore_get("acpi_s3", domid);
+        va_hvm->s4_enabled = f.acpi_s4;
+        va_hvm->s3_enabled = f.acpi_s3;
+	va_hvm->checksum = 0;
 	for (i = 0, sum = 0; i < va_hvm->length; i++)
 		sum += ((uint8_t *) va_hvm)[i];
 	va_hvm->checksum = -sum;
 	munmap(va_map, XC_PAGE_SIZE);
 
 	xc_get_hvm_param(handle, domid, HVM_PARAM_STORE_PFN, store_mfn);
-	xc_set_hvm_param(handle, domid, HVM_PARAM_PAE_ENABLED, pae);
+	xc_set_hvm_param(handle, domid, HVM_PARAM_PAE_ENABLED, f.pae);
 #ifdef HVM_PARAM_VIRIDIAN
-	xc_set_hvm_param(handle, domid, HVM_PARAM_VIRIDIAN, viridian);
+	xc_set_hvm_param(handle, domid, HVM_PARAM_VIRIDIAN, f.viridian);
 #endif
 	xc_set_hvm_param(handle, domid, HVM_PARAM_STORE_EVTCHN, store_evtchn);
 #ifndef XEN_UNSTABLE
-	xc_set_hvm_param(handle, domid, HVM_PARAM_NX_ENABLED, nx);
+	xc_set_hvm_param(handle, domid, HVM_PARAM_NX_ENABLED, f.nx);
 #endif
 	return 0;
 }
@@ -277,13 +293,10 @@ static int hvm_build_set_params(int handle, int domid,
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
                                         value mem_max_mib, value mem_start_mib,
                                         value image_name, value vcpus,
-                                        value pae, value apic,
-                                        value acpi, value nx,
-                                        value viridian, value store_evtchn)
+					value store_evtchn)
 {
 	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
-	CAMLxparam5(vcpus, pae, apic, acpi, nx);
-	CAMLxparam2(viridian, store_evtchn);
+	CAMLxparam2(vcpus, store_evtchn);
 	CAMLlocal1(ret);
 	char *image_name_c = strdup(String_val(image_name));
 	char *error[256];
@@ -305,11 +318,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 
 
 	r = hvm_build_set_params(_H(xc_handle), _D(domid),
-	                         Bool_val(apic), Bool_val(acpi),
-	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
-				 Int_val(vcpus),
-	                         Int_val(store_evtchn), &store_mfn,
-	                         ((uint32_t) Int_val(mem_max_mib)) << (20 - 12));
+				 Int_val(vcpus), Int_val(store_evtchn), &store_mfn);
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
@@ -320,19 +329,16 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
-	                                argv[4], argv[5], argv[6], argv[7],
-	                                argv[8], argv[9], argv[10], argv[11]);
+	                                argv[4], argv[5], argv[6]);
 }
 
 CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
                                             value mem_max_mib, value image_buffer,
                                             value image_size, value vcpus,
-                                            value pae, value apic, value acpi,
-                                            value nx, value viridian, value store_evtchn)
+                                            value store_evtchn)
 {
 	CAMLparam5(xc_handle, domid, mem_max_mib, image_buffer, image_size);
-	CAMLxparam5(vcpus, pae, apic, acpi, nx);
-	CAMLxparam1(store_evtchn);
+	CAMLxparam2(vcpus, store_evtchn);
 	CAMLlocal1(ret);
 	unsigned long store_mfn;
 	unsigned long c_image_size;
@@ -348,12 +354,8 @@ CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
 	if (r)
 		failwith_oss_xc("xc_hvm_build_mem");
 
-	r = hvm_build_set_params(_H(xc_handle), _D(domid),
-	                         Bool_val(apic), Bool_val(acpi),
-	                         Bool_val(pae), Bool_val(nx), Bool_val(viridian),
-				 Int_val(vcpus),
-	                         Int_val(store_evtchn), &store_mfn,
-	                         ((uint32_t) Int_val(mem_max_mib)) << (20 - 12));
+	r = hvm_build_set_params(_H(xc_handle), _D(domid), Int_val(vcpus),
+	                         Int_val(store_evtchn), &store_mfn);
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
@@ -364,8 +366,7 @@ CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
 CAMLprim value stub_xc_hvm_build_mem_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_mem_native(argv[0], argv[1], argv[2], argv[3],
-	                                    argv[4], argv[5], argv[6], argv[7],
-	                                    argv[8], argv[9], argv[10], argv[11]);
+	                                    argv[4], argv[5], argv[6]);
 }
 
 extern void qemu_flip_buffer(int domid, int next_active);
@@ -422,27 +423,30 @@ CAMLprim value stub_xc_domain_resume_slow(value handle, value domid)
 
 CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
                                       value store_evtchn, value console_evtchn,
-                                      value hvm, value pae, value viridian)
+                                      value hvm)
 {
 	CAMLparam5(handle, fd, domid, store_evtchn, console_evtchn);
-	CAMLxparam3(hvm, pae, viridian);
+	CAMLxparam1(hvm);
 	CAMLlocal1(result);
 	unsigned long store_mfn, console_mfn;
 	unsigned int c_store_evtchn, c_console_evtchn;
 	int r;
 
+	struct flags f;
+	get_flags(&f,domid);
+
 	c_store_evtchn = Int_val(store_evtchn);
 	c_console_evtchn = Int_val(console_evtchn);
 
 #ifdef HVM_PARAM_VIRIDIAN
-	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, Bool_val(viridian));	
+	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, f.viridian);	
 #endif
 
 	caml_enter_blocking_section();
 	r = xc_domain_restore(_H(handle), Int_val(fd), _D(domid),
 	                      c_store_evtchn, &store_mfn,
 	                      c_console_evtchn, &console_mfn,
-			      Bool_val(hvm), Bool_val(pae));
+			      Bool_val(hvm), f.pae);
 	caml_leave_blocking_section();
 	if (r)
 		failwith_oss_xc("xc_domain_restore");
@@ -457,7 +461,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 CAMLprim value stub_xc_domain_restore_bytecode(value * argv, int argn)
 {
 	return stub_xc_domain_restore(argv[0], argv[1], argv[2], argv[3],
-	                              argv[4], argv[5], argv[6], argv[7]);
+	                              argv[4], argv[5]);
 }
 
 CAMLprim value stub_xc_domain_dumpcore(value handle, value domid, value file)
