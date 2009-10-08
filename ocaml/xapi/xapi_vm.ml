@@ -422,12 +422,14 @@ module Shutdown = struct
     Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
 
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
-    debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
-    with_xc_and_xs (fun xc xs ->
+    if domid <> -1 then begin
+      debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
+      with_xc_and_xs (fun xc xs ->
  		      Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
 		      (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
 		      Monitor.do_monitor __context xc
  		   );
+    end;
 
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
       debug "hard_shutdown: destroying any suspend VDI";
