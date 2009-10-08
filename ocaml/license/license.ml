@@ -36,22 +36,24 @@ let filename = ref ""
 (* Defaults *)
 let sku = "XE Enterprise"
 
-(* round a date, given by Unix.time, to days *)
+(* Round a date, given by Unix.time, to days *)
 let round_to_days d =
 	let days = (int_of_float d) / (24 * 3600) in
 	(float_of_int days) *. 24. *. 3600.
 	
-let grace30days () =
+(* Obtain a date that lies 30 days in the future to set as grace expiry date *)
+let grace_expiry () =
 	if Xapi_fist.reduce_grace_period () then
 		Unix.time () +. 15. *. 60. (* 15 minutes in the future *)
 	else
 		round_to_days (Unix.time () +. 30. *. 24. *. 60. *. 60.) (* 30 days in the future *)
 
-let grace4days () =
+(* Obtain a date that lies 30 days in the future to set as upgrade grace expiry date *)
+let upgrade_grace_expiry () =
 	if Xapi_fist.reduce_upgrade_grace_period () then
 		Unix.time () +. 15. *. 60. (* 15 minutes in the future *)
 	else
-		round_to_days (Unix.time () +. 4. *. 24. *. 60. *. 60.) (* 4 days in the future *)
+		round_to_days (Unix.time () +. 30. *. 24. *. 60. *. 60.) (* 30 days in the future *)
 
 let default_version = Version.product_version
 let default_sockets = 1
@@ -172,7 +174,7 @@ let default () =
       serialnumber = "";
       sockets = default_sockets;
       productcode = default_productcode;
-      expiry = grace30days ();
+      expiry = grace_expiry ();
       grace = false;
       name = "";
       company = "";
@@ -364,13 +366,13 @@ let initialise ~__context ~host =
 				Db.Host.set_edition ~__context ~self:host ~value:"free";
 				{default with expiry = existing_license.expiry}
 			end else begin
-				info "Upgrade from Essentials: transition to enterprise edition (4-day grace license).";
+				info "Upgrade from Essentials: transition to enterprise edition (30-day grace license).";
 				Db.Host.set_edition ~__context ~self:host ~value:"enterprise";
-				let grace_expiry = grace4days () in
-				write_grace_to_file grace_expiry;
+				let expiry = upgrade_grace_expiry () in
+				write_grace_to_file expiry;
 				Unixext.unlink_safe !filename;
 				let sku, name = sku_and_name_of_edition "enterprise" in
-				{default with sku = sku; expiry = grace_expiry; grace = true; sku_marketing_name = name}
+				{default with sku = sku; expiry = expiry; grace = true; sku_marketing_name = name}
 			end
 		| _ ->
 			warn "Edition field corrupted; generating a new free license, which needs to be activated in 30 days.";
