@@ -49,6 +49,7 @@ type domaininfo = {
   handle : int array;
 }
 type sched_control = { weight : int; cap : int; }
+type physinfo_cap_flag = CAP_HVM | CAP_DirectIO
 type physinfo = {
   nr_cpus : int;
   threads_per_core : int;
@@ -59,6 +60,7 @@ type physinfo = {
   total_pages : nativeint;
   free_pages : nativeint;
   scrub_pages : nativeint;
+  capabilities : physinfo_cap_flag list;
 }
 type version = { major : int; minor : int; extra : string; }
 type compile_info = {
@@ -156,9 +158,13 @@ external domain_deassign_device: handle -> domid -> (int * int * int * int) -> u
 external domain_test_assign_device: handle -> domid -> (int * int * int * int) -> bool
        = "stub_xc_domain_test_assign_device"
 
-external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
+external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xc_domain_set_timer_mode"
+external domain_set_hpet: handle -> domid -> int -> unit = "stub_xc_domain_set_hpet"
+external domain_set_vpt_align: handle -> domid -> int -> unit = "stub_xc_domain_set_vpt_align"
+
 external domain_send_s3resume: handle -> domid -> unit
   = "stub_xc_domain_send_s3resume"
+external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
 
 external hvm_check_pvdriver : handle -> domid -> bool
   = "stub_xc_hvm_check_pvdriver"

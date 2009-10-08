@@ -64,6 +64,10 @@ type sched_control =
 	cap    : int;
 }
 
+type physinfo_cap_flag =
+	| CAP_HVM
+	| CAP_DirectIO
+
 type physinfo =
 {
 	nr_cpus          : int;
@@ -76,6 +80,7 @@ type physinfo =
 	free_pages       : nativeint;
 	scrub_pages      : nativeint;
 	(* XXX hw_cap *)
+	capabilities     : physinfo_cap_flag list;
 }
 
 type version =
@@ -241,9 +246,12 @@ external domain_test_assign_device: handle -> domid -> (int * int * int * int) -
 external domain_suppress_spurious_page_faults: handle -> domid -> unit
        = "stub_xc_domain_suppress_spurious_page_faults"
 
-external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
+external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xc_domain_set_timer_mode"
+external domain_set_hpet: handle -> domid -> int -> unit = "stub_xc_domain_set_hpet"
+external domain_set_vpt_align: handle -> domid -> int -> unit = "stub_xc_domain_set_vpt_align"
 
 external domain_send_s3resume: handle -> domid -> unit = "stub_xc_domain_send_s3resume"
+external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
 
 (** check if some hvm domain got pv driver or not *)
 external hvm_check_pvdriver: handle -> domid -> bool

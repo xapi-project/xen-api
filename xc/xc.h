@@ -177,9 +177,13 @@ int xc_domain_cpuid_set(int xc, unsigned int domid, int hvm,
 int xc_domain_cpuid_apply(int xc, unsigned int domid, int hvm);
 int xc_cpuid_check(uint32_t input, uint32_t optsubinput,
                    char *config[4], char *config_out[4]);
-int xc_domain_send_s3resume(int handle, unsigned int domid);
-
 int xc_domain_suppress_spurious_page_faults(int xc, uint32_t domid);
+
+int xc_domain_send_s3resume(int handle, unsigned int domid);
+int xc_domain_set_vpt_align(int handle, unsigned int domid, int vpt_align);
+int xc_domain_set_hpet(int handle, unsigned int domid, int hpet);
+int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode);
+int xc_domain_get_acpi_s_state(int handle, unsigned int domid);
 
 #if XEN_SYSCTL_INTERFACE_VERSION >= 6
 #define SAFEDIV(a, b)					(((b) >= 0) ? (a) / (b) : (a))

@@ -305,7 +305,7 @@ static int xc_set_hvm_param(int handle, unsigned int domid,
 	};
 	DECLARE_HYPERCALL2(__HYPERVISOR_hvm_op, HVMOP_set_param, (unsigned long) &arg);
 	int ret;
-	
+
 	if (mlock(&arg, sizeof(arg)) == -1) {
 		xc_error_set("mlock failed: %s", strerror(errno));
 		return -1;
@@ -1491,10 +1491,38 @@ out:
 	return ret;
 }
 
+#ifndef HVM_PARAM_HPET_ENABLED
+#define HVM_PARAM_HPET_ENABLED 11
+#endif
+
+#ifndef HVM_PARAM_ACPI_S_STATE
+#define HVM_PARAM_ACPI_S_STATE 14
+#endif
+
+#ifndef HVM_PARAM_VPT_ALIGN
+#define HVM_PARAM_VPT_ALIGN 16
+#endif
+
 int xc_domain_send_s3resume(int handle, unsigned int domid)
 {
 	#define HVM_PARAM_ACPI_S_STATE 14
 	return xc_set_hvm_param(handle, domid, HVM_PARAM_ACPI_S_STATE, 0);
+}
+
+int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode)
+{
+	return xc_set_hvm_param(handle, domid,
+	                        HVM_PARAM_TIMER_MODE, (unsigned long) mode);
+}
+
+int xc_domain_set_hpet(int handle, unsigned int domid, int hpet)
+{
+	return xc_set_hvm_param(handle, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) hpet);
+}
+
+int xc_domain_set_vpt_align(int handle, unsigned int domid, int vpt_align)
+{
+	return xc_set_hvm_param(handle, domid, HVM_PARAM_HPET_ENABLED, (unsigned long) vpt_align);
 }
 
 int xc_domain_get_acpi_s_state(int handle, unsigned int domid)
