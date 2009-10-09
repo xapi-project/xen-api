@@ -35,3 +35,6 @@ val delete_reservation: __context:Context.t -> xs:Xs.xsh -> reservation_id:strin
 
 (** After some domain destruction event (or possibly other memory-changing event), rebalance memory allocations *)
 val balance_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> unit
+
+(** Arrange to have at least one more memory rebalance happen in the future *)
+val async_balance_memory: At_least_once_more.manager
