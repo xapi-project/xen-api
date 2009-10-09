@@ -278,7 +278,9 @@ let _ =
 
   error Api_errors.invalid_edition ["edition"]
     ~doc:"The edition you supplied is invalid. Valid editions are 'free', 'enterprise' and 'platinum'." ();
-  error Api_errors.license_checkout_error ["edition"]
+  error Api_errors.missing_connection_details []
+    ~doc:"The license-server connection details (address or port) were missing or incomplete." ();
+  error Api_errors.license_checkout_error ["reason"]
     ~doc:"The license for the edition you requested is not available." ();
   error Api_errors.license_file_deprecated []
     ~doc:"This license file is no longer accepted. Please upgrade to the new licensing system." ();
