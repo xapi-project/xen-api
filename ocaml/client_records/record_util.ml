@@ -30,6 +30,8 @@ let power_state_to_string state =
 let vm_operation_table = 
   [
     `assert_operation_valid, "assertoperationvalid";
+    `changing_dynamic_range, "changing_dynamic_range";
+    `changing_static_range, "changing_static_range";
     `clean_reboot, "clean_reboot";
     `clean_shutdown, "clean_shutdown";
     `clone, "clone";
