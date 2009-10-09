@@ -189,6 +189,11 @@ let create_tools_sr __context =
 
 let create_tools_sr_noexn __context = Helpers.log_exn_continue "creating tools SR" create_tools_sr __context
 
+let clear_uncooperative_flags __context = 
+  List.iter (fun vm -> Helpers.set_vm_uncooperative ~__context ~self:vm ~value:false) (Db.VM.get_all ~__context)
+
+let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "clearing uncooperative flags" clear_uncooperative_flags __context
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -217,5 +222,7 @@ let update_env __context =
 
   create_missing_vlan_records ~__context;
   create_host_metrics ~__context;
-  create_tools_sr_noexn __context
+  create_tools_sr_noexn __context;
+
+  clear_uncooperative_flags_noexn __context
     

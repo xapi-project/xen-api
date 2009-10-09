@@ -53,6 +53,13 @@ let memory_targets_m = Mutex.create ()
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
+let get_uncooperative_domains () = 
+  let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
+  let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
+  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) dis in
+  let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
+  List.map Uuid.string_of_uuid uuids
+
 (*****************************************************)
 (* cpu related code                                  *)
 (*****************************************************)
