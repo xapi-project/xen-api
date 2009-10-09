@@ -26,3 +26,8 @@ clean:
 js_binding: main
 	./main > api.js
 	cp api.js ../../../js/
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)/www
+	cp api.js $(DEBUGDIST)/www
