@@ -780,39 +780,13 @@ let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
   let a, b = List.partition (fun (_, cumulative_weight) -> cumulative_weight <= w) cumulative in
   fst (List.hd b)
 
-(** Cached filename in /proc to use for loadavg stuff *)
-let loadavg_to_use = ref None
-
-(** Look up once the /proc/loadavg* file to use and cache the result. We
-    prefer to use the version which doesn't include uninterruptible tasks *)
-let get_loadavg_to_use () = match !loadavg_to_use with
-  | Some x -> x
-  | None ->
-      (* beware the double-negative *)
-      let not_uninterruptible = "/proc/loadavg_not_uninterruptible" in
-      let plain_loadavg = "/proc/loadavg" in
-      if (try Unix.access not_uninterruptible [ Unix.R_OK ]; true with _ -> false) then begin
-	loadavg_to_use := Some not_uninterruptible;
-	not_uninterruptible
-      end else begin
-	warn "%s not found: reverting to %s" not_uninterruptible plain_loadavg;
-	loadavg_to_use := Some plain_loadavg;
-	plain_loadavg
-      end
-
 let loadavg () =
   let split_colon line =
     List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line)) in
-  let all = Unixext.read_whole_file_to_string (get_loadavg_to_use ()) in
-  begin 
-    (* squirrel away the current loadavg for access control purposes *)
-    try
-      let loadavg = float_of_string (List.hd (split_colon all)) in
-      Mutex.execute Xapi_globs.loadavg_m 
-	(fun () -> Xapi_globs.loadavg := loadavg);
-      loadavg
-    with _ -> -1.
-  end
+  let all = Unixext.read_whole_file_to_string "/proc/loadavg" in
+  try
+    float_of_string (List.hd (split_colon all))
+  with _ -> -1.
 
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false

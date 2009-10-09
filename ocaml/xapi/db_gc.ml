@@ -343,8 +343,7 @@ let tickle_heartbeat ~__context:_ host stuff =
 	 with _ -> ()
     );
 
-  let loadavg = Helpers.loadavg () in
-  [ "loadavg", string_of_float loadavg ]
+  [ ]
 
 
 let gc_messages ~__context = 
@@ -396,21 +395,12 @@ let start_db_gc_thread() =
 
 let send_one_heartbeat ~__context rpc session_id = 
   let localhost = Helpers.get_localhost ~__context in
-  (* Extra stuff to tell the master *)
-  let loadavg = Helpers.loadavg () in
   let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
-  let stuff = [ "time", string_of_float time;
-		"loadavg", string_of_float loadavg ] in
+  let stuff = [ "time", string_of_float time ] in
   
   let response = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
+  ()
   (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
-  
-  (* Update both our loadavg and our cache of the master's for use in the throttling code *)
-  Mutex.execute Xapi_globs.loadavg_m 
-    (fun () -> 
-       Xapi_globs.loadavg := loadavg;
-       if List.mem_assoc "loadavg" response then Xapi_globs.master_loadavg := float_of_string (List.assoc "loadavg" response)
-    )
     
 let start_heartbeat_thread() =
       name_thread "heartbeat";
