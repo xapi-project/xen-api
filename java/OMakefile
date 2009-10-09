@@ -1,0 +1,12 @@
+.PHONY: XenServerConsole.jar
+XenServerConsole.jar:
+	ant all
+
+.PHONY: clean
+clean:
+	ant clean
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)/www
+	$(IDATA) XenServerConsole.jar $(DEBUGDIST)/www
