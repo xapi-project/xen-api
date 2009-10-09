@@ -375,17 +375,6 @@ let on_system_boot = ref false
 (* Default backlog supplied to Unix.listen *)
 let listen_backlog = 128
 
-(* This host's loadavg *)
-let loadavg = ref 0.
-(* The master's loadavg *)
-let master_loadavg = ref 0.
-(* Mutex for updating the above two loadavgs *)
-let loadavg_m = Mutex.create ()
-
-let loadavg_limit = ref 10.
-(* Key on Pool.other_config which allows the default loadavg_limit to be reset *)
-let loadavg_limit_key = "loadavg_limit"
-
 (* Key on VM.other_config that records last artificial reboot delay *)
 let last_artificial_reboot_delay_key = "last_artificial_reboot_delay"
 
