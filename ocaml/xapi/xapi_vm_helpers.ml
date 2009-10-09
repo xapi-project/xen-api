@@ -595,7 +595,7 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 		 ~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 		 domid;
-	       Memory_control.balance_memory ~__context ~xc ~xs
+	       At_least_once_more.again Memory_control.async_balance_memory
 	    )
 	end
 

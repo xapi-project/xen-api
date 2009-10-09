@@ -169,3 +169,16 @@ let balance_memory ~__context ~xc ~xs =
        debug "rebalance_memory";
        ignore_results (call_daemon xs Squeezed_rpc._balance_memory [])
     )
+
+(** Arrange to have at least one more memory rebalance happen in the background. *)
+let async_balance_memory =
+  At_least_once_more.make "balance_memory" 
+    (fun () ->
+       Server_helpers.exec_with_new_task "balance_memory"
+	 (fun __context ->
+	    Vmopshelpers.with_xc_and_xs
+	      (fun xc xs ->
+		 balance_memory ~__context ~xc ~xs
+	      )
+	 )
+    )
