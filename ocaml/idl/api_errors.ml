@@ -270,6 +270,7 @@ let license_cannot_downgrade_in_pool = "LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL"
 let license_does_not_support_xha = "LICENSE_DOES_NOT_SUPPORT_XHA"
 
 let invalid_edition = "INVALID_EDITION"
+let missing_connection_details = "MISSING_CONNECTION_DETAILS"
 let license_checkout_error = "LICENSE_CHECKOUT_ERROR"
 let license_file_deprecated = "LICENSE_FILE_DEPRECATED"
 let activation_while_not_free = "ACTIVATION_WHILE_NOT_FREE"
