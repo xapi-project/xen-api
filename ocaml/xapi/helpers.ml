@@ -905,3 +905,13 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 let remove_other_keys table valid_keys = 
   let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
   List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
+
+let set_vm_uncooperative ~__context ~self ~value = 
+  info "VM %s uncooperative <- %b" (Ref.string_of self) value;
+  begin
+    try
+      Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
+    with _ -> ()
+  end;
+  Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
+
