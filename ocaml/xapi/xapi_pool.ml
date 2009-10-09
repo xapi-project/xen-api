@@ -64,8 +64,30 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		end in
 
 	(* CA-26975: Pool restrictions (implied by pool_sku) MUST match *)
-	let assert_restrictions_match () = 
-		let pool_license_params = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Client.Host.get_all_records ~rpc ~session_id) in
+	let assert_restrictions_match () =
+		let host_records = List.map snd (Client.Host.get_all_records ~rpc ~session_id) in
+		(* check pool edition *)
+		let pool_editions = List.map (fun host_r -> host_r.API.host_edition) host_records in
+		let edition_to_int = function
+		| "platinum" -> 2
+		| "enterprise" -> 1
+		| "free" | _ -> 0
+		in
+		let int_to_edition = function
+		| 2 -> "platinum"
+		| 1 -> "enterprise"
+		| 0 | _ -> "free"
+		in
+		let pool_edition = List.fold_left (fun m e -> min m (edition_to_int e)) 2 pool_editions in
+		let my_edition = edition_to_int (Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context)) in
+		if pool_edition <> my_edition then begin
+			error "Pool.join failed because of editions mismatch";
+			error "Remote has %s" (int_to_edition pool_edition);
+			error "Local has  %s" (int_to_edition my_edition);
+			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+		end;
+		(* check pool restrictions *)
+		let pool_license_params = List.map (fun host_r -> host_r.API.host_license_params) host_records in
 		let pool_restrictions = Restrictions.pool_restrictions_of_list (List.map Restrictions.of_assoc_list pool_license_params) in
 		let my_restrictions = Restrictions.get() in
 		if pool_restrictions <> my_restrictions then begin
@@ -73,7 +95,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			error "Remote has %s" (Restrictions.to_compact_string pool_restrictions);
 			error "Local has  %s" (Restrictions.to_compact_string my_restrictions);
 			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-		end in
+		end
+	in
 
 	(* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
 	(* that of master of pool-to-join *)
