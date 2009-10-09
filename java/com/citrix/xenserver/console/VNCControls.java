@@ -157,8 +157,8 @@ public class VNCControls extends JPanel {
         layout.setAlignment(FlowLayout.LEFT);
         buttonPanel.setLayout(layout);       
         buttonPanel.add(ctrlaltdelButton);
-        buttonPanel.add(dockButton);
-        buttonPanel.add(fullscreenButton);
+        //buttonPanel.add(dockButton);
+        //buttonPanel.add(fullscreenButton);
         
         layout = new FlowLayout();
         layout.setAlignment(FlowLayout.LEFT);
