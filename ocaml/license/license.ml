@@ -338,7 +338,9 @@ let initialise ~__context ~host =
 			end
 		| "enterprise" | "platinum" ->
 			(* existing license is a v6 Essentials license -> try to check one out again *)
-			V6client.get_v6_license ~__context ~host ~edition:existing_edition;
+			begin try
+				V6client.get_v6_license ~__context ~host ~edition:existing_edition;
+			with _ -> error "The license-server connection details (address or port) were missing or incomplete." end;
 			begin match !V6client.licensed with 
 			| None ->
 				let upgrade_grace = read_grace_from_file () > Unix.time () in

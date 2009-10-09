@@ -158,7 +158,9 @@ let get_v6_license ~__context ~host ~edition =
 		debug "obtaining %s v6 license; license server address: %s; port: %d" edition address port;
 		(* obtain v6 license *)
 		connect_and_get_license edition address port
-	with _ -> reset_state ()
+	with
+	| Not_found -> failwith "Missing connection details"
+	| V6DaemonFailure -> reset_state ()
 	
 let release_v6_license () =
 	try

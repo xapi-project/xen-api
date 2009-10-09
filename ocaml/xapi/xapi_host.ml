@@ -1174,8 +1174,11 @@ let apply_edition ~__context ~host ~edition =
 			info "Upgrading from free to %s edition..." edition
 		else
 			info "(Re)applying %s license..." edition;
-			
-		V6client.get_v6_license ~__context ~host ~edition;
+		
+		begin try
+			V6client.get_v6_license ~__context ~host ~edition
+		with _ -> raise (Api_errors.Server_error (Api_errors.missing_connection_details, [])) end;
+		
 		begin match !V6client.licensed with 
 		| None -> 
 			error "License could not be checked out. Edition is not changed.";
