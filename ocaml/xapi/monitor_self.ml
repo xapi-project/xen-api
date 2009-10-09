@@ -108,8 +108,7 @@ let one () =
   let db = summarise_db_size () in
   let mi = string_of_meminfo (meminfo ()) in
   debug "Process: %s; Database: %s" (string_of_process_memory_info pmi) db;
-  debug "System: %s" mi;
-  debug "Load avg: %.2f" (Mutex.execute Xapi_globs.loadavg_m (fun () -> !Xapi_globs.loadavg))
+  debug "System: %s" mi
     
 let last_log = ref 0.
 let log_interval = 60.

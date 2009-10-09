@@ -25,13 +25,6 @@ let resync_dom0_config_files() =
     Config_file_sync.fetch_config_files_on_slave_startup ()
   with e -> warn "Did not sync dom0 config files: %s" (Printexc.to_string e)
 
-let resync_loadavg_limit other_config = 
-  try
-    if List.mem_assoc Xapi_globs.loadavg_limit_key other_config
-    then Xapi_globs.loadavg_limit := float_of_string (List.assoc Xapi_globs.loadavg_limit_key other_config)
-  with e ->
-    warn "Skipping exception resynchronising the loadavg_limit: %s" (ExnHelper.string_of_exn e)
-
 let update_env () =
   Server_helpers.exec_with_new_task "dbsync (update_env)"
     (fun __context ->
@@ -44,7 +37,6 @@ let update_env () =
 	  | _  -> warn "multiple pool objects"; assert false
 	with _ -> [] 
       in
-      resync_loadavg_limit other_config;
        Dbsync_slave.update_env __context other_config;
        if Pool_role.is_master () then Dbsync_master.update_env __context;
        (* we sync dom0 config files on slaves; however, we don't want
