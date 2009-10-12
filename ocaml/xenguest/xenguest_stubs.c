@@ -433,7 +433,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	int r;
 
 	struct flags f;
-	get_flags(&f,domid);
+	get_flags(&f,_D(domid));
 
 	c_store_evtchn = Int_val(store_evtchn);
 	c_console_evtchn = Int_val(console_evtchn);
