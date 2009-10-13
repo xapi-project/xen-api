@@ -53,6 +53,7 @@
    in the platform area of xenstore. The only value that
    is considered true is the string 'true' */
 struct flags {
+  int vcpus;
   int nx;
   int viridian;
   int pae;
@@ -78,11 +79,11 @@ static int pasprintf(char **buf, const char *fmt, ...)
     return ret;
 }
 
-static unsigned int
+static uint64_t
 xenstore_get(char *key, int domid)
 {
     char *buf = NULL, *path = NULL, *s;
-    unsigned int value = 0;
+    uint64_t value = 0;
     struct xs_handle *xsh = NULL;
 
     xsh = xs_daemon_open();
@@ -98,7 +99,7 @@ xenstore_get(char *key, int domid)
     if (s) {
        if (!strcasecmp(s, "true"))
            value = 1;
-       else if (sscanf(s, "%d", &value) != 1)
+       else if (sscanf(s, "%Ld", &value) != 1)
            value = 0;
        free(s);
     }
@@ -113,6 +114,7 @@ xenstore_get(char *key, int domid)
 static void 
 get_flags(struct flags *f, int domid) 
 {
+  f->vcpus    = xenstore_get("vcpu/number",domid);
   f->nx       = xenstore_get("nx",domid);
   f->viridian = xenstore_get("viridian",domid);
   f->apic     = xenstore_get("apic",domid);
@@ -123,8 +125,8 @@ get_flags(struct flags *f, int domid)
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-	 f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
+	 f->vcpus,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
   closelog();
   
 }
@@ -250,7 +252,7 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 	                                  argv[8], argv[9], argv[10]);
 }
 
-static int hvm_build_set_params(int handle, int domid, int vcpus,
+static int hvm_build_set_params(int handle, int domid,
                                 int store_evtchn, unsigned long *store_mfn)
 {
 	struct hvm_info_table *va_hvm;
@@ -269,7 +271,7 @@ static int hvm_build_set_params(int handle, int domid, int vcpus,
 	va_hvm = (struct hvm_info_table *)(va_map + HVM_INFO_OFFSET);
 	va_hvm->acpi_enabled = f.acpi;
 	va_hvm->apic_mode = f.apic;
-	va_hvm->nr_vcpus = vcpus;
+	va_hvm->nr_vcpus = f.vcpus;
         va_hvm->s4_enabled = f.acpi_s4;
         va_hvm->s3_enabled = f.acpi_s3;
 	va_hvm->checksum = 0;
@@ -292,11 +294,11 @@ static int hvm_build_set_params(int handle, int domid, int vcpus,
 
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
                                         value mem_max_mib, value mem_start_mib,
-                                        value image_name, value vcpus,
+                                        value image_name,
 					value store_evtchn)
 {
 	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
-	CAMLxparam2(vcpus, store_evtchn);
+	CAMLxparam1(store_evtchn);
 	CAMLlocal1(ret);
 	char *image_name_c = strdup(String_val(image_name));
 	char *error[256];
@@ -318,7 +320,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 
 
 	r = hvm_build_set_params(_H(xc_handle), _D(domid),
-				 Int_val(vcpus), Int_val(store_evtchn), &store_mfn);
+				 Int_val(store_evtchn), &store_mfn);
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
@@ -329,7 +331,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
-	                                argv[4], argv[5], argv[6]);
+	                                argv[4], argv[5]);
 }
 
 extern void qemu_flip_buffer(int domid, int next_active);

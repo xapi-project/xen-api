@@ -378,6 +378,14 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 	  let caps = with_xc (fun xc -> Xc.version_capabilities xc) in
 	  if not (String.has_substr caps "hvm") then (raise (Api_errors.Server_error (Api_errors.vm_hvm_required,[]))))
 
+(** [vcpu_configuration snapshot] transforms a vM_t into a list of 
+    key/value pairs representing the VM's vCPU configuration. *)
+let vcpu_configuration snapshot = 
+  let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
+  [ "vcpu/number", string_of_int vcpus ]
+  
+
+
 (* create an empty domain *)
 let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
   finally
@@ -405,6 +413,10 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 		let p = Db.VM.get_platform ~__context ~self in
 		if rstr.Restrictions.platform_filter then List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p else p
 	in
+	(* XXX: add extra configuration info to the platform/ map for now.
+	   Eventually we'll put this somewhere where the guest can't see it. *)
+	let platformdata = platformdata @ ( vcpu_configuration snapshot ) in
+
 
 	(* If we don't have a metrics object, recreate one now *)
 	let m = Db.VM.get_metrics ~__context ~self in
