@@ -228,7 +228,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   List.iter (fun (vm, record) ->
 	       let vm_gm = record.API.vM_guest_metrics in
 	       let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
-	       match Xapi_pv_driver_version.up_to_date_error_of_version (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
+	       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
 	       | Some (code, params) -> Hashtbl.replace plans vm (Error (code, params))
 	       | None -> ()) all_user_vms;
 
