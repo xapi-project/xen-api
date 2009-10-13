@@ -874,7 +874,7 @@ exception Domain_shutdown_for_wrong_reason of Xal.died_reason
 (** Tells a VM to shutdown with a specific reason (reboot/halt/poweroff). *)
 let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid reason =
   (* Set the task allowed_operations to include cancel *)
-  TaskHelper.set_cancellable ~__context;
+  if reason <> Domain.Suspend then TaskHelper.set_cancellable ~__context;
 
   at 0.25;
   (* Windows PV drivers will respond within 10s according to ssmith and
@@ -907,7 +907,7 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid r
       end;
       finished := true;
     with Xal.Timeout -> 
-      if TaskHelper.is_cancelling ~__context
+      if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
       (* Update progress and repeat *)
       let progress = min ((Unix.gettimeofday () -. start) /. total_timeout) 1. in
