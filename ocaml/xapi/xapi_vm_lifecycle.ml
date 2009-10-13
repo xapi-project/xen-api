@@ -123,9 +123,9 @@ let is_rhel3 gmr =
     since we still allow them to be migrated we might as well allow them to be suspended because
     the code is mostly the same.
  *)
-let check_drivers ~vmr ~vmgmr ~op ~ref =
+let check_drivers ~vmr ~vmmr ~vmgmr ~op ~ref =
 	let has_booted_hvm = Helpers.has_booted_hvm_of_record vmr in
-	let pv_drivers = of_guest_metrics vmgmr in
+	let pv_drivers = of_vm (Opt.default 0. (Opt.map (fun x -> Date.to_float x.Db_actions.vM_metrics_start_time) vmmr)) vmgmr in
 	let has_pv_drivers = has_pv_drivers pv_drivers in
 
 	(* FIXME: need to update the code for is_of_for_nigrate *)
@@ -190,7 +190,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
-let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
+let check_operation_error ~vmr ~vmmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
@@ -235,7 +235,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 
 	(* check PV drivers constraints if needed *)
 	else if need_pv_drivers_check ~power_state ~op
-	then check_drivers ~vmr ~vmgmr ~op ~ref
+	then check_drivers ~vmr ~vmmr ~vmgmr ~op ~ref
 
 	(* check is the correct flag is set to allow clone/copy on suspended VM. *)
 	else if power_state = `Suspended && (op = `clone || op = `copy) && not clone_suspended_vm_enabled
@@ -255,28 +255,34 @@ let maybe_get_guest_metrics ~__context ~ref =
 	then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
 	else None
 
+let maybe_get_metrics ~__context ~ref =
+	if Db.is_valid_ref ref
+	then Some (Db.VM_metrics.get_record_internal ~__context ~self:ref)
+	else None
+
 let get_info ~__context ~self =
 	let all = Db.VM.get_record_internal ~__context ~self in
 	let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
+	let m = maybe_get_metrics ~__context ~ref:(all.Db_actions.vM_metrics) in
 	let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
-	all, gm, clone_suspended_vm_enabled
+	all, m, gm, clone_suspended_vm_enabled
 
 let is_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled op with
+	let all, m, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	match check_operation_error all m gm self clone_suspended_vm_enabled op with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled op with
+	let all, m, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	match check_operation_error all m gm self clone_suspended_vm_enabled op with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	let all, m, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
 	let check accu op =
-		match check_operation_error all gm self clone_suspended_vm_enabled op with
+		match check_operation_error all m gm self clone_suspended_vm_enabled op with
 		| None -> op :: accu
 		| _    -> accu
 	in
