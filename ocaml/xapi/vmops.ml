@@ -161,13 +161,6 @@ let write_memory_policy ~xs snapshot domid =
 		~max:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_max 1024L))
 		domid
 
-let update_vm_last_booted ~__context ~self =
-	let metrics = Db.VM.get_metrics ~__context ~self in
-	if metrics <> Ref.null then (
-		let value = Date.of_float (Unix.gettimeofday ()) in
-		Db.VM_metrics.set_start_time ~__context ~self:metrics ~value
-	)
-
 (* Called on both VM.start and VM.resume to create and attach a single console using RFB to a VM *)
 let create_console ?(vncport=(-1)) ~__context ~vM () =
 	let port = Int64.of_int vncport in
@@ -1024,7 +1017,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     create_console ~__context ~vM:vm ~vncport ();
 			     debug "writing memory policy";
 			     write_memory_policy ~xs snapshot domid;
-			     update_vm_last_booted ~__context ~self:vm
+
+			     Db.VM_metrics.set_start_time ~__context ~self:snapshot.API.vM_metrics ~value:(Date.of_float (Unix.gettimeofday ()));
 			   with exn ->
 			     (* [Comment copied from similar pattern in "restore" fn above]:
 
