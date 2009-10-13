@@ -136,7 +136,7 @@ let of_guest_metrics gmr =
     | None -> Unknown
 
 (** Returns an API error option if the PV drivers are missing or not the most recent version *)
-let up_to_date_error_of_version version vm self = 
+let make_error_opt version vm self = 
   match version with
     | Unknown -> Some(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])
     | (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x -> 
