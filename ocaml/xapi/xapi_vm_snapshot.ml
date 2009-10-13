@@ -170,7 +170,12 @@ let checkpoint ~__context ~vm ~new_name =
 		end;
 
 		(* snapshot the disks and the suspend VDI *)
-		let snap =  Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name in
+		let snap =
+			if not (TaskHelper.is_cancelling ~__context) then begin
+				try Some (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm ~new_name)
+				with Api_errors.Server_error (x, []) when x=Api_errors.task_cancelled -> None
+			end else
+				None in
 
 		(* restore the power state of the VM *)
 		if power_state = `Running
@@ -183,11 +188,13 @@ let checkpoint ~__context ~vm ~new_name =
 					Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.destroy rpc session_id suspend_VDI);
 				end;
 			with _ ->
-				Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted;
-				Db.VM.destroy ~__context ~self:snap;
+				Pervasiveext.may (fun snap -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted) snap;
+				Pervasiveext.may (fun snap -> Db.VM.destroy ~__context ~self:snap) snap;
 				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm]))
 		end;
-		snap)
+		match snap with
+		| None      -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
+		| Some snap -> snap)
 
 
 (********************************************************************************)
