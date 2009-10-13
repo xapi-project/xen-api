@@ -522,7 +522,6 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
-	    "-vcpus"; string_of_int vcpus;
 	    "-fork"; "true";
 	  ] [] in
 	let line = finally
