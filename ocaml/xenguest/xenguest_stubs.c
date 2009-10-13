@@ -332,43 +332,6 @@ CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 	                                argv[4], argv[5], argv[6]);
 }
 
-CAMLprim value stub_xc_hvm_build_mem_native(value xc_handle, value domid,
-                                            value mem_max_mib, value image_buffer,
-                                            value image_size, value vcpus,
-                                            value store_evtchn)
-{
-	CAMLparam5(xc_handle, domid, mem_max_mib, image_buffer, image_size);
-	CAMLxparam2(vcpus, store_evtchn);
-	CAMLlocal1(ret);
-	unsigned long store_mfn;
-	unsigned long c_image_size;
-	int r;
-
-	c_image_size = Nativeint_val(image_size);
-
-	caml_enter_blocking_section ();
-	r = xc_hvm_build_mem(_H(xc_handle), _D(domid), Int_val(mem_max_mib),
-	                     String_val(image_buffer), c_image_size);
-	caml_leave_blocking_section ();
-
-	if (r)
-		failwith_oss_xc("xc_hvm_build_mem");
-
-	r = hvm_build_set_params(_H(xc_handle), _D(domid), Int_val(vcpus),
-	                         Int_val(store_evtchn), &store_mfn);
-	if (r)
-		failwith_oss_xc("hvm_build_params");
-
-	ret = caml_copy_nativeint(store_mfn);
-	CAMLreturn(ret);
-}
-
-CAMLprim value stub_xc_hvm_build_mem_bytecode(value * argv, int argn)
-{
-	return stub_xc_hvm_build_mem_native(argv[0], argv[1], argv[2], argv[3],
-	                                    argv[4], argv[5], argv[6]);
-}
-
 extern void qemu_flip_buffer(int domid, int next_active);
 extern void * init_qemu_maps(int domid, unsigned int bitmap_size);
 
