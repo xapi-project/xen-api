@@ -55,6 +55,8 @@
 struct flags {
   int vcpus;
   uint64_t vcpu_affinity; /* 0 means unset */
+  uint16_t vcpu_weight;   /* 0 means unset (0 is an illegal weight) */
+  uint16_t vcpu_cap;      /* 0 is default (no cap) */
   int nx;
   int viridian;
   int pae;
@@ -117,6 +119,8 @@ get_flags(struct flags *f, int domid)
 {
   f->vcpus    = xenstore_get("vcpu/number",domid);
   f->vcpu_affinity = xenstore_get("vcpu/affinity",domid);
+  f->vcpu_weight = xenstore_get("vcpu/weight", domid);
+  f->vcpu_cap = xenstore_get("vcpu/cap", domid);
   f->nx       = xenstore_get("nx",domid);
   f->viridian = xenstore_get("viridian",domid);
   f->apic     = xenstore_get("apic",domid);
@@ -127,8 +131,8 @@ get_flags(struct flags *f, int domid)
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/affinity:%Ld nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-	 f->vcpus,f->vcpu_affinity, f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/affinity:%Ld vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
+	 f->vcpus,f->vcpu_affinity,f->vcpu_weight,f->vcpu_cap, f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
   closelog();
   
 }
@@ -186,6 +190,7 @@ CAMLprim value stub_xenguest_close(value xenguest_handle)
 extern struct xc_dom_image *xc_dom_allocate(const char *cmdline, const char *features);
 
 static void configure_vcpus(int handle, int domid, struct flags f){
+  struct xen_domctl_sched_credit sdom;
   int i, r;
   if (f.vcpu_affinity != 0L){ /* 0L means unset */
     for (i=0; i<f.vcpus; i++){
@@ -193,7 +198,15 @@ static void configure_vcpus(int handle, int domid, struct flags f){
       if (r)
 	failwith_oss_xc("xc_vcpu_setaffinity");
     }
-  }
+  };
+  r = xc_sched_credit_domain_get(handle, domid, &sdom);
+  if (r)
+    failwith_oss_xc("xc_sched_credit_domain_get");
+  if (f.vcpu_weight != 0L) sdom.weight = f.vcpu_weight;
+  if (f.vcpu_cap != 0L) sdom.cap = f.vcpu_cap;
+  r = xc_sched_credit_domain_set(handle, domid, &sdom);
+  if (r)
+    failwith_oss_xc("xc_sched_credit_domain_set");
 }
 
 CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
