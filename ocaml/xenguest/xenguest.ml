@@ -33,11 +33,6 @@ external hvm_build : handle -> domid -> int -> int -> string ->
                      int -> int -> nativeint
 	= "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
 
-(** build a hvm domain from memory *)
-external hvm_build_mem : handle -> domid -> int -> string -> nativeint
-                      -> int -> int -> nativeint
-       = "stub_xc_hvm_build_mem_bytecode" "stub_xc_hvm_build_mem_native"
-
 (** resume an uncooperative domain *)
 external domain_resume_slow : handle -> domid -> unit
                             = "stub_xc_domain_resume_slow"
