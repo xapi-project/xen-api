@@ -54,6 +54,7 @@
    is considered true is the string 'true' */
 struct flags {
   int vcpus;
+  uint64_t vcpu_affinity; /* 0 means unset */
   int nx;
   int viridian;
   int pae;
@@ -115,6 +116,7 @@ static void
 get_flags(struct flags *f, int domid) 
 {
   f->vcpus    = xenstore_get("vcpu/number",domid);
+  f->vcpu_affinity = xenstore_get("vcpu/affinity",domid);
   f->nx       = xenstore_get("nx",domid);
   f->viridian = xenstore_get("viridian",domid);
   f->apic     = xenstore_get("apic",domid);
@@ -125,8 +127,8 @@ get_flags(struct flags *f, int domid)
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-	 f->vcpus,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/affinity:%Ld nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
+	 f->vcpus,f->vcpu_affinity, f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
   closelog();
   
 }
@@ -183,6 +185,16 @@ CAMLprim value stub_xenguest_close(value xenguest_handle)
 
 extern struct xc_dom_image *xc_dom_allocate(const char *cmdline, const char *features);
 
+static void configure_vcpus(int handle, int domid, struct flags f){
+  int i, r;
+  if (f.vcpu_affinity != 0L){ /* 0L means unset */
+    for (i=0; i<f.vcpus; i++){
+      r = xc_vcpu_setaffinity(handle, domid, i, f.vcpu_affinity);
+      if (r)
+	failwith_oss_xc("xc_vcpu_setaffinity");
+    }
+  }
+}
 
 CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
                                           value mem_max_mib, value mem_start_mib,
@@ -212,10 +224,15 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 	unsigned int c_store_evtchn = Int_val(store_evtchn);
 	unsigned int c_console_evtchn = Int_val(console_evtchn);
 
+	struct flags f;
+	get_flags(&f,c_domid);
+
 	xc_dom_loginit();
 	dom = xc_dom_allocate(String_val(cmdline), String_val(features));
 	if (!dom)
 		failwith_oss_xc("xc_dom_allocate");
+
+	configure_vcpus(c_xc_handle, c_domid, f);
 
 	caml_enter_blocking_section();
 	r = xc_dom_linux_build(c_xc_handle, dom, c_domid, c_mem_start_mib,
@@ -253,14 +270,12 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 }
 
 static int hvm_build_set_params(int handle, int domid,
-                                int store_evtchn, unsigned long *store_mfn)
+                                int store_evtchn, unsigned long *store_mfn,
+				struct flags f)
 {
 	struct hvm_info_table *va_hvm;
 	uint8_t *va_map, sum;
 	int i;
-
-	struct flags f;
-	get_flags(&f,domid);
 
 	va_map = xc_map_foreign_range(handle, domid,
 			    XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
@@ -305,6 +320,10 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 
 	unsigned long store_mfn=0;
 	int r;
+	struct flags f;
+	get_flags(&f, _D(domid));
+
+	configure_vcpus(_H(xc_handle), _D(domid), f);
 
 	caml_enter_blocking_section ();
 	r = xc_hvm_build_target_mem(_H(xc_handle), _D(domid),
@@ -320,7 +339,7 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 
 
 	r = hvm_build_set_params(_H(xc_handle), _D(domid),
-				 Int_val(store_evtchn), &store_mfn);
+				 Int_val(store_evtchn), &store_mfn, f);
 	if (r)
 		failwith_oss_xc("hvm_build_params");
 
