@@ -81,7 +81,7 @@ let with_session ~local rpc u p session f =
       | false, None -> 
 	  Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Xapi_globs.api_version_string, true
       | true, None ->
-	  Client.Client.Session.slave_local_login ~rpc ~psecret:(!Xapi_globs.pool_secret), true
+	  Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u ~pwd:p, true
       | _, Some session -> session, false in
   let do_logout () =
     if logout then begin
