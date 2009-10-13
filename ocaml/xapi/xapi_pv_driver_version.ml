@@ -59,7 +59,7 @@ let get_latest_tools_vsn () =
   Xapi_globs.tools_version := latest;
 
 (** Represents the detected PV driver version *)
-type version = 
+type t = 
   | Linux of int * int * int * int
   | Windows of int * int * int * int
   | Unknown
@@ -94,6 +94,8 @@ let compare_vsn_with_product_vsn (pv_maj,pv_min,pv_mic) =
 let compare_vsn_with_tools_iso pv_vsn = 
   (* XXX: consolidate with create_templates code and the function above *)
   compare_vsn pv_vsn !Xapi_globs.tools_version
+
+let has_pv_drivers x = x <> Unknown
      
 (** Returns true if the PV drivers are up to date *)
 let is_up_to_date = function

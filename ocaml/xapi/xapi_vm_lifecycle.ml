@@ -126,7 +126,7 @@ let is_rhel3 gmr =
 let check_drivers ~vmr ~vmgmr ~op ~ref =
 	let has_booted_hvm = Helpers.has_booted_hvm_of_record vmr in
 	let pv_drivers = of_guest_metrics vmgmr in
-	let has_pv_drivers = pv_drivers <> Unknown in
+	let has_pv_drivers = has_pv_drivers pv_drivers in
 
 	(* FIXME: need to update the code for is_of_for_nigrate *)
 	let has_good_drivers =
