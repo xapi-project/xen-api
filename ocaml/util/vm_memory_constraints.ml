@@ -13,9 +13,9 @@
  *)
 module type T = sig
 
-	(** Represents a set of memory constraints for a virtual machine. Constraints  *)
-	(** are in valid order if (and only if) they satisfy the following inequality: *)
-	(** static_min <= dynamic_min <= target <= dynamic_max <= static_max           *)
+	(** Represents a set of memory constraints for a guest. Constraints are
+	in valid order if (and only if) they satisfy the following inequality:
+	static_min <= dynamic_min <= dynamic_max <= static_max *)
 	type t =
 	{
 		static_min  : Int64.t;
@@ -49,9 +49,8 @@ module type T = sig
 	(**                                                                   *)
 	val transform : constraints:t -> t option
 
-	(** Returns true if and only if the given memory constraints are in  *)
-	(** valid order such that:                                           *)
-	(** static_min <= dynamic_min <= target <= dynamic_max <= static_max *)
+	(** Returns true if and only if the given memory constraints are in valid
+	order such that: static_min <= dynamic_min <= dynamic_max <= static_max *)
 	val valid : constraints:t -> bool
 
 	(** Takes the given set of possibly-invalid memory constraints {i s},
@@ -114,7 +113,6 @@ module Vm_memory_constraints : T = struct
 		Listext.List.is_sorted compare [
 			constraints.static_min;
 			constraints.dynamic_min;
-			constraints.target;
 			constraints.dynamic_max;
 			constraints.static_max
 		]
