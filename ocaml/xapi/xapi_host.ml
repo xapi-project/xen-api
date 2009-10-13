@@ -226,7 +226,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
      than necessary by demanding the most recent PV drivers are installed and not just 'migration capable' ones.
      This simplifies the test matrix. *)
   List.iter (fun (vm, record) ->
-	       match Xapi_pv_driver_version.up_to_date_error ~__context ~vm ~self:record.API.vM_guest_metrics with
+	       let vm_gm = record.API.vM_guest_metrics in
+	       let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
+	       match Xapi_pv_driver_version.up_to_date_error_of_version (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
 	       | Some (code, params) -> Hashtbl.replace plans vm (Error (code, params))
 	       | None -> ()) all_user_vms;
 

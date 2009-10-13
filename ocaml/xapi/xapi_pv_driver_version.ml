@@ -128,10 +128,7 @@ let of_drivers_version drivers_version =
     if is_windows then Windows(major, minor, micro, build) else Linux(major, minor, micro, build)
   with _ -> Unknown
 
-let of_guest_metrics ~__context ~self = 
-    try of_drivers_version (Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self) with _ -> Unknown
-
-let of_guest_metrics_db_record_option gmr =
+let of_guest_metrics gmr =
   match gmr with 
     | Some gmr -> of_drivers_version gmr.Db_actions.vM_guest_metrics_PV_drivers_version
     | None -> Unknown
