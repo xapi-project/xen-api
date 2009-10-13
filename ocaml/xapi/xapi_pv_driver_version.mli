@@ -30,8 +30,8 @@ val is_ok_for_migrate: t -> bool
 (** [is_ok_for_migrate x] returns true if this VM should be allowed to migrate
     (generally we want to allow this for rolling upgrade) *)
 
-val make_error_opt: t -> API.ref_VM -> API.ref_VM_guest_metrics -> (string * string list) option
-(** [make_error_opt x] returns None if the operation should not be 
+val up_to_date_error_of_version: t -> API.ref_VM -> API.ref_VM_guest_metrics -> (string * string list) option
+(** [up_to_date_error_of_version x] returns None if the operation should not be 
     blocked because of the PV driver versions and Some(code, params) otherwise.
     Note that we are conservative and block everything (except migrate see [is_ok_for_migrate]) 
     when the PV drivers are not the most recent version. *)
