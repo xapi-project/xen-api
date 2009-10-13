@@ -189,6 +189,8 @@ let cancel ~__context =
 		assert_can_destroy ~__context self;
 		let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
 		if status = `pending then begin
+			Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
+			Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
 			Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled;
 			Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
 		end else

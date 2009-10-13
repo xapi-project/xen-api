@@ -140,7 +140,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 			in
 			((vbd,newvdi)::acc, (Int64.add done_so_far size))
 		with e ->
-			debug "Error in safe_clone_disks";
+			debug "Error in safe_clone_disks: %s" (Printexc.to_string e);
 			delete_disks rpc session_id acc; (* Delete those cloned so far *)
 			raise e
 	in
