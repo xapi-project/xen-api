@@ -155,60 +155,6 @@ let set_cpus_number ~__context ~xs ~self domid snapshot =
 	);
 	Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int target)
 
-(* Called on both VM.start and VM.resume codepaths to set cpus weight and cap *)
-let set_cpus_qos ~__context ~xc ~self domid snapshot =
-        let weight_param = "weight" in
-        let cap_param = "cap" in
-        let params = snapshot.API.vM_VCPUs_params in
-	let alert reason = warn "cpu qos failed: %s" reason in
-
-	let rstr = Restrictions.get () in
-        if rstr.Restrictions.enable_qos then begin
-	  let set_cap cap =
-		let ctrl = Xc.sched_credit_domain_get xc domid in
-		let newctrl = { ctrl with Xc.cap = cap } in
-		Xc.sched_credit_domain_set xc domid newctrl
-		in
-	  let set_weight weight =
-		let ctrl = Xc.sched_credit_domain_get xc domid in
-		let newctrl = { ctrl with Xc.weight = weight } in
-		Xc.sched_credit_domain_set xc domid newctrl
-		in
-	  let set_control_full weight cap =
-		let ctrl = { Xc.weight = weight; Xc.cap = cap } in
-		Xc.sched_credit_domain_set xc domid ctrl
-		in
-	  let set_credit_policy weight cap =
-		match weight, cap with
-		| None, None     -> alert "no parameter set, ignoring"
-		| Some w, None   -> set_weight w
-		| None, Some c   -> set_cap c
-		| Some w, Some c -> set_control_full w c
-		in
-	  match Xc.sched_id xc with
-	  | 5 -> (
-		try
-			let weight =
-				try Some (int_of_string (List.assoc weight_param params))
-				with _ -> None
-			and cap =
-				try Some (int_of_string (List.assoc cap_param params))
-				with _ -> None in
-			set_credit_policy weight cap
-		with exn ->
-			alert (ExnHelper.string_of_exn exn);
-	      )
-	  | _           ->
-	  	alert "scheduler and policy mismatch";
-	end
-	else begin
-	  (* Here we log the fact that we're ignoring this QoS stuff *)
-	  if (List.mem_assoc weight_param params) || (List.mem_assoc cap_param params) then (
-	    L.info "Ignoring CPU QoS params due to license restrictions";
-	    alert "license restrictions";
-	  )
-	end
-
 let write_memory_policy ~xs snapshot domid = 
 	Domain.set_memory_dynamic_range ~xs 
 		~min:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_min 1024L))
@@ -354,8 +300,22 @@ let vcpu_configuration snapshot =
   let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
   let affinity = Opt.map (fun int64 -> [ "vcpu/affinity", Int64.to_string int64 ]) bitmap in
 
-  ("vcpu/number", string_of_int vcpus)::
-    (Opt.default [] affinity)
+  (* scheduler parameters: weight and cap *)
+  let weight = try Some (List.assoc "weight" snapshot.API.vM_VCPUs_params) with _ -> None in
+  let cap = try Some (List.assoc "cap" snapshot.API.vM_VCPUs_params) with _ -> None in
+  if weight <> None && not enabled
+  then warn "vCPU weight is configured but is restricted.";
+  if cap <> None && not enabled
+  then warn "vCPU cap is configured but is restricted.";
+  let weight = try Opt.map int_of_string weight with _ -> warn "Failed to parse vCPU weight"; None in
+  let cap = try Opt.map int_of_string cap with _ -> warn "Failed to parse vCPU cap"; None in
+  let weight = Opt.map (fun x -> [ "vcpu/weight", string_of_int x ]) weight in
+  let cap = Opt.map (fun x -> [ "vcpu/cap", string_of_int x ]) cap in
+
+  [ "vcpu/number", string_of_int vcpus ]
+  @ (Opt.default [] affinity)
+  @ (Opt.default [] weight)
+  @ (Opt.default [] cap)
 
 
 (* create an empty domain *)
@@ -708,8 +668,7 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	
 	debug "setting current number of vcpus to %Ld (out of %Ld)" 
 	  at_boot_time.API.vM_VCPUs_at_startup at_boot_time.API.vM_VCPUs_max;
-	set_cpus_number ~__context ~xs ~self domid at_boot_time;
-	set_cpus_qos ~__context ~xc ~self domid at_boot_time
+	set_cpus_number ~__context ~xs ~self domid at_boot_time
 
 (* restore the domain, assumes the devices are already set up *)
 let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domid vifs =
@@ -1060,9 +1019,6 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     debug "adjusting CPU number against startup-number";
 			     set_cpus_number ~__context ~xs ~self:vm domid snapshot;
 			     progress_cb 0.80;
-			     debug "settings CPUs qos";
-			     set_cpus_qos ~__context ~xc ~self:vm domid snapshot;
-			     progress_cb 0.90;
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
 			     create_console ~__context ~vM:vm ~vncport ();
