@@ -840,13 +840,6 @@ let allowed_VIF_devices ~__context ~vm =
   let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
   List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
-
-let delete_guest_metrics ~__context ~self:vm =
-	(* Delete potentially stale guest metrics object *)
-	let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-	Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
-	(try Db.VM_guest_metrics.destroy ~__context ~self:guest_metrics with _ -> ())
-
 let copy_guest_metrics ~__context ~vm =
 	try
 		let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
