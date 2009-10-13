@@ -144,9 +144,3 @@ let up_to_date_error_of_version version vm self =
 	if is_up_to_date x 
 	then None
 	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of self; string_of_int major; string_of_int minor; string_of_int micro])
-
-let up_to_date_error ~__context ~vm ~self =
-  up_to_date_error_of_version (of_guest_metrics ~__context ~self) vm self
-
-let up_to_date_error_of_record_option ~gmropt ~vm ~self =
-  up_to_date_error_of_version (of_guest_metrics_db_record_option gmropt) vm self
