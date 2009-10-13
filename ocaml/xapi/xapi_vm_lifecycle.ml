@@ -148,7 +148,7 @@ let check_drivers ~vmr ~vmgmr ~op ~ref =
 	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for SMP RHEL 3 linux guests" ])
 	else if has_good_drivers
 	then None
-	else up_to_date_error_of_version pv_drivers ref vmr.Db_actions.vM_guest_metrics
+	else make_error_opt pv_drivers ref vmr.Db_actions.vM_guest_metrics
 
 let need_pv_drivers_check ~power_state ~op =
 	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
