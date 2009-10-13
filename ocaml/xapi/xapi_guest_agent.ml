@@ -216,7 +216,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 
 	  (* Update the 'up to date' flag afterwards *)
 	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
-	  let up_to_date = Xapi_pv_driver_version.is_up_to_date (Xapi_pv_driver_version.of_guest_metrics (Some gmr)) in
+	  let up_to_date = Xapi_pv_driver_version.is_up_to_date (Xapi_pv_driver_version.of_vm 0. (Some gmr)) in
 	  Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:up_to_date;
 
 	  (* CA-18034: If viridian flag isn't in there and we have current PV drivers then shove it in the metadata for next boot... *)
