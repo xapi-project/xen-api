@@ -209,50 +209,6 @@ let set_cpus_qos ~__context ~xc ~self domid snapshot =
 	  )
 	end
 
-(* Called on both VM.start and VM.resume codepaths to pin vcpus *)
-let set_cpus_mask_norestrictions ~__context ~xc ~self domid snapshot mask =
-	let max_vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
-	let all_cpu_affinity_set ~xc domid cpumap =
-		for cpu = 0 to max_vcpus - 1
-		do
-			try
-				Domain.vcpu_affinity_set ~xc domid cpu cpumap
-			with exn ->
-				warn "setting cpu mask: setting vcpu on cpu %d failed: %s"
-				     cpu (ExnHelper.string_of_exn exn)
-		done
-		in
-
-	try
-		let cpus = List.map int_of_string (String.split ',' mask) in
-		let cpumap = Array.make 64 false in
-		List.iter (fun i ->
-			if i >= 64 || i < 0 then
-				warn "setting cpu mask: ignoring cpu %d -- valid value is between 0 and 64" i
-			else
-				cpumap.(i) <- true) cpus;
-		all_cpu_affinity_set ~xc domid cpumap
-	with exn ->
-		warn "setting cpu mask failed: %s" (ExnHelper.string_of_exn exn)
-
-(* Called on both VM.start and VM.resume codepaths to pin vcpus *)
-let set_cpus_mask ~__context ~xc ~self domid snapshot =
-	let params = snapshot.API.vM_VCPUs_params in
-	let mask = try Some (List.assoc "mask" params) with _ -> None in
-
-	let rstr = Restrictions.get () in
-	if rstr.Restrictions.enable_qos then (
-		match mask with
-		| None      -> ()
-		| Some mask ->
-			set_cpus_mask_norestrictions ~__context ~xc ~self
-			                             domid snapshot mask
-	) else (
-		match mask with
-		| Some _ -> L.info "Ignoring CPU mask setting due to license restriction"
-		| None -> ()
-	)
-
 let write_memory_policy ~xs snapshot domid = 
 	Domain.set_memory_dynamic_range ~xs 
 		~min:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_min 1024L))
@@ -382,8 +338,24 @@ let general_domain_create_check ~__context ~vm ~snapshot =
     key/value pairs representing the VM's vCPU configuration. *)
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
-  [ "vcpu/number", string_of_int vcpus ]
-  
+
+  (* vcpu <-> pcpu affinity settings are stored here: *)
+  let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
+  let enabled = (Restrictions.get ()).Restrictions.enable_qos in
+  if mask <> None && not enabled
+  then warn "vCPU affinity is configured but is restricted.";
+  let mask = if enabled then mask else None in
+  (* convert the mask into a bitmap, one bit per pCPU *)
+  let bitmap string = 
+    let cpus = List.map int_of_string (String.split ',' string) in
+    let cpus = List.filter (fun x -> x >= 0 && x <= 63) cpus in
+    let bits = List.map (Int64.shift_left 1L) cpus in
+    List.fold_left Int64.logor 0L bits in
+  let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
+  let affinity = Opt.map (fun int64 -> [ "vcpu/affinity", Int64.to_string int64 ]) bitmap in
+
+  ("vcpu/number", string_of_int vcpus)::
+    (Opt.default [] affinity)
 
 
 (* create an empty domain *)
@@ -737,8 +709,7 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	debug "setting current number of vcpus to %Ld (out of %Ld)" 
 	  at_boot_time.API.vM_VCPUs_at_startup at_boot_time.API.vM_VCPUs_max;
 	set_cpus_number ~__context ~xs ~self domid at_boot_time;
-	set_cpus_qos ~__context ~xc ~self domid at_boot_time;
-	set_cpus_mask ~__context ~xc ~self domid at_boot_time
+	set_cpus_qos ~__context ~xc ~self domid at_boot_time
 
 (* restore the domain, assumes the devices are already set up *)
 let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domid vifs =
@@ -1092,9 +1063,6 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     debug "settings CPUs qos";
 			     set_cpus_qos ~__context ~xc ~self:vm domid snapshot;
 			     progress_cb 0.90;
-			     debug "settings CPUs mask";
-			     set_cpus_mask ~__context ~xc ~self:vm domid snapshot;
-			     progress_cb 0.95;
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
 			     create_console ~__context ~vM:vm ~vncport ();
