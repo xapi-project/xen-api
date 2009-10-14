@@ -2866,6 +2866,9 @@ let vm_import fd printer rpc session_id params =
 	      marshal fd (Command (Debug ("Caught exception: " ^ (Printexc.to_string e))));
 	      marshal fd (Command (PrintStderr "Failed to import directory-format XVA"));
 	      debug "Import failed with exception: %s" (Printexc.to_string e);
+	      (if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0)) 
+	        then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.import_error_generic,[(Printexc.to_string e)])
+	      );
 	      raise (ExitWithError 2)
 	  end
 	end) 
