@@ -20,6 +20,10 @@ open D
 exception Unknown_extauth_type of string
 exception Extauth_is_disabled
 
+let auth_type_NONE = ""
+let auth_type_AD_Likewise = "AD"
+let auth_type_PAM = "PAM"
+
 module Ext_auth =
 struct
 
