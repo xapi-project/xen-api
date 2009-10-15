@@ -24,6 +24,10 @@ val set_license_params :
   __context:Context.t ->
   self:[ `host ] Ref.t -> value:(string * string) list -> unit
   
+val set_power_on_mode :
+  __context:Context.t ->
+  self:[ `host ] Ref.t -> power_on_mode: string -> power_on_config:(string * string) list -> unit
+  
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
     + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
     + HA is enabled and this host has broken storage or networking which would cause protected VMs

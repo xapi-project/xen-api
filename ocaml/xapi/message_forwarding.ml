@@ -1677,6 +1677,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "Host.destroy: host = '%s'" (host_uuid __context self);
       Local.Host.destroy ~__context ~self
+      
+    let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
+      info "Host.set_power_on_mode: host = '%s'; power_on_mode = '%s' ; power_on_config = [ %s ]" 
+      (host_uuid ~__context self) power_on_mode (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) power_on_config));
+      Local.Host.set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config
     
     let set_license_params ~__context ~self ~value = 
       info "Host.set_license_params: host = '%s'; license_params = [ %s ]" (host_uuid ~__context self) (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) value));
