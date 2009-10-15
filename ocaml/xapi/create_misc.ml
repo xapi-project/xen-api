@@ -402,6 +402,8 @@ let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabili
 			~external_auth_configuration:[]
 			~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
                         ~bios_strings:[]
+           ~power_on_mode:""
+           ~power_on_config:[]
 		;
 		ref
 	    | Some ref -> ref in

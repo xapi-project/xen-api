@@ -35,6 +35,13 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
 let set_license_params ~__context ~self ~value = 
   Db.Host.set_license_params ~__context ~self ~value;
   Restrictions.update_pool_restrictions ~__context
+  
+let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
+  Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
+  let current_config=Db.Host.get_power_on_config ~__context ~self in
+  Db.Host.set_power_on_config ~__context ~self ~value:power_on_config;
+  Xapi_secret.clean_out_passwds ~__context current_config
+    
 
 let assert_safe_to_reenable ~__context ~self =
     let host_disabled_until_reboot = try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false in
@@ -608,6 +615,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
       ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
       ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~edition ~license_server ~bios_strings:[]
+	~power_on_mode:"" ~power_on_config:[]
   in
     ref
 
