@@ -914,6 +914,9 @@ let host_record rpc session_id host =
       ~get_map:(fun () -> (x ()).API.host_external_auth_configuration) ();
     make_field ~name:"edition" ~get:(fun () -> (x ()).API.host_edition) ();
     make_field ~name:"license-server" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_license_server) ~get_map:(fun () -> (x ()).API.host_license_server) ();
+    make_field ~name:"power-on-mode" ~get:(fun () -> (x ()).API.host_power_on_mode) ();
+    make_field ~name:"power-on-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_power_on_config)
+      ~get_map:(fun () -> (x ()).API.host_power_on_config) ();
   ]}
 
 let vdi_record rpc session_id vdi =
