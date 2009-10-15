@@ -787,7 +787,22 @@ let get_system_status_capabilities ~__context ~host =
 
 let get_diagnostic_timing_stats ~__context ~host = Stats.summarise ()
 
+
+(* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
+(* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
+(* because the extauth-hook script expects the auth_type, service_name etc to be constant throughout its execution *)
+(* This mutex also serializes the execution of the plugin, to avoid concurrency problems when updating the sshd configuration *)
+let serialize_host_enable_disable_extauth = Mutex.create()
+
+
 let set_hostname_live ~__context ~host ~hostname =
+  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
+	let current_auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
+  (* the AD/Likewise extauth plugin is incompatible with a hostname change *)
+  (if current_auth_type = Extauth.auth_type_AD_Likewise then
+		let current_service_name = Db.Host.get_external_auth_service_name ~__context ~self:host in
+		raise (Api_errors.Server_error(Api_errors.auth_already_enabled, [current_auth_type;current_service_name]))
+	);
   (* hostname is valid if contains only alpha, decimals, and hyphen
      (for hyphens, only in middle position) *)
   let is_invalid_hostname hostname =
@@ -817,6 +832,7 @@ let set_hostname_live ~__context ~host ~hostname =
     raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
   ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/set-hostname" [hostname]);
   Db.Host.set_hostname ~__context ~self:host ~value:hostname
+  )
 
 let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode
@@ -844,11 +860,6 @@ let create_new_blob ~__context ~host ~name ~mime_type =
   Db.Host.add_to_blobs ~__context ~self:host ~key:name ~value:blob;
   blob
 
-(* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
-(* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
-(* because the extauth-hook script expects the auth_type, service_name etc to be constant throughout its execution *)
-(* This mutex also serializes the execution of the plugin, to avoid concurrency problems when updating the sshd configuration *)
-let serialize_host_enable_disable_extauth = Mutex.create()
 let extauth_hook_script_name = Extauth.extauth_hook_script_name
 (* this special extauth plugin call is only used inside host.enable/disable extauth to avoid deadlock with the mutex *)
 let call_extauth_plugin_nomutex ~__context ~host ~fn ~args =
