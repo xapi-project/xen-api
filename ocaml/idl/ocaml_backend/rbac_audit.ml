@@ -195,10 +195,15 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 	| None -> []
 	| Some (str_names,xml_values) -> 
 	begin
-(*
-	D.debug "str_names=%s " ((List.fold_left (fun ss s->ss^s^",") "" str_names));
-	D.debug "xml_values=%s" ((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" xml_values));
-*)
+	if (List.length str_names) <> (List.length xml_values)
+	then
+		( (* debug mode *)
+		D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match" action;
+		D.debug "str_names=[%s]" ((List.fold_left (fun ss s->ss^s^",") "" str_names));
+		D.debug "xml_values=[%s]" ((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" xml_values));
+		[]
+		)
+	else
 	List.fold_left2
 		(fun (params:SExpr.t list) str_name xml_value ->
 			if str_name = "session_id" 
@@ -292,7 +297,7 @@ let has_to_audit action =
 let wrap fn =
 	try fn () 
 	with e -> (* never bubble up the error here *) 
-		D.debug "error %s" (ExnHelper.string_of_exn e)
+		D.debug "ignoring %s" (ExnHelper.string_of_exn e)
 
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args action =
   let result_error = 
