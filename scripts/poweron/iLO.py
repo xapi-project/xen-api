@@ -1,16 +1,4 @@
-import sys,M2Crypto, XenAPI, XenAPIPlugin
-
-
-class ILO_CONNECTION_ERROR(Exception):
-    """Base Exception class for all transfer plugin errors."""
-    def __init__(self, *args):
-        Exception.__init__(self, *args)
-		
-class ILO_POWERON_FAILED(Exception):
-    """Base Exception class for all transfer plugin errors."""
-    def __init__(self, *args):
-        Exception.__init__(self, *args)
-
+import sys,M2Crypto 
 
 def getXmlWithLogin(user, password):
     
@@ -23,30 +11,29 @@ def getXmlWithLogin(user, password):
 
 
 def iLO(power_on_ip, user, password):
-	xmlWithlogin=getXmlWithLogin(user,password)+'\r\n'      
-	
-	''' Send and receive '''
-	ctx = M2Crypto.SSL.Context()
-	ctx.set_session_timeout(500)
-	s = M2Crypto.SSL.Connection(ctx)
-	s.set_post_connection_check_callback(None)
-	totalmsg=''
-	try:
-		s.connect((power_on_ip,443))
-		written=s.sendall(xmlWithlogin)
-		msg=s.read()
-		totalmsg=msg
-		while(len(msg)):
-			msg=s.read()
-			totalmsg+=msg
-	except:
-		s.close()
-		raise ILO_CONNECTION_ERROR()
-	'''Check that the server replies with no authentication error'''
-	if len(totalmsg)>0 and totalmsg.find('STATUS="0x000A"')==-1:
-		return str(True)
-	else:
-		raise ILO_POWERON_FAILED()
+  
+        xmlWithlogin=getXmlWithLogin(user,password)+'\r\n'      
+    
+        ''' Send and receive '''
+        ctx = M2Crypto.SSL.Context()
+        ctx.set_session_timeout(500)
+        s = M2Crypto.SSL.Connection(ctx)
+        totalmsg=''
+        try:
+            s.connect((power_on_ip,443))
+            written=s.sendall(xmlWithlogin)
+            msg=s.read()
+            totalmsg=msg
+            while(len(msg)):
+                msg=s.read()
+                totalmsg+=msg
+        finally:
+            s.close()
+            '''Check that the server replies with no authentication error'''
+            if len(totalmsg)>0 and totalmsg.find('STATUS="0x000A"')==-1:
+                return str(True)
+            else:
+                return str(False)
     
 def main():
     if len(sys.argv)<3:

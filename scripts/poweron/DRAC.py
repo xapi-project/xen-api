@@ -1,14 +1,4 @@
-import subprocess, sys, os.path
-
-class DRAC_NO_SUPP_PACK(Exception):
-    """Base Exception class for all transfer plugin errors."""
-    def __init__(self, *args):
-        Exception.__init__(self, *args)
-        
-class DRAC_POWERON_FAILED(Exception):
-    """Base Exception class for all transfer plugin errors."""
-    def __init__(self, *args):
-        Exception.__init__(self, *args)
+import subprocess, sys
 
 def run2(command):
    run = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -18,16 +8,14 @@ def run2(command):
 
    return run.returncode, out, err
 
-drac_path='/opt/dell/srvadmin/sbin/racadm'
+drac_path='/usr/sbin/racadm'
 def DRAC( power_on_ip, user, password):
-    if( not os.path.exists(drac_path)):
-        raise DRAC_NO_SUPP_PACK()
     cmd='%s -r %s -u %s -p %s serveraction powerup' % (drac_path, power_on_ip, user, password)
     retcode,out,err=run2(cmd)
     if(len(err)==0):
         return str(True)
     else:
-        raise DRAC_POWERON_FAILED()
+        return str(False)
     
 
 

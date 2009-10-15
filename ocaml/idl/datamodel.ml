@@ -3381,6 +3381,22 @@ let host_apply_edition = call ~flags:[`Session]
   ]
   ~allowed_roles:_R_POOL_OP
   ()
+ 
+  
+let host_set_power_on_mode = call
+  ~name:"set_power_on_mode"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Set the power-on-mode, host, user and password "
+  ~params:[ 
+    Ref _host, "self", "The host";
+    String, "power_on_mode", "power-on-mode can be empty,iLO,wake-on-lan, DRAC or other";
+    Map(String, String), "power_on_config", "Power on config";
+          ]
+  ~allowed_roles:_R_POOL_OP
+  ()
+  
+  
+  
 
 (** Hosts *)
 let host =
@@ -3450,6 +3466,7 @@ let host =
 		 host_set_localdb_key;
 		 host_apply_edition;
 		 host_refresh_pack_info;
+		 host_set_power_on_mode;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3487,7 +3504,10 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "external_auth_configuration" "configuration specific to external authentication service";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "XenServer edition";
 	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
-        field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
+    field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~ty:String "power_on_mode" "The power on mode";  
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~ty:(Map(String, String)) "power_on_config" "The power on config";
+
  ])
 	()
 
