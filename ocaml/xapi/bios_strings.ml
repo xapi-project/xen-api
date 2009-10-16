@@ -39,17 +39,18 @@ let get_oem_strings () =
 	let standard = Xapi_globs.standard_type11_strings in
 	try
 		let result, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-t11"; "-q"] in
-		let result = trim (remove_invisible result) in
 		let n = List.length standard in
 		let rec loop index a =
 			try
 				let b = String.index_from result a ':' in
 				let c = String.index_from result b '\n' in
-				let str = "oem-" ^ (string_of_int (index + n)) in
-				(str, String.sub result (b+2) (c-b-2)) :: loop (index+1) c
+				let str = "oem-" ^ (string_of_int index) in
+				let value = trim (remove_invisible (String.sub result (b+2) (c-b-2))) in
+				print_endline value;
+				(str, value) :: loop (index+1) c
 			with _ -> []
 		in
-		standard @ (loop 1 0)
+		standard @ (loop (n+1) 0)
 	with _ -> standard
 
 (* Get the HP-specific ROMBIOS OEM string:
