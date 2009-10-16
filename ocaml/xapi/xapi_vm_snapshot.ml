@@ -85,7 +85,11 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 			with _ ->
 				error "The snapshot has not been correctly created; did snapwatchd create a full VM snapshot?";
 				raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
-		let snapshot_ref = Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid in
+		let snapshot_ref =
+			try Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid
+			with _ ->
+				error "The snapshot UUID provided by snapwatchd is not a valid UUID.";
+				raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
 
 		Db.VM.set_transportable_snapshot_id ~__context ~self:snapshot_ref ~value:snapid;
 		Db.VM.set_name_label ~__context ~self:snapshot_ref ~value:new_name;
