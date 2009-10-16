@@ -1,4 +1,4 @@
-.SUBDIRS: examples templates host-backup-restore
+.SUBDIRS: examples templates host-backup-restore poweron
 
 .PHONY: install
 install:
