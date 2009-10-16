@@ -84,7 +84,33 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
     else None in
+	let task_id =
+		if List.mem_assoc "task_id" all
+		then Some (Ref.of_string (List.assoc "task_id" all))
+		else None
+	in
+	let rbac_raise permission msg =
+    (match task_id with
+			 | None -> ()
+			 | Some task_id ->
+					 TaskHelper.failed
+						 ~__context:(Context.from_forwarded_task task_id)
+						 (Api_errors.rbac_permission_denied,[permission;msg])
+    );
+    raise (Http.Forbidden)
+	in
 	let rbac_task_desc = "handler" in
+	let rbac_check session_id =
+    (try Rbac.check_with_new_task session_id http_permission ~fn
+       ~args:(rbac_audit_params_of req)
+       ~task_desc:rbac_task_desc
+     with 
+			 | Api_errors.Server_error (err,[perm;msg])
+				 when err = Api_errors.rbac_permission_denied
+				 -> rbac_raise perm msg
+			 | e -> rbac_raise http_permission (ExnHelper.string_of_exn e)
+		)
+	in
   if List.mem_assoc "session_id" all
   then
     (* Session ref has been passed in - check that it's OK *)
@@ -93,10 +119,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
         let session_id = (Ref.of_string (List.assoc "session_id" all)) in
         (try validate_session __context session_id realm;
          with _ -> raise (Http.Unauthorised realm));
-        (try Rbac.check_with_new_task session_id http_permission ~fn
-					 ~args:(rbac_audit_params_of req)
-					 ~task_desc:rbac_task_desc
-         with _ -> raise (Http.Forbidden));
+				rbac_check session_id;
       );
     end
   else
@@ -107,11 +130,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
     with _ -> raise (Http.Unauthorised realm)
     in
     Pervasiveext.finally
-      (fun ()->
-        (try Rbac.check_with_new_task session_id http_permission ~fn
-					 ~args:(rbac_audit_params_of req)
-					 ~task_desc:rbac_task_desc
-        with _ -> raise (Http.Forbidden)))
+      (fun ()-> rbac_check session_id)
       (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
   end
   else
@@ -124,11 +143,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 	    with _ -> raise (Http.Unauthorised realm)
 	    in
 	    Pervasiveext.finally
-	      (fun ()->
-	        (try Rbac.check_with_new_task session_id http_permission ~fn
-						 ~args:(rbac_audit_params_of req)
-						 ~task_desc:rbac_task_desc
-	         with _ -> raise (Http.Forbidden)))
+	      (fun ()-> rbac_check session_id)
 	      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
 	    end
 	| Some (Http.UnknownAuth x) ->
