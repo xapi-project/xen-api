@@ -39,8 +39,8 @@ module To = struct
 
   (* Write out a key/value pair *)
   let pair (output: Xmlm.output) (key: string) (v: string) = 
-    Xmlm.output_signal output (`S (make_tag "pair" [ "key", key; "value", v ]));
-    Xmlm.output_signal output `E 
+    Xmlm.output output (`El_start (make_tag "pair" [ "key", key; "value", v ]));
+    Xmlm.output output `El_end 
   (* Write out a string *)
   let string (output: Xmlm.output) (key: string) (x: string) = pair output key x
   (* Write out an int *)
@@ -52,20 +52,20 @@ module To = struct
   let table (output: Xmlm.output) name (tbl: table) = 
     let record rf (row: row) = 
       let (tag: Xmlm.tag) = make_tag "row" (("ref", rf) :: (fold_over_fields (fun k v acc -> (k, Xml_spaces.protect v) :: acc) row [])) in
-      Xmlm.output_signal output (`S tag);
-      Xmlm.output_signal output `E in
+      Xmlm.output output (`El_start tag);
+      Xmlm.output output `El_end in
     let tag = make_tag "table" [ "name", name ] in
-    Xmlm.output_signal output (`S tag);
+    Xmlm.output output (`El_start tag);
     (* we write a table entry whether or not the table persists, because populate happens to assume
        that all tables will be present. However, if the table is marked as "don't persist" then we
        don't write any row entries: *)
     if Db_backend.this_table_persists name then
       iter_over_rows record tbl;
-    Xmlm.output_signal output `E
+    Xmlm.output output `El_end
 	
   (* Write out a manifest *)
   let manifest (output: Xmlm.output) (manifest: db_dump_manifest) : unit = 
-    Xmlm.output_signal output (`S (make_tag "manifest" []));
+    Xmlm.output output (`El_start (make_tag "manifest" []));
     string output _installation_uuid manifest.installation_uuid;
     string output _control_domain_uuid manifest.control_domain_uuid;
     string output _pool_conf manifest.pool_conf;
@@ -78,18 +78,19 @@ module To = struct
     int    output _xapi_major_vsn manifest.xapi_major_vsn;
     int    output _xapi_minor_vsn manifest.xapi_minor_vsn;
     int64  output _generation_count manifest.generation_count;
-    Xmlm.output_signal output `E 
+    Xmlm.output output `El_end
 
   (* Write out a full database cache dump *)
   let cache (output: Xmlm.output) (m, cache) : unit =
-    Xmlm.output_signal output (`S (make_tag "database" []));
+    Xmlm.output output (`Dtd None);	
+    Xmlm.output output (`El_start (make_tag "database" []));
     manifest output m;
     iter_over_tables (table output) cache;
-    Xmlm.output_signal output `E
+    Xmlm.output output `El_end
 
   let fd (fd: Unix.file_descr) (m, c) : unit = 
     let oc = Unix.out_channel_of_descr fd in
-    cache (Xmlm.output_of_channel oc) (m, c);
+    cache (Xmlm.make_output (`Channel oc)) (m, c);
     flush oc
 
   let file (filename: string) (m, c) : unit = 
@@ -102,27 +103,45 @@ end
 module From = struct
 
   let cache (input: Xmlm.input) =
+    let tags = Stack.create () in
+    let maybe_return f accu =
+      if Xmlm.eoi input then begin
+        if Stack.is_empty tags then
+          accu
+        else
+          raise (Unmarshall_error "Unexpected end of file")
+      end else
+        f accu in
+    let rec f ((cache, table, manifest) as acc) = match Xmlm.input input with
     (* On reading a start tag... *)
-    let s (tag: Xmlm.tag) ((cache, table, manifest) as acc) = match tag with
-      | (_, ("database" | "manifest")), _ -> acc
+	| `El_start (tag: Xmlm.tag) ->
+      Stack.push tag tags;
+      begin match tag with
+      | (_, ("database" | "manifest")), _ -> f acc
       | (_, "table"), [ (_, "name"), _ ] ->
-	  cache, create_empty_table (), manifest
+	  f (cache, create_empty_table (), manifest)
       | (_, "row"), ((_, "ref"), rf) :: rest ->
 	  let row = create_empty_row () in
 	  List.iter (fun (("", k), v) -> set_field_in_row row k (Xml_spaces.unprotect v)) rest;
 	  set_row_in_table table rf row;
-	  acc
+	  f acc
       | (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
-	  (cache, table, (k, v) :: manifest)
-      | (_, name), _ -> raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name)) in
+	  f (cache, table, (k, v) :: manifest)
+      | (_, name), _ -> raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+      end
     (* On reading an end tag... *)
-    let e tag ((cache, table, manifest) as acc) = match tag with
-      | (_, ("database" | "manifest" | "row" | "pair")), _ -> acc
+    | `El_end ->
+      let tag = Stack.pop tags in
+      begin match tag with
+      | (_, ("database" | "manifest" | "row" | "pair")), _ -> maybe_return f acc
       | (_, "table"), [ (_, "name"), name ] ->
 	  set_table_in_cache cache name table;
-	  acc
-      | (_, name), _ -> raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name)) in
-    let (cache, _, manifest) = Xmlm.input ~s ~e (create_empty_cache (), create_empty_table (), []) input in
+	  maybe_return f acc
+      | (_, name), _ -> raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+      end
+    | _ -> f acc
+    in
+    let (cache, _, manifest) = f (create_empty_cache (), create_empty_table (), []) in
     (* Manifest is actually a record *)
     let manifest = { 
       installation_uuid = List.assoc _installation_uuid manifest;
@@ -143,11 +162,11 @@ module From = struct
   let file xml_filename =
     let input = open_in xml_filename in
     finally 
-      (fun () -> cache (Xmlm.input_of_channel input)) 
+      (fun () -> cache (Xmlm.make_input (`Channel input))) 
       (fun () -> close_in input) 
 
   let channel inchan =
-    cache (Xmlm.input_of_channel inchan)
+    cache (Xmlm.make_input (`Channel inchan))
 
 end
 

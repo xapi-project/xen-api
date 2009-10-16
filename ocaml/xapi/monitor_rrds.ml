@@ -311,7 +311,7 @@ let push_rrd ~__context uuid =
     let vm = Db.VM.get_by_uuid ~__context ~uuid in
     let host = Db.VM.get_resident_on ~__context ~self:vm in
     if host = Helpers.get_localhost ~__context then begin
-      let input = Xmlm.input_of_string body in
+      let input = Xmlm.make_input (`String (0, body)) in
       let rrd = Rrd.from_xml input in
       Mutex.execute mutex (fun () -> Hashtbl.replace vm_rrds uuid {rrd=rrd; dss=[]}) 	      
     end else begin
@@ -326,7 +326,7 @@ let load_rrd_from_local_filesystem ~__context uuid =
   let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
   let body = read_gzipped_file_with_fallback path in
   debug "Loading RRD from local filesystem for object uuid=%s" uuid;
-  let input = Xmlm.input_of_string body in
+  let input = Xmlm.make_input (`String (0, body)) in
   Rrd.from_xml input
 
 (* Fetch an RRD from the master *)
@@ -351,7 +351,7 @@ let pull_rrd_from_master ~__context uuid is_host =
        let length, task = Xmlrpcclient.http_rpc_fd fd headers "" in
        let body = String.create length in
        Unixext.really_read fd body 0 length;
-       let input = Xmlm.input_of_string body in
+       let input = Xmlm.make_input (`String (0, body)) in
        debug "Pulled rrd for vm uuid=%s" uuid;
        Rrd.from_xml input)
     (fun () -> Stunnel.disconnect st_proc)
@@ -425,7 +425,7 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
 	(* Now we know what sort of RRD it is, read it in and validate it *)
 	let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rrd_size req bio in
 
-	let input = Xmlm.input_of_string body in
+	let input = Xmlm.make_input (`String (0, body)) in
 	let rrd = try Rrd.from_xml input with _ -> raise Invalid_RRD in
 
 	(* By now we know it's a valid RRD *)
