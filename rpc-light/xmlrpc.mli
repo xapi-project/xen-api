@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-exception Parse_error of string * string
 
-val to_string : Rpc.t -> string
-val of_string : string -> Rpc.t
+val to_string : Rpc.Val.t -> string
+val of_string : ?callback:Rpc.callback -> string -> Rpc.Val.t

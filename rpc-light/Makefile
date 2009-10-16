@@ -1,6 +1,6 @@
 OCAMLC = ocamlfind ocamlc
 OCAMLOPT = ocamlfind ocamlopt
-OCAMLFLAGS = -annot
+OCAMLFLAGS = -annot -g
 PACKS = xmlm
 
 ICAMLP4=-I $(shell ocamlfind query camlp4) -I $(shell ocamlfind query type-conv)

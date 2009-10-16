@@ -79,18 +79,18 @@ let new_id _loc =
 	let new_id = Printf.sprintf "__x%i__" !count in
 	<:expr< $lid:new_id$ >>, <:patt< $lid:new_id$ >>
 
-(* conversion ML type -> Rpc.Value.t *)
+(* conversion ML type -> Rpc.Val.t *)
 module Rpc_of_ML = struct
 	
 	let rec value_of_ctyp _loc id = function
-		| <:ctyp< unit >>    -> <:expr< Rpc.String "nil" >>
-		| <:ctyp< int >>     -> <:expr< Rpc.Int $id$ >>
-		| <:ctyp< int32 >>   -> <:expr< Rpc.String (Int32.to_string $id$) >>
-		| <:ctyp< int64 >>   -> <:expr< Rpc.String (Int64.to_string $id$) >>
-		| <:ctyp< float >>   -> <:expr< Rpc.Double $id$ >>
-		| <:ctyp< char >>    -> <:expr< Rpc.String (sprintf "%c" $id$) >>
-		| <:ctyp< string >>  -> <:expr< Rpc.String $id$ >>
-		| <:ctyp< bool >>    -> <:expr< Rpc.Bool $id$ >>
+		| <:ctyp< unit >>    -> <:expr< `None >>
+		| <:ctyp< int >>     -> <:expr< `Int (Int64.of_int $id$) >>
+		| <:ctyp< int32 >>   -> <:expr< `Int (Int64.of_int32 $id$) >>
+		| <:ctyp< int64 >>   -> <:expr< `Int $id$ >>
+		| <:ctyp< float >>   -> <:expr< `Float $id$ >>
+		| <:ctyp< char >>    -> <:expr< `String (Printf.sprintf "%c" $id$) >>
+		| <:ctyp< string >>  -> <:expr< `String $id$ >>
+		| <:ctyp< bool >>    -> <:expr< `Bool $id$ >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let decomp = decompose_variants _loc t in
@@ -99,9 +99,9 @@ module Rpc_of_ML = struct
 					let new_id, new_pid = new_id _loc in
 					match t with
 					| None -> 
-						<:match_case< $uid:n$ -> Rpc.Array [ Rpc.String $str:n$ ] >>
+						<:match_case< $uid:n$ -> `List [ `String $str:n$ ] >>
 					| Some t ->
-						<:match_case< $uid:n$ $new_pid$ -> Rpc.Array [ Rpc.String $str:n$; $value_of_ctyp _loc new_id t$ ] >>
+						<:match_case< $uid:n$ $new_pid$ -> `List [ `String $str:n$; $value_of_ctyp _loc new_id t$ ] >>
 					) decomp in
 			let pattern = mcOr_of_list patterns in
 			<:expr< match $id$ with [ $pattern$ ] >>
@@ -109,8 +109,8 @@ module Rpc_of_ML = struct
 		| <:ctyp< option $t$ >> ->
 			let new_id, new_pid = new_id _loc in
 			<:expr< match $id$ with [
-				  Some $new_pid$ -> Rpc.Array [ $value_of_ctyp _loc new_id t$ ]
-				| None -> Rpc.Array []
+				  Some $new_pid$ -> `List [ $value_of_ctyp _loc new_id t$ ]
+				| None -> `List []
 			] >> 
 
 		| <:ctyp< $tup:tp$ >> ->
@@ -120,17 +120,17 @@ module Rpc_of_ML = struct
 			let new_ids_patt = List.map (fun (_,_,new_pid) -> new_pid) new_ids in
 			<:expr<
 				let $patt_tuple_of_expr _loc new_ids_patt$ = $id$ in
-				Rpc.Array $list_of_expr _loc exprs$
+				`List $list_of_expr _loc exprs$
 			>>
 
 		| <:ctyp< list $t$ >> ->
 			let new_id, new_pid = new_id _loc in
-			<:expr< Rpc.Array (List.map (fun $new_pid$ -> $value_of_ctyp _loc new_id t$) $id$) >>
+			<:expr< `List (List.map (fun $new_pid$ -> $value_of_ctyp _loc new_id t$) $id$) >>
 
 		| <:ctyp< array $t$ >> ->
 			let new_id, new_pid = new_id _loc in
 			<:expr<
-				Rpc.Array (Array.to_list (Array.map (fun $new_pid$ -> $value_of_ctyp _loc new_id t$) $id$))
+				`List (Array.to_list (Array.map (fun $new_pid$ -> $value_of_ctyp _loc new_id t$) $id$))
 			>>
 
 		| <:ctyp< { $t$ } >> ->
@@ -138,7 +138,7 @@ module Rpc_of_ML = struct
 
 			let fields = list_of_fields _loc t in
 			let bindings = List.map (fun (f,_) -> <:binding< $lid:f$ = $id$ . $lid:f$ >>) fields in
-			let final_expr = <:expr< Rpc.Struct $list_of_expr _loc (List.map get_name_value fields)$ >> in
+			let final_expr = <:expr< `Dict $list_of_expr _loc (List.map get_name_value fields)$ >> in
 			biList_to_expr _loc bindings final_expr
 
 		| <:ctyp< $lid:t$ >> -> <:expr< $lid:"rpc_of_"^t$ $id$ >>
@@ -154,12 +154,12 @@ module Rpc_of_ML = struct
 			~fun_name:("rpc_of_"^id)
 			~final_ident:id
 			~function_body:(rpc_of _loc id ctyp)
-			~return_type:<:ctyp< Rpc.t >>
+			~return_type:<:ctyp< Rpc.Val.t >>
 			[]
 
 end
 
-(* conversion Rpc.Value.t -> ML type *)
+(* conversion Rpc.Val.t -> ML type *)
 module ML_of_rpc = struct
 
 	let arg = let _loc = Loc.ghost in <:expr< $lid:"__x__"$ >>
@@ -167,32 +167,35 @@ module ML_of_rpc = struct
 
 	let parse_error expected got =
 		let _loc = Loc.ghost in
-		<:expr< raise (Parse_error( $str:expected^" expected"$, $got$)) >>
+		<:expr< do {
+			Printf.eprintf "Parse error: got '%s' while '%s' was expected.\n" (Rpc.Val.to_string $got$) $str:expected$;
+			raise (Parse_error($str:expected$, $got$)) }
+		>>
 
 	let rec value_of_ctyp _loc id = function
 		| <:ctyp< unit >>   ->
-			<:expr< match $id$ with [ Rpc.String "nil" -> unit | $parg$ -> $parse_error "String(nil)" arg$ ] >>
+			<:expr< match $id$ with [ `None -> () | $parg$ -> $parse_error "None" arg$ ] >>
 
 		| <:ctyp< int >>    ->
-			<:expr< match $id$ with [ Rpc.Int x -> x | $parg$ -> $parse_error "Int(int)" arg$ ] >>
+			<:expr< match $id$ with [ `Int x -> Int64.to_int x | $parg$ -> $parse_error "Int(int)" arg$ ] >>
 
 		| <:ctyp< int32 >>  ->
-			<:expr< match $id$ with [ Rpc.String x -> Int32.of_string x | $parg$ -> $parse_error "String(int32)" arg$ ] >>
+			<:expr< match $id$ with [ `Int x -> Int64.to_int32 x | $parg$ -> $parse_error "Int(int32)" arg$ ] >>
 
 		| <:ctyp< int64 >>  ->
-			<:expr< match $id$ with [ Rpc.String x -> Int64.of_string x | $parg$ -> $parse_error "String(int64)" arg$ ] >>
+			<:expr< match $id$ with [ `Int x ->  x | $parg$ -> $parse_error "Int(int64)" arg$ ] >>
 
 		| <:ctyp< float >>  ->
-			<:expr< match $id$ with [ Rpc.Double x -> x | $parg$ -> $parse_error "Double(flaot)" arg$ ] >>
+			<:expr< match $id$ with [ `Float x -> x | $parg$ -> $parse_error "Float" arg$ ] >>
 
 		| <:ctyp< char >>   ->
-			<:expr< match $id$ with [ Rpc.String x -> x.[0] | $parg$ -> $parse_error "Char(string)" arg$ ] >>
+			<:expr< match $id$ with [ `String x -> x.[0] | $parg$ -> $parse_error "String(char)" arg$ ] >>
 
 		| <:ctyp< string >> ->
-			<:expr< match $id$ with [ Rpc.String x -> x | $parg$ -> $parse_error "String(string)" arg$ ] >>
+			<:expr< match $id$ with [ `String x -> x | $parg$ -> $parse_error "String(string)" arg$ ] >>
 
 		| <:ctyp< bool >>   ->
-			<:expr< match $id$ with [ Rpc.Bool x -> x | $parg$ -> $parse_error "Bool(bool)" arg$ ] >>
+			<:expr< match $id$ with [ `Bool x -> x | $parg$ -> $parse_error "Bool" arg$ ] >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let decomp = decompose_variants _loc t in
@@ -201,20 +204,20 @@ module ML_of_rpc = struct
 					let new_id, new_pid = new_id _loc in
 					match t with
 					| None ->
-						<:match_case< Rpc.Array [ Rpc.String $str:n$ ] ->  $uid:n$ >>
+						<:match_case< `List [ `String $str:n$ ] ->  $uid:n$ >>
 					| Some t ->
-						<:match_case< Rpc.Array [ Rpc.String $str:n$; $new_pid$ ] -> $uid:n$ $value_of_ctyp _loc new_id t$ >>
+						<:match_case< `List [ `String $str:n$; $new_pid$ ] -> $uid:n$ $value_of_ctyp _loc new_id t$ >>
 					) decomp 
-				@ [ <:match_case< $parg$ -> $parse_error "Array[string;_]" arg$ >> ] in
+				@ [ <:match_case< $parg$ -> $parse_error "List[String;_]" arg$ >> ] in
 			let pattern = mcOr_of_list patterns in
 			<:expr< match $id$ with [ $pattern$ ] >>
 
 		| <:ctyp< option $t$ >> ->
 			let new_id, new_pid = new_id _loc in
 			<:expr< match $id$ with [
-				  Rpc.Array [] -> None
-				| Rpc.Array [$new_pid$] -> Some $value_of_ctyp _loc new_id t$
-				| $parg$ -> $parse_error "Array[_]" arg$
+				  `List [] -> None
+				| `List [$new_pid$] -> Some $value_of_ctyp _loc new_id t$
+				| $parg$ -> $parse_error "List[_]" arg$
 			] >>
 
 		| <:ctyp< $tup:tp$ >> ->
@@ -224,29 +227,29 @@ module ML_of_rpc = struct
 			let new_ids_patt = List.map (fun (_,_,new_pid) -> new_pid) new_ids in
 			let new_id, new_pid = new_id _loc in
 			<:expr< match $id$ with [
-			  Rpc.Array $new_pid$ ->
+			  `List $new_pid$ ->
 				match $new_id$ with [
 				  $patt_list_of_expr _loc new_ids_patt$ -> $tuple_of_expr _loc exprs$
-				| $parg$ -> $parse_error (Printf.sprintf "list of size %i" (List.length tys)) <:expr< Rpc.Array $arg$ >>$ ]
-			| $parg$ -> $parse_error "Array[_]" arg$
+				| $parg$ -> $parse_error (Printf.sprintf "list of size %i" (List.length tys)) <:expr< `List $arg$ >>$ ]
+			| $parg$ -> $parse_error "List[_]" arg$
 			] >>
 
 		| <:ctyp< list $t$ >> ->
 			let new_id, new_pid = new_id _loc in
 			<:expr< match $id$ with [
-			  Rpc.Array $new_pid$ -> 
+			  `List $new_pid$ -> 
 				let __fn__ $parg$ = $value_of_ctyp _loc arg t$ in
 				List.map __fn__ $new_id$
-			| $parg$ -> $parse_error "Array[_]" arg$
+			| $parg$ -> $parse_error "List[_]" arg$
 			] >>
 
 		| <:ctyp< array $t$ >> ->
 			let new_id, new_pid = new_id _loc in
 			<:expr< match $id$ with [
-			  Rpc.Array $new_pid$ ->
+			  `List $new_pid$ ->
 				let __fn__ $parg$ = $value_of_ctyp _loc arg t$ in
 				Array.of_list (List.map __fn__ $new_id$)
-			| $parg$ -> $parse_error "Array[_]" arg$
+			| $parg$ -> $parse_error "List[_]" arg$
 			] >>
 
 		| <:ctyp< { $t$ } >> ->
@@ -262,8 +265,8 @@ module ML_of_rpc = struct
 			let record_bindings = List.map (fun (n,_) -> (n,<:expr< $lid:n$ >>)) fields in
 			let final_expr = record_of_fields _loc record_bindings in
 			<:expr< match $id$ with [
-			  Rpc.Struct $new_pid$ -> $biList_to_expr _loc bindings final_expr$
-			| $parg$ -> $parse_error "Struct(_)" arg$
+			  `Dict $new_pid$ -> $biList_to_expr _loc bindings final_expr$
+			| $parg$ -> $parse_error "Dict(_)" arg$
 			] >>
 
 		| <:ctyp< $lid:t$ >> -> <:expr< $lid:t^"_of_rpc"$ $id$ >>
@@ -296,7 +299,7 @@ let () =
 		(fun ctyp ->
 			let _loc = loc_of_ctyp ctyp in
 			<:str_item<
-		 		exception Parse_error of (string * Rpc.t);
+		 		exception Parse_error of (string * Rpc.Val.t);
 				value rec $process_type_declaration _loc Rpc_of_ML.process ctyp$;
 		 		value rec $process_type_declaration _loc ML_of_rpc.process ctyp$
 		 		>>)
