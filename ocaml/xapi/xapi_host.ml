@@ -1201,7 +1201,7 @@ let apply_edition ~__context ~host ~edition =
 			let basic = {default with License.sku = sku; License.sku_marketing_name = name;
 				License.expiry = !V6client.expires} in
 			if !V6client.grace then
-				{basic with License.grace = true}
+				{basic with License.grace = "regular grace"}
 			else
 				basic
 		end
