@@ -204,7 +204,7 @@ let gettimestring () =
 	let time = Unix.gettimeofday () in
 	let tm = Unix.gmtime time in
         let msec = time -. (floor time) in
-	sprintf "%d%.2d%.2d %.2d:%.2d:%.2d.%.3d|" (1900 + tm.Unix.tm_year)
+	sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ|" (1900 + tm.Unix.tm_year)
 	        (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
 	        tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 	        (int_of_float (1000.0 *. msec))
