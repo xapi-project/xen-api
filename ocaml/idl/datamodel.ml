@@ -3505,8 +3505,8 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "edition" "XenServer edition";
 	field ~qualifier:RW ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [VString "address", VString "localhost"; VString "port", VString "27000"])) ~ty:(Map (String, String)) "license_server" "Contact information of the license server";
     field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
-	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~ty:String "power_on_mode" "The power on mode";  
-	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~ty:(Map(String, String)) "power_on_config" "The power on config";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
 
  ])
 	()
