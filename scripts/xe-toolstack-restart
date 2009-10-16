@@ -3,4 +3,23 @@
 # Copyright (c) Citrix Systems 2008. All rights reserved.
 #
 
-exec /sbin/service xapi restart
+POOLCONF=`cat /etc/xensource/pool.conf`
+
+service xapi stop
+service v6d stop
+service squeezed stop
+service perfmon stop
+if [ $POOLCONF == "master" ]; then
+	/etc/xensource/master.d/03-mpathalert-daemon stop;
+fi
+
+set -e
+
+if [ $POOLCONF == "master" ]; then
+	/etc/xensource/master.d/03-mpathalert-daemon start;
+fi
+service perfmon start
+service squeezed start
+service v6d start
+service xapi start
+echo "done."
