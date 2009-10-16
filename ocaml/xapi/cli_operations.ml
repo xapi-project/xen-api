@@ -3271,6 +3271,15 @@ let host_dmesg printer rpc session_id params =
     printer (Cli_printer.PList [ dmesg ])
   in
   ignore(do_host_op rpc session_id op params [])
+  
+  
+let host_set_power_on_mode rpc session_id params =
+  let power_on_mode = List.assoc "power-on-mode" params in
+  let power_on_config = if List.mem_assoc "power-on-config" params then read_map_params "power-on-config" params else [] in
+   ignore(
+       do_host_op rpc session_id (fun _ host -> Client.Host.set_power_on_mode ~rpc ~session_id ~self:(host.getref ()) ~power_on_mode ~power_on_config )
+       params ["power-on-mode";"power-on-config"]
+       )
 
 let host_crash_upload printer rpc session_id params = 
   let crash = Client.Host_crashdump.get_by_uuid rpc session_id (List.assoc "uuid" params) in
