@@ -1,7 +1,5 @@
 (*
- * Copyright (C) 2009      Citrix Ltd.
- * Author Prashanth Mundkur <firstname.lastname@citrix.com>
- * Author Vincent Hanquez   <firstname.lastname@citrix.com>
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -43,18 +41,18 @@ let escape_string s =
 
 let rec to_fct t f =
 	match t with
-	| Rpc.Int i    -> f (Printf.sprintf "%Ld" i)
-	| Rpc.Double r -> f (Printf.sprintf "%f" r)
-	| Rpc.String s -> f (escape_string s)
-	| Rpc.Bool b   -> f (string_of_bool b)
-	| Rpc.Nil      -> f "null"
-	| Rpc.Array a  ->
+	| `Int i                -> f (Printf.sprintf "%Ld" i)
+	| `Bool b               -> f (string_of_bool b)
+	| `Float r              -> f (Printf.sprintf "%f" r)
+	| `String s             -> f (escape_string s)
+	| `None                 -> f "null"
+	| `List a               ->
 		f "[";
 		list_iter_between (fun i -> to_fct i f) (fun () -> f ", ") a;
 		f "]";
-	| Rpc.Struct a ->
+	| `Dict a               ->
 		f "{";
-		list_iter_between (fun (k, v) -> to_fct (Rpc.String k) f; f ": "; to_fct v f)
+		list_iter_between (fun (k, v) -> to_fct (`String k) f; f ": "; to_fct v f)
 		                  (fun () -> f ", ") a;
 		f "}"
 
@@ -96,13 +94,13 @@ module Parser = struct
 		| Expect_object_elem_colon
 		| Expect_comma_or_end
 		| Expect_object_key
-		| Done of Rpc.t
+		| Done of Rpc.Val.t
 
 	type int_value =
-		| IObject of (string * Rpc.t) list
-		| IObject_needs_key of (string * Rpc.t) list
-		| IObject_needs_value of (string * Rpc.t) list * string
-		| IArray of Rpc.t list
+		| IObject of (string * Rpc.Val.t) list
+		| IObject_needs_key of (string * Rpc.Val.t) list
+		| IObject_needs_value of (string * Rpc.Val.t) list * string
+		| IArray of Rpc.Val.t list
 
 	type parse_state = {
 		mutable cursor: cursor;
@@ -199,7 +197,7 @@ module Parser = struct
 	let finish_value s v =
 		match s.stack, v with
 		| [], _ -> s.cursor <- Done v
-		| IObject_needs_key fields :: tl, Rpc.String key ->
+		| IObject_needs_key fields :: tl, `String key ->
 			s.stack <- IObject_needs_value (fields, key) :: tl;
 			s.cursor <- Expect_object_elem_colon
 		| IObject_needs_value (fields, key) :: tl, _ ->
@@ -213,8 +211,8 @@ module Parser = struct
 
 	let pop_stack s =
 		match s.stack with
-		| IObject fields :: tl -> s.stack <- tl; finish_value s (Rpc.Struct (List.rev fields))
-		| IArray l :: tl       -> s.stack <- tl; finish_value s (Rpc.Array (List.rev l))
+		| IObject fields :: tl -> s.stack <- tl; finish_value s (`Dict (List.rev fields))
+		| IArray l :: tl       -> s.stack <- tl; finish_value s (`List (List.rev l))
 		| io :: tl             -> raise_internal_error s ("unexpected " ^ (ivalue_to_str io) ^ " on stack at pop_stack")
 		| []                   -> raise_internal_error s "empty stack at pop_stack"
 
@@ -233,7 +231,7 @@ module Parser = struct
 			let str = tostring_with_leading_zero_check is in
 			let int = try Int64.of_string str
 			with Failure _ -> raise_invalid_value s str "int" in
-			finish_value s (Rpc.Int int) in
+			finish_value s (`Int int) in
 		let finish_int_exp is es =
 			let int = tostring_with_leading_zero_check is in
 			let exp = clist_to_string (List.rev es) in
@@ -243,14 +241,14 @@ module Parser = struct
 		       returning float is more uniform. *)
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (Rpc.Double float) in
+			finish_value s (`Float float) in
 		let finish_float is fs =
 			let int = tostring_with_leading_zero_check is in
 			let frac = clist_to_string (List.rev fs) in
 			let str = Printf.sprintf "%s.%s" int frac in
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (Rpc.Double float) in
+			finish_value s (`Float float) in
 		let finish_float_exp is fs es =
 			let int = tostring_with_leading_zero_check is in
 			let frac = clist_to_string (List.rev fs) in
@@ -258,7 +256,7 @@ module Parser = struct
 			let str = Printf.sprintf "%s.%se%s" int frac exp in
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (Rpc.Double float) in
+			finish_value s (`Float float) in
 
 		match s.cursor with
 		| Start ->
@@ -290,14 +288,14 @@ module Parser = struct
 			(match c, rem with
 			| 'u', 3 -> s.cursor <- In_null 2
 			| 'l', 2 -> s.cursor <- In_null 1
-			| 'l', 1 -> finish_value s Rpc.Nil
+			| 'l', 1 -> finish_value s `None
 			| _ -> raise_unexpected_char s c "null")
 
 		| In_true rem ->
 			(match c, rem with
 			| 'r', 3 -> s.cursor <- In_true 2
 			| 'u', 2 -> s.cursor <- In_true 1
-			| 'e', 1 -> finish_value s (Rpc.Bool true)
+			| 'e', 1 -> finish_value s (`Bool true)
 			| _ -> raise_unexpected_char s c "true")
 
 		| In_false rem ->
@@ -305,7 +303,7 @@ module Parser = struct
 			| 'a', 4 -> s.cursor <- In_false 3
 			| 'l', 3 -> s.cursor <- In_false 2
 			| 's', 2 -> s.cursor <- In_false 1
-			| 'e', 1 -> finish_value s (Rpc.Bool false)
+			| 'e', 1 -> finish_value s (`Bool false)
 			| _ -> raise_unexpected_char s c "false")
 
 		| In_int is ->
@@ -342,7 +340,7 @@ module Parser = struct
 		| In_string cs ->
 			(match c with
 			| '\\' -> s.cursor <- In_string_control cs
-			| '"' -> finish_value s (Rpc.String (clist_to_string (List.rev cs)))
+			| '"' -> finish_value s (`String (clist_to_string (List.rev cs)))
 			| _ when is_valid_unescaped_char c -> s.cursor <- In_string (c :: cs)
 			| _ ->  raise_unexpected_char s c "string")
 			
@@ -371,7 +369,7 @@ module Parser = struct
 		| Expect_object_elem_start ->
 			(match c with
 			| '"' -> s.stack <- (IObject_needs_key []) :: s.stack; s.cursor <- In_string []
-			| '}' -> finish_value s (Rpc.Struct [])
+			| '}' -> finish_value s (`Dict [])
 			| _ when is_space c -> update_line_num s c
 			| _ -> raise_unexpected_char s c "object_start")
 
@@ -406,7 +404,7 @@ module Parser = struct
 		| Done _ -> raise_internal_error s "parse called when parse_state is 'Done'"
 
 	type parse_result =
-		| Json_value of Rpc.t * (* number of consumed bytes *) int
+		| Json_value of Rpc.Val.t * (* number of consumed bytes *) int
 		| Json_parse_incomplete of parse_state
 
 	let parse_substring state str ofs len =

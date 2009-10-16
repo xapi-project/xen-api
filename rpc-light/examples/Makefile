@@ -1,8 +1,8 @@
 OCAMLC = ocamlfind ocamlc
 OCAMLOPT = ocamlfind ocamlopt
-OCAMLFLAGS = -annot
+OCAMLFLAGS = -annot -g
 
-PACKS = xmlrpc
+PACKS = xmlrpc,jsonrpc
 EXAMPLES = all_types
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
@@ -14,7 +14,11 @@ all: $(EXECS)
 	$(OCAMLOPT) -linkpkg -package $(PACKS) -o $@ $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) -package $(PACKS),rpc-light.syntax -syntax camlp4o -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS),rpc-light.syntax -syntax camlp4o -c -o $@ $<
+
+%_gen: %.ml
+	camlp4o $(shell ocamlfind query rpc-light.syntax -r -format "-I %d %a" -predicates syntax,preprocessor) $< -printer o > $@.ml
+	$(OCAMLOPT) -package $(PACKS) -c -o $@ $@.ml
 
 clean:
 	rm -f *.cmx *.cmi *.cmo *.cmxa *.o $(EXECS)
