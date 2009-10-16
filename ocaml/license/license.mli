@@ -27,8 +27,9 @@ type license =
       (** No longer used *)
       expiry : float;
       (** Expiry date (result of Unix.time) *)
-      grace : bool;
-      (** Indicates whether the current license is a grace license *)
+      grace : string;
+      (** Indicates whether the current license is a grace license.
+       *  Possible values: "no", "upgrade grace", "regular grace" *)
 
       name : string;
       (** No longer used *)
