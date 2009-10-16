@@ -15,9 +15,6 @@
 module D=Debug.Debugger(struct let name="v6api" end)
 open D
 
-(** An example implementation of a licensing service which always returns "real" 
-    licenses that never expire. *)
-
 let initialise address port edition =
 	(* check edition  *)
 	if not (List.mem edition ["STD"; "ADV"; "ENT"; "PLT"]) then
