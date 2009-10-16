@@ -292,7 +292,8 @@ let license_ok_for_pooling ~__context =
    save creating another flag.   The current intention is for WLB to be
    enabled only on Enterprise and Platinum. *)
 let license_ok_for_wlb ~__context =
-  (get()).enable_wlb
+  (get_pool()).enable_wlb
 
 let license_ok_for_rbac ~__context =
-  (get()).enable_rbac
+  (get_pool()).enable_rbac
+  
