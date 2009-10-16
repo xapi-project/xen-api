@@ -357,7 +357,7 @@ let cps_template tmplfn name =
 
 let create_all_templates rpc session_id =
   let rhel45_install_template name =
-      let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8 console=xvc0 xencons=xvc" in
+      let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
       { bt with
 	  vM_recommendations = recommendations ~vifs:3 ();
           vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") ::
