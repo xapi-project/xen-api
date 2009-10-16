@@ -1,0 +1,4 @@
+version = "0.1"
+description = "JSON-RPC marshalling/unmarshalling"
+archive(byte) = "jsonrpc.cma"
+archive(native) = "jsonrpc.cmxa"
