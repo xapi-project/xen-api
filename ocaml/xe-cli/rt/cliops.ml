@@ -99,9 +99,9 @@ let get_short_version (cli : Util.t_cli) =
   List.hd lines
 
 let reset_xapi_log (cli : Util.t_cli) =
-  (try Sys.remove "/tmp/xapi.log" with _ -> ());
+(*  (try Sys.remove "/tmp/xapi.log" with _ -> ());
   ignore (expect_success (fun () -> cli "log-set-output" ["output","nil"]));
-  ignore (expect_success (fun () -> cli "log-set-output" ["output","file:/tmp/xapi.log"]))
+  ignore (expect_success (fun () -> cli "log-set-output" ["output","file:/tmp/xapi.log"]))*) ()
 
 let get_xapi_log (cli : Util.t_cli) =
   let ic = open_in "/tmp/xapi.log" in
