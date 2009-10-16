@@ -3595,7 +3595,7 @@ let host_logs_download fd printer rpc session_id params =
       if n=1 then "" else "-"^(safe_get_field (field_lookup host.fields "name-label"))
     in
     let make_command task_id = 
-      let uri = Printf.sprintf "%s?session_id=%s&task_id=%s" 
+      let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s" prefix
 	Constants.host_logs_download_uri (Ref.string_of session_id) (Ref.string_of task_id) in
       HttpGet (filename^filesuffix, uri) in
     ignore(track_http_operation fd rpc session_id make_command "host logs download")
