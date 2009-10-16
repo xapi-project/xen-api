@@ -478,12 +478,12 @@ let f_to_s f =
     'xport' format. *)
 let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =   
   let tag tag next () = 
-    Xmlm.output_signal output (`S (("",tag),[])); 
+    Xmlm.output output (`El_start (("",tag),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output_signal output (`E) 
+    Xmlm.output output (`El_end) 
   in
   
-  let data dat () = Xmlm.output_signal output (`D dat) in  
+  let data dat () = Xmlm.output output (`Data dat) in  
 
   let rec do_data i accum =
     let time = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
@@ -507,6 +507,7 @@ let to_xml output rra_timestep rras first_rra last_cdp_time first_cdp_time start
     tag "columns" [data (Printf.sprintf "%d" (Array.length legends))];
     tag "legend" (List.map (fun x -> tag "entry" [data x]) (Array.to_list legends))] in
   
+  Xmlm.output output (`Dtd None);
   tag "xport" [meta; mydata] ()
 
 let to_json rra_timestep rras first_rra last_cdp_time first_cdp_time start legends = 
@@ -578,30 +579,16 @@ let export ?(json=false) prefixandrrds start interval cfopt =
     real_export to_json prefixandrrds start interval cfopt
   else
     let buffer = Buffer.create 10 in
-    let output = Xmlm.output_of_buffer buffer in
+    let output = Xmlm.make_output (`Buffer buffer) in
     real_export (to_xml output) prefixandrrds start interval cfopt;
     Buffer.contents buffer
 
 let from_xml input =
   (* build tree in memory first *)
   let tree = 
-    let d data = function 
-      | childs :: path -> ((D data) :: childs) :: path 
-      | [] -> assert false
-    in
-    let s _ path = [] :: path in
-    let e ((prefix,tag_name),attr) = function
-      | childs :: path -> 
-          let el = El (tag_name, List.rev childs) in
-          begin match path with
-            | parent :: path' -> (el :: parent) :: path' 
-            | [] -> [ [ el ] ]
-          end
-      | [] -> assert false
-    in
-    match Xmlm.input ~d ~s ~e [] input with
-      | [ [ root ] ] -> root
-      | _ -> assert false (* cannot happen (no pruning) *)
+    let data d = D d in
+    let el ((prefix,tag_name),attr) children = El (tag_name, children) in
+    Xmlm.input_tree ~data ~el input
   in
 
   let kvs elts = List.filter_map 
@@ -695,14 +682,14 @@ let from_xml input =
 
 let to_xml output rrd =
   let tag n next () = 
-    Xmlm.output_signal output (`S (("",n),[])); 
+    Xmlm.output output (`El_start (("",n),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output_signal output (`E) 
+    Xmlm.output output (`El_end) 
   in
   let tags n next () =
     List.iter (fun next -> tag n next ()) next
   in
-  let data dat () = Xmlm.output_signal output (`D dat) in
+  let data dat () = Xmlm.output output (`Data dat) in
 
   let do_dss ds_list =
     [tags "ds" (List.map (fun ds -> [
@@ -747,6 +734,7 @@ let to_xml output rrd =
       tag "database" (do_database rra.rra_data)]) rra_list)]
   in
 	
+  Xmlm.output output (`Dtd None);
   tag "rrd" 
     (List.concat 
 	[[tag "version" [data "0003"];
@@ -802,7 +790,7 @@ let to_string ?(json=false) rrd =
     to_json rrd
   else
     (let buffer = Buffer.create 10 in
-    let output = Xmlm.output_of_buffer buffer in
+    let output = Xmlm.make_output (`Buffer buffer) in
     to_xml output rrd;
     Buffer.contents buffer)
 

@@ -35,7 +35,7 @@ let assert_loaded () =
       ignore(Unix.stat Xapi_globs.local_database);
       let ic = open_in Xapi_globs.local_database in
       finally 
-	(fun () -> of_db (Xmlm.input_of_channel ic); loaded := true)
+	(fun () -> of_db (Xmlm.make_input (`Channel ic)); loaded := true)
 	(fun () -> close_in ic);
       Hashtbl.iter (fun k v -> debug "loaded %s -> %s" k v) db
     with 
@@ -70,7 +70,7 @@ let put_one (key: string) (v: string) =
 
 let flush () =  
   let b = Buffer.create 256 in
-  to_db (Xmlm.output_of_buffer b);
+  to_db (Xmlm.make_output (`Buffer b));
   let s = Buffer.contents b in
   Unixext.write_string_to_file Xapi_globs.local_database s
 
