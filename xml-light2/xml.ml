@@ -31,45 +31,29 @@ let error (msg,pos) =
 	Printf.sprintf "%s line %d" msg pos.eline
 
 (* internal parse function *)
+let is_empty xml =
+	let is_empty_string s = 
+		let is_empty = ref true in
+		for i = 0 to (String.length s - 1)
+		do
+			if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then
+				is_empty := false
+		done;
+		!is_empty in
+	match xml with
+	| PCData data when is_empty_string data -> true
+	| _ -> false
+
 let _parse i =
-	let filter_empty_pcdata l =
-		let is_empty_string s =
-			let is_empty = ref true in
-			for i = 0 to (String.length s - 1)
-			do
-				if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then
-					is_empty := false
-			done;
-			not (!is_empty)
-			in
-		List.filter (fun node ->
-			match node with Element _ -> true | PCData data -> is_empty_string data
-		) l
+	let el (tag: Xmlm.tag) (children: xml list) : xml =
+		let name_local = snd (fst tag) in
+		let attrs' = List.map (fun (nameattr, str) -> (snd nameattr, str)) (snd tag) in
+		Element (name_local, attrs', List.filter (fun xml -> not (is_empty xml)) children)
 		in
-	let d data acc =
-		match acc with
-		| childs :: path -> ((PCData data) :: childs) :: path
-		| [] -> assert false
-		in
-	let s tag acc = [] :: acc in
-	let e tag acc =
-		match acc with
-		| childs :: path ->
-			(* xml light doesn't handle namespace in node *)
-			let (_, name), attrs = tag in
-			(* xml light doesn't have namespace in attributes *)
-			let realattrs = List.map (fun ((_, n), v) -> n, v) attrs in
-			let childs = filter_empty_pcdata childs in
-			let el = Element (name, realattrs, List.rev childs) in
-			begin match path with
-			| parent :: path' -> (el :: parent) :: path'
-			| [] -> [ [ el ] ]
-			end
-		| [] -> assert false
-		in
-	match Xmlm.input ~d ~s ~e [] i with
-	| [ [ r ] ] -> r
-	| _         -> assert false
+	let data s = PCData s in
+	match Xmlm.peek i with
+	| `Dtd _ -> snd (Xmlm.input_doc_tree ~el ~data i)
+	| _      -> Xmlm.input_tree ~el ~data i
 
 let parse i =
 	try _parse i
@@ -86,7 +70,7 @@ let parse i =
 let parse_file file =
 	let chan = open_in file in
 	try
-		let i = Xmlm.input_of_channel chan in
+		let i = Xmlm.make_input (`Channel chan) in
 		let ret = parse i in
 		close_in chan;
 		ret
@@ -94,11 +78,11 @@ let parse_file file =
 		close_in_noerr chan; raise exn
 
 let parse_in chan =
-	let i = Xmlm.input_of_channel chan in
+	let i = Xmlm.make_input (`Channel chan) in
 	parse i
 
 let parse_string s =
-	let i = Xmlm.input_of_string s in
+	let i = Xmlm.make_input (`String (0, s)) in
 	parse i
 
 let parse_bigbuffer b =
@@ -109,7 +93,7 @@ let parse_bigbuffer b =
 			n := Int64.add !n Int64.one;
 			int_of_char c
 		with _ -> raise End_of_file in
-	let i = Xmlm.input_of_fun aux in
+	let i = Xmlm.make_input (`Fun aux) in
 	parse i
 
 (* common output function *)
@@ -137,7 +121,7 @@ let esc_pcdata data =
 let str_of_attrs attrs =
 	let fmt s = Printf.sprintf s in
 	if List.length attrs > 0 then
-	  " "^(String.concat " " (List.map (fun (k, v) -> fmt "%s=\"%s\"" k (esc_pcdata v)) attrs))
+		" " ^ (String.concat " " (List.map (fun (k, v) -> fmt "%s=\"%s\"" k (esc_pcdata v)) attrs))
 	else
 		""
 
