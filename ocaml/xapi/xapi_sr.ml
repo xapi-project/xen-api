@@ -311,14 +311,15 @@ let check_no_pbds_attached ~__context ~sr =
     then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
 
 (* Remove SR record from database without attempting to remove SR from disk.
-   Fail if a PBD record still exists; force the user to unplug it and delete it first. *)
+   Fail if any PBD still is attached (plugged); force the user to unplug it
+   first. *)
 let forget  ~__context ~sr =
-  (* NB we fail if ANY host is connected to this SR *)
-  check_no_pbds_attached ~__context ~sr;
-  List.iter (fun self -> Db.PBD.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-  Db.SR.destroy ~__context ~self:sr;
-  let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+	(* NB we fail if ANY host is connected to this SR *)
+	check_no_pbds_attached ~__context ~sr;
+	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
+	Db.SR.destroy ~__context ~self:sr;
+	let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
+	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
 (* Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
    PBD record on current host to determine device_config reqd by sr backend) *)
@@ -350,7 +351,7 @@ let destroy  ~__context ~sr =
 	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	(* Safe to delete all the PBD records because we called 'check_no_pbds_attached' earlier *)
-	List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
 	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
 let update ~__context ~sr =
