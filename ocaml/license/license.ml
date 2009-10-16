@@ -67,7 +67,7 @@ let sku_and_name_of_edition = function
 let marketing_string_of_sku sku = 
   try
     let xml = Unixext.read_whole_file_to_string Xapi_globs.sku_marketing_name_db in
-    let db = Hashtbl_xml.of_xml (Xmlm.input_of_string xml) in
+    let db = Hashtbl_xml.of_xml (Xmlm.make_input (`String (0,xml))) in
     if Hashtbl.mem db sku
     then Hashtbl.find db sku
     else begin

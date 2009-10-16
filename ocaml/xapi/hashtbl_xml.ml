@@ -24,26 +24,24 @@ let name x = ("", x) (* No namespace associated with our tags *)
 let make_tag n attrs = (name n), List.map (fun (k, v) -> name k, v) attrs
 
 let to_xml (db: h) (output: Xmlm.output) =
-  let table = make_tag "config" [] in
-  Xmlm.output_signal output (`S table);
-  Hashtbl.iter (fun k v -> 
-    let row = make_tag "row" ["key",k; "value",v] in
-    Xmlm.output_signal output (`S row);
-    Xmlm.output_signal output (`E);
-  ) db;
-  Xmlm.output_signal output (`E)
+  let elts  = Hashtbl.fold (fun k v acc -> `El ( (make_tag "row" ["key",k; "value",v]), [] ) :: acc) db [] in
+  let table = `El (make_tag "config" [], elts) in
+  let id x = x in
+  Xmlm.output output (`Dtd None);
+  Xmlm.output_tree id output table
 
 let of_xml (input: Xmlm.input) =
+  debug "Converting %s" (match Xmlm.peek input with `El_start ((t,_),_) -> "Start: "^ t | `Data s -> "Data: " ^ s | `El_end -> "End" | `Dtd _ -> "dtd");
   let db = Hashtbl.create 10 in
-  let s (tag: Xmlm.tag) acc = match tag with
-    | (_, "config"), attrs -> acc
+  let el (tag: Xmlm.tag) acc = match tag with
+    | (_, "config"), attrs -> List.flatten acc
     | (_, "row"), attrs -> 
 	let key=List.assoc ("","key") attrs in
 	let value=List.assoc ("","value") attrs in
-	(key,value)::acc
+	(key,value)::List.flatten acc
     | (ns, name), attrs -> raise (Unmarshall_error (Printf.sprintf "Unknown tag: (%s,%s)" ns name))
   in
-  let e (tag: Xmlm.tag) acc = acc in
-  let kvs = Xmlm.input ~s ~e [] input in
+  let data str = [] in
+  let _, kvs = Xmlm.input_doc_tree ~el ~data input in
   List.iter (fun (k,v) -> Hashtbl.add db k v) kvs;
   db
