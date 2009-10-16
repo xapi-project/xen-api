@@ -55,12 +55,13 @@ let timestamp_to_string f =
 
 let to_xml output _ref message =
   let tag n next () = 
-    Xmlm.output_signal output (`S (("",n),[])); 
+    Xmlm.output output (`El_start (("",n),[])); 
     List.iter (fun x -> x ()) next; 
-    Xmlm.output_signal output (`E) 
+    Xmlm.output output `El_end 
   in
-  let data dat () = Xmlm.output_signal output (`D dat) in
+  let data dat () = Xmlm.output output (`Data dat) in
 
+  Xmlm.output output (`Dtd None);
   tag "message" [
     tag "ref" [ data (Ref.string_of _ref) ];
     tag "name" [ data message.API.message_name ];
@@ -84,9 +85,11 @@ let of_xml input =
     API.message_uuid = ""}
   in
   let _ref = ref "" in
-  let s ((ns,tag),attr) _ = current_elt := tag in
-  let e ((ns,tag),attr) _ = current_elt := "" in
-  let d dat () = match !current_elt with
+  let rec f () = match Xmlm.input input with
+  | `El_start ((ns,tag),attr) -> current_elt := tag; f ()
+  | `El_end                   -> current_elt := ""; if Xmlm.eoi input then () else f ()
+  | `Data dat                 -> 
+    begin match !current_elt with
     | "name" -> message := {!message with API.message_name=dat}
     | "priority" -> message := {!message with API.message_priority=Int64.of_string dat}
     | "cls" -> message := {!message with API.message_cls=string_to_class dat}
@@ -96,8 +99,11 @@ let of_xml input =
     | "body" -> message := {!message with API.message_body=dat}
     | "ref" -> _ref := dat
     | _ -> failwith "Bad XML!"
+    end;
+    f ()
+  | _ -> failwith "Bad XML!"
   in
-  Xmlm.input ~s ~e ~d () input;
+  f ();
   (Ref.of_string !_ref,!message)
 
 
@@ -145,7 +151,7 @@ let queue_push = ref (fun (description: string) (m : string) -> false)
 
 let message_to_string (_ref,message) =
   let buffer = Buffer.create 10 in
-  let output = Xmlm.output_of_buffer buffer in
+  let output = Xmlm.make_output (`Buffer buffer) in
   to_xml output _ref message;
   Buffer.contents buffer
 
@@ -237,7 +243,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       (!queue_push) name (message_to_string (_ref,message));
 
       let oc = Unix.out_channel_of_descr f in
-      let output = Xmlm.output_of_channel oc in
+      let output = Xmlm.make_output (`Channel oc) in
       to_xml output _ref message;
       close_out oc;
 
@@ -254,7 +260,7 @@ let destroy_real basefilename =
   let filename = message_dir ^ "/" ^ basefilename in
   let ic = open_in filename in
   let (_ref,message) = Pervasiveext.finally 
-    (fun () -> of_xml (Xmlm.input_of_channel ic))
+    (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
     (fun () -> close_in ic) 
   in
   let symlinks = symlinks _ref message basefilename in
@@ -310,7 +316,7 @@ let get_real dir filter since =
       let filename = dir ^ "/" ^ msg in
       try 
 	let ic = open_in filename in
-	let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.input_of_channel ic)) (fun () -> close_in ic) in	  
+	let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in	  
 	if filter msg then Some (_ref,msg) else None
       with _ -> None) messages
     in
@@ -331,7 +337,7 @@ let get_by_uuid ~__context ~uuid =
   try
     let message_filename = (uuid_symlink ()) ^ "/" ^ uuid in
     let ic = open_in message_filename in
-    let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.input_of_channel ic)) (fun () -> close_in ic) in
+    let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
     _ref
   with
       _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ uuid ]))
@@ -348,7 +354,7 @@ let get_record ~__context ~self =
     let fullpath = Unix.readlink symlinkfname in
     let ic = open_in fullpath in
     let (_ref,message) = Pervasiveext.finally 
-      (fun () -> of_xml (Xmlm.input_of_channel ic))
+      (fun () -> of_xml (Xmlm.make_input (`Channel ic)))
       (fun () -> close_in ic) 
     in message
   with _ ->
