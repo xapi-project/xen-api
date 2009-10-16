@@ -1,14 +1,14 @@
 #!/bin/sh
 
-# Build the XenCloud repos in a build appliance
+# Build the XenCloudPlatform repos in a build appliance
 
 set -e
 
-UPSTREAM_URL=http://hg.uk.xensource.com/carbon/trunk
+UPSTREAM_URL=http://xenbits.xensource.com/XCP
 REPO=/root/repo
 
-if [ -z "$(cat /etc/redhat-release | grep 'XenCloud DDK')" ]; then
-   echo WARNING: this does not appear to be a XenCloud build appliance
+if [ -z "$(cat /etc/redhat-release | grep 'XenCloudPlatform')" ]; then
+   echo WARNING: this does not appear to be a XenCloudPlatform build appliance
 fi
 
 echo "Placing repositories in ${REPO}"
@@ -27,11 +27,11 @@ echo "Building ocaml packages"
 cd $REPO/xen-dist-ocaml.hg
 make
 make clean
-echo "Building XenCloud-specific libraries"
+echo "Building XCP-specific libraries"
 cd $REPO/xen-api-libs.hg
 ./rebuild
-echo "Building XenCloud toolstack"
+echo "Building XCP toolstack"
 cd $REPO/xen-api.hg
-make
-make install
-echo "XenCloud toolstack in $REPO/xen-api.hg/dist/staging"
+COMPILE_JAVA=no make
+COMPILE_JAVA=no make install
+echo "XCP toolstack in $REPO/xen-api.hg/dist/staging"
