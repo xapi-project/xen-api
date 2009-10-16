@@ -89,8 +89,8 @@ type license =
       serialnumber : string;
       sockets   : int;
       productcode : string;
-      expiry : float;  (* Using the result of Unix.time for this field atm *)
-      grace : bool; (* indicates whether the current license is a grace license *)
+      expiry : float;
+      grace : string;
 
       name : string;
       company : string;
@@ -129,7 +129,7 @@ let to_assoc_list (x: license) =
     _sockets, string_of_int x.sockets;
     _productcode, x.productcode;
     _expiry, Date.to_string (Date.of_float x.expiry);
-    _grace, string_of_bool x.grace;
+    _grace, x.grace;
     _name, x.name;
     _company, x.company;
     _address1, x.address1;
@@ -154,7 +154,7 @@ let of_assoc_list (x: (string * string) list) =
     sockets = (try int_of_string (find _sockets) with _ -> 1); (* sockets are now irrelevant *)
     productcode = find _productcode;
     expiry = (Date.to_float (Date.of_string (find _expiry)));
-    grace = false; (* NOTE: 'grace' key left out for backwards compatibility *)
+    grace = "no"; (* NOTE: 'grace' key left out for backwards compatibility *)
     name = find _name;
     company = find _company;
     address1 = find _address1;
@@ -175,7 +175,7 @@ let default () =
       sockets = default_sockets;
       productcode = default_productcode;
       expiry = grace_expiry ();
-      grace = false;
+      grace = "no";
       name = "";
       company = "";
       address1 = "";
@@ -249,7 +249,7 @@ let parse_license license_data =
 		 sockets = int_of_string (readfld "sockets" attrs); 
 	  	 productcode = (readfld "productcode" attrs);
 		 expiry = float_of_string (readfld "expiry" attrs);
-		 grace = false;
+		 grace = "no";
 		 name = maybe_readfld "name" attrs;
 		 company = maybe_readfld "company" attrs;
 		 address1 = maybe_readfld "address1" attrs;
@@ -346,7 +346,7 @@ let initialise ~__context ~host =
 				let upgrade_grace = read_grace_from_file () > Unix.time () in
 				if upgrade_grace then begin
 					info "No %s license is available, but we are still in the upgrade grace period." existing_edition;
-					{existing_license with grace = true}
+					{existing_license with grace = "upgrade grace"}
 				end else begin
 					info "No %s license is available. Essentials features have been disabled." existing_edition;
 					{existing_license with expiry = 0.} (* expiry date 0 means 01-01-1970, so always expired *)
@@ -356,9 +356,9 @@ let initialise ~__context ~host =
 				(* delete upgrade-grace file, if it exists *)
 				Unixext.unlink_safe Xapi_globs.upgrade_grace_file;
 				if !V6client.grace then
-					{existing_license with grace = true; expiry = !V6client.expires}
+					{existing_license with grace = "regular grace"; expiry = !V6client.expires}
 				else
-					{existing_license with grace = false; expiry = !V6client.expires}
+					{existing_license with grace = "no"; expiry = !V6client.expires}
 			end
 		| "" -> 
 			(* upgrade from pre-MNR *)
@@ -374,7 +374,7 @@ let initialise ~__context ~host =
 				write_grace_to_file expiry;
 				Unixext.unlink_safe !filename;
 				let sku, name = sku_and_name_of_edition "enterprise" in
-				{default with sku = sku; expiry = expiry; grace = true; sku_marketing_name = name}
+				{default with sku = sku; expiry = expiry; grace = "upgrade grace"; sku_marketing_name = name}
 			end
 		| _ ->
 			warn "Edition field corrupted; generating a new free license, which needs to be activated in 30 days.";
