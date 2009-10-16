@@ -634,6 +634,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation= No_fd Cli_operations.host_set_hostname_live;
       flags=[Host_selectors];
     };
+    
+     "host-set-power-on-mode",
+    {
+      reqd=["power-on-mode"];
+      optn=["power-on-config"];
+      help="Sets the power-on mode for the XE host";
+      implementation= No_fd Cli_operations.host_set_hostname_live;
+      flags=[Host_selectors];
+    };
 
    "host-call-plugin",
     {
