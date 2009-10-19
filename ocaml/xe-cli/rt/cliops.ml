@@ -104,12 +104,14 @@ let reset_xapi_log (cli : Util.t_cli) =
   ignore (expect_success (fun () -> cli "log-set-output" ["output","file:/tmp/xapi.log"]))*) ()
 
 let get_xapi_log (cli : Util.t_cli) =
-  let ic = open_in "/tmp/xapi.log" in
-  let rec r lines =
-    let nextline = 
-      try Some (input_line ic) with _ -> None
-    in match nextline with Some x -> r (x::lines) | None -> List.rev lines
-  in r []
+  try
+    let ic = open_in "/tmp/xapi.log" in
+    let rec r lines =
+      let nextline = 
+        try Some (input_line ic) with _ -> None
+      in match nextline with Some x -> r (x::lines) | None -> List.rev lines
+    in r []
+  with _ -> []
 			     
 let get_vms cli =
   let lines = expect_success (fun()->cli "vm-list" 
