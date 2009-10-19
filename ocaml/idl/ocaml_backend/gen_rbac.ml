@@ -39,9 +39,7 @@ let writer_csv static_roles_permissions static_permissions_roles =
 	)
 	^List.fold_left
 		(fun acc (permission,roles) ->
-			(Printf.sprintf ",%s,"
-				 (String.lowercase permission) (*lowercase here asked by QA team*)
-			) 
+			(Printf.sprintf ",%s," permission)
 			^(List.fold_left 
 				(fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc) 
 				"" 
