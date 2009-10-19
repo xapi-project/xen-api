@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+module D = Debug.Debugger(struct let name="extauth_plugin_PAM_NSS" end)
+open D
 
 module AuthX : Auth_signature.AUTH_MODULE =
 struct
@@ -29,102 +31,70 @@ struct
 (* PAM can be extended to use Kerberos by using xs-documents.hg/technical/howto/howto-dom0-ad-krb5.txt *)
 (* NSS can be extended to use LDAP by using xs-documents.hg/technical/howto/howto-dom0-ad-nss-ldap.txt *)
 
+
+let with_cmd cmd params_list fn =
+	let debug_cmd = (cmd^" "^(List.fold_right (fun p pp->"\""^p^"\" "^pp) params_list "")) in
+	debug "Executing cmd [%s]" debug_cmd;
+	let output_str, _ = 
+		try
+			Forkhelpers.execute_command_get_output cmd params_list
+		with e -> begin
+			let errmsg = Printf.sprintf "[%s]: %s" debug_cmd (Printexc.to_string e) in
+			debug "Error executing cmd %s" errmsg;
+			raise (Auth_signature.Auth_service_error errmsg)
+		end
+	in
+	let output_lines = Stringext.String.split '\n' output_str in
+	fn output_lines
+
+let getent_common nss_database fn =
+	with_cmd "/usr/bin/getent" [nss_database]
+	(fun lines ->
+		try
+			(* getent passwd returns several lines *)
+			let rec get_next_line lines =
+				(match lines with
+					| [] -> raise Not_found
+					| line::lines ->
+						let recs = Stringext.String.split ':' line in 
+						let username = List.nth recs 0 in
+						let uid = List.nth recs 2 in
+						(match fn username uid recs with
+							| None -> get_next_line lines
+							| Some x -> x
+						)
+				)
+			in
+			get_next_line lines
+		with  e -> 
+			begin
+					 debug "error looking up nss_database=%s: %s"
+						 nss_database (Printexc.to_string e);
+					 raise Not_found
+			end
+	)
+
 (* Verifies if a subject_name is in one of the NSS databases *)
 (* Useful databases are: *)
 (* 'passwd', for the list of users *)
 (* 'group', for the list of groups *)
 (* Returns the id corresponding to the subject_name *)
 (* Raises Not_found if subject_name not in NSS database *)
-
-(* this function should use glibc's nss/nsswitch.h/__nss_database_lookup() *)
-(* linking against /usr/lib/libnss.a (package libnss-devel-static) *)
-(* since we want a quick prototype, for now we'll call the command-line versions... *) 
 let getent_idbyname nss_database subject_name = 
-
-	let ic = Unix.open_process_in ("getent "^nss_database) in
-	try 
-		(* getent passwd returns several lines *)
-		let rec getnextuid ic =  
-				let line = input_line ic in
-				let recs = Stringext.String.split ':' line in 
-				let username = List.nth recs 0 in
-				let uid = List.nth recs 2 in 
-				if username = subject_name then
-					begin
-						ignore (Unix.close_process_in ic);
-						uid
-					end
-				else getnextuid ic
-		in 
-		getnextuid ic
-	with e -> 
-			ignore (Unix.close_process_in ic);
-			raise Not_found 
+	getent_common nss_database
+		(fun username uid recs -> if username = subject_name then Some uid else None)
 
 let getent_namebyid nss_database subject_id = 
-
-	let ic = Unix.open_process_in ("getent "^nss_database) in
-	try 
-		(* getent passwd returns several lines *)
-		let rec getnextuid ic =  
-				let line = input_line ic in
-				let recs = Stringext.String.split ':' line in 
-				let username = List.nth recs 0 in
-				let uid = List.nth recs 2 in 
-				if uid = subject_id then
-					begin
-						ignore (Unix.close_process_in ic);
-						username
-					end
-				else getnextuid ic
-		in 
-		getnextuid ic
-	with e -> 
-			ignore (Unix.close_process_in ic);
-			raise Not_found 
+	getent_common nss_database
+		(fun username uid recs -> if uid = subject_id then Some username else None)
 
 let getent_idbyid nss_database subject_id = 
-
-	let ic = Unix.open_process_in ("getent "^nss_database) in
-	try 
-		(* getent passwd returns several lines *)
-		let rec getnextuid ic =  
-				let line = input_line ic in
-				let recs = Stringext.String.split ':' line in 
-				let uid = List.nth recs 2 in 
-				if uid = subject_id then
-					begin
-						ignore (Unix.close_process_in ic);
-						uid
-					end
-				else getnextuid ic
-		in 
-		getnextuid ic
-	with e -> 
-			ignore (Unix.close_process_in ic);
-			raise Not_found 
+	getent_common nss_database
+		(fun username uid recs -> if uid = subject_id then Some uid else None)
 
 let getent_allbyid nss_database subject_id = 
-
-	let ic = Unix.open_process_in ("getent "^nss_database) in
-	try 
-		(* getent passwd returns several lines *)
-		let rec getnextuid ic =  
-				let line = input_line ic in
-				let recs = Stringext.String.split ':' line in 
-				let uid = List.nth recs 2 in 
-				if uid = subject_id then
-					begin
-						ignore (Unix.close_process_in ic);
-						recs
-					end
-				else getnextuid ic
-		in 
-		getnextuid ic
-	with e -> 
-			ignore (Unix.close_process_in ic);
-			raise Not_found 
-
+	getent_common nss_database
+		(fun username uid recs -> if uid = subject_id then Some recs else None)
 
 (* subject_id get_subject_identifier(string subject_name)
 
@@ -141,7 +111,7 @@ let get_subject_identifier subject_name =
 	with Not_found ->
 		(* looks up list of groups*)
 		"g"^(getent_idbyname "group" subject_name)
-		
+
 
 (* subject_id Authenticate_username_password(string username, string password)
 
@@ -156,7 +126,7 @@ let get_subject_identifier subject_name =
 
 (* call already existing pam.ml *)
 let authenticate_username_password username password = 
-	
+
 	(* first, we try to authenticated against our user database using PAM *)
 	try
 		Pam.authenticate username password;
@@ -184,7 +154,7 @@ let authenticate_ticket tgt =
 	key/value pairs. In the returned string*string map, there _must_ be a key called 
 	subject_name that refers to the name of the account (e.g. the user or group name as may 
 	be displayed in XenCenter). There is no other requirements to include fields from the user 
-	record -- initially qI'd imagine that we wouldn't bother adding anything else here, but 
+	record -- initially I'd imagine that we wouldn't bother adding anything else here, but 
 	it's a string*string list anyway for possible future expansion. 
 	Raises Not_found if subject_id cannot be resolved by external auth service
 *)
@@ -201,15 +171,37 @@ let query_subject_information subject_identifier =
 		let subject_identifier = String.sub subject_identifier 1 (String.length subject_identifier-1) in
 
 		let infolist = getent_allbyid "passwd" subject_identifier in
+		let passwd = List.nth infolist 1 in
+		let account_disabled =
+			if (String.length passwd < 1) 
+			then true (* no password *)
+			else	
+				passwd.[0] = '*'  (* disabled account *)
+				or 
+				passwd.[0] = '!'  (* disabled password *)
+		in
 		[	("subject-name", List.nth infolist 0);
-			("subject-pwd", List.nth infolist 1);
-			("subject-id", "u"^(List.nth infolist 2));
+			(*("subject-pwd", List.nth infolist 1);*)
+			("subject-uid", "u"^(List.nth infolist 2));
 			("subject-gid", "g"^(List.nth infolist 3));
-			("subject-realname", List.nth infolist 4);
-			("subject-homedir", List.nth infolist 5);
-			("subject-shell", List.nth infolist 6);
+			("subject-gecos", List.nth infolist 4);
+			("subject-displayname", 
+				let n = (List.nth infolist 4) in
+				if n <> "" 
+				then n (* gecos *)
+				else List.nth infolist 0 (* name *)
+			);
+			(*("subject-homedir", List.nth infolist 5);*)
+			(*("subject-shell", List.nth infolist 6);*)
 			(* comma-separated list of subjects that are contained in this subject *)
-			("contains-byname", "") (*in this case, no element *)
+			(*("contains-byname", ""); (*in this case, no element *)*)
+			(* fields required in xen_center: *)
+			("subject-is-group", "false");
+			(* fields required in xapi_session: *)
+			("subject-account-disabled", string_of_bool account_disabled);
+			("subject-account-expired", "false");
+			("subject-account-locked", "false");
+			("subject-password-expired", "false");
 		]
 		end
 	| 'g' -> begin
@@ -220,14 +212,16 @@ let query_subject_information subject_identifier =
 
 		let infolist = getent_allbyid "group" subject_identifier in
 		[	("subject-name", List.nth infolist 0);
-			("subject-pwd", List.nth infolist 1);
-			("subject-id", "g"^(List.nth infolist 2));
+			(*("subject-pwd", List.nth infolist 1);*)
+			("subject-uid", "g"^(List.nth infolist 2));
 			("subject-gid", "g"^(List.nth infolist 2));
-			("subject-realname", List.nth infolist 0);
-			("subject-homedir", "");
-			("subject-shell", "");
+			(*("subject-homedir", "");*)
+			(*("subject-shell", "");*)
 			(* comma-separated list of subjects that are contained in this subject *)
-			("contains-byname", List.nth infolist 3)
+			(*("contains-byname", List.nth infolist 3);*)
+			(* fields required in xen_center: *)
+			("subject-is-group", "true");
+			(* fields required in xapi_session: *)
 		]
 		end
 	| _ -> raise Not_found
@@ -239,18 +233,11 @@ let query_subject_information subject_identifier =
 	_must_ be transitively closed wrt the is_member_of relation if the external directory service 
 	supports nested groups (as AD does for example)
 *)
-	(* this function should use glibc's nss/nsswitch.h/__nss_database_lookup() *)
-	(* linking against /usr/lib/libnss.a (package libnss-devel-static) *)
-	(* since we want a quick prototype, for now we'll call the command-line versions... *)
-	
 	(* in unix, groups cannot contain groups, so we just verify the groups a user *)
 	(* belongs to and, if that fails, if some group has the required identifier *) 
 let query_group_membership subject_identifier = 
 
 	(* 1. first we try to see if our subject identifier is a user id...*)
-
-	(* SECURITY: subject_name/id must have double quotes stripped off or escaped, *)
-	(* we do not want any user sending arbitrary 'su' injection commands to Dom0 as root..... *)
 	let sanitized_subject_id = String.escaped subject_identifier in
 
 	(* we are expecting an id such as u0, g0, u123 etc *)
@@ -260,24 +247,20 @@ let query_group_membership subject_identifier =
 	let sanitized_subject_id = String.sub sanitized_subject_id 1 (String.length sanitized_subject_id-1) in
 
 	match (String.get subject_identifier 0) with
-	| 'u' -> begin	
+	| 'u' -> begin
 		(* looks up list of users*)
 		let subject_name = getent_namebyid "passwd" sanitized_subject_id in
 		let sanitized_subject_name = String.escaped subject_name in
 
-		(* we use a handy unix command line tool for quick prototyping *)
-		(* maybe in the future this action could be linked directly against libnss.a *)
-		let ic = Unix.open_process_in ("su \"" ^ sanitized_subject_name ^ "\" -c \"id -G\"") in
-		try 
+		with_cmd "/bin/su" [sanitized_subject_name;"-c";"id -G"]
+		(fun lines ->
 			(* id -G always returns one line only *)
-			let gidline = input_line ic in 
-			ignore (Unix.close_process_in ic);
-			let gids = Stringext.String.split ' ' gidline in 
-			List.map (fun gid -> "g"^gid) gids
-		with
-			| e ->
-				ignore (Unix.close_process_in ic);
-				raise e
+			match lines with
+			| [] -> raise Not_found
+			| gidline::_ ->
+				let gids = Stringext.String.split ' ' gidline in 
+				List.map (fun gid -> "g"^gid) gids
+		)
 		end
 
 	| 'g' -> begin
@@ -308,10 +291,6 @@ let query_group_membership subject_identifier =
 *)
 let on_enable config_params =
 	(* nothing to do in this unix plugin, we always have /etc/passwd and /etc/group *)
-	
-	(* but in the ldap plugin, we should 'join the AD/kerberos domain', i.e. we should*)
-	(* basically: (1) create a machine account in the kerberos realm,*)
-	(* (2) store the machine account password somewhere locally (in a keytab) *) 
 	()
 
 (* unit on_disable()
@@ -323,9 +302,6 @@ let on_enable config_params =
 *)
 let on_disable config_params =
 	(* nothing to disable in this unix plugin, we should not disable /etc/passwd and /etc/group:) *)
-	
-	(* but in the ldap plugin, we should 'leave the AD/kerberos domain', i.e. we should *)
-	(* (1) remove the machine account from the kerberos realm, (2) remove the keytab locally *) 
 	()
 
 (* unit on_xapi_initialize(bool system_boot)
@@ -335,10 +311,6 @@ let on_disable config_params =
 *)
 let on_xapi_initialize system_boot =
 	(* again, nothing to be initialized here in this unix plugin *)
-
-	(* in the ldap plugin, we should try to obtain the kerberos tgt, storing*)
-	(* it e.g. in /tmp/krb5cc_0, so that ldap, and nss_over_ldap functions can use it to *)
-	(* automatically authenticate the ldap principal *) 
 	()
 
 (* unit on_xapi_exit()
@@ -347,8 +319,6 @@ let on_xapi_initialize system_boot =
 *)
 let on_xapi_exit () =
 	(* nothing to do here in this unix plugin *) 
-	
-	(* in the ldap plugin, we should remove the tgt ticket in /tmp/krb5cc_0 *)
 	()
 
 (* Implement the single value required for the module signature *)
@@ -363,4 +333,3 @@ let methods = {Auth_signature.authenticate_username_password = authenticate_user
 	       Auth_signature.on_xapi_exit = on_xapi_exit}
 end
 
-  
