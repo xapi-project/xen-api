@@ -1443,6 +1443,7 @@ let vm_set_memory_limits = call
 let vm_set_memory_target_live = call
 	~name:"set_memory_target_live"
 	~in_product_since:rel_rio
+	~internal_deprecated_since:rel_midnight_ride
 	~doc:"Set the memory target for a running VM"
 	~allowed_roles:_R_VM_POWER_ADMIN
 	~params:[
@@ -1453,6 +1454,7 @@ let vm_set_memory_target_live = call
 let vm_wait_memory_target_live = call
 	~name:"wait_memory_target_live"
 	~in_product_since:rel_orlando
+	~internal_deprecated_since:rel_midnight_ride
 	~doc:"Wait for a running VM to reach its current memory target"
 	~allowed_roles:_R_READ_ONLY
 	~params:[
@@ -2883,7 +2885,7 @@ let guest_memory =
 	let field = field ~ty:Int in
 	[
 		field "overhead" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L));
-		field "target" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L));
+		field "target" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamically-set memory target (bytes). The value of this field indicates the current target for memory available to this VM." ~default_value:(Some (VInt 0L)) ~internal_deprecated_since:rel_midnight_ride;
 		field "static_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Statically-set (i.e. absolute) maximum (bytes). The value of this field at VM start time acts as a hard limit of the amount of memory a guest can use. New values only take effect on reboot.";
 		field "dynamic_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic maximum (bytes)";
 		field "dynamic_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO "Dynamic minimum (bytes)";
