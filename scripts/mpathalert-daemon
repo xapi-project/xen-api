@@ -29,7 +29,7 @@ start() {
 		fi
 	fi
 	
-	${MPATHALERT} -daemon -delay ${DELAY} -pidfile ${PID_FILE}
+	${MPATHALERT} -daemon -delay ${DELAY} -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
 	
 	touch $SUBSYS_FILE
 	success

@@ -33,7 +33,7 @@ start() {
 		fi
 	fi
 	
-	${V6D} -daemon -pidfile ${PID_FILE}
+	${V6D} -daemon -pidfile ${PID_FILE} >/dev/null 2>&1 </dev/null
 
 	MAX_RETRIES=30
 	RETRY=0
