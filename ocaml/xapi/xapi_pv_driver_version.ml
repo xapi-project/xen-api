@@ -59,16 +59,10 @@ let get_latest_tools_vsn () =
   Xapi_globs.tools_version := latest;
 
 (** Represents the detected PV driver version *)
-type version = 
+type t = 
   | Linux of int * int * int * int
   | Windows of int * int * int * int
   | Unknown
-
-type t = {
-  vm_start_time: float;           (** time the VM was started *)
-  pv_driver_update_time: float;   (** time the PV drivers were last seen *)
-  v: version;                     (** last reported PV driver version *)
-}
 
 let string_of = function
   | Linux(major, minor, micro, build) -> Printf.sprintf "Linux %d.%d.%d-%d" major minor micro build
@@ -101,27 +95,23 @@ let compare_vsn_with_tools_iso pv_vsn =
   (* XXX: consolidate with create_templates code and the function above *)
   compare_vsn pv_vsn !Xapi_globs.tools_version
 
-let has_pv_drivers x = x.v <> Unknown
+let has_pv_drivers x = x <> Unknown
      
-(** Returns true if the last seen PV drivers were up to date. *)
-let is_up_to_date x = 
-  let version = function
-      (* XXX: linux guest agent doesn't report build number (-1) while all windows ones do *)
-    | Linux (maj,min,mic,build)   -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (build=(-1) || (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0))
-    | Windows (maj,min,mic,build) -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0)
-    | _ -> false in
-  version x.v
+(** Returns true if the PV drivers are up to date *)
+let is_up_to_date = function
+    (* XXX: linux guest agent doesn't report build number (-1) while all windows ones do *)
+  | Linux (maj,min,mic,build)   -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (build=(-1) || (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0))
+  | Windows (maj,min,mic,build) -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0)
+  | _ -> false
 
 (** Returns true if the PV drivers are OK for migrate; in Miami we allow migration
     as long as the major vs of the PV drivers are 4. This allows us to migrate VMs
     with PV drivers from the previous release during rolling upgrade.
 *)
-let is_ok_for_migrate x = 
-  let version = function
-    | Linux(major, _, _, _)   when major >= 4 -> true
-    | Windows(major, _, _, _) when major >= 4 -> true (* bumped in CA-6891 *)
-    | _ -> false in
-  version x.v
+let is_ok_for_migrate = function
+  | Linux(major, _, _, _)   when major >= 4 -> true
+  | Windows(major, _, _, _) when major >= 4 -> true (* bumped in CA-6891 *)
+  | _ -> false
 
 
 let of_drivers_version drivers_version = 
@@ -140,23 +130,16 @@ let of_drivers_version drivers_version =
     if is_windows then Windows(major, minor, micro, build) else Linux(major, minor, micro, build)
   with _ -> Unknown
 
-let of_vm vm_start_time gmr = match gmr with
-  | Some gmr ->
-      { pv_driver_update_time = Date.to_float gmr.Db_actions.vM_guest_metrics_last_updated;
-	vm_start_time = vm_start_time;
-	v = of_drivers_version gmr.Db_actions.vM_guest_metrics_PV_drivers_version }
-  | None ->
-      { pv_driver_update_time = 0.;
-	vm_start_time = vm_start_time;
-	v = Unknown }
+let of_guest_metrics gmr =
+  match gmr with 
+    | Some gmr -> of_drivers_version gmr.Db_actions.vM_guest_metrics_PV_drivers_version
+    | None -> Unknown
 
-(** Returs an API error option if the PV drivers have not been seen on this boot OR if they
-    have been seen and they are not the most recent version. *)
-let make_error_opt x vm self = 
-  let v = if x.pv_driver_update_time < x.vm_start_time then Unknown else x.v in
-  match v with
+(** Returns an API error option if the PV drivers are missing or not the most recent version *)
+let make_error_opt version vm self = 
+  match version with
     | Unknown -> Some(Api_errors.vm_missing_pv_drivers, [ Ref.string_of vm ])
-    | (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) -> 
+    | (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x -> 
 	if is_up_to_date x 
 	then None
 	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of self; string_of_int major; string_of_int minor; string_of_int micro])
