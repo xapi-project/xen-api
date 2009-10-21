@@ -249,6 +249,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 	debug "start: bringing up domain in the paused state";
 	Vmops.start_paused
 		~progress_cb:(TaskHelper.set_progress ~__context) ~__context ~vm ~snapshot;
+	delete_guest_metrics ~__context ~self:vm;
 
 	let localhost = Helpers.get_localhost ~__context in  
 	Helpers.call_api_functions ~__context
@@ -383,6 +384,7 @@ module Reboot = struct
          let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	 
 	 try
+	   delete_guest_metrics ~__context ~self:vm;
            debug "%s phase 3/3: unpausing new domain (domid %d)" api_call_name domid;
            with_xc_and_xs (fun xc xs -> 
 			     Domain.unpause ~xc domid;
