@@ -101,10 +101,13 @@ let of_xml input =
     | _ -> failwith "Bad XML!"
     end;
     f ()
-  | _ -> failwith "Bad XML!"
+  | `Dtd _ -> f () 
   in
-  f ();
-  (Ref.of_string !_ref,!message)
+  try 
+    f ();
+    (Ref.of_string !_ref,!message) 
+  with e -> log_backtrace (); debug "Caught exception: %s" (Printexc.to_string e); raise e
+
 
 
 (********** Symlink functions *************)
