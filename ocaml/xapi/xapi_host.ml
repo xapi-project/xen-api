@@ -294,9 +294,12 @@ let compute_evacuation_plan_wlb ~__context ~self =
   List.iter (fun (v, detail) ->
     debug "WLB recommends VM evacuation: %s to %s" (Db.VM.get_name_label ~__context ~self:v) (String.concat "," detail);
 
-    (* Sanity check *)
-    let h = (Db.VM.get_resident_on ~__context ~self:v) in
-    if Db.Host.get_uuid ~__context ~self:h = List.hd (List.tl detail)
+    (* Sanity check 
+    Note: if the vm being moved is dom0 then this is a power management rec and this check does not apply
+    *)
+    let resident_h = (Db.VM.get_resident_on ~__context ~self:v) in
+    let target_uuid = List.hd (List.tl detail) in
+    if get_dom0_vm ~__context target_uuid != v &&  Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
     then
       (* resident host and migration host are the same. Reject this plan *)
       raise (Api_errors.Server_error 
