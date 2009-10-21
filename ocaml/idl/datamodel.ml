@@ -1766,7 +1766,7 @@ let vm_create_new_blob = call
 	   String, "name", "The name associated with the blob";
 	   String, "mime_type", "The mime type for the data. Empty string translates to application/octet-stream";]
   ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
-  ~allowed_roles:_R_POOL_ADMIN
+  ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
 let vm_copy_bios_strings = call
