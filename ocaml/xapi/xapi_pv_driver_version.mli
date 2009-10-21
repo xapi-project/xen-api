@@ -15,9 +15,8 @@
 type t
 (** Represents the information known about a VM's PV drivers *)
 
-val of_vm: float -> Db_actions.vM_guest_metrics_t option -> t
-(** [of_vm start_time x] takes a VM [start_time] and a guest metrics [x] and
-    returns an type t representing the PV driver version information *)
+val of_guest_metrics: Db_actions.vM_guest_metrics_t option -> t
+(** [of_guest_metrics x] returns an type t representing the PV driver version information *)
 
 val has_pv_drivers: t -> bool
 (** [has_pv_drivers x] returns true if the guest is running some version of PV

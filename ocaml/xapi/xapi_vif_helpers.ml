@@ -71,10 +71,8 @@ let valid_operations ~__context record _ref' : table =
   (* HVM guests only support plug/unplug IF they have recent PV drivers *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
-  let vm_m = Db.VM.get_metrics ~__context ~self:vm in
-  let start_time = try Date.to_float (Db.VM_metrics.get_start_time ~__context ~self:vm_m) with _ -> 0. in
   if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm
-  then (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_vm start_time vm_gmr) vm vm_gm with
+  then (match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
 	| Some(code, params) -> set_errors code params [ `plug; `unplug ]
 	| None -> ());
 
