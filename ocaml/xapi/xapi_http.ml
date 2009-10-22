@@ -228,11 +228,16 @@ let add_handler (name, handler) =
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
 			(try 
+			   debug "check_rbac = %b" check_rbac;
+			   (try
 				if check_rbac 
 				then (* rbac checks *)
 					assert_credentials_ok name req ~fn:(fun () -> callback req ic)
 				else (* no rbac checks *)
 					callback req ic
+			    with e ->
+			      error "RBAC: %s" (ExnHelper.string_of_exn e);
+			      raise e)
 			with
 			| Api_errors.Server_error(name, params) as e ->
 				error "Unhandled Api_errors.Server_error(%s, [ %s ])" name (String.concat "; " params);
