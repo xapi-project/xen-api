@@ -469,8 +469,12 @@ let start_heartbeat_thread() =
 		| e ->
 		    debug "Caught exception in heartbeat thread: %s" (ExnHelper.string_of_exn e);
 	    done)	    
-	with _ -> 
-	  debug "Caught session_invalid - logging in again";
+	with
+	| Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
+	    debug "Master did not recognise our pool secret: we must be pointing at the wrong master. Restarting.";
+	    exit Xapi_globs.restart_return_code
+	| e -> 
+	  debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
 	  Thread.delay Xapi_globs.host_heartbeat_interval;
       done
       end)

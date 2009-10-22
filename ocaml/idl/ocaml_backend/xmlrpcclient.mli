@@ -15,6 +15,9 @@
     parse enough of the response to be sure... but it was non-empty at least) *)
 exception Http_request_rejected of string
 
+(** Thrown when we get an HTTP 401, e.g. if we supply the wrong credentials *)
+exception Http_401_unauthorized
+
 exception Content_length_required
 
 (** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
