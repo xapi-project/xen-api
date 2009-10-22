@@ -753,7 +753,7 @@ struct
     exception Remote_db_server_returned_bad_message
     let do_remote_call marshall_args unmarshall_resp fn_name args =
       let xml = marshall_args args in
-      let xml = XMLRPC.To.array [XMLRPC.To.string fn_name; XMLRPC.To.string !Xapi_globs.pool_secret; xml] in
+      let xml = XMLRPC.To.array [XMLRPC.To.string fn_name; XMLRPC.To.string "" (* unused *); xml] in
       let resp = Master_connection.execute_remote_fn xml Constants.remote_db_access_uri in
       match XMLRPC.From.array (fun x->x) resp with
 	[status_xml; resp_xml] ->

@@ -581,3 +581,5 @@ let old_hp_bios_strings =
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", "COMPAQ"]
 	 
+
+let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)

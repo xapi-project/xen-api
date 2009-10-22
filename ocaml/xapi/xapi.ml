@@ -381,34 +381,42 @@ let wait_for_management_ip_address () =
   debug "Acquired management IP address: %s" ip;
   Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
   ip
+
+type hello_error =
+  | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
+  | Temporary (* some glitch or other *)
       
-(** Attempt a Pool.hello and return true if it succeeds *)
+(** Attempt a Pool.hello, return None if ok or Some hello_error otherwise *)
 let attempt_pool_hello my_ip = 
+  let localhost_uuid = Helpers.get_localhost_uuid () in
   try
-    let localhost_uuid = Helpers.get_localhost_uuid () in
-    Server_helpers.exec_with_new_task "attempt_pool_hello" (fun __context -> Helpers.call_api_functions ~__context
-      (fun rpc session_id -> 
+    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
+      (fun rpc session_id ->
 	 match Client.Client.Pool.hello rpc session_id localhost_uuid my_ip with
 	 | `cannot_talk_back ->
 	     error "Master claims he cannot talk back to us on IP: %s" my_ip;
 	     Xapi_host.set_emergency_mode_error Api_errors.host_master_cannot_talk_back [ my_ip ];
-	     false
+	     Some Temporary
 	 | `unknown_host ->
 	     debug "Master claims he has no record of us being a slave";
 	     Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
-	     false      
+	     Some Permanent
 	 | `ok -> 
-	     true
-      ))
+	     None
+      )
   with 
+  | Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
+      debug "Master did not recognise our pool secret: we must be pointing at the wrong master.";
+      Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
+      Some Permanent
   | Api_errors.Server_error(code, params) as exn ->
       debug "Caught exception: %s during Pool.hello" (ExnHelper.string_of_exn exn);
       Xapi_host.set_emergency_mode_error code params;
-      false
+      Some Temporary
   | exn ->
       debug "Caught exception: %s during Pool.hello" (ExnHelper.string_of_exn exn);
       Xapi_host.set_emergency_mode_error Api_errors.internal_error [ ExnHelper.string_of_exn exn ];
-      false
+      Some Temporary
 	
 (** Bring up the HA system if configured *)
 let start_ha () = 
@@ -782,8 +790,15 @@ let server_init() =
 	  
 	  debug "Attempting to communicate with master";
 	  (* Try to say hello to the pool *)
-	  finished := attempt_pool_hello ip;
-	  if not(!finished) then Thread.delay 5.
+	  begin match attempt_pool_hello ip with
+	  | None -> finished := true
+	  | Some Temporary ->
+	      debug "I think the error is a temporary one, retrying in 5s";
+	      Thread.delay 5.;
+	  | Some Permanent ->
+	      error "Permanent error in Pool.hello, will retry after %.0fs just in case" Xapi_globs.permanent_master_failure_retry_timeout;
+	      Thread.delay Xapi_globs.permanent_master_failure_retry_timeout
+	  end;
 	done;
 	debug "Startup successful";
 	Xapi_globs.slave_emergency_mode := false;
