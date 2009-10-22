@@ -2700,7 +2700,7 @@ let sr_get_supported_types = call
   ~doc:"Return a set of all the SR types supported by the system"
   ~params:[]
   ~result:(Set String, "the supported SR types")
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_READ_ONLY
 ()
 
 let sr_scan = call
