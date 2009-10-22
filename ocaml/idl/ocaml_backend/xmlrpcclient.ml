@@ -62,6 +62,9 @@ exception Http_header_truncated of string
     to immediately close. *)
 exception Empty_response_from_server
 
+(** Thrown when we get an HTTP 401, e.g. if we supply the wrong credentials *)
+exception Http_401_unauthorized
+
 let input_line_fd (fd: Unix.file_descr) = 
   let buf = Buffer.create 20 in
   let finished = ref false in
@@ -150,6 +153,8 @@ let http_rpc_recv_response error_msg fd =
 		 end 
 	       end
 	 done
+     | _ :: "401" :: _ ->
+	 raise Http_401_unauthorized
      | _ -> 
 	 debug "Read unknown response response: %s" line;
 	 raise Not_found

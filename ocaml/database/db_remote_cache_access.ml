@@ -59,22 +59,20 @@ struct
       debug "Call failed";
       resp
 
-
-  exception DB_authentication_failed
-    (* we pass in whether pooling is enabled from the handler, because we cannot access
-       the restrictions/licensing symbols from here directly *)
+  (** Unmarshals the request, calls the DBCache function and marshals the result.
+      Note that, although the messages still contain the pool_secret for historical reasons,
+      access has already been applied by the RBAC code in Xapi_http.add_handler. *)
   let process_xmlrpc xml =
     Mutex.lock ctr_mutex;
     calls_processed := !calls_processed + 1;
     Mutex.unlock ctr_mutex;
-    let fn_name, pool_secret, args =
+    let fn_name, args =
       match (XMLRPC.From.array (fun x->x) xml) with
-	  [fn_name; pool_secret; args] ->
-	    XMLRPC.From.string fn_name, XMLRPC.From.string pool_secret, args
+	  [fn_name; _; args] ->
+	    XMLRPC.From.string fn_name, args
 	| _ -> raise DBCacheListenerInvalidMessageReceived in
       try
 	debug "Received [total=%d rx=%d tx=%d] %s" !calls_processed !total_recv_len !total_transmit_len fn_name;
-	if pool_secret <> !Xapi_globs.pool_secret then raise DB_authentication_failed;
 	match fn_name with
 	    "get_table_from_ref" ->
 	      let s = unmarshall_get_table_from_ref_args args in

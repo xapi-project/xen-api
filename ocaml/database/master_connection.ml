@@ -118,9 +118,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
       try
 	let req_string = Xml.to_string_fmt req in
 	let headers = Xmlrpcclient.xmlrpc_headers ~version:"1.1" host path (String.length req_string + 0) in
-	(* The database actually puts the pool_secret in the xmlrpc calls; we stick it here because the remote_stats_url
-	   (soon to be deprecated) also requires authentication.. Once we have totally deprecated the remote_stats_url
-	   then we can remove this line: *)
+	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
 	let headers = headers @ ["Cookie: pool_secret="^(!Xapi_globs.pool_secret)] in
 	match !my_connection with
 	  None -> raise Goto_handler
@@ -135,7 +133,11 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 	    write_ok := true;
 	    result := res (* yippeee! return and exit from while loop *)
       with
-	_ ->
+      | Xmlrpcclient.Http_401_unauthorized ->
+	  error "Received HTTP 401 unauthorized from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." Xapi_globs.permanent_master_failure_retry_timeout;
+	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
+	  exit Xapi_globs.restart_return_code
+      |	_ ->
 	  begin
 	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s *)
 	    begin
