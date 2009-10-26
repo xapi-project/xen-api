@@ -1,23 +1,21 @@
+(*
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 (** Module that defines API functions (messages) for [vm] objects *)
 
 (** {2 (Fill in Title!)} *)
 
-module D :
-  sig
-    val get_thread_id : unit -> int
-    val name_thread : string -> unit
-    val remove_thread_name : unit -> unit
-    val get_thread_name : unit -> string
-    val get_task : unit -> string
-    val output :
-      (string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a) ->
-      ('a, unit, string, unit) format4 -> 'a
-    val debug : ('a, unit, string, unit) format4 -> 'a
-    val warn : ('a, unit, string, unit) format4 -> 'a
-    val info : ('a, unit, string, unit) format4 -> 'a
-    val error : ('a, unit, string, unit) format4 -> 'a
-    val log_backtrace : unit -> unit
-  end
 exception InvalidOperation of string
 val assert_operation_valid :
   __context:Context.t -> self:[ `VM ] Ref.t -> op:API.vm_operations -> unit
