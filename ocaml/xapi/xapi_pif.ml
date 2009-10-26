@@ -326,11 +326,6 @@ let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
 (* Used both externally and by PIF.create_VLAN *)
 let vLAN_create ~__context ~tagged_PIF ~tag ~network = 
-  let rstr = Restrictions.get () in
-  if not(rstr.Restrictions.enable_vlans) then begin
-    L.info "VLAN create restricted by license";
-    raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-  end;
   let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
   assert_no_other_local_pifs ~__context ~host ~network;
   
