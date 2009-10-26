@@ -56,9 +56,9 @@ LIBEXEC=$(DIST)/staging/opt/xensource/libexec
 CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a
 export CLEAN_OBJS
 
-.PHONY: clean
-clean:
-	rm -rf doc/
+#.PHONY: clean
+#clean:
+#	rm -rf doc/
 
 .SUBDIRS: ocaml scripts java javascript
 

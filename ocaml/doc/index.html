@@ -1,30 +1,30 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 	<head>
-		<title>Xapi Toolstack</title>
-		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+		<title>OCamlDoc</title>
+		<script type="text/javascript" src="ocamldoc.js"></script>
+		<script type="text/javascript" src="components.js"></script>
+		<script>
+			for (i in components)
+				document.write('<script src="', components[i], '/index.json" type="text/JavaScript"><\/script>');
+			document.write('<script src="', component, '/', module, '.json" type="text/JavaScript"><\/script>');
+		</script>
 		<link rel="stylesheet" href="style.css" />
 	</head>
 	<body onload="build();">
 		<div id="wrap">
 			<div id="header">
-				<h1 style="float:left">Xapi Toolstack Documentation</h1>
+				<h1 style="float:left">Ocaml Code Documentation</h1>
 				<ul id="menu">
-					<li><a href="apidoc.html">XenAPI Docs</a></li>
-					<li><a href="codedoc.html">Code Docs</a></li>
+					<script>
+						document.write('<li><a href="index.html">Module Index</a></li>');
+						//document.write('<li><a href="index.html?c=' + component + '">...</a></li>');
+					</script>
 				</ul>	
 			</div>
 			<div id="main">
-				<div id="container"><div id="content">
-					<h1 class="title">Welcome</h1>
-					<p>These pages contain documentation of the Xapi toolstack, part of the Xen Cloud Platform, and the API it provides.
-					<ul>
-						<li><a href="apidoc.html">XenAPI Documentation</a></li>
-						<li><a href="codedoc.html">Xapi Code Documentation</a></li>
-					</ul>
-					<p>The documentation is automatically generated from comments in the source code.
-				</div></div>
+				<div id="content"></div>
 				<div id="sidebar"></div>
 				<div id="footer"></div>
 			</div>

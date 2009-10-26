@@ -1,25 +1,14 @@
-/*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- */
+/* A style for ocamldoc. Daniel C. Buenzli */
 
 body {
 	padding: 0;
 	margin: 0;
 	border: 0;
-	font-family: "Nimbus Sans L", "Trebuchet MS", Helvetica, Arial, sans-serif; 
-	font-size: 80%;
-	font-weight: normal;
-	line-height: 140%;
+	font-family: verdana,sans-serif; 
+	font-size: 9pt;
+	font-weight: normal; 
+	line-height: 130%;
+	text-align: justify;	
 	background: white;	
 	color : black;
 	background-color: #eee;
@@ -32,7 +21,7 @@ body {
 
 #header {
 	width: 100%;
-	height: 4.5em;
+	height: 50px;
 	margin: 0;
 	padding: 0;
 	color: white;
@@ -56,40 +45,33 @@ body {
 	border-top: 0;
 }
 
-#container {
-	float: left;
-	width: 100%;
-	margin: 0 -22em 0 0;
-	padding: 0;
-}
-
 #content {
-	color: black;
+	float: left;
+	width: 72%;
 	background-color: #ffffdd;
-	padding: 1.5em 1em;
-	margin: 0 22em 0 .5em;
-	line-height: 170%;
+	padding: 0 3em 0 1em;
+	margin: 0;
+	margin-left: .5em;
 }
 
 #sidebar {
 	float: right;
-	width: 20em;
-	padding: 1em;
+	width: 20%;
+	padding: 0 2em 0 1em;
 	color: white;
-}
-
-
-#sidebar th {
-	text-align: left;
-	border-bottom: 1px solid white;
 }
 
 #footer {
 	float: left;
 	clear: both;
-	width: 100%;
+	//width: 100%;
 	height: 1em;
 }
+
+/*
+pre, p, div, span, img, table, td, ol, ul, li 
+     { padding: 0em; border: 0em; margin: 0em }
+*/
 
 h1, h2, h3, h4, h5, h6, h7, h8, h9 {
 	border: 0em;
@@ -100,78 +82,77 @@ h1, h2, h3, h4, h5, h6, h7, h8, h9 {
 }
 
 h1 {
-	font-size: 200%;
-	margin-top: 1.2em;
+	font-size : 160%;
 }
 
 h2 {
-	font-size : 150%;
-	margin: 1em 0 .5em;
-}
-
-h3 {
-	font-size : 110%;
+	font-size : 120%;
 	border-bottom-style: solid;
-	margin: .8em 0 .5em;
 }
 
-h4, h5, h6, h7, h8, h9 {
+h3, h4, h5, h6, h7, h8, h9 {
 	font-size : 100%;
 }
 
-a, a:link, a:visited, a:active, a:hover { color : inherit; text-decoration: none;}
+/*.navbar { padding-bottom : 1em; margin-bottom: 1em }
+
+p { padding: 1em 0ex 0em 0em }
+*/
+a, a:link, a:visited, a:active, a:hover { color : inherit; text-decoration: none; }
 a:hover { color : inherit; text-decoration : underline }
 
-#sidebar a, #header a {color: white}
-#content a {color: black}
-
-#content h1, #content h2 {color: #900}
-#content h1 a {color: #900}
-
-.title {
-	margin-top: 0;
+#content h1 {
+	color: #900;
+	margin-top: 1em;
 }
 
 hr {
 	border: 1px thin #666;
 }
 
+pre { margin: 3ex 0em 1ex 0em; } 
+.keyword { font-weight: bold; color: black }
+.keywordsign { color : black } 
+.code { color : black }
+.info { margin: 0em 0em 0em 2em }
+.comment { color : red }
+.constructor { color : #072 }
+.type { color : black }
+.string { color : #bc8f8f }
+.warning { color : Red ; font-weight : bold }
+
+div.sig_block {margin-left: 2em}
+.typetable { border-style : hidden }
+.indextable { border-style : hidden }
+.paramstable { border-style : hidden ; padding: 5pt 5pt}
+
 .superscript { font-size : 80% }
 .subscript { font-size : 80% }
 
 #menu {
-	margin: 1.5em .7em 0;
-	list-style-type: none;
-	text-align: center;
-	float: right;
-	clear: right;
+margin: 1.5em .7em 0;
+list-style-type: none;
+text-align: center;
+float: right;
+clear: right;
 }
 
 #menu li {
-	display: block;
-	float: left;
+display: block;
+float: left;
 }
 
 #menu li a {
-	padding: 15px 0 0 2em;
-	font-size: 1.3em;
-	font-weight: bold;
+padding: 15px 0 0 20px;
+font-size: 1.3em;
+font-weight: bold;
 }
 
-#menu li a:hover
+#menu li a:hover,
+#personal #menu-personal a, #research #menu-research a, #links #menu-links a
 {
-	color: #fff;
-	text-decoration: none;
-}
-
-#sidemenu {
-	padding-top: 1em;
-	padding-bottom: 1em;
-//	border-bottom: 1px solid white;
-	font-size: 1em;
-	text-align: center;
-	font-weight: bold;
-	background-color: #ee4400;
+color: #fff;
+text-decoration: none;
 }
 
 .grey {
@@ -185,13 +166,13 @@ hr {
 table
 {
 	font-size: 100%;
-	width: 100%;
+	width: 90%;
 	border-collapse: collapse;
 }
 
 td {
 	vertical-align: top;
-	padding: 3px 1em 3px 0;
+	padding: 3px;
 }
 
 th {
@@ -199,48 +180,33 @@ th {
 	border-bottom: 1px solid black;
 }
 
+.title {
+	font-size: 200%;
+}
+
 .defined {
+	font-style: italic;
 	margin: 1em 0;
-	padding: 0 .5em;
-	background-color: #ffcc66;
 }
 
 .description {
 	font-weight: bold;
-	margin-bottom: 1em;
 }
 
-.deprecated {
-	margin: .5em 5em .7em;
-	padding: 5px;
-	border: 1px solid grey;
-	text-align: center;
-	background-color: orange;
-}
-
-tt, .code {
-	font: 1.3em monospace;
-	font-weight: inherit;
-}
-
-.comment {
-	margin: 1em 0;
-}
-
-.comment br {
-	margin-bottom: .5em;
+.frame {
+	border: 1px solid black;
 }
 
 .field, .field2
 {
-	margin: 0em 0;
-	padding: .5em .7em .7em;
-	background-color: #ffeeaa;
+	margin: 0.7em 0;
+	padding: .7em .7em;
+	background-color: #ffccaa;
 }
 
 .field2
 {
-	background-color: #ffddaa;
+	background-color: inherit;
 }
 
 .field-type {
@@ -259,62 +225,6 @@ tt, .code {
 	margin: .7em 0;
 }
 
-.field-table td {
-	padding: .3em 1.5em .3em 0;
+.field table, .field2 table {
+	margin-left: 3em;
 }
-
-.inline-type {
-	margin-right: .5em;
-}
-
-.inline-qualifier {
-	font-size: 70%;
-	vertical-align: top;
-	margin-left: .5em;
-}
-
-.inline-params {
-	margin-left: .5em;
-}
-
-.lifecycle {
-	font-size: 90%;
-	float: right;
-	font-variant:small-caps;
-	color: #900;
-	margin: auto 0.5em;
-}
-
-.small-button {
-	font-size: 70%;
-	float: right;
-	margin: 0.2em 0 0.2em 0.5em;
-}
-
-.stat {
-	font-size: 70%;
-	color: #cc3300;
-	vertical-align: top;
-}
-
-.type {
-}
-
-.symbol {
-	font-family: sans-serif;
-	color: #cc6600;
-}
-
-.large {
-	font-size: 130%;
-}
-
-.spaced {
-	padding: 0 0.3em;
-}
-
-.optional {
-	font-size: 70%;
-	vertical-align: top;
-}
-

@@ -17,8 +17,6 @@ OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
 
 OCAML_LIBS += xenops
 
-OCamlDoc(../../doc/xenops, memory.mli)
-
 OCamlProgram(list_domains, list_domains table)
 OCamlProgram(memory_summary, memory_summary)
 OCamlProgram(freemem, freemem)
