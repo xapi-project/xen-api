@@ -335,7 +335,13 @@ let make_packs_info () =
 						| Some build -> ", build " ^ build
 						| None -> ""
 					in
-					[(param_name, value)]
+					let kv = [(param_name, value)] in
+					if originator = "xs" && name = "linux" then
+						(* CA-29040: put old linux-pack key in there for backwards
+						 * compatibility. This should be removed in the next version *)
+						["package-linux", "installed"] @ kv
+					else
+						kv
 				| _ -> failwith "error while parsing pack data!"
 			with _ -> debug "error while parsing pack data for %s!" fname; []
 		in
