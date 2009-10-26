@@ -23,10 +23,6 @@ OCAMLINCLUDES = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLINCLUDES) $(O
 OCAML_LIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_LIBS) $(XEN_OCAML_LIBS), $(OCAML_LIBS)) 
 OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAMLPACKS) $(XEN_OCAMLPACKS), $(OCAMLPACKS))
 
-
-OCamlDoc(../../doc/xapi, redo_log_usage.mli xapi_globs.ml xapi_vm_placement.ml vm_placement.ml)
-
-
 # -----------------------------------------------------------------------
 # Build the server
 # -----------------------------------------------------------------------
@@ -59,7 +55,7 @@ OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
 OCamlProgram(rrddump, rrddump rrd)
 
-OCamlProgram(xapi, $(COMMON) \
+XAPI_MODULES = $(COMMON) \
 	local_work_queue \
 	../muxdemux/tar \
 	../xva/xva \
@@ -232,7 +228,10 @@ OCamlProgram(xapi, $(COMMON) \
 	../database/db_hiupgrade \
 	certificates \
 	../v6/v6client \
-	bios_strings)
+	bios_strings
+	
+OCamlProgram(xapi, $(XAPI_MODULES))
+OCamlDoc(xapi, $(XAPI_MODULES), $(OCAMLINCLUDES))
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 

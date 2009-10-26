@@ -1,6 +1,6 @@
 # You must set your XEN_ROOT env var before building
 XEN_CFLAGS += -I$(XEN_ROOT)/usr/include
-OCAMLINCLUDES += +ocamldoc $(ROOT)/ocaml/util
+OCAMLINCLUDES += $(ROOT)/ocaml/util
 
 OCAMLPACKS += stdext log
 
@@ -58,5 +58,6 @@ OCAML_LIBS += \
 	lvhdrt \
 	mpathalert \
 	multipathrt \
-	v6
+	v6 \
+	doc
 	
