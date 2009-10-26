@@ -2904,8 +2904,8 @@ let host_memory =
 let host_metrics_memory = 
 	let field = field ~ty:Int in
 	[
-		field ~qualifier:DynamicRO "total" "Host's total memory (bytes)";
-		field ~qualifier:DynamicRO "free" "Host's free memory (bytes)";
+		field ~qualifier:DynamicRO "total" "Total host memory (bytes)";
+		field ~qualifier:DynamicRO ~internal_deprecated_since:rel_midnight_ride "free" "Free host memory (bytes)";
 	]
 
 let api_version = 
