@@ -287,7 +287,7 @@ let get_boot_record ~__context ~self =
 let set_boot_record ~__context ~self newbootrec =
   (* blank last_booted_record field in newbootrec, so we don't just keep encapsulating
      old last_boot_records in new snapshots! *) 
-  let newbootrec = {newbootrec with API.vM_last_booted_record=""} in
+  let newbootrec = {newbootrec with API.vM_last_booted_record=""; API.vM_bios_strings=[]} in
   if rolling_upgrade_in_progress ~__context then 
     begin 
     (* during a rolling upgrade, there might be slaves in the pool
