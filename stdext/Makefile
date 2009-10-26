@@ -16,15 +16,23 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
-STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring qring fring opt bigbuffer unixext range vIO trie
+STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring \
+	qring fring opt bigbuffer unixext range vIO trie config date encodings forkhelpers \
+	gzip sha1sum sigutil zerocheck base64 backtrace tar
+
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
 
-all: $(INTF) $(LIBS) $(PROGRAMS)
+PROGRAMS = base64pp
+
+all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
 
 libs: $(LIBS)
+
+base64pp: base64_main.ml all libstdext_stubs.a
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
 
 stdext.cmxa: libstdext_stubs.a $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lstdext_stubs $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
@@ -32,10 +40,10 @@ stdext.cmxa: libstdext_stubs.a $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
 stdext.cma: $(foreach obj,$(STDEXT_OBJS),$(obj).cmo)
 	$(OCAMLC) -a -dllib dllstdext_stubs.so -cclib -lstdext_stubs -o $@ $(foreach obj,$(STDEXT_OBJS),$(obj).cmo)
 
-stdext_stubs.a: unixext_stubs.o
+stdext_stubs.a: unixext_stubs.o sigutil_stub.o zerocheck_stub.o 
 	ocamlmklib -o stdext_stubs $+
 
-libstdext_stubs.a: unixext_stubs.o
+libstdext_stubs.a: unixext_stubs.o sigutil_stub.o zerocheck_stub.o 
 	ar rcs $@ $+
 	ocamlmklib -o stdext_stubs $+
 
@@ -44,22 +52,40 @@ querycd: querycd.cmo
 #camlc unix.cma stdext.cma querycd.cmo -o querycd
 
 ## OBJS
-threadext.cmo: threadext.ml
+threadext.cmo: threadext.ml threadext.cmi
 	$(OCAMLC) -thread -c -o $@ $<
 
-%.cmo: %.ml
+forkhelpers.cmo: forkhelpers.ml forkhelpers.cmi
+	$(OCAMLC) -thread -c -o $@ $<
+
+filenameext.cmo: filenameext.ml filenameext.cmi
 	$(OCAMLC) -c -I ../uuid -o $@ $<
+
+%.cmo: %.ml %.cmi
+	$(OCAMLC) -c -o $@ $<
 
 threadext.cmi: threadext.mli
 	$(OCAMLC) -thread -c -o $@ $<
 
-%.cmi: %.mli
+forkhelpers.cmi: forkhelpers.mli
+	$(OCAMLC) -thread -c -o $@ $<
+
+filenameext.cmi: filenameext.mli
 	$(OCAMLC) -c -I ../uuid -o $@ $<
 
-threadext.cmx: threadext.ml
+%.cmi: %.mli
+	$(OCAMLC) -c -o $@ $<
+
+threadext.cmx: threadext.ml threadext.cmi
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
 
-%.cmx: %.ml
+forkhelpers.cmx: forkhelpers.ml forkhelpers.cmi
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
+
+filenameext.cmx: filenameext.ml filenameext.cmi
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -I ../uuid -o $@ $<
+
+%.cmx: %.ml %.cmi
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../uuid -c -o $@ $<
 
 %.o: %.c
@@ -81,5 +107,7 @@ clean:
 
 #dependency:
 
-unixext.cmo : filenameext.ml
-unixext.cmx : filenameext.ml
+unixext.cmi: filenameext.cmi
+gzip.cmi: forkhelpers.cmi
+sha1sum.cmi: forkhelpers.cmi
+tar.cmi: bigbuffer.cmi
