@@ -8,7 +8,8 @@ XAPI=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
 
 syslog ()
 {
-	logger -puser.info -tscripts-tap "$*"
+	BLKTAP=local6
+	logger -p$BLKTAP.info -tscripts-tap "$*"
 }
 
 case "$1" in
