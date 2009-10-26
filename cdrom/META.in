@@ -1,4 +1,5 @@
 version = "@VERSION@"
 description = "Cdrom extension"
+requires = "unix"
 archive(byte) = "cdrom.cma"
 archive(native) = "cdrom.cmxa"
