@@ -120,8 +120,8 @@ OCAML_PHASE3_XEN = \
 	ocaml/guest/agent \
 	ocaml/netdev/brctl \
 	ocaml/p2v/p2v \
-	ocaml/v6/v6testd \
-	ocaml/v6/v6d-reopen-logs
+	ocaml/license/v6testd \
+	ocaml/license/v6d-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
 	ocaml/auth/testauthx \
