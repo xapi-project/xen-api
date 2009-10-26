@@ -5,8 +5,8 @@ OCAML_CLIBS   += $(XEN_OCAML_CLIBS)
 CFLAGS        += $(XEN_CFLAGS)
 
 XENSTORED_FILES = event ../util/config \
-             parse_arg connection connections define domain domains xenstored \
-             perms process symbol store transaction utils quota disk logging
+	parse_arg connection connections define domain domains xenstored \
+	perms process symbol store transaction utils quota disk logging
 
 OCamlProgram(xenstored, $(XENSTORED_FILES))
 OCamlDocProgram(xenstored, $(XENSTORED_FILES))

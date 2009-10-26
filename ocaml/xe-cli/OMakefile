@@ -77,7 +77,19 @@ section
 		../sexpr/sExpr \
 		../sexpr/sExprParser \
 		../sexpr/sExprLexer \
-../client_records/record_util ../client_records/records ../idl/constants ../xapi/cli_key ../xapi/cli_operations ../xapi/cli_operations_geneva ../xapi/cli_frontend ../xapi/xapi_globs ../xapi/cli_printer ../xapi/cli_util ../xva/xva ../muxdemux/tar ../xapi/cli_protocol)
+		../client_records/record_util \
+		../client_records/records \
+		../idl/constants \
+		../xapi/cli_key \
+		../xapi/cli_operations \
+		../xapi/cli_operations_geneva \
+		../xapi/cli_frontend \
+		../xapi/xapi_globs \
+		../xapi/cli_printer \
+		../xapi/cli_util \
+		../xva/xva \
+		../muxdemux/tar \
+		../xapi/cli_protocol)
 
 .PHONY: clean
 clean:
