@@ -41,7 +41,7 @@ let get_or_open logstring =
 	if Hashtbl.mem __all_loggers logstring then
 		Hashtbl.find __all_loggers logstring
 	else
-		let t = Log.logger_of_string logstring in
+		let t = Log.of_string logstring in
 		Hashtbl.add __all_loggers logstring t;
 		t
 
