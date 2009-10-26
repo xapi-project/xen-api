@@ -22,12 +22,16 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OBJS = xml
 INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
+PROGRAMS = xmlpp
 
-all: $(INTF) $(LIBS) $(PROGRAMS)
+all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
 
 libs: $(LIBS)
+
+xmlpp: xmlpp.ml all
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../stdext stdext.cmxa xml-light2.cmxa -linkpkg -o $@ $<
 
 xml-light2.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)
