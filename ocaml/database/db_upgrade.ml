@@ -46,11 +46,12 @@ properties to safe defaults to avoid triggering something bad.
 		{- t.dynamic_max := s.static_max}
 		{- t.target      := s.static_max}
 		{- t.dynamic_min := s.static_max}
-		{- t.static_min  := minimum (s.static_min, s.static_max}}
+		{- t.static_min  := minimum (s.static_min, s.static_max)}}}
 	{- For control domains, we respect the administrator's choice of target:
 	{ol
 		{- t.dynamic_max := s.target}
 		{- t.dynamic_min := s.target}}}
+}
 *)
 let upgrade_vm_records () =
 	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";

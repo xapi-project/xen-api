@@ -231,7 +231,7 @@ XAPI_MODULES = $(COMMON) \
 	bios_strings
 	
 OCamlProgram(xapi, $(XAPI_MODULES))
-OCamlDoc(xapi, $(XAPI_MODULES), $(OCAMLINCLUDES))
+OCamlDocProgram(xapi, $(XAPI_MODULES))
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 

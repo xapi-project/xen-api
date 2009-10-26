@@ -45,8 +45,8 @@ let tools_version = ref (-1, -1, -1, -1)
 let xencenter_min_verstring = "100.0"
 let xencenter_max_verstring = "100.1"
 
-let dbv = "2009.0201"
 (** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
+let dbv = "2009.0201"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -495,20 +495,27 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died *)
 let redo_log_max_block_time = 2.
+
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process while initially connecting to it before assuming that it has died *)
 let redo_log_max_startup_time = 5.
+
 (** The delay between each attempt to connect to the block device I/O process *)
 let redo_log_connect_delay = 0.1
+
 (** The prefix of the file used as a socket to communicate with the block device I/O process *)
 let redo_log_comms_socket_stem = "sock-blkdev-io"
+
 (** The maximum permitted number of block device I/O processes we are waiting to die after being killed *)
 let redo_log_max_dying_processes = 2
 
 (** {3 Settings related to the metadata VDI which hosts the redo log} *)
 
-(** Reason associated with the static VDI attach, to help identify the metadata VDI later *)
+(** Reason associated with the static VDI attach, to help identify the metadata VDI later (HA) *)
 let ha_metadata_vdi_reason = "HA metadata VDI"
+
+(** Reason associated with the static VDI attach, to help identify the metadata VDI later (generic) *)
 let gen_metadata_vdi_reason = "general metadata VDI"
+
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
 
@@ -516,8 +523,10 @@ let redo_log_length_of_half = 60 * 1024 * 1024
 
 (** The initial backoff delay, in seconds *)
 let redo_log_initial_backoff_delay = 2
+
 (** The factor by which the backoff delay is multiplied with each successive failure *)
 let redo_log_exponentiation_base = 2
+
 (** The maximum permitted backoff delay, in seconds *)
 let redo_log_maximum_backoff_delay = 120
 
@@ -528,6 +537,7 @@ let lvhd_script_hook = "lvhd-script-hook"
 (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 let serialize_pool_enable_disable_extauth = Mutex.create()
 (* CP-695: controls our asynchronous persistent initialization of the external authentication service during Xapi.server_init *)
+
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Contains an XML key/value pair database containing the mapping from sku_type to sku_marketing_name *)
@@ -548,11 +558,12 @@ let xenclient_enabled = false
 
 (** {2 BIOS strings} *)
 
+(** Type 11 strings that are always included *)
 let standard_type11_strings =
 	["oem-1", "Xen";
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
-(** Type 11 strings that are always included *)
-	 
+
+(** Generic BIOS strings *)	 
 let generic_bios_strings =
 	["bios-vendor", "Xen";
 	 "bios-version", "";
@@ -561,8 +572,8 @@ let generic_bios_strings =
 	 "system-version", "";
 	 "system-serial-number", "";
 	 "hp-rombios", ""] @ standard_type11_strings
-(** Generic BIOS strings *)
 
+(** BIOS strings of the old (XS 5.5) Dell Edition *)
 let old_dell_bios_strings =
 	["bios-vendor", "Dell Inc.";
 	 "bios-version", "1.9.9";
@@ -574,8 +585,8 @@ let old_dell_bios_strings =
 	 "oem-2", "5[0000]";
 	 "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", ""]
-(** BIOS strings of the old (XS 5.5) Dell Edition *)
 	 
+(** BIOS strings of the old (XS 5.5) HP Edition *)
 let old_hp_bios_strings =
 	["bios-vendor", "Xen";
 	 "bios-version", "3.3.1";
@@ -586,7 +597,6 @@ let old_hp_bios_strings =
 	 "oem-1", "Xen";
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", "COMPAQ"]
-(** BIOS strings of the old (XS 5.5) HP Edition *)
 
 
 let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)

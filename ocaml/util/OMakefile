@@ -11,6 +11,7 @@ OCamlProgram(pciutil, pciutil pciutil_main)
 
 OCamlLibrary(version, version)
 OCamlLibrary(debug, debug)
+OCamlDocLibrary(debug, debug)
 OCamlLibrary(forkhelpers, forkhelpers)
 OCamlLibrary(stunnel, stunnel)
 OCamlLibrary(gzip, gzip)
