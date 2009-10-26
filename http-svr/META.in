@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "Simple HTTP server"
+requires = "unix,stdext"
+archive(byte) = "http_svr.cma"
+archive(native) = "http_svr.cmxa"
