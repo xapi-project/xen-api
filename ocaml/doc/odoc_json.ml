@@ -291,11 +291,11 @@ class gen () =
     	let name = "name", String mt.Module.mt_name in
 		let loc = "location", self#json_of_loc mt.Module.mt_loc in
 		let info = "info", self#json_of_info_opt mt.Module.mt_info in
-		let mte = "module_type_expr", match mt.Module.mt_type with
+		let mte = "type", match mt.Module.mt_type with
 		| None -> Empty
 		| Some t -> String (Odoc_info.string_of_module_type t) (* self#json_of_module_type_expr t *)
 		in
-		let mk = "module_type_kind", match mt.Module.mt_kind with
+		let mk = "kind", match mt.Module.mt_kind with
 		| None -> Empty
   		| Some t -> Empty (* self#json_of_module_type_kind t *)
 		in
@@ -475,7 +475,7 @@ class gen () =
 		let loc = "location", self#json_of_loc m.Module.m_loc in
 		let deps = "dependencies", Object ["uses", Array (List.map (fun d -> String d) m.Module.m_top_deps)] in
 		let file = "file", String m.Module.m_file in
-		let mte = "type_expr", String (Odoc_info.string_of_module_type m.Module.m_type) in
+		let mte = "type", String (Odoc_info.string_of_module_type m.Module.m_type) in
 		let mk = match m.Module.m_kind with
 		| Module_struct l ->
 			"module_structure", Array (List.map self#json_of_module_element l)

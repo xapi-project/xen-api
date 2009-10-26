@@ -111,7 +111,7 @@ function value(v, n)
 		html += '<span class="empty">to be completed!</span></td></tr>';
 	html += '</table>';
 	html += '</div>';
-	return html;
+	append_content(html);
 }
 
 function exception(v, n)
@@ -135,7 +135,7 @@ function exception(v, n)
 		html += '<span class="empty">to be completed!</span></td></tr>';
 	html += '</table>';
 	html += '</div>';
-	return html;
+	append_content(html);
 }
 
 function variant(v)
@@ -195,19 +195,40 @@ function type(v, n)
 	else if (v.kind.type == 'abstract')
 		html += 'abstract type'
 	html += '</div>';
-	return html;
+	append_content(html);
+}
+
+function module_type(v, n)
+{
+	l = v.name.split('.');
+	name = l[l.length - 1];
+		
+	html = '<div class="field' + toggle(n) + '">';
+	html += '<div class="field-type"><a name="' + name + '">[module-type]</a></div>';
+	html += '<div class="field-name">' + name + '</div>';
+	html += '<div class="field-description">';
+	if (v.info.description != undefined)
+		html += v.info.description + '</div>';
+	else
+		html += '<span class="empty">to be completed!</span></div>';
+	if (v.kind.type == 'variant')
+		html += variant(v.kind);
+	else if (v.kind.type == 'record')
+		html += record(v.kind);
+	else if (v.kind.type == 'abstract')
+		html += 'abstract type'
+	html += '</div>';
+	append_content(html);
 }
 
 function included_module(v, n)
 {
-	if (i % 2 == 0)
-		toggle = ""
-	else
-		toggle = "2"
+	l = v.name.split('.');
+	name = l[l.length - 1];
 		
-	html = '<div class="field' + toggle + '">';
-	html += '<div class="field-type">[module]</div>';
-	html += '<div class="field-name">' + v.name + '</div>';
+	html = '<div class="field' + toggle(n) + '">';
+	html += '<div class="field-type"><a name="' + name + '">[module]</a></div>';
+	html += '<div class="field-name">' + name + '</div>';
 	html += '<table>';
 	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
 	html += '<tr><td><span class="field-head">Description:</span></td><td>';
@@ -217,69 +238,97 @@ function included_module(v, n)
 		html += '<span class="empty">to be completed!</span></td></tr>';
 	html += '</table>';
 	html += '</div>';
-	return html;
+	append_content(html);
+	
+	//parse_structure(v.module_structure);	
 }
 
 function comment(m)
 {
-	return m;
+	append_content(m);
 }
 
 function parse_structure(structure)
-{	
-	details = "";
+{
+	included_modules = [];
 	values = [];
 	exceptions = [];
 	types = [];
+	module_types = [];
 	for (i in structure) {
 		item = structure[i];
 		for (j in item) {
 			switch (j) {
-			case 'included_module':
-				details += included_module(item[j], i);
+			case 'module':
+				included_module(item[j], i);
+				l = item[j].name.split('.');
+				name = l[l.length - 1];
+				included_modules.push(name);
 				break;
 			case 'value':
-				details += value(item[j], i);
+				value(item[j], i);
 				l = item[j].name.split('.');
 				name = l[l.length - 1];
-				values.push (name);
+				values.push(name);
 				break;
 			case 'exception':
-				details += exception(item[j], i);
+				exception(item[j], i);
 				l = item[j].name.split('.');
 				name = l[l.length - 1];
-				exceptions.push (name);
+				exceptions.push(name);
 				break;
 			case 'type':
-				details += type(item[j], i);
+				type(item[j], i);
 				l = item[j].name.split('.');
 				name = l[l.length - 1];
-				types.push (name);
+				types.push(name);
+				break;
+			case 'module_type':
+				module_type(item[j], i);
+				l = item[j].name.split('.');
+				name = l[l.length - 1];
+				module_types.push(name);
 				break;
 			case 'comment':
-				details += comment(item[j], i);
+				comment(item[j], i);
 				break;
 			default: break;
 			}
 		}
 	}
-	append_content(details);
 	
+	included_modules.sort();
 	types.sort();
 	values.sort();
 	exceptions.sort();
 	
 	html = "";
 	html += '<h2>Contents</h2>';
-	html += '<h3>Types</h3>';
-	for (i in types)
-		html += '<a href="#' + types[i] + '">' + types[i] + '</a><br>';
-	html += '<h3>Functions and Constants</h3>';
-	for (i in values)
-		html += '<a href="#' + values[i] + '">' + values[i] + '</a><br>';
-	html += '<h3>Exceptions</h3>';
-	for (i in exceptions)
-		html += '<a href="#' + exceptions[i] + '">' + exceptions[i] + '</a><br>';
+	
+	if (included_modules.length > 0) {
+		html += '<h3>Modules</h3>';
+		for (i in included_modules)
+			html += '<a href="#' + included_modules[i] + '">' + included_modules[i] + '</a><br>';
+	}
+		
+	if (types.length > 0) {
+		html += '<h3>Types</h3>';
+		for (i in types)
+			html += '<a href="#' + types[i] + '">' + types[i] + '</a><br>';
+	}
+	
+	if (values.length > 0) {
+		html += '<h3>Functions and Constants</h3>';
+		for (i in values)
+			html += '<a href="#' + values[i] + '">' + values[i] + '</a><br>';
+	}
+	
+	if (exceptions.length > 0) {
+		html += '<h3>Exceptions</h3>';
+		for (i in exceptions)
+			html += '<a href="#' + exceptions[i] + '">' + exceptions[i] + '</a><br>';
+	}
+	
 	append_sidebar(html);
 }
 
