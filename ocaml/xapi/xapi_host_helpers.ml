@@ -126,26 +126,17 @@ let update_host_metrics ~__context ~host ~memory_total ~memory_free =
 
   let last_updated = Date.of_float (Unix.gettimeofday ()) in
   let m = Db.Host.get_metrics ~__context ~self:host in
-  let exists = try ignore(Db.Host_metrics.get_uuid ~__context ~self:m); true with _ -> false in
-  if not(exists) then begin
-      let r = Ref.make () and uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	(* create metrics with live=false, then set live=true; this is because the db semantics for persist=false tables
-	   is to persist the creates, but not subsequent writes *)
-      Db.Host_metrics.create ~__context ~ref:r ~uuid ~memory_total ~memory_free ~last_updated ~live:false ~other_config:[];
-      Db.Host.set_metrics ~__context ~self:host ~value:r;
-      if should_set_live then begin
-	Db.Host_metrics.set_live ~__context ~self:m ~value:true;
-	update_allowed_operations ~__context ~self:host
-      end
-  end else begin
-      Db.Host_metrics.set_memory_total ~__context ~self:m ~value:memory_total;
-      Db.Host_metrics.set_memory_free ~__context ~self:m ~value:memory_free;
-      Db.Host_metrics.set_last_updated ~__context ~self:m ~value:last_updated;
-      if should_set_live then begin
-	Db.Host_metrics.set_live ~__context ~self:m ~value:true;
-	update_allowed_operations ~__context ~self:host
-      end	
+  (* Every host should always have a Host_metrics object *)
+  if Db.is_valid_ref m then begin
+    Db.Host_metrics.set_memory_total ~__context ~self:m ~value:memory_total;
+    Db.Host_metrics.set_memory_free ~__context ~self:m ~value:memory_free;
+    Db.Host_metrics.set_last_updated ~__context ~self:m ~value:last_updated;
+    if should_set_live then begin
+      Db.Host_metrics.set_live ~__context ~self:m ~value:true;
+      update_allowed_operations ~__context ~self:host
+    end	
   end
+  else warn "Host %s has invalid Host_metrics object reference" (Ref.string_of host)
 
 (* When the Host.shutdown and Host.reboot calls return to the master, the slave is 
    shutting down asycnronously. We immediately set the Host_metrics.live to false 

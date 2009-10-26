@@ -43,12 +43,18 @@ let get_my_ip_addr() =
     | None -> (error "Cannot read IP address. Check the control interface has an IP address"; "")
 
 let create_localhost ~__context =
-      let info = Create_misc.read_localhost_info() in
-	let (_ : API.ref_host) =
-	  Create_misc.create_host ~__context ~name_label:info.hostname
-	    ~xen_verstring:info.xen_verstring ~linux_verstring:info.linux_verstring ~capabilities:(Xapi_host.get_xen_capabilities())
-	    ~hostname:info.hostname ~uuid:info.uuid ~address:(get_my_ip_addr()) in
-	  ()
+  let info = Create_misc.read_localhost_info () in
+  let ip = get_my_ip_addr () in
+  let me = try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None in
+  (* me = None on firstboot only *)
+  if me = None
+  then 
+    let (_: API.ref_host) = 
+      Xapi_host.create ~__context ~uuid:info.uuid ~name_label:info.hostname ~name_description:"" 
+	~hostname:info.hostname ~address:ip 
+	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
+	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
+    in ()
 
 (* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
@@ -81,7 +87,8 @@ let refresh_localhost_info ~__context =
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-    Db.Host.set_capabilities ~__context ~self:host ~value:(Xapi_host.get_xen_capabilities());
+    let caps = String.split ' ' (Xc.with_intf (fun xc -> Xc.version_capabilities xc)) in
+    Db.Host.set_capabilities ~__context ~self:host ~value:caps;
     Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr());
 
     let boot_time_key = "boot_time" in
