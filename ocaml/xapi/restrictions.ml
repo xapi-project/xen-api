@@ -18,48 +18,25 @@ open License
 module D = Debug.Debugger(struct let name="license" end)
 open D
 
-(* The restrictions that different licenses imply *)
-
-
 (* The skus *)
-type kind = Express | Server | Enterprise
-type sku = Vanilla of kind | Dell of kind | HP of kind    
-
-let kind_of_sku = function
-  | Vanilla x -> x | Dell x -> x | HP x -> x
+type sku = Express | Enterprise
 
 let is_floodgate_free x = 
-  kind_of_sku x = Express (* Server and Enterprise are both 'floodgate paidfor' *)
+	x = Express
 
-let sku_of_string string = 
-  match string with
-      "XE Express"         -> Vanilla Express
-    | "XE Server"          -> Vanilla Server
-    | "XE Enterprise"      -> Vanilla Enterprise
-    | "Dell XE Express"    -> Dell Express
-    | "Dell XE Server"     -> Dell Server
-    | "Dell XE Enterprise" -> Dell Enterprise
-    | "HP XE Express"      -> HP Express
-    | "HP XE Server"       -> HP Server
-    | "HP XE Enterprise"   -> HP Enterprise
-    | _ -> failwith (Printf.sprintf "Unknown SKU type: '%s'" string)
+let sku_of_string = function
+| "XE Express" -> Express
+| "XE Enterprise" -> Enterprise
+| x -> failwith (Printf.sprintf "Unknown SKU type: '%s'" x)
 
-let string_of_sku =
-  let string_of_kind = function
-    | Express -> "Express" | Server -> "Server" | Enterprise -> "Enterprise" in
-  function
-  | Vanilla x -> "XE " ^ (string_of_kind x)
-  | Dell x    -> "Dell XE " ^ (string_of_kind x)
-  | HP x      -> "HP XE " ^ (string_of_kind x)
+let string_of_sku = function
+| Express -> "XE Express"
+| Enterprise -> "XE Enterprise"
 
 (* CA-26992: to avoid confusing the user with legacy SKU names we trivially obfuscate them *)
-let obfuscated_string_of_sku =
-  let string_of_kind = function
-    | Express -> "F" (*free*) | (Server | Enterprise) -> "P" (*paid*) in
-  function
-  | Vanilla x -> "R" ^ (string_of_kind x)
-  | Dell x    -> "D" ^ (string_of_kind x)
-  | HP x      -> "H" ^ (string_of_kind x)
+let obfuscated_string_of_sku = function
+| Express -> "RF" (*free*)
+| Enterprise -> "RP" (*paid*)
 
 (* The restrictions that are applied *)
 type restrictions = 
@@ -230,25 +207,20 @@ let get_sku () = sku_of_string !License.license.License.sku
 let get_sku_from_license l = sku_of_string l.sku
 
 let rec restrictions_of_sku = function
-  | Vanilla Express -> common_to_all_skus
-  | Vanilla (Server | Enterprise) ->
-      {
-	common_to_all_skus with
-	  enable_xha = true;
-	  platform_filter = false;
-	  enable_netapp = true;
-	  enable_equalogic = true;
-	  enable_email = true;
-	  enable_performance = true;
-	  enable_wlb = true;
-	  enable_rbac = true;
-	  regular_nag_dialog = false;
-      }
-  | HP Express | Dell Express -> common_to_all_skus
-  | HP x | Dell x ->
-      let fallback = Vanilla x in
-      warn "Falling back to SKU: '%s'" (string_of_sku (Vanilla x));
-      restrictions_of_sku fallback 
+| Express -> common_to_all_skus
+| Enterprise ->
+	{
+		common_to_all_skus with
+		enable_xha = true;
+		platform_filter = false;
+		enable_netapp = true;
+		enable_equalogic = true;
+		enable_email = true;
+		enable_performance = true;
+		enable_wlb = true;
+		enable_rbac = true;
+		regular_nag_dialog = false;
+	}
 
 let get () =
   restrictions_of_sku (get_sku ())
@@ -271,25 +243,6 @@ let update_pool_restrictions ~__context =
        end
     )
 
-(*
-let license_ok_for_pooling ~__context = 
-  let rstr = get () in
-
-  let slaves_exist = List.length (Db.Host.get_all ~__context) <> 1 in
-  (* 'bad_master_license' if we're a master without a pooling license but there are slaves *)
-  let bad_master_license = Pool_role.is_master () && not rstr.enable_pooling && slaves_exist in
-  let bad_slave_license = not(Pool_role.is_master ()) && not rstr.enable_pooling in
-  if bad_master_license
-  then warn "This license does not support pooling and yet slaves exist in the database";
-  if bad_slave_license
-  then warn "This license does not support pooling and yet we are configured as a slave in a pool";
-  
-  not bad_master_license && (not bad_slave_license)
-*)
-
-(* Whether WLB calls are enabled.  We use enable_pooling for this, just to
-   save creating another flag.   The current intention is for WLB to be
-   enabled only on Enterprise and Platinum. --> NOT TRUE ANYMORE??? *)
 let license_ok_for_wlb ~__context =
   (get_pool()).enable_wlb
 
