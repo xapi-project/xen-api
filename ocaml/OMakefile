@@ -58,6 +58,5 @@ OCAML_LIBS += \
 	lvhdrt \
 	mpathalert \
 	multipathrt \
-	v6 \
 	doc
 	
