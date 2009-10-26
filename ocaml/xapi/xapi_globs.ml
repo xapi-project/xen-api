@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+ 
+(** A central location for settings related to xapi *)
+ 
 open Stringext
 open Printf
 
@@ -42,8 +45,8 @@ let tools_version = ref (-1, -1, -1, -1)
 let xencenter_min_verstring = "100.0"
 let xencenter_max_verstring = "100.1"
 
-(** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
 let dbv = "2009.0201"
+(** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -488,7 +491,7 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {2 Settings for the redo-log} *)
 
-(** {7 Settings related to the connection to the block device I/O process} *)
+(** {3 Settings related to the connection to the block device I/O process} *)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died *)
 let redo_log_max_block_time = 2.
@@ -501,7 +504,7 @@ let redo_log_comms_socket_stem = "sock-blkdev-io"
 (** The maximum permitted number of block device I/O processes we are waiting to die after being killed *)
 let redo_log_max_dying_processes = 2
 
-(** {7 Settings related to the metadata VDI which hosts the redo log} *)
+(** {3 Settings related to the metadata VDI which hosts the redo log} *)
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later *)
 let ha_metadata_vdi_reason = "HA metadata VDI"
@@ -509,7 +512,7 @@ let gen_metadata_vdi_reason = "general metadata VDI"
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
 
-(** {7 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
+(** {3 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
 
 (** The initial backoff delay, in seconds *)
 let redo_log_initial_backoff_delay = 2
@@ -543,11 +546,12 @@ let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 (** Xenclient enabled *)
 let xenclient_enabled = false
 
-(* BIOS strings *)
+(** {2 BIOS strings} *)
 
 let standard_type11_strings =
 	["oem-1", "Xen";
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
+(** Type 11 strings that are always included *)
 	 
 let generic_bios_strings =
 	["bios-vendor", "Xen";
@@ -557,6 +561,7 @@ let generic_bios_strings =
 	 "system-version", "";
 	 "system-serial-number", "";
 	 "hp-rombios", ""] @ standard_type11_strings
+(** Generic BIOS strings *)
 
 let old_dell_bios_strings =
 	["bios-vendor", "Dell Inc.";
@@ -569,6 +574,7 @@ let old_dell_bios_strings =
 	 "oem-2", "5[0000]";
 	 "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", ""]
+(** BIOS strings of the old (XS 5.5) Dell Edition *)
 	 
 let old_hp_bios_strings =
 	["bios-vendor", "Xen";
@@ -580,6 +586,7 @@ let old_hp_bios_strings =
 	 "oem-1", "Xen";
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", "COMPAQ"]
-	 
+(** BIOS strings of the old (XS 5.5) HP Edition *)
+
 
 let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)

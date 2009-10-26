@@ -1,4 +1,7 @@
-components = ["xapi", "datamodel", "common", "client", "xenstored", "v6d", "block_device_io"];
+executables = ["xapi", "xenstored", "v6d", "block_device_io", "db_actions", "xe"];
+libraries = ["datamodel", "common", "client", "sexpr"];
+
+components = executables.concat(libraries);
 component_modules = {}
 
 function fill_components()
