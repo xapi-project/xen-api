@@ -77,8 +77,9 @@ try:
 	f = file(docdir + '/components.js', 'r')
 	exec(f.readline())
 	exec(f.readline())
-finally:
 	f.close()
+except:
+	pass
 
 if is_library:
 	libraries.append(name)
