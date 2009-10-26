@@ -14,8 +14,8 @@
 
 (** Module that controls license entitlements *)
 
-type kind = Express | Server | Enterprise
-type sku = Vanilla of kind | Dell of kind | HP of kind
+(** Licensing mode *)
+type sku = Express | Enterprise
 
 (* used by CLI: *)
 val sku_of_string : string -> sku
