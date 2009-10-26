@@ -23,8 +23,6 @@ open Db_filter_types
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-exception Cannot_read_hostname
-
 type host_info = {
 	name_label : string;
 	xen_verstring : string;
@@ -365,65 +363,6 @@ let make_software_version () =
 	(option_to_list "machine_serial_number" info.machine_serial_number) @
 	(option_to_list "machine_serial_name" info.machine_serial_name) @
 	make_packs_info ()
-
-(** Create a record for a host if it doesn't exist already (identified by uuid) *)
-let create_host ~__context ~name_label ~xen_verstring ~linux_verstring ~capabilities ~hostname ~uuid ~address =
-        let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
-	let make_new_metrics_object ref =
-	  Db.Host_metrics.create ~__context ~ref
-	    ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
-	    ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
-	let host = 
-	  match existing_host with
-	      None ->
-	        debug "localhost record does not exist for this host. creating new one (uuid='%s')" uuid;
-		let xapi_verstring = get_xapi_verstring() in
-		let name_description = "Default install of XenServer"
-		and ref = Ref.make () in
-
-		let metrics = Ref.make () in
-		make_new_metrics_object metrics;
-
-		Db.Host.create ~__context ~ref 
-			~current_operations:[] ~allowed_operations:[]
-			~software_version:Xapi_globs.software_version
-			~enabled:true
-			~aPI_version_major:Xapi_globs.api_version_major
-			~aPI_version_minor:Xapi_globs.api_version_minor
-			~aPI_version_vendor:Xapi_globs.api_version_vendor
-			~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
-			~name_description ~name_label ~uuid ~other_config:[]
-			~capabilities
-			~cpu_configuration:[]   (* !!! FIXME hard coding *)
-			~memory_total:0L        (* !!! FIXME hard coding *)
-			~memory_overhead:0L     (* !!! FIXME hard coding *)
-			~sched_policy:"credit"  (* !!! FIXME hard coding *)
-			~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
-			~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
-			~logging:[] ~hostname ~address ~metrics
-			~license_params:[] ~boot_free_mem:0L
-			~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
-			~external_auth_type:""
-			~external_auth_service_name:""
-			~external_auth_configuration:[]
-			~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
-                        ~bios_strings:[]
-           ~power_on_mode:""
-           ~power_on_config:[]
-		;
-		ref
-	    | Some ref -> ref in
-	let metrics = Db.Host.get_metrics ~__context ~self:host in
-	if not (Db.is_valid_ref metrics) then
-	  begin
-	    let ref = Ref.make() in
-	    make_new_metrics_object metrics;
-	    Db.Host.set_metrics ~__context ~self:host ~value:metrics
-	  end;
-	(* If the host we're creating is us, make sure its set to live *)
-	Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
-	Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
-	host
 
 let create_host_cpu ~__context =
 	let get_nb_cpus () =

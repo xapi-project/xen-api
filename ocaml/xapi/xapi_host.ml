@@ -61,11 +61,6 @@ let assert_safe_to_reenable ~__context ~self =
       then raise (Api_errors.Server_error(Api_errors.license_expired, []))
     end
 
-(* read xen capabilities *)
-let get_xen_capabilities() =
-  let caps = Vmopshelpers.with_xc (fun xc -> Xc.version_capabilities xc) in
-    String.split ' ' caps
-
 let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let bugreport_upload ~__context ~host ~url ~options = 
@@ -583,38 +578,50 @@ let license_apply ~__context ~host ~contents =
 	      end
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
-  let software_version = Create_misc.make_software_version () in
-  let metrics = Ref.make () in
-  Db.Host_metrics.create ~__context ~ref:metrics 
-    ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
-    ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
 
-  let ref = Ref.make() in
-  let () =
-    Db.Host.create ~__context ~ref
-    ~software_version
+  let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
+  let make_new_metrics_object ref =
+    Db.Host_metrics.create ~__context ~ref
+      ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+      ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
+  let xapi_verstring = get_xapi_verstring() in
+  let name_description = "Default install of XenServer"
+  and host = Ref.make () in
+  
+  let metrics = Ref.make () in
+  make_new_metrics_object metrics;
+  
+  Db.Host.create ~__context ~ref:host 
+    ~current_operations:[] ~allowed_operations:[]
+    ~software_version:Xapi_globs.software_version
     ~enabled:true
     ~aPI_version_major:Xapi_globs.api_version_major
     ~aPI_version_minor:Xapi_globs.api_version_minor
     ~aPI_version_vendor:Xapi_globs.api_version_vendor
     ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
     ~name_description ~name_label ~uuid ~other_config:[]
-    ~capabilities:(get_xen_capabilities())
+    ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
     ~memory_total:0L        (* !!! FIXME hard coding *)
     ~memory_overhead:0L     (* !!! FIXME hard coding *)
     ~sched_policy:"credit"  (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
-    ~logging:[] ~hostname ~address
-    ~metrics
-    ~license_params ~allowed_operations:[] ~current_operations:[] ~boot_free_mem:0L 
-      ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
-      ~external_auth_type ~external_auth_service_name ~external_auth_configuration
-    ~edition ~license_server ~bios_strings:[]
-	~power_on_mode:"" ~power_on_config:[]
-  in
-    ref
+    ~logging:[] ~hostname ~address ~metrics
+    ~license_params ~boot_free_mem:0L
+    ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
+    ~external_auth_type
+    ~external_auth_service_name
+    ~external_auth_configuration
+    ~edition ~license_server
+    ~bios_strings:[]
+    ~power_on_mode:""
+    ~power_on_config:[]
+  ;
+  (* If the host we're creating is us, make sure its set to live *)
+  Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
+  Db.Host_metrics.set_live ~__context ~self:metrics ~value:(uuid=(Helpers.get_localhost_uuid ()));
+  host
 
 let destroy ~__context ~self =
   (* Fail if the host is still online: the user should either isolate the machine from the network 
