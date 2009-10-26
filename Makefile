@@ -14,12 +14,17 @@ all:
 	$(MAKE) -C uuid
 	$(MAKE) -C camldm
 	$(MAKE) -C stdext
-	$(MAKE) -C cdrom
 	$(MAKE) -C log
-	$(MAKE) -C sha1
+	$(MAKE) -C stunnel
+	$(MAKE) -C pciutil
+	$(MAKE) -C cdrom
 	$(MAKE) -C xml-light2
+	$(MAKE) -C rss
 	$(MAKE) -C rpc-light
- 
+	$(MAKE) -C http-svr
+	$(MAKE) -C close-and-exec
+	$(MAKE) -C sexpr
+
 allxen:
 	$(MAKE) -C mmap
 	$(MAKE) -C xc
@@ -32,11 +37,16 @@ install:
 	$(MAKE) -C uuid install
 	$(MAKE) -C camldm install
 	$(MAKE) -C stdext install
-	$(MAKE) -C cdrom install
 	$(MAKE) -C log install
-	$(MAKE) -C sha1 install
+	$(MAKE) -C stunnel install
+	$(MAKE) -C pciutil install
+	$(MAKE) -C cdrom install
 	$(MAKE) -C xml-light2 install
+	$(MAKE) -C rss install
 	$(MAKE) -C rpc-light install
+	$(MAKE) -C http-svr install
+	$(MAKE) -C close-and-exec install
+	$(MAKE) -C sexpr install
 
 installxen:
 	$(MAKE) -C mmap install
@@ -50,11 +60,16 @@ uninstall:
 	$(MAKE) -C uuid uninstall
 	$(MAKE) -C camldm uninstall
 	$(MAKE) -C stdext uninstall
-	$(MAKE) -C cdrom uninstall
 	$(MAKE) -C log uninstall
-	$(MAKE) -C sha1 uninstall
+	$(MAKE) -C stunnel uninstall
+	$(MAKE) -C pciutil uninstall
+	$(MAKE) -C cdrom uninstall
 	$(MAKE) -C xml-light2 uninstall
+	$(MAKE) -C rss uninstall
 	$(MAKE) -C rpc-light uninstall
+	$(MAKE) -C http-svr uninstall
+	$(MAKE) -C close-and-exec uninstall
+	$(MAKE) -C sexpr uninstall
 
 uninstallxen:
 	$(MAKE) -C eventchn uninstall
@@ -63,6 +78,13 @@ uninstallxen:
 	$(MAKE) -C xb uninstall
 	$(MAKE) -C xc uninstall
 	$(MAKE) -C mmap uninstall
+
+bins:
+	$(MAKE) -C pciutil bins
+	$(MAKE) -C xml-light2 bins
+	$(MAKE) -C sexpr bins
+	$(MAKE) -C stdext bins
+
 
 OUTPUT_API_PKG := $(MY_OUTPUT_DIR)/api-libs.tar.gz
 
@@ -109,11 +131,16 @@ clean:
 	make -C uuid clean
 	make -C camldm clean
 	make -C stdext clean
-	make -C cdrom clean
 	make -C log clean
-	make -C sha1 clean
+	make -C stunnel clean
+	make -C pciutil clean
+	make -C cdrom clean
 	make -C xml-light2 clean
+	make -C rss clean
 	make -C rpc-light clean
+	make -C http-svr clean
+	make -C close-and-exec clean
+	make -C sexpr clean
 	rm -f $(OUTPUT_API_PKG)
 
 cleanxen:
