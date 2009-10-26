@@ -87,7 +87,7 @@ let get_return_version req =
     
 let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
   let version = get_return_version req in
-  let keep_alive = if req.close then false else true in
+  let keep_alive = if !(req.close) then false else true in
   headers s ((http_200_ok_with_content response_length ~version ~keep_alive ()) @ hdrs);
   write_response_to_fd_fn s
 
@@ -142,7 +142,7 @@ let response_file ?(hdrs=[]) ~mime_content_type s file =
 (** If no handler matches the request then call this callback *)
 let default_callback req bio = 
   response_forbidden (Buf_io.fd_of bio);
-  req.close <- true
+  req.close := true
     
 
 let write_error bio message =
@@ -170,7 +170,6 @@ let handle_connection _ ss =
     let auth = ref None in
     let task = ref None in
     let subtask_of = ref None in
-	let content_type = ref None in
     let user_agent = ref None in
     
     content_length := -1L;
@@ -190,7 +189,7 @@ let handle_connection _ ss =
 
       (* Default for HTTP/1.1 is persistent connections. Anything else closes *)
       (* the channel as soon as the request is processed *)
-      if req.version <> "HTTP/1.1" then req.close <- true;
+      if req.version <> "HTTP/1.1" then req.close := true;
       
       let rec read_rest_of_headers left =
 	let cl_hdr = "content-length: " in
@@ -200,7 +199,6 @@ let handle_connection _ ss =
 	let auth_hdr = "authorization: " in
 	let task_hdr = String.lowercase Http.task_id_hdr ^ ": " in
 	let subtask_of_hdr = String.lowercase Http.subtask_of_hdr ^ ": " in
-	let content_type_hdr = String.lowercase Http.content_type_hdr ^ ": " in
 	let user_agent_hdr = String.lowercase Http.user_agent_hdr ^ ": " in
 	let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic in
 	let r = strip_cr r in
@@ -220,8 +218,6 @@ let handle_connection _ ss =
 	then task := Some (end_of_string r (String.length task_hdr));
 	if String.startswith subtask_of_hdr lowercase_r
 	then subtask_of := Some (end_of_string r (String.length subtask_of_hdr));
-	if String.startswith content_type_hdr lowercase_r
-	then content_type := Some (end_of_string r (String.length content_type_hdr));
 	if String.startswith user_agent_hdr lowercase_r
 	then user_agent := Some (end_of_string r (String.length user_agent_hdr));
 	if String.startswith connection_hdr lowercase_r 
@@ -229,8 +225,8 @@ let handle_connection _ ss =
 	  begin
 	    let token = String.lowercase (end_of_string r (String.length connection_hdr)) in
 	    match token with
-	    | "keep-alive" -> req.close <- false
-	    | "close" -> req.close <- true
+	    | "keep-alive" -> req.close := false
+	    | "close" -> req.close := true
             | _ -> ()
 	  end;
 	if r <> "" then (
@@ -247,17 +243,15 @@ let handle_connection _ ss =
 		    auth = !auth;
 		    task = !task;
 		    subtask_of = !subtask_of;
-			content_type = !content_type;
 		    user_agent = !user_agent;
 		    headers = headers;
 		} in
       let ty = Http.string_of_method_t req.m in
-      D.debug "HTTP %s %s %s%s%s%s%s"
+      D.debug "HTTP %s %s %s%s%s%s"
 	ty req.uri 
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Content-length: %Ld)" x) req.content_length))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Task: %s)" x) req.task))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Subtask-of: %s)" x) req.subtask_of))
-	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Content-Type: %s)" x) req.content_type))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (User-agent: %s)" x) req.user_agent));
       let table = handler_table req.m in
       (* Find a specific handler: the last one whose URI is a prefix of the received
@@ -278,7 +272,7 @@ let handle_connection _ ss =
         Buf_io.assert_buffer_empty ic;
         handlerfn req fd
       );
-      finished := (req.close)
+      finished := !(req.close)
     with
       End_of_file -> 
 	DCritical.debug "Premature termination of connection!";
