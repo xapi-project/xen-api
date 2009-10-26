@@ -37,7 +37,6 @@ val set_power_on_mode :
 val assert_safe_to_reenable :
   __context:Context.t -> self:[ `host ] Ref.t -> unit
   
-val get_xen_capabilities : unit -> string list
 val xen_bugtool : string
 val bugreport_upload :
   __context:'a ->
