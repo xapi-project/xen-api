@@ -11,4 +11,5 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-external is_all_zeros : string -> int -> bool = "is_all_zeros"
+external install_fpe_handler : unit -> unit = "stub_install_fpe_handler"
+external install_segv_handler : unit -> unit = "stub_install_segv_handler"
