@@ -11,12 +11,55 @@ function getQuerystring(key, default_)
 		return qs[1];
 }
 
+function find_component_for_module(m)
+{
+	// first look in own component
+	modules = component_modules[component];
+	for (z in modules)
+		if (modules[z].name == m)
+			return component;
+	// search libraries
+	for (y in libraries) {
+		modules = component_modules[libraries[y]];
+		for (z in modules)
+			if (modules[z].name == m)
+				return libraries[y];
+	}
+	return "";
+}
+
 function toggle(i)
 {
 	if (i % 2 == 0)
 		return ""
 	else
 		return "2"
+}
+
+function transform_links(s)
+{
+	out = "";
+	a = 0;
+	b = s.indexOf('{');
+	while (b >= 0) {
+		out += s.substr(a, b-a);
+		a = b + 1;
+		b = s.indexOf('}', a);
+		link = s.substr(a, b-a);
+		
+		f = link.split('|')[1];
+		m = f.lastIndexOf('.');
+		c = find_component_for_module(f.substr(0, m));
+		if (c != "")
+			out += 'index.html?c=' + c + '&m=' + f.substr(0, m) + '#' + f.substr(m+1);
+		else
+			out += '#';
+		
+		a = b + 1;
+		b = s.indexOf('{', a);
+	}
+	out += s.substr(a);
+	return out;
 }
 
 function value(v, n)
@@ -31,7 +74,7 @@ function value(v, n)
 	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
 	html += '<tr><td><span class="field-head">Description:</span></td><td>';
 	if (v.info.description != undefined)
-		html += v.info.description + '</td></tr>';
+		html += transform_links(v.info.description) + '</td></tr>';
 	else
 		html += '<span class="empty">to be completed!</span></td></tr>';
 	html += '</table>';
@@ -48,7 +91,11 @@ function exception(v, n)
 	html += '<div class="field-type"><a name="' + name + '">[exception]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<table>';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
+	html += '<tr><td width="100px"><span class="field-head">Arguments:</span></td><td>';
+	if (v.exception_args != undefined)
+		html += v.exception_args + '</td></tr>';
+	else
+		html += '[none]</td></tr>';
 	html += '<tr><td><span class="field-head">Description:</span></td><td>';
 	if (v.info.description != undefined)
 		html += v.info.description + '</td></tr>';
@@ -114,7 +161,7 @@ function type(v, n)
 	else if (v.kind.type == 'record')
 		html += record(v.kind);
 	else if (v.kind.type == 'abstract')
-		html += '<tr><td>&nbsp;</td>abstract</td></tr>'
+		html += 'abstract type'
 	html += '</div>';
 	return html;
 }
@@ -191,26 +238,17 @@ function parse_structure(structure)
 	exceptions.sort();
 	
 	html = "";
-	html += '<h1>Contents</h1>';
-	html += '<h2>Types</h2>';
+	html += '<h2>Contents</h2>';
+	html += '<h3>Types</h3>';
 	for (i in types)
 		html += '<a href="#' + types[i] + '">' + types[i] + '</a><br>';
-	html += '<h2>Functions and Constants</h2>';
+	html += '<h3>Functions and Constants</h3>';
 	for (i in values)
 		html += '<a href="#' + values[i] + '">' + values[i] + '</a><br>';
-	html += '<h2>Exceptions</h2>';
+	html += '<h3>Exceptions</h3>';
 	for (i in exceptions)
 		html += '<a href="#' + exceptions[i] + '">' + exceptions[i] + '</a><br>';
 	append_sidebar(html);
-}
-
-function known_module(m)
-{
-	modules = component_modules[component];
-	for (j in modules)
-		if (modules[j].name == m)
-			return true;
-	return false;
 }
 
 function make_dependencies(deps)
@@ -218,15 +256,19 @@ function make_dependencies(deps)
 	uses = deps.uses.sort();
 	used_by = deps.used_by.sort();
 
-	html = "<h1>Dependencies</h1>";
-	html += '<h2>Uses</h2>';
+	html = '<h2 class="title">Dependencies</h2>';
+	html += '<h3>Uses</h3>';
 	for (i in uses) {
-		if (known_module(uses[i]))
-			html += '<a href="?c=' + component + '&m=' + uses[i] + '">' + uses[i] + '</a><br>';
+		c = find_component_for_module(uses[i])
+		if (c != "") {
+			html += '<a href="?c=' + c + '&m=' + uses[i] + '">' + uses[i];
+			if (c != component) html += ' (' + c + ')';
+			html += '</a><br>';
+		}
 		else
 			html += '<span class="grey">' + uses[i] + '</span><br>';
 	}
-	html += '<h2>Used by</h2>';
+	html += '<h3>Used by</h3>';
 	for (i in used_by)
 		html += '<a href="?c=' + component + '&m=' + used_by[i] + '">' + used_by[i] + '</a><br>';
 	append_sidebar(html);
@@ -241,7 +283,7 @@ function moduledoc()
 	
 	html = "";
 	html += '<h1 class="title">Module: ' + mod.name + '</h1>\n';
-	html += '<div class="defined">Defined in ' + mod.file + '</div>';
+	html += '<div class="defined">Defined in ' +  mod.file + ' (' + component + ')</div>';
 	html += '<div class="description">';
 	if (mod.info.description != undefined)
 		html += mod.info.description + '</div>';
@@ -255,22 +297,26 @@ function moduledoc()
 function index()
 {	
 	html = "";
-	html += '<h1 class="title">List of Modules</h1>\n';
-	for (i in components) {
-		html += '<h1><a name="' + components[i] + '">' + components[i] + '</a></h1>';
-		html += '<table><tr><th>Module</th><th>Description</th></tr>\n';
-		modules = component_modules[components[i]];
-		for (j in modules) {
-			html += '<tr><td><a href="?c=' + components[i] + '&m=' + modules[j].name + '">' + modules[j].name + '</a></td>\n';
+	html += '<h1 class="title">List of Modules: ' + component + '</h1>\n';
+	html += '<table><tr><th>Module</th><th>Description</th></tr>\n';
+	modules = component_modules[component];
+	for (j in modules) {
+		html += '<tr><td><a href="?c=' + component + '&m=' + modules[j].name + '">' + modules[j].name + '</a></td>\n';
+		if (modules[j].description != "")
 			html += '<td>' + modules[j].description + '</td></tr>\n';
-		}
-		html += '</table>\n';
+		else
+			html += '<td><span class="empty">to be completed!</span></td></tr>';
 	}
+	html += '</table>\n';
+
 	set_content(html);
 	
-	html = "<h1>Components</h1>";
-	for (i in components)
-		html += '<a href="#' + components[i] + '">' + components[i] + '</a><br />';
+	html = '<h2 class="title">Executables</h2>';
+	for (i in executables)
+		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a><br />';
+	html += "<h2>Libraries</h2>";
+	for (i in libraries)
+		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a><br />';
 	set_sidebar(html);
 }
 

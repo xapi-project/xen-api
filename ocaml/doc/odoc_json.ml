@@ -52,6 +52,28 @@ end
 
 open String
 
+let remove_asterisks str =
+	let n = String.length str in
+	let res = Buffer.create n in
+	let phase = ref 0 in
+	for i = 0 to n-1 do
+		match !phase with
+		| 0 ->
+			if str.[i] == '\n' then begin
+				phase := 1;
+				Buffer.add_char res ' '
+			end else if i == 0 && str.[i] == '*' then
+				phase := 1
+			else
+				Buffer.add_char res str.[i]
+		| 1 -> 
+			if str.[i] != '\n' && str.[i] != ' ' & str.[i] != '*' then begin
+				phase := 0;
+				Buffer.add_char res str.[i]
+			end
+	done;
+	Buffer.contents res
+
 (* Dependencies *)
 
 (** add node to graph *)
@@ -188,10 +210,10 @@ class gen () =
 	method t_of_text = List.map self#t_of_text_element
 	
 	method t_of_text_element = function
-	| Odoc_info.Raw s -> Leaf s
-	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [Leaf s]
-	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [Leaf s]
-	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [Leaf s]
+	| Odoc_info.Raw s -> Leaf (remove_asterisks s)
+	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [Leaf (remove_asterisks s)]
+	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [Leaf (remove_asterisks s)]
+	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [Leaf (remove_asterisks s)]
 	| Odoc_info.Bold t -> node "b" (self#t_of_text t)
 	| Odoc_info.Italic t -> node "i" (self#t_of_text t)
 	| Odoc_info.Emphasize t -> node "em" (self#t_of_text t)
@@ -205,7 +227,7 @@ class gen () =
 	| Odoc_info.Title (n, l_opt, t) ->
 		(*	(match l_opt with None -> [] | Some t -> ["name",t]) *)
 		node ("h" ^ string_of_int n) (self#t_of_text t)
-	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [Leaf s]
+	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [Leaf (remove_asterisks s)]
 	| Odoc_info.Link (s, t) -> node "a" ~atts: ["href", s] (self#t_of_text t)
 	| Odoc_info.Ref (name, ref_opt) -> self#t_of_Ref name ref_opt
 	| Odoc_info.Superscript t -> node "sup" (self#t_of_text t)
@@ -215,23 +237,25 @@ class gen () =
 	| Odoc_info.Custom (s,t) -> Leaf "" (* node "custom" ~atts: ["name", s] (self#t_of_text t) *)
 
 	method t_of_Ref name ref_opt =
+		let code = node "span" ~atts:["class", "code"] [Leaf name] in
 		match ref_opt with
-		| None -> node "a" ~atts: ["name", name] []
+		| None -> node "a" ~atts: ["name", name] [code]
 		| Some kind ->
-		let k =
-		match kind with
-		| Odoc_info.RK_module -> "module"
-		| Odoc_info.RK_module_type -> "module_type"
-		| Odoc_info.RK_class -> "class"
-		| Odoc_info.RK_class_type -> "class_type"
-		| Odoc_info.RK_value -> "value"
-		| Odoc_info.RK_type -> "type"
-		| Odoc_info.RK_exception -> "exception"
-		| Odoc_info.RK_attribute -> "attribute"
-		| Odoc_info.RK_method -> "method"
-		| Odoc_info.RK_section t -> "section"
-		in
-		node "a" ~atts: [("name", name) ; ("kind", k)] []
+			let k =
+			match kind with
+			| Odoc_info.RK_module -> "module"
+			| Odoc_info.RK_module_type -> "module_type"
+			| Odoc_info.RK_class -> "class"
+			| Odoc_info.RK_class_type -> "class_type"
+			| Odoc_info.RK_value -> "value"
+			| Odoc_info.RK_type -> "type"
+			| Odoc_info.RK_exception -> "exception"
+			| Odoc_info.RK_attribute -> "attribute"
+			| Odoc_info.RK_method -> "method"
+			| Odoc_info.RK_section t -> "section"
+			in
+			(* node "a" ~atts: [("name", name) ; ("kind", k)] [] *)
+			node "a" ~atts:[("href", "{" ^ k ^ "|" ^ name ^ "}")] [code]
 	  
 	(* JSON *)
 	

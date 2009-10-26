@@ -6,7 +6,9 @@ clean:
 
 AUTOGEN_HELPER_DIR = ../database
 
-OCamlProgram(db_actions, db_actions $(AUTOGEN_HELPER_DIR)/string_unmarshall_helper $(AUTOGEN_HELPER_DIR)/string_marshall_helper $(AUTOGEN_HELPER_DIR)/db_action_helper $(AUTOGEN_HELPER_DIR)/db_remote_marshall $(AUTOGEN_HELPER_DIR)/db_filter_types $(AUTOGEN_HELPER_DIR)/db_filter $(AUTOGEN_HELPER_DIR)/db_filter_parse $(AUTOGEN_HELPER_DIR)/db_filter_lex)
+DB_ACTIONS_FILES = db_actions $(AUTOGEN_HELPER_DIR)/string_unmarshall_helper $(AUTOGEN_HELPER_DIR)/string_marshall_helper $(AUTOGEN_HELPER_DIR)/db_action_helper $(AUTOGEN_HELPER_DIR)/db_remote_marshall $(AUTOGEN_HELPER_DIR)/db_filter_types $(AUTOGEN_HELPER_DIR)/db_filter $(AUTOGEN_HELPER_DIR)/db_filter_parse $(AUTOGEN_HELPER_DIR)/db_filter_lex
+OCamlProgram(db_actions, $(DB_ACTIONS_FILES))
+OCamlDoc(db_actions, $(DB_ACTIONS_FILES), $(OCAMLINCLUDES))
 
 HTMLGEN=../idl/ocaml_backend/htmldoc.cma
 .PHONY: custom_actions_doc

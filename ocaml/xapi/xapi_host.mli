@@ -268,7 +268,7 @@ val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
 val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit
 (** Attempt to activate the given edition (one of "free", "enterprise" or "platinum".
  *  In needed, the function automatically checks v6 licenses in and out
- *  from the license server (via the v6 deamon). If the requested edition is not
+ *  from the license server (via the v6 daemon). If the requested edition is not
  *  available, the call will fail with an exception, leaving the edition as it is.
  *  Also call this function to change to a different license server, after the
  *  connection details in host.license_server have been amended. *)

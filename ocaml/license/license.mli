@@ -12,11 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(** Module that keeps track of licenses and related matter *)
+
 (** Type for holding all details about a license *)
 type license =
     {
       sku       : string;
-      (** License type: currently either "XE Express" (free) or "XE Enterprise" (paid for) *)
+      (** License type: currently either [XE Express] (free) or [XE Enterprise] (paid for) *)
       version   : string;
       (** No longer used *)
       serialnumber : string;
@@ -60,11 +62,17 @@ val filename : string ref
  *  used since XS 6.0 *)
 
 exception Missing_license_param of string
+(** Thrown if we fail to find a license param *)
 exception LicenseParseError
+(** Thrown if the license data is malformed *)
 exception LicenseCannotReadFile
+(** Thrown if the given license file cannot be opened *)
 exception LicenseFieldMissing of string
+(** Thrown if a particular field is missing from the license data *)
 exception License_expired of license
+(** Thrown if the license in a given file is found to be expired *)
 exception License_file_deprecated
+(** Thrown if an old-style, deprecated license file is used *)
 
 val sku_and_name_of_edition : string -> string * string
 (** map an edition string to an sku name and a marketing name *)

@@ -6,7 +6,9 @@ section
 	OCAML_LIBS=../util/forkhelpers ../util/backtrace ../util/debug ../util/stunnel
 	OCAMLINCLUDES=../xapi ./
 	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
-	OCamlProgram(xe, newcli ../xapi/cli_protocol options)
+	CLI_FILES = newcli ../xapi/cli_protocol options
+	OCamlProgram(xe, $(CLI_FILES))
+	OCamlDoc(xe, $(CLI_FILES), $(OCAMLINCLUDES))
 
 section
 
