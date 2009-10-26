@@ -127,6 +127,9 @@ OCamlLibrary(common, $(COMMON_OBJS))
 OCamlLibrary(client, $(CLIENT_OBJS))
 OCamlLibrary(server, $(SERVER_OBJS))
 
+OCamlDoc(common, $(COMMON_OBJS), $(OCAMLINCLUDES))
+OCamlDoc(client, $(CLIENT_OBJS), $(OCAMLINCLUDES))
+
 OCamlLibrary(htmldoc, htmldoc)
 
 OCAMLPACKS=$(_OCAMLPACKS)

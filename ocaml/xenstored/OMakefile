@@ -4,12 +4,12 @@ OCAML_LIBS    +=
 OCAML_CLIBS   += $(XEN_OCAML_CLIBS)
 CFLAGS        += $(XEN_CFLAGS)
 
-OCamlDoc(../../doc/xenstored, store.mli symbol.mli perms.mli quota.mli connection.mli connections.mli domain.mli)
-
-OCamlProgram(xenstored, \
-             event ../util/config \
+XENSTORED_FILES = event ../util/config \
              parse_arg connection connections define domain domains xenstored \
-             perms process symbol store transaction utils quota disk logging)
+             perms process symbol store transaction utils quota disk logging
+
+OCamlProgram(xenstored, $(XENSTORED_FILES))
+OCamlDoc(xenstored, $(XENSTORED_FILES), $(OCAMLINCLUDES))
 
 .DEFAULT: xenstored
 

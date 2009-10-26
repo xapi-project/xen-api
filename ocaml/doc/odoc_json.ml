@@ -1,24 +1,4 @@
-(* Copyright (C) 2009 Citrix Systems Inc.                                        *)
-(* Copyright (C) 2005 Institut National de Recherche en Informatique et          *)
-(*   en Automatique.                                                             *)
-(*   Based on Odoc_xml by Maxence Guesdon                                        *)
-(*   http://pauillac.inria.fr/~guesdon/odoc_generators/ocaml_3.11.0/odoc_xml.ml  *)
-
-(*    This program is free software; you can redistribute it and/or modify       *)
-(*    it under the terms of the GNU Lesser General Public License as published   *)
-(*    by the Free Software Foundation; either version 2.1 of the License, or     *)
-(*    any later version.                                                         *)
-(*                                                                               *)
-(*    This program is distributed in the hope that it will be useful,            *)
-(*    but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
-(*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
-(*    GNU Lesser General Public License for more details.                        *)
-(*                                                                               *)
-(*    You should have received a copy of the GNU Lesser General Public License   *)
-(*    along with this program; if not, write to the Free Software                *)
-(*    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA                   *)
-(*    02111-1307  USA                                                            *)
-(*                                                                               *)
+(* based on Odoc_xml by Maxence Guesdon (http://pauillac.inria.fr/~guesdon/) *)
 
 open Odoc_info
 module Naming = Odoc_html.Naming
@@ -72,28 +52,6 @@ end
 
 open String
 
-let remove_asterisks str =
-	let n = String.length str in
-	let res = Buffer.create n in
-	let phase = ref 0 in
-	for i = 0 to n-1 do
-		match !phase with
-		| 0 ->
-			if str.[i] == '\n' then begin
-				phase := 1;
-				Buffer.add_char res ' '
-			end else if i == 0 && str.[i] == '*' then
-				phase := 1
-			else
-				Buffer.add_char res str.[i]
-		| 1 -> 
-			if not (List.mem str.[i] ['\n'; '\t'; ' '; '*']) then begin
-				phase := 0;
-				Buffer.add_char res str.[i]
-			end
-	done;
-	Buffer.contents res
-
 (* Dependencies *)
 
 (** add node to graph *)
@@ -132,21 +90,18 @@ let rec invert_graph g = function
   
 let escape_json s =
   let len = String.length s in
-  if len > 0 then begin
-	  let buf = Buffer.create len in
-	  for i = 0 to len - 1 do
-		match s.[i] with
-		| '\"' -> Buffer.add_string buf "\\\""
-		| '\\' -> Buffer.add_string buf "\\\\"
-		| '\b' -> Buffer.add_string buf "\\b"
-		| '\n' -> Buffer.add_string buf "\\n"
-		| '\r' -> Buffer.add_string buf "\\r"
-		| '\t' -> Buffer.add_string buf "\\t"
-		| c -> Buffer.add_char buf c
-	  done;
-	  Buffer.contents buf
-  end
-  else ""
+  let buf = Buffer.create len in
+  for i = 0 to len - 1 do
+    match s.[i] with
+    | '\"' -> Buffer.add_string buf "\\\""
+    | '\\' -> Buffer.add_string buf "\\\\"
+    | '\b' -> Buffer.add_string buf "\\b"
+    | '\n' -> Buffer.add_string buf "\\n"
+    | '\r' -> Buffer.add_string buf "\\r"
+    | '\t' -> Buffer.add_string buf "\\t"
+    | c -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
   
 type json =
 | Object of (string * json) list
@@ -189,29 +144,27 @@ let escape_quotes s =
 type html =
 | Node of string * (string * string) list * html list (** Node ("",_,_) will be discarded *)
 | Leaf of string
-| Raw_html of string
 
 let node tag ?(atts=[]) subs = Node (tag, atts, subs)
 
 let escape_entities s =
-	let len = String.length s in
-	let buf = Buffer.create len in
-	for i = 0 to len - 1 do
-		match s.[i] with
-		| '<' -> Buffer.add_string buf "&lt;"
-		| '>' -> Buffer.add_string buf "&gt;"
-		| '&' -> Buffer.add_string buf "&amp;"
-		| c -> Buffer.add_char buf c
-	done;
-	Buffer.contents buf
+  let len = String.length s in
+  let buf = Buffer.create len in
+  for i = 0 to len - 1 do
+    match s.[i] with
+      '<' -> Buffer.add_string buf "&lt;"
+    | '>' -> Buffer.add_string buf "&gt;"
+    | '&' -> Buffer.add_string buf "&amp;"
+    | c -> Buffer.add_char buf c
+  done;
+  Buffer.contents buf
 
 let string_of_bool b = if b then "true" else "false"
 
 let rec print_one_t = function
-| Leaf s -> escape_entities s
-| Raw_html s -> s
-| Node ("", _, _) -> ""
-| Node (tag, atts, subs) ->
+| Leaf s -> (escape_entities s)
+| Node ("",_,_) -> ""
+| Node (tag,atts,subs) ->
 	"<" ^ tag ^
 	(match atts with
 	 | [] -> ""
@@ -223,35 +176,22 @@ let rec print_one_t = function
     (Printf.sprintf "</%s>" tag)
 
 and print_t_list l =
-	String.concat "" (List.map print_one_t l)
-	
-let html_to_json l =
-	String (print_t_list l)
+	String.concat " " (List.map print_one_t l)
   
 (* the actual generator class *)
 
 class gen () =
 	object (self)
 	
-	(* Attributes *)
-	
-	val mutable g = []
-	val mutable descr_cnt = 0
-	val mutable completed_descr_cnt = 0
-	
-	(* Methods *)
-	
 	(* HTML *)
 	
 	method t_of_text = List.map self#t_of_text_element
 	
-	method t_of_raw s = Leaf (remove_asterisks s)
-	
 	method t_of_text_element = function
-	| Odoc_info.Raw s -> self#t_of_raw s
-	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [self#t_of_raw s]
-	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [self#t_of_raw s]
-	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [self#t_of_raw s]
+	| Odoc_info.Raw s -> Leaf s
+	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [Leaf s]
+	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [Leaf s]
+	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [Leaf s]
 	| Odoc_info.Bold t -> node "b" (self#t_of_text t)
 	| Odoc_info.Italic t -> node "i" (self#t_of_text t)
 	| Odoc_info.Emphasize t -> node "em" (self#t_of_text t)
@@ -265,39 +205,33 @@ class gen () =
 	| Odoc_info.Title (n, l_opt, t) ->
 		(*	(match l_opt with None -> [] | Some t -> ["name",t]) *)
 		node ("h" ^ string_of_int n) (self#t_of_text t)
-	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [self#t_of_raw s]
+	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [Leaf s]
 	| Odoc_info.Link (s, t) -> node "a" ~atts: ["href", s] (self#t_of_text t)
 	| Odoc_info.Ref (name, ref_opt) -> self#t_of_Ref name ref_opt
 	| Odoc_info.Superscript t -> node "sup" (self#t_of_text t)
 	| Odoc_info.Subscript t -> node "sub" (self#t_of_text t)
 	| Odoc_info.Module_list l -> Leaf "" (* self#json_of_Module_list l *)
 	| Odoc_info.Index_list -> Leaf "" (* node "index_list" [] *)
-	| Odoc_info.Custom (s,t) ->
-		if s = "{html" then
-			Raw_html (String.concat "" (List.map (fun (Odoc_info.Raw s) -> remove_asterisks s) t))
-		else
-			node "div" ~atts:["class", s] (self#t_of_text t)
+	| Odoc_info.Custom (s,t) -> Leaf "" (* node "custom" ~atts: ["name", s] (self#t_of_text t) *)
 
 	method t_of_Ref name ref_opt =
-		let code = node "span" ~atts:["class", "code"] [Leaf name] in
+		match ref_opt with
+		| None -> node "a" ~atts: ["name", name] []
+		| Some kind ->
 		let k =
-			match ref_opt with
-			| None ->
-				"none"
-			| Some kind ->
-				match kind with
-				| Odoc_info.RK_module -> "module"
-				| Odoc_info.RK_module_type -> "module_type"
-				| Odoc_info.RK_class -> "class"
-				| Odoc_info.RK_class_type -> "class_type"
-				| Odoc_info.RK_value -> "value"
-				| Odoc_info.RK_type -> "type"
-				| Odoc_info.RK_exception -> "exception"
-				| Odoc_info.RK_attribute -> "attribute"
-				| Odoc_info.RK_method -> "method"
-				| Odoc_info.RK_section t -> "section"
+		match kind with
+		| Odoc_info.RK_module -> "module"
+		| Odoc_info.RK_module_type -> "module_type"
+		| Odoc_info.RK_class -> "class"
+		| Odoc_info.RK_class_type -> "class_type"
+		| Odoc_info.RK_value -> "value"
+		| Odoc_info.RK_type -> "type"
+		| Odoc_info.RK_exception -> "exception"
+		| Odoc_info.RK_attribute -> "attribute"
+		| Odoc_info.RK_method -> "method"
+		| Odoc_info.RK_section t -> "section"
 		in
-		node "a" ~atts:[("href", "{" ^ k ^ "|" ^ name ^ "}")] [code]
+		node "a" ~atts: [("name", name) ; ("kind", k)] []
 	  
 	(* JSON *)
 	
@@ -312,11 +246,11 @@ class gen () =
     	let name = "name", String mt.Module.mt_name in
 		let loc = "location", self#json_of_loc mt.Module.mt_loc in
 		let info = "info", self#json_of_info_opt mt.Module.mt_info in
-		let mte = "type", match mt.Module.mt_type with
+		let mte = "module_type_expr", match mt.Module.mt_type with
 		| None -> Empty
 		| Some t -> String (Odoc_info.string_of_module_type t) (* self#json_of_module_type_expr t *)
 		in
-		let mk = "kind", match mt.Module.mt_kind with
+		let mk = "module_type_kind", match mt.Module.mt_kind with
 		| None -> Empty
   		| Some t -> Empty (* self#json_of_module_type_kind t *)
 		in
@@ -389,7 +323,7 @@ class gen () =
 		Object (name :: info :: kind @ [])
 
 	method json_of_comment t =
-		html_to_json (self#t_of_text t)
+		String (print_t_list (self#t_of_text t))
 		
 	method json_of_type t =
 		let name = "name", String t.Type.ty_name in
@@ -407,13 +341,9 @@ class gen () =
 		Object (name :: loc :: info :: params :: kind :: manifest @ []) (* @ code *)
 	    
 	method json_of_type_parameter (texp, covar, contravar) =
-		Object ["covariant", String (string_of_bool covar); "contravariant", String (string_of_bool contravar); "type", self#json_of_type_expr_param texp]
+		Object ["covariant", String (string_of_bool covar); "contravariant", String (string_of_bool contravar); "type", self#json_of_type_expr texp]
 	    
 	method json_of_type_expr t =
-		Odoc_info.reset_type_names ();
-		String (Odoc_info.string_of_type_expr t)
-		
-	method json_of_type_expr_param t =
 		String (Odoc_info.string_of_type_expr t)
 	
 	method json_of_type_kind priv = function
@@ -428,36 +358,26 @@ class gen () =
 	method json_of_variant_constructor c =
 		let desc = match c.Type.vc_text with
 		| None -> []
-		| Some t ->
-			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", html_to_json (self#t_of_text t)]
+		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
 		in
-		descr_cnt <- descr_cnt + 1;
 		Object (["name", String c.Type.vc_name] @ desc @ ["type", Array (List.map self#json_of_type_expr c.Type.vc_args)])
 
 	method json_of_record_field f =
 		let desc = match f.Type.rf_text with
 		| None -> []
-		| Some t ->
-			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", html_to_json (self#t_of_text t)]
+		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
 		in
-		descr_cnt <- descr_cnt + 1;
 		Object (["name", String f.Type.rf_name; "mutable", json_of_bool f.Type.rf_mutable] @
 		desc @ ["type", self#json_of_type_expr f.Type.rf_type])
 	    
-	method json_of_info_opt info =
-		descr_cnt <- descr_cnt + 1;
-		match info with
-		| None -> Empty
-		| Some i -> self#json_of_info i
+	method json_of_info_opt = function
+	| None -> Empty
+    | Some i -> self#json_of_info i
     
 	method json_of_info i =
 		let desc = match i.i_desc with
 		| None -> []
-		| Some t ->
-			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", html_to_json (self#t_of_text t)]
+		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
 		in
 		let authors = match List.map (fun s -> String s) i.i_authors with
 		| [] -> []
@@ -475,7 +395,7 @@ class gen () =
 		in
 		let dep = match i.i_deprecated with
 		| None -> []
-		| Some t -> ["deprecated", html_to_json (self#t_of_text t)]
+		| Some t -> ["deprecated", String (print_t_list (self#t_of_text t))]
 		in
 		let params = [] in
 		let raised = match List.map self#json_of_raised_exception i.i_raised_exceptions with 
@@ -484,54 +404,57 @@ class gen () =
 		in
 		let return_v = match i.i_return_value with
 		| None -> []
-		| Some t -> ["return", html_to_json (self#t_of_text t)]
+		| Some t -> ["return", String (print_t_list (self#t_of_text t))]
 		in
-		let customs = List.map (fun (tag, t) -> tag, html_to_json (self#t_of_text t)) i.i_custom in
+		let customs = match List.map self#json_of_custom i.i_custom with
+		| [] -> []
+		| l -> ["customs", Array l]
+		in
 		Object (desc @ authors @ version @ see @ since @ dep @ params @ raised @ return_v @ customs)
 		
 	method json_of_see = function
-	| (See_url s, t) -> Object ["url", String s; "text", html_to_json (self#t_of_text t)]
-	| (See_file s, t) -> Object ["file", String s; "text", html_to_json (self#t_of_text t)]
-	| (See_doc s, t) -> Object ["doc", String s; "text", html_to_json (self#t_of_text t)]
+	| (See_url s, t) -> Object ["url", String s; "text", String (print_t_list (self#t_of_text t))]
+	| (See_file s, t) -> Object ["file", String s; "text", String (print_t_list (self#t_of_text t))]
+	| (See_doc s, t) -> Object ["doc", String s; "text", String (print_t_list (self#t_of_text t))]
+		
+	method json_of_custom (tag, t) =
+		Object ["custom", String tag; "text", String (print_t_list (self#t_of_text t))]
 
 	method json_of_raised_exception (s, t) =
-		Object ["raised_exception", String s; "text", html_to_json (self#t_of_text t)]
+		Object ["raised_exception", String s; "text", String (print_t_list (self#t_of_text t))]
 
-	method json_of_module_parameter mparam =
-		let name = "name", String mparam.Module.mp_name in
-		Object (name :: [])
-		
-	method json_of_module_kind = function
-	| Module_struct l ->
-		"module_structure", Array (List.map self#json_of_module_element l)
-	| Module_alias ma ->
-		"module_alias", String "unavailable" (* self#t_of_module_alias ma *)
-	| Module_functor (mparam, mk) ->
-		"module_functor", Object (["parameter", self#json_of_module_parameter mparam; self#json_of_module_kind mk])
-(*		  node "module_functor"
-		[ self#t_of_module_parameter mparam ; self#t_of_module_kind mk]*)
-	| Module_apply (mk1, mk2) ->
-		"module_apply", String "unavailable"
-(*		  node "module_apply"
-		[ self#t_of_module_kind mk1 ; self#t_of_module_kind mk2]*)
-	| Module_with (mk, s) ->
-		"module_with", String "unavailable"
-(*		  node "module_with"
-		[ self#t_of_module_type_kind mk; node "with" [Leaf s] ]*)
-	| Module_constraint (mk, mtk) ->
-		self#json_of_module_kind mk
-(*		  node "module_constraint"
-		[ self#t_of_module_kind mk ;
-		  self#t_of_module_type_kind mtk ;
-		]*)
+	val mutable g = []
 
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
 		let loc = "location", self#json_of_loc m.Module.m_loc in
 		let deps = "dependencies", Object ["uses", Array (List.map (fun d -> String d) m.Module.m_top_deps)] in
 		let file = "file", String m.Module.m_file in
-		let mte = "type", String (Odoc_info.string_of_module_type m.Module.m_type) in
-		let mk = self#json_of_module_kind m.Module.m_kind in
+		let mte = "type_expr", String (Odoc_info.string_of_module_type m.Module.m_type) in
+		let mk = match m.Module.m_kind with
+		| Module_struct l ->
+			"module_structure", Array (List.map self#json_of_module_element l)
+		| Module_alias ma ->
+			"module_alias", String "unavailable" (* self#t_of_module_alias ma *)
+		| Module_functor (mparam, mk) ->
+			"module_functor", String "unavailable"
+(*		  node "module_functor"
+			[ self#t_of_module_parameter mparam ; self#t_of_module_kind mk]*)
+		| Module_apply (mk1, mk2) ->
+			"module_apply", String "unavailable"
+(*		  node "module_apply"
+			[ self#t_of_module_kind mk1 ; self#t_of_module_kind mk2]*)
+		| Module_with (mk, s) ->
+			"module_with", String "unavailable"
+(*		  node "module_with"
+			[ self#t_of_module_type_kind mk; node "with" [Leaf s] ]*)
+		| Module_constraint (mk, mtk) ->
+			"module_constraint", String "unavailable"
+(*		  node "module_constraint"
+			[ self#t_of_module_kind mk ;
+			  self#t_of_module_type_kind mtk ;
+			]*)
+		in
 		let info = "info", self#json_of_info_opt m.Module.m_info in
 		
 		(* dependencies *)
@@ -542,7 +465,7 @@ class gen () =
 		Object (name :: file :: loc :: info :: mte :: mk :: deps :: [])
 
 	method generate (modules_list : t_module list) =
-		let write_module_json (name, json, _) =
+		let write_module_json (name, json) =
 			let oc = open_out (!Odoc_args.target_dir ^ "/" ^ name ^ ".json") in
 			output_string oc ("odoc = " ^ (json_to_string 0 json));
 			close_out oc
@@ -550,9 +473,13 @@ class gen () =
 		let write_index_json ml =
 			let oc = open_out (!Odoc_args.target_dir ^ "/index.json") in
 			let make_record = function
-			| (name, Object ["module", Object m], (dc, cdc)) ->
+			| (name, Object ["module", Object m]) ->
 				let info = List.assoc "info" m in
-				Object ["name", String name; "info", info; "descr_cnt", Number dc; "compl_descr_cnt", Number cdc]
+				let descr = match info with
+				| Object ["description", d] -> d
+				| _ -> Empty
+				in
+				Object ["name", String name; "description", descr]
 			| _ -> Empty
 			in
 			let modules = Array (List.map make_record ml) in
@@ -562,21 +489,15 @@ class gen () =
 					slice !Odoc_args.target_dir (n+1) (-1)
 				with _ -> !Odoc_args.target_dir
 			in
-			output_string oc ("modules_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 modules) ^ ";\n");
-			let stats = Object ["descr_cnt", Number (float_of_int descr_cnt); "completed_descr_cnt", Number (float_of_int completed_descr_cnt)] in
-			output_string oc ("stats_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 stats) ^ ";\n");
+			output_string oc ("modules_" ^ component ^ " = " ^ (json_to_string 0 modules));
 			close_out oc
 		in
 		let create_module_json m =
-			let cur_descr_cnt = descr_cnt in
-			let cur_completed_descr_cnt = completed_descr_cnt in
-			let json = self#json_of_module m in
-			m.Module.m_name, Object ["module", json],
-				(float_of_int (descr_cnt - cur_descr_cnt), float_of_int (completed_descr_cnt - cur_completed_descr_cnt))
+			m.Module.m_name, Object ["module", self#json_of_module m]
 		in
 		let modules = List.map create_module_json modules_list in
 		let ig = invert_graph [] g in
-		let rec add_used_by (name, json, stats) =
+		let rec add_used_by (name, json) =
 			let used_by = Array (List.map (fun s -> String s) (List.assoc name ig)) in
 			let rec extend_object f tags = function
 			| Object l -> Object ((List.map (fun (s,o) -> s, extend_object f (tags @ [s]) o) l) @ f tags)
@@ -586,7 +507,7 @@ class gen () =
 			| ["module"; "dependencies"] -> ["used_by", used_by]
 			| l -> []
 			in
-			name, extend_object aux [] json, stats
+			name, extend_object aux [] json
 		in
 		let modules = List.map add_used_by modules in
 		List.iter write_module_json modules;

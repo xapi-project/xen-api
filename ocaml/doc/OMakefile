@@ -2,20 +2,9 @@ OCAMLINCLUDES += +ocamldoc
 BYTE_ENABLED = TRUE
 OCamlLibrary(odoc_json, odoc_json)
 
-OCAML_LIBS += ../idl/datamodel
-OCAMLINCLUDES += ../idl
-
-CAMLP4_FILES = jsapi
-UseCamlp4(rpc-light.syntax, $(CAMLP4_FILES))
-
-OCamlProgram(jsapi, jsapi)
-
-.PHONY: doc
-doc: jsapi
-	mkdir -p api
-	./jsapi
-
 .PHONY: clean
 clean:
-	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
-	rm -rf components.js content jsapi
+	
+clean:
+	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o v6d v6testd v6d-reopen-logs
+	rm -rf xapi v6d xenstored block_device_io client common datamodel 

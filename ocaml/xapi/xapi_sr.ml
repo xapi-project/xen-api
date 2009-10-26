@@ -321,7 +321,7 @@ let forget  ~__context ~sr =
 	let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
 	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
-(* Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
+(** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
    PBD record on current host to determine device_config reqd by sr backend) *)
 let destroy  ~__context ~sr =
 	check_no_pbds_attached ~__context ~sr;
