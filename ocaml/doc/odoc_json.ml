@@ -1,4 +1,25 @@
-(* based on Odoc_xml by Maxence Guesdon (http://pauillac.inria.fr/~guesdon/) *)
+
+(* Copyright (C) 2009 Citrix Systems Inc.                                        *)
+(* Copyright (C) 2005 Institut National de Recherche en Informatique et          *)
+(*   en Automatique.                                                             *)
+(*   Based on Odoc_xml by Maxence Guesdon                                        *)
+(*   http://pauillac.inria.fr/~guesdon/odoc_generators/ocaml_3.11.0/odoc_xml.ml  *)
+
+(*    This program is free software; you can redistribute it and/or modify       *)
+(*    it under the terms of the GNU Lesser General Public License as published   *)
+(*    by the Free Software Foundation; either version 2.1 of the License, or     *)
+(*    any later version.                                                         *)
+(*                                                                               *)
+(*    This program is distributed in the hope that it will be useful,            *)
+(*    but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(*    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(*    GNU Lesser General Public License for more details.                        *)
+(*                                                                               *)
+(*    You should have received a copy of the GNU Lesser General Public License   *)
+(*    along with this program; if not, write to the Free Software                *)
+(*    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA                   *)
+(*    02111-1307  USA                                                            *)
+(*                                                                               *)
 
 open Odoc_info
 module Naming = Odoc_html.Naming
