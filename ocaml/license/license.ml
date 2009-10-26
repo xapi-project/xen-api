@@ -141,7 +141,6 @@ let to_assoc_list (x: license) =
     _sku_marketing_name, x.sku_marketing_name;
   ]
 
-(** Thrown if we fail to find a license param *)
 exception Missing_license_param of string
 
 (** Takes an association list (eg from Host.license_params) and returns a license record. This may throw 
