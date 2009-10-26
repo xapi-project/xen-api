@@ -15,16 +15,6 @@
 type method_t = Get | Post | Put | Connect | Unknown of string
 val string_of_method_t : method_t -> string
 
-(** Debug module *)
-module D :
-  sig
-    val get_thread_id : unit -> int
-    val name_thread : string -> unit
-    val debug : ('a, unit, string, unit) format4 -> 'a
-    val warn : ('a, unit, string, unit) format4 -> 'a
-    val error : ('a, unit, string, unit) format4 -> 'a
-  end
-
 (** Exception raised when parsing start line of request *)
 exception Http_parse_failure
 exception Unauthorised of string
