@@ -25,44 +25,24 @@ type authorization =
     | UnknownAuth of string
 
 (** Parsed form of the HTTP request line plus cookie info *)
-type request = {
-	m: method_t; 
-	uri: string; 
-	query: (string*string) list; 
-	version: string; 
-	transfer_encoding: string option;
-	content_length: int64 option;
-	auth: authorization option;
-	cookie: (string * string) list;
-	task: string option;
-	subtask_of: string option;
-	content_type: string option;
-	user_agent: string option;
-	mutable close: bool;
-    headers: string list;
-}
-
-(** Parsed form of the HTTP response *)
-module Response : sig
-	type t = {
-		content_length: int64 option;
-		task: string option;
-	}
-end
-
-val rpc_of_request : request -> Rpc.t 
-val request_of_rpc : Rpc.t -> request
+type request = { m: method_t; 
+		 uri: string; 
+		 query: (string*string) list; 
+		 version: string; 
+		 transfer_encoding: string option;
+		 content_length: int64 option;
+		 auth: authorization option;
+		 cookie: (string * string) list;
+		 task: string option;
+     subtask_of: string option;
+		 user_agent: string option;
+		 close: bool ref;
+                 headers: string list;}
  
 val nullreq : request
 val authorization_of_string : string -> authorization
-
-val parse_uri : string -> string * ((string * string) list)
-
 val request_of_string : string -> request
 val pretty_string_of_request : request -> string
-
-(** Marshal a request back into wire-format *)
-val string_list_of_request : request -> string list
 
 val http_request : ?version:string -> ?keep_alive:bool -> ?cookie:((string*string) list) -> ?length:(int64) -> user_agent:(string) -> method_t -> string -> string -> string list
 
@@ -83,8 +63,6 @@ val subtask_of_hdr : string
 
 (** Header used for User-Agent string *)
 val user_agent_hdr : string
-
-val content_type_hdr : string
 
 val output_http : Unix.file_descr -> string list -> unit
 
