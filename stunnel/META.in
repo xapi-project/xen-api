@@ -1,5 +1,5 @@
 version = "@VERSION@"
 description = "Secure Tunneling"
-requires = "uuid,unix,stdext,log"
+requires = "unix,stdext,log"
 archive(byte) = "stunnel.cma"
 archive(native) = "stunnel.cmxa"
