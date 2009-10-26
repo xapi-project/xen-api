@@ -245,6 +245,8 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
 	  Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
   with _ -> () end;
+  
+  Db.VM.set_bios_strings ~__context ~self:vm ~value:vm_record.API.vM_bios_strings;
 
   debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id;
 
