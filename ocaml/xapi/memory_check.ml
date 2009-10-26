@@ -147,8 +147,9 @@ open Db_filter_types
 
 (** Return a host's memory summary from live database contents. *)
 let get_host_memory_summary ~__context ~host =
+	let metrics = Db.Host.get_metrics ~__context ~self:host in
 	let host_memory_total_bytes =
-		Db.Host.get_memory_total ~__context ~self:host in
+		Db.Host_metrics.get_memory_total ~__context ~self:metrics in
 	let host_memory_overhead_bytes =
 		Db.Host.get_memory_overhead ~__context ~self:host in
 	let host_maximum_guest_memory_bytes =
