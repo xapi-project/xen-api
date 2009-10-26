@@ -99,7 +99,7 @@ let to_compact_string (x: restrictions) =
     (if x.platform_filter       then "     " else "Plat ") ^
     (if x.regular_nag_dialog    then " nag " else "     ")
 
-(** Represents no restrictions at all *)
+(* Represents no restrictions at all *)
 let most_permissive = 
   {
     enable_vlans = true;
@@ -119,7 +119,7 @@ let most_permissive =
     regular_nag_dialog = false;
   }
 
-(** Return a new restrictions record which, for each field, takes the least permissive of the two arguments *)
+(* Return a new restrictions record which, for each field, takes the least permissive of the two arguments *)
 let least_permissive (a: restrictions) (b: restrictions) =
 {
   enable_vlans          = a.enable_vlans          && b.enable_vlans;
@@ -139,10 +139,9 @@ let least_permissive (a: restrictions) (b: restrictions) =
   regular_nag_dialog    = a.regular_nag_dialog    || b.regular_nag_dialog;
 }
 
-(** Return the 'pool_restrictions' being the greatest set of permissions allowed by all licenses *)
 let pool_restrictions_of_list (hosts: restrictions list) = List.fold_left least_permissive most_permissive hosts
 
-(** Returns true if the pool SKUs are 'floodgate free' (ie if any are express *)
+(* Returns true if the pool SKUs are 'floodgate free' (ie if any are express *)
 let pool_is_floodgate_free_of_list (license_params: ((string * string) list) list) = 
   (* Some of the license_params might be malformed due to initial startup glitches *)
   let valid = List.filter (fun license_params -> try ignore(License.of_assoc_list license_params); true with _ -> false) license_params in
@@ -254,14 +253,12 @@ let rec restrictions_of_sku = function
 let get () =
   restrictions_of_sku (get_sku ())
 
-(** Cache of pool restrictions, always updated at least once when the master reads its license *)
+(* Cache of pool restrictions, always updated at least once when the master reads its license *)
 let pool_restrictions = ref most_permissive
 let pool_restrictions_m = Mutex.create ()
 
-(** Called on the master to gate some operations *)
 let get_pool () = Mutex.execute pool_restrictions_m (fun () -> !pool_restrictions)
 
-(** Called whenever a slave resets its Host.license_params after reading in a license *)
 let update_pool_restrictions ~__context = 
   Mutex.execute pool_restrictions_m
     (fun () ->
@@ -274,6 +271,7 @@ let update_pool_restrictions ~__context =
        end
     )
 
+(*
 let license_ok_for_pooling ~__context = 
   let rstr = get () in
 
@@ -287,10 +285,11 @@ let license_ok_for_pooling ~__context =
   then warn "This license does not support pooling and yet we are configured as a slave in a pool";
   
   not bad_master_license && (not bad_slave_license)
+*)
 
 (* Whether WLB calls are enabled.  We use enable_pooling for this, just to
    save creating another flag.   The current intention is for WLB to be
-   enabled only on Enterprise and Platinum. *)
+   enabled only on Enterprise and Platinum. --> NOT TRUE ANYMORE??? *)
 let license_ok_for_wlb ~__context =
   (get_pool()).enable_wlb
 

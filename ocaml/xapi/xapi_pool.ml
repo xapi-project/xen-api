@@ -40,13 +40,6 @@ let get_master ~rpc ~session_id =
 
 (* Pre-join asserts *)
 let pre_join_checks ~__context ~rpc ~session_id ~force =
-	let pooling_is_allowed () =
-		let rstr = Restrictions.get () in
-		if not rstr.Restrictions.enable_pooling then begin
-			L.error "License does not allow pooling";
-			raise (Api_errors.Server_error (Api_errors.license_restriction, []))
-		end in
-
 	(* I cannot join a Pool if I have HA already enabled on me *)
 	let ha_is_not_enable_on_me () =
 		let pool = List.hd (Db.Pool.get_all ~__context) in
@@ -232,7 +225,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Host cannot become slave of itself"])) in
 
 	(* call pre-join asserts *)
-	pooling_is_allowed ();
 	ha_is_not_enable_on_me ();
 	ha_is_not_enable_on_the_distant_pool ();
 	assert_not_joining_myself();
@@ -718,11 +710,7 @@ let designate_new_master ~__context ~host =
 	end
 
 let initial_auth ~__context =
-  let rstr = Restrictions.get () in
-  if rstr.Restrictions.enable_pooling then
-    !Xapi_globs.pool_secret
-  else
-    raise (Api_errors.Server_error(Api_errors.license_restriction,[]))
+  !Xapi_globs.pool_secret
 
 (** This call is used during master startup so we should check to see whether we need to re-establish our database
     connection and resynchronise lost database state i.e. state which is non-persistent or reverted over a master crash *)
