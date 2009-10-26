@@ -5,7 +5,7 @@ OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory
 OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
                  ../autogen ../database/ \
                  ../http/ ../xenops ../muxdemux ../xva \
-		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util ../v6
+		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -129,7 +129,7 @@ XAPI_MODULES = $(COMMON) \
 	config_file_sync \
 	config_file_io \
 	slave_backup \
-	restrictions \
+	../license/restrictions \
 	sm_fs_ops \
 	vmopshelpers \
 	vm_config \
@@ -227,7 +227,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_secret \
 	../database/db_hiupgrade \
 	certificates \
-	../v6/v6client \
+	../license/v6client \
 	bios_strings
 	
 OCamlProgram(xapi, $(XAPI_MODULES))
