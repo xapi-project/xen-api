@@ -15,8 +15,8 @@ OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
-OBJS = syslog log logs
-INTF = log.cmi logs.cmi syslog.cmi
+OBJS = syslog log logs debug
+INTF = log.cmi logs.cmi syslog.cmi debug.cmi
 LIBS = log.cma log.cmxa
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
@@ -38,32 +38,25 @@ libsyslog_stubs.a: syslog_stubs.o
 	ar rcs $@ $+
 	ocamlmklib -o syslog_stubs $+
 
-%.cmo: %.ml
-	$(OCAMLC) -c $(OCAMLCFLAGS) -o $@ $<
-
 %.cmi: %.mli
 	$(OCAMLC) -c $(OCAMLCFLAGS) -o $@ $<
 
-%.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -o $@ $<
+%.cmo: %.ml %.cmi
+	$(OCAMLC) -c $(OCAMLCFLAGS) -thread -o $@ $<
+
+%.cmx: %.ml %.cmi
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-
-logs.mli : logs.ml
-	$(OCAMLC) -i $(OCAMLCFLAGS) $< > $@
-
-syslog.mli : syslog.ml
-	$(OCAMLC) -i $< > $@
 
 META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 #dependency:
-log.cmo: syslog.cmo log.cmi 
-log.cmx: syslog.cmx log.cmi 
-logs.cmo: log.cmi 
-logs.cmx: log.cmx 
+log.cmi: syslog.cmi
+logs.cmi: log.cmi
+debug.cmi: logs.cmi
 
 .PHONY: install
 install: $(LIBS) META

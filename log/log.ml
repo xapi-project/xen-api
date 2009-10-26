@@ -13,7 +13,15 @@
  *)
 
 open Printf
-open Threadext
+
+module Mutex = struct
+    include Mutex
+    let execute lock f =
+    	Mutex.lock lock;
+    	let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
+    	Mutex.unlock lock;
+    	r
+end
 
 exception Unknown_level of string
 
@@ -63,6 +71,12 @@ let mkdir_rec dir perm =
 	p_mkdir dir
 
 type t = { output: output; mutable level: level; }
+
+let get_strings t = match t.output with
+	| String s -> !s
+	| _ -> []
+
+let get_level t = t.level
 
 let make output level = { output = output; level = level; }
 
@@ -134,7 +148,7 @@ let close t =
 	| String _      -> ()
 
 (** create a string representating the parameters of the logger *)
-let string_of_logger t =
+let to_string t =
 	match t.output with
 	| Nil           -> "nil"
 	| Syslog k      -> sprintf "syslog:%s" k
@@ -148,7 +162,7 @@ let string_of_logger t =
 	    end
 
 (** parse a string to a logger *)
-let logger_of_string s : t =
+let of_string s : t =
 	match s with
 	| "nil"    -> opennil ()
 	| "stderr" -> openerr Debug
