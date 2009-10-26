@@ -48,76 +48,67 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 	$(AUTOGEN_DIR)/db_actions.ml $(AUTOGEN_DIR)/custom_actions.ml \
 	$(AUTOGEN_DIR)/rbac_static.ml $(AUTOGEN_DIR)/rbac_static.csv
 
-#autogen_idl: gen_api_main
-	#./gen_api_main -filter $(FILTER) -mode client   > $(AUTOGEN_DIR)/client.ml
-	#./gen_api_main -filter $(FILTER) -mode api   > $(AUTOGEN_DIR)/aPI.ml
-	#./gen_api_main -gendebug -filter $(FILTER) -mode server   > $(AUTOGEN_DIR)/server.ml
-	#./gen_api_main -filter implementation -mode db       > $(AUTOGEN_DIR)/db_actions.ml
-	#./gen_api_main -filter $(FILTER) -mode actions  > $(AUTOGEN_DIR)/custom_actions.ml
-	#./gen_api_main -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.ml
-	#./gen_api_main -gendebug -filter $(FILTER) -mode rbac   > $(AUTOGEN_DIR)/rbac_static.csv
-
 # -----------------------------------------------------------------------
 # programs that depend on autogen files
 # -----------------------------------------------------------------------
 
 COMMON_OBJS = ref \
-              ../datamodel_types ../../http/http ../../http/base64 xMLRPC event_types \
-	      ../../util/date ../../http/buf_io ../api_errors ../api_messages ../../xapi/xapi_globs \
-		../constants
+	../datamodel_types ../../http/http ../../http/base64 xMLRPC event_types \
+	../../util/date ../../http/buf_io ../api_errors ../api_messages ../../xapi/xapi_globs \
+	../constants
 CLIENT_OBJS = xmlrpcclient ../../util/stunnel_cache \
-              $(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
+	$(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
 SERVER_OBJS = ../../database/escaping locking_helpers \
-              $(AUTOGEN_DIR)/server \
-              $(AUTOGEN_DIR)/db_actions $(AUTOGEN_DIR)/custom_actions \
-              $(AUTOGEN_HELPER_DIR)/string_unmarshall_helper \
-              $(AUTOGEN_HELPER_DIR)/string_marshall_helper \
-              $(AUTOGEN_HELPER_DIR)/xml_spaces \
-              $(AUTOGEN_HELPER_DIR)/db_action_helper \
-              $(AUTOGEN_HELPER_DIR)/db_xml \
-	      $(AUTOGEN_HELPER_DIR)/db_remote_marshall \
-	      $(AUTOGEN_HELPER_DIR)/db_remote_cache_access \
-	      $(AUTOGEN_HELPER_DIR)/db_cache_types \
-              $(AUTOGEN_HELPER_DIR)/db_filter \
-	      $(AUTOGEN_HELPER_DIR)/db_filter_parse \
-	      $(AUTOGEN_HELPER_DIR)/db_filter_lex \
-              $(AUTOGEN_HELPER_DIR)/db_cache \
-	      $(AUTOGEN_HELPER_DIR)/db_names \
-	      $(AUTOGEN_HELPER_DIR)/db_upgrade \
-	      $(AUTOGEN_HELPER_DIR)/db_exn \
-	      $(AUTOGEN_HELPER_DIR)/ref_index \
-	      $(AUTOGEN_HELPER_DIR)/db_backend \
-	      $(AUTOGEN_HELPER_DIR)/db_dirty \
-	      $(AUTOGEN_HELPER_DIR)/backend_xml \
-	      $(AUTOGEN_HELPER_DIR)/generation \
-	      $(AUTOGEN_HELPER_DIR)/db_connections \
-	      $(AUTOGEN_HELPER_DIR)/db_conn_store \
-	      $(AUTOGEN_HELPER_DIR)/eventgen \
-	      $(AUTOGEN_HELPER_DIR)/master_connection \
-	      $(AUTOGEN_HELPER_DIR)/db_lock \
-	      $(AUTOGEN_HELPER_DIR)/block_device_io_errors \
-	      $(AUTOGEN_HELPER_DIR)/redo_log \
-              ../../xapi/static_vdis_list \
-	      ../../xapi/parse_db_conf \
-	      ../../client_records/records \
-	      ../../client_records/record_util \
-              ../../util/encodings \
-              ../../util/vm_memory_constraints \
-              locking ../dm_api \
-              ../datamodel ../datamodel_utils ../datamodel_values \
-              gen_client ocaml_syntax ocaml_utils taskHelper exnHelper \
-	      server_helpers session_check context ../../util/config \
-	      ../../http/http_svr ../../util/server_io \
-	      ../../xapi/pool_role \
-	      ../../xapi/xapi_inventory \
-	      ../../xapi/hashtbl_xml \
-	      ../../xapi/localdb \
-	      rbac \
-	      rbac_audit \
-	      ../../autogen/rbac_static \
-	      ../../xapi/helper_hostname \
-	      ../../xapi/helper_process \
-	      ../../xapi/xmlrpc_sexpr
+	$(AUTOGEN_DIR)/server \
+	$(AUTOGEN_DIR)/db_actions $(AUTOGEN_DIR)/custom_actions \
+	$(AUTOGEN_HELPER_DIR)/string_unmarshall_helper \
+	$(AUTOGEN_HELPER_DIR)/string_marshall_helper \
+	$(AUTOGEN_HELPER_DIR)/xml_spaces \
+	$(AUTOGEN_HELPER_DIR)/db_action_helper \
+	$(AUTOGEN_HELPER_DIR)/db_xml \
+	$(AUTOGEN_HELPER_DIR)/db_remote_marshall \
+	$(AUTOGEN_HELPER_DIR)/db_remote_cache_access \
+	$(AUTOGEN_HELPER_DIR)/db_cache_types \
+	$(AUTOGEN_HELPER_DIR)/db_filter \
+	$(AUTOGEN_HELPER_DIR)/db_filter_parse \
+	$(AUTOGEN_HELPER_DIR)/db_filter_lex \
+	$(AUTOGEN_HELPER_DIR)/db_cache \
+	$(AUTOGEN_HELPER_DIR)/db_names \
+	$(AUTOGEN_HELPER_DIR)/db_upgrade \
+	$(AUTOGEN_HELPER_DIR)/db_exn \
+	$(AUTOGEN_HELPER_DIR)/ref_index \
+	$(AUTOGEN_HELPER_DIR)/db_backend \
+	$(AUTOGEN_HELPER_DIR)/db_dirty \
+	$(AUTOGEN_HELPER_DIR)/backend_xml \
+	$(AUTOGEN_HELPER_DIR)/generation \
+	$(AUTOGEN_HELPER_DIR)/db_connections \
+	$(AUTOGEN_HELPER_DIR)/db_conn_store \
+	$(AUTOGEN_HELPER_DIR)/eventgen \
+	$(AUTOGEN_HELPER_DIR)/master_connection \
+	$(AUTOGEN_HELPER_DIR)/db_lock \
+	$(AUTOGEN_HELPER_DIR)/block_device_io_errors \
+	$(AUTOGEN_HELPER_DIR)/redo_log \
+	../../xapi/static_vdis_list \
+	../../xapi/parse_db_conf \
+	../../client_records/records \
+	../../client_records/record_util \
+	../../util/encodings \
+	../../util/vm_memory_constraints \
+	locking ../dm_api \
+	../datamodel ../datamodel_utils ../datamodel_values \
+	gen_client ocaml_syntax ocaml_utils taskHelper exnHelper \
+	server_helpers session_check context ../../util/config \
+	../../http/http_svr ../../util/server_io \
+	../../xapi/pool_role \
+	../../xapi/xapi_inventory \
+	../../xapi/hashtbl_xml \
+	../../xapi/localdb \
+	rbac \
+	rbac_audit \
+	../../autogen/rbac_static \
+	../../xapi/helper_hostname \
+	../../xapi/helper_process \
+	../../xapi/xmlrpc_sexpr
 
 _OCAMLPACKS = $(OCAMLPACKS)
 OCAMLPACKS = 
