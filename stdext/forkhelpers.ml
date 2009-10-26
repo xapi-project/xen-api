@@ -21,44 +21,68 @@
 
 (* XXX: this is a work in progress *)
 
-let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
-
 open Pervasiveext
 
-type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
+(** Standalone wrapper process which safely closes fds before exec()ing another
+    program *)
 
-let string_of_pidty (fd, pid) = Printf.sprintf "(FEFork (%d,%d))" (Unixext.int_of_file_descr fd) pid
+exception Close_and_exec_binary_missing of string
+
+(* This needs to point to where the binaray closeandexec is installed *)
+let close_and_exec = "/opt/xensource/libexec/closeandexec"
+
+let close_and_exec_cmdline (fds: Unix.file_descr list) (cmd: string) (args: string list) = 
+  (* Sanity check: make sure the close_and_exec binary exists *)
+  (try Unix.access close_and_exec [ Unix.X_OK ] 
+   with _ -> raise (Close_and_exec_binary_missing close_and_exec));
+
+  let fds = List.map (fun x -> string_of_int (Unixext.int_of_file_descr x)) fds in
+  close_and_exec :: fds @ ("--" :: cmd :: args)
+
+(* Low-level (unsafe) function which forks, runs a 'pre_exec' function and
+   then executes some other binary. It makes sure to catch any exception thrown by
+   exec* so that we don't end up with two ocaml processes. *)
+let fork_and_exec ?(pre_exec=fun () -> ()) ?env (cmdline: string list) = 
+  let args = Array.of_list cmdline in
+  let argv0 = List.hd cmdline in
+  let pid = Unix.fork () in
+  if pid = 0 then begin
+      try
+	pre_exec ();
+	(* CA-18955: xapi now runs with priority -3. We then set his sons priority to 0. *) 
+	ignore_int (Unix.nice (-(Unix.nice 0)));
+	ignore_int (Unix.setsid ());
+	match env with
+	| None -> Unix.execv argv0 args
+	| Some env -> Unix.execve argv0 args env
+      with _ -> exit 1
+  end else pid
+
+(** File descriptor operations to be performed after a fork.
+    These are all safe in the presence of threads *)
+type fd_operation = 
+    | Dup2 of Unix.file_descr * Unix.file_descr
+    | Close of Unix.file_descr
+
+let do_fd_operation = function
+  | Dup2(a, b) -> Unix.dup2 a b
+  | Close a -> Unix.close a
+
+(** Safe function which forks a command, closing all fds except a whitelist and
+    having performed some fd operations in the child *)
+let safe_close_and_exec ?env (pre_exec: fd_operation list) (fds: Unix.file_descr list) 
+    (cmd: string) (args: string list) = 
+  let cmdline = close_and_exec_cmdline fds cmd args in
+  fork_and_exec ~pre_exec:(fun () -> List.iter do_fd_operation pre_exec) ?env cmdline
 
 exception Subprocess_failed of int
 exception Subprocess_killed of int
 
-let waitpid (sock, pid) =
-	let status = Fecomms.read_raw_rpc sock in
-	Unix.close sock;
-	begin match status with
-	  | Fe.Finished (Fe.WEXITED n) -> (pid,Unix.WEXITED n)
-	  | Fe.Finished (Fe.WSIGNALED n) -> (pid,Unix.WSIGNALED n)
-	  | Fe.Finished (Fe.WSTOPPED n) -> (pid,Unix.WSTOPPED n)
-	end
-
-let waitpid_nohang ((sock, _) as x) =
-	(match Unix.select [sock] [] [] 0.0 with
-	  | ([s],_,_) -> waitpid x
-	  | _ -> (0,Unix.WEXITED 0))
-	  
-let dontwaitpid (sock, pid) =
-	Unix.close sock
-
-
-let waitpid_fail_if_bad_exit ty =
-  let (_,status) = waitpid ty in
-  match status with
-    | (Unix.WEXITED 0) -> ()
-    | (Unix.WEXITED n) -> raise (Subprocess_failed n)
-    | (Unix.WSIGNALED n) -> raise (Subprocess_killed n)
-    | (Unix.WSTOPPED n) -> raise (Subprocess_killed n)
-
-let getpid (sock, pid) = pid
+let waitpid pid = match Unix.waitpid [] pid with
+  | _, Unix.WEXITED 0 -> ()
+  | _, Unix.WEXITED n -> raise (Subprocess_failed n)
+  | _, Unix.WSIGNALED n -> raise (Subprocess_killed n)
+  | _, Unix.WSTOPPED n -> raise (Subprocess_killed n)
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -83,92 +107,48 @@ let with_logfile_fd ?(delete = true) prefix f =
     Failure(read_logfile(), e)
 
 
+let with_dev_null f = Unixext.with_file "/dev/null" [ Unix.O_WRONLY ] 0o0 f
+let with_dev_null_read f = Unixext.with_file "/dev/null" [ Unix.O_RDONLY ] 0o0 f
+
+
 exception Spawn_internal_error of string * string * Unix.process_status
 
-let id = ref 0 
-
-(** Safe function which forks a command, closing all fds except a whitelist and
-    having performed some fd operations in the child *)
-let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr) list) 
-    (cmd: string) (args: string list) = 
-
-  let sock = Fecomms.open_unix_domain_sock_client "/var/xapi/forker/main" in
-  let stdinuuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let stdoutuuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let stderruuid = Uuid.to_string (Uuid.make_uuid ()) in
-
-  let fds_to_close = ref [] in
-
-  let add_fd_to_close_list fd = fds_to_close := fd :: !fds_to_close in
-  let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in
-  let close_fds () = List.iter (fun fd -> Unix.close fd) !fds_to_close in
-
-  finally (fun () -> 
-
-    let maybe_add_id_to_fd_map id_to_fd_map (uuid,fd,v) =
-      match v with 
-	| Some _ -> (uuid, fd)::id_to_fd_map
-	| None -> id_to_fd_map
-    in
-
-    let predefined_fds = [
-      (stdinuuid, Some 0, stdin);
-      (stdoutuuid, Some 1, stdout);
-      (stderruuid, Some 2, stderr)] 
-    in
-
-    (* We don't care what fd these end up as - they're named in the argument list for us, and the
-       forking executioner will sort it out. *)
-    let dest_named_fds = List.map (fun (uuid,_) -> (uuid,None)) fds in
-    let id_to_fd_map = List.fold_left maybe_add_id_to_fd_map dest_named_fds predefined_fds in
-
-    let env = match env with 
-      |	Some e -> e
-      | None -> [| "PATH=" ^ (String.concat ":" default_path) |]
-    in
-    Fecomms.write_raw_rpc sock (Fe.Setup {Fe.cmdargs=(cmd::args); env=(Array.to_list env); id_to_fd_map = id_to_fd_map});
-
-    let response = Fecomms.read_raw_rpc sock in
-
-    let s = match response with
-      | Fe.Setup_response s -> s 
-      | _ -> failwith "Failed to communicate with forking executioner"
-    in
-
-    let fd_sock = Fecomms.open_unix_domain_sock_client s.Fe.fd_sock_path in
-    add_fd_to_close_list fd_sock;
-    
-    let send_named_fd uuid fd =
-      Fecomms.send_named_fd fd_sock uuid fd;
-    in
-
-    List.iter (fun (uuid,_,srcfdo) ->
-      match srcfdo with Some srcfd -> send_named_fd uuid srcfd | None -> ()) predefined_fds;
-    List.iter (fun (uuid,srcfd) ->
-      send_named_fd uuid srcfd) fds;
-    Fecomms.write_raw_rpc sock Fe.Exec;
-    match Fecomms.read_raw_rpc sock with Fe.Execed pid -> (sock, pid))
-   
-    close_fds
-
-
-let execute_command_get_output ?env cmd args =
-  match with_logfile_fd "execute_command_get_out" (fun out_fd ->
-    with_logfile_fd "execute_command_get_err" (fun err_fd ->
-      let (sock,pid) = safe_close_and_exec ?env None (Some out_fd) (Some err_fd) [] cmd args in
-      match Fecomms.read_raw_rpc sock with
-	| Fe.Finished x -> Unix.close sock; x
-	| _ -> Unix.close sock; failwith "Communications error"	    
-    )) with
-    | Success(out,Success(err,(status))) -> 
-	begin
-	  match status with
-	    | Fe.WEXITED 0 -> (out,err)
-	    | Fe.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
-	    | Fe.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
-	    | Fe.WSIGNALED n -> raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
-	end
-    | Success(_,Failure(_,exn))
-    | Failure(_, exn) ->
-	raise exn
-
+(* Execute a command, return the stdout logging or throw a Spawn_internal_error exception *)
+let execute_command_get_output ?(cb_set=(fun _ -> ())) ?(cb_clear=(fun () -> ())) cmd args =
+  let (stdout_exit, stdout_entrance) = Unix.pipe () in
+  let fds_to_close = ref [ stdout_exit; stdout_entrance ] in
+  let close' fd = 
+    if List.mem fd !fds_to_close 
+    then (Unix.close fd; fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close) in
+  
+  let pid = ref 0 in
+  finally  (* make sure I close all my open fds in the end *)
+    (fun () ->
+       (* Open /dev/null for reading. This will be given to the closeandexec process as its STDIN. *)
+       with_dev_null_read (fun devnull_read ->
+         (* Capture stderr output for logging *)
+         match with_logfile_fd "execute_command_get_output"
+         (fun log_fd ->
+	    pid := safe_close_and_exec
+	      [ Dup2(devnull_read, Unix.stdin);
+	        Dup2(stdout_entrance, Unix.stdout);
+	        Dup2(log_fd, Unix.stderr);
+	        Close(stdout_exit) ]
+	      [ Unix.stdin; Unix.stdout; Unix.stderr ] (* close all but these *)
+	      cmd args;
+	    (* parent *)
+	    (try cb_set !pid with _ -> ());
+	    close' stdout_entrance;
+	    let output = (try Unixext.read_whole_file 500 500 stdout_exit with _ -> "") in
+	    output, snd(Unix.waitpid [] !pid)) with
+         | Success(log, (output, status)) ->
+	     begin match status with
+	     | Unix.WEXITED 0 -> output, log
+	     | _ -> raise (Spawn_internal_error(log, output, status))
+	     end
+         | Failure(log, exn) ->
+	     raise exn
+       )
+    ) (fun () -> 
+	 (try cb_clear () with _ -> ());
+	 List.iter Unix.close !fds_to_close)
