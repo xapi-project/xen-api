@@ -5,6 +5,7 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
+DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -15,8 +16,6 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 OBJS = rss
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = rss.cma rss.cmxa
-
-DOCDIR = /myrepos/xen-api-libs.hg/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -46,18 +45,12 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore rss META $(INTF) $(LIBS) *.a *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore rss META $(INTF) $(LIBS) *.a *.cmx
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove rss
 
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "rss" "package" "$(OBJS)" "." "xml-light2" ""
-	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
