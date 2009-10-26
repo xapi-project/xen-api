@@ -15,62 +15,36 @@
 
 (** {2 (Fill in Title!)} *)
 
-val host_bugreport_upload : string
 val set_emergency_mode_error : string -> string list -> unit
-val local_assert_healthy : __context:'a -> unit
+(** When starting xapi we begin in 'emergency mode' and hope to transition out of it by contacting
+    the master etc. As we make progress we set the 'emergency_mode_error' which is the error returned
+    by the CLI, indicating stuff like: failure to get a management IP address, the master doesn't
+    recognise us etc. *)
 
-(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
+val local_assert_healthy : __context:'a -> unit 
+
 val set_license_params :
   __context:Context.t ->
   self:[ `host ] Ref.t -> value:(string * string) list -> unit
+(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
   
 val set_power_on_mode :
   __context:Context.t ->
   self:[ `host ] Ref.t -> power_on_mode: string -> power_on_config:(string * string) list -> unit
   
-(** Before we re-enable this host we make sure it's safe to do so. It isn't if:
-    + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
-    + HA is enabled and this host has broken storage or networking which would cause protected VMs
-    to become non-agile
-    + our license doesn't support pooling and we're a slave
- *)
-val assert_safe_to_reenable :
-  __context:Context.t -> self:[ `host ] Ref.t -> unit
-  
-val xen_bugtool : string
 val bugreport_upload :
   __context:'a ->
   host:'b -> url:string -> options:(string * string) list -> unit
   
-(** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
-    attached to dom0, and c) that there are no tasks running *)
-val assert_can_shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
-
 val signal_networking_change : __context:Context.t -> unit
 val signal_cdrom_event : __context:Context.t -> string -> unit
 val notify : __context:Context.t -> ty:string -> params:string -> unit
-val rotate : 'a list -> 'a list
 
 (** {2 (Fill in title!)} *)
-
-type per_vm_plan = Migrate of API.ref_host | Error of (string * string list)
-val string_of_per_vm_plan : per_vm_plan -> string
-
-(** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
-    Host or a reason why the VM cannot be migrated. *)
-val compute_evacuation_plan_no_wlb :
-  __context:Context.t ->
-  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
 
 val assert_can_evacuate : __context:Context.t -> host:API.ref_host -> unit
 val get_vms_which_prevent_evacuation :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
-val compute_evacuation_plan_wlb :
-  __context:Context.t ->
-  self:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
-val compute_evacuation_plan :
-  __context:Context.t ->
-  host:API.ref_host -> (API.ref_VM, per_vm_plan) Hashtbl.t
 val evacuate : __context:Context.t -> host:API.ref_host -> unit
 val retrieve_wlb_evacuate_recommendations :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
@@ -81,20 +55,6 @@ val restart_agent : __context:'a -> host:'b -> unit
 val shutdown_agent : __context:'a -> unit
 val disable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
-val shutdown_and_reboot_common :
-  __context:Context.t ->
-  host:[ `host ] Ref.t ->
-  string ->
-  string ->
-  [< `evacuate
-   | `power_on
-   | `provision
-   | `reboot
-   | `shutdown
-   | `vm_migrate
-   | `vm_resume
-   | `vm_start ] ->
-  string -> unit
 val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
@@ -103,7 +63,6 @@ val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
 val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
-exception Pool_record_expected_singleton
 val copy_license_to_db : __context:Context.t -> unit
 val is_slave : __context:'a -> host:'b -> bool
 
@@ -234,22 +193,22 @@ val disable_external_auth :
 
 (** {2 Static VDIs} *)
 
-(** Make the given VDIs static on the host, such that they will automatically be attached
- * when xapi is restarted on this host. Supply a [reason] string for each VDI to be
- * included. *)
 val attach_static_vdis :
   __context:Context.t ->
   host:API.ref_host -> vdi_reason_map:([ `VDI ] Ref.t * string) list -> unit
+(** Make the given VDIs static on the host, such that they will automatically be attached
+ * when xapi is restarted on this host. Supply a [reason] string for each VDI to be
+ * included. *)
 
-(** Remove the given VDIs from the list of static VDIs on the host. *)
 val detach_static_vdis :
   __context:Context.t -> host:API.ref_host -> vdis:API.ref_VDI list -> unit
+(** Remove the given VDIs from the list of static VDIs on the host. *)
 
 
 (** {2 Local Database} *)
 
-(** Set a key in the Local DB of the host. *)
 val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit 
+(** Set a key in the Local DB of the host. *)
 
 
 (** {2 Secrets} *)

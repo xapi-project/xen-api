@@ -42,7 +42,12 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Db.Host.set_power_on_config ~__context ~self ~value:power_on_config;
   Xapi_secret.clean_out_passwds ~__context current_config
     
-
+(** Before we re-enable this host we make sure it's safe to do so. It isn't if:
+    + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
+    + HA is enabled and this host has broken storage or networking which would cause protected VMs
+    to become non-agile
+    + our license doesn't support pooling and we're a slave
+ *)
 let assert_safe_to_reenable ~__context ~self =
     let host_disabled_until_reboot = try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false in
     if host_disabled_until_reboot
@@ -88,6 +93,8 @@ let bugreport_upload ~__context ~host ~url ~options =
     | _ -> raise e
     end
 
+(** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
+    attached to dom0, and c) that there are no tasks running *)
 let assert_can_shutdown ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host 
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
@@ -166,7 +173,8 @@ let string_of_per_vm_plan p =
     | Error (e, t) ->
         String.concat "," (e :: t)
 
-    
+(** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
+    Host or a reason why the VM cannot be migrated. *)    
 let compute_evacuation_plan_no_wlb ~__context ~host = 
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts = List.filter (fun self -> Db.Host.get_enabled ~__context ~self) all_hosts in
