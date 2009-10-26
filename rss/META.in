@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "RSS library"
+requires = "xml-light2"
+archive(byte) = "rss.cma"
+archive(native) = "rss.cmxa"
