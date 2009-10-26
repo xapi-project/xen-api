@@ -900,7 +900,7 @@ let host_record rpc session_id host =
       ~get_set:(fun () -> (x ()).API.host_supported_bootloaders) ();
     make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.host_blobs) ();
     make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead) ();
-    make_field ~name:"memory-total" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_total) ();
+    make_field ~name:"memory-total" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) )) ();
     make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
     make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
     make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
