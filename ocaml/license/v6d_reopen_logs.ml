@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Small executable that sends a reopen-logs XML/RPC message to the licensing daemon *)
- 
 let socket = "/var/xapi/v6"
 
 (* RPC function for communication with the v6 daemon *)

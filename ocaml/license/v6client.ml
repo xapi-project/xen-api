@@ -16,6 +16,7 @@ module D=Debug.Debugger(struct let name="v6client" end)
 open D
 
 exception V6DaemonFailure
+exception Unmarshalling_error of string
 
 (* define "never" as 01-01-2030 *)
 let start_of_epoch = Unix.gmtime 0.
@@ -26,7 +27,6 @@ let connected = ref false
 let licensed = ref None
 let expires = ref never
 let grace = ref false
-let retry = ref true
 
 let socket = "/var/xapi/v6"
 
@@ -34,7 +34,12 @@ let socket = "/var/xapi/v6"
 let v6rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:socket ~path:"/" xml
 
 (* conversion to v6 edition codes *)
-let editions = [Edition.Free, "FREE"]
+let editions = ["enterprise", "ENT"; "platinum", "PLT"]
+
+(* round a date, given by Unix.time, to days *)
+let round_to_days d =
+	let days = (int_of_float d) / (24 * 3600) in
+	(float_of_int days) *. 24. *. 3600.
 	
 (* reset to not-licensed state *)
 let reset_state () =
@@ -57,8 +62,8 @@ let disconnect () =
 				if success then begin
 					match !licensed with
 					| None -> ()
-					| Some edition ->
-						info "Checked %s license back in to license server." (Edition.to_string edition);
+					| Some l ->
+						info "Checked %s license back in to license server." l;
 						reset_state ()
 				end
 			| _ -> 
@@ -87,10 +92,7 @@ let connect_and_get_license edition address port =
 	else begin
 		try
 			let myassoc key args =
-				try List.assoc key args
-				with Not_found ->
-					error "key %s not found in v6d's response" key;
-					raise V6DaemonFailure
+				try List.assoc key args with Not_found -> raise (Unmarshalling_error key)
 			in
 			let get_named_string name args = XMLRPC.From.string (myassoc name args) in
 			let get_named_int name args = XMLRPC.From.int (myassoc name args) in
@@ -110,7 +112,7 @@ let connect_and_get_license edition address port =
 				(* set expiry date *)
 				let now = Unix.time () in
 				if days_to_expire > -1 then
-					expires := now +. (float_of_int (days_to_expire * 24 * 3600))
+					expires := (round_to_days now +. (float_of_int (days_to_expire * 24 * 3600)))
 				else
 					expires := never;
 				(* check fist point *)
@@ -123,11 +125,11 @@ let connect_and_get_license edition address port =
 				end;
 				(* check return status *)
 				if license = "real" then begin
-					info "Checked out %s license from license server." (Edition.to_string edition);
+					info "Checked out %s license from license server." edition;
 					licensed := Some edition;
 					grace := false
 				end else if license = "grace" then begin
-					info "Obtained %s grace license." (Edition.to_string edition);
+					info "Obtained %s grace license." edition;
 					licensed := Some edition;
 					grace := true;
 					if Xapi_fist.reduce_grace_period () then
@@ -143,31 +145,22 @@ let connect_and_get_license edition address port =
 		| Unix.Unix_error(a, b, c) ->
 			error "Problem while initialising (%s): %s" b (Unix.error_message a);
 			raise V6DaemonFailure
-		| V6DaemonFailure | _ ->
+		| V6DaemonFailure ->
 			warn "Did not get a proper response from the v6 licensing daemon!";
 			raise V6DaemonFailure
 	end
 	
-let rec get_v6_license ~__context ~host ~edition =
+let get_v6_license ~__context ~host ~edition =
 	try
 		let ls = Db.Host.get_license_server ~__context ~self:host in
 		let address = List.assoc "address" ls in
 		let port = int_of_string (List.assoc "port" ls) in
-		debug "obtaining %s v6 license; license server address: %s; port: %d" (Edition.to_string edition) address port;
+		debug "obtaining %s v6 license; license server address: %s; port: %d" edition address port;
 		(* obtain v6 license *)
 		connect_and_get_license edition address port
 	with
 	| Not_found -> failwith "Missing connection details"
-	| V6DaemonFailure ->
-		reset_state ();
-		if !retry then begin
-			error "Checkout failed. Retrying once...";
-			retry := false;
-			Thread.delay 2.;
-			get_v6_license ~__context ~host ~edition
-		end else
-			error "Checkout failed.";
-			retry := true
+	| V6DaemonFailure -> reset_state ()
 	
 let release_v6_license () =
 	try
