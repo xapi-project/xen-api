@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Quicktest_encodings_module
+open Encodings
 open Quicktest_ocamltest
 open Ocamltest
 

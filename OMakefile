@@ -24,7 +24,6 @@ if $(not $(defined-env CARBON_DISTFILES))
 USE_OCAMLFIND = true
 
 OCAMLFLAGS = -g -dtypes -thread -warn-error F
-OCAMLPACKS = threads bigarray
 
 # c compiling stuff
 OCAMLCFLAGS += -g
@@ -82,7 +81,7 @@ if $(not $(defined-env COMPILE_XENSTUFF))
 .PHONY: none
 
 # Ocaml #############################################################################
-OCAML_PHASE1= copy_quicktest_modules
+OCAML_PHASE1=
 OCAML_PHASE2= autogen_idl
 
 # JS ################################################################################
@@ -133,17 +132,12 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/xe-cli/rt/xgetip \
 	ocaml/xe-cli/rt/geneva/cli_test \
 	ocaml/xe-cli/rt/geneva/sm_stress \
-	ocaml/util/unix-domain-wrapper \
-	ocaml/util/xmlpp \
 	ocaml/events/event_listen \
-	ocaml/muxdemux/tar \
 	ocaml/console/console \
 	ocaml/graph/graph \
 	ocaml/rfb/rfb_randomtest \
 	ocaml/database/unit_test_marshall \
 	ocaml/database/block_device_io \
-	ocaml/fdhelper/closeandexec \
-	ocaml/fdhelper/closeandexec_static \
 	ocaml/toplevel \
 	ocaml/xiu/xiu \
 	ocaml/cdrommon/cdrommon \

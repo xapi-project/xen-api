@@ -1,8 +1,4 @@
-OCAML_LIBS += ../muxdemux/tar
-OCAMLINCLUDES += ../muxdemux
-OCAMLPACKS += stdext,xmlm,xml-light2
-
-
+OCAMLPACKS = stdext xml-light2 log
 
 .PHONY: clean
 clean:

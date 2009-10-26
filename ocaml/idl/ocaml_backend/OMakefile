@@ -1,5 +1,4 @@
-
-OCAMLPACKS += xmlm xml-light2 unix
+OCAMLPACKS += xml-light2 stunnel
 
 # -----------------------------------------------------------------------
 # autogen stuff
@@ -10,15 +9,13 @@ OCAMLPACKS += xmlm xml-light2 unix
 AUTOGEN_DIR = ../../autogen
 AUTOGEN_HELPER_DIR = ../../database
 
-OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../http ../../sexpr ../../xapi ../../client_records
+OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records
 
-
-OCAML_LIBS += ../../sexpr/sexpr
-OCAMLPACKS += stdext uuid
+OCAMLPACKS += sexpr http-svr
 
 # only gen_api requires datamodel library:
-GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping xMLRPC locking ../../util/date ../api_lowlevel
-OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper ../../util/encodings)
+GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping xMLRPC locking ../api_lowlevel
+OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper)
 
 FILTER = closed # or opensource or closed or debug or implementation
 
@@ -53,11 +50,10 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 # -----------------------------------------------------------------------
 
 COMMON_OBJS = ref \
-	../datamodel_types ../../http/http ../../http/base64 xMLRPC event_types \
-	../../util/date ../../http/buf_io ../api_errors ../api_messages ../../xapi/xapi_globs \
+	../datamodel_types xMLRPC event_types \
+	../api_errors ../api_messages ../../xapi/xapi_globs \
 	../constants
-CLIENT_OBJS = xmlrpcclient ../../util/stunnel_cache \
-	$(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
+CLIENT_OBJS = xmlrpcclient $(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
 SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_DIR)/server \
 	$(AUTOGEN_DIR)/db_actions $(AUTOGEN_DIR)/custom_actions \
@@ -92,13 +88,11 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../xapi/parse_db_conf \
 	../../client_records/records \
 	../../client_records/record_util \
-	../../util/encodings \
 	../../util/vm_memory_constraints \
 	locking ../dm_api \
 	../datamodel ../datamodel_utils ../datamodel_values \
 	gen_client ocaml_syntax ocaml_utils taskHelper exnHelper \
-	server_helpers session_check context ../../util/config \
-	../../http/http_svr ../../util/server_io \
+	server_helpers session_check context \
 	../../xapi/pool_role \
 	../../xapi/xapi_inventory \
 	../../xapi/hashtbl_xml \

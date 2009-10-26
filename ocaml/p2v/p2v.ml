@@ -344,7 +344,7 @@ let exn_to_http sock fn =
     try fn ()
     with
       | Api_errors.Server_error(code, params) as e -> begin
-            debug "exn_to_http: API Error:%s %s" (Api_errors.to_string e) (ExnHelper.string_of_exn e);
+            debug "exn_to_http: API Error:%s %s" (Api_errors.to_string e) (Printexc.to_string e);
             Http.output_http sock Http.http_500_internal_error;
             ignore (unix_really_write sock ("\r\nAPI Error: "^Api_errors.to_string e))
         end
@@ -354,7 +354,7 @@ let exn_to_http sock fn =
             ignore (unix_really_write sock ("\r\nServer error: "^e))
         end
       | exn -> begin
-            debug "exn_to_http: general: %s" (ExnHelper.string_of_exn exn);
+            debug "exn_to_http: general: %s" (Printexc.to_string exn);
             Http.output_http sock Http.http_500_internal_error;
         end
 

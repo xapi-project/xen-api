@@ -1,10 +1,6 @@
-OCAMLPACKS += unix xmlm xml-light2 uuid
-OCAML_LIBS += ../sexpr/sexpr ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
-	../util/backtrace ../util/sanitycheck ../util/sigutil ../util/encodings
-OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
-	../autogen ../database/ \
-	../http/ ../xenops ../muxdemux ../xva \
-	../netdev ../auth ../license ../client_records ../rfb ../gpg ../xapi
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
+OCAMLPACKS    =  xml-light2 uuid sexpr log stunnel http-svr
 
 OCamlProgram(xapi-db-upgrade-4.2, xapi-db-upgrade-4.2)
 OCamlProgram(xapi-db-process, xapi-db-process)

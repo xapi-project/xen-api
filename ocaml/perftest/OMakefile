@@ -1,6 +1,6 @@
-OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi
-OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../autogen ../client_records
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
 PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests instrumented_xmlrpcclient ../xapi/xapi_inventory perfdebug
 OCamlProgram(perftest, $(PERFTEST_FILES))
@@ -10,7 +10,7 @@ OCamlProgram(histogram, statistics histogram gnuplot testtypes perfdebug graphut
 OCamlProgram(cumulative_time, cumulative_time gnuplot testtypes perfdebug graphutil)
 
 section
-	OCAML_LIBS+=../sexpr/sexpr ../idl/ocaml_backend/server ../util/debug
+	OCAML_LIBS += ../idl/ocaml_backend/server
 	OCamlProgram(xmlrpcserver, xmlrpcserver)
 
 .PHONY: clean

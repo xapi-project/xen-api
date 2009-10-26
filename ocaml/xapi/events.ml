@@ -573,7 +573,7 @@ let callback_memory_target ctx domid =
     ) ()
 
 let listen_xal () = 
-  name_thread "xal_listen";
+  Debug.name_thread "xal_listen";
   debug "Events.listen_xal thread created";
   xal_thread := Some (Thread.self ());
   while true

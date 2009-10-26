@@ -213,7 +213,6 @@ let register_callback_fns() =
     Helpers.rpc_fun := Some fake_rpc;
     Xmlrpcclient.set_stunnelpid_callback := Some set_stunnelpid;
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
-    Debug.get_hostname := Helpers.get_hostname;
     TaskHelper.init ()
 
 let nowatchdog = ref false
@@ -234,7 +233,7 @@ let show_version () =
   exit 0
 
 let init_args() =
-  name_thread "thread_zero";
+  Debug.name_thread "thread_zero";
   (* Immediately register callback functions *)
   register_callback_fns();
   let writelog = ref false in

@@ -32,7 +32,7 @@ let raise_system_alert news =
   ) ())
 
 let loop () =
-  name_thread "HA metadata VDI monitor";
+  Debug.name_thread "HA metadata VDI monitor";
   Mutex.execute Redo_log.currently_accessible_m (fun () ->
     while true do
       (* Wait until we are signalled that a state change has occurred *)

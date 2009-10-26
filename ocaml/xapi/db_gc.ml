@@ -417,7 +417,7 @@ let single_pass () =
 let start_db_gc_thread() =
   Thread.create 
     (fun ()->
-      name_thread "db_gc";
+      Debug.name_thread "db_gc";
       
 	  while (true) do
 	    try
@@ -442,7 +442,7 @@ let send_one_heartbeat ~__context rpc session_id =
   (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
     
 let start_heartbeat_thread() =
-      name_thread "heartbeat";
+      Debug.name_thread "heartbeat";
       
       Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
       let localhost = Helpers.get_localhost __context in

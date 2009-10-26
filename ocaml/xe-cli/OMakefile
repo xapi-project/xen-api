@@ -1,10 +1,9 @@
-OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../xapi ../idl/ocaml_backend ../autogen ../idl ../xva ../client_records ../util ./
-OCAMLPACKS = unix,stdext,xmlm,xml-light2,log
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi
+OCAMLPACKS    = xml-light2 stdext stunnel log
 
 section
-	OCAML_LIBS=../util/forkhelpers ../util/backtrace ../util/debug ../util/stunnel
-	OCAMLINCLUDES=../xapi ./
+	OCAMLINCLUDES=./
 	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
 	CLI_FILES = newcli ../xapi/cli_protocol options
 	OCamlProgram(xe, $(CLI_FILES))
@@ -12,7 +11,7 @@ section
 
 section
 
-	OCAMLPACKS += uuid log xc xb xs mmap
+	OCAMLPACKS += xb xs
 	OCAML_CLIBS = ../xenops/statdev_stubs ../netdev/netdev_stubs
 
 	OCamlProgram(fatxe, cli options \
@@ -63,10 +62,8 @@ section
 		../database/string_marshall_helper \
 		../database/string_unmarshall_helper \
 		../database/backend_xml \
-		../util/config \
 		../http/http_svr \
 		../gpg/gpg \
-		../util/server_io \
 		../autogen/db_actions \
 		../idl/ocaml_backend/exnHelper \
 		../idl/ocaml_backend/taskHelper \
@@ -88,7 +85,6 @@ section
 		../xapi/cli_printer \
 		../xapi/cli_util \
 		../xva/xva \
-		../muxdemux/tar \
 		../xapi/cli_protocol)
 
 .PHONY: clean

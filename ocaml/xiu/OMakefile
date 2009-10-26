@@ -1,7 +1,7 @@
-OCAMLPACKS+=mmap xb xs
-OCAML_LIBS += ../xenops/xenops ../netdev/netdev
+OCAMLPACKS    = stdext xs
+OCAML_LIBS    += ../xenops/xenops ../netdev/netdev
 OCAMLINCLUDES += ../xenops ../netdev
-OCamlProgram(xiu, xiu ../util/config)
+OCamlProgram(xiu, xiu)
 
 .PHONY: clean
 clean:
