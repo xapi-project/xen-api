@@ -9,7 +9,7 @@ XENSTORED_FILES = event ../util/config \
              perms process symbol store transaction utils quota disk logging
 
 OCamlProgram(xenstored, $(XENSTORED_FILES))
-OCamlDoc(xenstored, $(XENSTORED_FILES), $(OCAMLINCLUDES))
+OCamlDocProgram(xenstored, $(XENSTORED_FILES))
 
 .DEFAULT: xenstored
 

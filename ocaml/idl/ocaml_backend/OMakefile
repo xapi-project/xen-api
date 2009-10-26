@@ -108,7 +108,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
               gen_client ocaml_syntax ocaml_utils taskHelper exnHelper \
 	      server_helpers session_check context ../../util/config \
 	      ../../http/http_svr ../../util/server_io \
-	      ../../idl/ocaml_backend/context \
 	      ../../xapi/pool_role \
 	      ../../xapi/xapi_inventory \
 	      ../../xapi/hashtbl_xml \
@@ -127,9 +126,9 @@ OCamlLibrary(common, $(COMMON_OBJS))
 OCamlLibrary(client, $(CLIENT_OBJS))
 OCamlLibrary(server, $(SERVER_OBJS))
 
-OCamlDoc(common, $(COMMON_OBJS), $(OCAMLINCLUDES))
-OCamlDoc(client, $(CLIENT_OBJS), $(OCAMLINCLUDES))
-#OCamlDoc(server, $(SERVER_OBJS), $(OCAMLINCLUDES))
+OCamlDocLibrary(common, $(COMMON_OBJS))
+OCamlDocLibrary(client, $(CLIENT_OBJS))
+OCamlDocLibrary(server, $(SERVER_OBJS))
 
 OCamlLibrary(htmldoc, htmldoc)
 
