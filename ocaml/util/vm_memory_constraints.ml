@@ -34,16 +34,14 @@ module type T = sig
 	(** this function are guaranteed to be in valid order such that:      *)
 	(** static_min <= dynamic_min <= target <= dynamic_max <= static_max  *)
 	(**                                                                   *)
-	(**  1. If the given constraints are valid, this function returns a   *)
+	(**  + If the given constraints are valid, this function returns a   *)
 	(**     copy of those constraints.                                    *)
-	(**                                                                   *)
-	(**  2. If the given constraints are invalid, but can be made valid   *)
-	(**     by adjusting {dynamic_min, dynamic_max} to be in the range    *)
-	(**     defined by [static_min, static_max], or by adjusting {target} *)
-	(**     to be within the range defined by [dynamic_min, dynamic_max], *)
+	(**  + If the given constraints are invalid, but can be made valid   *)
+	(**     by adjusting [(dynamic_min, dynamic_max)] to be in the range    *)
+	(**     defined by [static_min, static_max], or by adjusting [target] *)
+	(**     to be within the range defined by [(dynamic_min, dynamic_max)], *)
 	(**     this function returns such a modified set of constraints.     *)
-	(**                                                                   *)
-	(**  3. If the given constraints are invalid and they cannot be made  *)
+	(**  + If the given constraints are invalid and they cannot be made  *)
 	(**     valid by modifying the dynamic constraints, this function     *)
 	(**     function returns None.                                        *)
 	(**                                                                   *)
@@ -59,7 +57,7 @@ module type T = sig
 		{- t.dynamic_max := s.static_max}
 		{- t.target      := s.static_max}
 		{- t.dynamic_min := s.static_max}
-		{- t.static_min  := minimum (s.static_min, s.static_max}}
+		{- t.static_min  := minimum (s.static_min, s.static_max)}}
 	*)
 	val reset_to_safe_defaults : constraints:t -> t
 

@@ -1,7 +1,7 @@
 OCamlGeneratedFiles(sExprLexer.ml sExprParser.mli)
 SEXPR_FILES = sexpr sExpr sExprLexer sExprParser
 OCamlLibrary(sexpr, $(SEXPR_FILES))
-OCamlDoc(sexpr, $(SEXPR_FILES), $(OCAMLINCLUDES))
+OCamlDocLibrary(sexpr, $(SEXPR_FILES))
 
 .PHONY: clean
 clean:

@@ -2,7 +2,9 @@ OCAML_LIBS+=../idl/ocaml_backend/common ../idl/ocaml_backend/client
 OCAMLINCLUDES +=  ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva ../util ../http ../xapi
 OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str
 
-OCamlProgram(perftest, scenario perfutil createVM createpool testtypes perftest tests instrumented_xmlrpcclient ../xapi/xapi_inventory perfdebug)
+PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests instrumented_xmlrpcclient ../xapi/xapi_inventory perfdebug
+OCamlProgram(perftest, $(PERFTEST_FILES))
+OCamlDocProgram(perftest, $(PERFTEST_FILES))
 OCamlProgram(apiperf, perfutil apiperf)
 OCamlProgram(histogram, statistics histogram gnuplot testtypes perfdebug graphutil)
 OCamlProgram(cumulative_time, cumulative_time gnuplot testtypes perfdebug graphutil)

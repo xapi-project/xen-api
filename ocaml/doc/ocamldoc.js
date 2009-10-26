@@ -11,6 +11,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  */
+ 
+// global variables
+ 
+var module = getQuerystring('m');
+var component = getQuerystring('c');
+
+var components = executables.concat(libraries);
+var component_modules = {}
+var component_deps = {}
+
 
 // function from http://www.bloggingdeveloper.com/post/JavaScript-QueryString-ParseGet-QueryString-with-Client-Side-JavaScript.aspx
 function getQuerystring(key, default_)
@@ -23,6 +33,14 @@ function getQuerystring(key, default_)
 		return default_;
 	else
 		return qs[1];
+}
+
+function fill_components()
+{
+	for (i in components) {
+		component_modules[components[i]] = eval('modules_' + components[i]);
+		component_deps[components[i]] = eval('deps_' + components[i]);
+	}
 }
 
 function find_component_for_module(m)
@@ -308,7 +326,7 @@ function moduledoc()
 	parse_structure(mod.module_structure);
 }
 
-function index()
+function module_index()
 {	
 	html = "";
 	html += '<h1 class="title">List of Modules: ' + component + '</h1>\n';
@@ -322,23 +340,42 @@ function index()
 			html += '<td><span class="empty">to be completed!</span></td></tr>';
 	}
 	html += '</table>\n';
-
 	set_content(html);
 	
-	html = '<h2 class="title">Executables</h2>';
+	html = '<h2 class="title">Library Dependencies</h2>';
+	deps = component_deps[component];
+	deps.sort();
+	for (i in deps) {
+		if (libraries.indexOf(deps[i]) > -1)
+			html += '<a href="index.html?c=' + deps[i] + '">' + deps[i] + '</a><br />';
+		else
+			html += '<span class="grey">' + deps[i] + '</span><br />';
+	}
+	set_sidebar(html);
+}
+
+function component_index()
+{	
+	html = "";
+	html += '<h1 class="title">List of Components</h1>\n';
+	html += "<h2>Executables</h2>";
+	executables.sort()
 	for (i in executables)
 		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a><br />';
 	html += "<h2>Libraries</h2>";
+	libraries.sort()
 	for (i in libraries)
 		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a><br />';
-	set_sidebar(html);
+	set_content(html);
 }
 
 function build()
 {
 	fill_components();
-	if (module == "")
-		index();
+	if (component == "")
+		component_index();
+	else if (module == "")
+		module_index();
 	else
 		moduledoc();
 }
@@ -362,8 +399,4 @@ function append_sidebar(html)
 {
 	document.getElementById('sidebar').innerHTML += html;
 }
-
-var module = getQuerystring('m');
-var component = getQuerystring('c');
-if (component == "") component = "xapi";
 
