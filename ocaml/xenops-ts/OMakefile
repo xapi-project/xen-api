@@ -1,8 +1,8 @@
-OCAMLINCLUDES   += ../netdev ../idl ../xenops
-OCAML_LIBS      += ../netdev/netdev ../xenops/xenops
-OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
-OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS)
-CFLAGS          += $(XEN_CFLAGS)
-OCAMLPACKS	+= uuid mmap xc xb xs
+OCAMLINCLUDES    = ../netdev ../xenops
+OCAML_LIBS       = ../util/stats ../netdev/netdev ../xenops/xenops
+OCAML_CLIBS      += $(XEN_OCAML_CLIBS)
+OCAML_LINK_FLAGS += $(XEN_OCAML_LINK_FLAGS)
+CFLAGS           += $(XEN_CFLAGS)
+OCAMLPACKS	     = xc xs stdext log
 
 OCamlProgram(runtest, runtest test ../xenops/xenvmlib)

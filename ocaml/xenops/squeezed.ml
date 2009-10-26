@@ -193,15 +193,6 @@ let function_table = [
   _reopen_logs, reopen_logs;
 ]
 
-let read_hostname () = 
-  (* Get the hostname and configure the debug module *)
-  let pid, pipe_exit = Unixext.execv_get_output "/bin/hostname" [| "/bin/hostname" |] in 
-  let hostname = String.make 128 ' ' in
-  let len = Unix.read pipe_exit hostname 0 (String.length hostname) in
-  let hostname = Stringext.String.strip Stringext.String.isspace (String.sub hostname 0 len) in
-  Unix.waitpid [] pid;
-  hostname
-
 (** Called periodically to look for unbalanced memory and take corrective action *)
 let idle_callback ~xc ~xs () = 
   if Squeeze_xen.is_host_memory_unbalanced ~xc ~xs
@@ -220,9 +211,6 @@ let _ =
     "Usage: squeezed [-daemon] [-pidfile filename]";
 
   Logs.reset_all [ log_file_path ];
-
-  let hostname = read_hostname () in
-  Debug.get_hostname := (fun () -> hostname);
 
   debug "Writing reserved-host-memory=%Ld KiB" Squeeze_xen.target_host_free_mem_kib;
   with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) (Int64.to_string Squeeze_xen.target_host_free_mem_kib));

@@ -1,6 +1,6 @@
-OCAML_LIBS = ../../netdev/netdev
-OCAMLINCLUDES = ../../netdev ./
-OCAMLPACKS = unix str stdext xmlm xml-light2 log
+OCAML_LIBS    = ../../netdev/netdev
+OCAMLINCLUDES = ../../netdev
+OCAMLPACKS    = str xml-light2 log
 
 .SUBDIRS:geneva
 

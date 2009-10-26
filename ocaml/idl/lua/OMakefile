@@ -1,5 +1,4 @@
-
-OCAMLPACKS += xmlm xml-light2 unix str uuid
+OCAMLPACKS = xml-light2 uuid
 
 # -----------------------------------------------------------------------
 # autogen stuff
