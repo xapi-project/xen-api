@@ -129,23 +129,6 @@ let create_missing_vlan_records ~__context =
 		   end
 	       end) all_pifs
 
-(** During rolling upgrade the Rio hosts require host metrics to exist. The persistence changes
-    in Miami resulted in these not being created by default. We recreate them here for compatability *)
-let create_host_metrics ~__context =
-  List.iter 
-    (fun self ->
-       let m = Db.Host.get_metrics ~__context ~self in
-       let exists = try ignore(Db.Host_metrics.get_uuid ~__context ~self:m); true with _ -> false in
-       if not(exists) then begin
-	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
-	 let r = Ref.make () in
-	 Db.Host_metrics.create ~__context ~ref:r
-	   ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
-	   ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
-	 Db.Host.set_metrics ~__context ~self ~value:r
-       end) (Db.Host.get_all ~__context)
-
-
 let create_tools_sr __context = 
   Helpers.call_api_functions ~__context (fun rpc session_id ->
     (* Creates a new SR and PBD record *)
@@ -221,7 +204,6 @@ let update_env __context =
   Xapi_sm.resync_plugins ~__context;
 
   create_missing_vlan_records ~__context;
-  create_host_metrics ~__context;
   create_tools_sr_noexn __context;
 
   clear_uncooperative_flags_noexn __context

@@ -25,6 +25,23 @@ let resync_dom0_config_files() =
     Config_file_sync.fetch_config_files_on_slave_startup ()
   with e -> warn "Did not sync dom0 config files: %s" (Printexc.to_string e)
 
+(** During rolling upgrade the Rio+ hosts require host metrics to exist. The persistence changes
+    in Miami resulted in these not being created by default. We recreate them here for compatability.
+    Note that from MidnightRide onwards the metrics will always exist and we can delete this code. *)
+let create_host_metrics ~__context =
+  List.iter 
+    (fun self ->
+       let m = Db.Host.get_metrics ~__context ~self in
+       if not(Db.is_valid_ref m) then begin
+	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
+	 let r = Ref.make () in
+	 Db.Host_metrics.create ~__context ~ref:r
+	   ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+	   ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[];
+	 Db.Host.set_metrics ~__context ~self ~value:r
+       end) (Db.Host.get_all ~__context)
+
+
 let update_env () =
   Server_helpers.exec_with_new_task "dbsync (update_env)"
     (fun __context ->
@@ -37,6 +54,7 @@ let update_env () =
 	  | _  -> warn "multiple pool objects"; assert false
 	with _ -> [] 
       in
+       if Pool_role.is_master () then create_host_metrics ~__context;
        Dbsync_slave.update_env __context other_config;
        if Pool_role.is_master () then Dbsync_master.update_env __context;
        (* we sync dom0 config files on slaves; however, we don't want

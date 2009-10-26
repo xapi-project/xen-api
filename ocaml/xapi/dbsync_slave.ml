@@ -496,7 +496,8 @@ let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
 		with_xc (fun xc -> Memory.get_total_memory_bytes ~xc) in
-	Db.Host.set_memory_total ~__context ~self ~value:total_memory_bytes;
+	let metrics = Db.Host.get_metrics ~__context ~self in
+	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
 	let boot_memory_string =
 		try
