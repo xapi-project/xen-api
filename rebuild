@@ -2,5 +2,5 @@
 
 set -e 
 make clean; make cleanxen;
-make uninstall; make uninstallxen;
-make all && make bins && make install && make allxen && make installxen
+make uninstall; make uninstallxen; make binuninstall
+make all && make bins && make install && make allxen && make installxen && make bininstall

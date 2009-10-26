@@ -1,3 +1,4 @@
+IPROG=install -m 755 -o root -g root
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g
@@ -7,6 +8,7 @@ OCAMLYACC = ocamlyacc
 
 LDFLAGS = -cclib -L./
 
+LIBEXEC  = "/opt/xensource/libexec"
 DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
@@ -67,9 +69,18 @@ META: META.in
 install: $(LIBS) META
 	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore sexpr META $(INTF) $(LIBS) *.a *.cmx
 
+.PHONY: bininstall
+bininstall:
+	mkdir -p $(DESDIR)$(LIBEXEC)
+	$(IPROG) $(PROGRAMS) $(DESDIR)$(LIBEXEC)
+
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove sexpr
+
+.PHONY: binuninstall
+binuninstall:
+	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)
