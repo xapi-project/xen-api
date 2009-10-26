@@ -1,10 +1,7 @@
-
-OCAMLINCLUDES += ../sexpr  ../util ../idl/ocaml_backend ../xapi ../idl
-
-OCAMLPACKS += xmlm xml-light2 uuid
-OCAML_LIBS += ../sexpr/sexpr
-OCAMLPPFLAGS = -pp "camlp4o" 
-OCAMLDEPFLAGS += -pp "camlp4o"
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr 
+#OCAMLPPFLAGS  = -pp "camlp4o" 
+#OCAMLDEPFLAGS = -pp "camlp4o"
 
 OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 

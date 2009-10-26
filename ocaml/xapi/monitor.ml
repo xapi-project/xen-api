@@ -478,7 +478,7 @@ let _loop __context xc =
   done
     
 let loop () =
-        name_thread "monitor";
+        Debug.name_thread "monitor";
         debug "Monitor.loop thread created";
   	with_xc (fun xc ->
 		Server_helpers.exec_with_new_task "performance monitor"

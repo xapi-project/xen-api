@@ -1,6 +1,6 @@
-OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES += ../uuid ../idl ../idl/ocaml_backend/ ../util/ ../autogen/ ../idl/ ../xva ../muxdemux
-OCAMLPACKS += xmlm xml-light2 lablgtk2 lablgtk2.glade
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl
+OCAMLPACKS    = xml-light2 lablgtk2 lablgtk2.glade
 
 OCamlProgram(xapimon, xapimon ../idl/constants)
 

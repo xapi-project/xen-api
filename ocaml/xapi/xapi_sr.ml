@@ -194,7 +194,7 @@ let scan_all ~__context =
   List.iter (scan_one ~__context) scannable_srs
 
 let scanning_thread () =
-  name_thread "sr_scan";
+  Debug.name_thread "sr_scan";
   Server_helpers.exec_with_new_task "SR scanner" (fun __context ->
   let host = Helpers.get_localhost ~__context in
 

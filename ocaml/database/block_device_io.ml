@@ -119,7 +119,6 @@ exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
 let initialise_logging () =
-  Debug.get_hostname := Helper_hostname.get_hostname;
   List.iter
     (fun level -> Logs.append "block_device_io" level "syslog:xapi_block_device_io")
     [Log.Info; Log.Warn; Log.Error]

@@ -1,24 +1,5 @@
-OCAMLINCLUDES += ../sexpr
-OCAML_LIBS += ../sexpr/sexpr
-OCAMLPACKS += xmlm xml-light2
-
-OCamlProgram(pp, pp)
-OCamlProgram(unix-domain-wrapper, unix-domain-wrapper debug)
-#OCamlProgram(file_access_test, file_access_test)
-
-OCamlProgram(xmlpp, xmlpp)
-OCamlProgram(pciutil, pciutil pciutil_main)
-
 OCamlLibrary(version, version)
-OCamlLibrary(debug, debug)
-OCamlDocLibrary(debug, debug)
-OCamlLibrary(forkhelpers, forkhelpers)
-OCamlLibrary(stunnel, stunnel)
-OCamlLibrary(gzip, gzip)
-OCamlLibrary(sha1sum, sha1sum)
 OCamlLibrary(sanitycheck, sanitycheck)
-OCamlLibrary(pciutil, pciutil)
-OCamlLibrary(rss, rss)
 OCamlLibrary(stats, stats)
 OCamlLibrary(vm_memory_constraints, vm_memory_constraints)
 OCamlLibrary(ocamltest, ocamltest)
@@ -49,5 +30,3 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-#	cp xmlpp $(DIST)/staging/opt/xensource/bin

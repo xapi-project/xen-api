@@ -1,6 +1,6 @@
-OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../mmap/mmap ../xc/xc ../xb/xb ../xs/xs ../netdev/netdev ../xenops/xenops
-OCAMLINCLUDES += ../xapi ../idl/ocaml_backend ../autogen ../idl ../xs ../netdev ../xenops
-OCAMLPACKS += unix,stdext,xmlm,xml-light2
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../netdev/netdev ../xenops/xenops
+OCAMLINCLUDES = ../idl/ocaml_backend ../autogen ../idl ../netdev ../xenops
+OCAMLPACKS    = unix stdext xml-light2
 
 OCAMLFLAGS += -dtypes -warn-error F -cclib -static
 

@@ -1,8 +1,8 @@
-OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../log/log ../idl/ocaml_backend/client
-OCAMLINCLUDES += ../uuid ../idl ../idl/ocaml_backend/ ../autogen/ ../xva ../muxdemux ../log
-OCAMLPACKS += xmlm xml-light2
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend/
+OCAMLPACKS    = stdext
 
-OCamlProgram(cvm, ../util/config cvm)
+OCamlProgram(cvm, cvm)
 
 .PHONY: clean
 clean:

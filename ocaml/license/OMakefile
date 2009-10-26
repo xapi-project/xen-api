@@ -1,22 +1,10 @@
-OCAMLINCLUDES +=  \
-	$(ROOT)/ocaml/util \
-	$(ROOT)/ocaml/http \
-	$(ROOT)/ocaml/idl/ocaml_backend \
-	$(ROOT)/ocaml/idl \
-	$(ROOT)/ocaml/http \
-	$(ROOT)/ocaml/autogen \
-	$(ROOT)/ocaml/gpg \
-	$(ROOT)/ocaml/xapi
-	
-OCAMLPACKS+=xmlm,xml-light2,stdext,uuid,str,mmap,xb,xs
-OCAML_LIBS+=$(ROOT)/ocaml/idl/ocaml_backend/common $(ROOT)/ocaml/idl/ocaml_backend/client
-
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
 IEXE=install -m 755 -o root -g root
 
 V6FILES = \
-	../util/server_io \
-	../http/http_svr \
 	../xapi/xapi_inventory \
 	v6alert \
 	fakev6 \

@@ -34,9 +34,7 @@ let ignore_errors = ref false
 let cmdlog = ref (Log.openstring Log.Debug)
 
 let get_log () = 
-  match !cmdlog.Log.output with
-    Log.String s -> !s
-  | _ -> []
+  Log.get_strings !cmdlog
 
 let reset_log () =
   test_status_flag := Success;
