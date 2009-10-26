@@ -119,6 +119,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/guest/agent \
 	ocaml/netdev/brctl \
 	ocaml/p2v/p2v \
+	ocaml/p2v/closeandexec_static \
 	ocaml/license/v6testd \
 	ocaml/license/v6d-reopen-logs
 

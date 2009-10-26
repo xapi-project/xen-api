@@ -48,7 +48,7 @@ $(OUTPUT_PKG) $(OUTPUT_FAKESERVER) $(OUTPUT_XAPI) $(OUTPUT_CLI): $(call hg_req,x
 	$(MAKE) clean
 	$(MAKE) -C $(REPO)
 	install -m 755 -o root -g root $(REPO)/ocaml/p2v/p2v $(MY_OUTPUT_DIR)/p2v-server
-	install -m 755 -o root -g root $(REPO)/ocaml/fdhelper/closeandexec_static $(MY_OUTPUT_DIR)/closeandexec_static
+	install -m 755 -o root -g root $(REPO)/ocaml/p2v/closeandexec_static $(MY_OUTPUT_DIR)/closeandexec_static
 	$(MAKE) -C $(REPO) install
 	mkdir -p $(REPO)/dist/staging/var/xapi
 	mkdir -p $(REPO)/dist/staging/var/log/xen
