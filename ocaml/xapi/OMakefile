@@ -1,11 +1,12 @@
-OCAMLPACKS += unix xmlm xml-light2 uuid cdrom
-OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory_constraints \
-	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
-	../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
-OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
+OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss
+OCAML_LIBS    =  ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
+	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
+OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
-	../http/ ../xenops ../muxdemux ../xva \
-	../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
+	../xenops ../xva ../util \
+	../netdev ../auth ../license ../client_records ../rfb ../gpg
+
+
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -14,7 +15,7 @@ CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 XEN_OCAML_LIBS = ../netdev/netdev ../xenops/xenops ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = mmap xc xb xs
+XEN_OCAMLPACKS = xc xs
 OCAML_CLIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_CLIBS) $(OCAML_CLIBS), $(OCAML_CLIBS)) 
 OCAML_LINK_FLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS), $(OCAML_LINK_FLAGS))
 CFLAGS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_CFLAGS) $(CFLAGS), $(CFLAGS))
@@ -47,7 +48,7 @@ COMMON = \
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings_module quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints)
+OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_encodings quicktest_vm_placement vm_placement ../xenops/squeeze_test quicktest_vm_memory_constraints ../util/vm_memory_constraints)
 OCamlProgram(stresstest, stresstest)
 OCamlProgram(fakeguestagent, fakeguestagent)
 
@@ -57,7 +58,6 @@ OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
 	local_work_queue \
-	../muxdemux/tar \
 	../xva/xva \
 	../idl/ocaml_backend/json \
 	../rfb/rfb \
@@ -187,7 +187,6 @@ XAPI_MODULES = $(COMMON) \
 	export \
 	stream_vdi \
 	fileupload \
-	../util/config \
 	smint \
 	sm_exec \
 	sm \
@@ -229,7 +228,7 @@ XAPI_MODULES = $(COMMON) \
 	certificates \
 	../license/v6client \
 	bios_strings
-	
+
 OCamlProgram(xapi, $(XAPI_MODULES))
 OCamlDocProgram(xapi, $(XAPI_MODULES))
 
@@ -258,9 +257,3 @@ sdk-install: install
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
-	rm -f quicktest_encodings_module.ml
-
-.PHONY: copy_quicktest_modules
-copy_quicktest_modules:
-	/bin/cp -uf ../util/encodings.ml quicktest_encodings_module.ml
-	/bin/chmod -w quicktest_encodings_module.ml

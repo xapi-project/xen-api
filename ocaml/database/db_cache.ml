@@ -541,7 +541,7 @@ struct
 		     (fun ()->
 			Db_connections.inc_db_flush_thread_refcount();
 			let db_path = dbconn.Parse_db_conf.path in
-			name_thread ("dbflush ["^db_path^"]");
+			Debug.name_thread ("dbflush ["^db_path^"]");
 			let my_writes_this_period = ref 0 in
 
 			(* the collesce_period_start records the time of the last write *)

@@ -257,15 +257,13 @@ let log_set_output printer _ session_id params =
 	printer (Cli_printer.PList ["Resetting all logging output to logger: "^logger])
 
 let log_get_keys printer _ session_id params =
-  let keys = Debug.StringSet.fold (fun key keys -> key::keys) !Debug.debug_keys [] in
+  let keys = Debug.get_all_debug_keys () in
   printer (Cli_printer.PList keys)
 
 let log_get printer _ session_id params =
   let logger = Logs.get_or_open "string" in 
-  match logger.Log.output with 
-      Log.String lines ->
-	printer (Cli_printer.PList (List.rev !lines))
-    | _ -> ()
+  let lines = Log.get_strings logger in
+  printer (Cli_printer.PList (List.rev lines))
 
 let log_reopen printer _ session_id params =
   Logs.reopen (); ()

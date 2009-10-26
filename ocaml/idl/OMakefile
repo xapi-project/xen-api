@@ -1,4 +1,3 @@
-
 .SUBDIRS: ocaml_backend lua js_backend
 
 JQUERY = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
@@ -6,21 +5,21 @@ JQUERYTREEVIEWZIP = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treevi
 
 PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14")
 
-OCAMLINCLUDES += ocaml_backend ../database
-OCAMLPACKS += str xmlm xml-light2 uuid
+OCAMLINCLUDES  = ocaml_backend ../database
+OCAMLPACKS     = xml-light2 sexpr log
 
 # -----------------------------------------------------------------------
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ../util/date ocaml_backend/ref ../database/string_marshall_helper ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser)
+OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_errors api_messages dm_api ocaml_backend/ocaml_utils ocaml_backend/ref ../database/string_marshall_helper)
 
 # -----------------------------------------------------------------------
 # Build datamodel documentation
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ../util/date ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper ../util/encodings ../sexpr/sExpr ../sexpr/sExprLexer ../sexpr/sExprParser
+DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps

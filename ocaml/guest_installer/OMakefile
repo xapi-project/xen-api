@@ -1,6 +1,6 @@
-OCAML_LIBS += ../uuid/uuid ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES += ../uuid ../idl/ocaml_backend/ ../autogen/ ../idl ../muxdemux ../xva
-OCAMLPACKS += xmlm xml-light2
+OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl
+OCAMLPACKS    = xml-light2
 
 section
 	OCamlProgram(xinstall, xinstall operations distros util ../idl/constants)

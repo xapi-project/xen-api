@@ -1,4 +1,4 @@
-OCAMLPACKS = stdext uuid xc mmap xb xs log
+OCAMLPACKS = stdext xc xs log
 
 OCamlProgram(agent, agent)
 

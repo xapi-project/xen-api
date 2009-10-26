@@ -252,7 +252,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
 
 (* Master sync thread *)
 let pool_db_backup_thread () =
-  name_thread "pool_db_sync";
+  Debug.name_thread "pool_db_sync";
   Server_helpers.exec_with_new_task "Pool DB sync" (fun __context ->
   while (true) do
     try

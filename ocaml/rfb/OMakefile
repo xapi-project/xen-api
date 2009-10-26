@@ -1,5 +1,3 @@
-OCAMLPACKS += stdext
-
 OCamlProgram(rfb_randomtest, rfb rfb_randomtest rfb_randomtest_main)
 
 .PHONY: clean

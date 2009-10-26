@@ -1,18 +1,8 @@
 # You must set your XEN_ROOT env var before building
-XEN_CFLAGS += -I$(XEN_ROOT)/usr/include
-OCAMLINCLUDES += $(ROOT)/ocaml/util
-
-OCAMLPACKS += stdext log
-
-OCAML_LIBS += \
-	$(ROOT)/ocaml/util/version \
-	$(ROOT)/ocaml/util/backtrace \
-	$(ROOT)/ocaml/util/debug \
-	$(ROOT)/ocaml/util/forkhelpers \
-	$(ROOT)/ocaml/util/stunnel \
-	$(ROOT)/ocaml/util/sha1sum \
-	$(ROOT)/ocaml/util/gzip \
-	$(ROOT)/ocaml/util/stats
+XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
+OCAMLINCLUDES = +ocamldoc
+OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
+OCAMLPACKS    = stdext log
 
 .SUBDIRS: \
 	autogen \
@@ -25,13 +15,10 @@ OCAML_LIBS += \
 	util \
 	xapi \
 	templates \
-	http \
-	sexpr \
 	xenguest \
 	xenops \
 	xenops-ts \
 	xsrpc \
-	muxdemux \
 	xva \
 	guest \
 	console \
@@ -43,7 +30,6 @@ OCAML_LIBS += \
 	graph \
 	license \
 	rfb \
-	fdhelper \
 	database \
 	toplevel \
 	xenstored \
@@ -59,4 +45,4 @@ OCAML_LIBS += \
 	mpathalert \
 	multipathrt \
 	doc
-	
+

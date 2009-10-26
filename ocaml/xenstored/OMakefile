@@ -1,10 +1,9 @@
-OCAMLPACKS    += unix uuid mmap xc xb log eventchn
-OCAMLINCLUDES += ../idl/ocaml_backend
-OCAML_LIBS    +=
+OCAMLPACKS     =  xc xb log eventchn stdext
+OCAML_LIBS     =
 OCAML_CLIBS   += $(XEN_OCAML_CLIBS)
 CFLAGS        += $(XEN_CFLAGS)
 
-XENSTORED_FILES = event ../util/config \
+XENSTORED_FILES = event \
 	parse_arg connection connections define domain domains xenstored \
 	perms process symbol store transaction utils quota disk logging
 

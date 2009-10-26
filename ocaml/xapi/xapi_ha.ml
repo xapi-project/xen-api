@@ -263,7 +263,7 @@ module Monitor = struct
   (** Background thread which monitors the membership set and takes action if HA is 
       armed and something goes wrong *)
   let thread_body () : unit =
-    name_thread "ha_monitor";
+    Debug.name_thread "ha_monitor";
     debug "initialising HA background thread";
     (* NB we may be running this code on a slave in emergency mode *)
 
