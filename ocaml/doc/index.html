@@ -6,8 +6,8 @@
 		<script type="text/javascript" src="ocamldoc.js"></script>
 		<script type="text/javascript" src="components.js"></script>
 		<script>
-			for (i in components)
-				document.write('<script src="', components[i], '/index.json" type="text/JavaScript"><\/script>');
+			for (z in components)
+				document.write('<script src="', components[z], '/index.json" type="text/JavaScript"><\/script>');
 			document.write('<script src="', component, '/', module, '.json" type="text/JavaScript"><\/script>');
 		</script>
 		<link rel="stylesheet" href="style.css" />
@@ -18,13 +18,13 @@
 				<h1 style="float:left">Ocaml Code Documentation</h1>
 				<ul id="menu">
 					<script>
-						document.write('<li><a href="index.html">Module Index</a></li>');
+						document.write('<li><a href="index.html?c=' + component + '">Module Index</a></li>');
 						//document.write('<li><a href="index.html?c=' + component + '">...</a></li>');
 					</script>
 				</ul>	
 			</div>
 			<div id="main">
-				<div id="content"></div>
+				<div id="container"><div id="content"></div></div>
 				<div id="sidebar"></div>
 				<div id="footer"></div>
 			</div>

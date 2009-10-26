@@ -11,8 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+ 
+(** Module for reading FIST points *)
+ 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
+
+(** {2 (Fill in title!)} *)
 
 let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true with _ -> false
 
@@ -56,7 +61,8 @@ let simulate_blocking_planner () = fistpoint "simulate_blocking_planner"
 let simulate_vbd_unplug_failure () = fistpoint "simulate_vbd_unplug_failure"
 (** Used to simulate an initial VBD.unplug failure *)
 
-(** {2 RRD fist points - nb, these are evaluated once at run time and not again - no dynamic changing here :-) } *)
+(** {2 RRD fist points} 
+ *  nb, these are evaluated once at run time and not again - no dynamic changing here :-) *)
 
 let reduce_blob_sync_interval = fistpoint "reduce_blob_sync_interval"
 (** Reduce blob sync period to 5 minutes *)

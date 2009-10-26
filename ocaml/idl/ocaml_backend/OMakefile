@@ -129,6 +129,7 @@ OCamlLibrary(server, $(SERVER_OBJS))
 
 OCamlDoc(common, $(COMMON_OBJS), $(OCAMLINCLUDES))
 OCamlDoc(client, $(CLIENT_OBJS), $(OCAMLINCLUDES))
+#OCamlDoc(server, $(SERVER_OBJS), $(OCAMLINCLUDES))
 
 OCamlLibrary(htmldoc, htmldoc)
 
