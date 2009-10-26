@@ -610,8 +610,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~name_description ~name_label ~uuid ~other_config:[]
     ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
-    ~memory_total:0L        (* !!! FIXME hard coding *)
-    ~memory_overhead:0L     (* !!! FIXME hard coding *)
+    ~memory_overhead:0L
     ~sched_policy:"credit"  (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null

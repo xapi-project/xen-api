@@ -30,7 +30,8 @@ let create_guest_snapshot __context guest =
 let create_host_snapshot __context host =
 	let host_id = Db.Host.get_uuid __context host in
 	let memory_overhead = Db.Host.get_memory_overhead ~__context ~self:host in
-	let memory_total = Db.Host.get_memory_total ~__context ~self:host in
+	let metrics = Db.Host.get_metrics ~__context ~self:host in
+	let memory_total = Db.Host_metrics.get_memory_total ~__context ~self:metrics in
 	let guest_snapshots guest_type = List.map
 		(create_guest_snapshot __context)
 		(Db.VM.get_refs_where ~__context
