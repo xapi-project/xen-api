@@ -5,6 +5,7 @@ OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
 OCAMLPACKS    = stdext log
 
 .SUBDIRS: \
+	fdhelper \
 	autogen \
 	xe-cli \
 	xapimon \

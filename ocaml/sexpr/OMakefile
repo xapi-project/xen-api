@@ -1,8 +1,0 @@
-OCamlGeneratedFiles(sExprLexer.ml sExprParser.mli)
-SEXPR_FILES = sexpr sExpr sExprLexer sExprParser
-OCamlLibrary(sexpr, $(SEXPR_FILES))
-OCamlDocLibrary(sexpr, $(SEXPR_FILES))
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS) sExprLexer.ml sExprParser.ml sExprParser.mli
