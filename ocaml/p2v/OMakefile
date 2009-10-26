@@ -1,11 +1,14 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log xs
-
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log xs close-and-exec
 
 OCAMLFLAGS += -dtypes -warn-error F -cclib -static -cclib -lpthread -g
 
 OCamlProgram(p2v,p2v)
+
+section:
+	OCAMLFLAGS += -cclib -static
+	OCamlProgram(closeandexec_static, closeandexec_static)
 
 .PHONY: clean
 clean:
