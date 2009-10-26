@@ -381,6 +381,7 @@ let pause ~xs (x: device) =
 	let request_path = backend_pause_request_path_of_device ~xs x in
 	let token_path = backend_pause_token_path_of_device ~xs x in
 	let response_path = backend_pause_done_path_of_device ~xs x in
+	let backend_path = backend_path_of_device ~xs x in
 
 	(* Returned to the client to make sure that 'unpause' never matches the wrong 'pause' *)
 	let token = Uuid.string_of_uuid (Uuid.make_uuid ()) in
@@ -408,12 +409,16 @@ let pause ~xs (x: device) =
 	   node is destroyed then we assume the domain is dead and is being reaped and return an error *)
 	match Watch.wait_for ~xs (Watch.any_of [ 
 				    `OK, Watch.value_to_appear response_path; (* pause-done *)
-				    `Failed, shutdown_done ~xs x; (* device has shutdown *) ]) with
+				    `Destroyed, Watch.map (fun () -> "") (Watch.key_to_disappear backend_path); (* backend has been deleted *) 
+				    `Shutdown, shutdown_done ~xs x; (* device has shutdown *) ]) with
 	| `OK, _ ->
 	    debug "Device.Vbd.pause %s complete" (string_of_device x);
 	    token
-	| `Failed, _ ->
-	    error "Device.Vbd.pause %s failed: has the device shut itself down?" (string_of_device x);
+	| `Destroyed, _ ->
+	    debug "Device.Vbd.pause %s failed: backend has been deleted" (string_of_device x);
+	    raise Device_shutdown
+	| `Shutdown, _ ->
+	    error "Device.Vbd.pause %s failed: backend has shutdown" (string_of_device x);
 	    raise Device_shutdown
   
 let unpause ~xs (x: device) (token: string) = 
@@ -423,6 +428,7 @@ let unpause ~xs (x: device) (token: string) =
 	let request_path = backend_pause_request_path_of_device ~xs x in
 	let token_path = backend_pause_token_path_of_device ~xs x in
 	let response_path = backend_pause_done_path_of_device ~xs x in
+	let backend_path = backend_path_of_device ~xs x in
 	(* Both request and response should exist *)
 
 	(* Use a transaction so we can tell whether the failure is because the device doesn't exist or whether
@@ -453,9 +459,13 @@ let unpause ~xs (x: device) (token: string) =
 	  let shutdown_done = Watch.map (fun _ -> ()) (shutdown_done ~xs x) in
 	  match Watch.wait_for ~xs (Watch.any_of [ 
 				      `OK, Watch.key_to_disappear response_path; (* pause-done *)
+				      `Destroyed, Watch.key_to_disappear backend_path; (* backend has been deleted *)
 				      `Shutdown, shutdown_done; (* device has shutdown *) ]) with
 	  | `OK, _ ->
 	      debug "Device.Vbd.unpause %s complete" (string_of_device x)
+	  | `Destroyed, _ ->
+	      (* We consider this to be 'unpaused' *)
+	      debug "Device.Vbd.unpause %s: backend has been deleted, considering it 'unpaused'" (string_of_device x)
 	  | `Shutdown, _ ->
 	      (* We consider this to be 'unpaused' *)
 	      debug "Device.Vbd.unpause %s: device has shut itself down, considering it 'unpaused'" (string_of_device x);
