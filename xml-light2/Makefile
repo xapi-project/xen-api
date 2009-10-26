@@ -1,3 +1,4 @@
+IPROG=install -m 755 -o root -g root
 OCAMLPACKS = xmlm
 
 CC = gcc
@@ -11,6 +12,7 @@ OCAMLOPT = $(OCAMLFIND) ocamlopt $(OCAMLFINDFLAGS)
 
 LDFLAGS = -cclib -L./
 
+LIBEXEC  = "/opt/xensource/libexec"
 DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
@@ -58,9 +60,18 @@ META: META.in
 install: $(LIBS) META
 	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore xml-light2 META $(INTF) $(LIBS) *.a *.cmx
 
+.PHONY: bininstall
+bininstall:
+	mkdir -p $(DESDIR)$(LIBEXEC)
+	$(IPROG) $(PROGRAMS) $(DESDIR)$(LIBEXEC)
+
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xml-light2
+
+.PHONY: binuninstall
+binuninstall:
+	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

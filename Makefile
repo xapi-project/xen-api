@@ -84,7 +84,21 @@ bins:
 	$(MAKE) -C xml-light2 bins
 	$(MAKE) -C sexpr bins
 	$(MAKE) -C stdext bins
+	$(MAKE) -C close-and-exec bins
 
+bininstall:
+	$(MAKE) -C pciutil bininstall
+	$(MAKE) -C xml-light2 bininstall
+	$(MAKE) -C sexpr bininstall
+	$(MAKE) -C stdext bininstall
+	$(MAKE) -C close-and-exec bininstall
+
+binuninstall:
+	$(MAKE) -C pciutil binuninstall
+	$(MAKE) -C xml-light2 binuninstall
+	$(MAKE) -C sexpr binuninstall
+	$(MAKE) -C stdext binuninstall
+	$(MAKE) -C close-and-exec binuninstall
 
 OUTPUT_API_PKG := $(MY_OUTPUT_DIR)/api-libs.tar.gz
 
@@ -93,9 +107,12 @@ $(OUTPUT_API_PKG): PREFIX=$(shell ocamlfind printconf path)
 $(OUTPUT_API_PKG): $(MY_OBJ_DIR)/.dirstamp $(MY_OUTPUT_DIR)/.dirstamp
 	rm -rf $(DESTDIR)
 	mkdir -p $(DESTDIR)$(PREFIX)
+	mkdir -p $(DESTDIR)$(LIBEXEC)
 	$(MAKE) clean
 	$(MAKE) all
 	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging install
+	$(MAKE) bins
+	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging bininstall
 	tar -C $(DESTDIR) -zcf $@ .
 
 OUTPUT_XAPI_PKG := $(MY_OUTPUT_DIR)/xapi-libs.tar.gz
