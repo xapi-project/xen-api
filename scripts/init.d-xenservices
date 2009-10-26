@@ -61,7 +61,7 @@ start() {
     /opt/xensource/bin/xenstored ${XENSTORED_ARG}
 
 	/usr/sbin/xenconsoled
-	/usr/sbin/blktapctrl 
+	/usr/sbin/blktapctrl -llocal6
 	
 	# Delete rubbish from xapi's private tree in xenstore, once per boot (not once per
 	# xapi invocation since the data should be persistent across xapi restarts)
