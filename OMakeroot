@@ -82,13 +82,19 @@ OCAMLDOC = ocamldoc
 #
 # Generation of documentation from .ml or .mli files
 #
-OCamlDoc(dir, modules, includes) =
+OCamlDoc(name, modules, type) =
     private.CMIFILES = $(addsuffix .cmi, $(modules))
     .PHONY: doc
-    DEST = $(ROOT)/ocaml/doc/$(dir)
+    dir = $(ROOT)/ocaml/doc/
     doc: $(CMIFILES) $(ROOT)/ocaml/doc/odoc_json.cma
-        mkdir -p $(DEST)
-        python $(ROOT)/ocaml/doc/doc.py $(DEST) "$(modules)" "$(includes)"
+        mkdir -p $(dir)/$(name)
+        python $(ROOT)/ocaml/doc/doc.py $(dir) $(name) $(type) "$(modules)" "$(OCAMLINCLUDES)" "$(OCAMLPACKS)" "$(OCAML_LIBS)"
+
+OCamlDocProgram(name, modules) =
+	OCamlDoc($(name), $(modules), "program")
+	
+OCamlDocLibrary(name, modules) =
+	OCamlDoc($(name), $(modules), "library")
 
 #
 # Include the OMakefile in this directory.
