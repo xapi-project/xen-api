@@ -22,6 +22,11 @@ let thread_tasks_m = Mutex.create ()
 let get_thread_id () =
   try Thread.id (Thread.self ()) with _ -> -1 
 
+(* Theses functions need to be defined later in the code. *)
+let get_hostname = 
+  let f () = "Debug.get_hostname not set" in
+  ref f
+
 let associate_thread_with_task task = 
   let id = get_thread_id () in
   if id <> -1
@@ -76,18 +81,8 @@ module type BRAND = sig
   val name: string
 end
 
-let hostname_cache = ref None
-let hostname_m = Mutex.create ()
-let get_hostname () =
-  match Mutex.execute hostname_m (fun () -> !hostname_cache) with
-  | Some h -> h
-  | None ->
-		let h = Unix.gethostname () in
-		Mutex.execute hostname_m (fun () -> hostname_cache := Some h);
-		h
-let invalidate_hostname_cache () = Mutex.execute hostname_m (fun () -> hostname_cache := None)
-
 module Debugger = functor(Brand: BRAND) -> struct
+  let hostname = Unix.gethostname ()
   let _ =
     Mutex.execute dkmutex (fun () -> 
       debug_keys := StringSet.add Brand.name !debug_keys)
@@ -107,7 +102,7 @@ module Debugger = functor(Brand: BRAND) -> struct
   let output (f:string -> ?extra:string -> ('a, unit, string, 'b) format4 -> 'a) fmt =
     let extra = 
       Printf.sprintf "%s|%s|%s|%s" 
-      (get_hostname ())
+      hostname
       (get_thread_name ()) 
       (get_task ())
       Brand.name
@@ -117,7 +112,7 @@ module Debugger = functor(Brand: BRAND) -> struct
 	let output_and_return ?raw (f:string -> ?raw:bool -> ?extra:string -> ('a, unit, string, 'b) format4 -> 'a) fmt =
     let extra =
       Printf.sprintf "%s|%s|%s|%s"
-      (get_hostname ())
+      hostname
       (get_thread_name ())
       (get_task ())
       Brand.name

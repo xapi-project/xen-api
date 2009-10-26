@@ -14,9 +14,6 @@
 
 (** Debug utilities *)
 
-(** Throw away the cached hostname. The next log line will re-query the hostname *)
-val invalidate_hostname_cache: unit -> unit
-
 (** {2 Associate a task to the current actions} *)
 
 (** Associate a task name to the current thread *)
