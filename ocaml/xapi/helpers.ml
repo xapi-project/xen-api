@@ -803,9 +803,7 @@ let consider_enabling_host_nolock ~__context =
   Xapi_local_pbd_state.resynchronise ~__context ~pbds;
   let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in 
 
-  (* Leave the host perma-disabled if the license does not support pooling *)
-  let license_ok = Restrictions.license_ok_for_pooling ~__context in
-  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) && license_ok then begin
+  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) then begin
     (* If we were in the middle of a shutdown or reboot with HA enabled but somehow we failed
        and xapi restarted, make sure we don't automatically re-enable ourselves. This is to avoid
        letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear

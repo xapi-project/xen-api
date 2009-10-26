@@ -822,14 +822,6 @@ let server_init() =
 	Master_connection.restart_on_connection_timeout := true;
 	Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end;
-    (* Inform the user that pooling is unavailable under their license *)
-    Server_helpers.exec_with_new_task "checking that current license is ok for pooling configuration"
-      (fun __context ->
-    	 if not(Restrictions.license_ok_for_pooling ~__context)
-	 then 
-	   let host = Helpers.get_localhost ~__context in
-	   let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
-	   Xapi_alert.add ~name:Api_messages.license_does_not_support_pooling ~priority:1L ~cls:`Host ~obj_uuid ~body:"");
 						    					    
     Startup.run ~__context [
       "Initialising licensing", [], handle_licensing;

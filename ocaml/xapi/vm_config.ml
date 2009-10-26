@@ -64,14 +64,7 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
 	end
     | ""          -> None
     | _           -> log_qos_failure (Printf.sprintf "unknown type: %s" qos_type); None in
-  
-  (* Apply license restrictions *)
-  let rate = 
-    if (Restrictions.get ()).Restrictions.enable_qos then rate else begin
-      if rate <> None then log_qos_failure "Ignoring QoS due to licensing restrictions";
-      None
-    end in
-  
+    
   (* If we fail to find the network or bridge then assume this VIF is a dangling reference *)
   try
     let network_ref = vif_r.API.vIF_network in
