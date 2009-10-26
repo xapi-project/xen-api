@@ -1,11 +1,11 @@
 OCAMLPACKS += unix xmlm xml-light2 uuid cdrom
 OCAML_LIBS += ../sexpr/sexpr ../util/zerocheck ../util/pciutil ../util/vm_memory_constraints \
-		../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
-		../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
+	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server \
+	../util/sanitycheck ../util/sigutil ../util/rss ../util/ocamltest
 OCAMLINCLUDES += ../sexpr ../idl ../idl/ocaml_backend \
-                 ../autogen ../database/ \
-                 ../http/ ../xenops ../muxdemux ../xva \
-		 ../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
+	../autogen ../database/ \
+	../http/ ../xenops ../muxdemux ../xva \
+	../netdev ../auth ../license ../client_records ../rfb ../gpg ../util
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -39,7 +39,7 @@ COMMON = \
 	xapi_mgmt_iface \
 	smint \
 	../gpg/gpg \
-        ../license/license \
+	../license/license \
 	helpers \
 	at_least_once_more \
 	create_templates \
