@@ -280,10 +280,6 @@ let vcpu_configuration snapshot =
 
   (* vcpu <-> pcpu affinity settings are stored here: *)
   let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
-  let enabled = (Restrictions.get ()).Restrictions.enable_qos in
-  if mask <> None && not enabled
-  then warn "vCPU affinity is configured but is restricted.";
-  let mask = if enabled then mask else None in
   (* convert the mask into a bitmap, one bit per pCPU *)
   let bitmap string = 
     let cpus = List.map int_of_string (String.split ',' string) in
@@ -296,10 +292,6 @@ let vcpu_configuration snapshot =
   (* scheduler parameters: weight and cap *)
   let weight = try Some (List.assoc "weight" snapshot.API.vM_VCPUs_params) with _ -> None in
   let cap = try Some (List.assoc "cap" snapshot.API.vM_VCPUs_params) with _ -> None in
-  if weight <> None && not enabled
-  then warn "vCPU weight is configured but is restricted.";
-  if cap <> None && not enabled
-  then warn "vCPU cap is configured but is restricted.";
   let weight = try Opt.map int_of_string weight with _ -> warn "Failed to parse vCPU weight"; None in
   let cap = try Opt.map int_of_string cap with _ -> warn "Failed to parse vCPU cap"; None in
   let weight = Opt.map (fun x -> [ "vcpu/weight", string_of_int x ]) weight in
@@ -555,20 +547,14 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		in
 
 		let pci_emulations =
-			let rstr = Restrictions.get () in
 			let s = try Some (List.assoc "mtc_pci_emulations" other_config) with _ -> None in
 			match s with
 			| None -> []
 			| Some x ->
-				if rstr.Restrictions.enable_mtc_pci then (
-					try
-						let l = String.split ',' x in
-						List.map (String.strip String.isspace) l
-					with _ -> []
-				) else (
-					L.warn "ignoring MTC pci emulation due to license restrictions";
-					[]
-				)
+				try
+					let l = String.split ',' x in
+					List.map (String.strip String.isspace) l
+				with _ -> []
 			in
 		let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
 		let dmstart = if restore then Device.Dm.restore else Device.Dm.start in

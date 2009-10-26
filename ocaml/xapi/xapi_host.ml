@@ -59,9 +59,7 @@ let assert_safe_to_reenable ~__context ~self =
       (* Make sure our license hasn't expired *)
       if !License.license.License.expiry < Unix.gettimeofday ()
       then raise (Api_errors.Server_error(Api_errors.license_expired, []))
-    end;
-    if not (Restrictions.license_ok_for_pooling ~__context)
-    then raise (Api_errors.Server_error(Api_errors.license_does_not_support_pooling, []))
+    end
 
 (* read xen capabilities *)
 let get_xen_capabilities() =
@@ -570,8 +568,6 @@ let license_apply ~__context ~host ~contents =
       Unix.rename tmp !License.filename; (* atomically overwrite host license file *)
       copy_license_to_db ~__context;     (* update pool.license_params for clients that want to see license info through API *)
       Unixext.unlink_safe tmp;
-
-      (try if Restrictions.license_ok_for_pooling ~__context then Helpers.consider_enabling_host ~__context with _ -> ()); (* will re-enable host if we've just applied a pooling license to a slave *)
   with
       _ as e ->
 	close ();

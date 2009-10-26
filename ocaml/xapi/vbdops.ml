@@ -175,13 +175,7 @@ let set_vbd_qos ~__context ~self domid devid pid =
 		*)
 		in
 
-	let rstr = Restrictions.get () in
-	if rstr.Restrictions.enable_qos then (
-		set_vbd_qos_norestrictions ~__context ~self domid devid pid ty params alert_fct
-	) else (
-		if ty <> "" then
-			alert_fct "license restrictions"
-	)
+	set_vbd_qos_norestrictions ~__context ~self domid devid pid ty params alert_fct
 
 let eject_vbd ~__context ~self =
 	if not (Db.VBD.get_empty ~__context ~self) then (
