@@ -1,4 +1,5 @@
 version = "@VERSION@"
 description = "device-mapper ocaml interface"
+requires = "unix"
 archive(byte) = "camldm.cma"
 archive(native) = "camldm.cmxa"
