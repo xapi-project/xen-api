@@ -1,9 +1,0 @@
-OCAMLINCLUDES +=
-
-OCamlProgram(http, ../util/server_io buf_io http http_svr)
-
-OCamlProgram(base64, base64_main base64)
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS)
