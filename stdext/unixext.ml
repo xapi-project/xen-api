@@ -188,7 +188,7 @@ let copy_file ?limit ifd ofd =
 		let num64 = Int64.of_int num in
 
 		limit := Opt.map (fun x -> Int64.sub x num64) !limit;
-		Unix.write ofd buffer 0 num;
+		ignore_int (Unix.write ofd buffer 0 num);
 		total_bytes := Int64.add !total_bytes num64;
 		finished := num = 0 || !limit = Some 0L;
 	done;

@@ -21,31 +21,28 @@ xenapi_docdir = '/myrepos/xen-api.hg/ocaml/doc'
 
 docdir = sys.argv[1]
 name = sys.argv[2]
-ctype = sys.argv[3]
+if sys.argv[3] == "library": is_library = True
+else: is_library = False
 modules = set(sys.argv[4].split())
 includes = sys.argv[5].split()
-packs = sys.argv[6].replace(',',' ').split()
-libs = sys.argv[7].split()
-if len(sys.argv) >= 9:
-	pp = '-pp ' + sys.argv[8]
-else:
-	pp = ''
-
-libs = list(set(libs))	# remove duplicates
-packs = list(set(packs))	# remove duplicates
+packs = sys.argv[6]
+libs = sys.argv[7]
 
 dest = docdir + '/content/' + name
 try:
 	os.makedirs(dest)
 except:
 	pass
+	
+packs = packs.replace(',', ' ')
+packs = packs.split()
 
 if len(packs) > 0:
-	packages = "-package " + ','.join(packs)
+	packages = "-package " + str(','.join(packs))
 else:
 	packages = ""
 
-doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' ' + pp
+doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' '
 
 files = []
 for m in modules:
@@ -64,13 +61,14 @@ for i in includes:
 
 os.system(doc_command + ' ' + string.join(includesx) + ' ' + string.join(files))
 
-# add dependencies to index files
+# add library dependencies to index files
 
 f = file(dest + '/index.json', 'a')
-packs_s = map(lambda s: '"' + s.split('/')[-1] + '"', packs)
-libs_s = map(lambda s: '"' + s.split('/')[-1] + '"', libs)
-s = 'deps_' + name.replace("-", "") + ' = {"packs": [' + ', '.join(packs_s) + '], '
-s += '"libs": [' + ', '.join(libs_s) + ']}'
+libs = libs.split()
+libs.extend(packs)
+libs = map(lambda s: '"' + s.split('/')[-1] + '"', libs)
+libs = list(set(libs))	# remove duplicates
+s = 'deps_' + name.replace("-", "") + ' = [' + ', '.join(libs) + '];'
 f.write(s)
 f.close()
 
@@ -79,31 +77,25 @@ f.close()
 def update_components(compdir):
 	executables = []
 	libraries = []
-	packages = []
-	
+
 	try:
 		f = file(compdir + '/components.js', 'r')
-		exec(f.readline())
 		exec(f.readline())
 		exec(f.readline())
 		f.close()
 	except:
 		pass
 
-	if ctype == "library":
+	if is_library:
 		libraries.append(name)
 		libraries = list(set(libraries))
-	elif ctype == "package":
-		packages.append(name)
-		packages = list(set(packages))
 	else:
 		executables.append(name)
 		executables = list(set(executables))
 
 	f = file(compdir + '/components.js', 'w')
 	f.write('executables = ' + str(executables) + '\n')
-	f.write('libraries = ' + str(libraries) + '\n')
-	f.write('packages = ' + str(packages))
+	f.write('libraries = ' + str(libraries))
 	f.close()
 
 update_components(docdir)

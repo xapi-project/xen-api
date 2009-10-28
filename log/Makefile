@@ -19,6 +19,8 @@ OBJS = syslog log logs debug
 INTF = log.cmi logs.cmi syslog.cmi debug.cmi
 LIBS = log.cma log.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -66,5 +68,9 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove log
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "log" "library" "$(OBJS)" "." "stdext" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
