@@ -217,18 +217,6 @@ let update_pifs ~__context host pifs =
 			  ~vendor:pif_stats.pif_vendor_id ~device:pif_stats.pif_device_id ~carrier:pif_stats.pif_carrier
 			  ~speed:speed_db ~duplex:duplex_db
 			  ~pcibuspath:pif_stats.pif_pci_bus_path ~io_write:pif_stats.pif_tx ~io_read:pif_stats.pif_rx pmr;
-
-			(* If it's DHCP, then set the IP and netmask *)
-			if Db.PIF.get_ip_configuration_mode ~__context ~self:pifdev = `DHCP then
-			  begin
-			    match pif_stats.pif_bridge_info with
-			      | Some (addr,nm) ->
-				  let addr_str = Unix.string_of_inet_addr addr in
-				  let nm_str = Unix.string_of_inet_addr nm in
-				  Db.PIF.set_IP ~__context ~self:pifdev ~value:addr_str;
-				  Db.PIF.set_netmask ~__context ~self:pifdev ~value:nm_str
-			      | None -> ()			      
-			  end
 			  
 		with Not_found -> ()) pifdevs
 
