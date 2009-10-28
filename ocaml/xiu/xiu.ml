@@ -244,8 +244,8 @@ let thread_domain0 () =
 				if ty = "vif" then (
 					let device_path = sprintf "/xapi/%s/hotplug/vif/%s/vif" domid id in
 					let device = xs.Xs.read device_path in
-					if Netdev.is_on_bridge device then begin
-					  let bridge = Netdev.get_bridge device in
+					if Netdev.Bridge.is_on_bridge device then begin
+					  let bridge = Netdev.Bridge.get_bridge device in
 					  Netdev.Bridge.intf_del bridge device
 					end;
 					eprintf "(XIU) Adding device to free list: %s\n" device;

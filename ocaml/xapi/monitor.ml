@@ -268,7 +268,7 @@ let update_netdev () =
       let buspath = Netdev.get_pcibuspath dev in
       let bridgeinfo = 
 	try 
-	  let bridge = Netdev.get_bridge dev in
+	  let bridge = Netdev.Bridge.get_bridge dev in
 	  let bridge_addr, bridge_netmask = List.hd (Netdev.Addr.get bridge) in
 	  Some (bridge_addr, bridge_netmask)
 	with _ -> None 
