@@ -1308,7 +1308,7 @@ type info = {
 	serial: string;
 	vcpus: int;
 	usb: string list;
-	nics: (string * string) list;
+	nics: (string * string * int) list;
 	acpi: bool;
 	disp: disp_opt;
 	pci_emulations: string list;
@@ -1411,12 +1411,10 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 					   [ "-usbdevice"; device ]) info.usb))) in
 	(* qemu need a different id for every vlan, or things get very bad *)
 	let vlan_id = ref 0 in
-	let if_number = ref 0 in
-	let nics' = List.map (fun (mac, bridge) ->
+	let nics' = List.map (fun (mac, bridge, devid) ->
 		let r = [
 		"-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" !vlan_id mac;
-		"-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid !if_number)] in
-		incr if_number;
+		"-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid devid)] in
 		incr vlan_id;
 		r
 	) info.nics in
