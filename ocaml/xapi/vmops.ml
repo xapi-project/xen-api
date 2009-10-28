@@ -513,7 +513,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 
 	(* Sort the VIF devices by devid *)
 	let vifs = List.stable_sort (fun a b -> compare a.Vm_config.devid b.Vm_config.devid) vifs in
-	let nics = List.map (fun vif -> vif.Vm_config.mac, vif.Vm_config.bridge) vifs in
+	let nics = List.map (fun vif -> vif.Vm_config.mac, vif.Vm_config.bridge, vif.Vm_config.devid) vifs in
 
 	let hvm = Helpers.is_hvm snapshot in
 
