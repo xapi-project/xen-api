@@ -54,7 +54,7 @@ for m in modules:
 	l = os.listdir('./' + d)
 	if f + '.mli' in l:
 		files.append(m + '.mli')
-	elif f + '.ml' in l:
+	if f + '.ml' in l:
 		files.append(m + '.ml')
 
 includesx = []
