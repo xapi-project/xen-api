@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Stringext
+open Forkhelpers
 
 module Internal = struct
 
@@ -156,6 +157,40 @@ let getpath dev attr = Printf.sprintf "/sys/class/net/%s/%s" dev attr
 let is_on_bridge name = try Unix.access (getpath name "brport") [ Unix.F_OK ]; true with _ -> false
 
 let get_bridge name = Filename.basename (Unix.readlink ((getpath name "brport") ^ "/bridge"))
+
+end
+
+module Vswitch = struct
+
+let vsctl_script = "/usr/bin/ovs-vsctl"
+
+let vsctl args =
+  Unix.access vsctl_script [ Unix.X_OK ];
+  let output, _ = Forkhelpers.execute_command_get_output vsctl_script args in
+  let stripped = Stringext.String.strip (fun c -> c='\n') output in
+  Stringext.String.split '\n' stripped
+
+let add name = ignore(vsctl ["add-br" ; name])
+let del name = ignore(vsctl ["del-br" ; name])
+let list () = vsctl [ "list-br" ]
+
+let exists name = List.exists (fun x -> x = name) (list ())
+
+let intf_add name intf = ignore(vsctl ["add-port"; name; intf])
+let intf_del name intf = ignore(vsctl ["del-port"; name; intf])
+let intf_list name = vsctl [ "list-ports"; name ]
+
+let get_bridge name = 
+  match vsctl [ "port-to-br"; name ] with
+  | l::[] -> l
+  | [] -> failwith ("ovs-vsctl port-to-br: did not return a bridge for port " ^ name)
+  | _ -> failwith ("ovs-vsctl port-to-br: returned an unexpected number of results for port " ^ name)
+
+let is_on_bridge name = 
+  match vsctl [ "port-to-br"; name ] with
+  | l::[] -> true
+  | [] -> false
+  | _ -> failwith ("ovs-vsctl port-to-br: returned an unexpected number of results for port " ^ name)
 
 end
 
