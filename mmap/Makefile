@@ -17,6 +17,8 @@ OBJS = mmap
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = mmap.cma mmap.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -58,6 +60,10 @@ install: $(LIBS) META
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove mmap
+
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "mmap" "library" "$(OBJS)" "." "" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

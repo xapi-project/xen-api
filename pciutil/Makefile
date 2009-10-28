@@ -19,6 +19,8 @@ OBJS = pciutil
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = pciutil.cma pciutil.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 PROGRAMS = pciutil
 
 all: $(INTF) $(LIBS)
@@ -68,5 +70,9 @@ uninstall:
 binuninstall:
 	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "pciutil" "library" "$(OBJS)" "." "stdext" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

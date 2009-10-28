@@ -142,6 +142,28 @@ api-libs: $(OUTPUT_API_PKG) $(MY_SOURCES)/MANIFEST
 .PHONY: xapi-libs
 xapi-libs: $(OUTPUT_XAPI_PKG) $(MY_SOURCES)/MANIFEST
 	@ :
+	
+.PHONY: doc
+doc:
+	$(MAKE) -C stdext doc
+	$(MAKE) -C sexpr doc
+	$(MAKE) -C uuid doc
+	$(MAKE) -C log doc
+	$(MAKE) -C xb doc
+	$(MAKE) -C xc doc
+	$(MAKE) -C xs doc
+	$(MAKE) -C xml-light2 doc
+	$(MAKE) -C rpc-light doc
+	$(MAKE) -C http-svr doc
+	$(MAKE) -C camldm doc
+	$(MAKE) -C cdrom doc
+	$(MAKE) -C close-and-exec doc
+	$(MAKE) -C eventchn doc
+	$(MAKE) -C pciutil doc
+	$(MAKE) -C rss doc
+	$(MAKE) -C stunnel doc
+	$(MAKE) -C xsrpc doc
+	$(MAKE) -C mmap doc
 
 .PHONY: clean
 clean:
@@ -158,6 +180,7 @@ clean:
 	make -C http-svr clean
 	make -C close-and-exec clean
 	make -C sexpr clean
+	make -C doc clean
 	rm -f $(OUTPUT_API_PKG)
 
 cleanxen:

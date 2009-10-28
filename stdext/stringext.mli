@@ -14,6 +14,7 @@
 module String :
   sig
     external length : string -> int = "%string_length"
+    (** blabla *)
     external get : string -> int -> char = "%string_safe_get"
     external set : string -> int -> char -> unit = "%string_safe_set"
     external create : int -> string = "caml_create_string"
@@ -108,7 +109,7 @@ module String :
 (** find all occurences of needle in haystack and return all their respective index *)
     val find_all : string -> string -> int list
 
-    (** replace all @f substring in @s by @t *)
+    (** replace all [f] substring in [s] by [t] *)
     val replace : string -> string -> string -> string
 
     (** filter chars from a string *)

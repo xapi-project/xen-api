@@ -17,6 +17,8 @@ OBJS = cdrom
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = cdrom.cma cdrom.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -59,6 +61,10 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove cdrom
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "cdrom" "library" "$(OBJS)" "." "" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 

@@ -21,6 +21,8 @@ LIBS = closeandexec.cmxa closeandexec.cma
 
 PROGRAMS = closeandexec
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
@@ -68,5 +70,9 @@ uninstall:
 binuninstall:
 	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "close-and-exec" "library" "$(OBJS)" "." "stdext" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

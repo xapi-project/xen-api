@@ -11,18 +11,38 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Ring structures *)
+ 
 type t = {
   size : int;
   mutable current : int;
   data : (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t;
 }
+
+(** create a ring structure with [size] record; records initialised to [init] *)
 val make : int -> float -> t
+
+(** length of the ring *)
 val length : t -> int
+
+(** push into the ring one element *)
 val push : t -> float -> unit
+
+(** get the i{^th} old element from the ring *)
 val peek : t -> int -> float
+
+(** get the top element of the ring *)
 val top : t -> float
+
+(** iterate over nb element of the ring, starting from the top *)
 val iter_nb : t -> (float -> 'a) -> int -> unit
+
 val raw_iter : t -> (float -> 'a) -> unit
+
+(** iterate over all elements of the ring, starting from the top *)
 val iter : t -> (float -> 'a) -> unit
+
+(** get array of latest [nb] value *)
 val get_nb : t -> int -> float array
+
 val get : t -> float array

@@ -17,6 +17,8 @@ OBJS = server_io buf_io http http_svr
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
@@ -52,5 +54,9 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove http-svr
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "http-svr" "library" "$(OBJS)" "." "log,stdext" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

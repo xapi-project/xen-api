@@ -5,6 +5,8 @@ PACKS = xmlm
 
 ICAMLP4=-I $(shell ocamlfind query camlp4) -I $(shell ocamlfind query type-conv)
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 .PHONY: all clean
 all: pa_rpc.cma xmlrpc.cmi xmlrpc.cma xmlrpc.cmxa jsonrpc.cmi jsonrpc.cmxa jsonrpc.cma
 
@@ -69,5 +71,9 @@ uninstall:
 	ocamlfind remove jsonrpc
 	ocamlfind remove rpc-light
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "rpc-light" "library" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
+	
 clean:
 	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.o *.cmi *.a
