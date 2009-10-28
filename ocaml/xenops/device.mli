@@ -174,7 +174,7 @@ sig
 		serial: string;
 		vcpus: int;
 		usb: string list;
-		nics: (string * string) list;
+		nics: (string * string * int) list;
 		acpi: bool;
 		disp: disp_opt;
 		pci_emulations: string list;
