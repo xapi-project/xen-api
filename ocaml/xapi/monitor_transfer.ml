@@ -154,8 +154,7 @@ let unmarshall_pifs xml =
 		 pif_duplex=Netdev.Link.duplex_of_string (XMLRPC.From.string duplex);
 		 pif_pci_bus_path=XMLRPC.From.string pcibuspath;
 		 pif_vendor_id=XMLRPC.From.string vendor;
-		 pif_device_id=XMLRPC.From.string device;
-		 pif_bridge_info=None} in
+		 pif_device_id=XMLRPC.From.string device} in
 	List.map f (XMLRPC.From.array (fun x -> x) xml)
 
 let marshall_uuids uuids =
