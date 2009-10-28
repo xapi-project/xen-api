@@ -114,7 +114,26 @@ let assert_can_shutdown ~__context ~host =
     raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
   debug "Shutdown test: VBDs OK"
 
+let pif_update_dhcp_address ~__context ~self =
+  let network = Db.PIF.get_network ~__context ~self in
+  let bridge = Db.Network.get_bridge ~__context ~self:network in
+  match Netdev.Addr.get bridge with
+   | (_addr,_netmask)::_ ->
+       let addr = (Unix.string_of_inet_addr _addr) in
+       let netmask = (Unix.string_of_inet_addr _netmask) in
+       if addr <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+	 debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge addr netmask;
+	 Db.PIF.set_IP ~__context ~self ~value:addr;
+	 Db.PIF.set_netmask ~__context ~self ~value:netmask    
+       end
+   | _ -> ()
+
 let signal_networking_change ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let pifs = Db.Host.get_PIFs ~__context ~self:host in
+  List.iter (fun pif -> if Db.PIF.get_ip_configuration_mode ~__context ~self:pif = `DHCP then
+	       pif_update_dhcp_address ~__context ~self:pif
+  ) pifs;
   Xapi_mgmt_iface.on_dom0_networking_change ~__context
 
 
