@@ -55,7 +55,7 @@ let run_n_times n f cli =
 let network_create_destroy cli vmid = 
   let list_bridge () = 
     let ifaces = List.filter Netdev.Link.is_up (Netdev.list ()) in
-    List.filter (fun x -> Netdev.of_string x = Netdev.Bridge x) ifaces in
+    List.filter (fun x -> Netdev.Bridge.exists x) ifaces in
 
   delete_existing_networks cli;
   
