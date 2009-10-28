@@ -150,6 +150,13 @@ let intf_del name intf =
 
 let intf_list name =
 	Array.to_list (Sys.readdir ("/sys/class/net/" ^ name ^ "/brif/"))
+
+let getpath dev attr = Printf.sprintf "/sys/class/net/%s/%s" dev attr
+
+let is_on_bridge name = try Unix.access (getpath name "brport") [ Unix.F_OK ]; true with _ -> false
+
+let get_bridge name = Filename.basename (Unix.readlink ((getpath name "brport") ^ "/bridge"))
+
 end
 
 module Link = struct
@@ -273,11 +280,7 @@ let get_ids name =
 	read_id_from (getpath name "device/vendor"),
 	read_id_from (getpath name "device/device")
 
-let is_on_bridge name = try Unix.access (getpath name "brport") [ Unix.F_OK ]; true with _ -> false
-
 let is_physical name = try Unix.access (getpath name "device") [ Unix.F_OK ]; true with _ -> false
-
-let get_bridge name = Filename.basename (Unix.readlink ((getpath name "brport") ^ "/bridge"))
 
 type t = 
     | Device of string        (** connected to some kernel network interface *)
