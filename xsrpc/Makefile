@@ -17,6 +17,8 @@ OBJS = xsrpc
 INTF = xsrpc.cmi
 LIBS = xsrpc.cma xsrpc.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -51,7 +53,11 @@ install: $(LIBS) META
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xsrpc
-
+	
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "xsrpc" "library" "$(OBJS)" "." "xb,xs" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot META $(LIBS) $(PROGRAMS)
 

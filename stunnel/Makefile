@@ -17,6 +17,8 @@ OBJS = stunnel stunnel_cache
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = stunnel.cma stunnel.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -52,5 +54,9 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove stunnel
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "stunnel" "library" "$(OBJS)" "." "stdext,log" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

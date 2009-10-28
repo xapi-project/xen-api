@@ -17,6 +17,8 @@ OBJS = uuid
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = uuid.cma uuid.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -51,6 +53,10 @@ install: $(LIBS) META
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove uuid
+
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "uuid" "library" "$(OBJS)" "." "" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

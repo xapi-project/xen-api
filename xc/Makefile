@@ -17,6 +17,8 @@ OBJS = xc
 INTF = xc.cmi
 LIBS = xc.cma xc.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -59,6 +61,10 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove xc
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "xc" "library" "$(OBJS)" "." "mmap,uuid" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS) $(INTF)
 

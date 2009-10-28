@@ -26,6 +26,8 @@ INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
 PROGRAMS = xmlpp
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
@@ -73,6 +75,10 @@ uninstall:
 binuninstall:
 	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "xml-light2" "library" "$(OBJS)" "." "stdext,xmlm" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 

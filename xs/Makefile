@@ -20,6 +20,8 @@ OBJS = queueop xsraw xst xs
 INTF = xsraw.cmi xst.cmi xs.cmi
 LIBS = xs.cma xs.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -54,6 +56,10 @@ install: $(LIBS) META
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove xs
+
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "xs" "library" "$(OBJS)" "." "xb" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

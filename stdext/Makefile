@@ -27,6 +27,8 @@ LIBS = stdext.cma stdext.cmxa
 
 PROGRAMS = base64pp
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+	
 all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
@@ -112,6 +114,10 @@ uninstall:
 .PHONY: binuninstall
 binuninstall:
 	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
+
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "stdext" "library" "$(STDEXT_OBJS)" "." "threads,uuid,unix" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

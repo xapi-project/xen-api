@@ -20,6 +20,8 @@ OBJS = op partial packet xs_ring xb
 INTF = op.cmi packet.cmi xb.cmi
 LIBS = xb.cma xb.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 
 bins: $(PROGRAMS)
@@ -65,6 +67,10 @@ install: $(LIBS) META
 uninstall:
 	ocamlfind remove xb
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "xb" "library" "$(OBJS)" "." "mmap" ""
+	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 
