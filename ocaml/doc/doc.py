@@ -26,12 +26,20 @@ includes = sys.argv[5].split()
 packs = sys.argv[6]
 libs = sys.argv[7]
 
-dest = docdir + '/' + name
-
+dest = docdir + '/content/' + name
+try:
+	os.makedirs(dest)
+except:
+	pass
+	
 packs = packs.replace(',', ' ')
 packs = packs.split()
 
-if is_library: packs.extend(['threads', 'bigarray', 'stdext', 'log', 'unix', 'xmlm', 'xml-light2', 'uuid', 'cdrom', 'mmap', 'xc', 'xb', 'xs'])
+"""
+if is_library:
+	packs.extend(['threads', 'bigarray', 'stdext', 'log', 'unix', 'xmlm', 'xml-light2', 'uuid', 'cdrom', 'mmap', 'xc', 'xb', 'xs', 'cdrom', 'pciutil', 'sexpr', 'stunnel', 'http-svr', 'rss'])
+	includes.extend(['/myrepos/xenapi.hg/ocaml/util'])
+"""
 
 if len(packs) > 0:
 	packages = "-package " + str(','.join(packs))
@@ -44,10 +52,10 @@ files = []
 for m in modules:
 	d, f = os.path.split(m)
 	l = os.listdir('./' + d)
-	if f + '.ml' in l:
-		files.append(m + '.ml')
 	if f + '.mli' in l:
 		files.append(m + '.mli')
+	elif f + '.ml' in l:
+		files.append(m + '.ml')
 
 includesx = []
 for i in includes:

@@ -307,7 +307,10 @@ let create_root_user ~__context =
 let get_xapi_verstring () =
   Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor  
   
-(** Create assoc list of Supplemental-Pack information *)
+(** Create assoc list of Supplemental-Pack information.
+ *  For backwards compatibility, the old [package-linux] key is also added
+ *  when the linux pack (now xs:linux) is present (alongside the new key).
+ *  The [package-linux] key is now deprecated and will be removed in the next version. *)
 let make_packs_info () =
 	try
 		let packs = Sys.readdir Xapi_globs.packs_dir in
@@ -335,8 +338,7 @@ let make_packs_info () =
 					in
 					let kv = [(param_name, value)] in
 					if originator = "xs" && name = "linux" then
-						(* CA-29040: put old linux-pack key in there for backwards
-						 * compatibility. This should be removed in the next version *)
+						(* CA-29040: put old linux-pack key in there for backwards compatibility *)
 						["package-linux", "installed"] @ kv
 					else
 						kv
