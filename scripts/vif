@@ -33,7 +33,7 @@ IP=/sbin/ip
 
 handle_promiscuous()
 {
-    local arg=$(xenstore-read "${PRIVATE}/other-config/promiscuous")
+    local arg=$(xenstore-read "${PRIVATE}/other-config/promiscuous" 2>/dev/null)
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case "${arg}" in 
             true|on) echo 1 > /sys/class/net/${vif}/brport/promisc ;;
@@ -45,7 +45,7 @@ handle_promiscuous()
 handle_ethtool()
 {
     local opt=$1
-    local arg=$(xenstore-read "${PRIVATE}/other-config/ethtool-${opt}")
+    local arg=$(xenstore-read "${PRIVATE}/other-config/ethtool-${opt}" 2>/dev/null)
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case "${arg}" in
             true|on)   /sbin/ethtool -K "${vif}" "${opt}" on ;;
@@ -57,7 +57,7 @@ handle_ethtool()
 
 handle_mtu()
 {
-    local mtu=$(xenstore-read "${PRIVATE}/MTU")
+    local mtu=$(xenstore-read "${PRIVATE}/MTU" 2>/dev/null)
     if [ $? -eq 0 -a -n "${mtu}" ]; then
 	echo "${mtu}" > /sys/class/net/${vif}/mtu
     fi
