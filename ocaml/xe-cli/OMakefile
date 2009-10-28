@@ -3,7 +3,7 @@ OCAMLINCLUDES = ../idl/ocaml_backend ../xapi
 OCAMLPACKS    = xml-light2 stdext stunnel log
 
 section
-	OCAMLINCLUDES=./
+	OCAMLINCLUDES += .
 	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
 	CLI_FILES = newcli ../xapi/cli_protocol options
 	OCamlProgram(xe, $(CLI_FILES))

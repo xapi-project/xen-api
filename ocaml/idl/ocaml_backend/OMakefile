@@ -9,7 +9,7 @@ OCAMLPACKS += xml-light2 stunnel
 AUTOGEN_DIR = ../../autogen
 AUTOGEN_HELPER_DIR = ../../database
 
-OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records
+OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_records ../../util
 
 OCAMLPACKS += sexpr http-svr
 
@@ -111,13 +111,13 @@ OCamlLibrary(common, $(COMMON_OBJS))
 OCamlLibrary(client, $(CLIENT_OBJS))
 OCamlLibrary(server, $(SERVER_OBJS))
 
-OCamlDocLibrary(common, $(COMMON_OBJS))
-OCamlDocLibrary(client, $(CLIENT_OBJS))
-OCamlDocLibrary(server, $(SERVER_OBJS))
-
 OCamlLibrary(htmldoc, htmldoc)
 
 OCAMLPACKS=$(_OCAMLPACKS)
+
+OCamlDocLibrary(common, $(COMMON_OBJS))
+OCamlDocLibrary(client, $(CLIENT_OBJS))
+OCamlDocLibrary(server, $(SERVER_OBJS))
 
 .PHONY: clean
 clean:
