@@ -15,6 +15,7 @@
 // global variables
  
 var module = getQuerystring('m');
+var module_chain = module.split('.');
 var component = getQuerystring('c');
 
 var components = executables.concat(libraries);
@@ -45,7 +46,7 @@ String.prototype.replaceAll = function(stringToFind,stringToReplace){
         }
         return temp;
     }
-
+    
 function fill_components()
 {
 	for (i in components) {
@@ -239,7 +240,8 @@ function included_module(v, n)
 		
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<div class="field-type"><a name="' + name + '">[module]</a></div>';
-	html += '<div class="field-name">' + name + '</div>';
+	html += '<div class="field-name">' + name + ' (<a href="index.html?c=' + component +
+		'&m=' + v.name + '">details</a>)</div>';
 	html += '<table>';
 	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
 	html += '<tr><td><span class="field-head">Description:</span></td><td>';
@@ -250,8 +252,6 @@ function included_module(v, n)
 	html += '</table>';
 	html += '</div>';
 	append_content(html);
-	
-	//parse_structure(v.module_structure);	
 }
 
 function comment(m)
@@ -345,8 +345,8 @@ function parse_structure(structure)
 
 function make_dependencies(deps)
 {
+	
 	uses = deps.uses.sort();
-	used_by = deps.used_by.sort();
 
 	html = '<h2 class="title">Dependencies</h2>';
 	html += '<h3>Uses</h3>';
@@ -360,21 +360,30 @@ function make_dependencies(deps)
 		else
 			html += '<span class="grey">' + uses[i] + '</span><br>';
 	}
-	html += '<h3>Used by</h3>';
-	for (i in used_by)
-		html += '<a href="?c=' + component + '&m=' + used_by[i] + '">' + used_by[i] + '</a><br>';
+	
+	if (deps.used_by != undefined) {
+		html += '<h3>Used by</h3>';
+		used_by = deps.used_by.sort();
+		for (i in used_by)
+			html += '<a href="?c=' + component + '&m=' + used_by[i] + '">' + used_by[i] + '</a><br>';
+	}
+	
 	append_sidebar(html);
 }
 
-function moduledoc()
-{
-	mod = odoc.module;
-	
+function moduledoc(mod)
+{	
 	set_sidebar("");
 	make_dependencies(mod.dependencies);
 	
 	html = "";
-	html += '<h1 class="title">Module: ' + mod.name + '</h1>\n';
+	html += '<h1 class="title">Module: ';
+	chain = [];
+	for (i in module_chain)
+		chain[i] = '<a href="index.html?c=' + component + 
+			'&m=' + module_chain.slice(0,i+1).join('.') + '">' + 
+			module_chain[i] + '</a>';
+	html += chain.join('.') + '</h1>\n';
 	html += '<div class="defined">Defined in ' +  mod.file + ' (' + component + ')</div>';
 	html += '<div class="description">';
 	if (mod.info.description != undefined)
@@ -436,8 +445,23 @@ function build()
 		component_index();
 	else if (module == "")
 		module_index();
-	else
-		moduledoc();
+	else {
+		mod = odoc.module;
+		module_name = mod.name;
+		
+		for (i = 1; i < module_chain.length; i++) {
+			module_name += '.' + module_chain[i];
+			structure = mod.module_structure;
+			for (j in structure) {
+				if (structure[j].module != undefined && structure[j].module.name == module_name) {
+					mod = structure[j].module;
+					break;
+				}
+			}
+		}
+		
+		moduledoc(mod);
+	}
 }
 
 function set_content(html)
