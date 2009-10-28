@@ -332,6 +332,7 @@ let destroy  ~__context ~sr =
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
 
+	(* this attaches the PBDs, and they need to stay that way for the call to SM below *)
 	Storage_access.SR.attach ~__context ~self:sr;
 
 	begin
@@ -343,6 +344,8 @@ let destroy  ~__context ~sr =
 				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 	end;
 
+	(* return all PBDs to their unattached state *)
+	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds;
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
@@ -350,7 +353,6 @@ let destroy  ~__context ~sr =
 	(* Let's not call detach because the backend throws an error *)
 	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
-	(* Safe to delete all the PBD records because we called 'check_no_pbds_attached' earlier *)
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
 	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
 
