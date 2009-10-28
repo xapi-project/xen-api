@@ -250,15 +250,21 @@ let query_group_membership subject_identifier =
 	| 'u' -> begin
 		(* looks up list of users*)
 		let subject_name = getent_namebyid "passwd" sanitized_subject_id in
-		let sanitized_subject_name = String.escaped subject_name in
 
-		with_cmd "/bin/su" [sanitized_subject_name;"-c";"id -G"]
+		(* Not necessary to escape subject_name because we call execv in forkhelpers *)
+		(* Also, escaping will break unicode chars in usernames *)
+		with_cmd "/usr/bin/id" ["-G";subject_name]
 		(fun lines ->
-			(* id -G always returns one line only *)
+			(* id -G always returns at most one line in stdout *)
 			match lines with
 			| [] -> raise Not_found
 			| gidline::_ ->
 				let gids = Stringext.String.split ' ' gidline in 
+				debug "Resolved %i group ids for subject %s (%s): %s"
+					(List.length gids)
+					subject_name
+					subject_identifier
+					(List.fold_left (fun p pp->if p="" then pp else p^","^pp) "" gids);
 				List.map (fun gid -> "g"^gid) gids
 		)
 		end
