@@ -55,11 +55,15 @@ value stub_openlog(value ident, value option, value facility)
 value stub_syslog(value facility, value level, value msg)
 {
 	CAMLparam3(facility, level, msg);
-	int c_facility;
+	const char *c_msg = strdup(String_val(msg));
+	int c_facility = __syslog_facility_table[Int_val(facility)]
+	               | __syslog_level_table[Int_val(level)];
 
-	c_facility = __syslog_facility_table[Int_val(facility)]
-	           | __syslog_level_table[Int_val(level)];
-	syslog(c_facility, "%s", String_val(msg));
+	caml_enter_blocking_section();
+	syslog(c_facility, "%s", c_msg);
+	caml_leave_blocking_section();
+	
+	free(c_msg);
 	CAMLreturn(Val_unit);
 }
 
