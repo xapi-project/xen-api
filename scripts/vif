@@ -68,10 +68,12 @@ add_to_bridge()
     local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
     if [ $? -ne 0 -o -z "${address}" ]; then
 	logger -t scripts-vif "Failed to read ${PRIVATE}/bridge-MAC from xenstore"
+	exit 1
     fi
     local bridge=$(xenstore-read "${PRIVATE}/bridge")
     if [ $? -ne 0 -o -z "${bridge}" ]; then
 	logger -t scripts-vif "Failed to read ${PRIVATE}/bridge from xenstore"
+	exit 1
     fi
     logger -t scripts-vif "Adding ${vif} to ${bridge} with address ${address}"
 
