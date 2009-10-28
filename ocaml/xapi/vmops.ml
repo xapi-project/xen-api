@@ -79,6 +79,9 @@ let check_vm_parameters ~__context ~self ~snapshot =
 
 let add_vif ~__context ~xs vif_device = 
   if vif_device.Vm_config.bridge = "" then failwith "Don't know how to connect a VIF to this type of Network";
+  let extra_private_keys = ["ref", Ref.string_of vif_device.Vm_config.vif_ref;
+                            "vif-uuid", Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref;
+                            "network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref] in
   Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
   Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
 
@@ -86,7 +89,7 @@ let add_vif ~__context ~xs vif_device =
     (fun () ->
        let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty:(Netman.Bridge vif_device.Vm_config.bridge) 
 	 ~mac:vif_device.Vm_config.mac ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
-	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys:[ "ref", Ref.string_of vif_device.Vm_config.vif_ref ] 
+	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys
 	 vif_device.Vm_config.domid in
        ()
     );
