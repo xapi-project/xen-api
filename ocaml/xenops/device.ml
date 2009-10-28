@@ -1293,6 +1293,8 @@ module Dm = struct
  /usr/lib/xen/bin/qemu-dm -d 39 -m 256 -boot cd -serial pty -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1
 *)
 
+let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emulated NICs *)
+
 (* How the display appears to the guest *)
 type disp_intf_opt =
     | Std_vga
@@ -1413,6 +1415,13 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		else
 			("-usb" :: (List.concat (List.map (fun device ->
 					   [ "-usbdevice"; device ]) info.usb))) in
+	(* Sort the VIF devices by devid *)
+	let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
+	if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
+	(* Take the first 'max_emulated_nics' elements from the list. *)
+	let take xs n  = List.map snd (List.filter (fun (x, _) -> x < n) (List.combine (Range.to_list (Range.make 0 (List.length xs))) xs)) in
+	let nics = take nics max_emulated_nics in
+	
 	(* qemu need a different id for every vlan, or things get very bad *)
 	let vlan_id = ref 0 in
 	let nics' = List.map (fun (mac, bridge, devid) ->
@@ -1421,7 +1430,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		"-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid devid)] in
 		incr vlan_id;
 		r
-	) info.nics in
+	) nics in
 	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in

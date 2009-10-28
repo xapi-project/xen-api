@@ -513,9 +513,6 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	let other_config = snapshot.API.vM_other_config in
 
 	(* XXX: we need some locking here & some better place to put the bridge name *)
-
-	(* Sort the VIF devices by devid *)
-	let vifs = List.stable_sort (fun a b -> compare a.Vm_config.devid b.Vm_config.devid) vifs in
 	let nics = List.map (fun vif -> vif.Vm_config.mac, vif.Vm_config.bridge, vif.Vm_config.devid) vifs in
 
 	let hvm = Helpers.is_hvm snapshot in
