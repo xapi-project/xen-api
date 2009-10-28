@@ -35,11 +35,22 @@ function getQuerystring(key, default_)
 		return qs[1];
 }
 
+// function from http://www.codedigest.com/CodeDigest/75-String-ReplaceAll-function-in-JavaScript.aspx
+String.prototype.replaceAll = function(stringToFind,stringToReplace){
+    var temp = this;
+    var index = temp.indexOf(stringToFind);
+        while(index != -1){
+            temp = temp.replace(stringToFind,stringToReplace);
+            index = temp.indexOf(stringToFind);
+        }
+        return temp;
+    }
+
 function fill_components()
 {
 	for (i in components) {
-		component_modules[components[i]] = eval('modules_' + components[i]);
-		component_deps[components[i]] = eval('deps_' + components[i]);
+		component_modules[components[i]] = eval('modules_' + components[i].replaceAll('-', ''));
+		component_deps[components[i]] = eval('deps_' + components[i].replaceAll('-', ''));
 	}
 }
 

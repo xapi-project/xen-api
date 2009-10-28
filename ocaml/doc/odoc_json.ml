@@ -534,7 +534,7 @@ class gen () =
 					slice !Odoc_args.target_dir (n+1) (-1)
 				with _ -> !Odoc_args.target_dir
 			in
-			output_string oc ("modules_" ^ component ^ " = " ^ (json_to_string 0 modules) ^ ";\n");
+			output_string oc ("modules_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 modules) ^ ";\n");
 			close_out oc
 		in
 		let create_module_json m =
