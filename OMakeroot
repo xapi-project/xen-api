@@ -85,9 +85,8 @@ OCAMLDOC = ocamldoc
 OCamlDoc(name, modules, type) =
     private.CMIFILES = $(addsuffix .cmi, $(modules))
     .PHONY: doc
-    dir = $(ROOT)/ocaml/doc/
+    dir = $(ROOT)/ocaml/doc
     doc: $(CMIFILES) $(ROOT)/ocaml/doc/odoc_json.cma
-        mkdir -p $(dir)/$(name)
         python $(ROOT)/ocaml/doc/doc.py $(dir) $(name) $(type) "$(modules)" "$(OCAMLINCLUDES)" "$(OCAMLPACKS)" "$(OCAML_LIBS)"
 
 OCamlDocProgram(name, modules) =

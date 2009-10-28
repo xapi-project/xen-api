@@ -1,4 +1,6 @@
 OCamlLibrary(version, version)
+OCamlDocLibrary(version, version)
+
 OCamlLibrary(sanitycheck, sanitycheck)
 OCamlLibrary(stats, stats)
 OCamlLibrary(vm_memory_constraints, vm_memory_constraints)
