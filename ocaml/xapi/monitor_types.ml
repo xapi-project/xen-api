@@ -59,7 +59,6 @@ type pif = {
   pif_pci_bus_path: string;
   pif_vendor_id: string;
   pif_device_id: string;
-  pif_bridge_info: (Unix.inet_addr * Unix.inet_addr) option
 }
 
 type host_stats = {

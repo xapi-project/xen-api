@@ -266,13 +266,6 @@ let update_netdev () =
       let pif_name="pif_"^dev in
       let carrier = (try Netdev.get_carrier dev with _ -> false) in
       let buspath = Netdev.get_pcibuspath dev in
-      let bridgeinfo = 
-	try 
-	  let bridge = Netdev.Bridge.get_bridge dev in
-	  let bridge_addr, bridge_netmask = List.hd (Netdev.Addr.get bridge) in
-	  Some (bridge_addr, bridge_netmask)
-	with _ -> None 
-      in
       let pif = {
 	pif_name=dev;
 	pif_tx= -1.0;
@@ -285,7 +278,6 @@ let update_netdev () =
 	pif_pci_bus_path=buspath;
 	pif_vendor_id=vendor_id;
 	pif_device_id=device_id;
-	pif_bridge_info=bridgeinfo;
       } in
       ((Host,
        ds_make ~name:(pif_name^"_rx")
