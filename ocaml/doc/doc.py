@@ -64,7 +64,7 @@ libs = libs.split()
 libs.extend(packs)
 libs = map(lambda s: '"' + s.split('/')[-1] + '"', libs)
 libs = list(set(libs))	# remove duplicates
-s = 'deps_' + name + ' = [' + ', '.join(libs) + '];'
+s = 'deps_' + name.replace("-", "") + ' = [' + ', '.join(libs) + '];'
 f.write(s)
 f.close()
 
