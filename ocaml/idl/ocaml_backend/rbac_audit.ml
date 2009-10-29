@@ -18,7 +18,7 @@ module D = Debug.Debugger(struct let name="rbac_audit" end)
 
     * Already existing fields in debug records:
           o $timestamp
-          o type ('debug')
+          o type ('info')
           o $hostname
           o $xapi thread number
           o $xapi task name/id

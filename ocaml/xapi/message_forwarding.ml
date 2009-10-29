@@ -21,7 +21,7 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 module Audit = Debug.Debugger(struct let name="audit" end)
-let info = Audit.info
+let info = Audit.debug
 
 
 (**************************************************************************************)
