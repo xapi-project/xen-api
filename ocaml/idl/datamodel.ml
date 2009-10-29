@@ -2568,10 +2568,10 @@ let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) ope
 
 
 (** Make a Namespace (note effect on enclosing field.full_names) *)
-let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x->x) ~name ~contents () = 
+let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x->x) ?(idempotent=false) ~name ~contents () = 
   let rec prefix = function
     | Namespace(x, xs) -> Namespace(x, List.map prefix xs)
-    | Field x -> Field { x with full_name = if name="" then x.full_name else name :: x.full_name;
+    | Field x -> Field { x with full_name = if idempotent then x.full_name else name :: x.full_name;
         field_setter_roles=get_field_writer_roles x.field_setter_roles;
         field_getter_roles=get_field_reader_roles x.field_getter_roles
        } in
@@ -2591,7 +2591,7 @@ let create_obj ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_c
     let get_field_writer_roles = function None->contents_default_writer_roles|r->r in
     let get_msg_allowed_roles = function None->messages_default_allowed_roles|r->r in
     let contents = List.map (function 
-      | Namespace(n,cs)->namespace ~get_field_writer_roles ~get_field_reader_roles ~name:"" ~contents:cs ()
+      | Namespace(n,cs)->namespace ~get_field_writer_roles ~get_field_reader_roles ~name:n ~contents:cs ~idempotent:true ()
       | Field f->Field{f with field_setter_roles=get_field_writer_roles f.field_setter_roles;
           field_getter_roles=get_field_reader_roles f.field_getter_roles}
       ) contents in
