@@ -208,4 +208,4 @@ let warn t ?extra (fmt: ('a , unit, string, unit) format4) =
 let error t ?extra (fmt: ('a , unit, string, unit) format4) =
 	log t Log.Error ?extra fmt
 let audit t ?raw ?extra (fmt: ('a , unit, string, string) format4) =
-  log_and_return t Log.Debug ?raw ?extra fmt
+  log_and_return t Log.Info ?raw ?extra fmt
