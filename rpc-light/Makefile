@@ -73,7 +73,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "rpc-light" "library" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
+	python ../doc/doc.py $(DOCDIR) "rpc-light" "package" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
 	
 clean:
 	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.o *.cmi *.a

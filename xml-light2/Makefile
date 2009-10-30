@@ -77,7 +77,7 @@ binuninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xml-light2" "library" "$(OBJS)" "." "stdext,xmlm" ""
+	python ../doc/doc.py $(DOCDIR) "xml-light2" "package" "$(OBJS)" "." "stdext,xmlm" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

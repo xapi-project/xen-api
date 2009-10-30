@@ -72,7 +72,7 @@ binuninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "pciutil" "library" "$(OBJS)" "." "stdext" ""
+	python ../doc/doc.py $(DOCDIR) "pciutil" "package" "$(OBJS)" "." "stdext" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

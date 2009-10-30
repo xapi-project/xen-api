@@ -70,7 +70,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "log" "library" "$(OBJS)" "." "stdext" ""
+	python ../doc/doc.py $(DOCDIR) "log" "package" "$(OBJS)" "." "stdext" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
