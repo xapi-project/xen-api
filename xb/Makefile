@@ -69,7 +69,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xb" "library" "$(OBJS)" "." "mmap" ""
+	python ../doc/doc.py $(DOCDIR) "xb" "package" "$(OBJS)" "." "mmap" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

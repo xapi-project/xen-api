@@ -145,9 +145,9 @@ xapi-libs: $(OUTPUT_XAPI_PKG) $(MY_SOURCES)/MANIFEST
 	
 .PHONY: doc
 doc:
+	$(MAKE) -C uuid doc
 	$(MAKE) -C stdext doc
 	$(MAKE) -C sexpr doc
-	$(MAKE) -C uuid doc
 	$(MAKE) -C log doc
 	$(MAKE) -C xb doc
 	$(MAKE) -C xc doc
@@ -157,7 +157,6 @@ doc:
 	$(MAKE) -C http-svr doc
 	$(MAKE) -C camldm doc
 	$(MAKE) -C cdrom doc
-	$(MAKE) -C close-and-exec doc
 	$(MAKE) -C eventchn doc
 	$(MAKE) -C pciutil doc
 	$(MAKE) -C rss doc

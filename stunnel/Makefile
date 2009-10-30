@@ -56,7 +56,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "stunnel" "library" "$(OBJS)" "." "stdext,log" ""
+	python ../doc/doc.py $(DOCDIR) "stunnel" "package" "$(OBJS)" "." "stdext,log" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

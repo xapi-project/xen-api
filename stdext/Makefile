@@ -117,7 +117,7 @@ binuninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "stdext" "library" "$(STDEXT_OBJS)" "." "threads,uuid,unix" ""
+	python ../doc/doc.py $(DOCDIR) "stdext" "package" "$(STDEXT_OBJS)" "." "threads,uuid,unix" ""
 
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
