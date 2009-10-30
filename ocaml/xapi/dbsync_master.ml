@@ -44,6 +44,13 @@ let set_master_ip ~__context =
   let host = Helpers.get_localhost ~__context in
     Db.Host.set_address ~__context ~self:host ~value:ip
 
+(* NB the master doesn't use the heartbeat mechanism to track its own liveness so we
+   must make sure that live starts out as true because it will never be updated. *)
+let set_master_live ~__context = 
+  let host = Helpers.get_localhost ~__context in
+  let metrics = Db.Host.get_metrics ~__context ~self:host in
+  debug "Setting Host_metrics.live to true for localhost";
+  Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
 
 let set_master_pool_reference ~__context =
   let pool = List.hd (Db.Pool.get_all ~__context) in
@@ -187,6 +194,7 @@ let update_env __context =
   create_pool_record ~__context;
   set_master_pool_reference ~__context;
   set_master_ip ~__context;
+  set_master_live ~__context;
 
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
