@@ -56,7 +56,7 @@ uninstall:
 	
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "xsrpc" "library" "$(OBJS)" "." "xb,xs" ""
+	python ../doc/doc.py $(DOCDIR) "xsrpc" "package" "$(OBJS)" "." "xb,xs" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot META $(LIBS) $(PROGRAMS)

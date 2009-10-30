@@ -56,7 +56,7 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "rss" "library" "$(OBJS)" "." "xml-light2" ""
+	python ../doc/doc.py $(DOCDIR) "rss" "package" "$(OBJS)" "." "xml-light2" ""
 	
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
