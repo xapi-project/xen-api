@@ -752,7 +752,7 @@ let hello ~__context ~host_uuid ~host_address =
 	   host VMs it will mark itself as enabled again. *)
 	info "Host.enabled: setting host %s (%s) to disabled" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
 	Db.Host.set_enabled ~__context ~self:host_ref ~value:false;
-	debug "Host_metrics.live: setting host %s (%S) to alive" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
+	debug "Host_metrics.live: setting host %s (%s) to alive" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
 	let metrics = Db.Host.get_metrics ~__context ~self:host_ref in
 	Db.Host_metrics.set_live ~__context ~self:metrics ~value:true;
 	(* Cancel tasks on behalf of slave *)
