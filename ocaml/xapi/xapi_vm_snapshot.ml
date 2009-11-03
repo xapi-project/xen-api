@@ -170,7 +170,11 @@ let checkpoint ~__context ~vm ~new_name =
 				Vmops.suspend ~progress_cb:(fun _ -> ())  ~__context ~xs ~xc ~vm ~live:false;
 				(* flush the devices *)
 				List.iter (Xapi_vbd.flush ~__context) vbds;
-			with _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm]))
+			with
+				| Api_errors.Server_error("SR_BACKEND_FAILURE_44", _) as e ->
+					error "Not enough space to create the suspend image";
+					raise e
+				| _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm]))
 		end;
 
 		(* snapshot the disks and the suspend VDI *)
