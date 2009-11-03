@@ -1172,6 +1172,7 @@ let vm_snapshot_with_quiesce = call
 let vm_update_snapshot_metadata = call
   ~name:"update_snapshot_metadata"
   ~in_product_since: rel_george
+  ~internal_deprecated_since:rel_midnight_ride
   ~doc:""
   ~hide_from_docs:true
   ~params:[
