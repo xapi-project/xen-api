@@ -18,7 +18,7 @@ var module = getQuerystring('m');
 var module_chain = module.split('.');
 var component = getQuerystring('c');
 
-var components = executables.concat(libraries);
+var components = executables.concat(libraries).concat(packages);
 var component_modules = {}
 var component_deps = {}
 
@@ -62,12 +62,13 @@ function find_component_for_module(m)
 	for (z in modules)
 		if (modules[z].name == m)
 			return component;
-	// search libraries
-	for (y in libraries) {
-		modules = component_modules[libraries[y]];
+	// search externals
+	externals = libraries.concat(packages);
+	for (y in externals) {
+		modules = component_modules[externals[y]];
 		for (z in modules)
 			if (modules[z].name == m)
-				return libraries[y];
+				return externals[y];
 	}
 	return "";
 }
@@ -114,6 +115,9 @@ function value(v, n)
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<div class="field-type"><a name="' + name + '">[value]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
+	if (v.info.deprecated != undefined) {
+		html += '<div class="deprecated">!! deprecated ' + v.info.deprecated + ' !!</div>';
+	}
 	html += '<table>';
 	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
 	html += '<tr><td><span class="field-head">Description:</span></td><td>';
@@ -411,15 +415,33 @@ function module_index()
 	html += '</table>\n';
 	set_content(html);
 	
-	html = '<h2 class="title">Library Dependencies</h2>';
+	html = '<h2 class="title">Dependencies</h2>';
 	deps = component_deps[component];
-	deps.sort();
-	for (i in deps) {
-		if (libraries.indexOf(deps[i]) > -1)
-			html += '<a href="index.html?c=' + deps[i] + '">' + deps[i] + '</a><br />';
-		else
-			html += '<span class="grey">' + deps[i] + '</span><br />';
+	
+	libs = deps.libs;
+	if (libs.length > 0) {
+		libs.sort();
+		html += '<h3>Libraries</h3>';
+		for (i in libs) {
+			if (libraries.indexOf(libs[i]) > -1)
+				html += '<a href="index.html?c=' + libs[i] + '">' + libs[i] + '</a><br />';
+			else
+				html += '<span class="grey">' + libs[i] + '</span><br />';
+		}
 	}
+	
+	packs = deps.packs;
+	if (packs.length > 0) {
+		packs.sort();
+		html += '<h3>Packages</h3>';
+		for (i in packs) {
+			if (packages.indexOf(packs[i]) > -1)
+				html += '<a href="index.html?c=' + packs[i] + '">' + packs[i] + '</a><br />';
+			else
+				html += '<span class="grey">' + packs[i] + '</span><br />';
+		}
+	}
+	
 	set_sidebar(html);
 }
 
@@ -435,6 +457,10 @@ function component_index()
 	libraries.sort()
 	for (i in libraries)
 		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a><br />';
+	html += "<h2>Packages</h2>";
+	packages.sort()
+	for (i in packages)
+		html += '<a href="index.html?c=' + packages[i] + '">' + packages[i] + '</a><br />';
 	set_content(html);
 }
 
