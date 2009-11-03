@@ -30,9 +30,12 @@ let miami_release_schema_minor_vsn = 35
 let orlando_release_schema_major_vsn = 5
 let orlando_release_schema_minor_vsn = 55
 
+let george_release_schema_major_vsn = 5
+let george_release_schema_minor_vsn = 57
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = 5
-let last_release_schema_minor_vsn = 57
+let last_release_schema_major_vsn = george_release_schema_major_vsn
+let last_release_schema_minor_vsn = george_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
