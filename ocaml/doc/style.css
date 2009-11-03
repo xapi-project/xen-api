@@ -202,6 +202,11 @@ th {
 	margin-bottom: 1em;
 }
 
+.deprecated {
+	color: red;
+	padding: .5em 3em .7em;
+}
+
 .field, .field2
 {
 	margin: 0em 0;
