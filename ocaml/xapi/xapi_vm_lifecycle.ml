@@ -160,9 +160,20 @@ let check_template ~vmr ~op ~ref_str =
 		List.mem_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config
 		&& (List.assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config) = "true"
 	in
+	let allowed_operations = [
+		`changing_dynamic_range;
+		`changing_static_range;
+		`changing_memory_limits;
+		`clone;
+		`copy;
+		`create_template;
+		`export;
+		`metadata_export;
+		`provision;
+	] in
 	if false
-	  || List.mem op [`clone; `copy; `export; `provision; `metadata_export; `create_template; `changing_dynamic_range; `changing_static_range] 
-	  || (op = `destroy && not default_template)
+		|| List.mem op allowed_operations
+		|| (op = `destroy && not default_template)
 	then None
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 
