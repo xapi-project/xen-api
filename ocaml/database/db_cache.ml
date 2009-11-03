@@ -494,26 +494,29 @@ struct
 	
       Db_connections.init_gen_count connections;
       (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
-      if Sys.file_exists Xapi_globs.db_temporary_restore_path then
-		begin
-		  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
-		  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
-		  Db_backend.post_restore_hook manifest;
-		  (* delete file that contained backup *)
-		  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
-		end
+      let db = 
+	if Sys.file_exists Xapi_globs.db_temporary_restore_path then begin
+	  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
+	  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
+	  Db_backend.post_restore_hook manifest;
+	  (* delete file that contained backup *)
+	  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
+	  Parse_db_conf.backup_file_dbconn
+	end
       else (* if there's no backup to restore from then.. *)
-		begin
-		  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
-		  let most_recent_db = Db_connections.pick_most_recent_db connections in
-		  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
-		  Backend_xml.populate most_recent_db;
+	begin
+	  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
+	  let most_recent_db = Db_connections.pick_most_recent_db connections in
+	  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
+	  Backend_xml.populate most_recent_db;
+	  most_recent_db
+	end in
+      (* Always perform the generic database upgrade stuff *)
+      Db_upgrade.generic_database_upgrade ();
 
-		  debug "Path that I'm looking at to consider whether to upgrade = %s" most_recent_db.Parse_db_conf.path;
-		  if Sys.file_exists most_recent_db.Parse_db_conf.path then
-		    Db_upgrade.maybe_upgrade most_recent_db;
+      (* Then look to see whether we have specific upgrade rules to consider *)
+      if Sys.file_exists db.Parse_db_conf.path then Db_upgrade.maybe_upgrade db;
 	
-		end;
       post_populate_hook ()
 
     let spawn_db_flush_threads() =
