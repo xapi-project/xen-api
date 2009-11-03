@@ -459,17 +459,8 @@ struct
       Db_backend.blow_away_non_persistent_fields()
 
     let sync_all_db_connections() =
-      (* if any of the connections have an on-disk generation count <> the gen count of the db we populated from
-	 then we need to force_flush them to "pull them to tip" *)
-      List.iter 
-	(fun (gen,db)->
-	   let current_gen = Generation.read_generation() in
-	   if gen<>current_gen then
-	     begin
-	       debug "Database '%s' out of sync; syncing up now." db.Parse_db_conf.path;
-	       Db_connections.force_flush_all db
-	     end)
-	(Db_connections.get_dbs_and_gen_counts())
+      (* Unconditionally force-flush all databases. *)
+      List.iter Db_connections.force_flush_all (List.map snd (Db_connections.get_dbs_and_gen_counts()))
 
     (* Executed on the master to post-process database after populating cache from db stored on disk *)
     let post_populate_hook () =
@@ -477,6 +468,8 @@ struct
        * there's no need to keep it and it's preferable for it not to hang
        * around. *)
       Unixext.unlink_safe Xapi_globs.ha_metadata_db;
+      (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
+	 if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *)
       Db_backend.blow_away_non_persistent_fields();
       (* Flush the in-memory cache to the redo-log *)
       Backend_xml.flush_db_to_redo_log Db_backend.cache
@@ -506,17 +499,6 @@ struct
 		  (* we know that the backup is XML format so, to get the manifest, we jump right in and use the xml backend directly here.. *)
 		  let manifest = Backend_xml.populate_and_read_manifest Parse_db_conf.backup_file_dbconn in
 		  Db_backend.post_restore_hook manifest;
-		  (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
-		     if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *);
-		  post_populate_hook();
-		  debug "removed non-persistent fields after backup";
-		  (* since we just restored from backup then flush new cache to all db connections *)
-		  List.iter 
-		    (fun (_,db)->
-		       debug "Database '%s' syncing up after restore from backup." db.Parse_db_conf.path;
-		       Db_connections.force_flush_all db
-		    )
-		    (Db_connections.get_dbs_and_gen_counts());
 		  (* delete file that contained backup *)
 		  Db_backend.try_and_delete_db_file Xapi_globs.db_temporary_restore_path;
 		end
@@ -524,14 +506,15 @@ struct
 		begin
 		  (* Check schema vsn is current; if not try and upgrade; if can't do that then fail startup.. *)
 		  let most_recent_db = Db_connections.pick_most_recent_db connections in
+		  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
+		  Backend_xml.populate most_recent_db;
+
 		  debug "Path that I'm looking at to consider whether to upgrade = %s" most_recent_db.Parse_db_conf.path;
 		  if Sys.file_exists most_recent_db.Parse_db_conf.path then
 		    Db_upgrade.maybe_upgrade most_recent_db;
 	
-		  (* populate from most recent database *)
-		  Backend_xml.populate most_recent_db;
-		  post_populate_hook ()
-		end
+		end;
+      post_populate_hook ()
 
     let spawn_db_flush_threads() =
       (* Spawn threads that flush cache to db connections at regular intervals *)
