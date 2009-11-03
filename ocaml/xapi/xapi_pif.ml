@@ -23,12 +23,6 @@ let bridge_naming_convention (device: string) =
   then ("xenbr" ^ (String.sub device 3 (String.length device - 3)))
   else ("br" ^ device)
 
-(** Returns the set of PIF references + records which we want to be plugged in by the end of the
-    start of day code. Those for which 'disallow_unplug' is true and the management interface will
-    actually be brought up ahead of time by the init scripts, so we don't have to plug them in.
-    These are written to the xensource-inventory file when HA is enabled so that HA can bring up 
-    interfaces required by storage NICs etc. - CA-21416 
-*)
 let calculate_pifs_required_at_start_of_day ~__context =
   List.filter (fun (_,pifr) -> 
     true
@@ -90,7 +84,6 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
   (* Abort a PIF.unplug if the Network has VIFs connected to protected VMs *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool && not(Db.Pool.get_ha_allow_overcommit ~__context ~self:pool) then begin
-    let host = Db.PIF.get_host ~__context ~self in
     let net = Db.PIF.get_network ~__context ~self in
     let vifs = Db.Network.get_VIFs ~__context ~self:net in
     let vms = List.map (fun vif -> Db.VIF.get_VM ~__context ~self:vif) vifs in
@@ -103,7 +96,6 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
       ) vms
   end
 
-(** Make sure no other PIFs connect this host to this network *)
 let assert_no_other_local_pifs ~__context ~host ~network = 
   let all_pifs = Db.Host.get_PIFs ~__context ~self:host in
   let other_pifs = List.filter (fun self -> Db.PIF.get_network ~__context ~self = network) all_pifs in
@@ -125,10 +117,8 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
       ~bridge ~other_config:[] ~blobs:[] ~tags:[] in
     net_ref
 
-(** Compute the set difference a - b *)
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
-(** Convenient lookup tables for scanning etc *)
 type tables = { mac_to_pif_table: (string * API.ref_PIF) list;
 		mac_to_phy_table: (string * string) list }
 
@@ -146,13 +136,11 @@ let make_tables ~__context ~host =
   { mac_to_pif_table = mac_to_pif_table;
     mac_to_phy_table = mac_to_phy_table }
 
-(** Return true if this PIF is my management interface, according to xensource-inventory *)
 let is_my_management_pif ~__context ~self = 
   let net = Db.PIF.get_network ~__context ~self in
   let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
   Db.Network.get_bridge ~__context ~self:net = management_if
 
-(** Make a new metrics objects and return reference to it *)
 let make_pif_metrics ~__context =
   let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   let () = Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid ~carrier:false
@@ -261,7 +249,6 @@ let update_management_flags ~__context ~host =
        Db.PIF.set_management ~__context ~self:pif ~value:is_management_pif)
     my_pifs
 
-(** Create a new PIF record for a new NIC *)
 let introduce ~__context ~host ~mAC ~device =
   if not (Helpers.is_valid_MAC mAC) then
     raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC]));
@@ -282,7 +269,6 @@ let introduce ~__context ~host ~mAC ~device =
       end
   | _ -> failwith (Printf.sprintf "Multiple physical NICs with MAC %s found" mAC)
 
-(** Destroy the PIF record if the NIC really has gone *)
 let forget ~__context ~self = 
   assert_not_in_bond ~__context ~self;
   assert_no_vlans ~__context ~self;
@@ -293,8 +279,6 @@ let forget ~__context ~self =
   let t = make_tables ~__context ~host in
   forget_internal ~t ~__context ~self
 
-(** Scan for physical interfaces on this host and ensure PIF records are present
-    and up-to-date *)
 let scan ~__context ~host = 
   let t = make_tables ~__context ~host in
 
@@ -356,8 +340,6 @@ let vLAN_create ~__context ~tagged_PIF ~tag ~network =
   let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
   vlan
 
-(** External facing call to create a new VLAN interface *)
-(** DEPRECATED since Miami; use VLAN.create instead *)
 let create_VLAN ~__context ~device ~network ~host ~vLAN =
   (* Find the "base PIF" (same device, no VLAN tag) *)
   let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
@@ -371,8 +353,6 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
   let vlan = vLAN_create ~__context ~tagged_PIF:base_pif ~tag:vLAN ~network in
   Db.VLAN.get_untagged_PIF ~__context ~self:vlan
 
-(** External facing call to destroy a VLAN interface *)
-(** DEPRECATED since Miami; use VLAN.create instead *)
 let destroy ~__context ~self =
   debug "PIF.destroy uuid = %s" (Db.PIF.get_uuid ~__context ~self);
   assert_not_in_bond ~__context ~self;
@@ -398,7 +378,6 @@ let destroy ~__context ~self =
      Db.VLAN.destroy ~__context ~self:vlan with _ -> ());
   Db.PIF.destroy ~__context ~self
 
-(** External facing call to destroy a VLAN mux/demuxer *)
 let vLAN_destroy ~__context ~self =
   debug "VLAN.destroy uuid = %s" (Db.VLAN.get_uuid ~__context ~self);
   let untagged_PIF = Db.VLAN.get_untagged_PIF ~__context ~self in
@@ -416,7 +395,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   assert_no_protection_enabled ~__context ~self;
 
   let assert_is_valid ip_addr =
-    try Unix.inet_addr_of_string ip_addr; true with _ -> false in
+    try ignore (Unix.inet_addr_of_string ip_addr); true with _ -> false in
   if mode=`Static then
     begin
       (* require these parameters if mode is static *)
