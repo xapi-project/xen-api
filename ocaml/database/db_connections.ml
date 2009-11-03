@@ -124,6 +124,7 @@ let maybe_create_new_db dbconn =
     end
 
 let force_flush_all dbconn =
+  debug "About to flush database: %s" dbconn.Parse_db_conf.path;
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        begin
