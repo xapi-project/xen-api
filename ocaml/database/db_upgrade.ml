@@ -34,6 +34,30 @@ open Vm_memory_constraints.Vm_memory_constraints
 
 module Names = Db_names
 
+(** {Release-specific custom database upgrade rules} *)
+
+(** The type of an upgrade rule. The rules should ideally be idempotent and composable.
+    All new fields will have been created with default values and new tables will exist. *)
+type upgrade_rule = {
+  description: string;
+  version: int * int; (** rule will be applied if the schema version is <= this number *)
+  fn: unit -> unit;
+}
+
+(** Apply all the rules needed for the previous_version *)
+let apply_upgrade_rules rules previous_version = 
+  debug "Looking for database upgrade rules:";
+  let required_rules = List.filter (fun r -> previous_version <= r.version) rules in
+  List.iter
+    (fun r ->
+       debug "Applying database upgrade rule: %s" r.description;
+       try
+	 r.fn ()
+       with exn ->
+	 error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn)
+    ) required_rules
+  
+
 let (+++) = Int64.add
 
 (** On upgrade to the first ballooning-enabled XenServer, we reset memory
@@ -185,9 +209,7 @@ let upgrade_bios_strings () =
 		debug "Using generic BIOS strings";
 		update_vms Xapi_globs.generic_bios_strings
 
-(* !!! This fn is release specific: REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES *)
-let non_generic_db_upgrade_rules () =
-
+let update_snapshots () = 
 	(* GEORGE -> MIDNIGHT RIDE *)
 	let vm_table = lookup_table_in_cache Db_backend.cache Names.vm in
 	let vm_rows = get_rowlist vm_table in
@@ -207,93 +229,64 @@ let non_generic_db_upgrade_rules () =
 				set_field_in_row s2 Names.parent (lookup_field_in_row s1 Names.ref);
 				aux (s2 :: t) in
 		aux ordered_snapshot_rows in
-	List.iter update_snapshots vm_rows;
+	List.iter update_snapshots vm_rows
 
-	upgrade_vm_records (); (* for DMC *)
-	upgrade_bios_strings () (* GEORGE OEM -> BODIE/MNR *)	
+(** A list of all the custom database upgrade rules known to the system. *)
+let upgrade_rules = 
+  let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn in
+  [ { description = "Updating snapshot parent references";
+      version = george;
+      fn = update_snapshots };
+    { description = "Upgrading VM memory fields for DMC";
+      version = george;
+      fn = upgrade_vm_records };
+    { description = "Upgrading VM BIOS strings";
+      version = george;
+      fn = upgrade_bios_strings } ]
 
-let upgrade_from_last_release dbconn =
-  (* NB the database cache has been populated already *)
-  debug "Database schema version is that of last release: attempting upgrade";
+(** {Generic database upgrade handling} *)
 
-  (* !!! UPDATE THIS WHEN MOVING TO NEW RELEASE !!! *)
-  let old_release = Datamodel_types.rel_george in
-  let this_release = Datamodel_types.rel_midnight_ride in
-
-  let objs_in_last_release =
-    List.filter (fun x -> List.mem old_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
-  let table_names_in_last_release =
-    List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) objs_in_last_release in
-
-  let objs_in_this_release =
-    List.filter (fun x -> List.mem this_release x.Datamodel_types.obj_release.Datamodel_types.internal) Db_backend.api_objs in
-  let table_names_in_this_release =
-    List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) objs_in_this_release in
-
-  let table_names_new_in_this_release =
-    List.filter (fun tblname -> not (List.mem tblname table_names_in_last_release)) table_names_in_this_release in
-
-  (* we also have to ensure that the in-memory cache contains the new tables added in this release that will not have been
-     created by the proceeding populate (cos this is restricted to table names in last release). Unless the new tables are
-     explicitly added to the in-memory cache they will not be written out into the new db file across upgrade. In the XML
-     backend there's no schema file from which tables are created, so this needs to be made explicit..
-  *)
-  let create_blank_table_in_cache tblname =
-    let newtbl = create_empty_table () in
-    set_table_in_cache Db_backend.cache tblname newtbl in
-  List.iter create_blank_table_in_cache table_names_new_in_this_release;
-
-  (* for each table, go through and fill in missing default values *)
-  let add_default_fields_to_tbl tblname =
-    let tbl = lookup_table_in_cache Db_backend.cache tblname in
-    let rows = get_rowlist tbl in
-    let add_fields_to_row objref r =
-      let kvs = fold_over_fields (fun k v env -> (k,v)::env) r [] in
-      let new_kvs = Db_backend.add_default_kvs kvs tblname in
-      (* now blank r and fill it with new kvs: *)
-      let newrow = create_empty_row () in
-      List.iter (fun (k,v) -> set_field_in_row newrow k v) new_kvs;
-      set_row_in_table tbl objref newrow
-    in
-    iter_over_rows add_fields_to_row tbl in
-
-  (* Go and fill in default values *)
-  List.iter add_default_fields_to_tbl table_names_in_last_release;
+(** Automatically insert blank tables and new columns with default values *)
+let generic_database_upgrade () =
+  let existing_table_names = fold_over_tables (fun name _ acc -> name :: acc) Db_backend.cache [] in
+  let api_table_names = List.map (fun x -> Escaping.escape_obj x.Datamodel_types.name) Db_backend.api_objs in
+  let created_table_names = Listext.List.set_difference api_table_names existing_table_names in
+  let deleted_table_names = Listext.List.set_difference existing_table_names api_table_names in
+  List.iter (fun tblname ->
+	       debug "Adding new database table: '%s'" tblname;
+	       let newtbl = create_empty_table () in
+	       set_table_in_cache Db_backend.cache tblname newtbl) created_table_names;
+  List.iter (fun tblname ->
+	       debug "Ignoring legacy database table: '%s'" tblname
+	    ) deleted_table_names;
   
-  non_generic_db_upgrade_rules();
-
-  (* Now do the upgrade: *)
-  (* 1. move existing db out of the way *)
-  Unix.rename dbconn.Parse_db_conf.path (dbconn.Parse_db_conf.path ^ ".prev_version." ^ (string_of_float (Unix.gettimeofday())));
-  let dbconn_to_flush_to = Db_connections.preferred_write_db() in
-  (* 2. create a new empty db file (with current schema) *)
-  Db_connections.create_empty_db dbconn_to_flush_to;
-  (* 3. mark all tables we want to write data into as dirty, and all rows as new *)
+  (* for each table, go through and fill in missing default values *)
   List.iter
-    (fun tname ->
-	   Db_dirty.set_all_dirty_table_status tname;
-	   let rows = get_rowlist (lookup_table_in_cache Db_backend.cache tname) in
-	   let objrefs = List.map (fun row -> lookup_field_in_row row Db_backend.reference_fname) rows in
-	   List.iter (fun objref->Db_dirty.set_all_row_dirty_status objref Db_dirty.New) objrefs
-    )
-    table_names_in_last_release;
-  debug "Database upgrade complete, restarting to use new db";
-  (* 4. flush and exit with restart return code, so watchdog kicks xapi off again (this time with upgraded db) *)
-  ignore (Db_connections.flush_dirty_and_maybe_exit dbconn_to_flush_to (Some Xapi_globs.restart_return_code))
-
-exception Schema_mismatch
+    (fun tblname ->
+       let tbl = lookup_table_in_cache Db_backend.cache tblname in
+       let rows = get_rowlist tbl in
+       let add_fields_to_row objref r =
+	 let kvs = fold_over_fields (fun k v env -> (k,v)::env) r [] in
+	 let new_kvs = Db_backend.add_default_kvs kvs tblname in
+	 (* now blank r and fill it with new kvs: *)
+	 let newrow = create_empty_row () in
+	 List.iter (fun (k,v) -> set_field_in_row newrow k v) new_kvs;
+	 set_row_in_table tbl objref newrow
+       in
+       iter_over_rows add_fields_to_row tbl) 
+    api_table_names
 
 (* Maybe upgrade most recent db *)
 let maybe_upgrade most_recent_db =
-  debug "Considering upgrade...";
-  let major_vsn, minor_vsn = Backend_xml.read_schema_vsn most_recent_db in
-  debug "Db has schema major_vsn=%d, minor_vsn=%d (current is %d %d) (last is %d %d)" major_vsn minor_vsn Datamodel.schema_major_vsn Datamodel.schema_minor_vsn Datamodel.last_release_schema_major_vsn Datamodel.last_release_schema_minor_vsn;
-  begin
-    if major_vsn=Datamodel.schema_major_vsn && minor_vsn=Datamodel.schema_minor_vsn then
-      () (* current vsn: do nothing *)
-    else if major_vsn=Datamodel.last_release_schema_major_vsn && minor_vsn=Datamodel.last_release_schema_minor_vsn then begin
-      upgrade_from_last_release most_recent_db
-      (* Note: redo log is not active at present because HA is always disabled before an upgrade. *)
-      (* If this ever becomes not the case, consider invalidating the redo-log here (using Redo_log.empty()). *)
-    end else raise Schema_mismatch
-  end
+  let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Backend_xml.read_schema_vsn most_recent_db in
+  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
+  let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
+  let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
+  debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;
+  if previous_vsn > latest_vsn
+  then warn "Database schema version %s is more recent than binary %s: downgrade is unsupported." previous_string previous_string
+  else 
+    if previous_vsn < latest_vsn 
+    then apply_upgrade_rules upgrade_rules previous_vsn
+    else
+      debug "Database schemas match, no upgrade required"
