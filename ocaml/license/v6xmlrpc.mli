@@ -12,13 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** An example implementation of a licensing service which always returns "real" 
-    licenses that never expire. *)
+(** XML/RPC handler for the licensing daemon *)
 
-val initialise : string -> int32 -> string -> string * int32
-(** Obtain a license *)
-val shutdown : unit -> bool
-(** Release the license *)
-val reopen_logs : unit -> bool
-(** Close and re-open the log file *)
-
+(** The XML/RPC interface of the licensing daemon *)
+module type V6api =
+	sig
+		val initialise : string -> int32 -> string -> string * int32
+		val shutdown : unit -> bool
+		val reopen_logs : unit -> bool
+	end
+  
+(** XML/RPC handler *)
+module V6process : functor (V : V6api) ->
+	sig
+		(** Process an XML/RPC call *)
+		val process : XMLRPC.xmlrpc -> XMLRPC.xmlrpc
+	end

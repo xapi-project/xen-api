@@ -17,7 +17,7 @@ V6D = v6testd
 OCamlProgram(v6testd, $(V6FILES) v6testd)
 OCamlProgram(v6d-reopen-logs, v6d_reopen_logs)
 
-OCamlDocProgram(v6d, $(V6FILES))
+OCamlDocProgram(v6d, $(V6FILES) v6testd)
 
 .PHONY: install
 install: $(V6D)
