@@ -213,6 +213,7 @@ let non_generic_db_upgrade_rules () =
 	upgrade_bios_strings () (* GEORGE OEM -> BODIE/MNR *)	
 
 let upgrade_from_last_release dbconn =
+  (* NB the database cache has been populated already *)
   debug "Database schema version is that of last release: attempting upgrade";
 
   (* !!! UPDATE THIS WHEN MOVING TO NEW RELEASE !!! *)
@@ -231,9 +232,6 @@ let upgrade_from_last_release dbconn =
 
   let table_names_new_in_this_release =
     List.filter (fun tblname -> not (List.mem tblname table_names_in_last_release)) table_names_in_this_release in
-  
-  (* populate gets all field names from the existing (old) db file, not the (current) schema... which is nice: *)
-  Backend_xml.populate dbconn;
 
   (* we also have to ensure that the in-memory cache contains the new tables added in this release that will not have been
      created by the proceeding populate (cos this is restricted to table names in last release). Unless the new tables are
