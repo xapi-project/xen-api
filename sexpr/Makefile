@@ -17,7 +17,7 @@ OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
-OBJS = sExpr sExprLexer sExprParser sexpr
+OBJS = sExpr sExprLexer sExprParser sExpr_TS
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = sexpr.cma sexpr.cmxa
 
