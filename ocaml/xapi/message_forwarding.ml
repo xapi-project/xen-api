@@ -904,7 +904,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
         (* disk corruption.                                                                                          *)
-      with_vm_operation ~__context ~self: vm ~doc:"VM.snapshot_with_quiesce" ~op:`snapshot
+      with_vm_operation ~__context ~self: vm ~doc:"VM.snapshot_with_quiesce" ~op:`snapshot_with_quiesce
       (fun () ->
         let power_state = Db.VM.get_power_state ~__context ~self:vm in
         let forward =
