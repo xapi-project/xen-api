@@ -477,7 +477,7 @@ let _ =
   error Api_errors.host_in_use [ "host"; "type"; "ref" ]
     ~doc:"This operation cannot be completed as the host is in use by (at least) the object of type and ref echoed below." ();
   error Api_errors.host_not_disabled []
-    ~doc:"This operation cannot be performed because the host is not disabled." ();
+    ~doc:"This operation cannot be performed because the host is not disabled. Please disable the host and then try again." ();
   error Api_errors.host_not_live []
     ~doc:"This operation cannot be completed as the host is not live." ();
   error Api_errors.host_is_live [ "host" ]
