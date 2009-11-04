@@ -52,7 +52,7 @@ let deleterow_query tbl objref =
 exception Db_set_or_map_parse_fail of string
   
 let parse_sexpr s : SExpr.t list =
-  match Sexpr.of_string s with
+  match SExpr_TS.of_string s with
     | SExpr.Node xs -> xs
     | _ -> raise (Db_set_or_map_parse_fail s)
 	
