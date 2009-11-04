@@ -53,7 +53,7 @@ type extracted_kernel = {
 let parse_output x = 
   let sexpr = "(" ^ x ^ ")" in
   let parse_failed = Error(Printf.sprintf "Failed to parse the output of bootloader: %s" sexpr) in
-  let sexpr' = Sexpr.of_string sexpr in
+  let sexpr' = SExpr_TS.of_string sexpr in
   match sexpr' with
     (* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
     (* linux (kernel /var/lib/xen/vmlinuz.SFO5fb)(ramdisk /var/lib/xen/initrd.MUitgP)(args 'root=/dev/sda1 ro') *)
