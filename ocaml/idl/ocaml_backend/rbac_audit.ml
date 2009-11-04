@@ -159,7 +159,7 @@ let populate_audit_record_with_obj_names_of_refs line =
 		let before_sexpr_str = String.sub line 0 sexpr_idx in
 		(* remove the [...] prefix *)
 		let sexpr_str = Stringext.String.sub_to_end line sexpr_idx in
-		let sexpr = Sexpr.of_string sexpr_str	in
+		let sexpr = SExpr_TS.of_string sexpr_str	in
 		match sexpr with
 		|SExpr.Node els -> begin
 				if List.length els = 0

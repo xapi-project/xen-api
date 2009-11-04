@@ -875,7 +875,7 @@ let vm_string_to_assoc vm_string =
 		| SExpr.Node [SExpr.String s; SExpr.String t] -> (s,t)
 		| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"])) in
 
-	match Sexpr.of_string vm_string with
+	match SExpr_TS.of_string vm_string with
 	| SExpr.Node l -> List.map assoc_of_node l
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"]))
 
