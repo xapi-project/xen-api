@@ -1,6 +1,7 @@
 IPROG=install -m 755 -o root -g root
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
+OCAMLLOC := $(shell ocamlc -where)
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(OCAMLLOC)
 OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
 
@@ -11,8 +12,8 @@ DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
+OCAMLABI := $(OCAMLLOC)
+OCAMLLIBDIR := $(OCAMLLOC)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
