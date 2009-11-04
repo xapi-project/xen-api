@@ -21,7 +21,7 @@ OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
 STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring \
 	qring fring opt bigbuffer unixext range vIO trie config date encodings forkhelpers \
-	gzip sha1sum sigutil zerocheck base64 backtrace tar
+	gzip sha1sum zerocheck base64 backtrace tar
 
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
@@ -45,10 +45,10 @@ stdext.cmxa: libstdext_stubs.a $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
 stdext.cma: $(foreach obj,$(STDEXT_OBJS),$(obj).cmo)
 	$(OCAMLC) -a -dllib dllstdext_stubs.so -cclib -lstdext_stubs -o $@ $(foreach obj,$(STDEXT_OBJS),$(obj).cmo)
 
-stdext_stubs.a: unixext_stubs.o sigutil_stub.o zerocheck_stub.o 
+stdext_stubs.a: unixext_stubs.o zerocheck_stub.o 
 	ocamlmklib -o stdext_stubs $+
 
-libstdext_stubs.a: unixext_stubs.o sigutil_stub.o zerocheck_stub.o 
+libstdext_stubs.a: unixext_stubs.o zerocheck_stub.o 
 	ar rcs $@ $+
 	ocamlmklib -o stdext_stubs $+
 
