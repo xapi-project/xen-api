@@ -162,7 +162,7 @@ let sexpr_to_xmlrpc (root:SExpr.t) =
 
 (** helper function that maps between sexpr strings and xml-rpc trees *)
 let sexpr_str_to_xmlrpc (sexpr_str:string) =
-	let sroot1 = Sexpr.of_string sexpr_str in
+	let sroot1 = SExpr_TS.of_string sexpr_str in
 	let xroot1 = sexpr_to_xmlrpc sroot1 in
 	(xroot1)
 
