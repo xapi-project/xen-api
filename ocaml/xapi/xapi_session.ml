@@ -70,7 +70,9 @@ let get_permissions ~__context ~subject_membership = (* see also rbac.ml *)
 	let permission_membership = 
 		get_union_of_subsets (*automatically removes duplicated perms*)
 			~get_subset_fn:(fun role -> 
-				try Xapi_role.get_permissions_name_label ~__context ~self:role
+				try 
+					(Xapi_role.get_name_label ~__context ~self:role)::
+					(Xapi_role.get_permissions_name_label ~__context ~self:role)
 				with _ -> [] (* if the role disappeared, ignore it *)
 				)
 			~set:role_membership
