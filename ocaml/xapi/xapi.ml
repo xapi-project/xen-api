@@ -149,18 +149,10 @@ let cleanup_handler i =
   if not(Pool_role.is_master ()) then exit 0;
   debug "cleanup handler exiting"
 
-let debugfpe = ref false
-let debugsegv = ref false
-
 let signals_handling () =
   let at_hangup i =
     eprintf "[signal received] hangup\n%!";
   in
-
-  if !debugfpe then
-    Sigutil.install_fpe_handler ();
-  if !debugsegv then
-    Sigutil.install_segv_handler ();
 
   (* install hangup and exit handler *)
   Sys.set_signal Sys.sighup (Sys.Signal_handle at_hangup);
@@ -249,8 +241,6 @@ let init_args() =
 	       "-dom0memgradient", Arg.Unit (fun () -> ()), "(ignored)";
 	       "-dom0memintercept", Arg.Unit (fun () -> ()), "(ignored)";
 	       "-onsystemboot", Arg.Set Xapi_globs.on_system_boot, "indicates that this server start is the first since the host rebooted";
-	       "-debugfpe", Arg.Set debugfpe, "activate siginfo handler of SIGFPE to dump siginfo structure to /tmp/fpe_dump";
-	       "-debugsegv", Arg.Set debugfpe, "activate siginfo handler of SIGSEGV to dump siginfo structure to /tmp/segv_dump";
 	       "-noevents", Arg.Set noevents, "turn event thread off for debugging -leaves crashed guests undestroyed";
 	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
 	       "-version", Arg.Unit show_version, "show version of the binary"
