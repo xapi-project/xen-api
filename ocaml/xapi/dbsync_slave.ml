@@ -440,9 +440,14 @@ let update_vms ~xal ~__context =
 	set_db_state_and_domid vmref state dinfo.Xc.domid;
       end;
     (* Now sync devices *)
-      debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
-      let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
+    debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
+    let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
 	sync_devices dinfo;
+	(* Update the VM's guest metrics since: (i) while we were offline we may
+	   have missed an update; and (ii) if the tools .iso has been updated then
+	   we wish to re-evaluate whether we believe the VMs have up-to-date
+	   tools *)
+	Events.callback_guest_agent xal dinfo.Xc.domid;
 	(* Now register with monitoring thread *)
 
       Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
