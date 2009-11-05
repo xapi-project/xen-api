@@ -533,19 +533,6 @@ let current_cursor_pos fd =
   (* 'seek' to the current position, exploiting the return value from Unix.lseek as the new cursor position *)
   Unix.lseek fd 0 Unix.SEEK_CUR 
 
-type statfs_t = {
-	statfs_type: int64;
-	statfs_bsize: int;
-	statfs_blocks: int64;
-	statfs_bfree: int64;
-	statfs_bavail: int64;
-	statfs_files: int64;
-	statfs_ffree: int64;
-	statfs_namelen: int;
-}
-
-external statfs: string -> statfs_t = "stub_unixext_statfs"
-
 module Fdset = struct
 	type t
 	external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"

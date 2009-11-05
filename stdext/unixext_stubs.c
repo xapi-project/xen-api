@@ -67,30 +67,6 @@ CAMLprim value stub_unixext_get_max_fd (value unit)
 	CAMLreturn(Val_int(maxfd));
 }
 
-#include <sys/vfs.h>
-
-CAMLprim value stub_unixext_statfs(value path)
-{
-	CAMLparam1(path);
-	CAMLlocal1(statinfo);
-	struct statfs info;
-
-	if (statfs(String_val(path), &info))
-		failwith_errno();
-
-	statinfo = caml_alloc_tuple(8);
-	Store_field(statinfo, 0, caml_copy_int64(info.f_type));
-	Store_field(statinfo, 1, Val_int(info.f_bsize));
-	Store_field(statinfo, 2, caml_copy_int64(info.f_blocks));
-	Store_field(statinfo, 3, caml_copy_int64(info.f_bfree));
-	Store_field(statinfo, 4, caml_copy_int64(info.f_bavail));
-	Store_field(statinfo, 5, caml_copy_int64(info.f_files));
-	Store_field(statinfo, 6, caml_copy_int64(info.f_ffree));
-	Store_field(statinfo, 7, Val_int(info.f_namelen));
-
-	CAMLreturn(statinfo);
-}
-
 #define FDSET_OF_VALUE(v) (&(((struct fdset_t *) v)->fds))
 #define MAXFD_OF_VALUE(v) (((struct fdset_t *) v)->max)
 struct fdset_t { fd_set fds; int max; };
