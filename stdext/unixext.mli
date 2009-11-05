@@ -82,19 +82,6 @@ val seek_to : Unix.file_descr -> int -> int
 val seek_rel : Unix.file_descr -> int -> int
 val current_cursor_pos : Unix.file_descr -> int
 
-type statfs_t = {
-	statfs_type: int64;
-	statfs_bsize: int;
-	statfs_blocks: int64;
-	statfs_bfree: int64;
-	statfs_bavail: int64;
-	statfs_files: int64;
-	statfs_ffree: int64;
-	statfs_namelen: int;
-}
-
-val statfs: string -> statfs_t
-
 module Fdset : sig
 	type t
 	external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
