@@ -59,8 +59,10 @@ let get_oem_strings () =
 				let c = String.index_from result b '\n' in
 				let str = "oem-" ^ (string_of_int index) in
 				let value = trim (remove_invisible (String.sub result (b+2) (c-b-2))) in
-				print_endline value;
-				(str, value) :: loop (index+1) c
+				if value <> "" then
+					(str, value) :: loop (index+1) c
+				else
+					loop index c
 			with _ -> []
 		in
 		standard @ (loop (n+1) 0)
