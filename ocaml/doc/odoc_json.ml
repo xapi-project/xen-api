@@ -1,4 +1,3 @@
-
 (* Copyright (C) 2009 Citrix Systems Inc.                                        *)
 (* Copyright (C) 2005 Institut National de Recherche en Informatique et          *)
 (*   en Automatique.                                                             *)

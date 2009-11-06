@@ -155,7 +155,7 @@ float: left;
 }
 
 #menu li a {
-padding: 15px 0 0 20px;
+padding: 15px 0 0 2em;
 font-size: 1.3em;
 font-weight: bold;
 }
@@ -238,9 +238,8 @@ th {
 	margin: .7em 0;
 }
 
-.field-table {
-//	margin-left: 3em;
-//	width: 90%;
+.field-table td {
+	padding: .3em 0;
 }
 
 .small-button {
