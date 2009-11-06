@@ -501,20 +501,21 @@ function module_index()
 function component_index()
 {	
 	html = "";
-	html += '<h1 class="title">List of Components</h1>\n';
-	html += "<h2>Executables</h2>";
+	html += '<table><tr>';
+	html += '<td width="30%"><h2>Executables</h2>';
 	executables.sort()
 	for (i in executables)
 		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a><br />';
-	html += "<h2>Libraries</h2>";
+	html += '</td><td width="30%"><h2>Libraries</h2>';
 	libraries.sort()
 	for (i in libraries)
 		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a><br />';
-	html += "<h2>Packages</h2>";
+	html += '</td><td width="30%"><h2>Packages</h2>';
 	packages.sort()
 	for (i in packages)
 		html += '<a href="index.html?c=' + packages[i] + '">' + packages[i] + '</a><br />';
-	set_content(html);
+	html += '</td></tr></table>';
+	append_content(html);
 }
 
 function build()
