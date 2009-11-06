@@ -203,8 +203,11 @@ th {
 }
 
 .deprecated {
-	color: red;
-	padding: .5em 3em .7em;
+	margin: .5em 5em .7em;
+	padding: 5px;
+	border: 1px solid grey;
+	text-align: center;
+	background-color: orange;
 }
 
 .field, .field2
@@ -235,8 +238,12 @@ th {
 	margin: .7em 0;
 }
 
-.field table, .field2 table {
-	margin-left: 3em;
-	width: 90%;
+.field-table {
+//	margin-left: 3em;
+//	width: 90%;
 }
 
+.small-button {
+	font-size: 70%;
+	text-align: right;
+}
