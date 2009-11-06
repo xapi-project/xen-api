@@ -325,6 +325,12 @@ let slave_local_login ~__context ~psecret =
 let slave_local_login_with_password ~__context ~uname ~pwd = wipe_params_after_fn [pwd] (fun () ->
   if not (Context.preauth ~__context)
   then
+    if uname <> local_superuser
+    then (* CA-34203: never authenticate external users as local_login *)
+      raise (Api_errors.Server_error
+        (Api_errors.rbac_permission_denied,
+        [local_superuser; "No permission in local login"]))
+    else
     (try
 	(* CP696 - only tries to authenticate against LOCAL superuser account *)
 	do_local_auth uname pwd;
