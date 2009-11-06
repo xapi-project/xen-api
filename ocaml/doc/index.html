@@ -8,7 +8,8 @@
 		<script>
 			for (z in components)
 				document.write('<script src="content/', components[z], '/index.json" type="text/JavaScript"><\/script>');
-			document.write('<script src="content/', component, '/', module_chain[0], '.json" type="text/JavaScript"><\/script>');
+			if (component != "" && module != "")
+				document.write('<script src="content/', component, '/', module_chain[0], '.json" type="text/JavaScript"><\/script>');
 		</script>
 		<link rel="stylesheet" href="style.css" />
 	</head>
@@ -19,7 +20,10 @@
 				<ul id="menu">
 					<script>
 						document.write('<li><a href="index.html">Component Index</a></li>');
-						document.write('<li><a href="index.html?c=' + component + '">Module Index</a></li>');
+						if (component != "") {
+							document.write('<li><a href="index.html?c=' + component + '">Module Index</a></li>');
+						}
+						document.write('<li><a href="#" onclick="search_page()">Search</a></li>');
 					</script>
 				</ul>	
 			</div>
