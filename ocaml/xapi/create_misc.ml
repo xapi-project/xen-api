@@ -308,8 +308,14 @@ let get_xapi_verstring () =
   Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor  
   
 (** Create assoc list of Supplemental-Pack information.
+ *  The package information is taking from the [XS-REPOSITORY] XML file in the package
+ *  directory.
+ *  The keys have the form "<originator>:<name>", the value is
+ *  "<description>, version <version>", appended by ", build <build>" if the <build>
+ *  number is present in the XML file, and appended by ", homogeneous" if the [enforce-homogeneity]
+ *  attribute is present and set to "true".
  *  For backwards compatibility, the old [package-linux] key is also added
- *  when the linux pack (now xs:linux) is present (alongside the new key).
+ *  when the linux pack (now [xs:linux]) is present (alongside the new key).
  *  The [package-linux] key is now deprecated and will be removed in the next version. *)
 let make_packs_info () =
 	try
@@ -326,15 +332,22 @@ let make_packs_info () =
 						if List.mem_assoc "build" attr then Some (List.assoc "build" attr)
 						else None
 					in
+					let homogeneous = 
+						if List.mem_assoc "enforce-homogeneity" attr &&
+							(List.assoc "enforce-homogeneity" attr) = "true" then true
+						else false
+					in
 					let description = match children with
 						| Xml.Element(_, _, (Xml.PCData s) :: _) :: _ -> s
 						| _ -> failwith "error with parsing pack data"
 					in
 					let param_name = originator ^ ":" ^ name in
 					let value = description ^ ", version " ^ version ^
-						match build with
+						(match build with
 						| Some build -> ", build " ^ build
-						| None -> ""
+						| None -> "") ^
+						(if homogeneous then ", homogeneous"
+						else "")
 					in
 					let kv = [(param_name, value)] in
 					if originator = "xs" && name = "linux" then
