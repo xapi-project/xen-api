@@ -116,16 +116,33 @@ function value(v, n)
 	html += '<div class="field-type"><a name="' + name + '">[value]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 	if (v.info.deprecated != undefined) {
-		html += '<div class="deprecated">!! deprecated ' + v.info.deprecated + ' !!</div>';
+		html += '<div class="deprecated"><b>Deprecated</b> ' + v.info.deprecated + '</div>';
 	}
-	html += '<table>';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
-	html += '<tr><td><span class="field-head">Description:</span></td><td>';
+	
+	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += transform_links(v.info.description) + '</td></tr>';
+		html += v.info.description + '</div>';
 	else
-		html += '<span class="empty">to be completed!</span></td></tr>';
+		html += '<span class="empty">to be completed!</span></div>';
+		
+	html += '<table class="field-table">';
+	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
+	
+	html += '<tr id="' + name + '_params" style="display: none"><td width="100px"><span class="field-head">Parameters:</span></td><td>';
+	html += '<table>';
+	for (c in v.params) {
+		n = v.params[c].name;
+		html += '<tr><td width="20%">' + (n == "" ? '(no name)' : v.params[c].name) + '</td>';
+		html += '<td>' + v.params[c].type + '</td></tr>';
+	}
 	html += '</table>';
+	html += '</td></tr>';
+	
+	if (v.params.length > 0)
+		html += '<tr><td></td><td><input type="button" class="small-button" value="parameters" onclick="document.getElementById(\'' + name + '_params\').style.display=\'\'; this.style.display=\'none\'" /></td></tr>';
+	
+	html += '</table>';
+	
 	html += '</div>';
 	append_content(html);
 }
@@ -138,17 +155,17 @@ function exception(v, n)
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<div class="field-type"><a name="' + name + '">[exception]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
-	html += '<table>';
+	html += '<div class="field-description">';
+	if (v.info.description != undefined)
+		html += v.info.description + '</div>';
+	else
+		html += '<span class="empty">to be completed!</span></div>';
+	html += '<table class="field-table">';
 	html += '<tr><td width="100px"><span class="field-head">Arguments:</span></td><td>';
 	if (v.exception_args != undefined)
 		html += v.exception_args + '</td></tr>';
 	else
 		html += '[none]</td></tr>';
-	html += '<tr><td><span class="field-head">Description:</span></td><td>';
-	if (v.info.description != undefined)
-		html += v.info.description + '</td></tr>';
-	else
-		html += '<span class="empty">to be completed!</span></td></tr>';
 	html += '</table>';
 	html += '</div>';
 	append_content(html);
@@ -158,7 +175,7 @@ function variant(v)
 {
 	cons = v.constructors;
 	html = '';
-	html += '<table>';
+	html += '<table class="field-table">';
 	html += '<tr><th width="25%">Constructor</th><th>Type</th><th>Description</th></tr>';
 	for (c in cons) {
 		html += '<tr><td>' + cons[c].name + '</td>'
@@ -176,7 +193,7 @@ function variant(v)
 function record(v)
 {
 	fields = v.fields;
-	html = '<table>';
+	html = '<table class="field-table">';
 	html += '<tr><th width="25%">Field</th><th width="20%">Type</th><th>Description</th></tr>';
 	for (c in fields) {
 		html += '<tr><td>' + fields[c].name + '</td>'
@@ -244,15 +261,16 @@ function included_module(v, n)
 		
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<div class="field-type"><a name="' + name + '">[module]</a></div>';
-	html += '<div class="field-name">' + name + ' (<a href="index.html?c=' + component +
-		'&m=' + v.name + '">details</a>)</div>';
-	html += '<table>';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
-	html += '<tr><td><span class="field-head">Description:</span></td><td>';
+	html += '<div class="field-name">' + name + '</div>';
+	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</td></tr>';
+		html += v.info.description + '</div>';
 	else
-		html += '<span class="empty">to be completed!</span></td></tr>';
+		html += '<span class="empty">to be completed!</span></div>';
+	html += '<table class="field-table">';
+	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
+	
+	html += '<tr><td></td><td><input type="button" class="small-button" value="details" onclick="location=\'index.html?c=' + component + '&m=' + v.name + '\'" /></td></tr>';
 	html += '</table>';
 	html += '</div>';
 	append_content(html);
