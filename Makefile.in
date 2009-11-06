@@ -15,7 +15,7 @@ all:
 	$(MAKE) -C sexpr
 
 .PHONY: allxen
-allxen: all
+allxen:
 	$(MAKE) -C mmap
 	$(MAKE) -C xc
 	$(MAKE) -C xb
@@ -135,5 +135,3 @@ cleanxen:
 	$(MAKE) -C xs clean
 	$(MAKE) -C xsrpc clean
 	$(MAKE) -C eventchn clean
-
-
