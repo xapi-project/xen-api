@@ -8,3 +8,9 @@
 \.a$
 \.annot$
 \/META$
+autom4te\.cache/
+\.swp$
+^stdext/config\.h$
+^config\.log$
+^config\.status$
+^configure$
