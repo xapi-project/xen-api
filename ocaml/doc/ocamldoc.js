@@ -55,6 +55,41 @@ function fill_components()
 	}
 }
 
+function do_search()
+{
+	query = document.getElementById('search_box').value.toLowerCase();
+	
+	// search modules
+	html = '<h2>Modules</h2>';
+	for (z in components) {
+		c = components[z];
+		for (y in component_modules[c]) {
+			m = component_modules[c][y].name;
+			if (m.toLowerCase().indexOf(query) > -1)
+				html += '<a href="index.html?c=' + c + '&m=' + m + '">' + m + ' (' + c + ')</a><br/>';
+		}
+	}
+	
+	document.getElementById('results').innerHTML = html;
+}
+
+function search_key(event)
+{
+	if (event.keyCode == 13)
+		do_search();
+}
+
+function search_page()
+{
+	html = "";
+	html += '<h1 class="title">Search</h1>';
+	html += '<input type="text" id="search_box" size="50" onkeydown="search_key(event)" /><input type="button" value="Find" onclick="do_search()" />';
+	html += '<div id="results"></div>';
+	set_content(html);
+	
+	set_sidebar("");
+}
+
 function find_component_for_module(m)
 {
 	// first look in own component
@@ -132,8 +167,8 @@ function value(v, n)
 	html += '<table>';
 	for (c in v.params) {
 		n = v.params[c].name;
-		html += '<tr><td width="20%">' + (n == "" ? '(no name)' : v.params[c].name) + '</td>';
-		html += '<td>' + v.params[c].type + '</td></tr>';
+		html += '<tr><td width="20%" style="padding: 0 0 .2em">' + (n == "" ? '(no name)' : v.params[c].name) + '</td>';
+		html += '<td style="padding: 0 0 .2em">' + v.params[c].type + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</td></tr>';
@@ -278,7 +313,7 @@ function included_module(v, n)
 
 function comment(m)
 {
-	append_content(m);
+	append_content('<div>' + m + '</div>');
 }
 
 function parse_structure(structure)
