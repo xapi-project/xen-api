@@ -14,10 +14,10 @@
 let default_pidfile = "/var/run/squeezed.pid" 
 let log_file_path = "file:/var/log/squeezed.log" 
 
-
 open Pervasiveext 
 open Squeezed_rpc
 open Squeezed_state
+open Xenops_helpers
 
 (* We assume only one instance of a named service logs in at a time and therefore can use
    the service name as a session_id. *)

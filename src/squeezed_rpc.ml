@@ -15,6 +15,7 @@
 (** Potentially generic xenstore RPC stuff *)
 
 open Pervasiveext
+open Xenops_helpers
 
 (* Service-specific: *)
 let _service = "squeezed" (* prefix in xenstore of daemon *)
@@ -79,13 +80,6 @@ let debug (fmt: ('a , unit, string, unit) format4) =
        Printf.printf "%s %s\n" (time_of_float (Unix.gettimeofday ()))  s; 
        flush stdout) fmt
   else Printf.kprintf (fun s -> debug "%s" s) fmt
-
-
-let with_xc_and_xs f = 
-  Xc.with_intf
-    (fun xc ->
-       let xs = Xs.daemon_open () in
-       finally (fun () -> f xc xs) (fun () -> Xs.close xs))
 
 let path = List.fold_left Filename.concat "/"
 
