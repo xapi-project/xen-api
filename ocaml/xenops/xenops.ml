@@ -15,16 +15,7 @@ open Printf
 open Pervasiveext
 open Stringext
 open Device_common
-
-let with_xal f =
-	let xal = Xal.init () in
-	finally (fun () -> f xal) (fun () -> Xal.close xal)
-
-let with_xc f = Xc.with_intf f
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
-let with_xc_and_xs f = with_xc (fun xc -> with_xs (fun xs -> f xc xs))
+open Xenops_helpers
 
 let print_xen_dmesg ~xc =
 	let s = Xc.readconsolering xc in
