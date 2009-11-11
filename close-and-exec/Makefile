@@ -7,7 +7,6 @@ OCAMLOPT = ocamlopt
 LDFLAGS = -cclib -L./
 
 LIBEXEC  = "/opt/xensource/libexec"
-DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -29,8 +28,8 @@ bins: $(PROGRAMS)
 
 libs: $(LIBS)
 
-closeandexec: closeandexec.cmxa all
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) closeandexec.cmxa -o $@ $<
+closeandexec: closeandexec.cmxa closeandexec_main.cmx all
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -I ../stdext -I ../uuid uuid.cmxa unix.cmxa threads.cmxa stdext.cmxa closeandexec.cmxa closeandexec_main.cmx -o $@ 
 
 closeandexec.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)
@@ -54,13 +53,16 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
+install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore close-and-exec META $(INTF) $(LIBS) *.a *.cmx
+	mkdir -p $(path)
+	ocamlfind install -destdir $(path) -ldconf ignore close-and-exec META $(INTF) $(LIBS) *.a *.cmx
 
 .PHONY: bininstall
-bininstall:
-	mkdir -p $(DESDIR)$(LIBEXEC)
-	$(IPROG) $(PROGRAMS) $(DESDIR)$(LIBEXEC)
+bininstall: path = $(DESTDIR)$(LIBEXEC)
+bininstall: all
+	mkdir -p $(path)
+	$(IPROG) $(PROGRAMS) $(path)
 
 .PHONY: uninstall
 uninstall:
@@ -73,6 +75,6 @@ binuninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "close-and-exec" "library" "$(OBJS)" "." "stdext" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

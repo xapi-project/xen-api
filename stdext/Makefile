@@ -8,7 +8,6 @@ OCAMLOPT = ocamlopt
 LDFLAGS = -cclib -L./
 
 LIBEXEC = "/opt/xensource/libexec/"
-DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -29,7 +28,7 @@ LIBS = stdext.cma stdext.cmxa
 PROGRAMS = base64pp
 
 DOCDIR = /myrepos/xen-api-libs.hg/doc
-	
+
 all: $(INTF) $(LIBS)
 
 bins: $(PROGRAMS)
@@ -100,13 +99,16 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
+install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore stdext META $(INTF) $(LIBS) *.a *.so *.cmx
+	mkdir -p $(path)
+	ocamlfind install -destdir $(path) -ldconf ignore stdext META $(INTF) $(LIBS) *.a *.so *.cmx
 
 .PHONY: bininstall
-bininstall:
-	mkdir -p $(DESDIR)$(LIBEXEC)
-	$(IPROG) $(PROGRAMS) $(DESDIR)$(LIBEXEC)
+bininstall: path = $(DESTDIR)$(LIBEXEC)
+bininstall: all
+	mkdir -p $(path)
+	$(IPROG) $(PROGRAMS) $(path)
 
 .PHONY: uninstall
 uninstall:
