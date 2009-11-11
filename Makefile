@@ -1,15 +1,4 @@
-NO_DEFAULT_BUILD := yes
-ifdef B_BASE
-include $(B_BASE)/common.mk
-else
-MY_OUTPUT_DIR ?= $(CURDIR)/output
-MY_OBJ_DIR ?= $(CURDIR)/obj
-
-%/.dirstamp:
-	@mkdir -p $*
-	@touch $@
-endif
-
+.PHONY: all
 all:
 	$(MAKE) -C uuid
 	$(MAKE) -C camldm
@@ -25,7 +14,8 @@ all:
 	$(MAKE) -C close-and-exec
 	$(MAKE) -C sexpr
 
-allxen:
+.PHONY: allxen
+allxen: all
 	$(MAKE) -C mmap
 	$(MAKE) -C xc
 	$(MAKE) -C xb
@@ -100,49 +90,6 @@ binuninstall:
 	$(MAKE) -C stdext binuninstall
 	$(MAKE) -C close-and-exec binuninstall
 
-OUTPUT_API_PKG := $(MY_OUTPUT_DIR)/api-libs.tar.gz
-
-$(OUTPUT_API_PKG): DESTDIR=$(MY_OBJ_DIR)/staging/
-$(OUTPUT_API_PKG): PREFIX=$(shell ocamlfind printconf path)
-$(OUTPUT_API_PKG): $(MY_OBJ_DIR)/.dirstamp $(MY_OUTPUT_DIR)/.dirstamp
-	rm -rf $(DESTDIR)
-	mkdir -p $(DESTDIR)$(PREFIX)
-	mkdir -p $(DESTDIR)$(LIBEXEC)
-	$(MAKE) clean
-	$(MAKE) all
-	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging install
-	$(MAKE) bins
-	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging bininstall
-	tar -C $(DESTDIR) -zcf $@ .
-
-OUTPUT_XAPI_PKG := $(MY_OUTPUT_DIR)/xapi-libs.tar.gz
-
-$(OUTPUT_XAPI_PKG): DESTDIR=$(MY_OBJ_DIR)/staging/
-$(OUTPUT_XAPI_PKG): PREFIX=$(shell ocamlfind printconf path)
-$(OUTPUT_XAPI_PKG): $(MY_OBJ_DIR)/.dirstamp $(MY_OUTPUT_DIR)/.dirstamp
-	rm -rf $(DESTDIR)
-	mkdir -p $(DESTDIR)$(PREFIX)
-	$(MAKE) cleanxen
-	$(MAKE) allxen
-	$(MAKE) DESTDIR=$(MY_OBJ_DIR)/staging installxen
-	tar -C $(DESTDIR) -zcf $@ .
-
-OUTPUT_SRC := $(MY_OUTPUT_DIR)/xen-api-libs-src.tar.bz2
-
-$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_SRC)
-	echo api lgpl-with-linking-exception file $(OUTPUT_SRC) > $@
-
-$(OUTPUT_SRC):
-	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
-
-.PHONY: api-libs
-api-libs: $(OUTPUT_API_PKG) $(MY_SOURCES)/MANIFEST
-	@ :
-
-.PHONY: xapi-libs
-xapi-libs: $(OUTPUT_XAPI_PKG) $(MY_SOURCES)/MANIFEST
-	@ :
-	
 .PHONY: doc
 doc:
 	$(MAKE) -C uuid doc
@@ -180,7 +127,6 @@ clean:
 	make -C close-and-exec clean
 	make -C sexpr clean
 	make -C doc clean
-	rm -f $(OUTPUT_API_PKG)
 
 cleanxen:
 	$(MAKE) -C mmap clean
@@ -189,4 +135,5 @@ cleanxen:
 	$(MAKE) -C xs clean
 	$(MAKE) -C xsrpc clean
 	$(MAKE) -C eventchn clean
-	rm -f $(OUTPUT_XAPI_PKG)
+
+

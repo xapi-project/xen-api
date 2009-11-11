@@ -1,4 +1,3 @@
-
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g
@@ -6,7 +5,6 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
-DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -55,8 +53,10 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
+install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore camldm META $(INTF) $(LIBS) *.a *.so *.cmx
+	mkdir -p $(path)
+	ocamlfind install -destdir $(path) -ldconf ignore camldm META $(INTF) $(LIBS) *.a *.so *.cmx
 
 .PHONY: uninstall
 uninstall:
