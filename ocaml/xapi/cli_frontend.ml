@@ -640,7 +640,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       reqd=["power-on-mode"];
       optn=["power-on-config"];
       help="Sets the power-on mode for the XE host";
-      implementation= No_fd Cli_operations.host_set_hostname_live;
+      implementation= No_fd Cli_operations.host_set_power_on_mode;
       flags=[Host_selectors];
     };
 
