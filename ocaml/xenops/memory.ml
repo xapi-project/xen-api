@@ -132,7 +132,7 @@ module HVM = struct
 	let extra_external_mib = 1L
 
 	let build_max_mib static_max_mib = static_max_mib --- video_mib
-	let build_start_mib target_mib = target_mib
+	let build_start_mib target_mib = target_mib --- video_mib
 
 	let xen_max_offset_mib = extra_internal_mib
 	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
