@@ -16,22 +16,15 @@ open Pervasiveext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-(* xc and xs opening/cleaning interface helpers *)
-let with_xc f = Xc.with_intf f
+(** {2 XC, XS and XAL interface helpers.} *)
 
-let with_xs f =
-	let xs = Xs.daemon_open () in
-	finally (fun () -> f xs) (fun () -> Xs.close xs)
+open Xenops_helpers
 
-let with_xal f =
-	let xal = Xal.init () in
-	finally (fun () -> f xal) (fun () -> Xal.close xal)
-
-let with_xc_and_xs f =
-	Xc.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
-
-let with_xc_and_xs_final f cf =
-	with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)
+let with_xc              = with_xc
+let with_xs              = with_xs
+let with_xal             = with_xal
+let with_xc_and_xs       = with_xc_and_xs
+let with_xc_and_xs_final = with_xc_and_xs_final
 
 exception Vm_corresponding_to_domid_not_in_db of int
 let uuid_of_domid domid =
