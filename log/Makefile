@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
+OCAMLLOC := $(shell ocamlc -where)
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(OCAMLLOC)
 OCAMLC = ocamlc
 OCAMLOPT = ocamlopt 
 
