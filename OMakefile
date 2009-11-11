@@ -82,7 +82,7 @@ if $(not $(defined-env COMPILE_XENSTUFF))
 
 # Ocaml #############################################################################
 OCAML_PHASE1=
-OCAML_PHASE2= autogen_idl
+OCAML_PHASE2= autogen_idl ocaml/idl/ocaml_backend/xapi_client.cmxa
 
 # JS ################################################################################
 JS_PHASE1=
@@ -124,7 +124,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/license/v6d-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
-	ocaml/fdhelper/closeandexec \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
 	ocaml/xsh/xsh \

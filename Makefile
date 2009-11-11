@@ -13,6 +13,8 @@ export PRODUCT_VERSION PRODUCT_BRAND BUILD_NUMBER
 all:
 	omake ocaml/util/version.ml
 	omake phase1 phase2
+	omake lib-uninstall
+	omake lib-install
 	omake phase3
 
 .PHONY: phase3
@@ -39,6 +41,14 @@ cvm:
 install:
 	omake install
 
+.PHONY: lib-install
+lib-install:
+	omake DESTDIR=$(DESTDIR) lib-install
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	omake lib-uninstall
+
 .PHONY: sdk-install
 sdk-install:
 	omake sdk-install
@@ -50,6 +60,7 @@ patch:
 .PHONY: clean
 clean:
 	omake clean
+	omake lib-uninstall
 	rm -rf dist/staging
 	rm -f .omakedb .omakedb.lock
 
