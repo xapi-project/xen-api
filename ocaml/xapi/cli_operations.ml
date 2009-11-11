@@ -3274,7 +3274,7 @@ let host_dmesg printer rpc session_id params =
   ignore(do_host_op rpc session_id op params [])
   
   
-let host_set_power_on_mode rpc session_id params =
+let host_set_power_on_mode printer rpc session_id params =
   let power_on_mode = List.assoc "power-on-mode" params in
   let power_on_config = if List.mem_assoc "power-on-config" params then read_map_params "power-on-config" params else [] in
    ignore(
