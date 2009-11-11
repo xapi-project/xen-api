@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Squeezed_rpc
+open Xenops_helpers
 
 let _ = 
   print_debug := true;
