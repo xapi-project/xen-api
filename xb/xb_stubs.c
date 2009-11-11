@@ -30,6 +30,13 @@
 #define u32 uint32_t
 #include <xen/io/xs_wire.h>
 
+/* XS_RESTRICT is defined in 
+   http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/restrict_xenstored */
+#include "../include/config.h"
+#if !HAVE_DECL_XS_RESTRICT
+#define XS_RESTRICT 128
+#endif
+
 CAMLprim value stub_get_internal_offset(void)
 {
 	CAMLparam0();
