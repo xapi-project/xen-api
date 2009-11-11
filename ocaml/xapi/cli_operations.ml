@@ -1610,7 +1610,9 @@ let select_hosts rpc session_id params ignore_params =
   let do_filter params =
     let hosts = Client.Host.get_all_records_where rpc session_id "true" in
     let all_recs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
-    let filter_params = List.filter (fun (p,_) -> not (List.mem p (stdparams @ ignore_params))) params in
+    
+    let filter_params = List.filter (fun (p,_) ->
+      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
     (* Filter all the records *)
     List.fold_left filter_records_on_fields all_recs filter_params    
   in
@@ -3276,7 +3278,7 @@ let host_dmesg printer rpc session_id params =
   
 let host_set_power_on_mode printer rpc session_id params =
   let power_on_mode = List.assoc "power-on-mode" params in
-  let power_on_config = if List.mem_assoc "power-on-config" params then read_map_params "power-on-config" params else [] in
+  let power_on_config = read_map_params "power-on-config" params in
    ignore(
        do_host_op rpc session_id (fun _ host -> Client.Host.set_power_on_mode ~rpc ~session_id ~self:(host.getref ()) ~power_on_mode ~power_on_config )
        params ["power-on-mode";"power-on-config"]
