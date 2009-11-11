@@ -56,13 +56,15 @@ jsonrpc.cmi: jsonrpc.mli rpc.ml
 
 
 .PHONY: install
+install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: rpc.cmi pa_rpc.cma xmlrpc.cma xmlrpc.cmxa
+	mkdir -p $(path)
 	cp META-xmlrpc META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) xmlrpc META xmlrpc.cma xmlrpc.cmxa xmlrpc.cmi rpc.cmi xmlrpc.cmx rpc.cmx xmlrpc.a xmlrpc.o
+	ocamlfind install -destdir $(path) xmlrpc META xmlrpc.cma xmlrpc.cmxa xmlrpc.cmi rpc.cmi xmlrpc.cmx rpc.cmx xmlrpc.a xmlrpc.o
 	cp META-jsonrpc META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) jsonrpc META jsonrpc.cma jsonrpc.cmxa jsonrpc.cmi rpc.cmi jsonrpc.cmx rpc.cmx jsonrpc.a jsonrpc.o
+	ocamlfind install -destdir $(path) jsonrpc META jsonrpc.cma jsonrpc.cmxa jsonrpc.cmi rpc.cmi jsonrpc.cmx rpc.cmx jsonrpc.a jsonrpc.o
 	cp META-rpc-light META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) rpc-light META pa_rpc.cma pa_rpc.cmi
+	ocamlfind install -destdir $(path) rpc-light META pa_rpc.cma pa_rpc.cmi
 	rm META
 
 .PHONY: uninstall
