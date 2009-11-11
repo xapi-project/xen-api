@@ -1,73 +1,110 @@
+AUTOMAKE_OPTIONS = foreign
+HAVE_XEN = @XEN@
+HAVE_DEVICE_MAPPER = @DEVICE_MAPPER@
+HAVE_LINUX_CDROM = @LINUX_CDROM@
+HAVE_XMLM = @OCAML_PKG_xmlm@
+HAVE_TYPECONV = @OCAML_PKG_type_conv@
+
 .PHONY: all
 all:
 	$(MAKE) -C uuid
-	$(MAKE) -C camldm
 	$(MAKE) -C stdext
 	$(MAKE) -C log
 	$(MAKE) -C stunnel
 	$(MAKE) -C pciutil
-	$(MAKE) -C cdrom
-	$(MAKE) -C xml-light2
-	$(MAKE) -C rss
-	$(MAKE) -C rpc-light
 	$(MAKE) -C http-svr
 	$(MAKE) -C close-and-exec
 	$(MAKE) -C sexpr
+ifeq ($(HAVE_TYPECONV),type-conv)
+	$(MAKE) -C rpc-light
+endif
+ifeq ($(HAVE_XMLM),xmlm)
+	$(MAKE) -C xml-light2
+	$(MAKE) -C rss
+endif
+ifeq ($(HAVE_LINUX_CDROM),1)
+	$(MAKE) -C cdrom
+endif
+ifeq ($(HAVE_DEVICE_MAPPER),1)
+	$(MAKE) -C camldm
+endif
 
 .PHONY: allxen
 allxen:
+ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C mmap
 	$(MAKE) -C xc
 	$(MAKE) -C xb
 	$(MAKE) -C xs
 	$(MAKE) -C xsrpc
 	$(MAKE) -C eventchn
+endif
 
 install:
 	$(MAKE) -C uuid install
-	$(MAKE) -C camldm install
 	$(MAKE) -C stdext install
 	$(MAKE) -C log install
 	$(MAKE) -C stunnel install
 	$(MAKE) -C pciutil install
-	$(MAKE) -C cdrom install
-	$(MAKE) -C xml-light2 install
-	$(MAKE) -C rss install
-	$(MAKE) -C rpc-light install
 	$(MAKE) -C http-svr install
 	$(MAKE) -C close-and-exec install
 	$(MAKE) -C sexpr install
+ifeq ($(HAVE_TYPECONV),type-conv)
+	$(MAKE) -C rpc-light install
+endif
+ifeq ($(HAVE_XMLM),xmlm)
+	$(MAKE) -C xml-light2 install
+	$(MAKE) -C rss install
+endif
+ifeq ($(HAVE_LINUX_CDROM),1)
+	$(MAKE) -C cdrom install
+endif
+ifeq ($(HAVE_DEVICE_MAPPER),1)
+	$(MAKE) -C camldm install
+endif
 
 installxen:
+ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C mmap install
 	$(MAKE) -C xc install
 	$(MAKE) -C xb install
 	$(MAKE) -C xs install
 	$(MAKE) -C xsrpc install
 	$(MAKE) -C eventchn install
+endif
 
 uninstall:
 	$(MAKE) -C uuid uninstall
-	$(MAKE) -C camldm uninstall
 	$(MAKE) -C stdext uninstall
 	$(MAKE) -C log uninstall
 	$(MAKE) -C stunnel uninstall
 	$(MAKE) -C pciutil uninstall
-	$(MAKE) -C cdrom uninstall
-	$(MAKE) -C xml-light2 uninstall
-	$(MAKE) -C rss uninstall
-	$(MAKE) -C rpc-light uninstall
 	$(MAKE) -C http-svr uninstall
 	$(MAKE) -C close-and-exec uninstall
 	$(MAKE) -C sexpr uninstall
+ifeq ($(HAVE_TYPECONV),type-conv)
+	$(MAKE) -C rpc-light uninstall
+endif
+ifeq ($(HAVE_XMLM),xmlm)
+	$(MAKE) -C xml-light2 uninstall
+	$(MAKE) -C rss uninstall
+endif
+ifeq ($(HAVE_LINUX_CDROM),1)
+	$(MAKE) -C cdrom uninstall
+endif
+ifeq ($(HAVE_DEVICE_MAPPER),1)
+	$(MAKE) -C camldm uninstall
+endif
 
 uninstallxen:
+ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C eventchn uninstall
 	$(MAKE) -C xsrpc uninstall
 	$(MAKE) -C xs uninstall
 	$(MAKE) -C xb uninstall
 	$(MAKE) -C xc uninstall
 	$(MAKE) -C mmap uninstall
+endif
 
 bins:
 	$(MAKE) -C pciutil bins

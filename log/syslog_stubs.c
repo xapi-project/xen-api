@@ -13,10 +13,12 @@
  */
 
 #include <syslog.h>
+#include <string.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/custom.h>
+#include <caml/signals.h>
 
 static int __syslog_level_table[] = {
 	LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING,
