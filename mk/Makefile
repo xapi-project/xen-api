@@ -23,6 +23,7 @@ OUTPUT_SRC            ?= $(MY_SOURCES)/xen-api-libs-src.tar.bz2
 $(OUTPUT_API_DEVEL_PKG):
 	rm -rf $(STAGING)
 	mkdir -p $(MY_OUTPUT_DIR)
+	(cd $(REPO) && sh autogen.sh && ./configure)
 	$(MAKE) -C $(REPO) clean
 	$(MAKE) -C $(REPO) all
 	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) install
@@ -31,6 +32,7 @@ $(OUTPUT_API_DEVEL_PKG):
 $(OUTPUT_API_PKG): $(OUTPUT_API_DEVEL_PKG)
 	rm -rf $(STAGING)
 	mkdir -p $(MY_MAIN_PACKAGES)
+	(cd $(REPO) && sh autogen.sh && ./configure)
 	$(MAKE) -C $(REPO) bins
 	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) bininstall
 	tar -C $(STAGING) -jcf $@ .
@@ -38,6 +40,7 @@ $(OUTPUT_API_PKG): $(OUTPUT_API_DEVEL_PKG)
 $(OUTPUT_XAPI_DEVEL_PKG):
 	rm -rf $(STAGING)
 	mkdir -p $(MY_OUTPUT_DIR)
+	(cd $(REPO) && sh autogen.sh && ./configure)
 	$(MAKE) -C $(REPO) cleanxen
 	$(MAKE) -C $(REPO) allxen
 	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) installxen
