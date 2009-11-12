@@ -406,13 +406,15 @@ let query_subject_information subject_identifier =
 			("contains-byname", List.fold_left (fun (n,v) m ->m^","^v) "" (List.filter (fun (n,v)->n="Member") infolist));*)
 		]
 	else (* subject is user *)
-		[	("subject-name", unmap_lw_space_chars (get_value "Name" infolist));
+		let subject_name = unmap_lw_space_chars (get_value "Name" infolist) in
+		let subject_gecos = get_value "Gecos" infolist in
+		[	("subject-name", subject_name);
 			("subject-upn", get_value "UPN" infolist);
 			("subject-uid", get_value "Uid" infolist);
 			("subject-gid", get_value "Gid" infolist);
 			("subject-sid", get_value "SID" infolist);
-			("subject-gecos", get_value "Gecos" infolist);
-			("subject-displayname", get_value "Gecos" infolist);
+			("subject-gecos", subject_gecos);
+			("subject-displayname", if subject_gecos="" then subject_name else subject_gecos);
 			(*("subject-homedir", get_value "Home dir" infolist);*)
 			(*("subject-shell", get_value "Shell" infolist);*)
 			("subject-is-group", "false");
