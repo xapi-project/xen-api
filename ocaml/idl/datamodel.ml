@@ -485,6 +485,8 @@ let _ =
     ~doc:"This operation cannot be completed as the host is not live." ();
   error Api_errors.host_is_live [ "host" ]
     ~doc:"This operation cannot be completed as the host is still live." ();
+  error Api_errors.host_power_on_mode_disabled []
+    ~doc:"This operation cannot be completed as the host power on mode is disabled." ();
 
   error Api_errors.host_still_booting []
     ~doc:"The host is still booting." ();
