@@ -69,6 +69,13 @@ let valid_operations ~__context record _ref' =
       then set_errors Api_errors.host_is_live [ _ref ] [ `power_on ] 
     with _ -> () 
   end;
+  (* The host power_on_mode must be not disabled *)
+  begin 
+    try 
+      if record.Db_actions.host_power_on_mode == ""
+      then set_errors Api_errors.host_power_on_mode_disabled [] [ `power_on ]
+    with _ -> () 
+  end;
   (* The power-on-host plugin must be available before power_on is possible *)
   begin 
     try Unix.access (Filename.concat Xapi_globs.xapi_plugins_root Constants.power_on_plugin) [ Unix.X_OK ]
