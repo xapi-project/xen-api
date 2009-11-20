@@ -35,11 +35,6 @@ let v6rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:socket ~pa
 
 (* conversion to v6 edition codes *)
 let editions = ["enterprise", "ENT"; "platinum", "PLT"]
-
-(* round a date, given by Unix.time, to days *)
-let round_to_days d =
-	let days = (int_of_float d) / (24 * 3600) in
-	(float_of_int days) *. 24. *. 3600.
 	
 (* reset to not-licensed state *)
 let reset_state () =
@@ -112,7 +107,7 @@ let connect_and_get_license edition address port =
 				(* set expiry date *)
 				let now = Unix.time () in
 				if days_to_expire > -1 then
-					expires := (round_to_days now +. (float_of_int (days_to_expire * 24 * 3600)))
+					expires := now +. (float_of_int (days_to_expire * 24 * 3600))
 				else
 					expires := never;
 				(* check fist point *)
