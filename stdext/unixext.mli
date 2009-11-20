@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** A collection of extensions to the [Unix] module. *)
+
 external _exit : int -> unit = "unix_exit"
 val unlink_safe : string -> unit
 val mkdir_safe : string -> Unix.file_perm -> unit
@@ -20,6 +22,15 @@ val pidfile_read : string -> int option
 val daemonize : unit -> unit
 val with_file : string -> Unix.open_flag list -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
+
+(** Folds function [f] over every line in the file at [file_path] using the
+starting value [start]. *)
+val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
+
+(** Applies function [f] to every line in the file at [file_path]. *)
+val file_lines_iter : (string -> unit) -> string -> unit
+
+(** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
 val read_whole_file : int -> int -> Unix.file_descr -> string
 val read_whole_file_to_string : string -> string
