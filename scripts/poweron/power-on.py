@@ -25,8 +25,9 @@ def main(session, args):
     if mode == "iLO" or mode=="DRAC" :
         ip=power_on_config['power_on_ip']
         user = power_on_config['power_on_user']
-        secret = power_on_config['power_on_password']
-        password = session.xenapi.secret.get_value(secret)
+        secret = power_on_config['power_on_password_secret']
+        secretref=session.xenapi.secret.get_by_uuid(secret)
+        password = session.xenapi.secret.get_value(secretref)
         
         if mode == "iLO":
             modu= __import__('iLO')
@@ -37,9 +38,13 @@ def main(session, args):
     elif mode=="wake-on-lan":
         modu= __import__('wlan')
         return modu.wake_on_lan(session, remote_host, remote_host_uuid)
-    else:
-        modu= __import__(mode, power_on_config)
-        return modu.custom(power_on_config)
+    # Custom script
+    elif mode!="":
+        modu= __import__(mode)
+        return modu.custom(session,remote_host,power_on_config)
+    # Disabled
+    else: 
+        return str(False)
 
 
 
