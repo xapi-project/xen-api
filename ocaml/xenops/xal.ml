@@ -407,7 +407,8 @@ let domain_update ctx =
  * The valid watch event have the following format :
  *    1      2       3       4       5       6       7      8
  * /local/domain /0       /backend/<type> /<domid>/<devid>/state
- * /local/domain /0       /backend/<type> /<domid>/<devid>/kthread-pid
+ * /local/domain /0       /backend/vbd    /<domid>/<devid>/kthread-pid
+ * /local/domain /0       /backend/tap    /<domid>/<devid>/tapdisk-pid
  * /local/domain /0       /backend/<type> /<domid>/<devid>/shutdown-done
  * /local/domain /0       /backend/<type> /<domid>/<devid>/type
  * /local/domain /<domid> /device /<type> /<devid>/state
@@ -429,10 +430,17 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Backend xsds, ty, devid)
-	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "kthread-pid" ] ->
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: "vbd" :: domid :: devid :: [ "kthread-pid" ] ->
 		begin try
 			let kthread_pid = int_of_string (xs.Xs.read w) in
-			Some (int_of_string domid, BackThread kthread_pid, ty, devid)
+			Some (int_of_string domid, BackThread kthread_pid, "vbd", devid)
+		with _ ->
+			None
+		end
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: "tap" :: domid :: devid :: [ "tapdisk-pid" ] ->
+		begin try
+			let tapdisk_pid = int_of_string (xs.Xs.read w) in
+			Some (int_of_string domid, BackThread tapdisk_pid, "tap", devid)
 		with _ ->
 			None
 		end
