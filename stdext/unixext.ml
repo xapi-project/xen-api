@@ -85,18 +85,31 @@ let daemonize () =
 		end
 	| _ -> exit 0
 
-(** Run a function over every line in a file *)
-let readfile_line fn fname =
-	let fin = open_in fname in
+let file_lines_fold f start file_path =
+	let input = open_in file_path in
+	let rec fold accumulator =
+		let line =
+			try Some (input_line input)
+			with End_of_file -> None in
+		match line with
+			| Some line -> fold (f accumulator line)
+			| None -> accumulator in
+	finally
+		(fun () -> fold start)
+		(fun () -> close_in input)
+
+let file_lines_iter f file_path =
+	let input = open_in file_path in
 	try
 		while true do
-			let line = input_line fin in
-			fn line
-		done;
-		close_in fin;
+			let line = input_line input in
+			f line
+		done
 	with
-	| End_of_file -> close_in fin
-	| exn -> close_in fin; raise exn
+		| End_of_file -> close_in input
+		| exn -> close_in input; raise exn
+
+let readfile_line = file_lines_iter
 
 (** open a file, and make sure the close is always done *)
 let with_file file mode perms f =
