@@ -305,6 +305,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
             raise_unknown_host ()
           | "Invalid argument" -> 
             raise_url_invalid (sprintf "%s:%s" host (string_of_int port))
+          | "" -> raise_connection_reset()
           | _ -> 
             raise exc
         end
