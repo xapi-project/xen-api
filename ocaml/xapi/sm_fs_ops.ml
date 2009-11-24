@@ -205,11 +205,23 @@ let must_write_zeroes_into_new_vdi ~__context vdi =
   let potentially_using_lvhd sr_r = List.mem (String.lowercase sr_r.API.sR_type) [ "lvm"; "lvmoiscsi"; "lvmohba" ] in
   let requested_raw_vdi vdi_r = List.mem (List.hd Xha_statefile.statefile_sm_config) vdi_r.API.vDI_sm_config in
   let upgraded_to_lvhd sr_r = List.mem ("use_vhd", "true") sr_r.API.sR_sm_config in
+
+  (* Equallogic arrays in 'thick' mode don't zero disks *)
+  let using_eql sr_r = String.lowercase sr_r.API.sR_type =  "equal" in
+  let using_eql_thick sr_r = List.mem ("allocation", "thick") (List.map (fun (x, y) -> String.lowercase x, String.lowercase y) sr_r.API.sR_sm_config) in
+
+  (* We presume that storagelink arrays don't zero disks either *)
+  let using_csl sr_r = String.lowercase sr_r.API.sR_type = "cslg" in
+
   (* Julian agreed with the following logic by email + chat: *)
-  potentially_using_lvhd sr_r
-  && ((requested_raw_vdi vdi_r) ||   (* requested RAW on an LVHD backend *)
-	(not (upgraded_to_lvhd sr_r))) (* => all VDIs will still be RAW *)
-  
+  false
+  || (potentially_using_lvhd sr_r
+	  && ((requested_raw_vdi vdi_r) || (not (upgraded_to_lvhd sr_r)))
+	 )
+  (* After speaking to Julian again: *)
+  || (using_eql sr_r && (using_eql_thick sr_r))
+  || (using_csl sr_r)
+
 
 let copy_vdi ~__context vdi_src vdi_dst = 
   TaskHelper.set_cancellable ~__context;
