@@ -264,7 +264,7 @@ let output_common t ?(raw=false) ?(key="") ?(extra="") priority (message: string
 		| Info  -> Syslog.Info
 		| Warn  -> Syslog.Warning
 		| Error -> Syslog.Err in
-		Syslog.log Syslog.Local6 sys_prio ((construct_string false) ^ "\n")
+		Syslog.log Syslog.Daemon sys_prio ((construct_string false) ^ "\n")
 	| Stream s -> Mutex.execute s.mutex 
 	    (fun () -> 
 	      match !(s.channel) with
