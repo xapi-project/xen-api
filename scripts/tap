@@ -8,7 +8,7 @@ XAPI=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
 
 syslog ()
 {
-	BLKTAP=local6
+	BLKTAP=daemon
 	logger -p$BLKTAP.info -tscripts-tap "$*"
 }
 
