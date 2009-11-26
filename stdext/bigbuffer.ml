@@ -67,16 +67,17 @@ let to_fct bigbuf f =
 	for i = 0 to array_offset - 1
 	do
 		match bigbuf.cells.(i) with
-		| None      -> (* ?!?!? *) ()
+		| None      -> (* should never happen *) ()
 		| Some cell -> f cell
 	done;
 
-	(* copy last cell *)
-	begin match bigbuf.cells.(array_offset) with
-	| None      -> (* ?!?!?! *) ()
-	| Some cell -> f (String.sub cell 0 cell_offset)
-	end;
-	()
+	if(cell_offset > 0) then
+	  (* copy last cell *)
+	  begin match bigbuf.cells.(array_offset) with
+	    | None      -> (* Should never happen (any more) *) ()
+	    | Some cell -> f (String.sub cell 0 cell_offset)
+	  end
+
 
 let to_string bigbuf =
 	if bigbuf.index > (Int64.of_int Sys.max_string_length) then
@@ -90,6 +91,19 @@ let to_string bigbuf =
 		destoff := !destoff + len
 	);
 	dest
+
+
+let test max =
+  let rec inner n =
+    if n>max then () else begin
+      let bb = make () in
+      let s = String.create n in
+      append_substring bb s 0 n;
+      assert ((to_string bb)=s);
+      inner (n+1)
+    end
+  in 
+  inner 0
 
 let to_stream bigbuf outchan =
 	to_fct bigbuf (fun s -> output_string outchan s)
