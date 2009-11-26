@@ -133,6 +133,7 @@ and message = {
     msg_custom_marshaller: bool;
     msg_hide_from_docs: bool;
     msg_allowed_roles: string list option;
+    msg_map_keys_roles: (string * (string list option)) list
 }
 
 and field = {
@@ -148,7 +149,8 @@ and field = {
     field_has_effect: bool;
     field_ignore_foreign_key: bool;
     field_setter_roles: string list option;
-    field_getter_roles: string list option
+    field_getter_roles: string list option;
+    field_map_keys_roles: (string * (string list option)) list
 }
 
 and error = { 

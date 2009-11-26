@@ -187,6 +187,7 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?interna
     ?(no_current_operations=false) ?(secret=false) ?(hide_from_docs=false)
     ?(pool_internal=false)
     ~allowed_roles
+    ?(map_keys_roles=[])
     ?(params=[]) ?versioned_params () = 
   (* if you specify versioned_params then these get put in the params field of the message record;
      otherwise params go in with no default values and param_release=call_release...
@@ -213,7 +214,8 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?interna
     msg_no_current_operations = no_current_operations;
     msg_hide_from_docs = hide_from_docs;
     msg_pool_internal = pool_internal;
-    msg_allowed_roles = allowed_roles
+    msg_allowed_roles = allowed_roles;
+    msg_map_keys_roles = map_keys_roles
   }
 
 let assert_operation_valid enum cls self = call 
@@ -2539,7 +2541,9 @@ let vbd_assert_attachable = call
 (** Make an object field record *)
 let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(internal_only = false)
     ?internal_deprecated_since ?(ignore_foreign_key = false) ?(writer_roles=None) ?(reader_roles=None)
-    ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true) name desc =
+    ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true)
+    ?(map_keys_roles=[]) (* list of (key_name,(writer_roles)) for a map field *)
+    name desc =
   
 
   Field { release={internal=get_product_releases in_product_since; 
@@ -2554,6 +2558,7 @@ let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(interna
 	  field_ignore_foreign_key = ignore_foreign_key;
 	  field_setter_roles = writer_roles;
 	  field_getter_roles = reader_roles;
+	  field_map_keys_roles = map_keys_roles;
 	  }
 
 let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) refname =
@@ -2861,7 +2866,7 @@ let task =
       field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:String "result" "if the task has completed successfully, this field contains the result value (either Void or an object reference). Undefined otherwise.";
       field ~qualifier:DynamicRO ~ty:(Set String) "error_info" "if the task has failed, this field contains the set of associated error strings. Undefined otherwise.";
-      field ~writer_roles:_R_VM_OP ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP))];
       (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks."; 
@@ -3483,7 +3488,7 @@ let host =
 	namespace ~name:"API_version" ~contents:api_version ();
 	field ~qualifier:DynamicRO ~ty:Bool "enabled" "True if the host is currently enabled";
 	field ~qualifier:StaticRO ~ty:(Map(String, String)) "software_version" "version strings";
-	field ~ty:(Map(String, String)) "other_config" "additional configuration";
+	field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:StaticRO ~ty:(Set(String)) "capabilities" "Xen capabilities";
 	field ~qualifier:DynamicRO ~ty:(Map(String, String)) "cpu_configuration" "The CPU configuration on this host.  May contain keys such as \"nr_nodes\", \"sockets_per_node\", \"cores_per_socket\", or \"threads_per_core\"";
 	field ~qualifier:DynamicRO ~ty:String "sched_policy" "Scheduler policy currently in force on this host";
@@ -3620,7 +3625,7 @@ let network =
     ] @ (allowed_and_current_operations ~writer_roles:_R_POOL_OP network_operations) @ [
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "list of connected vifs";
       field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
-      field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ;
+      field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
       field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
       field ~writer_roles:_R_POOL_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
@@ -4114,7 +4119,7 @@ let storage_repository =
 	field ~qualifier:StaticRO "type" "type of the storage repository";
 	field ~qualifier:StaticRO "content_type" "the type of the SR's content, if required (e.g. ISOs)";
 	field ~qualifier:DynamicRO "shared" ~ty:Bool "true if this SR is (capable of being) shared between multiple hosts";
-	field ~ty:(Map(String, String)) "other_config" "additional configuration";
+	field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field  ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
  	field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None ~internal_only:true "default_vdi_visibility" "";
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
@@ -4387,7 +4392,7 @@ let vdi =
 	field ~qualifier:StaticRO ~ty:vdi_type "type" "type of the VDI";
 	field ~qualifier:StaticRO ~ty:Bool "sharable" "true if this disk may be shared";
 	field ~qualifier:StaticRO ~ty:Bool "read_only" "true if this disk may ONLY be mounted read-only";
-	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ;
+	field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if this disk is locked at the storage level";
 	(* XXX: location field was in the database in rio, now API in miami *)
 	field ~in_oss_since:None ~in_product_since:rel_miami ~ty:String ~qualifier:DynamicRO ~default_value:(Some (VString "")) "location" "location information";
@@ -5028,7 +5033,7 @@ let pool =
 			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
 			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR" "The SR in which VDIs for suspend images are created"
 			; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR" "The SR in which VDIs for crash dumps are created"
-			; field ~writer_roles:_R_VM_OP ~in_oss_since:None ~ty:(Map(String, String)) "other_config" "additional configuration"
+			; field ~in_oss_since:None ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("EMPTY_FOLDERS",(_R_VM_OP))]
 			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "ha_enabled" "true if HA is enabled on the pool, false otherwise"
 			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "ha_configuration" "The current HA configuration"
 			; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:DynamicRO ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles" "HA statefile VDIs in use"
@@ -5439,7 +5444,7 @@ let vm =
 	field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
 
 	field "PCI_bus" "PCI bus path for pass-through devices";
-	field  ~ty:(Map(String, String)) "other_config" "additional configuration";
+	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
 	field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, String)) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";

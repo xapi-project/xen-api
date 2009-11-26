@@ -95,6 +95,80 @@ let destroy_session_permissions_tbl ~session_id =
 			session_permissions_tbl
 			session_id
 
+(* create a key permission name that can be in the session *)
+let get_key_permission_name permission key_name =
+	permission ^ "/key_" ^ key_name
+
+(* create a key-error permission name that is never in the session *)
+let get_keyERR_permission_name permission err =
+	permission ^ "/keyERR_" ^ err
+
+let permission_of_action ?args ~keys _action =
+	(* all permissions are in lowercase, see gen_rbac.writer_ *)
+	let action = (String.lowercase _action) in
+	if (List.length keys) < 1
+	then (* most actions do not use rbac-guarded map keys in the arguments *)
+		action
+
+	else (* only actions with rbac-guarded map keys fall here *)
+	match args with
+	|None -> begin (* this should never happen *)
+			debug "DENYING access: no args for keyed-action %s" action;
+			get_keyERR_permission_name action "DENY_NOARGS" (* will always deny *)
+		end
+	|Some (arg_keys,arg_values) ->
+		if (List.length arg_keys) <> (List.length arg_values)
+		then begin (* this should never happen *)
+			debug "DENYING access: arg_keys and arg_values lengths don't match: arg_keys=[%s], arg_values=[%s]"
+				((List.fold_left (fun ss s->ss^s^",") "" arg_keys))
+				((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" arg_values))
+			;
+			get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)	
+		end
+		else (* keys and values have the same length *)
+		let rec get_permission_name_of_keys arg_keys arg_values =
+			match arg_keys,arg_values with
+			|[],[]|_,[]|[],_-> (* this should never happen *)
+				begin 
+					debug "DENYING access: no 'key' argument in the action %s" action;
+					get_keyERR_permission_name action "DENY_NOKEY" (* deny by default *)
+				end
+			|k::ks,v::vs->
+				if k<>"key" (* "key" is defined in datamodel_utils.ml *)
+				then
+					(get_permission_name_of_keys ks vs)
+				else (* found "key" in args *)
+					match v with
+					| Xml.Element("value",_,(Xml.PCData key_name_in_args)::[]) ->
+					begin
+						(*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
+						try 
+						let key_name =
+							List.find
+							(fun key_name ->
+							 if Stringext.String.endswith "*" key_name
+							 then begin (* resolve wildcards at the end *)
+								 Stringext.String.startswith
+									 (String.sub key_name 0 ((String.length key_name) - 1))
+									 key_name_in_args
+							 end
+							 else (* no wildcards to resolve *)
+								 key_name = key_name_in_args
+							)
+							keys
+						in
+							get_key_permission_name action (String.lowercase key_name)
+						with Not_found -> (* expected, key_in_args is not rbac-protected *)
+							action
+					end
+					|_ -> begin (* this should never happen *)
+						 debug "DENYING access: wrong XML value [%s] in the 'key' argument of action %s" (Xml.to_string v) action;
+						 get_keyERR_permission_name action "DENY_NOVALUE"
+					end
+		in
+		get_permission_name_of_keys arg_keys arg_values
+
+
 let is_permission_in_session ~session_id ~permission ~session =
 	let find_linear elem set = List.exists (fun e -> e = elem) set in
 	let find_log elem set = Permission_set.mem elem set in
@@ -137,10 +211,9 @@ let is_access_allowed ~__context ~session_id ~permission =
 
 (* Execute fn if rbac access is allowed for action, otherwise fails. *)
 let nofn = fun () -> ()
-let check ?(extra_dmsg="") ?(extra_msg="") ?args ~__context ~fn session_id action =
+let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn session_id action =
 
-	(* all permissions are in lowercase, see gen_rbac.writer_ *)
-	let permission = String.lowercase action in
+	let permission = permission_of_action action ?args ~keys in
 	
 	if (is_access_allowed ~__context ~session_id ~permission)
 	then (* allow access to action *)
