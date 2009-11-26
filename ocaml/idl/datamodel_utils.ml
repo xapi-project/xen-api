@@ -219,7 +219,8 @@ let new_messages_of_field x order fld =
 		 msg_hide_from_docs = false;
 		 msg_pool_internal = false;
 		 msg_db_only = fld.internal_only;
-		 msg_allowed_roles = None
+		 msg_allowed_roles = None;
+		 msg_map_keys_roles = []
 	       } in
   let getter = { common with
 		   msg_name = prefix "get_";
@@ -283,6 +284,7 @@ let new_messages_of_field x order fld =
                          "Add the given key-value pair to the %s field of the given %s."
                          (String.concat "/" fld.full_name) x.name);
 	    msg_allowed_roles = fld.field_setter_roles;
+	    msg_map_keys_roles = List.map (fun (k,(w))->(k,w)) fld.field_map_keys_roles;
 	    msg_tag = FromField(Add, fld) };
 	{ common with
 	    msg_name = prefix "remove_from_";
@@ -293,6 +295,7 @@ let new_messages_of_field x order fld =
                          "Remove the given key and its corresponding value from the %s field of the given %s.  If the key is not in that Map, then do nothing."
                          (String.concat "/" fld.full_name) x.name);
 	    msg_allowed_roles = fld.field_setter_roles;
+	    msg_map_keys_roles = List.map (fun (k,(w))->(k,w)) fld.field_map_keys_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
   | t, _ -> [
@@ -320,6 +323,7 @@ let messages_of_obj (x: obj) document_order : message list =
 		 msg_session=false; msg_release=x.obj_release; msg_has_effect=false; msg_tag=Custom;
 		 msg_force_custom = x.force_custom_actions;
 		 msg_allowed_roles = None;
+		 msg_map_keys_roles = [];
 		 msg_obj_name=x.name } in
   (* Constructor *)
   let ctor = { common with 
