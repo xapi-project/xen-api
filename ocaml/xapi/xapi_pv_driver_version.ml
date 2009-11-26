@@ -43,7 +43,12 @@ let get_latest_tools_vsn () =
 	match String.split '.' mid with
 	| [ maj; min; mic_plus_build ] ->
 	    begin match String.split '-' mic_plus_build with
-	    | [ mic; build ] -> int_of_string maj, int_of_string min, int_of_string mic, int_of_string build
+	    | [ mic; build ] -> 
+			  (* Build numbers often have a non-digit suffix: remove this *)
+			  let isdigit c = Char.code c >= (Char.code '0') && (Char.code c <= (Char.code '9')) in
+			  let build = String.strip (fun c -> not (isdigit c)) build in
+
+			  int_of_string maj, int_of_string min, int_of_string mic, int_of_string build
 	    | [ mic ] -> int_of_string maj, int_of_string min, int_of_string mic, -1
 	    | _ -> none (* never happens *)
 	    end
