@@ -299,7 +299,7 @@ let wrap fn =
 	with e -> (* never bubble up the error here *) 
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e)
 
-let sexpr_of __context session_id allowed_denied ok_error result_error ?args action =
+let sexpr_of __context session_id allowed_denied ok_error result_error ?args action permission =
   let result_error = 
 		if result_error = "" then result_error else ":"^result_error
 	in
@@ -312,7 +312,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args act
 		SExpr.String (ok_error ^ result_error)::
     SExpr.String (call_type_of action)::
 		(*SExpr.String (Helper_hostname.get_hostname ())::*)
-    SExpr.String action::
+    SExpr.String permission::
     (SExpr.Node (sexpr_of_parameters action args))::
 		[]
 	)
@@ -321,11 +321,11 @@ let append_line = Audit.audit
 
 let fn_append_to_master_audit_log = ref None
 
-let audit_line_of __context session_id allowed_denied ok_error result_error action ?args =
+let audit_line_of __context session_id allowed_denied ok_error result_error action permission ?args =
 	let _line = 
 		(SExpr.string_of 
 			 (sexpr_of __context session_id allowed_denied 
-					ok_error result_error ?args action
+					ok_error result_error ?args action permission
 			 )
 		)
 	in
@@ -339,7 +339,7 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 let allowed_ok ~__context ~session_id ~action ~permission ?args ?result () =
 	wrap (fun () ->
 		if has_to_audit action then 
-			audit_line_of __context session_id "ALLOWED" "OK" "" action ?args
+			audit_line_of __context session_id "ALLOWED" "OK" "" action permission ?args
 	)
 
 let allowed_error ~__context ~session_id ~action ~permission ?args ?error () =
@@ -350,13 +350,13 @@ let allowed_error ~__context ~session_id ~action ~permission ?args ?error () =
 				| None -> ""
 				| Some error -> (ExnHelper.string_of_exn error)
 			in
-			audit_line_of __context session_id "ALLOWED" "ERROR" error_str action ?args
+			audit_line_of __context session_id "ALLOWED" "ERROR" error_str action permission ?args
 	)
 	
 let denied ~__context ~session_id ~action ~permission ?args () =
 	wrap (fun () ->
 		if has_to_audit action then
-			audit_line_of __context session_id "DENIED" "" "" action ?args
+			audit_line_of __context session_id "DENIED" "" "" action permission ?args
 	)
 
 let session_destroy ~__context ~session_id =

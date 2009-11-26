@@ -79,7 +79,8 @@ let role_ref name = (ref_prefix ^ (role_uuid name))
 let permission_description = "A basic permission"
 let permission_name wire_name =
 	let s1 =replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
-	replace_char s1 '/' '_'
+	let s2 = replace_char s1 '/' '_' in
+	Stringext.String.replace "*" "WILDCHAR" s2
 
 let permission_index = ref 0
 let writer_permission name nperms =
@@ -213,8 +214,12 @@ let rec concat = function
 		let r,perms = match r1 with []->(xr,[])|r1::_->r1 in 
 		concat (xperm,((r,xperm::perms)::r2),extra_rs)
 
+let get_key_permission_name permission key_name =
+  permission ^ "/key_" ^ key_name
+
 let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 	let msg_allowed_roles = x.msg_allowed_roles in
+	let msg_map_keys_roles = x.msg_map_keys_roles in
 	let wire_name = DU.wire_name ~sync:true obj x in
 	match msg_allowed_roles with
 		| None -> (
@@ -222,7 +227,19 @@ let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 				(* a message should have at least one role *)
 				failwith (Printf.sprintf "No roles for message %s" wire_name);
 			)
-		| Some(allowed_roles) -> concat (wire_name,roles_permissions,allowed_roles)
+		| Some(allowed_roles) -> 
+				let with_msg_roles_permissions =
+					(concat (wire_name,roles_permissions,allowed_roles))
+				in
+				List.fold_left
+					(fun rsps (k,rs)->
+						let wire_name_key = get_key_permission_name wire_name k in
+						match rs with
+						|None->failwith (Printf.sprintf "No roles for key %s" wire_name_key)
+						|Some(allowed_roles)->(concat (wire_name_key, rsps, allowed_roles))
+					)
+					with_msg_roles_permissions
+					msg_map_keys_roles
 
 let get_http_permissions_roles =
 	List.fold_left
