@@ -158,7 +158,8 @@ let operation (obj: obj) (x: message) =
   let rbac_check_begin = if has_session_arg
     then [
 			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) string_args (if is_non_constructor_with_defaults then "\"default_args\"::[]" else "[]"))^" in";
-			"Rbac.check session_id __call ~args:(arg_names,__params) ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
+			"let key_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) (List.map (fun (k,_)->k) x.msg_map_keys_roles) "[]")^" in";
+			"Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
     else []
   in
   let rbac_check_end = if has_session_arg then [") (*RBAC-END*)"] else [] in
