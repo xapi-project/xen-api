@@ -71,9 +71,10 @@ static int fake_xen_domctl(int handle, struct xen_domctl *domctl)
 		marshall_command(handle, "%s,%d,%d\n", DOMCTLcmd, domctl->cmd, domctl->domain);
 		return unmarshall_return(handle);
 	case XEN_DOMCTL_createdomain: /* W ssidref */
-		marshall_command(handle, "%s,%d,%d," DOMAINHANDLE "\n", DOMCTLcmd,
+		marshall_command(handle, "%s,%d,%d,%d," DOMAINHANDLE "\n", DOMCTLcmd,
 		                 domctl->cmd,
-		                 domctl->u.createdomain.flags,
+		                 (domctl->u.createdomain.flags|XEN_DOMCTL_CDF_hvm_guest)?1:0,
+		                 (domctl->u.createdomain.flags|XEN_DOMCTL_CDF_hap)?1:0,
 		                 domctl->u.createdomain.handle[0],
 		                 domctl->u.createdomain.handle[1],
 		                 domctl->u.createdomain.handle[2],
