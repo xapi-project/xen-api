@@ -517,7 +517,9 @@ let domain_create hvm uuid =
 	newdom
 
 let domain_destroy domid =
-	ignore (domain_find domid); Hashtbl.remove domains domid
+  let d = domain_find domid in
+  transfer_to_domain d (-d.tot_mem_kib);
+  Hashtbl.remove domains domid
 
 let domain_sethandle domid uuid =
 	let dom = domain_find domid in dom.uuid <- uuid; ()
