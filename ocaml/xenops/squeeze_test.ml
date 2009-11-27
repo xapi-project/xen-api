@@ -360,9 +360,8 @@ let simulate scenario =
 	end
   in
   let setmaxmem domid kib =
-    let domain = List.assoc domid domid_to_domain in
-	debug "setmaxmem domid = %d; kib = %Ld target = %Ld" domid kib (domain#get_domain.target_kib);
-	domain#set_maxmem kib
+	debug "setmaxmem domid = %d; kib = %Ld" domid kib;
+	execute_action { Squeeze.action_domid = domid; new_target_kib = kib }
   in
   (* Allow the simulated balloon drivers to change memory_actual_kib *)
   (* and update host_free_memory accordingly.                        *)
