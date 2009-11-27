@@ -188,62 +188,65 @@ module Stuckness_monitor = struct
 	*)
 	let assume_balloon_driver_stuck_after = 5. (* seconds *)
 
-	type t = { memory_actual_updates: (int, int64 * float) Hashtbl.t;
-		   has_hit_targets: (int, bool) Hashtbl.t }
+	type per_domain_state = {
+		mutable last_actual_kib: int64; (** last value of memory actual seen *)
+		mutable last_makingprogress_time: float; (** last time we saw progress towards the target *)
+		mutable stuck: bool; 
+	}
+	type t = {
+		per_domain: (int, per_domain_state) Hashtbl.t;
+	}
 
 	(** Make a monitoring object *)
-	let make () : t = { memory_actual_updates = Hashtbl.create 10; has_hit_targets = Hashtbl.create 10 }
+	let make () : t = 
+	  { per_domain = Hashtbl.create 10 }
 
 	(** Update our internal state given a snapshot of the outside world *)
-	let update (x: t) (state: host) (now: float) =
+	let update (x: t) (host: host) (now: float) =
 		List.iter
-			(fun domain ->
-			   let hit_target = has_hit_target domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
-			   if not hit_target && Hashtbl.mem x.has_hit_targets domain.domid then begin
-			     debug "domid %d is nolonger on its target; target = %Ld; memory_actual = %Ld" domain.domid domain.target_kib domain.memory_actual_kib;
-			     Hashtbl.remove x.has_hit_targets domain.domid
-			   end;
-
-			   let have_useful_update = 
-			     (* either I have no information at all *)
-			     if not (Hashtbl.mem x.memory_actual_updates domain.domid) then begin
-			       true
-			     end else if domain.memory_actual_kib <> fst (Hashtbl.find x.memory_actual_updates domain.domid) then begin
-			       (* or the information I have is out of date *)
-			       true
-			     end else if hit_target then begin
-			       (* we assume that if the target has been hit then the domain is still active *)
-			       if not (Hashtbl.mem x.has_hit_targets domain.domid) then begin
-				 if domain.domid <> 0 (* dom0 is boring and sits on its target *)
-				 then debug "domid %d has hit its target; target = %Ld; memory_actual = %Ld" domain.domid domain.target_kib domain.memory_actual_kib;
-				 Hashtbl.replace x.has_hit_targets domain.domid true
-			       end;
-			       true
-			     end else false in
-			     if have_useful_update 
-			     then Hashtbl.replace x.memory_actual_updates domain.domid (domain.memory_actual_kib, now)
+			(fun (domain: domain) ->
+				 let direction = direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
+				 if not(Hashtbl.mem x.per_domain domain.domid)
+				 then Hashtbl.replace x.per_domain domain.domid
+				   (* new domains are considered to be making progress now and not stuck *)
+				   { last_actual_kib = domain.memory_actual_kib;
+					 last_makingprogress_time = now;
+					 stuck = false };
+				 let state = Hashtbl.find x.per_domain domain.domid in
+				 let delta_actual = domain.memory_actual_kib -* state.last_actual_kib in
+				 state.last_actual_kib <- domain.memory_actual_kib;
+				 (* If memory_actual is moving towards the target then we say we are makingprogress *)
+				 let makingprogress = (delta_actual > 0L && direction = Some Down) || (delta_actual < 0L && direction = Some Up) in
+				 (* We keep track of the last time we were makingprogress. If we are makingprogress now 
+					then we are not stuck. *)
+				 if makingprogress then begin
+				   state.last_makingprogress_time <- now;
+				   state.stuck <- false;
+				 end;
+				 (* If there is a request (ie work to do) and we haven't been makingprogress for more than the
+					assume_balloon_driver_stuck_after then declare this domain stuck. *)
+				 let request = direction <> None in (* ie target <> actual *)
+				 if request && (now -. state.last_makingprogress_time > assume_balloon_driver_stuck_after)
+				 then state.stuck <- true;
 			)
-			state.domains;
+			host.domains;
 		(* Clear out dead domains just in case someone keeps *)
 		(* one of these things around for a long time.       *)
-		let live_domids = List.map (fun domain -> domain.domid) state.domains in
+		let live_domids = List.map (fun domain -> domain.domid) host.domains in
 		let to_delete = Hashtbl.fold
 			(fun domid _ acc ->
 				if List.mem domid live_domids then acc else domid :: acc
 			)
-			x.memory_actual_updates []
+			x.per_domain []
 		in
-		List.iter (Hashtbl.remove x.memory_actual_updates) to_delete;
-		List.iter (Hashtbl.remove x.has_hit_targets) to_delete
+		List.iter (Hashtbl.remove x.per_domain) to_delete
 
 	(** Return true if we think a particular driver is still making useful progress.
 	    If it is not making progress it may have either hit its target or it may have failed. *)
 	let domid_is_active (x: t) domid (now: float) = 
-	  if not (Hashtbl.mem x.memory_actual_updates domid)
+	  if not (Hashtbl.mem x.per_domain domid)
 	  then false (* it must have been destroyed *)
-	  else 
-	    let _, time = Hashtbl.find x.memory_actual_updates domid in
-	    now -. time <= assume_balloon_driver_stuck_after
+	  else not (Hashtbl.find x.per_domain domid).stuck
 end
 
 type fistpoint = 
