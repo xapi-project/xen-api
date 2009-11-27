@@ -189,12 +189,12 @@ let log key level ?(extra="") (fmt: ('a, unit, string, unit) format4): 'a =
       List.iter (fun t -> Log.output t ~key ~extra level s) l) fmt
 		)
 
-let log_and_return key level ?(raw=false) ?(extra="") (fmt: ('a, unit, string, string) format4): 'a =
+let log_and_return key level ?(raw=false) ~syslog_time ?(extra="") (fmt: ('a, unit, string, string) format4): 'a =
 	log_common key level ~extra ~ret_fn1:(fun s->s) fmt
     ~ret_fn2:(fun l ->
 		let ret_str = ref "" in
     Printf.kprintf (fun s ->
-      List.iter (fun t -> ret_str := Log.output_and_return t ~raw ~key ~extra level s) l; !ret_str) fmt
+      List.iter (fun t -> ret_str := Log.output_and_return t ~raw ~syslog_time ~key ~extra level s) l; !ret_str) fmt
 		)
 
 
@@ -208,4 +208,4 @@ let warn t ?extra (fmt: ('a , unit, string, unit) format4) =
 let error t ?extra (fmt: ('a , unit, string, unit) format4) =
 	log t Log.Error ?extra fmt
 let audit t ?raw ?extra (fmt: ('a , unit, string, string) format4) =
-  log_and_return t Log.Info ?raw ?extra fmt
+  log_and_return t Log.Info ?raw ~syslog_time:true ?extra fmt
