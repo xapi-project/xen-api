@@ -44,9 +44,17 @@ class virtual vm initial_domain = object (self)
 	(** Helper function to change the domain's balloon target *)
 	method set_target new_target_kib =
 		if new_target_kib <> domain.target_kib
-		then debug "domid %d: target change was %Ld now %Ld"
-			domain.domid domain.target_kib new_target_kib;
+		then debug "domid %d: target change was %Ld now %Ld (max %Ld)"
+			domain.domid domain.target_kib new_target_kib domain.memory_max_kib;
+		if new_target_kib > domain.memory_max_kib
+		then failwith (Printf.sprintf "Target set above max_mem domid %d; max_mem = %Ld; target = %Ld" domain.domid domain.memory_max_kib new_target_kib);
 		domain <- { domain with target_kib = new_target_kib }
+
+	(** Helper function to set the domain's maxmem *)
+	method set_maxmem new_max_kib = 
+	  if domain.target_kib > new_max_kib
+	  then failwith (Printf.sprintf "mem_max set below target domid %d; max_mem = %Ld; target = %Ld" domain.domid new_max_kib domain.target_kib);
+	  domain <- { domain with memory_max_kib = new_max_kib }
 
 	(**
 		Given a number of time units since the last call to 'update',
@@ -106,6 +114,20 @@ class idealised_vm_with_limit
 		else minimum_memory -* domain.memory_actual_kib
 		(* this takes us to the minimum *)
 end
+
+(** Represents a VM which fails to allocate above a certain threshold *)
+class idealised_vm_with_upper_limit initial_domain rate limit = object
+  inherit vm initial_domain
+	  
+	method compute_memory_actual_delta time_passed =
+	  let delta = compute_memory_actual_delta domain rate time_passed in
+	  let proposed_new_memory_actual = domain.memory_actual_kib +* delta in
+	  if proposed_new_memory_actual < limit
+	  then delta
+	  else (limit -* domain.memory_actual_kib)
+end
+
+
 	
 (** Represents a VM whose balloon driver has completely failed *)
 class stuck_vm initial_domain = object
@@ -157,9 +179,9 @@ let scenario_a = {
 	should_succeed = true;
 	scenario_domains = [
 		new idealised_vm_with_limit
-			(domain_make 0 true 1000L 1500L 2000L 1500L 0L 4L) 100L 1250L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 1500L 4L) 100L 1250L;
 		new intermittently_stuck_vm
-			(domain_make 1 true 2500L 3500L 4500L 3500L 0L 4L) 500L 0.25;
+			(domain_make 1 true 2500L 3500L 4500L 3500L 3500L 4L) 500L 0.25;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L;
@@ -173,9 +195,9 @@ let scenario_b = {
 	should_succeed = true;
 	scenario_domains = [
 		new intermittently_stuck_vm
-			(domain_make 1 true 500L 3500L 4500L 3500L 0L 4L) 100L 3.;
+			(domain_make 1 true 500L 3500L 4500L 3500L 3500L 4L) 100L 3.;
 		new intermittently_stuck_vm
-			(domain_make 0 true 500L 1500L 2500L 1500L 0L 4L) 100L 1.5;
+			(domain_make 0 true 500L 1500L 2500L 1500L 1500L 4L) 100L 1.5;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L;
@@ -188,8 +210,8 @@ let scenario_c = {
 		freed";
 	should_succeed = false;
 	scenario_domains = [
-		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L 0L 0L) 100L;
-		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L 0L 0L) 100L;
+		new idealised_vm (domain_make 0 true 1000L 1500L 2000L 1500L 1500L 0L) 100L;
+		new idealised_vm (domain_make 1 true 2000L 2500L 3000L 2500L 2500L 0L) 100L;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1500L;
@@ -203,9 +225,9 @@ let scenario_d = {
 	should_succeed = false;
 	scenario_domains = [
 		new idealised_vm
-			(domain_make 0 true 1000L 1500L 2000L 1500L 0L 0L) 100L;
+			(domain_make 0 true 1000L 1500L 2000L 1500L 1500L 0L) 100L;
 		new idealised_vm_with_limit
-			(domain_make 1 true 2000L 2500L 3000L 2500L 0L 0L) 100L 2250L;
+			(domain_make 1 true 2000L 2500L 3000L 2500L 2500L 0L) 100L 2250L;
 	];
 	host_free_mem_kib = 0L;
 	required_mem_kib = 1000L;
@@ -222,10 +244,10 @@ let scenario_e = {
 	scenario_domains = [
 		(* The stuck domain is using more than it should be if the memory was freed and everything balanced *)
 		new stuck_vm
-			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L 0L 0L);
+			(domain_make 0 true (*min*)5000L (*target*)7000L (*max*)7000L (*actual*)7000L 7000L 0L);
 		(* The working domain is using less than it should be if the memory was freed and everything balanced *)
 		new idealised_vm
-			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L 0L 0L) 100L;
+			(domain_make 1 true (*min*)5000L (*target*)6000L (*max*)11000L (*actual*)6000L 6000L 0L) 100L;
 
 	];
 	host_free_mem_kib = 0L;
@@ -262,6 +284,21 @@ let scenario_g = {
        domains are both stuck if we don't take this into account. *)
 }
 
+let scenario_h = {
+	name = "h";
+	description = "a small domain with a hidden upper limit and a perfectly working domain";
+	should_succeed = true;
+	scenario_domains = [
+		new idealised_vm_with_upper_limit
+			(domain_make 0 true 1000L 1500L 2000L 1500L 1500L 4L) 100L 1500L;
+		new idealised_vm
+			(domain_make 1 true 1000L 1500L 2000L 1500L 1500L 4L) 100L; (* this one can take up the slack *)
+	];
+	host_free_mem_kib = 1000L;
+	required_mem_kib = 0L;
+	fistpoints = [ ];
+}
+
 (* scenario_a with < 24L after the balancing will fail *)
 
 let all_scenarios = [
@@ -272,6 +309,7 @@ let all_scenarios = [
 	scenario_e;
 	scenario_f;
 	scenario_g;
+	scenario_h;
 ]
 	
 (*
@@ -313,9 +351,19 @@ let simulate scenario =
   (* Update all the recorded balloon targets *)
   let execute_action (action: action) =
     let domain = List.assoc action.action_domid domid_to_domain in
-    domain#set_target action.new_target_kib
+	if action.new_target_kib > domain#get_domain.memory_max_kib then begin
+	  domain#set_maxmem action.new_target_kib;
+      domain#set_target action.new_target_kib;
+	end else begin
+      domain#set_target action.new_target_kib;
+	  domain#set_maxmem action.new_target_kib;
+	end
   in
-
+  let setmaxmem domid kib =
+    let domain = List.assoc domid domid_to_domain in
+	debug "setmaxmem domid = %d; kib = %Ld target = %Ld" domid kib (domain#get_domain.target_kib);
+	domain#set_maxmem kib
+  in
   (* Allow the simulated balloon drivers to change memory_actual_kib *)
   (* and update host_free_memory accordingly.                        *)
   let update_balloons time =
@@ -353,7 +401,7 @@ let simulate scenario =
   let io = {
     Squeeze.gettimeofday = gettimeofday;
     make_host = (fun () -> Printf.sprintf "F%Ld" !host_free_mem_kib, make_host ());
-    domain_setmaxmem = (fun domid kib -> ());
+    domain_setmaxmem = setmaxmem;
     wait = wait;
     execute_action = execute_action;
     target_host_free_mem_kib = scenario.required_mem_kib;
