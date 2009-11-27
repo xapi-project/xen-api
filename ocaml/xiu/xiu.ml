@@ -13,6 +13,7 @@
  *)
 open Printf
 open Pervasiveext
+open Threadext
 
 type inject_error_ty =
 	| Inject_error_create
@@ -35,6 +36,7 @@ let cpu_usage = ref 1000L
 let cpu_speed_mhz = ref (1 * 1000) (* by default 1 ghz *)
 let physical_free_kib = ref ((4 * 1024 - 1) * 1024) (* by default ~4gb of free memory *)
 let physical_memory_kib = ref (4 * 1024 * 1024) (* by default 4gb of memory *)
+let host_m = Mutex.create ()
 
 (** utility *)
 let create_unix_socket name =
@@ -152,14 +154,34 @@ let domain_find domid =
 	try Hashtbl.find domains domid
 	with Not_found -> raise Domain_not_found
 
+let round_down_to_page x = (x / 4) * 4
+
+(** Add up to [delta_kib] memory to the domain, reducing the host free memory by the same amount *)
+let transfer_to_domain dom delta_kib =
+  Mutex.execute host_m
+	  (fun () ->
+		   let available_kib = min !physical_free_kib delta_kib in
+		   eprintf "(XIU) transfer_to_domain domid = %d; delta_kib = %d\n%!" dom.domid delta_kib;
+		   dom.tot_mem_kib <- dom.tot_mem_kib + available_kib;
+		   physical_free_kib := !physical_free_kib - available_kib
+	  )
+
 (** immediately set the tot_mem_kib to the requested balloon target *)
 let read_memory_target xs domid = 
 	let path = Printf.sprintf "/local/domain/%d/memory/target" domid in
 	try
-		let mem = xs.Xs.read path in
+		let mem = int_of_string (xs.Xs.read path) in
 		let dom = domain_find domid in
-		dom.tot_mem_kib <- int_of_string mem
-	with e -> eprintf "(XIU) Failed to parse memory target of domid %d\n" domid
+		(* Enforce the max_mem limit *)
+		if mem > dom.max_mem_kib
+		then eprintf "(XIU) domid %d target = %d KiB but max_mem = %d KiB\n%!" domid mem dom.max_mem_kib;
+		let requested = round_down_to_page (min mem dom.max_mem_kib) in
+
+		let delta_kib = requested - dom.tot_mem_kib in
+		transfer_to_domain dom delta_kib;
+		if dom.tot_mem_kib <> requested
+		then eprintf "(XIU) domid %d requested %d KiB but only got %d KiB\n%!" domid requested dom.tot_mem_kib;
+	with e -> eprintf "(XIU) Failed to parse memory target of domid %d\n%!" domid
 
 (** Maximum number of dummy<N> devices fixed at module-load time *)
 let max_dummy_vifs = 1000
@@ -496,6 +518,8 @@ let domain_shadow_allocation domid alloc = let dom = domain_find domid in dom.sh
 let domain_get_shadow_allocation domid = (domain_find domid).shadow_allocation
 
 let domain_list_from first max =
+  Mutex.execute host_m
+	  (fun () ->
 	let domains_at_first = Hashtbl.fold (fun k v acc ->
 		if k >= first then v :: acc else acc
 	) domains [] in
@@ -510,6 +534,7 @@ let domain_list_from first max =
 		done;
 		Array.to_list a
 	)
+	  )
 
 let marshall_int fd i =
 	let buf = sprintf "%d\n" i in
