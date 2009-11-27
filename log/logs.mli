@@ -33,7 +33,7 @@ val log :
 val log_and_return :
   string ->
   Log.level ->
-  ?raw:bool -> ?extra:string -> ('a, unit, string, string) format4 -> 'a
+  ?raw:bool -> syslog_time:bool -> ?extra:string -> ('a, unit, string, string) format4 -> 'a
 val debug : string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a
 val info : string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a
 val warn : string -> ?extra:string -> ('a, unit, string, unit) format4 -> 'a
