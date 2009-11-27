@@ -69,8 +69,8 @@ type xenpowerstate = Dying | Shutdown of int | Paused | Blocked | Running
 type xendomain = {
 	domid: int;
 	hvm: bool;
-	mutable tot_mem: int; (* memory in use *)
-	mutable max_mem: int; (* maximum possible *)
+	mutable tot_mem_kib: int; (* memory in use *)
+	mutable max_mem_kib: int; (* maximum possible *)
 	mutable vcpus: int;
 	mutable uuid: int array;
 	mutable state: xenpowerstate;
@@ -152,13 +152,13 @@ let domain_find domid =
 	try Hashtbl.find domains domid
 	with Not_found -> raise Domain_not_found
 
-(** immediately set the tot_mem to the requested balloon target *)
+(** immediately set the tot_mem_kib to the requested balloon target *)
 let read_memory_target xs domid = 
 	let path = Printf.sprintf "/local/domain/%d/memory/target" domid in
 	try
 		let mem = xs.Xs.read path in
 		let dom = domain_find domid in
-		dom.tot_mem <- int_of_string mem
+		dom.tot_mem_kib <- int_of_string mem
 	with e -> eprintf "(XIU) Failed to parse memory target of domid %d\n" domid
 
 (** Maximum number of dummy<N> devices fixed at module-load time *)
@@ -466,8 +466,8 @@ let domain_create hvm uuid =
 	let newdom = {
 		domid = newdomid;
 		hvm = hvm;
-		max_mem = 0;
-		tot_mem = 0;
+		max_mem_kib = 0;
+		tot_mem_kib = 0;
 		vcpus = 0;
 		uuid = uuid;
 		state = Paused;
@@ -491,7 +491,7 @@ let domain_unpause domid =
 let domain_pause domid = (domain_find domid).state <- Paused
 let domain_resume domid = ignore (domain_find domid)
 let domain_maxcpus domid vcpus = let dom = domain_find domid in dom.vcpus <- vcpus
-let domain_maxmem domid mem = let dom = domain_find domid in dom.max_mem <- mem
+let domain_maxmem domid mem = let dom = domain_find domid in dom.max_mem_kib <- mem
 let domain_shadow_allocation domid alloc = let dom = domain_find domid in dom.shadow_allocation <- alloc
 let domain_get_shadow_allocation domid = (domain_find domid).shadow_allocation
 
@@ -632,8 +632,8 @@ let do_xc_cmd fd cmd =
 				                       (string_of_int (domflags_to_int dom));
 				                       (string_of_int dom.vcpus); (* nr_online_vcpus *)
 				                       (string_of_int dom.vcpus); (* max_vcpu_id *)
-						       (string_of_int (pages_of_kb dom.tot_mem));
-						       (string_of_int (pages_of_kb dom.max_mem));
+						       (string_of_int (pages_of_kb dom.tot_mem_kib));
+						       (string_of_int (pages_of_kb dom.max_mem_kib));
 						       (string_of_int dom.shared_info_frame);
 						       (string_of_int dom.cpu_time);
 						       (string_of_int dom.ssidref);
