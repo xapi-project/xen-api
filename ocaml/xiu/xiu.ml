@@ -426,6 +426,11 @@ let thread_domain domid =
 		in
 
 	with_xs_retry (fun xs ->
+		(* booting *)
+		Thread.delay 3.;
+		
+		let written_feature_balloon = ref false in
+
 		(* install watches *)
 		xs.Xs.watch (mypath ^ "control/shutdown") "control";
 		xs.Xs.watch (mypath ^ "device") "device";
@@ -446,7 +451,17 @@ let thread_domain domid =
 				| "backend" -> backend_changed xs w
 				| "device"  -> device_changed xs w
 				| "control" -> control_changed xs w
-				| "balloon" -> read_memory_target xs domid
+				| "balloon" -> 
+					  (* NB normally the domain builder + qemu would allocate memory during boot, then
+						 the PV drivers would write feature-balloon and then we would sample the 
+						 memory-offset. In the simulator there is no domain builder and the first time
+						 the memory/target watch fires is when we allocate all the memory.
+						 Make sure we allocate the memory before writing feature-balloon: *)
+					  read_memory_target xs domid;
+					  if not !written_feature_balloon then begin
+						xs.Xs.write (mypath ^ "control/feature-balloon") "true";
+						written_feature_balloon := true
+					  end;
 				| _         -> add_console (sprintf "dom0: unknown watch %s,%s" w v);
 				end;
 				match !shutdowning with
