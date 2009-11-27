@@ -305,7 +305,7 @@ let free_memory_tolerance_kib = 512L (** No need to be too exact *)
 let io ~xc ~xs = {
   Squeeze.gettimeofday = Unix.gettimeofday;
   make_host = (fun () -> make_host ~xc ~xs);
-  domain_setmaxmem = (fun domid kib -> domain_setmaxmem_noexn xc domid kib);
+  domain_setmaxmem = (fun domid kib -> execute_action ~xc ~xs { Squeeze.action_domid = domid; new_target_kib = kib });
   wait = (fun delay -> ignore(Unix.select [] [] [] delay));
   execute_action = (fun action -> execute_action ~xc ~xs action);
   target_host_free_mem_kib = target_host_free_mem_kib;
