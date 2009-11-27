@@ -33,8 +33,8 @@ let nb_cpu_cores = ref 2
 let nb_cpu_threads = ref 1
 let cpu_usage = ref 1000L
 let cpu_speed_mhz = ref (1 * 1000) (* by default 1 ghz *)
-let physical_free_mb = ref (4 * 1024 - 1) (* by default ~4gb of free memory *)
-let physical_memory_mb = ref (4 * 1024) (* by default 4gb of memory *)
+let physical_free_kib = ref ((4 * 1024 - 1) * 1024) (* by default ~4gb of free memory *)
+let physical_memory_kib = ref (4 * 1024 * 1024) (* by default 4gb of memory *)
 
 (** utility *)
 let create_unix_socket name =
@@ -618,11 +618,11 @@ let do_xc_cmd fd cmd =
 			-einval
 		in
 	let do_xc_sysctl _cmd args =
+	  let pages_of_kb n = n / 4 in
 		let cmd = sysctl_of_int (int_of_string _cmd) in
 		match cmd, args with
 		| Sysctl_getdomaininfolist, [first; max] ->
 			let first = int_of_string first and max = int_of_string max in
-			let pages_of_kb n = n / 4 in
 			hypercall_debug2 (sprintf "get domain info list (%d,%d)" first (first + max));
 			let domains = domain_list_from first max in
 			let num = List.length domains in
@@ -642,14 +642,13 @@ let do_xc_cmd fd cmd =
 			0
 		| Sysctl_physinfo, _ ->
 			hypercall_debug2 (sprintf "physinfo");
-			let pages_of_mb n = n * (4096 / 4) in
 			marshall_multiple fd [ string_of_int !nb_cpu_threads;
 			                       string_of_int !nb_cpu_cores;
 			                       string_of_int !nb_cpu_sockets;
 			                       string_of_int !nb_cpu_nodes;
 					       string_of_int (!cpu_speed_mhz * 1000);
-					       string_of_int (pages_of_mb !physical_memory_mb);
-					       string_of_int (pages_of_mb !physical_free_mb); ];
+					       string_of_int (pages_of_kb !physical_memory_kib);
+					       string_of_int (pages_of_kb !physical_free_kib); ];
 			0
 		| Sysctl_getcpuinfo, [m] ->
 			let nbcpu = min (int_of_string m) 2 in
@@ -791,8 +790,8 @@ let _ =
 			| "error-create" -> inject_error := Inject_error_create :: !inject_error
 			| "shutdown" -> inject_error := Inject_shutdown :: !inject_error
 			| _ -> ());
-		"free-memory", Config.Set_int physical_free_mb;
-		"total-memory", Config.Set_int physical_memory_mb;
+		"free-memory", Config.Set_int physical_free_kib;
+		"total-memory", Config.Set_int physical_memory_kib;
 		"cpu-nodes", Config.Set_int nb_cpu_nodes;
 		"cpu-sockets", Config.Set_int nb_cpu_sockets;
 		"cpu-cores", Config.Set_int nb_cpu_cores;
