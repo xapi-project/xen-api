@@ -25,10 +25,6 @@ module M = Debug.Debugger(struct let name = "memory" end)
 let debug = Squeeze.debug
 let error = Squeeze.error 
 
-(** We define a domain which is paused, not shutdown and has not clocked up any CPU cycles
-    as 'never_been_run' *)
-let never_been_run di = di.Xc.paused && not di.Xc.shutdown && di.Xc.cpu_time = 0L
-
 let initial_reservation_path dom_path = dom_path ^ "/memory/initial-reservation"
 let target_path              dom_path = dom_path ^ "/memory/target"
 let dynamic_min_path         dom_path = dom_path ^ "/memory/dynamic-min"
@@ -219,7 +215,9 @@ let make_host ~xc ~xs =
 					   then we'll need to consider the domain's "initial-reservation". Note that the other fields
 					   won't necessarily have been created yet. *)
 
-					if never_been_run di then begin
+					(* If the domain has yet to expose it's feature-balloon flag then we assume it is using at least its
+					   "initial-reservation". *)
+					if not can_balloon then begin
 						let initial_reservation_kib = Int64.of_string (xs_read xs (initial_reservation_path path)) in
 						(* memory_actual_kib is memory which xen has accounted to this domain. We bump this up to
 						   the "initial-reservation" and compute how much memory to subtract from the host's free
