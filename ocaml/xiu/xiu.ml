@@ -20,7 +20,7 @@ type inject_error_ty =
 	| Inject_crash
 	| Inject_shutdown
 
-let debug_level = ref 0
+let debug_level = ref 3
 let inject_error = ref []
 
 let xiu_path = ref "" (* passed into udev scripts we fork *)
@@ -593,15 +593,15 @@ let do_xc_cmd fd cmd =
 	let do_xc_domctl _cmd args =
 		let cmd = domctl_of_int (int_of_string _cmd) in
 		match cmd, args with
-		| Domctl_create, [flags; handle] ->
-			hypercall_debug (sprintf "creating domain (%s,%s)" flags handle);
+		| Domctl_create, [hvm; hap; handle] ->
+			hypercall_debug (sprintf "creating domain (%s, %s, ,%s)" hvm hap handle);
 			let h = Array.map int_of_hexstring
 			(Array.of_list (Stringext.String.split '-' handle)) in
 			
 			if random_inject_error Inject_error_create then (
 				raise Cannot_create_domain
 			);
-			let dom = exn_to_errno (fun () -> (domain_create false h).domid) in
+			let dom = exn_to_errno (fun () -> (domain_create (hvm = "1") h).domid) in
 			marshall_int fd (if dom < 0 then 0 else dom);
 			0		
 		| Domctl_destroy, [domid] ->
@@ -656,7 +656,7 @@ let do_xc_cmd fd cmd =
 			hypercall_debug (sprintf "DOMCTL(%d) unknown" i);
 			-einval
 		| _, _ ->
-			hypercall_debug (sprintf "DOMCTL(%s) not implemented or invalid number of args" _cmd);
+			hypercall_debug (sprintf "DOMCTL(%s) not implemented or invalid number of args ([%s])" _cmd (String.concat ";" args));
 			-einval
 		in
 	let do_xc_sysctl _cmd args =
