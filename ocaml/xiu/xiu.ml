@@ -38,6 +38,8 @@ let physical_free_kib = ref ((4 * 1024 - 1) * 1024) (* by default ~4gb of free m
 let physical_memory_kib = ref (4 * 1024 * 1024) (* by default 4gb of memory *)
 let host_m = Mutex.create ()
 
+let extra_kib = 512
+
 (** utility *)
 let create_unix_socket name =
 	Unixext.unlink_safe name;
@@ -73,6 +75,7 @@ type xendomain = {
 	hvm: bool;
 	mutable tot_mem_kib: int; (* memory in use *)
 	mutable max_mem_kib: int; (* maximum possible *)
+	mutable extra_kib: int;
 	mutable vcpus: int;
 	mutable uuid: int array;
 	mutable state: xenpowerstate;
@@ -505,6 +508,7 @@ let domain_create hvm uuid =
 		hvm = hvm;
 		max_mem_kib = 0;
 		tot_mem_kib = 0;
+		extra_kib = extra_kib;
 		vcpus = 0;
 		uuid = uuid;
 		state = Paused;
@@ -674,7 +678,7 @@ let do_xc_cmd fd cmd =
 				                       (string_of_int (domflags_to_int dom));
 				                       (string_of_int dom.vcpus); (* nr_online_vcpus *)
 				                       (string_of_int dom.vcpus); (* max_vcpu_id *)
-						       (string_of_int (pages_of_kb dom.tot_mem_kib));
+						       (string_of_int (pages_of_kb (dom.tot_mem_kib + dom.extra_kib)));
 						       (string_of_int (pages_of_kb dom.max_mem_kib));
 						       (string_of_int dom.shared_info_frame);
 						       (string_of_int dom.cpu_time);
