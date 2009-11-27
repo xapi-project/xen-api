@@ -282,9 +282,15 @@ let execute_action ~xc ~xs action =
 		let target_kib = action.Squeeze.new_target_kib in
 		if target_kib < 0L
 		then failwith "Proposed target is negative (domid %d): %Ld" domid target_kib;
-
-		domain_setmaxmem_noexn xc domid target_kib;
-		set_target_noexn xs path target_kib
+		let di = Xc.domain_getinfo xc domid in
+		let memory_max_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
+		if target_kib > memory_max_kib then begin
+		  domain_setmaxmem_noexn xc domid target_kib;
+		  set_target_noexn xs path target_kib;
+		end else begin
+		  set_target_noexn xs path target_kib;
+		  domain_setmaxmem_noexn xc domid target_kib;
+		end
 	with e ->
 		debug "Failed to reset balloon target (domid: %d) (target: %Ld): %s"
 			action.Squeeze.action_domid action.Squeeze.new_target_kib
