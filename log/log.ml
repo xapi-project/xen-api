@@ -228,7 +228,7 @@ let gettimestring () =
 let filesize = ref 0 
 let mutex = Mutex.create ()
 
-let output_common t ?(raw=false) ?(key="") ?(extra="") priority (message: string) =
+let output_common t ?(raw=false) ?(syslog_time=false) ?(key="") ?(extra="") priority (message: string) =
   let result_string = ref "" in
   let construct_string withtime =
 		(*let key = if key = "" then [] else [ key ] in
@@ -264,7 +264,8 @@ let output_common t ?(raw=false) ?(key="") ?(extra="") priority (message: string
 		| Info  -> Syslog.Info
 		| Warn  -> Syslog.Warning
 		| Error -> Syslog.Err in
-		Syslog.log Syslog.Daemon sys_prio ((construct_string false) ^ "\n")
+		let facility = try Syslog.facility_of_string k with _->Syslog.Daemon in
+		Syslog.log facility sys_prio ((construct_string syslog_time) ^ "\n")
 	| Stream s -> Mutex.execute s.mutex 
 	    (fun () -> 
 	      match !(s.channel) with
@@ -278,8 +279,8 @@ let output_common t ?(raw=false) ?(key="") ?(extra="") priority (message: string
 let output t ?(key="") ?(extra="") priority (message: string) =
 	ignore(output_common t ~key ~extra priority message)
 
-let output_and_return t ?(raw=false) ?(key="") ?(extra="") priority (message: string) =
-	output_common t ~raw ~key ~extra priority message
+let output_and_return t ?(raw=false) ~syslog_time ?(key="") ?(extra="") priority (message: string) =
+	output_common t ~raw ~syslog_time ~key ~extra priority message
 
 let log t level (fmt: ('a, unit, string, unit) format4): 'a =
 	let b = (int_of_level t.level) <= (int_of_level level) in

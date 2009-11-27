@@ -61,7 +61,7 @@ val get_strings : t -> string list
 (** {2 Raw output functions} *)
 
 val output : t -> ?key:string -> ?extra:string -> level -> string -> unit
-val output_and_return : t -> ?raw:bool -> ?key:string -> ?extra:string -> level -> string -> string
+val output_and_return : t -> ?raw:bool -> syslog_time:bool -> ?key:string -> ?extra:string -> level -> string -> string
 
 (** {2 Pretty output functions} *)
 

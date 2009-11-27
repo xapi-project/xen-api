@@ -39,3 +39,4 @@ external log : facility -> level -> string -> unit = "stub_syslog"
 external close : unit -> unit = "stub_closelog"
 
 
+val facility_of_string : string -> facility
