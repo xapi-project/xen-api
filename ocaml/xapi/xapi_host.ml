@@ -40,7 +40,8 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
   let current_config=Db.Host.get_power_on_config ~__context ~self in
   Db.Host.set_power_on_config ~__context ~self ~value:power_on_config;
-  Xapi_secret.clean_out_passwds ~__context current_config
+  Xapi_secret.clean_out_passwds ~__context current_config;
+  Xapi_host_helpers.update_allowed_operations ~__context ~self
     
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
     + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled. 
