@@ -21,14 +21,17 @@ open Pervasiveext
 let audit_log_whitelist_prefix = "/var/log/audit.log"
 
 let line_timestamp_length = 21 (* the timestamp length at the debug line *)
-let line_before_timestamp_length = 1 (* [ at the beginning of the line *)
+
+(* location of [ at the beginning of the line timestamp *)
+let timestamp_index line = 
+	try ((String.index line '[') + 1) with Not_found -> 0
 
 let write_line line fd since =
 	if String.length line >
-		(line_timestamp_length + line_before_timestamp_length)
+		(line_timestamp_length + (timestamp_index line))
 	then
 	let line_timestamp =
-		String.sub line line_before_timestamp_length line_timestamp_length
+		String.sub line (timestamp_index line) line_timestamp_length
 	in
 	if since="" or ((String.compare line_timestamp since) >= 0)
 	then
@@ -100,8 +103,7 @@ let transfer_all_audit_files fd_out since =
 
 (* map the ISO8601 timestamp format into the one in our logs *)
 let log_timestamp_of_iso8601 iso8601_timestamp =
-	let step0 = iso8601_timestamp in
-	let step1 = Stringext.String.replace "T" " " step0 in
+	let step1 = iso8601_timestamp in
 	let step2 = Stringext.String.replace "-" "" step1 in
 	let step3 = Stringext.String.replace "Z" "" step2 in
 	step3
