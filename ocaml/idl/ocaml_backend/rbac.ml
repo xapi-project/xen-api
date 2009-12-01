@@ -139,7 +139,9 @@ let permission_of_action ?args ~keys _action =
 					(get_permission_name_of_keys ks vs)
 				else (* found "key" in args *)
 					match v with
-					| Xml.Element("value",_,(Xml.PCData key_name_in_args)::[]) ->
+					| Xml.Element("value",_,(Xml.PCData key_name_in_args)::[]) 
+					| Xml.Element("value",_,(Xml.Element("string",_,
+						(Xml.PCData key_name_in_args)::[]))::[]) ->
 					begin
 						(*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
 						try 
