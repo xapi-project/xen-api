@@ -964,7 +964,7 @@ let slave_local_login_with_password = call ~flags:[]
 	  ]
   ~in_oss_since:None
   ~secret:true
-  ~allowed_roles:_R_LOCAL_ROOT_ONLY (*only root can do an emergency slave login*)
+  ~allowed_roles:_R_POOL_ADMIN (*only root can do an emergency slave login*)
   ()
 
 let local_logout = call ~flags:[`Session]
