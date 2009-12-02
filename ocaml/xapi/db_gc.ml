@@ -216,7 +216,7 @@ let timeout_sessions ~__context =
   let cancel doc sessions = 
     List.iter
       (fun (s, active, uuid) ->
-	 debug "Session.destroy _ref=%s uuid=%s (last active %s): %s" (Ref.string_of s) uuid (Date.to_string (Date.of_float active)) doc;
+	 debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s" (Ref.string_of s) uuid (Context.trackid_of_session (Some s)) (Date.to_string (Date.of_float active)) doc;
 	 Xapi_session.destroy_db_session ~__context ~self:s
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
