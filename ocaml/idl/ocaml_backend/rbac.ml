@@ -97,11 +97,11 @@ let destroy_session_permissions_tbl ~session_id =
 
 (* create a key permission name that can be in the session *)
 let get_key_permission_name permission key_name =
-	permission ^ "/key_" ^ key_name
+	permission ^ "/key:" ^ key_name
 
 (* create a key-error permission name that is never in the session *)
 let get_keyERR_permission_name permission err =
-	permission ^ "/keyERR_" ^ err
+	permission ^ "/keyERR:" ^ err
 
 let permission_of_action ?args ~keys _action =
 	(* all permissions are in lowercase, see gen_rbac.writer_ *)
