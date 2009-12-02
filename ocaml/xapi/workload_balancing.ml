@@ -410,7 +410,7 @@ let retrieve_vm_recommendations ~__context ~vm =
     else
       match recs with 
       | Xml.Element ( _, _, children) ->
-        if ((List.length children) != List.length((Db.Host.get_all ~__context)))
+        if ((List.length children) != List.length((Helpers.get_live_hosts ~__context)))
         then
           raise_malformed_response "VMGetRecommendations" 
             "List of returned reccomendations is not equal to the number of hosts in pool" 
