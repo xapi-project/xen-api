@@ -20,7 +20,7 @@ let validate_session __context session_id realm =
   try
     let (_: string) = Db.Session.get_uuid ~__context ~self:session_id in ()
   with _ ->
-    debug "Failed to find session_id in database. Perhaps it timed-out?";
+    debug "Failed to find session_id %s in database. Perhaps it timed-out?" (Context.trackid_of_session (Some session_id));
     raise (Http.Unauthorised realm)
 
 (* Talk to the master over the network. NB we deliberately use the network rather than
