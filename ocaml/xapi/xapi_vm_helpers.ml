@@ -374,7 +374,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
       with
         | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y)
   ) (retrieve_vm_recommendations ~__context ~vm);
-  if ((Hashtbl.length recs) <> (List.length (Db.Host.get_all ~__context)))
+  if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
   then
     raise_malformed_response' "VMGetRecommendations" 
       "Number of unique recommendations does not match number of potential hosts" "Unknown"
