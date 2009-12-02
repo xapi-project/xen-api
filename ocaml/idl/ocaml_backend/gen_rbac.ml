@@ -80,7 +80,8 @@ let permission_description = "A basic permission"
 let permission_name wire_name =
 	let s1 =replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
 	let s2 = replace_char s1 '/' '_' in
-	Stringext.String.replace "*" "WILDCHAR" s2
+	let s3 = Stringext.String.replace "*" "WILDCHAR" s2 in
+	Stringext.String.replace ":" "_" s3
 
 let permission_index = ref 0
 let writer_permission name nperms =
@@ -215,7 +216,7 @@ let rec concat = function
 		concat (xperm,((r,xperm::perms)::r2),extra_rs)
 
 let get_key_permission_name permission key_name =
-  permission ^ "/key_" ^ key_name
+  permission ^ "/key:" ^ key_name
 
 let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 	let msg_allowed_roles = x.msg_allowed_roles in
