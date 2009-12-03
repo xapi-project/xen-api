@@ -312,7 +312,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args act
 		SExpr.String (ok_error ^ result_error)::
     SExpr.String (call_type_of action)::
 		(*SExpr.String (Helper_hostname.get_hostname ())::*)
-    SExpr.String permission::
+    SExpr.String action::
     (SExpr.Node (sexpr_of_parameters action args))::
 		[]
 	)
