@@ -75,6 +75,12 @@ body {
 	color: white;
 }
 
+
+#sidebar th {
+	text-align: left;
+	border-bottom: 1px solid white;
+}
+
 #footer {
 	float: left;
 	clear: both;
@@ -239,5 +245,11 @@ th {
 .small-button {
 	font-size: 70%;
 	text-align: right;
+}
+
+.stat {
+	font-size: 70%;
+	color: #cc3300;
+	vertical-align: top;
 }
 

@@ -225,6 +225,14 @@ and print_t_list l =
 class gen () =
 	object (self)
 	
+	(* Attributes *)
+	
+	val mutable g = []
+	val mutable descr_cnt = 0
+	val mutable completed_descr_cnt = 0
+	
+	(* Methods *)
+	
 	(* HTML *)
 	
 	method t_of_text = List.map self#t_of_text_element
@@ -402,26 +410,36 @@ class gen () =
 	method json_of_variant_constructor c =
 		let desc = match c.Type.vc_text with
 		| None -> []
-		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
+		| Some t ->
+			completed_descr_cnt <- completed_descr_cnt + 1;
+			["description", String (print_t_list (self#t_of_text t))]
 		in
+		descr_cnt <- descr_cnt + 1;
 		Object (["name", String c.Type.vc_name] @ desc @ ["type", Array (List.map self#json_of_type_expr c.Type.vc_args)])
 
 	method json_of_record_field f =
 		let desc = match f.Type.rf_text with
 		| None -> []
-		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
+		| Some t ->
+			completed_descr_cnt <- completed_descr_cnt + 1;
+			["description", String (print_t_list (self#t_of_text t))]
 		in
+		descr_cnt <- descr_cnt + 1;
 		Object (["name", String f.Type.rf_name; "mutable", json_of_bool f.Type.rf_mutable] @
 		desc @ ["type", self#json_of_type_expr f.Type.rf_type])
 	    
-	method json_of_info_opt = function
-	| None -> Empty
-    | Some i -> self#json_of_info i
+	method json_of_info_opt info =
+		descr_cnt <- descr_cnt + 1;
+		match info with
+		| None -> Empty
+		| Some i -> self#json_of_info i
     
 	method json_of_info i =
 		let desc = match i.i_desc with
 		| None -> []
-		| Some t -> ["description", String (print_t_list (self#t_of_text t))]
+		| Some t ->
+			completed_descr_cnt <- completed_descr_cnt + 1;
+			["description", String (print_t_list (self#t_of_text t))]
 		in
 		let authors = match List.map (fun s -> String s) i.i_authors with
 		| [] -> []
@@ -467,8 +485,6 @@ class gen () =
 	method json_of_raised_exception (s, t) =
 		Object ["raised_exception", String s; "text", String (print_t_list (self#t_of_text t))]
 
-	val mutable g = []
-
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
 		let loc = "location", self#json_of_loc m.Module.m_loc in
@@ -509,7 +525,7 @@ class gen () =
 		Object (name :: file :: loc :: info :: mte :: mk :: deps :: [])
 
 	method generate (modules_list : t_module list) =
-		let write_module_json (name, json) =
+		let write_module_json (name, json, _) =
 			let oc = open_out (!Odoc_args.target_dir ^ "/" ^ name ^ ".json") in
 			output_string oc ("odoc = " ^ (json_to_string 0 json));
 			close_out oc
@@ -517,13 +533,13 @@ class gen () =
 		let write_index_json ml =
 			let oc = open_out (!Odoc_args.target_dir ^ "/index.json") in
 			let make_record = function
-			| (name, Object ["module", Object m]) ->
+			| (name, Object ["module", Object m], (dc, cdc)) ->
 				let info = List.assoc "info" m in
 				let descr = match info with
 				| Object ["description", d] -> d
 				| _ -> Empty
 				in
-				Object ["name", String name; "description", descr]
+				Object ["name", String name; "description", descr; "descr_cnt", Number dc; "compl_descr_cnt", Number cdc]
 			| _ -> Empty
 			in
 			let modules = Array (List.map make_record ml) in
@@ -534,14 +550,20 @@ class gen () =
 				with _ -> !Odoc_args.target_dir
 			in
 			output_string oc ("modules_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 modules) ^ ";\n");
+			let stats = Object ["descr_cnt", Number (float_of_int descr_cnt); "completed_descr_cnt", Number (float_of_int completed_descr_cnt)] in
+			output_string oc ("stats_" ^ (replace "-" "" component) ^ " = " ^ (json_to_string 0 stats) ^ ";\n");
 			close_out oc
 		in
 		let create_module_json m =
-			m.Module.m_name, Object ["module", self#json_of_module m]
+			let cur_descr_cnt = descr_cnt in
+			let cur_completed_descr_cnt = completed_descr_cnt in
+			let json = self#json_of_module m in
+			m.Module.m_name, Object ["module", json],
+				(float_of_int (descr_cnt - cur_descr_cnt), float_of_int (completed_descr_cnt - cur_completed_descr_cnt))
 		in
 		let modules = List.map create_module_json modules_list in
 		let ig = invert_graph [] g in
-		let rec add_used_by (name, json) =
+		let rec add_used_by (name, json, stats) =
 			let used_by = Array (List.map (fun s -> String s) (List.assoc name ig)) in
 			let rec extend_object f tags = function
 			| Object l -> Object ((List.map (fun (s,o) -> s, extend_object f (tags @ [s]) o) l) @ f tags)
@@ -551,7 +573,7 @@ class gen () =
 			| ["module"; "dependencies"] -> ["used_by", used_by]
 			| l -> []
 			in
-			name, extend_object aux [] json
+			name, extend_object aux [] json, stats
 		in
 		let modules = List.map add_used_by modules in
 		List.iter write_module_json modules;
