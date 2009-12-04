@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 'Real' network backend
- * @group Networking
- *)
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D

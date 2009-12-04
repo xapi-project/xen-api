@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Common code between the fake and real servers for dealing with VIFs
- * @group Networking
- *)
 
 open Stringext
 
@@ -130,7 +127,7 @@ let clear_current_operations ~__context ~self =
 (** Check if the device string has the right form *)
 let valid_device dev = try ignore(int_of_string dev); true with _ -> false
 
-(** Type of a function which does the actual hotplug/ hotunplug *)
+(* Type of a function which does the actual hotplug/ hotunplug *)
 type do_hotplug_fn = __context:Context.t -> vif:API.ref_VIF -> Locking_helpers.token -> unit
 
 let plug (dynamic_create: do_hotplug_fn) ~__context ~self =
@@ -283,3 +280,4 @@ let copy ~__context ~vm ~preserve_mac_address vif =
 		~other_config:all.API.vIF_other_config
 		~qos_algorithm_type:all.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:all.API.vIF_qos_algorithm_params
+		

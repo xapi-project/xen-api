@@ -12,8 +12,25 @@
  * GNU Lesser General Public License for more details.
  *)
 (** Module that defines API functions for Network objects
- * @group XenAPI functions
+ * @group Networking
  *)
+
+(**
+{i Network} objects are used to interconnect multiple VIFs and PIFs within a resource pool.
+{ul
+{- PIFs and VIFs can be attached to a Network.}
+{- A Network that spans multiple hosts has physical links (cables + hub/switch) between the PIFs that are attached to it.}
+{- Two VMs are connected iff: both have a VIF on the same Network AND (they are on the same host OR their hosts both have a PIF on this Network).}
+{- Within the boundaries of a host, a Network is represented by a bridge if it is brought up. A Network spanning multiple hosts has a bridge on each host.}
+{- PIFs on a single host are all on different networks, and each PIF is associated to exactly one network. Hence, all PIFs on a network are on different hosts.}
+{- A Network is called {i internal} if there are no PIFs associated with it. VMs that have VIFs on such a network, which is necessarily confined to a single host to be of use, are still able to communicate with each other.}
+{- A Network is associated with any number of VIFs, and zero or one PIFs per host.}
+{- Networks for physical interfaces are created automatically (when the PIF is created). The name of the bridge for such a network is derived from the device name of the interface. E.g. interface [eth0] is always associated with bridge [xenbr0].}
+{- When a PIF or a VIF on a network is plugged, also the associated bridge is ensured to be up.}
+{- There is a special case {i guest installer network}, which is used by the internal p2v tool. It is not associated with a PIF, but does some "special magic stuff". It will probably disappear eventually together with the p2v stuff, which is not really used anyway.}
+}
+Note: It is currently assumed that all PIFs that are associated with a certain Network are physically connected, but this is not checked or enforced anywhere. This means that if a system admin connects the cables in a wrong way, things may be broken. Moreover, if two PIFs are of different Networks, this does not mean that they are not on the same physical network. Ideally, Networks objects should be constructed and maintained automatically by xapi based the actual physical connections.
+*)
 
 (** Instantiate the bridge associated to this network on the localhost, and bring
    up the PIFs on the localhost that are on this network, provided it wouldn't 
@@ -34,6 +51,7 @@ val detach : string -> unit
 val attach :
   __context:Context.t -> network:[ `network ] Ref.t -> host:'a -> unit
 
+(** Detaches all bridges on a host *)
 val network_gc_func : unit -> unit
 
 (** Internal fn used by slave to create new network records on master during pool join operation *)

@@ -11,17 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Common code between the fake and real servers for dealing with Networks.
+(** Built-in networks.
  * @group Networking
  *)
 
-(** Helper type *)
-type backend = 
-    {
-      attach: __context:Context.t -> self:API.ref_network -> unit;
-      (** Function to attach a Network *)
-      
-      detach: string -> unit;
-      (** Function to detach a Network *)
-    }
-
+(** Create a guest installer network (if it does not exist yet). *)
+val create_networks_localhost : unit -> unit

@@ -144,6 +144,16 @@ function transform_links(s)
 	return out;
 }
 
+function transform_type(t)
+{
+	params = t.split('->');
+	for (i in params) {
+		params[i] = '<span class="type">' + params[i] + '</span>';
+	}
+	html = params.join('<span class="arrow">\u2192</span>');
+	return html;
+}
+
 function value(v, n)
 {
 	l = v.name.split('.');
@@ -163,14 +173,14 @@ function value(v, n)
 		html += '<span class="empty">to be completed!</span></div>';
 		
 	html += '<table class="field-table">';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
+	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + transform_type(v.type) + '</td></tr>';
 	
 	html += '<tr id="' + name + '_params" style="display: none"><td width="100px"><span class="field-head">Parameters:</span></td><td>';
 	html += '<table>';
 	for (c in v.params) {
 		n = v.params[c].name;
 		html += '<tr><td width="20%" style="padding: 0 0 .2em">' + (n == "" ? '(no name)' : v.params[c].name) + '</td>';
-		html += '<td style="padding: 0 0 .2em">' + v.params[c].type + '</td></tr>';
+		html += '<td style="padding: 0 0 .2em">' + transform_type(v.params[c].type) + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</td></tr>';
@@ -216,7 +226,7 @@ function variant(v)
 	html += '<tr><th width="25%">Constructor</th><th>Type</th><th>Description</th></tr>';
 	for (c in cons) {
 		html += '<tr><td>' + cons[c].name + '</td>'
-		html += '<td>' + cons[c].type + '</td>'
+		html += '<td>' + transform_type(cons[c].type) + '</td>'
 		if (cons[c].description != undefined)
 			html += '<td>' + transform_links(cons[c].description) + '</td>';
 		else
@@ -234,7 +244,7 @@ function record(v)
 	html += '<tr><th width="25%">Field</th><th width="20%">Type</th><th>Description</th></tr>';
 	for (c in fields) {
 		html += '<tr><td>' + fields[c].name + '</td>'
-		html += '<td>' + fields[c].type + '</td>'
+		html += '<td>' + transform_type(fields[c].type) + '</td>'
 		if (fields[c].description != undefined)
 			html += '<td>' + transform_links(fields[c].description) + '</td>';
 		else
@@ -305,7 +315,7 @@ function included_module(v, n)
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	html += '<table class="field-table">';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + v.type + '</td></tr>';
+	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + transform_type(v.type) + '</td></tr>';
 	
 	html += '<tr><td></td><td><input type="button" class="small-button" value="details" onclick="location=\'index.html?c=' + component + '&m=' + v.name + '\'" /></td></tr>';
 	html += '</table>';

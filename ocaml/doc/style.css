@@ -17,7 +17,7 @@ body {
 	margin: 0;
 	border: 0;
 	font: 80% helvetica, arial, sans-serif; 
-	font-weight: normal; 
+	font-weight: normal;
 	line-height: 130%;
 	background: white;	
 	color : black;
@@ -66,6 +66,7 @@ body {
 	background-color: #ffffdd;
 	padding: 1.5em 1em;
 	margin: 0 22em 0 .5em;
+	line-height: 150%;
 }
 
 #sidebar {
@@ -206,8 +207,8 @@ th {
 	background-color: orange;
 }
 
-.code {
-	font-family: Courier New, monospace;
+tt {
+	font:1.2em monospace
 }
 
 .comment {
@@ -259,5 +260,14 @@ th {
 	font-size: 70%;
 	color: #cc3300;
 	vertical-align: top;
+}
+
+.type {
+//	font:1.2em monospace;
+}
+
+.arrow {
+	font-size: 2em;
+	color: #cc6600;
 }
 
