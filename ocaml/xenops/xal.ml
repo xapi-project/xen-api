@@ -37,7 +37,7 @@ type dev_event =
 	| ChangeRtc of string * string
 	(* uuid, name, priority, data *)
 	| Message of string * string * int64 * string
-	| HotplugChanged of string * string * string option * string option
+	| HotplugChanged of string * string option * string option
 	| ChangeUncooperative of bool
 
 type xs_dev_state =
@@ -77,8 +77,8 @@ let string_of_dev_event ev =
 		sprintf "change rtc {%s,%s}" uuid data
 	| Message (uuid, name, priority, body) ->
 	        sprintf "message {%s,%Ld,%s}" name priority body
-	| HotplugChanged (s, i, old, n) ->
-		sprintf "HotplugChanged on %s %s {%s->%s}" s i
+	| HotplugChanged (i, old, n) ->
+		sprintf "HotplugChanged on %s {%s->%s}" i
 		        (string_of_string_opt old)
 		        (string_of_string_opt n)
 	| ChangeUncooperative b ->
@@ -441,9 +441,9 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: domid :: "device" :: ty :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
-	| "" :: "xapi" :: domid :: "hotplug" :: ty :: devid :: [ "hotplug" ] ->
+	| "" :: "xapi" :: domid :: "hotplug" :: "vif" :: devid :: [ "hotplug" ] ->
 		let extra = try Some (xs.Xs.read w) with _ -> None in
-		Some (int_of_string domid, (HotplugBackend extra), ty, devid)
+		Some (int_of_string domid, (HotplugBackend extra), "", devid)
 	| "" :: "vm" :: uuid :: "rtc" :: [ "timeoffset" ] ->
 		let data = xs.Xs.read w in
 		Some (-1, (Rtc (uuid, data)), "", "")
@@ -584,7 +584,7 @@ let domain_device_event ctx w v =
 			let old = devstate.hotplug in
 			devstate.hotplug <- extra;
 			ctx.callback_devices ctx domid
-			               (HotplugChanged (ty, devid, old, extra))
+			               (HotplugChanged (devid, old, extra))
 	)
 
 (** Internal helper function which wraps the Xs.read_watchevent with
