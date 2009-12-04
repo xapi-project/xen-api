@@ -108,7 +108,11 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   | _, _ -> 
       let actual = Record_util.power_to_string power_state in
       let expected = Record_util.power_to_string `Running in
-      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug; `unplug_force; `pause; `unpause ]);
+	  (* If not Running, always block these operations: *)
+	  let bad_ops = [ `plug; `unplug; `unplug_force ] in
+	  (* However allow VBD pause and unpause if the VM is paused: *)
+	  let bad_ops' = if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops in
+      set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] bad_ops');
       
   (* HVM guests only support plug/unplug IF they have recent PV drivers *)
   (* They can only eject/insert CDs not plug/unplug *)
