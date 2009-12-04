@@ -126,7 +126,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     with _ -> 
       (* Make sure our cached idea of whether the domain is live or not is correct *)
       let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
-      let live = try Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics with _ -> false in
+	  let live = true
+		&& Db.is_valid_ref vm_guest_metrics 
+		&& Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
       if live then
 	dead_domains := IntSet.remove domid !dead_domains
       else
