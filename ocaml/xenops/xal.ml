@@ -28,7 +28,6 @@ exception Timeout
 
 type dev_event =
 	(* devices : backend / type / devid *)
-	| DevNew of bool * string * string
 	| DevWorking of bool * string * string
 	| DevClosing of bool * string * string
 	| DevClosed of bool * string * string
@@ -74,8 +73,6 @@ let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
 	let string_of_b b = if b then "B" else "F" in
 	match ev with
-	| DevNew (b, s, i) ->
-		sprintf "device new {%s,%s,%s}" (string_of_b b) s i
 	| DevWorking (b, s, i) ->
 		sprintf "device working {%s,%s,%s}" (string_of_b b) s i
 	| DevClosing (b, s, i) ->
@@ -580,8 +577,7 @@ let close ctx =
 let diff_device_state backend ty devid oldstate newstate =
 	let working () = DevWorking (backend, ty, devid)
 	and closing () = DevClosing (backend, ty, devid)
-	and closed () = DevClosed (backend, ty, devid)
-	and _new () = DevNew (backend, ty, devid) in
+	and closed () = DevClosed (backend, ty, devid) in
 	if oldstate <> newstate then
 		match oldstate, newstate with
 		| Connecting, Connected  -> [ working () ]
@@ -590,9 +586,8 @@ let diff_device_state backend ty devid oldstate newstate =
 		| Connected,  Closing    -> [ closed () ]
 		| Connected,  Closed     -> [ closing (); closed () ]
 		| Closing,    Closed     -> [ closed () ]
-		| Closed,     Connecting -> [ _new () ]
-		| Closed,     Connected  -> [ _new (); working () ]
-		| Closed,     Closing    -> [ _new (); closing () ]
+		| Closed,     Connected  -> [ working () ]
+		| Closed,     Closing    -> [ closing () ]
 		(* those should not happen *)
 		| Closing,    Connecting -> []
 		| Closing,    Connected  -> []
