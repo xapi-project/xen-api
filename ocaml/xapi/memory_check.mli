@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 (**
+ * @group Memory Management
+ *)
+ 
+(**
 	The Pool master's view of the total memory and memory consumers on a host.
 	This doesn't take into account dynamic changes i.e. those caused by
 	ballooning. Therefore if we ask a question like, 'is there <x> amount of

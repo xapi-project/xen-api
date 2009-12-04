@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Some records for easy passing around of monitor types *)
+(** Some records for easy passing around of monitor types.
+ * @group Performance Monitoring
+ *)
 
 type vcpu = {
   vcpu_sumcpus: float;

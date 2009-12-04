@@ -315,7 +315,7 @@ function included_module(v, n)
 
 function comment(m)
 {
-	append_content('<div>' + transform_links(m) + '</div>');
+	append_content('<div class="comment">' + transform_links(m) + '</div>');
 }
 
 function parse_structure(structure)
@@ -456,27 +456,80 @@ function moduledoc(mod)
 
 function module_index()
 {	
-	html = "";
-	html += '<h1 class="title">List of Modules: ' + component + '</h1>\n';
-	html += '<table><tr><th>Module</th><th>Description</th></tr>\n';
 	modules = component_modules[component];
+	groups = {};
+	other = [];
 	for (j in modules) {
-		html += '<tr><td><a href="?c=' + component + '&m=' + modules[j].name + '">' + modules[j].name + '</a>';
-		html += ' <span class="stat">(' + Math.round(100 * (modules[j].compl_descr_cnt / modules[j].descr_cnt)) + '\%)</span></td>\n';
-		if (modules[j].description != "") {
-			d = modules[j].description;
-			if ((i = d.indexOf('.')) > -1)
-				d = d.substr(0, i);
-			html += '<td>' + d + '.</td></tr>\n';
+		name = modules[j].name;
+		stat = Math.round(100 * (modules[j].compl_descr_cnt / modules[j].descr_cnt));
+		group = "";
+		description = '<span class="empty">to be completed!</span>';
+		if (modules[j].info != undefined) {
+			info = modules[j].info;
+			if (info.group != undefined && info.group != "")
+				group = info.group;
+			
+			if (info.description != undefined && info.description != "") {
+				description = info.description;
+				if ((i = description.indexOf('.')) > -1)
+					description = description.substr(0, i);
+			}
+		}
+		m = {"name": name, "description": description, "stat": stat};
+		if (group != "") {
+			if (groups[group] == undefined)
+				groups[group] = []
+			groups[group].push(m)
 		}
 		else
-			html += '<td><span class="empty">to be completed!</span></td></tr>';
+			other.push(m)
 	}
-	html += '</table>\n';
+	
+	function print_group(n, g)
+	{
+		if (n != "")
+			html += '<h2><a style="text-decoration: none" name="' + n + '" />' + n + '</a></h2>';
+		html += '<table><tr><th>Module</th><th>Description</th></tr>\n';
+		for (j in g) {
+			m = g[j];
+			html += '<tr><td width="30%"><a href="?c=' + component + '&m=' + m.name + '">' + m.name + '</a>';
+			html += ' <span class="stat">(' + m.stat + '\%)</span></td>\n';
+			html += '<td>' + m.description + '</td></tr>';
+		}
+		html += '</table>\n';
+	}
+
+	html = "";
+	html += '<h1 class="title">List of Modules: ' + component + '</h1>\n';
+	group_names = [];
+	for (k in groups)
+		group_names.push(k);
+	group_names.sort();
+	for (i in group_names)
+		print_group(group_names[i], groups[group_names[i]]);
+	if (group_names.length > 0)
+		other_name = "Other";
+	else
+		other_name = "";
+	if (other.length > 0)
+		print_group(other_name, other);
+	
 	html += '<p class="stat">The percentages indicate how much of the source has been documented.</p>'
 	set_content(html);
 	
-	html = '<h2 class="title">Dependencies</h2>';
+	// Sidebar
+	
+	html = '<h2 class="title">Module Groups</h2>';
+	if (group_names.length > 0) {
+		for (i in group_names)
+			html += '<a href="#' + group_names[i] + '">' + group_names[i] + '</a><br />';
+		if (other.length > 0)
+			html += '<a href="#Other">Other</a><br />';
+	}
+	else
+		html += 'no groups';
+		
+	html += '<h2>Dependencies</h2>';
 	deps = component_deps[component];
 	
 	libs = deps.libs;

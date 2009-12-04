@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Create miscellaneous DB records needed by both the real and fake servers *)
+(** Create miscellaneous DB records needed by both the real and fake servers.
+ * @group Database Operations
+ *)
 
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints

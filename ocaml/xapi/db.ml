@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Database Operations
+ *)
+ 
 include Db_actions.DB_Action
 let is_valid_ref r =
 	Db_cache.DBCache.is_valid_ref (Ref.string_of r)

@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for VDI objects
+ * @group XenAPI functions
+ *)
+ 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 

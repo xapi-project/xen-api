@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** 
+ * @group Redo-log
+ *)
 
 (** Runs forever waiting for the redo log's status to change i.e. for
 	it to fail or to recover, generating alerts on transitions if

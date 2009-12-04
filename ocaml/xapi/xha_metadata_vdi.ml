@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Manage the lifecycle of HA metadata VDI *)
+(** Manage the lifecycle of HA metadata VDI 
+ * @group High Availability (HA)
+ *)
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

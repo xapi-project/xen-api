@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Storage
+ *)
+ 
 (** Represents the configuration of a static (ie attached on boot) vdi *)
 type vdi = {
   uuid:               string;        (* VDI.uuid *)

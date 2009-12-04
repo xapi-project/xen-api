@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Assertion helpers used when attaching a network *)
+(** Assertion helpers used when attaching a network
+ * @group Networking
+ *)
  
 module D=Debug.Debugger(struct let name="xapi" end)
 open D

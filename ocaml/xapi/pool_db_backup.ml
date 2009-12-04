@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-(* Synchronises a copy of the master database amongst the pool's hosts *)
+(** Synchronises a copy of the master database amongst the pool's hosts
+ * @group Pool Management
+ *)
 
 open Threadext
 open Client

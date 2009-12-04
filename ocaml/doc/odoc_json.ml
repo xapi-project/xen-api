@@ -468,19 +468,13 @@ class gen () =
 		| None -> []
 		| Some t -> ["return", String (print_t_list (self#t_of_text t))]
 		in
-		let customs = match List.map self#json_of_custom i.i_custom with
-		| [] -> []
-		| l -> ["customs", Array l]
-		in
+		let customs = List.map (fun (tag, t) -> tag, String (print_t_list (self#t_of_text t))) i.i_custom in
 		Object (desc @ authors @ version @ see @ since @ dep @ params @ raised @ return_v @ customs)
 		
 	method json_of_see = function
 	| (See_url s, t) -> Object ["url", String s; "text", String (print_t_list (self#t_of_text t))]
 	| (See_file s, t) -> Object ["file", String s; "text", String (print_t_list (self#t_of_text t))]
 	| (See_doc s, t) -> Object ["doc", String s; "text", String (print_t_list (self#t_of_text t))]
-		
-	method json_of_custom (tag, t) =
-		Object ["custom", String tag; "text", String (print_t_list (self#t_of_text t))]
 
 	method json_of_raised_exception (s, t) =
 		Object ["raised_exception", String s; "text", String (print_t_list (self#t_of_text t))]
@@ -535,11 +529,7 @@ class gen () =
 			let make_record = function
 			| (name, Object ["module", Object m], (dc, cdc)) ->
 				let info = List.assoc "info" m in
-				let descr = match info with
-				| Object ["description", d] -> d
-				| _ -> Empty
-				in
-				Object ["name", String name; "description", descr; "descr_cnt", Number dc; "compl_descr_cnt", Number cdc]
+				Object ["name", String name; "info", info; "descr_cnt", Number dc; "compl_descr_cnt", Number cdc]
 			| _ -> Empty
 			in
 			let modules = Array (List.map make_record ml) in

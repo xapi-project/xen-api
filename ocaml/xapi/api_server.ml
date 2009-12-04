@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** The main callback function *)
+(** The main callback function.
+ * @group API Messaging
+ *)
 
 (** Actions module *)
 module Actions = struct

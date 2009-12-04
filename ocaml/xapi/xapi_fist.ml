@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
-(** Module for reading FIST points *)
+(** Module for reading FIST points
+ * @group Testing
+ *)
  
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

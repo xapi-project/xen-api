@@ -11,7 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(*
+(** Workload Balancing Reports and Diagnostics.
+ * @group Workload Balancing
+ *)
+
+(**
   This module serves the /wlb_report and /wlb_diagnostics HTTP requests.
   In the former case, we receive some basic parameters (report name, report
   params) and pass those to the WLB server as a SOAP request.  The latter
@@ -27,15 +31,13 @@
 
   What we do instead is have a receive-side state machine, which passes
   through three states:
-
-    1.  Looking for the <XmlDataSet> tag, and discarding data.
-    2.  Looking for the </XmlDataSet> tag, and sending data.
-    3.  Discarding data until EOF.
+    +  Looking for the <XmlDataSet> tag, and discarding data.
+    +  Looking for the </XmlDataSet> tag, and sending data.
+    +  Discarding data until EOF.
 
   When sending, we have a separate two-state machine for entity decode:
-
-    1.  Looking for an ampersand, and sending data.
-    2.  Found an ampersand, so looking for the ending semicolon.
+    +  Looking for an ampersand, and sending data.
+    +  Found an ampersand, so looking for the ending semicolon.
 
   If the response does not contain an <XmlDataSet> node, then it's most 
   likely a WLB error response.  We parse these using the normal XML parser, 
@@ -47,7 +49,9 @@
 
   The GetDiagnostics message is identical, except we look for different
   start and end tags.
+ *)
 
+(*
   <!-- ExecuteReport response-->
   <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing">
     <s:Header>
@@ -83,8 +87,8 @@
       </ExecuteReportResponse>
     </s:Body>
   </s:Envelope>
-
-*)
+  
+ *)
 
 open Printf
 

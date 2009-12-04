@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Pool Management
+ *)
 
 (** Immediately fetch a database backup from the master. If a flush_spec is given, with a list of db connections,
     then the backup is flushed to those connections; if no flush spec is given then the backup is flushed to all

@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-(** Module that defines API functions (messages) for [vm] objects *)
+(** Module that defines API functions for VM objects
+ * @group XenAPI functions
+ *)
 
 (** {2 (Fill in Title!)} *)
 

@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Import code specific to Zurich/Geneva-style XVA VM exports *)
+(** Import code specific to Zurich/Geneva-style XVA VM exports
+ * @group Import and Export
+ *)
 
 open Stringext
 open Http

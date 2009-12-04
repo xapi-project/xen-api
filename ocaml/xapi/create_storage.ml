@@ -11,8 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Use the API to register a set of default SRs with the server. *)
-
+(** Use the API to register a set of default SRs with the server.
+ * @group Storage
+ *)
+ 
 open Client
 module D=Debug.Debugger(struct let name="xapi" end)
 open D

@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Manage VDIs which are attached to dom0 on boot (eg HA statefile, remote database) *)
+(** Manage VDIs which are attached to dom0 on boot (eg HA statefile, remote database)
+ * @group Storage
+ *)
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

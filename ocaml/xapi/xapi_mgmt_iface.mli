@@ -11,7 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
+(**
+ * @group Networking
+ *)
+ 
 (** Block until an IP address appears on the management interface *)
 val wait_for_management_ip : unit -> string
 
