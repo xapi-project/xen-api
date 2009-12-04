@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(**
- * @group Networking
+(** Controlling the management interface.
+ *  @group Networking
  *)
  
 (** Block until an IP address appears on the management interface *)
