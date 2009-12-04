@@ -156,7 +156,7 @@ external _domain_getinfolist: handle -> domid -> int -> domaininfo list
        = "stub_xc_domain_getinfolist"
 
 let domain_getinfolist handle first_domain =
-	let nb = 2 in
+	let nb = 100 in
 	let last_domid l = (List.hd l).domid + 1 in
 	let rec __getlist from =
 		let l = _domain_getinfolist handle from nb in
