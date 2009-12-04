@@ -239,7 +239,7 @@ class gen () =
 	
 	method t_of_text_element = function
 	| Odoc_info.Raw s -> Leaf (remove_asterisks s)
-	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [Leaf (remove_asterisks s)]
+	| Odoc_info.Code s -> node "tt" [Leaf (remove_asterisks s)]
 	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [Leaf (remove_asterisks s)]
 	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [Leaf (remove_asterisks s)]
 	| Odoc_info.Bold t -> node "b" (self#t_of_text t)
