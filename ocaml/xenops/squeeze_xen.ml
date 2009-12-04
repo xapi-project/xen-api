@@ -97,7 +97,6 @@ module Domain = struct
 	match x with
 	| Some y -> y
 	| None ->
-		  debug "xenstore-read %s%s returned ENOENT" per_domain.path key;
 		  raise Xb.Noent
 
   (** Read a particular domain's key from xenstore, for when we believe the cache is out of date *)
@@ -225,7 +224,7 @@ let update_cooperative_flags cnx =
 		  
 
 (** Best-effort creation of a 'host' structure and a simple debug line showing its derivation *)
-let make_host ~xc ~xs =
+let make_host ~verbose ~xc ~xs =
 	(* Wait for any scrubbing so that we don't end up with no immediately usable pages --
 	   this might cause something else to fail (eg domain builder?) *)
 	while Memory.get_scrub_memory_kib ~xc <> 0L do Unix.select [] [] [] 0.25 done;
@@ -279,7 +278,7 @@ let make_host ~xc ~xs =
 					    with Xb.Noent ->
 					      let target_kib = Domain.get_target cnx di.Xc.domid in
 					      let offset_kib = memory_actual_kib -* target_kib in
-					      debug "domid %d just exposed feature-balloon; calibrating total_pages offset = %Ld KiB" di.Xc.domid offset_kib;
+					      debug "domid %d just exposed feature-balloon; calibrating memory-offset = %Ld KiB" di.Xc.domid offset_kib;
 					      Domain.set_memory_offset_noexn cnx di.Xc.domid offset_kib;
 					      offset_kib
 					  end in
@@ -341,7 +340,8 @@ let make_host ~xc ~xs =
 				    (* useful debug message is printed by the Domain.read* functions *)
 				    []
 				|  e ->
-					debug "Skipping domid %d: %s"
+					if verbose 
+					then debug "Skipping domid %d: %s"
 						di.Xc.domid (Printexc.to_string e);
 					[]
 			)
@@ -350,7 +350,8 @@ let make_host ~xc ~xs =
 
 	(* Sum up the 'reservations' which exist separately from domains *)
 	let non_domain_reservations = Squeezed_state.total_reservations xs Squeezed_rpc._service in
-	debug "Total non-domain reservations = %Ld" non_domain_reservations;
+	if verbose && non_domain_reservations <> 0L
+	then debug "Total non-domain reservations = %Ld" non_domain_reservations;
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
 	let host = Squeeze.make_host ~domains ~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib) in
@@ -389,9 +390,10 @@ let target_host_free_mem_kib = low_mem_emergency_pool +* extra_mem_to_keep
 
 let free_memory_tolerance_kib = 512L (** No need to be too exact *)
 
-let io ~xc ~xs = {
+let io ~xc ~xs ~verbose = {
+	verbose = verbose;
   Squeeze.gettimeofday = Unix.gettimeofday;
-  make_host = (fun () -> make_host ~xc ~xs);
+  make_host = (fun () -> make_host ~verbose ~xc ~xs);
   domain_setmaxmem = (fun domid kib -> execute_action ~xc ~xs { Squeeze.action_domid = domid; new_target_kib = kib });
   wait = (fun delay -> ignore(Unix.select [] [] [] delay));
   execute_action = (fun action -> execute_action ~xc ~xs action);
@@ -400,22 +402,22 @@ let io ~xc ~xs = {
 }
 
 let change_host_free_memory ~xc ~xs required_mem_kib success_condition = 
-  Squeeze.change_host_free_memory (io ~xc ~xs) required_mem_kib success_condition
+  Squeeze.change_host_free_memory (io ~verbose:true ~xc ~xs) required_mem_kib success_condition
 
 let free_memory ~xc ~xs required_mem_kib = 
-  let io = io ~xc ~xs in
+  let io = io ~verbose:true ~xc ~xs in
   Squeeze.change_host_free_memory io (required_mem_kib +* io.Squeeze.target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* io.Squeeze.target_host_free_mem_kib))
 
 let free_memory_range ~xc ~xs min_kib max_kib =
-  let io = io ~xc ~xs in
+  let io = io ~verbose:true ~xc ~xs in
   Squeeze.free_memory_range io min_kib max_kib
 
 let is_balanced x = Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib
 
 let balance_memory ~xc ~xs = 
-  Squeeze.balance_memory (io ~xc ~xs)
+  Squeeze.balance_memory (io ~verbose:true ~xc ~xs)
 
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
 let is_host_memory_unbalanced ~xc ~xs = 
-  Squeeze.is_host_memory_unbalanced (io ~xc ~xs)
+  Squeeze.is_host_memory_unbalanced (io ~verbose:false ~xc ~xs)
   
