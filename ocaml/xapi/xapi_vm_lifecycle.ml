@@ -310,8 +310,6 @@ let update_allowed_operations ~__context ~self =
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc *)
 let force_state_reset ~__context ~self ~value:state =
-	warn("Forcibly resetting VM state");
-
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	if (Db.VM.get_current_operations ~__context ~self)<>[] then
 		Db.VM.set_current_operations ~__context ~self ~value:[];
