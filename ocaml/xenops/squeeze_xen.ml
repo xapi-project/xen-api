@@ -276,11 +276,15 @@ let make_host ~verbose ~xc ~xs =
 					    try
 					      Domain.get_memory_offset cnx di.Xc.domid
 					    with Xb.Noent ->
-					      let target_kib = Domain.get_target cnx di.Xc.domid in
-					      let offset_kib = memory_actual_kib -* target_kib in
-					      debug "domid %d just exposed feature-balloon; calibrating memory-offset = %Ld KiB" di.Xc.domid offset_kib;
-					      Domain.set_memory_offset_noexn cnx di.Xc.domid offset_kib;
-					      offset_kib
+							(* Our memory_actual_kib value was sampled before reading xenstore which means there is a slight race.
+							   The race is probably only noticable in the hypercall simulator. However we can fix it by resampling
+							   memory_actual *after* noticing the feature-balloon flag. *)
+							let target_kib = Domain.get_target cnx di.Xc.domid in
+							let memory_actual_kib' = Xc.pages_to_kib (Int64.of_nativeint (Xc.domain_getinfo xc di.Xc.domid).Xc.total_memory_pages) in
+							let offset_kib = memory_actual_kib' -* target_kib in
+							debug "domid %d just exposed feature-balloon; calibrating memory-offset = %Ld KiB" di.Xc.domid offset_kib;
+							Domain.set_memory_offset_noexn cnx di.Xc.domid offset_kib;
+							offset_kib
 					  end in
 					let memory_actual_kib = memory_actual_kib -* offset_kib in
 
