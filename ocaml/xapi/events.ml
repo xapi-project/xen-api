@@ -403,7 +403,7 @@ let interesting_device_event = function
   | Xal.HotplugChanged("vif", _, _, _) 
   | Xal.DevShutdownDone(_, _)
   | Xal.DevThread(("vbd" | "tap"), _, _) 
-  | Xal.DevEject(("vbd" | "tap"), _)
+  | Xal.DevEject(_)
   | Xal.ChangeRtc(_, _)
   | Xal.Message(_, _, _, _)
   | Xal.ChangeUncooperative _ -> true
@@ -474,7 +474,7 @@ let callback_devices ctx domid dev_event =
 		      debug "ignoring because VBD does not exist in DB"
 		  end
 		    
-	      | Xal.DevEject (ty, devid) when ty = "vbd" || ty = "tap" ->
+	      | Xal.DevEject devid ->
 	          let vm = vm_of_domid ~__context domid in
 		  begin
 		    try
@@ -483,7 +483,7 @@ let callback_devices ctx domid dev_event =
 			Vbdops.eject_vbd ~__context ~self:vbd
 		      in
 		      debug "Adding Vbdops.eject_vbd to queue";
-		      let description = Printf.sprintf "DevEject(%s, %s) domid %d" ty devid domid in
+		      let description = Printf.sprintf "DevEject(%s) domid %d" devid domid in
 		      push vm Local_work_queue.normal_vm_queue description work_item;
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
