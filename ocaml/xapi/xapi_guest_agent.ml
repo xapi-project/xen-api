@@ -90,7 +90,7 @@ let mutex = Mutex.create ()
 (** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
     and 'list' reads a directory from xenstore. Both are relative to the guest's 
     domainpath. *)
-let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid =
+let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
   let all_attr = list "/attr" and all_control = list "/control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
@@ -112,6 +112,8 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
     if List.mem_assoc "micro" pv_drivers_version then pv_drivers_version (* already there; do nothing *)
     else ("micro","-1")::pv_drivers_version in
 
+  let self = Db.VM.get_by_uuid ~__context ~uuid in
+
   let (
     pv_drivers_version_cached,
     os_version_cached,
@@ -123,8 +125,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
        Hashtbl.find cache domid 
     with _ -> 
       (* Make sure our cached idea of whether the domain is live or not is correct *)
-      let vm=Vmopshelpers.vm_of_domid ~__context domid in
-      let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
+      let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
       let live = try Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics with _ -> false in
       if live then
 	dead_domains := IntSet.remove domid !dead_domains
@@ -174,8 +175,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  if other_cached <> other then
 	    debug "other changed";
 	  
-	  let self = Vmopshelpers.vm_of_domid ~__context domid in
-
 (*	  if memory_cached <> memory then
 	    debug "memory changed";*)
 

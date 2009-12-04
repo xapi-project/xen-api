@@ -447,7 +447,8 @@ let update_vms ~xal ~__context =
 	   have missed an update; and (ii) if the tools .iso has been updated then
 	   we wish to re-evaluate whether we believe the VMs have up-to-date
 	   tools *)
-	Events.callback_guest_agent xal dinfo.Xc.domid;
+
+	Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
 	(* Now register with monitoring thread *)
 
       Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
@@ -733,4 +734,3 @@ let update_env __context sync_keys =
     if Db.Host.get_bios_strings ~__context ~self:localhost = [] then
       Bios_strings.set_host_bios_strings ~__context ~host:localhost
   );
-
