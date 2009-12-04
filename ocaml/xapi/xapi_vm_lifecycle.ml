@@ -143,7 +143,7 @@ let check_drivers ~vmr ~vmgmr ~op ~ref =
 	let op_str = Record_util.vm_operation_to_string op in
 
 	if has_booted_hvm && not has_pv_drivers
-	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for HVM domains (are PV drivers installed?)"])
+	then Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
 	else if is_a_rhel3_bug
 	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for SMP RHEL 3 linux guests" ])
 	else if has_good_drivers
