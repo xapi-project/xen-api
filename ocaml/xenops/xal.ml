@@ -28,7 +28,7 @@ exception Timeout
 
 type dev_event =
 	(* devices : backend / type / devid *)
-	| DevEject of string * string
+	| DevEject of string
 	(* device thread start : type / devid / pid *)
 	| DevThread of string * string * int
 	(* blkback and blktap now provide an explicit flush signal (type / devid) *)
@@ -67,8 +67,8 @@ let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
 	let string_of_b b = if b then "B" else "F" in
 	match ev with
-	| DevEject (s, i) ->
-		sprintf "device eject {%s,%s}" s i
+	| DevEject i ->
+		sprintf "device eject {%s}" i
 	| DevThread (s, i, pid) ->
 		sprintf "device thread {%s,%s} pid=%d" s i pid
 	| DevShutdownDone (s, i) ->
@@ -429,10 +429,10 @@ let other_watch xs w v =
 		end
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "shutdown-done" ] ->
 		Some (int_of_string domid, BackShutdown, ty, devid)
-	| "" :: "local" :: "domain" :: "0" :: "backend" :: ty :: domid :: devid :: [ "params" ] ->
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: ( "vbd" | "tap" ) :: domid :: devid :: [ "params" ] ->
 		begin try
 			if xs.Xs.read w = "" then
-				Some (int_of_string domid, BackEject, ty, devid)
+				Some (int_of_string domid, BackEject, "", devid)
 			else
 				None
 		with _ ->
@@ -565,8 +565,8 @@ let domain_device_event ctx w v =
 	        ctx.callback_devices ctx (-1) (Message (uuid, name, priority, body))
 	| Some (domid, BackThread (pid), ty, devid) ->
 		ctx.callback_devices ctx domid (DevThread (ty, devid, pid))
-	| Some (domid, BackEject, ty, devid) ->
-		ctx.callback_devices ctx domid (DevEject (ty, devid))
+	| Some (domid, BackEject, _, devid) ->
+		ctx.callback_devices ctx domid (DevEject (devid))
 	| Some (domid, ev, ty, devid) -> (
 		let devstate = get_devstate ctx domid ty devid in
 
