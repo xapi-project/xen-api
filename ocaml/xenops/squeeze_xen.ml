@@ -376,11 +376,18 @@ let execute_action ~xc ~xs action =
 		then failwith "Proposed target is negative (domid %d): %Ld" domid target_kib;
 		let cnx = (xc, xs) in
 		let memory_max_kib = Domain.get_maxmem cnx domid in
+		(* We only set the target of a domain if it has exposed feature-balloon: otherwise
+		   we can screw up the memory-offset calculations for partially-built domains. *)
+		let can_balloon = Domain.get_feature_balloon cnx domid in
 		if target_kib > memory_max_kib then begin
 		  Domain.set_maxmem_noexn cnx domid target_kib;
-		  Domain.set_target_noexn cnx domid target_kib;
+		  if can_balloon
+		  then Domain.set_target_noexn cnx domid target_kib
+		  else debug "Not setting target for domid: %d since no feature-balloon. Setting maxmem to %Ld" domid target_kib;
 		end else begin
-		  Domain.set_target_noexn cnx domid target_kib;
+		  if can_balloon
+		  then Domain.set_target_noexn cnx domid target_kib
+		  else debug "Not setting target for domid: %d since no feature-balloon. Setting maxmem to %Ld" domid target_kib;
 		  Domain.set_maxmem_noexn cnx domid target_kib;
 		end
 	with e ->
