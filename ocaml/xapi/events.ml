@@ -398,23 +398,10 @@ let push vm deferred_queue description work_item =
     || deferred_queue description deferred_work_item
   in ()
 
-(* Used to pre-filter the device events we care about from lots of uninteresting ones *)
-let interesting_device_event = function
-  | Xal.HotplugChanged(_, _, _) 
-  | Xal.DevShutdownDone(_, _)
-  | Xal.DevThread(_, _) 
-  | Xal.DevEject(_)
-  | Xal.ChangeRtc(_, _)
-  | Xal.Message(_, _, _, _)
-  | Xal.ChangeUncooperative _ -> true
-  | _ -> false
-
 let callback_devices ctx domid dev_event = 
   let dev_event_string = Xal.string_of_dev_event dev_event in
-  let interesting = interesting_device_event dev_event in
-  debug "VM (domid: %d) %s device_event = %s" domid (if interesting then "interesting" else "uninteresting") dev_event_string;
-  if interesting
-  then Helpers.log_exn_continue (Printf.sprintf "callback_devices (domid: %d) device_event = %s" domid dev_event_string)
+  debug "VM (domid: %d) device_event = %s" domid dev_event_string;
+  Helpers.log_exn_continue (Printf.sprintf "callback_devices (domid: %d) device_event = %s" domid dev_event_string)
     (fun () ->
        Server_helpers.exec_with_new_task (Printf.sprintf "VM (domid: %d) device_event = %s" domid dev_event_string)
 	 (fun __context -> 
