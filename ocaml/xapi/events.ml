@@ -546,9 +546,9 @@ let callback_release ctx domid =
 (** Handles guest agent xenstore updates.
     NB this should be a fairly quick operation, consisting of only a few xenstore reads and database
     writes. We don't bother to fork a thread for it. Since we're the only place where the guest metrics
-    should be modified we also don't bother to acquire any other locks. *)
-let callback_guest_agent ctx domid = 
-  debug "VM (domid: %d) guest agent update" domid;
+    should be modified we also don't bother to acquire any other locks. 
+	Called from dbsync and from Xal. *)
+let guest_agent_update ctx domid uuid = 
   (* Be careful not to kill the main xal event thread *)
   Helpers.log_exn_continue (Printf.sprintf "callback_guest_agent (domid: %d)" domid)
     (fun () ->
@@ -558,8 +558,17 @@ let callback_guest_agent ctx domid =
        let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xb.Noent -> [] in
        (* NB Xapi_guest_agent.all is robust to spurious events *)
        Server_helpers.exec_with_new_task (Printf.sprintf "Event thread updating guest metrics (domid: %d)" domid)
-	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid)
+	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid)
     ) ()
+
+(** Called from Xal *)
+let callback_guest_agent ctx domid = 
+  debug "VM (domid: %d) guest agent update" domid;
+  try
+	(* This might fail if the domain has been destroyed: *)
+	let uuid = uuid_of_domid domid in
+	guest_agent_update ctx domid uuid
+  with _ -> ()
 
 (** Handles updates to VM memory targets. *)
 let callback_memory_target ctx domid =
