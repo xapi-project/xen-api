@@ -30,7 +30,7 @@ type dev_event =
 	(* devices : backend / type / devid *)
 	| DevEject of string
 	(* device thread start : type / devid / pid *)
-	| DevThread of string * string * int
+	| DevThread of string * int
 	(* blkback and blktap now provide an explicit flush signal (type / devid) *)
 	| DevShutdownDone of string * string
 	(* uuid, data *)
@@ -69,8 +69,8 @@ let string_of_dev_event ev =
 	match ev with
 	| DevEject i ->
 		sprintf "device eject {%s}" i
-	| DevThread (s, i, pid) ->
-		sprintf "device thread {%s,%s} pid=%d" s i pid
+	| DevThread (i, pid) ->
+		sprintf "device thread {%s} pid=%d" i pid
 	| DevShutdownDone (s, i) ->
 		sprintf "device shutdown {%s,%s}" s i
 	| ChangeRtc (uuid, data) ->
@@ -416,14 +416,14 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: "vbd" :: domid :: devid :: [ "kthread-pid" ] ->
 		begin try
 			let kthread_pid = int_of_string (xs.Xs.read w) in
-			Some (int_of_string domid, BackThread kthread_pid, "vbd", devid)
+			Some (int_of_string domid, BackThread kthread_pid, "", devid)
 		with _ ->
 			None
 		end
 	| "" :: "local" :: "domain" :: "0" :: "backend" :: "tap" :: domid :: devid :: [ "tapdisk-pid" ] ->
 		begin try
 			let tapdisk_pid = int_of_string (xs.Xs.read w) in
-			Some (int_of_string domid, BackThread tapdisk_pid, "tap", devid)
+			Some (int_of_string domid, BackThread tapdisk_pid, "", devid)
 		with _ ->
 			None
 		end
@@ -563,8 +563,8 @@ let domain_device_event ctx w v =
 		ctx.callback_devices ctx domid (ChangeUncooperative x)
 	| Some (_, IntMessage (uuid, name, priority, body), _, _) ->
 	        ctx.callback_devices ctx (-1) (Message (uuid, name, priority, body))
-	| Some (domid, BackThread (pid), ty, devid) ->
-		ctx.callback_devices ctx domid (DevThread (ty, devid, pid))
+	| Some (domid, BackThread (pid), _, devid) ->
+		ctx.callback_devices ctx domid (DevThread (devid, pid))
 	| Some (domid, BackEject, _, devid) ->
 		ctx.callback_devices ctx domid (DevEject (devid))
 	| Some (domid, ev, ty, devid) -> (

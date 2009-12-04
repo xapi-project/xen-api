@@ -38,7 +38,7 @@ exception Timeout
 
 type dev_event =
 	| DevEject of string
-	| DevThread of string * string * int
+	| DevThread of string * int
 	| DevShutdownDone of string * string
 	| ChangeRtc of string * string
 	| Message of string * string * int64 * string
