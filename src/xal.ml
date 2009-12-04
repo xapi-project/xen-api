@@ -28,7 +28,6 @@ exception Timeout
 
 type dev_event =
 	(* devices : backend / type / devid *)
-	| DevError of string * string * string
 	| DevEject of string * string
 	(* device thread start : type / devid / pid *)
 	| DevThread of string * string * int
@@ -53,7 +52,6 @@ type internal_dev_event =
 	| BackEject
 	| BackShutdown
 	| Frontend of xs_dev_state
-	| Error of string
 	| Rtc of string * string (* uuid, data *)
 	| IntMessage of string * string * int64 * string (* uuid, name, priority, body *)
 	| HotplugBackend of string option
@@ -70,8 +68,6 @@ let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
 	let string_of_b b = if b then "B" else "F" in
 	match ev with
-	| DevError (s, i, e) ->
-		sprintf "device error {%s,%s} \"%s\"" s i e
 	| DevEject (s, i) ->
 		sprintf "device eject {%s,%s}" s i
 	| DevThread (s, i, pid) ->
@@ -446,9 +442,6 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: domid :: "device" :: ty :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
-	| "" :: "local" :: "domain" :: domid :: "error" :: "device" :: ty :: devid :: [ "error" ] ->
-		let error = try xs.Xs.read w with Xb.Noent -> "" in
-		Some (int_of_string domid, Error error, ty, devid)
 	| "" :: "xapi" :: domid :: "hotplug" :: ty :: devid :: [ "hotplug" ] ->
 		let extra = try Some (xs.Xs.read w) with _ -> None in
 		Some (int_of_string domid, (HotplugBackend extra), ty, devid)
@@ -589,9 +582,6 @@ let domain_device_event ctx w v =
 		| Frontend state ->
 			let oldstate = devstate.frontstate in
 			devstate.frontstate <- state;
-		| Error error ->
-			devstate.error <- (Some error);
-			ctx.callback_devices ctx domid (DevError (ty, devid, error))
 		| BackShutdown ->
 			ctx.callback_devices ctx domid (DevShutdownDone (ty, devid))
 		| HotplugBackend extra  ->
