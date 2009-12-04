@@ -617,7 +617,7 @@ let server_init() =
     ignore(Http_svr.start (localhost_sock, "inet-RPC"));
     in
 
-  let print_server_starting_message() = debug "xapi server starting; on_system_boot=%b" !Xapi_globs.on_system_boot in
+  let print_server_starting_message() = debug "on_system_boot=%b" !Xapi_globs.on_system_boot in
 
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
