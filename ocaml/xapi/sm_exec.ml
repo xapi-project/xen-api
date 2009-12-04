@@ -63,7 +63,7 @@ type call = {
 }
 
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of,device_config) cmd args =
-  Server_helpers.exec_with_new_task "sm_exec: reading host other-config"
+  Server_helpers.exec_with_new_task "sm_exec"
     (fun __context ->
        let vdi_location = 
 	 if vdi_location <> None 
