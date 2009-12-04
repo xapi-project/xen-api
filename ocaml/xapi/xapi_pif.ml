@@ -423,7 +423,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 
 let unplug ~__context ~self = 
   assert_no_protection_enabled ~__context ~self;
-  assert_not_slave_management_pif ~__context ~self;
+  assert_not_management_pif ~__context ~self;
   let host = Db.PIF.get_host ~__context ~self in
   if Db.Host.get_enabled ~__context ~self:host
   then abort_if_network_attached_to_protected_vms ~__context ~self;
