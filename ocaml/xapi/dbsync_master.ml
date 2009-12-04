@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Main Loop and Start-up
+ *)
+ 
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
 

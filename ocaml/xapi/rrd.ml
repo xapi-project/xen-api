@@ -16,6 +16,9 @@
  * This module provides a util that records data in a way that's compatable
  * with rrdtool (http://oss.oetiker.ch/rrdtool/index.en.html)
  *)
+(**
+ * @group Performance Monitoring
+ *)
 
 open Listext
 

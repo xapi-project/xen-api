@@ -11,9 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(*
- * RRD maintainence code
- * 
+(** RRD maintainence code
+ * @group Performance Monitoring
+ *)
+
+(**
  * This module is primarily concerned with the lifecycle of RRDs. They
  * are created here, stored to disk, retrieved from disk, and sent
  * amongst the pool.

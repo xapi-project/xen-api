@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Code to create a set of built-in templates (eg on the fakeserver) *)
+(** Code to create a set of built-in templates (eg on the fakeserver).
+ * @group Virtual-Machine Management
+ *)
 
 open API
 open Xapi_templates

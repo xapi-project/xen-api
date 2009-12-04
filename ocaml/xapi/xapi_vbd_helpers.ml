@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Common code between the fake and real servers for dealing with VBDs *)
+(** Common code between the fake and real servers for dealing with VBDs
+ * @group Storage
+ *)
 
 open Threadext
 open Stringext

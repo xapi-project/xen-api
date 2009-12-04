@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions for VLANs *)
+(** Module that defines API functions for VLANs
+ * @group XenAPI functions
+ *)
 
 (** Create a VLAN with the given [tag] using the [tagged_PIF] as VLAN slave. 
  *  Creates a new PIF object as VLAN master (untagged PIF) and connects it to the

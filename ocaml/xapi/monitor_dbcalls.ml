@@ -11,9 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Monitor DB calls *)
+(** Monitor DB calls
+ * @group Performance Monitoring
+ *)
 
-(* Here is where all of the calls that touch the database live. There
+(** Here is where all of the calls that touch the database live. There
  * is a thread that sits waiting for the monitor_rrd module (or
  * xapi_pif module) to wake it up so that it writes into the
  * database. We don't particularly care if the db calls block for a
@@ -31,8 +33,6 @@
  * information. In this particular case, we fix this by forcing an
  * update from xapi_pif.ml - but it's important to keep this in mind
  * because it will be quite easy for this code to get out of sync.
- * 
- * 
  *)
 
 module D = Debug.Debugger(struct let name="monitor_dbcalls" end)

@@ -11,6 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for Message objects
+ * @group XenAPI functions
+ *)
+
+ 
 (** Message store *)
 
 (* We use a filesystem based 'database': 

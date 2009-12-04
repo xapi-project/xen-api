@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions (messages) for [pool] objects *)
+(** Module that defines API functions for Pool objects
+ * @group XenAPI functions
+ *)
 
 (** {2 (Fill in Title!)} *)
 

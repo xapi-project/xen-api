@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions for Bonds *)
+(** Module that defines API functions for Bond objects
+ * @group XenAPI functions
+ *)
 
 (** Create a PIF to represent the bond master and a Bond record to represent the bond. 
  *  Return a reference to the bond record. The given network must not have any local

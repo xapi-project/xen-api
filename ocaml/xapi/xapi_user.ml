@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for User objects
+ * @group XenAPI functions
+ *)
+
 let get_allowed_messages ~__context ~self = []
 
 let create ~__context ~short_name ~fullname ~other_config =

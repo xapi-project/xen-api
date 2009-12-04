@@ -11,6 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for Session objects
+ * @group XenAPI functions
+ *)
+
+ 
 (* include Custom_actions.DebugVersion.Session *)
 
 module D = Debug.Debugger(struct let name="xapi" end)

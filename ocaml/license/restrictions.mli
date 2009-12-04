@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-(** Module that controls license entitlements *)
+(** Module that controls license entitlements
+ * @group Licensing
+ *)
 
 (** Licensing mode *)
 type sku = Express | Enterprise

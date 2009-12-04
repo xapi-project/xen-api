@@ -11,29 +11,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Code to output a subset of database records, marshalled in XMLRPC format *)
-
-(* The general plan:
- *
- * 1. Walk around the database and select the objects you want (see 'create_table')
- *    and make a table mapping internal ref -> fresh external references. It would
- *    be nice to generate a visitor thingimy for this.
- * 
- * 2. Select all the objects from each class, filter the subset you want (ie those whose
- *    reference exists as a key in the table) and convert them into instances of the 
- *    intermediate record 'type obj' via the functions make_{vm,sr,vbd,vif,network}.
- *
- *    The created 'obj record' includes the class name as a string (from the datamodel), 
- *    the fresh reference and the output of 'get_record' marshalled using the standard 
- *    XMLRPC functions with all the references converted either to the fresh external refs
- *    or NULL (so we aim not to export dangling pointers)
- * 
- * 3. Write out one big XML file containing an XMLRPC struct which has keys:
- *    version -> a structure of system version info (API versions, internal build numbers)
- *    state -> an XMLRPC array of XMLRPC serialised 'obj' records (see 'xmlrpc_of_obj')
+(** Code to output a subset of database records, marshalled in XMLRPC format
+ * @group Import and Export
  *)
 
-(* The specific plan for VM export:
+(** The general plan:
+  + Walk around the database and select the objects you want (see 'create_table')
+     and make a table mapping internal ref -> fresh external references. It would
+     be nice to generate a visitor thingimy for this.  
+  + Select all the objects from each class, filter the subset you want (ie those whose
+     reference exists as a key in the table) and convert them into instances of the 
+     intermediate record 'type obj' via the functions make_{vm,sr,vbd,vif,network}.
+     The created 'obj record' includes the class name as a string (from the datamodel), 
+     the fresh reference and the output of 'get_record' marshalled using the standard 
+     XMLRPC functions with all the references converted either to the fresh external refs
+     or NULL (so we aim not to export dangling pointers)
+  + Write out one big XML file containing an XMLRPC struct which has keys:
+     version -> a structure of system version info (API versions, internal build numbers)
+     state -> an XMLRPC array of XMLRPC serialised 'obj' records (see 'xmlrpc_of_obj')
+ *)
+
+(** The specific plan for VM export:
    Walk over the datamodel and mark VIFs, Networks connected to the VIFs, VBDs, VDIs connected
    to the VBDs, SRs connected to the VDIs (and maybe a suspend image?). *)
 

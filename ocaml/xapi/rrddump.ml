@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Performance Monitoring
+ *)
+ 
 let _ = 
   let body = Unixext.read_whole_file_to_string Sys.argv.(1) in
   let input = Xmlm.make_input (`String (0, body)) in

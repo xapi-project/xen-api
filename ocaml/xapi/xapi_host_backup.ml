@@ -11,7 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
+(**
+ * @group Host Management
+ *)
+ 
 open Http
 open Pervasiveext
 open Forkhelpers

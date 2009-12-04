@@ -11,13 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* We need to cope with multiple threads attempting to allocate chunks of memory to start
+(**
+ * @group Memory Management
+ *)
+ 
+(** We need to cope with multiple threads attempting to allocate chunks of memory to start
    or resume VMs.
 
    The convention is:
-   * memory is initially reserved and associated with a reservation_id
-   * assuming the domain create succeeds, the reservation is tranferred to the domain
-   * a domain which is paused, not shutdown and has clocked up no CPU cycles (ie has never run)
+   - memory is initially reserved and associated with a reservation_id
+   - assuming the domain create succeeds, the reservation is tranferred to the domain
+   - a domain which is paused, not shutdown and has clocked up no CPU cycles (ie has never run)
      has an 'initial-reservation' key which indicates how much memory from the current total should be reserved.   
 *)
 

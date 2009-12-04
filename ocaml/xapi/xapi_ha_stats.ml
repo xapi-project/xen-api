@@ -12,7 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Module used as a latch between the HA monitor thread and the stats code *)
-
+(**
+ * @group High Availability (HA)
+ *)
+ 
 let enabled = ref false
 
 let m = Mutex.create ()

@@ -11,9 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
 (** Client module to handle v6 licenses with the v6 licensing daemon.
- *  V6 licenses enable the features of Citrix Essentials for XenServer. *)
+ *  V6 licenses enable the features of Citrix Essentials for XenServer.
+ * @group Licensing
+ *)
 
 (** {2 State variables} *)
 

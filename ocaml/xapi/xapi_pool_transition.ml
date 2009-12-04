@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Pool Management
+ *)
+ 
 open Client
 
 module D = Debug.Debugger(struct let name="xapi" end)
