@@ -280,12 +280,15 @@ let heartbeat ~__context =
   try
     Db_lock.with_lock 
       (fun () ->
-	 (* We must hold the database lock since we are sending an update for a real object
-	    and we don't want to accidentally transmit an older snapshot. *)
-	 let pool = Helpers.get_pool ~__context in
-	 let pool_r = Db.Pool.get_record ~__context ~self:pool in
-	 let pool_xml = API.To.pool_t pool_r in
-	 event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
+		   (* We must hold the database lock since we are sending an update for a real object
+			  and we don't want to accidentally transmit an older snapshot. *)
+		   let pool = try Some (Helpers.get_pool ~__context) with _ -> None in
+		   match pool with
+		   | Some pool ->
+				 let pool_r = Db.Pool.get_record ~__context ~self:pool in
+				 let pool_xml = API.To.pool_t pool_r in
+				 event_add ~snapshot:pool_xml "pool" "mod" (Ref.string_of pool)
+		   | None -> () (* no pool object created during initial boot *)
       )
   with e ->
     error "Caught exception sending event heartbeat: %s" (ExnHelper.string_of_exn e)
