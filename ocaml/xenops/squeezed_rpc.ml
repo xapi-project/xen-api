@@ -191,20 +191,20 @@ module Rpc_internal = struct
     (* list the requests which arrived before our watch was established *)
     process_new_requests ();
     while true do
-      if Xs.has_watchevents xs
-      then begin
-	debug "There are queued watch events";
-	while Xs.has_watchevents xs do
-	  ignore(Xs.get_watchevent xs)
-	done
+      if Xs.has_watchevents xs then begin
+		(* Drain the watch event queue *)
+		while Xs.has_watchevents xs do
+		  ignore(Xs.get_watchevent xs)
+		done
       end else begin
-	debug "Blocking for watch event %s" (if idle_timeout < 0. then "forever" else Printf.sprintf "for up to %.0f s" idle_timeout);
-	let r, _, _ = Unix.select [ Xs.get_fd xs ] [] [] idle_timeout in
-	if r = []
-	then idle_callback ()
-	else ignore(Xs.read_watchevent xs);
+		(* Nothing in the queue, wait for an event on the fd *)
+		let r, _, _ = Unix.select [ Xs.get_fd xs ] [] [] idle_timeout in
+		if r = []
+		then idle_callback ()
+		else ignore(Xs.read_watchevent xs);
       end;
-      process_new_requests ()
+	  (* We think there is some work to do *)
+	  process_new_requests ()
     done
 end
   

@@ -13,6 +13,7 @@
  *)
 let default_pidfile = "/var/run/squeezed.pid" 
 let log_file_path = "file:/var/log/squeezed.log" 
+let idle_timeout = 10. (* seconds per balancing check *)
 
 open Pervasiveext 
 open Squeezed_rpc
@@ -220,9 +221,9 @@ let _ =
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-  debug "Starting daemon";
+  debug "Starting daemon listening on %s with idle_timeout = %.0f" _service idle_timeout;
   try
-    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout:10. ~idle_callback:(idle_callback ~xc ~xs) () );
+    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout ~idle_callback:(idle_callback ~xc ~xs) () );
     debug "Graceful shutdown";
     exit 0
   with e ->
