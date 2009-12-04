@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Storage
+ *)
 
 (* We only support .iso files (from an iso SR) and block devices from
    a local magic SR (eg /dev/hda) but NOT phantom_vbd block attach isos *)

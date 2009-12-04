@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* HTTP handler for importing a raw VDI *)
+(** HTTP handler for importing a raw VDI.
+ * @group Import and Export
+ *)
 
 module D=Debug.Debugger(struct let name="import" end)
 open D

@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Storage
+ *)
+ 
 module SR :
 sig
   val attach : __context:Context.t -> self:API.ref_SR -> unit

@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-(** Module that keeps track of licenses and related matter *)
+(** Module that keeps track of licenses and related matter
+ * @group Licensing
+ *)
 
 (** Type for holding all details about a license *)
 type license =

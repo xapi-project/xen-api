@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* API Calls *)
+(** Module that defines API functions for PBD objects
+ * @group XenAPI functions
+ *)
 
 open Db_filter
 open Db_filter_types

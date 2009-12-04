@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Common definitions and functions shared between the import and export code *)
+(** Common definitions and functions shared between the import and export code.
+ * @group Import and Export
+ *)
 
 (** Represents a database record (the reference gets converted to a small string) *)
 type obj = { cls: string; id: string; snapshot: XMLRPC.xmlrpc }

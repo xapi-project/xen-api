@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Monitor the xapi server process itself, periodically log stats *)
+(** Monitor the xapi server process itself, periodically log stats.
+ * @group Performance Monitoring
+ *)
 
 module D=Debug.Debugger(struct let name="monitor" end)
 open D

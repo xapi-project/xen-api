@@ -11,14 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-
-(* Functions for implementing 'High Availability' (HA). File is divided into 3 sections:
-   1. scripts and functions which form part of the HA subsystem interface
-   2. internal API calls used for arming and disarming individual hosts
-   3. external API calls (Pool.enable_ha, Pool.disable_ha) used for turning on/off HA
-   pool-wide
-*)
+(** Functions for implementing 'High Availability' (HA). File is divided into 3 sections:
+   + scripts and functions which form part of the HA subsystem interface
+   + internal API calls used for arming and disarming individual hosts
+   + external API calls (Pool.enable_ha, Pool.disable_ha) used for turning on/off HA pool-wide
+ * @group High Availability (HA)
+ *)
 
 module D = Debug.Debugger(struct let name="xapi_ha" end)
 open D

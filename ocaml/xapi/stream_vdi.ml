@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Utility functions for streaming VDI images *)
+(** Utility functions for streaming VDI images
+ * @group Storage
+ *)
 
 open Stringext
 open Debug

@@ -98,12 +98,12 @@ h1, h2, h3, h4, h5, h6, h7, h8, h9 {
 
 h1 {
 	font-size: 200%;
-	margin-top: 1em;
+	margin-top: 1.2em;
 }
 
 h2 {
 	font-size : 150%;
-	margin: .8em 0 .5em;
+	margin: 1em 0 .5em;
 }
 
 h3 {
@@ -208,6 +208,14 @@ th {
 
 .code {
 	font-family: Courier New, monospace;
+}
+
+.comment {
+	margin: 1em 0;
+}
+
+.comment br {
+	margin-bottom: .5em;
 }
 
 .field, .field2

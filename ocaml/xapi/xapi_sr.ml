@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for SR objects
+ * @group XenAPI functions
+ *)
+ 
 open Printf
 open Threadext
 open Pervasiveext

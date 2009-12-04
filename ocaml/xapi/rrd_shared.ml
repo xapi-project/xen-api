@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Shared RRD data *)
+(** Shared RRD data
+ * @group Performance Monitoring
+ *)
 
 (* This module contains all of the data that is shared between 
  * the monitor_rrds module and the monitor_dbcalls module

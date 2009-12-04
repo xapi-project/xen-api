@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Helper module to plug and unplug PIFs *)
+(** Helper module to plug and unplug PIFs
+ * @group Networking
+ *)
 
 (** Calls the [interface-reconfigure] script to bring up a PIF on this host. The script will be skipped if
  *  PIF.currently_attached is still marked as [true] {i unless} [management_interface] is set.

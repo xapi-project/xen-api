@@ -11,10 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* We only currently support within-pool live or dead migration.
+(**
+ * @group Virtual-Machine Management
+ *)
+ 
+(** We only currently support within-pool live or dead migration.
    Unfortunately in the cross-pool case, two hosts must share the same SR and
    co-ordinate tapdisk locking. We have not got code for this. 
-*)
+ *)
 
 open Pervasiveext
 open Printf
@@ -25,7 +29,7 @@ open DD
 
 open Client
 
-(* Extra parameter added in rel_mnr: memory_required_kib which is the lowest
+(** Extra parameter added in rel_mnr: memory_required_kib which is the lowest
    upper-bound on the amount of memory we know the domain will fit in. This
    is also used as a neutral target value post-migrate.
    If this is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.

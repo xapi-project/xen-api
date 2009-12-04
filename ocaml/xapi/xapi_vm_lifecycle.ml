@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Helper functions relating to VM lifecycle operations *)
+(** Helper functions relating to VM lifecycle operations.
+ * @group Virtual-Machine Management
+ *)
 
 open Xapi_pv_driver_version
 

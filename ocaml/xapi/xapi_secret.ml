@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Module that defines API functions for Secret objects
+ * @group XenAPI functions
+ *)
+
 open Stringext
 
 module D = Debug.Debugger(struct let name = "xapi_secret" end)
