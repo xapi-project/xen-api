@@ -322,11 +322,11 @@ let on_master_restart ~__context =
 (* Make sure the local database can be read *)
 let init_local_database () =
   (try
-     let enabled = Localdb.get Constants.ha_armed in
-     debug "%s = %s" Constants.ha_armed enabled;
+     let (_: string) = Localdb.get Constants.ha_armed in
+	 ()
    with Localdb.Missing_key _ ->
      Localdb.put Constants.ha_armed "false";
-     debug "Missing %s key, assuming 'false'" Constants.ha_armed);
+     debug "%s = 'false' (by default)" Constants.ha_armed);
   (* Add the local session check hook *)
   Session_check.check_local_session_hook := Some (Xapi_local_session.local_session_hook);
   (* Resynchronise the master_scripts flag if this is the first start since system boot *)
@@ -420,7 +420,7 @@ let start_ha () =
 let start_redo_log () =
   try
     if Pool_role.is_master () &&
-		bool_of_string (Localdb.get Constants.redo_log_enabled) && 
+		bool_of_string (Localdb.get_with_default Constants.redo_log_enabled "false") && 
 	  not (bool_of_string (Localdb.get Constants.ha_armed)) then
     begin
       debug "Redo log was enabled when shutting down, so restarting it";
