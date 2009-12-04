@@ -83,12 +83,6 @@ let bring_pif_down ~__context (pif: API.ref_PIF) =
     (fun () ->
        (* Check that the PIF is not in-use *)
        let uuid = Db.PIF.get_uuid ~__context ~self:pif in
-       (* XXX: temporarily remove to fix firstboot scripts
-       if Db.PIF.get_management ~__context ~self:pif then begin
-	 warn "PIF %s is a management interface: refusing to bring down" uuid;
-	 raise (Api_errors.Server_error(Api_errors.pif_is_management_iface, [ Ref.string_of pif ]))
-       end;
-       *)
        let network = Db.PIF.get_network ~__context ~self:pif in
        Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost()) ~network;
        Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context pif;
