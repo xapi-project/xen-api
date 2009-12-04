@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** 
+ * @group Command-Line Interface (CLI)
+ *)
+ 
 module D = Debug.Debugger(struct let name = "cli" end)
 open D
 

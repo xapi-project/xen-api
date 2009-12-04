@@ -11,8 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Types which represent VM configuration independent of the pool database. Rather than pass around
-   database references and use expensive lookups we can pass around these types instead. *)
+(** Types which represent VM configuration independent of the pool database. Rather than pass around
+   database references and use expensive lookups we can pass around these types instead. 
+ * @group Virtual-Machine Management
+ *)
 
 (* This is a work in progress: as the code evolves we can shuffle data between the records *)
 

@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Main Loop and Start-up
+ *)
+ 
 open Printf
 open Stringext
 open Vmopshelpers

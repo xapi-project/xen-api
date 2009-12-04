@@ -11,8 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Virtual-Machine Management
+ *)
 
-(* Here we define a template to be a VM with 'is_a_template = true' which,
+(** Here we define a template to be a VM with 'is_a_template = true' which,
    when initially booted after having been cloned, inspects its own
    configuration (stored by the UI/CLI in VM.other_config) and uses the API
    to provision disks, make filesystems, perform any install steps and then

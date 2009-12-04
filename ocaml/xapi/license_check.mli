@@ -11,6 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** 
+ * Verifying whether the current license is still valid
+ * @group Licensing
+ *)
+ 
 val vm : __context:'a -> API.ref_VM -> unit
 
 val with_vm_license_check : __context:'a -> [`VM] Ref.t -> (unit -> 'b) -> 'b 

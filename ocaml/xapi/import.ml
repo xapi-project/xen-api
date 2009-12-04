@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* HTTP handler for importing a VM from a stream *)
+(** HTTP handler for importing a VM from a stream.
+ * @group Import and Export
+ *)
 
 module D=Debug.Debugger(struct let name="import" end)
 open D

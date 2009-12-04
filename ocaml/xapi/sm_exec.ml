@@ -11,7 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* storage manager backend: external operations through exec *)
+(** Storage manager backend: external operations through exec
+ * @group Storage
+ *)
+
 open Pervasiveext
 open Stringext
 open Printf

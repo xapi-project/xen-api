@@ -11,12 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** XC, XS and XAL interface helpers.
+ * @group Virtual-Machine Management
+ *)
+
 open Pervasiveext
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
-
-(** {2 XC, XS and XAL interface helpers.} *)
 
 open Xenops_helpers
 

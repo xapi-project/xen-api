@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Virtual-Machine Management
+ *)
+ 
 (** An extension of Vm_memory_constraints that provides additional database and API operations. *)
 module type T = sig
 

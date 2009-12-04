@@ -11,6 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(**
+ * @group Access Control
+ *)
+ 
 module D = Debug.Debugger(struct let name="extauth_plugin_PAM_NSS" end)
 open D
 

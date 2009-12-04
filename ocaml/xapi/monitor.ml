@@ -11,9 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Guest monitoring *)
+(** Guest monitoring
+ * @group Performance Monitoring
+ *)
  
-(* This module is the primary guest monitoring module, and has the
+(** This module is the primary guest monitoring module, and has the
  * loop that runs the monitoring code. It is also responsible for
  * reading all of the stats from dom0. It marshals them up as
  * data_sources (defined in ds.ml). When gathering data about PIFs, we
