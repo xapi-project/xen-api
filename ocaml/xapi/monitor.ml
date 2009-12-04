@@ -53,6 +53,12 @@ let memory_targets_m = Mutex.create ()
 let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
+let uuid_of_domid domains domid = 
+  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) domains in
+  if List.mem_assoc domid domid_to_uuid
+  then Uuid.string_of_uuid (List.assoc domid domid_to_uuid)
+  else failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+
 let get_uncooperative_domains () = 
   let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
   let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
@@ -66,13 +72,12 @@ let get_uncooperative_domains () =
 
 (* This function is used both for getting vcpu stats and for getting the uuids of the
    VMs present on this host *)
-let update_vcpus xc =
-  let doms = Xc.domain_getinfolist xc 0 in
+let update_vcpus xc doms =
   List.fold_left (fun (dss,uuids,domids) dom ->
     let domid = dom.Xc.domid in
     let maxcpus = dom.Xc.max_vcpu_id + 1 in
-    let uuid=uuid_of_domid domid in
-    
+    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
+
     let rec cpus i dss = 
       if i>=maxcpus then dss else 
 	let vcpuinfo = Xc.domain_get_vcpuinfo xc domid i in
@@ -123,13 +128,12 @@ let update_pcpus xc =
       ~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ())::acc,i+1)) ([],0) newinfos in
   dss
 
-let update_memory __context xc = 
-	let doms = Xc.domain_getinfolist xc 0 in
+let update_memory __context xc doms = 
 	List.fold_left (fun acc dom ->
 		let domid = dom.Xc.domid in
 		let kib = Xc.pages_to_kib (Int64.of_nativeint dom.Xc.total_memory_pages) in 
 		let memory = Int64.mul kib 1024L in
-		let uuid = uuid_of_domid domid in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
 		let main_mem_ds = 
 		  (VM uuid,
 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
@@ -174,7 +178,7 @@ type ethstats = {
 	mutable rx_errors: int64; (* error received *)
 }
 
-let update_netdev () =
+let update_netdev doms =
   let devs = ref [] in
 
   let standardise_name name =
@@ -237,7 +241,7 @@ let update_netdev () =
 	  (fun d1 d2 -> d1, d2) in
 	let vif_name = Printf.sprintf "vif_%d" d2 in
 	(* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
-	let uuid=uuid_of_domid d1 in
+	let uuid=uuid_of_domid doms d1 in
 	(VM uuid,
 	ds_make ~name:(vif_name^"_tx")
 	  ~description:("Bytes per second transmitted on virtual interface number '"^(string_of_int d2)^"'")
@@ -303,7 +307,7 @@ let update_netdev () =
 (* disk related code                                 *)
 (*****************************************************)
 
-let update_vbds () =
+let update_vbds doms =
   let read_int_file file =
     let v = ref 0L in
     try Unixext.readfile_line (fun l -> v := Int64.of_string l) file; !v
@@ -344,7 +348,7 @@ let update_vbds () =
        correspond to an active domain uuid. Skip these for now. *)
     let newacc = 
       try
-	let uuid=uuid_of_domid domid in
+	let uuid=uuid_of_domid doms domid in
 	(VM uuid,
 	ds_make ~name:(vbd_name^"_write") ~description:("Writes to device '"^device_name^"' in bytes per second")
 	  ~value:(Rrd.VT_Int64 wr_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ~units:"bytes per second" ())::
@@ -426,11 +430,12 @@ let read_all_dom0_stats __context =
 	default
       end in
   Mutex.execute lock (fun () ->
-    let timestamp = Unix.gettimeofday() in
-    let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
-    let (vifs,pifs) = try update_netdev() with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
-    with_xc (fun xc ->
-      let (vcpus,uuids,domids) = update_vcpus xc in
+	with_xc (fun xc ->
+	  let domains = Xc.domain_getinfolist xc 0 in
+      let timestamp = Unix.gettimeofday() in
+      let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
+      let (vifs,pifs) = try update_netdev domains with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
+      let (vcpus,uuids,domids) = update_vcpus xc domains in
       Xapi_guest_agent.sync_cache domids;
       Helpers.remove_other_keys memory_targets domids;
       Helpers.remove_other_keys uncooperative_domains domids;
@@ -441,9 +446,9 @@ let read_all_dom0_stats __context =
         vcpus;
 	vifs;
 	handle_exn "update_pcpus" (fun ()->update_pcpus xc) [];
-	handle_exn "update_vbds" (fun ()->update_vbds()) [];
+	handle_exn "update_vbds" (fun ()->update_vbds domains) [];
 	handle_exn "update_loadavg" (fun ()-> [ update_loadavg () ]) [];
-	handle_exn "update_memory" (fun ()->update_memory __context xc) []],uuids,pifs,timestamp,my_rebooting_vms)
+	handle_exn "update_memory" (fun ()->update_memory __context xc domains) []],uuids,pifs,timestamp,my_rebooting_vms)
     )
   )
 
