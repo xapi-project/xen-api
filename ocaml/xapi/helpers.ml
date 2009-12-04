@@ -257,14 +257,12 @@ let get_boot_record_of_record ~string:lbr ~uuid:current_vm_uuid =
     try
       begin
         (* initially, try to parse lbr using new default sexpr format *)
-        debug "parsing lbr using sexpr";
         API.From.vM_t "ret_val" (Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr)
       end
     with
       (* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
       Api_errors.Server_error (code,_) when code=Api_errors.field_type_error -> 
         begin
-          debug "parsing lbr using legacy xmlrpc";
           API.From.vM_t "ret_val" (Xml.parse_string lbr)
         end
   with e -> 
