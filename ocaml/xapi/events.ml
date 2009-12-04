@@ -400,7 +400,7 @@ let push vm deferred_queue description work_item =
 
 (* Used to pre-filter the device events we care about from lots of uninteresting ones *)
 let interesting_device_event = function
-  | Xal.HotplugChanged(true, "vif", _, _, _) 
+  | Xal.HotplugChanged("vif", _, _, _) 
   | Xal.DevShutdownDone(_, _)
   | Xal.DevThread(("vbd" | "tap"), _, _) 
   | Xal.DevEject(("vbd" | "tap"), _)
@@ -420,8 +420,7 @@ let callback_devices ctx domid dev_event =
 	 (fun __context -> 
 	    try
 	      match dev_event with
-		(* NB we don't care about frontend events here *)
-	      | Xal.HotplugChanged (true, "vif", devid, oldextra, newextra) ->  
+	      | Xal.HotplugChanged ("vif", devid, oldextra, newextra) ->  
 		  begin 
 	            let vm = vm_of_domid ~__context domid in
 		    let backend = { Device_common.domid=0;
