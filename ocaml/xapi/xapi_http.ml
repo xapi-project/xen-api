@@ -228,7 +228,6 @@ let add_handler (name, handler) =
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
 			(try 
-			   debug "check_rbac = %b" check_rbac;
 			   (try
 				if check_rbac 
 				then (* rbac checks *)
