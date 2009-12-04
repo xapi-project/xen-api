@@ -37,7 +37,6 @@ exception Device_not_monitored
 exception Timeout
 
 type dev_event =
-	| DevNew of bool * string * string
 	| DevWorking of bool * string * string
 	| DevClosing of bool * string * string
 	| DevClosed of bool * string * string
