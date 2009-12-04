@@ -37,7 +37,7 @@ let assert_loaded () =
       finally 
 	(fun () -> of_db (Xmlm.make_input (`Channel ic)); loaded := true)
 	(fun () -> close_in ic);
-      Hashtbl.iter (fun k v -> debug "loaded %s -> %s" k v) db
+      Hashtbl.iter (fun k v -> debug "%s = %s" k v) db
     with 
       | Unix.Unix_error (Unix.ENOENT, _, _) ->
 	  debug "Local database %s doesn't currently exist. Continuing." Xapi_globs.local_database
@@ -61,6 +61,11 @@ let get (key: string) =
 	 Hashtbl.find db key
        with Not_found -> raise (Missing_key key)
     )
+
+let get_with_default (key: string) (default: string) = 
+  try
+	get key
+  with Missing_key _ -> default
 
 (* Returns true if a change was made and should be flushed *)
 let put_one (key: string) (v: string) = 
