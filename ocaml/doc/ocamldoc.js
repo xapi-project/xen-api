@@ -146,11 +146,15 @@ function transform_links(s)
 
 function transform_type(t)
 {
-	params = t.split('->');
-	for (i in params) {
-		params[i] = '<span class="type">' + params[i] + '</span>';
+	if (t != '') {
+		params = t.split('->');
+		for (i in params) {
+			params[i] = '<span class="type">' + params[i] + '</span>';
+		}
+		html = params.join('<span class="arrow">\u2192</span>');
 	}
-	html = params.join('<span class="arrow">\u2192</span>');
+	else
+		html = '[none]';
 	return html;
 }
 
