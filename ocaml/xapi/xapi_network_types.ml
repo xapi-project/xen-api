@@ -11,16 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Common code between the fake and real servers for dealing with Networks
+(** Common code between the fake and real servers for dealing with Networks.
  * @group Networking
  *)
 
-module D=Debug.Debugger(struct let name="xapi" end)
-open D
-
+(** Helper type *)
 type backend = 
     {
       attach: __context:Context.t -> self:API.ref_network -> unit;
+      (** Function to attach a Network *)
+      
       detach: string -> unit;
+      (** Function to detach a Network *)
     }
 
