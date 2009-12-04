@@ -315,4 +315,5 @@ let get_ids name =
 	read_id_from (getpath name "device/vendor"),
 	read_id_from (getpath name "device/device")
 
+(** Indicates whether the given interface is a physical interface *)
 let is_physical name = try Unix.access (getpath name "device") [ Unix.F_OK ]; true with _ -> false

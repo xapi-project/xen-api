@@ -11,19 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions for Bond objects
- * @group Networking
- *)
- 
-(**
-A host can have multiple network interfaces. These can be used to physically separate networks. However, multiple interfaces can also be {i bonded} together to form a single high-throughput interface. 
-{ul
-{- The PIFs that are bonded together are called {i slaves}.}
-{- The datamodel has a {i Bond} object that joins the slaves.}
-{- The bond is used through a {i master} PIF, which is also associated with the Bond object. The master PIF is a special PIF that does not directly represent a physical interface. The master PIF is associated with a Network, and used as a regular PIF.}
-{- Bond slaves should never be used directly: they are not allowed to be plugged. Hence, they are not connected to bridges and therefore not accessible.}
-}
-*)
+(** Module that defines API functions for Bonds *)
 
 (** Create a PIF to represent the bond master and a Bond record to represent the bond. 
  *  Return a reference to the bond record. The given network must not have any local

@@ -23,17 +23,16 @@ let with_local_lock f = Mutex.execute local_m f
 
 let interface_reconfigure_script = "/opt/xensource/libexec/interface-reconfigure"
 
+(* Make sure inventory file has all current interfaces on the local host, so
+ * they will all be brought up again at start up. *)
 let update_inventory ~__context =
-  (* make sure inventory file has all current interfaces on the local host, so
-   * they will all be brought up again at start up *)
   let pifs = List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif && 
     Db.PIF.get_host ~__context ~self:pif = Helpers.get_localhost ~__context) (Db.PIF.get_all ~__context) in
   let get_netw pif = Db.PIF.get_network ~__context ~self:pif in
   let bridges = List.map (fun pif -> Db.Network.get_bridge ~__context ~self:(get_netw pif)) pifs in
   Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
 
-(** Call the interface reconfigure script.
-    For development ignore the exn if it doesn't exist *)
+(* Call the interface reconfigure script. For development ignore the exn if it doesn't exist *)
 let reconfigure_pif ~__context (pif: API.ref_PIF) args = 
   try
     Helpers.call_api_functions ~__context
@@ -46,9 +45,6 @@ let reconfigure_pif ~__context (pif: API.ref_PIF) args =
       raise (Api_errors.Server_error(Api_errors.pif_configuration_error, [ Ref.string_of pif; stderr ]))
 
 
-(* The management_interface argument determines whether this PIF is _going_ to become the management
-   interface in the future.
-*)
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
   with_local_lock 
     (fun () ->
