@@ -398,6 +398,7 @@ let simulate scenario =
     Gnuplot.write_row dat_oc (make_host ()) cols t in
   
   let io = {
+	  verbose = true;
     Squeeze.gettimeofday = gettimeofday;
     make_host = (fun () -> Printf.sprintf "F%Ld" !host_free_mem_kib, make_host ());
     domain_setmaxmem = setmaxmem;
