@@ -80,7 +80,7 @@ let get_hp_rombios () =
 		(fun () -> Unix.close mem)
 	with _ -> ()
 	end;
-	trim (remove_invisible hp_rombios)
+	if trim (remove_invisible hp_rombios) = "COMPAQ" then "COMPAQ" else ""
 
 let set_host_bios_strings ~__context ~host =
 	info "Setting host BIOS strings.";
