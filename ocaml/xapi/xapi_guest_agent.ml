@@ -271,7 +271,7 @@ let guest_metrics_liveness_thread () =
 			    debug "Marking as alive!";
 			    (* Mark guest as alive! *)
 			    dead_domains := IntSet.remove domid !dead_domains;
-			    let vm = Vmopshelpers.vm_of_domid ~__context domid in
+				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:true;
 			    debug "Done"
@@ -287,7 +287,7 @@ let guest_metrics_liveness_thread () =
 			    debug "Marking as dead!";
 			    (* Mark guest as dead! *)
 			    dead_domains := IntSet.add domid !dead_domains;
-			    let vm = Vmopshelpers.vm_of_domid ~__context domid in
+				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in				
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:false;
 			    debug "Done"
