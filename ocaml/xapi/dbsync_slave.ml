@@ -111,7 +111,7 @@ let refresh_localhost_info ~__context =
     end else
       Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
 
-(** copy bonded and vlan pifs from master *)
+(** Copy Bonds from master *)
 let copy_bonds_from_master ~__context =
   if Pool_role.is_master () then () (* if master do nothing *)
   else
@@ -195,7 +195,8 @@ let copy_bonds_from_master ~__context =
 	 let master_bonds = List.filter (fun (_, b) -> List.mem b.API.bond_master (List.map fst all_master_pifs)) all_bonds in
 	 List.iter (Helpers.log_exn_continue "resynchronising bonds on slave" maybe_create_bond_for_me)
 	   (List.map snd master_bonds))
-	   
+
+(** Copy VLANs from master *)
 let copy_vlans_from_master ~__context =
   if Pool_role.is_master () then () (* if master do nothing *)
   else
