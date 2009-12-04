@@ -903,11 +903,15 @@ let remove_other_keys table valid_keys =
   List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
 
 let set_vm_uncooperative ~__context ~self ~value = 
-  info "VM %s uncooperative <- %b" (Ref.string_of self) value;
-  begin
-    try
-      Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
-    with _ -> ()
-  end;
-  Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
-
+  let current_value = 
+	let oc = Db.VM.get_other_config ~__context ~self in
+	List.mem_assoc "uncooperative" oc && (bool_of_string (List.assoc "uncooperative" oc)) in
+  if value <> current_value then begin
+	info "VM %s uncooperative <- %b" (Ref.string_of self) value;
+	begin
+      try
+		Db.VM.remove_from_other_config ~__context ~self ~key:"uncooperative"
+      with _ -> ()
+	end;
+	Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
+  end
