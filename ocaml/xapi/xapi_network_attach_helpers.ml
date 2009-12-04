@@ -11,9 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Assertion helpers used when attaching a network *)
+ 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
+(** Raises an exception if the network has VIFs in use on the host *)
 let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
   (* Check if there are any active VIFs on VMs resident on me *)
   let vifs = Db.Network.get_VIFs ~__context ~self:network in
@@ -29,11 +32,23 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
 		 end)
     vifs
 
+(** Raises an exception when the [disallow_unplug] flag is set *)
 (* nice triple negative ;) *)
 let assert_pif_disallow_unplug_not_set ~__context pif =
   if (Db.PIF.get_disallow_unplug ~__context ~self:pif) then
     raise (Api_errors.Server_error(Api_errors.pif_does_not_allow_unplug, [ Ref.string_of pif ]))    
 
+(** Raises an exception if the network cannot be attached.
+ *  Returns a list of {i shafted} PIFs and a list of {i local} PIFs.
+ 
+ * Cannot attach this network if it has a PIF AND this PIF 'shafts'
+ * some other PIF which is attached to a network which is 'in-use'.
+ * Bringing a bond master up, or a VLAN on a bond, shafts the bond slaves;
+ * similarly, bringing a bond slave up shafts its master + that master's VLANs;
+ * but sibling slaves don't shaft each other.
+ *
+ * There should be only one local PIF by construction.
+ *)
 let assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check =
   (* Cannot attach this network if it has a PIF AND this PIF 'shafts'
      some other PIF which is attached to a network which is 'in-use'.

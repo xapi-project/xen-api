@@ -20,16 +20,10 @@ open D
 
 open Db_filter
 
+(* REMOVE: unused function that does not return anything useful anyway
 let get_allowed_messages ~__context ~self = []
+*)
 
-(* Instantiate the Network (ie bridge) on this host provided it wouldn't 
-   destroy existing Networks (e.g. slaves of a bond) in use by something (VIF
-   or management interface). 
-   Note special-case handling of new management interfaces: we skip the 
-   check for the existing management interface (essential otherwise switching
-   from a bond slave to a bond master would fail) and we make sure to call
-   Nm.bring_pif_up with the management_interface argument so it can make sure
-   the default gateway is set up correctly *)
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost () in
   let shafted_pifs, local_pifs = 
@@ -64,9 +58,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
        debug "Trying to attach PIF: %s" uuid;
        Nm.bring_pif_up ~__context ~management_interface pif
     ) local_pifs
-  
 
-	  
 let detach bridge_name = 
   Xapi_network_real.maybe_shutdown_guest_installer_network bridge_name;
   if Netdev.Bridge.exists bridge_name then begin
@@ -79,7 +71,6 @@ let detach bridge_name =
     Netdev.Bridge.del bridge_name
   end
 
-(** Network.attach external call *)
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
 
 let counter = ref 0
@@ -116,7 +107,6 @@ let network_gc_func() =
 	debug "Skipping network GC")
     
 
-(** Internal fn used by slave to create new network records on master during pool join operation *)
 let pool_introduce ~__context ~name_label ~name_description ~other_config ~bridge =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
@@ -124,7 +114,6 @@ let pool_introduce ~__context ~name_label ~name_description ~other_config ~bridg
     ~name_label ~name_description ~bridge ~other_config ~blobs:[] ~tags:[];
   r
   
-(** Attempt to create a bridge with a unique name *)
 let create ~__context ~name_label ~name_description ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
 		let networks = Db.Network.get_all ~__context in
@@ -141,8 +130,6 @@ let create ~__context ~name_label ~name_description ~other_config ~tags =
 				r in
 		loop ()) 
 
-(** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
-    here without being really sure *)
 let destroy ~__context ~self =
 	let vifs = Db.Network.get_VIFs ~__context ~self in
 	let connected = List.filter 

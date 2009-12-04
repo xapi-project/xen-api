@@ -11,12 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** Helper module to plug and unplug PIFs *)
 
-(** Call out to the script to bring up a PIF on this host. The script will be skipped if
-    PIF.currently_attached is still marked as true UNLESS management_interface is set. *)
+(** Calls the [interface-reconfigure] script to bring up a PIF on this host. The script will be skipped if
+ *  PIF.currently_attached is still marked as [true] {i unless} [management_interface] is set.
+ *  The [management_interface] argument determines whether this PIF is {i going} to become the management
+ *  interface in the future.
+ *)
 val bring_pif_up : __context:Context.t -> ?management_interface:bool -> API.ref_PIF -> unit
 
-(** Call out to the script to take down a PIF on this host *)
+(** Calls the [interface-reconfigure] script to take down a PIF on this host *)
 val bring_pif_down : __context:Context.t -> API.ref_PIF -> unit
 
+(** Execute a given function under the control of a mutex *)
 val with_local_lock : (unit -> 'a) -> 'a

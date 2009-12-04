@@ -33,6 +33,7 @@ open D
 
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
+(** Construct a descriptive network name (used as name_label) for a give network interface. *)
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
 

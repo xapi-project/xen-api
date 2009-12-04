@@ -218,7 +218,7 @@ let rec print_one_t = function
     (Printf.sprintf "</%s>" tag)
 
 and print_t_list l =
-	String.concat " " (List.map print_one_t l)
+	String.concat "" (List.map print_one_t l)
   
 (* the actual generator class *)
 

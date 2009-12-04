@@ -27,9 +27,6 @@ let choose_bond_device_name ~__context ~host =
     else name in
   choose 0
 
-
-(** Create a PIF to represent the bond master and a Bond record to represent the bond. 
-    Return a reference to the bond record. *)
 let create ~__context ~network ~members ~mAC =
 
   let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
