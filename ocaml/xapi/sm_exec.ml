@@ -336,11 +336,13 @@ let get_supported add_fn =
 
   List.iter 
     (fun (f, dir) ->
-      debug "Scanning directory %s for SM backends..." dir;
-      try Array.iter f (Sys.readdir dir)
-      with _ ->
-        log_backtrace ();
-        error "Error checking directory %s for SM backends" dir
+		 if Sys.file_exists dir then begin
+		   debug "Scanning directory %s for SM backends" dir;
+		   try Array.iter f (Sys.readdir dir)
+		   with e ->
+			   log_backtrace ();
+			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
+		 end else debug "Not scanning %s for SM backends: directory does not exist" dir
     ) 
     [ check_driver, sm_dir;
       check_daemon, sm_daemon_dir; ]
