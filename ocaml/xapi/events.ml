@@ -402,7 +402,7 @@ let push vm deferred_queue description work_item =
 let interesting_device_event = function
   | Xal.HotplugChanged("vif", _, _, _) 
   | Xal.DevShutdownDone(_, _)
-  | Xal.DevThread(("vbd" | "tap"), _, _) 
+  | Xal.DevThread(_, _) 
   | Xal.DevEject(_)
   | Xal.ChangeRtc(_, _)
   | Xal.Message(_, _, _, _)
@@ -458,7 +458,7 @@ let callback_devices ctx domid dev_event =
 		      debug "ignoring because VBD does not exist in DB"
 		  end
 		    
-	      | Xal.DevThread (ty, devid, pid) when ty = "vbd" || ty = "tap" ->
+	      | Xal.DevThread (devid, pid) ->
 	          let vm = vm_of_domid ~__context domid in
 		  begin
 		    try
@@ -468,7 +468,7 @@ let callback_devices ctx domid dev_event =
 			Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
 		      in
 		      debug "Adding Vbdops.set_vbd_qos to queue";
-		      let description = Printf.sprintf "DevThread(%s, %s, %d) domid %d" ty devid pid domid in
+		      let description = Printf.sprintf "DevThread(%s, %d) domid %d" devid pid domid in
 		      push vm Local_work_queue.normal_vm_queue description work_item 
 		    with Xen_helpers.Device_has_no_VBD ->
 		      debug "ignoring because VBD does not exist in DB"
