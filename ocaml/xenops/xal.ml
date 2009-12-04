@@ -28,7 +28,6 @@ exception Timeout
 
 type dev_event =
 	(* devices : backend / type / devid *)
-	| DevClosed of bool * string * string
 	| DevError of string * string * string
 	| DevEject of string * string
 	(* device thread start : type / devid / pid *)
@@ -71,8 +70,6 @@ let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
 	let string_of_b b = if b then "B" else "F" in
 	match ev with
-	| DevClosed (b, s, i) ->
-		sprintf "device closed {%s,%s,%s}" (string_of_b b) s i
 	| DevError (s, i, e) ->
 		sprintf "device error {%s,%s} \"%s\"" s i e
 	| DevEject (s, i) ->
@@ -568,22 +565,6 @@ let close ctx =
   	(try Xc.interface_close ctx.xc 
 	 with e -> error "Caught exception: %s while closing xc" (Printexc.to_string e))
 
-let diff_device_state backend ty devid oldstate newstate =
-	let closed () = DevClosed (backend, ty, devid) in
-	if oldstate <> newstate then
-		match oldstate, newstate with
-		| Connecting, Closed     -> [ closed () ]
-		| Connected,  Closing    -> [ closed () ]
-		| Connected,  Closed     -> [ closed () ]
-		| Closing,    Closed     -> [ closed () ]
-		(* those should not happen *)
-		| Closing,    Connecting -> []
-		| Closing,    Connected  -> []
-		| Connected,  Connecting -> []
-		| _                      -> []
-	else
-		[]
-
 let domain_device_event ctx w v =
 	match other_watch ctx.xs w v with
 	| None                        -> ()
@@ -605,15 +586,9 @@ let domain_device_event ctx w v =
 		| Backend state  ->
 			let oldstate = devstate.backstate in
 			devstate.backstate <- state;
-			let evs = diff_device_state true ty devid oldstate state in
-			List.iter (fun ev -> ctx.callback_devices ctx domid ev)
-			          evs
 		| Frontend state ->
 			let oldstate = devstate.frontstate in
 			devstate.frontstate <- state;
-			let evs = diff_device_state false ty devid oldstate state in
-			List.iter (fun ev -> ctx.callback_devices ctx domid ev)
-			          evs
 		| Error error ->
 			devstate.error <- (Some error);
 			ctx.callback_devices ctx domid (DevError (ty, devid, error))
