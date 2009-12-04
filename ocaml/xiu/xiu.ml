@@ -20,6 +20,9 @@ type inject_error_ty =
 	| Inject_crash
 	| Inject_shutdown
 
+let boot_delay = ref 0. (* seconds per boot *)
+let shutdown_delay = ref 0. (* seconds per shutdown *)
+
 let debug_level = ref 3
 let inject_error = ref []
 
@@ -430,7 +433,7 @@ let thread_domain domid =
 
 	with_xs_retry (fun xs ->
 		(* booting *)
-		Thread.delay 3.;
+		Thread.delay !boot_delay;
 		
 		let written_feature_balloon = ref false in
 
@@ -471,7 +474,7 @@ let thread_domain domid =
 				| None -> ()
 				| Some shutdown -> (
 					add_console (sprintf "dom%d: shutdowning" domid);
-					Thread.delay 3.;
+					Thread.delay !shutdown_delay;
 					close_devices xs;
 					let dom = domain_find domid in
 					match shutdown with
