@@ -3,7 +3,9 @@ OCamlDocLibrary(version, version)
 
 OCamlLibrary(sanitycheck, sanitycheck)
 OCamlLibrary(stats, stats)
+OCamlDocLibrary(stats, stats)
 OCamlLibrary(vm_memory_constraints, vm_memory_constraints)
+OCamlDocLibrary(vm_memory_constraints, vm_memory_constraints)
 OCamlLibrary(ocamltest, ocamltest)
 
 StaticCLibrary(backtrace_stub, backtrace_stub)

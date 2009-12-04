@@ -20,6 +20,7 @@ var component = getQuerystring('c');
 
 var components = executables.concat(libraries).concat(packages);
 var component_modules = {}
+var component_stats = {}
 var component_deps = {}
 
 
@@ -51,6 +52,7 @@ function fill_components()
 {
 	for (i in components) {
 		component_modules[components[i]] = eval('modules_' + components[i].replaceAll('-', ''));
+		component_stats[components[i]] = eval('stats_' + components[i].replaceAll('-', ''));
 		component_deps[components[i]] = eval('deps_' + components[i].replaceAll('-', ''));
 	}
 }
@@ -459,7 +461,8 @@ function module_index()
 	html += '<table><tr><th>Module</th><th>Description</th></tr>\n';
 	modules = component_modules[component];
 	for (j in modules) {
-		html += '<tr><td><a href="?c=' + component + '&m=' + modules[j].name + '">' + modules[j].name + '</a></td>\n';
+		html += '<tr><td><a href="?c=' + component + '&m=' + modules[j].name + '">' + modules[j].name + '</a>';
+		html += ' <span class="stat">(' + Math.round(100 * (modules[j].compl_descr_cnt / modules[j].descr_cnt)) + '\%)</span></td>\n';
 		if (modules[j].description != "") {
 			d = modules[j].description;
 			if ((i = d.indexOf('.')) > -1)
@@ -470,6 +473,7 @@ function module_index()
 			html += '<td><span class="empty">to be completed!</span></td></tr>';
 	}
 	html += '</table>\n';
+	html += '<p class="stat">The percentages indicate how much of the source has been documented.</p>'
 	set_content(html);
 	
 	html = '<h2 class="title">Dependencies</h2>';
@@ -507,18 +511,35 @@ function component_index()
 	html = "";
 	html += '<table><tr>';
 	html += '<td width="30%"><h2>Executables</h2>';
+	total_descr_cnt = total_completed_descr_cnt = 0;
 	executables.sort()
-	for (i in executables)
-		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a><br />';
+	for (i in executables) {
+		stats = component_stats[executables[i]];
+		total_descr_cnt += stats.descr_cnt;
+		total_completed_descr_cnt += stats.completed_descr_cnt;
+		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a>';
+		html += ' <span class="stat">(' + 
+			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
+	}
 	html += '</td><td width="30%"><h2>Libraries</h2>';
 	libraries.sort()
-	for (i in libraries)
-		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a><br />';
+	for (i in libraries) {
+		stats = component_stats[libraries[i]];
+		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a>';
+		html += ' <span class="stat">(' + 
+			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
+	}
 	html += '</td><td width="30%"><h2>Packages</h2>';
 	packages.sort()
-	for (i in packages)
-		html += '<a href="index.html?c=' + packages[i] + '">' + packages[i] + '</a><br />';
+	for (i in packages) {
+		stats = component_stats[packages[i]];
+		html += '<a href="index.html?c=' + packages[i] + '">' + packages[i] + '</a>';
+		html += ' <span class="stat">(' + 
+			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
+	}
 	html += '</td></tr></table>';
+	html += '<p class="stat">The percentages indicate how much of the source has been documented. Total ' +
+		Math.round(100 * total_completed_descr_cnt / total_descr_cnt) + '\% complete.</p>'
 	append_content(html);
 }
 
