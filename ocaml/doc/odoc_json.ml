@@ -266,24 +266,24 @@ class gen () =
 
 	method t_of_Ref name ref_opt =
 		let code = node "span" ~atts:["class", "code"] [Leaf name] in
-		match ref_opt with
-		| None -> node "a" ~atts: ["name", name] [code]
-		| Some kind ->
-			let k =
-			match kind with
-			| Odoc_info.RK_module -> "module"
-			| Odoc_info.RK_module_type -> "module_type"
-			| Odoc_info.RK_class -> "class"
-			| Odoc_info.RK_class_type -> "class_type"
-			| Odoc_info.RK_value -> "value"
-			| Odoc_info.RK_type -> "type"
-			| Odoc_info.RK_exception -> "exception"
-			| Odoc_info.RK_attribute -> "attribute"
-			| Odoc_info.RK_method -> "method"
-			| Odoc_info.RK_section t -> "section"
-			in
-			(* node "a" ~atts: [("name", name) ; ("kind", k)] [] *)
-			node "a" ~atts:[("href", "{" ^ k ^ "|" ^ name ^ "}")] [code]
+		let k =
+			match ref_opt with
+			| None ->
+				"none"
+			| Some kind ->
+				match kind with
+				| Odoc_info.RK_module -> "module"
+				| Odoc_info.RK_module_type -> "module_type"
+				| Odoc_info.RK_class -> "class"
+				| Odoc_info.RK_class_type -> "class_type"
+				| Odoc_info.RK_value -> "value"
+				| Odoc_info.RK_type -> "type"
+				| Odoc_info.RK_exception -> "exception"
+				| Odoc_info.RK_attribute -> "attribute"
+				| Odoc_info.RK_method -> "method"
+				| Odoc_info.RK_section t -> "section"
+		in
+		node "a" ~atts:[("href", "{" ^ k ^ "|" ^ name ^ "}")] [code]
 	  
 	(* JSON *)
 	
