@@ -48,12 +48,26 @@ let cli_arguments_extra =
 
 (** {2 Helper functions} *)
 
-module Int64Set = Set.Make (Int64)
-
-let ordered_list_of_int64_set set =
-	List.sort Int64.compare (Int64Set.fold (fun x y -> x :: y) set [])
-
 let flip f x y = f y x
+
+(** Merges two sorted lists into a single sorted list that contains the union
+    of all elements found in both lists. *)
+let merge xs ys =
+	let rec merge xs ys zs = match xs, ys with
+		| [     ], [     ]            ->                       (   zs)
+		| (x::xs), [     ]            -> merge (   xs) [     ] (x::zs)
+		| [     ], (y::ys)            -> merge [     ] (   ys) (y::zs)
+		| (x::xs), (y::ys) when x < y -> merge (   xs) (y::ys) (x::zs)
+		| (x::xs), (y::ys) when x > y -> merge (x::xs) (   ys) (y::zs)
+		| (x::xs), (y::ys)            -> merge (   xs) (   ys) (x::zs) in
+	List.rev (merge xs ys [])
+
+(** A total ordering on unique guest identifiers that:
+  - orders guest identifiers naturally for normal guests
+  - orders the control domain identifier before any other guest identifier. *)
+let compare_guests control_domain_id guest_id_1 guest_id_2 =
+	if guest_id_1 = control_domain_id then -1 else
+	if guest_id_2 = control_domain_id then  1 else compare guest_id_1 guest_id_2
 
 (** {2 XenStore functions} *)
 
@@ -102,20 +116,22 @@ let host_field_extractors = List.map snd host_fields
 
 (** {2 Guest fields} *)
 
-let guest_id xc xs g = string_of_int
+let guest_id xc xs g =
+	Uuid.to_string (Uuid.uuid_of_int_array (g.Xc.handle))
+let guest_domain_id xc xs g = string_of_int
 	(g.Xc.domid)
 let guest_total_bytes xc xs g = Int64.to_string
 	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.total_memory_pages))
 let guest_maximum_bytes xc xs g = Int64.to_string
 	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.max_memory_pages))
 let guest_target_bytes xc xs g =
-	xs_read_bytes_from_kib_key xs (memory_target_path (guest_id xc xs g))
+	xs_read_bytes_from_kib_key xs (memory_target_path (guest_domain_id xc xs g))
 let guest_offset_bytes xc xs g =
-	xs_read_bytes_from_kib_key xs (memory_offset_path (guest_id xc xs g))
+	xs_read_bytes_from_kib_key xs (memory_offset_path (guest_domain_id xc xs g))
 let guest_balloonable xc xs g = string_of_bool
-	(xs_exists xs (supports_ballooning_path (guest_id xc xs g)))
+	(xs_exists xs (supports_ballooning_path (guest_domain_id xc xs g)))
 let guest_uncooperative xc xs g = string_of_bool
-	(xs_exists xs (is_uncooperative_path (guest_id xc xs g)))
+	(xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
 let guest_shadow_bytes xc xs g = Int64.to_string
 	(if g.Xc.hvm_guest
 		then
@@ -127,6 +143,7 @@ let guest_shadow_bytes xc xs g = Int64.to_string
 
 let guest_fields = [
 		"id"           , guest_id           , "-"    ;
+		"domain_id"    , guest_domain_id    , "-"    ;
 		"maximum_bytes", guest_maximum_bytes, "0"    ;
 		"shadow_bytes" , guest_shadow_bytes , "0"    ;
 		"target_bytes" , guest_target_bytes , "0"    ;
@@ -162,8 +179,11 @@ let print_memory_field_names () =
 (** Prints memory field values to the console. *)
 let print_memory_field_values xc xs =
 	let host = Xc.physinfo xc in
+	let control_domain_info = Xc.domain_getinfo xc 0 in
+	let control_domain_id = control_domain_info.Xc.handle in
 	let guests = List.sort
-		(fun g1 g2 -> compare g1.Xc.domid g2.Xc.domid)
+		(fun g1 g2 ->
+			compare_guests control_domain_id g1.Xc.handle g2.Xc.handle)
 		(Xc.domain_getinfolist xc 0) in
 	let print_host_info field =
 		print_string " ";
@@ -200,39 +220,35 @@ let sections_of_line line =
 	let sections = String.split '|' line in
 	List.map (String.strip String.isspace) sections
 
-let domain_ids_of_string domain_ids_string =
+let guest_ids_of_string guest_ids_string =
 	try
-		List.map Int64.of_string (String.split ' ' domain_ids_string)
+		let guest_ids = (String.split ' ' guest_ids_string) in
+		if List.for_all Uuid.is_uuid guest_ids then guest_ids else []
 	with _ ->
 		[]
 
-let domain_ids_of_line line =
+let guest_ids_of_line line =
 	match sections_of_line line with
-		| host_info_string :: domain_ids_string :: rest ->
-			domain_ids_of_string domain_ids_string
+		| host_info_string :: guest_ids_string :: rest ->
+			guest_ids_of_string guest_ids_string
 		| _ -> []
 
-let domain_ids_of_file file_name =
-	ordered_list_of_int64_set
-		(file_lines_fold
-			(fun domain_ids line ->
-				List.fold_left
-					(flip Int64Set.add)
-					(domain_ids)
-					(domain_ids_of_line line))
-			(Int64Set.empty)
-			(file_name))
+let guest_ids_of_file file_name =
+	(file_lines_fold
+		(fun guest_ids line -> merge guest_ids (guest_ids_of_line line))
+		([])
+		(file_name))
 
-let pad_value_list domain_ids_all domain_ids values default_value =
+let pad_value_list guest_ids_all guest_ids values default_value =
 	let fail () = raise (Invalid_argument (
-		if (List.length domain_ids) <> (List.length values)
-			then "Expected: length (domain_ids) = length (values)"
-		else if not (List.is_sorted Int64.compare domain_ids)
-			then "Expected: sorted (domain_ids)"
-		else if not (List.is_sorted Int64.compare domain_ids_all)
-			then "Expected: sorted (domain_ids_all)"
-		else if not (List.subset domain_ids domain_ids_all)
-			then "Expected: domain_ids subset of domain_ids_all"
+		if (List.length guest_ids) <> (List.length values)
+			then "Expected: length (guest_ids) = length (values)"
+		else if not (List.is_sorted String.compare guest_ids)
+			then "Expected: sorted (guest_ids)"
+		else if not (List.is_sorted String.compare guest_ids_all)
+			then "Expected: sorted (guest_ids_all)"
+		else if not (List.subset guest_ids guest_ids_all)
+			then "Expected: guest_ids subset of guest_ids_all"
 		else "Unknown failure"))
 	in
 	let rec pad ids_all ids vs vs_padded =
@@ -248,44 +264,48 @@ let pad_value_list domain_ids_all domain_ids values default_value =
 			| _ ->
 				fail ()
 	in
-	List.rev (pad domain_ids_all domain_ids values [])
+	List.rev (pad guest_ids_all guest_ids values [])
 
-let pad_value_string domain_ids_all domain_ids (value_string, default_value) =
+let pad_value_string guest_ids_all guest_ids (value_string, default_value) =
 	Printf.sprintf "%s |"
 		(String.concat " "
 			(pad_value_list
-				(domain_ids_all)
-				(domain_ids)
+				(guest_ids_all)
+				(guest_ids)
 				(String.split ' ' value_string)
 				(default_value)))
 
-let pad_value_strings domain_ids_all domain_ids value_strings =
+let pad_value_strings guest_ids_all guest_ids value_strings =
 	String.concat " "
 		(List.map
-			(pad_value_string domain_ids_all domain_ids)
-			(List.combine value_strings guest_field_defaults))
+			(pad_value_string guest_ids_all guest_ids)
+			(List.combine value_strings (List.tl guest_field_defaults)))
 
-let pad_data_line domain_ids_all line =
+let pad_data_line guest_ids_all line =
 	match sections_of_line line with
-		| host_string :: domain_ids_string :: value_strings ->
+		| host_string :: guest_ids_string :: value_strings ->
 			Printf.sprintf "| %s | %s"
 				(host_string)
 				(pad_value_strings
-					(domain_ids_all)
-					(domain_ids_of_string domain_ids_string)
-					(domain_ids_string :: value_strings))
+					(guest_ids_all)
+					(guest_ids_of_string guest_ids_string)
+					(value_strings))
 		| _ ->
 			line
 
-let print_padded_data_line domain_ids_all line =
+let print_padded_data_line guest_ids_all line =
 	try
-		print_endline (pad_data_line domain_ids_all line)
-	with _ ->
+		print_endline (pad_data_line guest_ids_all line)
+	with _ -> ()
 		(* Just ignore lines that cannot be processed for any reason. *)
-		()
 
-let print_padded_header_line domain_ids_all =
-	Printf.printf "| %s | %s\n"
+let range min max =
+	let rec range min max list =
+		if min > max then list else range min (max - 1) (max :: list) in
+	range min max []
+
+let print_padded_header_line guest_count =
+	Printf.printf "| %s | %s |\n"
 		(String.concat " " host_field_names)
 		(String.concat
 			(" | ")
@@ -294,16 +314,16 @@ let print_padded_header_line domain_ids_all =
 					String.concat
 						(" ")
 						(List.map
-							(Printf.sprintf "%s_%Ld" name)
-							(domain_ids_all)))
-				(guest_field_names)))
+							(Printf.sprintf "%s_%i" name)
+							(range 0 (guest_count - 1))))
+				(List.tl guest_field_names)))
 
 let pad_existing_data () =
-	let domain_ids_all =
-		domain_ids_of_file !cli_argument_existing_file_to_pad in
-	print_padded_header_line domain_ids_all;
+	let guest_ids_all =
+		guest_ids_of_file !cli_argument_existing_file_to_pad in
+	print_padded_header_line (List.length guest_ids_all);
 	file_lines_iter
-		(print_padded_data_line domain_ids_all)
+		(print_padded_data_line guest_ids_all)
 		(!cli_argument_existing_file_to_pad);
 	flush stdout
 
