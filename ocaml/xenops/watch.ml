@@ -45,7 +45,6 @@ let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
   let time_taken () = Unix.gettimeofday () -. start_time in
 
   let callback (path, _) = 
-    debug "watch: fired on %s" path; 
     match x.evaluate ~xs with
     | KeepWaiting -> false
     | Result x -> result := Some x; true in
@@ -60,7 +59,6 @@ let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
     else Xs.monitor_paths xs (List.map (fun path -> path, "X") x.paths) timeout callback;
       begin match !result with
       | Some x -> 
-	  debug "watch: Successfully finished watching xenstore after %f seconds" (time_taken ());
 	  x
       | None -> 
 	  (* should never happen *) 
