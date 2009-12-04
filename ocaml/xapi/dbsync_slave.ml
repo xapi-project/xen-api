@@ -382,14 +382,16 @@ let update_vms ~xal ~__context =
 	 List.iter
 	   (fun vbd ->
 	      try
-		Events.Resync.vbd ~__context token vmref vbd
+			if Db.is_valid_ref vbd && not (Db.VBD.get_empty ~__context ~self:vbd)
+			then Events.Resync.vbd ~__context token vmref vbd
 	      with e ->
 		warn "Caught error resynchronising VBD: %s" (ExnHelper.string_of_exn e)) vm_vbds;
 	 let vm_vifs = vmrec.API.vM_VIFs in
 	 List.iter 
 	   (fun vif ->
 	      try
-		Events.Resync.vif ~__context token vmref vif
+			if Db.is_valid_ref vif
+			then Events.Resync.vif ~__context token vmref vif
 	      with e ->
 		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs
       ) () in
