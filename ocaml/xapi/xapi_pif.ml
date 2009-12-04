@@ -23,14 +23,6 @@ let bridge_naming_convention (device: string) =
   then ("xenbr" ^ (String.sub device 3 (String.length device - 3)))
   else ("br" ^ device)
 
-let calculate_pifs_required_at_start_of_day ~__context =
-  List.filter (fun (_,pifr) -> 
-    true
-    && (pifr.API.pIF_host = !Xapi_globs.localhost_ref) (* this host only *)
-    && not (Db.is_valid_ref pifr.API.pIF_bond_slave_of) (* not enslaved by a bond *)
-  )
-    (Db.PIF.get_all_records ~__context)
-
 let read_bridges_from_inventory () =
   try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces) with _ -> []
 
@@ -149,7 +141,6 @@ let make_pif_metrics ~__context =
     ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.) ~other_config:[] in
   metrics
 
-(* Pool_introduce is an internal call used by pool-join to copy slave-to-be pif records to pool master *)
 let pool_introduce ~__context
     ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode
     ~iP ~netmask ~gateway ~dNS ~bond_slave_of ~vLAN_master_of ~management ~other_config ~disallow_unplug =
@@ -165,11 +156,8 @@ let pool_introduce ~__context
 
 let db_introduce = pool_introduce
 
-(* Perform a database delete on the master *)
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
-(* This signals the monitor thread to tell it that it should write to the database to sync it with the current
-   dom0 networking config. *)
 let mark_pif_as_dirty device vLAN =
   Threadext.Mutex.execute Rrd_shared.mutex
     (fun () ->
@@ -177,8 +165,7 @@ let mark_pif_as_dirty device vLAN =
        Condition.broadcast Rrd_shared.condition
     )
 
-
-(* Internal 'introduce' is passed a pre-built table 't' *)
+(* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal ?network ?(physical=true) ~t ~__context ~host ~mAC ~mTU ~device ~vLAN ~vLAN_master_of () = 
   let is_vlan = vLAN >= 0L in
 
@@ -199,11 +186,12 @@ let introduce_internal ?network ?(physical=true) ~t ~__context ~host ~mAC ~mTU ~
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:""
     ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false ~other_config:[] ~disallow_unplug:false in
 
-  (* If I'm a slave and this pif represents my management interface then
-     leave it alone: if the interface goes down (through a call to "up" then
+  (* If I'm a pool slave and this pif represents my management interface then
+     leave it alone: if the interface goes down (through a call to "up") then
      I loose my connection to the master's database and the call to "up"
      (which uses the API and requires the database) blocks until the slave
      restarts in emergency mode *)
+  (* Rob: nothing seems to be done with the pool slave case mentioned in this comment...? *)
   if is_my_management_pif ~__context ~self:pif then begin 
     debug "NIC is the management interface";
     Db.PIF.set_management ~__context ~self:pif ~value:true;
@@ -220,7 +208,7 @@ let introduce_internal ?network ?(physical=true) ~t ~__context ~host ~mAC ~mTU ~
   (* return ref of newly created pif record *) 
   pif 
 
-(* Internal 'forget' is passed a pre-built table 't' *)
+(* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self = 
   Nm.bring_pif_down ~__context self;
   (* NB we are allowed to forget an interface which still exists *)
@@ -233,7 +221,6 @@ let forget_internal ~t ~__context ~self =
      Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
   Db.PIF.destroy ~__context ~self
 
-(* Look over all this host's PIFs and reset the management flag *)
 let update_management_flags ~__context ~host = 
   let management_intf = Xapi_inventory.lookup Xapi_inventory._management_interface in
   let all_pifs = Db.PIF.get_all ~__context in
@@ -308,6 +295,7 @@ let scan ~__context ~host =
 (* Dummy MAC used by the VLAN *)
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
+(* should be moved to Xapi_vlan.ml after removing create_VLAN and destroy *)
 (* Used both externally and by PIF.create_VLAN *)
 let vLAN_create ~__context ~tagged_PIF ~tag ~network = 
   let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
@@ -340,6 +328,7 @@ let vLAN_create ~__context ~tagged_PIF ~tag ~network =
   let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
   vlan
 
+(* DEPRECATED! *)
 let create_VLAN ~__context ~device ~network ~host ~vLAN =
   (* Find the "base PIF" (same device, no VLAN tag) *)
   let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
@@ -353,6 +342,7 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
   let vlan = vLAN_create ~__context ~tagged_PIF:base_pif ~tag:vLAN ~network in
   Db.VLAN.get_untagged_PIF ~__context ~self:vlan
 
+(* DEPRECATED! But called by vLAN_destroy!! *)
 let destroy ~__context ~self =
   debug "PIF.destroy uuid = %s" (Db.PIF.get_uuid ~__context ~self);
   assert_not_in_bond ~__context ~self;
@@ -378,6 +368,7 @@ let destroy ~__context ~self =
      Db.VLAN.destroy ~__context ~self:vlan with _ -> ());
   Db.PIF.destroy ~__context ~self
 
+(* should be moved to Xapi_vlan.ml after removing create_VLAN and destroy *)
 let vLAN_destroy ~__context ~self =
   debug "VLAN.destroy uuid = %s" (Db.VLAN.get_uuid ~__context ~self);
   let untagged_PIF = Db.VLAN.get_untagged_PIF ~__context ~self in
@@ -442,6 +433,14 @@ let plug ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
   let host = Db.PIF.get_host ~__context ~self in
   Xapi_network.attach ~__context ~network ~host
+   
+let calculate_pifs_required_at_start_of_day ~__context =
+  List.filter (fun (_,pifr) -> 
+    true
+    && (pifr.API.pIF_host = !Xapi_globs.localhost_ref) (* this host only *)
+    && not (Db.is_valid_ref pifr.API.pIF_bond_slave_of) (* not enslaved by a bond *)
+  )
+    (Db.PIF.get_all_records ~__context)
 
 let start_of_day_best_effort_bring_up() =
   Server_helpers.exec_with_new_task "Bringing up physical PIFs"
@@ -453,3 +452,4 @@ let start_of_day_best_effort_bring_up() =
 		 plug ~__context ~self:pif) pif) 
 	 (calculate_pifs_required_at_start_of_day ~__context)
     )
+

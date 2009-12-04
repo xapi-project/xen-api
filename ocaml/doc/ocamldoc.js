@@ -156,7 +156,7 @@ function value(v, n)
 	
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</div>';
+		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 		
@@ -192,7 +192,7 @@ function exception(v, n)
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</div>';
+		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	html += '<table class="field-table">';
@@ -216,7 +216,7 @@ function variant(v)
 		html += '<tr><td>' + cons[c].name + '</td>'
 		html += '<td>' + cons[c].type + '</td>'
 		if (cons[c].description != undefined)
-			html += '<td>' + cons[c].description + '</td>';
+			html += '<td>' + transform_links(cons[c].description) + '</td>';
 		else
 			html += '<td><span class="empty">to be completed!</span></td></tr>';
 		html += '</tr>';
@@ -234,7 +234,7 @@ function record(v)
 		html += '<tr><td>' + fields[c].name + '</td>'
 		html += '<td>' + fields[c].type + '</td>'
 		if (fields[c].description != undefined)
-			html += '<td>' + fields[c].description + '</td>';
+			html += '<td>' + transform_links(fields[c].description) + '</td>';
 		else
 			html += '<td><span class="empty">to be completed!</span></td></tr>';
 		html += '</tr>';
@@ -253,7 +253,7 @@ function type(v, n)
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</div>';
+		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	if (v.kind.type == 'variant')
@@ -276,7 +276,7 @@ function module_type(v, n)
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</div>';
+		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	if (v.kind.type == 'variant')
@@ -299,7 +299,7 @@ function included_module(v, n)
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
-		html += v.info.description + '</div>';
+		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	html += '<table class="field-table">';
@@ -313,7 +313,7 @@ function included_module(v, n)
 
 function comment(m)
 {
-	append_content('<div>' + m + '</div>');
+	append_content('<div>' + transform_links(m) + '</div>');
 }
 
 function parse_structure(structure)
@@ -460,8 +460,12 @@ function module_index()
 	modules = component_modules[component];
 	for (j in modules) {
 		html += '<tr><td><a href="?c=' + component + '&m=' + modules[j].name + '">' + modules[j].name + '</a></td>\n';
-		if (modules[j].description != "")
-			html += '<td>' + modules[j].description + '</td></tr>\n';
+		if (modules[j].description != "") {
+			d = modules[j].description;
+			if ((i = d.indexOf('.')) > -1)
+				d = d.substr(0, i);
+			html += '<td>' + d + '.</td></tr>\n';
+		}
 		else
 			html += '<td><span class="empty">to be completed!</span></td></tr>';
 	}
