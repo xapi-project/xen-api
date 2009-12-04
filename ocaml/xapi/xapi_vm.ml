@@ -1108,7 +1108,10 @@ let copy_bios_strings ~__context ~vm ~host =
 	let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
 	if List.length current_strings > 0 then
 		raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []))
-	else
+	else begin
 		let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
-		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings
+		Db.VM.set_bios_strings ~__context ~self:vm ~value:bios_strings;
+		(* also set the affinity field to push the VM to start on this host *)
+		Db.VM.set_affinity ~__context ~self:vm ~value:host
+	end
 	
