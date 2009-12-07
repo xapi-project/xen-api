@@ -1066,6 +1066,20 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 		end
 	with Not_found -> () (* that's expected, no host had external_auth enabled*)
 	;
+	(* 1b. assert that there are no duplicate hostnames in the pool *)
+	if (List.length hosts)
+		<>
+		(List.length
+			 (Listext.List.setify 
+					(List.map (fun h->Db.Host.get_hostname ~__context ~self:h) hosts))
+		)
+	then begin
+		let errmsg = "At least two hosts in the pool have the same hostname" in
+		debug "%s" errmsg;
+		raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed,
+			[(Ref.string_of (List.hd hosts));errmsg]))
+	end
+	else
 	(* 2. tries to enable the external authentication in each host of the pool *)
 	let host_error_msg = ref ("","","") in
 	let rollback_list = 
