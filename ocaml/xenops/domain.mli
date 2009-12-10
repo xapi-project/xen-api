@@ -78,6 +78,9 @@ val shutdown_reason_of_int : int -> shutdown_reason
 (** Immediately force shutdown the domain with reason 'shutdown_reason' *)
 val hard_shutdown: xc:Xc.handle -> domid -> shutdown_reason -> unit
 
+(** Thrown if the domain has disappeared *)
+exception Domain_does_not_exist
+
 (** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an ack *)
 val shutdown: xs:Xs.xsh -> domid -> shutdown_reason -> unit
 
