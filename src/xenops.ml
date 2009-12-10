@@ -76,7 +76,12 @@ let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
-	let acked = Domain.shutdown_ack (Xal.xc_of_ctx xal) (Xal.xs_of_ctx xal) domid reason in
+  let xc = Xal.xc_of_ctx xal in
+  let xs = Xal.xs_of_ctx xal in
+  Domain.shutdown ~xs domid reason;
+  (* Wait for any necessary acknowledgement. If we get a Watch.Timeout _ then
+	 we abort early; otherwise we continue in Xal.wait_release below. *)
+  let acked = try Domain.shutdown_wait_for_ack ~xc ~xs domid reason; true with Watch.Timeout _ -> false in
 	if not acked then (
 		eprintf "domain %u didn't acknowledged shutdown\n" domid;
 	) else (
