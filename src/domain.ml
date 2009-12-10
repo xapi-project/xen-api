@@ -201,41 +201,47 @@ let hard_shutdown ~xc domid req =
 (** Return the path in xenstore watched by the PV shutdown driver *)
 let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
 
+(** Raised if a domain has vanished *)
+exception Domain_does_not_exist
+
 (** Request a shutdown, return without waiting for acknowledgement *)
 let shutdown ~xs domid req =
 	debug "Requesting shutdown of domain %d" domid;
 	let reason = string_of_shutdown_reason req in
-	xs.Xs.write (control_shutdown ~xs domid) reason
+	let path = control_shutdown ~xs domid in
+	let domainpath = xs.Xs.getdomainpath domid in
+	Xs.transaction xs
+		(fun t ->
+			 (* Fail if the directory has been deleted *)
+			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xb.Noent -> false in
+			 if not domain_exists then raise Domain_does_not_exist;
+			 (* Delete the node if it already exists. NB: the guest may well still shutdown for the
+				previous reason... we only want to give it a kick again just in case. *)
+			 (try t.Xst.rm path with _ -> ());
+			 t.Xst.write path reason
+		)
 
-(** PV domains will acknowledge the request by deleting the node from the
-    store, block until this happens. *)
-let shutdown_wait_for_ack ?timeout ~xs domid req =
+(** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
+	All other exceptions imply the domain has disappeared. *)
+let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
+  let di = Xc.domain_getinfo xc domid in
+
+  if di.Xc.hvm_guest then begin
+	if Xc.hvm_check_pvdriver xc domid
+	then debug "HVM guest with PV drivers: not expecting any acknowledgement"
+	else Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
+  end else begin
 	debug "Waiting for PV domain %d to acknowledge shutdown request" domid;
 	let path = control_shutdown ~xs domid in
-	try
-	  Watch.wait_for ~xs ?timeout (Watch.value_to_become path "");
-	  debug "Domain acknowledged shutdown request";
-	  true
-	with Watch.Timeout _ ->
-	  debug "Timed-out waiting for domain to acknowledge shutdown request";
-	  false
-
-
-let shutdown_ack ?(timeout=60.) ~xc ~xs domid req =
-	(* For both PV and HVM, write the control/shutdown node *)
-	shutdown ~xs domid req;
-	(* PV domains will acknowledge the request (if not then something
-	   very bad is wrong) *)
-	if not((Xc.domain_getinfo xc domid).Xc.hvm_guest)
-	then shutdown_wait_for_ack ~timeout ~xs domid req
-	else begin
-	  (* If HVM domain has no PV drivers, we shut it down here *)
-	  if not(Xc.hvm_check_pvdriver xc domid)
-	  then Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req);
-	  (* If HVM domain has PV drivers, it shuts itself down but it
-	     doesn't remove the control/shutdown node. *)
-	  true
-	end
+	(* If already shutdown then we continue *)
+	if not di.Xc.shutdown
+	then match Watch.wait_for ~xs ~timeout (Watch.any_of [ `Ack, Watch.value_to_become path "";
+													  `Gone, Watch.key_to_disappear path ]) with
+	| `Ack, _ ->
+		  debug "Domain acknowledged shutdown request"
+	| `Gone, _ ->
+		  debug "Domain disappeared"
+  end
 
 let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
