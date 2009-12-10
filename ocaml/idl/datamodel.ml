@@ -1590,6 +1590,7 @@ let vm_hardReboot_internal = call
   ~params:[Ref _vm, "vm", "The VM to reboot"]
   ~pool_internal:true
   ~hide_from_docs:true
+  ~internal_deprecated_since:rel_midnight_ride
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
   
