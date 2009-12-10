@@ -143,7 +143,8 @@ module Domain_shutdown = struct
     else clear_reboot_delay ~__context ~vm;
 
     try
-      Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.hard_reboot_internal rpc session_id vm)
+	  Xapi_vm.Reboot.in_dom0_already_locked { Xapi_vm.TwoPhase.__context = __context; vm=vm; api_call_name="reboot"; clean=false };
+	  update_allowed_ops_using_api ~__context vm
     with e ->
       (* NB this can happen if the user has change the VM configuration to onw which
 	 cannot boot (eg not enough memory) and then rebooted inside the guest *)
