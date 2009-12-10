@@ -85,7 +85,7 @@ exception Domain_does_not_exist
 val shutdown: xs:Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** Tell the domain to shutdown with reason ''shutdown_reason', waiting for an ack *)
-val shutdown_ack: ?timeout:float -> xc:Xc.handle -> xs:Xs.xsh -> domid -> shutdown_reason -> bool
+val shutdown_wait_for_ack: ?timeout:float -> xc:Xc.handle -> xs:Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** send a domain a sysrq *)
 val sysrq: xs:Xs.xsh -> domid -> char -> unit

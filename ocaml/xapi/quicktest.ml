@@ -619,6 +619,7 @@ let vm_powercycle_test s =
     end;
     vbd_pause_unpause_test s debian;
     powercycle_test s debian;
+	Quicktest_lifecycle.test s debian;
     vm_uninstall test s debian;  
     success test
   with Unable_to_find_suitable_debian_template ->
