@@ -777,59 +777,52 @@ let restore ~__context ~xc ~xs ~self domid =
     )
 
 
-
-let match_xal_and_shutdown xalreason reason =
-	debug "Comparing XAL %s with Domain %s"
-	      (Xal.string_of_died_reason xalreason)
-	      (Domain.string_of_shutdown_reason reason);
-	match xalreason, reason with
-	| Xal.Crashed, _ -> false
-	| Xal.Vanished, _ -> false
-	| Xal.Halted, (Domain.Halt | Domain.PowerOff) -> true
-	| Xal.Rebooted, Domain.Reboot -> true
-	| Xal.Suspended, Domain.Suspend -> true
-	| Xal.Shutdown i, Domain.Unknown i2 -> i = i2
-	| _, _ -> false
-
 (** Thrown if clean_shutdown_with_reason exits for the wrong reason: eg the domain
     crashed or rebooted *)
 exception Domain_shutdown_for_wrong_reason of Xal.died_reason
 
-(** Tells a VM to shutdown with a specific reason (reboot/halt/poweroff). *)
+(** Tells a VM to shutdown with a specific reason (reboot/halt/poweroff), waits for
+    it to shutdown (or vanish) and then return the reason.
+	Note this is not always called with the per-VM mutex. *)
 let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid reason =
   (* Set the task allowed_operations to include cancel *)
   if reason <> Domain.Suspend then TaskHelper.set_cancellable ~__context;
 
   at 0.25;
-  (* Windows PV drivers will respond within 10s according to ssmith and
-     improving this is likely to happen in a Rio timeframe (CA-3964). It's
-     still possible (although unlikely) for us to timeout just before the
-     drivers activate but the worst we'll suffer is a shutdown failure
-     followed by a spontaneous shutdown (which can happen anyway). Having
-     this check in here allows us to bail out quickly in the common case
-     of the PV drivers being missing. *)
-  with_xs (fun xs ->
-	     let xc = Xal.xc_of_ctx xal in
-	     if not (Domain.shutdown_ack ~timeout:60. ~xc ~xs domid reason) then
-	       raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
-	  );
+  let xs = Xal.xs_of_ctx xal in
+  let xc = Xal.xc_of_ctx xal in
+  begin
+	(* Wait for up to 60s for the VM to acknowledge the shutdown request. In case the guest
+	   misses our original request, keep making additional ones. *)
+	let finished = ref false in
+	let timeout = 60.0 in
+	let start = Unix.gettimeofday () in
+	while Unix.gettimeofday () -. start < timeout && not !finished do
+	  try
+		(* Make the shutdown request: this will fail if the domain has vanished. *)
+		Domain.shutdown ~xs domid reason;
+		(* Wait for any necessary acknowledgement. If we get a Watch.Timeout _ then
+		   we abort early; otherwise we continue in Xal.wait_release below. *)
+		Domain.shutdown_wait_for_ack ~timeout:10. ~xc ~xs domid reason;
+		finished := true
+	  with 
+	  | Watch.Timeout _ -> () (* try again *)
+	  | e ->
+			debug "Caught and ignoring exception: %s" (ExnHelper.string_of_exn e);
+			log_backtrace ();
+			finished := true
+	done;
+	if not !finished then raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+  end;
   at 0.50;
   let total_timeout = 20. *. 60. in (* 20 minutes *)
   (* Block for 5s at a time, in between check to see whether we've been cancelled
      and update our progress if not *)
   let start = Unix.gettimeofday () in
-  let finished = ref false in
-  while (Unix.gettimeofday () -. start < total_timeout) && not(!finished) do
+  let result = ref None in
+  while (Unix.gettimeofday () -. start < total_timeout) && (!result = None) do
     try
-      let r = Xal.wait_release xal ~timeout:5. domid in
-      if not (match_xal_and_shutdown r reason) then begin
-	let errmsg = Printf.sprintf 
-	  "Domain died with reason: %s when it should have been %s" 
-	  (Xal.string_of_died_reason r) (Domain.string_of_shutdown_reason reason) in
-	debug "%s" errmsg;
-	raise (Domain_shutdown_for_wrong_reason r)
-      end;
-      finished := true;
+      result := Some (Xal.wait_release xal ~timeout:5. domid);
     with Xal.Timeout -> 
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
@@ -837,9 +830,11 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid r
       let progress = min ((Unix.gettimeofday () -. start) /. total_timeout) 1. in
       at (0.50 +. 0.25 *. progress)
   done;
-  if not(!finished)
-  then raise (Api_errors.Server_error(Api_errors.vm_shutdown_timeout, [ Ref.string_of self; string_of_float total_timeout ]));
-  at 1.0
+  match !result with
+  | None -> raise (Api_errors.Server_error(Api_errors.vm_shutdown_timeout, [ Ref.string_of self; string_of_float total_timeout ]))
+  | Some x ->
+		at 1.0;
+		x
 
 (* !!! FIX ME  - This allows a 10% overhead on static_max for size of suspend image !!! *)
 let get_suspend_space __context vm =
@@ -877,9 +872,19 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 									Domain.suspend ~xc ~xs ~hvm domid fd []
 										~progress_callback:progress_cb
 										(fun () ->
-											clean_shutdown_with_reason ~xal
+											match clean_shutdown_with_reason ~xal
 												~__context ~self:vm domid
-												Domain.Suspend
+												Domain.Suspend with
+												| Xal.Suspended -> () (* good *)
+												| Xal.Crashed ->
+													  raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of vm ]))
+												| Xal.Rebooted ->
+													  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of vm ]))
+												| Xal.Halted
+												| Xal.Vanished ->
+													  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of vm ]))
+												| Xal.Shutdown x ->
+													  failwith (Printf.sprintf "Expected domain shutdown reason: %d" x)
 										)
 								);
 							(* If the suspend succeeds, set the suspend_VDI *)

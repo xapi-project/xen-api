@@ -298,7 +298,6 @@ module TwoPhase = struct
   (** The signature of a single phase of reboot or shutdown *)
   type args = { __context: Context.t;
 		vm: API.ref_VM;
-		token: Locking_helpers.token option;
 		api_call_name: string;
 		clean: bool }
 
@@ -307,31 +306,85 @@ module TwoPhase = struct
     in_guest : args -> unit;
     in_dom0 : args -> unit;
   }
-  let execute (x: args) (y: t) = 
-    y.in_guest x;
-    y.in_dom0 x
+
+  (** Called with the per-VM lock held. Evaluates to true if the VM has been rebooted (eg by the event thread) *)
+  let is_vm_running x =
+	(* The VM may have been rebooted by the event thread: in this case there is no work to do *)
+	let domid = Helpers.domid_of_vm x.__context x.vm in
+	true
+	&& domid <> -1 (* someone set the state to Halted *)
+	&& (with_xc
+			(fun xc ->
+				 let di = Xc.domain_getinfo xc domid in
+				 Xal.is_running di))
+
+  (** Called before a regular synchronous reboot/shutdown to simulate parallel in-guest shutdowns *)
+  let simulate_internal_shutdown domid = 
+	Helpers.log_exn_continue (Printf.sprintf "simulate_internal_shutdown domid=%d" domid)
+		(fun () ->
+			 match Xapi_fist.simulate_internal_shutdown () with
+			 | Some x ->
+				   let x = String.strip String.isspace x in
+				   with_xc
+					   (fun xc ->
+							warn "FIST: simulating internal %s for domid=%d" x domid;
+							match x with
+							| "reboot" -> Xc.domain_shutdown xc domid Xc.Reboot
+							| "halt" -> Xc.domain_shutdown xc domid Xc.Halt
+							| "suspend" -> Xc.domain_shutdown xc domid Xc.Suspend
+							| "crash" -> Xc.domain_shutdown xc domid Xc.Crash
+							| _ -> failwith "Unknown simulate_internal_shutdown code");
+				   (* pause for 5s which probably lets the event thread do something (unless it is disabled) *)
+				   Thread.delay 5.
+			 | None -> ()
+		) ()
 end
+
 
 
 module Reboot = struct
   (** This module contains the low-level implementation actions, as distinct from the tangle
       of policy which comes later. *)
 
-  let in_guest { TwoPhase.__context = __context; vm=vm; token=token; api_call_name=api_call_name; clean=clean } =
-    if clean then begin
-      debug "%s phase 0/3: shutting down existing domain" api_call_name;
-      let domid = Helpers.domid_of_vm ~__context ~self:vm in
-      with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
-                  ~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
-                  ~__context ~self:vm domid Domain.Reboot);
-    end else debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name
-      
-  let in_dom0 { TwoPhase.__context = __context; vm=vm; token=token; api_call_name=api_call_name; clean=clean } =
+  (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
+  let in_guest { TwoPhase.__context = __context; vm=vm; api_call_name=api_call_name; clean=clean } =
+    let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	TwoPhase.simulate_internal_shutdown domid;
+
+	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
+	   to do here. *)
+	if domid <> -1 then begin
+      if clean then begin
+		debug "%s phase 0/3: shutting down existing domain (domid: %d)" api_call_name domid;
+		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
+							~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
+							~__context ~self:vm domid Domain.Reboot) with
+		| Xal.Vanished
+		| Xal.Rebooted -> () (* good *)
+		| Xal.Suspended ->
+			  error "VM: %s suspended when asked to reboot" (Ref.string_of vm)
+		| Xal.Crashed ->
+			  error "VM: %s crashed when asked to reboot" (Ref.string_of vm)
+		| Xal.Halted ->
+			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
+      end else begin
+		debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name;
+		(* The domain might be killed by the event thread. Again, this is ok. *)
+		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Reboot" domid)
+			(fun () -> 
+				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Reboot)
+			) ()
+	  end
+	end
+
+  (** Once the domain has shutdown and the VM is locked, perform the reboot immediately *)
+  let in_dom0_already_locked { TwoPhase.__context = __context; vm=vm; api_call_name=api_call_name; clean=clean } =
     License_check.vm ~__context vm;
     Stats.time_this "VM reboot (excluding clean shutdown phase)"
       (fun () ->
          let new_snapshot = Db.VM.get_record ~__context ~self:vm in
-	 let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
+
+		 let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
 	 (* Master will have already checked the new memory_max and placed the max of
 	    the current and new values in the current_snapshot.
 	    Just in case someone raced with us and bumped the static_max *again* we
@@ -343,8 +396,7 @@ module Reboot = struct
 	 let new_snapshot = { new_snapshot with API.vM_memory_static_max = new_mem } in
 	 
 	 let localhost = Helpers.get_localhost ~__context in
-	 
-         let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	 let domid = Helpers.domid_of_vm ~__context ~self:vm in
          debug "%s phase 1/3: destroying old domain" api_call_name;
 	 (* CA-13585: prevent glitch where power-state goes to Halted in the middle of a reboot.
 	    If an error causes us to leave this function then the event thread should resynchronise
@@ -366,7 +418,6 @@ module Reboot = struct
 	 Helpers.set_boot_record ~__context ~self:vm new_snapshot;
 	 
          debug "%s phase 2/3: starting new domain" api_call_name;
-	 Opt.iter (Locking_helpers.assert_locked vm) token;
 	 begin
 	   try
              Vmops.start_paused
@@ -391,12 +442,28 @@ module Reboot = struct
 			  );
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
            Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
-	   Opt.iter (Locking_helpers.assert_locked vm) token;
 	 with exn ->
 	   error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
 	   with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
 	   raise exn     
       )
+
+  (** In the synchronous API call paths, acquire the VM lock and see if the VM hasn't rebooted yet.
+	  If necessary we reboot it here. *)
+  let in_dom0_already_queued args = 
+	Locking_helpers.with_lock args.TwoPhase.vm 
+		(fun _ _ -> 
+			 if TwoPhase.is_vm_running args
+			 then debug "VM %s has already rebooted: taking no action" (Ref.string_of args.TwoPhase.vm)
+			 else in_dom0_already_locked args) ()
+
+  (** In the synchronouse API call paths, wait in the domU_internal_shutdown_queue and then attempt 
+	  to reboot the VM. NB this is the same queue used by the event thread. *)
+  let in_dom0 args =
+    Local_work_queue.wait_in_line Local_work_queue.domU_internal_shutdown_queue
+      (Context.string_of_task args.TwoPhase.__context)
+      (fun () -> in_dom0_already_queued args)
+
   let actions = { TwoPhase.in_guest = in_guest; in_dom0 = in_dom0 }
 end
 
@@ -404,32 +471,64 @@ module Shutdown = struct
   (** This module contains the low-level implementation actions, as distinct from the tangle
       of policy which comes later. *)
 
-  let in_guest { TwoPhase.__context=__context; vm=vm; token=token; api_call_name=api_call_name; clean=clean } =
-    Opt.iter (Locking_helpers.assert_locked vm) token;
+  (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
+  let in_guest { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
     assert_ha_always_run_is_false ~__context ~vm;
-
-    if clean then begin
-      debug "%s: phase 1/2: waiting for the domain to shutdown" api_call_name;
-      let domid = Helpers.domid_of_vm ~__context ~self:vm in
-      
-      with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
-		  ~at:(TaskHelper.set_progress ~__context)
-		  ~__context ~self:vm domid Domain.Halt);
-    end else debug "%s phase 0/3: no shutdown request required since this is a hard_shutdown" api_call_name
-
-  let in_dom0 { TwoPhase.__context=__context; vm=vm; token=token; api_call_name=api_call_name; clean=clean } =
-    (* Invoke pre_destroy hook *)
-    Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
-
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
-    if domid <> -1 then begin
-      debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
-      with_xc_and_xs (fun xc xs ->
- 		      Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-		      (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
-		      Monitor.do_monitor __context xc
- 		   );
-    end;
+	TwoPhase.simulate_internal_shutdown domid;
+
+	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
+	   to do here. *)
+	if domid <> -1 then begin
+      if clean then begin
+		debug "%s: phase 1/2: waiting for the domain to shutdown" api_call_name;
+		
+		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
+							~at:(TaskHelper.set_progress ~__context)
+							~__context ~self:vm domid Domain.Halt) with
+		| Xal.Vanished
+		| Xal.Halted -> () (* good *)
+		| Xal.Suspended ->
+			  (* Log the failure but continue *)
+			  error "VM: %s suspended when asked to shutdown" (Ref.string_of vm)
+		| Xal.Crashed ->
+			  (* Log the failure but continue *)
+			error "VM: %s crashed when asked to shutdown" (Ref.string_of vm)
+		| Xal.Rebooted ->
+			  (* Log the failure but continue *)
+			  error "VM: %s attempted to reboot when asked to shutdown" (Ref.string_of vm)
+      end else begin
+		debug "%s phase 0/3: no shutdown request required since this is a hard_shutdown" api_call_name;
+		(* The domain might be killed by the event thread. Again, this is ok. *)
+		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Halt" domid)
+			(fun () -> 
+				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Halt)
+			) ()
+	  end
+	end
+
+  (** Run with the per-VM lock held to clean up any shutdown domain. Note if the VM has been rebooted
+	  then we abort with OTHER_OPERATION_IN_PROGRESS. See [retry_on_conflict] *)
+  let in_dom0_already_locked { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
+	(* If the VM has been shutdown by the event thread (domid = -1) then there's no domain to destroy. *)
+	(* If the VM is running again then throw an error to trigger retry_on_conflict *)
+    let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	if domid <> -1 then begin
+	  with_xc_and_xs 
+		  (fun xc xs ->
+			   let di = Xc.domain_getinfo xc domid in
+			   (* If someone rebooted it while we dropped the lock: *)
+			   if Xal.is_running di
+			   then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
+			   
+			   (* Invoke pre_destroy hook *)
+			   Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
+			   debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
+ 		       Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+		       (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
+		       Monitor.do_monitor __context xc
+		  )
+	end;
 
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
       debug "hard_shutdown: destroying any suspend VDI";
@@ -445,6 +544,22 @@ module Shutdown = struct
 	Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
     end
 
+  (** In the synchronous API call paths, acquire the lock, check if the VM's domain has shutdown (if not error out)
+	  and continue with the shutdown *)
+  let in_dom0_already_queued args = 
+	Locking_helpers.with_lock args.TwoPhase.vm 
+		(fun _ _ -> 
+			 if TwoPhase.is_vm_running args
+			 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of args.TwoPhase.vm ]))
+			 else in_dom0_already_locked args) ()
+
+  (** In the synchronouse API call paths, wait in the domU_internal_shutdown_queue and then attempt 
+	  to reboot the VM. NB this is the same queue used by the event thread. *)
+  let in_dom0 args =
+    Local_work_queue.wait_in_line Local_work_queue.domU_internal_shutdown_queue
+      (Context.string_of_task args.TwoPhase.__context)
+      (fun () -> in_dom0_already_queued args)
+
   let actions = { TwoPhase.in_guest = in_guest; in_dom0 = in_dom0 }
 end
 
@@ -453,13 +568,24 @@ let of_action = function
   | `restart -> Reboot.actions
   | `destroy -> Shutdown.actions
 
-(** Add queueing and locking policy for the external API calls *)
-let impose_external_api_policy (x: TwoPhase.t) : TwoPhase.t = 
-  let f args = 
-    Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
-      (Context.string_of_task args.TwoPhase.__context)
-      (fun () -> x.TwoPhase.in_dom0 args) in
-  { x with TwoPhase.in_dom0 = f }
+(** If our operation conflicts with another parallel operation (i.e. we ask for shutdown
+	but guest admin asks for reboot) then we raise an OTHER_OPERATION_IN_PROGRESS exception 
+	and retry the whole procedure. *)
+let retry_on_conflict (x: TwoPhase.args) (y: TwoPhase.t) =
+  let rec retry n = 
+	try 
+	  y.TwoPhase.in_guest x;
+	  if Xapi_fist.disable_sync_lifecycle_path ()
+	  then warn "FIST: disable_sync_lifecycle_path: deferring to the event thread"
+	  else y.TwoPhase.in_dom0 x
+	with 
+	| Api_errors.Server_error(code, _) as e when code = Api_errors.other_operation_in_progress ->
+		  let aborting = n < 1 in
+		  debug "Conflict when executing %s: %s" x.TwoPhase.api_call_name (if aborting then "aborting" else "retrying");
+		  if aborting then raise e;
+		  retry (n - 1) in
+  retry 10
+  
 
 (** CA-11132: Record information about the shutdown in odd other-config keys for Egenera *)
 let record_shutdown_details ~__context ~vm reason initiator action = 
@@ -480,51 +606,36 @@ let record_shutdown_details ~__context ~vm reason initiator action =
   
 (** VM.hard_reboot entrypoint *)
 let hard_reboot ~__context ~vm =
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
-       record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
-       let args = { TwoPhase.__context=__context; vm=vm; token=Some token; api_call_name="VM.hard_reboot"; clean=false } in
-       TwoPhase.execute args (impose_external_api_policy (of_action action))
-       ) ()
+  let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
+  record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
+  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_reboot"; clean=false } in
+  retry_on_conflict args (of_action action)
 
 (** VM.hard_shutdown entrypoint *)
 let hard_shutdown ~__context ~vm =
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
-       record_shutdown_details ~__context ~vm Xal.Halted "external" action;
-       let args = { TwoPhase.__context=__context; vm=vm; token=Some token; api_call_name="VM.hard_shutdown"; clean=false } in
-       TwoPhase.execute args (impose_external_api_policy (of_action action))
-    ) ()
+  let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
+  record_shutdown_details ~__context ~vm Xal.Halted "external" action;
+  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
+  retry_on_conflict args (of_action action)
 
 (** VM.clean_reboot entrypoint *)
 let clean_reboot ~__context ~vm =
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
-       record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
-       let args = { TwoPhase.__context=__context; vm=vm; token=Some token; api_call_name="VM.clean_reboot"; clean=true } in
-       TwoPhase.execute args (impose_external_api_policy (of_action action))
-    ) ()
+  let action = Db.VM.get_actions_after_reboot ~__context ~self:vm in
+  record_shutdown_details ~__context ~vm Xal.Rebooted "external" action;
+  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_reboot"; clean=true } in
+  retry_on_conflict args (of_action action)
 
 (** VM.clean_shutdown entrypoint *)
 let clean_shutdown ~__context ~vm =
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
-       record_shutdown_details ~__context ~vm Xal.Halted "external" action;
-       let args = { TwoPhase.__context=__context; vm=vm; token=Some token; api_call_name="VM.clean_shutdown"; clean=true } in
-       TwoPhase.execute args (impose_external_api_policy (of_action action))
-    ) ()
+  let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
+  record_shutdown_details ~__context ~vm Xal.Halted "external" action;
+  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_shutdown"; clean=true } in
+  retry_on_conflict args (of_action action)
 
 (***************************************************************************************)
 
-(** VM.hard_reboot_internal: called via the event thread *)
-let hard_reboot_internal ~__context ~vm = 
-  (* VM is locked by the caller *)
-  let args = { TwoPhase.__context=__context; vm=vm; token=None; api_call_name="VM.hard_reboot_internal"; clean=false } in
-  Reboot.in_dom0 args
+(** @deprecated *)
+let hard_reboot_internal ~__context ~vm = assert false
 
 (***************************************************************************************)
 

@@ -618,6 +618,12 @@ let _ =
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
     ~doc:"VM failed to shutdown before the timeout expired" ();
+  error Api_errors.vm_crashed [ "vm" ]
+	  ~doc:"The VM crashed" ();
+  error Api_errors.vm_rebooted [ "vm" ]
+	  ~doc:"The VM unexpectedly rebooted" ();
+  error Api_errors.vm_halted [ "vm" ]
+	  ~doc:"The VM unexpectedly halted" ();
   error Api_errors.bootloader_failed [ "vm"; "msg" ]
     ~doc:"The bootloader returned an error" ();
   error Api_errors.unknown_bootloader [ "vm"; "bootloader" ]
