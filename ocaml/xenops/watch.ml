@@ -49,14 +49,15 @@ let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
     | KeepWaiting -> false
     | Result x -> result := Some x; true in
   try
-    debug "watch: watching xenstore paths: [ %s ] with timeout %f seconds" (String.concat "; " x.paths) timeout;
+	let paths = Listext.List.setify x.paths in
+    debug "watch: watching xenstore paths: [ %s ] with timeout %f seconds" (String.concat "; " paths) timeout;
     (* If the list of paths is empty then we don't receive /any/ watch events and so
        we'll always block until the timeout. If the condition depends on no xenstore paths
        then we can consider it to be vacuously true (or a bug if the condition fn evaluates
        to false). Note this code is required in order to migrate diskless VMs: CA-15011 *)
     if x.paths = [] 
     then ignore(callback ("/", "X"))
-    else Xs.monitor_paths xs (List.map (fun path -> path, "X") x.paths) timeout callback;
+    else Xs.monitor_paths xs (List.map (fun path -> path, "X") paths) timeout callback;
       begin match !result with
       | Some x -> 
 	  x
