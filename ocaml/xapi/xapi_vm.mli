@@ -99,27 +99,26 @@ module TwoPhase :
     type args = {
       __context : Context.t;
       vm : API.ref_VM;
-      token : Locking_helpers.token option;
       api_call_name : string;
       clean : bool;
     }
     type t = { in_guest : args -> unit; in_dom0 : args -> unit; }
-    val execute : args -> t -> unit
   end
 module Reboot :
   sig
     val in_guest : TwoPhase.args -> unit
+	val in_dom0_already_locked : TwoPhase.args -> unit
     val in_dom0 : TwoPhase.args -> unit
     val actions : TwoPhase.t
   end
 module Shutdown :
   sig
     val in_guest : TwoPhase.args -> unit
+	val in_dom0_already_locked : TwoPhase.args -> unit
     val in_dom0 : TwoPhase.args -> unit
     val actions : TwoPhase.t
   end
 val of_action : [< `destroy | `restart ] -> TwoPhase.t
-val impose_external_api_policy : TwoPhase.t -> TwoPhase.t
 val record_shutdown_details :
   __context:Context.t ->
   vm:[ `VM ] Ref.t ->

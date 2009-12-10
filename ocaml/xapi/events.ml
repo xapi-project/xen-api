@@ -121,15 +121,19 @@ module Domain_shutdown = struct
 	(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key with _ -> ());
 	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key ~value:(string_of_int 2);
 	0 in
-    debug "Adding artificial delay on reboot for VM: %s. delay time=%d seconds" (Ref.string_of vm) delay;
-    Thread.delay (float_of_int delay)
-      
+	if Xapi_fist.disable_reboot_delay ()
+	then debug "FIST: disable_reboot_delay"
+    else begin
+	  debug "Adding artificial delay on reboot for VM: %s. delay time=%d seconds" (Ref.string_of vm) delay;
+      Thread.delay (float_of_int delay)
+	end
+
   let clear_reboot_delay ~__context ~vm =
     try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key with _ -> ()
       
   let perform_destroy ~__context ~vm token =
     TaskHelper.set_description ~__context "destroy";
-    Xapi_vm.Shutdown.in_dom0 { Xapi_vm.TwoPhase.__context = __context; vm=vm; token=Some token; api_call_name="destroy"; clean=false };
+    Xapi_vm.Shutdown.in_dom0_already_locked { Xapi_vm.TwoPhase.__context = __context; vm=vm; api_call_name="destroy"; clean=false };
     update_allowed_ops_using_api ~__context vm
 
   let perform_preserve ~__context ~vm token = 
@@ -523,8 +527,12 @@ let callback_release ctx domid =
 		let action_taken = Resync.vm ~__context token vm in
 		if action_taken then debug "Action was taken so allowed_operations should be updated";		   
 	      in
-	      debug "adding Resync.vm to work queue";
-	      push vm Local_work_queue.domU_internal_shutdown_queue description work_item;
+		  if Xapi_fist.disable_event_lifecycle_path ()
+		  then warn "FIST: disable_event_lifecycle_path: skipping Resync.vm"
+		  else begin
+			debug "adding Resync.vm to work queue";
+			push vm Local_work_queue.domU_internal_shutdown_queue description work_item;
+		  end
 	   )
        with Vm_corresponding_to_domid_not_in_db domid ->
 	 error "event could not be processed because VM record not in database"

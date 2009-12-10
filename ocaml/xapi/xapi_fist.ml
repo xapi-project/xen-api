@@ -27,6 +27,8 @@ let fistpoint_read name =
 		Some (Unixext.read_whole_file_to_string ("/tmp/fist_" ^ name))
 	with _ -> None
 
+let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)
+
 (** Insert 2 * Xapi_globs.max_clock_skew into the heartbeat messages *)
 let insert_clock_skew             () = fistpoint "insert_clock_skew"
 
@@ -94,3 +96,18 @@ let reduce_upgrade_grace_period () = fistpoint "reduce_upgrade_grace_period"
 (** Set the expiry date of a v6-license to the one in the file *)
 let set_expiry_date () = fistpoint_read "set_expiry_date"
 
+(** Forces synchronous lifecycle path to defer to the event thread *)
+let disable_sync_lifecycle_path () = fistpoint "disable_sync_lifecycle_path"
+
+(** Forces synchronous lifecycle path by partially disabling the event thread *)
+let disable_event_lifecycle_path () = fistpoint "disable_event_lifecycle_path"
+
+(** If set to "reboot" "halt" "suspend" "crash" this will forcibly shutdown the domain during reboot/shutdown *)
+let simulate_internal_shutdown () = 
+  let fist = "simulate_internal_shutdown" in
+  let x = fistpoint_read fist in
+  delete fist;
+  x
+
+(** Disables the artificial reboot delay, for faster testing. *)
+let disable_reboot_delay () = fistpoint "disable_reboot_delay"
