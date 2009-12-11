@@ -393,9 +393,13 @@ class gen () =
 		Object (name :: loc :: info :: params :: kind :: manifest @ []) (* @ code *)
 	    
 	method json_of_type_parameter (texp, covar, contravar) =
-		Object ["covariant", String (string_of_bool covar); "contravariant", String (string_of_bool contravar); "type", self#json_of_type_expr texp]
+		Object ["covariant", String (string_of_bool covar); "contravariant", String (string_of_bool contravar); "type", self#json_of_type_expr_param texp]
 	    
 	method json_of_type_expr t =
+		Odoc_info.reset_type_names ();
+		String (Odoc_info.string_of_type_expr t)
+		
+	method json_of_type_expr_param t =
 		String (Odoc_info.string_of_type_expr t)
 	
 	method json_of_type_kind priv = function

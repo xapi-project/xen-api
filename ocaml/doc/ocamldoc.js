@@ -149,9 +149,22 @@ function transform_type(t)
 	if (t != '') {
 		params = t.split('->');
 		for (i in params) {
-			params[i] = '<span class="type">' + params[i] + '</span>';
+			u = params[i];
+			if (u[0] == '?')
+				optional = ' <span class="optional">(optional)</span>';
+			else
+				optional = '';
+			a = u.indexOf(':');
+			if (a > -1)
+				u = u.substr(a + 1);
+			params[i] = '<span class="type">' + u + optional + '</span>';
 		}
 		html = params.join('<span class="arrow">\u2192</span>');
+		// the following is obviously a bit inefficient...
+		for (i = 0; i < 25; i++)
+			html = html.replaceAll("'" + String.fromCharCode(0x61 + i),
+				String.fromCharCode(0x3b1 + i));
+		html = html.replaceAll('*', '\u00d7');
 	}
 	else
 		html = '[none]';
