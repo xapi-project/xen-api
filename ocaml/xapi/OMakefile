@@ -228,7 +228,8 @@ XAPI_MODULES = $(COMMON) \
 	../database/db_hiupgrade \
 	certificates \
 	../license/v6client \
-	bios_strings
+	bios_strings \
+	xapi_config
 
 OCamlProgram(xapi, $(XAPI_MODULES))
 OCamlDocProgram(xapi, $(XAPI_MODULES))
