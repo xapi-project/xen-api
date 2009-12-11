@@ -20,7 +20,12 @@
  *  Note: the LPE already does a similar thing, but does not notify the product (xapi)
  *  if it succeeds to check out a "real" license! *)
 let retry_periodically host edition =
-	let period = 3600. in
+	let period = 
+		if Xapi_fist.reduce_grace_retry_period () then
+			300.	(* 1h *)
+		else
+			3600.	(* 5min *)
+	in
 	let schedule = Xapi_periodic_scheduler.OneShot in
 	let retry_fn () = Server_helpers.exec_with_new_task "grace_retry"
 		(fun __context ->
