@@ -721,14 +721,14 @@ let server_init() =
   try
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
-    "Reading config file", [], (fun () -> Helpers.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Helpers.read_log_config !Xapi_globs.log_config_file);
+    "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
+    "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Xapi_config.read_log_config !Xapi_globs.log_config_file);
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
     "Reading pool secret", [], Helpers.get_pool_secret;
-    "Logging xapi version info", [], Helpers.dump_config;
+    "Logging xapi version info", [], Xapi_config.dump_config;
     "Checking control domain", [], check_control_domain;
     "Setting signal handlers", [], signals_handling;
     "Setting up domain 0 xenstore keys", [], domain0_setup;
