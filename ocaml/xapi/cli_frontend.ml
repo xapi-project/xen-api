@@ -684,6 +684,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[Hidden];
     };
 
+   "host-refresh-pack-info",
+    {
+      reqd=["host-uuid"];
+      optn=[""];
+      help="Refreshes Host.software_version";
+      implementation= No_fd Cli_operations.host_refresh_pack_info;
+      flags=[Hidden];
+    };
+
    "patch-upload",
     {
       reqd=["file-name"];

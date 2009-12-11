@@ -3520,6 +3520,11 @@ let host_disable_external_auth printer rpc session_id params =
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
   let config = read_map_params "config" params in
   Client.Host.disable_external_auth rpc session_id host config
+  
+let host_refresh_pack_info printer rpc session_id params =
+  let host_uuid = List.assoc "host-uuid" params in
+  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
+  Client.Host.refresh_pack_info rpc session_id host
 
 let patch_upload fd printer rpc session_id params = 
   let filename = List.assoc "file-name" params in
