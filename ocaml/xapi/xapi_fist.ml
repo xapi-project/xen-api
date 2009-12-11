@@ -96,6 +96,9 @@ let reduce_upgrade_grace_period () = fistpoint "reduce_upgrade_grace_period"
 (** Set the expiry date of a v6-license to the one in the file *)
 let set_expiry_date () = fistpoint_read "set_expiry_date"
 
+(** Reduce the retry period after obtaining a grace license from 1h to 5min *)
+let reduce_grace_retry_period () = fistpoint "reduce_grace_retry_period"
+
 (** Forces synchronous lifecycle path to defer to the event thread *)
 let disable_sync_lifecycle_path () = fistpoint "disable_sync_lifecycle_path"
 
