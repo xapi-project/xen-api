@@ -263,8 +263,9 @@ tt, .code {
 }
 
 .arrow {
-	font-size: 2em;
+	font-size: 150%;
 	color: #cc6600;
+	padding: 0 3px;
 }
 
 .optional {
