@@ -267,3 +267,7 @@ tt, .code {
 	color: #cc6600;
 }
 
+.optional {
+	font-size: 70%;
+	vertical-align: top;
+}
