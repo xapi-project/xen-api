@@ -154,10 +154,9 @@ module Parser = struct
 		| _ -> false
 
 	let is_valid_unescaped_char c =
-		match (Char.code c) with
-			| 0x22 | 0x5c -> false
-			| x when 0x20 <= x && x <= 0x7f -> true	 (* only ASCII for now *)
-			| _ -> false
+		match c with
+			| '"' | '\\' | '\b' | '\x0c' | '\n' | '\r' | '\t' -> false
+			| _ -> true
 
 	let clist_to_string cs =
 		let len = List.length cs in
