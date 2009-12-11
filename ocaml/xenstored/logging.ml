@@ -228,7 +228,7 @@ let is_error_kind kind data =
 let xb_answer ~tid ~con ~ty data =
 	let print = match ty with
 		| Xb.Op.Error when is_error_kind "ENOENT" data -> !log_read_ops
-		| Xb.Op.Error -> !log_special_ops
+		| Xb.Op.Error -> true
 		| Xb.Op.Watchevent -> true
 		| _ -> false
 	in
