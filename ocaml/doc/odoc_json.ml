@@ -186,27 +186,29 @@ let escape_quotes s =
 type html =
 | Node of string * (string * string) list * html list (** Node ("",_,_) will be discarded *)
 | Leaf of string
+| Raw_html of string
 
 let node tag ?(atts=[]) subs = Node (tag, atts, subs)
 
 let escape_entities s =
-  let len = String.length s in
-  let buf = Buffer.create len in
-  for i = 0 to len - 1 do
-    match s.[i] with
-      '<' -> Buffer.add_string buf "&lt;"
-    | '>' -> Buffer.add_string buf "&gt;"
-    | '&' -> Buffer.add_string buf "&amp;"
-    | c -> Buffer.add_char buf c
-  done;
-  Buffer.contents buf
+	let len = String.length s in
+	let buf = Buffer.create len in
+	for i = 0 to len - 1 do
+		match s.[i] with
+		| '<' -> Buffer.add_string buf "&lt;"
+		| '>' -> Buffer.add_string buf "&gt;"
+		| '&' -> Buffer.add_string buf "&amp;"
+		| c -> Buffer.add_char buf c
+	done;
+	Buffer.contents buf
 
 let string_of_bool b = if b then "true" else "false"
 
 let rec print_one_t = function
-| Leaf s -> (escape_entities s)
-| Node ("",_,_) -> ""
-| Node (tag,atts,subs) ->
+| Leaf s -> escape_entities s
+| Raw_html s -> s
+| Node ("", _, _) -> ""
+| Node (tag, atts, subs) ->
 	"<" ^ tag ^
 	(match atts with
 	 | [] -> ""
@@ -219,6 +221,9 @@ let rec print_one_t = function
 
 and print_t_list l =
 	String.concat "" (List.map print_one_t l)
+	
+let html_to_json l =
+	String (print_t_list l)
   
 (* the actual generator class *)
 
@@ -237,11 +242,13 @@ class gen () =
 	
 	method t_of_text = List.map self#t_of_text_element
 	
+	method t_of_raw s = Leaf (remove_asterisks s)
+	
 	method t_of_text_element = function
-	| Odoc_info.Raw s -> Leaf (remove_asterisks s)
-	| Odoc_info.Code s -> node "tt" [Leaf (remove_asterisks s)]
-	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [Leaf (remove_asterisks s)]
-	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [Leaf (remove_asterisks s)]
+	| Odoc_info.Raw s -> self#t_of_raw s
+	| Odoc_info.Code s -> node "span" ~atts:["class", "code"] [self#t_of_raw s]
+	| Odoc_info.CodePre s -> node "span" ~atts:["class", "codepre"] [self#t_of_raw s]
+	| Odoc_info.Verbatim s -> node "span" ~atts:["class", "verbatim"] [self#t_of_raw s]
 	| Odoc_info.Bold t -> node "b" (self#t_of_text t)
 	| Odoc_info.Italic t -> node "i" (self#t_of_text t)
 	| Odoc_info.Emphasize t -> node "em" (self#t_of_text t)
@@ -255,14 +262,18 @@ class gen () =
 	| Odoc_info.Title (n, l_opt, t) ->
 		(*	(match l_opt with None -> [] | Some t -> ["name",t]) *)
 		node ("h" ^ string_of_int n) (self#t_of_text t)
-	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [Leaf (remove_asterisks s)]
+	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [self#t_of_raw s]
 	| Odoc_info.Link (s, t) -> node "a" ~atts: ["href", s] (self#t_of_text t)
 	| Odoc_info.Ref (name, ref_opt) -> self#t_of_Ref name ref_opt
 	| Odoc_info.Superscript t -> node "sup" (self#t_of_text t)
 	| Odoc_info.Subscript t -> node "sub" (self#t_of_text t)
 	| Odoc_info.Module_list l -> Leaf "" (* self#json_of_Module_list l *)
 	| Odoc_info.Index_list -> Leaf "" (* node "index_list" [] *)
-	| Odoc_info.Custom (s,t) -> Leaf "" (* node "custom" ~atts: ["name", s] (self#t_of_text t) *)
+	| Odoc_info.Custom (s,t) ->
+		if s = "{html" then
+			Raw_html (String.concat "" (List.map (fun (Odoc_info.Raw s) -> remove_asterisks s) t))
+		else
+			node "div" ~atts:["class", s] (self#t_of_text t)
 
 	method t_of_Ref name ref_opt =
 		let code = node "span" ~atts:["class", "code"] [Leaf name] in
@@ -375,7 +386,7 @@ class gen () =
 		Object (name :: info :: kind @ [])
 
 	method json_of_comment t =
-		String (print_t_list (self#t_of_text t))
+		html_to_json (self#t_of_text t)
 		
 	method json_of_type t =
 		let name = "name", String t.Type.ty_name in
@@ -416,7 +427,7 @@ class gen () =
 		| None -> []
 		| Some t ->
 			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", String (print_t_list (self#t_of_text t))]
+			["description", html_to_json (self#t_of_text t)]
 		in
 		descr_cnt <- descr_cnt + 1;
 		Object (["name", String c.Type.vc_name] @ desc @ ["type", Array (List.map self#json_of_type_expr c.Type.vc_args)])
@@ -426,7 +437,7 @@ class gen () =
 		| None -> []
 		| Some t ->
 			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", String (print_t_list (self#t_of_text t))]
+			["description", html_to_json (self#t_of_text t)]
 		in
 		descr_cnt <- descr_cnt + 1;
 		Object (["name", String f.Type.rf_name; "mutable", json_of_bool f.Type.rf_mutable] @
@@ -443,7 +454,7 @@ class gen () =
 		| None -> []
 		| Some t ->
 			completed_descr_cnt <- completed_descr_cnt + 1;
-			["description", String (print_t_list (self#t_of_text t))]
+			["description", html_to_json (self#t_of_text t)]
 		in
 		let authors = match List.map (fun s -> String s) i.i_authors with
 		| [] -> []
@@ -461,7 +472,7 @@ class gen () =
 		in
 		let dep = match i.i_deprecated with
 		| None -> []
-		| Some t -> ["deprecated", String (print_t_list (self#t_of_text t))]
+		| Some t -> ["deprecated", html_to_json (self#t_of_text t)]
 		in
 		let params = [] in
 		let raised = match List.map self#json_of_raised_exception i.i_raised_exceptions with 
@@ -470,18 +481,18 @@ class gen () =
 		in
 		let return_v = match i.i_return_value with
 		| None -> []
-		| Some t -> ["return", String (print_t_list (self#t_of_text t))]
+		| Some t -> ["return", html_to_json (self#t_of_text t)]
 		in
-		let customs = List.map (fun (tag, t) -> tag, String (print_t_list (self#t_of_text t))) i.i_custom in
+		let customs = List.map (fun (tag, t) -> tag, html_to_json (self#t_of_text t)) i.i_custom in
 		Object (desc @ authors @ version @ see @ since @ dep @ params @ raised @ return_v @ customs)
 		
 	method json_of_see = function
-	| (See_url s, t) -> Object ["url", String s; "text", String (print_t_list (self#t_of_text t))]
-	| (See_file s, t) -> Object ["file", String s; "text", String (print_t_list (self#t_of_text t))]
-	| (See_doc s, t) -> Object ["doc", String s; "text", String (print_t_list (self#t_of_text t))]
+	| (See_url s, t) -> Object ["url", String s; "text", html_to_json (self#t_of_text t)]
+	| (See_file s, t) -> Object ["file", String s; "text", html_to_json (self#t_of_text t)]
+	| (See_doc s, t) -> Object ["doc", String s; "text", html_to_json (self#t_of_text t)]
 
 	method json_of_raised_exception (s, t) =
-		Object ["raised_exception", String s; "text", String (print_t_list (self#t_of_text t))]
+		Object ["raised_exception", String s; "text", html_to_json (self#t_of_text t)]
 
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
