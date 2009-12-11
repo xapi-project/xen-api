@@ -1241,9 +1241,10 @@ let apply_edition ~__context ~host ~edition =
 			let sku, name = License.sku_and_name_of_edition edition in
 			let basic = {default with License.sku = sku; License.sku_marketing_name = name;
 				License.expiry = !V6client.expires} in
-			if !V6client.grace then
+			if !V6client.grace then begin
+				Grace_retry.retry_periodically host edition;
 				{basic with License.grace = "regular grace"}
-			else
+			end else
 				basic
 		end
 	| _ ->
