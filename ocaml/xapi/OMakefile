@@ -229,7 +229,8 @@ XAPI_MODULES = $(COMMON) \
 	certificates \
 	../license/v6client \
 	bios_strings \
-	xapi_config
+	xapi_config \
+	../license/grace_retry
 
 OCamlProgram(xapi, $(XAPI_MODULES))
 OCamlDocProgram(xapi, $(XAPI_MODULES))
