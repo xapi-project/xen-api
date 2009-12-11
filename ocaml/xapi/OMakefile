@@ -176,6 +176,7 @@ XAPI_MODULES = $(COMMON) \
 	cli_printer \
 	ipq \
 	xapi_periodic_scheduler \
+	xapi_periodic_scheduler_init \
 	dbsync \
 	dbsync_slave \
 	dbsync_master \

@@ -22,9 +22,6 @@ type func_ty =
 val add_to_queue :
   ?signal:bool -> string -> func_ty -> float -> (unit -> unit) -> unit
 
-(** Remove a scheduled item by name *)
-val remove_from_queue : string -> unit
-
 (** The scheduler's main loop, started by {!Xapi} on start-up. *)
 val loop : unit -> unit
 

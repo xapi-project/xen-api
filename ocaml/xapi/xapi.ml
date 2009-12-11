@@ -829,7 +829,7 @@ let server_init() =
       "touching ready file", [], (fun () -> Helpers.touch_file !Xapi_globs.ready_file);
        (* -- CRITICAL: this check must be performed before touching shared storage *)
       "Performing no-other-masters check", [ Startup.OnlyMaster ], check_no_other_masters;
-      "Registering periodic functions", [], Xapi_periodic_scheduler.register;
+      "Registering periodic functions", [], Xapi_periodic_scheduler_init.register;
       "executing startup scripts", [ Startup.NoExnRaising], startup_script;
 
       "considering executing on-master-start script", [],
