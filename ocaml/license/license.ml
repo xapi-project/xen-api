@@ -308,7 +308,7 @@ let read_grace_from_file () =
 		let grace_expiry_str = Unixext.read_whole_file_to_string Xapi_globs.upgrade_grace_file in
 		float_of_string grace_expiry_str
 	with _ -> 0.
-
+	
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
 	let existing_license_params = Db.Host.get_license_params ~__context ~self:host in
@@ -354,9 +354,10 @@ let initialise ~__context ~host =
 				info "Successfully checked out %s license." existing_edition;
 				(* delete upgrade-grace file, if it exists *)
 				Unixext.unlink_safe Xapi_globs.upgrade_grace_file;
-				if !V6client.grace then
+				if !V6client.grace then begin
+					Grace_retry.retry_periodically host existing_edition;
 					{existing_license with grace = "regular grace"; expiry = !V6client.expires}
-				else
+				end else
 					{existing_license with grace = "no"; expiry = !V6client.expires}
 			end
 		| "" -> 
