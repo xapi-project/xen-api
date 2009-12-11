@@ -222,9 +222,12 @@ let end_transaction ~tid ~con =
 	if !log_transaction_ops && tid <> 0
 	then write_access_log ~tid ~con (XbOp Xb.Op.Transaction_end)
 
+let is_error_kind kind data =
+	Stringext.String.startswith kind data
+
 let xb_answer ~tid ~con ~ty data =
 	let print = match ty with
-		| Xb.Op.Error when data="ENOENT " -> !log_read_ops
+		| Xb.Op.Error when is_error_kind "ENOENT" data -> !log_read_ops
 		| Xb.Op.Error -> !log_special_ops
 		| Xb.Op.Watchevent -> true
 		| _ -> false
