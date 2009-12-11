@@ -16,7 +16,7 @@
  *)
 
 (**
-Xapi also supports 802.1Q VLANs, which are used to separate network traffic by inserting a _tag_ in each packet, thereby creating multiple virtual networks. A tag is simply a number.
+Xapi also supports 802.1Q VLANs, which are used to separate network traffic by inserting a {i tag} in each packet, thereby creating multiple virtual networks. A tag is simply a number.
 {ul
 {- A VLAN has a {i VLAN} object in the datamodel, which is associated with a {i slave} PIF and a {i master} PIF.}
 {- The VLAN slave, or untagged PIF, is used as the base of the VLAN. It can be any existing PIF (including bond masters).}
