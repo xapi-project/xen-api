@@ -216,19 +216,18 @@ let update_snapshots () =
 	let update_snapshots vm_row =
 		let vm = lookup_field_in_row vm_row Names.ref in
 		let snapshot_rows = List.filter (fun s -> lookup_field_in_row s Names.snapshot_of = vm) vm_rows in
-		let snapshot_rows = List.filter (fun s -> lookup_field_in_row s Names.parent = Ref.string_of Ref.null) snapshot_rows in
 		let compare s1 s2 =
 			let t1 = lookup_field_in_row s1 Names.snapshot_time in
 			let t2 = lookup_field_in_row s2 Names.snapshot_time in
 			compare t1 t2 in
 		let ordered_snapshot_rows = List.sort compare snapshot_rows in
+		debug "Snapshots(%s) = {%s}" vm (String.concat ", " (List.map (fun s -> lookup_field_in_row s Names.ref) ordered_snapshot_rows));
 		let rec aux = function
-			| [] -> ()
-			| [s] -> set_field_in_row s Names.parent vm;
+			| [] | [_] -> ()
 			| s1 :: s2 :: t ->
 				set_field_in_row s2 Names.parent (lookup_field_in_row s1 Names.ref);
 				aux (s2 :: t) in
-		aux ordered_snapshot_rows in
+		aux (ordered_snapshot_rows @ [ vm_row]) in
 	List.iter update_snapshots vm_rows
 
 (** A list of all the custom database upgrade rules known to the system. *)
