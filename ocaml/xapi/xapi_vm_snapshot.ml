@@ -107,6 +107,7 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 	| "snapshot-error" ->
 		(* If an error was occured we get the error type and return *)
 		let error_str = xs.Xs.read (snapshot_path ~xs ~domid "error") in
+		let error_code () = try xs.Xs.read (snapshot_path ~xs ~domid "error/code") with _ -> "0" in
 		error "wait_for_snapshot: %s" error_str;
 		if List.mem error_str [
 			Api_errors.xen_vss_req_error_init_failed;
@@ -117,7 +118,7 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 			Api_errors.xen_vss_req_error_preparing_writers;
 			Api_errors.xen_vss_req_error_creating_snapshot;
 			Api_errors.xen_vss_req_error_creating_snapshot_xml_string ]
-		then raise (Api_errors.Server_error (error_str, [ Ref.string_of vm ]))
+		then raise (Api_errors.Server_error (error_str, [ Ref.string_of vm; error_code () ]))
 		else raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm; error_str ]))
 
 	| e -> 
