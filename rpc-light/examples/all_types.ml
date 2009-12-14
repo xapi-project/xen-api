@@ -55,5 +55,22 @@ let _ =
 	let x2 = x_of_rpc (Xmlrpc.of_string ~callback xml) in
 	let x3 = x_of_rpc (Jsonrpc.of_string json) in
 
-	Printf.printf "\nSanity check:\nx1=x2: %b\nx2=x3: %b\nx1=x3: %b\n\n" (x1 = x2) (x2 = x3) (x1 = x3)
+	Printf.printf "\nSanity check:\nx1=x2: %b\nx2=x3: %b\nx1=x3: %b\n\n" (x1 = x2) (x2 = x3) (x1 = x3);
 	
+	let call = { Rpc.name = "foo"; Rpc.params = [ rpc ] } in
+	let response1 = Rpc.Success rpc in
+	let response2 = Rpc.Fault (1L, "Foo") in
+
+	let c1 = Xmlrpc.string_of_call call in
+	let r1 = Xmlrpc.string_of_response response1 in
+	let r2 = Xmlrpc.string_of_response response2 in
+
+	Printf.printf "call: %s\n" c1;
+	Printf.printf "response1: %s\n" r1; 
+	Printf.printf "response2: %s\n" r2; 
+
+	let c1' = Xmlrpc.call_of_string c1 in
+	let r1' = Xmlrpc.response_of_string r1 in
+	let r2' = Xmlrpc.response_of_string r2 in
+	Printf.printf "\nSanity check:\ncall=c1': %b\nresponse1=r1': %b\nresponse2=r2': %b\n"
+		(call = c1') (response1 = r1') (response2 = r2')

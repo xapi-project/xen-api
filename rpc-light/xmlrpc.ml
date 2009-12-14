@@ -76,6 +76,40 @@ let to_string x =
 	add_value (Buffer.add_string buf) x;
 	Buffer.contents buf
 
+let string_of_call call =
+	let module B = Buffer in
+	let buf = B.create 1024 in
+	let add = B.add_string buf in
+	add "<?xml version=\"1.0\"?>";
+	add "<methodCall><methodName>";
+	add (check call.Rpc.name);
+	add "</methodName><params>";
+	List.iter (fun p ->
+		add "<param>";
+		add (to_string p);
+		add "</param>"
+		) call.Rpc.params;
+	add "</params></methodCall>";
+	B.contents buf
+
+let string_of_response response =
+	let module B = Buffer in
+	let buf = B.create 256 in
+	let add = B.add_string buf in
+	begin match response with
+	| Rpc.Success v   ->
+		add "<?xml version=\"1.0\"?><methodResponse><params><param>";
+		add (to_string v);
+		add "</param></params></methodResponse>";
+	| Rpc.Fault (i,s) ->
+		add "<?xml version=\"1.0\"?><methodResponse><fault><value><struct><member><name>faultCode</name><value><int>";
+		add (Int64.to_string i);
+		add "</int></value></member><member><name>faultString</name><value><string>";
+		add s;
+		add "</string></value></member></struct></value></fault></methodResponse>";
+	end;
+	B.contents buf
+
 exception Parse_error of string * Xmlm.signal * Xmlm.input
 
 let debug_signal = function
@@ -207,7 +241,11 @@ module Parser = struct
 
 	(* General parser functions *)
 	let rec of_xml ?callback accu input =
-		value (map_tags (basic_types ?callback accu)) input
+		try value (map_tags (basic_types ?callback accu)) input
+		with Xmlm.Error ((a,b), e) ->
+			Printf.eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
+			exit (-1)
+			| e -> Printf.eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
 
 	and basic_types ?callback accu input = function
 		| "int" | "i4" -> make_int    ?callback accu (get_data input)
@@ -232,4 +270,43 @@ let of_string ?callback str : Rpc.Val.t =
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
 	Parser.of_xml ?callback [] input
+	
+let call_of_string ?callback str : Rpc.call =
+	let input = Xmlm.make_input (`String (0, str)) in
+	begin match Xmlm.peek input with
+	| `Dtd _ -> ignore (Xmlm.input input)
+	| _      -> () end;
+	let name = ref "" in
+	let params = ref [] in
+	Parser.map_tag "methodCall" (fun input ->
+		name := Parser.map_tag "methodName" Parser.get_data input;
+		Parser.map_tag "params" (fun input ->
+			while Xmlm.peek input <> `El_end do
+				Parser.map_tag "param" (fun input -> params := (Parser.of_xml ?callback [] input) :: !params) input
+			done;
+			) input
+		) input;
+	{ Rpc.name = !name; Rpc.params = !params }
+	
+let response_of_string ?callback str : Rpc.response =
+	let input = Xmlm.make_input (`String (0, str)) in
+	begin match Xmlm.peek input with
+	| `Dtd _ -> ignore (Xmlm.input input)
+	| _      -> () end;
+	Parser.map_tag "methodResponse" (fun input ->
+		match Xmlm.peek input with
+		| `El_start ((_,"fault"),_) ->
+			Parser.map_tag "fault" (fun input ->
+				let signal = Xmlm.peek input in
+				match Parser.of_xml ?callback [] input with
+					| `Dict [ "faultCode", `Int i; "faultString", `String s ] -> Rpc.Fault (i, s)
+					| s -> parse_error (to_string s) signal input
+				) input
+		| `El_start ((_,"params"),_) ->
+			Parser.map_tag "params" (fun input ->
+				Parser.map_tag "param" (fun input -> Rpc.Success (Parser.of_xml ?callback [] input)) input
+				) input
+		| s -> parse_error "response" s input
+		) input 
+
 	
