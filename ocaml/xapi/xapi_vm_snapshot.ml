@@ -108,7 +108,17 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 		(* If an error was occured we get the error type and return *)
 		let error_str = xs.Xs.read (snapshot_path ~xs ~domid "error") in
 		error "wait_for_snapshot: %s" error_str;
-		raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ]))
+		if List.mem error_str [
+			Api_errors.xen_vss_req_error_init_failed;
+			Api_errors.xen_vss_req_error_prov_not_loaded;
+			Api_errors.xen_vss_req_error_no_volumes_supported;
+			Api_errors.xen_vss_req_error_start_snapshot_set_failed;
+			Api_errors.xen_vss_req_error_adding_volume_to_snapset_failed;
+			Api_errors.xen_vss_req_error_preparing_writers;
+			Api_errors.xen_vss_req_error_creating_snapshot;
+			Api_errors.xen_vss_req_error_creating_snapshot_xml_string ]
+		then raise (Api_errors.Server_error (error_str, [ Ref.string_of vm ]))
+		else raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm; error_str ]))
 
 	| e -> 
 		failwith (Printf.sprintf "wait_for_snapshot: unexpected result (%s)" e)
