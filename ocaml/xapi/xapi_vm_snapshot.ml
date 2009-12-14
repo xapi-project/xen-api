@@ -379,7 +379,14 @@ let revert ~__context ~snapshot ~vm =
 	with e ->
 		error "revert failed: %s" (Printexc.to_string e);
 		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-		raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of vm]))
+		match e with
+		| Api_errors.Server_error("SR_BACKEND_FAILURE_44", _) as e ->
+			error "Not enough space to create the new disk images";
+			raise e
+		| Api_errors.Server_error("SR_BACKEND_FAILURE_109", _) as e ->
+			error "Snapshot chain too long";
+			raise e
+		| _ -> raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of vm]))
 
 let	create_vm_from_snapshot ~__context ~snapshot =
 	let old_vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
@@ -402,7 +409,7 @@ let	create_vm_from_snapshot ~__context ~snapshot =
 					 List.iter (fun (snap,_) -> Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm) snapshots;
 					 new_vm
 				 with e ->
-					 debug "cleanin-up by deleting the VM %s" (Ref.string_of new_vm);
+					 debug "cleaning-up by deleting the VM %s" (Ref.string_of new_vm);
 					 Client.VM.destroy rpc session_id new_vm;
 					 raise e;
 				 end)
