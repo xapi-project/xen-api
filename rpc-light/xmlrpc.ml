@@ -264,14 +264,14 @@ module Parser = struct
 		List.rev !r
 end
 
-let of_string ?callback str : Rpc.Val.t =
+let of_string ?callback str =
 	let input = Xmlm.make_input (`String (0, str)) in
 	begin match Xmlm.peek input with
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
 	Parser.of_xml ?callback [] input
 	
-let call_of_string ?callback str : Rpc.call =
+let call_of_string ?callback str =
 	let input = Xmlm.make_input (`String (0, str)) in
 	begin match Xmlm.peek input with
 	| `Dtd _ -> ignore (Xmlm.input input)
@@ -288,7 +288,7 @@ let call_of_string ?callback str : Rpc.call =
 		) input;
 	{ Rpc.name = !name; Rpc.params = !params }
 	
-let response_of_string ?callback str : Rpc.response =
+let response_of_string ?callback str =
 	let input = Xmlm.make_input (`String (0, str)) in
 	begin match Xmlm.peek input with
 	| `Dtd _ -> ignore (Xmlm.input input)
