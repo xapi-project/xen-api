@@ -51,4 +51,4 @@ type call = {
 
 type response =
 	| Success of Val.t
-	| Fault of int * string
+	| Fault of int64 * string
