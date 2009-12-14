@@ -48,6 +48,7 @@ val from_forwarded_task :
 (** [session_of_t __context] returns the session id stored in [__context]. In case there is no session id in this
     context, it fails with [Failure "Could not find a session_id"]. *)
 val get_session_id : t -> API.ref_session
+val has_session_id : t -> bool
 
 (** [get_task_id __context] returns the task id stored in [__context]. Such a task can be either a task stored in 
     database or a tempory task (also called dummy). *)
