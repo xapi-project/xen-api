@@ -62,6 +62,7 @@ start() {
 
 	/usr/sbin/xenconsoled
 	/usr/sbin/blktapctrl
+	[ -d /var/log/blktap ] || mkdir /var/log/blktap
 	
 	# Delete rubbish from xapi's private tree in xenstore, once per boot (not once per
 	# xapi invocation since the data should be persistent across xapi restarts)
