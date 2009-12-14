@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Rpc
+
 let rec list_iter_between f o = function
 	| []   -> ()
 	| [h]  -> f h
@@ -64,7 +66,33 @@ let to_string t =
 	to_buffer t buf;
 	Buffer.contents buf
 
+let new_id =
+	let count = ref 0L in
+	(fun () -> count := Int64.add 1L !count; !count)
 
+let string_of_call call =
+	let json = `Dict [
+		"method", `String call.name;
+		"params", `List call.params;
+		"id", `Int (new_id ());
+	] in
+	to_string json
+
+let string_of_response id response =
+	let json = match response with
+		| Success v ->
+			`Dict [
+				"result", v;
+				"error", `None;
+				"id", `Int id
+			]
+		| Fault f ->
+			`Dict [
+				"result", `None;
+				"error", f;
+				"id", `Int id
+			] in
+	to_string json
 
 type error =
 	| Unexpected_char of int * char * (* json type *) string
@@ -94,13 +122,13 @@ module Parser = struct
 		| Expect_object_elem_colon
 		| Expect_comma_or_end
 		| Expect_object_key
-		| Done of Rpc.Val.t
+		| Done of Val.t
 
 	type int_value =
-		| IObject of (string * Rpc.Val.t) list
-		| IObject_needs_key of (string * Rpc.Val.t) list
-		| IObject_needs_value of (string * Rpc.Val.t) list * string
-		| IArray of Rpc.Val.t list
+		| IObject of (string * Val.t) list
+		| IObject_needs_key of (string * Val.t) list
+		| IObject_needs_value of (string * Val.t) list * string
+		| IArray of Val.t list
 
 	type parse_state = {
 		mutable cursor: cursor;
@@ -403,7 +431,7 @@ module Parser = struct
 		| Done _ -> raise_internal_error s "parse called when parse_state is 'Done'"
 
 	type parse_result =
-		| Json_value of Rpc.Val.t * (* number of consumed bytes *) int
+		| Json_value of Val.t * (* number of consumed bytes *) int
 		| Json_parse_incomplete of parse_state
 
 	let parse_substring state str ofs len =
@@ -453,3 +481,40 @@ module Parser = struct
 end
 
 let of_string = Parser.of_string
+
+exception Malformed_method_request of string
+exception Malformed_method_response of string
+
+let get name dict =
+	if List.mem_assoc name dict then
+		List.assoc name dict
+	else begin
+		Printf.eprintf "%s was not found in the dictionnary\n" name;
+		let str = List.map (fun (n,_) -> Printf.sprintf "%s=..." n) dict in
+		let str = Printf.sprintf "{%s}" (String.concat "," str) in
+		raise (Malformed_method_request str)
+	end
+
+let call_of_string str =
+	match of_string str with
+	| `Dict d ->
+		let name = match get "method" d with `String s -> s | _ -> raise (Malformed_method_request str) in
+		let params = match get "params" d with `List l -> l | _ -> raise (Malformed_method_request str) in
+		let id = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_request str) in
+		id, { name = name; params = params }
+	| _ -> raise (Malformed_method_request str)
+
+let response_of_string str =
+	match of_string str with
+	| `Dict d ->
+		  let result = get "result" d in
+		  let error = get "error" d in
+		  let id = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_response str) in
+		  begin match result, error with
+			  | `None, `None -> raise (Malformed_method_response str)
+			  | `None, v     -> id, Fault v
+			  | v, `None     -> id, Success v
+			  | _            -> raise (Malformed_method_response str)
+		  end
+	| _ -> raise (Malformed_method_response str)
+
