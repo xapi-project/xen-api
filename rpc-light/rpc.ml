@@ -49,6 +49,6 @@ type call = {
 	params: Val.t list
 }
 
-type response =
+type 'a response =
 	| Success of Val.t
-	| Fault of int64 * string
+	| Fault of 'a
