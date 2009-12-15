@@ -14,8 +14,12 @@
 module D = Debug.Debugger(struct let name = "netman" end)
 open D
 
-
 type netty = Bridge of string | Vswitch of string | DriverDomain | Nat
+
+let netty_of_bridge bridge = 
+  match Netdev.network.Netdev.kind with
+  | Netdev.Bridge -> (Bridge bridge)
+  | Netdev.Vswitch -> (Vswitch bridge)
 
 let online vif netty =
 	let setup_bridge_port dev =
@@ -29,8 +33,8 @@ let online vif netty =
 	match netty with
 	| Bridge bridgename ->
 		let add_to_bridge br dev =
-			Netdev.Bridge.set_forward_delay br 0;
-			Netdev.Bridge.intf_add br dev;
+			Netdev.network.Netdev.set_forward_delay br 0;
+			Netdev.network.Netdev.intf_add br dev;
 			Netdev.Link.up dev
 			in
 		debug "Adding %s to bridge %s" vif bridgename;
@@ -38,7 +42,7 @@ let online vif netty =
 		add_to_bridge bridgename vif
 	| Vswitch bridgename ->
 		let add_to_bridge br dev =
-			Netdev.Vswitch.intf_add br dev;
+			Netdev.network.Netdev.intf_add br dev;
 			Netdev.Link.up dev
 			in
 		debug "Adding %s to bridge %s" vif bridgename;
@@ -52,7 +56,7 @@ let offline vif netty =
 	| Bridge bridgename ->
 		debug "Removing %s from bridge %s" vif bridgename;
 		begin try
-			Netdev.Bridge.intf_del bridgename vif;
+			Netdev.network.Netdev.intf_del bridgename vif;
 			Netdev.Link.down vif
 		with _ ->
 			warn "interface %s already removed from bridge %s" vif bridgename;
@@ -60,7 +64,7 @@ let offline vif netty =
 	| Vswitch bridgename ->
 		debug "Removing %s from bridge %s" vif bridgename;
 		begin try
-			Netdev.Vswitch.intf_del bridgename vif;
+			Netdev.network.Netdev.intf_del bridgename vif;
 			Netdev.Link.down vif
 		with _ ->
 			warn "interface %s already removed from bridge %s" vif bridgename;

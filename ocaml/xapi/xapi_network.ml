@@ -25,8 +25,8 @@ let get_allowed_messages ~__context ~self = []
 *)
 
 let create_internal_bridge ~bridge =
-  let current = Netdev.Bridge.list () in
-  if not(List.mem bridge current) then Netdev.Bridge.add bridge;
+  let current = Netdev.network.Netdev.list () in
+  if not(List.mem bridge current) then Netdev.network.Netdev.add bridge;
   if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
@@ -66,14 +66,14 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
 
 let detach bridge_name = 
   Xapi_network_real.maybe_shutdown_guest_installer_network bridge_name;
-  if Netdev.Bridge.exists bridge_name then begin
+  if Netdev.network.Netdev.exists bridge_name then begin
     List.iter (fun iface ->
 		 D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
 		 Netdev.Link.down iface;
-		 Netdev.Bridge.intf_del bridge_name iface
-	      ) (Netdev.Bridge.intf_list bridge_name);
+		 Netdev.network.Netdev.intf_del bridge_name iface
+	      ) (Netdev.network.Netdev.intf_list bridge_name);
     Netdev.Link.down bridge_name;
-    Netdev.Bridge.del bridge_name
+    Netdev.network.Netdev.del bridge_name
   end
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
@@ -85,7 +85,7 @@ let stem = "xapi"
 let do_bridge_gc rpc session_id =
   let all_networks = Client.Network.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let db_bridge_names = List.map (fun r->r.API.network_bridge) (List.map snd all_networks) in
-  let my_bridges = Netdev.Bridge.list () in
+  let my_bridges = Netdev.network.Netdev.list () in
     List.iter
       (fun mybridge -> if not (List.mem mybridge db_bridge_names) then detach mybridge)
       my_bridges
