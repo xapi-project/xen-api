@@ -442,7 +442,8 @@ let calculate_pifs_required_at_start_of_day ~__context =
   )
     (Db.PIF.get_all_records ~__context)
 
-let start_of_day_best_effort_bring_up() =
+let start_of_day_best_effort_bring_up() = begin
+  debug "Configured network backend: %s" (Netdev.string_of_kind Netdev.network.Netdev.kind);
   Server_helpers.exec_with_new_task "Bringing up physical PIFs"
     (fun __context ->
        List.iter
@@ -452,4 +453,4 @@ let start_of_day_best_effort_bring_up() =
 		 plug ~__context ~self:pif) pif) 
 	 (calculate_pifs_required_at_start_of_day ~__context)
     )
-
+end

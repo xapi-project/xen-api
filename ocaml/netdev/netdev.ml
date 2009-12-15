@@ -14,6 +14,38 @@
 open Stringext
 open Forkhelpers
 
+type kind = Bridge | Vswitch
+
+type network_ops = { 
+  kind: kind;
+  add: string -> unit;
+  del: string -> unit;
+  list: unit -> string list;
+
+  exists: string -> bool;
+
+  intf_add: string -> string -> unit;
+  intf_del: string -> string -> unit;
+  intf_list: string -> string list;
+
+  get_bridge: string -> string;
+  is_on_bridge: string -> bool;
+
+  set_forward_delay: string -> int -> unit;
+}
+
+exception Unknown_network_backend of string
+exception Invalid_network_backend_operation of string * kind
+
+let string_of_kind kind = match kind with
+  | Bridge -> "bridge"
+  | Vswitch -> "vswitch"
+
+let kind_of_string s = match s with
+  | "bridge" -> Bridge
+  | "vswitch" -> Vswitch
+  | _ -> raise (Unknown_network_backend s)
+
 module Internal = struct
 
 let control_socket () =
@@ -158,6 +190,25 @@ let is_on_bridge name = try Unix.access (getpath name "brport") [ Unix.F_OK ]; t
 
 let get_bridge name = Filename.basename (Unix.readlink ((getpath name "brport") ^ "/bridge"))
 
+let ops = {
+  kind = Bridge;
+
+  add = add;
+  del = del;
+  list = list;
+
+  exists = exists;
+
+  intf_add = intf_add;
+  intf_del = intf_del;
+  intf_list = intf_list;
+
+  get_bridge = get_bridge;
+  is_on_bridge = is_on_bridge;
+
+  set_forward_delay = set_forward_delay;
+}
+
 end
 
 module Vswitch = struct
@@ -191,6 +242,25 @@ let is_on_bridge name =
   | l::[] -> true
   | [] -> false
   | _ -> failwith ("ovs-vsctl port-to-br: returned an unexpected number of results for port " ^ name)
+
+let ops = {
+  kind = Vswitch;
+
+  add = add;
+  del = del;
+  list = list;
+
+  exists = exists;
+
+  intf_add = intf_add;
+  intf_del = intf_del;
+  intf_list = intf_list;
+
+  get_bridge = get_bridge;
+  is_on_bridge = is_on_bridge;
+
+  set_forward_delay = fun name v -> raise (Invalid_network_backend_operation ("set_forward_delay", Vswitch))
+}
 
 end
 
@@ -317,3 +387,17 @@ let get_ids name =
 
 (** Indicates whether the given interface is a physical interface *)
 let is_physical name = try Unix.access (getpath name "device") [ Unix.F_OK ]; true with _ -> false
+
+(* Dispatch network backend operations. *)
+
+let network_config_file = "/etc/xensource/network.conf"
+let network_backend = 
+  try 
+    kind_of_string (String.strip String.isspace (Unixext.read_whole_file_to_string network_config_file))
+  with
+  | Unix.Unix_error(Unix.ENOENT, "open", _) -> Bridge
+  | Unix.Unix_error(err, op, path) -> failwith (Printf.sprintf "Unix error: %s (%s,%s)\n" (Unix.error_message err) op path)
+
+let network = match network_backend with
+  | Bridge -> Bridge.ops
+  | Vswitch -> Vswitch.ops

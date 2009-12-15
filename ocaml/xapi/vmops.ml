@@ -90,7 +90,8 @@ let add_vif ~__context ~xs vif_device =
 
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
-       let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty:(Netman.Bridge vif_device.Vm_config.bridge) 
+       let netty = Netman.netty_of_bridge vif_device.Vm_config.bridge in
+       let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty 
 	 ~mac:vif_device.Vm_config.mac ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
 	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys
 	 vif_device.Vm_config.domid in
