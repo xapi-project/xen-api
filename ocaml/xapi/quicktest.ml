@@ -338,7 +338,7 @@ let verify_network_connectivity session_id test vm =
        let network = Client.VIF.get_network !rpc session_id vif in
        let bridge = Client.Network.get_bridge !rpc session_id network in
        let device = Printf.sprintf "vif%Ld.%s" (Client.VM.get_domid !rpc session_id vm) (Client.VIF.get_device !rpc session_id vif) in
-       let devices = Netdev.Bridge.intf_list bridge in
+       let devices = Netdev.network.Netdev.intf_list bridge in
        if not(List.mem device devices) 
        then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
        else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
