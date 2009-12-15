@@ -24,16 +24,21 @@ open Db_filter
 let get_allowed_messages ~__context ~self = []
 *)
 
+let create_internal_bridge ~bridge =
+  let current = Netdev.Bridge.list () in
+  if not(List.mem bridge current) then Netdev.Bridge.add bridge;
+  if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
+
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost () in
   let shafted_pifs, local_pifs = 
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check:management_interface in
 
-  (* Ensure bridge exists and is up *)
   let bridge = Db.Network.get_bridge ~__context ~self in
-  let current = Netdev.Bridge.list () in
-  if not(List.mem bridge current) then Netdev.Bridge.add bridge;
-  if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge;
+
+  (* Ensure internal bridge exists and is up. external bridges will be
+     brought up by call to interface-reconfigure. *)
+  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge;
 
   (* Check if we're a guest-installer network: *)
   let other_config = Db.Network.get_other_config ~__context ~self in
