@@ -117,7 +117,6 @@ OCAML_PHASE3_XEN = \
 	ocaml/xsrpc/xsrpc \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
-	ocaml/netdev/brctl \
 	ocaml/p2v/p2v \
 	ocaml/p2v/closeandexec_static \
 	ocaml/license/v6testd \
