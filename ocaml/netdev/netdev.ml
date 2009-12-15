@@ -279,8 +279,8 @@ let duplex_of_string = function
 	| "half"    -> Duplex_half
 	| _         -> Duplex_unknown
 
-let string_of_speed = string_of_int
-let speed_of_string x = try int_of_string x with _ -> 0
+let int_of_speed x = x
+let speed_of_int x = x
 let speed_unknown = 0
 
 external _up : Unix.file_descr -> string -> unit = "stub_link_up"
@@ -342,7 +342,6 @@ let get name =
 
 end
 
-(** List all the interfaces on the system *)
 let list () =
 	Array.to_list (Sys.readdir "/sys/class/net")
 
@@ -355,7 +354,6 @@ let set_mtu name mtu =
 	Internal.write_one_line (getpath name "mtu")
 	                        (string_of_int mtu)
 
-(** Returns the list of device names (eg physical + VLAN) which a particular MAC address *)
 let get_by_address address = 
   List.filter
     (fun device ->
@@ -385,7 +383,6 @@ let get_ids name =
 	read_id_from (getpath name "device/vendor"),
 	read_id_from (getpath name "device/device")
 
-(** Indicates whether the given interface is a physical interface *)
 let is_physical name = try Unix.access (getpath name "device") [ Unix.F_OK ]; true with _ -> false
 
 (* Dispatch network backend operations. *)
