@@ -27,6 +27,12 @@
 
 \section{Introduction}
 
+We wish to:
+\begin{enumerate}
+\item allow VM memory to be adjusted dynamically without having to reboot; and
+\item ``squeeze'' a few more VMs onto a host to cover the interval between another host failing and more capacity being brought online.
+\end{enumerate}
+
 \squeezed{} is a per-host memory ballooning daemon. It performs two tasks:
 \begin{enumerate}
 \item it exports a simple host memory management interface to the \xapi{} toolstack through which \xapi{} can {\em reserve} memory for new domains;
