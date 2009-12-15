@@ -3,14 +3,3 @@ StaticCLibrary(netdev_stubs, bridge_stubs link_stubs addr_stubs)
 OCamlDocLibrary(netdev, netdev)
 
 OCAML_LIBS += netdev
-
-OCamlProgram(brctl, brctl)
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS) brctl
-
-#.PHONY: install
-#install:
-#	mkdir -p $(DIST)/staging/opt/xensource/bin
-#	cp brctl $(DIST)/staging/opt/xensource/bin
