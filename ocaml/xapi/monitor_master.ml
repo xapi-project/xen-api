@@ -212,7 +212,7 @@ let update_pifs ~__context host pifs =
 			
 			let metrics = Db.PIF.get_metrics ~__context ~self:pifdev in
 			let pmr = Db.PIF_metrics.get_record ~__context ~self:metrics in
-			let speed_db = Int64.of_int pif_stats.pif_speed in
+			let speed_db = Int64.of_int (Netdev.Link.int_of_speed pif_stats.pif_speed) in
 			let duplex_db = match pif_stats.pif_duplex with
 			  | Netdev.Link.Duplex_full    -> true
 			  | Netdev.Link.Duplex_half    -> false
