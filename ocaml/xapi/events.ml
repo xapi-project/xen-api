@@ -168,18 +168,18 @@ module Domain_shutdown = struct
 	  (fun () -> Crashdump.make ~__context vm domid)
 	  (fun () -> perform_restart ~__context ~vm token)
     | `coredump_and_destroy ->
-	debug "domid %d actions_after_crash = coredump_and_destroy" domid;
+	debug "domid %d actions = coredump_and_destroy" domid;
 	finally 
 	  (fun () -> Crashdump.make ~__context vm domid)
 	  (fun () -> perform_destroy ~__context ~vm token)
     | `restart ->
-	debug "domid %d actions_after_crash = restart" domid;
+	debug "domid %d actions = restart" domid;
 	perform_restart ~__context ~vm token
     | `destroy ->
-	debug "domid %d actions_after_crash = destroy" domid;
+	debug "domid %d actions = destroy" domid;
 	perform_destroy ~__context ~vm token
     | `rename_restart ->
-	warn "domid %d actions_after_crash = rename_restart but this is not supported." domid;
+	warn "domid %d actions = rename_restart; performing a restart instead." domid;
 	perform_restart ~__context ~vm token
 
   let on_reboot ~__context ~vm token =
