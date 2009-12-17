@@ -591,6 +591,7 @@ let retry_on_conflict (x: TwoPhase.args) (y: TwoPhase.t) =
 		  let aborting = n < 1 in
 		  debug "Conflict when executing %s: %s" x.TwoPhase.api_call_name (if aborting then "aborting" else "retrying");
 		  if aborting then raise e;
+		  Thread.delay 5.;
 		  retry (n - 1) in
   retry 10
   
