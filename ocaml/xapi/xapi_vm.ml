@@ -316,7 +316,9 @@ module TwoPhase = struct
 	&& (with_xc
 			(fun xc ->
 				 let di = Xc.domain_getinfo xc domid in
-				 Xal.is_running di))
+				 let running = Xal.is_running di in
+				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xc.shutdown di.Xc.dying (if running then "still" else "not");
+				 running))
 
   (** Called before a regular synchronous reboot/shutdown to simulate parallel in-guest shutdowns *)
   let simulate_internal_shutdown domid = 
@@ -351,6 +353,7 @@ module Reboot = struct
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	TwoPhase.simulate_internal_shutdown domid;
 
+	debug "%s Reboot.in_guest domid=%d clean=%b" api_call_name domid clean;
 	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
 	   to do here. *)
 	if domid <> -1 then begin
@@ -382,6 +385,9 @@ module Reboot = struct
     License_check.vm ~__context vm;
     Stats.time_this "VM reboot (excluding clean shutdown phase)"
       (fun () ->
+		   let domid = Helpers.domid_of_vm ~__context ~self:vm in
+		   debug "%s Reboot.in_dom0_already_locked domid=%d" api_call_name domid;
+
          let new_snapshot = Db.VM.get_record ~__context ~self:vm in
 
 		 let current_snapshot = Helpers.get_boot_record ~__context ~self:vm in
@@ -396,7 +402,6 @@ module Reboot = struct
 	 let new_snapshot = { new_snapshot with API.vM_memory_static_max = new_mem } in
 	 
 	 let localhost = Helpers.get_localhost ~__context in
-	 let domid = Helpers.domid_of_vm ~__context ~self:vm in
          debug "%s phase 1/3: destroying old domain" api_call_name;
 	 (* CA-13585: prevent glitch where power-state goes to Halted in the middle of a reboot.
 	    If an error causes us to leave this function then the event thread should resynchronise
@@ -477,6 +482,7 @@ module Shutdown = struct
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	TwoPhase.simulate_internal_shutdown domid;
 
+	debug "%s Shutdown.in_guest domid=%d clean=%b" api_call_name domid clean;
 	(* NB a parallel internal halt may leave the domid as -1. If so then there's no work for us 
 	   to do here. *)
 	if domid <> -1 then begin
@@ -502,6 +508,7 @@ module Shutdown = struct
 		(* The domain might be killed by the event thread. Again, this is ok. *)
 		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Halt" domid)
 			(fun () -> 
+				 debug "Xc.domain_shutdown domid=%d Halt" domid;
 				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Halt)
 			) ()
 	  end
@@ -513,6 +520,7 @@ module Shutdown = struct
 	(* If the VM has been shutdown by the event thread (domid = -1) then there's no domain to destroy. *)
 	(* If the VM is running again then throw an error to trigger retry_on_conflict *)
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	debug "%s Shutdown.in_dom0_already_locked domid=%d" api_call_name domid;
 	if domid <> -1 then begin
 	  with_xc_and_xs 
 		  (fun xc xs ->
