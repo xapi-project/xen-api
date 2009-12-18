@@ -49,8 +49,8 @@ module Crashdump = struct
 		let path = "/opt/xensource/libexec/dumpcore" in
 		let args = [ "-domid"; string_of_int domid;
 		              "-file"; filename ] in
-		let pid = Forkhelpers.safe_close_and_exec [] [] path args in
-		match snd (Unix.waitpid [] pid) with
+		let pid = Forkhelpers.safe_close_and_exec None None None [] path args in
+		match snd (Forkhelpers.waitpid pid) with
 		| Unix.WEXITED 0   -> ()
 		| Unix.WEXITED n   -> raise (Failed (sprintf "exit code %d" n));
 		| Unix.WSIGNALED i -> raise (Failed (sprintf "signal %d" i));

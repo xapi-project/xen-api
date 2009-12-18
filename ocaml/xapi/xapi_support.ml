@@ -33,11 +33,7 @@ let do_upload label file url options =
 
   match with_logfile_fd label
   (fun log_fd ->
-     let pid = safe_close_and_exec 
-       [ Close(Unix.stdin);
-	 Dup2(log_fd, Unix.stdout);
-	 Dup2(log_fd,Unix.stderr) ]
-       [ Unix.stdin; Unix.stdout; Unix.stderr ] upload_wrapper [file; url; proxy] in
+     let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] upload_wrapper [file; url; proxy] in
      waitpid pid) with
   | Success _ -> debug "Upload succeeded"
   | Failure (log, exn) ->

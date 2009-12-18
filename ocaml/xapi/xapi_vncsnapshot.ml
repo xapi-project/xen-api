@@ -34,10 +34,10 @@ let vncsnapshot_handler (req: request) s =
 	   (fun () ->
 	      let vnc_port = Int64.to_int (Db.Console.get_port ~__context ~self:console) in
 	      
-	    let pid = safe_close_and_exec [ ] [ ]
-	      vncsnapshot [ "-quiet"; "-encodings"; "\"raw\"";
-			    Printf.sprintf "%s:%d" "127.0.0.1" (vnc_port-5900); tmp ] in
-	    waitpid pid;
+	    let pid = safe_close_and_exec None None None [] vncsnapshot 
+	      [ "-quiet"; "-encodings"; "\"raw\"";
+		Printf.sprintf "%s:%d" "127.0.0.1" (vnc_port-5900); tmp ] in
+	    waitpid_fail_if_bad_exit pid;
 	    Http_svr.response_file ~mime_content_type:None s tmp
 	   )
 	   (fun () -> try Unix.unlink tmp with _ -> ())
