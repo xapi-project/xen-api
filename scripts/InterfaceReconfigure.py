@@ -1,4 +1,5 @@
 import syslog
+import os
 
 from xml.dom.minidom import getDOMImplementation
 from xml.dom.minidom import parse as parseXML
@@ -18,6 +19,145 @@ class Error(Exception):
     def __init__(self, msg):
         Exception.__init__(self)
         self.msg = msg
+
+#
+# Run external utilities
+#
+
+def run_command(command):
+    log("Running command: " + ' '.join(command))
+    rc = os.spawnl(os.P_WAIT, command[0], *command)
+    if rc != 0:
+        log("Command failed %d: " % rc + ' '.join(command))
+        return False
+    return True
+
+#
+# Configuration File Handling.
+#
+
+class ConfigurationFile(object):
+    """Write a file, tracking old and new versions.
+
+    Supports writing a new version of a file and applying and
+    reverting those changes.
+    """
+
+    __STATE = {"OPEN":"OPEN",
+               "NOT-APPLIED":"NOT-APPLIED", "APPLIED":"APPLIED",
+               "REVERTED":"REVERTED", "COMMITTED": "COMMITTED"}
+
+    def __init__(self, path):
+        dirname,basename = os.path.split(path)
+
+        self.__state = self.__STATE['OPEN']
+        self.__children = []
+
+        self.__path    = os.path.join(dirname, basename)
+        self.__oldpath = os.path.join(dirname, "." + basename + ".xapi-old")
+        self.__newpath = os.path.join(dirname, "." + basename + ".xapi-new")
+
+        self.__f = open(self.__newpath, "w")
+
+    def attach_child(self, child):
+        self.__children.append(child)
+
+    def path(self):
+        return self.__path
+
+    def readlines(self):
+        try:
+            return open(self.path()).readlines()
+        except:
+            return ""
+
+    def write(self, args):
+        if self.__state != self.__STATE['OPEN']:
+            raise Error("Attempt to write to file in state %s" % self.__state)
+        self.__f.write(args)
+
+    def close(self):
+        if self.__state != self.__STATE['OPEN']:
+            raise Error("Attempt to close file in state %s" % self.__state)
+
+        self.__f.close()
+        self.__state = self.__STATE['NOT-APPLIED']
+
+    def changed(self):
+        if self.__state != self.__STATE['NOT-APPLIED']:
+            raise Error("Attempt to compare file in state %s" % self.__state)
+
+        return True
+
+    def apply(self):
+        if self.__state != self.__STATE['NOT-APPLIED']:
+            raise Error("Attempt to apply configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.apply()
+
+        log("Applying changes to %s configuration" % self.__path)
+
+        # Remove previous backup.
+        if os.access(self.__oldpath, os.F_OK):
+            os.unlink(self.__oldpath)
+
+        # Save current configuration.
+        if os.access(self.__path, os.F_OK):
+            os.link(self.__path, self.__oldpath)
+            os.unlink(self.__path)
+
+        # Apply new configuration.
+        assert(os.path.exists(self.__newpath))
+        os.link(self.__newpath, self.__path)
+
+        # Remove temporary file.
+        os.unlink(self.__newpath)
+
+        self.__state = self.__STATE['APPLIED']
+
+    def revert(self):
+        if self.__state != self.__STATE['APPLIED']:
+            raise Error("Attempt to revert configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.revert()
+
+        log("Reverting changes to %s configuration" % self.__path)
+
+        # Remove existing new configuration
+        if os.access(self.__newpath, os.F_OK):
+            os.unlink(self.__newpath)
+
+        # Revert new configuration.
+        if os.access(self.__path, os.F_OK):
+            os.link(self.__path, self.__newpath)
+            os.unlink(self.__path)
+
+        # Revert to old configuration.
+        if os.access(self.__oldpath, os.F_OK):
+            os.link(self.__oldpath, self.__path)
+            os.unlink(self.__oldpath)
+
+        # Leave .*.xapi-new as an aid to debugging.
+
+        self.__state = self.__STATE['REVERTED']
+
+    def commit(self):
+        if self.__state != self.__STATE['APPLIED']:
+            raise Error("Attempt to commit configuration from state %s" % self.__state)
+
+        for child in self.__children:
+            child.commit()
+
+        log("Committing changes to %s configuration" % self.__path)
+
+        if os.access(self.__oldpath, os.F_OK):
+            os.unlink(self.__oldpath)
+        if os.access(self.__newpath, os.F_OK):
+            os.unlink(self.__newpath)
+
+        self.__state = self.__STATE['COMMITTED']
 
 #
 # Helper functions for encoding/decoding database attributes to/from XML.
@@ -453,6 +593,38 @@ def mtu_setting(oc):
     return None
 
 #
+# IP Network Devices -- network devices with IP configuration
+#
+def pif_ipdev_name(pif):
+    """Return the ipdev name associated with pif"""
+    pifrec = db().get_pif_record(pif)
+    nwrec = db().get_network_record(pifrec['network'])
+
+    if nwrec['bridge']:
+        # TODO: sanity check that nwrec['bridgeless'] != 'true'
+        return nwrec['bridge']
+    else:
+        # TODO: sanity check that nwrec['bridgeless'] == 'true'
+        return pif_netdev_name(pif)
+
+#
+# Bare Network Devices -- network devices without IP configuration
+#
+
+def netdev_exists(netdev):
+    return os.path.exists("/sys/class/net/" + netdev)
+
+def pif_netdev_name(pif):
+    """Get the netdev name for a PIF."""
+
+    pifrec = db().get_pif_record(pif)
+
+    if pif_is_vlan(pif):
+        return "%(device)s.%(VLAN)s" % pifrec
+    else:
+        return pifrec['device']
+
+#
 # Bonded PIFs
 #
 def pif_is_bond(pif):
@@ -529,3 +701,81 @@ def pif_get_vlan_masters(pif):
     vlans = [db().get_vlan_record(v) for v in pifrec['VLAN_slave_of']]
     return [v['untagged_PIF'] for v in vlans if v and db().pif_exists(v['untagged_PIF'])]
 
+#
+# Datapath base class
+#
+
+class Datapath(object):
+    """Object encapsulating the actions necessary to (de)configure the
+       datapath for a given PIF. Does not include configuration of the
+       IP address on the ipdev.
+    """
+    
+    def __init__(self, pif):
+        self._pif = pif
+
+    def configure_ipdev(self, cfg):
+        """Write ifcfg TYPE field for an IPdev, plus any type specific
+           fields to cfg
+        """
+        raise NotImplementedError        
+
+    def preconfigure(self, parent):
+        """Prepare datapath configuration for PIF, but do not actually
+           apply any changes.
+
+           Any configuration files should be attached to parent.
+        """
+        raise NotImplementedError
+    
+    def bring_down_existing(self):
+        """Tear down any existing network device configuration which
+           needs to be undone in order to bring this PIF up.
+        """
+        raise NotImplementedError
+
+    def configure(self):
+        """Apply the configuration prepared in the preconfigure stage.
+
+           Should assume any configuration files changed attached in
+           the preconfigure stage are applied and bring up the
+           necesary devices to provide the datapath for the
+           PIF.
+
+           Should not bring up the IPdev.
+        """
+        raise NotImplementedError
+    
+    def post(self):
+        """Called after the IPdev has been brought up.
+
+           Should do any final setup, including reinstating any
+           devices which were taken down in the bring_down_existing
+           hook.
+        """
+        raise NotImplementedError
+
+    def bring_down(self):
+        """Tear down and deconfigure the datapath. Should assume the
+           IPdev has already been brought down.
+        """
+        raise NotImplementedError
+        
+def DatapathFactory(pif):
+    # XXX Need a datapath object for bridgeless PIFs
+
+    try:
+        network_conf = open("/etc/xensource/network.conf", 'r')
+        network_backend = network_conf.readline().strip()
+        network_conf.close()                
+    except Exception, e:
+        raise Error("failed to determine network backend:" + e)
+    
+    if network_backend == "bridge":
+        from InterfaceReconfigureBridge import DatapathBridge
+        return DatapathBridge(pif)
+    elif network_backend == "vswitch":
+        from InterfaceReconfigureVswitch import DatapathVswitch
+        return DatapathVswitch(pif)
+    else:
+        raise Error("unknown network backend %s" % network_backend)
