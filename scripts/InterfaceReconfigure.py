@@ -406,6 +406,53 @@ class DatabaseCache(object):
             return None
 
 #
+#
+#
+
+def ethtool_settings(oc):
+    settings = []
+    if oc.has_key('ethtool-speed'):
+        val = oc['ethtool-speed']
+        if val in ["10", "100", "1000"]:
+            settings += ['speed', val]
+        else:
+            log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
+    if oc.has_key('ethtool-duplex'):
+        val = oc['ethtool-duplex']
+        if val in ["10", "100", "1000"]:
+            settings += ['duplex', 'val']
+        else:
+            log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
+    if oc.has_key('ethtool-autoneg'):
+        val = oc['ethtool-autoneg']
+        if val in ["true", "on"]:
+            settings += ['autoneg', 'on']
+        elif val in ["false", "off"]:
+            settings += ['autoneg', 'off']
+        else:
+            log("Invalid value for ethtool-autoneg = %s. Must be on|true|off|false." % val)
+    offload = []
+    for opt in ("rx", "tx", "sg", "tso", "ufo", "gso"):
+        if oc.has_key("ethtool-" + opt):
+            val = oc["ethtool-" + opt]
+            if val in ["true", "on"]:
+                offload += [opt, 'on']
+            elif val in ["false", "off"]:
+                offload += [opt, 'off']
+            else:
+                log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
+    return settings,offload
+
+def mtu_setting(oc):
+    if oc.has_key('mtu'):
+        try:
+            int(oc['mtu'])      # Check that the value is an integer
+            return oc['mtu']
+        except ValueError, x:
+            log("Invalid value for mtu = %s" % oc['mtu'])
+    return None
+
+#
 # Bonded PIFs
 #
 def pif_is_bond(pif):
