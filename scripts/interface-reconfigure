@@ -943,8 +943,7 @@ def configure_network(pif, f):
     if oc and oc.has_key('domain'):
         f.write("DOMAIN='%s'\n" % oc['domain'].replace(',', ' '))
 
-    # We only allow one ifcfg-* to have PEERDNS=yes and there can be
-    # only one GATEWAYDEV in /etc/sysconfig/network.
+    # There can be only one DNSDEV and one GATEWAYDEV in /etc/sysconfig/network.
     #
     # The peerdns pif will be the one with
     # pif::other-config:peerdns=true, or the mgmt pif if none have
@@ -954,22 +953,20 @@ def configure_network(pif, f):
     # pif::other-config:defaultroute=true, or the mgmt pif if none
     # have this set.
 
-    # Work out which pif on this host should be the one with
-    # PEERDNS=yes and which should be the GATEWAYDEV
+    # Work out which pif on this host should be the DNSDEV and which
+    # should be the GATEWAYDEV
     #
     # Note: we prune out the bond master pif (if it exists). This is
     # because when we are called to bring up an interface with a bond
     # master, it is implicit that we should bring down that master.
-    pifs_on_host = [ __pif for __pif in db.get_all_pifs() if
-                     not  __pif in get_bond_masters_of_pif(pif) ]
-    other_pifs_on_host = [ __pif for __pif in pifs_on_host if __pif != pif ]
 
-    peerdns_pif = None
-    defaultroute_pif = None
+    pifs_on_host = [p for p in db.get_all_pifs() if not p in get_bond_masters_of_pif(pif)]
 
     # loop through all the pifs on this host looking for one with
     #   other-config:peerdns = true, and one with
     #   other-config:default-route=true
+    peerdns_pif = None
+    defaultroute_pif = None
     for __pif in pifs_on_host:
         __pifrec = db.get_pif_record(__pif)
         __oc = __pifrec['other_config']
@@ -992,42 +989,28 @@ def configure_network(pif, f):
     if defaultroute_pif == None:
         defaultroute_pif = management_pif
 
-    # Update all the other network's ifcfg files and ensure consistency
-    for __pif in other_pifs_on_host:
-        __f = open_network_ifcfg(__pif)
-        peerdns_line_wanted = 'PEERDNS=%s\n' % ((__pif == peerdns_pif) and 'yes' or 'no')
-        lines =  __f.readlines()
+    is_dnsdev = peerdns_pif == pif
+    is_gatewaydev = defaultroute_pif == pif
 
-        if not peerdns_line_wanted in lines:
-            # the PIF selected for DNS has changed and as a result this ifcfg file needs rewriting
-            for line in lines:
-                if not line.lstrip().startswith('PEERDNS'):
-                    __f.write(line)
-            log("Setting %s in %s" % (peerdns_line_wanted.strip(), __f.path()))
-            __f.write(peerdns_line_wanted)
-            __f.close()
-            f.attach_child(__f)
+    if is_dnsdev or is_gatewaydev:
+        fnetwork = ConfigurationFile("/etc/sysconfig/network")
+        for line in fnetwork.readlines():
+            if is_dnsdev and line.lstrip().startswith('DNSDEV='):
+                fnetwork.write('DNSDEV=%s\n' % bridge)
+                is_dnsdev = False
+            elif is_gatewaydev and line.lstrip().startswith('GATEWAYDEV='):
+                fnetwork.write('GATEWAYDEV=%s\n' % bridge)
+                is_gatewaydev = False
+            else:
+                fnetwork.write(line)
 
-        else:
-            # There is no need to change this ifcfg file.  So don't attach_child.
-            pass
+        if is_dnsdev:
+            fnetwork.write('DNSDEV=%s\n' % bridge_name(pif))
+        if is_gatewaydev:
+            fnetwork.write('GATEWAYDEV=%s\n' % bridge_name(pif))
 
-    # ... and for this pif too
-    f.write('PEERDNS=%s\n' % ((pif == peerdns_pif) and 'yes' or 'no'))
-
-    # Update gatewaydev
-    fnetwork = ConfigurationFile("/etc/sysconfig/network")
-    for line in fnetwork.readlines():
-        if line.lstrip().startswith('GATEWAY') :
-            continue
-        fnetwork.write(line)
-    if defaultroute_pif:
-        gatewaydev = bridge_name(defaultroute_pif)
-        if not gatewaydev:
-            gatewaydev = interface_name(defaultroute_pif)
-        fnetwork.write('GATEWAYDEV=%s\n' % gatewaydev)
-    fnetwork.close()
-    f.attach_child(fnetwork)
+        fnetwork.close()
+        f.attach_child(fnetwork)
 
     return
 
