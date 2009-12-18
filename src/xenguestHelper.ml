@@ -32,11 +32,11 @@ exception Domain_builder_error of string (* function name *) * int (* error code
 
 (** We do all our IO through the buffered channels but pass the 
     underlying fds as integers to the forked helper on the commandline. *)
-type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * int
+type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open 
     (in addition to internal control I/O fds) *)
-let connect (args: string list) (fds: Unix.file_descr list) : t =
+let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	debug "connect: args = [ %s ]" (String.concat " " args);
 	(* Need to send commands and receive responses from the
 	   slave process *)
@@ -46,19 +46,22 @@ let connect (args: string list) (fds: Unix.file_descr list) : t =
 	let last_log_file = "/tmp/xenguest.log" in
 	(try Unix.unlink last_log_file with _ -> ());
 
+	let slave_to_server_w_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let server_to_slave_r_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+
 	let slave_to_server_r, slave_to_server_w = Unix.pipe () in
 	let server_to_slave_r, server_to_slave_w = Unix.pipe () in
-	let args = [ "-controloutfd";
-		     string_of_int (Obj.magic slave_to_server_w);
-		     "-controlinfd";
-		     string_of_int (Obj.magic server_to_slave_r);
+
+	let args = [ "-controloutfd"; slave_to_server_w_uuid;
+		     "-controlinfd"; server_to_slave_r_uuid;
 		     "-debuglog";
 		     last_log_file
-		   ] @ (if using_xiu then [ "-fake" ] else []) @ args in
-	let pid = Forkhelpers.safe_close_and_exec [] 
-	     (fds @ [ Unix.stdout; Unix.stderr; slave_to_server_w; server_to_slave_r ]) (* close all but these *)
-	     path args in
-
+	] @ (if using_xiu then [ "-fake" ] else []) @ args in
+	let pid = Forkhelpers.safe_close_and_exec None None None 
+	  ([ slave_to_server_w_uuid, slave_to_server_w;
+	    server_to_slave_r_uuid, server_to_slave_r ] @ fds)
+	  path args in
+	
 	Unix.close slave_to_server_w;
 	Unix.close server_to_slave_r;
 
@@ -73,8 +76,8 @@ let disconnect (_, _, r, w, pid) =
 	Unix.close r;
 	Unix.close w;
 	(* just in case *)
-	Unix.kill pid Sys.sigterm;
-	ignore(Unix.waitpid [] pid)
+	(try Unix.kill (Forkhelpers.getpid pid) Sys.sigterm with _ -> ());
+	ignore(Forkhelpers.waitpid pid)
 
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
