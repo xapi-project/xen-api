@@ -7,6 +7,7 @@ OCAMLOPT = ocamlopt
 LDFLAGS = -cclib -L./
 
 LIBEXEC  = "/opt/xensource/libexec"
+INIT_D   = "/etc/init.d"
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
@@ -53,8 +54,10 @@ install:
 .PHONY: bininstall
 bininstall: path = $(DESTDIR)$(LIBEXEC)
 bininstall: all
-	mkdir -p $(path)
-	$(IPROG) $(PROGRAMS) $(path)
+	mkdir -p $(DESTDIR)$(LIBEXEC)
+	$(IPROG) $(PROGRAMS) $(DESTDIR)$(LIBEXEC)
+	mkdir -p $(DESTDIR)$(INIT_D)
+	$(IPROG) init.d-fe $(DESTDIR)$(INIT_D)/fe
 
 .PHONY: uninstall
 uninstall:
@@ -62,6 +65,7 @@ uninstall:
 .PHONY: binuninstall
 binuninstall:
 	rm -f $(DESTDIR)$(LIBEXEC)$(PROGRAMS)
+	rm -f $(DESTDIR)$(INIT_D)/fe
 
 .PHONY: doc
 doc: 
