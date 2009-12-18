@@ -66,24 +66,20 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 
 	   match with_logfile_fd "install-log"
 	     (fun log ->
-	       let pid = safe_close_and_exec ~env:(Array.of_list env)
-		 [ Dup2(log, Unix.stdout);
-		   Dup2(log, Unix.stderr) ]
-		 [ Unix.stdout; Unix.stderr ]
-		 script [] in
+	       let pid = safe_close_and_exec ~env:(Array.of_list env) None (Some log) (Some log) [] script [] in
 	       let starttime = Unix.time () in
 	       let rec update_progress () =
 		 (* Check for cancelling *)
 		 if TaskHelper.is_cancelling ~__context
 		 then
 		   begin
-		     Unix.kill pid Sys.sigterm;
-		     let _ = Unix.waitpid [] pid in
+		     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm;
+		     let _ = Forkhelpers.waitpid pid in
 		     raise (Api_errors.Server_error (Api_errors.task_cancelled, []))
 		   end;
 		 
-		 let (newpid,status) = Unix.waitpid [Unix.WNOHANG] pid in
-		 if newpid = pid 
+		 let (newpid,status) = Forkhelpers.waitpid_nohang pid in
+		 if newpid <> 0 
 		 then 
 		   (match status with 
 		     | Unix.WEXITED 0 -> (newpid,status) 

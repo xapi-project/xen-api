@@ -187,7 +187,7 @@ let start_io_process block_dev ctrlsockpath datasockpath =
   (* Execute the process *)
   let args = ["-device"; block_dev; "-ctrlsock"; ctrlsockpath; "-datasock"; datasockpath] in
   let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr ] in
-  Forkhelpers.fork_and_exec ~pre_exec:(fun _ -> Unixext.close_all_fds_except fds_needed) (prog::args)
+  Forkhelpers.safe_close_and_exec None None None [] prog args
 
 let connect sockpath latest_response_time =
   let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
@@ -426,7 +426,7 @@ let maybe_retry f =
 let marker = Uuid.to_string (Uuid.make_uuid ())
 
 let sock = ref None
-let pid : (int * string * string) option ref = ref None (* pid, filename of control socket, filename of data socket *)
+let pid : (Forkhelpers.pidty * string * string) option ref = ref None (* pid, filename of control socket, filename of data socket *)
 
 let dying_processes_mutex = Mutex.create ()
 let num_dying_processes = ref 0
@@ -451,14 +451,15 @@ let shutdown () =
           end;
   
           (* Terminate the child process *)
-          R.debug "Killing I/O process with pid %d" p;
-          Unix.kill p Sys.sigkill;
+	    let ipid = Forkhelpers.getpid p in
+          R.debug "Killing I/O process with pid %d" ipid;
+          Unix.kill ipid Sys.sigkill;
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore (Thread.create (fun () ->
-            R.debug "Waiting for I/O process with pid %d to die..." p;
+            R.debug "Waiting for I/O process with pid %d to die..." ipid;
             Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes + 1);
-            ignore (Unix.waitpid [] p);
-            R.debug "Finished waiting for process %d" p;
+            ignore(Forkhelpers.waitpid p);
+            R.debug "Finished waiting for process %d" ipid;
             Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes - 1)
           ) ());
           (* Forget about that process *)
@@ -515,7 +516,7 @@ let startup () =
 		        let p = start_io_process block_dev ctrlsockpath datasockpath in
 		          
 		        pid := Some (p, ctrlsockpath, datasockpath);
-		        R.debug "Block device I/O process has PID [%d]" p
+		        R.debug "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
 		      end
           end
       end;

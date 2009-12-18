@@ -90,34 +90,11 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 	let err_writeme = Unix.openfile err_tmpfile [ Unix.O_WRONLY] 0o0 in
 	fds_to_close := err_writeme :: !fds_to_close;
 
-	(*enforces that likewise cmd only inherits the fds explicitly cited below*)
-	let args = Forkhelpers.close_and_exec_cmdline
-		(* we use stdin,stdout and stderr instead of in_readme,out_writeme,err_writeme because *)
-		(* this function maps them internally: in_readme->unix.stdin, out_writeme->unix.stdout, err_writeme->unix.stderr *)
-		[Unix.stdin;Unix.stdout;Unix.stderr]
-		likewise_cmd
-		params_list
-	in
-	(* we bypass the shell here, calling create_process that forks and calls unix.execvp directly, *)
-	(* in order to avoid potential cmd injections that use shell vulnerabilities\escape sequences *)
-	let pid = 
-		(try 
-			Unix.create_process
-				(List.hd args) (*this is the likewise_cmd*)
-				(Array.append [|(List.hd args)|] (Array.of_list (List.tl args))) (* these are the parameters *)
-				in_readme	(* pass along to likewise_cmd the read-only end point of our new stdin pipe *)
-				out_writeme	(* pass along to likewise_cmd the write-only end point of our new stdout file *)
-				err_writeme	(* pass along to likewise_cmd the write-only end point of our new stderr file *)
-		with 
-		| e-> begin
-			let msg = (Printf.sprintf "Error creating process for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e)) in
-			debug "%s" msg;
-			raise (Auth_signature.Auth_service_error msg) (* general error *)
-		end)
-	in
+	let pid = Forkhelpers.safe_close_and_exec (Some in_readme) (Some out_writeme) (Some err_writeme) [] likewise_cmd params_list in
+
 	finally
 	  (fun () ->
-		debug "Created process pid %i for cmd %s" pid debug_cmd;
+	        debug "Created process pid %s for cmd %s" (Forkhelpers.string_of_pidty pid) debug_cmd;
 	  	(* Insert this delay to reproduce the cannot write to stdin bug: 
 		   Thread.delay 5.; *)
 	   	(* WARNING: we don't close the in_readme because otherwise in the case where the likewise 
@@ -143,7 +120,8 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		end
 		end;
 	  )
-	  (fun () -> Unix.waitpid [] pid);
+	  (fun () -> Forkhelpers.waitpid pid);
+
 	(* <-- at this point the process has quit and left us its output in temporary files *)
 
 	(* we parse the likewise cmd's STDOUT *)

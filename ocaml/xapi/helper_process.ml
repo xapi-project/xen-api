@@ -15,5 +15,15 @@
 (* a reasonable error. For now, just return the error code! *)
 let generic_handler cmd n =
   raise (Api_errors.Server_error (Api_errors.internal_error, [string_of_int n]))
-    
-let get_process_output ?(handler=generic_handler) cmd = Unixext.get_process_output ~handler cmd
+
+exception Process_output_error of string    
+let get_process_output ?(handler=generic_handler) cmd = 
+  let args = Stringext.String.split ' ' cmd in
+  try
+    fst (Forkhelpers.execute_command_get_output (List.hd args) (List.tl args))
+  with 
+    | Forkhelpers.Spawn_internal_error(err,out,Unix.WEXITED n) ->
+	handler cmd n
+    | _ -> 
+	raise (Process_output_error cmd)
+
