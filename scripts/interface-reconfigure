@@ -1498,6 +1498,8 @@ def action_up(pif, force):
     ipdev = pif_ipdev_name(pif)
     dp = pif_datapath(pif)
 
+    log("action_up: %s" % ipdev)
+
     f = ipdev_configure_network(pif)
 
     if dp:
@@ -1508,8 +1510,10 @@ def action_up(pif, force):
     
     pif_rename_physical_devices(pif)
 
+    # if we are not forcing the interface up then attempt to tear down
+    # any existing devices which might interfere with brinign this one
+    # up.
     if not force:
-        # if there is a bridge using this pif then bring it down
         ifdown(ipdev)
 
         # Bring down any VLAN masters so that we can reconfigure the slave.
@@ -1537,14 +1541,14 @@ def action_up(pif, force):
 
         ifup(ipdev)
 
-        # Update /etc/issue (which contains the IP address of the management interface)
-        os.system("/sbin/update-issue")
-
         # Bring back any currently-attached VLAN masters (brought down above)
         for master in [v for v in pif_get_vlan_masters(pif) if db.get_pif_record(v)['currently_attached']]:
             name = pif_netdev_name(master)
             log("action_up: bring up %s" % (name))
             netdev_up(name)
+
+        # Update /etc/issue (which contains the IP address of the management interface)
+        os.system("/sbin/update-issue")
 
         f.commit()
     except Error, e:
@@ -1555,6 +1559,8 @@ def action_up(pif, force):
 def action_down(pif):
     ipdev = pif_ipdev_name(pif)
     dp = pif_datapath(pif)
+
+    log("action_down: %s" % ipdev)
 
     ifdown(ipdev)
 
