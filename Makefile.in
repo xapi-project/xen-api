@@ -8,6 +8,9 @@ HAVE_TYPECONV = @OCAML_PKG_type_conv@
 .PHONY: all
 all:
 	$(MAKE) -C uuid
+ifeq ($(HAVE_TYPECONV),type-conv)
+	$(MAKE) -C rpc-light
+endif
 	$(MAKE) -C stdext
 	$(MAKE) -C log
 	$(MAKE) -C stunnel
@@ -15,9 +18,7 @@ all:
 	$(MAKE) -C http-svr
 	$(MAKE) -C close-and-exec
 	$(MAKE) -C sexpr
-ifeq ($(HAVE_TYPECONV),type-conv)
-	$(MAKE) -C rpc-light
-endif
+
 ifeq ($(HAVE_XMLM),xmlm)
 	$(MAKE) -C xml-light2
 	$(MAKE) -C rss
@@ -164,6 +165,7 @@ clean:
 	make -C close-and-exec clean
 	make -C sexpr clean
 	make -C doc clean
+	make -C forking_executioner clean
 
 cleanxen:
 	$(MAKE) -C mmap clean

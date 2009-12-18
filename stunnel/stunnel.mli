@@ -23,7 +23,7 @@ val use_new_stunnel : bool ref
 val init_stunnel_path : unit -> unit
 
 (** Represents an active stunnel connection *)
-type t = { mutable pid: int; 
+type t = { mutable pid: Forkhelpers.pidty; 
 	   fd: Unix.file_descr; 
 	   host: string; 
 	   port: int;
