@@ -1,0 +1,65 @@
+#!/bin/bash
+#
+# Bring up XenServer management interface
+#
+# chkconfig: 2345 13 76
+# description: Bring up XenServer management interface
+
+. /etc/init.d/functions
+
+export XENSOURCE_INVENTORY=/etc/xensource-inventory
+export INTERFACE_RECONFIGURE=/opt/xensource/libexec/interface-reconfigure
+
+[ -r ${XENSOURCE_INVENTORY} ] || exit 0
+. ${XENSOURCE_INVENTORY}
+
+bring_up_mgmt_if() {
+    [ -n "${MANAGEMENT_INTERFACE}" ] || return 0
+    action $"Bringing up management interface ${MANAGEMENT_INTERFACE}: " \
+	${INTERFACE_RECONFIGURE} --management --force-interface ${MANAGEMENT_INTERFACE} up
+    touch /var/lock/subsys/management-interface
+}
+
+bring_up_current_ifs(){
+    [ -n "${CURRENT_INTERFACES}" ] || return 0
+    for INTF in ${CURRENT_INTERFACES}; do
+        [ ${INTF} != ${MANAGEMENT_INTERFACE} ] || continue
+	action $"Bringing up additional interface ${INTF}: " \
+	    ${INTERFACE_RECONFIGURE} --force-interface ${INTF} up
+    done
+}
+
+start() {
+    bring_up_mgmt_if
+    bring_up_current_ifs
+}
+
+stop() {
+    [ -n "${INSTALLATION_UUID}" ] || return 0
+    echo -n 
+    rm -f /var/lock/subsys/management-interface
+    PIF=$(xe pif-list host-uuid="${INSTALLATION_UUID}" management=true --minimal)
+    [ -n "${PIF}" ] || return 0
+    action $"Storing management interface configuration: " \
+	${INTERFACE_RECONFIGURE} --pif-uuid "${PIF}" --management rewrite-configuration
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    *)
+        echo "Unknown action '$1'."
+        ;;
+esac
