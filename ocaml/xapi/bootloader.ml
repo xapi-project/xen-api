@@ -89,11 +89,7 @@ let extract_default_kernel bootloader disks legacy_args extra_args pv_bootloader
        (* Capture stderr output for logging *)
        match with_logfile_fd "bootloader"
        (fun log_fd ->
-	  let pid = safe_close_and_exec
-	    [ Dup2(result_in, Unix.stdout);
-	      Dup2(log_fd, Unix.stderr) ]
-	    [ Unix.stdout; Unix.stderr ] (* close all but these *)
-	    bootloader_path cmdline in
+	  let pid = safe_close_and_exec None (Some result_in) (Some log_fd) [] bootloader_path cmdline in
 	  (* parent *)
 	  List.iter close' [ result_in ];
 	  finally (* always waitpid eventually *)

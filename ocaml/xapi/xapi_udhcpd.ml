@@ -75,12 +75,8 @@ let run () =
   kill_if_running ();
   match with_logfile_fd "udhcpd"
     (fun out ->
-      let pid = safe_close_and_exec
-	[ Dup2(out, Unix.stdout);
-	  Dup2(out, Unix.stderr)]
-	[ Unix.stdout; Unix.stderr ] (* close all but these *)
-	command ["/var/xapi/udhcpd.conf"] in
-      ignore(Unix.waitpid [] pid))
+      let pid = safe_close_and_exec None (Some out) (Some out) [] command ["/var/xapi/udhcpd.conf"] in
+      ignore(waitpid pid))
   with
     | Success(log,_) -> debug "success! %s" log
     | Failure(log,_) -> debug "failure! %s" log

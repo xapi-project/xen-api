@@ -331,34 +331,34 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       let unique_id = get_new_stunnel_id () in
       Stunnel.connect ~use_external_fd_wrapper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
   let s = st_proc.Stunnel.fd in
-  let s_pid = st_proc.Stunnel.pid in
-    begin
-      match task_id with
-          None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
-        | Some t ->
-            match !set_stunnelpid_callback with
-			          None -> warn "Did not write stunnel pid: no callback registered"
-			        | Some f -> f t s_pid
-    end;
-    finally
+  let s_pid = Forkhelpers.getpid st_proc.Stunnel.pid in
+  begin
+    match task_id with
+        None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
+      | Some t ->
+          match !set_stunnelpid_callback with
+	      None -> warn "Did not write stunnel pid: no callback registered"
+	    | Some f -> f t s_pid
+  end;
+  finally
     (fun () ->
-       try
-         let content_length, task_id = http_rpc_fd s headers body in
-           f content_length task_id s
-       with
-         | Connection_reset ->
-             if not use_stunnel_cache then
-               Stunnel.diagnose_failure st_proc;
-             raise Connection_reset)
+      try
+        let content_length, task_id = http_rpc_fd s headers body in
+        f content_length task_id s
+      with
+        | Connection_reset ->
+            if not use_stunnel_cache then
+              Stunnel.diagnose_failure st_proc;
+            raise Connection_reset)
     (fun () ->
-       if use_stunnel_cache
-       then
-         Stunnel_cache.add st_proc
-       else
-         begin
-           Unix.unlink st_proc.Stunnel.logfile;
-           Stunnel.disconnect st_proc
-         end
+      if use_stunnel_cache
+      then
+        Stunnel_cache.add st_proc
+      else
+        begin
+          Unix.unlink st_proc.Stunnel.logfile;
+          Stunnel.disconnect st_proc
+        end
     )
       
 

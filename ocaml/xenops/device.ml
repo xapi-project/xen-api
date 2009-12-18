@@ -903,15 +903,9 @@ let start ?statefile ~xs domid =
 		  "-x"; sprintf "/local/domain/%d/serial/0" domid;
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let cmdline = Forkhelpers.close_and_exec_cmdline [] vncterm_wrapper l in
-	debug "Executing [ %s ]" (String.concat " " cmdline);
-
-	let argv_0 = List.hd cmdline and argv = Array.of_list cmdline in
-	Unixext.double_fork (fun () ->
-		Sys.set_signal Sys.sigint Sys.Signal_ignore;
-
-		Unix.execvp argv_0 argv
-	);
+	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in
+	Forkhelpers.dontwaitpid pid;
+	
 	(* Block waiting for it to write the VNC port into the store *)
 	try
 	  let port = Watch.wait_for ~xs (Watch.value_to_appear (path domid)) in
@@ -1489,15 +1483,9 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 		in
 	(* Now add the close fds wrapper *)
-	let cmdline = Forkhelpers.close_and_exec_cmdline [] dmpath l in
-	debug "qemu-dm: executing commandline: %s" (String.concat " " cmdline);
+	let pid = Forkhelpers.safe_close_and_exec None None None [] dmpath l in
+	Forkhelpers.dontwaitpid pid;
 
-	let argv_0 = List.hd cmdline and argv = Array.of_list cmdline in
-	Unixext.double_fork (fun () ->
-		Sys.set_signal Sys.sigint Sys.Signal_ignore;
-
-		Unix.execvp argv_0 argv
-	);
 	debug "qemu-dm: should be running in the background (stdout and stderr redirected to %s)" log;
 
 	(* We know qemu is ready (and the domain may be unpaused) when

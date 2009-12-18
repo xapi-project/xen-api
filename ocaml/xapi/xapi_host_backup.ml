@@ -30,13 +30,10 @@ let host_backup_handler_core ~__context s =
   match 
 	(with_logfile_fd "host-backup" 
 	   (fun log_fd ->
-		  let pid = safe_close_and_exec 
-		    [ Dup2(s, Unix.stdout);
-		      Dup2(log_fd, Unix.stderr) ] 
-		    [ Unix.stdout; Unix.stderr ] host_backup [] in
-
-          let waitpid () =
-            match Unix.waitpid [Unix.WNOHANG] pid with
+		  let pid = safe_close_and_exec None (Some s) (Some log_fd) [] host_backup [] in
+		  
+	  let waitpid () =
+            match Forkhelpers.waitpid_nohang pid with
               | 0, _ -> false
               | _, Unix.WEXITED 0 -> true
               | _, Unix.WEXITED n -> raise (Subprocess_failed n)
@@ -108,12 +105,7 @@ let host_restore_handler (req: request) s =
 	  (* XXX: ideally need to log this stuff *)
           let result =  with_logfile_fd "host-restore-log"
 	    (fun log_fd ->
-	      let pid = safe_close_and_exec 
-		[ Dup2(out_pipe, Unix.stdin);
-		  Dup2(log_fd, Unix.stdout);
-		  Dup2(log_fd, Unix.stderr) ]
-		[ Unix.stdin; Unix.stdout; Unix.stderr ] 
-                host_restore [] in
+	      let pid = safe_close_and_exec (Some out_pipe) (Some log_fd) (Some log_fd) [] host_restore [] in
               
               close out_pipe;
               

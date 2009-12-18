@@ -58,6 +58,7 @@ let common ty filename signature size f =
   Unix.unlink tmp_file; 
   (* no need to close the 'tmp_oc' -> closing the fd is enough *)
   let status_out, status_in = Unix.pipe() in
+  let status_in_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   (* from the parent's PoV *)
   let fds_to_close = ref [ result_out; result_in; status_out; status_in ] in
   let close' fd = 
@@ -70,7 +71,7 @@ let common ty filename signature size f =
 		  "--homedir"; gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; string_of_int (Unixext.int_of_file_descr status_in);
+		  "--status-fd"; status_in_uuid;
 		  "--decrypt"; filename
 		]
     | `detached_signature ->
@@ -79,7 +80,7 @@ let common ty filename signature size f =
 		  "--homedir"; gpg_homedir;
 		  "--no-default-keyring";
 		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; string_of_int (Unixext.int_of_file_descr status_in);
+		  "--status-fd"; status_in_uuid;
 		  "--verify"; signature
 		]
   in
@@ -97,12 +98,7 @@ let common ty filename signature size f =
 	    (* Capture stderr output for logging *)
 	    match Forkhelpers.with_logfile_fd "gpg"
 	      (fun log_fd ->
-		 let pid = Forkhelpers.safe_close_and_exec
-		   [ Forkhelpers.Dup2(result_in, Unix.stdout);
-		     Forkhelpers.Dup2(log_fd, Unix.stderr);
-		     Forkhelpers.Close(result_out);
-		     Forkhelpers.Close(status_out) ]
-		   [ Unix.stdout; Unix.stderr; status_in ] (* close all but these *)
+		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)] 
 		   gpg_path gpg_args in
 		 (* parent *)
 		 List.iter close' [ result_in; status_in ];
@@ -111,7 +107,7 @@ let common ty filename signature size f =
 		      let gpg_status = Unixext.read_whole_file 500 500 status_out in
 		      let fingerprint = parse_gpg_status gpg_status in
 		      f fingerprint result_out)
-		   (fun () -> Forkhelpers.waitpid pid)) with
+		   (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)) with
 	      | Forkhelpers.Success(_, x) -> debug "gpg subprocess succeeded"; x
 	      | Forkhelpers.Failure(log, Forkhelpers.Subprocess_failed 2) ->
 		  (* Happens when gpg cannot find a readable signature *)

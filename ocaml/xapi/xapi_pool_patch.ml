@@ -98,11 +98,8 @@ let extract_patch path =
       (fun () ->
         with_logfile_fd "patch"
           (fun log_fd ->
-            let pid = safe_close_and_exec [ Dup2(log_fd, Unix.stdout);
-				            Dup2(log_fd, Unix.stderr);
-				            Close(Unix.stdin) ]
-	      [ Unix.stdout; Unix.stderr ] run_path args in
-            waitpid pid)
+            let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] run_path args in
+            waitpid_fail_if_bad_exit pid)
       )
       (fun () -> Unixext.unlink_safe run_path)
 
@@ -265,11 +262,8 @@ let sync () =
   let output =
     with_logfile_fd "sync"
       (fun log_fd ->
-         let pid = safe_close_and_exec [ Dup2(log_fd, Unix.stdout);
-				                         Dup2(log_fd, Unix.stderr);
-				                         Close(Unix.stdin) ]
-	       [ Unix.stdout; Unix.stderr ] bin_sync [] in
-           waitpid pid) 
+         let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] bin_sync [] in
+         waitpid_fail_if_bad_exit pid) 
   in 
     match output with
       | Failure(log, exn) ->
