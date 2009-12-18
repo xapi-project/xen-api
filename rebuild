@@ -1,5 +1,7 @@
 #!/bin/sh
 
+export REPO=/myrepos/xen-api-libs.hg
+
 set -e 
 make clean; make cleanxen;
 make uninstall; make uninstallxen; make binuninstall
