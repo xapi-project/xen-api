@@ -769,17 +769,29 @@ def pif_ipdev_name(pif):
 # Bridges
 #
 
-def bridge_name(pif):
-    """Return the bridge name associated with pif, or None if network is bridgeless"""
+def pif_is_bridged(pif):
     pifrec = db.get_pif_record(pif)
     nwrec = db.get_network_record(pifrec['network'])
 
     if nwrec['bridge']:
         # TODO: sanity check that nwrec['bridgeless'] != 'true'
-        return nwrec['bridge']
+        return True
     else:
         # TODO: sanity check that nwrec['bridgeless'] == 'true'
-        return None
+        return False
+
+def pif_bridge_name(pif):
+    """Return the bridge name of a pif.
+
+    PIF must be a bridged PIF."""
+    pifrec = db.get_pif_record(pif)
+
+    nwrec = db.get_network_record(pifrec['network'])
+
+    if nwrec['bridge']:
+        return nwrec['bridge']
+    else:
+        raise Error("PIF %(uuid)s does not have a bridge name" % pifrec)
 
 def load_bonding_driver():
     log("Loading bonding driver")
@@ -881,7 +893,10 @@ def configure_physical_interface(pif):
 
     return f
 
-def get_bond_masters_of_pif(pif):
+#
+# Bonded PIFs
+#
+def pif_get_bond_masters(pif):
     """Returns a list of PIFs which are bond masters of this PIF"""
 
     pifrec = db.get_pif_record(pif)
@@ -901,7 +916,7 @@ def get_bond_masters_of_pif(pif):
 
     return [bond['master'] for bond in bondrecs]
 
-def get_bond_slaves_of_pif(pif):
+def pif_get_bond_slaves(pif):
     """Returns a list of PIFs which make up the given bonded pif."""
 
     pifrec = db.get_pif_record(pif)
@@ -953,7 +968,7 @@ def configure_bond_interface(pif):
     if pifrec['MAC'] != "":
         f.write("MACADDR=%s\n" % pifrec['MAC'])
 
-    for slave in get_bond_slaves_of_pif(pif):
+    for slave in pif_get_bond_slaves(pif):
         s = configure_physical_interface(slave)
         s.write("MASTER=%(device)s\n" % pifrec)
         s.write("SLAVE=yes\n")
@@ -981,10 +996,14 @@ def configure_bond_interface(pif):
     f.write('"\n')
     return f
 
+#
+# VLAN PIFs
+#
+
 def pif_is_vlan(pif):
     return db.get_pif_record(pif)['VLAN'] != '-1'
 
-def get_vlan_slave_of_pif(pif):
+def pif_get_vlan_slave(pif):
     """Find the PIF which is the VLAN slave of pif.
 
 Returns the 'physical' PIF underneath the a VLAN PIF @pif."""
@@ -1001,7 +1020,7 @@ Returns the 'physical' PIF underneath the a VLAN PIF @pif."""
 
     return vlanrec['tagged_PIF']
 
-def get_vlan_masters_of_pif(pif):
+def pif_get_vlan_masters(pif):
     """Returns a list of PIFs which are VLANs on top of the given pif."""
 
     pifrec = db.get_pif_record(pif)
@@ -1019,7 +1038,7 @@ def configure_vlan_interface(pif):
     file.
     """
 
-    slave = configure_pif(get_vlan_slave_of_pif(pif))
+    slave = configure_pif(pif_get_vlan_slave(pif))
 
     f = open_pif_ifcfg(pif)
     f.write("VLAN=yes\n")
@@ -1045,10 +1064,7 @@ def configure_pif(pif):
     else:
         f = configure_physical_interface(pif)
 
-    bridge = bridge_name(pif)
-    if bridge:
-        f.write("BRIDGE=%s\n" % bridge)
-
+    f.write("BRIDGE=%s\n" % pif_bridge_name(pif))
     f.close()
 
     return f
@@ -1081,18 +1097,17 @@ def bring_down_interface(pif, destroy=False):
         if destroy:
             log("Destroy vlan device %s" % interface)
             vconfig_rem(interface)
-            bridge = bridge_name(pif)
-            if bridge:
-                bring_down_bridge(bridge, destroy=True)
+            if pif_is_bridged(pif):
+                bring_down_bridge(pif_bridge_name(pif), destroy=True)
         else:
             return
 
-        slave = get_vlan_slave_of_pif(pif)
+        slave = pif_get_vlan_slave(pif)
         if db.get_pif_record(slave)['currently_attached']:
             log("bring_down_interface: vlan slave is currently attached")
             return
 
-        masters = get_vlan_masters_of_pif(slave)
+        masters = pif_get_vlan_masters(slave)
         masters = [m for m in masters if m != pif and db.get_pif_record(m)['currently_attached']]
         if len(masters) > 0:
             log("bring_down_interface: vlan slave has other masters")
@@ -1101,7 +1116,7 @@ def bring_down_interface(pif, destroy=False):
         log("bring_down_interface: no more masters, bring down vlan slave %s" % pif_netdev_name(slave))
         pif = slave
     else:
-        vlan_masters = get_vlan_masters_of_pif(pif)
+        vlan_masters = pif_get_vlan_masters(pif)
         log("vlan masters of %s - %s" % (db.get_pif_record(pif)['device'], [pif_netdev_name(m) for m in vlan_masters]))
         if len([m for m in vlan_masters if db.get_pif_record(m)['currently_attached']]) > 0:
             log("Leaving %s up due to currently attached VLAN masters" % pif_netdev_name(pif))
@@ -1111,11 +1126,10 @@ def bring_down_interface(pif, destroy=False):
 
     # Need to bring down bond slaves first since the bond device
     # must be up to enslave/unenslave.
-    bond_slaves = get_bond_slaves_of_pif(pif)
+    bond_slaves = pif_get_bond_slaves(pif)
     log("bond slaves of %s - %s" % (db.get_pif_record(pif)['device'], [pif_netdev_name(s) for s in bond_slaves]))
     for slave in bond_slaves:
         slave_interface = pif_netdev_name(slave)
-        slave_bridge = bridge_name(slave)
         if db.get_pif_record(slave)['currently_attached']:
             log("leave bond slave %s up (currently attached)" % slave_interface)
             continue
@@ -1124,8 +1138,8 @@ def bring_down_interface(pif, destroy=False):
         # Also destroy the bridge associated with the slave, since
         # it will carry the MAC address and possibly an IP address
         # leading to confusion.
-        if slave_bridge:
-            bring_down_bridge(slave_bridge, destroy=True)
+        if pif_is_bridged(slave):
+            bring_down_bridge(pif_bridge_name(slave), destroy=True)
 
     interface = pif_netdev_name(pif)
     log("Bring interface %s down" % interface)
@@ -1133,9 +1147,8 @@ def bring_down_interface(pif, destroy=False):
 
     if destroy:
         destroy_bond_device(pif)
-        bridge = bridge_name(pif)
-        if bridge:
-            bring_down_bridge(bridge, destroy=True)
+        if pif_is_bridged(pif):
+            bring_down_bridge(pif_bridge_name(pif), destroy=True)
 
 def interface_is_up(pif):
     try:
@@ -1154,7 +1167,7 @@ def bring_up_interface(pif):
     # VLAN on bond seems to need bond brought up explicitly, but VLAN
     # on normal device does not. Might as well always bring it up.
     if pif_is_vlan(pif):
-        slave = get_vlan_slave_of_pif(pif)
+        slave = pif_get_vlan_slave(pif)
         if not interface_is_up(slave):
             bring_up_interface(slave)
 
@@ -1247,7 +1260,7 @@ def ipdev_configure_network(pif):
     if pifrec.has_key('other_config'):
         oc = pifrec['other_config']
 
-    if ipdev != pif_netdev_name(pif):
+    if pif_is_bridged(pif):
         f.write("TYPE=Bridge\n")
         f.write("DELAY=0\n")
         f.write("STP=off\n")
@@ -1297,7 +1310,7 @@ def ipdev_configure_network(pif):
     # because when we are called to bring up an interface with a bond
     # master, it is implicit that we should bring down that master.
 
-    pifs_on_host = [p for p in db.get_all_pifs() if not p in get_bond_masters_of_pif(pif)]
+    pifs_on_host = [p for p in db.get_all_pifs() if not p in pif_get_bond_masters(pif)]
 
     # loop through all the pifs on this host looking for one with
     #   other-config:peerdns = true, and one with
@@ -1361,20 +1374,17 @@ def action_up(pif):
 
     f = ipdev_configure_network(pif)
 
-    bridge = bridge_name(pif)
-
-    if bridge:
+    if pif_is_bridged(pif):
         pf = configure_pif(pif)
         f.attach_child(pf)
 
     f.close()
-
     # if there is a bridge using this pif then bring it down
-    if bridge:
-        bring_down_bridge(bridge)
+    if pif_is_bridged(pif):
+        bring_down_bridge(pif_bridge_name(pif))
 
     # Bring down any VLAN masters so that we can reconfigure the slave.
-    vlan_masters = get_vlan_masters_of_pif(pif)
+    vlan_masters = pif_get_vlan_masters(pif)
     for master in vlan_masters:
         name = pif_netdev_name(master)
         log("action_up: bring down %s" % (name))
@@ -1382,13 +1392,12 @@ def action_up(pif):
 
     # interface-reconfigure is never explicitly called to down a bond master.
     # However, when we are called to up a slave it is implicit that we are destroying the master.
-    bond_masters = get_bond_masters_of_pif(pif)
+    bond_masters = pif_get_bond_masters(pif)
     for master in bond_masters:
-        master_bridge = bridge_name(master)
         # bring down master
         bring_down_interface(master, destroy=True)
-        if master_bridge:
-            bring_down_bridge(master_bridge, destroy=True)
+        if pif_is_bridged(master):
+            bring_down_bridge(pif_bridge_name(master), destroy=True)
 
     # No masters left - now its safe to reconfigure the slave.
     bring_down_interface(pif)
@@ -1397,8 +1406,8 @@ def action_up(pif):
         f.apply()
 
         bring_up_interface(pif)
-        if bridge:
-            bring_up_bridge(bridge)
+        if pif_is_bridged(pif):
+            bring_up_bridge(pif_bridge_name(pif))
 
         # Update /etc/issue (which contains the IP address of the management interface)
         os.system("/sbin/update-issue")
@@ -1419,18 +1428,11 @@ def action_down(pif):
     bring_down_interface(pif, destroy=True)
 
 def action_rewrite(pif):
-    pifrec = db.get_pif_record(pif)
-
     f = ipdev_configure_network(pif)
-
-    bridge = bridge_name(pif)
-
-    if bridge:
+    if pif_is_bridged(pif):
         pf = configure_pif(pif)
         f.attach_child(pf)
-
     f.close()
-
     try:
         f.apply()
         f.commit()
