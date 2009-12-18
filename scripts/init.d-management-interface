@@ -35,9 +35,13 @@ start() {
 }
 
 stop() {
+    [ -n "${INSTALLATION_UUID}" ] || return 0
+    echo -n 
     rm -f /var/lock/subsys/management-interface
-    action $"Storing network configuration: " \
-	${INTERFACE_RECONFIGURE} rewrite
+    PIF=$(xe pif-list host-uuid="${INSTALLATION_UUID}" management=true --minimal)
+    [ -n "${PIF}" ] || return 0
+    action $"Storing management interface configuration: " \
+	${INTERFACE_RECONFIGURE} --pif-uuid "${PIF}" --management rewrite-configuration
 }
 
 restart() {
