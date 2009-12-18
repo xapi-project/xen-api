@@ -150,19 +150,20 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
 	   Forkhelpers.Dup2(data_in, Unix.stdout);
 	   Forkhelpers.Dup2(logfd, Unix.stderr) ] in
        let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr; config_out ] in
-       let args = [ "-fd"; config_out_uuid ] in
+       let args_external = [ "-fd"; config_out_uuid ] in
+	   let args_internal = [ "-fd"; string_of_int (Unixext.int_of_file_descr config_out) ] in
        if use_external_fd_wrapper then begin
-	 let cmdline = Printf.sprintf "Using commandline: %s\n" (String.concat " " (path::args)) in
+	 let cmdline = Printf.sprintf "Using commandline: %s\n" (String.concat " " (path::args_external)) in
 	 write_to_log cmdline;
        end;
        t.pid <-
 	 if use_external_fd_wrapper
-	 then Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [(config_out_uuid, config_out)] path args
+	 then Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [(config_out_uuid, config_out)] path args_external
 	 else Forkhelpers.fork_and_exec ~pre_exec:
 			  (fun _ -> 
 			    List.iter Forkhelpers.do_fd_operation fdops;
 			    Unixext.close_all_fds_except fds_needed) 
-			  (path::args);
+			  (path::args_internal);
        List.iter close [ data_in; config_out; ]; 
        (* Make sure we close config_in eventually *)
        finally
