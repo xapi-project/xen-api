@@ -1492,7 +1492,7 @@ For a VLAN PIF, the datapath name is the bridge name for the PIF's VLAN slave.
 # Toplevel actions
 #
 
-def action_up(pif):
+def action_up(pif, force):
     pifrec = db.get_pif_record(pif)
 
     ipdev = pif_ipdev_name(pif)
@@ -1508,26 +1508,26 @@ def action_up(pif):
     
     pif_rename_physical_devices(pif)
 
-    # if there is a bridge using this pif then bring it down
-    ifdown(ipdev)
+    if not force:
+        # if there is a bridge using this pif then bring it down
+        ifdown(ipdev)
 
-    # Bring down any VLAN masters so that we can reconfigure the slave.
-    vlan_masters = pif_get_vlan_masters(pif)
-    for master in vlan_masters:
-        name = pif_netdev_name(master)
-        log("action_up: bring down vlan master %s" % (name))
-        netdev_down(name)
+        # Bring down any VLAN masters so that we can reconfigure the slave.
+        for master in pif_get_vlan_masters(pif):
+            name = pif_netdev_name(master)
+            log("action_up: bring down vlan master %s" % (name))
+            netdev_down(name)
 
-    # interface-reconfigure is never explicitly called to down a bond master.
-    # However, when we are called to up a slave it is implicit that we are destroying the master.
-    bond_masters = pif_get_bond_masters(pif)
-    for master in bond_masters:
-        log("action_up: bring down bond master %s" % (pif_netdev_name(master)))
-        # bring down master
-        bring_down_interface(master, destroy=True)
+        # interface-reconfigure is never explicitly called to down a bond master.
+        # However, when we are called to up a slave it is implicit that we are destroying the master.
+        bond_masters = pif_get_bond_masters(pif)
+        for master in bond_masters:
+            log("action_up: bring down bond master %s" % (pif_netdev_name(master)))
+            # bring down master
+            bring_down_interface(master, destroy=True)
 
-    # No masters left - now its safe to reconfigure the slave.
-    bring_down_interface(pif)
+        # No masters left - now its safe to reconfigure the slave.
+        bring_down_interface(pif)
 
     try:
         f.apply()
@@ -1541,7 +1541,7 @@ def action_up(pif):
         os.system("/sbin/update-issue")
 
         # Bring back any currently-attached VLAN masters (brought down above)
-        for master in [v for v in vlan_masters if db.get_pif_record(v)['currently_attached']]:
+        for master in [v for v in pif_get_vlan_masters(pif) if db.get_pif_record(v)['currently_attached']]:
             name = pif_netdev_name(master)
             log("action_up: bring up %s" % (name))
             netdev_up(name)
@@ -1758,7 +1758,7 @@ def main(argv=None):
                 management_pif = db.get_management_pif()
 
                 if action == "up":
-                    action_up(pif)
+                    action_up(pif, True)
                 elif action == "down":
                     action_down(pif)
             else:
@@ -1790,7 +1790,7 @@ def main(argv=None):
                     return 0
 
                 if action == "up":
-                    action_up(pif)
+                    action_up(pif, False)
                 elif action == "down":
                     action_down(pif)
                 elif action == "rewrite":
