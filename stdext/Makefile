@@ -15,12 +15,14 @@ OCAMLABI := $(OCAMLLOC)
 OCAMLLIBDIR := $(OCAMLLOC)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
+FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
+
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
 STDEXT_OBJS = filenameext stringext arrayext hashtblext listext pervasiveext threadext ring \
-	qring fring opt bigbuffer unixext range vIO trie config date encodings forkhelpers \
-	gzip sha1sum zerocheck base64 backtrace tar
+	qring fring opt bigbuffer unixext range vIO trie config date encodings fe fecomms \
+	forkhelpers gzip sha1sum zerocheck base64 backtrace tar 
 
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
@@ -59,8 +61,14 @@ querycd: querycd.cmo
 threadext.cmo: threadext.ml threadext.cmi
 	$(OCAMLC) -thread -c -o $@ $<
 
+fecomms.cmo : fecomms.ml
+	$(OCAMLC) -I ../rpc-light -c -o $@ $<
+
+fe.cmo: fe.ml 
+	$(OCAMLC) -pp '$(FEPP)' -I ../jsonrpc -I ../rpc-light -c -o $@ $<
+
 forkhelpers.cmo: forkhelpers.ml forkhelpers.cmi
-	$(OCAMLC) -thread -c -o $@ $<
+	$(OCAMLC) -thread -I ../uuid -c -o $@ $<
 
 filenameext.cmo: filenameext.ml filenameext.cmi
 	$(OCAMLC) -c -I ../uuid -o $@ $<
@@ -77,14 +85,23 @@ forkhelpers.cmi: forkhelpers.mli
 filenameext.cmi: filenameext.mli
 	$(OCAMLC) -c -I ../uuid -o $@ $<
 
+fe.cmi: fe.cmo
+	$(OCAMLC) -pp '$(FEPP)' -c -o $@ $<
+
 %.cmi: %.mli
 	$(OCAMLC) -c -o $@ $<
+
+fe.cmx: fe.ml 
+	$(OCAMLOPT) -pp '$(FEPP)' -I ../rpc-light -c -o $@ $<
 
 threadext.cmx: threadext.ml threadext.cmi
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
 
+fecomms.cmx : fecomms.ml
+	$(OCAMLOPT) -I ../rpc-light -c -o $@ $<
+
 forkhelpers.cmx: forkhelpers.ml forkhelpers.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../uuid -thread -c -o $@ $<
 
 filenameext.cmx: filenameext.ml filenameext.cmi
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -I ../uuid -o $@ $<

@@ -56,7 +56,8 @@ let stunnel_path() =
     | Some p -> p 
     | None -> raise Stunnel_binary_missing
 
-type t = { mutable pid: int; fd: Unix.file_descr; host: string; port: int; 
+
+type t = { mutable pid: Forkhelpers.pidty; fd: Unix.file_descr; host: string; port: int; 
 	   connected_time: float;
 	   unique_id: int option;
 	   mutable logfile: string;
@@ -81,7 +82,7 @@ let ignore_exn f x = try f x with _ -> ()
 
 let disconnect x = 
   List.iter (ignore_exn Unix.close) [ x.fd ];
-  ignore_exn Forkhelpers.waitpid x.pid
+  ignore_exn Forkhelpers.waitpid_fail_if_bad_exit x.pid
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -94,7 +95,7 @@ let attempt_one_connect_new ?unique_id ?(use_external_fd_wrapper = true) ?(write
   assert (not extended_diagnosis); (* !!! Unimplemented *)
   let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let args = [ "-m"; "client"; "-s"; "-"; "-d"; Printf.sprintf "%s:%d" host port ] in
-  let t = { pid = 0; fd = data_out; host = host; port = port; 
+  let t = { pid = Forkhelpers.nopid; fd = data_out; host = host; port = port; 
 	    connected_time = Unix.gettimeofday (); unique_id = unique_id;
 	    logfile = "" } in
   let to_close = ref [ data_in ] in
@@ -107,12 +108,12 @@ let attempt_one_connect_new ?unique_id ?(use_external_fd_wrapper = true) ?(write
     let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr ] in
     t.pid <- (
       if use_external_fd_wrapper then
-        Forkhelpers.safe_close_and_exec fdops fds_needed (stunnel_path ()) args
+        Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [] (stunnel_path ()) args
       else
-        Forkhelpers.fork_and_exec ~pre_exec:(fun _ -> 
+	Forkhelpers.fork_and_exec ~pre_exec:(fun _ -> 
           List.iter Forkhelpers.do_fd_operation fdops;
           Unixext.close_all_fds_except fds_needed
-	  ) ((stunnel_path ()) :: args)
+	) ((stunnel_path ()) :: args)
     );
     List.iter Unix.close [ data_in ];
   ) in
@@ -131,12 +132,13 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
   let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0
   and config_out, config_in = Unix.pipe ()
   in
+  let config_out_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   (* FDs we must close. NB stdin_in and stdout_out end up in our 't' record *)
   let to_close = ref [ data_in; config_out; config_in  ] in
   let close fd = 
     if List.mem fd !to_close 
     then (Unix.close fd; to_close := List.filter (fun x -> x <> fd) !to_close) in
-  let t = { pid = 0; fd = data_out; host = host; port = port; 
+  let t = { pid = Forkhelpers.nopid; fd = data_out; host = host; port = port; 
 	    connected_time = Unix.gettimeofday (); unique_id = unique_id;
 	    logfile = "" } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
@@ -148,27 +150,25 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
 	   Forkhelpers.Dup2(data_in, Unix.stdout);
 	   Forkhelpers.Dup2(logfd, Unix.stderr) ] in
        let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr; config_out ] in
-       let args = [ "-fd"; string_of_int (Unixext.int_of_file_descr config_out) ] in
+       let args = [ "-fd"; config_out_uuid ] in
        if use_external_fd_wrapper then begin
-	 let cmdline = Printf.sprintf "Using commandline: %s\n" (String.concat " " (Forkhelpers.close_and_exec_cmdline fds_needed path args)) in
+	 let cmdline = Printf.sprintf "Using commandline: %s\n" (String.concat " " (path::args)) in
 	 write_to_log cmdline;
        end;
        t.pid <-
-	 (if use_external_fd_wrapper
-	  (* Run thread-safe external wrapper *)
-	  then Forkhelpers.safe_close_and_exec fdops fds_needed path args
-	  (* or do it ourselves (safe if there are no threads) *)
-	  else Forkhelpers.fork_and_exec ~pre_exec:
-	      (fun _ -> 
-		 List.iter Forkhelpers.do_fd_operation fdops;
-		 Unixext.close_all_fds_except fds_needed) 
-	      (path::args) );
+	 if use_external_fd_wrapper
+	 then Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [(config_out_uuid, config_out)] path args
+	 else Forkhelpers.fork_and_exec ~pre_exec:
+			  (fun _ -> 
+			    List.iter Forkhelpers.do_fd_operation fdops;
+			    Unixext.close_all_fds_except fds_needed) 
+			  (path::args);
        List.iter close [ data_in; config_out; ]; 
        (* Make sure we close config_in eventually *)
        finally
 	 (fun () ->
 
-	    let pidmsg = Printf.sprintf "stunnel has pid: %d\n" t.pid in
+	    let pidmsg = Printf.sprintf "stunnel has pidty: %s\n" (Forkhelpers.string_of_pidty t.pid) in
 	    write_to_log pidmsg;
 
 	    let config = config_file verify_cert extended_diagnosis host port in

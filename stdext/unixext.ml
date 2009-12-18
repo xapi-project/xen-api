@@ -485,27 +485,6 @@ let close_all_fds_except (fds: Unix.file_descr list) =
     if not(List.mem i fds') then close' i
   done
 
-exception Process_output_error of string
-let get_process_output ?(handler) cmd : string =
-	let inchan = Unix.open_process_in cmd in
-
-	let buffer = Buffer.create 1024
-	and buf = String.make 1024 '\000' in
-	
-	let rec read_until_eof () =
-		let rd = input inchan buf 0 1024 in
-		if rd = 0 then
-			()
-		else (
-			Buffer.add_substring buffer buf 0 rd;
-			read_until_eof ()
-		) in
-	(* Make sure an exception doesn't prevent us from waiting for the child process *)
-	(try read_until_eof () with _ -> ());
-	match (Unix.close_process_in inchan), handler with
-	| Unix.WEXITED 0, _ -> Buffer.contents buffer
-	| Unix.WEXITED n, Some handler -> handler cmd n
-	| _ -> raise (Process_output_error cmd)
 
 (** Remove "." and ".." from paths (NB doesn't attempt to resolve symlinks) *)
 let resolve_dot_and_dotdot (path: string) : string = 
@@ -676,3 +655,6 @@ end
 
 let http_get = Http.get
 let http_put = Http.put
+
+external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
+external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"

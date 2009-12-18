@@ -26,6 +26,12 @@ exception Subprocess_failed of int
 exception Subprocess_killed of int
 exception Spawn_internal_error of string * string * Unix.process_status
 
+type pidty
+
+val string_of_pidty : pidty -> string
+
+val nopid : pidty
+
 (** Standalone wrapper process which safely closes fds before exec()ing another
     program *)
 val close_and_exec : string
@@ -43,11 +49,11 @@ val do_fd_operation : fd_operation -> unit
 (** Low-level (unsafe) function which forks, runs a 'pre_exec' function and
    then executes some other binary. It makes sure to catch any exception thrown by
    exec* so that we don't end up with two ocaml processes. *)
-val fork_and_exec : ?pre_exec:(unit -> unit) -> ?env:string array -> string list -> int
+val fork_and_exec : ?pre_exec:(unit -> unit) -> ?env:string array -> string list -> pidty
 
 (** Safe function which forks a command, closing all fds except a whitelist and
     having performed some fd operations in the child *)
-val safe_close_and_exec : ?env:string array -> fd_operation list -> Unix.file_descr list -> string -> string list -> int
+val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> string -> string list -> pidty
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -62,6 +68,10 @@ val with_dev_null_read : (Unix.file_descr -> 'a) -> 'a*)
 (** Execute a command, return the stdout logging or throw a Spawn_internal_error exception *)
 val execute_command_get_output : ?cb_set:(int -> unit) -> ?cb_clear:(unit -> unit) -> string -> string list -> string * string
 
-val waitpid : int -> unit
+val waitpid : pidty -> (int * Unix.process_status)
+val waitpid_nohang : pidty -> (int * Unix.process_status)
+val dontwaitpid : pidty -> unit
+val waitpid_fail_if_bad_exit : pidty -> unit
+val getpid : pidty -> int
 
 val with_dev_null : (Unix.file_descr -> 'a) -> 'a

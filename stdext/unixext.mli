@@ -86,7 +86,6 @@ external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 val int_of_file_descr : Unix.file_descr -> int
 val file_descr_of_int : int -> Unix.file_descr
 val close_all_fds_except : Unix.file_descr list -> unit
-val get_process_output : ?handler:(string -> int -> string) -> string -> string
 val resolve_dot_and_dotdot : string -> string
 
 val seek_to : Unix.file_descr -> int -> int
@@ -111,3 +110,6 @@ end
 val http_get: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
 (** Upload a file via an HTTP PUT *)
 val http_put: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
+
+external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
+external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"

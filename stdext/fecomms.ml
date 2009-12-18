@@ -4,7 +4,6 @@ let open_unix_domain_sock () =
   Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0
 
 let open_unix_domain_sock_server path =
-  Unixext.mkdir_rec (Filename.dirname path) 0o755;
   Unixext.unlink_safe path;
   let sock = open_unix_domain_sock () in
   Unix.bind sock (Unix.ADDR_UNIX path);
