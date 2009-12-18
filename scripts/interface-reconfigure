@@ -570,6 +570,27 @@ def mtu_setting(oc):
             log("Invalid value for mtu = %s" % oc['mtu'])
     return None
 
+def pif_get_bond_slaves_sorted(pif):
+    pifrec = db().get_pif_record(pif)
+
+    # build a list of slave's pifs
+    slave_pifs = pif_get_bond_slaves(pif)
+
+    # Ensure any currently attached slaves are listed in the opposite order to the order in
+    # which they were attached.  The first slave attached must be the last detached since
+    # the bond is using its MAC address.
+    try:
+        attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
+        for slave in attached_slaves:
+            pifs = [p for p in db().get_pifs_by_device(slave) if not pif_is_vlan(p)]
+            slave_pif = pifs[0]
+            slave_pifs.remove(slave_pif)
+            slave_pifs.insert(0, slave_pif)
+    except IOError:
+        pass
+
+    return slave_pifs
+
 def configure_bond_interface(pif):
     """Write the configuration for a bond interface.
 
@@ -755,7 +776,7 @@ def bring_down_interface(pif, destroy=False):
 
     # Need to bring down bond slaves first since the bond device
     # must be up to enslave/unenslave.
-    bond_slaves = pif_get_bond_slaves(pif)
+    bond_slaves = pif_get_bond_slaves_sorted(pif)
     log("bond slaves of %s - %s" % (db().get_pif_record(pif)['device'], [pif_netdev_name(s) for s in bond_slaves]))
     for slave in bond_slaves:
         slave_interface = pif_netdev_name(slave)
