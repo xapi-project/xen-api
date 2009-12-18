@@ -35,11 +35,7 @@
 #
 # Undocumented parameters for test & dev:
 #
-#  --output-directory=<DIR>	Write configuration to <DIR>. Also disables actually
-#                               raising/lowering the interfaces
-#  --pif-uuid			A PIF UUID, use instead of --session/--pif.
-#
-#
+#  --pif-uuid	A PIF UUID, use instead of --session/--pif.
 #
 # Notes:
 # 1. Every pif belongs to exactly one network
@@ -53,8 +49,6 @@ import syslog
 import traceback
 import time
 import re
-
-output_directory = None
 
 db = None
 management_pif = None
@@ -83,17 +77,12 @@ class ConfigurationFile(object):
                "NOT-APPLIED":"NOT-APPLIED", "APPLIED":"APPLIED",
                "REVERTED":"REVERTED", "COMMITTED": "COMMITTED"}
     
-    def __init__(self, fname, path=ifcfg):
+    def __init__(self, fname, dirname=ifcfg):
 
         self.__state = self.__STATE['OPEN']
         self.__fname = fname
         self.__children = []
-        
-        if debug_mode():
-            dirname = output_directory
-        else:
-            dirname = path
-            
+                    
         self.__path    = os.path.join(dirname, fname)
         self.__oldpath = os.path.join(dirname, "." + fname + ".xapi-old")
         self.__newpath = os.path.join(dirname, "." + fname + ".xapi-new")
@@ -211,14 +200,8 @@ class ConfigurationFile(object):
 
         self.__state = self.__STATE['COMMITTED']
 
-def debug_mode():
-    return output_directory is not None
-
 def log(s):
-    if debug_mode():
-        print >>sys.stderr, s
-    else:
-        syslog.syslog(s)
+    syslog.syslog(s)
 
 def check_allowed(pif):
     pifrec = db.get_pif_record(pif)
@@ -253,15 +236,11 @@ def interface_up(i):
 
 def ifup(interface):
     command = "/sbin/ifup"
-    if debug_mode():
-        return
     if os.spawnl(os.P_WAIT, command, command, interface) != 0:
         raise Error("Command failed: %s %s" % (command, interface))
 
 def ifdown(interface):
     command = "/sbin/ifdown"
-    if debug_mode():
-        return
     if not interface_exists(interface):
         log("ifdown: interface %s does not exist, ignoring" % interface)
         return
@@ -270,8 +249,6 @@ def ifdown(interface):
 
 def delbr(bridge):
     command = "/usr/sbin/brctl"
-    if debug_mode():
-        return
     if not interface_exists(bridge):
         log("delbr: bridge %s does not exist, ignoring" % bridge)
         return
@@ -280,8 +257,6 @@ def delbr(bridge):
 
 def vconfig_rem(vlan):
     command = "/sbin/vconfig"
-    if debug_mode():
-        return
     if not interface_exists(vlan):
         log("vconfig del: vlan %s does not exist, ignoring" % vlan)
         return
@@ -582,9 +557,6 @@ def __create_bond_device(name):
 def create_bond_device(pif):
     """Ensures that a bond master device exists in the kernel."""
 
-    if debug_mode():
-        return
-    
     pifrec = db.get_pif_record(pif)
 
     if len(pifrec['bond_master_of']) == 0:
@@ -611,9 +583,6 @@ def __destroy_bond_device(name):
 def destroy_bond_device(pif):
     """No, Mr. Bond, I expect you to die."""
 
-    if debug_mode():
-        return
-    
     pifrec = db.get_pif_record(pif)
 
     if len(pifrec['bond_master_of']) == 0:
@@ -1484,7 +1453,7 @@ def action_force_down_all_devices():
         
 
 def main(argv=None):
-    global output_directory, management_pif
+    global management_pif
     
     session = None
     pif_uuid = None
@@ -1499,13 +1468,11 @@ def main(argv=None):
     try:
         try:
             shortops = "h"
-            longops = [ "output-directory=",
-                        "pif=", "pif-uuid=",
+            longops = [ "pif=", "pif-uuid=",
                         "session=",
                         "force=",
                         "force-interface=",
                         "management",
-                        "test-mode",
                         "device=", "mode=", "ip=", "netmask=", "gateway=",
                         "help" ]
             arglist, args = getopt.gnu_getopt(argv[1:], shortops, longops)
@@ -1515,9 +1482,7 @@ def main(argv=None):
         force_rewrite_config = {}
         
         for o,a in arglist:
-            if o == "--output-directory":
-                output_directory = a
-            elif o == "--pif":
+            if o == "--pif":
                 pif = a
             elif o == "--pif-uuid":
                 pif_uuid = a
@@ -1533,9 +1498,9 @@ def main(argv=None):
                 print __doc__ % {'command-name': os.path.basename(argv[0])}
                 return 0
 
-        if not debug_mode():
-            syslog.openlog(os.path.basename(argv[0]))
-            log("Called as " + str.join(" ", argv))
+        syslog.openlog(os.path.basename(argv[0]))
+        log("Called as " + str.join(" ", argv))
+        
         if len(args) < 1:
             raise Usage("Required option <action> not present")
         if len(args) > 1:
@@ -1545,8 +1510,6 @@ def main(argv=None):
         # backwards compatibility
         if action == "rewrite-configuration": action = "rewrite"
         
-        if output_directory and ( session or pif ):
-            raise Usage("--session/--pif cannot be used with --output-directory")
         if ( session or pif ) and pif_uuid:
             raise Usage("--session/--pif and --pif-uuid are mutually exclusive.")
         if ( session and not pif ) or ( not session and pif ):
@@ -1621,7 +1584,6 @@ if __name__ == "__main__":
         for exline in err:
             log(exline)
 
-    if not debug_mode():
-        syslog.closelog()
+    syslog.closelog()
         
     sys.exit(rc)
