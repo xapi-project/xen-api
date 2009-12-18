@@ -47,6 +47,7 @@ import syslog
 import traceback
 import time
 import re
+import random
 from xml.dom.minidom import getDOMImplementation
 from xml.dom.minidom import parse as parseXML
 
@@ -666,6 +667,78 @@ def netdev_up(netdev, mtu=None):
 
     run_command(["/sbin/ifup", netdev])
 
+def netdev_remap_name(pif, already_renamed=[]):
+    """Check whether 'pif' exists and has the correct MAC.
+    If not, try to find a device with the correct MAC and rename it.
+    'already_renamed' is used to avoid infinite recursion.
+    """
+
+    def read1(name):
+        file = None
+        try:
+            file = open(name, 'r')
+            return file.readline().rstrip('\n')
+        finally:
+            if file != None:
+                file.close()
+
+    def get_netdev_mac(device):
+        try:
+            return read1("/sys/class/net/%s/address" % device)
+        except:
+            # Probably no such device.
+            return None
+
+    def get_netdev_tx_queue_len(device):
+        try:
+            return int(read1("/sys/class/net/%s/tx_queue_len" % device))
+        except:
+            # Probably no such device.
+            return None
+
+    def get_netdev_by_mac(mac):
+        for device in os.listdir("/sys/class/net"):
+            dev_mac = get_netdev_mac(device)
+            if (dev_mac and mac.lower() == dev_mac.lower() and
+                get_netdev_tx_queue_len(device)):
+                return device
+        return None
+
+    def rename_netdev(old_name, new_name):
+        log("Changing the name of %s to %s" % (old_name, new_name))
+        run_command(['/sbin/ifconfig', old_name, 'down'])
+        if not run_command(['/sbin/ip', 'link', 'set', old_name, 'name', new_name]):
+            raise Error("Could not rename %s to %s" % (old_name, new_name))
+
+    pifrec = db.get_pif_record(pif)
+    device = pifrec['device']
+    mac = pifrec['MAC']
+
+    # Is there a network device named 'device' at all?
+    device_exists = netdev_exists(device)
+    if device_exists:
+        # Yes.  Does it have MAC 'mac'?
+        found_mac = get_netdev_mac(device)
+        if found_mac and mac.lower() == found_mac.lower():
+            # Yes, everything checks out the way we want.  Nothing to do.
+            return
+    else:
+        log("No network device %s" % device)
+
+    # What device has MAC 'mac'?
+    cur_device = get_netdev_by_mac(mac)
+    if not cur_device:
+        log("No network device has MAC %s" % mac)
+        return
+
+    # First rename 'device', if it exists, to get it out of the way
+    # for 'cur_device' to replace it.
+    if device_exists:
+        rename_netdev(device, "dev%d" % random.getrandbits(24))
+
+    # Rename 'cur_device' to 'device'.
+    rename_netdev(cur_device, device)
+
 #
 # IP Network Devices -- network devices with IP configuration
 #
@@ -1079,6 +1152,19 @@ def configure_pif(pif):
 
     return f
 
+def pif_rename_physical_devices(pif):
+
+    if pif_is_vlan(pif):
+        pif = pif_get_vlan_slave(pif)
+
+    if pif_is_bond(pif):
+        pifs = pif_get_bond_slaves(pif)
+    else:
+        pifs = [pif]
+
+    for pif in pifs:
+        netdev_remap_name(pif)
+
 def bring_down_interface(pif, destroy=False):
     """Bring down the interface associated with PIF.
 
@@ -1420,6 +1506,8 @@ def action_up(pif):
 
     f.close()
     
+    pif_rename_physical_devices(pif)
+
     # if there is a bridge using this pif then bring it down
     ifdown(ipdev)
 
