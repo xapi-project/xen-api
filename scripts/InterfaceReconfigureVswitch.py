@@ -393,7 +393,11 @@ class DatapathVswitch(Datapath):
         cfgmod_argv += datapath_deconfigure_ipdev(ipdev)
         cfgmod_argv += ["# reconfigure ipdev %s" % ipdev]
         cfgmod_argv += ['--add=bridge.%s.port=%s' % (bridge, ipdev)]
-
+        if bridge == ipdev:
+            cfgmod_argv += ['--add=bridge.%s.mac=%s' % (bridge, pifrec['MAC'])]
+        else:
+            cfgmod_argv += ['--add=iface.%s.mac=%s' % (ipdev, pifrec['MAC'])]
+            
         if pif_is_vlan(self._pif):
             cfgmod_argv += ['--add=vlan.%s.tag=%s' % (ipdev, pifrec['VLAN'])]
             cfgmod_argv += ['--add=iface.%s.internal=true' % (ipdev)]
