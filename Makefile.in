@@ -124,6 +124,7 @@ bininstall:
 	$(MAKE) -C stdext bininstall
 	$(MAKE) -C close-and-exec bininstall
 	$(MAKE) -C forking_executioner bininstall
+	$(MAKE) -C scripts bininstall
 
 binuninstall:
 	$(MAKE) -C pciutil binuninstall
@@ -132,6 +133,7 @@ binuninstall:
 	$(MAKE) -C stdext binuninstall
 	$(MAKE) -C close-and-exec binuninstall
 	$(MAKE) -C forking_executioner binuninstall
+	$(MAKE) -C scripts binuninstall
 
 .PHONY: doc
 doc:
