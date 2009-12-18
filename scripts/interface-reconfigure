@@ -570,68 +570,6 @@ def mtu_setting(oc):
             log("Invalid value for mtu = %s" % oc['mtu'])
     return None
 
-#
-# Bonded PIFs
-#
-def pif_is_bond(pif):
-    pifrec = db().get_pif_record(pif)
-
-    return len(pifrec['bond_master_of']) > 0
-
-def pif_get_bond_masters(pif):
-    """Returns a list of PIFs which are bond masters of this PIF"""
-
-    pifrec = db().get_pif_record(pif)
-
-    bso = pifrec['bond_slave_of']
-
-    # bond-slave-of is currently a single reference but in principle a
-    # PIF could be a member of several bonds which are not
-    # concurrently attached. Be robust to this possibility.
-    if not bso or bso == "OpaqueRef:NULL":
-        bso = []
-    elif not type(bso) == list:
-        bso = [bso]
-
-    bondrecs = [db().get_bond_record(bond) for bond in bso]
-    bondrecs = [rec for rec in bondrecs if rec]
-
-    return [bond['master'] for bond in bondrecs]
-
-def pif_get_bond_slaves(pif):
-    """Returns a list of PIFs which make up the given bonded pif."""
-
-    pifrec = db().get_pif_record(pif)
-
-    bmo = pifrec['bond_master_of']
-    if len(bmo) > 1:
-        raise Error("Bond-master-of contains too many elements")
-
-    if len(bmo) == 0:
-        return []
-
-    bondrec = db().get_bond_record(bmo[0])
-    if not bondrec:
-        raise Error("No bond record for bond master PIF")
-
-    # build a list of slave's pifs
-    slave_pifs = bondrec['slaves']
-
-    # Ensure any currently attached slaves are listed in the opposite order to the order in
-    # which they were attached.  The first slave attached must be the last detached since
-    # the bond is using its MAC address.
-    try:
-        attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
-        for slave in attached_slaves:
-            pifs = [p for p in db().get_pifs_by_device(slave) if not pif_is_vlan(p)]
-            slave_pif = pifs[0]
-            slave_pifs.remove(slave_pif)
-            slave_pifs.insert(0, slave_pif)
-    except IOError:
-        pass
-
-    return slave_pifs
-
 def configure_bond_interface(pif):
     """Write the configuration for a bond interface.
 
@@ -688,37 +626,6 @@ def configure_bond_interface(pif):
         f.write("%s=%s " % (name,val))
     f.write('"\n')
     return f
-
-#
-# VLAN PIFs
-#
-
-def pif_is_vlan(pif):
-    return db().get_pif_record(pif)['VLAN'] != '-1'
-
-def pif_get_vlan_slave(pif):
-    """Find the PIF which is the VLAN slave of pif.
-
-Returns the 'physical' PIF underneath the a VLAN PIF @pif."""
-
-    pifrec = db().get_pif_record(pif)
-
-    vlan = pifrec['VLAN_master_of']
-    if not vlan or vlan == "OpaqueRef:NULL":
-        raise Error("PIF is not a VLAN master")
-
-    vlanrec = db().get_vlan_record(vlan)
-    if not vlanrec:
-        raise Error("No VLAN record found for PIF")
-
-    return vlanrec['tagged_PIF']
-
-def pif_get_vlan_masters(pif):
-    """Returns a list of PIFs which are VLANs on top of the given pif."""
-
-    pifrec = db().get_pif_record(pif)
-    vlans = [db().get_vlan_record(v) for v in pifrec['VLAN_slave_of']]
-    return [v['untagged_PIF'] for v in vlans if v and db().pif_exists(v['untagged_PIF'])]
 
 def configure_vlan_interface(pif):
     """Write the configuration for a VLAN interface.
