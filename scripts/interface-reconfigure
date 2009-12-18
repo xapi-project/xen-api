@@ -226,41 +226,6 @@ class ConfigurationFile(object):
 
         self.__state = self.__STATE['COMMITTED']
 
-def interface_up(i):
-    operstate = os.path.join("/sys/class/net",i,"operstate")
-    if not os.path.exists(operstate):
-        log("No operstate for interface %s, assuming down" % i)
-        return 0
-
-    f = open(operstate)
-    state = f.read().strip()
-    f.close()
-
-    # bridges confusingly return "unknown" when they are up
-    return state in ["up", "unknown"]
-
-def ifdown(interface):
-    if not netdev_exists(interface):
-        log("ifdown: interface %s does not exist, ignoring" % interface)
-        return
-    run_command(["/sbin/ifdown", interface])
-
-def ifup(interface):
-    run_command(["/sbin/ifup", interface])
-
-
-def delbr(bridge):
-    if not netdev_exists(bridge):
-        log("delbr: bridge %s does not exist, ignoring" % bridge)
-        return
-    run_command(["/usr/sbin/brctl", "delbr", bridge])
-
-def vconfig_rem(vlan):
-    if not netdev_exists(vlan):
-        log("vconfig del: vlan %s does not exist, ignoring" % vlan)
-        return
-    run_command(["/sbin/vconfig", "rem", vlan])
-
 def open_pif_ifcfg(pif):
     pifrec = db.get_pif_record(pif)
 
@@ -687,6 +652,20 @@ def pif_netdev_name(pif):
     else:
         return pifrec['device']
 
+def netdev_down(netdev):
+    """Bring down a bare network device"""
+    if not netdev_exists(netdev):
+        log("netdev: down: device %s does not exist, ignoring" % netdev)
+        return
+    run_command(["/sbin/ifdown", netdev])
+
+def netdev_up(netdev, mtu=None):
+    """Bring up a bare network device"""
+    #if not netdev_exists(netdev):
+    #    raise Error("netdev: up: device %s does not exist" % netdev)
+
+    run_command(["/sbin/ifup", netdev])
+
 #
 # IP Network Devices -- network devices with IP configuration
 #
@@ -702,6 +681,17 @@ def pif_ipdev_name(pif):
     else:
         # TODO: sanity check that nwrec['bridgeless'] == 'true'
         return pif_netdev_name(pif)
+
+def ifdown(netdev):
+    """Bring down a network interface"""
+    if not netdev_exists(netdev):
+        log("ifdown: device %s does not exist, ignoring" % netdev)
+        return
+    run_command(["/sbin/ifdown", netdev])
+
+def ifup(netdev):
+    """Bring up a network interface"""
+    run_command(["/sbin/ifup", netdev])
 
 #
 # Bridges
@@ -957,7 +947,7 @@ def configure_bond_interface(pif):
     """
 
     pifrec = db.get_pif_record(pif)
-    oc = pifrec['other_config']
+
     f = open_pif_ifcfg(pif)
 
     if pifrec['MAC'] != "":
@@ -990,6 +980,7 @@ def configure_bond_interface(pif):
         }
 
     # override defaults with values from other-config whose keys being with "bond-"
+    oc = pifrec['other_config']
     overrides = filter(lambda (key,val): key.startswith("bond-"), oc.items())
     overrides = map(lambda (key,val): (key[5:], val), overrides)
     bond_options.update(overrides)
@@ -1087,19 +1078,6 @@ def configure_pif(pif):
 
     return f
 
-def bring_down_bridge(bridge, destroy=False):
-    """Bring down the bridge associated with a PIF."""
-    log("Bring bridge %s down" % bridge)
-    ifdown(bridge)
-    if destroy:
-        log("Destroy bridge %s" % bridge)
-        delbr(bridge)
-
-def bring_up_bridge(bridge):
-    """Bring up the bridge associated with a PIF."""
-    log("Bring bridge %s up" % bridge)
-    ifup(bridge)
-
 def bring_down_interface(pif, destroy=False):
     """Bring down the interface associated with PIF.
 
@@ -1107,16 +1085,34 @@ def bring_down_interface(pif, destroy=False):
     which are bond slaves of this one. This is because they will be
     required when the bond is brought up."""
 
+    def destroy_bridge(pif):
+        """Bring down the bridge associated with a PIF."""
+        if not pif_is_bridged(pif):
+            return
+        bridge = pif_bridge_name(pif)
+        if not netdev_exists(bridge):
+            log("destroy_bridge: bridge %s does not exist, ignoring" % bridge)
+            return
+        log("Destroy bridge %s" % bridge)
+        netdev_down(bridge)
+        run_command(["/usr/sbin/brctl", "delbr", bridge])
+
+    def destroy_vlan(pif):
+        vlan = pif_netdev_name(pif)
+        if not netdev_exists(vlan):
+            log("vconfig del: vlan %s does not exist, ignoring" % vlan)
+            return
+        log("Destroy vlan device %s" % vlan)
+        run_command(["/sbin/vconfig", "rem", vlan])
+
     if pif_is_vlan(pif):
         interface = pif_netdev_name(pif)
         log("bring_down_interface: %s is a VLAN" % interface)
-        ifdown(interface)
+        netdev_down(interface)
 
         if destroy:
-            log("Destroy vlan device %s" % interface)
-            vconfig_rem(interface)
-            if pif_is_bridged(pif):
-                bring_down_bridge(pif_bridge_name(pif), destroy=True)
+            destroy_vlan(pif)
+            destroy_bridge(pif)
         else:
             return
 
@@ -1152,21 +1148,19 @@ def bring_down_interface(pif, destroy=False):
             log("leave bond slave %s up (currently attached)" % slave_interface)
             continue
         log("bring down bond slave %s" % slave_interface)
-        ifdown(slave_interface)
+        netdev_down(slave_interface)
         # Also destroy the bridge associated with the slave, since
         # it will carry the MAC address and possibly an IP address
         # leading to confusion.
-        if pif_is_bridged(slave):
-            bring_down_bridge(pif_bridge_name(slave), destroy=True)
+        destroy_bridge(slave)
 
     interface = pif_netdev_name(pif)
     log("Bring interface %s down" % interface)
-    ifdown(interface)
+    netdev_down(interface)
 
     if destroy:
         destroy_bond_device(pif)
-        if pif_is_bridged(pif):
-            bring_down_bridge(pif_bridge_name(pif), destroy=True)
+        destroy_bridge(pif)
 
 def interface_is_up(pif):
     try:
@@ -1194,7 +1188,7 @@ def bring_up_interface(pif):
     create_bond_device(pif)
 
     log("Bring interface %s up" % interface)
-    ifup(interface)
+    netdev_up(interface)
 
 #
 # IP device configuration
@@ -1391,38 +1385,57 @@ def ipdev_configure_network(pif):
     return f
 
 #
+# Datapath Configuration
+#
+
+def pif_datapath(pif):
+    """Return the datapath PIF associated with PIF.
+The datapath name is the bridge name.
+For a VLAN PIF, the datapath name is the bridge name for the PIF's VLAN slave.
+"""
+    pifrec = db.get_pif_record(pif)
+    nwrec = db.get_network_record(pifrec['network'])
+    if not nwrec['bridge']:
+        return None
+    else:
+        return pif
+
+
+#
 # Toplevel actions
 #
 
 def action_up(pif):
     pifrec = db.get_pif_record(pif)
 
+    ipdev = pif_ipdev_name(pif)
+    dp = pif_datapath(pif)
+
     f = ipdev_configure_network(pif)
 
-    if pif_is_bridged(pif):
-        pf = configure_pif(pif)
+    if dp:
+        pf = configure_pif(dp)
         f.attach_child(pf)
 
     f.close()
+    
     # if there is a bridge using this pif then bring it down
-    if pif_is_bridged(pif):
-        bring_down_bridge(pif_bridge_name(pif))
+    ifdown(ipdev)
 
     # Bring down any VLAN masters so that we can reconfigure the slave.
     vlan_masters = pif_get_vlan_masters(pif)
     for master in vlan_masters:
         name = pif_netdev_name(master)
-        log("action_up: bring down %s" % (name))
-        ifdown(name)
+        log("action_up: bring down vlan master %s" % (name))
+        netdev_down(name)
 
     # interface-reconfigure is never explicitly called to down a bond master.
     # However, when we are called to up a slave it is implicit that we are destroying the master.
     bond_masters = pif_get_bond_masters(pif)
     for master in bond_masters:
+        log("action_up: bring down bond master %s" % (pif_netdev_name(master)))
         # bring down master
         bring_down_interface(master, destroy=True)
-        if pif_is_bridged(master):
-            bring_down_bridge(pif_bridge_name(master), destroy=True)
 
     # No masters left - now its safe to reconfigure the slave.
     bring_down_interface(pif)
@@ -1430,9 +1443,10 @@ def action_up(pif):
     try:
         f.apply()
 
-        bring_up_interface(pif)
-        if pif_is_bridged(pif):
-            bring_up_bridge(pif_bridge_name(pif))
+        if dp:
+            bring_up_interface(pif)
+
+        ifup(ipdev)
 
         # Update /etc/issue (which contains the IP address of the management interface)
         os.system("/sbin/update-issue")
@@ -1441,7 +1455,7 @@ def action_up(pif):
         for master in [v for v in vlan_masters if db.get_pif_record(v)['currently_attached']]:
             name = pif_netdev_name(master)
             log("action_up: bring up %s" % (name))
-            ifup(name)
+            netdev_up(name)
 
         f.commit()
     except Error, e:
@@ -1450,12 +1464,19 @@ def action_up(pif):
         raise
 
 def action_down(pif):
-    bring_down_interface(pif, destroy=True)
+    ipdev = pif_ipdev_name(pif)
+    dp = pif_datapath(pif)
+
+    ifdown(ipdev)
+
+    if dp:
+        bring_down_interface(dp, destroy=True)
 
 def action_rewrite(pif):
+    dp = pif_datapath(pif)
     f = ipdev_configure_network(pif)
-    if pif_is_bridged(pif):
-        pf = configure_pif(pif)
+    if dp:
+        pf = configure_pif(dp)
         f.attach_child(pf)
     f.close()
     try:
