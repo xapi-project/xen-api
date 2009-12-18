@@ -581,15 +581,17 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 		raise Restore_signature_mismatch;
 
 	Unix.clear_close_on_exec fd;
+	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+
 	let cnx = XenguestHelper.connect
 	  ([
 	    "-mode"; if hvm then "hvm_restore" else "restore";
 	    "-domid"; string_of_int domid;
-	    "-fd"; string_of_int (Obj.magic fd);
+	    "-fd"; fd_uuid;
 	    "-store_port"; string_of_int store_port;
 	    "-console_port"; string_of_int console_port;
 	    "-fork"; "true";
-	  ] @ extras) [ fd ] in
+	  ] @ extras) [ fd_uuid, fd ] in
 
 	let line = finally
 	  (fun () -> XenguestHelper.receive_success cnx)
@@ -703,6 +705,7 @@ type suspend_flag = Live | Debug
 let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_suspend_callback =
 	debug "Domain.suspend domid=%d" domid;
 	Io.write fd save_signature;
+	let fd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 
 	let cmdline_to_flag flag =
 		match flag with
@@ -712,13 +715,13 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 	let flags' = List.map cmdline_to_flag flags in
 
 	let xenguestargs = [
-		"-fd"; string_of_int (Obj.magic fd);
+		"-fd"; fd_uuid;
 		"-mode"; if hvm then "hvm_save" else "save";
 		"-domid"; string_of_int domid;
 		"-fork"; "true";
 	] @ (List.concat flags') in
 
-	let cnx = XenguestHelper.connect xenguestargs [ fd ] in
+	let cnx = XenguestHelper.connect xenguestargs [ fd_uuid, fd ] in
 	finally (fun () ->
 		debug "Blocking for suspend notification from xenguest";
 

@@ -59,12 +59,8 @@ let setup_guest_installer_network ~__context bridge other_config =
   begin
     match with_logfile_fd "ifconfig"
       (fun out ->
-	let pid = safe_close_and_exec
-	  [ Dup2(out, Unix.stdout);
-	    Dup2(out, Unix.stderr)]
-	  [ Unix.stdout; Unix.stderr ] (* close all but these *)
-	  "/sbin/ifconfig" [bridge;ip;"up"] in
-	Unix.waitpid [] pid)
+	let pid = safe_close_and_exec None (Some out) (Some out) [] "/sbin/ifconfig" [bridge;ip;"up"] in
+	waitpid pid)
     with
       | Success(log,_) -> ()
       | Failure(log,_) -> error "ifconfig failure: %s" log
@@ -72,12 +68,8 @@ let setup_guest_installer_network ~__context bridge other_config =
   begin
     match with_logfile_fd "fix_firewall"
       (fun out ->
-	let pid = safe_close_and_exec
-	  [ Dup2(out, Unix.stdout);
-	    Dup2(out, Unix.stderr)]
-	  [ Unix.stdout; Unix.stderr ] (* close all but these *)
-	  "/bin/bash" [Constants.fix_firewall_script;bridge;"start"] in
-	Unix.waitpid [] pid)
+	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash" [Constants.fix_firewall_script;bridge;"start"] in
+	waitpid pid)
     with
       | Success(log,_) -> ()
       | Failure(log,_) -> error "ifconfig failure: %s" log
@@ -98,12 +90,8 @@ let maybe_shutdown_guest_installer_network bridge =
   begin
     match with_logfile_fd "fix_firewall"
       (fun out ->
-	let pid = safe_close_and_exec
-	  [ Dup2(out, Unix.stdout);
-	    Dup2(out, Unix.stderr)]
-	  [ Unix.stdout; Unix.stderr ] (* close all but these *)
-	  "/bin/bash " [Constants.fix_firewall_script;bridge] in
-	Unix.waitpid [] pid)
+	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash " [Constants.fix_firewall_script;bridge] in
+	waitpid pid)
     with
       | Success(log,_) -> ()
       | Failure(log,_) -> error "ifconfig failure: %s" log
