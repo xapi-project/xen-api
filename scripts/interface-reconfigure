@@ -74,6 +74,18 @@ def log_pif_action(action, pif):
     log("%(message)s: %(pif_netdev_name)s configured as %(ip_configuration_mode)s" % rec)
 
 #
+# Run external utilities
+#
+
+def run_command(command):
+    log("Running command: " + ' '.join(command))
+    rc = os.spawnl(os.P_WAIT, command[0], *command)
+    if rc != 0:
+        log("Command failed %d: " % rc + ' '.join(command))
+        return False
+    return True
+
+#
 # Exceptions.
 #
 
@@ -256,34 +268,27 @@ def interface_up(i):
     # bridges confusingly return "unknown" when they are up
     return state in ["up", "unknown"]
 
-def ifup(interface):
-    command = "/sbin/ifup"
-    if os.spawnl(os.P_WAIT, command, command, interface) != 0:
-        raise Error("Command failed: %s %s" % (command, interface))
-
 def ifdown(interface):
-    command = "/sbin/ifdown"
     if not interface_exists(interface):
         log("ifdown: interface %s does not exist, ignoring" % interface)
         return
-    if os.spawnl(os.P_WAIT, command, command, interface) != 0:
-        log("Command failed: %s %s" % (command, interface))
+    run_command(["/sbin/ifdown", interface])
+
+def ifup(interface):
+    run_command(["/sbin/ifup", interface])
+
 
 def delbr(bridge):
-    command = "/usr/sbin/brctl"
     if not interface_exists(bridge):
         log("delbr: bridge %s does not exist, ignoring" % bridge)
         return
-    if os.spawnl(os.P_WAIT, command, command, "delbr", bridge) != 0:
-        log("Command failed: %s delbr %s" % (command, bridge))
+    run_command(["/usr/sbin/brctl", "delbr", bridge])
 
 def vconfig_rem(vlan):
-    command = "/sbin/vconfig"
     if not interface_exists(vlan):
         log("vconfig del: vlan %s does not exist, ignoring" % vlan)
         return
-    if os.spawnl(os.P_WAIT, command, command, "rem", vlan) != 0:
-        log("Command failed: %s rem %s" % (command, vlan))
+    run_command(["/sbin/vconfig", "rem", vlan])
 
 def configure_ethtool(oc, f):
     # Options for "ethtool -s"
@@ -809,7 +814,7 @@ def interface_name(pif):
 
 def load_bonding_driver():
     log("Loading bonding driver")
-    os.spawnl(os.P_WAIT, "/sbin/modprobe", "/sbin/modprobe", "bonding")
+    run_command(["/sbin/modprobe", "bonding"])
     try:
         # bond_device_exists() uses the contents of sysfs_bonding_masters to work out which devices
         # have already been created.  Unfortunately the driver creates "bond0" automatically at
