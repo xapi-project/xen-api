@@ -185,10 +185,16 @@ def ifdown(netdev):
     if not netdev_exists(netdev):
         log("ifdown: device %s does not exist, ignoring" % netdev)
         return
+    if not os.path.exists("/etc/sysconfig/network-scripts/ifcfg-%s" % netdev):
+        log("ifdown: device %s exists but ifcfg-%s does not" % (netdev,netdev))
+        run_command(["/sbin/ifconfig", netdev, 'down'])
+        return
     run_command(["/sbin/ifdown", netdev])
 
 def ifup(netdev):
     """Bring up a network interface"""
+    if not os.path.exists("/etc/sysconfig/network-scripts/ifcfg-%s" % netdev):
+        raise Error("ifup: device %s exists but ifcfg-%s does not" % (netdev,netdev))
     run_command(["/sbin/ifup", netdev])
 
 #
