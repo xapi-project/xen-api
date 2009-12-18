@@ -1,50 +1,14 @@
-# Copyright (c) 2008,2009 Citrix Systems, Inc.
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published
-# by the Free Software Foundation; version 2.1 only. with the special
-# exception on linking described in file LICENSE.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-import sys
 import syslog
-import os
 
 from xml.dom.minidom import getDOMImplementation
 from xml.dom.minidom import parse as parseXML
-
-the_root_prefix = ""
-def root_prefix():
-    """Returns a string to prefix to all file name references, which
-    is useful for testing."""
-    return the_root_prefix
-def set_root_prefix(prefix):
-    global the_root_prefix
-    the_root_prefix = prefix
-
-log_destination = "syslog"
-def get_log_destination():
-    """Returns the current log destination.
-    'syslog' means "log to syslog".
-    'stderr' means "log to stderr"."""
-    return log_destination
-def set_log_destination(dest):
-    global log_destination
-    log_destination = dest
 
 #
 # Logging.
 #
 
 def log(s):
-    if get_log_destination() == 'syslog':
-        syslog.syslog(s)
-    else:
-        print >>sys.stderr, s
+    syslog.syslog(s)
 
 #
 # Exceptions.
@@ -54,145 +18,6 @@ class Error(Exception):
     def __init__(self, msg):
         Exception.__init__(self)
         self.msg = msg
-
-#
-# Run external utilities
-#
-
-def run_command(command):
-    log("Running command: " + ' '.join(command))
-    rc = os.spawnl(os.P_WAIT, root_prefix() + command[0], *command)
-    if rc != 0:
-        log("Command failed %d: " % rc + ' '.join(command))
-        return False
-    return True
-
-#
-# Configuration File Handling.
-#
-
-class ConfigurationFile(object):
-    """Write a file, tracking old and new versions.
-
-    Supports writing a new version of a file and applying and
-    reverting those changes.
-    """
-
-    __STATE = {"OPEN":"OPEN",
-               "NOT-APPLIED":"NOT-APPLIED", "APPLIED":"APPLIED",
-               "REVERTED":"REVERTED", "COMMITTED": "COMMITTED"}
-
-    def __init__(self, path):
-        dirname,basename = os.path.split(path)
-
-        self.__state = self.__STATE['OPEN']
-        self.__children = []
-
-        self.__path    = os.path.join(dirname, basename)
-        self.__oldpath = os.path.join(dirname, "." + basename + ".xapi-old")
-        self.__newpath = os.path.join(dirname, "." + basename + ".xapi-new")
-
-        self.__f = open(self.__newpath, "w")
-
-    def attach_child(self, child):
-        self.__children.append(child)
-
-    def path(self):
-        return self.__path
-
-    def readlines(self):
-        try:
-            return open(self.path()).readlines()
-        except:
-            return ""
-
-    def write(self, args):
-        if self.__state != self.__STATE['OPEN']:
-            raise Error("Attempt to write to file in state %s" % self.__state)
-        self.__f.write(args)
-
-    def close(self):
-        if self.__state != self.__STATE['OPEN']:
-            raise Error("Attempt to close file in state %s" % self.__state)
-
-        self.__f.close()
-        self.__state = self.__STATE['NOT-APPLIED']
-
-    def changed(self):
-        if self.__state != self.__STATE['NOT-APPLIED']:
-            raise Error("Attempt to compare file in state %s" % self.__state)
-
-        return True
-
-    def apply(self):
-        if self.__state != self.__STATE['NOT-APPLIED']:
-            raise Error("Attempt to apply configuration from state %s" % self.__state)
-
-        for child in self.__children:
-            child.apply()
-
-        log("Applying changes to %s configuration" % self.__path)
-
-        # Remove previous backup.
-        if os.access(self.__oldpath, os.F_OK):
-            os.unlink(self.__oldpath)
-
-        # Save current configuration.
-        if os.access(self.__path, os.F_OK):
-            os.link(self.__path, self.__oldpath)
-            os.unlink(self.__path)
-
-        # Apply new configuration.
-        assert(os.path.exists(self.__newpath))
-        os.link(self.__newpath, self.__path)
-
-        # Remove temporary file.
-        os.unlink(self.__newpath)
-
-        self.__state = self.__STATE['APPLIED']
-
-    def revert(self):
-        if self.__state != self.__STATE['APPLIED']:
-            raise Error("Attempt to revert configuration from state %s" % self.__state)
-
-        for child in self.__children:
-            child.revert()
-
-        log("Reverting changes to %s configuration" % self.__path)
-
-        # Remove existing new configuration
-        if os.access(self.__newpath, os.F_OK):
-            os.unlink(self.__newpath)
-
-        # Revert new configuration.
-        if os.access(self.__path, os.F_OK):
-            os.link(self.__path, self.__newpath)
-            os.unlink(self.__path)
-
-        # Revert to old configuration.
-        if os.access(self.__oldpath, os.F_OK):
-            os.link(self.__oldpath, self.__path)
-            os.unlink(self.__oldpath)
-
-        # Leave .*.xapi-new as an aid to debugging.
-
-        self.__state = self.__STATE['REVERTED']
-
-    def commit(self):
-        if self.__state != self.__STATE['APPLIED']:
-            raise Error("Attempt to commit configuration from state %s" % self.__state)
-
-        for child in self.__children:
-            child.commit()
-
-        log("Committing changes to %s configuration" % self.__path)
-
-        if os.access(self.__oldpath, os.F_OK):
-            os.unlink(self.__oldpath)
-        if os.access(self.__newpath, os.F_OK):
-            os.unlink(self.__newpath)
-
-        self.__state = self.__STATE['COMMITTED']
 
 #
 # Helper functions for encoding/decoding database attributes to/from XML.
@@ -241,25 +66,19 @@ def _strlist_from_xml(n, ltag, itag):
             ret.append(_str_from_xml(n))
     return ret
 
-def _map_to_xml(xml, parent, tag, val, attrs):
-    e = xml.createElement(tag)
-    parent.appendChild(e)
+def _otherconfig_to_xml(xml, parent, val, attrs):
+    otherconfig = xml.createElement("other_config")
+    parent.appendChild(otherconfig)
     for n,v in val.items():
         if not n in attrs:
             raise Error("Unknown other-config attribute: %s" % n)
-        _str_to_xml(xml, e, n, v)
-
-def _map_from_xml(n, attrs):
+        _str_to_xml(xml, otherconfig, n, v)
+def _otherconfig_from_xml(n, attrs):
     ret = {}
     for n in n.childNodes:
         if n.nodeName in attrs:
             ret[n.nodeName] = _str_from_xml(n)
     return ret
-
-def _otherconfig_to_xml(xml, parent, val, attrs):
-    return _map_to_xml(xml, parent, "other_config", val, attrs)
-def _otherconfig_from_xml(n, attrs):
-    return _map_from_xml(n, attrs)
 
 #
 # Definitions of the database objects (and their attributes) used by interface-reconfigure.
@@ -273,7 +92,6 @@ def _otherconfig_from_xml(n, attrs):
 
 _PIF_XML_TAG = "pif"
 _VLAN_XML_TAG = "vlan"
-_TUNNEL_XML_TAG = "tunnel"
 _BOND_XML_TAG = "bond"
 _NETWORK_XML_TAG = "network"
 
@@ -294,10 +112,6 @@ _PIF_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                'VLAN_master_of': (_str_to_xml,_str_from_xml),
                'VLAN_slave_of': (lambda x, p, t, v: _strlist_to_xml(x, p, 'VLAN_slave_of', 'master', v),
                                  lambda n: _strlist_from_xml(n, 'VLAN_slave_Of', 'master')),
-               'tunnel_access_PIF_of': (lambda x, p, t, v: _strlist_to_xml(x, p, 'tunnel_access_PIF_of', 'pif', v),
-                                        lambda n: _strlist_from_xml(n, 'tunnel_access_PIF_of', 'pif')),
-               'tunnel_transport_PIF_of':  (lambda x, p, t, v: _strlist_to_xml(x, p, 'tunnel_transport_PIF_of', 'pif', v),
-                                            lambda n: _strlist_from_xml(n, 'tunnel_transport_PIF_of', 'pif')),
                'ip_configuration_mode': (_str_to_xml,_str_from_xml),
                'IP': (_str_to_xml,_str_from_xml),
                'netmask': (_str_to_xml,_str_from_xml),
@@ -319,10 +133,6 @@ _VLAN_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                 'untagged_PIF': (_str_to_xml,_str_from_xml),
               }
 
-_TUNNEL_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
-                  'access_PIF': (_str_to_xml,_str_from_xml),
-                  'transport_PIF': (_str_to_xml,_str_from_xml),
-                }
 _BOND_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                'master': (_str_to_xml,_str_from_xml),
                'slaves': (lambda x, p, t, v: _strlist_to_xml(x, p, 'slaves', 'slave', v),
@@ -333,7 +143,6 @@ _NETWORK_OTHERCONFIG_ATTRS = [ 'mtu', 'static-routes' ] + _ETHTOOL_OTHERCONFIG_A
 
 _NETWORK_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                    'bridge': (_str_to_xml,_str_from_xml),
-                   'MTU': (_str_to_xml,_str_from_xml),
                    'PIFs': (lambda x, p, t, v: _strlist_to_xml(x, p, 'PIFs', 'PIF', v),
                             lambda n: _strlist_from_xml(n, 'PIFs', 'PIF')),
                    'other_config': (lambda x, p, t, v: _otherconfig_to_xml(x, p, v, _NETWORK_OTHERCONFIG_ATTRS),
@@ -362,7 +171,7 @@ def db_init_from_xenapi(session):
     
 class DatabaseCache(object):
     def __read_xensource_inventory(self):
-        filename = root_prefix() + "/etc/xensource-inventory"
+        filename = "/etc/xensource-inventory"
         f = open(filename, "r")
         lines = [x.strip("\n") for x in f.readlines()]
         f.close()
@@ -371,7 +180,6 @@ class DatabaseCache(object):
         defs = [ (a, b.strip("'")) for (a,b) in defs ]
 
         return dict(defs)
-
     def __pif_on_host(self,pif):
         return self.__pifs.has_key(pif)
 
@@ -398,16 +206,6 @@ class DatabaseCache(object):
             for f in _VLAN_ATTRS:
                 self.__vlans[v][f] = rec[f]
 
-    def __get_tunnel_records_from_xapi(self, session):
-        self.__tunnels = {}
-        for t in session.xenapi.tunnel.get_all():
-            rec = session.xenapi.tunnel.get_record(t)
-            if not self.__pif_on_host(rec['transport_PIF']):
-                continue
-            self.__tunnels[t] = {}
-            for f in _TUNNEL_ATTRS:
-                self.__tunnels[t][f] = rec[f]
-
     def __get_bond_records_from_xapi(self, session):
         self.__bonds = {}
         for b in session.xenapi.Bond.get_all():
@@ -427,10 +225,6 @@ class DatabaseCache(object):
                 if f == "PIFs":
                     # drop PIFs on other hosts
                     self.__networks[n][f] = [p for p in rec[f] if self.__pif_on_host(p)]
-                elif f == "MTU" and f not in rec:
-                    # XenServer 5.5 network records did not have an
-                    # MTU field, so allow this to be missing.
-                    pass
                 else:
                     self.__networks[n][f] = rec[f]
             self.__networks[n]['other_config'] = {}
@@ -484,7 +278,6 @@ class DatabaseCache(object):
 
                 self.__get_pif_records_from_xapi(session, host)
 
-                self.__get_tunnel_records_from_xapi(session)
                 self.__get_vlan_records_from_xapi(session)
                 self.__get_bond_records_from_xapi(session)
                 self.__get_network_records_from_xapi(session)
@@ -494,12 +287,11 @@ class DatabaseCache(object):
         else:
             log("Loading xapi database cache from %s" % cache_file)
 
-            xml = parseXML(root_prefix() + cache_file)
+            xml = parseXML(cache_file)
 
             self.__pifs = {}
             self.__bonds = {}
             self.__vlans = {}
-            self.__tunnels = {}
             self.__networks = {}
 
             assert(len(xml.childNodes) == 1)
@@ -519,9 +311,6 @@ class DatabaseCache(object):
                 elif n.nodeName == _VLAN_XML_TAG:
                     (ref,rec) = self.__from_xml(n, _VLAN_ATTRS)
                     self.__vlans[ref] = rec
-                elif n.nodeName == _TUNNEL_XML_TAG:
-                    (ref,rec) = self.__from_xml(n, _TUNNEL_ATTRS)
-                    self.__vlans[ref] = rec
                 elif n.nodeName == _NETWORK_XML_TAG:
                     (ref,rec) = self.__from_xml(n, _NETWORK_ATTRS)
                     self.__networks[ref] = rec
@@ -538,8 +327,6 @@ class DatabaseCache(object):
             self.__to_xml(xml, xml.documentElement, _BOND_XML_TAG, ref, rec, _BOND_ATTRS)
         for (ref,rec) in self.__vlans.items():
             self.__to_xml(xml, xml.documentElement, _VLAN_XML_TAG, ref, rec, _VLAN_ATTRS)
-        for (ref,rec) in self.__tunnels.items():
-            self.__to_xml(xml, xml.documentElement, _TUNNEL_XML_TAG, ref, rec, _TUNNEL_ATTRS)
         for (ref,rec) in self.__networks.items():
             self.__to_xml(xml, xml.documentElement, _NETWORK_XML_TAG, ref, rec,
                           _NETWORK_ATTRS)
@@ -617,298 +404,3 @@ class DatabaseCache(object):
             return self.__vlans[vlan]
         else:
             return None
-
-#
-#
-#
-
-def ethtool_settings(oc):
-    settings = []
-    if oc.has_key('ethtool-speed'):
-        val = oc['ethtool-speed']
-        if val in ["10", "100", "1000"]:
-            settings += ['speed', val]
-        else:
-            log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
-    if oc.has_key('ethtool-duplex'):
-        val = oc['ethtool-duplex']
-        if val in ["half", "full"]:
-            settings += ['duplex', val]
-        else:
-            log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
-    if oc.has_key('ethtool-autoneg'):
-        val = oc['ethtool-autoneg']
-        if val in ["true", "on"]:
-            settings += ['autoneg', 'on']
-        elif val in ["false", "off"]:
-            settings += ['autoneg', 'off']
-        else:
-            log("Invalid value for ethtool-autoneg = %s. Must be on|true|off|false." % val)
-    offload = []
-    for opt in ("rx", "tx", "sg", "tso", "ufo", "gso"):
-        if oc.has_key("ethtool-" + opt):
-            val = oc["ethtool-" + opt]
-            if val in ["true", "on"]:
-                offload += [opt, 'on']
-            elif val in ["false", "off"]:
-                offload += [opt, 'off']
-            else:
-                log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
-    return settings,offload
-
-# By default the MTU is taken from the Network.MTU setting for VIF,
-# PIF and Bridge. However it is possible to override this by using
-# {VIF,PIF,Network}.other-config:mtu.
-#
-# type parameter is a string describing the object that the oc parameter
-# is from. e.g. "PIF", "Network" 
-def mtu_setting(nw, type, oc):
-    mtu = None
-
-    nwrec = db().get_network_record(nw)
-    if nwrec.has_key('MTU'):
-        mtu = nwrec['MTU']
-    else:
-        mtu = "1500"
-        
-    if oc.has_key('mtu'):
-        log("Override Network.MTU setting on bridge %s from %s.MTU is %s" % \
-            (nwrec['bridge'], type, mtu))
-        mtu = oc['mtu']
-
-    if mtu is not None:
-        try:
-            int(mtu)      # Check that the value is an integer
-            return mtu
-        except ValueError, x:
-            log("Invalid value for mtu = %s" % mtu)
-
-    return None
-
-#
-# IP Network Devices -- network devices with IP configuration
-#
-def pif_ipdev_name(pif):
-    """Return the ipdev name associated with pif"""
-    pifrec = db().get_pif_record(pif)
-    nwrec = db().get_network_record(pifrec['network'])
-
-    if nwrec['bridge']:
-        # TODO: sanity check that nwrec['bridgeless'] != 'true'
-        return nwrec['bridge']
-    else:
-        # TODO: sanity check that nwrec['bridgeless'] == 'true'
-        return pif_netdev_name(pif)
-
-#
-# Bare Network Devices -- network devices without IP configuration
-#
-
-def netdev_exists(netdev):
-    return os.path.exists(root_prefix() + "/sys/class/net/" + netdev)
-
-def pif_netdev_name(pif):
-    """Get the netdev name for a PIF."""
-
-    pifrec = db().get_pif_record(pif)
-
-    if pif_is_vlan(pif):
-        return "%(device)s.%(VLAN)s" % pifrec
-    else:
-        return pifrec['device']
-
-#
-# Bridges
-#
-
-def pif_is_bridged(pif):
-    pifrec = db().get_pif_record(pif)
-    nwrec = db().get_network_record(pifrec['network'])
-
-    if nwrec['bridge']:
-        # TODO: sanity check that nwrec['bridgeless'] != 'true'
-        return True
-    else:
-        # TODO: sanity check that nwrec['bridgeless'] == 'true'
-        return False
-
-def pif_bridge_name(pif):
-    """Return the bridge name of a pif.
-
-    PIF must be a bridged PIF."""
-    pifrec = db().get_pif_record(pif)
-
-    nwrec = db().get_network_record(pifrec['network'])
-
-    if nwrec['bridge']:
-        return nwrec['bridge']
-    else:
-        raise Error("PIF %(uuid)s does not have a bridge name" % pifrec)
-
-#
-# Bonded PIFs
-#
-def pif_is_bond(pif):
-    pifrec = db().get_pif_record(pif)
-
-    return len(pifrec['bond_master_of']) > 0
-
-def pif_get_bond_masters(pif):
-    """Returns a list of PIFs which are bond masters of this PIF"""
-
-    pifrec = db().get_pif_record(pif)
-
-    bso = pifrec['bond_slave_of']
-
-    # bond-slave-of is currently a single reference but in principle a
-    # PIF could be a member of several bonds which are not
-    # concurrently attached. Be robust to this possibility.
-    if not bso or bso == "OpaqueRef:NULL":
-        bso = []
-    elif not type(bso) == list:
-        bso = [bso]
-
-    bondrecs = [db().get_bond_record(bond) for bond in bso]
-    bondrecs = [rec for rec in bondrecs if rec]
-
-    return [bond['master'] for bond in bondrecs]
-
-def pif_get_bond_slaves(pif):
-    """Returns a list of PIFs which make up the given bonded pif."""
-
-    pifrec = db().get_pif_record(pif)
-
-    bmo = pifrec['bond_master_of']
-    if len(bmo) > 1:
-        raise Error("Bond-master-of contains too many elements")
-
-    if len(bmo) == 0:
-        return []
-
-    bondrec = db().get_bond_record(bmo[0])
-    if not bondrec:
-        raise Error("No bond record for bond master PIF")
-
-    return bondrec['slaves']
-
-#
-# VLAN PIFs
-#
-
-def pif_is_vlan(pif):
-    return db().get_pif_record(pif)['VLAN'] != '-1'
-
-def pif_get_vlan_slave(pif):
-    """Find the PIF which is the VLAN slave of pif.
-
-Returns the 'physical' PIF underneath the a VLAN PIF @pif."""
-
-    pifrec = db().get_pif_record(pif)
-
-    vlan = pifrec['VLAN_master_of']
-    if not vlan or vlan == "OpaqueRef:NULL":
-        raise Error("PIF is not a VLAN master")
-
-    vlanrec = db().get_vlan_record(vlan)
-    if not vlanrec:
-        raise Error("No VLAN record found for PIF")
-
-    return vlanrec['tagged_PIF']
-
-def pif_get_vlan_masters(pif):
-    """Returns a list of PIFs which are VLANs on top of the given pif."""
-
-    pifrec = db().get_pif_record(pif)
-    vlans = [db().get_vlan_record(v) for v in pifrec['VLAN_slave_of']]
-    return [v['untagged_PIF'] for v in vlans if v and db().pif_exists(v['untagged_PIF'])]
-
-#
-# Tunnel PIFs
-#
-def pif_is_tunnel(pif):
-    return len(db().get_pif_record(pif)['tunnel_access_PIF_of']) > 0
-
-#
-# Datapath base class
-#
-
-class Datapath(object):
-    """Object encapsulating the actions necessary to (de)configure the
-       datapath for a given PIF. Does not include configuration of the
-       IP address on the ipdev.
-    """
-    
-    def __init__(self, pif):
-        self._pif = pif
-
-    @classmethod
-    def rewrite(cls):
-        """Class method called when write action is called. Can be used
-           to update any backend specific configuration."""
-        pass
-
-    def configure_ipdev(self, cfg):
-        """Write ifcfg TYPE field for an IPdev, plus any type specific
-           fields to cfg
-        """
-        raise NotImplementedError        
-
-    def preconfigure(self, parent):
-        """Prepare datapath configuration for PIF, but do not actually
-           apply any changes.
-
-           Any configuration files should be attached to parent.
-        """
-        raise NotImplementedError
-    
-    def bring_down_existing(self):
-        """Tear down any existing network device configuration which
-           needs to be undone in order to bring this PIF up.
-        """
-        raise NotImplementedError
-
-    def configure(self):
-        """Apply the configuration prepared in the preconfigure stage.
-
-           Should assume any configuration files changed attached in
-           the preconfigure stage are applied and bring up the
-           necesary devices to provide the datapath for the
-           PIF.
-
-           Should not bring up the IPdev.
-        """
-        raise NotImplementedError
-    
-    def post(self):
-        """Called after the IPdev has been brought up.
-
-           Should do any final setup, including reinstating any
-           devices which were taken down in the bring_down_existing
-           hook.
-        """
-        raise NotImplementedError
-
-    def bring_down(self):
-        """Tear down and deconfigure the datapath. Should assume the
-           IPdev has already been brought down.
-        """
-        raise NotImplementedError
-        
-def DatapathFactory():
-    # XXX Need a datapath object for bridgeless PIFs
-
-    try:
-        network_conf = open(root_prefix() + "/etc/xensource/network.conf", 'r')
-        network_backend = network_conf.readline().strip()
-        network_conf.close()                
-    except Exception, e:
-        raise Error("failed to determine network backend:" + e)
-    
-    if network_backend == "bridge":
-        from InterfaceReconfigureBridge import DatapathBridge
-        return DatapathBridge
-    elif network_backend in ["openvswitch", "vswitch"]:
-        from InterfaceReconfigureVswitch import DatapathVswitch
-        return DatapathVswitch
-    else:
-        raise Error("unknown network backend %s" % network_backend)
