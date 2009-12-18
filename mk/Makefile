@@ -34,7 +34,7 @@ $(OUTPUT_API_PKG): $(OUTPUT_API_DEVEL_PKG)
 	mkdir -p $(MY_MAIN_PACKAGES)
 	(cd $(REPO) && sh autogen.sh && ./configure)
 	$(MAKE) -C $(REPO) bins
-	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) bininstall
+	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) REPO=$(REPO) bininstall
 	tar -C $(STAGING) -jcf $@ .
 
 $(OUTPUT_XAPI_DEVEL_PKG):
