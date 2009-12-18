@@ -31,6 +31,7 @@ install:
 	$(IPROG) init.d-xapissl $(DIST)/staging/etc/rc.d/init.d/xapissl
 	$(IPROG) init.d-xapi-domains $(DIST)/staging/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-squeezed $(DIST)/staging/etc/rc.d/init.d/squeezed
+	$(IPROG) init.d-management-interface $(DIST)/staging/etc/rc.d/init.d/management-interface
 	$(IDATA) squeezed-logrotate $(DIST)/staging/etc/logrotate.d/squeezed
 	$(IPROG) init.d-v6d $(DIST)/staging/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DIST)/staging/etc/logrotate.d/v6d
