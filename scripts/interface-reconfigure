@@ -14,29 +14,28 @@
 #
 """Usage:
 
-    %(command-name)s --session <SESSION-REF> --pif <PIF-REF> [up|down|rewrite]
-    %(command-name)s --force <BRIDGE> [up|down|rewrite <CONFIG>]
+    %(command-name)s <PIF> up
+    %(command-name)s <PIF> down
+    %(command-name)s [<PIF>] rewrite
+    %(command-name)s --force <BRIDGE> up
+    %(command-name)s --force <BRIDGE> down
+    %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> <CONFIG>
     %(command-name)s --force all down
 
-    where,
-          <CONFIG> = --device=<INTERFACE> --mode=dhcp
-          <CONFIG> = --device=<INTERFACE> --mode=static --ip=<IPADDR> --netmask=<NM> [--gateway=<GW>]
+    where <PIF> is one of:
+       --session <SESSION-REF> --pif <PIF-REF>
+       --pif-uuid <PIF-UUID>
+    and <CONFIG> is one of:
+       --mode=dhcp
+       --mode=static --ip=<IPADDR> --netmask=<NM> [--gateway=<GW>]
 
   Options:
     --session		A session reference to use to access the xapi DB
-    --pif               A PIF reference.
-    --force-interface	An interface name. Mutually exclusive with --session/--pif.
-
-  Either both --session and --pif  or just --pif-uuid.
-  
-  <ACTION> is either "up" or "down" or "rewrite"
+    --pif               A PIF reference within the session.
+    --pif-uuid          The UUID of a PIF.
+    --force             An interface name.
 """
 
-#
-# Undocumented parameters for test & dev:
-#
-#  --pif-uuid	A PIF UUID, use instead of --session/--pif.
-#
 # Notes:
 # 1. Every pif belongs to exactly one network
 # 2. Every network has zero or one pifs
@@ -56,6 +55,7 @@ db = None
 management_pif = None
 
 sysfs_bonding_masters = "/sys/class/net/bonding_masters"
+dbcache_file = "/var/xapi/network.dbcache"
 
 class Usage(Exception):
     def __init__(self, msg):
@@ -713,6 +713,25 @@ class DatabaseCache(object):
         return map(lambda (ref,rec): ref,
                    filter(lambda (ref,rec): rec['device'] == device,
                           self.__pifs.items()))
+
+    def get_pif_by_bridge(self, bridge):
+        networks = map(lambda (ref,rec): ref,
+                       filter(lambda (ref,rec): rec['bridge'] == bridge,
+                              self.__networks.items()))
+        if len(networks) == 0:
+            raise Error("No matching network \"%s\"" % bridge)
+
+        answer = None
+        for network in networks:
+            nwrec = self.get_network_record(network)
+            for pif in nwrec['PIFs']:
+                pifrec = self.get_pif_record(pif)
+                if answer:
+                    raise Error("Multiple PIFs on host for network %s" % (bridge))
+                answer = pif
+        if not answer:
+            raise Error("No PIF on host for network %s" % (bridge))
+        return answer
 
     def get_pif_record(self, pif):
         if self.__pifs.has_key(pif):
@@ -1442,204 +1461,8 @@ def action_rewrite(pif):
         f.revert()
         raise
 
-def force_pif_up(pifdev):
-    if os.path.exists(os.path.join(ifcfg, "ifcfg-" + pifdev)):
-        if not interface_up(pifdev):
-            log("Bring interface %s up" % pifdev)
-            ifup(pifdev)
-        else:
-            log("Interface %s is already up, leaving" % pifdev)
-    else:
-        log("No configuration found for PIF %s, attempting to continue" % pifdev)
-
-
-def force_pif_down(pifdev):
-    if os.path.exists(os.path.join(ifcfg, "ifcfg-" + pifdev)):
-        if interface_up(pifdev):
-            log("Bring interface %s down" % pifdev)
-            ifdown(pifdev)
-        else:
-            log("Interface %s is already down, leaving" % pifdev)
-    else:
-        log("No configuration found for PIF %s, attempting to continue" % pifdev)
-
-def action_force_up(bridge):
-    ifcfg_bridge = os.path.join(ifcfg, "ifcfg-" + bridge)
-    if not os.path.exists(ifcfg_bridge):
-        raise Error("No configuration found for bridge %s" % bridge)
-
-    f = open(ifcfg_bridge)
-    pifdevs = filter(lambda x: x.startswith("PIFDEV="), f.readlines())
-    f.close()
-
-    if len(pifdevs) == 0:
-        log("PIF device is not configured for %s, attempting to continue" % bridge)
-    else:
-        if len(pifdevs) > 1:
-            log("Device %s has %d PIF devices configured. Selecting the first" % (bridge, len(pifdevs)))
-        pifdev = pifdevs[0].strip()[len("PIFDEV="):]
-
-        split = pifdev.split(".",1)
-        if len(split) == 2:
-            vlanmaster = split[0]
-            vlantag = split[1]
-        else:
-            vlanmaster = None
-
-        if pifdev.startswith("bond"):
-            # Drop the (optional) VLAN suffix
-            bond = pifdev.split(".")[0]
-            __create_bond_device(bond)
-
-        if vlanmaster:
-            force_pif_up(vlanmaster)
-            
-        force_pif_up(pifdev)
-        
-    if not os.path.exists(os.path.join(ifcfg, "ifcfg-" + bridge)):
-        log("No configuration found for bridge %s, attempting to continue" % bridge)
-    elif not interface_up(bridge):
-        log("Bring bridge %s up" % bridge)
-        ifup(bridge)
-    else:
-        log("Bridge %s is already up, leaving" % bridge)
-
-
-def action_force_down(bridge):
-    if bridge == 'all':
-        action_force_down_all_devices()
-    
-    ifcfg_bridge = os.path.join(ifcfg, "ifcfg-" + bridge)
-    if not os.path.exists(ifcfg_bridge):
-        raise Error("No configuration found for bridge %s" % bridge)
-
-    if interface_up(bridge):
-        log("Bring bridge %s down" % bridge)
-        ifdown(bridge)
-    else:
-        log("Bridge %s is already down, leaving" % bridge)
-
-
-    f = open(ifcfg_bridge)
-    pifdevs = filter(lambda x: x.startswith("PIFDEV="), f.readlines())
-    f.close()
-
-    if len(pifdevs) == 0:
-        log("PIF device is not configured for %s, attempting to continue" % bridge)
-    else:
-        if len(pifdevs) > 1:
-            log("Device %s has %d PIF devices configured. Selecting the first" % (bridge, len(pifdevs)))
-        pifdev = pifdevs[0].strip()[len("PIFDEV="):]
-
-        force_pif_down(pifdev)
-
-        split = pifdev.split(".",1)
-        if len(split) == 2:
-            vlanmaster = split[0]
-            vlantag = split[1]
-        else:
-            vlanmaster = None
-
-        if vlanmaster:
-            force_pif_down(vlanmaster)
-
-        if pifdev.startswith("bond"):
-            # Drop the (optional) VLAN suffix
-            bond = pifdev.split(".")[0]
-            __destroy_bond_device(bond)
-        
-
-# This is useful for reconfiguring the mgmt interface after having lost connectivity to the pool master
 def action_force_rewrite(bridge, config):
-    # Notes:
-    # 1. that this assumes the interface is bridged
-    # 2. If --gateway is given it will make that the default gateway for the host
-
-    # extract the configuration
-    try:
-        mode = config['mode']
-        interface = config['device']
-    except:
-        raise Usage("Please supply --mode and --device")
-    if mode == 'static':
-        try:
-            netmask = config['netmask']
-            ip = config['ip']
-        except:
-            raise Usage("Please supply --netmask and --ip")
-        try:
-            gateway = config['gateway']
-        except:
-            gateway = None
-    elif mode != 'dhcp':
-        raise Usage("--mode must be either static or dhcp")
-
-    if config.has_key('vlan'):
-        is_vlan = True
-        vlan_slave, vlan_vid = config['vlan'].split('.')
-    else:
-        is_vlan = False
-
-    log("Configuring %s using %s configuration" % (bridge, mode))
-    # Physical Device configuration
-    f = __open_ifcfg(interface)
-    if is_vlan:
-        f.write("VLAN=yes\n")
-        try:
-            slv_mac = open("/sys/class/net/%s/address" % vlan_slave).read().strip()
-        except:
-            raise Error("cannot find device %s" % vlan_slave)
-        slv =  __open_ifcfg(vlan_slave)
-        slv.write("TYPE=Ethernet\n")
-        slv.write("HWADDR=%s\n" % slv_mac)
-        slv.close()
-        f.attach_child(slv)
-    else:
-        try:
-            itf_mac = open("/sys/class/net/%s/address" % interface).read().strip()
-        except:
-            raise Error("cannot find device %s" % interface)
-        f.write("TYPE=Ethernet\n")
-        f.write("HWADDR=%s\n" % itf_mac)
-    f.write("BRIDGE=%s\n" % bridge)
-    f.close()
-
-
-    br = __open_ifcfg(bridge)
-    f.attach_child(br)
-
-    # Networking configuration
-    br.write("TYPE=Bridge\n")
-    br.write("DELAY=0\n")
-    br.write("STP=off\n")
-    br.write("PIFDEV=%s\n" % interface)
-
-    if mode == "dhcp":
-        br.write("BOOTPROTO=dhcp\n")
-        br.write("PERSISTENT_DHCLIENT=yes\n")
-    elif mode == "static":
-        br.write("BOOTPROTO=none\n") 
-        br.write("NETMASK=%s\n" % netmask)
-        br.write("IPADDR=%s\n" % ip)
-        if gateway:
-            br.write("GATEWAY=%s\n" % gateway)
-            fnetwork = ConfigurationFile("/etc/sysconfig/network")
-            for line in fnetwork.readlines():
-                if line.lstrip().startswith('GATEWAY') :
-                    continue
-                fnetwork.write(line)
-            fnetwork.write('GATEWAYDEV=%s\n' % bridge)
-            fnetwork.close()
-            br.attach_child(fnetwork)
-    br.close()
-
-    try:
-        f.apply()
-        f.commit()
-    except Error, e:
-        log("failed to apply changes: %s" % e.msg)
-        f.revert()
-        raise
+    raise Error("Force rewrite is not implemented yet.")
 
 # This is an almighty big hammer which uses heuristics to determine
 # which interfaces are up and how they're configured and brings
@@ -1713,8 +1536,7 @@ def action_force_down_all_devices():
     for phys in physifs:
         run("/sbin/ip", "route", "flush", "dev", phys, "table", "all")
         run("/sbin/ip", "addr", "flush", "dev", phys)
-        run("/sbin/ip", "link", "set", phys, "down")
-        
+        run("/sbin/ip", "link", "set", phys, "down")        
 
 def main(argv=None):
     global management_pif
@@ -1771,61 +1593,81 @@ def main(argv=None):
             raise Usage("Too many arguments")
 
         action = args[0]
+
+        if not action in ["up", "down", "rewrite", "rewrite-configuration"]:
+            raise Usage("Unknown action \"%s\"" % action)
+
         # backwards compatibility
         if action == "rewrite-configuration": action = "rewrite"
-        
+
         if ( session or pif ) and pif_uuid:
             raise Usage("--session/--pif and --pif-uuid are mutually exclusive.")
         if ( session and not pif ) or ( not session and pif ):
             raise Usage("--session and --pif must be used together.")
         if force_interface and ( session or pif or pif_uuid ):
             raise Usage("--force is mutually exclusive with --session, --pif and --pif-uuid")
+        if force_interface == "all" and action != "down":
+            raise Usage("\"--force all\" only valid for down action")
         if len(force_rewrite_config) and not (force_interface and action == "rewrite"):
             raise Usage("\"--force rewrite\" needed for --device, --mode, --ip, --netmask, and --gateway")
 
+        global db
         if force_interface:
             log("Force interface %s %s" % (force_interface, action))
-            
-            if action == "up":
-                action_force_up(force_interface)
-            elif action == "down":
-                action_force_down(force_interface)
-            elif action == "rewrite":
+
+            if action == "rewrite":
                 action_force_rewrite(force_interface, force_rewrite_config)
+            elif action in ["up", "down"]:
+                if action == "down" and force_interface == "all":
+                    action_force_down_all_devices()
+
+                db = DatabaseCache(cache_file=dbcache_file)
+                pif = db.get_pif_by_bridge(force_interface)
+                management_pif = db.get_management_pif()
+
+                if action == "up":
+                    action_up(pif)
+                elif action == "down":
+                    action_down(pif)
             else:
-                raise Usage("Unknown action %s"  % action)
+                raise Error("Unknown action %s"  % action)
         else:
-            global db
-            db = DatabaseCache(session)
+            db = DatabaseCache(session_ref=session)
 
             if pif_uuid:
                 pif = db.get_pif_by_uuid(pif_uuid)
-        
-            if not pif:
-                raise Usage("No PIF given")
 
-            if force_management:
-                # pif is going to be the management pif 
-                management_pif = pif
+            if action == "rewrite" and not pif:
+                pass
             else:
-                # pif is not going to be the management pif.
-                # Search DB cache for pif on same host with management=true
-                pifrec = db.get_pif_record(pif)
-                management_pif = db.get_management_pif()
+                if not pif:
+                    raise Usage("No PIF given")
 
-            log_pif_action(action, pif)
+                if force_management:
+                    # pif is going to be the management pif
+                    management_pif = pif
+                else:
+                    # pif is not going to be the management pif.
+                    # Search DB cache for pif on same host with management=true
+                    pifrec = db.get_pif_record(pif)
+                    management_pif = db.get_management_pif()
 
-            if not check_allowed(pif):
-                return 0
+                log_pif_action(action, pif)
 
-            if action == "up":
-                action_up(pif)
-            elif action == "down":
-                action_down(pif)
-            elif action == "rewrite":
-                action_rewrite(pif)
-            else:
-                raise Usage("Unknown action %s"  % action)
+                if not check_allowed(pif):
+                    return 0
+
+                if action == "up":
+                    action_up(pif)
+                elif action == "down":
+                    action_down(pif)
+                elif action == "rewrite":
+                    action_rewrite(pif)
+                else:
+                    raise Error("Unknown action %s"  % action)
+
+            # Save cache.
+            db.save(dbcache_file)
         
     except Usage, err:
         print >>sys.stderr, err.msg
