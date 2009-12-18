@@ -123,7 +123,6 @@ class ConfigurationFile(object):
         self.__path    = os.path.join(dirname, basename)
         self.__oldpath = os.path.join(dirname, "." + basename + ".xapi-old")
         self.__newpath = os.path.join(dirname, "." + basename + ".xapi-new")
-        self.__unlink = False
 
         self.__f = open(self.__newpath, "w")
 
@@ -143,13 +142,6 @@ class ConfigurationFile(object):
         if self.__state != self.__STATE['OPEN']:
             raise Error("Attempt to write to file in state %s" % self.__state)
         self.__f.write(args)
-
-    def unlink(self):
-        if self.__state != self.__STATE['OPEN']:
-            raise Error("Attempt to unlink file in state %s" % self.__state)
-        self.__unlink = True
-        self.__f.close()
-        self.__state = self.__STATE['NOT-APPLIED']
 
     def close(self):
         if self.__state != self.__STATE['OPEN']:
@@ -184,10 +176,7 @@ class ConfigurationFile(object):
 
         # Apply new configuration.
         assert(os.path.exists(self.__newpath))
-        if not self.__unlink:
-            os.link(self.__newpath, self.__path)
-        else:
-            pass # implicit unlink of original file
+        os.link(self.__newpath, self.__path)
 
         # Remove temporary file.
         os.unlink(self.__newpath)
@@ -1232,14 +1221,6 @@ def configure_pif(pif):
 
     return f
 
-def unconfigure_pif(pif):
-    """Clear up the files created by configure_pif"""
-    f = open_pif_ifcfg(pif)
-    log("Unlinking stale file %s" % f.path())
-    f.unlink()
-    return f
-
-
 def bring_down_bridge(bridge, destroy=False):
     """Bring down the bridge associated with a PIF."""
     log("Bring bridge %s down" % bridge)
@@ -1394,14 +1375,6 @@ def action_up(pif):
         bring_down_interface(master, destroy=True)
         if master_bridge:
             bring_down_bridge(master_bridge, destroy=True)
-        # unconfigure master
-        removed = unconfigure_pif(master)
-        f.attach_child(removed)
-        if master_bridge:
-            removed = open_network_ifcfg(master)
-            log("Unlinking stale file %s" % removed.path())
-            removed.unlink()
-            f.attach_child(removed)
 
     # No masters left - now its safe to reconfigure the slave.
     bring_down_interface(pif)
@@ -1430,25 +1403,6 @@ def action_up(pif):
 
 def action_down(pif):
     bring_down_interface(pif, destroy=True)
-
-    # Clear up the pif's config file
-    f = unconfigure_pif(pif)
-
-    # If there's a bridge associated, clear up its config file
-    bridge = bridge_name(pif)
-    if bridge:
-        br = open_network_ifcfg(pif)
-        log("Unlinking stale file %s" % br.path())
-        br.unlink()
-        f.attach_child(br)
-
-    try:
-        f.apply()
-        f.commit()
-    except Error, e:
-        log("action_down failed to apply changes: %s" % e.msg)
-        f.revert()
-        raise
 
 def action_rewrite(pif):
 
