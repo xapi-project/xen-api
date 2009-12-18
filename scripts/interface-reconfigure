@@ -506,13 +506,13 @@ def interface_name(pif):
 
 def log_pif_action(action, pif):
     pifrec = db.get_pif_record(pif)
-    pifrec['action'] = action
-    pifrec['interface-name'] = interface_name(pif)
-    if action == "rewrite":
-        pifrec['message'] = "Rewrite PIF %(uuid)s configuration" % pifrec
-    else:
-        pifrec['message'] = "Bring %(action)s PIF %(uuid)s" % pifrec
-    log("%(message)s: %(interface-name)s configured as %(ip_configuration_mode)s" % pifrec)
+    rec = {}
+    rec['uuid'] = pifrec['uuid']
+    rec['ip_configuration_mode'] = pifrec['ip_configuration_mode']
+    rec['action'] = action
+    rec['pif_netdev_name'] = interface_name(pif)
+    rec['message'] = "Bring %(action)s PIF %(uuid)s" % rec
+    log("%(message)s: %(pif_netdev_name)s configured as %(ip_configuration_mode)s" % rec)
 
 def load_bonding_driver():
     log("Loading bonding driver")
