@@ -56,6 +56,27 @@ management_pif = None
 sysfs_bonding_masters = "/sys/class/net/bonding_masters"
 dbcache_file = "/var/xapi/network.dbcache"
 
+#
+# Logging.
+#
+
+def log(s):
+    syslog.syslog(s)
+
+def log_pif_action(action, pif):
+    pifrec = db.get_pif_record(pif)
+    rec = {}
+    rec['uuid'] = pifrec['uuid']
+    rec['ip_configuration_mode'] = pifrec['ip_configuration_mode']
+    rec['action'] = action
+    rec['pif_netdev_name'] = interface_name(pif)
+    rec['message'] = "Bring %(action)s PIF %(uuid)s" % rec
+    log("%(message)s: %(pif_netdev_name)s configured as %(ip_configuration_mode)s" % rec)
+
+#
+# Exceptions.
+#
+
 class Usage(Exception):
     def __init__(self, msg):
         Exception.__init__(self)
@@ -203,9 +224,6 @@ class ConfigurationFile(object):
             os.unlink(self.__newpath)
 
         self.__state = self.__STATE['COMMITTED']
-
-def log(s):
-    syslog.syslog(s)
 
 def check_allowed(pif):
     pifrec = db.get_pif_record(pif)
@@ -789,16 +807,6 @@ def interface_name(pif):
     else:
         return "%(device)s.%(VLAN)s" % pifrec
 
-def log_pif_action(action, pif):
-    pifrec = db.get_pif_record(pif)
-    rec = {}
-    rec['uuid'] = pifrec['uuid']
-    rec['ip_configuration_mode'] = pifrec['ip_configuration_mode']
-    rec['action'] = action
-    rec['pif_netdev_name'] = interface_name(pif)
-    rec['message'] = "Bring %(action)s PIF %(uuid)s" % rec
-    log("%(message)s: %(pif_netdev_name)s configured as %(ip_configuration_mode)s" % rec)
-
 def load_bonding_driver():
     log("Loading bonding driver")
     os.spawnl(os.P_WAIT, "/sbin/modprobe", "/sbin/modprobe", "bonding")
@@ -941,15 +949,23 @@ def configure_network(pif, f):
     if oc and oc.has_key('domain'):
         f.write("DOMAIN='%s'\n" % oc['domain'].replace(',', ' '))
 
-    # We only allow one ifcfg-xenbr* to have PEERDNS=yes and there can be only one GATEWAYDEV in /etc/sysconfig/network.
-    # The peerdns pif will be the one with pif::other-config:peerdns=true, or the mgmt pif if none have this set.
-    # The gateway pif will be the one with pif::other-config:defaultroute=true, or the mgmt pif if none have this set.
-
-    # Work out which pif on this host should be the one with PEERDNS=yes and which should be the GATEWAYDEV
+    # We only allow one ifcfg-* to have PEERDNS=yes and there can be
+    # only one GATEWAYDEV in /etc/sysconfig/network.
     #
-    # Note: we prune out the bond master pif (if it exists).
-    # This is because when we are called to bring up an interface with a bond master, it is implicit that
-    # we should bring down that master.
+    # The peerdns pif will be the one with
+    # pif::other-config:peerdns=true, or the mgmt pif if none have
+    # this set.
+    #
+    # The gateway pif will be the one with
+    # pif::other-config:defaultroute=true, or the mgmt pif if none
+    # have this set.
+
+    # Work out which pif on this host should be the one with
+    # PEERDNS=yes and which should be the GATEWAYDEV
+    #
+    # Note: we prune out the bond master pif (if it exists). This is
+    # because when we are called to bring up an interface with a bond
+    # master, it is implicit that we should bring down that master.
     pifs_on_host = [ __pif for __pif in db.get_all_pifs() if
                      not  __pif in get_bond_masters_of_pif(pif) ]
     other_pifs_on_host = [ __pif for __pif in pifs_on_host if __pif != pif ]
