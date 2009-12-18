@@ -69,6 +69,8 @@ install:
 	mkdir -p $(DIST)/staging/opt/xensource/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(LIBEXEC)
 	$(IPROG) InterfaceReconfigure.py $(LIBEXEC)
+	$(IPROG) InterfaceReconfigureBridge.py $(LIBEXEC)
+	$(IPROG) InterfaceReconfigureVswitch.py $(LIBEXEC)
 	$(IPROG) rewrite-management-interface $(LIBEXEC)
 	$(IPROG) interface-visualise $(LIBEXEC)
 	$(IPROG) logrotate.sh $(LIBEXEC)
