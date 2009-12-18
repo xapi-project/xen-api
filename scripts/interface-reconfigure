@@ -807,10 +807,10 @@ def interface_name(pif):
 
     pifrec = db.get_pif_record(pif)
 
-    if pifrec['VLAN'] == '-1':
-        return pifrec['device']
-    else:
+    if pif_is_vlan(pif):
         return "%(device)s.%(VLAN)s" % pifrec
+    else:
+        return pifrec['device']
 
 def load_bonding_driver():
     log("Loading bonding driver")
@@ -1106,7 +1106,7 @@ def get_bond_slaves_of_pif(pif):
     try:
         attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
         for slave in attached_slaves:
-            pifs = [p for p in db.get_pifs_by_device(slave) if db.get_pif_record(p)['VLAN'] == '-1']
+            pifs = [p for p in db.get_pifs_by_device(slave) if not pif_is_vlan(p)]
             slave_pif = pifs[0]
             slave_pifs.remove(slave_pif)
             slave_pifs.insert(0, slave_pif)
@@ -1160,6 +1160,9 @@ def configure_bond_interface(pif):
         f.write("%s=%s " % (name,val))
     f.write('"\n')
     return f
+
+def pif_is_vlan(pif):
+    return db.get_pif_record(pif)['VLAN'] != '-1'
 
 def get_vlan_slave_of_pif(pif):
     """Find the PIF which is the VLAN slave of pif.
@@ -1216,7 +1219,7 @@ def configure_pif(pif):
 
     pifrec = db.get_pif_record(pif)
 
-    if pifrec['VLAN'] != '-1':
+    if pif_is_vlan(pif):
         f = configure_vlan_interface(pif)
     elif len(pifrec['bond_master_of']) != 0:
         f = configure_bond_interface(pif)
@@ -1257,17 +1260,15 @@ def bring_down_interface(pif, destroy=False):
     which are bond slaves of this one. This is because they will be
     required when the bond is brought up."""
 
-    rec = db.get_pif_record(pif)
-    interface = interface_name(pif)
-    bridge = bridge_name(pif)
-
-    if rec['VLAN'] != '-1':
+    if pif_is_vlan(pif):
+        interface = interface_name(pif)
         log("bring_down_interface: %s is a VLAN" % interface)
         ifdown(interface)
 
         if destroy:
             log("Destroy vlan device %s" % interface)
             vconfig_rem(interface)
+            bridge = bridge_name(pif)
             if bridge:
                 bring_down_bridge(bridge, destroy=True)
         else:
@@ -1288,19 +1289,17 @@ def bring_down_interface(pif, destroy=False):
         pif = slave
     else:
         vlan_masters = get_vlan_masters_of_pif(pif)
-        log("vlan masters of %s - %s" % (rec['device'], [interface_name(m) for m in vlan_masters]))
+        log("vlan masters of %s - %s" % (db.get_pif_record(pif)['device'], [interface_name(m) for m in vlan_masters]))
         if len([m for m in vlan_masters if db.get_pif_record(m)['currently_attached']]) > 0:
-            log("Leaving %s up due to currently attached VLAN masters" % interface)
+            log("Leaving %s up due to currently attached VLAN masters" % interface_name(pif))
             return
 
     # pif is now either a bond or a physical device which needs to be brought down
-    rec = db.get_pif_record(pif)
-    interface = interface_name(pif)
 
     # Need to bring down bond slaves first since the bond device
     # must be up to enslave/unenslave.
     bond_slaves = get_bond_slaves_of_pif(pif)
-    log("bond slaves of %s - %s" % (rec['device'], [interface_name(s) for s in bond_slaves]))
+    log("bond slaves of %s - %s" % (db.get_pif_record(pif)['device'], [interface_name(s) for s in bond_slaves]))
     for slave in bond_slaves:
         slave_interface = interface_name(slave)
         slave_bridge = bridge_name(slave)
@@ -1315,11 +1314,13 @@ def bring_down_interface(pif, destroy=False):
         if slave_bridge:
             bring_down_bridge(slave_bridge, destroy=True)
 
+    interface = interface_name(pif)
     log("Bring interface %s down" % interface)
     ifdown(interface)
 
     if destroy:
         destroy_bond_device(pif)
+        bridge = bridge_name(pif)
         if bridge:
             bring_down_bridge(bridge, destroy=True)
 
@@ -1337,11 +1338,9 @@ def bring_up_interface(pif):
     Also bring up the interfaces listed in additional.
     """
 
-    rec = db.get_pif_record(pif)
-
     # VLAN on bond seems to need bond brought up explicitly, but VLAN
     # on normal device does not. Might as well always bring it up.
-    if rec['VLAN'] != '-1':
+    if pif_is_vlan(pif):
         slave = get_vlan_slave_of_pif(pif)
         if not interface_is_up(slave):
             bring_up_interface(slave)
