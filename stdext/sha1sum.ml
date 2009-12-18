@@ -38,11 +38,7 @@ let sha1sum f =
     finally
       (fun () ->
 	 let args = [] in
-	 let pid = Forkhelpers.safe_close_and_exec
-	  [ Forkhelpers.Dup2(result_in, Unix.stdout);
-	    Forkhelpers.Dup2(input_out, Unix.stdin) ]
-	  [ Unix.stdout; Unix.stdin; ] (* close all but these *)
-	  sha1sum args in
+	 let pid = Forkhelpers.safe_close_and_exec (Some input_out) (Some result_in) None [] sha1sum args in
 
 	 close result_in;
 	 close input_out;
@@ -61,12 +57,7 @@ let sha1sum f =
 	      close result_out;
 	      result)
 	   (fun () ->
-	      match Unix.waitpid [] pid with
-	      | _, Unix.WEXITED 0 -> ()
-	      | _, _ -> 
-		  let msg = "sha1sum failed (non-zero error code or signal?)" in
-		  Printf.eprintf "%s" msg;
-		  failwith msg
+	     Forkhelpers.waitpid_fail_if_bad_exit pid
 	   )
       ) (fun () -> List.iter close !to_close)
 

@@ -31,13 +31,13 @@ stunnel.cma: $(foreach obj,$(OBJS),$(obj).cmo)
 	$(OCAMLC) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 %.cmo: %.ml
-	$(OCAMLC) -c -I ../stdext -I ../log -o $@ $<
+	$(OCAMLC) -c -I ../stdext -I ../uuid -I ../log -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) -c -o $@ $<
+	$(OCAMLC) -c -I ../stdext -I ../uuid -o $@ $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -I ../stdext -I ../log -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -I ../stdext -I ../uuid -I ../log -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -58,6 +58,6 @@ uninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "stunnel" "package" "$(OBJS)" "." "stdext,log" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

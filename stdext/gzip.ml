@@ -44,20 +44,18 @@ let go (mode: zcat_mode) (input: input_type) fd f =
       (fun () ->
 	 let args = if mode = Compress then [] else ["--decompress"] @ [ "--stdout"; "--force" ] in
 
-	 let dups, close_now, close_later = match input with
+	 let stdin, stdout, close_now, close_later = match input with
 	   | Active -> 
-	       [ Forkhelpers.Dup2(fd, Unix.stdout);        (* supplied fd is written to *)
-		 Forkhelpers.Dup2(zcat_out, Unix.stdin) ], (* input comes from the pipe+fn *)
+	       Some zcat_out,                              (* input comes from the pipe+fn *)
+	       Some fd,                                    (* supplied fd is written to *)
 	       zcat_out,                                   (* we close this now *)
 	       zcat_in                                     (* close this before waitpid *)
 	   | Passive -> 
-	       [ Forkhelpers.Dup2(fd, Unix.stdin);         (* supplied fd is read from *)
-		 Forkhelpers.Dup2(zcat_in, Unix.stdout) ], (* output goes into the pipe+fn *) 
+	       Some fd,                                    (* supplied fd is read from *)
+	       Some zcat_in,                               (* output goes into the pipe+fn *) 
 	       zcat_in,                                    (* we close this now *)
 	       zcat_out in                                 (* close this before waitpid *)
-	 let pid = Forkhelpers.safe_close_and_exec dups
-	   [ Unix.stdout; Unix.stdin; ] (* close all but these *)
-	   gzip args in
+	 let pid = Forkhelpers.safe_close_and_exec stdin stdout None [] gzip args in
 	 close close_now;
 	 finally
 	   (fun () -> f close_later)
@@ -69,7 +67,7 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 		failwith msg
 	        in
 	      close close_later;
-	      match snd (Unix.waitpid [] pid) with
+	      match snd (Forkhelpers.waitpid pid) with
 	      | Unix.WEXITED 0 -> ();
 	      | Unix.WEXITED i -> failwith_error (Printf.sprintf "exit code %d" i)
 	      | Unix.WSIGNALED i -> failwith_error (Printf.sprintf "killed by signal %d" i)
