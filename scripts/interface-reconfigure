@@ -19,7 +19,7 @@
     %(command-name)s [<PIF>] rewrite
     %(command-name)s --force <BRIDGE> up
     %(command-name)s --force <BRIDGE> down
-    %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> <CONFIG>
+    %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> --mac=<MAC-ADDRESS> <CONFIG>
 
     where <PIF> is one of:
        --session <SESSION-REF> --pif <PIF-REF>
@@ -1460,8 +1460,104 @@ def action_rewrite(pif):
         f.revert()
         raise
 
+# This is useful for reconfiguring the mgmt interface after having lost connectivity to the pool master
 def action_force_rewrite(bridge, config):
-    raise Error("Force rewrite is not implemented yet.")
+    def getUUID():
+        import subprocess
+        uuid,_ = subprocess.Popen(['uuidgen'], stdout = subprocess.PIPE).communicate()
+        return uuid.strip()
+
+    # Notes:
+    # 1. that this assumes the interface is bridged
+    # 2. If --gateway is given it will make that the default gateway for the host
+
+    # extract the configuration
+    try:
+        mode = config['mode']
+        mac = config['mac']
+        interface = config['device']
+    except:
+        raise Usage("Please supply --mode, --mac and --device")
+
+    if mode == 'static':
+        try:
+            netmask = config['netmask']
+            ip = config['ip']
+        except:
+            raise Usage("Please supply --netmask and --ip")
+        try:
+            gateway = config['gateway']
+        except:
+            gateway = None
+    elif mode != 'dhcp':
+        raise Usage("--mode must be either static or dhcp")
+
+    if config.has_key('vlan'):
+        is_vlan = True
+        vlan_slave, vlan_vid = config['vlan'].split('.')
+    else:
+        is_vlan = False
+
+    if is_vlan:
+        raise Error("Force rewrite of VLAN not implemented")
+
+    log("Configuring %s using %s configuration" % (bridge, mode))
+
+    f = ConfigurationFile(dbcache_file)
+
+    pif_uuid = getUUID()
+    network_uuid = getUUID()
+
+    f.write('<?xml version="1.0" ?>\n')
+    f.write('<xenserver-network-configuration>\n')
+    f.write('\t<pif ref="OpaqueRef:%s">\n' % pif_uuid)
+    f.write('\t\t<network>OpaqueRef:%s</network>\n' % network_uuid)
+    f.write('\t\t<management>True</management>\n')
+    f.write('\t\t<uuid>%sPif</uuid>\n' % interface)
+    f.write('\t\t<bond_slave_of>OpaqueRef:NULL</bond_slave_of>\n')
+    f.write('\t\t<bond_master_of/>\n')
+    f.write('\t\t<VLAN_slave_of/>\n')
+    f.write('\t\t<VLAN_master_of>OpaqueRef:NULL</VLAN_master_of>\n')
+    f.write('\t\t<VLAN>-1</VLAN>\n')
+    f.write('\t\t<device>%s</device>\n' % interface)
+    f.write('\t\t<MAC>%s</MAC>\n' % mac)
+    f.write('\t\t<other_config/>\n')
+    if mode == 'dhcp':
+        f.write('\t\t<ip_configuration_mode>DHCP</ip_configuration_mode>\n')
+        f.write('\t\t<IP></IP>\n')
+        f.write('\t\t<netmask></netmask>\n')
+        f.write('\t\t<gateway></gateway>\n')
+        f.write('\t\t<DNS></DNS>\n')
+    elif mode == 'static':
+        f.write('\t\t<ip_configuration_mode>Static</ip_configuration_mode>\n')
+        f.write('\t\t<IP>%s</IP>\n' % ip)
+        f.write('\t\t<netmask>%s</netmask>\n' % netmask)
+        if gateway is not None:
+            f.write('\t\t<gateway>%s</gateway>\n' % gateway)
+        f.write('\t\t<DNS></DNS>\n')
+    else:
+        raise Error("Unknown mode %s" % mode)
+    f.write('\t</pif>\n')
+
+    f.write('\t<network ref="OpaqueRef:%s">\n' % network_uuid)
+    f.write('\t\t<uuid>InitialManagementNetwork</uuid>\n')
+    f.write('\t\t<PIFs>\n')
+    f.write('\t\t\t<PIF>OpaqueRef:%s</PIF>\n' % pif_uuid)
+    f.write('\t\t</PIFs>\n')
+    f.write('\t\t<bridge>%s</bridge>\n' % bridge)
+    f.write('\t\t<other_config/>\n')
+    f.write('\t</network>\n')
+    f.write('</xenserver-network-configuration>\n')
+
+    f.close()
+
+    try:
+        f.apply()
+        f.commit()
+    except Error, e:
+        log("failed to apply changes: %s" % e.msg)
+        f.revert()
+        raise
 
 def main(argv=None):
     global management_pif
@@ -1484,7 +1580,7 @@ def main(argv=None):
                         "force=",
                         "force-interface=",
                         "management",
-                        "device=", "mode=", "ip=", "netmask=", "gateway=",
+                        "mac=", "device=", "mode=", "ip=", "netmask=", "gateway=",
                         "help" ]
             arglist, args = getopt.gnu_getopt(argv[1:], shortops, longops)
         except getopt.GetoptError, msg:
@@ -1503,7 +1599,7 @@ def main(argv=None):
                 force_interface = a
             elif o == "--management":
                 force_management = True
-            elif o in ["--device", "--mode", "--ip", "--netmask", "--gateway"]:
+            elif o in ["--mac", "--device", "--mode", "--ip", "--netmask", "--gateway"]:
                 force_rewrite_config[o[2:]] = a
             elif o == "-h" or o == "--help":
                 print __doc__ % {'command-name': os.path.basename(argv[0])}
