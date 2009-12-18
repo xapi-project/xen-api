@@ -261,64 +261,6 @@ def vconfig_rem(vlan):
         return
     run_command(["/sbin/vconfig", "rem", vlan])
 
-def configure_ethtool(oc, f):
-    # Options for "ethtool -s"
-    settings = None
-    setting_opts = ["autoneg", "speed", "duplex"]
-    # Options for "ethtool -K"
-    offload = None
-    offload_opts = ["rx", "tx", "sg", "tso", "ufo", "gso"]
-
-    for opt in [opt for opt in setting_opts + offload_opts if oc.has_key("ethtool-" + opt)]:
-        val = oc["ethtool-" + opt]
-
-        if opt in ["speed"]:
-            if val in ["10", "100", "1000"]:
-                val = "speed " + val
-            else:
-                log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
-                val = None
-        elif opt in ["duplex"]:
-            if val in ["half", "full"]:
-                val = "duplex " + val
-            else:
-                log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
-                val = None
-        elif opt in ["autoneg"] + offload_opts:
-            if val in ["true", "on"]:
-                val = opt + " on"
-            elif val in ["false", "off"]:
-                val = opt + " off"
-            else:
-                log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
-                val = None
-
-        if opt in setting_opts:
-            if val and settings:
-                settings = settings + " " + val
-            else:
-                settings = val
-        elif opt in offload_opts:
-            if val and offload:
-                offload = offload + " " + val
-            else:
-                offload = val
-
-    if settings:
-        f.write("ETHTOOL_OPTS=\"%s\"\n" % settings)
-    if offload:
-        f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % offload)
-
-def configure_mtu(oc, f):
-    if not oc.has_key('mtu'):
-        return
-
-    try:
-        mtu = int(oc['mtu'])
-        f.write("MTU=%d\n" % mtu)
-    except ValueError, x:
-        log("Invalid value for mtu = %s" % mtu)
-
 def open_pif_ifcfg(pif):
     pifrec = db.get_pif_record(pif)
 
@@ -332,10 +274,6 @@ def open_pif_ifcfg(pif):
     f.write("XEMANAGED=yes\n")
     f.write("DEVICE=%s\n" % interface)
     f.write("ONBOOT=no\n")
-
-    if pifrec.has_key('other_config'):
-        configure_ethtool(pifrec['other_config'], f)
-        configure_mtu(pifrec['other_config'], f)
 
     return f
 
@@ -891,7 +829,64 @@ def configure_physical_interface(pif):
     f.write("TYPE=Ethernet\n")
     f.write("HWADDR=%(MAC)s\n" % pifrec)
 
+    settings,offload = ethtool_settings(pifrec['other_config'])
+    if len(settings):
+        f.write("ETHTOOL_OPTS=\"%s\"\n" % str.join(" ", settings))
+    if len(offload):
+        f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % str.join(" ", offload))
+
+    mtu = mtu_setting(pifrec['other_config'])
+    if mtu:
+        f.write("MTU=%s\n" % mtu)
+
     return f
+
+#
+#
+#
+
+def ethtool_settings(oc):
+    settings = []
+    if oc.has_key('ethtool-speed'):
+        val = oc['ethtool-speed']
+        if val in ["10", "100", "1000"]:
+            settings += ['speed', val]
+        else:
+            log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
+    if oc.has_key('ethtool-duplex'):
+        val = oc['ethtool-duplex']
+        if val in ["10", "100", "1000"]:
+            settings += ['duplex', 'val']
+        else:
+            log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
+    if oc.has_key('ethtool-autoneg'):
+        val = oc['ethtool-autoneg']
+        if val in ["true", "on"]:
+            settings += ['autoneg', 'on']
+        elif val in ["false", "off"]:
+            settings += ['autoneg', 'off']
+        else:
+            log("Invalid value for ethtool-autoneg = %s. Must be on|true|off|false." % val)
+    offload = []
+    for opt in ("rx", "tx", "sg", "tso", "ufo", "gso"):
+        if oc.has_key("ethtool-" + opt):
+            val = oc["ethtool-" + opt]
+            if val in ["true", "on"]:
+                offload += [opt, 'on']
+            elif val in ["false", "off"]:
+                offload += [opt, 'off']
+            else:
+                log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
+    return settings,offload
+
+def mtu_setting(oc):
+    if oc.has_key('mtu'):
+        try:
+            int(oc['mtu'])      # Check that the value is an integer
+            return oc['mtu']
+        except ValueError, x:
+            log("Invalid value for mtu = %s" % oc['mtu'])
+    return None
 
 #
 # Bonded PIFs
@@ -975,6 +970,16 @@ def configure_bond_interface(pif):
         s.close()
         f.attach_child(s)
 
+    settings,offload = ethtool_settings(pifrec['other_config'])
+    if len(settings):
+        f.write("ETHTOOL_OPTS=\"%s\"\n" % str.join(" ", settings))
+    if len(offload):
+        f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % str.join(" ", offload))
+
+    mtu = mtu_setting(pifrec['other_config'])
+    if mtu:
+        f.write("MTU=%s\n" % mtu)
+
     # The bond option defaults
     bond_options = {
         "mode":   "balance-slb",
@@ -1040,8 +1045,21 @@ def configure_vlan_interface(pif):
 
     slave = configure_pif(pif_get_vlan_slave(pif))
 
+    pifrec = db.get_pif_record(pif)
+
     f = open_pif_ifcfg(pif)
     f.write("VLAN=yes\n")
+
+    settings,offload = ethtool_settings(pifrec['other_config'])
+    if len(settings):
+        f.write("ETHTOOL_OPTS=\"%s\"\n" % str.join(" ", settings))
+    if len(offload):
+        f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % str.join(" ", offload))
+
+    mtu = mtu_setting(pifrec['other_config'])
+    if mtu:
+        f.write("MTU=%s\n" % mtu)
+
     f.attach_child(slave)
 
     return f
@@ -1282,8 +1300,15 @@ def ipdev_configure_network(pif):
         raise Error("Unknown ip-configuration-mode %s" % pifrec['ip_configuration_mode'])
 
     if nwrec.has_key('other_config'):
-        configure_ethtool(nwrec['other_config'], f)
-        configure_mtu(nwrec['other_config'], f)
+        settings,offload = ethtool_settings(nwrec['other_config'])
+        if len(settings):
+            f.write("ETHTOOL_OPTS=\"%s\"\n" % str.join(" ", settings))
+        if len(offload):
+            f.write("ETHTOOL_OFFLOAD_OPTS=\"%s\"\n" % str.join(" ", offload))
+
+        mtu = mtu_setting(nwrec['other_config'])
+        if mtu:
+            f.write("MTU=%s\n" % mtu)
 
         ipdev_configure_static_routes(ipdev, nwrec['other_config'], f)
 
