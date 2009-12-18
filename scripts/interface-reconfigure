@@ -16,7 +16,7 @@
 
     %(command-name)s <PIF> up
     %(command-name)s <PIF> down
-    %(command-name)s [<PIF>] rewrite
+    %(command-name)s rewrite
     %(command-name)s --force <BRIDGE> up
     %(command-name)s --force <BRIDGE> down
     %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> --mac=<MAC-ADDRESS> <CONFIG>
@@ -1561,21 +1561,6 @@ def action_down(pif):
     if dp:
         bring_down_interface(dp, destroy=True)
 
-def action_rewrite(pif):
-    dp = pif_datapath(pif)
-    f = ipdev_configure_network(pif)
-    if dp:
-        pf = configure_pif(dp)
-        f.attach_child(pf)
-    f.close()
-    try:
-        f.apply()
-        f.commit()
-    except Error, e:
-        log("failed to apply changes: %s" % e.msg)
-        f.revert()
-        raise
-
 # This is useful for reconfiguring the mgmt interface after having lost connectivity to the pool master
 def action_force_rewrite(bridge, config):
     def getUUID():
@@ -1745,7 +1730,9 @@ def main(argv=None):
             raise Usage("--force is mutually exclusive with --session, --pif and --pif-uuid")
         if len(force_rewrite_config) and not (force_interface and action == "rewrite"):
             raise Usage("\"--force rewrite\" needed for --device, --mode, --ip, --netmask, and --gateway")
-
+        if (action == "rewrite") and (pif or pif_uuid ):
+            raise Usage("rewrite action does not take --pif or --pif-uuid")
+        
         global db
         if force_interface:
             log("Force interface %s %s" % (force_interface, action))
@@ -1769,7 +1756,7 @@ def main(argv=None):
             if pif_uuid:
                 pif = db.get_pif_by_uuid(pif_uuid)
 
-            if action == "rewrite" and not pif:
+            if action == "rewrite":
                 pass
             else:
                 if not pif:
@@ -1793,8 +1780,6 @@ def main(argv=None):
                     action_up(pif, False)
                 elif action == "down":
                     action_down(pif)
-                elif action == "rewrite":
-                    action_rewrite(pif)
                 else:
                     raise Error("Unknown action %s"  % action)
 
