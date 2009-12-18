@@ -20,7 +20,6 @@
     %(command-name)s --force <BRIDGE> up
     %(command-name)s --force <BRIDGE> down
     %(command-name)s --force <BRIDGE> rewrite --device=<INTERFACE> <CONFIG>
-    %(command-name)s --force all down
 
     where <PIF> is one of:
        --session <SESSION-REF> --pif <PIF-REF>
@@ -1464,80 +1463,6 @@ def action_rewrite(pif):
 def action_force_rewrite(bridge, config):
     raise Error("Force rewrite is not implemented yet.")
 
-# This is an almighty big hammer which uses heuristics to determine
-# which interfaces are up and how they're configured and brings
-# everything down with the exception of vifs and local interfaces.
-# Use this if you haven't access to the DB, or if the networking has
-# been screwed up manually using the CLI.
-def action_force_down_all_devices():
-    log("Forcing down ALL net-devices")
-    def run(*args):
-        rc = os.spawnl(os.P_WAIT, args[0], *args)
-        if rc:
-            log("%s returned %d" % (" ".join(args), rc))
-    # kill any dhclients previously started
-    run('/bin/sh','-c','/usr/bin/killall -9 dhclient; exit 0')
-
-    # Create list of bridges
-    bridges = [ itf for itf in os.listdir('/sys/class/net/')
-                if os.path.exists('/sys/class/net/%s/bridge' % itf) ]
-
-    # Per bridge bringing down
-    for bridge in bridges:
-        # Detach from IP stack
-        run("/sbin/ip", "route", "flush", "dev", bridge, "table", "all")
-        run("/sbin/ip", "addr", "flush", "dev", bridge)
-
-        # Remove interfaces
-        brifs = [ itf for itf in os.listdir('/sys/class/net/%s/brif/' % bridge)
-                  if not itf.startswith('vif') ]
-        for itf in brifs:
-            run("/usr/sbin/brctl", "delif", bridge, itf)
-
-    # Bring down VLANs
-    vlans = []
-    if os.path.exists('/proc/net/vlan'):
-        vlans = [ v for v in os.listdir('/proc/net/vlan') if v != "config" ]
-    for vlan in vlans:
-        run("/sbin/ip", "link", "set", vlan, "down")
-        run("/sbin/vconfig", "rem", vlan)
-
-    # Bring down bonds
-    bonds = []
-    if os.path.exists('/sys/class/net/bonding_masters'):
-        bonds = open('/sys/class/net/bonding_masters').readline().split()
-    for bond in bonds:
-        run("/sbin/ip", "link", "set", bond, "up")
-        fname = "/sys/class/net/%s/bonding/slaves" % bond
-        fd = open(fname, "r")
-        slaves = fd.readline().strip().split()
-        fd.close()
-        while len(slaves) > 0:
-            slave = slaves.pop()
-            fd = open(fname, "w")
-            fd.write("-%s" % slave)
-            fd.close()
-        fd = open("/sys/class/net/bonding_masters", "w")
-        fd.write("-%s" % bond)
-        fd.close()
-    # DO NOT modprobe -r bonding as this has side effect of bringing down all bridges
-
-    # Bring down physical interfaces
-    physifs = [ itf for itf in os.listdir('/sys/class/net')
-                   if (os.path.exists('/sys/class/net/%s/ifindex' % itf) and
-                       (itf != "lo") and
-                       (not itf.startswith("vif")) and
-                       (not itf.startswith("xapi")) and
-                       (not itf.startswith("xenbr")) and
-                       (not itf.startswith("sit")) and
-                       (not itf.startswith("ppp"))
-                       )
-                   ]
-    for phys in physifs:
-        run("/sbin/ip", "route", "flush", "dev", phys, "table", "all")
-        run("/sbin/ip", "addr", "flush", "dev", phys)
-        run("/sbin/ip", "link", "set", phys, "down")
-
 def main(argv=None):
     global management_pif
 
@@ -1606,8 +1531,6 @@ def main(argv=None):
             raise Usage("--session and --pif must be used together.")
         if force_interface and ( session or pif or pif_uuid ):
             raise Usage("--force is mutually exclusive with --session, --pif and --pif-uuid")
-        if force_interface == "all" and action != "down":
-            raise Usage("\"--force all\" only valid for down action")
         if len(force_rewrite_config) and not (force_interface and action == "rewrite"):
             raise Usage("\"--force rewrite\" needed for --device, --mode, --ip, --netmask, and --gateway")
 
@@ -1618,9 +1541,6 @@ def main(argv=None):
             if action == "rewrite":
                 action_force_rewrite(force_interface, force_rewrite_config)
             elif action in ["up", "down"]:
-                if action == "down" and force_interface == "all":
-                    action_force_down_all_devices()
-
                 db = DatabaseCache(cache_file=dbcache_file)
                 pif = db.get_pif_by_bridge(force_interface)
                 management_pif = db.get_management_pif()
