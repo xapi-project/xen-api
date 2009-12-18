@@ -764,9 +764,7 @@ def __create_bond_device(name):
 def create_bond_device(pif):
     """Ensures that a bond master device exists in the kernel."""
 
-    pifrec = db.get_pif_record(pif)
-
-    if len(pifrec['bond_master_of']) == 0:
+    if not pif_is_bond(pif):
         return
 
     __create_bond_device(pif_netdev_name(pif))
@@ -792,7 +790,7 @@ def destroy_bond_device(pif):
 
     pifrec = db.get_pif_record(pif)
 
-    if len(pifrec['bond_master_of']) == 0:
+    if not pif_is_bond(pif):
         return
 
     # If the bonding module isn't loaded then do nothing.
@@ -881,6 +879,11 @@ def mtu_setting(oc):
 #
 # Bonded PIFs
 #
+def pif_is_bond(pif):
+    pifrec = db.get_pif_record(pif)
+
+    return len(pifrec['bond_master_of']) > 0
+
 def pif_get_bond_masters(pif):
     """Returns a list of PIFs which are bond masters of this PIF"""
 
@@ -1064,11 +1067,9 @@ def configure_pif(pif):
     Returns the open file handle for the interface configuration file.
     """
 
-    pifrec = db.get_pif_record(pif)
-
     if pif_is_vlan(pif):
         f = configure_vlan_interface(pif)
-    elif len(pifrec['bond_master_of']) != 0:
+    elif pif_is_bond(pif):
         f = configure_bond_interface(pif)
     else:
         f = configure_physical_interface(pif)
