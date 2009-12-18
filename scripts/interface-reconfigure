@@ -398,23 +398,66 @@ def open_pif_ifcfg(pif):
     return f
 
 class DatabaseCache(object):
+    def __pif_on_host(self,pif):
+        return self.__pifs.has_key(pif)
+
+    def __get_pif_records_from_xapi(self, session, host):
+        self.__pifs = {}
+        for (p,rec) in session.xenapi.PIF.get_all_records().items():
+            if rec['host'] != host:
+                continue
+            self.__pifs[p] = rec
+
+    def __get_vlan_records_from_xapi(self, session):
+        self.__vlans = {}
+        for v in session.xenapi.VLAN.get_all():
+            rec = session.xenapi.VLAN.get_record(v)
+            if not self.__pif_on_host(rec['untagged_PIF']):
+                continue
+            self.__vlans[v] = rec
+
+    def __get_bond_records_from_xapi(self, session):
+        self.__bonds = {}
+        for b in session.xenapi.Bond.get_all():
+            rec = session.xenapi.Bond.get_record(b)
+            if not self.__pif_on_host(rec['master']):
+                continue
+            self.__bonds[b] = rec
+
+    def __get_network_records_from_xapi(self, session):
+        self.__networks = {}
+        for n in session.xenapi.network.get_all():
+            rec = session.xenapi.network.get_record(n)
+            self.__networks[n] = rec
+            # drop PIFs on other hosts
+            self.__networks[n]["PIFs"] = [p for p in rec["PIFs"] if self.__pif_on_host(p)]
+
     def __init__(self, session_ref):
-        session = XenAPI.xapi_local()
+            # XXX extra level of indendation temporarily reduces diff until XML cache patch
+            session = XenAPI.xapi_local()
 
-        if not session_ref:
-            log("No session ref given on command line, logging in.")
-            session.xenapi.login_with_password("root", "")
-        else:
-            session._session = session_ref
-
-        try:
-            self.__vlans = session.xenapi.VLAN.get_all_records()
-            self.__bonds = session.xenapi.Bond.get_all_records()
-            self.__pifs = session.xenapi.PIF.get_all_records()
-            self.__networks = session.xenapi.network.get_all_records()
-        finally:
             if not session_ref:
-                session.xenapi.session.logout()
+                log("No session ref given on command line, logging in.")
+                session.xenapi.login_with_password("root", "")
+            else:
+                session._session = session_ref
+
+            try:
+
+                inventory = self.__read_xensource_inventory()
+                assert(inventory.has_key('INSTALLATION_UUID'))
+                log("host uuid is %s" % inventory['INSTALLATION_UUID'])
+
+                host = session.xenapi.host.get_by_uuid(inventory['INSTALLATION_UUID'])
+
+                self.__get_pif_records_from_xapi(session, host)
+
+                self.__get_vlan_records_from_xapi(session)
+                self.__get_bond_records_from_xapi(session)
+                self.__get_network_records_from_xapi(session)
+            finally:
+                if not session_ref:
+                    session.xenapi.session.logout()
 
     def get_pif_by_uuid(self, uuid):
         pifs = map(lambda (ref,rec): ref,
@@ -427,25 +470,10 @@ class DatabaseCache(object):
 
         return pifs[0]
 
-    def get_pif_by_record(self, record):
-        """record is partial pif record.
-        Get the pif whose record matches.
-        """
-        def match(pifrec):
-            for key in record:
-                if record[key] != pifrec[key]:
-                    return False
-            return True
-            
-        pifs = map(lambda (ref,rec): ref,
-                  filter(lambda (ref,rec): match(rec),
-                         self.__pifs.items()))
-        if len(pifs) == 0:
-            raise Error("No matching PIF \"%s\"" % str(record))
-        elif len(pifs) > 1:
-            raise Error("Multiple matching PIFs \"%s\"" % str(record))
-
-        return pifs[0]
+    def get_pifs_by_device(self, device):
+        return map(lambda (ref,rec): ref,
+                   filter(lambda (ref,rec): rec['device'] == device,
+                          self.__pifs.items()))
 
     def get_pif_record(self, pif):
         if self.__pifs.has_key(pif):
@@ -455,15 +483,14 @@ class DatabaseCache(object):
         return self.__pifs
     def pif_exists(self, pif):
         return self.__pifs.has_key(pif)
-    
-    def get_management_pif(self, host):
+
+    def get_management_pif(self):
         """ Returns the management pif on host
         """
         all = self.get_all_pifs()
-        for pif in all: 
+        for pif in all:
             pifrec = self.get_pif_record(pif)
-            if pifrec['management'] and pifrec['host'] == host :
-                return pif
+            if pifrec['management']: return pif
         return None
 
     def get_network_record(self, network):
@@ -613,7 +640,6 @@ def configure_network(pif, f):
     """
     
     pifrec = db.get_pif_record(pif)
-    host = pifrec['host']
     nw = pifrec['network']
     nwrec = db.get_network_record(nw)
     oc = None
@@ -668,8 +694,7 @@ def configure_network(pif, f):
     # This is because when we are called to bring up an interface with a bond master, it is implicit that
     # we should bring down that master.
     pifs_on_host = [ __pif for __pif in db.get_all_pifs() if
-                     db.get_pif_record(__pif)['host'] == host and 
-                     (not  __pif in get_bond_masters_of_pif(pif)) ]
+                     not  __pif in get_bond_masters_of_pif(pif) ]
     other_pifs_on_host = [ __pif for __pif in pifs_on_host if __pif != pif ]
 
     peerdns_pif = None
@@ -782,7 +807,6 @@ def get_bond_slaves_of_pif(pif):
     """Returns a list of PIFs which make up the given bonded pif."""
     
     pifrec = db.get_pif_record(pif)
-    host = pifrec['host']
 
     bmo = pifrec['bond_master_of']
     if len(bmo) > 1:
@@ -804,8 +828,8 @@ def get_bond_slaves_of_pif(pif):
     try:
         attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
         for slave in attached_slaves:
-            partial_pifrec = {'host':host, 'device':slave}
-            slave_pif = db.get_pif_by_record(partial_pifrec)
+            pifs = [p for p in db.get_pifs_by_device(slave) if db.get_pif_record(p)['VLAN'] == '-1']
+            slave_pif = pifs[0]
             slave_pifs.remove(slave_pif)
             slave_pifs.insert(0, slave_pif)
     except IOError:
@@ -1548,8 +1572,7 @@ def main(argv=None):
                 # pif is not going to be the management pif.
                 # Search DB cache for pif on same host with management=true
                 pifrec = db.get_pif_record(pif)
-                host = pifrec['host']
-                management_pif = db.get_management_pif(host)
+                management_pif = db.get_management_pif()
 
             log_pif_action(action, pif)
 
