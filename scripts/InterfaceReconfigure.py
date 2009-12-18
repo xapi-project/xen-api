@@ -449,23 +449,7 @@ def pif_get_bond_slaves(pif):
     if not bondrec:
         raise Error("No bond record for bond master PIF")
 
-    # build a list of slave's pifs
-    slave_pifs = bondrec['slaves']
-
-    # Ensure any currently attached slaves are listed in the opposite order to the order in
-    # which they were attached.  The first slave attached must be the last detached since
-    # the bond is using its MAC address.
-    try:
-        attached_slaves = open("/sys/class/net/%s/bonding/slaves" % pifrec['device']).readline().split()
-        for slave in attached_slaves:
-            pifs = [p for p in db().get_pifs_by_device(slave) if not pif_is_vlan(p)]
-            slave_pif = pifs[0]
-            slave_pifs.remove(slave_pif)
-            slave_pifs.insert(0, slave_pif)
-    except IOError:
-        pass
-
-    return slave_pifs
+    return bondrec['slaves']
 
 #
 # VLAN PIFs
