@@ -270,7 +270,8 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	let _type = String.lowercase _type in
 	if not(List.mem _type (Sm.supported_drivers ()))
 		then raise (Api_errors.Server_error(Api_errors.sr_unknown_driver, [ _type ]));
-
+	(* This breaks the udev SR which doesn't support sr_probe *)
+(*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
 	begin 
 	  match Xml.parse_string probe_result with
@@ -285,7 +286,7 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_107",["";"";probe_result]))
 		  | _ -> ()
 	end;
-
+*)
 	let sr_uuid = Uuid.make_uuid() in
 	let sr_uuid_str = Uuid.to_string sr_uuid in
 	(* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
