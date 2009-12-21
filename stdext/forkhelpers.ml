@@ -38,36 +38,6 @@ let string_of_pidty p =
 
 let nopid = Nopid
 
-(* Low-level (unsafe) function which forks, runs a 'pre_exec' function and
-   then executes some other binary. It makes sure to catch any exception thrown by
-   exec* so that we don't end up with two ocaml processes. *)
-let fork_and_exec ?(pre_exec=fun () -> ()) ?env (cmdline: string list) = 
-  let args = Array.of_list cmdline in
-  let argv0 = List.hd cmdline in
-  let pid = Unix.fork () in
-  if pid = 0 then begin
-      try
-	pre_exec ();
-	(* CA-18955: xapi now runs with priority -3. We then set his sons priority to 0. *) 
-	ignore_int (Unix.nice (-(Unix.nice 0)));
-	ignore_int (Unix.setsid ());
-	match env with
-	| None -> Unix.execv argv0 args
-	| Some env -> Unix.execve argv0 args env
-      with _ -> exit 1
-  end else Stdfork pid
-
-(** File descriptor operations to be performed after a fork.
-    These are all safe in the presence of threads *)
-type fd_operation = 
-    | Dup2 of Unix.file_descr * Unix.file_descr
-    | Close of Unix.file_descr
-
-let do_fd_operation = function
-  | Dup2(a, b) -> Unix.dup2 a b
-  | Close a -> Unix.close a
-
-
 exception Subprocess_failed of int
 exception Subprocess_killed of int
 
