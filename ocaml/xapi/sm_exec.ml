@@ -128,9 +128,9 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
-let spawn_internal ?(cb_set=(fun _ -> ())) ?(cb_clear=(fun () -> ())) cmdarg =
+let spawn_internal cmdarg =
   try
-    Forkhelpers.execute_command_get_output ~cb_set ~cb_clear cmdarg.(0) (List.tl (Array.to_list cmdarg))
+    Forkhelpers.execute_command_get_output cmdarg.(0) (List.tl (Array.to_list cmdarg))
   with 
   | Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
       raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task stopped"; output; log ]))
@@ -174,9 +174,7 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
 		| None           -> 
 		    spawn_internal args
 		| Some __context ->
-		    let cb_set pid = TaskHelper.set_external_pid ~__context pid
-		    and cb_clear () = TaskHelper.clear_external_pid ~__context in
-		    spawn_internal ~cb_set ~cb_clear args
+		    spawn_internal args
 	    in
 	    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
 	    ((Xml.parse_string output),stderr))
