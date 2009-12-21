@@ -32,12 +32,6 @@ val string_of_pidty : pidty -> string
 
 val nopid : pidty
 
-(** Standalone wrapper process which safely closes fds before exec()ing another
-    program *)
-val close_and_exec : string
-
-val close_and_exec_cmdline : Unix.file_descr list -> string -> string list -> string list
-
 (** File descriptor operations to be performed after a fork.
     These are all safe in the presence of threads *)
 type fd_operation =
