@@ -52,5 +52,3 @@ val waitpid_nohang : pidty -> (int * Unix.process_status)
 val dontwaitpid : pidty -> unit
 val waitpid_fail_if_bad_exit : pidty -> unit
 val getpid : pidty -> int
-
-val with_dev_null : (Unix.file_descr -> 'a) -> 'a
