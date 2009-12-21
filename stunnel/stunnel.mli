@@ -22,8 +22,15 @@ val crl_path : string
 val use_new_stunnel : bool ref
 val init_stunnel_path : unit -> unit
 
+type pid = 
+  | StdFork of int (** we forked and exec'ed. This is the pid *)
+  | FEFork of Forkhelpers.pidty (** the forkhelpers module did it for us. *)
+  | Nopid
+
+val getpid: pid -> int
+
 (** Represents an active stunnel connection *)
-type t = { mutable pid: Forkhelpers.pidty; 
+type t = { mutable pid: pid; 
 	   fd: Unix.file_descr; 
 	   host: string; 
 	   port: int;

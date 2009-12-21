@@ -56,8 +56,56 @@ let stunnel_path() =
     | Some p -> p 
     | None -> raise Stunnel_binary_missing
 
+module Unsafe = struct
+  (** These functions are not safe in a multithreaded program *)
 
-type t = { mutable pid: Forkhelpers.pidty; fd: Unix.file_descr; host: string; port: int; 
+  (* Low-level (unsafe) function which forks, runs a 'pre_exec' function and
+	 then executes some other binary. It makes sure to catch any exception thrown by
+	 exec* so that we don't end up with two ocaml processes. *)
+  let fork_and_exec ?(pre_exec=fun () -> ()) ?env (cmdline: string list) = 
+	let args = Array.of_list cmdline in
+	let argv0 = List.hd cmdline in
+	let pid = Unix.fork () in
+	if pid = 0 then begin
+      try
+		pre_exec ();
+		  (* CA-18955: xapi now runs with priority -3. We then set his sons priority to 0. *) 
+		  ignore_int (Unix.nice (-(Unix.nice 0)));
+		  ignore_int (Unix.setsid ());
+		  match env with
+		  | None -> Unix.execv argv0 args
+		  | Some env -> Unix.execve argv0 args env
+      with _ -> exit 1
+	end else pid
+	  
+  (** File descriptor operations to be performed after a fork.
+      These are all safe in the presence of threads *)
+  type fd_operation = 
+    | Dup2 of Unix.file_descr * Unix.file_descr
+    | Close of Unix.file_descr
+		  
+  let do_fd_operation = function
+	| Dup2(a, b) -> Unix.dup2 a b
+	| Close a -> Unix.close a
+end
+
+type pid = 
+  | StdFork of int (** we forked and exec'ed. This is the pid *)
+  | FEFork of Forkhelpers.pidty (** the forkhelpers module did it for us. *)
+  | Nopid
+
+let string_of_pid = function
+  | StdFork x -> Printf.sprintf "(StdFork %d)" x
+  | FEFork x -> Forkhelpers.string_of_pidty x
+  | Nopid -> "None"
+
+let getpid ty =
+  match ty with
+    | StdFork pid -> pid
+    | FEFork pid -> Forkhelpers.getpid pid
+    | Nopid -> failwith "No pid!"
+
+type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int; 
 	   connected_time: float;
 	   unique_id: int option;
 	   mutable logfile: string;
@@ -82,7 +130,10 @@ let ignore_exn f x = try f x with _ -> ()
 
 let disconnect x = 
   List.iter (ignore_exn Unix.close) [ x.fd ];
-  ignore_exn Forkhelpers.waitpid_fail_if_bad_exit x.pid
+  match x.pid with
+  | FEFork pid -> ignore(Forkhelpers.waitpid pid)
+  | StdFork pid -> ignore(Unix.waitpid [] pid)
+  | Nopid -> ()
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -95,25 +146,26 @@ let attempt_one_connect_new ?unique_id ?(use_external_fd_wrapper = true) ?(write
   assert (not extended_diagnosis); (* !!! Unimplemented *)
   let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let args = [ "-m"; "client"; "-s"; "-"; "-d"; Printf.sprintf "%s:%d" host port ] in
-  let t = { pid = Forkhelpers.nopid; fd = data_out; host = host; port = port; 
+  let t = { pid = Nopid; fd = data_out; host = host; port = port; 
 	    connected_time = Unix.gettimeofday (); unique_id = unique_id;
 	    logfile = "" } in
   let to_close = ref [ data_in ] in
   let result = Forkhelpers.with_logfile_fd "stunnel" (fun logfd ->
     let fdops = [
-      Forkhelpers.Dup2(data_in, Unix.stdin);
-      Forkhelpers.Dup2(data_in, Unix.stdout);
-      Forkhelpers.Dup2(logfd, Unix.stderr)
+      Unsafe.Dup2(data_in, Unix.stdin);
+      Unsafe.Dup2(data_in, Unix.stdout);
+      Unsafe.Dup2(logfd, Unix.stderr)
     ] in
     let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr ] in
     t.pid <- (
       if use_external_fd_wrapper then
-        Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [] (stunnel_path ()) args
+        FEFork (Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [] (stunnel_path ()) args)
       else
-	Forkhelpers.fork_and_exec ~pre_exec:(fun _ -> 
-          List.iter Forkhelpers.do_fd_operation fdops;
+		StdFork(Unsafe.fork_and_exec ~pre_exec:(fun _ -> 
+          List.iter Unsafe.do_fd_operation fdops;
           Unixext.close_all_fds_except fds_needed
-	) ((stunnel_path ()) :: args)
+		
+		) ((stunnel_path ()) :: args))
     );
     List.iter Unix.close [ data_in ];
   ) in
@@ -138,7 +190,7 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
   let close fd = 
     if List.mem fd !to_close 
     then (Unix.close fd; to_close := List.filter (fun x -> x <> fd) !to_close) in
-  let t = { pid = Forkhelpers.nopid; fd = data_out; host = host; port = port; 
+  let t = { pid = Nopid; fd = data_out; host = host; port = port; 
 	    connected_time = Unix.gettimeofday (); unique_id = unique_id;
 	    logfile = "" } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
@@ -146,9 +198,9 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
     (fun logfd ->
        let path = stunnel_path() in
        let fdops = 
-	 [ Forkhelpers.Dup2(data_in, Unix.stdin);
-	   Forkhelpers.Dup2(data_in, Unix.stdout);
-	   Forkhelpers.Dup2(logfd, Unix.stderr) ] in
+	 [ Unsafe.Dup2(data_in, Unix.stdin);
+	   Unsafe.Dup2(data_in, Unix.stdout);
+	   Unsafe.Dup2(logfd, Unix.stderr) ] in
        let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr; config_out ] in
        let args_external = [ "-fd"; config_out_uuid ] in
 	   let args_internal = [ "-fd"; string_of_int (Unixext.int_of_file_descr config_out) ] in
@@ -158,18 +210,18 @@ let attempt_one_connect ?unique_id ?(use_external_fd_wrapper = true) ?(write_to_
        end;
        t.pid <-
 	 if use_external_fd_wrapper
-	 then Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [(config_out_uuid, config_out)] path args_external
-	 else Forkhelpers.fork_and_exec ~pre_exec:
+	 then FEFork(Forkhelpers.safe_close_and_exec (Some data_in) (Some data_in) (Some logfd) [(config_out_uuid, config_out)] path args_external)
+	 else StdFork(Unsafe.fork_and_exec ~pre_exec:
 			  (fun _ -> 
-			    List.iter Forkhelpers.do_fd_operation fdops;
+			    List.iter Unsafe.do_fd_operation fdops;
 			    Unixext.close_all_fds_except fds_needed) 
-			  (path::args_internal);
+			  (path::args_internal));
        List.iter close [ data_in; config_out; ]; 
        (* Make sure we close config_in eventually *)
        finally
 	 (fun () ->
 
-	    let pidmsg = Printf.sprintf "stunnel has pidty: %s\n" (Forkhelpers.string_of_pidty t.pid) in
+	    let pidmsg = Printf.sprintf "stunnel has pidty: %s\n" (string_of_pid t.pid) in
 	    write_to_log pidmsg;
 
 	    let config = config_file verify_cert extended_diagnosis host port in

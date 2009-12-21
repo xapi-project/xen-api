@@ -32,19 +32,6 @@ val string_of_pidty : pidty -> string
 
 val nopid : pidty
 
-(** File descriptor operations to be performed after a fork.
-    These are all safe in the presence of threads *)
-type fd_operation =
-    Dup2 of Unix.file_descr * Unix.file_descr
-  | Close of Unix.file_descr
-
-val do_fd_operation : fd_operation -> unit
-
-(** Low-level (unsafe) function which forks, runs a 'pre_exec' function and
-   then executes some other binary. It makes sure to catch any exception thrown by
-   exec* so that we don't end up with two ocaml processes. *)
-val fork_and_exec : ?pre_exec:(unit -> unit) -> ?env:string array -> string list -> pidty
-
 (** Safe function which forks a command, closing all fds except a whitelist and
     having performed some fd operations in the child *)
 val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> string -> string list -> pidty
