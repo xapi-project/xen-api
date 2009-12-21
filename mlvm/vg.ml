@@ -8,7 +8,7 @@ type status =
     | Resizeable
     | Clustered
 
-and vg = {
+type vg = {
   name : string;
   id : string;
   seqno : int;
@@ -21,7 +21,7 @@ and vg = {
   free_space : Allocator.t;
   redo_lv : string option; (* Name of the redo LV *)
   ops : sequenced_op list;
-} with rpc
+}
   
 let status_to_string s =
   match s with
@@ -75,7 +75,6 @@ let to_string vg =
 
 let do_op vg op =
   (if vg.seqno <> op.so_seqno then failwith "Failing to do VG operation out-of-order");
-  Unixext.write_string_to_file (Printf.sprintf "/tmp/redo_op.%d" op.so_seqno) (Redo.redo_to_human_readable op);
   let rec createsegs ss lstart = 
     match ss with 
       | a::ss ->
@@ -97,7 +96,7 @@ let do_op vg op =
   match op.so_op with
     | LvCreate (name,l) ->
 	let new_free_space = Allocator.alloc_specified_areas vg.free_space l.lvc_segments in
-	let segments = Lv.sort_segments (createsegs l.lvc_segments 0L) in	
+	let segments = (createsegs l.lvc_segments 0L) in	
 	let lv = { Lv.name=name;
 		   id=l.lvc_id;
 		   tags=[];
@@ -112,7 +111,7 @@ let do_op vg op =
 	  let old_size = Lv.size_in_extents lv in
 	  let free_space = Allocator.alloc_specified_areas vg.free_space l.lvex_segments in
 	  let segments = createsegs l.lvex_segments old_size in
-	  let lv = { lv with Lv.segments = Lv.sort_segments (segments @ lv.Lv.segments) } in
+	  let lv = { lv with Lv.segments = segments @ lv.Lv.segments } in
 	  { vg with 
 	    lvs = lv::others; free_space=free_space})
     | LvReduce (name,l) ->
@@ -255,9 +254,9 @@ let lv_activate_internal name dm_map dereference_table use_tmp dev =
       with _ ->
 	let fd = Unix.openfile fname [Unix.O_RDWR; Unix.O_CREAT] 0o644 in
 (*	let size = Int64.mul Constants.extent_size (Lv.size_in_extents lv) in
-	if !Constants.full_provision
-	then ignore(Unix.LargeFile.lseek fd (Int64.sub size 1L) Unix.SEEK_SET);*)
-	ignore(Unix.write fd "\000" 0 1);
+	if !Constants.full_provision then 
+	  ignore(Unix.LargeFile.lseek fd (Int64.sub size 1L) Unix.SEEK_SET);*)
+	Unix.write fd "\000" 0 1;
 	Unix.close fd;
     end;
     (* Let's also make sure that the dir exists for the dev node! *)
@@ -279,9 +278,9 @@ let lv_deactivate_internal nod dm_name =
   Unix.unlink nod
     
 let lv_deactivate vg lv =
-	let dm_name = dm_name_of vg lv in
-	(ignore (dev_path_of_dm_name dm_name);
-	 lv_deactivate_internal None dm_name)
+  let dm_name = dm_name_of vg lv in
+  let nod = dev_path_of_dm_name dm_name in
+  lv_deactivate_internal None dm_name
 
 let lv_change_internal dm_name dm_map dereference_table =
   Camldm.reload dm_name dm_map dereference_table;
@@ -309,21 +308,20 @@ let get_absolute_pos_of_sector vg lv sector_num =
   find 0 sector_num
       
 let with_open_redo vg f =
-	match vg.redo_lv with
-	| Some lv_name -> 
-		let lv = List.find (fun lv -> lv.Lv.name=lv_name) vg.lvs in
-		let dev = (List.hd vg.pvs).Pv.dev in
-		let (dev,pos) = 
-			if !Constants.dummy_mode
-			then (Printf.sprintf "%s/%s/redo" !Constants.dummy_base dev,0L)
-			else get_absolute_pos_of_sector vg lv 0L in  
-		let fd = Unix.openfile dev [Unix.O_RDWR; Unix.O_CREAT] 0o644 in
-		Pervasiveext.finally (fun () -> f (fd,pos)) (fun () -> Unix.close fd)
-	| None -> failwith "vg.ml/with_open_redo: vg.redo_lv == None, but should not be."
+  let Some lv_name = vg.redo_lv in
+  let lv = List.find (fun lv -> lv.Lv.name=lv_name) vg.lvs in
+  let dev = (List.hd vg.pvs).Pv.dev in
+  let (dev,pos) = 
+    if !Constants.dummy_mode then 
+      (Printf.sprintf "%s/%s/redo" !Constants.dummy_base dev,0L)
+    else 
+      get_absolute_pos_of_sector vg lv 0L in  
+  let fd = Unix.openfile dev [Unix.O_RDWR; Unix.O_CREAT] 0o644 in
+  Pervasiveext.finally (fun () -> f (fd,pos)) (fun () -> Unix.close fd)
 
 let read_redo vg =
-	with_open_redo vg (fun (fd,pos) ->
-				   Redo.read fd pos (Constants.extent_size))
+  with_open_redo vg (fun (fd,pos) ->
+    Redo.read fd pos (Constants.extent_size))
 
 let write_redo vg =
   with_open_redo vg (fun (fd,pos) ->
@@ -360,7 +358,6 @@ let write_full vg =
 	  List.map (fun mdah -> 
 	    Pv.MDAHeader.write_md pv.Pv.real_device mdah md) pv.Pv.mda_headers}) pvs}
   in
-  Unixext.write_string_to_file (Printf.sprintf "/tmp/metadata.%d" vg.seqno) md;
   (match vg.redo_lv with Some _ -> reset_redo vg | None -> ());
   vg
 
@@ -427,26 +424,24 @@ let of_metadata config pvdatas =
   if got_redo_lv then apply_redo vg else vg
 
 let create_new name devices_and_names =
-	let pvs = List.map (fun (dev,name) -> Pv.create_new dev name) devices_and_names in
-	debug "PVs created";
-	let free_space = List.flatten (List.map (fun pv -> Allocator.create pv.Pv.name pv.Pv.pe_count) pvs) in
-	let vg = 
-		{ name=name;
-		id=Lvm_uuid.create ();
-		seqno=1;
-		status=[Read; Write];
-		extent_size=Constants.extent_size_in_sectors;
-		max_lv=0;
-		max_pv=0;
-		pvs=pvs;
-		lvs=[];
-		free_space=free_space;
-		redo_lv=None;
-		ops=[];
-		}
-	in
-	ignore (write vg true);
-	debug "VG created"
+  let pvs = List.map (fun (dev,name) -> Pv.create_new dev name) devices_and_names in
+  let free_space = List.flatten (List.map (fun pv -> Allocator.create pv.Pv.name pv.Pv.pe_count) pvs) in
+  let vg = 
+    { name=name;
+      id=Lvm_uuid.create ();
+      seqno=1;
+      status=[Read; Write];
+      extent_size=Constants.extent_size_in_sectors;
+      max_lv=0;
+      max_pv=0;
+      pvs=pvs;
+      lvs=[];
+      free_space=free_space;
+      redo_lv=None;
+      ops=[];
+    }
+  in
+  write vg true
 
 let parse text pvdatas =
   let lexbuf = Lexing.from_string text in
@@ -458,9 +453,8 @@ let load devices =
   let md = fst (List.hd mds_and_pvdatas) in
   let pvdatas = List.map snd mds_and_pvdatas in
   let oc = open_out "/tmp/metadata" in
-  Printf.fprintf oc "%s" md;
-  close_out oc;
-  parse md pvdatas
+    Printf.fprintf oc "%s" md;
+    parse md pvdatas
 
 let set_dummy_mode base_dir mapper_name full_provision =
   Constants.dummy_mode := true;
