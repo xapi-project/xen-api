@@ -22,6 +22,7 @@ let subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1)
 let set_equiv s1 s2 = (subset s1 s2) && (subset s2 s1)
 
 let iteri f list = ignore (fold_left (fun i x -> f i x; i+1) 0 list)
+let iteri_right f list = ignore (fold_right (fun x i -> f i x; i+1) list 0)
 
 let rec inv_assoc k = function
 	| [] -> raise Not_found

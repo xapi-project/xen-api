@@ -77,6 +77,8 @@ module List :
 
     val iteri : (int -> 'a -> unit) -> 'a list -> unit
 
+    val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
+
     (** Map the given function over a list in reverse order. *)
     val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
 

@@ -11,13 +11,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+type devty = 
+    | Dereferenced of string (* e.g. PV id *)
+    | Real of string (* device *)
+	
 type dev = {
-  device : string;
+  device : devty;
   offset : int64;
 }
-
+    
 type stripety = {
-  chunk_size : int64;
+  chunk_size : int64;  (* In sectors - must be a power of 2 and at least as large as the system's PAGE_SIZE *)
   dests : dev array;
 }
 
@@ -27,7 +32,7 @@ type mapty =
 
 type mapping = {
   start : int64;
-  len : int64;
+  len : int64; 
   map : mapty;
 }
 
@@ -45,33 +50,82 @@ type status = {
 }
 
 external _create : string -> (int64 * int64 * string * string) array -> unit = "camldm_create"
+external _reload : string -> (int64 * int64 * string * string) array -> unit = "camldm_reload"
 external _table : string -> status = "camldm_table"
 external _mknods : string -> unit = "camldm_mknods"
 external _remove : string -> unit = "camldm_remove"
+external _suspend : string -> unit = "camldm_suspend"
+external _resume : string -> unit = "camldm_resume"
 external _mknod : string -> int -> int -> int -> unit = "camldm_mknod"
 
 (* Helper to convert from our type to the string*string 
  * type expected by libdevmapper *)
-let convert_mapty m =
+let resolve_device dev deref_table =
+  match dev with
+    | Real d -> d
+    | Dereferenced d -> List.assoc d deref_table
+
+let convert_mapty m deref_table =
   let array_concat sep a = String.concat sep (Array.to_list a) in
   match m with
     | Linear dev -> 
-	"linear",Printf.sprintf "%s %Ld" dev.device dev.offset
+	"linear",Printf.sprintf "%s %Ld" (resolve_device dev.device deref_table) dev.offset
     | Striped st ->
 	"striped",
 	Printf.sprintf "%d %Ld %s" (Array.length st.dests) st.chunk_size 
 	  (array_concat " " 
 	      (Array.map (fun dev -> 
-		Printf.sprintf "%s %Ld" dev.device dev.offset) st.dests))
+		Printf.sprintf "%s %Ld" (resolve_device dev.device deref_table) dev.offset) st.dests))
 
-let create dev map =
-  let newmap = Array.map (fun m ->
-    let (ty,params) = convert_mapty m.map in
-    (m.start, m.len, ty, params)) map in
-  _create dev newmap
+exception CreateError of (int64 * int64 * string * string) array
+exception ReloadError of (int64 * int64 * string * string) array
+ 
+let _writemap dev map =
+  let oc = open_out (Printf.sprintf "/tmp/%s.map" dev) in
+  Printf.fprintf oc "%s" (String.concat " " (Array.to_list (Array.map (fun (start,len,ty,params) -> Printf.sprintf "(start: %Ld len: %Ld ty: %s params: %s)" start len ty params) map)));
+  close_out oc
+    
+let _getmap map dereference_table =  
+  Array.map (fun m ->
+    let (ty,params) = convert_mapty m.map dereference_table in
+    (m.start, m.len, ty, params)) map 
+    
+let create dev map ?(dereference_table=[]) =
+  let newmap = _getmap map dereference_table in
+  try 
+    _writemap dev newmap;
+    _create dev newmap
+  with e ->
+    raise (CreateError newmap)
+      
+let reload dev map ?(dereference_table=[]) =
+  let newmap = _getmap map dereference_table in
+  try 
+    _writemap dev newmap;
+    _reload dev newmap
+  with e ->
+    raise (ReloadError newmap)
 
+let get_sector_pos_of map sector ~dereference_table =
+  match map.map with 
+    | Linear l -> (resolve_device l.device dereference_table, Int64.add l.offset sector)
+    | Striped s ->
+	(* Untested *)
+	let ndevs = Int64.of_int (Array.length s.dests) in
+	let chunk_num = Int64.div sector s.chunk_size in
+	let offset_in_chunk = Int64.rem sector s.chunk_size in
+	let dev_num = Int64.to_int (Int64.rem chunk_num ndevs) in
+	let dev_off = Int64.div chunk_num ndevs in
+	let device = s.dests.(dev_num) in
+	let offset_from_start = Int64.add (Int64.mul dev_off s.chunk_size) offset_in_chunk in   
+	let total_offset = Int64.add offset_from_start device.offset in
+	(resolve_device device.device dereference_table, total_offset)
+      
 let remove = _remove
 let table = _table
 let mknods = _mknods
 let mknod = _mknod
- 
+let suspend = _suspend
+let resume = _resume 
+let to_string (m : mapping array) = Marshal.to_string m []
+let of_string s = (Marshal.from_string s 0 : mapping array)

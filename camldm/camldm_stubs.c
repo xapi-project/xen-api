@@ -67,6 +67,46 @@ void camldm_create(value name, value map)
   CAMLreturn0;  
 }
 
+void camldm_reload(value name, value map) 
+{
+  CAMLparam2(name,map);
+
+  struct dm_task *dmt;
+  int i;
+  uint64_t start, size;
+  char *ty,*params;
+
+  if(!(dmt = dm_task_create(DM_DEVICE_RELOAD)))
+    caml_failwith("Failed to create task!");
+
+  if(!dm_task_set_name(dmt, String_val(name))) 
+    goto out;
+
+  for(i=0; i<Wosize_val(map); i++) {
+    start=Int64_val(Field(Field(map,i),0));
+    size=Int64_val(Field(Field(map,i),1));
+    ty=String_val(Field(Field(map,i),2));
+    params=String_val(Field(Field(map,i),3));
+
+    printf("%" PRIu64 " %" PRIu64 " %s %s\n", start, size, ty, params);
+
+    if(!dm_task_add_target(dmt, start, size, ty, params))
+      goto out;
+  }
+  
+  if(!dm_task_run(dmt))
+    goto out;
+
+  goto win;
+
+ out:
+  dm_task_destroy(dmt);
+  caml_failwith("Failed!");
+
+ win:
+  CAMLreturn0;  
+}
+
 
 void camldm_mknods(value dev)
 {
@@ -174,6 +214,20 @@ void camldm_remove(value device)
 {
   CAMLparam1(device);
   _simple(DM_DEVICE_REMOVE,String_val(device));
+  CAMLreturn0;
+}
+
+void camldm_suspend(value device)
+{
+  CAMLparam1(device);
+  _simple(DM_DEVICE_SUSPEND,String_val(device));
+  CAMLreturn0;
+}
+
+void camldm_resume(value device)
+{
+  CAMLparam1(device);
+  _simple(DM_DEVICE_RESUME,String_val(device));
   CAMLreturn0;
 }
 
