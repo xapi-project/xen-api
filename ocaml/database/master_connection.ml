@@ -38,7 +38,7 @@ let force_connection_reset () =
   match !my_connection with
     None -> ()
   | Some st_proc ->
-      Unix.kill (Forkhelpers.getpid st_proc.Stunnel.pid) Sys.sigterm
+      Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 	
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
    written into this global: *)
