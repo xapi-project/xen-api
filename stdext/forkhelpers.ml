@@ -83,10 +83,6 @@ let with_logfile_fd ?(delete = true) prefix f =
     Failure(read_logfile(), e)
 
 
-let with_dev_null f = Unixext.with_file "/dev/null" [ Unix.O_WRONLY ] 0o0 f
-let with_dev_null_read f = Unixext.with_file "/dev/null" [ Unix.O_RDONLY ] 0o0 f
-
-
 exception Spawn_internal_error of string * string * Unix.process_status
 
 let id = ref 0 
