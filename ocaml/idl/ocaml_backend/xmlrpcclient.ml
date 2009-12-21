@@ -331,7 +331,7 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       let unique_id = get_new_stunnel_id () in
       Stunnel.connect ~use_external_fd_wrapper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
   let s = st_proc.Stunnel.fd in
-  let s_pid = Forkhelpers.getpid st_proc.Stunnel.pid in
+  let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
   begin
     match task_id with
         None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
