@@ -20,6 +20,8 @@
 #include <string.h>
 #include <unistd.h> /* needed for _SC_OPEN_MAX */
 #include <stdio.h> /* snprintf */
+#include <sys/ioctl.h>
+#include <linux/fs.h> 
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -59,6 +61,16 @@ CAMLprim value stub_unixext_fsync (value fd)
 	CAMLreturn(Val_unit);
 }
 	
+CAMLprim value stub_unixext_blkgetsize64(value fd)
+{
+  CAMLparam1(fd);
+  uint64_t size;
+  int c_fd = Int_val(fd);
+  if(ioctl(c_fd,BLKGETSIZE64,&size)) {
+    failwith_errno();
+  }
+  CAMLreturn(caml_copy_int64(size));
+}
 
 CAMLprim value stub_unixext_get_max_fd (value unit)
 {

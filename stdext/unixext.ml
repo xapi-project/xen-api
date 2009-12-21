@@ -460,6 +460,7 @@ let double_fork f =
 external set_tcp_nodelay : Unix.file_descr -> bool -> unit = "stub_unixext_set_tcp_nodelay"
 
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
+external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
 
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
 
@@ -540,6 +541,18 @@ module Fdset = struct
 	let select_ro r t = _select_ro r t
 	let select_wo w t = _select_wo w t
 end
+
+let wait_for_path path delay timeout =
+  let rec inner ttl =
+    if ttl=0 then failwith "No path!";
+    try 
+      ignore(Unix.stat path)
+    with _ ->
+      delay 0.5;
+      inner (ttl - 1)
+  in
+  inner (timeout * 2)
+	
 
 let _ = Callback.register_exception "unixext.unix_error" (Unix_error (0))
 
