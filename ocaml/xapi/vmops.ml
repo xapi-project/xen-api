@@ -496,10 +496,14 @@ let plug_pcidevs ~__context ~vm domid =
 	 Vmopshelpers.with_xc_and_xs
 	   (fun xc xs ->
 	      if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
-		if List.length pcidevs > 1 then warn "More than 1 PCI device configured: only the first will be attached";
-		let (a, b, c, d) as device = List.hd (snd (List.hd pcidevs)) in
-		debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
-		Device.PCI.plug ~xc ~xs device domid (-1)
+			List.iter 
+				(fun (devid, devices) ->
+					 List.iter
+						 (fun ((a, b, c, d) as device) ->
+							  debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
+							  Device.PCI.plug ~xc ~xs device domid devid
+						 ) devices
+				) pcidevs
 	      end
 	   )
        end;
