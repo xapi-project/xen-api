@@ -16,27 +16,27 @@ type devty =
     | Dereferenced of string (* e.g. PV id *)
     | Real of string (* device *)
 	
-type dev = {
+and dev = {
   device : devty;
   offset : int64;
 }
     
-type stripety = {
+and stripety = {
   chunk_size : int64;  (* In sectors - must be a power of 2 and at least as large as the system's PAGE_SIZE *)
   dests : dev array;
 }
 
-type mapty = 
+and mapty = 
     | Linear of dev (* Device, offset *)
     | Striped of stripety
 
-type mapping = {
+and mapping = {
   start : int64;
   len : int64; 
   map : mapty;
 }
 
-type status = {
+and status = {
   exists : bool;
   suspended : bool;
   live_table : bool;
@@ -47,7 +47,18 @@ type status = {
   minor : int32;
   read_only : bool;
   targets : (int64 * int64 * string * string) list
+} 
+
+and mapping_array = {
+  m : mapping array 
+} 
+
+and create_error_t = {
+  c : (int64 * int64 * string * string) array
 }
+with rpc
+
+
 
 external _create : string -> (int64 * int64 * string * string) array -> unit = "camldm_create"
 external _reload : string -> (int64 * int64 * string * string) array -> unit = "camldm_reload"
@@ -77,8 +88,11 @@ let convert_mapty m deref_table =
 	      (Array.map (fun dev -> 
 		Printf.sprintf "%s %Ld" (resolve_device dev.device deref_table) dev.offset) st.dests))
 
-exception CreateError of (int64 * int64 * string * string) array
-exception ReloadError of (int64 * int64 * string * string) array
+exception CreateError of string
+exception ReloadError of string
+
+let to_string m = Jsonrpc.to_string (rpc_of_mapping_array {m=m})
+let of_string s = (mapping_array_of_rpc (Jsonrpc.of_string s)).m
  
 let _writemap dev map =
   let oc = open_out (Printf.sprintf "/tmp/%s.map" dev) in
@@ -90,23 +104,23 @@ let _getmap map dereference_table =
     let (ty,params) = convert_mapty m.map dereference_table in
     (m.start, m.len, ty, params)) map 
     
-let create dev map ?(dereference_table=[]) =
+let create dev map dereference_table =
   let newmap = _getmap map dereference_table in
   try 
     _writemap dev newmap;
     _create dev newmap
-  with e ->
-    raise (CreateError newmap)
+  with Failure x ->
+    raise (CreateError x)
       
-let reload dev map ?(dereference_table=[]) =
+let reload dev map dereference_table =
   let newmap = _getmap map dereference_table in
   try 
     _writemap dev newmap;
     _reload dev newmap
-  with e ->
-    raise (ReloadError newmap)
+  with Failure x ->
+    raise (ReloadError x)
 
-let get_sector_pos_of map sector ~dereference_table =
+let get_sector_pos_of map sector dereference_table =
   match map.map with 
     | Linear l -> (resolve_device l.device dereference_table, Int64.add l.offset sector)
     | Striped s ->
@@ -127,5 +141,3 @@ let mknods = _mknods
 let mknod = _mknod
 let suspend = _suspend
 let resume = _resume 
-let to_string (m : mapping array) = Marshal.to_string m []
-let of_string s = (Marshal.from_string s 0 : mapping array)

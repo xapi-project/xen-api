@@ -39,8 +39,10 @@ void camldm_create(value name, value map)
   if(!(dmt = dm_task_create(DM_DEVICE_CREATE)))
     caml_failwith("Failed to create task!");
 
-  if(!dm_task_set_name(dmt, String_val(name))) 
-    goto out;
+  if(!dm_task_set_name(dmt, String_val(name))) {
+    dm_task_destroy(dmt);
+    caml_failwith("Failed to set name");
+  }
 
   for(i=0; i<Wosize_val(map); i++) {
     start=Int64_val(Field(Field(map,i),0));
@@ -50,19 +52,17 @@ void camldm_create(value name, value map)
 
     printf("%" PRIu64 " %" PRIu64 " %s %s\n", start, size, ty, params);
 
-    if(!dm_task_add_target(dmt, start, size, ty, params))
-      goto out;
+    if(!dm_task_add_target(dmt, start, size, ty, params)) {
+      dm_task_destroy(dmt);
+      caml_failwith("Failed to add target");
+    }
   }
   
-  if(!dm_task_run(dmt))
-    goto out;
-
-  goto win;
-
- out:
-  dm_task_destroy(dmt);
-  caml_failwith("Failed!");
-
+  if(!dm_task_run(dmt)) {
+    dm_task_destroy(dmt);
+    caml_failwith("Failed to run task");
+  }
+  
  win:
   CAMLreturn0;  
 }

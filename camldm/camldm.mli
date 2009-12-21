@@ -30,18 +30,18 @@ type status = {
   targets : (int64 * int64 * string * string) list;
 }
 
-exception CreateError of (int64 * int64 * string * string) array
-exception ReloadError of (int64 * int64 * string * string) array
+exception CreateError of string
+exception ReloadError of string
 
 val convert_mapty : mapty -> (string * string) list -> string * string
-val create : string -> mapping array -> ?dereference_table : (string * string) list -> unit
-val reload : string -> mapping array -> ?dereference_table : (string * string) list -> unit
+val create : string -> mapping array -> (string * string) list -> unit
+val reload : string -> mapping array -> (string * string) list -> unit
 val suspend : string -> unit
 val resume : string -> unit
 val remove : string -> unit
 val table : string -> status
 val mknods : string -> unit
 val mknod : string -> int -> int -> int -> unit
-val get_sector_pos_of : mapping -> int64 -> dereference_table:(string * string) list -> string * int64
+val get_sector_pos_of : mapping -> int64 -> (string * string) list -> string * int64
 val to_string : mapping array -> string
 val of_string : string -> mapping array
