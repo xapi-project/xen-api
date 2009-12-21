@@ -152,7 +152,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     close_fds
 
 
-let execute_command_get_output ?(cb_set=(fun _ -> ())) ?(cb_clear=(fun () -> ())) cmd args =
+let execute_command_get_output cmd args =
   match with_logfile_fd "execute_command_get_out" (fun out_fd ->
     with_logfile_fd "execute_command_get_err" (fun err_fd ->
       let (sock,pid) = safe_close_and_exec None (Some out_fd) (Some err_fd) [] cmd args in
