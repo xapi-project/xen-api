@@ -24,13 +24,13 @@ open Forkhelpers
 let do_cmd s cmd args =
   let cmdline = String.concat " " (cmd :: args) in
 
-  let pid = ref Forkhelpers.nopid in
   match with_logfile_fd "execute_command_get_output"
     (fun log_fd ->
       (* Capture stderr output for logging *)
-      pid := safe_close_and_exec (Some s) (Some s) (Some log_fd) [] cmd args;
-      snd(waitpid !pid)) with
-      | Success(log, status) ->
+		 let pid = safe_close_and_exec (Some s) (Some s) (Some log_fd) [] cmd args in
+		 snd(waitpid pid)
+	) with
+    | Success(log, status) ->
 	  debug "log: %s" log;
 	  begin match status with
 	    | Unix.WEXITED 0 -> ignore(log)
