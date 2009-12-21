@@ -93,8 +93,6 @@ let common ty filename signature size f =
 
   finally  (* make sure I close all my open fds in the end *)
     (fun () ->
-       Forkhelpers.with_dev_null (* open /dev/null *)
-	 (fun dev_null ->
 	    (* Capture stderr output for logging *)
 	    match Forkhelpers.with_logfile_fd "gpg"
 	      (fun log_fd ->
@@ -114,7 +112,7 @@ let common ty filename signature size f =
 		  raise InvalidSignature
 	      | Forkhelpers.Failure(log, exn) ->
 		  debug "Error from gpg: %s" log;
-		  raise exn))
+		  raise exn)
     (fun () -> List.iter Unix.close !fds_to_close)
 
 let with_signed_cleartext filename f =
