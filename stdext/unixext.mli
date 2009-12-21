@@ -83,6 +83,8 @@ external set_tcp_nodelay : Unix.file_descr -> bool -> unit
   = "stub_unixext_set_tcp_nodelay"
 external fsync : Unix.file_descr -> unit = "stub_unixext_fsync"
 external get_max_fd : unit -> int = "stub_unixext_get_max_fd"
+external blkgetsize64 : Unix.file_descr -> int64 = "stub_unixext_blkgetsize64"
+
 val int_of_file_descr : Unix.file_descr -> int
 val file_descr_of_int : int -> Unix.file_descr
 val close_all_fds_except : Unix.file_descr list -> unit
@@ -105,6 +107,8 @@ module Fdset : sig
 	val select_ro : t -> float -> t
 	val select_wo : t -> float -> t
 end
+
+val wait_for_path : string -> (float -> unit) -> int -> unit
 
 (** Download a file via an HTTP GET *)
 val http_get: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
