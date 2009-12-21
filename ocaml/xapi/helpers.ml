@@ -580,7 +580,9 @@ let find_secondary_partition () =
 let call_script ?(log_successful_output=true) script args = 
   try
     Unix.access script [ Unix.X_OK ];
-    let output, _ = Forkhelpers.execute_command_get_output script args in
+	(* Use the same $PATH as xapi *)
+	let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
+    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
     if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
     output
   with 
