@@ -4,10 +4,9 @@ CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 LDFLAGS = -cclib -L./
 VERSION = 0.1
 
-PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
-
 DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+OCAMLOPTFLAGS = -g -dtypes 
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
@@ -18,16 +17,10 @@ INTF = $(foreach obj, $(LIBOBJS),$(obj).cmi)
 CMDOBJS = messages.cmx mlvm.cmx
 OCAMLC = ocamlfind ocamlc -g
 OCAMLOPT = ocamlfind ocamlopt 
-COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm -pp '${PP}' -I ../rpc-light
-
+COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm
 LIBS = lvm.cma lvm.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
-
 default : $(LIBS)
-
-test_allocator: default
-	$(OCAMLOPT) -package kaputt -linkpkg -dtypes -g  -I ../stdext -I ../camldm -I ../uuid -I +kaputt unix.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx ../camldm/camldm.cmxa ../uuid/uuid.cmxa ../stdext/stdext.cmxa ./lvm.cmxa test_allocator.ml -o $@
 
 lvm.cmx: $(foreach obj,$(LIBOBJS),$(obj).cmx)
 	$(OCAMLOPT) -pack -g -o $@ $(foreach obj,$(LIBOBJS),$(obj).cmx)
@@ -55,11 +48,6 @@ uninstall:
 clean : 
 	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
-	rm -f test_allocator
-
-.PHONY: doc
-doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "stdext,camldm,uuid,unix" "" "'${PP}'"
 
 lvmconfigparser.ml : lvmconfigparser.mly
 	ocamlyacc lvmconfigparser.mly

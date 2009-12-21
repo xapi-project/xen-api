@@ -28,23 +28,23 @@ module Label = struct
     ty : string (* 8 bytes, equal to "LVM2 001" - Constants.label_type*)
   }
       
-  and disk_locn = {
+  type disk_locn = {
     dl_offset : int64;
     dl_size : int64;
   }
 
-  and pv_header = {
+  type pv_header = {
     pvh_id : string; (* 32 bytes, 'uuid' *)
     pvh_device_size : int64;
     pvh_extents: disk_locn list;
     pvh_metadata_areas: disk_locn list;
   }
 
-  and t = {
+  type t = {
     device : string;
     label_header : label_header;
     pv_header : pv_header;
-  } with rpc 
+  }
 
   let unmarshal_header b0 =
     let id,b = unmarshal_string 8 b0 in
@@ -97,14 +97,6 @@ module Label = struct
       pvh_extents=disk_areas;
       pvh_metadata_areas=disk_areas2},b
 
-  let pvh_to_ascii pvh =
-    let disk_area_list_to_ascii l =
-      (String.concat "," (List.map (fun da -> Printf.sprintf "{offset=%Ld,size=%Ld}" da.dl_offset da.dl_size) l)) in  
-    Printf.sprintf "pvh_id: %s\npvh_device_size: %Ld\npvh_areas1: %s\npvh_areas2: %s\n"
-      pvh.pvh_id pvh.pvh_device_size 
-      (disk_area_list_to_ascii pvh.pvh_extents)
-      (disk_area_list_to_ascii pvh.pvh_metadata_areas)
-
   let write_label_and_pv_header l =
     let label = l.label_header in
     let pvh = l.pv_header in
@@ -125,9 +117,7 @@ module Label = struct
     let header = marshal_string header label.ty in
     
     assert(snd header = 32);
-
-    Debug.debug (Printf.sprintf "write_label_and_pv_header:\nPV header:\n%s" (pvh_to_ascii pvh));
-
+    
     (* PV header *)
     let header = marshal_string header (Lvm_uuid.remove_hyphens pvh.pvh_id) in
     let header = marshal_int64 header pvh.pvh_device_size in
@@ -164,6 +154,14 @@ module Label = struct
     if len <> (Unix.write fd str 0 len) then failwith "Short write!";
     
     Unix.close fd
+
+  let pvh_to_ascii pvh =
+    let disk_area_list_to_ascii l =
+      (String.concat "," (List.map (fun da -> Printf.sprintf "{offset=%Ld,size=%Ld}" da.dl_offset da.dl_size) l)) in  
+    Printf.sprintf "pvh_id: %s\npvh_device_size: %Ld\npvh_areas1: %s\npvh_areas2: %s\n"
+      pvh.pvh_id pvh.pvh_device_size 
+      (disk_area_list_to_ascii pvh.pvh_extents)
+      (disk_area_list_to_ascii pvh.pvh_metadata_areas)
 
   let get_metadata_locations label = 
     label.pv_header.pvh_metadata_areas
@@ -207,8 +205,6 @@ module Label = struct
 end
     
 module MDAHeader = struct
-  let mda_header_size = Constants.sector_size
-
   type mda_raw_locn = {
     mrl_offset: int64;
     mrl_size: int64;
@@ -216,14 +212,16 @@ module MDAHeader = struct
     mrl_filler: int32;
   }
 
-  and mda_header = {
+  let mda_header_size = Constants.sector_size
+
+  type mda_header = {
     mdah_checksum : int32;
     mdah_magic : string;
     mdah_version : int32;
     mdah_start: int64;
     mdah_size: int64;
     mdah_raw_locns : mda_raw_locn list;
-  } with rpc
+  }
 
   let unmarshal_mda_header device location =
     let offset,fd = 
@@ -300,40 +298,38 @@ module MDAHeader = struct
     if written <> Constants.sector_size then failwith "Wrote short!";
     Unix.close fd
       
-	let read_md dev mdah n =
-		(* debug *)
-		let oc = open_out "/tmp/hdr" in
-		Printf.fprintf oc "%s\n%!" (to_ascii mdah);
-		close_out oc;
+  let read_md dev mdah n =
+    (* debug *)
+    let oc = open_out "/tmp/hdr" in
+    Printf.fprintf oc "%s\n%!" (to_ascii mdah);
+    close_out oc;
 
-		let locn = List.nth mdah.mdah_raw_locns n in
-		let fd =
-			if !Constants.dummy_mode then begin
-				Unix.openfile (dummy_fname dev "md") [Unix.O_RDONLY] 0o000
-			end else begin
-				let fd = Unix.openfile dev [Unix.O_RDONLY] 0o000 in
-				ignore(Unix.LargeFile.lseek fd (Int64.add mdah.mdah_start locn.mrl_offset) Unix.SEEK_SET);
-				fd
-			end
-		in
-		let md =
-			(* Include terminating \0 in this string.
-			 * The checksum calculation in original lvm does so, too.*)
-			if(Int64.add locn.mrl_offset locn.mrl_size > mdah.mdah_size)
-			then (* wrap around *)
-				let firstbit = Int64.to_int (Int64.sub mdah.mdah_size locn.mrl_offset) in
-				let firstbitstr = really_read fd firstbit in
-				let secondbit = (Int64.to_int locn.mrl_size) - firstbit in
-				if not !Constants.dummy_mode then ignore(Unix.LargeFile.lseek fd (Int64.add mdah.mdah_start 512L) Unix.SEEK_SET);
-				let secondbitstr = really_read fd secondbit in
-				firstbitstr ^ secondbitstr
-			else
-				really_read fd (Int64.to_int locn.mrl_size) in
-		let checksum = Crc.crc md Crc.initial_crc in
-		Unix.close fd;
-		if checksum <> locn.mrl_checksum then
-			Printf.fprintf stderr "Checksum invalid in metadata: Found %lx, expecting %lx\n" checksum locn.mrl_checksum;
-		md
+    let locn = List.nth mdah.mdah_raw_locns n in
+    let fd = 
+      if !Constants.dummy_mode then begin
+	Unix.openfile (dummy_fname dev "md") [Unix.O_RDONLY] 0o000
+      end else begin
+	let fd = Unix.openfile dev [Unix.O_RDONLY] 0o000 in
+	ignore(Unix.LargeFile.lseek fd (Int64.add mdah.mdah_start locn.mrl_offset) Unix.SEEK_SET);  
+	fd
+      end
+    in
+    let md = 
+      if(Int64.add locn.mrl_offset locn.mrl_size > mdah.mdah_size) 
+      then
+	let firstbit = Int64.to_int (Int64.sub mdah.mdah_size locn.mrl_offset) in
+	let firstbitstr = really_read fd firstbit in
+	let secondbit = (Int64.to_int locn.mrl_size) - firstbit - 1 in
+	if not !Constants.dummy_mode then ignore(Unix.LargeFile.lseek fd (Int64.add mdah.mdah_start 512L) Unix.SEEK_SET);  
+	let secondbitstr = really_read fd secondbit in
+	firstbitstr ^ secondbitstr
+      else
+	really_read fd (Int64.to_int locn.mrl_size - 1) in
+    let checksum = Crc.crc md Crc.initial_crc in
+    Unix.close fd;
+    if checksum <> locn.mrl_checksum then
+      Printf.fprintf stderr "Checksum invalid in metadata: Found %lx, expecting %lx\n" checksum locn.mrl_checksum;
+    md
       
   let write_md device mdah md =
     (* Find the current raw location of the metadata, assuming there's only one copy *)
@@ -425,7 +421,7 @@ end
 type status = 
     | Allocatable
 	
-and physical_volume = {
+type physical_volume = {
   name : string;
   id : string;
   dev : string;
@@ -436,7 +432,7 @@ and physical_volume = {
   pe_count : int64;
   label : Label.t;  (* The one label for this PV *)
   mda_headers : MDAHeader.mda_header list; 
-} with rpc 
+}
 
 let status_to_string s =
   match s with
@@ -497,8 +493,8 @@ let of_metadata name config pvdatas =
 (** Find the metadata area on a device and return the text of the metadata *)
 let find_metadata device =
   let label = Label.find device in
-  Debug.debug (Printf.sprintf "Label found: \n%s\n" 
-    (Label.to_ascii label));
+  (*  Printf.printf "Label found: \n%s\nPV header found:\n%s\n" 
+      (Pv.Label.label_to_ascii label) (Pv.Label.pvh_to_ascii pvh); *)
   let mda_locs = Label.get_metadata_locations label in
   let mdahs = List.map (MDAHeader.unmarshal_mda_header device) mda_locs in
   let mdt = MDAHeader.read_md device (List.hd mdahs) 0 in  

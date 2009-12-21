@@ -23,7 +23,6 @@ let redo_log_lv_name = "mlvm_redo_log"
 let mib = Int64.mul 1024L 1024L
 let tib = Int64.mul mib mib
 
-(* Ahem, mutable constants? *)
 let dummy_mode = ref false 
 let dummy_base = ref "/tmp"
 let mapper_name = ref "mapper"

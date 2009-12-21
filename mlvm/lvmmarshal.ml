@@ -14,26 +14,26 @@ let unmarshal_uint8 (s, offset) =
 
 let unmarshal_uint16 ?(bigendian=false) (s, offset) =
   let offsets = if bigendian then [|1;0|] else [|0;1|] in
-  let (<!<) a b = a lsl b 
-  and (|!|) a b = a lor b in
+  let (<<) a b = a lsl b 
+  and (||) a b = a lor b in
   let a = int_of_char (s.[offset + offsets.(0)]) 
   and b = int_of_char (s.[offset + offsets.(1)]) in
-  (a <!< 0) |!| (b <!< 8), (s, offset + 2)
+  (a << 0) || (b << 8), (s, offset + 2)
 
 let unmarshal_uint32 ?(bigendian=false) (s, offset) = 
   let offsets = if bigendian then [|3;2;1;0|] else [|0;1;2;3|] in
-  let (<!<) a b = Int32.shift_left a b 
-  and (|!|) a b = Int32.logor a b in
+  let (<<) a b = Int32.shift_left a b 
+  and (||) a b = Int32.logor a b in
   let a = Int32.of_int (int_of_char (s.[offset + offsets.(0)])) 
   and b = Int32.of_int (int_of_char (s.[offset + offsets.(1)])) 
   and c = Int32.of_int (int_of_char (s.[offset + offsets.(2)])) 
   and d = Int32.of_int (int_of_char (s.[offset + offsets.(3)])) in
-  (a <!< 0) |!| (b <!< 8) |!| (c <!< 16) |!| (d <!< 24), (s, offset + 4)
+  (a << 0) || (b << 8) || (c << 16) || (d << 24), (s, offset + 4)
 
 let unmarshal_uint64 ?(bigendian=false) (s, offset) = 
   let offsets = if bigendian then [|7;6;5;4;3;2;1;0|] else [|0;1;2;3;4;5;6;7|] in
-  let (<!<) a b = Int64.shift_left a b 
-  and (|!|) a b = Int64.logor a b in
+  let (<<) a b = Int64.shift_left a b 
+  and (||) a b = Int64.logor a b in
   let a = Int64.of_int (int_of_char (s.[offset + offsets.(0)])) 
   and b = Int64.of_int (int_of_char (s.[offset + offsets.(1)])) 
   and c = Int64.of_int (int_of_char (s.[offset + offsets.(2)])) 
@@ -42,8 +42,8 @@ let unmarshal_uint64 ?(bigendian=false) (s, offset) =
   and f = Int64.of_int (int_of_char (s.[offset + offsets.(5)])) 
   and g = Int64.of_int (int_of_char (s.[offset + offsets.(6)])) 
   and h = Int64.of_int (int_of_char (s.[offset + offsets.(7)])) in
-  (a <!< 0) |!| (b <!< 8) |!| (c <!< 16) |!| (d <!< 24)
-  |!| (e <!< 32) |!| (f <!< 40) |!| (g <!< 48) |!| (h <!< 56), (s, offset + 8)
+  (a << 0) || (b << 8) || (c << 16) || (d << 24)
+  || (e << 32) || (f << 40) || (g << 48) || h << (56), (s, offset + 8)
 
 let unmarshal_string len (s,offset) =
   String.sub s offset len, (s, offset + len)
@@ -57,22 +57,22 @@ let marshal_int8 (s,offset) x =
 
 let marshal_int16 (s,offset) ?(bigendian=false) x = 
   let offsets = if bigendian then [|1;0|] else [|0;1|] in
-  let (>!>) a b = a lsr b
+  let (>>) a b = a lsr b
   and (&&) a b = a land b in
-  let a = (x >!> 0) && 0xff 
-  and b = (x >!> 8) && 0xff in
+  let a = (x >> 0) && 0xff 
+  and b = (x >> 8) && 0xff in
   s.[offset+offsets.(0)] <- char_of_int a;
   s.[offset+offsets.(1)] <- char_of_int b;
   (s,offset+2)
 
 let marshal_int32 (s,offset) ?(bigendian=false) x = 
   let offsets = if bigendian then [|3;2;1;0|] else [|0;1;2;3|] in
-  let (>!>) a b = Int32.shift_right_logical a b
+  let (>>) a b = Int32.shift_right_logical a b
   and (&&) a b = Int32.logand a b in
-  let a = (x >!> 0) && 0xffl 
-  and b = (x >!> 8) && 0xffl
-  and c = (x >!> 16) && 0xffl
-  and d = (x >!> 24) && 0xffl in
+  let a = (x >> 0) && 0xffl 
+  and b = (x >> 8) && 0xffl
+  and c = (x >> 16) && 0xffl
+  and d = (x >> 24) && 0xffl in
   s.[offset+offsets.(0)] <- char_of_int (Int32.to_int a);
   s.[offset+offsets.(1)] <- char_of_int (Int32.to_int b);
   s.[offset+offsets.(2)] <- char_of_int (Int32.to_int c);
@@ -81,16 +81,16 @@ let marshal_int32 (s,offset) ?(bigendian=false) x =
 
 let marshal_int64 (s,offset) ?(bigendian=false) x = 
   let offsets = if bigendian then [|7;6;5;4;3;2;1;0|] else [|0;1;2;3;4;5;6;7|] in
-  let (>!>) a b = Int64.shift_right_logical a b
+  let (>>) a b = Int64.shift_right_logical a b
   and (&&) a b = Int64.logand a b in
-  let a = (x >!> 0) && 0xffL
-  and b = (x >!> 8) && 0xffL
-  and c = (x >!> 16) && 0xffL
-  and d = (x >!> 24) && 0xffL 
-  and e = (x >!> 32) && 0xffL 
-  and f = (x >!> 40) && 0xffL
-  and g = (x >!> 48) && 0xffL
-  and h = (x >!> 56) && 0xffL in
+  let a = (x >> 0) && 0xffL
+  and b = (x >> 8) && 0xffL
+  and c = (x >> 16) && 0xffL
+  and d = (x >> 24) && 0xffL 
+  and e = (x >> 32) && 0xffL 
+  and f = (x >> 40) && 0xffL
+  and g = (x >> 48) && 0xffL
+  and h = (x >> 56) && 0xffL in
   s.[offset+offsets.(0)] <- char_of_int (Int64.to_int a);
   s.[offset+offsets.(1)] <- char_of_int (Int64.to_int b);
   s.[offset+offsets.(2)] <- char_of_int (Int64.to_int c);

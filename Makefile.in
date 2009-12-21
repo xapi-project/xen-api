@@ -30,6 +30,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm
 endif
 	$(MAKE) -C forking_executioner
+	$(MAKE) -C mlvm
 
 .PHONY: allxen
 allxen:
@@ -65,6 +66,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm install
 endif
 	$(MAKE) -C forking_executioner install
+	$(MAKE) -C mlvm install
 
 installxen:
 ifeq ($(HAVE_XEN),1)
@@ -99,6 +101,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm uninstall
 endif
 	$(MAKE) -C forking_executioner uninstall
+	$(MAKE) -C mlvm uninstall
 
 uninstallxen:
 ifeq ($(HAVE_XEN),1)
@@ -156,6 +159,7 @@ doc:
 	$(MAKE) -C xsrpc doc
 	$(MAKE) -C mmap doc
 	$(MAKE) -C forking_executioner doc
+	$(MAKE) -C mlvm doc
 
 .PHONY: clean
 clean:
@@ -174,6 +178,7 @@ clean:
 	make -C sexpr clean
 	make -C doc clean
 	make -C forking_executioner clean
+	make -C mlvm clean
 
 cleanxen:
 	$(MAKE) -C mmap clean
