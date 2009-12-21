@@ -38,22 +38,6 @@ let string_of_pidty p =
 
 let nopid = Nopid
 
-(** Standalone wrapper process which safely closes fds before exec()ing another
-    program *)
-
-exception Close_and_exec_binary_missing of string
-
-(* This needs to point to where the binaray closeandexec is installed *)
-let close_and_exec = "/opt/xensource/libexec/closeandexec"
-
-let close_and_exec_cmdline (fds: Unix.file_descr list) (cmd: string) (args: string list) = 
-  (* Sanity check: make sure the close_and_exec binary exists *)
-  (try Unix.access close_and_exec [ Unix.X_OK ] 
-   with _ -> raise (Close_and_exec_binary_missing close_and_exec));
-
-  let fds = List.map (fun x -> string_of_int (Unixext.int_of_file_descr x)) fds in
-  close_and_exec :: fds @ ("--" :: cmd :: args)
-
 (* Low-level (unsafe) function which forks, runs a 'pre_exec' function and
    then executes some other binary. It makes sure to catch any exception thrown by
    exec* so that we don't end up with two ocaml processes. *)
