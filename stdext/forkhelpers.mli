@@ -30,8 +30,6 @@ type pidty
 
 val string_of_pidty : pidty -> string
 
-val nopid : pidty
-
 (** Safe function which forks a command, closing all fds except a whitelist and
     having performed some fd operations in the child *)
 val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> string -> string list -> pidty
