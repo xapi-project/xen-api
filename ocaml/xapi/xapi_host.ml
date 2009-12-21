@@ -401,7 +401,7 @@ let evacuate ~__context ~host =
         let migrate_vm  vm plan = match plan with
 	      | Migrate host ->
 		      Helpers.call_api_functions ~__context
-                (fun rpc session_id -> Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options:[]);
+                (fun rpc session_id -> Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options:[ "live", "true" ]);
 		      let progress = Db.Task.get_progress ~__context ~self:task in
                 TaskHelper.set_progress ~__context (progress +. individual_progress)
 	      | Error(code, params) -> (* should never happen *) raise (Api_errors.Server_error(code, params))
