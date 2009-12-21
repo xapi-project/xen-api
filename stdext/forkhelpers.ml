@@ -21,6 +21,8 @@
 
 (* XXX: this is a work in progress *)
 
+let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
+
 open Pervasiveext
 
 type pidty = 
@@ -201,7 +203,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
 
     let env = match env with 
       |	Some e -> e
-      | None -> [||] 
+      | None -> [| "PATH=" ^ (String.concat ":" default_path) |]
     in
     Fecomms.write_raw_rpc sock (Fe.Setup {Fe.cmdargs=(cmd::args); env=(Array.to_list env); id_to_fd_map = id_to_fd_map});
 
