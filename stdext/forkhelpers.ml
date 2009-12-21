@@ -25,27 +25,14 @@ let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
 
 open Pervasiveext
 
-type pidty = 
-    | Stdfork of int (* We've forked and execed, and therefore need to waitpid *)
-    | FEFork of (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell it to waitpid *)
-    | Nopid
+type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 
-let string_of_pidty p =
-  match p with
-    | Stdfork pid -> Printf.sprintf "(Stdfork %d)" pid
-    | FEFork (fd,pid) -> Printf.sprintf "(FEFork (%d,%d))" (Unixext.int_of_file_descr fd) pid
-    | Nopid -> "Nopid"
-
-let nopid = Nopid
+let string_of_pidty (fd, pid) = Printf.sprintf "(FEFork (%d,%d))" (Unixext.int_of_file_descr fd) pid
 
 exception Subprocess_failed of int
 exception Subprocess_killed of int
 
-let waitpid ty =
-  match ty with 
-    | Stdfork pid ->
-	Unix.waitpid [] pid
-    | FEFork (sock,pid) ->
+let waitpid (sock, pid) =
 	let status = Fecomms.read_raw_rpc sock in
 	Unix.close sock;
 	begin match status with
@@ -53,26 +40,14 @@ let waitpid ty =
 	  | Fe.Finished (Fe.WSIGNALED n) -> (pid,Unix.WSIGNALED n)
 	  | Fe.Finished (Fe.WSTOPPED n) -> (pid,Unix.WSTOPPED n)
 	end
-    | Nopid -> failwith "Can't waitpid without a process"
 
-let waitpid_nohang ty =
-  match ty with
-    | Stdfork pid ->
-	Unix.waitpid [Unix.WNOHANG] pid 
-    | FEFork (sock,pid) ->
+let waitpid_nohang ((sock, _) as x) =
 	(match Unix.select [sock] [] [] 0.0 with
-	  | ([s],_,_) -> waitpid ty
+	  | ([s],_,_) -> waitpid x
 	  | _ -> (0,Unix.WEXITED 0))
-    | Nopid -> 
-	failwith "Can't waitpid without a pid"
 	  
-let dontwaitpid ty =
-  match ty with
-    | Stdfork pid ->
-	failwith "Can't do this!"
-    | FEFork (sock,pid) -> 
+let dontwaitpid (sock, pid) =
 	Unix.close sock
-    | Nopid -> ()
 
 
 let waitpid_fail_if_bad_exit ty =
@@ -83,11 +58,7 @@ let waitpid_fail_if_bad_exit ty =
     | (Unix.WSIGNALED n) -> raise (Subprocess_killed n)
     | (Unix.WSTOPPED n) -> raise (Subprocess_killed n)
 
-let getpid ty =
-  match ty with
-    | Stdfork pid -> pid
-    | FEFork (sock,pid) -> pid
-    | Nopid -> failwith "No pid!"
+let getpid (sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -180,7 +151,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     List.iter (fun (uuid,srcfd) ->
       send_named_fd uuid srcfd) fds;
     Fecomms.write_raw_rpc sock Fe.Exec;
-    match Fecomms.read_raw_rpc sock with Fe.Execed pid -> FEFork (sock, pid))
+    match Fecomms.read_raw_rpc sock with Fe.Execed pid -> (sock, pid))
    
     close_fds
 
@@ -188,7 +159,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
 let execute_command_get_output ?(cb_set=(fun _ -> ())) ?(cb_clear=(fun () -> ())) cmd args =
   match with_logfile_fd "execute_command_get_out" (fun out_fd ->
     with_logfile_fd "execute_command_get_err" (fun err_fd ->
-      let FEFork (sock,pid) = safe_close_and_exec None (Some out_fd) (Some err_fd) [] cmd args in
+      let (sock,pid) = safe_close_and_exec None (Some out_fd) (Some err_fd) [] cmd args in
       match Fecomms.read_raw_rpc sock with
 	| Fe.Finished x -> Unix.close sock; x
 	| _ -> Unix.close sock; failwith "Communications error"	    
