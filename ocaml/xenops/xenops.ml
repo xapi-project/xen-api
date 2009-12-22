@@ -603,6 +603,7 @@ let do_cmd_parsing cmd =
 		("balance"        , []);
 		("watchdog"       , watchdog_args);
 		("send-s3resume"  , common);
+		("trigger-power"  , common);
 		("dmesg"          , []);
 		("debugkeys"      , []);
 		("physinfo"       , []);
@@ -809,6 +810,9 @@ let _ =
 	| "send-s3resume" ->
 		assert_domid ();
 		with_xc (fun xc -> Domain.send_s3resume ~xc domid);
+	| "trigger-power" ->
+		assert_domid ();
+		with_xc (fun xc -> Domain.trigger_power ~xc domid);
 	| "dmesg" ->
 		with_xc (fun xc -> print_xen_dmesg ~xc);
 	| "debugkeys" ->
