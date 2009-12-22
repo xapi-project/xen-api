@@ -23,6 +23,7 @@ exception Stunnel_verify_error of string
 
 let certificate_path = "/etc/stunnel/certs"
 let crl_path = "/etc/stunnel/crls"
+let verify_certificates_ctrl = "/var/xapi/verify_certificates"
 
 let use_new_stunnel = ref false
 let new_stunnel_path = "/usr/sbin/stunnelng"
@@ -265,10 +266,20 @@ let rec retry f = function
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
     allows the caller to use diagnose_failure below if stunnel fails.  *)
-let connect ?unique_id ?use_external_fd_wrapper ?write_to_log
-    ?(verify_cert=false) ?(extended_diagnosis=false) host port = 
-  let connect = if !use_new_stunnel then attempt_one_connect_new else attempt_one_connect in
-  retry (fun () -> connect ?unique_id ?use_external_fd_wrapper ?write_to_log verify_cert extended_diagnosis host port) 5
+let connect
+		?unique_id
+		?use_external_fd_wrapper
+		?write_to_log
+		?verify_cert
+		?(extended_diagnosis=false)
+		host
+		port = 
+	let connect = if !use_new_stunnel then attempt_one_connect_new else attempt_one_connect in
+	let _verify_cert = match verify_cert with
+		| Some x -> x
+		| None -> Sys.file_exists verify_certificates_ctrl
+	in
+	retry (fun () -> connect ?unique_id ?use_external_fd_wrapper ?write_to_log _verify_cert extended_diagnosis host port) 5
 
 let sub_after i s =
   let len = String.length s in
