@@ -151,6 +151,9 @@ val suspend: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> domid
 (** send a s3resume event to a domain *)
 val send_s3resume: xc: Xc.handle -> domid -> unit
 
+(** send a power button push to a domain *)
+val trigger_power: xc: Xc.handle -> domid -> unit
+
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 val vcpu_affinity_set: xc: Xc.handle -> domid -> int -> bool array -> unit
 
