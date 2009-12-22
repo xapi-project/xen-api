@@ -32,7 +32,7 @@
     + allows us to offload Unix.fork(), Unix.exec*() to a single-threaded separate process
       where the glibc+ocaml runtime codepaths are simpler and hopefully more reliable. *)
 
-(** { 1 High-level interface } *)
+(** {2 High-level interface } *)
 
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
 	on success (exit 0). On failure this raises 
@@ -42,7 +42,7 @@ val execute_command_get_output : ?env:string array -> string -> string list -> s
 (** Thrown by [execute_command_get_output] if the subprocess exits with a non-zero exit code *)
 exception Spawn_internal_error of string * string * Unix.process_status
 
-(** { 2 Low-level interface } *)
+(** {2 Low-level interface } *)
 
 (** Represents a forked process *)
 type pidty
@@ -81,12 +81,14 @@ val dontwaitpid : pidty -> unit
 	signal and exits with non-zero code x. *)
 val waitpid_fail_if_bad_exit : pidty -> unit
 
-(** result returned by [with_logfile_fd] *)
-type 'a result = Success of string * 'a | Failure of string * exn
+(** Result returned by {!with_logfile_fd}. *)
+type 'a result =
+| Success of string * 'a	(** The function call completed successfully. *)
+| Failure of string * exn	(** The function raised an exception. *)
 
 (** Creates a temporary file and opens it for logging. The fd is passed to the function
-    'f'. The logfile is guaranteed to be closed afterwards, and unlinked if either the delete flag is set or the call fails. If the
-    function 'f' throws an error then the log file contents are read in *)
+    [f]. The logfile is guaranteed to be closed afterwards, and unlinked if either the delete flag is set or the call fails. If the
+    function [f] throws an error then the log file contents are read in *)
 val with_logfile_fd : ?delete:bool -> string -> (Unix.file_descr -> 'a) -> 'a result
 
 
