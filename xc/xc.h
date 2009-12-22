@@ -184,6 +184,7 @@ int xc_domain_set_vpt_align(int handle, unsigned int domid, int vpt_align);
 int xc_domain_set_hpet(int handle, unsigned int domid, int hpet);
 int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode);
 int xc_domain_get_acpi_s_state(int handle, unsigned int domid);
+int xc_domain_trigger_power(int handle, unsigned int domid);
 
 #if XEN_SYSCTL_INTERFACE_VERSION >= 6
 #define SAFEDIV(a, b)					(((b) >= 0) ? (a) / (b) : (a))

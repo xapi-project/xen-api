@@ -253,6 +253,8 @@ external domain_set_vpt_align: handle -> domid -> int -> unit = "stub_xc_domain_
 external domain_send_s3resume: handle -> domid -> unit = "stub_xc_domain_send_s3resume"
 external domain_get_acpi_s_state: handle -> domid -> int = "stub_xc_domain_get_acpi_s_state"
 
+external domain_trigger_power: handle -> domid -> unit = "stub_xc_domain_trigger_power"
+
 (** check if some hvm domain got pv driver or not *)
 external hvm_check_pvdriver: handle -> domid -> bool
        = "stub_xc_hvm_check_pvdriver"
