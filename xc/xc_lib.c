@@ -1549,6 +1549,19 @@ int xc_domain_suppress_spurious_page_faults(int xc, uint32_t domid)
 	return rc;
 }
 
+int xc_domain_trigger_power(int handle, unsigned int domid)
+{
+    int ret;
+
+    DECLARE_DOMCTL(XEN_DOMCTL_sendtrigger, domid);
+    domctl.u.sendtrigger.trigger = XEN_DOMCTL_SENDTRIGGER_POWER;
+
+	ret = do_domctl(handle, &domctl);
+	if (ret != 0)
+		xc_error_set("power button failed: %s", xc_error_get());
+    return ret;
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: t
