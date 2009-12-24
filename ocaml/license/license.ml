@@ -199,7 +199,7 @@ exception License_file_deprecated
 let check_expiry l =
   Unix.time () < l.expiry
 
-let license_valid () = check_expiry !license
+let license_valid () = true
 
 (* License setting functions *)
 	
