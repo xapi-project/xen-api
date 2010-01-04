@@ -460,6 +460,7 @@ let create_all_templates rpc session_id =
 		windows_template_nx (default_memory_parameters 1024L) 24L "Vista";
 		windows_template_nx (default_memory_parameters 1024L) 24L "7";
 		windows_template_nx (default_memory_parameters 2048L) 24L "7 x64";
+		windows_template_nx (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
 		cps_template (windows_template    (default_memory_parameters 256L)) "Citrix XenApp";
 		cps_template (windows_template_nx (default_memory_parameters 256L)) "Citrix XenApp x64";
 		begin
