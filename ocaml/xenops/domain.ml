@@ -798,6 +798,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 let send_s3resume ~xc domid = Xc.domain_send_s3resume xc domid
 
 let trigger_power ~xc domid = Xc.domain_trigger_power xc domid
+let trigger_sleep ~xc domid = Xc.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
 	let bitmap = ref Int64.zero in
