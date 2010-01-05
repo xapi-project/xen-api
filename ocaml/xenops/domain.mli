@@ -154,6 +154,9 @@ val send_s3resume: xc: Xc.handle -> domid -> unit
 (** send a power button push to a domain *)
 val trigger_power: xc: Xc.handle -> domid -> unit
 
+(** send a sleep button push to a domain *)
+val trigger_sleep: xc: Xc.handle -> domid -> unit
+
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 val vcpu_affinity_set: xc: Xc.handle -> domid -> int -> bool array -> unit
 
