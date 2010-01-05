@@ -1562,6 +1562,19 @@ int xc_domain_trigger_power(int handle, unsigned int domid)
     return ret;
 }
 
+int xc_domain_trigger_sleep(int handle, unsigned int domid)
+{
+    int ret;
+
+    DECLARE_DOMCTL(XEN_DOMCTL_sendtrigger, domid);
+    domctl.u.sendtrigger.trigger = XEN_DOMCTL_SENDTRIGGER_SLEEP;
+
+	ret = do_domctl(handle, &domctl);
+	if (ret != 0)
+		xc_error_set("sleep button failed: %s", xc_error_get());
+    return ret;
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: t

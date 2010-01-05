@@ -1216,6 +1216,13 @@ CAMLprim value stub_xc_domain_trigger_power(value handle, value domid)
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xc_domain_trigger_sleep(value handle, value domid)
+{
+	CAMLparam2(handle, domid);
+	xc_domain_trigger_sleep(_H(handle), _D(domid));
+	CAMLreturn(Val_unit);
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: t
