@@ -16,10 +16,10 @@ val to_string : Rpc.Val.t -> string
 val of_string : string -> Rpc.Val.t
 
 val string_of_call: Rpc.call -> string
-val call_of_string: string -> int64 * Rpc.call
+val call_of_string: string -> Rpc.call
 
-val string_of_response: int64 -> Rpc.Val.t Rpc.response -> string
-val response_of_string: string -> int64 * Rpc.Val.t Rpc.response
+val string_of_response: Rpc.response -> string
+val response_of_string: string -> Rpc.response
 
 
 
