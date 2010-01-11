@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let debug = ref false
+let set_debug x = debug := x
+let get_debug () = !debug
+
 type t =
 	| Int of int64
 	| Bool of bool
@@ -20,6 +24,9 @@ type t =
 	| Enum of t list
 	| Dict of (string * t) list
 	| Null
+
+exception Runtime_error of string * t
+exception Runtime_exception of string * string
 
 open Printf
 let map_strings sep fn l = String.concat sep (List.map fn l)
