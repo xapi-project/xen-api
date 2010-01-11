@@ -3,7 +3,7 @@ OCAMLOPT = ocamlfind ocamlopt
 OCAMLFLAGS = -annot -g
 
 PACKS = rpc-light
-EXAMPLES = all_types
+EXAMPLES = all_types phantom
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 
@@ -18,7 +18,7 @@ all: $(EXECS)
 
 %_gen: %.ml
 	camlp4o $(shell ocamlfind query rpc-light.syntax -r -format "-I %d %a" -predicates syntax,preprocessor) $< -printer o > $@.ml
-	$(OCAMLOPT) -package $(PACKS) -c -o $@ $@.ml
+	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $@.ml
 
 clean:
 	rm -f *.cmx *.cmi *.cmo *.cmxa *.o $(EXECS)
