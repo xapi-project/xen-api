@@ -14,8 +14,12 @@
 
 type t = Foo of int | Bar of (int * float) with rpc
 
-type x = {
-	foo: t;
+module M = struct
+	type m = t with rpc
+end
+
+type 'a x = {
+	foo: M.m;
 	bar: string;
 	gna: float list;
 	f1: (int option * bool list * float list list) option;
@@ -24,67 +28,75 @@ type x = {
 	f4: int64;
 	f5: int;
 	f6: (unit * char) list;
+	f7: 'a list;
 	progress: int array;
  } with rpc
 
 let _ =
-	let x1 = {
+	let x = {
 		foo= Foo 3;
 		bar= "ha          ha";
 		gna=[1.; 2.; 3.; 4. ];
 		f2 = [| "hi",["hi"]; "hou",["hou";"hou"]; "foo", ["b";"a";"r"] |];
-		f1 = None;
+		f1 = Some (None, [true], [[1.]; [2.;3.]]);
 		f3 = Int32.max_int;
 		f4 = Int64.max_int;
 		f5 = max_int;
 		f6 = [ (),'a' ; (),'b' ; (),'c'; (),'d' ; (),'e' ];
+		f7 = [ Foo 1; Foo 2; Foo 3 ];
 		progress = [| 0; 1; 2; 3; 4; 5 |];
 	} in
 
-	let rpc = rpc_of_x x1 in
-	let xml = Xmlrpc.to_string rpc in
-	let json = Jsonrpc.to_string rpc in
+	(* Testing basic marshalling/unmarshalling *)
+	
+	let rpc = rpc_of_x M.rpc_of_m x in
 
-	Printf.printf "xmlrpc: %s\n\n" xml;
-	Printf.printf "jsonrpc: %s\n\n" json;
+	let rpc_xml = Xmlrpc.to_string rpc in
+	let rpc_json = Jsonrpc.to_string rpc in
+
+	Printf.printf "\n==rpc_xml==\n%s\n" rpc_xml;
+	Printf.printf "\n==json==\n%s\n" rpc_json;
 
 	let callback fields value = match (fields, value) with
-		| ["progress"], `Int i -> Printf.printf "Progress: %Ld\n" i
+		| ["progress"], Rpc.Int i -> Printf.printf "Progress: %Ld\n" i
 		| _                       -> ()
 	in
-	let x2 = x_of_rpc (Xmlrpc.of_string ~callback xml) in
-	let x3 = x_of_rpc (Jsonrpc.of_string json) in
+	let x_xml = x_of_rpc M.m_of_rpc (Xmlrpc.of_string ~callback rpc_xml) in
+	let x_json = x_of_rpc M.m_of_rpc (Jsonrpc.of_string rpc_json) in
 
-	Printf.printf "\nSanity check 1:\nx1=x2: %b\nx2=x3: %b\nx1=x3: %b\n\n" (x1 = x2) (x2 = x3) (x1 = x3);
+	Printf.printf "\n==Sanity check 1==\nx=x_xml: %b\nx=x_json: %b\n" (x = x_xml) (x = x_json);
+	assert (x = x_xml && x = x_json);
 	
-	let call = { Rpc.name = "foo"; Rpc.params = [ rpc ] } in
-	let response1 = Rpc.Success rpc in
-	let response2 = Rpc.Fault (1L, "Foo") in
-	let response3 = Rpc.Fault rpc in
+	(* Testing calls and responses *)
+	
+	let call = Rpc.call "foo" [ rpc; Rpc.String "Mouhahahaaaaa" ] in
+	let success = Rpc.success rpc in
+	let failure = Rpc.failure rpc in
 
-	let c1 = Xmlrpc.string_of_call call in
-	let r1 = Xmlrpc.string_of_response response1 in
-	let r2 = Xmlrpc.string_of_response response2 in
+	let c_xml_str = Xmlrpc.string_of_call call in
+	let s_xml_str = Xmlrpc.string_of_response success in
+	let f_xml_str = Xmlrpc.string_of_response failure in
 
-	let cj1 = Jsonrpc.string_of_call call in
-	let rj1 = Jsonrpc.string_of_response 0L response1 in
-	let rj3 = Jsonrpc.string_of_response 0L response3 in
+	let c_json_str = Jsonrpc.string_of_call call in
+	let s_json_str = Jsonrpc.string_of_response success in
+	let f_json_str = Jsonrpc.string_of_response failure in
 
-	Printf.printf "call: %s\n%s\n" c1 cj1;
-	Printf.printf "response1: %s\n%s\n" r1 rj1; 
-	Printf.printf "response2: %s\n" r2; 
-	Printf.printf "response3: %s\n" rj3; 
+	Printf.printf "\n==call==\n %s\n%s\n" c_xml_str c_json_str;
+	Printf.printf "\n==success==\n %s\n%s\n" s_xml_str s_json_str;
+	Printf.printf "\n==failure==\n %s\n%s\n" f_xml_str f_json_str;
 
-	let c1' = Xmlrpc.call_of_string c1 in
-	let r1' = Xmlrpc.response_of_string r1 in
-	let r2' = Xmlrpc.response_of_string r2 in
+	let c_xml = Xmlrpc.call_of_string c_xml_str in
+	let s_xml = Xmlrpc.response_of_string s_xml_str in
+	let f_xml = Xmlrpc.response_of_string f_xml_str in
 
-	Printf.printf "\nSanity check 2:\ncall=c1': %b\nresponse1=r1': %b\nresponse2=r2': %b\n"
-		(call = c1') (response1 = r1') (response2 = r2');
+	(* Printf.printf "\n==Sanity check 2==\ncall=c_xml: %b\nsuccess=s_xml: %b\nfailure=f_xml: %b\n"
+		(call = c_xml) (success = s_xml) (failure = f_xml);
+	assert (call = c_xml && success = s_xml && failure = f_xml); *)
 
-	let _, cj1' = Jsonrpc.call_of_string cj1 in
-	let _, rj1' = Jsonrpc.response_of_string rj1 in
-	let _, rj3' = Jsonrpc.response_of_string rj3 in
+	let c_json = Jsonrpc.call_of_string c_json_str in
+	let s_json = Jsonrpc.response_of_string s_json_str in
+	let f_json = Jsonrpc.response_of_string f_json_str in
 
-	Printf.printf "\nSanity check 3:\ncall=cj1': %b\nresponse1=rj1': %b\nresponse3=rj3': %b\n"
-		(call = cj1') (response1 = rj1') (response3 = rj3');
+	Printf.printf "\n==Sanity check 3==\ncall=c_json': %b\nsuccess=s_json': %b\nfailure=f_json': %b\n"
+		(call = c_json) (success = s_json) (failure = f_json);
+	assert (call = c_json && success = s_json && failure = f_json)

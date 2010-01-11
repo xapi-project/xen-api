@@ -12,44 +12,52 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Sig = struct
-	type t =
-	[ `Int | `Bool | `Float | `String
-	| `Product of t list
-	| `Named_product of (string * t) list
-	| `Named_sum of (string * t) list
-	| `Option of t ]
-end
+type t =
+	| Int of int64
+	| Bool of bool
+	| Float of float
+	| String of string
+	| Enum of t list
+	| Dict of (string * t) list
+	| Null
 
-module Val = struct
-	type t = 
-	[ `Int of int64
-	| `Bool of bool
-	| `Float of float
-	| `String of string
-	| `List of t list
-	| `Dict of (string * t) list
-	| `None ]
+open Printf
+let map_strings sep fn l = String.concat sep (List.map fn l)
+let rec to_string t = match t with
+	| Int i      -> sprintf "I(%Li)" i
+	| Bool b     -> sprintf "B(%b)" b
+	| Float f    -> sprintf "F(%g)" f
+	| String s   -> sprintf "S(%s)" s
+	| Enum ts    -> sprintf "[%s]" (map_strings ";" to_string ts)
+	| Dict ts    -> sprintf "{%s}" (map_strings ";" (fun (s,t) -> sprintf "%s:%s" s (to_string t)) ts)
+	| Null       -> "N"
 
-	let rec to_string (x:t) = match x with
-	| `Int i    -> Printf.sprintf "Int(%Lu)" i
-	| `Bool b   -> Printf.sprintf "Bool(%b)" b
-	| `Float f  -> Printf.sprintf "Float(%f)" f
-	| `String s -> Printf.sprintf "String(%s)" s
-	| `List l   -> "List [ " ^ String.concat ", " (List.map to_string l) ^ " ]"
-	| `Dict d   -> "Dict {" ^ String.concat ", " (List.map (fun (s,t) -> Printf.sprintf "%s: %s" s (to_string t)) d) ^ " }"
-	| `None     -> "None"
-end
 
-(* The first argument is the list of record field names we already went trough *)
-type callback = string list -> Val.t -> unit
+let rpc_of_t x = x
+let rpc_of_int64 i = Int i
+let rpc_of_bool b = Bool b
+let rpc_of_float f = Float f
+let rpc_of_string s = String s
+
+let t_of_rpc x = x
+let int64_of_rpc = function Int i -> i | _ -> failwith "int64_of_rpc"
+let bool_of_rpc = function Bool b -> b | _ -> failwith "bool_of_rpc"
+let float_of_rpc = function Float f -> f | _ -> failwith "float_of_rpc"
+let string_of_rpc = function String s -> s | _ -> failwith "string_of_rpc"
+
+type callback = string list -> t -> unit
 
 type call = {
 	name: string;
-	params: Val.t list
+	params: t list;
 }
+
+let call name params = { name = name; params = params }
 
 type response = {
 	success: bool;
-	contents: Val.t
+	contents: t;
 }
+
+let success v = { success = true; contents = v }
+let failure v = { success = false; contents = v }

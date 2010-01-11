@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val to_string : Rpc.Val.t -> string
-val of_string : ?callback:Rpc.callback -> string -> Rpc.Val.t
+val to_string : Rpc.t -> string
+val of_string : ?callback:Rpc.callback -> string -> Rpc.t
 
 val string_of_call: Rpc.call -> string
 val call_of_string: ?callback:Rpc.callback -> string -> Rpc.call
