@@ -30,12 +30,6 @@ val to_string : t -> string
 val int64_of_rpc : t -> int64
 val rpc_of_int64 : int64 -> t
 
-val int32_of_rpc : t -> int32
-val rpc_of_int32 : int32 -> t
-
-val int_of_rpc : t -> int
-val rpc_of_int : int -> t
-
 val bool_of_rpc : t -> bool
 val rpc_of_bool : bool -> t
 
@@ -48,9 +42,6 @@ val rpc_of_string : string -> t
 val t_of_rpc : t -> t
 val rpc_of_t : t -> t
 
-val unit_of_rpc : t -> unit
-val rpc_of_unit : unit -> t
-
 (** {2 Calls} *)
 
 type callback = string list -> t -> unit
@@ -59,22 +50,9 @@ type call = { name : string; params : t list }
 
 val call : string -> t list -> call
 
-val string_of_call : call -> string
-
 (** {2 Responses} *)
 
 type response = { success : bool; contents : t }
 
-val string_of_response : response -> string
-
 val success : t -> response
 val failure : t -> response
-
-(** {2 Run-time errors} *)
-
-exception Runtime_error of string * t
-exception Runtime_exception of string * string
-
-(** {2 Debug options} *)
-val set_debug : bool -> unit
-val get_debug : unit -> bool

@@ -13,6 +13,7 @@
  *)
 
 open Printf
+open Rpc
 
 let debug = ref false
 let debug (fmt: ('a, unit, string, unit) format4) : 'a =
@@ -31,32 +32,35 @@ let check s =
 	s
 
 let rec add_value f = function
-	| `Int i  ->
-		f "<value><i4>";
+	| Null ->
+		f "<value><nil/></value>"
+
+	| Int i  ->
+		f "<value>";
 		f (Int64.to_string i);
-		f "</i4></value>"
+		f "</value>"
 
-	| `Bool b ->
-		f "<value><bool>";
-		f (string_of_bool b);
-		f "</bool></value>"
+	| Bool b ->
+		f "<value><boolean>";
+		f (if b then "1" else "0");
+		f "</boolean></value>"
 
-	| `Float d ->
+	| Float d ->
 		f "<value><double>";
-		f (string_of_float d);
+		f (Printf.sprintf "%g" d);
 		f "</double></value>"
 
-	| `String s ->
-		f "<value><string>";
+	| String s ->
+		f "<value>";
 		f (check s);
-		f "</string></value>"
+		f "</value>"
 
-	| `List a ->
+	| Enum l ->
 		f "<value><array><data>";
-		List.iter (add_value f) a;
+		List.iter (add_value f) l;
 		f "</data></array></value>"
 
-	| `Dict s ->
+	| Dict d ->
 		let add_member (name, value) =
 			f "<member><name>";
 			f name;
@@ -65,11 +69,8 @@ let rec add_value f = function
 			f "</member>"
 		in
 		f "<value><struct>";
-		List.iter add_member s;
+		List.iter add_member d;
 		f "</struct></value>"
-
-	| `None ->
-		  f "<value><string>nil</string></value>"
 
 let to_string x =
 	let buf = Buffer.create 128 in
@@ -82,13 +83,13 @@ let string_of_call call =
 	let add = B.add_string buf in
 	add "<?xml version=\"1.0\"?>";
 	add "<methodCall><methodName>";
-	add (check call.Rpc.name);
+	add (check call.name);
 	add "</methodName><params>";
 	List.iter (fun p ->
 		add "<param>";
 		add (to_string p);
 		add "</param>"
-		) call.Rpc.params;
+		) call.params;
 	add "</params></methodCall>";
 	B.contents buf
 
@@ -96,7 +97,7 @@ let string_of_response response =
 	let module B = Buffer in
 	let buf = B.create 256 in
 	let add = B.add_string buf in
-	let v = `Dict [ (if response.Rpc.success then "success" else "failure"), response.Rpc.contents ] in
+	let v = if response.success then response.contents else Dict [ "failure", response.contents ] in
 	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
 	add (to_string v);
 	add "</param></params></methodResponse>";
@@ -123,7 +124,7 @@ let debug_input input =
 			| `El_end ->
 				begin match tags with
 				| []     ->
-					Buffer.add_string buf "</>";
+					Buffer.add_string buf "<?/>";
 					aux tags
 				| h :: t ->
 					Buffer.add_string buf "</";
@@ -146,7 +147,7 @@ let parse_error n s i =
 
 module Parser = struct
 
-	(* Specific helpers *)
+	(* Helpers *)
 	let get_data input =
 		match Xmlm.input input with
 		| `Data d -> d
@@ -192,44 +193,20 @@ module Parser = struct
 		List.rev !r
 
 
-	(* Basic constructors *)
-	let make_int ?callback accu data : Rpc.Val.t =
-		let r = `Int (Int64.of_string data) in
+	(* Constructors *)
+	let make fn ?callback accu data =
+		let r = fn data in
 		match callback with
 		| Some f -> f (List.rev accu) r; r
 		| None   -> r
 
-	let make_bool ?callback accu data : Rpc.Val.t =
-		let r = `Bool (bool_of_string data) in
-		match callback with
-		| Some f -> f (List.rev accu) r; r
-		| None   -> r
-
-	let make_double ?callback accu data : Rpc.Val.t =
-		let r = `Float (float_of_string data) in
-		match callback with
-		| Some f -> f (List.rev accu) r; r
-		| None   -> r
-
-	let make_string ?callback accu data : Rpc.Val.t =
-		let r = match data with
-			| "nil" -> `None
-			| s     -> `String s in
-		match callback with
-		| Some f -> f (List.rev accu) r; r
-		| None   -> r
-
-	let make_array ?callback accu data : Rpc.Val.t =
-		let r = `List data in
-		match callback with
-		| Some f -> f (List.rev accu) r; r
-		| None   -> r
-
-	let make_struct ?callback accu data : Rpc.Val.t =
-		let r = `Dict data in
-		match callback with
-		| Some f -> f (List.rev accu) r; r
-		| None   -> r
+	let make_null   = make (fun ()   -> Null)
+	let make_int    = make (fun data -> Int (Int64.of_string data))
+	let make_bool   = make (fun data -> Bool (if data = "1" then true else false))
+	let make_float  = make (fun data -> Float (float_of_string data))
+	let make_string = make (fun data -> String data)
+	let make_enum   = make (fun data -> Enum data)
+	let make_dict   = make (fun data -> Dict data)
 
 	(* General parser functions *)
 	let rec of_xml ?callback accu input =
@@ -240,13 +217,15 @@ module Parser = struct
 			| e -> Printf.eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
 
 	and basic_types ?callback accu input = function
-		| "int" | "i4" -> make_int    ?callback accu (get_data input)
-		| "bool"       -> make_bool   ?callback accu (get_data input)
-		| "double"     -> make_double ?callback accu (get_data input)
-		| "string"     -> make_string ?callback accu (get_data input)
-		| "array"      -> make_array  ?callback accu (data (of_xmls ?callback accu) input)
-		| "struct"     -> make_struct ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
-		| e            -> make_string ?callback accu e
+		| "int"
+		| "i4"     -> make_int    ?callback accu (get_data input)
+		| "boolean"   -> make_bool   ?callback accu (get_data input)
+		| "double" -> make_float  ?callback accu (get_data input)
+		| "string" -> make_string ?callback accu (get_data input)
+		| "array"  -> make_enum   ?callback accu (data (of_xmls ?callback accu) input)
+		| "struct" -> make_dict   ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
+		| "nil"    -> make_null   ?callback accu ()
+		| tag      -> parse_error tag (Xmlm.peek input) input
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in
@@ -278,7 +257,7 @@ let call_of_string ?callback str =
 			done;
 			) input
 		) input;
-	{ Rpc.name = !name; Rpc.params = !params }
+	call !name (List.rev !params)
 	
 let response_of_string ?callback str =
 	let input = Xmlm.make_input (`String (0, str)) in
@@ -288,11 +267,9 @@ let response_of_string ?callback str =
 	Parser.map_tag "methodResponse" (fun input ->
 		Parser.map_tag "params" (fun input ->
 			Parser.map_tag "param" (fun input ->
-				let signal = Xmlm.peek input in
 				match Parser.of_xml ?callback [] input with
-				| `Dict [ "success", v ] -> { Rpc.success = true;  Rpc.contents = v }
-				| `Dict [ "failure", v ] -> { Rpc.success = false; Rpc.contents = v }
-				| v -> parse_error "response" signal input
+				| Dict [ "failure", v ] -> failure v
+				| v                     -> success v
 				) input
 			) input
 		) input

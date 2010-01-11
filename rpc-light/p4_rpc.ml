@@ -19,13 +19,7 @@ open PreCast
 open Ast
 open Syntax
 
-
-let is_base = function
-	| "int64" | "int32" | "int" | "float" | "string" | "unit" -> true
-	| _ -> false
-
 let rpc_of n = "rpc_of_" ^ n
-
 let of_rpc n = n ^ "_of_rpc"
 
 let rpc_of_polyvar a = "__rpc_of_" ^ a ^ "__"
@@ -109,11 +103,12 @@ let new_id _loc =
 let new_id_list _loc l =
 	List.split (List.map (fun _ -> new_id _loc) l)
 
+exception Type_not_supported of ctyp
 let type_not_supported ty =
 	let module PP = Camlp4.Printers.OCaml.Make(Syntax) in
 	let pp = new PP.printer () in
 	Format.eprintf "Type %a@. not supported.\n%!" pp#ctyp ty;
-	failwith "type not supported by rpc-light"
+	failwith "type_not_supported"
 
 let apply _loc fn fn_i create id modules t a =
 	let args = decompose_args _loc a in
@@ -128,40 +123,10 @@ let apply _loc fn fn_i create id modules t a =
 		expr
 		args
 
-let is_option = function
-	| <:ctyp@loc< option $_$ >> -> true
-	| _                         -> false
-
-let is_string _loc key =
-	if key = "string" then
-		<:expr< True >>
-	else if is_base key then
-		<:expr< False >>
-	else <:expr< try let ( _ : $lid:key$ ) = $lid:of_rpc key$ (Rpc.String "") in True with [ _ -> False ] >>
-
 (* Conversion ML type -> Rpc.value *)
 module Rpc_of = struct
 	
-	let rec product get_field t =
-		let _loc = loc_of_ctyp t in
-		let fields = decompose_fields _loc t in
-        let ids, pids = new_id_list _loc fields in
-		let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $get_field f$ >>) pids fields in
-		let aux nid (n, ctyp) accu =
-			if is_option ctyp then begin
-				let new_id, new_pid = new_id _loc in
-				<:expr<
-					match $create nid ctyp$ with [
-					  Rpc.Enum []            -> $accu$
-					| Rpc.Enum [ $new_pid$ ] -> [ ($str:n$, $new_id$) :: $accu$ ]
-					| _                      -> assert False
-					] >>
-			end else
-				<:expr< [ ($str:n$, $create nid ctyp$) :: $accu$ ] >> in
-		let expr = <:expr< Rpc.Dict $List.fold_right2 aux ids fields <:expr< [] >>$ >> in
-		<:expr< let $biAnd_of_list bindings$ in $expr$ >>
-
-	and create id ctyp =
+	let rec create id ctyp =
 		let _loc = loc_of_ctyp ctyp in
 		match ctyp with
 		| <:ctyp< unit >>    -> <:expr< Rpc.Null >>
@@ -173,38 +138,11 @@ module Rpc_of = struct
 		| <:ctyp< string >>  -> <:expr< Rpc.String $id$ >>
 		| <:ctyp< bool >>    -> <:expr< Rpc.Bool $id$ >>
 
-		| <:ctyp< list (string * $t$) >> ->
-			let nid, pid = new_id _loc in
-			<:expr<
-				let dict = List.map (fun (key, $pid$) -> (key, $create nid t$)) $id$ in
-				Rpc.Dict dict >>
-
-		| <:ctyp< list ($lid:key$ * $t$) >> when not (is_base key) ->
-			let nid1, pid1 = new_id _loc in
-			let nid2, pid2 = new_id _loc in
-			<:expr<
-				let is_a_real_dict = $is_string _loc key$ in
-				let dict = List.map (fun ($pid1$, $pid2$) -> ($lid:rpc_of key$ $nid1$, $create nid2 t$)) $id$ in
-				if is_a_real_dict then
-					Rpc.Dict (List.map (fun [ (Rpc.String k, v) -> (k, v) | _ -> assert False ]) dict)
-				else
-					Rpc.Enum (List.map (fun (k, v) -> Rpc.Enum [k; v] ) dict) >>
-
-		| <:ctyp< Hashtbl.t string $t$ >> ->
-			let nid, pid = new_id _loc in
-			<:expr<
-				let dict = Hashtbl.fold (fun a $pid$ c -> [(a, $create nid t$)::c]) $id$ [] in
-				Rpc.Dict dict >>
-
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in
 			let pattern (n, t) ctyps =
 				let ids, pids = new_id_list _loc ctyps in
-				let body =
-					if ids = [] then
-						<:expr< Rpc.String $str:n$ >>
-					else
-						<:expr< Rpc.Enum [ Rpc.String $str:n$ :: $expr_list_of_list _loc (List.map2 create ids ctyps)$ ] >> in
+				let body = <:expr< Rpc.Enum [ Rpc.String $str:n$ :: $expr_list_of_list _loc (List.map2 create ids ctyps)$ ] >> in
 				<:match_case< $recompose_variant _loc (n,t) pids$ -> $body$ >> in
 			let patterns = mcOr_of_list (List.map2 pattern ids ctyps) in
 			<:expr< match $id$ with [ $patterns$ ] >>
@@ -230,8 +168,21 @@ module Rpc_of = struct
 			let new_id, new_pid = new_id _loc in
 			<:expr< Rpc.Enum (Array.to_list (Array.map (fun $new_pid$ -> $create new_id t$) $id$)) >>
 
-		| <:ctyp< { $t$ } >>              -> product (fun field -> <:expr< $id$ . $lid:field$ >>) t
-		| <:ctyp< < $t$ > >>              -> product (fun field -> <:expr< $id$ # $lid:field$ >>) t
+		| <:ctyp< { $t$ } >> ->
+			let fields = decompose_fields _loc t in
+            let ids, pids = new_id_list _loc fields in
+			let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $id$ . $lid:f$ >>) pids fields in
+			let one_expr nid (n, ctyp) = <:expr< ($str:n$, $create nid ctyp$) >> in
+			let expr = <:expr< Rpc.Dict $expr_list_of_list _loc (List.map2 one_expr ids fields)$ >> in
+			<:expr< let $biAnd_of_list bindings$ in $expr$ >>
+
+		| <:ctyp< < $t$ > >> ->
+			let fields = decompose_fields _loc t in
+            let ids, pids = new_id_list _loc fields in
+			let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $id$ # $lid:f$ >>) pids fields in
+			let one_expr nid (n, ctyp) = <:expr< ($str:n$, $create nid ctyp$) >> in
+			let expr = <:expr< Rpc.Dict $expr_list_of_list _loc (List.map2 one_expr ids fields)$ >> in
+			<:expr< let $biAnd_of_list bindings$ in $expr$ >>
 
 		| <:ctyp< '$lid:a$ >>             -> <:expr< $lid:rpc_of_polyvar a$ $id$  >>
 
@@ -265,169 +216,130 @@ module Of_rpc = struct
 
 	let str_of_id id = match id with <:expr@loc< $lid:s$ >> -> <:expr@loc< $str:s$ >> | _ -> assert false
 
-	let runtime_error name id expected =
+	let runtime_error id expected =
 		let _loc = Loc.ghost in
-		<:match_case<  __x__ -> do {
-			if Rpc.get_debug () then
-				Printf.eprintf "Runtime error in '%s_of_rpc:%s': got '%s' when '%s' was expected\\n" $str:name$ $str_of_id id$ (Rpc.to_string __x__) $str:expected$
-			else ();
-			raise (Rpc.Runtime_error ($str:expected$, __x__)) }
+		<:match_case<  __x__ ->
+			failwith (Printf.sprintf "Runtime error while parsing '%s': got '%s' while '%s' was expected\\n" $str_of_id id$ (Rpc.to_string __x__) $str:expected$)
 		>>
 
-	let runtime_exn_error name id doing =
+	let runtime_exn_error id doing =
 		let _loc = Loc.ghost in
-		<:match_case< __x__ -> do {
-			if Rpc.get_debug () then
-				Printf.eprintf "Runtime error in '%s_of_rpc:%s': caught exception '%s' while doing '%s'\\n" $str:name$ $str_of_id id$ (Printexc.to_string __x__) $str:doing$
-			else () ;
-			raise (Rpc.Runtime_exception ($str:doing$, Printexc.to_string __x__)) }		>>
-
-	let product name build_one build_all id t =
-		let _loc = loc_of_ctyp t in
-		let nid, npid = new_id _loc in
-		let fields = decompose_fields _loc t in
-		let ids, pids = new_id_list _loc fields in
-		let exprs = List.map2 (fun id (n, ctyp) -> build_one n id ctyp) ids fields in
-		let bindings =
-			List.map2 (fun pid (n, ctyp) ->
-				if is_option ctyp then begin
-					<:binding< $pid$ =
-						if List.mem_assoc $str:n$ $nid$ then
-							Rpc.Enum [List.assoc $str:n$ $nid$]
-						else
-							Rpc.Enum []
-					>>
-				end else
-					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error name nid ("Looking for key "^n)$ ] >>
-				) pids fields in
-		<:expr< match $id$ with
-			[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in $build_all exprs$ | $runtime_error name id "Dict"$ ]
+		<:match_case< __x__ ->
+			failwith (Printf.sprintf "Runtime error while parsing '%s': got exception '%s' while doing '%s'\\n" $str_of_id id$ (Printexc.to_string __x__) $str:doing$)
 		>>
 
-	let rec create name id ctyp =
+	let rec create id ctyp =
 		let _loc = loc_of_ctyp ctyp in
 		match ctyp with
-		| <:ctyp< unit >>   -> <:expr< match $id$ with [ Rpc.Null -> () | $runtime_error name id "Null"$ ] >>
+		| <:ctyp< unit >>   -> <:expr< match $id$ with [ Rpc.Null -> () | $runtime_error id "Null"$ ] >>
 
 		| <:ctyp< int >>    ->
 			<:expr< match $id$ with [
 			  Rpc.Int x    -> Int64.to_int x
 			| Rpc.String s -> int_of_string s
-			| $runtime_error name id "Int(int)"$ ] >>
+			| $runtime_error id "Int(int)"$ ] >>
 
 		| <:ctyp< int32 >>  ->
 			<:expr< match $id$ with [
 			  Rpc.Int x    -> Int64.to_int32 x
 			| Rpc.String s -> Int32.of_string s
-			| $runtime_error name id "Int(int32)"$ ] >>
+			| $runtime_error id "Int(int32)"$ ] >>
 
 		| <:ctyp< int64 >>  ->
 			<:expr< match $id$ with [
 			  Rpc.Int x    -> x
 			| Rpc.String s -> Int64.of_string s
-			| $runtime_error name id "Int(int64)"$ ] >>
+			| $runtime_error id "Int(int64)"$ ] >>
 
 		| <:ctyp< float >>  ->
 			<:expr< match $id$ with [
 			  Rpc.Float x  -> x
 			| Rpc.String s -> float_of_string s
-			| $runtime_error name id "Float"$ ] >>
+			| $runtime_error id "Float"$ ] >>
 
 		| <:ctyp< char >>   ->
 			<:expr< match $id$ with [
 			  Rpc.Int x    -> Char.chr (Int64.to_int x)
 			| Rpc.String s -> Char.chr (int_of_string s)
-			| $runtime_error name id "Int(char)"$ ] >>
+			| $runtime_error id "Int(char)"$ ] >>
 
-		| <:ctyp< string >> -> <:expr< match $id$ with [ Rpc.String x -> x | $runtime_error name id "String(string)"$ ] >>
-		| <:ctyp< bool >>   -> <:expr< match $id$ with [ Rpc.Bool x -> x | $runtime_error name id "Bool"$ ] >>
-
-		| <:ctyp< list (string * $t$ ) >> ->
-			let nid, pid = new_id _loc in
-			<:expr< match $id$ with [
-			  Rpc.Dict d -> List.map (fun (key, $pid$) -> (key, $create name nid t$)) d
-			| $runtime_error name id "Dict"$ ] >>
-
-		| <:ctyp< list ($lid:key$ * $t$) >> when not (is_base key) ->
-			let nid, pid = new_id _loc in
-			<:expr<
-				let is_a_real_dict = $is_string _loc key$ in
-				if is_a_real_dict then begin
-					match $id$ with [
-					  Rpc.Dict d -> List.map (fun (key, $pid$) -> ($lid:of_rpc key$ (Rpc.String key), $create name nid t$)) d
-					| $runtime_error name id "Dict"$ ]
-				end else begin
-					match $id$ with [
-					  Rpc.Enum e -> List.map (fun $pid$ -> $create name nid <:ctyp< ($lid:key$ * $t$) >>$) e
-					| $runtime_error name id "Enum"$ ]
-				end >>
-
-		| <:ctyp< Hashtbl.t string $t$ >> ->
-			let nid, pid = new_id _loc in
-			<:expr< match $id$ with [
-				  Rpc.Dict d ->
-					let h = Hashtbl.create (List.length d) in
-					do { List.iter (fun (key,$pid$) -> Hashtbl.add h key $create name nid t$) d; h}
-				| $runtime_error name id "Dict"$ ] >>
+		| <:ctyp< string >> -> <:expr< match $id$ with [ Rpc.String x -> x | $runtime_error id "String(string)"$ ] >>
+		| <:ctyp< bool >>   -> <:expr< match $id$ with [ Rpc.Bool x -> x | $runtime_error id "Bool"$ ] >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in
 			let pattern (n, t) ctyps =
 				let ids, pids = new_id_list _loc ctyps in
-				let patt =
-					if ids = [] then
-						<:patt< Rpc.String $str:n$ >>
-					else
-						<:patt< Rpc.Enum [ Rpc.String $str:n$ :: $patt_list_of_list _loc pids$ ] >> in
-				let exprs = List.map2 (create name) ids ctyps in
+				let patt = <:patt< Rpc.Enum [ Rpc.String $str:n$ :: $patt_list_of_list _loc pids$ ] >> in
+				let exprs = List.map2 create ids ctyps in
 				let body = List.fold_right
 					(fun a b -> <:expr< $b$ $a$ >>)
 					(List.rev exprs)
 					(if t = `V then <:expr< $uid:n$ >> else <:expr< `$uid:n$ >>) in
 				<:match_case< $patt$ -> $body$ >> in
-			let fail_match = <:match_case< $runtime_error name id "Enum[String s;...]"$ >> in
+			let fail_match = <:match_case< $runtime_error id "Enum[String s;...]"$ >> in
 			let patterns = mcOr_of_list (List.map2 pattern ids ctyps @ [ fail_match ]) in
 			<:expr< match $id$ with [ $patterns$ ] >>
 
 		| <:ctyp< option $t$ >> ->
 			let nid, npid = new_id _loc in
-			<:expr< match $id$ with [ Rpc.Enum [] -> None | Rpc.Enum [ $npid$ ] -> Some $create name nid t$ | $runtime_error name id "Enum[]/Enum[_]"$ ] >>
+			<:expr< match $id$ with [ Rpc.Enum [] -> None | Rpc.Enum [ $npid$ ] -> Some $create nid t$ | $runtime_error id "Enum[]/Enum[_]"$ ] >>
 
 		| <:ctyp< $tup:tp$ >> ->
 			let ctyps = list_of_ctyp tp [] in
 			let ids, pids = new_id_list _loc ctyps in
-			let exprs = List.map2 (create name) ids ctyps in
+			let exprs = List.map2 create ids ctyps in
 			<:expr< match $id$ with
-				[ Rpc.Enum $patt_list_of_list _loc pids$ -> $expr_tuple_of_list _loc exprs$ | $runtime_error name id "List"$ ]
+				[ Rpc.Enum $patt_list_of_list _loc pids$ -> $expr_tuple_of_list _loc exprs$ | $runtime_error id "List"$ ]
 			>>
 
 		| <:ctyp< list $t$ >> ->
 			let nid, npid = new_id _loc in
 			let nid2, npid2 = new_id _loc in
 			<:expr< match $id$ with
-				[ Rpc.Enum $npid$ -> List.map (fun $npid2$ -> $create name nid2 t$) $nid$ | $runtime_error name id "List"$ ]
+				[ Rpc.Enum $npid$ -> List.map (fun $npid2$ -> $create nid2 t$) $nid$ | $runtime_error id "List"$ ]
 			>>
 
 		| <:ctyp< array $t$ >> ->
 			let nid, npid = new_id _loc in
 			let nid2, npid2 = new_id _loc in
 			<:expr< match $id$ with
-				[ Rpc.Enum $npid$ -> Array.of_list (List.map (fun $npid2$ -> $create name nid2 t$) $nid$) | $runtime_error name id "List"$ ]
+				[ Rpc.Enum $npid$ -> Array.of_list (List.map (fun $npid2$ -> $create nid2 t$) $nid$) | $runtime_error id "List"$ ]
 			>>
 
 		| <:ctyp< { $t$ } >> ->
-			product name (fun n i ctyp -> <:rec_binding< $lid:n$ = $create name i ctyp$ >>) (fun es -> <:expr< { $rbSem_of_list es$ } >>) id t
+			let nid, npid = new_id _loc in
+			let fields = decompose_fields _loc t in
+			let ids, pids = new_id_list _loc fields in
+			let exprs = List.map2 (fun id (n, ctyp) -> <:rec_binding< $lid:n$ = $create id ctyp$ >>) ids fields in
+			let bindings =
+				List.map2 (fun pid (n, ctyp) ->
+					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error nid ("Looking for key "^n)$ ] >>
+					) pids fields in
+			<:expr< match $id$ with
+				[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in { $rbSem_of_list exprs$ } | $runtime_error id "Dict"$ ]
+			>>
 
 		| <:ctyp< < $t$ > >> ->
-			product name (fun n i ctyp -> <:class_str_item< method $lid:n$ = $create name i ctyp$ >>) (fun es -> <:expr< object $crSem_of_list es$ end >>) id t
+			let nid, npid = new_id _loc in
+			let fields = decompose_fields _loc t in
+			let ids, pids = new_id_list _loc fields in
+			let exprs = List.map2 (fun id (n, ctyp) -> <:class_str_item< method $lid:n$ = $create id ctyp$ >>) ids fields in
+			let bindings =
+				List.map2 (fun pid (n, ctyp) ->
+					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error nid ("Looking for key "^n)$ ] >>
+					) pids fields in
+			<:expr< match $id$ with 
+				[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in object $crSem_of_list exprs$ end | $runtime_error id "Dict"$ ]
+			>>
 
 		| <:ctyp< '$lid:a$ >>             -> <:expr< $lid:of_rpc_polyvar a$ $id$ >>
 
 		| <:ctyp< $lid:t$ >>              -> <:expr< $lid:of_rpc t$ $id$ >>
 		| <:ctyp< $id:m$ . $lid:t$ >>     -> <:expr< $id:m$ . $lid:of_rpc t$ $id$ >>
 
-		| <:ctyp< $lid:t$ $a$ >>          -> apply _loc of_rpc of_rpc_i (create name) id None t a
-		| <:ctyp< $id:m$ . $lid:t$ $a$ >> -> apply _loc of_rpc of_rpc_i (create name) id (Some m) t a
+		| <:ctyp< $lid:t$ $a$ >>          -> apply _loc of_rpc of_rpc_i create id None t a
+		| <:ctyp< $id:m$ . $lid:t$ $a$ >> -> apply _loc of_rpc of_rpc_i create id (Some m) t a
 
 		| _ -> type_not_supported ctyp
 
@@ -437,7 +349,7 @@ module Of_rpc = struct
 		<:binding< $lid:of_rpc name$ = 
 			$List.fold_left
 				(fun accu arg -> <:expr< fun $lid:of_rpc_polyvar (name_of_polyvar _loc arg)$ -> $accu$ >>)
-				(<:expr< fun $pid$ -> $create name id ctyp$ >>)
+				(<:expr< fun $pid$ -> $create id ctyp$ >>)
 				args$
 		>>
 
