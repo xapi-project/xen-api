@@ -59,6 +59,8 @@ let rec append_substring bigbuf s offset len =
 	);
 	()
 
+let append_string b s = append_substring b s 0 (String.length s)
+
 let to_fct bigbuf f =
 	let array_offset = Int64.to_int (Int64.div bigbuf.index (Int64.of_int cell_size)) in
 	let cell_offset = Int64.to_int (Int64.rem bigbuf.index (Int64.of_int cell_size)) in
