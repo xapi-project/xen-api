@@ -207,7 +207,7 @@ module Parser = struct
 
 	let rec open_tag input =
 		match Xmlm.input input with
-		| `Dtd _                  -> parse_error "dtd" "open_tag" input
+		| `Dtd _                  -> open_tag input
 		| `El_start ((_,tag),_)   -> tag
 		| `Data d when is_empty d -> open_tag input
 		| `Data d                 -> parse_error (sprintf "data(%s)" (String.escaped d)) "open_tag" input
