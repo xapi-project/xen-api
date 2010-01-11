@@ -76,6 +76,8 @@ let task_id_hdr = "Task-id"
 
 let subtask_of_hdr = "Subtask-of"
 
+let content_type_hdr = "Content-Type"
+
 let user_agent_hdr = "User-Agent"
 
 let myprint fmt = debug fmt
@@ -114,7 +116,8 @@ type request = { m: method_t;
 		 auth: authorization option;
 		 cookie: (string * string) list;
 		 task: string option;
-     subtask_of: string option;
+		 subtask_of: string option;
+		 content_type: string option;
 		 user_agent: string option;
 		 close: bool ref;
 		 headers: string list;}
@@ -128,7 +131,8 @@ let nullreq = { m=Unknown "";
 		auth=None;
 		cookie=[];
 		task=None;
-    subtask_of=None;
+		subtask_of=None;
+		content_type = None;
 		user_agent = None;
 		close= ref true;
 		headers=[];}
@@ -214,12 +218,12 @@ let request_of_string x =
       let uri, query = parse_uri uri in
       { m = method_t_of_string m; uri = uri; query = query; 
 	content_length = None; transfer_encoding = None;
-	version = version; cookie = []; auth = None; task = None; subtask_of = None; user_agent = None; close=ref false; headers=[] } 
+	version = version; cookie = []; auth = None; task = None; subtask_of = None; content_type = None; user_agent = None; close=ref false; headers=[] } 
   | _ -> raise Http_parse_failure
 
 let pretty_string_of_request x =
   let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-  Printf.sprintf "{ method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = [ %s]; user_agent = %s }" 
+  Printf.sprintf "{ method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
     (string_of_method_t x.m) x.uri 
     (kvpairs x.query)
     (default "" (may Int64.to_string x.content_length))
@@ -228,6 +232,7 @@ let pretty_string_of_request x =
     (kvpairs x.cookie)
     (default "" x.task)
     (default "" x.subtask_of)
+    (default "" x.content_type)
     (default "" x.user_agent)
 
 let escape uri =

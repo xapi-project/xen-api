@@ -25,19 +25,22 @@ type authorization =
     | UnknownAuth of string
 
 (** Parsed form of the HTTP request line plus cookie info *)
-type request = { m: method_t; 
-		 uri: string; 
-		 query: (string*string) list; 
-		 version: string; 
-		 transfer_encoding: string option;
-		 content_length: int64 option;
-		 auth: authorization option;
-		 cookie: (string * string) list;
-		 task: string option;
-     subtask_of: string option;
-		 user_agent: string option;
-		 close: bool ref;
-                 headers: string list;}
+type request = {
+	m: method_t; 
+	uri: string; 
+	query: (string*string) list; 
+	version: string; 
+	transfer_encoding: string option;
+	content_length: int64 option;
+	auth: authorization option;
+	cookie: (string * string) list;
+	task: string option;
+	subtask_of: string option;
+	content_type: string option;
+	user_agent: string option;
+	close: bool ref;
+    headers: string list;
+}
  
 val nullreq : request
 val authorization_of_string : string -> authorization
@@ -63,6 +66,8 @@ val subtask_of_hdr : string
 
 (** Header used for User-Agent string *)
 val user_agent_hdr : string
+
+val content_type_hdr : string
 
 val output_http : Unix.file_descr -> string list -> unit
 
