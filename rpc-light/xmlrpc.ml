@@ -273,10 +273,12 @@ module Parser = struct
 	let rec of_xml ?callback accu input =
 		try value (map_tags (basic_types ?callback accu)) input
 		with
-			| Xmlm.Error ((a,b), e) ->
+			| Xmlm.Error ((a,b), e) as exn->
 				eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
-				exit (-1)
-			| e -> eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
+				raise exn
+			| e ->
+				eprintf "%s\n%!" (Printexc.to_string e);
+				raise e
 
 	and basic_types ?callback accu input = function
 		| "int"

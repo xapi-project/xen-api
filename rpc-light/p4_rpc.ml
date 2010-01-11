@@ -107,7 +107,7 @@ let type_not_supported ty =
 	let module PP = Camlp4.Printers.OCaml.Make(Syntax) in
 	let pp = new PP.printer () in
 	Format.eprintf "Type %a@. not supported.\n%!" pp#ctyp ty;
-	failwith "type_not_supported"
+	failwith "type not supported by rpc-light"
 
 let apply _loc fn fn_i create id modules t a =
 	let args = decompose_args _loc a in
