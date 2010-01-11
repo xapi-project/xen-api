@@ -79,10 +79,16 @@ type call = {
 
 let call name params = { name = name; params = params }
 
+let string_of_call call =
+	sprintf "-> %s(%s)" call.name (String.concat "," (List.map to_string call.params))
+
 type response = {
 	success: bool;
 	contents: t;
 }
 
+let string_of_response response =
+	sprintf "<- %s(%s)" (if response.success then "success" else "failure") (to_string response.contents)
+ 
 let success v = { success = true; contents = v }
 let failure v = { success = false; contents = v }
