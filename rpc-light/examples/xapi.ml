@@ -1,57 +1,3 @@
-let array_call = 
-"<methodCall>
-  <methodName>event.register</methodName>
-  <params>
-    <param>
-      <value>OpaqueRef:8ecbbb2a-a905-d422-1153-fadc00639b12</value>
-    </param>
-    <param>
-      <value>
-        <array>
-          <data>
-            <value>pbd</value>
-          </data>
-        </array>
-      </value>
-    </param>
-  </params>
-</methodCall>
-"
-
-let simple_call =
-"<methodCall>
-  <methodName>session.login_with_password</methodName>
-  <params>
-    <param>
-      <value/>
-    </param>
-    <param>
-      <value/>
-    </param>
-    <param>
-      <value>1.4</value>
-    </param>
-  </params>
-</methodCall>
-"
-
-let error = 
-"<methodResponse>
-<fault>
-<value><struct>
-<member>
-<name>faultCode</name>
-<value><int>143</int></value>
-</member>
-<member>
-<name>faultString</name>
-<value><string>Failed to parse the request</string></value>
-</member>
-</struct></value>
-</fault>
-</methodResponse>
-"
-
 let sm =
 "<?xml version='1.0'?>
 <methodResponse>
@@ -123,18 +69,10 @@ let empty = "<value></value>"
 
 let _ =
 	Printf.printf "Parsing SM XML ... %!";
-	let _ = Xmlrpc.response_of_string sm in
+	Xmlrpc.response_of_string sm;
 
 	Printf.printf "OK\nParsing empty tags ... %!";
-	let _ = Xmlrpc.of_string empty in
-
-	Printf.printf "OK\nParsing error ... %!";
-	let _ = Xmlrpc.response_of_string error in
-
-	Printf.printf "OK\nParsing simple call ... %!";
-	let _ = Xmlrpc.call_of_string simple_call in
-
-	Printf.printf "OK\nParsing array call ... %!"
-	let _ = Xmlrpc.call_of_string array_call in
+	Xmlrpc.of_string empty;
 
 	Printf.printf "OK\n%!"
+

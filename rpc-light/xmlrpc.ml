@@ -157,39 +157,58 @@ let parse_error got expected input =
 
 module Parser = struct
 
+	let is_empty s =
+		let is_empty = ref true in
+		for i = 0 to (String.length s - 1)
+		do
+			if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then is_empty := false
+		done;
+		!is_empty
+
+	let rec skip_empty input =
+		match Xmlm.peek input with
+		| `Data d when is_empty d -> let _ = Xmlm.input input in skip_empty input
+		| _                       -> ()
+
 	(* Helpers *)
 	let get_data input =
 		match Xmlm.input input with
 		| `Dtd _                -> parse_error "dtd" "data" input
 		| `Data d               -> d
 		| `El_start ((_,tag),_) -> parse_error (sprintf "open_tag(%s)" tag) "data" input
-		| `El_end               -> parse_error "close_tag" "data" input
+		| `El_end               -> ""
 
 	let rec open_tag input =
 		match Xmlm.input input with
-		| `Dtd _                -> parse_error "dtd" "open_tag" input
-		| `El_start ((_,tag),_) -> tag
-		| `Data d
-			when d = " " 
-			|| d = "\n" 
-			|| d = "\t"         -> open_tag input
-		| `Data d               -> parse_error (sprintf "data(%s)" (String.escaped d)) "open_tag" input
-		| `El_end               -> parse_error "close_tag" "open_tag" input
+		| `Dtd _                  -> parse_error "dtd" "open_tag" input
+		| `El_start ((_,tag),_)   -> tag
+		| `Data d when is_empty d -> open_tag input
+		| `Data d                 -> parse_error (sprintf "data(%s)" (String.escaped d)) "open_tag" input
+		| `El_end                 -> parse_error "close_tag" "open_tag" input
 
 	let rec close_tag tag input =
 		match Xmlm.input input with
-		| `Dtd _              -> parse_error "dtd" (sprintf "close_tag(%s)" tag) input
-		| `El_end             -> ()
-		| `El_start ((_,t),_) -> parse_error (sprintf "open_tag(%s)" t) (sprintf "close_tag(%s)" tag) input
-		| `Data d
-			when d = " "
-			|| d = "\n"
-			|| d = "\t"       -> close_tag tag input
-		| `Data d             -> parse_error (sprintf "data(%s)" (String.escaped d)) (sprintf "close_tag(%s)" tag) input
+		| `Dtd _                  -> parse_error "dtd" (sprintf "close_tag(%s)" tag) input
+		| `El_end                 -> ()
+		| `El_start ((_,t),_)     -> parse_error (sprintf "open_tag(%s)" t) (sprintf "close_tag(%s)" tag) input
+		| `Data d when is_empty d -> close_tag tag input
+		| `Data d                 -> parse_error (sprintf "data(%s)" (String.escaped d)) (sprintf "close_tag(%s)" tag) input
+
+	let empty_tag input = function
+		| "string" -> String ""
+		| "array"  -> Enum []
+		| "struct" -> Dict []
+		| "nil"    -> Null
+		| "value"  -> String ""
+		| tag      -> parse_error (sprintf "empty_%s" tag) tag input
 
 	let map_tags f input =
 		let tag = open_tag input in
-		let r = f input tag in
+		let r = 
+			if Xmlm.peek input = `El_end then
+				empty_tag input tag
+			else
+				f input tag in
 		close_tag tag input;
 		r
 
@@ -204,18 +223,36 @@ module Parser = struct
 
 	let name   input   = map_tag "name" get_data input
 	let data   f input = map_tag "data" f input
-	let value  f input = map_tag "value" f input
+	let value  f input =
+		let t = open_tag input in
+		if t = "value" then begin
+			let r =
+				match Xmlm.peek input with
+				| `El_end -> Rpc.String ""
+				| `Data d ->
+					let _ = Xmlm.input input in
+					if is_empty d && match Xmlm.peek input with `El_start _ -> true | _ -> false then
+						f input
+					else
+						Rpc.String d
+				| _       -> f input in
+			close_tag "value" input;
+			r
+		end else
+			parse_error "open_tag(value)" (sprintf "open_tag(%s)" t) input
+
 	let members f input =
 		let g input =
 			let name  = name input in
 			let value = f name input in
 			(name, value) in
 		let r = ref [] in
+		skip_empty input;
 		while Xmlm.peek input <> `El_end do
-			r := map_tag "member" g input :: !r
+			r := map_tag "member" g input :: !r;
+			skip_empty input;
 		done;
 		List.rev !r
-
 
 	(* Constructors *)
 	let make fn ?callback accu data =
@@ -236,10 +273,10 @@ module Parser = struct
 	let rec of_xml ?callback accu input =
 		try value (map_tags (basic_types ?callback accu)) input
 		with
-		| Xmlm.Error ((a,b), e) ->
-			eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
-			exit (-1)
-		| e -> eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
+			| Xmlm.Error ((a,b), e) ->
+				eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
+				exit (-1)
+			| e -> eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
 
 	and basic_types ?callback accu input = function
 		| "int"
@@ -254,8 +291,10 @@ module Parser = struct
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in
+		skip_empty input;
 		while Xmlm.peek input <> `El_end do
-			r := of_xml ?callback accu input :: !r
+			r := of_xml ?callback accu input :: !r;
+			skip_empty input;
 		done;
 		List.rev !r
 end
@@ -286,8 +325,10 @@ let call_of_string ?callback str =
 	Parser.map_tag "methodCall" (fun input ->
 		name := Parser.map_tag "methodName" Parser.get_data input;
 		Parser.map_tag "params" (fun input ->
+			Parser.skip_empty input;
 			while Xmlm.peek input <> `El_end do
-				Parser.map_tag "param" (fun input -> params := (Parser.of_xml ?callback [] input) :: !params) input
+				Parser.map_tag "param" (fun input -> params := (Parser.of_xml ?callback [] input) :: !params) input;
+				Parser.skip_empty input;
 			done;
 			) input
 		) input;
