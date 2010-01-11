@@ -96,18 +96,10 @@ let string_of_response response =
 	let module B = Buffer in
 	let buf = B.create 256 in
 	let add = B.add_string buf in
-	begin match response with
-	| Rpc.Success v   ->
-		add "<?xml version=\"1.0\"?><methodResponse><params><param>";
-		add (to_string v);
-		add "</param></params></methodResponse>";
-	| Rpc.Fault (i,s) ->
-		add "<?xml version=\"1.0\"?><methodResponse><fault><value><struct><member><name>faultCode</name><value><int>";
-		add (Int64.to_string i);
-		add "</int></value></member><member><name>faultString</name><value><string>";
-		add s;
-		add "</string></value></member></struct></value></fault></methodResponse>";
-	end;
+	let v = `Dict [ (if response.Rpc.success then "success" else "failure"), response.Rpc.contents ] in
+	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
+	add (to_string v);
+	add "</param></params></methodResponse>";
 	B.contents buf
 
 exception Parse_error of string * Xmlm.signal * Xmlm.input
@@ -294,19 +286,15 @@ let response_of_string ?callback str =
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
 	Parser.map_tag "methodResponse" (fun input ->
-		match Xmlm.peek input with
-		| `El_start ((_,"fault"),_) ->
-			Parser.map_tag "fault" (fun input ->
+		Parser.map_tag "params" (fun input ->
+			Parser.map_tag "param" (fun input ->
 				let signal = Xmlm.peek input in
 				match Parser.of_xml ?callback [] input with
-					| `Dict [ "faultCode", `Int i; "faultString", `String s ] -> Rpc.Fault (i, s)
-					| s -> parse_error (to_string s) signal input
+				| `Dict [ "success", v ] -> { Rpc.success = true;  Rpc.contents = v }
+				| `Dict [ "failure", v ] -> { Rpc.success = false; Rpc.contents = v }
+				| v -> parse_error "response" signal input
 				) input
-		| `El_start ((_,"params"),_) ->
-			Parser.map_tag "params" (fun input ->
-				Parser.map_tag "param" (fun input -> Rpc.Success (Parser.of_xml ?callback [] input)) input
-				) input
-		| s -> parse_error "response" s input
-		) input 
+			) input
+		) input
 
 	

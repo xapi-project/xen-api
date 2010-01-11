@@ -49,6 +49,7 @@ type call = {
 	params: Val.t list
 }
 
-type 'a response =
-	| Success of Val.t
-	| Fault of 'a
+type response = {
+	success: bool;
+	contents: Val.t
+}
