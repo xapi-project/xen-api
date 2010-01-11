@@ -8,7 +8,8 @@ EXAMPLES = \
 	phantom \
 	xapi \
 	option \
-	encoding
+	encoding \
+	dict
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 
