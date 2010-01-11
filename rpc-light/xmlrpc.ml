@@ -259,8 +259,7 @@ let call_of_string ?callback str =
 		) input;
 	call !name (List.rev !params)
 	
-let response_of_string ?callback str =
-	let input = Xmlm.make_input (`String (0, str)) in
+let response_of_input ?callback input =
 	begin match Xmlm.peek input with
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
@@ -274,4 +273,10 @@ let response_of_string ?callback str =
 			) input
 		) input
 
-	
+let response_of_string ?callback str =
+	let input = Xmlm.make_input (`String (0, str)) in
+	response_of_input ?callback input
+
+let response_of_in_channel ?callback chan =
+	let input = Xmlm.make_input (`Channel chan) in
+	response_of_input ?callback input
