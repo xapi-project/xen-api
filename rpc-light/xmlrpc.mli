@@ -18,5 +18,5 @@ val of_string : ?callback:Rpc.callback -> string -> Rpc.Val.t
 val string_of_call: Rpc.call -> string
 val call_of_string: ?callback:Rpc.callback -> string -> Rpc.call
 
-val string_of_response: (int64 * string) Rpc.response -> string
-val response_of_string: ?callback:Rpc.callback -> string -> (int64 * string) Rpc.response
+val string_of_response: Rpc.response -> string
+val response_of_string: ?callback:Rpc.callback -> string -> Rpc.response

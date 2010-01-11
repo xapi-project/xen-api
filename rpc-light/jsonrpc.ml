@@ -78,19 +78,19 @@ let string_of_call call =
 	] in
 	to_string json
 
-let string_of_response id response =
-	let json = match response with
-		| Success v ->
+let string_of_response response =
+	let json =
+		if response.Rpc.success then
 			`Dict [
-				"result", v;
+				"result", response.Rpc.contents;
 				"error", `None;
-				"id", `Int id
+				"id", `Int 0L
 			]
-		| Fault f ->
+		else
 			`Dict [
 				"result", `None;
-				"error", f;
-				"id", `Int id
+				"error", response.Rpc.contents;
+				"id", `Int 0L
 			] in
 	to_string json
 
@@ -500,8 +500,8 @@ let call_of_string str =
 	| `Dict d ->
 		let name = match get "method" d with `String s -> s | _ -> raise (Malformed_method_request str) in
 		let params = match get "params" d with `List l -> l | _ -> raise (Malformed_method_request str) in
-		let id = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_request str) in
-		id, { name = name; params = params }
+		let (_:int64) = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_request str) in
+		{ name = name; params = params }
 	| _ -> raise (Malformed_method_request str)
 
 let response_of_string str =
@@ -509,11 +509,11 @@ let response_of_string str =
 	| `Dict d ->
 		  let result = get "result" d in
 		  let error = get "error" d in
-		  let id = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_response str) in
+		  let (_:int64) = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_response str) in
 		  begin match result, error with
 			  | `None, `None -> raise (Malformed_method_response str)
-			  | `None, v     -> id, Fault v
-			  | v, `None     -> id, Success v
+			  | `None, v     -> { Rpc.success = false; contents = v }
+			  | v, `None     -> { Rpc.success = true;  contents = v }
 			  | _            -> raise (Malformed_method_response str)
 		  end
 	| _ -> raise (Malformed_method_response str)
