@@ -77,6 +77,11 @@ let to_string x =
 	add_value (Buffer.add_string buf) x;
 	Buffer.contents buf
 
+let to_a ~empty ~append x =
+	let buf = empty () in
+	add_value (fun s -> append buf s) x;
+	buf
+
 let string_of_call call =
 	let module B = Buffer in
 	let buf = B.create 1024 in
@@ -102,6 +107,15 @@ let string_of_response response =
 	add (to_string v);
 	add "</param></params></methodResponse>";
 	B.contents buf
+
+let a_of_response ~empty ~append response =
+	let buf = empty () in
+	let add s = append buf s in
+	let v = if response.success then response.contents else Dict [ "failure", response.contents ] in
+	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
+	add (to_string v);
+	add "</param></params></methodResponse>";
+	buf
 
 exception Parse_error of string * Xmlm.signal * Xmlm.input
 
@@ -141,8 +155,10 @@ let debug_input input =
 	aux [];
 	Buffer.contents buf
 
+let pretty_string_of_error (n,s,i) =
+	Printf.sprintf "Error: got '%s' while '%s' was expected when processing '%s'\n" (debug_signal s) n (debug_input i)
+
 let parse_error n s i =
-	Printf.eprintf "Error: got '%s' while '%s' was expected when processing '%s'\n" (debug_signal s) n (debug_input i);
 	raise (Parse_error (n,s,i))
 
 module Parser = struct
@@ -153,9 +169,13 @@ module Parser = struct
 		| `Data d -> d
 		| e       -> parse_error "..." e input
 
-	let open_tag input =
+	let rec open_tag input =
 		match Xmlm.input input with
 		| `El_start ((_,tag),_) -> tag
+		| `Data s
+			when s = " " 
+			|| s = "\n" 
+			|| s = "\t"         -> open_tag input
 		| e                     -> parse_error "<...>" e input
 
 	let close_tag input =
@@ -241,7 +261,16 @@ let of_string ?callback str =
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
 	Parser.of_xml ?callback [] input
-	
+
+let of_a ?callback ~next_char b =
+	let aux () =
+		try 
+			let c = next_char b in
+			int_of_char c
+		with _ -> raise End_of_file in
+	let input = Xmlm.make_input (`Fun aux) in
+	Parser.of_xml ?callback [] input
+
 let call_of_string ?callback str =
 	let input = Xmlm.make_input (`String (0, str)) in
 	begin match Xmlm.peek input with
