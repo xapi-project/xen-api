@@ -194,7 +194,11 @@ module Rpc_of = struct
 			let ids, ctyps = decompose_variants _loc t in
 			let pattern (n, t) ctyps =
 				let ids, pids = new_id_list _loc ctyps in
-				let body = <:expr< Rpc.Enum [ Rpc.String $str:n$ :: $expr_list_of_list _loc (List.map2 create ids ctyps)$ ] >> in
+				let body =
+					if ids = [] then
+						<:expr< Rpc.String $str:n$ >>
+					else
+						<:expr< Rpc.Enum [ Rpc.String $str:n$ :: $expr_list_of_list _loc (List.map2 create ids ctyps)$ ] >> in
 				<:match_case< $recompose_variant _loc (n,t) pids$ -> $body$ >> in
 			let patterns = mcOr_of_list (List.map2 pattern ids ctyps) in
 			<:expr< match $id$ with [ $patterns$ ] >>
@@ -356,7 +360,11 @@ module Of_rpc = struct
 			let ids, ctyps = decompose_variants _loc t in
 			let pattern (n, t) ctyps =
 				let ids, pids = new_id_list _loc ctyps in
-				let patt = <:patt< Rpc.Enum [ Rpc.String $str:n$ :: $patt_list_of_list _loc pids$ ] >> in
+				let patt =
+					if ids = [] then
+						<:patt< Rpc.String $str:n$ >>
+					else
+						<:patt< Rpc.Enum [ Rpc.String $str:n$ :: $patt_list_of_list _loc pids$ ] >> in
 				let exprs = List.map2 (create name) ids ctyps in
 				let body = List.fold_right
 					(fun a b -> <:expr< $b$ $a$ >>)
