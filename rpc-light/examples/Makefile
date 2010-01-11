@@ -3,7 +3,7 @@ OCAMLOPT = ocamlfind ocamlopt
 OCAMLFLAGS = -annot -g
 
 PACKS = rpc-light
-EXAMPLES = all_types phantom
+EXAMPLES = all_types phantom xapi
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 
