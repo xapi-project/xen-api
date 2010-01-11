@@ -56,3 +56,12 @@ type response = { success : bool; contents : t }
 
 val success : t -> response
 val failure : t -> response
+
+(** {2 Run-time errors} *)
+
+exception Runtime_error of string * t
+exception Runtime_exception of string * string
+
+(** {2 Debug options} *)
+val set_debug : bool -> unit
+val get_debug : unit -> bool
