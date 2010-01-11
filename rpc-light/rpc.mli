@@ -59,9 +59,13 @@ type call = { name : string; params : t list }
 
 val call : string -> t list -> call
 
+val string_of_call : call -> string
+
 (** {2 Responses} *)
 
 type response = { success : bool; contents : t }
+
+val string_of_response : response -> string
 
 val success : t -> response
 val failure : t -> response

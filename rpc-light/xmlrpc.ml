@@ -117,13 +117,7 @@ let a_of_response ~empty ~append response =
 	add "</param></params></methodResponse>";
 	buf
 
-exception Parse_error of string * Xmlm.signal * Xmlm.input
-
-let debug_signal = function
-	| `El_start ((_,tag),_) -> Printf.sprintf "<%s>" tag
-	| `El_end               -> "</...>"
-	| `Data d               -> Printf.sprintf "%s" d
-	| `Dtd _                -> "<?dtd?>"
+exception Parse_error of string * string * Xmlm.input
 
 let debug_input input =
 	let buf = Buffer.create 1024 in
@@ -155,48 +149,58 @@ let debug_input input =
 	aux [];
 	Buffer.contents buf
 
-let pretty_string_of_error (n,s,i) =
-	Printf.sprintf "Error: got '%s' while '%s' was expected when processing '%s'\n" (debug_signal s) n (debug_input i)
+let pretty_string_of_error got expected input =
+	sprintf "Error: got '%s' while '%s' was expected when processing '%s'\n" got expected (debug_input input)
 
-let parse_error n s i =
-	raise (Parse_error (n,s,i))
+let parse_error got expected input =
+	raise (Parse_error (got, expected, input))
 
 module Parser = struct
 
 	(* Helpers *)
 	let get_data input =
 		match Xmlm.input input with
-		| `Data d -> d
-		| e       -> parse_error "..." e input
+		| `Dtd _                -> parse_error "dtd" "data" input
+		| `Data d               -> d
+		| `El_start ((_,tag),_) -> parse_error (sprintf "open_tag(%s)" tag) "data" input
+		| `El_end               -> parse_error "close_tag" "data" input
 
 	let rec open_tag input =
 		match Xmlm.input input with
+		| `Dtd _                -> parse_error "dtd" "open_tag" input
 		| `El_start ((_,tag),_) -> tag
-		| `Data s
-			when s = " " 
-			|| s = "\n" 
-			|| s = "\t"         -> open_tag input
-		| e                     -> parse_error "<...>" e input
+		| `Data d
+			when d = " " 
+			|| d = "\n" 
+			|| d = "\t"         -> open_tag input
+		| `Data d               -> parse_error (sprintf "data(%s)" (String.escaped d)) "open_tag" input
+		| `El_end               -> parse_error "close_tag" "open_tag" input
 
-	let close_tag input =
+	let rec close_tag tag input =
 		match Xmlm.input input with
-		| `El_end -> ()
-		| e       -> parse_error "</...>" e input
+		| `Dtd _              -> parse_error "dtd" (sprintf "close_tag(%s)" tag) input
+		| `El_end             -> ()
+		| `El_start ((_,t),_) -> parse_error (sprintf "open_tag(%s)" t) (sprintf "close_tag(%s)" tag) input
+		| `Data d
+			when d = " "
+			|| d = "\n"
+			|| d = "\t"       -> close_tag tag input
+		| `Data d             -> parse_error (sprintf "data(%s)" (String.escaped d)) (sprintf "close_tag(%s)" tag) input
 
 	let map_tags f input =
 		let tag = open_tag input in
 		let r = f input tag in
-		close_tag input;
+		close_tag tag input;
 		r
 
 	let map_tag tag f input =
 		let t = open_tag input in
 		if t = tag then begin
 			let r = f input in
-			close_tag input;
+			close_tag tag input;
 			r
 		end else
-			parse_error (Printf.sprintf "<%s>" tag) (`El_start (("",t),[])) input
+			parse_error (sprintf "open_tag(%s)" t) (sprintf "open_tag(%s)" t) input
 
 	let name   input   = map_tag "name" get_data input
 	let data   f input = map_tag "data" f input
@@ -231,10 +235,11 @@ module Parser = struct
 	(* General parser functions *)
 	let rec of_xml ?callback accu input =
 		try value (map_tags (basic_types ?callback accu)) input
-		with Xmlm.Error ((a,b), e) ->
-			Printf.eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
+		with
+		| Xmlm.Error ((a,b), e) ->
+			eprintf "Characters %i--%i: %s\n%!" a b (Xmlm.error_message e);
 			exit (-1)
-			| e -> Printf.eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
+		| e -> eprintf "%s\n%!" (Printexc.to_string e); exit (-1)
 
 	and basic_types ?callback accu input = function
 		| "int"
@@ -245,7 +250,7 @@ module Parser = struct
 		| "array"  -> make_enum   ?callback accu (data (of_xmls ?callback accu) input)
 		| "struct" -> make_dict   ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
 		| "nil"    -> make_null   ?callback accu ()
-		| tag      -> parse_error tag (Xmlm.peek input) input
+		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/bool/double/string/array/struct/nil" input
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in
