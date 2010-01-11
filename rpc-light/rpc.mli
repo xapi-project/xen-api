@@ -48,6 +48,9 @@ val rpc_of_string : string -> t
 val t_of_rpc : t -> t
 val rpc_of_t : t -> t
 
+val unit_of_rpc : t -> unit
+val rpc_of_unit : unit -> t
+
 (** {2 Calls} *)
 
 type callback = string list -> t -> unit
