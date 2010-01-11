@@ -170,6 +170,7 @@ let handle_connection _ ss =
     let auth = ref None in
     let task = ref None in
     let subtask_of = ref None in
+	let content_type = ref None in
     let user_agent = ref None in
     
     content_length := -1L;
@@ -199,6 +200,7 @@ let handle_connection _ ss =
 	let auth_hdr = "authorization: " in
 	let task_hdr = String.lowercase Http.task_id_hdr ^ ": " in
 	let subtask_of_hdr = String.lowercase Http.subtask_of_hdr ^ ": " in
+	let content_type_hdr = String.lowercase Http.content_type_hdr ^ ": " in
 	let user_agent_hdr = String.lowercase Http.user_agent_hdr ^ ": " in
 	let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic in
 	let r = strip_cr r in
@@ -218,6 +220,8 @@ let handle_connection _ ss =
 	then task := Some (end_of_string r (String.length task_hdr));
 	if String.startswith subtask_of_hdr lowercase_r
 	then subtask_of := Some (end_of_string r (String.length subtask_of_hdr));
+	if String.startswith content_type_hdr lowercase_r
+	then content_type := Some (end_of_string r (String.length content_type_hdr));
 	if String.startswith user_agent_hdr lowercase_r
 	then user_agent := Some (end_of_string r (String.length user_agent_hdr));
 	if String.startswith connection_hdr lowercase_r 
@@ -243,15 +247,17 @@ let handle_connection _ ss =
 		    auth = !auth;
 		    task = !task;
 		    subtask_of = !subtask_of;
+			content_type = !content_type;
 		    user_agent = !user_agent;
 		    headers = headers;
 		} in
       let ty = Http.string_of_method_t req.m in
-      D.debug "HTTP %s %s %s%s%s%s"
+      D.debug "HTTP %s %s %s%s%s%s%s"
 	ty req.uri 
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Content-length: %Ld)" x) req.content_length))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Task: %s)" x) req.task))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Subtask-of: %s)" x) req.subtask_of))
+	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (Content-Type: %s)" x) req.content_type))
 	(Opt.default " " (Opt.map (fun x -> Printf.sprintf " (User-agent: %s)" x) req.user_agent));
       let table = handler_table req.m in
       (* Find a specific handler: the last one whose URI is a prefix of the received
