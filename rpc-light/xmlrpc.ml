@@ -98,23 +98,26 @@ let string_of_call call =
 	add "</params></methodCall>";
 	B.contents buf
 
+let add_response add response =
+	let v = if response.success then
+		Dict [ "Status", String "Success"; "Value", response.contents ]
+	else
+		Dict [ "Status", String "Failure"; "ErrorDescription", response.contents ] in
+	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
+	add (to_string v);
+	add "</param></params></methodResponse>"
+
 let string_of_response response =
 	let module B = Buffer in
 	let buf = B.create 256 in
 	let add = B.add_string buf in
-	let v = if response.success then response.contents else Dict [ "failure", response.contents ] in
-	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
-	add (to_string v);
-	add "</param></params></methodResponse>";
+	add_response add response;
 	B.contents buf
 
 let a_of_response ~empty ~append response =
 	let buf = empty () in
 	let add s = append buf s in
-	let v = if response.success then response.contents else Dict [ "failure", response.contents ] in
-	add "<?xml version=\"1.0\"?><methodResponse><params><param>";
-	add (to_string v);
-	add "</param></params></methodResponse>";
+	add_response add response;
 	buf
 
 exception Parse_error of string * string * Xmlm.input
@@ -219,7 +222,7 @@ module Parser = struct
 			close_tag tag input;
 			r
 		end else
-			parse_error (sprintf "open_tag(%s)" t) (sprintf "open_tag(%s)" t) input
+			parse_error (sprintf "open_tag(%s)" t) (sprintf "open_tag(%s)" tag) input
 
 	let name   input   = map_tag "name" get_data input
 	let data   f input = map_tag "data" f input
@@ -283,13 +286,13 @@ module Parser = struct
 	and basic_types ?callback accu input = function
 		| "int"
 		| "i4"     -> make_int    ?callback accu (get_data input)
-		| "boolean"   -> make_bool   ?callback accu (get_data input)
+		| "boolean"-> make_bool   ?callback accu (get_data input)
 		| "double" -> make_float  ?callback accu (get_data input)
 		| "string" -> make_string ?callback accu (get_data input)
 		| "array"  -> make_enum   ?callback accu (data (of_xmls ?callback accu) input)
 		| "struct" -> make_dict   ?callback accu (members (fun name -> of_xml ?callback (name::accu)) input)
 		| "nil"    -> make_null   ?callback accu ()
-		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/bool/double/string/array/struct/nil" input
+		| tag      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(int/i4/boolean/double/string/array/struct/nil)" input
 
 	and of_xmls ?callback accu input =
 		let r = ref [] in
@@ -333,21 +336,47 @@ let call_of_string ?callback str =
 				Parser.skip_empty input;
 			done;
 			) input
-		) input;
+		) input; 
 	call !name (List.rev !params)
-	
+
+let response_of_fault ?callback input =
+	Parser.map_tag "fault" (fun input ->
+		match Parser.of_xml ?callback [] input with
+		| Dict d ->
+			let fault_code = List.assoc "faultCode" d in 
+			let fault_string = List.assoc "faultString" d in
+			failure ( Rpc.Enum [ String "fault"; fault_code; fault_string ] )
+		| r      -> parse_error (to_string r) "fault" input
+		) input
+
+let response_of_success ?callback input =
+	Parser.map_tag "params" (fun input ->
+		Parser.map_tag "param" (fun input ->
+			match Parser.of_xml ?callback [] input with
+			| Dict d ->
+				if List.mem_assoc "Status" d && List.assoc "Status" d = String "Success" && List.mem_assoc "Value" d then
+					success (List.assoc "Value" d)
+				else if List.mem_assoc "Status" d && List.assoc "Status" d = String "Failure" && List.mem_assoc "ErrorDescription" d then
+					failure (List.assoc "ErrorDescription" d)
+				else
+					success (Dict d)
+			| v  -> success v
+			) input
+		) input
+
 let response_of_input ?callback input =
 	begin match Xmlm.peek input with
 	| `Dtd _ -> ignore (Xmlm.input input)
 	| _      -> () end;
 	Parser.map_tag "methodResponse" (fun input ->
-		Parser.map_tag "params" (fun input ->
-			Parser.map_tag "param" (fun input ->
-				match Parser.of_xml ?callback [] input with
-				| Dict [ "failure", v ] -> failure v
-				| v                     -> success v
-				) input
-			) input
+		Parser.skip_empty input;
+		match Xmlm.peek input with
+		| `El_start ((_,"params"),_) -> response_of_success ?callback input
+		| `El_start ((_,"fault"),_)  -> response_of_fault ?callback input
+		| `El_start ((_,tag),_)      -> parse_error (sprintf "open_tag(%s)" tag) "open_tag(fault/params)" input
+		| `Data d                    -> parse_error (String.escaped d) "open_tag(fault/params)" input
+		| `El_end                    -> parse_error "close_tag" "open_tag(fault/params)" input
+		| `Dtd _                     -> parse_error "dtd" "open_tag(fault/params)" input
 		) input
 
 let response_of_string ?callback str =
