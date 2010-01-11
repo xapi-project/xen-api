@@ -9,7 +9,8 @@ EXAMPLES = \
 	xapi \
 	option \
 	encoding \
-	dict
+	dict \
+	variants
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 

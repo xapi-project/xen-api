@@ -1,3 +1,23 @@
+let array_call = 
+"<methodCall>
+  <methodName>event.register</methodName>
+  <params>
+    <param>
+      <value>OpaqueRef:8ecbbb2a-a905-d422-1153-fadc00639b12</value>
+    </param>
+    <param>
+      <value>
+        <array>
+          <data>
+            <value>pbd</value>
+          </data>
+        </array>
+      </value>
+    </param>
+  </params>
+</methodCall>
+"
+
 let simple_call =
 "<methodCall>
   <methodName>session.login_with_password</methodName>
@@ -103,16 +123,18 @@ let empty = "<value></value>"
 
 let _ =
 	Printf.printf "Parsing SM XML ... %!";
-	Xmlrpc.response_of_string sm;
+	let _ = Xmlrpc.response_of_string sm in
 
 	Printf.printf "OK\nParsing empty tags ... %!";
-	Xmlrpc.of_string empty;
+	let _ = Xmlrpc.of_string empty in
 
 	Printf.printf "OK\nParsing error ... %!";
-	Xmlrpc.response_of_string error;
+	let _ = Xmlrpc.response_of_string error in
 
 	Printf.printf "OK\nParsing simple call ... %!";
-	Xmlrpc.call_of_string simple_call;
+	let _ = Xmlrpc.call_of_string simple_call in
+
+	Printf.printf "OK\nParsing array call ... %!"
+	let _ = Xmlrpc.call_of_string array_call in
 
 	Printf.printf "OK\n%!"
-
