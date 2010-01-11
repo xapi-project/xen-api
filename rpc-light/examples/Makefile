@@ -7,7 +7,8 @@ EXAMPLES = \
 	all_types \
 	phantom \
 	xapi \
-	option
+	option \
+	encoding
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
 
