@@ -19,7 +19,13 @@ open PreCast
 open Ast
 open Syntax
 
+
+let is_base = function
+	| "int64" | "int32" | "int" | "flaot" | "string" | "unit" -> true
+	| _ -> false
+
 let rpc_of n = "rpc_of_" ^ n
+
 let of_rpc n = n ^ "_of_rpc"
 
 let rpc_of_polyvar a = "__rpc_of_" ^ a ^ "__"
@@ -126,6 +132,13 @@ let is_option = function
 	| <:ctyp@loc< option $_$ >> -> true
 	| _                         -> false
 
+let is_string _loc key =
+	if key = "string" then
+		<:expr< True >>
+	else if is_base key then
+		<:expr< False >>
+	else <:expr< try let ( _ : $lid:key$ ) = $lid:of_rpc key$ (Rpc.String "") in True with [ _ -> False ] >>
+
 (* Conversion ML type -> Rpc.value *)
 module Rpc_of = struct
 	
@@ -159,6 +172,23 @@ module Rpc_of = struct
 		| <:ctyp< char >>    -> <:expr< Rpc.Int (Int64.of_int (Char.code $id$)) >>
 		| <:ctyp< string >>  -> <:expr< Rpc.String $id$ >>
 		| <:ctyp< bool >>    -> <:expr< Rpc.Bool $id$ >>
+
+		| <:ctyp< list (string * $t$) >> ->
+			let nid, pid = new_id _loc in
+			<:expr<
+				let dict = List.map (fun (key, $pid$) -> (key, $create nid t$)) $id$ in
+				Rpc.Dict dict >>
+
+		| <:ctyp< list ($lid:key$ * $t$) >> when not (is_base key) ->
+			let nid1, pid1 = new_id _loc in
+			let nid2, pid2 = new_id _loc in
+			<:expr<
+				let is_a_real_dict = $is_string _loc key$ in
+				let dict = List.map (fun ($pid1$, $pid2$) -> ($lid:rpc_of key$ $nid1$, $create nid2 t$)) $id$ in
+				if is_a_real_dict then
+					Rpc.Dict (List.map (fun [ (Rpc.String k, v) -> (k, v) | _ -> assert False ]) dict)
+				else
+					Rpc.Enum (List.map (fun (k, v) -> Rpc.Enum [k; v] ) dict) >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in
@@ -301,6 +331,26 @@ module Of_rpc = struct
 
 		| <:ctyp< string >> -> <:expr< match $id$ with [ Rpc.String x -> x | $runtime_error name id "String(string)"$ ] >>
 		| <:ctyp< bool >>   -> <:expr< match $id$ with [ Rpc.Bool x -> x | $runtime_error name id "Bool"$ ] >>
+
+		| <:ctyp< list (string * $t$ ) >> ->
+			let nid, pid = new_id _loc in
+			<:expr< match $id$ with [
+			  Rpc.Dict d -> List.map (fun (key, $pid$) -> (key, $create name nid t$)) d
+			| $runtime_error name id "Dict"$ ] >>
+
+		| <:ctyp< list ($lid:key$ * $t$) >> when not (is_base key) ->
+			let nid, pid = new_id _loc in
+			<:expr<
+				let is_a_real_dict = $is_string _loc key$ in
+				if is_a_real_dict then begin
+					match $id$ with [
+					  Rpc.Dict d -> List.map (fun (key, $pid$) -> ($lid:of_rpc key$ (Rpc.String key), $create name nid t$)) d
+					| $runtime_error name id "Dict"$ ]
+				end else begin
+					match $id$ with [
+					  Rpc.Enum e -> List.map (fun $pid$ -> $create name nid <:ctyp< ($lid:key$ * $t$) >>$) e
+					| $runtime_error name id "Enum"$ ]
+				end >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in
