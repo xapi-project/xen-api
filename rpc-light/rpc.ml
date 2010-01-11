@@ -47,6 +47,7 @@ let rpc_of_int i = Int (Int64.of_int i)
 let rpc_of_bool b = Bool b
 let rpc_of_float f = Float f
 let rpc_of_string s = String s
+let rpc_of_unit () = Null
 
 let t_of_rpc x = x
 let int64_of_rpc = function
@@ -67,6 +68,7 @@ let float_of_rpc = function
 	| String s -> float_of_string s
 	| _ -> failwith "float_of_rpc"
 let string_of_rpc = function String s -> s | _ -> failwith "string_of_rpc"
+let unit_of_rpc = function Null -> () | _ -> failwith "unit_of_rpc"
 
 type callback = string list -> t -> unit
 
