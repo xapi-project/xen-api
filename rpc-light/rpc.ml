@@ -42,14 +42,30 @@ let rec to_string t = match t with
 
 let rpc_of_t x = x
 let rpc_of_int64 i = Int i
+let rpc_of_int32 i = Int (Int64.of_int32 i)
+let rpc_of_int i = Int (Int64.of_int i)
 let rpc_of_bool b = Bool b
 let rpc_of_float f = Float f
 let rpc_of_string s = String s
 
 let t_of_rpc x = x
-let int64_of_rpc = function Int i -> i | _ -> failwith "int64_of_rpc"
+let int64_of_rpc = function
+	| Int i    -> i 
+	| String s -> Int64.of_string s
+	| _ -> failwith "int64_of_rpc"
+let int32_of_rpc = function
+	| Int i    -> Int64.to_int32 i
+	| String s -> Int32.of_string s
+	| _ -> failwith "int32_of_rpc"
+let int_of_rpc = function
+	| Int i    -> Int64.to_int i
+	| String s -> int_of_string s
+	| _ -> failwith "int_of_rpc"
 let bool_of_rpc = function Bool b -> b | _ -> failwith "bool_of_rpc"
-let float_of_rpc = function Float f -> f | _ -> failwith "float_of_rpc"
+let float_of_rpc = function
+	| Float f  -> f 
+	| String s -> float_of_string s
+	| _ -> failwith "float_of_rpc"
 let string_of_rpc = function String s -> s | _ -> failwith "string_of_rpc"
 
 type callback = string list -> t -> unit

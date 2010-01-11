@@ -30,6 +30,12 @@ val to_string : t -> string
 val int64_of_rpc : t -> int64
 val rpc_of_int64 : int64 -> t
 
+val int32_of_rpc : t -> int32
+val rpc_of_int32 : int32 -> t
+
+val int_of_rpc : t -> int
+val rpc_of_int : int -> t
+
 val bool_of_rpc : t -> bool
 val rpc_of_bool : bool -> t
 
