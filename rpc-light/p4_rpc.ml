@@ -122,10 +122,33 @@ let apply _loc fn fn_i create id modules t a =
 		expr
 		args
 
+let is_option = function
+	| <:ctyp@loc< option $_$ >> -> true
+	| _                         -> false
+
 (* Conversion ML type -> Rpc.value *)
 module Rpc_of = struct
 	
-	let rec create id ctyp =
+	let rec product get_field t =
+		let _loc = loc_of_ctyp t in
+		let fields = decompose_fields _loc t in
+        let ids, pids = new_id_list _loc fields in
+		let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $get_field f$ >>) pids fields in
+		let aux nid (n, ctyp) accu =
+			if is_option ctyp then begin
+				let new_id, new_pid = new_id _loc in
+				<:expr<
+					match $create nid ctyp$ with [
+					  Rpc.Enum []            -> $accu$
+					| Rpc.Enum [ $new_pid$ ] -> [ ($str:n$, $new_id$) :: $accu$ ]
+					| _                      -> assert False
+					] >>
+			end else
+				<:expr< [ ($str:n$, $create nid ctyp$) :: $accu$ ] >> in
+		let expr = <:expr< Rpc.Dict $List.fold_right2 aux ids fields <:expr< [] >>$ >> in
+		<:expr< let $biAnd_of_list bindings$ in $expr$ >>
+
+	and create id ctyp =
 		let _loc = loc_of_ctyp ctyp in
 		match ctyp with
 		| <:ctyp< unit >>    -> <:expr< Rpc.Null >>
@@ -167,21 +190,8 @@ module Rpc_of = struct
 			let new_id, new_pid = new_id _loc in
 			<:expr< Rpc.Enum (Array.to_list (Array.map (fun $new_pid$ -> $create new_id t$) $id$)) >>
 
-		| <:ctyp< { $t$ } >> ->
-			let fields = decompose_fields _loc t in
-            let ids, pids = new_id_list _loc fields in
-			let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $id$ . $lid:f$ >>) pids fields in
-			let one_expr nid (n, ctyp) = <:expr< ($str:n$, $create nid ctyp$) >> in
-			let expr = <:expr< Rpc.Dict $expr_list_of_list _loc (List.map2 one_expr ids fields)$ >> in
-			<:expr< let $biAnd_of_list bindings$ in $expr$ >>
-
-		| <:ctyp< < $t$ > >> ->
-			let fields = decompose_fields _loc t in
-            let ids, pids = new_id_list _loc fields in
-			let bindings = List.map2 (fun pid (f, _) -> <:binding< $pid$ = $id$ # $lid:f$ >>) pids fields in
-			let one_expr nid (n, ctyp) = <:expr< ($str:n$, $create nid ctyp$) >> in
-			let expr = <:expr< Rpc.Dict $expr_list_of_list _loc (List.map2 one_expr ids fields)$ >> in
-			<:expr< let $biAnd_of_list bindings$ in $expr$ >>
+		| <:ctyp< { $t$ } >>              -> product (fun field -> <:expr< $id$ . $lid:field$ >>) t
+		| <:ctyp< < $t$ > >>              -> product (fun field -> <:expr< $id$ # $lid:field$ >>) t
 
 		| <:ctyp< '$lid:a$ >>             -> <:expr< $lid:rpc_of_polyvar a$ $id$  >>
 
@@ -231,6 +241,28 @@ module Of_rpc = struct
 				Printf.eprintf "Runtime error in '%s_of_rpc:%s': caught exception '%s' while doing '%s'\\n" $str:name$ $str_of_id id$ (Printexc.to_string __x__) $str:doing$
 			else () ;
 			raise (Rpc.Runtime_exception ($str:doing$, Printexc.to_string __x__)) }		>>
+
+	let product name build_one build_all id t =
+		let _loc = loc_of_ctyp t in
+		let nid, npid = new_id _loc in
+		let fields = decompose_fields _loc t in
+		let ids, pids = new_id_list _loc fields in
+		let exprs = List.map2 (fun id (n, ctyp) -> build_one n id ctyp) ids fields in
+		let bindings =
+			List.map2 (fun pid (n, ctyp) ->
+				if is_option ctyp then begin
+					<:binding< $pid$ =
+						if List.mem_assoc $str:n$ $nid$ then
+							Rpc.Enum [List.assoc $str:n$ $nid$]
+						else
+							Rpc.Enum []
+					>>
+				end else
+					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error name nid ("Looking for key "^n)$ ] >>
+				) pids fields in
+		<:expr< match $id$ with
+			[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in $build_all exprs$ | $runtime_error name id "Dict"$ ]
+		>>
 
 	let rec create name id ctyp =
 		let _loc = loc_of_ctyp ctyp in
@@ -312,30 +344,10 @@ module Of_rpc = struct
 			>>
 
 		| <:ctyp< { $t$ } >> ->
-			let nid, npid = new_id _loc in
-			let fields = decompose_fields _loc t in
-			let ids, pids = new_id_list _loc fields in
-			let exprs = List.map2 (fun id (n, ctyp) -> <:rec_binding< $lid:n$ = $create name id ctyp$ >>) ids fields in
-			let bindings =
-				List.map2 (fun pid (n, ctyp) ->
-					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error name nid ("Looking for key "^n)$ ] >>
-					) pids fields in
-			<:expr< match $id$ with
-				[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in { $rbSem_of_list exprs$ } | $runtime_error name id "Dict"$ ]
-			>>
+			product name (fun n i ctyp -> <:rec_binding< $lid:n$ = $create name i ctyp$ >>) (fun es -> <:expr< { $rbSem_of_list es$ } >>) id t
 
 		| <:ctyp< < $t$ > >> ->
-			let nid, npid = new_id _loc in
-			let fields = decompose_fields _loc t in
-			let ids, pids = new_id_list _loc fields in
-			let exprs = List.map2 (fun id (n, ctyp) -> <:class_str_item< method $lid:n$ = $create name id ctyp$ >>) ids fields in
-			let bindings =
-				List.map2 (fun pid (n, ctyp) ->
-					<:binding< $pid$ = try List.assoc $str:n$ $nid$ with [ $runtime_exn_error name nid ("Looking for key "^n)$ ] >>
-					) pids fields in
-			<:expr< match $id$ with 
-				[ Rpc.Dict $npid$ -> let $biAnd_of_list bindings$ in object $crSem_of_list exprs$ end | $runtime_error name id "Dict"$ ]
-			>>
+			product name (fun n i ctyp -> <:class_str_item< method $lid:n$ = $create name i ctyp$ >>) (fun es -> <:expr< object $crSem_of_list es$ end >>) id t
 
 		| <:ctyp< '$lid:a$ >>             -> <:expr< $lid:of_rpc_polyvar a$ $id$ >>
 
