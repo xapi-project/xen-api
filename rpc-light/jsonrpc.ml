@@ -43,18 +43,18 @@ let escape_string s =
 
 let rec to_fct t f =
 	match t with
-	| `Int i                -> f (Printf.sprintf "%Ld" i)
-	| `Bool b               -> f (string_of_bool b)
-	| `Float r              -> f (Printf.sprintf "%f" r)
-	| `String s             -> f (escape_string s)
-	| `None                 -> f "null"
-	| `List a               ->
+	| Int i    -> f (Printf.sprintf "%Ld" i)
+	| Bool b   -> f (string_of_bool b)
+	| Float r  -> f (Printf.sprintf "%f" r)
+	| String s -> f (escape_string s)
+	| Null     -> f "null"
+	| Enum a   ->
 		f "[";
 		list_iter_between (fun i -> to_fct i f) (fun () -> f ", ") a;
 		f "]";
-	| `Dict a               ->
+	| Dict a   ->
 		f "{";
-		list_iter_between (fun (k, v) -> to_fct (`String k) f; f ": "; to_fct v f)
+		list_iter_between (fun (k, v) -> to_fct (String k) f; f ": "; to_fct v f)
 		                  (fun () -> f ", ") a;
 		f "}"
 
@@ -71,26 +71,26 @@ let new_id =
 	(fun () -> count := Int64.add 1L !count; !count)
 
 let string_of_call call =
-	let json = `Dict [
-		"method", `String call.name;
-		"params", `List call.params;
-		"id", `Int (new_id ());
+	let json = Dict [
+		"method", String call.name;
+		"params", Enum call.params;
+		"id", Int (new_id ());
 	] in
 	to_string json
 
 let string_of_response response =
 	let json =
 		if response.Rpc.success then
-			`Dict [
+			Dict [
 				"result", response.Rpc.contents;
-				"error", `None;
-				"id", `Int 0L
+				"error", Null;
+				"id", Int 0L
 			]
 		else
-			`Dict [
-				"result", `None;
+			Dict [
+				"result", Null;
 				"error", response.Rpc.contents;
-				"id", `Int 0L
+				"id", Int 0L
 			] in
 	to_string json
 
@@ -122,13 +122,13 @@ module Parser = struct
 		| Expect_object_elem_colon
 		| Expect_comma_or_end
 		| Expect_object_key
-		| Done of Val.t
+		| Done of t
 
 	type int_value =
-		| IObject of (string * Val.t) list
-		| IObject_needs_key of (string * Val.t) list
-		| IObject_needs_value of (string * Val.t) list * string
-		| IArray of Val.t list
+		| IObject of (string * t) list
+		| IObject_needs_key of (string * t) list
+		| IObject_needs_value of (string * t) list * string
+		| IArray of t list
 
 	type parse_state = {
 		mutable cursor: cursor;
@@ -224,7 +224,7 @@ module Parser = struct
 	let finish_value s v =
 		match s.stack, v with
 		| [], _ -> s.cursor <- Done v
-		| IObject_needs_key fields :: tl, `String key ->
+		| IObject_needs_key fields :: tl, String key ->
 			s.stack <- IObject_needs_value (fields, key) :: tl;
 			s.cursor <- Expect_object_elem_colon
 		| IObject_needs_value (fields, key) :: tl, _ ->
@@ -238,8 +238,8 @@ module Parser = struct
 
 	let pop_stack s =
 		match s.stack with
-		| IObject fields :: tl -> s.stack <- tl; finish_value s (`Dict (List.rev fields))
-		| IArray l :: tl       -> s.stack <- tl; finish_value s (`List (List.rev l))
+		| IObject fields :: tl -> s.stack <- tl; finish_value s (Dict (List.rev fields))
+		| IArray l :: tl       -> s.stack <- tl; finish_value s (Enum (List.rev l))
 		| io :: tl             -> raise_internal_error s ("unexpected " ^ (ivalue_to_str io) ^ " on stack at pop_stack")
 		| []                   -> raise_internal_error s "empty stack at pop_stack"
 
@@ -258,7 +258,7 @@ module Parser = struct
 			let str = tostring_with_leading_zero_check is in
 			let int = try Int64.of_string str
 			with Failure _ -> raise_invalid_value s str "int" in
-			finish_value s (`Int int) in
+			finish_value s (Int int) in
 		let finish_int_exp is es =
 			let int = tostring_with_leading_zero_check is in
 			let exp = clist_to_string (List.rev es) in
@@ -268,14 +268,14 @@ module Parser = struct
 		       returning float is more uniform. *)
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (`Float float) in
+			finish_value s (Float float) in
 		let finish_float is fs =
 			let int = tostring_with_leading_zero_check is in
 			let frac = clist_to_string (List.rev fs) in
 			let str = Printf.sprintf "%s.%s" int frac in
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (`Float float) in
+			finish_value s (Float float) in
 		let finish_float_exp is fs es =
 			let int = tostring_with_leading_zero_check is in
 			let frac = clist_to_string (List.rev fs) in
@@ -283,7 +283,7 @@ module Parser = struct
 			let str = Printf.sprintf "%s.%se%s" int frac exp in
 			let float = try float_of_string str
 			with Failure _ -> raise_invalid_value s str "float" in
-			finish_value s (`Float float) in
+			finish_value s (Float float) in
 
 		match s.cursor with
 		| Start ->
@@ -315,14 +315,14 @@ module Parser = struct
 			(match c, rem with
 			| 'u', 3 -> s.cursor <- In_null 2
 			| 'l', 2 -> s.cursor <- In_null 1
-			| 'l', 1 -> finish_value s `None
+			| 'l', 1 -> finish_value s Null
 			| _ -> raise_unexpected_char s c "null")
 
 		| In_true rem ->
 			(match c, rem with
 			| 'r', 3 -> s.cursor <- In_true 2
 			| 'u', 2 -> s.cursor <- In_true 1
-			| 'e', 1 -> finish_value s (`Bool true)
+			| 'e', 1 -> finish_value s (Bool true)
 			| _ -> raise_unexpected_char s c "true")
 
 		| In_false rem ->
@@ -330,7 +330,7 @@ module Parser = struct
 			| 'a', 4 -> s.cursor <- In_false 3
 			| 'l', 3 -> s.cursor <- In_false 2
 			| 's', 2 -> s.cursor <- In_false 1
-			| 'e', 1 -> finish_value s (`Bool false)
+			| 'e', 1 -> finish_value s (Bool false)
 			| _ -> raise_unexpected_char s c "false")
 
 		| In_int is ->
@@ -367,7 +367,7 @@ module Parser = struct
 		| In_string cs ->
 			(match c with
 			| '\\' -> s.cursor <- In_string_control cs
-			| '"' -> finish_value s (`String (clist_to_string (List.rev cs)))
+			| '"' -> finish_value s (String (clist_to_string (List.rev cs)))
 			| _ when is_valid_unescaped_char c -> s.cursor <- In_string (c :: cs)
 			| _ ->  raise_unexpected_char s c "string")
 			
@@ -396,7 +396,7 @@ module Parser = struct
 		| Expect_object_elem_start ->
 			(match c with
 			| '"' -> s.stack <- (IObject_needs_key []) :: s.stack; s.cursor <- In_string []
-			| '}' -> finish_value s (`Dict [])
+			| '}' -> finish_value s (Dict [])
 			| _ when is_space c -> update_line_num s c
 			| _ -> raise_unexpected_char s c "object_start")
 
@@ -431,7 +431,7 @@ module Parser = struct
 		| Done _ -> raise_internal_error s "parse called when parse_state is 'Done'"
 
 	type parse_result =
-		| Json_value of Val.t * (* number of consumed bytes *) int
+		| Json_value of t * (* number of consumed bytes *) int
 		| Json_parse_incomplete of parse_state
 
 	let parse_substring state str ofs len =
@@ -497,24 +497,24 @@ let get name dict =
 
 let call_of_string str =
 	match of_string str with
-	| `Dict d ->
-		let name = match get "method" d with `String s -> s | _ -> raise (Malformed_method_request str) in
-		let params = match get "params" d with `List l -> l | _ -> raise (Malformed_method_request str) in
-		let (_:int64) = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_request str) in
-		{ name = name; params = params }
+	| Dict d ->
+		let name = match get "method" d with String s -> s | _ -> raise (Malformed_method_request str) in
+		let params = match get "params" d with Enum l -> l | _ -> raise (Malformed_method_request str) in
+		let (_:int64) = match get "id" d with Int i -> i | _ -> raise (Malformed_method_request str) in
+		call name params
 	| _ -> raise (Malformed_method_request str)
 
 let response_of_string str =
 	match of_string str with
-	| `Dict d ->
+	| Dict d ->
 		  let result = get "result" d in
 		  let error = get "error" d in
-		  let (_:int64) = match get "id" d with `Int i -> i | _ -> raise (Malformed_method_response str) in
+		  let (_:int64) = match get "id" d with Int i -> i | _ -> raise (Malformed_method_response str) in
 		  begin match result, error with
-			  | `None, `None -> raise (Malformed_method_response str)
-			  | `None, v     -> { Rpc.success = false; contents = v }
-			  | v, `None     -> { Rpc.success = true;  contents = v }
-			  | _            -> raise (Malformed_method_response str)
+			  | Null, Null -> raise (Malformed_method_response str)
+			  | Null, v    -> failure v
+			  | v, Null    -> success v
+			  | _          -> raise (Malformed_method_response str)
 		  end
 	| _ -> raise (Malformed_method_response str)
 

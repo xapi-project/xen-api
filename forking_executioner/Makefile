@@ -31,10 +31,10 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 test_forker: test_forker.cmx
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../uuid -I ../stdext uuid.cmxa jsonrpc.cmxa -I ../log unix.cmxa stdext.cmxa  test_forker.cmx -o $@
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../uuid -I ../stdext uuid.cmxa rpc.cmx jsonrpc.cmx -I ../log unix.cmxa stdext.cmxa  test_forker.cmx -o $@
 
 fe: fe_debug.cmx child.cmx fe_main.cmx
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../stdext -I ../uuid -I ../log log.cmxa uuid.cmxa unix.cmxa jsonrpc.cmxa stdext.cmxa fe_debug.cmx child.cmx fe_main.cmx -o $@ 
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../stdext -I ../uuid -I ../log log.cmxa uuid.cmxa unix.cmxa rpc.cmx jsonrpc.cmx stdext.cmxa fe_debug.cmx child.cmx fe_main.cmx -o $@ 
 
 %.cmo: %.ml
 	$(OCAMLC) -c -I ../log -I ../uuid -I ../stdext -thread -o $@  $<

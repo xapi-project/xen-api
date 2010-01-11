@@ -1,5 +1,0 @@
-version = "0.1"
-description = "XML-RPC marshalling/unmarshalling"
-requires = "xmlm"
-archive(byte) = "xmlrpc.cma"
-archive(native) = "xmlrpc.cmxa"

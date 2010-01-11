@@ -2,7 +2,7 @@ OCAMLC = ocamlfind ocamlc
 OCAMLOPT = ocamlfind ocamlopt
 OCAMLFLAGS = -annot -g
 
-PACKS = xmlrpc,jsonrpc
+PACKS = rpc-light
 EXAMPLES = all_types
 
 EXECS=$(foreach example, $(EXAMPLES), $(example).opt)
