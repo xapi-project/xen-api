@@ -807,7 +807,7 @@ let resume ~__context ~vm ~start_paused ~force =
 							Vmops.restore ~__context ~xc ~xs ~self:vm domid;
 							Db.VM.set_domid ~__context ~self:vm
 								~value:(Int64.of_int domid);
-							Vmops.plug_pcidevs ~__context ~vm domid;
+							Vmops.plug_pcidevs ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
 
 							debug "resume phase 3/3: %s unpausing domain"
 								(if start_paused then "not" else "");
