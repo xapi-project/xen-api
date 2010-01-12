@@ -133,7 +133,8 @@ add_to_bridge()
 
 	    $cfg_mod -F /etc/ovs-vswitchd.conf \
 		--del-match="bridge.*.port=${dev}" \
-		--del-match="vlan.${dev}.[!0-9]*" \
+		--del-match="vlan.${dev}.trunks=*" \
+		--del-match="vlan.${dev}.tag=*" \
 		--del-match="port.${dev}.[!0-9]*" \
 		--add="bridge.$bridge.port=${dev}" \
 		$vid $vif_details -c 
@@ -153,7 +154,8 @@ remove_from_bridge()
 	vswitch)
 	    $cfg_mod -vANY:console:emer -F /etc/ovs-vswitchd.conf \
 		--del-match="bridge.*.port=${dev}" \
-		--del-match="vlan.${dev}.[!0-9]*" \
+		--del-match="vlan.${dev}.trunks=*" \
+		--del-match="vlan.${dev}.tag=*" \
 		--del-match="port.${dev}.[!0-9]*" -c
 	    $service vswitch reload
 	    ;;
