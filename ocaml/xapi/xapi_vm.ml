@@ -264,7 +264,6 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 		  (fun xc xs -> 
 		     Domain.unpause ~xc domid;
 		  );
-		Vmops.plug_pcidevs ~__context ~vm domid;
 (*
 		(* hack to get xmtest to work *)
 		if Pool_role.is_master () then
@@ -447,6 +446,7 @@ module Reboot = struct
 			  );
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
            Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
+
 	 with exn ->
 	   error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
 	   with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
@@ -807,6 +807,8 @@ let resume ~__context ~vm ~start_paused ~force =
 							Vmops.restore ~__context ~xc ~xs ~self:vm domid;
 							Db.VM.set_domid ~__context ~self:vm
 								~value:(Int64.of_int domid);
+							Vmops.plug_pcidevs ~__context ~vm domid;
+
 							debug "resume phase 3/3: %s unpausing domain"
 								(if start_paused then "not" else "");
 							if not start_paused then begin
@@ -820,7 +822,7 @@ let resume ~__context ~vm ~start_paused ~force =
 								localhost
 							);
 							Db.VM.set_power_state ~__context ~self:vm
-								~value:(if start_paused then `Paused else `Running)
+								~value:(if start_paused then `Paused else `Running);
 (*
 						)
 *)
