@@ -498,6 +498,7 @@ let plug_pcidevs ~__context ~vm domid =
 	      if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
 			List.iter 
 				(fun (devid, devices) ->
+					 Device.PCI.bind devices;
 					 List.iter
 						 (fun ((a, b, c, d) as device) ->
 							  debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
@@ -1014,6 +1015,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     progress_cb 0.80;
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
+				 if hvm then plug_pcidevs ~__context ~vm domid;
 			     create_console ~__context ~vM:vm ~vncport ();
 			     debug "writing memory policy";
 			     write_memory_policy ~xs snapshot domid;
