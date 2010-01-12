@@ -248,7 +248,7 @@ let start  ~__context ~vm ~start_paused:paused ~force =
 
 	debug "start: bringing up domain in the paused state";
 	Vmops.start_paused
-		~progress_cb:(TaskHelper.set_progress ~__context) ~__context ~vm ~snapshot;
+		~progress_cb:(TaskHelper.set_progress ~__context) ~pcidevs:None ~__context ~vm ~snapshot;
 	delete_guest_metrics ~__context ~self:vm;
 
 	let localhost = Helpers.get_localhost ~__context in  
@@ -400,6 +400,9 @@ module Reboot = struct
 	   else new_snapshot.API.vM_memory_static_max (* new value is smaller *) in
 	 let new_snapshot = { new_snapshot with API.vM_memory_static_max = new_mem } in
 	 
+	 (* Before we destroy the old domain we check which PCI devices were plugged in *)
+	 let pcidevs = with_xc_and_xs (fun xc xs -> Device.PCI.list xc xs domid) in
+
 	 let localhost = Helpers.get_localhost ~__context in
          debug "%s phase 1/3: destroying old domain" api_call_name;
 	 (* CA-13585: prevent glitch where power-state goes to Halted in the middle of a reboot.
@@ -426,6 +429,7 @@ module Reboot = struct
 	   try
              Vmops.start_paused
                ~progress_cb:(fun x -> TaskHelper.set_progress ~__context (0.50 +. x /. 2.))
+				 ~pcidevs:(Some pcidevs)
                ~__context ~vm ~snapshot:new_snapshot;
 	   with e ->
 	     debug "Vmops.start_paused failed to create domain, setting VM %s to Halted" (Ref.string_of vm);
