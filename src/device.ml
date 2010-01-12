@@ -931,6 +931,9 @@ type t = {
 
 type dev = int * int * int * int
 
+let to_string (domain, bus, dev, func) = Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev func
+let of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c, d)) 
+
 exception Cannot_add of dev list * exn (* devices, reason *)
 exception Cannot_use_pci_with_no_pciback of t list
 
@@ -953,7 +956,7 @@ let get_from_system domain bus slot func =
 		with _ -> -1
 		in
 		
-	let name = sprintf "%04x:%02x:%02x.%01x" domain bus slot func in
+	let name = to_string (domain, bus, slot, func) in
 	let dir = "/sys/bus/pci/devices/" ^ name in
 	let resources = map_resource (dir ^ "/resource") in
 	let irq = map_irq (dir ^ "/irq") in
@@ -1011,7 +1014,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 
 	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
 	let xsdevs = List.mapi (fun i dev ->
-		sprintf "dev-%d" i, sprintf "%04x:%02x:%02x.%02x" dev.domain dev.bus dev.slot dev.func;
+		sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
 	) pcidevs in
 
 	let backendlist = [
@@ -1080,7 +1083,7 @@ let bind pcidevs =
 		do_flr device;
 		in
 	List.iter (fun (domain, bus, slot, func) ->
-		let devstr = sprintf "%.4x:%.2x:%.2x.%.1x" domain bus slot func in
+		let devstr = to_string (domain, bus, slot, func) in
 		let s = "/sys/bus/pci/devices/" ^ devstr in
 		let driver =
 			try Some (Filename.basename (Unix.readlink (s ^ "/driver")))
@@ -1111,7 +1114,7 @@ let enumerate_devs ~xs (x: device) =
 	do
 		try
 			let devstr = xs.Xs.read (backend_path ^ "/dev-" ^ (string_of_int i)) in
-			let dev = Scanf.sscanf devstr "%04x:%02x:%02x.%1x" (fun a b c d -> (a, b, c, d)) in
+			let dev = of_string devstr in
 			devs.(i) <- Some dev
 		with _ ->
 			()
@@ -1126,7 +1129,7 @@ let reset ~xs (x: device) =
 	debug "Device.Pci.reset %s" (string_of_device x);
 	let pcidevs = enumerate_devs ~xs x in
 	List.iter (fun (domain, bus, slot, func) ->
-		let devstr = sprintf "%.4x:%.2x:%.2x.%.1x" domain bus slot func in
+		let devstr = to_string (domain, bus, slot, func) in
 		do_flr devstr
 	) pcidevs;
 	()
@@ -1169,14 +1172,32 @@ let signal_device_model ~xc ~xs domid cmd parameter =
 	(* XXX: no response protocol *)
 	()
 
+(* Return a list of PCI devices *)
+let list ~xc ~xs domid = 
+  let path = device_model_pci_device_path xs 0 domid in
+  let prefix = "dev-" in
+  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
+  (* The values are the PCI device (domain, bus, dev, func) strings *)
+  let pairs = List.map (fun x -> x, xs.Xs.read (path ^ "/" ^ x)) all in
+  let device_number_of_string x =
+    (* remove the silly prefix *)
+    int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
+  List.map (fun (x, y) -> device_number_of_string x, of_string y) pairs
+
 let plug ~xc ~xs (domain, bus, dev, func) domid devid = 
-	let pci = Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func in
+    let current = list ~xc ~xs domid in
+	let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
+	
+	let pci = to_string (domain, bus, dev, func) in
 	signal_device_model ~xc ~xs domid "pci-ins" pci;
-	xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-0") pci (* XXX *)
+	xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci
 
 let unplug ~xc ~xs (domain, bus, dev, func) domid devid = 
-	signal_device_model ~xc ~xs domid "pci-rem" (Printf.sprintf "%.4x:%.2x:%.2x.%.1x" domain bus dev func);
-	xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-0")
+    let current = list ~xc ~xs domid in
+	let pci = (domain, bus, dev, func) in
+	let idx = fst (List.find (fun x -> snd x = pci) current) in
+	signal_device_model ~xc ~xs domid "pci-rem" (to_string (domain, bus, dev, func));
+	xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
 
 (* XXX: this really should be tied to the device rather than being global. Also we should make it clear that 'unplug'
    is asynchronous. *)
@@ -1185,19 +1206,6 @@ let unplug_wait ~xc ~xs domid =
   | "pci-removed" -> () (* success *)
   | x -> failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
 
-(* Return a list of PCI devices *)
-let list ~xc ~xs domid = 
-  let dom0 = xs.Xs.getdomainpath 0 in (* XXX: assume device model is in domain 0 *)
-  let path = Printf.sprintf "%s/backend/pci/%d/0" dom0 domid in (* XXX: another hardcoded 0 *)
-  let prefix = "dev-" in
-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
-  (* The values are the PCI device (domain, bus, dev, func) strings *)
-  let pairs = List.map (fun x -> x, xs.Xs.read (path ^ "/" ^ x)) all in
-  let device_number_of_string x =
-    (* remove the silly prefix *)
-    int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  let pci_device_of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c, d)) in
-  List.map (fun (x, y) -> device_number_of_string x, pci_device_of_string y) pairs
 end
 
 module Vfb = struct
