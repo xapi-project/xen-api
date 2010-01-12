@@ -115,13 +115,24 @@ let create_vifs ~__context ~xs vifs =
 	 raise (Api_errors.Server_error (Api_errors.cannot_plug_vif, [ Ref.string_of vif.Vm_config.vif_ref ]))
     ) vifs
 
+let sort_pcidevs devs =
+	let ids = ref [] in
+	List.iter (fun (id, _) ->
+		if not (List.mem id !ids) then
+			ids := id :: !ids
+	) devs;
+	
+	List.map (fun id ->
+				  id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
+			 ) !ids 
+
 let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
   Helpers.log_exn_continue "attach_pcis"
 	  (fun () ->
 		   List.iter (fun (devid, devs) ->
 						  Device.PCI.bind devs;
 						  Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 devs domid devid
-					 ) pcis
+					 ) (sort_pcidevs pcis)
 	  ) ()
 
 (* Called on both VM.start and VM.resume codepaths to create vcpus in xenstore *)
@@ -478,18 +489,9 @@ let pcidevs_of_vm ~__context ~vm =
 			             (fun id a b c d -> (id, (a, b, c, d))) :: acc
 		with _ -> acc
 	) [] devs in
-	let ids = ref [] in
-	List.iter (fun (id, _) ->
-		if not (List.mem id !ids) then
-			ids := id :: !ids
-	) devs;
-	let pcidevs = 
-	  List.map (fun id ->
-					id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
-			   ) !ids in
-	if pcidevs <> [] 
+	if devs <> [] 
 	then Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
-	pcidevs
+	devs
 
 (* Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
 let plug_pcidevs ~__context ~vm domid pcidevs =
@@ -508,7 +510,7 @@ let plug_pcidevs ~__context ~vm domid pcidevs =
 							  debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
 							  Device.PCI.plug ~xc ~xs device domid devid
 						 ) devices
-				) pcidevs
+				) (sort_pcidevs pcidevs)
 	      end
 	   )
        end;
@@ -916,7 +918,7 @@ let resume ~__context ~xc ~xs ~vm =
 
 
 (** Starts up a VM, leaving it in the paused state *)
-let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
+let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot =
 	check_vm_parameters ~__context ~self:vm ~snapshot;
 	(* Take the subset of locked VBDs *)
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
@@ -970,6 +972,9 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 		      if Xapi_globs.xenclient_enabled then 
 			Domain.cpuid_apply ~xc ~hvm domid;
 
+			  (* XXX: PCI passthrough needs a lot of work *)
+			  let pcidevs = (match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
+
 		      (* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
 		      let vbds = 
 			if hvm then vbds
@@ -1002,9 +1007,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 			     create_vifs ~__context ~xs vifs;
 			     progress_cb 0.70;
-			     (* XXX: PCI passthrough needs a lot of work *)
 			     if not hvm 
-			     then attach_pcis ~__context ~xc ~xs ~hvm domid (pcidevs_of_vm ~__context ~vm);
+			     then attach_pcis ~__context ~xc ~xs ~hvm domid pcidevs;
 
 			     if (Xapi_globs.xenclient_enabled) && (not hvm) && (has_platform_flag snapshot.API.vM_platform "pv_qemu") then
 
@@ -1014,7 +1018,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~__context ~vm ~snapshot =
 			     progress_cb 0.80;
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
-				 if hvm then plug_pcidevs ~__context ~vm domid (pcidevs_of_vm ~__context ~vm);
+				 if hvm then plug_pcidevs ~__context ~vm domid pcidevs;
 			     create_console ~__context ~vM:vm ~vncport ();
 			     debug "writing memory policy";
 			     write_memory_policy ~xs snapshot domid;
