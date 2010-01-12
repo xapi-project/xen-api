@@ -278,32 +278,6 @@ def configure_datapath(pif):
         dev = pif_netdev_name(p)
         cfgmod_argv += ['# deconfigure physical port %s' % dev]
         cfgmod_argv += datapath_deconfigure_physical(dev)
-
-    # Check the MAC address of each network device and remap if
-    # necessary to make names match our expectations.
-    # XXX done in main script
-    #for p in physical_devices:
-    #    netdev_remap_name(p)
-
-    # Bring up physical devices early, because ovs-vswitchd initially
-    # enables or disables bond slaves based on whether carrier is
-    # detected when they are added, and a network device that is down
-    # always reports "no carrier".
-    for p in physical_devices:
-        oc = db().get_pif_record(p)['other_config']
-
-        dev = pif_netdev_name(p)
-
-        mtu = mtu_setting(oc)
-
-        netdev_up(dev, mtu)
-
-        settings, offload = ethtool_settings(oc)
-        if len(settings):
-            run_command(['/sbin/ethtool', '-s', dev] + settings)
-        if len(offload):
-            run_command(['/sbin/ethtool', '-K', dev] + offload)
-
     if len(physical_devices) > 1:
         cfgmod_argv += ['# deconfigure bond %s' % pif_netdev_name(pif)]
         cfgmod_argv += datapath_deconfigure_bond(pif_netdev_name(pif))
@@ -410,6 +384,27 @@ class DatapathVswitch(Datapath):
         pass
 
     def configure(self):
+        # Bring up physical devices. ovs-vswitchd initially enables or
+        # disables bond slaves based on whether carrier is detected
+        # when they are added, and a network device that is down
+        # always reports "no carrier".
+        physical_devices = datapath_get_physical_pifs(self._dp)
+        
+        for p in physical_devices:
+            oc = db().get_pif_record(p)['other_config']
+
+            dev = pif_netdev_name(p)
+
+            mtu = mtu_setting(oc)
+
+            netdev_up(dev, mtu)
+
+            settings, offload = ethtool_settings(oc)
+            if len(settings):
+                run_command(['/sbin/ethtool', '-s', dev] + settings)
+            if len(offload):
+                run_command(['/sbin/ethtool', '-K', dev] + offload)
+
         datapath_modify_config(self._cfgmod_argv)
 
     def post(self):
