@@ -178,6 +178,7 @@ sig
 		acpi: bool;
 		disp: disp_opt;
 		pci_emulations: string list;
+		pci_passthrough: bool;
 
 		(* Xenclient extras *)
 		xenclient_enabled: bool;
