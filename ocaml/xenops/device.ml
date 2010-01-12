@@ -1312,7 +1312,8 @@ type info = {
 	acpi: bool;
 	disp: disp_opt;
 	pci_emulations: string list;
-
+	pci_passthrough: bool;
+	
 	(* Xenclient extras *)
 	xenclient_enabled : bool;
 	hvm : bool;
@@ -1479,6 +1480,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
 	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
+	   @ (if info.pci_passthrough then ["-priv"] else [])
 	   @ xenclient_specific_options
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 		in

@@ -595,6 +595,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			Device.Dm.usb = usb;
 			Device.Dm.acpi = acpi;
 			Device.Dm.disp = disp;
+			Device.Dm.pci_passthrough = List.mem_assoc "pci" other_config;
 
 			Device.Dm.xenclient_enabled=Xapi_globs.xenclient_enabled;
 			Device.Dm.hvm=hvm;

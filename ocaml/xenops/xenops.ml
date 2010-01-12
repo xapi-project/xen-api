@@ -294,6 +294,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
  	  Device.Dm.vcpus = vcpus;
  	  Device.Dm.nics = [];
  	  Device.Dm.pci_emulations = [];
+	  Device.Dm.pci_passthrough = false;
  	  Device.Dm.usb = [];
  	  Device.Dm.acpi = true;
  	  Device.Dm.disp = Device.Dm.NONE;
