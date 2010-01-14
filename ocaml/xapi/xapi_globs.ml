@@ -497,7 +497,7 @@ let default_wlb_timeout = 30.0
 
 (** A pool-wide configuration key that specifies for HVM guests a lower bound
     for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
-let memory_ratio_hvm = ("memory-ratio-hvm", "0.50")
+let memory_ratio_hvm = ("memory-ratio-hvm", "0.25")
 
 (** A pool-wide configuration key that specifies for PV guests a lower bound
     for the ratio k, where (memory-dynamic-min >= k * memory-static-max) *)
