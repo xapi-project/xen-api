@@ -16,9 +16,10 @@ body {
 	padding: 0;
 	margin: 0;
 	border: 0;
-	font: 80% helvetica, arial, sans-serif; 
+	font-family: "Nimbus Sans L", "Trebuchet MS", Helvetica, Arial, sans-serif; 
+	font-size: 80%;
 	font-weight: normal;
-	line-height: 130%;
+	line-height: 140%;
 	background: white;	
 	color : black;
 	background-color: #eee;
@@ -31,7 +32,7 @@ body {
 
 #header {
 	width: 100%;
-	height: 55px;
+	height: 4.5em;
 	margin: 0;
 	padding: 0;
 	color: white;
@@ -66,7 +67,7 @@ body {
 	background-color: #ffffdd;
 	padding: 1.5em 1em;
 	margin: 0 22em 0 .5em;
-	line-height: 150%;
+	line-height: 170%;
 }
 
 #sidebar {
@@ -204,7 +205,7 @@ th {
 }
 
 tt, .code {
-	font: 1.2em monospace;
+	font: 1.3em monospace;
 	font-weight: inherit;
 }
 
@@ -245,12 +246,14 @@ tt, .code {
 }
 
 .field-table td {
-	padding: .3em 0;
+	padding: .3em .5em .3em 0;
 }
 
 .small-button {
 	font-size: 70%;
-	text-align: right;
+//	text-align: right;
+	float: right;
+	margin: .5em 0;
 }
 
 .stat {
@@ -262,13 +265,21 @@ tt, .code {
 .type {
 }
 
-.arrow {
-	font-size: 150%;
+.symbol {
+	font-family: sans-serif;
 	color: #cc6600;
-	padding: 0 3px;
+}
+
+.large {
+	font-size: 130%;
+}
+
+.spaced {
+	padding: 0 0.3em;
 }
 
 .optional {
 	font-size: 70%;
 	vertical-align: top;
 }
+

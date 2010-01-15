@@ -114,6 +114,7 @@ ocaml/database/unit_test_marshall
 ocaml/database/block_device_io
 ocaml/db_process/xapi-db-process
 ocaml/db_process/xapi-db-upgrade-4.2
+ocaml/doc/content
 ocaml/events/event_listen
 ocaml/fdhelper/closeandexec
 ocaml/fdhelper/closeandexec_static
@@ -168,3 +169,5 @@ ocaml/xsrpc/xsrpcd-util
 ocaml/xstest/xsbench
 ocaml/xstest/xstest
 ocaml/xstest/xscheckperms
+
+*/libs
