@@ -427,7 +427,11 @@ let create_all_templates rpc session_id =
       rhel52_install_template "Oracle Enterprise Linux 5.2" "i386";
       rhel52_install_template "CentOS 5.2" "i386";
       rhel52_install_template "Red Hat Enterprise Linux 5.3" "i386";
+      rhel52_install_template "Oracle Enterprise Linux 5.3" "i386";
       rhel52_install_template "CentOS 5.3" "i386";
+      rhel52_install_template "Red Hat Enterprise Linux 5.4" "i386";
+      rhel52_install_template "Oracle Enterprise Linux 5.4" "i386";
+      rhel52_install_template "CentOS 5.4" "i386";
       rhel50_install_template "Red Hat Enterprise Linux 5.0 x64" "x86_64";
       rhel50_install_template "Oracle Enterprise Linux 5.0 x64" "x86_64";
       rhel50_install_template "CentOS 5.0 x64" "x86_64";
@@ -438,7 +442,11 @@ let create_all_templates rpc session_id =
       rhel52_install_template "Oracle Enterprise Linux 5.2 x64" "x86_64";
       rhel52_install_template "CentOS 5.2 x64" "x86_64";
       rhel52_install_template "Red Hat Enterprise Linux 5.3 x64" "x86_64";
+      rhel52_install_template "Oracle Enterprise Linux 5.3 x64" "x86_64";
       rhel52_install_template "CentOS 5.3 x64" "x86_64";
+      rhel52_install_template "Red Hat Enterprise Linux 5.4 x64" "x86_64";
+      rhel52_install_template "Oracle Enterprise Linux 5.4 x64" "x86_64";
+      rhel52_install_template "CentOS 5.4 x64" "x86_64";
       sles9_install_template "SUSE Linux Enterprise Server 9 SP4" "i386";
       sles10_install_template "SUSE Linux Enterprise Server 10 SP1" "i386";
       sles10_install_template "SUSE Linux Enterprise Server 10 SP1 x64" "x86_64";
