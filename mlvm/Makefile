@@ -20,6 +20,8 @@ OCAMLOPT = ocamlfind ocamlopt
 COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm
 LIBS = lvm.cma lvm.cmxa
 
+DOCDIR = /myrepos/xen-api-libs.hg/doc
+
 default : $(LIBS)
 
 lvm.cmx: $(foreach obj,$(LIBOBJS),$(obj).cmx)
@@ -49,6 +51,10 @@ clean :
 	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
 
+.PHONY: doc
+doc: $(INTF)
+	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "stdext,camldm,uuid,unix" ""
+	
 lvmconfigparser.ml : lvmconfigparser.mly
 	ocamlyacc lvmconfigparser.mly
 	$(OCAMLOPT) $(COMPFLAG) -c lvmconfigparser.mli
