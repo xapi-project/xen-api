@@ -264,7 +264,7 @@ let plug_pci ~xc ~xs ~domid ~devid ~pci =
 
 let unplug_pci ~xc ~xs ~domid ~devid ~pci = 
 	let pcidev = pci_of_string pci in
-	Device.PCI.unplug ~xc ~xs pcidev domid devid
+	Device.PCI.unplug ~xc ~xs pcidev domid
 
 let del_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 	let pcidevs = List.map (fun d -> 
