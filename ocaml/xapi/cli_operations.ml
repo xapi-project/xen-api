@@ -2544,11 +2544,11 @@ let host_apply_edition printer rpc session_id params =
       Client.Host.add_to_license_server rpc session_id host "port" port
     end
   end;
+  let now = (Unix.gettimeofday ()) in
   try
     Client.Host.apply_edition rpc session_id host edition
   with
   | Api_errors.Server_error (name, args) when name = Api_errors.license_checkout_error ->
-    let now = (Unix.gettimeofday ()) in
     let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
     let print_if_checkout_error (ref, msg) =
       if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
