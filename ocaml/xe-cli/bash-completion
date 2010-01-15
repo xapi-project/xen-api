@@ -255,7 +255,7 @@ compgen_names()
 compgen_escape()
 {
   local v=$(echo "$2" | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
-  compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
+  compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e 's,|,\\|,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
 }
 
 params()
