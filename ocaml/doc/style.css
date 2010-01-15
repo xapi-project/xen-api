@@ -187,8 +187,9 @@ th {
 }
 
 .defined {
-	font-style: italic;
 	margin: 1em 0;
+	padding: 0 .5em;
+	background-color: #ffcc66;
 }
 
 .description {

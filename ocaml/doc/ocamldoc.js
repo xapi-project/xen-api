@@ -19,10 +19,12 @@ var module_chain = module.split('.');
 var component = getQuerystring('c');
 
 var components = executables.concat(libraries).concat(packages);
-var component_modules = {}
-var component_stats = {}
-var component_deps = {}
+var component_modules = {};
+var component_stats = {};
+var component_deps = {};
 
+var root = '/bind/myrepos/';
+var code_url = 'http://xenbits.xen.org/xapi/';
 
 // function from http://www.bloggingdeveloper.com/post/JavaScript-QueryString-ParseGet-QueryString-with-Client-Side-JavaScript.aspx
 function getQuerystring(key, default_)
@@ -452,12 +454,30 @@ function moduledoc(mod)
 			'&m=' + module_chain.slice(0,i+1).join('.') + '">' + 
 			module_chain[i] + '</a>';
 	html += chain.join('.') + '</h1>\n';
-	html += '<div class="defined">Defined in ' +  mod.file + ' (' + component + ')</div>';
+
 	html += '<div class="description">';
 	if (mod.info.description != undefined)
 		html += mod.info.description + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
+
+	html += '<div class="defined"><table class="field-table">';
+	html += '<tr><td><b>Component</b>:</td><td><a href="?c=' + component + '">' + component + '</td><td>&nbsp;</td></tr>';
+	r = new RegExp(root + '([^\|]*)\|\d*');
+	if (mod.location.interface != 'unknown') {
+		if_file = r.exec(mod.location.interface)[1];
+		x = /([\.\-\w]*)\/([^\|]*)/.exec(if_file);
+		url = code_url + x[1] + '?raw-file/tip/' + x[2];
+		html += '<tr><td><b>Interface file:</b></td><td><a href="' + url + '" target="_blank">' + if_file + '</a></td></tr>';
+	}
+	if (mod.location.implementation != 'unknown') {
+		im_file = r.exec(mod.location.implementation)[1];
+		x = /([\.\-\w]*)\/([^\|]*)/.exec(im_file);
+		url = code_url + x[1] + '?raw-file/tip/' + x[2];
+		html += '<tr><td><b>Implementation file:</b></td><td><a href="' + url + '" target="_blank">' + im_file + '</a></td></tr>';
+	}
+	html += '</table></div>';
+
 	set_content(html);
 	
 	if (mod.module_structure != undefined)
