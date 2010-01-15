@@ -215,7 +215,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	       let (id, device) = List.hd devices in
 	       let (domain, bus, dev, func) = device in
 	       debug "requesting unplug of %.4x:%.2x:%.2x.%.1x" domain bus dev func;
-	       Device.PCI.unplug ~xc ~xs device domid (-1);
+	       Device.PCI.unplug ~xc ~xs device domid;
 	       pci_devices_to_unplug := [ device ]
 	     end	
 	   end) () in
@@ -499,7 +499,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   debug "Receiver 7b. unpausing domain";
   Domain.unpause ~xc domid;
 
-  Vmops.plug_pcidevs ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
+  Vmops.plug_pcidevs_noexn ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
 
   Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
   Helpers.call_api_functions ~__context

@@ -494,7 +494,7 @@ let pcidevs_of_vm ~__context ~vm =
 	devs
 
 (* Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
-let plug_pcidevs ~__context ~vm domid pcidevs =
+let plug_pcidevs_noexn ~__context ~vm domid pcidevs =
   Helpers.log_exn_continue "plug_pcidevs"
     (fun () ->
        if List.length pcidevs > 0 then begin
@@ -515,6 +515,26 @@ let plug_pcidevs ~__context ~vm domid pcidevs =
 	   )
        end;
     ) ()
+
+(* Hot unplug the PCI devices from the domain. Note this is done serially due to a limitation of the
+   xenstore protocol. *)
+let unplug_pcidevs_noexn ~__context ~vm domid pcidevs = 
+  Helpers.log_exn_continue "unplug_pcidevs"
+	  (fun () ->
+		   Vmopshelpers.with_xc_and_xs
+			   (fun xc xs ->
+					if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
+					  List.iter
+						  (fun (devid, devices) ->
+							  List.iter
+								  (fun device ->
+									   debug "requesting hotunplug of PCI device %s" (Device.PCI.to_string device);
+									   Device.PCI.unplug ~xc ~xs device domid;
+								  ) devices
+						  ) (sort_pcidevs pcidevs)
+					end
+			   )
+	  ) ()
 
 let has_platform_flag platform feature =
   try bool_of_string (List.assoc feature platform) with _ -> false
@@ -1018,7 +1038,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 			     progress_cb 0.80;
 			     debug "creating device emulator";
 			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
-				 if hvm then plug_pcidevs ~__context ~vm domid pcidevs;
+				 if hvm then plug_pcidevs_noexn ~__context ~vm domid pcidevs;
 			     create_console ~__context ~vM:vm ~vncport ();
 			     debug "writing memory policy";
 			     write_memory_policy ~xs snapshot domid;
