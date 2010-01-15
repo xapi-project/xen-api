@@ -11,7 +11,8 @@ wait_for_sr() {
   local rule=$1
   for((retry=1;retry<120;retry++)); do
     finished=1
-    IFS=","; for x in $(xe host-list params=ha-statefiles --minimal); do
+    IFS=","; for host in $(xe host-list params=uuid --minimal); do
+      x=$(xe host-param-get uuid=${host} param-name=ha-statefiles)
       if [ ${rule} -eq 2 ]; then
         if [ -n "${x}" ]; then
           # Someone has statefile access -> not SR 2
