@@ -737,11 +737,15 @@ let suspend  ~__context ~vm =
 					try
 						(* Balloon down the guest as far as we can to force it to clear
 						   unnecessary caches etc. *)
-						debug "suspend phase 0/3: asking guest to balloon down";
+						debug "suspend phase 0/4: asking guest to balloon down";
 						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
 						Memory_control.balance_memory ~__context ~xc ~xs;
 
-						debug "suspend phase 1/3: calling Vmops.suspend";
+						debug "suspend phase 1/4: hot-unplugging any PCI devices";
+						let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+						if hvm then Vmops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
+
+						debug "suspend phase 2/4: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
 						(* the device un-hotplug the final 10% *)
 						Vmops.suspend ~__context ~xc ~xs ~vm ~live:false
@@ -749,7 +753,7 @@ let suspend  ~__context ~vm =
 								TaskHelper.set_progress
 								~__context (x *. 0.9)
 							);
-						debug "suspend phase 2/3: recording memory usage";
+						debug "suspend phase 3/4: recording memory usage";
 						(* Record the final memory usage of the VM, so *)
 						(* that we know how much memory to free before *)
 						(* attempting to resume this VM in future.     *)
@@ -758,7 +762,7 @@ let suspend  ~__context ~vm =
 						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
 						(* CA-31759: avoid using the LBR to simplify upgrade *)
 						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;
-						debug "suspend phase 3/3: destroying the domain";
+						debug "suspend phase 4/4: destroying the domain";
 						Vmops.destroy ~clear_currently_attached:false
 							~__context ~xc ~xs ~self:vm domid `Suspended;
 					with e ->
@@ -811,13 +815,15 @@ let resume ~__context ~vm ~start_paused ~force =
 							Vmops.restore ~__context ~xc ~xs ~self:vm domid;
 							Db.VM.set_domid ~__context ~self:vm
 								~value:(Int64.of_int domid);
-							Vmops.plug_pcidevs ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
 
 							debug "resume phase 3/3: %s unpausing domain"
 								(if start_paused then "not" else "");
 							if not start_paused then begin
 								Domain.unpause ~xc domid;
 							end;
+
+							Vmops.plug_pcidevs_noexn ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
+
 							(* VM is now resident here *)
 							let localhost = Helpers.get_localhost ~__context in
 							Helpers.call_api_functions ~__context
