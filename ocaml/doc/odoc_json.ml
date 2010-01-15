@@ -132,18 +132,21 @@ let rec invert_graph g = function
   
 let escape_json s =
   let len = String.length s in
-  let buf = Buffer.create len in
-  for i = 0 to len - 1 do
-    match s.[i] with
-    | '\"' -> Buffer.add_string buf "\\\""
-    | '\\' -> Buffer.add_string buf "\\\\"
-    | '\b' -> Buffer.add_string buf "\\b"
-    | '\n' -> Buffer.add_string buf "\\n"
-    | '\r' -> Buffer.add_string buf "\\r"
-    | '\t' -> Buffer.add_string buf "\\t"
-    | c -> Buffer.add_char buf c
-  done;
-  Buffer.contents buf
+  if len > 0 then begin
+	  let buf = Buffer.create len in
+	  for i = 0 to len - 1 do
+		match s.[i] with
+		| '\"' -> Buffer.add_string buf "\\\""
+		| '\\' -> Buffer.add_string buf "\\\\"
+		| '\b' -> Buffer.add_string buf "\\b"
+		| '\n' -> Buffer.add_string buf "\\n"
+		| '\r' -> Buffer.add_string buf "\\r"
+		| '\t' -> Buffer.add_string buf "\\t"
+		| c -> Buffer.add_char buf c
+	  done;
+	  Buffer.contents buf
+  end
+  else ""
   
 type json =
 | Object of (string * json) list
