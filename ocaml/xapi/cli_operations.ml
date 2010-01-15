@@ -2558,7 +2558,8 @@ let host_apply_edition printer rpc session_id params =
     if alerts = [] then
       printer (Cli_printer.PStderr "Internal error: the licensing daemon was not found.")
     else
-      List.iter print_if_checkout_error alerts
+      List.iter print_if_checkout_error alerts;
+    raise (ExitWithError 1)
   | e -> raise e
 
 let host_evacuate printer rpc session_id params =
