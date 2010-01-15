@@ -128,6 +128,9 @@ sig
 		resources: (int64 * int64 * int64) list;
 		driver: string;
 	}
+	type dev = int * int * int * int
+	val to_string: dev -> string
+	val of_string: string -> dev
 
 	exception Cannot_use_pci_with_no_pciback of t list
 
@@ -140,8 +143,7 @@ sig
 	val plug : xc:Xc.handle -> xs:Xs.xsh
 		-> (int * int * int * int) -> Xc.domid -> int -> unit
 	val unplug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> int -> unit
-	val unplug_wait : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> unit
+		-> (int * int * int * int) -> Xc.domid -> unit
 	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
 end
 
