@@ -17,6 +17,9 @@ type dev = { device : devty; offset : int64; }
 type stripety = { chunk_size : int64; dests : dev array; }
 type mapty = Linear of dev | Striped of stripety
 type mapping = { start : int64; len : int64; map : mapty; }
+type mapping_array = {
+  m : mapping array 
+} 
 type status = {
   exists : bool;
   suspended : bool;
@@ -33,6 +36,8 @@ type status = {
 exception CreateError of string
 exception ReloadError of string
 
+val rpc_of_mapping_array : mapping_array -> Rpc.t
+val mapping_array_of_rpc : Rpc.t -> mapping_array
 val convert_mapty : mapty -> (string * string) list -> string * string
 val create : string -> mapping array -> (string * string) list -> unit
 val reload : string -> mapping array -> (string * string) list -> unit
