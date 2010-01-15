@@ -494,36 +494,41 @@ class gen () =
 	method json_of_raised_exception (s, t) =
 		Object ["raised_exception", String s; "text", html_to_json (self#t_of_text t)]
 
+	method json_of_module_parameter mparam =
+		let name = "name", String mparam.Module.mp_name in
+		Object (name :: [])
+		
+	method json_of_module_kind = function
+	| Module_struct l ->
+		"module_structure", Array (List.map self#json_of_module_element l)
+	| Module_alias ma ->
+		"module_alias", String "unavailable" (* self#t_of_module_alias ma *)
+	| Module_functor (mparam, mk) ->
+		"module_functor", Object (["parameter", self#json_of_module_parameter mparam; self#json_of_module_kind mk])
+(*		  node "module_functor"
+		[ self#t_of_module_parameter mparam ; self#t_of_module_kind mk]*)
+	| Module_apply (mk1, mk2) ->
+		"module_apply", String "unavailable"
+(*		  node "module_apply"
+		[ self#t_of_module_kind mk1 ; self#t_of_module_kind mk2]*)
+	| Module_with (mk, s) ->
+		"module_with", String "unavailable"
+(*		  node "module_with"
+		[ self#t_of_module_type_kind mk; node "with" [Leaf s] ]*)
+	| Module_constraint (mk, mtk) ->
+		self#json_of_module_kind mk
+(*		  node "module_constraint"
+		[ self#t_of_module_kind mk ;
+		  self#t_of_module_type_kind mtk ;
+		]*)
+
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
 		let loc = "location", self#json_of_loc m.Module.m_loc in
 		let deps = "dependencies", Object ["uses", Array (List.map (fun d -> String d) m.Module.m_top_deps)] in
 		let file = "file", String m.Module.m_file in
 		let mte = "type", String (Odoc_info.string_of_module_type m.Module.m_type) in
-		let mk = match m.Module.m_kind with
-		| Module_struct l ->
-			"module_structure", Array (List.map self#json_of_module_element l)
-		| Module_alias ma ->
-			"module_alias", String "unavailable" (* self#t_of_module_alias ma *)
-		| Module_functor (mparam, mk) ->
-			"module_functor", String "unavailable"
-(*		  node "module_functor"
-			[ self#t_of_module_parameter mparam ; self#t_of_module_kind mk]*)
-		| Module_apply (mk1, mk2) ->
-			"module_apply", String "unavailable"
-(*		  node "module_apply"
-			[ self#t_of_module_kind mk1 ; self#t_of_module_kind mk2]*)
-		| Module_with (mk, s) ->
-			"module_with", String "unavailable"
-(*		  node "module_with"
-			[ self#t_of_module_type_kind mk; node "with" [Leaf s] ]*)
-		| Module_constraint (mk, mtk) ->
-			"module_constraint", String "unavailable"
-(*		  node "module_constraint"
-			[ self#t_of_module_kind mk ;
-			  self#t_of_module_type_kind mtk ;
-			]*)
-		in
+		let mk = self#json_of_module_kind m.Module.m_kind in
 		let info = "info", self#json_of_info_opt m.Module.m_info in
 		
 		(* dependencies *)

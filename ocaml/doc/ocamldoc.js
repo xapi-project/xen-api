@@ -36,24 +36,13 @@ function getQuerystring(key, default_)
 	else
 		return qs[1];
 }
-
-// function from http://www.codedigest.com/CodeDigest/75-String-ReplaceAll-function-in-JavaScript.aspx
-String.prototype.replaceAll = function(stringToFind,stringToReplace){
-    var temp = this;
-    var index = temp.indexOf(stringToFind);
-        while(index != -1){
-            temp = temp.replace(stringToFind,stringToReplace);
-            index = temp.indexOf(stringToFind);
-        }
-        return temp;
-    }
     
 function fill_components()
 {
 	for (i in components) {
-		component_modules[components[i]] = eval('modules_' + components[i].replaceAll('-', ''));
-		component_stats[components[i]] = eval('stats_' + components[i].replaceAll('-', ''));
-		component_deps[components[i]] = eval('deps_' + components[i].replaceAll('-', ''));
+		component_modules[components[i]] = eval('modules_' + components[i].replace(/\-/g, ''));
+		component_stats[components[i]] = eval('stats_' + components[i].replace(/\-/g, ''));
+		component_deps[components[i]] = eval('deps_' + components[i].replace(/\-/g, ''));
 	}
 }
 
@@ -118,53 +107,45 @@ function toggle(i)
 		return "2"
 }
 
+function construct_url(mod, fn)
+{	
+	comp = find_component_for_module(mod.split('.')[0]);
+	if (comp != "")
+		return 'index.html?c=' + comp + '&m=' + mod + '#' + fn;
+	else
+		return '#';
+}
+
 function transform_links(s)
 {
-	out = "";
-	a = 0;
-	b = s.indexOf('{');
-	while (b >= 0) {
-		out += s.substr(a, b-a);
-		a = b + 1;
-		b = s.indexOf('}', a);
-		link = s.substr(a, b-a);
-		
-		f = link.split('|')[1];
-		m = f.lastIndexOf('.');
-		c = find_component_for_module(f.substr(0, m));
-		if (c != "")
-			out += 'index.html?c=' + c + '&m=' + f.substr(0, m) + '#' + f.substr(m+1);
-		else
-			out += '#';
-		
-		a = b + 1;
-		b = s.indexOf('{', a);
-	}
-	out += s.substr(a);
-	return out;
+	return s.replace(/\{\w*\|([\w|\.]*)\.(\w*)\}/g, function(x,y,z){return construct_url(y, z)});
 }
 
 function transform_type(t)
 {
-	if (t != '') {
+	if (t != undefined && t != '') {
 		params = t.split('->');
 		for (i in params) {
 			u = params[i];
-			if (u[0] == '?')
-				optional = ' <span class="optional">(optional)</span>';
+			if (u.indexOf('?') > -1)
+				optional = '<span class="optional">optional</span> ';
 			else
 				optional = '';
-			a = u.indexOf(':');
-			if (a > -1)
-				u = u.substr(a + 1);
-			params[i] = '<span class="type">' + u + optional + '</span>';
+			u = u.replace(/[^\(]*:/, '');
+			params[i] = optional + u;
 		}
-		html = params.join('<span class="arrow">\u2192</span>');
-		// the following is obviously a bit inefficient...
-		for (i = 0; i < 25; i++)
-			html = html.replaceAll("'" + String.fromCharCode(0x61 + i),
-				String.fromCharCode(0x3b1 + i));
-		html = html.replaceAll('*', '\u00d7');
+		// put back arrows
+		html = params.join(' <span class="symbol large spaced">\u2192</span> ');
+		// remove Pervasives.
+		html = html.replace(/Pervasives\./g, '');
+		// replace polymorphic params by greek letters
+		html = html.replace(/\'([a-z])/g, function(x,y){return String.fromCharCode(y.charCodeAt(0) + 0x3b1 - 0x61)});
+		// replaces asteriskes by times symbols
+		html = html.replace(/\*/g, '<span class="symbol">\u00d7</span>');
+		// replace brackets
+		html = html.replace(/(\(|\))/g, '<span class="symbol large">$1</span>');
+		// add links to known types
+		html = html.replace(/([A-Z][\w|\.]*)\.(\w*)/g, function(x,y,z){return '<a href="' + construct_url(y, z) + '">' + y + '.' + z + '</a>'});
 	}
 	else
 		html = '[none]';
@@ -177,8 +158,30 @@ function value(v, n)
 	name = l[l.length - 1];
 	
 	html = '<div class="field' + toggle(n) + '">';
+	if (v.params.length > 0)
+		html += '<input type="button" class="small-button" value="show parameters" onclick="document.getElementById(\'' + name + '_params\').style.display=\'\';" />';
 	html += '<div class="field-type"><a name="' + name + '">[value]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
+			
+	html += '<table class="field-table">';
+	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + transform_type(v.type);
+/*	if (v.params.length > 0)
+		html += '<tr><td></td><td><input type="button" class="small-button" value="parameters" onclick="document.getElementById(\'' + name + '_params\').style.display=\'\'; this.parentNode.parentNode.style.display=\'none\'" /></td></tr>';*/
+	html += '</td></tr>';
+	
+	html += '<tr id="' + name +
+		'_params" style="display: none"><td width="100px"><span class="field-head">Parameters:</span></td><td>';
+	html += '<table>';
+	for (c in v.params) {
+		n = v.params[c].name;
+		html += '<tr><td width="20%" style="padding: 0 0 .2em">' +
+			(n == "" ? '(no name)' : v.params[c].name) + '</td>';
+		html += '<td style="padding: 0 0 .2em">' + transform_type(v.params[c].type) + '</td></tr>';
+	}
+	html += '</table>';
+	html += '</td></tr>';	
+	html += '</table>';
+	
 	if (v.info.deprecated != undefined) {
 		html += '<div class="deprecated"><b>Deprecated</b> ' + v.info.deprecated + '</div>';
 	}
@@ -189,24 +192,6 @@ function value(v, n)
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 		
-	html += '<table class="field-table">';
-	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + transform_type(v.type) + '</td></tr>';
-	
-	html += '<tr id="' + name + '_params" style="display: none"><td width="100px"><span class="field-head">Parameters:</span></td><td>';
-	html += '<table>';
-	for (c in v.params) {
-		n = v.params[c].name;
-		html += '<tr><td width="20%" style="padding: 0 0 .2em">' + (n == "" ? '(no name)' : v.params[c].name) + '</td>';
-		html += '<td style="padding: 0 0 .2em">' + transform_type(v.params[c].type) + '</td></tr>';
-	}
-	html += '</table>';
-	html += '</td></tr>';
-	
-	if (v.params.length > 0)
-		html += '<tr><td></td><td><input type="button" class="small-button" value="parameters" onclick="document.getElementById(\'' + name + '_params\').style.display=\'\'; this.style.display=\'none\'" /></td></tr>';
-	
-	html += '</table>';
-	
 	html += '</div>';
 	append_content(html);
 }
@@ -219,18 +204,18 @@ function exception(v, n)
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<div class="field-type"><a name="' + name + '">[exception]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
+	html += '<table class="field-table">';
+	html += '<tr><td width="100px"><span class="field-head">Arguments:</span></td><td>';
+	if (v.exception_args != undefined)
+		html += transform_type(v.exception_args.join(' * ')) + '</td></tr>';
+	else
+		html += '[none]</td></tr>';
+	html += '</table>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
 		html += transform_links(v.info.description) + '</div>';
 	else
 		html += '<span class="empty">to be completed!</span></div>';
-	html += '<table class="field-table">';
-	html += '<tr><td width="100px"><span class="field-head">Arguments:</span></td><td>';
-	if (v.exception_args != undefined)
-		html += v.exception_args + '</td></tr>';
-	else
-		html += '[none]</td></tr>';
-	html += '</table>';
 	html += '</div>';
 	append_content(html);
 }
@@ -243,7 +228,7 @@ function variant(v)
 	html += '<tr><th width="25%">Constructor</th><th>Type</th><th>Description</th></tr>';
 	for (c in cons) {
 		html += '<tr><td>' + cons[c].name + '</td>'
-		html += '<td>' + transform_type(cons[c].type) + '</td>'
+		html += '<td>' + transform_type(cons[c].type.join(' * ')) + '</td>'
 		if (cons[c].description != undefined)
 			html += '<td>' + transform_links(cons[c].description) + '</td>';
 		else
@@ -278,7 +263,7 @@ function type(v, n)
 	name = l[l.length - 1];
 		
 	html = '<div class="field' + toggle(n) + '">';
-	html += '<div class="field-type"><a name="' + name + '">[type]</a></div>';
+	html += '<div class="field-type"><a name="' + name + '">[' + v.kind.type + ' type]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
 	if (v.info.description != undefined)
@@ -289,8 +274,6 @@ function type(v, n)
 		html += variant(v.kind);
 	else if (v.kind.type == 'record')
 		html += record(v.kind);
-	else if (v.kind.type == 'abstract')
-		html += 'abstract type'
 	html += '</div>';
 	append_content(html);
 }
@@ -324,6 +307,7 @@ function included_module(v, n)
 	name = l[l.length - 1];
 		
 	html = '<div class="field' + toggle(n) + '">';
+	html += '<input type="button" class="small-button" value="show details" onclick="location=\'index.html?c=' + component + '&m=' + v.name + '\'" />';
 	html += '<div class="field-type"><a name="' + name + '">[module]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
@@ -333,8 +317,6 @@ function included_module(v, n)
 		html += '<span class="empty">to be completed!</span></div>';
 	html += '<table class="field-table">';
 	html += '<tr><td width="100px"><span class="field-head">Type:</span></td><td>' + transform_type(v.type) + '</td></tr>';
-	
-	html += '<tr><td></td><td><input type="button" class="small-button" value="details" onclick="location=\'index.html?c=' + component + '&m=' + v.name + '\'" /></td></tr>';
 	html += '</table>';
 	html += '</div>';
 	append_content(html);
@@ -477,8 +459,11 @@ function moduledoc(mod)
 	else
 		html += '<span class="empty">to be completed!</span></div>';
 	set_content(html);
-			
-	parse_structure(mod.module_structure);
+	
+	if (mod.module_structure != undefined)
+		parse_structure(mod.module_structure);
+	else if (mod.module_functor != undefined)
+		parse_structure(mod.module_functor.module_structure);
 }
 
 function module_index()
