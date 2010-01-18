@@ -4,29 +4,29 @@ type lvcreate_t = {
   lvc_segments : Allocator.t
 }
 
-type lvrename_t = {
+and lvrename_t = {
   lvmv_new_name : string;
 }
 
-type lvreduce_t = {
+and lvreduce_t = {
   lvrd_new_extent_count : int64;
 }
 
-type lvexpand_t = {
+and lvexpand_t = {
   lvex_segments : Allocator.t;
 }
     
-type operation =
+and operation =
     | LvCreate of string * lvcreate_t
     | LvReduce of string * lvreduce_t
     | LvExpand of string * lvexpand_t
     | LvRename of string * lvrename_t
     | LvRemove of string
 
-type sequenced_op = {
+and sequenced_op = {
   so_seqno : int;
   so_op : operation
-}
+} with rpc
 
 open Debug
 

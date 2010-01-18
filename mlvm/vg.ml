@@ -8,7 +8,7 @@ type status =
     | Resizeable
     | Clustered
 
-type vg = {
+and vg = {
   name : string;
   id : string;
   seqno : int;
@@ -21,7 +21,7 @@ type vg = {
   free_space : Allocator.t;
   redo_lv : string option; (* Name of the redo LV *)
   ops : sequenced_op list;
-}
+} with rpc
   
 let status_to_string s =
   match s with
@@ -425,6 +425,7 @@ let of_metadata config pvdatas =
 
 let create_new name devices_and_names =
   let pvs = List.map (fun (dev,name) -> Pv.create_new dev name) devices_and_names in
+  debug "PVs created";
   let free_space = List.flatten (List.map (fun pv -> Allocator.create pv.Pv.name pv.Pv.pe_count) pvs) in
   let vg = 
     { name=name;
@@ -441,7 +442,8 @@ let create_new name devices_and_names =
       ops=[];
     }
   in
-  write vg true
+  write vg true;
+  debug "VG created"
 
 let parse text pvdatas =
   let lexbuf = Lexing.from_string text in
