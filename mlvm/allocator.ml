@@ -1,4 +1,4 @@
-type t = (string * (int64 * int64)) list
+type t = (string * (int64 * int64)) list with rpc
 
 let create name size = [(name,(0L,size))]
 

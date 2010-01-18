@@ -6,32 +6,32 @@ type stat =
     | Write
     | Visible
 	
-type striped_segment = {
+and striped_segment = {
   st_stripe_size : int64; (* In sectors *)
   st_stripes : (string * int64) list; (* pv name * start extent *)
 }
 
-type linear_segment = {
+and linear_segment = {
   l_pv_name : string;
   l_pv_start_extent : int64;
 }
 
-type segclass = 
+and segclass = 
   | Linear of linear_segment
   | Striped of striped_segment
 
-type segment = 
+and segment = 
     { s_start_extent : int64; 
       s_extent_count : int64;
       s_cls : segclass; }
 
-type logical_volume = {
+and logical_volume = {
   name : string;
   id : string;
   tags : string list;
   status : stat list;
   segments : segment list;
-}
+} with rpc
 
 let status_to_string s =
   match s with
