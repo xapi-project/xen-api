@@ -4,9 +4,10 @@ CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 LDFLAGS = -cclib -L./
 VERSION = 0.1
 
+PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
+
 DESTDIR ?= /
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
-OCAMLOPTFLAGS = -g -dtypes 
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
@@ -17,7 +18,8 @@ INTF = $(foreach obj, $(LIBOBJS),$(obj).cmi)
 CMDOBJS = messages.cmx mlvm.cmx
 OCAMLC = ocamlfind ocamlc -g
 OCAMLOPT = ocamlfind ocamlopt 
-COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm
+COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm -pp '${PP}' -I ../rpc-light
+
 LIBS = lvm.cma lvm.cmxa
 
 DOCDIR = /myrepos/xen-api-libs.hg/doc
