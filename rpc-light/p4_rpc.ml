@@ -190,6 +190,12 @@ module Rpc_of = struct
 				else
 					Rpc.Enum (List.map (fun (k, v) -> Rpc.Enum [k; v] ) dict) >>
 
+		| <:ctyp< Hashtbl.t string $t$ >> ->
+			let nid, pid = new_id _loc in
+			<:expr<
+				let dict = Hashtbl.fold (fun a $pid$ c -> [(a, $create nid t$)::c]) $id$ [] in
+				Rpc.Dict dict >>
+
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in
 			let pattern (n, t) ctyps =
@@ -355,6 +361,14 @@ module Of_rpc = struct
 					  Rpc.Enum e -> List.map (fun $pid$ -> $create name nid <:ctyp< ($lid:key$ * $t$) >>$) e
 					| $runtime_error name id "Enum"$ ]
 				end >>
+
+		| <:ctyp< Hashtbl.t string $t$ >> ->
+			let nid, pid = new_id _loc in
+			<:expr< match $id$ with [
+				  Rpc.Dict d ->
+					let h = Hashtbl.create (List.length d) in
+					do { List.iter (fun (key,$pid$) -> Hashtbl.add h key $create name nid t$) d; h}
+				| $runtime_error name id "Dict"$ ] >>
 
 		| <:ctyp< [< $t$ ] >> | <:ctyp< [> $t$ ] >> | <:ctyp< [= $t$ ] >> | <:ctyp< [ $t$ ] >> ->
 			let ids, ctyps = decompose_variants _loc t in

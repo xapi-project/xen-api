@@ -7,7 +7,6 @@ EXAMPLES = \
 	all_types \
 	phantom \
 	xapi \
-	option \
 	encoding \
 	dict \
 	variants
