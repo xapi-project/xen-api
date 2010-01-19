@@ -26,6 +26,9 @@ install: $(V6D)
 	mkdir -p $(DIST)/staging/opt/xensource/bin
 	$(IPROG) v6d-reopen-logs $(DIST)/staging/opt/xensource/bin
 
+.PHONY: sdk-install
+sdk-install: install
+
 .PHONY: clean
 
 clean:
