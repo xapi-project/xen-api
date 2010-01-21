@@ -24,8 +24,6 @@ case "$1" in
     
   ;;
   stop)
-    logger -t upgrade "Sleeping for 30s"
-    sleep 30s
     for i in $($XE sr-list other-config:xenserver_tools_sr=true params=uuid --minimal | sed 's/,/ /g'); do
       echo Renaming $i
       $XE sr-param-set uuid=$i name-label="XenServer Tools" name-description="XenServer Tools ISOs"

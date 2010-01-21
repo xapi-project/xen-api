@@ -86,6 +86,7 @@ let refresh_localhost_info ~__context =
   Xapi_globs.localhost_software_version := software_version; (* Cache this *)
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
+  debug "Updating host software_version";
 
     Db.Host.set_software_version ~__context ~self:host ~value:software_version;
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
@@ -664,11 +665,6 @@ let update_env __context sync_keys =
   (* Load the host rrd *)
   Monitor_rrds.load_rrd ~__context (Helpers.get_localhost_uuid ()) true;
 
-  (* refresh host info fields *)
-  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
-    refresh_localhost_info ~__context;
-  );
-
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
     record_host_memory_properties ~__context;
@@ -741,3 +737,13 @@ let update_env __context sync_keys =
     if Db.Host.get_bios_strings ~__context ~self:localhost = [] then
       Bios_strings.set_host_bios_strings ~__context ~host:localhost
   );
+
+  (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
+	 of all the hosts are the same. It will then assume that (for example) per-host patch records have
+	 been tidied up and attempt to delete orphaned pool-wide patch records. *)
+
+  (* refresh host info fields *)
+  switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
+    refresh_localhost_info ~__context;
+  );
+
