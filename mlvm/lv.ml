@@ -45,7 +45,10 @@ let status_of_string s =
     | "WRITE" -> Write
     | "VISIBLE" -> Visible
     | _ -> failwith "Bad LV status string"
-	
+
+let sort_segments s =
+  List.sort (fun s1 s2 -> compare s1.s_start_extent s2.s_start_extent) s
+
 let write_to_buffer b lv =
   let bprintf = Printf.bprintf in
   bprintf b "\n%s {\nid = \"%s\"\nstatus = [%s]\n" lv.name lv.id 
@@ -53,7 +56,7 @@ let write_to_buffer b lv =
   if List.length lv.tags > 0 then 
     bprintf b "tags = [%s]\n" (String.concat ", " (List.map quote lv.tags));
   bprintf b "segment_count = %d\n\n" (List.length lv.segments);
-  Listext.List.iteri_right 
+  Listext.List.iteri
     (fun i s -> 
       bprintf b "segment%d {\nstart_extent = %Ld\nextent_count = %Ld\n\n"
 	(i+1) s.s_start_extent s.s_extent_count;
@@ -116,7 +119,7 @@ let of_metadata name config =
     id=id;
     status=status;
     tags=tags;
-    segments=segments }
+    segments=sort_segments segments }
 
 let allocation_of_segment s =
   match s.s_cls with
@@ -150,17 +153,20 @@ let size_in_extents lv =
 	    
 let reduce_size_to lv new_seg_count =
   let cur_size = size_in_extents lv in
+  Debug.debug "Beginning reduce_size_to:";
   if cur_size < new_seg_count then (failwith (Printf.sprintf "Cannot reduce size: current size (%Ld) is less than requested size (%Ld)" cur_size new_seg_count));
   let rec doit segs left acc =
     match segs with 
       | s::ss ->
+	  Debug.debug (Printf.sprintf "Lv.reduce_size_to: s.s_start_extent=%Ld s.s_extent_count=%Ld left=%Ld" 
+			  s.s_start_extent s.s_extent_count left);
 	  if left > s.s_extent_count then
 	    doit ss (Int64.sub left s.s_extent_count) (s::acc)
 	  else
 	    {s with s_extent_count = left}::acc
       | _ -> acc
   in
-  {lv with segments = (doit lv.segments new_seg_count [])}
+  {lv with segments = sort_segments (doit lv.segments new_seg_count [])}
 
 let increase_allocation lv new_segs =
-  {lv with segments=lv.segments @ new_segs}
+  {lv with segments = sort_segments (lv.segments @ new_segs)}
