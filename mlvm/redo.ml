@@ -100,12 +100,18 @@ let reset fd offset =
   write_initial_pos fd offset (Int64.add offset 12L)
   
 let redo_to_human_readable op =
+  let lvcreate_t_to_string l =
+    Printf.sprintf "{id:'%s', segments:[%s]}" l.lvc_id (Allocator.to_string l.lvc_segments)
+  in
+  let lvexpand_t_to_string l =
+    Printf.sprintf "[%s]" (Allocator.to_string l.lvex_segments)
+  in
   let opstr = 
     match op.so_op with
-      | LvCreate (name,_) -> Printf.sprintf "LvCreate(%s)" name
-      | LvRemove name -> Printf.sprintf "LvRemove(%s)" name
-      | LvReduce (name,_) -> Printf.sprintf "LvReduce(%s)" name
-      | LvExpand (name,_) -> Printf.sprintf "LvExpand(%s)" name
-      | LvRename (name,_) -> Printf.sprintf "LvRename(%s)" name
+      | LvCreate (name,lvc) -> Printf.sprintf "LvCreate(%s,%s)" name (lvcreate_t_to_string lvc)
+      | LvRemove name -> Printf.sprintf "LvRemove(%s)" name 
+      | LvReduce (name,lvrd) -> Printf.sprintf "LvReduce(%s,%Ld)" name lvrd.lvrd_new_extent_count
+      | LvExpand (name,lvex) -> Printf.sprintf "LvExpand(%s,%s)" name (lvexpand_t_to_string lvex)
+      | LvRename (name,lvmv) -> Printf.sprintf "LvRename(%s,%s)" name lvmv.lvmv_new_name
   in
   Printf.sprintf "{seqno=%d; op=%s}" op.so_seqno opstr
