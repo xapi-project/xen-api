@@ -25,3 +25,6 @@ val ignore_int64 : int64 -> unit
 val ignore_string : string -> unit
 val ignore_float : float -> unit
 val ignore_bool : bool -> unit
+
+val (++) : ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
+val ($) : ('a -> 'b) -> 'a -> 'b

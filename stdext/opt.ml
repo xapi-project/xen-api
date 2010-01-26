@@ -11,6 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+(* Perhaps it's better to use `option' from the ocaml-extlib extension
+ * to the standard library instead?  (Although it would not suffice,
+ * since it's not a super-set of our `opt'.)
+ * (http://code.google.com/p/ocaml-extlib/)
+ *)
+
+open Pervasiveext
+
 let iter f = function
 	| Some x -> f x
 	| None -> ()
@@ -43,3 +52,5 @@ let fold_right f opt accu =
 	match opt with
 	| Some x -> f x accu
 	| None -> accu
+
+let cat_options a = List.map unbox (List.filter is_boxed a)

@@ -27,6 +27,8 @@ let finally fct clean_f =
 	clean_f ();
 	result
 
+(* Those should go into the Opt module: *)
+
 let maybe_with_default d f v =
 	match v with None -> d | Some x -> f x
 
@@ -53,3 +55,10 @@ let ignore_int32 v = let (_: int32) = v in ()
 let ignore_string v = let (_: string) = v in ()
 let ignore_float v = let (_: float) = v in ()
 let ignore_bool v = let (_: bool) = v in ()
+
+(* To avoid some parens: *)
+(* composition of functions: *)
+let (++) f g x = Fun.comp f g x
+
+(* and application *)
+let ($) f a = f a

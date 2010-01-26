@@ -170,4 +170,8 @@ let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 let assoc_default k l d =
   if List.mem_assoc k l then List.assoc k l else d
+
+(* Like the Lisp cons *)
+let cons a b = a :: b
+
 end
