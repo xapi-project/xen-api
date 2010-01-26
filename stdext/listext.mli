@@ -169,4 +169,7 @@ module List :
         is not in the list. *)
     val assoc_default : 'a -> ('a * 'b) list -> 'b -> 'b
 
+    (* Like Lisp cons*)
+    val cons : 'a -> 'a list -> 'a list
+
   end
