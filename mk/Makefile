@@ -22,7 +22,6 @@ OUTPUT_WEBZIP          = $(MY_OUTPUT_DIR)/sdk-html.zip
 JQUERY_PACK_DIST       = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERY_TV_DIST         = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
-OUTPUT_P2V_DIR         = $(MY_OUTPUT_DIR)
 OUTPUT_DATAMODEL_DIR   = $(MY_OUTPUT_DIR)/datamodel
 
 OUTPUT_SDK_DIR         = $(MY_OUTPUT_DIR)
@@ -79,10 +78,6 @@ $(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(call hg_re
 	install -m 644 -o root -g root $(REPO)/ocaml/idl/dm_api.cmi $(OUTPUT_DATAMODEL_DIR)
 	install -m 644 -o root -g root $(REPO)/ocaml/idl/api_messages.cmi $(OUTPUT_DATAMODEL_DIR)
 
-	mkdir -p $(OUTPUT_P2V_DIR)
-	install -m 755 -o root -g root $(REPO)/ocaml/p2v/p2v $(OUTPUT_P2V_DIR)/p2v-server
-	install -m 755 -o root -g root $(REPO)/ocaml/p2v/closeandexec_static $(OUTPUT_P2V_DIR)/closeandexec_static
-
 $(RPM_SOURCESDIR)/xe: $(REPO)/ocaml/xe-cli/xe
 	mkdir -p $(RPM_SOURCESDIR)
 	cp $< $@
@@ -102,5 +97,5 @@ $(MY_OBJ_DIR)/.rpmbuild.cli.stamp: $(RPM_DIRECTORIES) $(RPM_SPECSDIR)/xe.spec $(
 .PHONY: clean
 clean:
 	rm -f $(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_XAPI_SRC) $(OUTPUT_CLI_RT) $(OUTPUT_WEBZIP) $(OUTPUT_SDK)
-	rm -rf $(OUTPUT_DATAMODEL_DIR) $(OUTPUT_P2V_DIR) $(OUTPUT_DOCS) $(OUTPUT_SDK_DIR)
+	rm -rf $(OUTPUT_DATAMODEL_DIR) $(OUTPUT_DOCS) $(OUTPUT_SDK_DIR)
 	$(MAKE) -C $(REPO) clean
