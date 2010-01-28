@@ -394,7 +394,8 @@ let attempt_pool_hello my_ip =
 	     debug "Master claims he has no record of us being a slave";
 	     Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master [ localhost_uuid ];
 	     Some Permanent
-	 | `ok -> None
+	 | `ok -> 
+	     None
       )
   with 
   | Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
