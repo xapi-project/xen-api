@@ -205,15 +205,11 @@ let check_host_liveness ~__context =
 
 let timeout_sessions ~__context =
   let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-  let external_sessions = List.filter (fun (_, y) -> not y.Db_actions.session_pool) all_sessions in
-  let unused_sessions = List.filter
-    (fun (_, y) -> List.for_all (fun t -> Db.Task.get_status ~__context ~self:t <> `Pending) y.Db_actions.session_tasks
-    ) external_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
-  let unused_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
+  let all_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) all_sessions in
   (* Definitely invalidate sessions last used long ago *)
   let threshold_time = Unix.time () -. Xapi_globs.inactive_session_timeout in
-  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) unused_sessions in
+  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) all_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
     if List.length young <= Xapi_globs.max_sessions
@@ -229,8 +225,7 @@ let timeout_sessions ~__context =
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of unused sessions in database (%d/%d) exceeds limit (%d): will delete the oldest"
-     (List.length unused_sessions) (List.length all_sessions) Xapi_globs.max_sessions;
+  then debug "Number of sessions in database (%d) exceeds limit (%d): will delete the oldest" (List.length all_sessions) Xapi_globs.max_sessions;
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
 
