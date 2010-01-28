@@ -15,7 +15,6 @@
 (** A central location for settings related to xapi *)
  
 open Stringext
-open Threadext
 open Printf
 
 (* xapi process returns this code on exit when it wants to be restarted *)
@@ -23,19 +22,6 @@ let restart_return_code = 123
 
 let pool_secret_path = "/etc/xensource/ptoken"
 let pool_secret = ref ""
-let internal_session : [`session] Ref.t option ref = ref None
-
-let internal_session_mutex = Mutex.create ()
-let get_internal_session login_fn =
-	Mutex.execute internal_session_mutex (fun () ->
-		match !internal_session with
-		| None ->
-			  let session = login_fn () in
-			  internal_session := Some session;
-			  session
-		| Some session -> session)
-let reset_internal_session_cache () =
-	Mutex.execute internal_session_mutex (fun () -> internal_session := None)
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
