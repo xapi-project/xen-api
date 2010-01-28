@@ -94,43 +94,47 @@ let make_rpc ~__context xml =
       (* Slave has to go back to master via network *)
       Xmlrpcclient.do_secure_xml_rpc 
 	~subtask_of
-	~use_stunnel_cache:true
+  ~use_stunnel_cache:true
     ~version:"1.1" ~host:(Pool_role.get_master_address ())
     ~port:!Xapi_globs.https_port ~path:"/" xml 
     (* No auth needed over unix domain socket *)
 
-let do_internal_login ~__context =
-	let login =
-		if Pool_role.is_master () then
-			(fun () ->
-				 if Context.has_session_id __context && Db.Session.get_pool ~__context ~self:(Context.get_session_id __context) then
-					 Context.get_session_id __context
-				 else begin
-					 let rpc = make_rpc ~__context in
-					 let session_id = Client.Client.Session.slave_login rpc (get_localhost ~__context) !Xapi_globs.pool_secret in
-					 debug "local login done";
-					 session_id
-				 end)
-		else
-			(fun () ->
-				 let rpc = make_rpc ~__context in
-				 let session_id = Client.Client.Session.slave_login rpc (get_localhost ~__context) !Xapi_globs.pool_secret in
-				 debug "slave login done";
-				 session_id) in
-	Xapi_globs.get_internal_session login
-
-let with_cached_session ~__context fn =
-	try fn (do_internal_login ~__context)
-	with Api_errors.Server_error (error,_) as e when error = Api_errors.session_authentication_failed ->
-		Xapi_globs.reset_internal_session_cache ();
-		debug "remote client call finished with exception %s; cleaning the session cache" (Printexc.to_string e);
-		raise e
-
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
 let call_api_functions ~__context f =
-	let rpc = make_rpc ~__context in
-	with_cached_session ~__context (fun session_id ->  f rpc session_id)
+  let rpc = make_rpc ~__context in
+  let () = debug "logging into master" in
+  (* If we're the master then our existing session may be a client one without 'pool' flag set, so
+     we consider making a new one. If we're a slave then our existing session (if we have one) must
+     have the 'pool' flag set because it would have been created for us in the message forwarding layer
+     in the master, so we just re-use it. [If we haven't got an existing session in our context then
+     we always make a new one *)
+  let require_explicit_logout = ref false in
+  let do_master_login () =
+    let session = Client.Client.Session.slave_login rpc (get_localhost ~__context) !Xapi_globs.pool_secret in
+      require_explicit_logout := true;
+      session 
+  in
+  let session_id =
+      try
+        if Pool_role.is_master() then 
+      begin
+        let session_id = Context.get_session_id __context in
+          if Db.Session.get_pool ~__context ~self:session_id 
+          then session_id
+          else do_master_login ()
+      end 
+      else Context.get_session_id __context
+      with _ -> 
+      do_master_login ()
+  in
+  let () = debug "login done" in
+  finally 
+    (fun () -> f rpc session_id) 
+    (fun () ->
+       debug "remote client call finished; logging out";
+       if !require_explicit_logout 
+      then Client.Client.Session.logout rpc session_id)
 
 let call_emergency_mode_functions hostname f = 
   let rpc xml = Xmlrpcclient.do_secure_xml_rpc ~version:"1.0" ~host:hostname
