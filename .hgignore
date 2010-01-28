@@ -7,6 +7,7 @@ syntax: glob
 *.a
 *.annot
 *.aux
+*.class
 *.cma
 *.cmi
 *.cmo
@@ -62,7 +63,6 @@ ocaml/perftest/cumulative_time
 ocaml/xenops/memory_summary
 ocaml/xenops/squeeze_test
 ocaml/idl/java_binding/obj/*
-ocaml/idl/binding_sanity_checks/*.class
 ocaml/idl/binding_sanity_checks/doc
 ocaml/idl/binding_sanity_checks/binding
 ocaml/idl/binding_sanity_checks/*.svg
