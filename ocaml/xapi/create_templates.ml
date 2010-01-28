@@ -275,50 +275,6 @@ let debian_xgt_template rpc session_id name_label short_name_label debian_xgt_na
     ()
   end
     
-(* The P2V server template *)
-(* Requires: the xs-tools.iso in the XenSource Tools SR *)
-let p2v_server_template rpc session_id =
-  (* Find the server ISO *)
-  match find_xs_tools_vdi rpc session_id with
-  | None ->
-      debug "Skipping P2V server template because the xs-tools.iso is missing"
-  | Some iso ->
-      begin match find_guest_installer_network rpc session_id with
-      | None ->
-	  debug "Skipping P2V server template because guest installer network missing"
-      | Some net ->
-	  let vm = find_or_create_template
-	    { (blank_template (default_memory_parameters 256L)) with
-		vM_name_label = "XenSource P2V Server";
-		vM_name_description = "An internal utility template for use by the XenSource P2V client";
-		vM_other_config = [ Xapi_globs.grant_api_access, "internal";
-				    Xapi_globs.xensource_internal, "true";
-				    default_template
-				  ]
-	    } rpc session_id in
-
-	  let vbds = Client.VM.get_VBDs rpc session_id vm in
-	  (* make a table of userdevice -> VBD reference, to check whether each VBD looks correct. *)
-	  let table = List.map (fun vbd -> Client.VBD.get_userdevice rpc session_id vbd, vbd) vbds in
-	  (* Empty CD on userdevice '3' *)
-	  if not(List.mem_assoc "3" table) then begin
-	    ignore (Client.VBD.create ~rpc ~session_id ~vM:vm ~empty:true ~vDI:(Ref.of_string "cd") ~userdevice:"3" ~bootable:false ~mode:`RO ~_type:`CD ~unpluggable:true ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[])
-	  end;
-	  (* Tools ISO on userdevice 'xvdp': it's either missing or pointing at the wrong VDI *)
-	  let xvdp = "xvdp" in (* beware the deadly typo *)
-	  if false
-	    || not(List.mem_assoc xvdp table)
-	    || (Client.VBD.get_VDI rpc session_id (List.assoc xvdp table) <> iso) then begin
-	      (* destroy the existing broken one *)
-	      if List.mem_assoc xvdp table then Client.VBD.destroy rpc session_id (List.assoc xvdp table);
-	      ignore (Client.VBD.create ~rpc ~session_id ~vM:vm ~empty:false ~vDI:iso ~userdevice:xvdp ~bootable:true ~mode:`RO ~_type:`CD ~unpluggable:true ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[]);	      
-	    end;
-	  
-	  let vifs = Client.VM.get_VIFs rpc session_id vm in
-	  if vifs = [] 
-	  then ignore (Client.VIF.create ~rpc ~session_id ~device:"0" ~mAC:(Record_util.random_mac_local ()) ~vM:vm ~mTU:1500L ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~network:net ~other_config:[])
-      end
-
 (** Makes a Windows template using the given memory parameters in MiB, root disk
 size in GiB, and version string. *)
 let windows_template memory root_disk_size version = 
@@ -498,5 +454,4 @@ let create_all_templates rpc session_id =
   (* The remaining template-creation functions determine whether they have the 
      necessary resources (ISOs, networks) or not: *)
   debian_xgt_template rpc session_id "Debian Etch 4.0" "Etch" "debian-etch.xgt" "debian-etch";
-  p2v_server_template rpc session_id      
 
