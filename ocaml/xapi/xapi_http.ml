@@ -89,7 +89,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 		then Some (Ref.of_string (List.assoc "task_id" all))
 		else None
 	in
-	let rbac_raise permission msg =
+	let rbac_raise permission msg exc =
     (match task_id with
 			 | None -> ()
 			 | Some task_id ->
@@ -97,7 +97,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 						 ~__context:(Context.from_forwarded_task task_id)
 						 (Api_errors.rbac_permission_denied,[permission;msg])
     );
-    raise (Http.Forbidden)
+    raise exc
 	in
 	let rbac_task_desc = "handler" in
 	let rbac_check session_id =
@@ -107,8 +107,8 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
      with 
 			 | Api_errors.Server_error (err,[perm;msg])
 				 when err = Api_errors.rbac_permission_denied
-				 -> rbac_raise perm msg
-			 | e -> rbac_raise http_permission (ExnHelper.string_of_exn e)
+				 -> rbac_raise perm msg Http.Forbidden
+			 | e -> rbac_raise http_permission (ExnHelper.string_of_exn e) e
 		)
 	in
   if List.mem_assoc "session_id" all
@@ -225,15 +225,16 @@ let add_handler (name, handler) =
 	| Http_svr.BufIO callback ->
 		Http_svr.BufIO (fun req ic ->
 			(try 
-			   (try
 				if check_rbac 
 				then (* rbac checks *)
+			   (try
 					assert_credentials_ok name req ~fn:(fun () -> callback req ic)
+			    with e ->
+			      debug "Leaving RBAC-handler in xapi_http after: %s" (ExnHelper.string_of_exn e);
+			      raise e
+				 )
 				else (* no rbac checks *)
 					callback req ic
-			    with e ->
-			      error "RBAC: %s" (ExnHelper.string_of_exn e);
-			      raise e)
 			with
 			| Api_errors.Server_error(name, params) as e ->
 				error "Unhandled Api_errors.Server_error(%s, [ %s ])" name (String.concat "; " params);
