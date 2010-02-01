@@ -4742,7 +4742,7 @@ let pool_ha_compute_hypothetical_max_host_failures_to_tolerate = call ~flags:[`S
   ~doc:"Returns the maximum number of host failures we could tolerate before we would be unable to restart the provided VMs"
   ~params:[ Map(Ref _vm, String), "configuration", "Map of protected VM reference to restart priority" ]
   ~result:(Int, "maximum value for ha_host_failures_to_tolerate given provided configuration")
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_READ_ONLY
   ()
 
 let pool_ha_compute_vm_failover_plan = call ~flags:[`Session]
