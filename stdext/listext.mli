@@ -172,4 +172,9 @@ module List :
     (* Like Lisp cons*)
     val cons : 'a -> 'a list -> 'a list
 
+    (* take n list: Return the first n elements of list (or less if list is shorter).*)
+    val take : int -> 'a list -> 'a list
+	
+    val tails : 'a list -> ('a list) list
+
   end
