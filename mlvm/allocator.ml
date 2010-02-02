@@ -6,6 +6,11 @@ open Listext
 type area = (string * (int64 * int64)) with rpc
 type t = area list with rpc
 
+let to_string1 (p,(s,l)) = Printf.sprintf "(%s: [%Ld,%Ld])" p s l
+let to_string t =
+  String.concat ", "
+    (List.map to_string1 t)
+
 let create name size = [(name,(0L,size))]
 let empty = []
 
@@ -59,9 +64,6 @@ let contained : area -> area -> bool =
     fun a a2 ->
 	let (name, (start, size)) = unpack_area a in
 	let (name2, (start2, size2)) = unpack_area a2 in
-	(* (* This would only check if `a' starts within `a2': *)
-	   name=name2 && start >= start2 && start < Int64.add size2 start2
-	*)
 	name=name2 && start >= start2 && Int64.add start size <= Int64.add start2 size2
 
 exception PVS_DONT_MATCH
@@ -82,7 +84,7 @@ let normalize_single_pv areas =
 	 | start::segs -> 
 	       (Fun.uncurry List.cons) $ List.fold_left merge1 (start, []) segs
 	 | [] -> [] (* shouldn't be necessary! *))
-    ++ List.sort (Fun.on compare get_start) $ areas
+    ++ List.sort (Fun.on compare get_start) ++ List.filter ((<) 0L ++ get_size) $ areas
 let normalize : t -> t = 
     fun areas ->
     (* The next lines are to be read backwards, since we defined function composition that way. *)
@@ -104,42 +106,48 @@ let normalize : t -> t =
    t is a free list.
 
    What if there's no containing area? Is this only called under certain circumstances? Verify. *)
+exception NonSingular_Containing_Area
 let alloc_specified_area (free_list : t) (a : area) =
     (* We assume areas don't overlap, or do we? *)
-    (* Match against [] instead of _: Better die as soon as possible, when something is wrong. *)
-    let (containing_area::[]),other_areas = List.partition (contained a) $ free_list in
-
-    normalize $ combine (minus containing_area a) other_areas
+    (* Match against [] instead of _: Better die as soon as possible, when something is wrong. 
+     * And that was right!  Just caught a bug that would have been masked otherwise. *)
+    match List.partition (contained a) ++ normalize $ free_list with
+	| (containing_area::[]), other_areas -> normalize $ combine (minus containing_area a) other_areas
+	| x,_ -> (print_string "alloc_specified_area:\t";
+		  print_endline ++ to_string $ x;
+		  raise NonSingular_Containing_Area;)
 
 let alloc_specified_areas : t -> t -> t =
    List.fold_left alloc_specified_area
 
-let alloc (free_list : t) (newsize : int64) =
-    (* switched from best-fit (smallest free area that's large
-       enough) to worst-fit (largest area): This may reduce
-       fragmentation, and makes the code slightly easier. *)
+let safe_alloc (free_list : t) (newsize : int64) =
+    (* switched from best-fit (smallest free area that's large enough)
+       to worst-fit (largest area): This may reduce fragmentation, and
+       makes the code slightly easier. *)
     let rec alloc_h newsize = function
 	| (seg::rest) -> 
-	      let remainder = Int64.sub newsize (get_size seg) in
-	      if (remainder > Int64.zero) then
-                  (* We couldn't find one contiguous region to allocate. Call alloc again
-		     with the remainder of the size and the new list of allocated areas *)
-                  let allocd,newt = alloc_h remainder rest in
-                  (seg::allocd, newt)
-	      else
-                  let (name, (start, _)) = unpack_area seg in
-                  let area = make_area name start newsize in
-                  ([area], alloc_specified_area (seg::rest) area)
-	| [] -> failwith "Failed to find individual area!" in
-    (alloc_h newsize
-     ++ List.rev ++ List.sort (Fun.on compare get_size) $ free_list)
+	    let remainder = Int64.sub newsize (get_size seg) in
+	    if (remainder > Int64.zero) then
+                (* We couldn't find one contiguous region to allocate. Call alloc again
+		   with the remainder of the size and the new list of allocated areas *)
+		match alloc_h remainder rest with
+		    | Some (allocd,newt) -> Some (seg::allocd, newt)
+		    | None -> None
+	    else
+                let (name, (start, _)) = unpack_area seg in
+                let area = make_area name start newsize in
+                Some ([area], try (alloc_specified_area (seg::rest) area) with (Match_failure x) -> (print_endline "alloc_specified_area"; raise (Match_failure x)))
+	| [] -> None in
+    alloc_h newsize
+    ++ List.rev ++ List.sort (Fun.on compare get_size) $ free_list
+      
+let alloc (free_list : t) (newsize : int64) =
+    match safe_alloc free_list newsize
+    with  Some x -> x
+	| None -> failwith "Failed to find individual area!"
 
 (* Probably de-allocation won't be used much. *)
 let free to_free free_list = normalize (combine to_free free_list)
-
-let to_string t =
-  String.concat ", "
-    (List.map (fun (p,(s,l)) -> Printf.sprintf "(%s: [%Ld,%Ld])" p s l) t)
 
 let dotest a n =
     let before = List.sort compare a in
