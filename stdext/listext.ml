@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Fun
 module List = struct include List
 
 (** Turn a list into a set *)
@@ -174,4 +175,21 @@ let assoc_default k l d =
 (* Like the Lisp cons *)
 let cons a b = a :: b
 
+(* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
+(* ToDo: This is complicated enough to warrant a test. *)
+(* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
+   Pro: Would mask fewer bugs.
+   Con: Less robust.
+*)
+let take n list =
+    let rec helper i acc list =
+	if i <= 0 || list = []
+	then acc
+	else helper (i-1)  (List.hd list :: acc) (List.tl list)
+    in List.rev $ helper n [] list
+
+(* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
+let rec tails = function
+    | [] -> [[]]
+    | (_::xs) as l -> l :: tails xs
 end
