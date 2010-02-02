@@ -9,6 +9,11 @@ import XenAPI, inventory
 
 import XenAPIPlugin
 
+class HOST_POWER_ON_NOT_CONFIGURED(Exception):
+    """Base Exception class for all transfer plugin errors."""
+    def __init__(self, *args):
+        Exception.__init__(self, *args)
+
 
 
 def main(session, args):
@@ -44,7 +49,7 @@ def main(session, args):
         return modu.custom(session,remote_host,power_on_config)
     # Disabled
     else: 
-        return str(False)
+        raise HOST_POWER_ON_NOT_CONFIGURED()
 
 
 
