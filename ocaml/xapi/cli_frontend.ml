@@ -798,7 +798,10 @@ let rec cmdtable_data : (string*cmd_spec) list =
 	{
 		reqd=["min"; "max"];
 		optn=[];
-		help="Configure the range of physical memory the VM is allowed to consume.";
+		help="Configure the dynamic memory range of a VM. The dynamic memory \
+		range defines soft lower and upper limits for a VM's memory. It's \
+		possible to change these fields when a VM is running or halted. The \
+		dynamic range must fit within the static range.";
 		implementation= No_fd Cli_operations.vm_memory_dynamic_range_set;
 		flags=[Vm_selectors];
 	};
@@ -807,7 +810,10 @@ let rec cmdtable_data : (string*cmd_spec) list =
 	{
 		reqd=["min"; "max"];
 		optn=[];
-		help="Configure the range of virtual memory the VM is allowed to consume.";
+		help="Configure the static memory range of a VM. The static memory \
+		range defines hard lower and upper limits for a VM's memory. It's \
+		possible to change these fields only when a VM is halted. The static \
+		range must encompass the dynamic range.";
 		implementation= No_fd Cli_operations.vm_memory_static_range_set;
 		flags=[Vm_selectors];
 	};
@@ -816,7 +822,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 	{
 		reqd=["static-min"; "static-max"; "dynamic-min"; "dynamic-max"];
 		optn=[];
-		help="Configure the memory limits of the VM.";
+		help="Configure the memory limits of a VM.";
 		implementation=No_fd Cli_operations.vm_memory_limits_set;
 		flags=[Vm_selectors];
 	};
