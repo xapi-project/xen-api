@@ -20,3 +20,4 @@ val to_list : 'a option -> 'a list
 val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b option -> 'a
 val fold_right : ('a -> 'b -> 'b) -> 'a option -> 'b -> 'b
 val cat_options : 'a option list -> 'a list
+val join : ('a option) option -> 'a option
