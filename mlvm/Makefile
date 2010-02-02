@@ -26,6 +26,9 @@ DOCDIR = /myrepos/xen-api-libs.hg/doc
 
 default : $(LIBS)
 
+test_allocator: default
+	$(OCAMLOPT) -package kaputt -linkpkg -dtypes -g  -I ../stdext -I ../camldm -I ../uuid -I +kaputt unix.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx ../camldm/camldm.cmxa ../uuid/uuid.cmxa ../stdext/stdext.cmxa ./lvm.cmxa test_allocator.ml -o $@
+
 lvm.cmx: $(foreach obj,$(LIBOBJS),$(obj).cmx)
 	$(OCAMLOPT) -pack -g -o $@ $(foreach obj,$(LIBOBJS),$(obj).cmx)
 
@@ -52,6 +55,7 @@ uninstall:
 clean : 
 	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
+	rm -f test_allocator
 
 .PHONY: doc
 doc: $(INTF)
