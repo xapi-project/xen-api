@@ -292,11 +292,13 @@ module Proportional = struct
 	  (* We allocate surplus memory in proportion to each domain's dynamic_range: *)
 	  let allocate gamma domain = Int64.of_float (gamma *. (Int64.to_float (range domain))) in
 	  (* gamma = the proportion where 0 <= gamma <= 1 *)
-	  let total_range = Int64.to_float (sum (List.map range domains)) in
-	  let gamma' = Int64.to_float surplus_memory_kib /. total_range in
+	  let total_range = sum (List.map range domains) in
+	  let gamma' = Int64.to_float surplus_memory_kib /. (Int64.to_float total_range) in
 	  let gamma = constrain 0. 1. gamma' in
+	  debug "total_range = %Ld gamma = %f gamma' = %f" total_range gamma gamma';
 	  if verbose
-	  then debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma (Int64.of_float (total_range *. (gamma' -. gamma)));
+	  then debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma 
+		(if total_range = 0L then 0L else Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma)));
 
 	  List.map (fun domain -> domain, domain.dynamic_min_kib +* (allocate gamma domain)) domains
 
@@ -521,30 +523,18 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     let debug_string = String.concat "; " (host_debug_string :: (List.map (fun domain -> short_string_of_domain domain ^ (new_target_direction domain)) host.domains)) in
     debug "%s" debug_string;
     
-    (* Deal with inactive and 'never been run' domains *)
-    List.iter (fun domid -> 
-		 try
-		   let domain = IntMap.find domid host.domid_to_domain in
-		   let mem_max_kib = min domain.target_kib domain.memory_actual_kib in
-		   debug "Setting inactive domain %d mem_max = %Ld" domid mem_max_kib;
-		   io.domain_setmaxmem domid mem_max_kib
-		 with Not_found ->
-		   debug "WARNING: inactive domain %d not in map" domid
-	      ) declared_inactive_domids;
-    (* Next deal with the active domains (which may have new targets) *)
-    List.iter (fun domid ->
-		 try
-		   let domain = IntMap.find domid host.domid_to_domain in
-		   let mem_max_kib = 
-		     if List.mem_assoc domid new_targets 
-		     then List.assoc domid new_targets 
-		     else domain.target_kib in
-		   debug "Setting active domain %d mem_max = %Ld" domid mem_max_kib;
-		   io.domain_setmaxmem domid mem_max_kib
-		 with Not_found ->
-		   debug "WARNING: active domain %d not in map" domid
-	      ) declared_active_domids;
-    
+	(* For each domid, decide what maxmem should be *)
+	let maxmems = IntMap.mapi
+	  (fun domid domain ->
+		   if List.mem domid declared_inactive_domids 
+		   then min domain.target_kib domain.memory_actual_kib
+		   else 
+			 if List.mem_assoc domid new_targets
+			 then List.assoc domid new_targets
+			 else domain.target_kib) host.domid_to_domain in
+
+	IntMap.iter io.domain_setmaxmem maxmems;
+
     begin match result with
     | Success ->
 		  if io.verbose

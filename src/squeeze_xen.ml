@@ -359,11 +359,20 @@ let make_host ~verbose ~xc ~xs =
 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
 
 	let host = Squeeze.make_host ~domains ~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib) in
+	Domain.gc (List.map (fun di -> di.Xc.domid) domain_infolist);
 
+	(* Externally-visible side-effects. It's a bit ugly to include these here: *)
 	update_cooperative_table host;
 	update_cooperative_flags cnx;
 
-	Domain.gc (List.map (fun di -> di.Xc.domid) domain_infolist);
+	(* It's always safe to _decrease_ a domain's maxmem towards target. This catches the case
+	   where a toolstack creates a domain with maxmem = static_max and target < static_max (eg
+	   CA-36316) *)
+	let updates = Squeeze.IntMap.fold (fun domid domain updates ->
+										   if domain.Squeeze.target_kib < (Domain.get_maxmem (xc, xs) domid)
+										   then Squeeze.IntMap.add domid domain.Squeeze.target_kib updates
+										   else updates) host.Squeeze.domid_to_domain Squeeze.IntMap.empty in
+	Squeeze.IntMap.iter (Domain.set_maxmem_noexn (xc, xs)) updates;
 
 	Printf.sprintf "F%Ld S%Ld R%Ld T%Ld" free_pages_kib scrub_pages_kib !reserved_kib total_pages_kib, host
 
