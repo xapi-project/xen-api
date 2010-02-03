@@ -224,6 +224,18 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		if master_uuid = my_uuid then
 			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Host cannot become slave of itself"])) in
 
+	let assert_homogeneous_vswitch_configuration () =
+		match Netdev.network.Netdev.kind with
+		| Netdev.Vswitch ->
+			let my_pool = Helpers.get_pool __context in
+			let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
+			let pool = List.hd (Client.Pool.get_all rpc session_id) in
+			let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
+			if my_controller <> controller then
+				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
+		| _ -> ()
+	in
+
 	(* call pre-join asserts *)
 	ha_is_not_enable_on_me ();
 	ha_is_not_enable_on_the_distant_pool ();
@@ -235,7 +247,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_no_shared_srs_on_me ();
 	assert_management_interface_is_physical ();
 	assert_external_auth_matches ();
-	assert_restrictions_match ()
+	assert_restrictions_match ();
+	assert_homogeneous_vswitch_configuration ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
 	let my_uuid = host.API.host_uuid in
@@ -1336,7 +1349,24 @@ let disable_redo_log ~__context =
 		end;
 	end;
 	info "The redo log is now disabled"
-	
+
+let assert_is_valid_ip ip_addr =
+ 	if ip_addr <> "" then
+	try Unix.inet_addr_of_string ip_addr; ()
+	with _ -> raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, [ "address" ]))
+
+let set_vswitch_controller ~__context ~address =
+	match Netdev.network.Netdev.kind with
+	| Netdev.Vswitch ->
+		let pool = Helpers.get_pool ~__context in
+		let current_address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
+		if current_address <> address then begin
+			assert_is_valid_ip address;
+			Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
+			List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
+		end
+	| _ -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["host not configured for vswitch operation"]))
+
 
 (* internal intra-pool call to allow slaves to log http actions on the master *)
 let audit_log_append ~__context ~line =
