@@ -188,24 +188,24 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		| Parse_likewise.Failure (code,errmsg) -> begin
 			debug "Likewise raised an error for cmd %s: (%i) %s" debug_cmd code errmsg;
 			match code with
-				| 32775 -> (* no such user *)
-					raise Not_found (*Subject_cannot_be_resolved*)
-				| 32779 -> (* no such group *)
-					raise Not_found (*Subject_cannot_be_resolved*)
-				| 32784 -> (* The authentication request could not be handled *)
-					raise (Auth_signature.Auth_failure errmsg)
-				| 32814 -> (* authentication failed *)
-					raise (Auth_signature.Auth_failure errmsg)
-				| 32823 -> (* authentication failed: The user account is disabled *)
-					raise (Auth_signature.Auth_failure errmsg)
-				| 32838 -> (* no such user or group *)
-					raise Not_found (*Subject_cannot_be_resolved*)
+				| 40008    (* no such user *)
+				| 40012    (* no such group *)
+				| 40071    (* no such user, group or domain object *)
+					-> raise Not_found (*Subject_cannot_be_resolved*)
+
+				| 40047    (* empty password, The call to kerberos 5 failed *)
+				| 40022    (* The password is incorrect for the given username *)
+				| 40056    (* The user account is disabled *)
+				| 40017    (* The authentication request could not be handled *)
+					-> raise (Auth_signature.Auth_failure errmsg)
+
+				| 524326    (* error joining AD domain *)
 				| 524359 -> (* error joining AD domain *)
 					raise (Auth_signature.Auth_service_error errmsg)
-				| 32885 (* lsass server not responding *)
-				| 32888 (* domain is offline (probably /etc/resolv.conf doesn't point to AD's DNS server) *)
-				| _ ->
-					raise (Auth_signature.Auth_service_error (Printf.sprintf "(%i) %s" code errmsg)) (* general Likewise error *)
+
+				| 40118 (* lsass server not responding *)
+				| _ ->  (* general Likewise error *)
+					raise (Auth_signature.Auth_service_error (Printf.sprintf "(%i) %s" code errmsg))
 		end
 	end	  
 )
@@ -313,7 +313,7 @@ let get_subject_identifier _subject_name =
 		(* looks up list of users*)
 		let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 		likewise_get_sid_byname subject_name "/opt/likewise/bin/lw-find-user-by-name"
-	with Not_found ->
+	with _ ->
 		(* append domain if necessary, lw-find-group-by-name only accepts nt-format names  *)
 		let subject_name = get_full_subject_name ~use_nt_format:true (convert_upn_to_nt_username _subject_name) in 
 		(* looks up list of groups*)
@@ -581,43 +581,19 @@ let on_enable config_params =
 		() (* OK, return unit*)
 
 	with (*ERROR, we didn't join the AD domain*)
-	
-	(* 1. with wrong password: returns in STDOUT *)
-	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "Administrator" "xenroot3"
-		FAILURE
-		524359
-		The call to Kerberos 5 failed
-	*)
-	(* 2. with wrong administrator name: returns in STDOUT *)
-	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "Administrator3" "xenroot"
-		FAILURE
-		524359
-		The call to Kerberos 5 failed
-	*)
-	(* 3. with a non-administrator user: returns in STDOUT*)
-	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net" "user1" "xenR00t"
-		FAILURE
-		524359
-		Permission denied
-	*)
-	(* 4. with wrong domain: retursn in STDOUT *)
-	(*	[root@localhost /]# domainjoin-cli --minimal join --ignore-pam --ignore-ssh "xendt.net2" "Administrator" "xenroot"
-		FAILURE
-		524359
-		Failed to lookup the domain controller for given domain
-	*)
 	|Auth_signature.Auth_service_error errmsg ->
 		(*errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Error enabling external authentication for domain %s and user %s: %s" domain user errmsg;
-		if has_substr errmsg "The call to Kerberos 5 failed"
-		then begin (* this seems to be a user/password wrong error... *)
+		if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
+			or has_substr errmsg "0x9C84" (* The user account is invalid *)
+		then begin
 			raise (Auth_signature.Auth_service_error "The username or password is wrong.")
-		end 
-		else if has_substr errmsg "Permission denied"
-		then begin (* this seems to be a non-admin user error... *)
-			raise (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to join a domain.")
 		end
-		else if has_substr errmsg "Failed to lookup the domain controller for given domain"
+		else if has_substr errmsg "0x5 " (* Unknown error *)
+		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
+			raise (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to join the domain.")
+		end
+		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)	
 		then begin (* this seems to be a wrong domain controller name error... *)
 			raise (Auth_signature.Auth_service_error "Failed to lookup the domain controller for given domain.")
 		end
@@ -665,15 +641,13 @@ let on_disable config_params =
 	| Auth_signature.Auth_service_error errmsg ->
 		(* errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Internal Likewise error when disabling external authentication: %s" errmsg;
-		if has_substr errmsg "The call to Kerberos 5 failed"
-		then begin (* this seems to be a user/password wrong error... *)
+
+    if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
+      or has_substr errmsg "0x9C84" (* The user account is invalid *)
+    then begin
 			Some (Auth_signature.Auth_service_error "The username or password is wrong.")
-		end 
-		else if has_substr errmsg "Permission denied"
-		then begin (* this seems to be a non-admin invalid user error... *)
-			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
 		end
-		else if has_substr errmsg "code 400A"
+		else if has_substr errmsg "0x400A" (* Unkown error *)
 		then begin (* this seems to be a non-admin valid user error... *)
 			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
 		end
