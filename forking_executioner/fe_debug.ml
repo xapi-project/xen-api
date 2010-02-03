@@ -1,6 +1,6 @@
 let log_path = "/var/log/fe.log"
 
-let dbuffer = ref (Buffer.create 1) 
+let debug_log = ref []
 
 let gettimestring () =
 	let time = Unix.gettimeofday () in
@@ -11,13 +11,11 @@ let gettimestring () =
 	        tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
 	        (int_of_float (1000.0 *. msec))
 
-let reset () = dbuffer := Buffer.create 100
+let reset () = debug_log := []
 
 let debug (fmt : ('a, unit, string, unit) format4) = 
-  Printf.kprintf (fun s -> ignore(Printf.bprintf !dbuffer "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s)) fmt
+  Printf.kprintf (fun s -> debug_log := Printf.sprintf "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s :: !debug_log) fmt
 
 let write_log () =
-  let logfile = Unix.openfile log_path [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_APPEND] 0o644 in
-  Unixext.really_write_string logfile (Buffer.contents !dbuffer);
-  Unix.close logfile
+  List.iter (Syslog.log Syslog.Syslog Syslog.Err) (List.rev !debug_log)
 
