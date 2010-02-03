@@ -477,7 +477,9 @@ let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
 let dev_zero = "/dev/zero"
 
 let wlb_timeout = "wlb_timeout"
+let wlb_reports_timeout = "wlb_reports_timeout"
 let default_wlb_timeout = 30.0
+let default_wlb_reports_timeout = 600.0
 
 (** {2 Settings relating to dynamic memory control} *)
 
