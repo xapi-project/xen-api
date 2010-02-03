@@ -33,7 +33,7 @@ let create_pool_record ~__context =
 			~ha_enabled:false ~ha_configuration:[] ~ha_statefiles:[]
 			~ha_host_failures_to_tolerate:0L ~ha_plan_exists_for:0L ~ha_allow_overcommit:false ~ha_overcommitted:false ~blobs:[] ~tags:[] ~gui_config:[] 
 			~wlb_url:"" ~wlb_username:"" ~wlb_password:Ref.null ~wlb_enabled:false ~wlb_verify_cert:false
-			~redo_log_enabled:false ~redo_log_vdi:Ref.null
+			~redo_log_enabled:false ~redo_log_vdi:Ref.null ~vswitch_controller:""
 			~other_config:[
 				Xapi_globs.memory_ratio_hvm;
 				Xapi_globs.memory_ratio_pv;

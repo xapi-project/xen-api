@@ -974,6 +974,10 @@ let pool_enable_redo_log printer rpc session_id params =
 let pool_disable_redo_log printer rpc session_id params =
   Client.Pool.disable_redo_log ~rpc ~session_id
 	
+let pool_set_vswitch_controller printer rpc session_id params =
+	let address = List.assoc "address" params in
+	Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
+
 let vdi_type_of_string = function
     | "system" -> `system
     | "user" -> `user

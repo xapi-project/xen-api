@@ -189,4 +189,6 @@ val enable_redo_log : __context:Context.t -> sr:[`SR] Ref.t -> unit
 (** Disable HA-independent redo log *)
 val disable_redo_log : __context:Context.t -> unit
 
+(** VSwitch Controller *)
+val set_vswitch_controller : __context:Context.t -> address:string -> unit
 val audit_log_append : __context:Context.t -> line:string -> unit
