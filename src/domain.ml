@@ -97,9 +97,24 @@ let domarch_of_string = function
 	| _     -> Arch_native
 
 let make ~xc ~xs info uuid =
-	let flags =
+	let flags = if info.hvm then (
+	  let default_flags =
 		(if info.hvm then [ Xc.CDF_HVM ] else []) @
 		(if (info.hvm && info.hap) then [ Xc.CDF_HAP ] else []) in
+	   if (List.mem_assoc "hap" info.platformdata) then (
+              if (List.assoc "hap" info.platformdata) = "false" then (
+                 debug "HAP will be disabled for VM %s." (Uuid.to_string uuid);
+                 [ Xc.CDF_HVM ]
+              ) else if (List.assoc "hap" info.platformdata) = "true" then (
+                 debug "HAP will be enabled for VM %s." (Uuid.to_string uuid);
+                 [ Xc.CDF_HVM; Xc.CDF_HAP ] 
+              ) else (
+                 debug "Unrecognized HAP platform value.  Assuming default settings for VM %s." (Uuid.to_string uuid);
+                 default_flags
+              )
+           ) else
+              default_flags
+        ) else [] in
 	let domid = Xc.domain_create xc info.ssidref flags uuid in
 	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
 	try
