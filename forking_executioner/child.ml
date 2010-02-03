@@ -87,8 +87,6 @@ let run state comms_sock fd_sock fd_sock_path =
   in
 
   try
-    dbuffer := Buffer.create 500;
-
     debug "Started: state.cmdargs = [%s]" (String.concat ";" (state.cmdargs));
     debug "Started: state.env = [%s]" (String.concat ";" (state.env));
 
