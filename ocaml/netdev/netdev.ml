@@ -219,7 +219,9 @@ let vsctl args =
   Unix.access vsctl_script [ Unix.X_OK ];
   let output, _ = Forkhelpers.execute_command_get_output vsctl_script args in
   let stripped = Stringext.String.strip (fun c -> c='\n') output in
-  Stringext.String.split '\n' stripped
+  match stripped with
+    | "" -> []
+    | s -> Stringext.String.split '\n' s
 
 let add name = ignore(vsctl ["add-br" ; name])
 let del name = ignore(vsctl ["del-br" ; name])
