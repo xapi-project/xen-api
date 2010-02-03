@@ -31,6 +31,16 @@ open Vmopshelpers
 module DD=Debug.Debugger(struct let name="MTC:" end)
 open DD
 
+module Internal = struct
+
+let read_one_line file =
+	let inchan = open_in file in
+	try
+		let result = input_line inchan in
+		close_in inchan;
+		result
+	with exn -> close_in inchan; raise exn
+end
 
 
 (* 
@@ -52,6 +62,8 @@ open DD
  *)
 let vm_protected_key = "vm_protected"
 let vm_peer_uuid_key = "vm_peer_uuid"
+let mtc_pvm_key = "mtc_pvm"
+let mtc_vdi_share_key = "mtc_vdi_shareable"
 
 (*
 * This function looks at the 'other-config' field in the VM's configuration
@@ -240,7 +252,6 @@ let event_notify_task_status ~__context ~vm ~status ?(str="no error info") progr
    the foreground phase (ie, domain has been suspended).
    Called only by the source of a migration. *)
 let event_notify_entering_suspend ~__context ~self =
-  if (is_this_vm_protected ~__context ~self) then (
     with_xc_and_xs
       (fun xc xs ->
         let key = (migration_base_path ~xs ~__context ~vm:self) ^ 
@@ -248,13 +259,11 @@ let event_notify_entering_suspend ~__context ~self =
         debug "Entering suspend. Key: %s" key;
         xs.Xs.write key "1";
       )
-  )
 
 (* A blocking wait.  Wait for external party to acknowlege the suspend
    stage has been entered. If no response is received within timeout,
    routine simply returns `ACKED to simulate a response. *)
 let event_wait_entering_suspend_acked ?timeout ~__context ~self =
-  if (is_this_vm_protected ~__context ~self) then (
     with_xc_and_xs
       (fun xc xs ->
         let ack_key = (migration_base_path ~xs ~__context ~vm:self) ^ 
@@ -287,7 +296,6 @@ let event_wait_entering_suspend_acked ?timeout ~__context ~self =
               debug "Timed-out waiting for suspend ack on key: %s" ack_key;
               `TIMED_OUT            
       )
-  ) else `ACKED 
 
 (* Check to see if an abort request has been made through XenStore *)
 let event_check_for_abort_req ~__context ~self =
@@ -304,6 +312,77 @@ let event_check_for_abort_req ~__context ~self =
         value = "1"
       )
   ) else false 
+
+
+
+(* 
+ * -----------------------------------------------------------------------------
+ *  Network Functions
+ * -----------------------------------------------------------------------------
+ *)
+(* Determine if we should allow the specified PIF to be marked not online when XAPI is
+ * restarted.  Returns TRUE if this is a PIF fielding a VIF attached to an MTC-
+ * protected VM and we don't want it marked offline because we have checked here that the
+ * PIF and its bridge are already up.
+ *)
+let is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self =
+  try 
+
+    (* Get the VMs that are hooked up to this PIF *)
+    let network = Db.PIF.get_network ~__context ~self in
+    let vifs = Db.Network.get_VIFs ~__context ~self:network in
+
+
+    (* Figure out the VIFs attached to local MTC VMs and then derive their networks, bridges and PIFs *)
+    let vms = List.map (fun vif -> 
+                        Db.VIF.get_VM ~__context ~self:vif)
+                        vifs in
+    let localhost = Helpers.get_localhost ~__context in
+    let resident_vms = List.filter (fun vm  -> 
+                                    localhost = (Db.VM.get_resident_on ~__context ~self:vm)) 
+                                    vms in
+    let protected_vms = List.filter (fun vm  -> 
+                                     List.mem_assoc mtc_pvm_key (Db.VM.get_other_config ~__context ~self:vm)) 
+                                     resident_vms in
+
+    let protected_vms_uuid = List.map (fun vm  -> 
+                                       Db.VM.get_uuid ~__context ~self:vm) 
+                                       protected_vms in
+
+
+    (* If we have protected VMs using this PIF, then decide whether it should be marked offline *)
+    if protected_vms <> [] then begin
+      let current = Netdev.network.Netdev.list () in
+      let bridge = Db.Network.get_bridge ~__context ~self:network in
+      let nic = Db.PIF.get_device ~__context ~self in
+      debug "The following MTC VMs are using %s for PIF %s: [%s]" 
+             nic
+             (Db.PIF.get_uuid ~__context ~self)
+             (String.concat "; " protected_vms_uuid);
+
+      let nic_device_path = Printf.sprintf "/sys/class/net/%s/operstate" nic in
+      let nic_device_state = Internal.read_one_line nic_device_path in
+
+      let bridge_device_path = Printf.sprintf "/sys/class/net/%s/operstate" bridge in
+      let bridge_device_state = Internal.read_one_line bridge_device_path in
+
+      (* The PIF should be marked online if:
+         1) its network has a bridge created in dom0 and
+         2) the bridge link is up and
+         3) the physical NIC is up and
+         4) the bridge operational state is up (unknown is also up).
+       *)
+       let mark_online = (List.mem bridge current) && 
+                         (Netdev.Link.is_up bridge) && 
+                          nic_device_state = "up" &&
+                          (bridge_device_state = "up" ||
+                          bridge_device_state = "unknown") in
+
+       debug "Its current operational state is %s.  Therefore we'll be marking it as %s" 
+              nic_device_state (if mark_online then "online" else "offline");
+       mark_online
+    end else false
+  with _ -> false
 
 (* 
  * -----------------------------------------------------------------------------
@@ -328,3 +407,22 @@ let update_vm_state_if_necessary ~__context ~vm =
       raise e
   end
 
+(* Raises an exception if the destination VM is not in the expected power state:  halted *)
+let verify_dest_vm_power_state ~__context ~vm =
+  let actual = Db.VM.get_power_state ~__context ~self:vm in
+  if actual != `Halted then
+    raise(Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "halted"; (Record_util.power_to_string actual)]))
+
+(* Returns true if VDI is accessed by an MTC-protected VM *)
+let is_vdi_accessed_by_protected_VM ~__context ~vdi =
+
+  let uuid = Uuid.of_string (Db.VDI.get_uuid ~__context ~self:vdi) in
+
+  let protected_vdi = List.mem_assoc mtc_vdi_share_key (Db.VDI.get_other_config ~__context ~self:vdi) in
+
+  (* Return TRUE if this VDI is attached to a protected VM *)
+  if protected_vdi then begin
+     debug "VDI %s is attached to a Marathon-protected VM" (Uuid.to_string uuid);
+     true 
+  end else
+     false

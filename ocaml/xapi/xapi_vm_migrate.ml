@@ -109,6 +109,10 @@ let extra_debug_paths __context vm =
 
 (* MTC: Routine to report migration progress via task and events *)
 let migration_progress_cb ~__context vm_migrate_failed ~vm progress =
+
+  if TaskHelper.is_cancelling ~__context
+    then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
+
   TaskHelper.set_progress ~__context progress;
   Mtc.event_notify_task_status ~__context ~vm ~status:`pending progress;
   if Mtc.event_check_for_abort_req ~__context ~self:vm then
@@ -119,26 +123,34 @@ let migration_progress_cb ~__context vm_migrate_failed ~vm progress =
    requires that an external agent acknowledge the transition prior to 
    continuing. *)
 let migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self domid reason =
-  Mtc.event_notify_entering_suspend ~__context ~self;
 
-  let ack = Mtc.event_wait_entering_suspend_acked ~timeout:60. ~__context ~self in
+  if TaskHelper.is_cancelling ~__context
+    then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
 
-  (* If we got the ack, then proceed to shutdown the domain with the suspend
+  if (Mtc.is_this_vm_protected ~__context ~self) then (
+    Mtc.event_notify_entering_suspend ~__context ~self;
+    let ack = Mtc.event_wait_entering_suspend_acked ~timeout:60. ~__context ~self in
+
+    (* If we got the ack, then proceed to shutdown the domain with the suspend
      reason.  If we failed to get the ack, then raise an exception to abort
      the migration *)
-  if (ack = `ACKED) then begin
-    match Vmops.clean_shutdown_with_reason ~xal ~__context ~self domid Domain.Suspend with
-	| Xal.Suspended -> () (* good *)
-	| Xal.Crashed ->
+    if (ack = `ACKED) then begin
+      match Vmops.clean_shutdown_with_reason ~xal ~__context ~self ~rel_timeout:0.25 domid Domain.Suspend with
+	  | Xal.Suspended -> () (* good *)
+	  | Xal.Crashed ->
 		  raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of self ]))
-	| Xal.Rebooted ->
-		  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of self ]))	
-	| Xal.Vanished
-	| Xal.Halted ->
+	  | Xal.Rebooted ->
+		  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of self ]))
+	  | Xal.Vanished
+	  | Xal.Halted ->
 		  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of self ]))
-	| Xal.Shutdown x -> vm_migrate_failed (Printf.sprintf "Domain shutdown for unexpected reason: %d" x)
-  end else 
-    vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
+	  | Xal.Shutdown x -> vm_migrate_failed (Printf.sprintf "Domain shutdown for unexpected reason: %d" x)
+     end else 
+       vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
+  ) else (
+      Vmops.clean_shutdown_with_reason ~xal ~__context ~self domid Domain.Suspend;
+      ()
+  )
 
 (* ------------------------------------------------------------------- *)
 (* Part 2: transmitter and receiver functions                          *)
@@ -219,6 +231,12 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
        memory image has been transmitted. We assume that we cannot recover this domain
        and that it must be destroyed. We must make sure we detect failure in the 
        remote to complete the admin and set the VM to halted if this happens. *)
+
+    (* Recover an MTC VM if abort was requested during the suspended phase *)
+    if Mtc.event_check_for_abort_req ~__context ~self:vm then ( 
+       vm_migrate_failed  "An external abort event was detected during the VM suspend phase.";
+    );
+
     Stats.time_this "VM migration downtime" (fun () ->
     (* Depending on where the exn in the try block happens, we may or may not want to
        deactivate VDIs in the finally clause. In the case of a non-localhost migration
@@ -268,26 +286,38 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 			detach_in_finally_clause := false;
 		end;
 
-
-	   (* Now send across the RRD *)
-	   (try Monitor_rrds.migrate_push ~__context (Db.VM.get_uuid ~__context ~self:vm) host with e ->
-	     debug "Caught exception while trying to push rrds: %s" (ExnHelper.string_of_exn e);
-	     log_backtrace ());
+           (* MTC: don't send RRDs since MTC VMs are not really migrated. *)
+ 	   if not (Mtc.is_this_vm_protected ~__context ~self:vm) then (
+	     (* Now send across the RRD *)
+	     (try Monitor_rrds.migrate_push ~__context (Db.VM.get_uuid ~__context ~self:vm) host with e ->
+	       debug "Caught exception while trying to push rrds: %s" (ExnHelper.string_of_exn e);
+	       log_backtrace ());
+           );
 
 	   (* We mustn't return to our caller (and release locks) until the remote confirms
 	      that it has reparented the VM by setting resident-on, domid *)
 	   debug "Sender 7. waiting for all-clear from remote";
 	   (* <-- [4] Synchronisation point *)
-	   Handshake.recv_success fd
+	   Handshake.recv_success fd;
+ 	   if Mtc.is_this_vm_protected ~__context ~self:vm then (
+	     let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+ 	     debug "Sender 7a. resuming source domain";
+	     Domain.resume ~xc ~xs ~hvm ~cooperative:true domid 
+	   );
 	 with e ->
 	   (* This should only happen if the receiver has died *)
 	   let msg = Printf.sprintf "Caught exception %s at last minute during migration"
 	     (ExnHelper.string_of_exn e) in
 	   debug "%s" msg; error "%s" msg;
-	   Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
+           (* MTC: don't reset state upon failure.  MTC VMs will simply resume *)
+ 	   if not (Mtc.is_this_vm_protected ~__context ~self:vm) then 
+ 	     Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
 	   vm_migrate_failed msg
       )
       (fun () ->
+ 	 if Mtc.is_this_vm_protected ~__context ~self:vm then (
+	    debug "MTC: Sender won't clean up by destroying remains of local domain";
+         ) else (
 	 debug "Sender cleaning up by destroying remains of local domain";
 	 if !deactivate_in_finally_clause then
 		List.iter (fun vdi -> Storage_access.VDI.deactivate ~__context ~self:vdi) vdis;
@@ -296,6 +326,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	 let preserve_xs_vm = (Helpers.get_localhost ~__context = host) in
 	 Vmops.destroy_domain ~preserve_xs_vm ~clear_currently_attached:false ~detach_devices:(not is_localhost_migration)
 	   ~deactivate_devices:(!deactivate_in_finally_clause) ~__context ~xc ~xs ~self:vm domid)
+	)
 ) (* Stats.timethis *)
   with 
     (* If the domain shuts down incorrectly, rely on the event thread for tidying up *)
@@ -534,6 +565,9 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 	(fun () ->      
 	   Unixext.set_tcp_nodelay insecure_fd true;
 
+           (* Set the task allowed_operations to include cancel *)
+           TaskHelper.set_cancellable ~__context;
+
 	   let secure_rpc = Helpers.make_rpc ~__context in
 	   debug "Sender 1. Logging into remote server";
 	   let session_id = Client.Session.slave_login ~rpc:secure_rpc ~host
@@ -601,6 +635,14 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 			      host session_id vm xc xs live);
 		with e ->
 		  debug "Sender Caught exception: %s" (ExnHelper.string_of_exn e);
+ 	          with_xc_and_xs (fun xc xs -> 
+                      if Mtc.is_this_vm_protected ~__context ~self:vm then (
+ 	                debug "MTC: exception encountered.  Resuming source domain";
+                        let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+			let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+			Domain.resume ~xc ~xs ~hvm ~cooperative:true domid 
+	              ));
+
 		  (* NB the domain might now be in a crashed state: rely on the event thread
 		     to do the cleanup asynchronously. *)
 		  raise_api_error e
@@ -769,6 +811,10 @@ let handler req fd =
 			Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
 			(fun () ->
 *)
+                        (* MTC-3009: The dest VM of a Marathon protected VM MUST be in halted state. *)
+                        if Mtc.is_this_vm_protected ~__context ~self:dest_vm then (
+		           Mtc.verify_dest_vm_power_state ~__context ~vm:dest_vm
+                        );
 				debug "Receiver 3. sending back HTTP 200 OK";
 				Http_svr.headers fd (Http.http_200_ok ());
 				receiver ~__context ~localhost localhost_migration fd vm xc xs memory_required_kib
