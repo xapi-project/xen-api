@@ -125,13 +125,10 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
   else
   if List.mem_assoc "pool_secret" all
   then begin
-    let session_id = try
-      Client.Session.slave_login inet_rpc (Helpers.get_localhost ()) (List.assoc "pool_secret" all)
-    with _ -> raise (Http.Unauthorised realm)
-    in
-    Pervasiveext.finally
-      (fun ()-> rbac_check session_id)
-      (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
+		if List.assoc "pool_secret" all = !Xapi_globs.pool_secret then
+			fn ()
+		else
+			raise (Http.Unauthorised realm)
   end
   else
     begin
