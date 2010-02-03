@@ -71,7 +71,7 @@ val get_pool : unit -> restrictions
 
 (* called by xapi_host *)
 (** Called whenever a slave resets its Host.license_params after reading in a license. *)
-val update_pool_restrictions : __context:'a -> unit
+val update_pool_restrictions : __context:Context.t -> unit
 
 (** Object the {!restrictions} for a given {!sku}. *)
 val restrictions_of_sku : sku -> restrictions
