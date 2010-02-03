@@ -2700,8 +2700,10 @@ end
     (* -------------------------------------------------------------------------- *)
 
 	let set_sharable ~__context ~self ~value =
+              if not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then begin
 		let sr = Db.VDI.get_SR ~__context ~self in
 		Sm.assert_session_has_internal_sr_access ~__context ~sr;
+              end;
 		Local.VDI.set_sharable ~__context ~self ~value
 
     let set_managed ~__context ~self ~value =

@@ -1412,7 +1412,11 @@ let signal ~xs ~domid ?wait_for ?param cmd =
 	match wait_for with
 	| Some state ->
 		let pw = cmdpath ^ "/state" in
-		Watch.wait_for ~xs (Watch.value_to_become pw state)
+               (* MTC: The default timeout for this operation was 20mins, which is
+                * way too long for our software to recover successfully.
+                * Talk to Citrix about this
+                *) 
+		Watch.wait_for ~xs ~timeout:30. (Watch.value_to_become pw state)
 	| None -> ()
 
 let get_state ~xs domid =

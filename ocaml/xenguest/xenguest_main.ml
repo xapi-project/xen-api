@@ -154,6 +154,8 @@ let fork_capture_stdout_stderr callback f x =
 			exit 0
 		with _ -> exit 0
 	end;
+
+	Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun i -> debug "Signal handler killing PID=%d" pid; Unix.kill pid Sys.sigterm));
 	List.iter Unix.close [ stdout_w; stderr_w; output_w ];
 
 	let finished = ref false in

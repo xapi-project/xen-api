@@ -622,7 +622,8 @@ let resynchronise_pif_currently_attached ~__context =
        let is_management_pif = Xapi_pif.is_my_management_pif ~__context ~self in
        let was_pif_brought_up_at_start_of_day = List.mem self (List.map fst pifs_brought_up) in
        (* Mark important interfaces as attached *)
-       let mark_as_attached = is_management_pif || was_pif_brought_up_at_start_of_day in
+       let mark_as_attached = is_management_pif || was_pif_brought_up_at_start_of_day || 
+                              (Mtc.is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self) in
        Db.PIF.set_currently_attached ~__context ~self ~value:mark_as_attached;
        Db.PIF.set_management ~__context ~self ~value:is_management_pif;
        debug "Marking PIF device %s as %s" (Db.PIF.get_device ~__context ~self) (if mark_as_attached then "attached" else "offline")
