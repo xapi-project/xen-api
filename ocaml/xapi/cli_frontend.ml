@@ -387,6 +387,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
     
+   "pool-set-vswitch-controller",
+   {
+      reqd=["address"];
+      optn=[];
+      help="Set the IP address of the vswitch controller.";
+      implementation= No_fd Cli_operations.pool_set_vswitch_controller;
+      flags=[Hidden];
+   };
+   
    "host-is-in-emergency-mode",
     {
       reqd=[];

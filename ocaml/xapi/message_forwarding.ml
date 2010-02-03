@@ -555,6 +555,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     	info "Pool.disable_redo_log: pool = '%s'" (current_pool_uuid ~__context);
     	Local.Pool.disable_redo_log ~__context
 
+    let set_vswitch_controller ~__context ~address =
+    	info "Pool.set_vswitch_controller: pool = '%s'; address = '%s'" (current_pool_uuid ~__context) address;
+    	Local.Pool.set_vswitch_controller ~__context ~address
   end
 
   module VM = struct
