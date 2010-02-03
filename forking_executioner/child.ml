@@ -129,6 +129,9 @@ let run state comms_sock fd_sock fd_sock_path =
       (* Now let's close everything except those fds mentioned in the ids_received list *)
       Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
       
+	  (* Distance ourselves from our parent process: *)
+	  if Unix.setsid () == -1 then failwith "Unix.setsid failed";	  
+
       (* And exec *)
       Unix.execve (List.hd args) (Array.of_list args) (Array.of_list state.env)
     end else begin
