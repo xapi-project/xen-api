@@ -806,6 +806,17 @@ let remove_other_keys table valid_keys =
   let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
   List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
 
+let update_vswitch_controller ~__context ~host =
+	try call_api_functions ~__context (fun rpc session_id ->
+		let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"vswitch-cfg-update" ~fn:"update" ~args:[] in
+		debug "vswitch-cfg-update(on %s): %s"
+			(Db.Host.get_name_label ~__context ~self:host)
+			result)
+	with e ->
+		debug "Got '%s' while trying to update the vswitch configuration on host %s"
+			(Printexc.to_string e)
+			(Db.Host.get_name_label ~__context ~self:host)
+
 let set_vm_uncooperative ~__context ~self ~value = 
   let current_value = 
 	let oc = Db.VM.get_other_config ~__context ~self in

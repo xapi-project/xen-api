@@ -835,6 +835,7 @@ let server_init() =
       "considering executing on-master-start script", [],
         (fun () -> Xapi_pool_transition.run_external_scripts (Pool_role.is_master ()));
       "creating networks", [ Startup.OnlyMaster ], Create_networks.create_networks_localhost;
+      "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context)); 
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;

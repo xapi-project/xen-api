@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 59
+let schema_minor_vsn = 60
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -4987,6 +4987,15 @@ let pool_audit_log_append = call
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
+let pool_set_vswitch_controller = call
+  ~in_oss_since:None
+  ~in_product_since:rel_midnight_ride
+  ~name:"set_vswitch_controller"
+  ~params:[String, "address", "IP address of the vswitch controller."]
+  ~doc:"Set the IP address of the vswitch controller."
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -5047,6 +5056,7 @@ let pool =
 			; pool_enable_redo_log
 			; pool_disable_redo_log
 			; pool_audit_log_append
+			; pool_set_vswitch_controller
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool
@@ -5074,6 +5084,7 @@ let pool =
 			; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
+			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
 			]
 		()
 
