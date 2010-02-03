@@ -270,7 +270,7 @@ let retrieve_inner_xml meth response enable_log=
           "Logging output disabled for this call." 
     
 (* This function handles the actual network request and deals with any errors relating to the connection *)
-let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log =
+let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log ~timeout_key ~timeout_default =
   let body = wlb_body meth params in
   let headers = wlb_headers host meth (String.length body) auth in
   let pool = Helpers.get_pool ~__context in
@@ -278,13 +278,13 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
   let timeout =
     try
-      if List.mem_assoc Xapi_globs.wlb_timeout pool_other_config then
-        float_of_string (List.assoc Xapi_globs.wlb_timeout pool_other_config)
+      if List.mem_assoc timeout_key pool_other_config then
+        float_of_string (List.assoc timeout_key pool_other_config)
       else
-        Xapi_globs.default_wlb_timeout
+        timeout_default
     with
       | _ ->
-          Xapi_globs.default_wlb_timeout
+          timeout_default
   in
   if enable_log then
     debug "%s\n%s" (String.concat "\n" (filtered_headers headers)) body;
@@ -355,6 +355,8 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
           error enable_log)
   in
   wlb_request ~__context ~host ~port ~auth:auth' ~meth ~params
+    ~timeout_key:Xapi_globs.wlb_timeout
+    ~timeout_default:Xapi_globs.default_wlb_timeout
     ~handler:check_response ~enable_log;
   match !result with
   | Some s -> s
@@ -703,6 +705,8 @@ let wlb_context_request meth params ~__context ~handler =
   let auth = wlb_encoded_auth ~__context in
   wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler 
     ~enable_log:true
+    ~timeout_key:Xapi_globs.wlb_reports_timeout
+    ~timeout_default:Xapi_globs.default_wlb_reports_timeout
 
 let wlb_report_request report params =
   let meth = "ExecuteReport" in
