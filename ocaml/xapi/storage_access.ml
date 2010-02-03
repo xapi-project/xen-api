@@ -183,7 +183,9 @@ module VDI =
       let uuid = Uuid.of_string (Db.VDI.get_uuid ~__context ~self) in
       with_vdi_lock
 	(fun () ->
-	   if is_already_attached uuid && (mode <> get_mode uuid) then
+           (* MTC: A protected VM needs to have its disks mounted into two VMs: one as R+W and another as RO *)
+	   if is_already_attached uuid && (mode <> get_mode uuid) && 
+             not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then
 	     failwith (Printf.sprintf "The VDI %s is already attached in %s mode; it can't be attached in %s mode!" (Uuid.to_string uuid) (string_of_mode (get_mode uuid)) (string_of_mode mode));
 	   let attach_path = 
 	     Sm.call_sm_vdi_functions ~__context ~vdi:self

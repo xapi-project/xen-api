@@ -817,7 +817,7 @@ exception Domain_shutdown_for_wrong_reason of Xal.died_reason
 (** Tells a VM to shutdown with a specific reason (reboot/halt/poweroff), waits for
     it to shutdown (or vanish) and then return the reason.
 	Note this is not always called with the per-VM mutex. *)
-let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid reason =
+let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_timeout = 5.) domid reason =
   (* Set the task allowed_operations to include cancel *)
   if reason <> Domain.Suspend then TaskHelper.set_cancellable ~__context;
 
@@ -855,7 +855,8 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self domid r
   let result = ref None in
   while (Unix.gettimeofday () -. start < total_timeout) && (!result = None) do
     try
-      result := Some (Xal.wait_release xal ~timeout:5. domid);
+      debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
+      result := Some (Xal.wait_release xal ~timeout:rel_timeout domid);
     with Xal.Timeout -> 
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
