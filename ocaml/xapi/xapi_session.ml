@@ -357,10 +357,11 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 			~auth_user_sid:"" ~rbac_permissions:[]
 	end 
 	else
-	let login_as_local_superuser ()= 
-		if uname <> local_superuser then (* makes local superuser = root only*)
-		     failwith ("Local superuser must be "^local_superuser) else
-		begin
+	let login_as_local_superuser auth_type = 
+		if (auth_type <> "") && (uname <> local_superuser)
+		then (* makes local superuser = root only*)
+		     failwith ("Local superuser must be "^local_superuser)
+		else begin
 			do_local_auth uname pwd;
 			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
 			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
@@ -377,12 +378,12 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 	in
 	(	match (Db.Host.get_external_auth_type ~__context ~self:(Helpers.get_localhost ~__context)) with
 
-		| "" -> (* no external authentication *)
+		| "" as auth_type -> (* no external authentication *)
 			begin
 				(*debug "External authentication is disabled";*)
 				(* only attempts to authenticate against the local superuser credentials *)
 				try
-					login_as_local_superuser ()
+					login_as_local_superuser auth_type
 				with (Failure msg) -> 
 					begin
 						info "Failed to locally authenticate user %s from %s: %s" uname (Context.get_origin __context) msg;
@@ -395,7 +396,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 				debug "External authentication %s is enabled" auth_type;
 				(* 1. first attempts to authenticate against the local superuser *)
 				try
-					login_as_local_superuser ()
+					login_as_local_superuser auth_type
 				with (Failure msg) ->
 				begin
 				try
