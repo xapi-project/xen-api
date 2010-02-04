@@ -112,14 +112,14 @@ let network_gc_func() =
 	debug "Skipping network GC")
     
 
-let pool_introduce ~__context ~name_label ~name_description ~other_config ~bridge =
+let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
-    ~name_label ~name_description ~bridge ~other_config ~blobs:[] ~tags:[];
+    ~name_label ~name_description ~mTU ~bridge ~other_config ~blobs:[] ~tags:[];
   r
   
-let create ~__context ~name_label ~name_description ~other_config ~tags =
+let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
 		let networks = Db.Network.get_all ~__context in
 		let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
@@ -131,7 +131,7 @@ let create ~__context ~name_label ~name_description ~other_config ~tags =
 				let r = Ref.make () and uuid = Uuid.make_uuid () in
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
 				  ~current_operations:[] ~allowed_operations:[]
-				  ~name_label ~name_description ~bridge:name ~other_config ~blobs:[] ~tags;
+				  ~name_label ~name_description ~mTU ~bridge:name ~other_config ~blobs:[] ~tags;
 				r in
 		loop ()) 
 

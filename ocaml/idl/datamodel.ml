@@ -3609,6 +3609,7 @@ let network_introduce_params first_rel =
   [
     {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="name_description"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Int; param_name="mTU"; param_doc=""; param_release=first_rel; param_default=(Some (VInt 1500L))};
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
   ]
@@ -3648,6 +3649,7 @@ let network =
     ] @ (allowed_and_current_operations ~writer_roles:_R_POOL_OP network_operations) @ [
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "list of connected vifs";
       field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
+      field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
       field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
       field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
