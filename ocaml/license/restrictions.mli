@@ -45,6 +45,7 @@ type restrictions = {
 	enable_performance    : bool; (** used by XenCenter? *)
 	enable_wlb            : bool; (** enable Workload Balancing (WLB) *)
 	enable_rbac           : bool; (** enable Role-Based Access Control (RBAC) *)
+	enable_dmc            : bool; (** enable Dynamic Memory Control (DMC) *)
 	restrict_connection   : bool; (** not used anymore; perhaps XenCenter does? *)
 	platform_filter       : bool; (** filter platform data on domain create? *)
 	regular_nag_dialog    : bool; (** used by XenCenter *)
@@ -82,3 +83,6 @@ val license_ok_for_wlb : __context:'a -> bool
 (** Checks whether we are entitled to enable Role-Based Access Control (RBAC) in the pool *)
 val license_ok_for_rbac : __context:'a -> bool
 
+(** Checks whether we are entitled to enable Dynamic Memory Control (DMC)
+  * in the pool. *)
+val context_ok_for_dmc : __context:'a -> bool
