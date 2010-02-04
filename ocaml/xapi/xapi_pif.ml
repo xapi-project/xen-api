@@ -105,7 +105,7 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
     let () = Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
       ~current_operations:[] ~allowed_operations:[]
       ~name_label:(Helpers.choose_network_name_for_pif device)
-      ~name_description:""
+      ~name_description:"" ~mTU:1500L
       ~bridge ~other_config:[] ~blobs:[] ~tags:[] in
     net_ref
 
