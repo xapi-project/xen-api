@@ -46,6 +46,7 @@ type restrictions = {
 	enable_wlb            : bool; (** enable Workload Balancing (WLB) *)
 	enable_rbac           : bool; (** enable Role-Based Access Control (RBAC) *)
 	enable_dmc            : bool; (** enable Dynamic Memory Control (DMC) *)
+	enable_checkpoint     : bool; (** enable Checkpoint *)
 	enable_vswitch_controller : bool; (** enable use of a Distributed VSwitch (DVS) Controller *)
 	restrict_connection   : bool; (** not used anymore; perhaps XenCenter does? *)
 	platform_filter       : bool; (** filter platform data on domain create? *)
@@ -87,3 +88,6 @@ val license_ok_for_rbac : __context:'a -> bool
 (** Checks whether we are entitled to enable Dynamic Memory Control (DMC)
   * in the pool. *)
 val context_ok_for_dmc : __context:'a -> bool
+
+(** Checks whether we are entitled to enable checkpoint *)
+val ok_for_checkpoint : unit -> bool
