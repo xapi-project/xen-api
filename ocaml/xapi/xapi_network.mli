@@ -59,6 +59,7 @@ val pool_introduce :
   __context:Context.t ->
   name_label:string ->
   name_description:string ->
+  mTU:int64 ->
   other_config:(string * string) list -> bridge:string -> [ `network ] Ref.t
 
 (** Attempt to create a bridge with a unique name *)
@@ -66,6 +67,7 @@ val create :
   __context:Context.t ->
   name_label:string ->
   name_description:string ->
+  mTU:int64 ->
   other_config:(string * string) list ->
   tags:string list -> [ `network ] Ref.t
 
