@@ -59,23 +59,28 @@ type restrictions = {
 }
 
 (** Used for printing compact host x restriction tables *)
-let to_compact_string (x: restrictions) = 
-	(if x.enable_vlans          then "VLAN "     else "     "    ) ^
-	(if x.enable_qos            then "QoS  "     else "     "    ) ^
-	(if x.enable_shared_storage then "SStorage " else "         ") ^
-	(if x.enable_netapp         then "NTAP "     else "     "    ) ^
-	(if x.enable_equalogic      then "EQL  "     else "     "    ) ^
-	(if x.enable_pooling        then "Pool "     else "     "    ) ^
-	(if x.enable_xha            then "XHA  "     else "     "    ) ^
-	(if x.enable_mtc_pci        then "MTC  "     else "     "    ) ^
-	(if x.enable_email          then "email "    else "      "   ) ^
-	(if x.enable_performance    then "perf "     else "     "    ) ^
-	(if x.enable_wlb            then "WLB  "     else "     "    ) ^
-	(if x.enable_rbac           then "RBAC "     else "     "    ) ^
-	(if x.enable_dmc            then "DMC "      else "    "     ) ^
-	(if x.restrict_connection   then "     "     else "Cnx  "    ) ^
-	(if x.platform_filter       then "     "     else "Plat "    ) ^
-	(if x.regular_nag_dialog    then " nag "     else "     "    )
+let to_compact_string (x: restrictions) =
+	let tag_flag_pair_list = [
+		"VLAN"    ,     x.enable_vlans         ;
+		"QoS"     ,     x.enable_qos           ;
+		"SStorage",     x.enable_shared_storage;
+		"NTAP"    ,     x.enable_netapp        ;
+		"EQL"     ,     x.enable_equalogic     ;
+		"Pool"    ,     x.enable_pooling       ;
+		"XHA"     ,     x.enable_xha           ;
+		"MTC"     ,     x.enable_mtc_pci       ;
+		"email"   ,     x.enable_email         ;
+		"perf"    ,     x.enable_performance   ;
+		"WLB"     ,     x.enable_wlb           ;
+		"RBAC"    ,     x.enable_rbac          ;
+		"DMC"     ,     x.enable_dmc           ;
+		"Cnx"     , not x.restrict_connection  ;
+		"Plat"    , not x.platform_filter      ;
+		"nag"     ,     x.regular_nag_dialog   ;
+	] in
+	let to_string (tag, flag) =
+		if flag then tag else String.make (String.length tag) ' ' in
+	String.concat " " (List.map to_string tag_flag_pair_list)
 
 (** Represents no restrictions at all *)
 let most_permissive = {
