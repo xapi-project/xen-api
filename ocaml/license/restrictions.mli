@@ -46,6 +46,7 @@ type restrictions = {
 	enable_wlb            : bool; (** enable Workload Balancing (WLB) *)
 	enable_rbac           : bool; (** enable Role-Based Access Control (RBAC) *)
 	enable_dmc            : bool; (** enable Dynamic Memory Control (DMC) *)
+	enable_vswitch_controller : bool; (** enable use of a Distributed VSwitch (DVS) Controller *)
 	restrict_connection   : bool; (** not used anymore; perhaps XenCenter does? *)
 	platform_filter       : bool; (** filter platform data on domain create? *)
 	regular_nag_dialog    : bool; (** used by XenCenter *)
