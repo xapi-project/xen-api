@@ -53,6 +53,7 @@ type restrictions = {
 	enable_wlb : bool;
 	enable_rbac : bool;
 	enable_dmc : bool;
+	enable_vswitch_controller : bool;
 	restrict_connection : bool;
 	platform_filter : bool;
 	regular_nag_dialog : bool;
@@ -74,6 +75,7 @@ let to_compact_string (x: restrictions) =
 		"WLB"     ,     x.enable_wlb           ;
 		"RBAC"    ,     x.enable_rbac          ;
 		"DMC"     ,     x.enable_dmc           ;
+		"DVSC"    ,     x.enable_vswitch_controller;
 		"Cnx"     , not x.restrict_connection  ;
 		"Plat"    , not x.platform_filter      ;
 		"nag"     ,     x.regular_nag_dialog   ;
@@ -97,6 +99,7 @@ let most_permissive = {
 	enable_wlb            = true;
 	enable_rbac           = true;
 	enable_dmc            = true;
+	enable_vswitch_controller = true;
 	restrict_connection   = false;
 	platform_filter       = false;
 	regular_nag_dialog    = false;
@@ -118,6 +121,7 @@ let least_permissive (a: restrictions) (b: restrictions) = {
 	enable_wlb            = a.enable_wlb            && b.enable_wlb;
 	enable_rbac           = a.enable_rbac           && b.enable_rbac;
 	enable_dmc            = a.enable_dmc            && b.enable_dmc;
+	enable_vswitch_controller = a.enable_vswitch_controller && b.enable_vswitch_controller;
 	restrict_connection   = a.restrict_connection   || b.restrict_connection;
 	platform_filter       = a.platform_filter       || b.platform_filter;
 	regular_nag_dialog    = a.regular_nag_dialog    || b.regular_nag_dialog;
@@ -147,6 +151,7 @@ let _restrict_historical_performance = "restrict_historical_performance"
 let _restrict_wlb = "restrict_wlb"
 let _restrict_rbac = "restrict_rbac"
 let _restrict_dmc = "restrict_dmc"
+let _restrict_vswitch_controller = "restrict_vswitch_controller"
 let _regular_nag_dialog = "regular_nag_dialog"
 
 let to_assoc_list (x: restrictions) = 
@@ -165,6 +170,7 @@ let to_assoc_list (x: restrictions) =
     (_restrict_wlb, string_of_bool (not x.enable_wlb));
     (_restrict_rbac, string_of_bool (not x.enable_rbac));
     (_restrict_dmc,                    string_of_bool (not x.enable_dmc           ));
+    (_restrict_vswitch_controller,     string_of_bool (not x.enable_vswitch_controller ));
     (_regular_nag_dialog, string_of_bool x.regular_nag_dialog);
   ]
 
@@ -188,6 +194,7 @@ let of_assoc_list x =
     enable_wlb            = Opt.default most_permissive.enable_wlb            (Opt.map not (find bool_of_string _restrict_wlb));
     enable_rbac           = Opt.default most_permissive.enable_rbac           (Opt.map not (find bool_of_string _restrict_rbac));
     enable_dmc            = Opt.default most_permissive.enable_dmc            (Opt.map not (find bool_of_string _restrict_dmc));
+	enable_vswitch_controller = Opt.default most_permissive.enable_dmc            (Opt.map not (find bool_of_string _restrict_vswitch_controller));
     regular_nag_dialog    = Opt.default most_permissive.regular_nag_dialog                 (find bool_of_string _regular_nag_dialog);
   }
 
@@ -210,6 +217,7 @@ let common_to_all_skus =
     enable_wlb = false;
     enable_rbac = false;
 	enable_dmc = false;
+    enable_vswitch_controller = false;
     regular_nag_dialog = true;
   }
 
@@ -231,6 +239,7 @@ let rec restrictions_of_sku = function
 		enable_wlb = true;
 		enable_rbac = true;
 		enable_dmc = true;
+        enable_vswitch_controller = true;
 		regular_nag_dialog = false;
 	}
 
@@ -263,3 +272,6 @@ let license_ok_for_rbac ~__context =
   
 let context_ok_for_dmc ~__context = 
   (get_pool()).enable_dmc
+
+let license_ok_for_dmc ~__context = 
+  (get_pool()).enable_vswitch_controller
