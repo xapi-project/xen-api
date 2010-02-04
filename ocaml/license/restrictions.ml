@@ -267,10 +267,12 @@ let update_pool_restrictions ~__context =
        let hosts = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Db.Host.get_all_records ~__context) in
        let new_restrictions = pool_restrictions_of_list (List.map of_assoc_list hosts) in
        if new_restrictions <> !pool_restrictions then begin
-	 info "Old pool restrictions: %s" (to_compact_string !pool_restrictions);
-	 info "New pool restrictions: %s" (to_compact_string new_restrictions);
-	 pool_restrictions := new_restrictions
-       end
+		 info "Old pool restrictions: %s" (to_compact_string !pool_restrictions);
+		 info "New pool restrictions: %s" (to_compact_string new_restrictions);
+		 pool_restrictions := new_restrictions
+       end;
+       let pool = List.hd (Db.Pool.get_all ~__context) in
+       Db.Pool.set_restrictions ~__context ~self:pool ~value:(to_assoc_list new_restrictions)
     )
 
 let license_ok_for_wlb ~__context =
@@ -285,5 +287,5 @@ let context_ok_for_dmc ~__context =
 let ok_for_checkpoint () =
 	(get_pool()).enable_checkpoint
 
-let license_ok_for_dmc ~__context = 
+let license_ok_for_vswitch_controller ~__context = 
   (get_pool()).enable_vswitch_controller
