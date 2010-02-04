@@ -1393,7 +1393,7 @@ let vif_unplug printer rpc session_id params =
 let net_create printer rpc session_id params = 
   let network = List.assoc "name-label" params in
   let descr = if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
-  let net = Client.Network.create rpc session_id network descr [] [] in
+  let net = Client.Network.create rpc session_id network descr 1500L [] [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
   printer (Cli_printer.PList [uuid])
 

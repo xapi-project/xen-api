@@ -423,7 +423,7 @@ let host_vbridge_add printer rpc session_id params =
   let name = List.assoc "vbridge-name" params in
   let autoadd = List.assoc "auto-vm-add" params in
   let desc = try List.assoc "vbridge-description" params with _ -> "" in
-  ignore(Client.Network.create rpc session_id name desc 
+  ignore(Client.Network.create rpc session_id name desc 1500L
 	    (if autoadd="true" then [("auto_add_to_VM",autoadd);("geneva-name",name)] else [("geneva-name",name)]) [])
 
 let host_vbridge_remove printer rpc session_id params =
