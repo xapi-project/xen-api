@@ -20,6 +20,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define HYPCALLcmd "hypcall"
+
 static int fake_interface_open(void)
 {
 	struct sockaddr_un remote;
@@ -330,7 +332,11 @@ static int fake_xen_schedop(int handle, unsigned long cmd, sched_remote_shutdown
 {
 	switch (cmd) {
 	case SCHEDOP_remote_shutdown:
-		return 0;
+		marshall_command(handle, "%s,%d,%d,%d\n", HYPCALLcmd,
+						 1, 
+		                 arg->domain_id,
+						 arg->reason);
+		return unmarshall_return(handle);
 	default:
 		return -EINVAL;
 	}
