@@ -25,95 +25,93 @@ let is_floodgate_free x =
 	x = Express
 
 let sku_of_string = function
-| "XE Express" -> Express
-| "XE Enterprise" -> Enterprise
-| x -> failwith (Printf.sprintf "Unknown SKU type: '%s'" x)
+	| "XE Express" -> Express
+	| "XE Enterprise" -> Enterprise
+	| x -> failwith (Printf.sprintf "Unknown SKU type: '%s'" x)
 
 let string_of_sku = function
-| Express -> "XE Express"
-| Enterprise -> "XE Enterprise"
+	| Express -> "XE Express"
+	| Enterprise -> "XE Enterprise"
 
-(* CA-26992: to avoid confusing the user with legacy SKU names we trivially obfuscate them *)
+(** CA-26992: to avoid confusing the user with legacy SKU names we trivially obfuscate them *)
 let obfuscated_string_of_sku = function
-| Express -> "RF" (*free*)
-| Enterprise -> "RP" (*paid*)
+	| Express -> "RF" (*free*)
+	| Enterprise -> "RP" (*paid*)
 
-(* The restrictions that are applied *)
-type restrictions = 
-    {
-      enable_vlans : bool;
-      enable_qos : bool;
-      enable_shared_storage : bool;
-      enable_netapp : bool;
-      enable_equalogic : bool;
-      enable_pooling : bool;
-      enable_xha: bool;
-      enable_mtc_pci: bool;
-      enable_email : bool;
-      enable_performance : bool;
-      enable_wlb : bool;
-      enable_rbac : bool;
-      restrict_connection : bool;
-      platform_filter : bool;
-      regular_nag_dialog : bool;
-    }
+(** The restrictions that are applied *)
+type restrictions = {
+	enable_vlans : bool;
+	enable_qos : bool;
+	enable_shared_storage : bool;
+	enable_netapp : bool;
+	enable_equalogic : bool;
+	enable_pooling : bool;
+	enable_xha: bool;
+	enable_mtc_pci: bool;
+	enable_email : bool;
+	enable_performance : bool;
+	enable_wlb : bool;
+	enable_rbac : bool;
+	restrict_connection : bool;
+	platform_filter : bool;
+	regular_nag_dialog : bool;
+}
 
-(* Used for printing compact host x restriction tables *)
+(** Used for printing compact host x restriction tables *)
 let to_compact_string (x: restrictions) = 
-  (if x.enable_vlans            then "VLAN " else "     ") ^
-    (if x.enable_qos            then "QoS  " else "     ") ^
-    (if x.enable_shared_storage then "SStorage " else "         ") ^
-    (if x.enable_netapp         then "NTAP " else "     ") ^
-    (if x.enable_equalogic      then "EQL  " else "     ") ^
-    (if x.enable_pooling        then "Pool " else "     ") ^
-    (if x.enable_xha            then "XHA  " else "     ") ^
-    (if x.enable_mtc_pci        then "MTC  " else "     ") ^
-    (if x.enable_email          then "email " else "      ") ^
-    (if x.enable_performance    then "perf " else "     ") ^
-    (if x.enable_wlb            then "WLB  " else "     ") ^
-    (if x.enable_rbac           then "RBAC " else "     ") ^
-    (if x.restrict_connection   then "     " else "Cnx  ") ^
-    (if x.platform_filter       then "     " else "Plat ") ^
-    (if x.regular_nag_dialog    then " nag " else "     ")
+	(if x.enable_vlans          then "VLAN "     else "     "    ) ^
+	(if x.enable_qos            then "QoS  "     else "     "    ) ^
+	(if x.enable_shared_storage then "SStorage " else "         ") ^
+	(if x.enable_netapp         then "NTAP "     else "     "    ) ^
+	(if x.enable_equalogic      then "EQL  "     else "     "    ) ^
+	(if x.enable_pooling        then "Pool "     else "     "    ) ^
+	(if x.enable_xha            then "XHA  "     else "     "    ) ^
+	(if x.enable_mtc_pci        then "MTC  "     else "     "    ) ^
+	(if x.enable_email          then "email "    else "      "   ) ^
+	(if x.enable_performance    then "perf "     else "     "    ) ^
+	(if x.enable_wlb            then "WLB  "     else "     "    ) ^
+	(if x.enable_rbac           then "RBAC "     else "     "    ) ^
+	(if x.restrict_connection   then "     "     else "Cnx  "    ) ^
+	(if x.platform_filter       then "     "     else "Plat "    ) ^
+	(if x.regular_nag_dialog    then " nag "     else "     "    )
 
-(* Represents no restrictions at all *)
-let most_permissive = 
-  {
-    enable_vlans = true;
-    enable_qos = true;
-    enable_shared_storage = true;
-    enable_netapp = true;
-    enable_equalogic = true;
-    enable_pooling = true;
-    enable_xha = true;
-    enable_mtc_pci = true;
-    enable_email = true;
-    enable_performance = true;
-    enable_wlb = true;
-    enable_rbac = true;
-    restrict_connection = false;
-    platform_filter = false;
-    regular_nag_dialog = false;
-  }
+(** Represents no restrictions at all *)
+let most_permissive = {
+	enable_vlans          = true;
+	enable_qos            = true;
+	enable_shared_storage = true;
+	enable_netapp         = true;
+	enable_equalogic      = true;
+	enable_pooling        = true;
+	enable_xha            = true;
+	enable_mtc_pci        = true;
+	enable_email          = true;
+	enable_performance    = true;
+	enable_wlb            = true;
+	enable_rbac           = true;
+	restrict_connection   = false;
+	platform_filter       = false;
+	regular_nag_dialog    = false;
+}
 
-(* Return a new restrictions record which, for each field, takes the least permissive of the two arguments *)
-let least_permissive (a: restrictions) (b: restrictions) =
-{
-  enable_vlans          = a.enable_vlans          && b.enable_vlans;
-  enable_qos            = a.enable_qos            && b.enable_qos;
-  enable_shared_storage = a.enable_shared_storage && b.enable_shared_storage;
-  enable_netapp         = a.enable_netapp         && b.enable_netapp;
-  enable_equalogic      = a.enable_equalogic      && b.enable_equalogic;
-  enable_pooling        = a.enable_pooling        && b.enable_pooling;
-  enable_xha            = a.enable_xha            && b.enable_xha;
-  enable_mtc_pci        = a.enable_mtc_pci        && b.enable_mtc_pci;
-  enable_email          = a.enable_email          && b.enable_email;
-  enable_performance    = a.enable_performance    && b.enable_performance;
-  enable_wlb            = a.enable_wlb            && b.enable_wlb;
-  enable_rbac           = a.enable_rbac           && b.enable_rbac;
-  restrict_connection   = a.restrict_connection   || b.restrict_connection;
-  platform_filter       = a.platform_filter       || b.platform_filter;
-  regular_nag_dialog    = a.regular_nag_dialog    || b.regular_nag_dialog;
+(** Return a new restrictions record which, for each field, takes the least 
+  * permissive of the two arguments *)
+let least_permissive (a: restrictions) (b: restrictions) = {
+	enable_vlans          = a.enable_vlans          && b.enable_vlans;
+	enable_qos            = a.enable_qos            && b.enable_qos;
+	enable_shared_storage = a.enable_shared_storage && b.enable_shared_storage;
+	enable_netapp         = a.enable_netapp         && b.enable_netapp;
+	enable_equalogic      = a.enable_equalogic      && b.enable_equalogic;
+	enable_pooling        = a.enable_pooling        && b.enable_pooling;
+	enable_xha            = a.enable_xha            && b.enable_xha;
+	enable_mtc_pci        = a.enable_mtc_pci        && b.enable_mtc_pci;
+	enable_email          = a.enable_email          && b.enable_email;
+	enable_performance    = a.enable_performance    && b.enable_performance;
+	enable_wlb            = a.enable_wlb            && b.enable_wlb;
+	enable_rbac           = a.enable_rbac           && b.enable_rbac;
+	restrict_connection   = a.restrict_connection   || b.restrict_connection;
+	platform_filter       = a.platform_filter       || b.platform_filter;
+	regular_nag_dialog    = a.regular_nag_dialog    || b.regular_nag_dialog;
 }
 
 let pool_restrictions_of_list (hosts: restrictions list) = List.fold_left least_permissive most_permissive hosts
@@ -237,12 +235,10 @@ let update_pool_restrictions ~__context =
        let hosts = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Db.Host.get_all_records ~__context) in
        let new_restrictions = pool_restrictions_of_list (List.map of_assoc_list hosts) in
        if new_restrictions <> !pool_restrictions then begin
-		 info "Old pool restrictions: %s" (to_compact_string !pool_restrictions);
-		 info "New pool restrictions: %s" (to_compact_string new_restrictions);
-		 pool_restrictions := new_restrictions
-       end;
-	   let pool = List.hd (Db.Pool.get_all ~__context) in
-	   Db.Pool.set_restrictions ~__context ~self:pool ~value:(to_assoc_list new_restrictions)
+	 info "Old pool restrictions: %s" (to_compact_string !pool_restrictions);
+	 info "New pool restrictions: %s" (to_compact_string new_restrictions);
+	 pool_restrictions := new_restrictions
+       end
     )
 
 let license_ok_for_wlb ~__context =
