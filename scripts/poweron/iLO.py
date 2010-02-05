@@ -29,6 +29,7 @@ def iLO(power_on_ip, user, password):
 	ctx = M2Crypto.SSL.Context()
 	ctx.set_session_timeout(500)
 	s = M2Crypto.SSL.Connection(ctx)
+	s.set_post_connection_check_callback(None)
 	totalmsg=''
 	try:
 		s.connect((power_on_ip,443))
