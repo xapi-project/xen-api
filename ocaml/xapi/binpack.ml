@@ -217,7 +217,7 @@ let rec mkints = function
    1. every VM that fails is as big as the biggest protected VM
    2. the number of VMs which fail is always the maximum possible (even if these are all very small VMs)
    3. the largest hosts fail
-   If we can find a failover plan then we all real failures will be "easier" to deal with; failed hosts and VMs will 
+   If we can find a failover plan then all real failures will be "easier" to deal with; failed hosts and VMs will 
    be smaller (or equal to) in both number and size. *)
 
 (** Return the maximum number of VMs that could fail due to one host failures *)
