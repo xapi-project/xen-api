@@ -150,7 +150,12 @@ let one s debian test =
 					   | Internal_halt -> Xc.Halt
 					   | Internal_crash -> Xc.Crash
 					   | Internal_suspend -> Xc.Suspend in
-					 Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
+					 begin 
+					   try
+						 Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
+					   with e ->
+						   debug t (Printf.sprintf "Ignoring exception: %s" (Printexc.to_string e))
+					 end
 			   | { api = Some x; parallel_op = Some y } ->
 					 let reason = match y with
 					   | Internal_reboot -> "reboot"
