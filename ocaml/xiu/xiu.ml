@@ -120,6 +120,11 @@ type domctl = Domctl_create | Domctl_destroy | Domctl_pause | Domctl_unpause
 
 type sysctl = Sysctl_getdomaininfolist | Sysctl_physinfo | Sysctl_getcpuinfo | Sysctl_unknown of int
 
+type hypcall = Hypcall_domain_shutdown
+
+let hypcall_of_int = function
+  | 1 -> Hypcall_domain_shutdown
+
 let domctl_of_int = function
 	| 1  -> Domctl_create | 2 -> Domctl_destroy
 	| 3  -> Domctl_pause | 4 -> Domctl_unpause
@@ -528,6 +533,11 @@ let domain_destroy domid =
   transfer_to_domain d (-d.tot_mem_kib);
   Hashtbl.remove domains domid
 
+let domain_shutdown domid reason = 
+  let d = domain_find domid in
+  d.state <- Shutdown reason;
+  0
+
 let domain_sethandle domid uuid =
 	let dom = domain_find domid in dom.uuid <- uuid; ()
 
@@ -597,7 +607,19 @@ let exn_to_errno f =
 let int_of_hexstring s = Scanf.sscanf s "%x" (fun a -> a)
 
 let do_xc_cmd fd cmd =
-	let do_xc_domctl _cmd args =
+  let do_hypcall _cmd args = 
+	let cmd = hypcall_of_int (int_of_string _cmd) in
+	match cmd, args with
+	| Hypcall_domain_shutdown, [domid; reason] ->
+		  let domid = int_of_string domid in
+		  let reason = int_of_string reason in
+		  hypercall_debug (sprintf "domain_shutdown %d %d" domid reason);
+		  exn_to_errno (fun () -> domain_shutdown domid reason)
+	| _,_ ->
+		  hypercall_debug (sprintf "HYCALL(%s) not implemented or invalid number of args ([%s])" _cmd (String.concat ";" args));
+			-einval
+  in
+  let do_xc_domctl _cmd args =
 		let cmd = domctl_of_int (int_of_string _cmd) in
 		match cmd, args with
 		| Domctl_create, [hvm; hap; handle] ->
@@ -716,6 +738,7 @@ let do_xc_cmd fd cmd =
 	let ret = match lcmd with
 	| "domctl" :: cmd :: args -> do_xc_domctl cmd args
 	| "sysctl" :: cmd :: args -> do_xc_sysctl cmd args
+	| "hypcall" :: cmd :: args -> do_hypcall cmd args
 	| _                       -> -einval in
 	marshall_int fd ret
 
