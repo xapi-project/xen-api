@@ -417,6 +417,9 @@ let unpause ~__context ~self ~token =
   | Device.Device_not_paused ->
       debug "Ignoring Device_not_paused exception";
       Opt.iter (device_is_unpaused self) state
+  | Device.Device_not_found ->
+      debug "Ignoring Device_not_found exception";
+      Opt.iter (device_is_unpaused self) state
   | Device.Pause_token_mismatch ->
       warn "Unpause left device paused because supplied token did not match"
 
