@@ -372,7 +372,10 @@ let rec wait_for_task_complete session_id task =
   | _ -> ()
 
 (* CP-831 *)
-let test_vhd_locking_hook test session_id vm =
+let test_vhd_locking_hook session_id vm =
+  let test = make_test "test vhd locking hook" 2 in
+  start test;
+  Client.VM.start !rpc session_id vm false false;
   (* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
   let vbds = Client.VM.get_VBDs !rpc session_id vm in
   let vdis = List.map (fun vbd -> Client.VBD.get_VDI !rpc session_id vbd) vbds in
@@ -412,7 +415,8 @@ let test_vhd_locking_hook test session_id vm =
     debug test (Printf.sprintf "lvhd-script-hook tool %.2f seconds; output was: %s" (Unix.gettimeofday () -. start') result);
   done;
   Thread.join t;
-  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops)
+  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
+  success test
 
 let powercycle_test session_id vm = 
   let test = make_test "Powercycling VM" 1 in
@@ -435,7 +439,6 @@ let powercycle_test session_id vm =
        *)
        debug test "Starting VM";
        Client.VM.start !rpc session_id vm false false;
-       test_vhd_locking_hook test session_id vm;
        delay ();
        debug test "Rebooting VM";
        Client.VM.clean_reboot !rpc session_id vm;
@@ -599,32 +602,39 @@ let async_test session_id =
 let make_vif ~session_id ~vM ~network ~device = 
   Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:1400L ~mAC:"" ~device ~other_config:["promiscuous", "on"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
 
-let vm_powercycle_test s = 
+let with_debian s f = 
   try
     let (_: API.ref_VM) = find_template s debian_etch in
-    let test = make_test "Setting up VM for powercycle test" 0 in
+    let test = make_test "Setting up debian VM" 0 in
     start test;
     let debian = install_debian test s in
-    (* Try to add some VIFs *)
-    let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
-    debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
-    let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:guest_installer_network ~device:"0" in
-    begin match Client.PIF.get_all !rpc s with
-    | pif :: _ ->
-	let net = Client.PIF.get_network !rpc s pif in
-	debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
-	let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:net ~device:"1" in
-	()
-    | _ -> ()
-    end;
-    vbd_pause_unpause_test s debian;
-    powercycle_test s debian;
-	Quicktest_lifecycle.test s debian;
-    vm_uninstall test s debian;  
-    success test
+	f s debian;
+	vm_uninstall test s debian;
+	success test
   with Unable_to_find_suitable_debian_template ->
     (* SKIP *)
     ()
+
+let vm_powercycle_test s debian = 
+  let test = make_test "VM powercycle test" 1 in
+  start test;
+  (* Try to add some VIFs *)
+  let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
+  debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
+  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:guest_installer_network ~device:"0" in
+  begin match Client.PIF.get_all !rpc s with
+  | pif :: _ ->
+		let net = Client.PIF.get_network !rpc s pif in
+		debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
+		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:net ~device:"1" in
+		()
+  | _ -> ()
+  end;
+  vbd_pause_unpause_test s debian;
+  powercycle_test s debian;
+  success test
+
+
 
 let squeeze_test () = 
   let test = make_test "Memory squeezer tests" 0 in
@@ -635,11 +645,13 @@ let squeeze_test () =
   else failed test "one or more scenarios failed"
 
 let _ =
+  let all_tests = [ "storage"; "vm-placement"; "vm-memory-constraints"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing"; "lifecycle"; "vhd" ] in
+  let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
-  let possible_tests = [ "storage"; "vm-placement"; "vm-memory-constraints"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing" ] in
-  let only_this_test = ref "" in (* default is run everything *)
+  let tests_to_run = ref default_tests in (* default is everything *)
   Arg.parse 
-    [ "-single", Arg.Set_string only_this_test, Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " possible_tests) ;
+    [ "-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
+	  "-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
       "-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
     (fun x -> match !host, !username, !password with
      | "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
@@ -651,8 +663,8 @@ let _ =
   if !username = "" then username := "root";
   
   let maybe_run_test name f = 
-    assert (List.mem name possible_tests);
-    if !only_this_test = "" || !only_this_test = name then f () in
+    assert (List.mem name all_tests);
+	if List.mem name !tests_to_run then f () in
 
   Stunnel.init_stunnel_path ();
   let s = init_session !username !password in
@@ -669,7 +681,10 @@ let _ =
 	  maybe_run_test "vdi" (fun () -> vdi_test s);
 	  maybe_run_test "async" (fun () -> async_test s);
 	  maybe_run_test "import" (fun () -> import_export_test s);
-	  maybe_run_test "powercycle" (fun () -> vm_powercycle_test s);
+	  maybe_run_test "vhd" (fun () -> with_debian s test_vhd_locking_hook);
+	  maybe_run_test "powercycle" (fun () -> with_debian s vm_powercycle_test);
+	  maybe_run_test "lifecycle" (fun () -> with_debian s Quicktest_lifecycle.test);
+
 	with
 	| Api_errors.Server_error (a,b) ->
 	    output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));

@@ -93,6 +93,8 @@ let all_tests = Hashtbl.create 10
 let make_test name indent = { name = name; indent = indent; status = Pending }
 
 let rec failed (test: test_description) msg = 
+  if not (Hashtbl.mem all_tests test.name)
+  then failwith (Printf.sprintf "Test not started: %s" test.name);
   if Hashtbl.mem all_tests test.name then Hashtbl.remove all_tests test.name;
   test.status <- Failed;
   debug test msg;
@@ -119,6 +121,9 @@ and debug (test: test_description) msg =
   flush stdout
 
 let success (test: test_description) = 
+  if not (Hashtbl.mem all_tests test.name)
+  then failwith (Printf.sprintf "Test not started: %s" test.name);
+
   if Hashtbl.mem all_tests test.name then Hashtbl.remove all_tests test.name;
   if test.status = Pending then begin
     incr total_passed;
