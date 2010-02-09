@@ -277,41 +277,32 @@ let debian_xgt_template rpc session_id name_label short_name_label debian_xgt_na
     
 (** Makes a Windows template using the given memory parameters in MiB, root disk
 size in GiB, and version string. *)
-let windows_template memory root_disk_size version = 
+let windows_template ?(nx=false) ?cps memory root_disk_size version = 
 	let root = {
 		device = "0";
 		size = (root_disk_size ** gib);
 		sr = preferred_sr;
 		bootable = false;
 		_type = `system
-	} in {
-		(other_install_media_template memory) with
-		vM_name_label = Printf.sprintf "Windows %s" version;
+	} in 
+	let base = other_install_media_template memory in
+	{
+		base with
+		vM_name_label = Printf.sprintf "%sWindows %s" (Opt.default "" (Opt.map (fun cps -> cps ^ " on ") cps)) version;
 		vM_name_description =
 			Printf.sprintf "Clones of this template will automatically \
 			provision their storage when first booted and then reconfigure \
-			themselves with the optimal settings for Windows %s." version;
+			themselves with the optimal settings for %sWindows %s." 
+				(Opt.default "" (Opt.map (Printf.sprintf "running %s on ") cps))
+				version;
 		vM_other_config = [
 			disks_key, Xml.to_string (xml_of_disks [ root ]);
 			install_methods_otherconfig_key, "cdrom"
-		]
+		] @ (Opt.default [] (Opt.map (fun _ -> [ "application_template", "1" ]) cps));
+		vM_platform = if nx then with_nx_platform_flags else base.vM_platform;
+		vM_HVM_shadow_multiplier = Opt.default base.vM_HVM_shadow_multiplier (Opt.map (fun _ -> 4.0) cps);
 	}
 
-(* Make a Windows template which is the same as the normal Windows
-   one in everything except that the NX platform flag is turned on *)
-let windows_template_nx memory root_disk_size version =
-	let tmpl = windows_template memory root_disk_size version in 
-	{ tmpl with vM_platform = with_nx_platform_flags }
-
-(* Create a CPS template for either 32- or 64-bit, with a higher shadow
-   multiplier and the application_template=1 set in other_config *)
-let cps_template tmplfn name = 
-  let shadow_multipler = 4.0 in 
-  let descr = Printf.sprintf "Clones of this template will automatically provision their storage when first booted, and then reconfigure themselves with the optimal settings for running %s on Windows 2003 Server." name in
-  let tmpl = tmplfn 8L "" in
-  { tmpl with vM_HVM_shadow_multiplier = shadow_multipler; 
-     vM_name_description = descr; vM_name_label = name;
-     vM_other_config = ("application_template", "1") :: tmpl.vM_other_config }
 
 let create_all_templates rpc session_id =
   let rhel45_install_template name =
@@ -418,15 +409,19 @@ let create_all_templates rpc session_id =
 		windows_template    (default_memory_parameters  256L)  8L "XP SP2";
 		windows_template    (default_memory_parameters  256L)  8L "XP SP3";
 		windows_template    (default_memory_parameters  256L)  8L "Server 2003";
-		windows_template_nx (default_memory_parameters  256L)  8L "Server 2003 x64";
-		windows_template_nx (default_memory_parameters  512L) 24L "Server 2008";
-		windows_template_nx (default_memory_parameters  512L) 24L "Server 2008 x64";
-		windows_template_nx (default_memory_parameters 1024L) 24L "Vista";
-		windows_template_nx (default_memory_parameters 1024L) 24L "7";
-		windows_template_nx (default_memory_parameters 2048L) 24L "7 x64";
-		windows_template_nx (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
-		cps_template (windows_template    (default_memory_parameters 256L)) "Citrix XenApp";
-		cps_template (windows_template_nx (default_memory_parameters 256L)) "Citrix XenApp x64";
+		windows_template ~nx:true (default_memory_parameters  256L)  8L "Server 2003 x64";
+		windows_template ~nx:true (default_memory_parameters  512L) 24L "Server 2008";
+		windows_template ~nx:true  (default_memory_parameters  512L) 24L "Server 2008 x64";
+		windows_template ~nx:true (default_memory_parameters 1024L) 24L "Vista";
+		windows_template ~nx:true (default_memory_parameters 1024L) 24L "7";
+		windows_template ~nx:true (default_memory_parameters 2048L) 24L "7 x64";
+		windows_template ~nx:true (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
+		windows_template ~cps:"Citrix XenApp" (default_memory_parameters 256L) 8L "Server 2003";
+		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 256L) 8L "Server 2003 x64";
+
+		windows_template ~cps:"Citrix XenApp" ~nx:true (default_memory_parameters  512L) 24L "Server 2008";
+		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters  512L) 24L "Server 2008 x64";
+		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
 		begin
 			let w2000sp4 = windows_template (default_memory_parameters 128L) 8L "2000 SP4" in
 			{
