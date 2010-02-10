@@ -25,7 +25,6 @@ let power_state_to_string state =
   | `Suspended -> "Suspended"
   | `ShuttingDown -> "Shutting down"
   | `Migrating -> "Migrating"
-  | `Unknown -> "Unknown"
 
 let vm_operation_table = 
   [
@@ -279,7 +278,6 @@ let power_to_string h =
     | `Suspended -> "suspended"
     | `ShuttingDown -> "shutting down"
     | `Migrating -> "migrating"
-    | `Unknown -> "unknown"
 
 let vdi_type_to_string t =
   match t with

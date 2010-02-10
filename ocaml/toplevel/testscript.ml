@@ -58,7 +58,6 @@ let power_state_to_string state =
   | `Suspended -> "Suspended"
   | `ShuttingDown -> "Shutting down"
   | `Migrating -> "Migrating"
-  | `Unknown -> "Unknown"
 	
 let change_vm_state2 session_id vm force state =
   ignore(change_vm_state session_id vm force state);
