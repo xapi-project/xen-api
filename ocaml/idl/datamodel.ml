@@ -5433,8 +5433,7 @@ let vm_power_state =
   Enum ("vm_power_state", [ "Halted", "VM is offline and not using any resources";
 			    "Paused", "All resources have been allocated but the VM itself is paused and its vCPUs are not running";
 			    "Running", "Running";
-			    "Suspended", "VM state has been saved to disk and it is nolonger running. Note that disks remain in-use while the VM is suspended.";
-			    "Unknown", "Some other unknown state"])
+				"Suspended", "VM state has been saved to disk and it is nolonger running. Note that disks remain in-use while the VM is suspended."])
 
 let vm_operations = 
   Enum ("vm_operations",

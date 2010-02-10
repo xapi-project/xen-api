@@ -112,7 +112,6 @@ module Fct = functor(Remote: API.API) -> struct
 		| `Suspended    -> "suspend"
 		| `ShuttingDown -> "shuttingdown"
 		| `Migrating    -> "migrating"
-		| `Unknown      -> "unknown"
 
 	let get_uuid vm =
 		Remote.VM.get_uuid ~rpc ~session_id:!session_id ~self:vm
