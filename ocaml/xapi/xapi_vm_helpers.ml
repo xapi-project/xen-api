@@ -30,7 +30,7 @@ let value_not_supported fld v reason =
 let compute_memory_overhead ~__context ~vm =
   let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
     | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
-    | `Halted | `Unknown | _ -> Db.VM.get_record ~__context ~self:vm in
+    | `Halted | _ -> Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead snapshot 
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
