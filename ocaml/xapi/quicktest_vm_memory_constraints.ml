@@ -31,9 +31,8 @@ let create (static_min, dynamic_min, target, dynamic_max, static_max) =
 	; static_max  = scale static_max
 	}
 
-let test_reset_to_safe_defaults = make_test_case
+let test_reset_to_safe_defaults = make_function_test_case
 	"reset_to_safe_defaults"
-	"Tests the reset_to_safe_defaults function."
 	(fun () ->
 		List.iter
 			(fun (input, output) ->
