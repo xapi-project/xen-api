@@ -84,6 +84,9 @@ val print_string : string -> unit
 (** Makes a test case. *)
 val make_test_case : name -> description -> case -> test
 
+(** Makes a function test case with a default description. *)
+val make_function_test_case : name -> case -> test
+
 (** Makes a test suite. *)
 val make_test_suite : name -> description -> suite -> test
 
