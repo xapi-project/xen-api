@@ -578,9 +578,8 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 		dynamic_min = min;
 		target = min;
 		dynamic_max = max } in
-	if not (Vm_memory_constraints.are_valid ~constraints)
-	then raise (Api_errors.Server_error(Api_errors.memory_constraint_violation,
-		["min or max"]));
+	Vm_memory_constraints.assert_valid_for_current_context
+		~__context ~constraints;
 
 	(* memory_target is now unused but setting it equal *)
 	(* to dynamic_min avoids tripping validation code.  *)
