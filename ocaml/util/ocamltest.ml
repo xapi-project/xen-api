@@ -259,6 +259,9 @@ let print_string string =
 let make_test_case name description case =
 	Case (name, description, case)
 
+let make_function_test_case name case =
+	Case (name, sprintf "Tests the %s function." name, case)
+
 let make_test_suite name description suite =
 	Suite (name, description, suite)
 
