@@ -140,7 +140,7 @@ let set_memory_static_range ~__context ~self ~min ~max =
 		static_max = max;
 	} in
 	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~constraints;
+		~__context ~vm:self ~constraints;
 	Db.VM.set_memory_static_min ~__context ~self ~value:min;
 	Db.VM.set_memory_static_max ~__context ~self ~value:max;
 	update_memory_overhead ~__context ~vm:self
@@ -171,7 +171,7 @@ let set_memory_limits ~__context ~self
 		static_max  = static_max;
 	} in
 	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~constraints;
+		~__context ~vm:self ~constraints;
 	Vm_memory_constraints.set ~__context ~vm_ref:self ~constraints;
 	update_memory_overhead ~__context ~vm:self
 
