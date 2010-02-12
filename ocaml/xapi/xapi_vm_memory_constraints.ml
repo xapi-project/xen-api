@@ -31,7 +31,7 @@ module type T = sig
 	(** Asserts that the given set of constraints [c] is valid for the current
 	    context. *)
 	val assert_valid_for_current_context :
-		__context:Context.t -> constraints:t -> unit
+		__context:Context.t -> vm:API.ref_VM -> constraints:t -> unit
 
 	(** Extracts memory constraints from the given VM record. *)
 	val extract : vm_record:API.vM_t -> t
@@ -65,8 +65,10 @@ module Vm_memory_constraints : T = struct
 				["Memory limits must satisfy: \
 				static_min ≤ dynamic_min = dynamic_max = static_max"]))
 
-	let assert_valid_for_current_context ~__context ~constraints =
-		(if Restrictions.context_ok_for_dmc ~__context
+	let assert_valid_for_current_context ~__context ~vm ~constraints =
+	  (* NB we don't want to prevent dom0 ballooning even if we do want to prevent
+		 domU ballooning. *)
+		(if Db.VM.get_is_control_domain ~__context ~self:vm || (Restrictions.context_ok_for_dmc ~__context)
 			then assert_valid
 			else assert_valid_and_pinned_at_static_max)
 		~constraints

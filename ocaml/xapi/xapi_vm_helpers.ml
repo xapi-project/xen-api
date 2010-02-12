@@ -579,7 +579,7 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 		target = min;
 		dynamic_max = max } in
 	Vm_memory_constraints.assert_valid_for_current_context
-		~__context ~constraints;
+		~__context ~vm:self ~constraints;
 
 	(* memory_target is now unused but setting it equal *)
 	(* to dynamic_min avoids tripping validation code.  *)
