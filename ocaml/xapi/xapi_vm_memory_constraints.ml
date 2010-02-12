@@ -66,7 +66,10 @@ module Vm_memory_constraints : T = struct
 				static_min ≤ dynamic_min = dynamic_max = static_max"]))
 
 	let assert_valid_for_current_context ~__context ~constraints =
-		assert_valid ~constraints
+		(if Restrictions.context_ok_for_dmc ~__context
+			then assert_valid
+			else assert_valid_and_pinned_at_static_max)
+		~constraints
 
 	let extract ~vm_record = 
 	{
