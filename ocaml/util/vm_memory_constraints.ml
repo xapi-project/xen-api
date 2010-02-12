@@ -56,7 +56,7 @@ module type T = sig
 	(** Returns true if and only if the given memory constraints are in valid
 	  * order such that: static_min <= dynamic_min <= dynamic_max <= static_max
 	  *)
-	val valid : constraints:t -> bool
+	val are_valid : constraints:t -> bool
 
 	(** Takes the given set of possibly-invalid memory constraints {i s}, and
 	  * returns a new set of valid and unballooned constraints {i t} s.t.:
@@ -114,7 +114,7 @@ module Vm_memory_constraints : T = struct
 			dynamic_max = dynamic_max;
 		}
 
-	let valid ~constraints =
+	let are_valid ~constraints =
 		Listext.List.is_sorted compare [
 			constraints.static_min;
 			constraints.dynamic_min;
