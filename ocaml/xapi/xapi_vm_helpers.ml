@@ -578,7 +578,7 @@ let set_memory_dynamic_range ~__context ~self ~min ~max =
 		dynamic_min = min;
 		target = min;
 		dynamic_max = max } in
-	if not (Vm_memory_constraints.valid ~constraints)
+	if not (Vm_memory_constraints.are_valid ~constraints)
 	then raise (Api_errors.Server_error(Api_errors.memory_constraint_violation,
 		["min or max"]));
 
@@ -611,7 +611,7 @@ let set_memory_target_live ~__context ~self ~target = () (*
 	(* Make sure the new target is within the acceptable range. *)
 	let constraints = Vm_memory_constraints.get_live ~__context ~vm_ref:self in
 	let constraints = {constraints with Vm_memory_constraints.target = target} in
-	if not (Vm_memory_constraints.valid ~constraints) then raise (
+	if not (Vm_memory_constraints.are_valid ~constraints) then raise (
 		Api_errors.Server_error (
 		Api_errors.memory_constraint_violation, ["invalid target"]));
 	(* We've been forwarded, so the VM is local to this machine. *)
