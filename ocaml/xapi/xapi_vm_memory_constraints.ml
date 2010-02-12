@@ -20,6 +20,19 @@ module type T = sig
 
 	include Vm_memory_constraints.T
 
+	(** Asserts for the given set of constraints [c], that
+	    [c.static_min] ≤ [c.dynamic_min] ≤ [c.dynamic_max] ≤ [c.static_max]. *)
+	val assert_valid : constraints:t -> unit
+
+	(** Asserts for the given set of constraints [c], that
+	    [c.static_min] ≤ [c.dynamic_min] = [c.dynamic_max] = [c.static_max]. *)
+	val assert_valid_and_pinned_at_static_max : constraints:t -> unit
+
+	(** Asserts that the given set of constraints [c] is valid for the current
+	    context. *)
+	val assert_valid_for_current_context :
+		__context:Context.t -> constraints:t -> unit
+
 	(** Extracts memory constraints from the given VM record. *)
 	val extract : vm_record:API.vM_t -> t
 
@@ -37,6 +50,23 @@ end
 module Vm_memory_constraints : T = struct
 
 	include Vm_memory_constraints.Vm_memory_constraints
+
+	let assert_valid ~constraints =
+		if not (are_valid ~constraints)
+		then raise (Api_errors.Server_error (
+			Api_errors.memory_constraint_violation,
+				["Memory limits must satisfy: \
+				static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"]))
+
+	let assert_valid_and_pinned_at_static_max ~constraints =
+		if not (are_valid_and_pinned_at_static_max ~constraints)
+		then raise (Api_errors.Server_error (
+			Api_errors.memory_constraint_violation,
+				["Memory limits must satisfy: \
+				static_min ≤ dynamic_min = dynamic_max = static_max"]))
+
+	let assert_valid_for_current_context ~__context ~constraints =
+		assert_valid ~constraints
 
 	let extract ~vm_record = 
 	{
