@@ -28,6 +28,22 @@ module type T = sig
 		static_max  : Int64.t;
 	}
 
+	(** Given a set of constraints [c], returns [true] if and only if
+	    [c.dynamic_min] = [c.dynamic_max]. *)
+	val are_pinned : constraints:t -> bool
+
+	(** Given a set of constraints [c], returns [true] if and only if
+	    [c.dynamic_min] = [c.dynamic_max] = [c.static-max]. *)
+	val are_pinned_at_static_max : constraints:t -> bool
+
+	(** Given a set of constraints [c], returns [true] if and only if
+	    [c.static_min] ≤ [c.dynamic_min] ≤ [c.dynamic_max] ≤ [c.static_max]. *)
+	val are_valid : constraints:t -> bool
+
+	(** Given a set of constraints [c], returns [true] if and only if
+	    [c.static_min] ≤ [c.dynamic_min] = [c.dynamic_max] = [c.static-max]. *)
+	val are_valid_and_pinned_at_static_max : constraints:t -> bool
+
 	(** Creates a set of memory constraints from the given tuple whose
 	  * elements appear in order of increasing size.
 	  *)
@@ -52,11 +68,6 @@ module type T = sig
 	  * modifying the dynamic constraints, this function function returns None.
 	  *)
 	val transform : constraints:t -> t option
-
-	(** Returns true if and only if the given memory constraints are in valid
-	  * order such that: static_min <= dynamic_min <= dynamic_max <= static_max
-	  *)
-	val are_valid : constraints:t -> bool
 
 	(** Takes the given set of possibly-invalid memory constraints {i s}, and
 	  * returns a new set of valid and unballooned constraints {i t} s.t.:
@@ -114,13 +125,21 @@ module Vm_memory_constraints : T = struct
 			dynamic_max = dynamic_max;
 		}
 
-	let are_valid ~constraints =
-		Listext.List.is_sorted compare [
-			constraints.static_min;
-			constraints.dynamic_min;
-			constraints.dynamic_max;
-			constraints.static_max
-		]
+	let are_pinned ~constraints =
+		constraints.dynamic_min = constraints.dynamic_max
+
+	let are_pinned_at_static_max ~constraints = true
+		&& constraints.dynamic_max = constraints.static_max
+		&& are_pinned constraints
+
+	let are_valid ~constraints = true
+		&& constraints.static_min <= constraints.dynamic_min
+		&& constraints.dynamic_min <= constraints.dynamic_max
+		&& constraints.dynamic_max <= constraints.static_max
+
+	let are_valid_and_pinned_at_static_max ~constraints = true
+		&& constraints.static_min <= constraints.dynamic_min
+		&& are_pinned_at_static_max constraints
 
 	let reset_to_safe_defaults ~constraints = 
 		let max = constraints.static_max in
