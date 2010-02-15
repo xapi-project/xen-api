@@ -41,9 +41,7 @@
 #include <caml/callback.h>
 #include <caml/fail.h>
 
-#define EVENTCHN_PATH "/dev/xen/eventchn"
-#define EVENTCHN_MAJOR 10
-#define EVENTCHN_MINOR 63
+#define EVENTCHN_PATH "/dev/xen/evtchn"
 
 #define WITH_INJECTION_CAPABILITY
 #include "eventchn_injection.c"
@@ -73,11 +71,7 @@ int eventchn_do_open(void)
 	pre_eventchn_open();
 
 	fd = open(EVENTCHN_PATH, O_RDWR);
-	if (fd == -1 && errno == ENOENT) {
-		mkdir("/dev/xen", 0640);
-		mknod(EVENTCHN_PATH, S_IFCHR | 0640, makedev(10, 63));
-		fd = open(EVENTCHN_PATH, O_RDWR);
-	}
+
 	return fd;
 }
 
