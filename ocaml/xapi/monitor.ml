@@ -436,6 +436,11 @@ let read_all_dom0_stats __context =
 	  let domains = Xc.domain_getinfolist xc 0 in
       let timestamp = Unix.gettimeofday() in
       let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
+			let uuid_of_domain d =
+				Uuid.to_string (Uuid.uuid_of_int_array (d.Xc.handle)) in
+			let domain_paused d = d.Xc.paused in
+			let my_paused_domain_uuids =
+				List.map uuid_of_domain (List.filter domain_paused domains) in
       let (vifs,pifs) = try update_netdev domains with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
       let (vcpus,uuids,domids) = update_vcpus xc domains in
       Xapi_guest_agent.sync_cache domids;
@@ -450,7 +455,7 @@ let read_all_dom0_stats __context =
 	handle_exn "update_pcpus" (fun ()->update_pcpus xc) [];
 	handle_exn "update_vbds" (fun ()->update_vbds domains) [];
 	handle_exn "update_loadavg" (fun ()-> [ update_loadavg () ]) [];
-	handle_exn "update_memory" (fun ()->update_memory __context xc domains) []],uuids,pifs,timestamp,my_rebooting_vms)
+	handle_exn "update_memory" (fun ()->update_memory __context xc domains) []],uuids,pifs,timestamp,my_rebooting_vms, my_paused_domain_uuids)
     )
   )
 
@@ -458,9 +463,9 @@ let read_all_dom0_stats __context =
 let do_monitor __context xc =
   Stats.time_this "monitor"
     (fun () ->
-      let (stats,uuids,pifs,timestamp,my_rebooting_vms) = read_all_dom0_stats __context in
+      let (stats,uuids,pifs,timestamp,my_rebooting_vms,my_paused_vms) = read_all_dom0_stats __context in
       Monitor_self.go __context;
-      Monitor_rrds.update_rrds ~__context timestamp stats uuids pifs my_rebooting_vms)
+      Monitor_rrds.update_rrds ~__context timestamp stats uuids pifs my_rebooting_vms my_paused_vms)
     
 let _loop __context xc =
   while true
