@@ -292,6 +292,9 @@ let _ =
   error Api_errors.activation_while_not_free []
     ~doc:"An activation key can only be applied when the edition is set to 'free'." ();
     
+  error Api_errors.feature_restricted []
+    ~doc:"The use of this feature is restricted." ();
+    
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
 
@@ -908,6 +911,14 @@ let _ =
 	
   error Api_errors.vm_bios_strings_already_set []
     ~doc:"The BIOS strings for this VM have already been set and cannot be changed anymore." ();
+	
+  (* CPU feature masking (a.k.a. Intel FlexMigration or AMD Extended Migration technology) *)
+  
+  error Api_errors.invalid_feature_string ["details"]
+	~doc:"The given feature string is not valid." ();
+	
+  error Api_errors.cpu_feature_masking_not_supported ["details"]
+	~doc:"The CPU does not support masking of features." ();
 	
   ()
 
@@ -3430,9 +3441,27 @@ let host_set_power_on_mode = call
   ~allowed_roles:_R_POOL_OP
   ()
   
+let host_set_cpu_features = call ~flags:[`Session]
+  ~name:"set_cpu_features"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Set the CPU features to be used after a reboot, if the given features string is valid."
+  ~params:[ 
+    Ref _host, "host", "The host";
+    String, "features", "The features string (32 hexadecimal digits)"
+  ]
+  ~allowed_roles:_R_POOL_OP
+  ()
   
+let host_reset_cpu_features = call ~flags:[`Session]
+  ~name:"reset_cpu_features"
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Remove the feature mask, such that after a reboot all features of the CPU are enabled."
+  ~params:[ 
+    Ref _host, "host", "The host"
+  ]
+  ~allowed_roles:_R_POOL_OP
+  ()
   
-
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -3502,6 +3531,8 @@ let host =
 		 host_apply_edition;
 		 host_refresh_pack_info;
 		 host_set_power_on_mode;
+		 host_set_cpu_features;
+		 host_reset_cpu_features;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3525,6 +3556,7 @@ let host =
 	field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "patches" "Set of host patches";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "physical blockdevices";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu)) "host_CPUs" "The physical CPUs on this host";
+	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on this host";
 	field ~in_oss_since:None ~qualifier:RW ~ty:String "hostname" "The hostname of this host";
 	field ~in_oss_since:None ~qualifier:RW ~ty:String "address" "The address by which this host can be contacted from any other host in the pool";
 	field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) "metrics" "metrics associated with this host";

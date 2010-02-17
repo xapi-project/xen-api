@@ -630,6 +630,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~name_description ~name_label ~uuid ~other_config:[]
     ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
+    ~cpu_info:[]
     ~memory_overhead:0L
     ~sched_policy:"credit"  (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
@@ -1261,3 +1262,12 @@ let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
 	let software_version = Create_misc.make_software_version () in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
+	
+let set_cpu_features ~__context ~host ~features =
+	debug "Set CPU features";
+	()
+		
+let reset_cpu_features ~__context ~host =
+	debug "Reset CPU features";
+	()
+
