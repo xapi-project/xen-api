@@ -1223,6 +1223,30 @@ CAMLprim value stub_xc_domain_trigger_sleep(value handle, value domid)
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xc_get_boot_cpufeatures(value handle)
+{
+	CAMLparam1(handle);
+	CAMLlocal1(v);
+	uint32_t a, b, c, d, e, f, g, h;
+	int ret;
+
+	ret = xc_get_boot_cpufeatures(_H(handle), &a, &b, &c, &d, &e, &f, &g, &h);
+	if (ret < 0)
+		failwith_xc();
+	
+	v = caml_alloc_tuple(8);
+	Store_field(v, 0, caml_copy_int32(a));
+	Store_field(v, 1, caml_copy_int32(b));
+	Store_field(v, 2, caml_copy_int32(c));
+	Store_field(v, 3, caml_copy_int32(d));
+	Store_field(v, 4, caml_copy_int32(e));
+	Store_field(v, 5, caml_copy_int32(f));
+	Store_field(v, 6, caml_copy_int32(g));
+	Store_field(v, 7, caml_copy_int32(h));
+
+	CAMLreturn(v);
+}
+
 /*
  * Local variables:
  *  indent-tabs-mode: t

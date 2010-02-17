@@ -270,6 +270,9 @@ external version_capabilities: handle -> string =
 external watchdog : handle -> int -> int32 -> int
   = "stub_xc_watchdog"
 
+external get_boot_cpufeatures: handle ->
+	(int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) = "stub_xc_get_boot_cpufeatures"
+
 (* core dump structure *)
 type core_magic = Magic_hvm | Magic_pv
 

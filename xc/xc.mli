@@ -213,3 +213,6 @@ external domain_cpuid_apply: handle -> domid -> bool -> unit
 external cpuid_check: (int64 * (int64 option)) -> string option array -> (bool * string option array)
        = "stub_xc_cpuid_check"
 
+external get_boot_cpufeatures: handle ->
+	(int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) = "stub_xc_get_boot_cpufeatures"
+
