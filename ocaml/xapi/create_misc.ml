@@ -440,30 +440,17 @@ let create_host_cpu ~__context =
 	and model = Int64.of_string model 
 	and family = Int64.of_string family in
 
-	let existing = Db.Host.get_host_CPUs ~__context ~self:host in
-	let numbers = List.map (fun self -> Int64.to_int (Db.Host_cpu.get_number ~__context ~self)) existing in
-	let table = List.combine numbers existing in
+	(* Recreate all Host_cpu objects *)
+	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
+	List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
 	for i = 0 to number - 1
 	do
-	  if List.mem i numbers then begin
-	    let self = List.assoc i table in
-	    Db.Host_cpu.set_vendor ~__context ~self ~value:vendor;
-	    Db.Host_cpu.set_speed ~__context ~self ~value:speed;
-	    Db.Host_cpu.set_modelname ~__context ~self ~value:modelname;
-	    Db.Host_cpu.set_flags ~__context ~self ~value:flags;
-	    Db.Host_cpu.set_stepping ~__context ~self ~value:stepping;
-	    Db.Host_cpu.set_model ~__context ~self ~value:model;
-	    Db.Host_cpu.set_family ~__context ~self ~value:family;
-	    Db.Host_cpu.set_features ~__context ~self ~value:"";
-	  end else begin
-	    let uuid = Uuid.to_string (Uuid.make_uuid ())
+		let uuid = Uuid.to_string (Uuid.make_uuid ())
 	    and ref = Ref.make () in
-	    debug "Creating CPU %d: %s" i uuid;
-	    let () = Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
-	      ~vendor ~speed ~modelname
-	      ~utilisation:0. ~flags ~stepping ~model ~family
-              ~features:"" ~other_config:[] in 
-	    ()
-	  end
+		debug "Creating CPU %d: %s" i uuid;
+		ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
+			~vendor ~speed ~modelname
+			~utilisation:0. ~flags ~stepping ~model ~family
+			~features:"" ~other_config:[])
 	done
 
