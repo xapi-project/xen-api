@@ -46,6 +46,12 @@
 		.interface_version = XEN_SYSCTL_INTERFACE_VERSION, \
 	}
 
+#define DECLARE_PLATFORM(_cmd)		\
+	struct xen_platform_op platform = { \
+		.cmd = _cmd,		\
+		.interface_version = XENPF_INTERFACE_VERSION, \
+	}
+
 #define DECLARE_HYPERCALL2(_cmd, _arg0, _arg1)	\
 	privcmd_hypercall_t hypercall = {	\
 		.op = _cmd,			\
@@ -203,6 +209,24 @@ static int do_sysctl(int handle, struct xen_sysctl *sysctl)
 		xc_error_hypercall(hypercall, ret);
 
 	munlock(sysctl, sizeof(*sysctl));
+	return ret;
+}
+
+static int do_platform(int handle, struct xen_platform_op *platform)
+{
+	int ret;
+	DECLARE_HYPERCALL1(__HYPERVISOR_platform_op, platform);
+
+	if (mlock(platform, sizeof(*platform)) != 0) {
+		xc_error_set("mlock failed: %s", strerror(errno));
+		return -1;
+	}
+
+	ret = do_xen_hypercall(handle, &hypercall);
+	if (ret < 0)
+		xc_error_hypercall(hypercall, ret);
+
+	munlock(platform, sizeof(*platform));
 	return ret;
 }
 
@@ -1573,6 +1597,35 @@ int xc_domain_trigger_sleep(int handle, unsigned int domid)
 	if (ret != 0)
 		xc_error_set("sleep button failed: %s", xc_error_get());
     return ret;
+}
+
+int xc_get_boot_cpufeatures(int handle,
+                            uint32_t *base_ecx, uint32_t *base_edx,
+                            uint32_t *ext_ecx, uint32_t *ext_edx,
+                            uint32_t *masked_base_ecx, 
+                            uint32_t *masked_base_edx,
+                            uint32_t *masked_ext_ecx, 
+                            uint32_t *masked_ext_edx)
+{
+	int ret = -EINVAL;
+#ifdef XENPF_get_cpu_features 
+	DECLARE_PLATFORM(XENPF_get_cpu_features);
+
+	ret = do_platform(handle, &platform);
+	if (ret != 0)
+		xc_error_set("getting boot cpu features failed: %s", xc_error_get());
+	else {
+		*base_ecx = platform.u.cpu_features.base_ecx;
+		*base_edx = platform.u.cpu_features.base_edx;
+		*ext_ecx = platform.u.cpu_features.ext_ecx;
+		*ext_edx = platform.u.cpu_features.ext_edx;
+		*masked_base_ecx = platform.u.cpu_features.masked_base_ecx;
+		*masked_base_edx = platform.u.cpu_features.masked_base_edx;
+		*masked_ext_ecx = platform.u.cpu_features.masked_ext_ecx;
+		*masked_ext_edx = platform.u.cpu_features.masked_ext_edx;
+	}
+#endif
+	return ret;
 }
 
 /*

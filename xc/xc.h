@@ -20,6 +20,7 @@
 #include <xen/domctl.h>
 #include <xen/sched.h>
 #include <xen/sysctl.h>
+#include <xen/platform.h>
 #if XEN_SYSCTL_INTERFACE_VERSION < 4
 #include <xen/linux/privcmd.h>
 #else
@@ -186,6 +187,9 @@ int xc_domain_set_timer_mode(int handle, unsigned int domid, int mode);
 int xc_domain_get_acpi_s_state(int handle, unsigned int domid);
 int xc_domain_trigger_power(int handle, unsigned int domid);
 int xc_domain_trigger_sleep(int handle, unsigned int domid);
+
+int xc_get_boot_cpufeatures(int handle, uint32_t *, uint32_t *, uint32_t *,
+	uint32_t *, uint32_t *, uint32_t *, uint32_t *, uint32_t *);
 
 #if XEN_SYSCTL_INTERFACE_VERSION >= 6
 #define SAFEDIV(a, b)					(((b) >= 0) ? (a) / (b) : (a))
