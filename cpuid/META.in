@@ -1,0 +1,5 @@
+version = "@VERSION@"
+description = "Cpuid extension"
+requires = ""
+archive(byte) = "cpuid.cma"
+archive(native) = "cpuid.cmxa"
