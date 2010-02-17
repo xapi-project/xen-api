@@ -48,6 +48,7 @@ type restrictions = {
 	enable_dmc            : bool; (** enable Dynamic Memory Control (DMC) *)
 	enable_checkpoint     : bool; (** enable Checkpoint *)
 	enable_vswitch_controller : bool; (** enable use of a Distributed VSwitch (DVS) Controller *)
+	enable_cpu_masking    : bool; (** enable masking of CPU features *)
 	restrict_connection   : bool; (** not used anymore; perhaps XenCenter does? *)
 	platform_filter       : bool; (** filter platform data on domain create? *)
 	regular_nag_dialog    : bool; (** used by XenCenter *)
@@ -91,3 +92,10 @@ val context_ok_for_dmc : __context:'a -> bool
 
 (** Checks whether we are entitled to enable checkpoint *)
 val ok_for_checkpoint : unit -> bool
+
+(** Checks whether we are entitled to use a VSwitch Controller *)
+val ok_for_vswitch_controller : unit -> bool
+
+(** Checks whether we are entitled to mask CPU features *)
+val ok_for_cpu_masking : unit -> bool
+
