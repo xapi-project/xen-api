@@ -433,12 +433,35 @@ let create_host_cpu ~__context =
 	        Hashtbl.find tbl "cpu family"
 		in
 	let vendor, modelname, cpu_mhz, flags, stepping, model, family = get_cpuinfo () in
-
-	let host = Helpers.get_localhost ~__context
-	and number = get_nb_cpus ()
-	and speed = Int64.of_float (float_of_string cpu_mhz)
-	and model = Int64.of_string model 
-	and family = Int64.of_string family in
+	let number = get_nb_cpus () in
+	let host = Helpers.get_localhost ~__context in
+	
+	(* Fill in Host.cpu_info *)
+	
+	let cpuid = Cpuid.read_cpu_info () in
+	let features = Cpuid.features_to_string cpuid.Cpuid.features in
+	let physical_features = Cpuid.features_to_string cpuid.Cpuid.physical_features in
+	let cpu = [
+		"cpu_count", string_of_int number;
+		"vendor", vendor;
+		"speed", cpu_mhz;
+		"modelname", modelname;
+		"family", family;
+		"model", model;
+		"stepping", stepping;
+		"flags", flags;
+		"features", features;
+		"features_after_reboot", features;
+		"physical_features", physical_features;
+		"maskable", string_of_bool cpuid.Cpuid.maskable;
+	] in
+	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
+ 
+ 	(* Recreate all Host_cpu objects *)
+	
+	let speed = Int64.of_float (float_of_string cpu_mhz) in
+	let model = Int64.of_string model in
+	let family = Int64.of_string family in
 
 	(* Recreate all Host_cpu objects *)
 	let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
@@ -453,4 +476,4 @@ let create_host_cpu ~__context =
 			~utilisation:0. ~flags ~stepping ~model ~family
 			~features:"" ~other_config:[])
 	done
-
+	
