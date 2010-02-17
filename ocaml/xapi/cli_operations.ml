@@ -3535,6 +3535,42 @@ let host_refresh_pack_info printer rpc session_id params =
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
   Client.Host.refresh_pack_info rpc session_id host
 
+let host_cpu_info printer rpc session_id params =
+  let host = 
+    if List.mem_assoc "host-uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    else
+      get_host_from_session rpc session_id in
+  let cpu_info = Client.Host.get_cpu_info rpc session_id host in
+  printer (Cli_printer.PTable [cpu_info])
+  
+let host_get_cpu_features printer rpc session_id params =
+  let host = 
+    if List.mem_assoc "host-uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    else
+      get_host_from_session rpc session_id in
+  let cpu_info = Client.Host.get_cpu_info rpc session_id host in
+  let features = List.assoc "features" cpu_info in
+  printer (Cli_printer.PMsg features)
+
+let host_set_cpu_features printer rpc session_id params =
+  let host = 
+    if List.mem_assoc "host-uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    else
+      get_host_from_session rpc session_id in
+  let features = List.assoc "features" params in
+  Client.Host.set_cpu_features rpc session_id host features
+
+let host_reset_cpu_features printer rpc session_id params =
+  let host = 
+    if List.mem_assoc "host-uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    else
+      get_host_from_session rpc session_id in
+  Client.Host.reset_cpu_features rpc session_id host
+    
 let patch_upload fd printer rpc session_id params = 
   let filename = List.assoc "file-name" params in
   let pool = Client.Pool.get_all rpc session_id in
