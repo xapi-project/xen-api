@@ -23,7 +23,6 @@ exception ManufacturersDiffer
 (* === Types and conversion === *)
 
 type manufacturer = AMD | Intel | Unknown
-and maskability = No | Base | Full
 and features =
 	{
 		base_ecx: int32;
@@ -39,7 +38,7 @@ and cpu_info =
 		stepping: int32;
 		features: features;
 		physical_features: features;
-		maskable: maskability;
+		maskable: bool;
 	}
 
 let features_to_string f =
@@ -110,73 +109,39 @@ let read_features () =
 (* Does this Intel CPU support "FlexMigration"? 
  * It's not sensibly documented, so check by model *)
 let has_flexmigration family model stepping = 
-	if family <> 0x6l then
-		No
-	else if model = 0x1dl || (model = 0x17l && stepping >= 4l) then
-		Base
-	else if (model = 0x1al && stepping > 2l) ||
-		model = 0x1el || model = 0x25l || model = 0x2cl ||
-		model = 0x2el || model = 0x2fl then
-		Full
-	else
-		No
+	family > 0x6l || (model > 0x17l || (model = 0x17l && stepping >= 4l))
 
 (* Does this AMD CPU have Extended Migration Technology? 
  * Known good on Barcelona and better; did exist on some older CPUs 
  * but not really documented which ones *)
 let has_emt family = 
-	if family >= 0x10l then
-		Full
-	else
-		No
+	family >= 0x10l
 	
 let is_maskable manufacturer family model stepping =
 	match manufacturer with 
-	| Unknown -> No
-	| Intel -> has_flexmigration family model stepping
-	| AMD -> has_emt family
+	| Unknown -> false
+	| Intel ->
+		if has_flexmigration family model stepping then true
+		else false
+	| AMD ->
+		if has_emt family then true
+		else false
 
-let get_features_from_xen () =
-	let features = 
-	  try Xc.with_intf (fun xc -> Xc.get_boot_cpufeatures xc) 
-	  with _ -> 0l, 0l, 0l, 0l, 0l, 0l, 0l, 0l 
-	in
-	match features with
-	| base_ecx, base_edx, ext_ecx, ext_edx,
-		masked_base_ecx, masked_base_edx, masked_ext_ecx, masked_ext_edx ->	
-		{
-			base_ecx = masked_base_ecx;
-			base_edx = masked_base_edx;
-			ext_ecx = masked_ext_ecx;
-			ext_edx = masked_ext_edx
-		},
-		{
-			base_ecx = base_ecx;
-			base_edx = base_edx;
-			ext_ecx = ext_ecx;
-			ext_edx = ext_edx
-		}
-		
-let get_current_mask () =
-	let masks = Xen_cmdline.list_cpuid_masks () in
-	let get_mask m =
-		if List.mem_assoc m masks = false then
-			0xffffffffl
-		else
-			Int32.of_string (List.assoc m masks)
-	in
-	{
-		base_ecx = get_mask "cpuid_mask_ecx";
-		base_edx = get_mask "cpuid_mask_edx";
-		ext_ecx = get_mask "cpuid_mask_ext_ecx";
-		ext_edx = get_mask "cpuid_mask_ext_edx"
-	}
-	
+let get_physical_features features =
+	let features_file = "/var/xapi/features" in
+	try
+		let data = Unixext.read_whole_file_to_string features_file in
+		string_to_features data
+	with _ ->
+		let data = features_to_string features in
+		Unixext.write_string_to_file features_file data;
+		features
+
 let read_cpu_info () =
 	let manufacturer = read_manufacturer () in
 	let family = read_family () in
 	let model = read_model () in
-	let features, phy_features = get_features_from_xen () in
+	let features = read_features () in
 	let stepping = read_stepping () in
 	{
 		manufacturer = manufacturer;
@@ -184,43 +149,39 @@ let read_cpu_info () =
 		model = model;
 		stepping = stepping;
 		features = features;
-		physical_features = phy_features;
+		physical_features = get_physical_features features;
 		maskable = is_maskable manufacturer family model stepping;
 	}
 	
 (* === Masking checks === *)
 
-let mask_features features mask =
-	{
-		base_ecx = logand features.base_ecx mask.base_ecx;
-		base_edx = logand features.base_edx mask.base_edx;
-		ext_ecx = logand features.ext_ecx mask.ext_ecx;
-		ext_edx = logand features.ext_edx mask.ext_edx;
-	}
-
 let assert_maskability cpu manufacturer features = 
 	(* Manufacturers need to be the same *)
 	if manufacturer != cpu.manufacturer then 
 		raise ManufacturersDiffer;
-	(* Check whether the features can be obtained by masking the physical features *)
-	let base = (logand cpu.physical_features.base_ecx features.base_ecx) = features.base_ecx 
-		&& (logand cpu.physical_features.base_edx features.base_edx) = features.base_edx in
-	match cpu.maskable with
-	| No ->
+	(* Check whether masking is supported on the CPU *)
+	if not cpu.maskable then 
 		begin match cpu.manufacturer with 
 		| Unknown -> raise (MaskingNotSupported "Unknown CPU manufacturer")
 		| Intel -> raise (MaskingNotSupported "CPU does not have FlexMigration")
 		| AMD -> raise (MaskingNotSupported "CPU does not have Extended Migration Technology")
+		end;
+	(* Check whether the features can be obtained by masking the physical features *)
+	let possible = (logand cpu.physical_features.base_ecx features.base_ecx) = features.base_ecx 
+		&& (logand cpu.physical_features.base_edx features.base_edx) = features.base_edx
+		&& begin match manufacturer with 
+		| Intel ->
+			(* Intel can't mask extented features but doesn't (yet) need to *)
+			cpu.physical_features.ext_ecx = features.ext_ecx
+				&& cpu.physical_features.ext_edx = features.ext_edx
+		| AMD ->
+			(logand cpu.physical_features.ext_ecx features.ext_ecx) = features.ext_ecx 
+				&& (logand cpu.physical_features.ext_edx features.ext_edx) = features.ext_edx
+		| _ -> false
 		end
-	| Base ->
-		if not (base && cpu.physical_features.ext_ecx = features.ext_ecx
-			&& cpu.physical_features.ext_edx = features.ext_edx) then
-			raise (InvalidFeatureString "CPU features cannot be masked to obtain \
-				given features (only base features can be masked)")
-	| Full ->
-		if not (base && (logand cpu.physical_features.ext_ecx features.ext_ecx) = features.ext_ecx 
-			&& (logand cpu.physical_features.ext_edx features.ext_edx) = features.ext_edx) then
-			raise (InvalidFeatureString "CPU features cannot be masked to obtain given features")
+	in
+	if not possible then
+		raise (InvalidFeatureString "CPU features cannot be masked to obtain given features")
 
 let xen_masking_string cpu features = 
 	let rec stringify reglist = 

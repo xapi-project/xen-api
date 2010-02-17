@@ -31,6 +31,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C mlvm
+	$(MAKE) -C cpuid
 
 .PHONY: allxen
 allxen:
@@ -67,6 +68,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C mlvm install
+	$(MAKE) -C cpuid install
 
 installxen:
 ifeq ($(HAVE_XEN),1)
@@ -102,6 +104,7 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C mlvm uninstall
+	$(MAKE) -C cpuid uninstall
 
 uninstallxen:
 ifeq ($(HAVE_XEN),1)
@@ -160,6 +163,7 @@ doc:
 	$(MAKE) -C mmap doc
 	$(MAKE) -C forking_executioner doc
 	$(MAKE) -C mlvm doc
+	$(MAKE) -C cpuid doc
 
 .PHONY: clean
 clean:
@@ -179,6 +183,7 @@ clean:
 	make -C doc clean
 	make -C forking_executioner clean
 	make -C mlvm clean
+	make -C cpuid clean
 
 cleanxen:
 	$(MAKE) -C mmap clean

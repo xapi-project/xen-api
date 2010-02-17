@@ -21,12 +21,6 @@ type manufacturer =
 | Intel		(** Intel *)
 | Unknown	(** Other manufacturer *)
 
-(** Indicates whether CPUID features can be masked. *)
-and maskability =
-| No		(** No masking possible *)
-| Base		(** Only base features can be masked *)
-| Full		(** Both base and extended features can be masked *)
-
 (** CPU feature bit vector. *)
 and features
 
@@ -39,7 +33,7 @@ and cpu_info =
 		stepping: int32;				(** Stepping number of the CPU *)
 		features: features;				(** Feature bit vector of the CPU *)
 		physical_features: features;	(** Physical Feature bit vector of the CPU *)
-		maskable: maskability;			(** Indicates whether the CPU supports
+		maskable: bool;					(** Boolean indicating whether the CPU supports
 									        Intel FlexMigration or AMD Extended Migration,
 									        or cannot be masked *)
 	}
@@ -60,11 +54,8 @@ val read_cpu_info : unit -> cpu_info
 
 (** {2 Masking Checks} *)
 
-(** Apply a mask to given features. *)
-val mask_features : features -> features -> features
-
-(** Check that this CPU can be masked to fit the pool. Raises exception
- *  indicating the reason if this is not possible. *)
+(** Check that this CPU can be masked to fit the pool. Raises {!CannotMaskCpu} 
+ *  including a reason string if this is not possible. *)
 val assert_maskability : cpu_info -> manufacturer -> features -> unit
 
 (** Return the CPU masking string to add to the Xen command-line, 
