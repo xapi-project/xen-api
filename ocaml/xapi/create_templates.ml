@@ -415,13 +415,13 @@ let create_all_templates rpc session_id =
 		windows_template ~nx:true (default_memory_parameters 1024L) 24L "Vista";
 		windows_template ~nx:true (default_memory_parameters 1024L) 24L "7";
 		windows_template ~nx:true (default_memory_parameters 2048L) 24L "7 x64";
-		windows_template ~nx:true (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
+		windows_template ~nx:true (default_memory_parameters 512L) 24L "Server 2008 R2 x64";
 		windows_template ~cps:"Citrix XenApp" (default_memory_parameters 256L) 8L "Server 2003";
 		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 256L) 8L "Server 2003 x64";
 
 		windows_template ~cps:"Citrix XenApp" ~nx:true (default_memory_parameters  512L) 24L "Server 2008";
 		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters  512L) 24L "Server 2008 x64";
-		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 2048L) 24L "Server 2008 R2 x64";
+		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 512L) 24L "Server 2008 R2 x64";
 		begin
 			let w2000sp4 = windows_template (default_memory_parameters 128L) 8L "2000 SP4" in
 			{
