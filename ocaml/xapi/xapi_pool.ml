@@ -155,31 +155,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	let assert_hosts_homogeneous () =
 		let me = Helpers.get_localhost ~__context in
-
-		(* read local and remote cpu records *)
 		let master_ref = get_master rpc session_id in
 		let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
-		let master_cpu_recs = Client.Host_cpu.get_all_records_where ~rpc ~session_id ~expr:"true" in
-		let master_cpus = List.map (fun cpu -> List.assoc cpu master_cpu_recs) master.API.host_host_CPUs in
-		let master_software_version = master.API.host_software_version in
-
-		let my_cpu_refs = Db.Host.get_host_CPUs ~__context ~self:me in
-		let my_cpus = List.map (fun cpu -> Db.Host_cpu.get_record ~__context ~self:cpu) my_cpu_refs in
-		let my_software_version = Db.Host.get_software_version ~__context ~self:me in
-
-		(* CA-29511 filter irrelevant CPU flags *)
-		let irrelevant_cpu_flags = [ "est" (* Enhanced Speed Step *) ] in
-		let cpu_flags_of_string x = Stringext.String.split_f Stringext.String.isspace x in
-		let string_of_cpu_flags x = String.concat " " x in
-
-		let filtered_cpu_flags x = string_of_cpu_flags (List.filter (fun x -> not (List.mem x irrelevant_cpu_flags)) (cpu_flags_of_string x)) in
-
-		let get_comparable_fields hcpu =
-			let raw_flags = hcpu.API.host_cpu_flags in
-			let filtered_flags = filtered_cpu_flags raw_flags in
-			(hcpu.API.host_cpu_vendor, hcpu.API.host_cpu_model, hcpu.API.host_cpu_family, filtered_flags) in
-		let print_cpu_rec (vendor,model,family,flags) =
-			debug "%s, %Ld, %Ld, %s" vendor model family flags in
+			
+		(* Check software version *)
+					
 		let get_software_version_fields fields =
 			begin try List.assoc "product_version" fields with _ -> "" end,
 			begin try List.assoc "product_brand" fields with _ -> "" end,
@@ -190,31 +170,42 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 				else "not present"
 			with _ -> "not present" end
 		in
-
 		let print_software_version (version,brand,number,id,linux_pack) =
 			debug "version:%s, brand:%s, build:%s, id:%s, linux_pack:%s" version brand number id linux_pack in
-
-		let my_cpus_compare = List.map get_comparable_fields my_cpus in
-		let master_cpus_compare = List.map get_comparable_fields master_cpus in
-
+			
+		let master_software_version = master.API.host_software_version in
+		let my_software_version = Db.Host.get_software_version ~__context ~self:me in
+		
 		let my_software_compare = get_software_version_fields my_software_version in
 		let master_software_compare = get_software_version_fields master_software_version in
+		
+		if my_software_compare <> master_software_compare then
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
 
 		debug "Pool pre-join Software homogeneity check:";
 		debug "Slave software:";
 		print_software_version my_software_compare;
 		debug "Master software:";
 		print_software_version master_software_compare;
+		
+		(* Check CPUs *)
+		
+		let master_cpu_info = master.API.host_cpu_info in
+		let my_cpu_info = Db.Host.get_cpu_info ~__context ~self:me in
+		
+		let get_comparable_fields cpu_info =
+			List.assoc "vendor" cpu_info, List.assoc "features" cpu_info in
+		let my_cpus_compare = get_comparable_fields my_cpu_info in
+		let master_cpus_compare = get_comparable_fields master_cpu_info in
 
+		let print_cpu (vendor, features) = debug "%s, %s" vendor features in
 		debug "Pool pre-join CPU homogeneity check:";
 		debug "Slave cpus:";
-		List.iter print_cpu_rec my_cpus_compare;
+		print_cpu my_cpus_compare;
 		debug "Master cpus:";
-		List.iter print_cpu_rec master_cpus_compare;
+		print_cpu master_cpus_compare;
 
-		if my_software_compare <> master_software_compare then
-			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
-		if not (Listext.List.set_equiv my_cpus_compare master_cpus_compare) then
+		if my_cpus_compare <> master_cpus_compare then
 			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["cpus differ"])) in
 
 	let assert_not_joining_myself () =
@@ -609,81 +600,84 @@ let unplug_pbds ~__context host =
 
 (* This means eject me, since will have been forwarded from master  *)
 let eject ~__context ~host =
-  (* If HA is enabled then refuse *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool
-  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+	(* If HA is enabled then refuse *)
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	if Db.Pool.get_ha_enabled ~__context ~self:pool
+	then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-  if Pool_role.is_master () then raise Cannot_eject_master
-  else
-    begin
-      (* Fail the operation if any VMs are running here (except control domains) *)
-      let my_vms_with_records = Db.VM.get_records_where ~__context ~expr:(Eq(Field "resident_on", Literal (Ref.string_of host))) in
-      List.iter (fun (_, x) -> 
-		   if (not x.API.vM_is_control_domain) && x.API.vM_power_state<>`Halted
-		   then begin
-		     error "VM uuid %s not in Halted state and resident_on this host" (x.API.vM_uuid);
-		     raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VM resident on host"]))
-		   end) my_vms_with_records;
+	if Pool_role.is_master () then raise Cannot_eject_master
+	else begin
+		(* Fail the operation if any VMs are running here (except control domains) *)
+		let my_vms_with_records = Db.VM.get_records_where ~__context ~expr:(Eq(Field "resident_on", Literal (Ref.string_of host))) in
+		List.iter (fun (_, x) -> 
+			if (not x.API.vM_is_control_domain) && x.API.vM_power_state<>`Halted
+			then begin
+				error "VM uuid %s not in Halted state and resident_on this host" (x.API.vM_uuid);
+				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["VM resident on host"]))
+			end) my_vms_with_records;
 
-      debug "Pool.eject: unplugging PBDs";
-      (* unplug all my PBDs; will deliberately fail if any unplugs fail *)
-      unplug_pbds ~__context host;
+		debug "Pool.eject: unplugging PBDs";
+		(* unplug all my PBDs; will deliberately fail if any unplugs fail *)
+		unplug_pbds ~__context host;
 
-      debug "Pool.eject: disabling external authentication in slave-to-be-ejected";
-      (* disable the external authentication of this slave being ejected *)
-      (* this call will return an exception if something goes wrong *)
-      Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context ~host 
-        ~config:[]; (* FIXME: in the future, we should send the windows AD admin/pass here *)
-                    (* in order to remove the slave from the AD database during pool-eject *)
+		debug "Pool.eject: disabling external authentication in slave-to-be-ejected";
+		(* disable the external authentication of this slave being ejected *)
+		(* this call will return an exception if something goes wrong *)
+		Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context ~host 
+			~config:[];
+			(* FIXME: in the future, we should send the windows AD admin/pass here *)
+			(* in order to remove the slave from the AD database during pool-eject *)
 
-      debug "Pool.eject: deleting Host record (the point of no return)";
-      (* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
-      Db.Host.destroy ~__context ~self:host;
+		debug "Pool.eject: deleting Host record (the point of no return)";
+		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
+		Db.Host.destroy ~__context ~self:host;
 
-      (* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
-      begin
-	try
-	  let my_control_domain = List.find (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
-	  Db.VM.destroy ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:my_control_domain.API.vM_uuid)
-	with _ -> ()
-      end;
-      debug "Pool.eject: setting our role to be master";
-      Pool_role.set_role Pool_role.Master;
-      debug "Pool.eject: forgetting pool secret";
-      Unixext.unlink_safe Xapi_globs.pool_secret_path; (* forget current pool secret *)
-      (* delete backup databases and any temporary restore databases *)
-      Unixext.unlink_safe Xapi_globs.backup_db_xml;
-      Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
-      (* delete /local/ databases specified in the db.conf, so they get recreated on restart.
-	 We must leave any remote database alone because these are owned by the pool and
-	 not by this node. *)
-      (* get the slave backup lock so we know no more backups are going to be taken -- we keep this lock till the
-	 bitter end, where we restart below ;)
-      *)
-      Mutex.lock Pool_db_backup.slave_backup_m;
-      finally
-	(fun () ->
-	   let dbs = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
-	   (* We need to delete all local dbs but leave remote ones alone *)
-	   let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
-	   List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);
-	   List.iter Unixext.unlink_safe (List.map Generation.gen_count_file local);
-	   (* remove any shared databases from my db.conf *)
-	   (* XXX: on OEM edition the db.conf is rebuilt on every boot *)
-	   Parse_db_conf.write_db_conf local;
-	   (* Forget anything we know about configured remote databases: this prevents
-	      any initscript reminding us about them after reboot *)
-	   Helpers.log_exn_continue
-	     (Printf.sprintf "Moving remote database file to backup: %s"
-		Xapi_globs.remote_db_conf_fragment_path)
-	     (fun () ->
-		Unix.rename 
-		  Xapi_globs.remote_db_conf_fragment_path
-		  (Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ()
-	)
-	(fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject())
-    end
+		debug "Reset CPU features";
+		(* Clear the CPU feature masks from the Xen command line *)
+		ignore (Xen_cmdline.delete_cpuid_masks
+			["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
+
+		(* and destroy my control domain, since you can't do this from the API [operation not allowed] *)
+		begin try
+			let my_control_domain = List.find (fun x->x.API.vM_is_control_domain) (List.map snd my_vms_with_records) in
+			Db.VM.destroy ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:my_control_domain.API.vM_uuid)
+		with _ -> () end;
+		debug "Pool.eject: setting our role to be master";
+		Pool_role.set_role Pool_role.Master;
+		debug "Pool.eject: forgetting pool secret";
+		Unixext.unlink_safe Xapi_globs.pool_secret_path; (* forget current pool secret *)
+		(* delete backup databases and any temporary restore databases *)
+		Unixext.unlink_safe Xapi_globs.backup_db_xml;
+		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+		(* delete /local/ databases specified in the db.conf, so they get recreated on restart.
+		 * We must leave any remote database alone because these are owned by the pool and
+		 * not by this node. *)
+		(* get the slave backup lock so we know no more backups are going to be taken --
+		 * we keep this lock till the bitter end, where we restart below ;)
+		 *)
+		Mutex.lock Pool_db_backup.slave_backup_m;
+		finally
+		(fun () ->
+			let dbs = Parse_db_conf.parse_db_conf Xapi_globs.db_conf_path in
+			(* We need to delete all local dbs but leave remote ones alone *)
+			let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
+			List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);
+			List.iter Unixext.unlink_safe (List.map Generation.gen_count_file local);
+			(* remove any shared databases from my db.conf *)
+			(* XXX: on OEM edition the db.conf is rebuilt on every boot *)
+			Parse_db_conf.write_db_conf local;
+			(* Forget anything we know about configured remote databases: this prevents
+			any initscript reminding us about them after reboot *)
+			Helpers.log_exn_continue
+			(Printf.sprintf "Moving remote database file to backup: %s"
+			Xapi_globs.remote_db_conf_fragment_path)
+			(fun () ->
+				Unix.rename 
+				Xapi_globs.remote_db_conf_fragment_path
+				(Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ()
+		)
+		(fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject())
+	end
 
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
