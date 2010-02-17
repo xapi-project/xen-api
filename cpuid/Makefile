@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include
+CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(XEN_ROOT)/usr/include
 OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
-INCLUDES = -I ../stdext -I ../xc -I ../xen-utils
+INCLUDES = -I ../stdext
 
 LDFLAGS = -cclib -L./
 
@@ -65,8 +65,8 @@ uninstall:
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "cpuid" "package" "$(OBJS)" "." "stdext xc xen-utils" ""
+	python ../doc/doc.py $(DOCDIR) "cpuid" "package" "$(OBJS)" "." "stdext" ""
 	
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS) *~ *.rej
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 
