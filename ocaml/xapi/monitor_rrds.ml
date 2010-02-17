@@ -600,7 +600,7 @@ let handler_rrd_updates (req: Http.request) s =
  * domain has gone and we stream the RRD to the master. We also have a
  * list of the currently rebooting VMs to ensure we don't accidentally
  * archive the RRD *)
-let update_rrds ~__context timestamp dss uuids pifs rebooting_vms =
+let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
   (* Here we do the synchronising between the dom0 view of the world
      and our Hashtbl. By the end of this execute block, the Hashtbl
      correctly represents the world *)
@@ -653,14 +653,19 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms =
 		in
 		(* Check whether the memory ds has changed since last update *)
 		let last_values = Rrd.get_last_ds_values rrd in
-		let changed = 
-		  try
-		    let old_mem = List.assoc "memory" last_values in
-		    let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
-		    let cur_mem = cur_mem_ds.ds_value in
-		    cur_mem <> old_mem
-		  with _ -> true
-		in
+		(* CA-34383:
+		 * Memory updates from paused domains serve no useful purpose.
+		 * During a migrate such updates can also cause undesirable
+		 * discontinuities in the observed value of memory_actual.
+		 * Hence we ignore changes from paused domains:
+		 *)
+		let changed = not (List.mem vm_uuid paused_vms) &&
+			begin try
+				let old_mem = List.assoc "memory" last_values in
+				let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
+				let cur_mem = cur_mem_ds.ds_value in
+				cur_mem <> old_mem
+			with _ -> true end in
 		if changed then
 		  dirty_memory := StringSet.add vm_uuid !dirty_memory;
 
