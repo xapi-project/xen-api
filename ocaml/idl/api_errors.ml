@@ -287,6 +287,8 @@ let license_checkout_error = "LICENSE_CHECKOUT_ERROR"
 let license_file_deprecated = "LICENSE_FILE_DEPRECATED"
 let activation_while_not_free = "ACTIVATION_WHILE_NOT_FREE"
 
+let feature_restricted = "FEATURE_RESTRICTED"
+
 let xmlrpc_unmarshal_failure = "XMLRPC_UNMARSHAL_FAILURE"
 
 let duplicate_vm = "DUPLICATE_VM"
@@ -367,4 +369,7 @@ let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
 let redo_log_is_enabled = "REDO_LOG_IS_ENABLED"
 
 let vm_bios_strings_already_set = "VM_BIOS_STRINGS_ALREADY_SET"
+
+let invalid_feature_string = "INVALID_FEATURE_STRING"
+let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
 

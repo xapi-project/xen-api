@@ -195,22 +195,22 @@ val disable_external_auth :
 
 (** {2 Static VDIs} *)
 
-val attach_static_vdis :
-  __context:Context.t ->
-  host:API.ref_host -> vdi_reason_map:([ `VDI ] Ref.t * string) list -> unit
 (** Make the given VDIs static on the host, such that they will automatically be attached
  * when xapi is restarted on this host. Supply a [reason] string for each VDI to be
  * included. *)
+val attach_static_vdis :
+  __context:Context.t ->
+  host:API.ref_host -> vdi_reason_map:([ `VDI ] Ref.t * string) list -> unit
 
+(** Remove the given VDIs from the list of static VDIs on the host. *)
 val detach_static_vdis :
   __context:Context.t -> host:API.ref_host -> vdis:API.ref_VDI list -> unit
-(** Remove the given VDIs from the list of static VDIs on the host. *)
 
 
 (** {2 Local Database} *)
 
-val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit 
 (** Set a key in the Local DB of the host. *)
+val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> value:string -> unit 
 
 
 (** {2 Secrets} *)
@@ -218,10 +218,12 @@ val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> 
 val update_pool_secret :
   __context:'a -> host:'b -> pool_secret:string -> unit
 
+
 (** {2 Supplemental Packs} *)
 
-val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
 (** Refresh the list of Supplemental Packs in the host.software_version field. *)
+val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
+
 
 (** {2 Licensing} *)
 
@@ -233,3 +235,12 @@ val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -
  *  Also call this function to change to a different license server, after the
  *  connection details in host.license_server have been amended. *)
  
+ 
+(** {2 CPU Feature Masking} *)
+ 
+(** Set the CPU features to be used after a reboot, if the given features string is valid. *)
+val set_cpu_features : __context:Context.t -> host:API.ref_host -> features:string -> unit
+
+(** Remove the feature mask, such that after a reboot all features of the CPU are enabled. *)
+val reset_cpu_features : __context:Context.t -> host:API.ref_host -> unit
+

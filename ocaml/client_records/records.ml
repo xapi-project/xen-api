@@ -896,6 +896,7 @@ let host_record rpc session_id host =
       ~add_to_map:(fun k v -> Client.Host.add_to_other_config rpc session_id host k v)
       ~remove_from_map:(fun k -> Client.Host.remove_from_other_config rpc session_id host k) 
       ~get_map:(fun () -> (x ()).API.host_other_config) ();
+    make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_cpu_info) ~get_map:(fun () -> (x ()).API.host_cpu_info) ();
     make_field ~name:"hostname"          ~get:(fun () -> (x ()).API.host_hostname) ();
     make_field ~name:"address"           ~get:(fun () -> (x ()).API.host_address) ();
     make_field ~name:"supported-bootloaders" ~get:(fun () -> String.concat "; " (x ()).API.host_supported_bootloaders) 
