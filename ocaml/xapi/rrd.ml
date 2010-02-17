@@ -591,7 +591,9 @@ let from_xml input =
   let tree = 
     let data d = D d in
     let el ((prefix,tag_name),attr) children = El (tag_name, children) in
-    Xmlm.input_tree ~data ~el input
+    match Xmlm.peek input with
+    | `Dtd _ -> snd (Xmlm.input_doc_tree ~data ~el input)
+    | _ -> Xmlm.input_tree ~data ~el input
   in
 
   let kvs elts = List.filter_map 
