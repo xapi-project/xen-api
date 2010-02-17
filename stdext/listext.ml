@@ -192,4 +192,13 @@ let take n list =
 let rec tails = function
     | [] -> [[]]
     | (_::xs) as l -> l :: tails xs
+
+let rec replace_assoc key new_value = function
+	| [] -> []
+	| (k, _) as p :: tl ->
+		if k = key then
+			(key, new_value) :: tl
+		else
+			p :: replace_assoc key new_value tl
+
 end
