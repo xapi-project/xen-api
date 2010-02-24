@@ -246,35 +246,6 @@ let eli_install_template memory name distro nfs pv_args =
         ];
   }
 
-let debian_xgt_dir   = "/opt/xensource/packages/xgt/"
-let post_install_dir = "/opt/xensource/packages/post-install-scripts/"
-
-let debian_xgt_template rpc session_id name_label short_name_label debian_xgt_name post_install_script =
-  let script = post_install_dir ^ post_install_script in
-  let xgt = debian_xgt_dir ^ debian_xgt_name in
-  let xgt_installed = try Unix.access xgt [ Unix.F_OK ]; true with _ -> false in
-  if not(xgt_installed)
-  then debug "Skipping %s template because post install script is missing" name_label
-  else begin
-    let root = { device = "0"; size = (4L ** gib); sr = preferred_sr; bootable = true; _type = `system } 
-    and swap = { device = "1"; size = (512L ** mib); sr = preferred_sr; bootable = false; _type = `system } in
-    
-    let (_: API.ref_VM) = find_or_create_template 
-      { (blank_template (default_memory_parameters 128L)) with
-	  vM_name_label = name_label;
-	  vM_name_description = Printf.sprintf "Clones of this template will automatically provision their storage when first booted and install Debian %s. The disk configuration is stored in the other_config field." short_name_label;
-	  vM_other_config =
-	  [
-	    disks_key, Xml.to_string (xml_of_disks [ root; swap ]);
-	    post_install_key, script;
-	    default_template;
-	    linux_template;
-            install_methods_otherconfig_key, ""
-	  ]
-      } rpc session_id in
-    ()
-  end
-    
 (** Makes a Windows template using the given memory parameters in MiB, root disk
 size in GiB, and version string. *)
 let windows_template ?(nx=false) ?cps memory root_disk_size version = 
@@ -446,7 +417,3 @@ let create_all_templates rpc session_id =
   (* NB we now create the 'static' linux templates whether or not the 'linux pack' is 
      installed because these only depend on eliloader, which is always installed *)
   List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) linux_static_templates;
-  (* The remaining template-creation functions determine whether they have the 
-     necessary resources (ISOs, networks) or not: *)
-  debian_xgt_template rpc session_id "Debian Etch 4.0" "Etch" "debian-etch.xgt" "debian-etch";
-
