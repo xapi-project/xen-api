@@ -433,7 +433,7 @@ let powercycle_test session_id vm =
   finally
     (fun () ->
        (* We play with three VMs:
-	  1. a clean install of debian                       (vm)
+	  1. a clean install of a VM                         (vm)
 	  2. a suspended clone of (1)                        (vm')
 	  3. a metadata import of the metadata export of (2) (vm'')
        *)
@@ -602,36 +602,36 @@ let async_test session_id =
 let make_vif ~session_id ~vM ~network ~device = 
   Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:1400L ~mAC:"" ~device ~other_config:["promiscuous", "on"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
 
-let with_debian s f = 
+let with_vm s f = 
   try
-    let (_: API.ref_VM) = find_template s debian_etch in
-    let test = make_test "Setting up debian VM" 0 in
+    let (_: API.ref_VM) = find_template s vm_template in
+    let test = make_test "Setting up test VM" 0 in
     start test;
-    let debian = install_debian test s in
-	f s debian;
-	vm_uninstall test s debian;
+    let vm = install_vm test s in
+	f s vm;
+	vm_uninstall test s vm;
 	success test
-  with Unable_to_find_suitable_debian_template ->
+  with Unable_to_find_suitable_vm_template ->
     (* SKIP *)
     ()
 
-let vm_powercycle_test s debian = 
+let vm_powercycle_test s vm = 
   let test = make_test "VM powercycle test" 1 in
   start test;
   (* Try to add some VIFs *)
   let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
   debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
-  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:guest_installer_network ~device:"0" in
+  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:guest_installer_network ~device:"0" in
   begin match Client.PIF.get_all !rpc s with
   | pif :: _ ->
 		let net = Client.PIF.get_network !rpc s pif in
 		debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
-		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:debian ~network:net ~device:"1" in
+		let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:net ~device:"1" in
 		()
   | _ -> ()
   end;
-  vbd_pause_unpause_test s debian;
-  powercycle_test s debian;
+  vbd_pause_unpause_test s vm;
+  powercycle_test s vm;
   success test
 
 
@@ -681,9 +681,9 @@ let _ =
 	  maybe_run_test "vdi" (fun () -> vdi_test s);
 	  maybe_run_test "async" (fun () -> async_test s);
 	  maybe_run_test "import" (fun () -> import_export_test s);
-	  maybe_run_test "vhd" (fun () -> with_debian s test_vhd_locking_hook);
-	  maybe_run_test "powercycle" (fun () -> with_debian s vm_powercycle_test);
-	  maybe_run_test "lifecycle" (fun () -> with_debian s Quicktest_lifecycle.test);
+	  maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
+	  maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
+	  maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
 
 	with
 	| Api_errors.Server_error (a,b) ->
