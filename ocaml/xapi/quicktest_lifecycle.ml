@@ -108,7 +108,7 @@ open Quicktest_common
 open Client
 open Pervasiveext
 
-let one s debian test = 
+let one s vm test = 
   let t = make_test (string_of_test test) 1 in
   start t;
   let event = "/tmp/fist_disable_event_lifecycle_path" in
@@ -133,16 +133,16 @@ let one s debian test =
 					 Unixext.unlink_safe sync;
 					 Unixext.unlink_safe event
 			 end;
-			   if Client.VM.get_power_state !rpc s debian = `Halted
-			   then Client.VM.start !rpc s debian false false;
+			   if Client.VM.get_power_state !rpc s vm = `Halted
+			   then Client.VM.start !rpc s vm false false;
 			   
 			   let call_api = function
-				 | Shutdown Clean -> Client.VM.clean_shutdown !rpc s debian
-				 | Shutdown Hard -> Client.VM.hard_shutdown !rpc s debian
-				 | Reboot Clean -> Client.VM.clean_reboot !rpc s debian
-				 | Reboot Hard -> Client.VM.hard_reboot !rpc s debian in
+				 | Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm
+				 | Shutdown Hard -> Client.VM.hard_shutdown !rpc s vm
+				 | Reboot Clean -> Client.VM.clean_reboot !rpc s vm
+				 | Reboot Hard -> Client.VM.hard_reboot !rpc s vm in
 			   
-			   let domid = Client.VM.get_domid !rpc s debian in
+			   let domid = Client.VM.get_domid !rpc s vm in
 			   begin match test with
 			   | { api = None; parallel_op = Some x } ->
 					 let reason = match x with
@@ -173,7 +173,7 @@ let one s debian test =
 				 let start = Unix.gettimeofday () in
 				 let finished = ref false in
 				 while Unix.gettimeofday () -. start < 300. && (not !finished) do
-				   finished := p (Client.VM.get_domid !rpc s debian);
+				   finished := p (Client.VM.get_domid !rpc s vm);
 					 if not !finished then Thread.delay 1.
 				 done;
 				 if not !finished then failwith "timeout"
@@ -195,5 +195,5 @@ let one s debian test =
 	  );
   success t
 
-let test s debian = 
-  List.iter (one s debian) all_valid_tests
+let test s vm = 
+  List.iter (one s vm) all_valid_tests
