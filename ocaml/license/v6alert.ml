@@ -23,3 +23,11 @@ let send_alert msg body =
 		(fun () -> Client.Message.create xapirpc session msg 1L `Host host_uuid body)
 		(fun () -> Client.Session.logout xapirpc session)
 
+let send_v6_grace_license () =
+	ignore (send_alert Api_messages.v6_grace_license "The license server is unreachable. However, a grace license is given, as a similar license was successfully checked out recently.")
+
+let send_v6_rejected () =
+	ignore (send_alert Api_messages.v6_rejected "The requested license is not available at the license server.")
+
+let send_v6_comm_error () =
+	ignore (send_alert Api_messages.v6_comm_error "The license could not be checked out, because the license server could not be reached at the given address/port. Please check the connection details, and verify that the license server is running.")
