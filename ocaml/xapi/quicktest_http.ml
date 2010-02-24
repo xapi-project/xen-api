@@ -93,7 +93,7 @@ module Secret_Auth_fails = struct (* {{{1 *)
 		"Tests that invalid pool secrets are rejected."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_401_unauthorized _ -> true | _ -> false)
+				(function Xmlrpcclient.Http_error _ -> true | _ -> false)
 				(fun () -> http invalid_pool_secret "" (fun _ _ _ -> ()))
 		end
 
@@ -101,7 +101,7 @@ module Secret_Auth_fails = struct (* {{{1 *)
 		"Tests that invalid basic authentication fails."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
+				(function Xmlrpcclient.Http_error _ -> true | Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
 				(fun () -> http invalid_basicauth "" (fun _ _ _ -> ()))
 		end
 
