@@ -112,6 +112,12 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
   let write_ok = ref false in
   let result = ref (Xml.PCData "") in
   let surpress_no_timeout_logs = ref false in
+  let backoff_delay = ref 2.0 in (* initial delay = 2s *)
+  let update_backoff_delay () =
+    backoff_delay := !backoff_delay *. 2.0;
+    if !backoff_delay < 2.0 then backoff_delay := 2.0 
+    else if !backoff_delay > 256.0 then backoff_delay := 256.0
+  in  
   while (not !write_ok)
   do
     begin
@@ -175,7 +181,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 		    raise Cannot_connect_to_master
 		  end
 	      end;
-	    Thread.delay 2.0;
+	    debug "Sleeping %f seconds before retrying master connection..." !backoff_delay;
+	    Thread.delay !backoff_delay;
+	    update_backoff_delay ();
 	    try
 	      open_secure_connection()
 	    with _ -> () (* oh well, maybe nextime... *)
