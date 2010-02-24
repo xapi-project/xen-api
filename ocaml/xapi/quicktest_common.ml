@@ -164,10 +164,10 @@ let get_pool session_id =
   if List.length pool <> 1 then (failwith "Number of pools isn't zero!");
   List.hd pool
 
-let debian_etch = "Debian Etch"
+let vm_template = "Debian Etch"
 let other = "Other install media"
 
-exception Unable_to_find_suitable_debian_template
+exception Unable_to_find_suitable_vm_template
 
 let find_template session_id startswith = 
   let vms = Client.VM.get_all !rpc session_id in
@@ -175,7 +175,7 @@ let find_template session_id startswith =
 		       (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
 		       && (Client.VM.get_is_a_template !rpc session_id self)
 		    ) vms with
-  | [] -> raise Unable_to_find_suitable_debian_template
+  | [] -> raise Unable_to_find_suitable_vm_template
   | x :: _ ->
       (* Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x); *)
 	x 
@@ -226,8 +226,8 @@ let vm_import ?(metadata_only=false) ?(preserve=false) ?sr test session_id filen
   let newvm_uuids = String.split ',' (cli_cmd test args) in
   List.map (fun uuid -> Client.VM.get_by_uuid !rpc session_id uuid) newvm_uuids
 
-let install_debian test session_id = 
-  let t = find_template session_id debian_etch in
+let install_vm test session_id = 
+  let t = find_template session_id vm_template in
   let uuid = Client.VM.get_uuid !rpc session_id t in
   debug test (Printf.sprintf "Template has uuid: %s%!" uuid);
   let vm = vm_install test session_id uuid "quicktest" in
