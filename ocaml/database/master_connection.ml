@@ -133,8 +133,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 	    write_ok := true;
 	    result := res (* yippeee! return and exit from while loop *)
       with
-      | Xmlrpcclient.Http_401_unauthorized ->
-	  error "Received HTTP 401 unauthorized from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." Xapi_globs.permanent_master_failure_retry_timeout;
+      | Xmlrpcclient.Http_error (http_code,err_msg) ->
+	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg Xapi_globs.permanent_master_failure_retry_timeout;
 	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
 	  exit Xapi_globs.restart_return_code
       |	_ ->

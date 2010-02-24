@@ -294,7 +294,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
   with
     | Remote_requests.Timed_out ->
         raise_timeout timeout
-    | Xmlrpcclient.Http_request_rejected _ ->
+    | Xmlrpcclient.Http_request_rejected _ | Xmlrpcclient.Http_error _ ->
         raise_authentication_failed ()
     | Xmlrpcclient.Connection_reset ->
         raise_connection_reset ()
