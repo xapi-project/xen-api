@@ -16,7 +16,6 @@ module D=Debug.Debugger(struct let name="v6client" end)
 open D
 
 exception V6DaemonFailure
-exception Unmarshalling_error of string
 
 (* define "never" as 01-01-2030 *)
 let start_of_epoch = Unix.gmtime 0.
@@ -27,6 +26,7 @@ let connected = ref false
 let licensed = ref None
 let expires = ref never
 let grace = ref false
+let retry = ref true
 
 let socket = "/var/xapi/v6"
 
@@ -87,7 +87,10 @@ let connect_and_get_license edition address port =
 	else begin
 		try
 			let myassoc key args =
-				try List.assoc key args with Not_found -> raise (Unmarshalling_error key)
+				try List.assoc key args
+				with Not_found ->
+					error "key %s not found in v6d's response" key;
+					raise V6DaemonFailure
 			in
 			let get_named_string name args = XMLRPC.From.string (myassoc name args) in
 			let get_named_int name args = XMLRPC.From.int (myassoc name args) in
@@ -140,12 +143,12 @@ let connect_and_get_license edition address port =
 		| Unix.Unix_error(a, b, c) ->
 			error "Problem while initialising (%s): %s" b (Unix.error_message a);
 			raise V6DaemonFailure
-		| V6DaemonFailure ->
+		| V6DaemonFailure | _ ->
 			warn "Did not get a proper response from the v6 licensing daemon!";
 			raise V6DaemonFailure
 	end
 	
-let get_v6_license ~__context ~host ~edition =
+let rec get_v6_license ~__context ~host ~edition =
 	try
 		let ls = Db.Host.get_license_server ~__context ~self:host in
 		let address = List.assoc "address" ls in
@@ -155,7 +158,16 @@ let get_v6_license ~__context ~host ~edition =
 		connect_and_get_license edition address port
 	with
 	| Not_found -> failwith "Missing connection details"
-	| V6DaemonFailure -> reset_state ()
+	| V6DaemonFailure ->
+		reset_state ();
+		if !retry then begin
+			error "Checkout failed. Retrying once...";
+			retry := false;
+			Thread.delay 2.;
+			get_v6_license ~__context ~host ~edition
+		end else
+			error "Checkout failed.";
+			retry := true
 	
 let release_v6_license () =
 	try
