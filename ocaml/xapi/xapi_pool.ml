@@ -506,7 +506,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	let rpc = rpc master_address in
 	let session_id =
 	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
-		with Xmlrpcclient.Http_request_rejected _ ->
+		with Xmlrpcclient.Http_request_rejected _ | Xmlrpcclient.Http_error _ ->
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
 	let cluster_secret = ref "" in

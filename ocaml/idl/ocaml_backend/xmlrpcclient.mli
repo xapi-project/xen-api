@@ -15,8 +15,13 @@
     parse enough of the response to be sure... but it was non-empty at least) *)
 exception Http_request_rejected of string
 
-(** Thrown when we get an HTTP 401, e.g. if we supply the wrong credentials *)
-exception Http_401_unauthorized
+(** Thrown when we get a specific HTTP error, e.g.                                          
+    401 (unauthorized) if we supply the wrong credentials
+    403 (forbidden)    if RBAC denied access                             
+    500 (internal server error) if XAPI failed with an INTERNAL_ERROR,
+          Api_server error, XMLRPC_UNMARSHAL_FAILURE error etc.
+*)
+exception Http_error of string*string
 
 exception Content_length_required
 

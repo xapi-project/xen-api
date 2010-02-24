@@ -62,8 +62,13 @@ exception Http_header_truncated of string
     to immediately close. *)
 exception Empty_response_from_server
 
-(** Thrown when we get an HTTP 401, e.g. if we supply the wrong credentials *)
-exception Http_401_unauthorized
+(** Thrown when we get a specific HTTP error, e.g. 
+		401 (unauthorized) if we supply the wrong credentials
+		403 (forbidden)    if RBAC denied access
+		500 (internal server error) if XAPI failed with an INTERNAL_ERROR,
+		      Api_server error, XMLRPC_UNMARSHAL_FAILURE error etc.
+ *)
+exception Http_error of string*string
 
 let input_line_fd (fd: Unix.file_descr) = 
   let buf = Buffer.create 20 in
@@ -153,8 +158,8 @@ let http_rpc_recv_response error_msg fd =
 		 end 
 	       end
 	 done
-     | _ :: "401" :: _ ->
-	 raise Http_401_unauthorized
+     | _ :: (("401"|"403"|"500") as http_code) :: _ ->
+       raise (Http_error (http_code,error_msg))
      | _ -> 
 	 debug "Read unknown response response: %s" line;
 	 raise Not_found
@@ -189,6 +194,8 @@ let http_rpc_recv_response_timeout error_msg ?(timeout=Some Buf_io.infinite_time
   let line = Buf_io.input_line ?timeout buf in
   match String.split_f String.isspace line with
   | _ :: "200" :: _ -> read_http_headers ?timeout buf 
+  | _ :: (("401"|"403"|"500") as http_code) :: _ ->
+      raise (Http_error (http_code,error_msg))
   | _ ->
       warn "http_rpc_recv_response_timeout: unknown response: %s" line;
       raise (Http_request_rejected error_msg)
