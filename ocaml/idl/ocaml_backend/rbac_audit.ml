@@ -330,6 +330,8 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 		)
 	in
 	let line = Stringext.String.replace "\n" " " _line in (* no \n in line *)
+	let line = Stringext.String.replace "\r" " " line in (* no \r in line *)
+
 	let audit_line = append_line "%s" line in
 	(*D.debug "line=%s, audit_line=%s" line audit_line;*)
 	match !fn_append_to_master_audit_log with 
