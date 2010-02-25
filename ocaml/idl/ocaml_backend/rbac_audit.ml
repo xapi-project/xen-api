@@ -104,17 +104,21 @@ let get_subject_name __context session_id =
 let get_obj_of_ref_common obj_ref fn =
 		let indexrec = Ref_index.lookup obj_ref in
 		match indexrec with
-		|	None ->
-				if Stringext.String.startswith Ref.ref_prefix obj_ref
-				then Some("") (* it's a ref, just not in the db cache *)
-				else None
+		| None -> None
 		| Some indexrec -> fn indexrec
+
+let get_obj_of_ref obj_ref =
+	get_obj_of_ref_common obj_ref
+		(fun irec -> Some(irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref))
 
 let get_obj_name_of_ref obj_ref =
 	get_obj_of_ref_common obj_ref (fun irec -> irec.Ref_index.name_label)
 
 let get_obj_uuid_of_ref obj_ref =
 	get_obj_of_ref_common obj_ref (fun irec -> Some(irec.Ref_index.uuid))
+
+let get_obj_ref_of_ref obj_ref =
+	get_obj_of_ref_common obj_ref (fun irec -> Some(irec.Ref_index._ref))
 
 let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
 	SExpr.Node
@@ -187,6 +191,36 @@ let populate_audit_record_with_obj_names_of_refs line =
 		;
 		line
 
+(* Map selected xapi call arguments into audit sexpr arguments.
+    Not all parameters are mapped into audit log arguments because
+    some, like passwords, are sensitive and should not be persisted
+    into the audit log. Use heuristics to map non-sensitive parameters.
+*)
+let sexpr_args_of name xml_value =
+	(* heuristic 1: print descriptive arguments in the xapi call *)
+	if (List.mem name ["name";"label";"description";"name_label";"name_description"])
+	then
+	( match xml_value with
+		| Xml.PCData value -> Some (get_sexpr_arg name value "" "")
+		|_->None
+	)
+	else
+	(* heuristic 2: print uuid/refs arguments in the xapi call *)
+	match xml_value with
+	| Xml.PCData value -> (
+		let name_uuid_ref = get_obj_of_ref value in
+		match name_uuid_ref with
+		| None ->
+			if Stringext.String.startswith Ref.ref_prefix value
+			then (* it's a ref, just not in the db cache *)
+				Some (get_sexpr_arg name "" "" value)
+			else (* ignore values that are not a ref *)
+				None
+		| Some(_name_of_ref_value, uuid_of_ref_value, ref_of_ref_value) ->
+			let name_of_ref_value = (match _name_of_ref_value with|None->""|Some a -> a) in
+			Some (get_sexpr_arg name name_of_ref_value uuid_of_ref_value ref_of_ref_value)
+		)
+	|_-> None
 
 (* Given an action and its parameters, *)
 (* return the marshalled uuid params and corresponding names *)
@@ -198,29 +232,15 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 	if (List.length str_names) <> (List.length xml_values)
 	then
 		( (* debug mode *)
-		D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match" action;
-		D.debug "str_names=[%s]" ((List.fold_left (fun ss s->ss^s^",") "" str_names));
-		D.debug "xml_values=[%s]" ((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" xml_values));
+		D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match. str_names=[%s], xml_values=[%s]" action ((List.fold_left (fun ss s->ss^s^",") "" str_names)) ((List.fold_left (fun ss s->ss^(Xml.to_string s)^",") "" xml_values));
 		[]
 		)
 	else
-	List.fold_left2
-		(fun (params:SExpr.t list) str_name xml_value ->
+	List.fold_right2
+		(fun str_name xml_value (params:SExpr.t list) ->
 			if str_name = "session_id" 
 			then params (* ignore session_id param *)
 			else 
-			let sexpr_args_of name xml_value =
-				match xml_value with
-				| Xml.PCData value -> (
-					match (get_obj_name_of_ref value, get_obj_uuid_of_ref value ) with
-						|Some name_of_ref_value, Some uuid_of_ref_value ->
-							let (myparam:SExpr.t) = 
-								get_sexpr_arg name name_of_ref_value uuid_of_ref_value value
-							in myparam::params
-						|_,_ -> params (* ignore values that are not a ref *)
-					)
-				|_-> params
-			in
 			(* if it is a constructor structure, need to rewrap params *)
 			if str_name = "__structure"
 			then match xml_value with 
@@ -232,26 +252,21 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 									match xml_arg with
 									| Xml.Element ("member",_,
 											(Xml.Element ("name",_,(Xml.PCData xn)::[])
-											::Xml.Element ("value",_,x)
+											::(Xml.Element ("value",_,x) as xv)
 											::[]
 											)
-										) -> ( 
-											match x with
-											| (Xml.Element ("string",_,xv)::[])
-											| ((Xml.Element ("struct",_,_)::[]) as xv)
-											| ((Xml.Element ("array",_,_)::[]) as xv)
-												-> let xvv = Xml.Element ("value",[],xv) in
-													xn::acc_xn, xvv::acc_xv
-											| _ -> acc_xn,acc_xv
-										)
+										) -> xn::acc_xn, xv::acc_xv
 									| _ -> acc_xn,acc_xv
 								)
 								iargs
 								([],[])
 							)
 						))
-						in params@myparam
-				| xml_value -> sexpr_args_of str_name xml_value
+						in myparam@params
+				| xml_value ->
+					(match (sexpr_args_of str_name xml_value)
+					 with None->params|Some p->p::params
+					)
 			else 
 			(* the expected list of xml arguments *)
 			begin
@@ -261,18 +276,18 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 					| Xml.Element ("value", _, v::[]) ->
 							(match v with
 							| Xml.Element ("string",_,v::[]) -> str_name,v
-							| Xml.Element ("struct",_,_) -> str_name,v
-							| Xml.Element ("array",_,_) -> str_name,v
 							| _ -> str_name,v
 						)
 					| _ -> str_name,xml_value
 				in
-				sexpr_args_of name filtered_xml_value
+				(match (sexpr_args_of name filtered_xml_value)
+				 with None->params|Some p->p::params
+				)
 			end
 		)
-		[]
 		str_names
 		xml_values
+		[]
 	end
 
 let has_to_audit action =
