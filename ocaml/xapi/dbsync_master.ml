@@ -188,6 +188,30 @@ let clear_uncooperative_flags __context =
 
 let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "clearing uncooperative flags" clear_uncooperative_flags __context
 
+let ensure_vm_metrics_records_exist __context = 
+  List.iter (fun vm ->
+				 let m = Db.VM.get_metrics ~__context ~self:vm in
+				 if not(Db.is_valid_ref m) then begin
+				   info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
+				   let m = Ref.make () in
+				   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+				   Db.VM_metrics.create ~__context ~ref:m ~uuid
+					   ~vCPUs_number:0L
+					   ~vCPUs_utilisation:[] ~memory_actual:0L
+					   ~vCPUs_CPU:[]
+					   ~vCPUs_params:[]
+					   ~vCPUs_flags:[]
+					   ~start_time:Date.never
+					   ~install_time:Date.never
+					   ~state: []
+					   ~last_updated:(Date.of_float 0.)
+					   ~other_config:[];
+				   Db.VM.set_metrics ~__context ~self:vm ~value:m
+				 end
+			) (Db.VM.get_all __context)
+
+let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "ensuring VM_metrics flags exist" ensure_vm_metrics_records_exist __context
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -218,5 +242,7 @@ let update_env __context =
   create_missing_vlan_records ~__context;
   create_tools_sr_noexn __context;
 
-  clear_uncooperative_flags_noexn __context
+  clear_uncooperative_flags_noexn __context;
+  
+  ensure_vm_metrics_records_exist_noexn __context
     
