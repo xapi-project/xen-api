@@ -11,6 +11,7 @@
 import XenAPI
 import sys
 import os
+import time
 import traceback
 import xml.dom.minidom
 from xml.parsers.expat import ExpatError
@@ -19,7 +20,18 @@ INSTALLED_REPOS_DIR = '/etc/xensource/installed-repos'
 
 def main():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    logged_in = False
+    for tries in range(5):
+        try:
+            session.xenapi.login_with_password("", "")
+            logged_in = True
+            break
+        except:
+            # repeat after a delay
+            time.sleep(1)
+    if not logged_in:
+        print >> sys.stderr, "Unable to log into xapi, aborting"
+        return 1
 
     # read dom0 uuid out of inventory file and 
     uuid = filter(lambda x: x.startswith('CONTROL_DOMAIN_UUID'), open('/etc/xensource-inventory').readlines())[0].strip().split('=')[1].strip("'")
@@ -27,26 +39,34 @@ def main():
     rec = session.xenapi.VM.get_record(oref)
     static_min = int(rec['memory_static_min'])
     static_max = int(rec['memory_static_max'])
+    current_target = int(rec['memory_target'])
 
     additional_mb = 0
 
     packs = os.listdir(INSTALLED_REPOS_DIR)
     for pack in packs:
-        xmldoc = xml.dom.minidom.parse(os.path.join(INSTALLED_REPOS_DIR, pack, 'XS-REPOSITORY'))
-        additional_mb_str = xmldoc.documentElement.getAttribute('memory-requirement-mb')
-        if additional_mb_str:
-            additional_mb += int(additional_mb_str)
+        try:
+            xmldoc = xml.dom.minidom.parse(os.path.join(INSTALLED_REPOS_DIR, pack, 'XS-REPOSITORY'))
+            additional_mb_str = xmldoc.documentElement.getAttribute('memory-requirement-mb')
+            if additional_mb_str:
+                additional_mb += int(additional_mb_str)
+        except:
+            pass
 
     # new memory target
     memory_target = static_min + (100<<20) + (additional_mb<<20)
 
-    print >> sys.stderr, "Memory required by all installed packages: %d" % memory_target
+    print >> sys.stdout, "Memory required by all installed packages: %d" % memory_target
+
+    if memory_target <= current_target:
+        print >> sys.stdout, "Current target %d greater, skipping" % current_target
+        return 0
     
     if memory_target > static_max:
-        print >> sys.stderr, "Truncating to static-max: %d" % static_max
+        print >> sys.stdout, "Truncating to static-max: %d" % static_max
         memory_target = static_max
         
-    print >> sys.stderr, "Setting VM.memory_target: %d" % memory_target
+    print >> sys.stdout, "Setting VM.memory_target: %d" % memory_target
 
     # Next line commented out because this doesn't seem to work - maybe a bug in the Python bindings
     #session.xenapi.VM.set_memory_target_live(oref, memory_target)
@@ -56,6 +76,7 @@ def main():
     subprocess.call(['xe','vm-memory-target-set', 'uuid=%s' % uuid, 'target=%d' % memory_target])
 
     session.xenapi.session.logout()
+    return 0
 
 if __name__ == '__main__':
     rc = 1
@@ -65,6 +86,6 @@ if __name__ == '__main__':
         ex = sys.exc_info()
         err = traceback.format_exception(*ex)
         for exline in err:
-            log_err(exline)
+            print >> sys.stderr, exline
 
     sys.exit(rc)
