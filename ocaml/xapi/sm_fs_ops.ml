@@ -244,17 +244,20 @@ let copy_vdi ~__context vdi_src vdi_dst =
        with_block_attached_device __context rpc session_id vdi_dst `RW
 	 (fun device_dst ->
 	    let ifd=Unix.openfile device_src [Unix.O_RDONLY] 0o600 
-	    and ofd=Unix.openfile device_dst [Unix.O_WRONLY] 0o600 in
-	    try
-	      dd ifd ofd size blocksize;
-	      Unix.close ifd;
-	      Unix.close ofd
-	    with
-	      e ->
-		debug "Caught exception %s" (ExnHelper.string_of_exn e);
-		log_backtrace ();
-		Unix.close ifd;
-		Unix.close ofd
+	    and ofd=Unix.openfile device_dst [Unix.O_WRONLY; Unix.O_SYNC] 0o600 in
+	    finally
+	      (fun () ->
+		 try
+		   dd ifd ofd size blocksize;
+		 with
+		   | Unix.Unix_error(Unix.EIO, _, _) ->
+		       raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
+		   | e ->
+		       debug "Caught exception %s" (ExnHelper.string_of_exn e);
+		       log_backtrace ())
+	      (fun () ->
+		 Unix.close ifd;
+		 Unix.close ofd)
 	 )
     )
   )
