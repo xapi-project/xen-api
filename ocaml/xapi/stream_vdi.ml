@@ -264,8 +264,13 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 
 	    stream_from suffix (Int64.add skipped_size (Int64.add offset length))	    
 	  end in
-	stream_from "-1" 0L) in
-  for_each_vdi __context (recv_one ifd __context) prefix_vdis;
+	stream_from "-1" 0L;
+	Unixext.fsync ofd) in
+  begin try
+    for_each_vdi __context (recv_one ifd __context) prefix_vdis;
+  with Unix.Unix_error(Unix.EIO, _, _) ->
+    raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
+  end;
   !checksum_table
 
 
@@ -313,8 +318,13 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
 	          were cancelled... *)
 	       TaskHelper.exn_if_cancelling ~__context;
 	       () in
-      stream_from "") in
-  for_each_vdi __context (recv_one ifd __context) prefix_vdis;
+	stream_from "";
+	Unixext.fsync ofd) in
+  begin try
+    for_each_vdi __context (recv_one ifd __context) prefix_vdis;
+  with Unix.Unix_error(Unix.EIO, _, _) ->
+    raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
+  end;
   if !hdr <> None then begin
       error "Failed to import XVA; some chunks were not processed.";
       raise (Failure "Some XVA data not processed")

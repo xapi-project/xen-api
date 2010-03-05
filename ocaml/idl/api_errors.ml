@@ -172,6 +172,7 @@ let vdi_location_missing = "VDI_LOCATION_MISSING"
 let vdi_missing = "VDI_MISSING"
 let vdi_incompatible_type = "VDI_INCOMPATIBLE_TYPE"
 let vdi_not_managed = "VDI_NOT_MANAGED"
+let vdi_io_error = "VDI_IO_ERROR"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 
