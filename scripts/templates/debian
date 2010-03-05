@@ -3,6 +3,7 @@
 
 # Code ripped out of 'xgt' script for now
 import commands, xmlrpclib, os, sys, httplib, socket, urllib2, signal
+import errno
 
 verbose = True
 
@@ -28,7 +29,9 @@ def xapi_local():
 
 
 class CommandException(Exception):
-    pass
+    def __init__(self, ret, out):
+        Exception.__init__(self, out)
+        self.ret = ret
 
 
 def run(cmd, *args):
@@ -42,7 +45,7 @@ def run(cmd, *args):
             pass
     if ret != 0:
         debug ("run - command %s failed with %d" , cmd, ret)
-        raise CommandException(out)
+        raise CommandException(ret, out)
     return out
 
 def log(fmt, *args):
@@ -97,7 +100,7 @@ if __name__ == "__main__":
     def sighandler(signum, frame):
 	umount(mountpoint)
         os.killpg(0,signal.SIGKILL)
-	exit(1)
+	sys.exit(errno.EINTR)
 
     signal.signal(signal.SIGTERM,sighandler)
 
@@ -110,12 +113,26 @@ if __name__ == "__main__":
     
     run("/bin/mkdir -p %s", mountpoint)
     try:
-        run("/bin/mount %s1 %s", xvda, mountpoint)
-        run("/usr/bin/unzip -p %s root.tar.bz2 | tar -C %s -jx", xgt, mountpoint)
-    finally:
-        run("/bin/umount %s", mountpoint)
-        run("/bin/rmdir %s", mountpoint)
-    run("/usr/bin/unzip -p %s swap.img | dd of=%s oflag=direct bs=1M", xgt, xvdb)
+        try:
+            run("/bin/mount -osync %s1 %s", xvda, mountpoint)
+            run("/usr/bin/unzip -p %s root.tar.bz2 | tar -C %s -jx", xgt, mountpoint)
+        finally:
+            run("/bin/umount %s", mountpoint)
+            run("/bin/rmdir %s", mountpoint)
+    except CommandException, e:
+        if e.ret == 512:
+            sys.exit(errno.EIO)
+        else:
+            raise
+    try:
+        run("/usr/bin/unzip -p %s swap.img | dd of=%s oflag=direct bs=1M", xgt, xvdb)
+    except CommandException, e:
+        if e.ret == 256:
+            sys.exit(errno.EIO)
+        elif e.ret == 1:
+            sys.exit(errno.ENOSPC)
+        else:
+            raise
 
     try:
         session_id = server.session.login_with_password('','')['Value']
