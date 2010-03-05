@@ -49,7 +49,13 @@ let handler (req: request) (s: Unix.file_descr) =
 		   (fun device ->
 		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
 		      finally 
-			(fun () -> Unixext.copy_file ~limit:len s fd)
+			(fun () -> 
+			   try
+			     Unixext.copy_file ~limit:len s fd;
+			     Unixext.fsync fd
+			   with Unix.Unix_error(Unix.EIO, _, _) ->
+			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
+			)
 			(fun () -> Unix.close fd)
 		   )
 	      );
