@@ -21,7 +21,7 @@ open Syntax
 
 
 let is_base = function
-	| "int64" | "int32" | "int" | "flaot" | "string" | "unit" -> true
+	| "int64" | "int32" | "int" | "float" | "string" | "unit" -> true
 	| _ -> false
 
 let rpc_of n = "rpc_of_" ^ n
