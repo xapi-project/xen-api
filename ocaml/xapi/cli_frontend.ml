@@ -1678,7 +1678,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
    "network-create",
    {
      reqd=["name-label"]; 
-     optn=["name-description"];
+     optn=["name-description"; "MTU"];
      help="Create a new network.";
      implementation= No_fd Cli_operations.net_create;
       flags=[];
@@ -1702,7 +1702,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
    "vif-create",
     {
       reqd=["device";"network-uuid";"vm-uuid"];
-      optn=["mac";"mtu"];
+      optn=["mac"];
       help="Create a VIF. Appropriate values for the device are listed in the parameter 'allowed-VIF-devices' on the VM. If specified, the MAC parameter is of the form aa:bb:cc:dd:ee:ff. If MAC is not specified the server will choose an appropriate MAC automatically.";
       implementation=No_fd Cli_operations.vif_create;
       flags=[];
