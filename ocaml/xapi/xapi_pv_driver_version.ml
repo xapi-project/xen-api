@@ -74,24 +74,25 @@ let string_of = function
   | Windows(major, minor, micro, build) -> Printf.sprintf "Windows %d.%d.%d-%d" major minor micro build
   | Unknown -> "Unknown"
 
-(* Returns -1 if PV drivers are out-of-date wrt product version on this host;
-   returns 0 if PV drivers match product version on this host;
-   returns 1 if PV drivers are a newer version than the product version on this host *)
-let compare_vsn_with_product_vsn (pv_maj,pv_min,pv_mic) =
-    try
-      let my_software_version = !Xapi_globs.localhost_software_version in
-      let my_product_version = List.assoc "product_version" my_software_version in
-      let (prod_maj, prod_min, prod_mic) =
-        match (Stringext.String.split '.' my_product_version) with
-        | [ prod_maj; prod_min; prod_mic] -> int_of_string prod_maj, int_of_string prod_min, int_of_string prod_mic
-        | _                               -> warn "xapi product version is wrong format: %s" my_product_version; assert false;
-	in
-      if pv_mic = -1 then -1 (* out of date if micro version not specified -- reqd since Miami Beta1 was shipped without micro versions! *)
-      else if pv_maj<prod_maj || (pv_maj=prod_maj && pv_min<prod_min) || (pv_maj=prod_maj && pv_min=prod_min && pv_mic<prod_mic) then -1
-      else if pv_maj=prod_maj && pv_min=prod_min && pv_mic=prod_mic then 0
-      else 1
-    with e ->
-      -1 (* return out-of-date - if something goes wrong here "fail safe". *)
+(** Compares the given version tuple with the product version on this host.
+ ** @return -1: if the given version is older;
+ ** @return  0: if the given version is equal;
+ ** @return +1: if the given version is newer;
+ ** @raise Assert_failure: if this host does not have a valid product version.
+ **)
+let compare_vsn_with_product_vsn (pv_maj, pv_min, pv_mic) =
+	let (prod_maj, prod_min, prod_mic) =
+		match (Stringext.String.split '.' Version.product_version) with
+			| [maj; min; mic] ->
+				(int_of_string maj, int_of_string min, int_of_string mic)
+			| _ ->
+				warn "xapi product version is wrong format: %s"
+					Version.product_version; assert false;
+		in
+	if pv_mic = -1 then -1 (* out of date if micro version not specified -- reqd since Miami Beta1 was shipped without micro versions! *)
+	else if pv_maj<prod_maj || (pv_maj=prod_maj && pv_min<prod_min) || (pv_maj=prod_maj && pv_min=prod_min && pv_mic<prod_mic) then -1
+	else if pv_maj=prod_maj && pv_min=prod_min && pv_mic=prod_mic then 0
+	else 1
 
 (* Returns -1 if PV drivers are out-of-date wrt tools version on this host;
    returns 0 if the PV drivers match the tools version on this host;
