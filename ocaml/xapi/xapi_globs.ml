@@ -67,9 +67,6 @@ let xapi_gc_debug = ref true
 let unix_domain_socket = "/var/xapi/xapi"
 let local_database = "/var/xapi/local.db"
 
-(* Cached localhost info *)
-let localhost_software_version : ((string * string) list) ref = ref []
-
 (* amount of time to retry master_connection before (if restart_on_connection_timeout is set) restarting xapi; -ve means don't timeout: *)
 let master_connect_retry_timeout = -1. (* never timeout *)
 
