@@ -276,36 +276,37 @@ let windows_template ?(nx=false) ?cps memory root_disk_size version =
 
 
 let create_all_templates rpc session_id =
-  let rhel45_install_template name =
+  let rhel4x_install_template name ?(suppress_spurious_page_faults=false) ?(limit_machine_address_size=false) () =
+      let s_s_p_f = match suppress_spurious_page_faults with
+	| true -> [("suppress-spurious-page-faults", "true")]
+	| false -> [] in
+      let m_a_s = match limit_machine_address_size with
+	| true -> [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+	| false -> [] in
       let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
       { bt with
 	  vM_recommendations = recommendations ~vifs:3 ();
           vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") ::
-	                    ("suppress-spurious-page-faults", "true") :: 
+	                    m_a_s @
+	  		    s_s_p_f @ 
 			    bt.vM_other_config;
       } in
-  (* machine address space is limited to 64G initially for RHEL 4.7 *)
-  let rhel47_install_template name =
-    let bt = rhel45_install_template name in
-    { bt with
-	vM_other_config = (Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value) :: bt.vM_other_config;
-    } in
+
   (* the install_arch param should be passed in as either "i386" or "x86_64" ("i386" only support up to 16GB memory) *)
-  let rhel50_install_template name install_arch =
+  let rhel5x_install_template name install_arch ?(limit_machine_address_size=false) () =
       let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
       let recommendations = if install_arch = "i386" then recommendations ~memory:16 () 
-                                                     else recommendations ()
-      in
+                                                     else recommendations () in
+      let m_a_s = match limit_machine_address_size with
+	| true -> [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+	| false -> [] in
       { bt with 
-          vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: bt.vM_other_config;
+          vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") ::
+                             m_a_s @
+			     bt.vM_other_config;
           vM_recommendations = recommendations;
       } in
-  (* machine address space is limited to 64G initially for RHEL 5.2 *)
-  let rhel52_install_template name install_arch =
-    let bt = rhel50_install_template name install_arch in
-    { bt with
-	vM_other_config = (Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value) :: bt.vM_other_config;
-    } in
+
   (* the install_arch param should be passed in as either "i386" or "x86_64" *)
   let sles9_install_template name install_arch =
       let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
@@ -327,52 +328,52 @@ let create_all_templates rpc session_id =
       } in
   let linux_static_templates =
     [
-      rhel45_install_template "Red Hat Enterprise Linux 4.5";
-      rhel45_install_template "CentOS 4.5";
-      rhel45_install_template "Red Hat Enterprise Linux 4.6";
-      rhel45_install_template "CentOS 4.6";
-      rhel47_install_template "Red Hat Enterprise Linux 4.7";
-      rhel47_install_template "CentOS 4.7";
-      rhel47_install_template "Red Hat Enterprise Linux 4.8";
-      rhel47_install_template "CentOS 4.8";
-      rhel50_install_template "Red Hat Enterprise Linux 5.0" "i386";
-      rhel50_install_template "Oracle Enterprise Linux 5.0" "i386";
-      rhel50_install_template "CentOS 5.0" "i386";
-      rhel50_install_template "Red Hat Enterprise Linux 5.1" "i386";
-      rhel50_install_template "Oracle Enterprise Linux 5.1" "i386";
-      rhel50_install_template "CentOS 5.1" "i386";
-      rhel52_install_template "Red Hat Enterprise Linux 5.2" "i386";
-      rhel52_install_template "Oracle Enterprise Linux 5.2" "i386";
-      rhel52_install_template "CentOS 5.2" "i386";
-      rhel52_install_template "Red Hat Enterprise Linux 5.3" "i386";
-      rhel52_install_template "Oracle Enterprise Linux 5.3" "i386";
-      rhel52_install_template "CentOS 5.3" "i386";
-      rhel52_install_template "Red Hat Enterprise Linux 5.4" "i386";
-      rhel52_install_template "Oracle Enterprise Linux 5.4" "i386";
-      rhel52_install_template "CentOS 5.4" "i386";
-      rhel50_install_template "Red Hat Enterprise Linux 5.0 x64" "x86_64";
-      rhel50_install_template "Oracle Enterprise Linux 5.0 x64" "x86_64";
-      rhel50_install_template "CentOS 5.0 x64" "x86_64";
-      rhel50_install_template "Red Hat Enterprise Linux 5.1 x64" "x86_64";
-      rhel50_install_template "Oracle Enterprise Linux 5.1 x64" "x86_64";
-      rhel50_install_template "CentOS 5.1 x64" "x86_64";
-      rhel52_install_template "Red Hat Enterprise Linux 5.2 x64" "x86_64";
-      rhel52_install_template "Oracle Enterprise Linux 5.2 x64" "x86_64";
-      rhel52_install_template "CentOS 5.2 x64" "x86_64";
-      rhel52_install_template "Red Hat Enterprise Linux 5.3 x64" "x86_64";
-      rhel52_install_template "Oracle Enterprise Linux 5.3 x64" "x86_64";
-      rhel52_install_template "CentOS 5.3 x64" "x86_64";
-      rhel52_install_template "Red Hat Enterprise Linux 5.4 x64" "x86_64";
-      rhel52_install_template "Oracle Enterprise Linux 5.4 x64" "x86_64";
-      rhel52_install_template "CentOS 5.4 x64" "x86_64";
-      sles9_install_template "SUSE Linux Enterprise Server 9 SP4" "i386";
-      sles10_install_template "SUSE Linux Enterprise Server 10 SP1" "i386";
-      sles10_install_template "SUSE Linux Enterprise Server 10 SP1 x64" "x86_64";
-      sles10_install_template "SUSE Linux Enterprise Server 10 SP2" "i386";
-      sles10_install_template "SUSE Linux Enterprise Server 10 SP2 x64" "x86_64";
-      sles11_install_template "SUSE Linux Enterprise Server 11" "i386";
-      sles11_install_template "SUSE Linux Enterprise Server 11 x64" "x86_64";
-      debian_install_template "Debian Lenny 5.0" "lenny" "i386"
+		rhel4x_install_template "Red Hat Enterprise Linux 4.5"  ~suppress_spurious_page_faults:true ();
+		rhel4x_install_template "CentOS 4.5"                    ~suppress_spurious_page_faults:true ();
+		rhel4x_install_template "Red Hat Enterprise Linux 4.6"  ~suppress_spurious_page_faults:true ();
+		rhel4x_install_template "CentOS 4.6"                    ~suppress_spurious_page_faults:true ();
+		rhel4x_install_template "Red Hat Enterprise Linux 4.7"  ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
+		rhel4x_install_template "CentOS 4.7"                    ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
+		rhel4x_install_template "Red Hat Enterprise Linux 4.8"  ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
+		rhel4x_install_template "CentOS 4.8"                    ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.0"     "i386" ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.0"      "i386" ();
+		rhel5x_install_template "CentOS 5.0"                       "i386" ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.1"     "i386" ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.1"      "i386" ();
+		rhel5x_install_template "CentOS 5.1"                       "i386" ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.2"     "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.2"      "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.2"                       "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.3"     "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.3"      "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.3"                       "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.4"     "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.4"      "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.4"                       "i386" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.0 x64" "x86_64" ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.0 x64"  "x86_64" ();
+		rhel5x_install_template "CentOS 5.0 x64"                   "x86_64" ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.1 x64" "x86_64" ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.1 x64"  "x86_64" ();
+		rhel5x_install_template "CentOS 5.1 x64"                   "x86_64" ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.2 x64" "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.2 x64"  "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.2 x64"                   "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.3 x64" "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.3 x64"  "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.3 x64"                   "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Red Hat Enterprise Linux 5.4 x64" "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "Oracle Enterprise Linux 5.4 x64"  "x86_64" ~limit_machine_address_size:true ();
+		rhel5x_install_template "CentOS 5.4 x64"                   "x86_64" ~limit_machine_address_size:true ();
+		sles9_install_template  "SUSE Linux Enterprise Server 9 SP4" "i386";
+		sles10_install_template "SUSE Linux Enterprise Server 10 SP1"     "i386";
+		sles10_install_template "SUSE Linux Enterprise Server 10 SP1 x64" "x86_64";
+		sles10_install_template "SUSE Linux Enterprise Server 10 SP2"     "i386";
+		sles10_install_template "SUSE Linux Enterprise Server 10 SP2 x64" "x86_64";
+		sles11_install_template "SUSE Linux Enterprise Server 11"         "i386";
+		sles11_install_template "SUSE Linux Enterprise Server 11 x64"     "x86_64";
+		debian_install_template "Debian Lenny 5.0" "lenny" "i386"
     ] in
 
 	let static_templates = [
