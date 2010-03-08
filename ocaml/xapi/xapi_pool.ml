@@ -850,6 +850,11 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
      in order to satisfy ca-22381 *)
   let network_to_get_pifs_from = Db.PIF.get_network ~__context ~self:pif in
   let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network_to_get_pifs_from in
+  let pifs_on_live_hosts =
+    List.filter (fun p -> 
+      let h = Db.PIF.get_host ~__context ~self:p in
+      Db.Host.get_enabled ~__context ~self:h = true
+    ) pifs_on_network in
   (* Keep track of what we've created *)
   let created = ref [] in
   Helpers.call_api_functions ~__context
@@ -867,7 +872,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 		  safe_destroy_VLANs ~__context !created;
 		  raise e
 	   )
-	   pifs_on_network in
+	   pifs_on_live_hosts in
        let vlan_pifs = List.map (fun vlan -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan) vlans in
        (* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
 	  then nothing is rolled-back and the system will be left with some unplugged VLAN PIFs, which may
