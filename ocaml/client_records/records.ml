@@ -411,7 +411,8 @@ let pool_record rpc session_id pool =
     ~remove_from_map:(fun k -> Client.Pool.remove_from_gui_config rpc session_id pool k)
     ~get_map:(fun () -> (x ()).API.pool_gui_config)
     ~expensive:true ();
-  make_field ~name:"vswitch-controller" ~hidden:true ~get:(fun () -> let r = (x ()).API.pool_vswitch_controller in if r = "" then "<not set>" else r) ()
+  make_field ~name:"vswitch-controller" ~hidden:true ~get:(fun () -> let r = (x ()).API.pool_vswitch_controller in if r = "" then "<not set>" else r) ();
+  make_field ~name:"restrictions" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions) ();
 ]}
 
 let subject_record rpc session_id subject = 
