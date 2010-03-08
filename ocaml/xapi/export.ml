@@ -351,6 +351,7 @@ let export_all_vms_from_request ~__context (req: request) =
 
 let metadata_handler (req: request) s = 
 	debug "metadata_handler called";
+	req.close := true;
 
 	(* Xapi_http.with_context always completes the task at the end *)
 	Xapi_http.with_context "VM.export_metadata" req s
