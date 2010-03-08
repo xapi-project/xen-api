@@ -127,21 +127,44 @@ let is_maskable manufacturer family model stepping =
 		if has_emt family then true
 		else false
 
-let get_physical_features features =
-	let features_file = "/var/xapi/features" in
-	try
-		let data = Unixext.read_whole_file_to_string features_file in
-		string_to_features data
-	with _ ->
-		let data = features_to_string features in
-		Unixext.write_string_to_file features_file data;
-		features
-
+let get_features_from_xen () =
+	let features = Xc.with_intf (fun xc -> Xc.get_boot_cpufeatures xc) in
+	match features with
+	| base_ecx, base_edx, ext_ecx, ext_edx,
+		masked_base_ecx, masked_base_edx, masked_ext_ecx, masked_ext_edx ->	
+		{
+			base_ecx = masked_base_ecx;
+			base_edx = masked_base_edx;
+			ext_ecx = masked_ext_ecx;
+			ext_edx = masked_ext_edx
+		},
+		{
+			base_ecx = base_ecx;
+			base_edx = base_edx;
+			ext_ecx = ext_ecx;
+			ext_edx = ext_edx
+		}
+		
+let get_current_mask () =
+	let masks = Xen_cmdline.list_cpuid_masks () in
+	let get_mask m =
+		if List.mem_assoc m masks = false then
+			0xffffffffl
+		else
+			Int32.of_string (List.assoc m masks)
+	in
+	{
+		base_ecx = get_mask "cpuid_mask_ecx";
+		base_edx = get_mask "cpuid_mask_edx";
+		ext_ecx = get_mask "cpuid_mask_ext_ecx";
+		ext_edx = get_mask "cpuid_mask_ext_edx"
+	}
+	
 let read_cpu_info () =
 	let manufacturer = read_manufacturer () in
 	let family = read_family () in
 	let model = read_model () in
-	let features = read_features () in
+	let features, phy_features = get_features_from_xen () in
 	let stepping = read_stepping () in
 	{
 		manufacturer = manufacturer;
@@ -149,7 +172,7 @@ let read_cpu_info () =
 		model = model;
 		stepping = stepping;
 		features = features;
-		physical_features = get_physical_features features;
+		physical_features = phy_features;
 		maskable = is_maskable manufacturer family model stepping;
 	}
 	
