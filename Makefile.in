@@ -32,6 +32,7 @@ endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C mlvm
 	$(MAKE) -C cpuid
+	$(MAKE) -C xen-utils
 
 .PHONY: allxen
 allxen:
@@ -69,6 +70,7 @@ endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C mlvm install
 	$(MAKE) -C cpuid install
+	$(MAKE) -C xen-utils install
 
 installxen:
 ifeq ($(HAVE_XEN),1)
@@ -105,6 +107,7 @@ endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C mlvm uninstall
 	$(MAKE) -C cpuid uninstall
+	$(MAKE) -C xen-utils uninstall
 
 uninstallxen:
 ifeq ($(HAVE_XEN),1)
@@ -164,26 +167,28 @@ doc:
 	$(MAKE) -C forking_executioner doc
 	$(MAKE) -C mlvm doc
 	$(MAKE) -C cpuid doc
+	$(MAKE) -C xen-utils doc
 
 .PHONY: clean
 clean:
-	make -C uuid clean
-	make -C camldm clean
-	make -C stdext clean
-	make -C log clean
-	make -C stunnel clean
-	make -C pciutil clean
-	make -C cdrom clean
-	make -C xml-light2 clean
-	make -C rss clean
-	make -C rpc-light clean
-	make -C http-svr clean
-	make -C close-and-exec clean
-	make -C sexpr clean
-	make -C doc clean
-	make -C forking_executioner clean
-	make -C mlvm clean
-	make -C cpuid clean
+	$(MAKE) -C uuid clean
+	$(MAKE) -C camldm clean
+	$(MAKE) -C stdext clean
+	$(MAKE) -C log clean
+	$(MAKE) -C stunnel clean
+	$(MAKE) -C pciutil clean
+	$(MAKE) -C cdrom clean
+	$(MAKE) -C xml-light2 clean
+	$(MAKE) -C rss clean
+	$(MAKE) -C rpc-light clean
+	$(MAKE) -C http-svr clean
+	$(MAKE) -C close-and-exec clean
+	$(MAKE) -C sexpr clean
+	$(MAKE) -C doc clean
+	$(MAKE) -C forking_executioner clean
+	$(MAKE) -C mlvm clean
+	$(MAKE) -C cpuid clean
+	$(MAKE) -C xen-utils clean
 
 cleanxen:
 	$(MAKE) -C mmap clean
@@ -192,3 +197,4 @@ cleanxen:
 	$(MAKE) -C xs clean
 	$(MAKE) -C xsrpc clean
 	$(MAKE) -C eventchn clean
+
