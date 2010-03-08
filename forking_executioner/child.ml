@@ -18,6 +18,10 @@ open Fe_debug
 let handle_fd_sock fd_sock state =
   try
     let (newfd,buffer) = Fecomms.receive_named_fd fd_sock in
+    if Unixext.int_of_file_descr newfd = -1 then begin
+      debug "Failed to receive an fd associated with the message '%s'" buffer;
+      failwith "Didn't get an fd"
+    end;
     let dest_fd = List.assoc buffer state.id_to_fd_map in
     let fd = begin 
       match dest_fd with 
