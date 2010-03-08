@@ -31,7 +31,6 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C mlvm
-	$(MAKE) -C cpuid
 	$(MAKE) -C xen-utils
 
 .PHONY: allxen
@@ -43,6 +42,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C xs
 	$(MAKE) -C xsrpc
 	$(MAKE) -C eventchn
+	$(MAKE) -C cpuid
 endif
 
 install:
@@ -69,7 +69,6 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C mlvm install
-	$(MAKE) -C cpuid install
 	$(MAKE) -C xen-utils install
 
 installxen:
@@ -80,6 +79,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C xs install
 	$(MAKE) -C xsrpc install
 	$(MAKE) -C eventchn install
+	$(MAKE) -C cpuid install
 endif
 
 uninstall:
@@ -106,7 +106,6 @@ ifeq ($(HAVE_DEVICE_MAPPER),1)
 endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C mlvm uninstall
-	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C xen-utils uninstall
 
 uninstallxen:
@@ -117,6 +116,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C xb uninstall
 	$(MAKE) -C xc uninstall
 	$(MAKE) -C mmap uninstall
+	$(MAKE) -C cpuid uninstall
 endif
 
 bins:

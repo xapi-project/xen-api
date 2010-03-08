@@ -1,5 +1,5 @@
 version = "@VERSION@"
 description = "Cpuid extension"
-requires = ""
+requires = "stdext xc xen-utils"
 archive(byte) = "cpuid.cma"
 archive(native) = "cpuid.cmxa"
