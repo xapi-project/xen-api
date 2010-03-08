@@ -34,7 +34,7 @@ let do_upload label file url options =
   match with_logfile_fd label
   (fun log_fd ->
      let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] upload_wrapper [file; url; proxy] in
-     waitpid pid) with
+     waitpid_fail_if_bad_exit pid) with
   | Success _ -> debug "Upload succeeded"
   | Failure (log, exn) ->
       debug "Upload failed, output: %s" log;
