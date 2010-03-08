@@ -163,5 +163,6 @@ let run state comms_sock fd_sock fd_sock_path =
     | e -> 
 	debug "Caught unexpected exception: %s" (Printexc.to_string e);
 	write_log ();
+	Unixext.unlink_safe fd_sock_path;
 	exit 1
 	  
