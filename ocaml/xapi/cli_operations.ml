@@ -3537,8 +3537,8 @@ let host_refresh_pack_info printer rpc session_id params =
 
 let host_cpu_info printer rpc session_id params =
   let host = 
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    if List.mem_assoc "uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
     else
       get_host_from_session rpc session_id in
   let cpu_info = Client.Host.get_cpu_info rpc session_id host in
@@ -3546,8 +3546,8 @@ let host_cpu_info printer rpc session_id params =
   
 let host_get_cpu_features printer rpc session_id params =
   let host = 
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    if List.mem_assoc "uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
     else
       get_host_from_session rpc session_id in
   let cpu_info = Client.Host.get_cpu_info rpc session_id host in
@@ -3556,8 +3556,8 @@ let host_get_cpu_features printer rpc session_id params =
 
 let host_set_cpu_features printer rpc session_id params =
   let host = 
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    if List.mem_assoc "uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
     else
       get_host_from_session rpc session_id in
   let features = List.assoc "features" params in
@@ -3565,8 +3565,8 @@ let host_set_cpu_features printer rpc session_id params =
 
 let host_reset_cpu_features printer rpc session_id params =
   let host = 
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) 
+    if List.mem_assoc "uuid" params then
+      Client.Host.get_by_uuid rpc session_id (List.assoc "uuid" params) 
     else
       get_host_from_session rpc session_id in
   Client.Host.reset_cpu_features rpc session_id host

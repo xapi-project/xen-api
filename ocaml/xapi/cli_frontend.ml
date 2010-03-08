@@ -705,7 +705,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "host-cpu-info",
     {
       reqd=[];
-      optn=["host-uuid"];
+      optn=["uuid"];
       help="Lists information about the host's physical CPUs.";
       implementation= No_fd Cli_operations.host_cpu_info;
       flags=[];
@@ -714,7 +714,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "host-get-cpu-features",
     {
       reqd=[];
-      optn=["host-uuid"];
+      optn=["uuid"];
       help="Prints a hexadecimal representation of the host's physical-CPU features.";
       implementation= No_fd Cli_operations.host_get_cpu_features;
       flags=[];
@@ -723,7 +723,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "host-set-cpu-features",
     {
       reqd=["features"];
-      optn=["host-uuid"];
+      optn=["uuid"];
       help="Attempts to mask the host's physical-CPU features to match the given features. The given string must be a 32-digit hexadecimal number (optionally containing spaces), as given by host-get-cpu-features.";
       implementation= No_fd Cli_operations.host_set_cpu_features;
       flags=[];
@@ -732,7 +732,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "host-reset-cpu-features",
     {
       reqd=[];
-      optn=["host-uuid"];
+      optn=["uuid"];
       help="Removes the feature mask of the host's physical CPU (if any).";
       implementation= No_fd Cli_operations.host_reset_cpu_features;
       flags=[];
