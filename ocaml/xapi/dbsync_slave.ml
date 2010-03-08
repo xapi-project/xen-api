@@ -83,7 +83,6 @@ let refresh_localhost_info ~__context =
   let host = !Xapi_globs.localhost_ref in
   let info = read_localhost_info () in
   let software_version = Create_misc.make_software_version () in
-  Xapi_globs.localhost_software_version := software_version; (* Cache this *)
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
   debug "Updating host software_version";
