@@ -15,3 +15,6 @@ autom4te\.cache/
 ^config\.status$
 ^configure$
 doc/*
+~$
+\.rej$
+\.orig$
