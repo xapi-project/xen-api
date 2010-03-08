@@ -34,6 +34,12 @@ type rrd_info = {
 (* strings are uuids *)
 type ds_type = VM of string | Host | SR of string
 
+(* Mutex to protect the shared data.
+ *
+ * Warning: Do not do any DB calls with this mutex held! A possible side effect
+ * of a DB call will be resetting the 'dirty' status below, requiring acquisition
+ * of this lock, resulting in a deadlock! 
+ *) 
 let mutex = Mutex.create ()
 
 (* RRDs *)		  
