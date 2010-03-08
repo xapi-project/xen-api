@@ -27,7 +27,7 @@ STDEXT_OBJS = fun listext filenameext stringext arrayext hashtblext pervasiveext
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
 
-PROGRAMS = base64pp
+PROGRAMS = base64pp fe_cli fe_test
 
 DOCDIR = /myrepos/xen-api-libs.hg/doc
 
@@ -39,6 +39,12 @@ libs: $(LIBS)
 
 base64pp: base64_main.ml all libstdext_stubs.a
 	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
+
+fe_cli: fe_cli.ml all libstdext_stubs.a
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa ../uuid/uuid.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
+
+fe_test: fe_test.ml all libstdext_stubs.a
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa ../uuid/uuid.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -I ../uuid -o $@ $< -ccopt -L.
 
 stdext.cmxa: libstdext_stubs.a $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lstdext_stubs $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
