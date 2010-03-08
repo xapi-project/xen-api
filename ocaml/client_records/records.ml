@@ -543,6 +543,7 @@ let vm_record rpc session_id vm =
 		inner 0
 	in
 	let get_memory_target () =
+	        try
 		Int64.to_string (
 			try
 				Int64.of_float (
@@ -552,6 +553,7 @@ let vm_record rpc session_id vm =
 			with Api_errors.Server_error (code, _)
 			when code = Api_errors.vm_bad_power_state -> 0L
 		)
+                with _ -> "<unknown>"
 	in
 	let xgm () = lzy_get guest_metrics in
 	{
