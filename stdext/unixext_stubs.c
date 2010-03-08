@@ -382,7 +382,7 @@ CAMLprim value stub_unix_recv_fd(value sock, value buff, value ofs, value len, v
   if(ret == -1) 
     unixext_error(errno);
 
-  if(ret> 0) {
+  if(ret>0 && msg.msg_controllen>0) {
     cmsg = CMSG_FIRSTHDR(&msg);
     if(cmsg->cmsg_level == SOL_SOCKET && (cmsg->cmsg_type == SCM_RIGHTS)) {
       fd=Val_int(*(int*)CMSG_DATA(cmsg));
