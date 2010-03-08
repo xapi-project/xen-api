@@ -339,6 +339,7 @@ let verify_network_connectivity session_id test vm =
        let bridge = Client.Network.get_bridge !rpc session_id network in
        let device = Printf.sprintf "vif%Ld.%s" (Client.VM.get_domid !rpc session_id vm) (Client.VIF.get_device !rpc session_id vif) in
        let devices = Netdev.network.Netdev.intf_list bridge in
+       let other_config = Client.VIF.get_other_config !rpc session_id vif in
        if not(List.mem device devices) 
        then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
        else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
@@ -347,7 +348,6 @@ let verify_network_connectivity session_id test vm =
        let sysfs_promisc = Printf.sprintf "/sys/class/net/%s/brport/promisc" device in
        if Sys.file_exists sysfs_promisc
        then begin
-         let other_config = Client.VIF.get_other_config !rpc session_id vif in
          let promisc = List.mem_assoc "promiscuous" other_config && (let x = List.assoc "promiscuous" other_config in x = "true" || x = "on") in
          let promisc' = read_sys sysfs_promisc = "1" in
          if promisc <> promisc' 
@@ -357,12 +357,13 @@ let verify_network_connectivity session_id test vm =
          debug test (Printf.sprintf "%s not found. assuming unsupported" sysfs_promisc);
 
        (* Check the MTU *)
-       let mtu = Client.VIF.get_MTU !rpc session_id vif in
-       let mtu' = if mtu = 0L then 1500L else mtu in
+       let mtu = Client.Network.get_MTU !rpc session_id network in
+       let mtu' = if List.mem_assoc "mtu" other_config
+         then Int64.of_string(List.assoc "mtu" other_config) else mtu in
        let mtu'' = Int64.of_string (read_sys (Printf.sprintf "/sys/class/net/%s/mtu" device)) in
        if mtu' <> mtu'' 
-       then failed test (Printf.sprintf "VIF.MTU is %Ld but /sys says %Ld" mtu mtu'')
-       else debug test (Printf.sprintf "VIF.MTU is %Ld and /sys says %Ld" mtu mtu'');
+       then failed test (Printf.sprintf "VIF.MTU is %Ld but /sys says %Ld" mtu' mtu'')
+       else debug test (Printf.sprintf "VIF.MTU is %Ld and /sys says %Ld" mtu' mtu'');
     ) vifs
 
 let rec wait_for_task_complete session_id task = 
@@ -600,7 +601,7 @@ let async_test session_id =
     | _ -> failwith "Expecting 1 new disk!"
 
 let make_vif ~session_id ~vM ~network ~device = 
-  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:1400L ~mAC:"" ~device ~other_config:["promiscuous", "on"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
+  Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[] 
 
 let with_vm s f = 
   try
