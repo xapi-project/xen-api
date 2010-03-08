@@ -159,10 +159,12 @@ let operation (obj: obj) (x: message) =
     then [
 			"let arg_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) string_args (if is_non_constructor_with_defaults then "\"default_args\"::[]" else "[]"))^" in";
 			"let key_names = "^(List.fold_right (fun arg args -> "\""^arg^"\"::"^args) (List.map (fun (k,_)->k) x.msg_map_keys_roles) "[]")^" in";
-			"Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn:(fun ()-> (*RBAC-BEGIN*)"]
-    else []
+			"let rbac __context fn = Rbac.check session_id __call ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"]
+    else [
+    "let rbac __context fn = fn() in"
+    ]
   in
-  let rbac_check_end = if has_session_arg then [") (*RBAC-END*)"] else [] in
+  let rbac_check_end = if has_session_arg then [] else [] in
   let unmarshall_code =
     (
       (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
@@ -211,13 +213,13 @@ let operation (obj: obj) (x: message) =
 		let common_let_decs =
 			[
 				"let marshaller = "^result_marshaller^" in";
-				"let local_op = fun ~__context ->("^module_prefix^"."^impl_fn^") in";
+				"let local_op = fun ~__context ->(rbac __context (fun()->("^module_prefix^"."^impl_fn^"))) in";
 				"let supports_async = "^(if has_async then "true" else "false")^" in";
 				"let generate_task_for = "^(string_of_bool (not (List.mem obj.name DM.no_task_id_for)))^" in" ] in
 		let side_effect_let_decs =
 			if Gen_empty_custom.operation_requires_side_effect x then
 				[
-					Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (%s.%s) in" _forward impl_fn
+					Printf.sprintf "let forward_op = fun ~local_fn ~__context -> (rbac __context (fun()-> (%s.%s) )) in" _forward impl_fn
 				]
 			else 
 				[
