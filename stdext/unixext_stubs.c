@@ -398,8 +398,9 @@ CAMLprim value stub_unix_recv_fd(value sock, value buff, value ofs, value len, v
 
   memmove(&Byte(buff, Long_val(ofs)), iobuf, numbytes);
 
-  addr=alloc_small(1,0);
-  
+  addr=alloc_small(1,0); /* Unix.sockaddr; must be an ADDR_UNIX of string */
+  Field(addr, 0) = Val_unit; /* must set all fields before next allocation */
+
   if(ret>0) {
     Field(addr,0) = copy_string(unix_socket_name.sun_path);
   } else {
