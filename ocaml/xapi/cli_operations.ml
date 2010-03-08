@@ -1368,9 +1368,9 @@ let vif_create printer rpc session_id params =
   let vm_uuid=List.assoc "vm-uuid" params in
   let mac=try List.assoc "mac" params with _ -> "" in
   let mac=if mac="random" then (Record_util.random_mac_local ()) else mac in
-  let mtu=try Int64.of_string (List.assoc "mtu" params) with _ -> 1500L in
   let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
   let network=Client.Network.get_by_uuid rpc session_id network_uuid in
+  let mtu = Client.Network.get_MTU rpc session_id network in
   let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] in
   let uuid = Client.VIF.get_uuid rpc session_id vif in
   printer (Cli_printer.PList [uuid])
@@ -1393,7 +1393,8 @@ let vif_unplug printer rpc session_id params =
 let net_create printer rpc session_id params = 
   let network = List.assoc "name-label" params in
   let descr = if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
-  let net = Client.Network.create rpc session_id network descr 1500L [] [] in
+  let mtu = if List.mem_assoc "MTU" params then Int64.of_string (List.assoc "MTU" params) else 1500L in
+  let net = Client.Network.create rpc session_id network descr mtu [] [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
   printer (Cli_printer.PList [uuid])
 
