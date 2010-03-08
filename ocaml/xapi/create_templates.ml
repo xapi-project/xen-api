@@ -334,8 +334,8 @@ let create_all_templates rpc session_id =
 		rhel4x_install_template "CentOS 4.6"                    ~suppress_spurious_page_faults:true ();
 		rhel4x_install_template "Red Hat Enterprise Linux 4.7"  ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
 		rhel4x_install_template "CentOS 4.7"                    ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
-		rhel4x_install_template "Red Hat Enterprise Linux 4.8"  ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
-		rhel4x_install_template "CentOS 4.8"                    ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
+		rhel4x_install_template "Red Hat Enterprise Linux 4.8"                                      ~limit_machine_address_size:true ();
+		rhel4x_install_template "CentOS 4.8"                                                        ~limit_machine_address_size:true ();
 		rhel5x_install_template "Red Hat Enterprise Linux 5.0"     "i386" ();
 		rhel5x_install_template "Oracle Enterprise Linux 5.0"      "i386" ();
 		rhel5x_install_template "CentOS 5.0"                       "i386" ();
