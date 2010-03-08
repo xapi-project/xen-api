@@ -43,8 +43,9 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
     warn "vif QoS failed: %s (vm=%s,vif=%s)" reason vm_r.API.vM_uuid vif_r.API.vIF_uuid in
   
   let mac = vif_r.API.vIF_MAC in
-  let mtu = Int64.to_int vif_r.API.vIF_MTU in
-  
+  let vif_mtu = if (List.mem_assoc "mtu" vif_r.API.vIF_other_config) then
+    Some (int_of_string (List.assoc "mtu" vif_r.API.vIF_other_config)) else None in
+
   let qos_type = vif_r.API.vIF_qos_algorithm_type in
   let qos_params = vif_r.API.vIF_qos_algorithm_params in
   let rate = match qos_type with
@@ -71,6 +72,9 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
   try
     let network_ref = vif_r.API.vIF_network in
     let bridge = Db.Network.get_bridge ~__context ~self:network_ref in
+    let mtu = match vif_mtu with
+      | Some mtu -> mtu
+      | None -> Int64.to_int (Db.Network.get_MTU ~__context ~self:network_ref) in
     Some {
       domid = domid;
       vif_ref = vif;
