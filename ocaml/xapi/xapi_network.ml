@@ -25,6 +25,7 @@ let get_allowed_messages ~__context ~self = []
 *)
 
 let create_internal_bridge ~bridge =
+  debug "Creating internal bridge %s" bridge;
   let current = Netdev.network.Netdev.list () in
   if not(List.mem bridge current) then Netdev.network.Netdev.add bridge;
   if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
