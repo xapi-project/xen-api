@@ -229,10 +229,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
 		~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m));	
 
-	(* For checkpoints, copy the guest metrics (as the VM will be reverted in a suspended state *)
-	let guest_metrics = match disk_op with
-		| Disk_op_checkpoint -> Xapi_vm_helpers.copy_guest_metrics ~__context ~vm
-		| _ -> Ref.null in
+	let guest_metrics = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm in
 
 	(* compute the parent VM *)
 	let parent =
