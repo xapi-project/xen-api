@@ -2468,10 +2468,11 @@ end
     let forward_sr_multiple_op ~local_fn ~__context ~srs op =
       let hosts = Db.Host.get_all ~__context in
       let filterfn host =
-	try
-	  Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
-	  true
-	with 
+		try
+			Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
+			check_live ~__context host;
+			true
+		with 
 	    _ -> false in
       let possibles = List.filter filterfn hosts in
       match possibles with
