@@ -163,6 +163,7 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req: Http.request) s =
   debug "received request to write out db as xml";
+  req.Http.close := true;
   Xapi_http.with_context "Dumping database as XML" req s
     (fun __context ->
       debug "sending headers";
