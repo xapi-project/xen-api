@@ -1,4 +1,4 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss cpuid
+OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss cpuid xen-utils
 OCAML_LIBS    =  ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
@@ -231,8 +231,7 @@ XAPI_MODULES = $(COMMON) \
 	../license/v6client \
 	bios_strings \
 	xapi_config \
-	../license/grace_retry \
-	xen_cmdline
+	../license/grace_retry
 
 OCamlProgram(xapi, $(XAPI_MODULES))
 OCamlDocProgram(xapi, $(XAPI_MODULES))
