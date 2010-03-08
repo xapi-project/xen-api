@@ -109,6 +109,19 @@ let read_gzipped_file_with_fallback path =
   end
 
 
+let use_min_max = ref false 
+
+let update_use_min_max () =
+  Server_helpers.exec_with_new_task "rrd_update_min_max" (fun __context -> 
+    let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
+    let new_use_min_max =  (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
+      (List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
+    in
+    debug "Updating use_min_max: New value=%b" new_use_min_max;
+    use_min_max := new_use_min_max)
+
+    
+
 (** Here is the only place where RRDs are created. The timescales are fixed. If other timescales
     are required, this could be done externally. The types of archives created are also fixed.
     Currently, we're making 4 timescales of 3 types of archive. This adds up to a total of
@@ -676,12 +689,8 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 	      with
 		| Not_found ->
 		    debug "Creating fresh RRD for VM uuid=%s" vm_uuid;
-		    let use_min_max = 
-		      let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-		      (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
-			(List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
-		    in
-		    let rrd = create_fresh_rrd use_min_max dss in
+
+		    let rrd = create_fresh_rrd (!use_min_max) dss in
 		    Hashtbl.replace vm_rrds vm_uuid {rrd=rrd; dss=dss}
 		| e ->
 		    raise e

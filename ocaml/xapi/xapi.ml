@@ -815,8 +815,9 @@ let server_init() =
 	Master_connection.restart_on_connection_timeout := true;
 	Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end;
-						    					    
+ 
     Startup.run ~__context [
+      "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], Xapi_message.start_message_hook_thread;
