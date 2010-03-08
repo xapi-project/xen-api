@@ -123,7 +123,7 @@ let host_restore_handler (req: request) s =
                 )
                 (fun () -> 
                   close in_pipe;
-                  waitpid pid
+                  waitpid_fail_if_bad_exit pid
                 )     
             )
           in
