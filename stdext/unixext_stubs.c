@@ -294,8 +294,6 @@ CAMLprim value stub_unix_send_fd(value sock, value buff, value ofs, value len, v
   int ret,  cv_flags, cfd;
   long numbytes;
   char iobuf[UNIX_BUFFER_SIZE];
-  value path;
-  int pathlen;
   char buf[CMSG_SPACE(sizeof(cfd))];
 
   cfd = Int_val(fd);
