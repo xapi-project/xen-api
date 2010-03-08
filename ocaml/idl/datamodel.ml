@@ -5596,7 +5596,7 @@ let vm_guest_metrics =
       field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
       field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
       field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
-      field ~persist:false  ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
+      field ~persist:true ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
       field ~persist:false ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
       field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
