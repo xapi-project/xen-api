@@ -166,7 +166,7 @@ let look_up_related_table_and_field obj other full_name =
 let read_set_ref obj other full_name =
   (* Set(Ref t) is actually stored in the table t *)
   let obj', fld' = look_up_related_table_and_field obj other full_name in
-  Printf.sprintf "ignore (read_field __context \"%s\" \"%s\" %s); List.map %s.%s (read_set_ref {table=\"%s\"; return=reference; where_field=\"%s\"; where_value=%s})"
+  Printf.sprintf "ignore (read_field __context \"%s\" \"%s\" %s); List.map %s.%s (read_set_ref {table=\"%s\"; return=Db_action_helper.reference; where_field=\"%s\"; where_value=%s})"
     (Escaping.escape_obj obj.DT.name) "uuid" Client._self
     _string_to_dm (OU.alias_of_ty (DT.Ref other))
     (Escaping.escape_obj obj') fld' Client._self
@@ -449,7 +449,6 @@ let db_action api : O.Module.t =
   O.Module.make
     ~name:_db_action
     ~preamble:[ 
-		"open Db_action_helper";
                 "open Db_cache.DBCache";
                 "open Db_cache_types";
 		"module D=Debug.Debugger(struct let name=\"db\" end)";
