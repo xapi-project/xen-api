@@ -579,11 +579,11 @@ let vm_record rpc session_id vm =
 				~set:(fun x -> Client.VM.set_is_a_template rpc session_id vm (safe_bool_of_string "is-a-template" x)) ();
 			make_field ~name:"is-a-snapshot"
 				~get:(fun () -> string_of_bool (x ()).API.vM_is_a_snapshot) ();
-			make_field ~name:"snapshot_of"
+			make_field ~name:"snapshot-of"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_of) ();
 			make_field ~name:"snapshots"
 				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_snapshots)) ();
-			make_field ~name:"snapshot_time"
+			make_field ~name:"snapshot-time"
 				~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time) ();
 			make_field ~name:"transportable-snapshot-id" ~hidden:true
 				~get:(fun () -> (x()).API.vM_transportable_snapshot_id) ();
@@ -942,9 +942,9 @@ let vdi_record rpc session_id vdi =
     make_field ~name:"name-description" ~get:(fun () -> (x ()).API.vDI_name_description)
       ~set:(fun desc -> Client.VDI.set_name_description rpc session_id vdi desc) ();
     make_field ~name:"is-a-snapshot" ~get:(fun () -> string_of_bool (x ()).API.vDI_is_a_snapshot) (); 
-    make_field ~name:"snapshot_of"   ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_snapshot_of) ();
+    make_field ~name:"snapshot-of"   ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_snapshot_of) ();
     make_field ~name:"snapshots"     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_snapshots)) ();
-    make_field ~name:"snapshot_time" ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time) ();
+    make_field ~name:"snapshot-time" ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time) ();
     make_field ~name:"allowed-operations"
       ~get:(fun () -> String.concat "; " (List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations)) 
       ~get_set:(fun () -> List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations) ();
