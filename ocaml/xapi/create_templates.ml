@@ -263,178 +263,224 @@ let sdk_install_template =
           "install-ramdisk", "install.img"
         ];
   }
-  
-(** Makes a Windows template using the given memory parameters in MiB, root disk
-size in GiB, and version string. *)
-let windows_template ?(nx=false) ?cps memory root_disk_size version = 
+
+(* Linux and Windows templates -----------------------------------------------*)
+
+type linux_template_flags =
+	| Limit_machine_address_size
+	| Suppress_spurious_page_faults
+
+type windows_template_flags =
+	| NX
+	| XenApp
+
+type architecture =
+	| X32
+	| X64
+
+let friendly_string_of_architecture = function
+	| X32 -> "(32-bit)"
+	| X64 -> "(64-bit)"
+
+let technical_string_of_architecture = function
+	| X32 -> "i386"
+	| X64 -> "x86_64"
+
+let make_long_name name architecture =
+	Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture)
+
+let windows_template
+		name architecture
+		minimum_supported_memory_mib
+		root_disk_size_gib
+		flags = 
 	let root = {
 		device = "0";
-		size = (root_disk_size ** gib);
+		size = ((Int64.of_int root_disk_size_gib) ** gib);
 		sr = preferred_sr;
 		bootable = false;
 		_type = `system
-	} in 
-	let base = other_install_media_template memory in
+	} in
+	let maximum_supported_memory_mib = match architecture with
+		| X32 -> 4
+		| X64 -> 32 in
+	let base = other_install_media_template
+		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
+	let xen_app = List.mem XenApp flags in
+	let name = Printf.sprintf "%sWindows %s"
+		(if xen_app then "Citrix XenApp on " else "")
+		(make_long_name name architecture) in
 	{
 		base with
-		vM_name_label = Printf.sprintf "%sWindows %s" (Opt.default "" (Opt.map (fun cps -> cps ^ " on ") cps)) version;
-		vM_name_description =
-			Printf.sprintf "Clones of this template will automatically \
-			provision their storage when first booted and then reconfigure \
-			themselves with the optimal settings for %sWindows %s." 
-				(Opt.default "" (Opt.map (Printf.sprintf "running %s on ") cps))
-				version;
+		vM_name_label = name;
+		vM_name_description = Printf.sprintf
+			"Clones of this template will automatically provision their \
+			storage when first booted and then reconfigure themselves with \
+			the optimal settings for %s."
+			name;
 		vM_other_config = [
 			disks_key, Xml.to_string (xml_of_disks [ root ]);
 			install_methods_otherconfig_key, "cdrom"
-		] @ (Opt.default [] (Opt.map (fun _ -> [ "application_template", "1" ]) cps));
-		vM_platform = if nx then with_nx_platform_flags else base.vM_platform;
-		vM_HVM_shadow_multiplier = Opt.default base.vM_HVM_shadow_multiplier (Opt.map (fun _ -> 4.0) cps);
+		] @ (if xen_app then ["application_template", "1"] else []);
+		vM_platform =
+			if List.mem NX flags
+			then with_nx_platform_flags
+			else base.vM_platform;
+		vM_HVM_shadow_multiplier =
+			(if xen_app then 4.0 else base.vM_HVM_shadow_multiplier);
+		vM_recommendations = (recommendations ~memory:maximum_supported_memory_mib ());
 	}
 
+let rhel4x_template name architecture flags =
+	let name = make_long_name name architecture in
+	let s_s_p_f =
+		if List.mem Suppress_spurious_page_faults flags
+		then [("suppress-spurious-page-faults", "true")]
+		else [] in
+	let m_a_s =
+		if List.mem Limit_machine_address_size flags
+		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		else [] in
+	let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
+	{ bt with
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: m_a_s @ s_s_p_f @ bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:16 ~vifs:3 ();
+	}
+
+let rhel5x_template name architecture flags =
+	let name = make_long_name name architecture in
+	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
+	let m_a_s =
+		if List.mem Limit_machine_address_size flags
+		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		else [] in
+	{ bt with 
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: m_a_s @ bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:16 ();
+	}
+
+let sles_9_template name architecture flags =
+	let name = make_long_name name architecture in
+	let install_arch = technical_string_of_architecture architecture in
+	let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
+	{ bt with 
+		vM_other_config = (install_methods_otherconfig_key, "nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
+	}
+
+let sles10_template name architecture flags =
+	let name = make_long_name name architecture in
+	let install_arch = technical_string_of_architecture architecture in
+	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
+	{ bt with
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
+	}
+
+let sles11_template = sles10_template
+
+let debian_template name release architecture flags =
+	let name = make_long_name name architecture in
+	let install_arch = technical_string_of_architecture architecture in
+	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in
+	{ bt with 
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,http,ftp") :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
+	}
 
 let create_all_templates rpc session_id =
-  let rhel4x_install_template name ?(suppress_spurious_page_faults=false) ?(limit_machine_address_size=false) () =
-      let s_s_p_f = match suppress_spurious_page_faults with
-	| true -> [("suppress-spurious-page-faults", "true")]
-	| false -> [] in
-      let m_a_s = match limit_machine_address_size with
-	| true -> [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
-	| false -> [] in
-      let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
-      { bt with
-	  vM_recommendations = recommendations ~vifs:3 ();
-          vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") ::
-	                    m_a_s @
-	  		    s_s_p_f @ 
-			    bt.vM_other_config;
-      } in
 
-  (* the install_arch param should be passed in as either "i386" or "x86_64" ("i386" only support up to 16GB memory) *)
-  let rhel5x_install_template name install_arch ?(limit_machine_address_size=false) () =
-      let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
-      let recommendations = if install_arch = "i386" then recommendations ~memory:16 () 
-                                                     else recommendations () in
-      let m_a_s = match limit_machine_address_size with
-	| true -> [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
-	| false -> [] in
-      { bt with 
-          vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") ::
-                             m_a_s @
-			     bt.vM_other_config;
-          vM_recommendations = recommendations;
-      } in
+	let linux_static_templates =
+		let l = Limit_machine_address_size    in
+		let s = Suppress_spurious_page_faults in
+	[
+		rhel4x_template "Red Hat Enterprise Linux 4.5" X32 [  s;];
+		rhel4x_template "Red Hat Enterprise Linux 4.6" X32 [  s;];
+		rhel4x_template "Red Hat Enterprise Linux 4.7" X32 [l;s;];
+		rhel4x_template "Red Hat Enterprise Linux 4.8" X32 [l;  ];
+		rhel5x_template "Red Hat Enterprise Linux 5.0" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.1" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.2" X32 [l;  ];
+		rhel5x_template "Red Hat Enterprise Linux 5.3" X32 [l;  ];
+		rhel5x_template "Red Hat Enterprise Linux 5.4" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.0" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.1" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.2" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.3" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.4" X64 [    ];
 
-  (* the install_arch param should be passed in as either "i386" or "x86_64" *)
-  let sles9_install_template name install_arch =
-      let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
-      { bt with 
-	  vM_recommendations = recommendations ~vifs:3 ();
-          vM_other_config = (install_methods_otherconfig_key, "nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
-      } in
-  let sles10_install_template name install_arch =
-      let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
-      { bt with 
-	  vM_recommendations = recommendations ~vifs:3 ();
-          vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
-      } in
-  let sles11_install_template = sles10_install_template in
-  let debian_install_template name release install_arch =
-      let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false " -- quiet console=hvc0" in
-      { bt with 
-          vM_other_config = (install_methods_otherconfig_key, "cdrom,http,ftp") :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
-      } in
-  let linux_static_templates =
-    [
-		rhel4x_install_template "Red Hat Enterprise Linux 4.5"  ~suppress_spurious_page_faults:true ();
-		rhel4x_install_template "CentOS 4.5"                    ~suppress_spurious_page_faults:true ();
-		rhel4x_install_template "Red Hat Enterprise Linux 4.6"  ~suppress_spurious_page_faults:true ();
-		rhel4x_install_template "CentOS 4.6"                    ~suppress_spurious_page_faults:true ();
-		rhel4x_install_template "Red Hat Enterprise Linux 4.7"  ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
-		rhel4x_install_template "CentOS 4.7"                    ~suppress_spurious_page_faults:true ~limit_machine_address_size:true ();
-		rhel4x_install_template "Red Hat Enterprise Linux 4.8"                                      ~limit_machine_address_size:true ();
-		rhel4x_install_template "CentOS 4.8"                                                        ~limit_machine_address_size:true ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.0"     "i386" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.0"      "i386" ();
-		rhel5x_install_template "CentOS 5.0"                       "i386" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.1"     "i386" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.1"      "i386" ();
-		rhel5x_install_template "CentOS 5.1"                       "i386" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.2"     "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.2"      "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "CentOS 5.2"                       "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.3"     "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.3"      "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "CentOS 5.3"                       "i386" ~limit_machine_address_size:true ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.4"     "i386" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.4"      "i386" ();
-		rhel5x_install_template "CentOS 5.4"                       "i386" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.0 x64" "x86_64" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.0 x64"  "x86_64" ();
-		rhel5x_install_template "CentOS 5.0 x64"                   "x86_64" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.1 x64" "x86_64" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.1 x64"  "x86_64" ();
-		rhel5x_install_template "CentOS 5.1 x64"                   "x86_64" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.2 x64" "x86_64" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.2 x64"  "x86_64" ();
-		rhel5x_install_template "CentOS 5.2 x64"                   "x86_64" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.3 x64" "x86_64" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.3 x64"  "x86_64" ();
-		rhel5x_install_template "CentOS 5.3 x64"                   "x86_64" ();
-		rhel5x_install_template "Red Hat Enterprise Linux 5.4 x64" "x86_64" ();
-		rhel5x_install_template "Oracle Enterprise Linux 5.4 x64"  "x86_64" ();
-		rhel5x_install_template "CentOS 5.4 x64"                   "x86_64" ();
-		sles9_install_template  "SUSE Linux Enterprise Server 9 SP4" "i386";
-		sles10_install_template "SUSE Linux Enterprise Server 10 SP1"     "i386";
-		sles10_install_template "SUSE Linux Enterprise Server 10 SP1 x64" "x86_64";
-		sles10_install_template "SUSE Linux Enterprise Server 10 SP2"     "i386";
-		sles10_install_template "SUSE Linux Enterprise Server 10 SP2 x64" "x86_64";
-		sles11_install_template "SUSE Linux Enterprise Server 11"         "i386";
-		sles11_install_template "SUSE Linux Enterprise Server 11 x64"     "x86_64";
-		debian_install_template "Debian Lenny 5.0" "lenny" "i386";
-		
+		rhel4x_template "CentOS 4.5" X32 [  s;];
+		rhel4x_template "CentOS 4.6" X32 [  s;];
+		rhel4x_template "CentOS 4.7" X32 [l;s;];
+		rhel4x_template "CentOS 4.8" X32 [l;  ];
+		rhel5x_template "CentOS 5.0" X32 [    ];
+		rhel5x_template "CentOS 5.1" X32 [    ];
+		rhel5x_template "CentOS 5.2" X32 [l;  ];
+		rhel5x_template "CentOS 5.3" X32 [l;  ];
+		rhel5x_template "CentOS 5.4" X32 [    ];
+		rhel5x_template "CentOS 5.0" X64 [    ];
+		rhel5x_template "CentOS 5.1" X64 [    ];
+		rhel5x_template "CentOS 5.2" X64 [    ];
+		rhel5x_template "CentOS 5.3" X64 [    ];
+		rhel5x_template "CentOS 5.4" X64 [    ];
+
+		rhel5x_template "Oracle Enterprise Linux 5.0" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.1" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.2" X32 [l;  ];
+		rhel5x_template "Oracle Enterprise Linux 5.3" X32 [l;  ];
+		rhel5x_template "Oracle Enterprise Linux 5.4" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.0" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.1" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.2" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.3" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.4" X64 [    ];
+
+		sles_9_template "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
+		sles10_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
+		sles10_template "SUSE Linux Enterprise Server 10 SP2" X32 [    ];
+		sles11_template "SUSE Linux Enterprise Server 11"     X32 [    ];
+		sles10_template "SUSE Linux Enterprise Server 10 SP1" X64 [    ];
+		sles10_template "SUSE Linux Enterprise Server 10 SP2" X64 [    ];
+		sles11_template "SUSE Linux Enterprise Server 11"     X64 [    ];
+
+		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
+
 		sdk_install_template
-    ] in
-
-	let static_templates = [
-		other_install_media_template (default_memory_parameters 128L);
-		windows_template    (default_memory_parameters  256L)  8L "XP SP2";
-		windows_template    (default_memory_parameters  256L)  8L "XP SP3";
-		windows_template    (default_memory_parameters  256L)  8L "Server 2003";
-		windows_template ~nx:true (default_memory_parameters  256L)  8L "Server 2003 x64";
-		windows_template ~nx:true (default_memory_parameters  512L) 24L "Server 2008";
-		windows_template ~nx:true  (default_memory_parameters  512L) 24L "Server 2008 x64";
-		windows_template ~nx:true (default_memory_parameters 1024L) 24L "Vista";
-		windows_template ~nx:true (default_memory_parameters 1024L) 24L "7";
-		windows_template ~nx:true (default_memory_parameters 2048L) 24L "7 x64";
-		windows_template ~nx:true (default_memory_parameters 512L) 24L "Server 2008 R2 x64";
-		windows_template ~cps:"Citrix XenApp" (default_memory_parameters 256L) 8L "Server 2003";
-		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 256L) 8L "Server 2003 x64";
-
-		windows_template ~cps:"Citrix XenApp" ~nx:true (default_memory_parameters  512L) 24L "Server 2008";
-		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters  512L) 24L "Server 2008 x64";
-		windows_template ~cps:"Citrix XenApp x64" ~nx:true (default_memory_parameters 512L) 24L "Server 2008 R2 x64";
-		begin
-			let w2000sp4 = windows_template (default_memory_parameters 128L) 8L "2000 SP4" in
-			{
-				w2000sp4 with vM_name_description =
-					"Windows 2000 Server SP4. " ^
-					(w2000sp4.vM_name_description)
-			}
-		end
 	] in
 
-  (* put default_template key in static_templates other_config of static_templates: *)
-  let static_templates =
-    List.map (fun t -> {t with vM_other_config = default_template::t.vM_other_config}) static_templates in
+	let windows_static_templates =
+		let n = NX     in
+		let x = XenApp in
+	[
+		other_install_media_template (default_memory_parameters 128L);
+		windows_template "XP SP2"         X32  256  8 [    ];
+		windows_template "XP SP3"         X32  256  8 [    ];
+		windows_template "Vista"          X32 1024 24 [n;  ];
+		windows_template "7"              X32 1024 24 [n;  ];
+		windows_template "7"              X64 2048 24 [n;  ];
+		windows_template "2000 SP4"       X32  128  8 [    ];
+		windows_template "Server 2003"    X32  256  8 [    ];
+		windows_template "Server 2003"    X32  256  8 [  x;];
+		windows_template "Server 2003"    X64  256  8 [n;  ];
+		windows_template "Server 2003"    X64  256  8 [n;x;];
+		windows_template "Server 2008"    X32  512 24 [n;  ];
+		windows_template "Server 2008"    X32  512 24 [n;x;];
+		windows_template "Server 2008"    X64  512 24 [n;  ];
+		windows_template "Server 2008"    X64  512 24 [n;x;];
+		windows_template "Server 2008 R2" X64  512 24 [n;  ];
+		windows_template "Server 2008 R2" X64  512 24 [n;x;];
+	] in
 
-  (* put default_template key and linux_template key in other_config for linux_static_templates: *)
-  let linux_static_templates =
-    List.map (fun t -> {t with vM_other_config = default_template::linux_template::t.vM_other_config}) linux_static_templates in
+	(* put default_template key in static_templates other_config of static_templates: *)
+	let windows_static_templates =
+		List.map (fun t -> {t with vM_other_config = default_template::t.vM_other_config}) windows_static_templates in
 
-  (* Create the windows templates *)
-  List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) static_templates;
+	(* put default_template key and linux_template key in other_config for linux_static_templates: *)
+	let linux_static_templates =
+		List.map (fun t -> {t with vM_other_config = default_template::linux_template::t.vM_other_config}) linux_static_templates in
 
-  (* NB we now create the 'static' linux templates whether or not the 'linux pack' is 
-     installed because these only depend on eliloader, which is always installed *)
-  List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) linux_static_templates;
+	(* Create the windows templates *)
+	List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) windows_static_templates;
+
+	(* NB we now create the 'static' linux templates whether or not the 'linux pack' is 
+	   installed because these only depend on eliloader, which is always installed *)
+	List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) linux_static_templates;
