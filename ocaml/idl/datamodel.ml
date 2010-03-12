@@ -1260,6 +1260,21 @@ let vm_checkpoint = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
+let vm_create_template = call
+  ~name:"create_template"
+  ~hide_from_docs:true
+  ~internal_deprecated_since:rel_midnight_ride
+  ~in_product_since:rel_midnight_ride
+  ~doc:"Deprecated: use VM.clone or VM.copy instead."
+  ~result:(Ref _vm, "")
+  ~params:[
+	    Ref _vm, "vm", "";
+	    String, "new_name", ""
+	  ]
+  ~errs:[]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
 (* VM.Provision -- causes the template's disks to be instantiated *)
 
 let vm_provision = call
