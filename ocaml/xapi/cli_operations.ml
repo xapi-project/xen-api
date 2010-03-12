@@ -2182,7 +2182,12 @@ let snapshot_op op printer rpc session_id params =
 	let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
 	printer (Cli_printer.PList [new_uuid])
 
-let snapshot_create_template printer = snapshot_op Client.VM.clone printer
+let snapshot_clone printer = snapshot_op Client.VM.clone printer
+
+let snapshot_copy printer rpc session_id params =
+	let sr = if List.mem_assoc "sr-uuid" params then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) else Ref.null in
+	let op = Client.VM.copy ~sr:sr in
+	snapshot_op op printer rpc session_id params
 
 let snapshot_destroy printer rpc session_id params =
 	let snap_uuid = List.assoc "snapshot-uuid" params in

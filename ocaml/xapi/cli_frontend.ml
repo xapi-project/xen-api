@@ -1254,12 +1254,21 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       flags=[Standard];
     };
 
-   "snapshot-create-template",
+   "snapshot-clone",
     {
       reqd=["new-name-label"; "snapshot-uuid"];
       optn=["new-name-description"];
       help="Create a new template by cloning an existing snapshot, using storage-level fast disk clone operation where available.";
-      implementation= No_fd Cli_operations.snapshot_create_template;
+      implementation= No_fd Cli_operations.snapshot_clone;
+      flags=[Standard];
+    };
+
+   "snapshot-copy",
+    {
+      reqd=["new-name-label"; "snapshot-uuid"];
+      optn=["new-name-description"; "sr-uuid"];
+      help="Create a new template by copying an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
+      implementation= No_fd Cli_operations.snapshot_copy;
       flags=[Standard];
     };
 
