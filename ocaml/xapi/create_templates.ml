@@ -246,6 +246,24 @@ let eli_install_template memory name distro nfs pv_args =
         ];
   }
 
+let sdk_install_template =
+  let root = { device = "0"; size = (12L ** gib); sr = preferred_sr; bootable = true; _type = `system } in
+  { (blank_template (default_memory_parameters 1024L)) with
+      vM_name_label = "Xen API SDK";
+      vM_name_description = "Use this template to install a Xen API SDK using installation media";
+      vM_PV_bootloader = "eliloader";
+      vM_PV_args = "xencons=hvc console=hvc0 install answerfile=file:///sdk.answerfile";
+      vM_HVM_boot_policy = "";
+      vM_other_config =
+        [
+          disks_key, Xml.to_string (xml_of_disks [ root ]);
+          distros_otherconfig_key, "pygrub";
+          install_methods_otherconfig_key, "cdrom,http,ftp";
+          "install-kernel", "vmlinuz";
+          "install-ramdisk", "install.img"
+        ];
+  }
+  
 (** Makes a Windows template using the given memory parameters in MiB, root disk
 size in GiB, and version string. *)
 let windows_template ?(nx=false) ?cps memory root_disk_size version = 
@@ -373,7 +391,9 @@ let create_all_templates rpc session_id =
 		sles10_install_template "SUSE Linux Enterprise Server 10 SP2 x64" "x86_64";
 		sles11_install_template "SUSE Linux Enterprise Server 11"         "i386";
 		sles11_install_template "SUSE Linux Enterprise Server 11 x64"     "x86_64";
-		debian_install_template "Debian Lenny 5.0" "lenny" "i386"
+		debian_install_template "Debian Lenny 5.0" "lenny" "i386";
+		
+		sdk_install_template
     ] in
 
 	let static_templates = [
