@@ -942,7 +942,10 @@ let clone ~__context ~vm ~new_name =
   (* Now that clones are "fast", there's no need to put this operation in the "normal_vm_queue". Indeed,
      putting it in there would mean that clones are serialized on a host-basis whereas they may be able
      to proceed in parallel. *)
-  Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name
+	let new_vm = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_clone ~__context ~vm ~new_name in
+	if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
+		hard_shutdown ~__context ~vm:new_vm;
+	new_vm	
 
 (* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
 (* the VBD level (with pause/unpause mechanism                                                   *)
@@ -955,12 +958,6 @@ let snapshot ~__context ~vm ~new_name =
 let snapshot_with_quiesce ~__context ~vm ~new_name =
 	TaskHelper.set_cancellable ~__context;
 	Xapi_vm_snapshot.snapshot_with_quiesce ~__context ~vm ~new_name
-
-let create_template ~__context ~vm ~new_name =
-	let new_vm = clone ~__context ~vm ~new_name in
-	if Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
-		hard_shutdown ~__context ~vm:new_vm;
-	new_vm
 
 (* As we will destroy the domain ourself, we grab the vm_lock here in order to tell the event thread to *)
 (* do not look at this domain. The message forwarding layer already checked that the VM reference we    *)
@@ -1001,7 +998,10 @@ let copy ~__context ~vm ~new_name ~sr =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.copy %s" (Context.string_of_task __context))
 	  (fun () ->
-  	     Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name
+		let new_vm = Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name in
+		if Db.VM.get_is_a_snapshot ~__context ~self:vm && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted then
+			hard_shutdown ~__context ~vm:new_vm;
+		new_vm
 	  )
 
 let provision ~__context ~vm = 

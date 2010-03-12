@@ -1260,19 +1260,6 @@ let vm_checkpoint = call
   ~allowed_roles:_R_VM_POWER_ADMIN
   ()
 
-let vm_create_template = call
-  ~name:"create_template"
-  ~in_product_since:rel_midnight_ride
-  ~doc:"Creates a new template by cloning the specified VM. Clone automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write)."
-  ~result:(Ref _vm, "The reference of the newly created template.")
-  ~params:[
-	    Ref _vm, "vm", "The VM to be cloned";
-	    String, "new_name", "The name of the new template"
-	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
-  ~allowed_roles:_R_VM_ADMIN
-  ()
-
 (* VM.Provision -- causes the template's disks to be instantiated *)
 
 let vm_provision = call
@@ -5406,7 +5393,7 @@ let vm_power_state =
 let vm_operations = 
   Enum ("vm_operations",
 	List.map operation_enum
-	  [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint; vm_snapshot_with_quiesce;
+	  [ vm_snapshot; vm_clone; vm_copy; vm_revert; vm_checkpoint; vm_snapshot_with_quiesce;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 	    vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot;
 	    vm_suspend; csvm; vm_resume; vm_resume_on;
@@ -5440,7 +5427,7 @@ let vm =
       ~gen_events:true
       ~doccomments:[ "destroy", "Destroy the specified VM.  The VM is completely removed from the system.  This function can only be called when the VM is in the Halted State." ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint;
+      ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
 		vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
 		vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume; 
 		vm_hardReboot_internal;

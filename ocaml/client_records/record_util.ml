@@ -35,7 +35,6 @@ let vm_operation_table =
     `clean_reboot, "clean_reboot";
     `clean_shutdown, "clean_shutdown";
     `clone, "clone";
-    `create_template, "create_template";
     `snapshot, "snapshot";
     `checkpoint, "checkpoint";
     `snapshot_with_quiesce, "snapshot_with_quiesce";
