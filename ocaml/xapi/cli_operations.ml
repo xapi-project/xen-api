@@ -2008,9 +2008,7 @@ let vm_install_real printer rpc session_id template name description params =
 
       (* We should now have an sr-uuid *)
       let new_vm =
-        if Client.VM.get_is_a_snapshot rpc session_id template
-        then Client.VM.create_template rpc session_id template name
-        else if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
+        if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
         then Client.VM.copy rpc session_id template name (Client.SR.get_by_uuid rpc session_id sr_uuid)
         else Client.VM.clone rpc session_id template name 
       in
@@ -2184,7 +2182,7 @@ let snapshot_op op printer rpc session_id params =
 	let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
 	printer (Cli_printer.PList [new_uuid])
 
-let snapshot_create_template printer = snapshot_op Client.VM.create_template printer
+let snapshot_create_template printer = snapshot_op Client.VM.clone printer
 
 let snapshot_destroy printer rpc session_id params =
 	let snap_uuid = List.assoc "snapshot-uuid" params in

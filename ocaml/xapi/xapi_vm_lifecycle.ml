@@ -64,7 +64,6 @@ let allowed_power_states ~(op:API.vm_operations) =
 	                                -> [`Halted; `Running]
 	| `clone
 	| `copy
-	| `create_template
 	| `export
 	                                -> [`Halted; `Suspended]
 	| `hard_reboot
@@ -91,7 +90,7 @@ let is_allowed_sequentially ~power_state ~op =
 	Remark: we do not test whether the power-state is valid. *)
 let is_allowed_concurrently ~(op:API.vm_operations) ~current_ops =
 	(* declare below the non-conflicting concurrent sets. *)
-	let long_copies = [`clone; `copy; `export; `create_template]
+	let long_copies = [`clone; `copy; `export ]
 	and boot_record = [`get_boot_record]
 	and snapshot    = [`snapshot; `checkpoint]
 	and allowed_operations = (* a list of valid state -> operation *)
@@ -168,7 +167,6 @@ let check_template ~vmr ~op ~ref_str =
 		`changing_memory_limits;
 		`clone;
 		`copy;
-		`create_template;
 		`export;
 		`metadata_export;
 		`provision;
@@ -180,7 +178,7 @@ let check_template ~vmr ~op ~ref_str =
 	else Some (Api_errors.vm_is_template, [ref_str; Record_util.vm_operation_to_string op])
 
 let check_snapshot ~vmr ~op ~ref_str =
-	let allowed = [`revert; `create_template; `export; `destroy; `hard_shutdown; `metadata_export] in
+	let allowed = [`revert; `clone; `copy; `export; `destroy; `hard_shutdown; `metadata_export] in
 	if List.mem op allowed
 	then None
 	else Some (Api_errors.vm_is_snapshot, [ref_str; Record_util.vm_operation_to_string op])
@@ -295,7 +293,7 @@ let update_allowed_operations ~__context ~self =
 	in
 	let allowed = 
 		List.fold_left check []
-			[`snapshot; `copy; `clone; `create_template; `revert; `checkpoint; `snapshot_with_quiesce;
+			[`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
