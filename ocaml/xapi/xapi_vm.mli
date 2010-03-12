@@ -191,8 +191,6 @@ val snapshot :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
 val snapshot_with_quiesce :
   __context:Context.t -> vm:[ `VM ] Ref.t -> new_name:string -> [ `VM ] Ref.t
-val create_template :
-  __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
 val revert : __context:Context.t -> snapshot:[ `VM ] Ref.t -> unit
 val checkpoint :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
