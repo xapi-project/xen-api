@@ -72,7 +72,7 @@ start() {
 	fi
 	if [ ! -f ${PEMFILE} ]; then
 		# generating a pem file
-		CN=`hostname`
+		CN=`hostname -f`
 
 		case "${CN}" in
 		    localhost*)
