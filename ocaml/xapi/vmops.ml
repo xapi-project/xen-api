@@ -950,7 +950,13 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 						suspend_domain ~fd ~hvm ();
 						(* If the suspend succeeds, set the suspend_VDI *)
 						Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;)
-					(fun () -> Unix.close fd);
+						(fun () ->
+						   try
+						     Unixext.fsync fd;
+						     Unix.close fd
+						   with Unix.Unix_error(Unix.EIO, _, _) ->
+						     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["I/O error saving VM suspend image"]))
+						);
 				debug "suspend: complete");
 		debug "suspend phase 4/4: recording memory usage";
 		(* Record the final memory usage of the VM, so that we know how much *)
