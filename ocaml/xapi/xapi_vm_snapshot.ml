@@ -192,6 +192,7 @@ let checkpoint ~__context ~vm ~new_name =
 				| Api_errors.Server_error(code, _) as e when code = Api_errors.vm_no_suspend_sr ->
 					  error "No suspend SR available for this VM";
 					  raise e
+				| Api_errors.Server_error(_, _) as e -> raise e
 				| _ -> raise (Api_errors.Server_error (Api_errors.vm_checkpoint_suspend_failed, [Ref.string_of vm]))
 		end;
 
