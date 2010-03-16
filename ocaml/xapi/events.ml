@@ -103,34 +103,16 @@ module Domain_shutdown = struct
       with _ -> 0. (* ages ago *) in
     Unix.gettimeofday () -. start_time 
 
+  let artificial_reboot_key domid = Hotplug.get_private_path domid ^ "/" ^ Xapi_globs.artificial_reboot_delay
+
   (* When a VM is rebooted too quickly (from within) we insert a delay; on each _contiguous_
      quick reboot, this delay doubles *)
-  let insert_reboot_delay ~__context ~vm =
+  let calculate_reboot_delay ~__context ~vm domid =
     let delay_cap = 60 in (* 1 minute cap on reboot delays *)
-    let other_config = Db.VM.get_other_config ~__context ~self:vm in
-    let delay = 
-      try
-	let delay = int_of_string (List.assoc Xapi_globs.last_artificial_reboot_delay_key other_config) in
-	let next_delay = min (delay*2) delay_cap in  (* next delay doubles, capped at delay_cap *)
-	Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key;
-	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key ~value:(string_of_int next_delay);
-	delay
-      with _ ->  (* no delay on first quick reboot, 2s next time *)
-	(* in line below, we try to remove key from other-config anyway, just in-case this exn was generated because there _was_
-	   a last reboot delay key in there, but it had invalid data contained it, causing the int_of_string to fail *)
-	(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key with _ -> ());
-	Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key ~value:(string_of_int 2);
-	0 in
-	if Xapi_fist.disable_reboot_delay ()
-	then debug "FIST: disable_reboot_delay"
-    else begin
-	  debug "Adding artificial delay on reboot for VM: %s. delay time=%d seconds" (Ref.string_of vm) delay;
-      Thread.delay (float_of_int delay)
-	end
+	let delay = try int_of_string (with_xs (fun xs -> xs.Xs.read (artificial_reboot_key domid))) with _ -> 0 in
+	let next_delay = min (delay * 2 + 2) delay_cap in
+	delay, next_delay
 
-  let clear_reboot_delay ~__context ~vm =
-    try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.last_artificial_reboot_delay_key with _ -> ()
-      
   let perform_destroy ~__context ~vm token =
     TaskHelper.set_description ~__context "destroy";
     Xapi_vm.Shutdown.in_dom0_already_locked { Xapi_vm.TwoPhase.__context = __context; vm=vm; api_call_name="destroy"; clean=false };
@@ -142,13 +124,24 @@ module Domain_shutdown = struct
 
   let perform_restart ~__context ~vm token =
     TaskHelper.set_description ~__context "restart";
-    if time_vm_ran_for ~__context ~vm < Xapi_globs.minimum_time_between_reboot_with_no_added_delay 
-    then insert_reboot_delay ~__context ~vm
-    else clear_reboot_delay ~__context ~vm;
-
+	let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	let delay, next_delay = 
+	  if Xapi_fist.disable_reboot_delay () then begin
+		debug "FIST: disable_reboot_delay";
+		0, 0
+	  end else if time_vm_ran_for ~__context ~vm < Xapi_globs.minimum_time_between_reboot_with_no_added_delay then begin
+		calculate_reboot_delay ~__context ~vm domid
+	  end else 0, 0 in
+	if delay <> 0 then begin
+	  debug "Adding artificial delay on reboot for VM: %s. delay time=%d seconds" (Ref.string_of vm) delay;
+	  Thread.delay (float_of_int delay);
+	end;
     try
-	  Xapi_vm.Reboot.in_dom0_already_locked { Xapi_vm.TwoPhase.__context = __context; vm=vm; api_call_name="reboot"; clean=false };
-	  update_allowed_ops_using_api ~__context vm
+		Xapi_vm.Reboot.in_dom0_already_locked { Xapi_vm.TwoPhase.__context = __context; vm=vm; api_call_name="reboot"; clean=false };
+		let domid' = Helpers.domid_of_vm ~__context ~self:vm in
+		assert (domid <> domid');
+		(with_xs (fun xs -> xs.Xs.write (artificial_reboot_key domid') (string_of_int next_delay)));
+		update_allowed_ops_using_api ~__context vm
     with e ->
       (* NB this can happen if the user has change the VM configuration to onw which
 	 cannot boot (eg not enough memory) and then rebooted inside the guest *)
