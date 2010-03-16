@@ -99,6 +99,11 @@ let setup_export_test_vm session_id =
   success test;
   vm
 
+let all_non_iso_srs_with_vdi_create session_id =
+  List.filter
+    (fun sr -> "iso" <> Client.SR.get_content_type !rpc session_id sr)
+    (all_srs_with_vdi_create session_id)
+
 let import_export_test session_id = 
   let test = make_test "VM import/export test" 0 in
   start test;
@@ -107,7 +112,7 @@ let import_export_test session_id =
 
   Unixext.unlink_safe export_filename;
   vm_export test session_id vm export_filename;
-  let all_srs = all_srs_with_vdi_create session_id in
+  let all_srs = all_non_iso_srs_with_vdi_create session_id in
   List.iter
     (fun sr ->
        debug test (Printf.sprintf "Attempting import to SR: %s" (Quicktest_storage.name_of_sr session_id sr));
