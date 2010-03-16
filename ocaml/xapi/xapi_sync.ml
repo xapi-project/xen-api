@@ -41,7 +41,8 @@ let sync_host ~__context host =
 	let remotepath = Printf.sprintf "%s:%s" address Xapi_globs.xapi_blob_location in
 	let session = Xapi_session.slave_login ~__context ~host:(Helpers.get_localhost ~__context) ~psecret:!Xapi_globs.pool_secret in
 	Unix.putenv "XSH_SESSION" (Ref.string_of session);
-	let output,log = Forkhelpers.execute_command_get_output "/usr/bin/rsync" ["--delete";"-avz";localpath;remotepath;"-e";"/opt/xensource/bin/xsh"] in
+	let env = Unix.environment () in
+	let output,log = Forkhelpers.execute_command_get_output ~env "/usr/bin/rsync" ["--delete";"-avz";localpath;remotepath;"-e";"/opt/xensource/bin/xsh"] in
 	debug "sync output: '%s' log: '%s'" output log;
 	post_sync_hook __context host
       end else begin
