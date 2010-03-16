@@ -860,7 +860,7 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
 	if not !finished then raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
   end;
   at 0.50;
-  let total_timeout = 20. *. 60. in (* 20 minutes *)
+  let total_timeout = 60. *. 60. in (* 1 hour *)
   (* Block for 5s at a time, in between check to see whether we've been cancelled
      and update our progress if not *)
   let start = Unix.gettimeofday () in
