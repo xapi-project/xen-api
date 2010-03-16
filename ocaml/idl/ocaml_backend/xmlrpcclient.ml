@@ -339,6 +339,7 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       Stunnel.connect ~use_external_fd_wrapper ~write_to_log ~unique_id ~verify_cert ~extended_diagnosis:true host port in
   let s = st_proc.Stunnel.fd in
   let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
+  info "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
   begin
     match task_id with
         None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
@@ -352,11 +353,11 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
       try
         let content_length, task_id = http_rpc_fd s headers body in
         f content_length task_id s
-      with
-        | Connection_reset ->
-            if not use_stunnel_cache then
-              Stunnel.diagnose_failure st_proc;
-            raise Connection_reset)
+      with e ->
+		  warn "stunnel pid: %d caught %s" s_pid (Printexc.to_string e);
+		  if e = Connection_reset && not use_stunnel_cache
+		  then Stunnel.diagnose_failure st_proc;
+          raise e)
     (fun () ->
       if use_stunnel_cache
       then
