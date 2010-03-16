@@ -175,6 +175,10 @@ let set_cancellable ~__context =
   operate_on_db_task ~__context
     (fun self -> Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[`cancel])
 
+let set_not_cancellable ~__context = 
+  operate_on_db_task ~__context
+    (fun self -> Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[])
+
 let is_cancelling ~__context =
   Context.task_in_database __context && 
   let l = Db_actions.DB_Action.Task.get_current_operations ~__context ~self:(Context.get_task_id __context) in
