@@ -748,13 +748,19 @@ let find_vnc_statefile mountpoint =
 (** Get the suspend VDI, mount the disk, open the file and call _restore*. Guarantees to
     always unmount the VDI and, only if the restore succeeds, deletes the VDI (otherwise
     an exception from lower-level code propagates out *)
-let restore ~__context ~xc ~xs ~self domid =
+let restore ~__context ~xc ~xs ~self start_paused =
+  let memory_required_kib = Memory.kib_of_bytes_used (Memory_check.vm_compute_resume_memory ~__context self) in
+  let snapshot = Helpers.get_boot_record ~__context ~self in
+  (* CA-31759: we always use the live memory_target *)
+  let snapshot = { snapshot with API.vM_memory_target = Db.VM.get_memory_target ~__context ~self } in
+
+  let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
+  let domid = create ~__context ~xc ~xs ~self ~reservation_id snapshot () in
+
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
        let suspend_vdi = Db.VM.get_suspend_VDI ~__context ~self in
-       let snapshot = Helpers.get_boot_record ~__context ~self in
-       (* CA-31759: we always use the live memory_target *)
-       let snapshot = { snapshot with API.vM_memory_target = Db.VM.get_memory_target ~__context ~self } in
+
 
        Sm_fs_ops.with_fs_vdi __context suspend_vdi
 	 (fun mount_point ->
@@ -806,7 +812,13 @@ let restore ~__context ~xc ~xs ~self domid =
        Helpers.call_api_functions ~__context
 	   (fun rpc session_id ->
 	      Client.VDI.destroy rpc session_id suspend_vdi);
-       Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null
+       Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
+
+	   Db.VM.set_domid ~__context ~self ~value:(Int64.of_int domid);
+
+	   debug "Vmops.restore: %s unpausing domain" (if start_paused then "not" else "");
+	   if not start_paused then Domain.unpause ~xc domid;
+	   plug_pcidevs_noexn ~__context ~vm:self domid (pcidevs_of_vm ~__context ~vm:self);
     )
 
 
@@ -879,10 +891,33 @@ let get_suspend_space __context vm =
 exception Domain_architecture_not_supported_in_suspend
 
 let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
-	Xapi_xenops_errors.handle_xenops_error
-		(fun () ->
-			let uuid = Db.VM.get_uuid ~__context ~self:vm in
-			let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+  let uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+  let domid = Helpers.domid_of_vm ~__context ~self:vm in
+
+  Xapi_xenops_errors.handle_xenops_error
+	  (fun () ->
+		   with_xc_and_xs
+			   (fun xc xs ->
+					let is_paused = Db.VM.get_power_state
+					  ~__context ~self:vm = `Paused in
+					if is_paused then Domain.unpause ~xc domid;
+					let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+					let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+					let min = Int64.to_int (Int64.div min 1024L) in
+					let max = Int64.to_int (Int64.div max 1024L) in
+					try
+					  (* Balloon down the guest as far as we can to force it to clear
+						 unnecessary caches etc. *)
+						debug "suspend phase 0/4: asking guest to balloon down";
+						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+						Memory_control.balance_memory ~__context ~xc ~xs;
+						
+						debug "suspend phase 1/4: hot-unplugging any PCI devices";
+						let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+						if hvm then unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
+
+
 			let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
 			let required_space = get_suspend_space __context vm in
 			Sm_fs_ops.with_new_fs_vdi __context
@@ -891,7 +926,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 				~sm_config:[Xapi_globs._sm_vm_hint, uuid]
 				(fun vdi_ref mount_point ->
 					let filename = sprintf "%s/suspend-image" mount_point in
-					debug "suspend: phase 1/2: opening suspend image file (%s)"
+					debug "suspend: phase 2/4: opening suspend image file (%s)"
 						filename;
 					(* NB if the suspend file already exists it will be *)
 					(* overwritten. *)
@@ -900,7 +935,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 					finally
 						(fun () ->
 							let domid = Helpers.domid_of_vm ~__context ~self:vm in
-							debug "suspend: phase 2/2: suspending to disk";
+							debug "suspend: phase 3/4: suspending to disk";
 							with_xal
 								(fun xal ->
 									Domain.suspend ~xc ~xs ~hvm domid fd []
@@ -926,8 +961,25 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 								~value:vdi_ref;
 						)
 						(fun () -> Unix.close fd);
-			debug "suspend: complete")
-		)
+			debug "suspend: complete");
+
+			debug "suspend phase 4/4: recording memory usage";
+			(* Record the final memory usage of the VM, so *)
+			(* that we know how much memory to free before *)
+			(* attempting to resume this VM in future.     *)
+			let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
+			let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
+			debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
+			(* CA-31759: avoid using the LBR to simplify upgrade *)
+			Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;
+
+	   with e ->
+		   Domain.set_memory_dynamic_range ~xs ~min ~max domid;
+		   Memory_control.balance_memory ~__context ~xc ~xs;
+		   if is_paused then
+			 (try Domain.pause ~xc domid with _ -> ());
+		   raise e
+	  ))
 
 let resume ~__context ~xc ~xs ~vm =
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
