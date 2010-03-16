@@ -366,6 +366,8 @@ module Reboot = struct
 			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
       end else begin
 		debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name;
+		(* Make sure no-one inserts an artificial delay at this point *)
+		(with_xs (fun xs -> xs.Xs.write (Hotplug.get_private_path domid ^ "/" ^ Xapi_globs.artificial_reboot_delay) "0"));
 		(* The domain might be killed by the event thread. Again, this is ok. *)
 		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Reboot" domid)
 			(fun () -> 

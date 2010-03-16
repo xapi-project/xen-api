@@ -375,8 +375,8 @@ let on_system_boot = ref false
 (* Default backlog supplied to Unix.listen *)
 let listen_backlog = 128
 
-(* Key on VM.other_config that records last artificial reboot delay *)
-let last_artificial_reboot_delay_key = "last_artificial_reboot_delay"
+(* Where the next artificial delay is stored in xenstore *)
+let artificial_reboot_delay = "artificial-reboot-delay"
 
 (* Xapi script hooks root *)
 let xapi_hooks_root = "/etc/xapi.d/"
