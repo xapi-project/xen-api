@@ -143,10 +143,25 @@ let run state comms_sock fd_sock fd_sock_path =
 
       List.iter (fun fd -> Unix.close fd) fds;
       let (pid,status) = Unix.waitpid [] result in
+	  
+	  let log_failure reason code = 
+		(* The commandline might be too long to clip it *)
+		let cmdline = String.concat " " args in
+		let limit = 80 - 3 in
+		let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
+		Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
+
       let pr = match status with
-	| Unix.WEXITED n -> Fe.WEXITED n
-	| Unix.WSIGNALED n -> Fe.WSIGNALED n 
-	| Unix.WSTOPPED n -> Fe.WSTOPPED n
+		| Unix.WEXITED 0 -> Fe.WEXITED 0
+		| Unix.WEXITED n -> 
+			  log_failure "exitted with code" n;
+			  Fe.WEXITED n
+		| Unix.WSIGNALED n -> 
+			  log_failure "exitted with signal" n;
+			  Fe.WSIGNALED n 
+		| Unix.WSTOPPED n -> 
+			  log_failure "stopped with signal" n;
+			  Fe.WSTOPPED n
       in
       let result = Fe.Finished (pr) in
       Fecomms.write_raw_rpc comms_sock result;
