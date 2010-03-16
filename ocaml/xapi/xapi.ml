@@ -202,7 +202,6 @@ let register_callback_fns() =
   let set_stunnelpid t s_pid =
     try
       Db.Task.set_stunnelpid ~__context:Context.initial ~self:(Ref.of_string t) ~value:(Int64.of_int s_pid);
-      debug "Set stunnel pid on forwarded call: %d" s_pid;
     with _ -> 
       debug "Did not write stunnel pid: no task record in db for this action"
     in
