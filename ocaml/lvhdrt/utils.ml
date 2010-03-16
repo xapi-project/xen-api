@@ -221,7 +221,12 @@ let with_sacrificial_vm rpc session f =
     let vm_install session_id template name sr = 
       let sr_uuid = Client.SR.get_uuid rpc session_id sr in
       let newvm_uuid = cli_cmd [ "vm-install"; "template=" ^ template; "new-name-label=" ^ name; "sr-uuid=" ^ sr_uuid ] in
-      Client.VM.get_by_uuid rpc session_id newvm_uuid in
+      let vm =
+	Client.VM.get_by_uuid rpc session_id newvm_uuid
+      in
+	Client.VM.set_PV_args rpc session_id vm "noninteractive"; 
+	vm
+    in
     let vm' = vm_install session "Debian Etch 4.0" "lvhdrt sacrificial VM" sr in
 
     Pervasiveext.finally 
