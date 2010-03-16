@@ -589,11 +589,12 @@ let on_enable config_params =
 		then begin
 			raise (Auth_signature.Auth_service_error "The username or password is wrong.")
 		end
-		else if has_substr errmsg "0x5 " (* Unknown error *)
+		else if has_substr errmsg "(0x5)" (* Unknown error *)
 		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
 			raise (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to join the domain.")
 		end
-		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)	
+		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)
+			or has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
 		then begin (* this seems to be a wrong domain controller name error... *)
 			raise (Auth_signature.Auth_service_error "Failed to lookup the domain controller for given domain.")
 		end
@@ -648,6 +649,7 @@ let on_disable config_params =
 			Some (Auth_signature.Auth_service_error "The username or password is wrong.")
 		end
 		else if has_substr errmsg "0x400A" (* Unkown error *)
+			or has_substr errmsg "(0xD)" (* ERROR_INVALID_DATA *)
 		then begin (* this seems to be a non-admin valid user error... *)
 			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
 		end
