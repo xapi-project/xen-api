@@ -724,24 +724,6 @@ let suspend  ~__context ~vm =
 					~reason:Xapi_hooks.reason__suspend ~vm;
 				with_xc_and_xs
 				(fun xc xs ->
-					let is_paused = Db.VM.get_power_state
-						~__context ~self:vm = `Paused in
-					if is_paused then Domain.unpause ~xc domid;
-					let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
-					let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
-					let min = Int64.to_int (Int64.div min 1024L) in
-					let max = Int64.to_int (Int64.div max 1024L) in
-					try
-						(* Balloon down the guest as far as we can to force it to clear
-						   unnecessary caches etc. *)
-						debug "suspend phase 0/4: asking guest to balloon down";
-						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-						Memory_control.balance_memory ~__context ~xc ~xs;
-
-						debug "suspend phase 1/4: hot-unplugging any PCI devices";
-						let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
-						if hvm then Vmops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
-
 						debug "suspend phase 2/4: calling Vmops.suspend";
 						(* Call the memory image creating 90%, *)
 						(* the device un-hotplug the final 10% *)
@@ -750,24 +732,10 @@ let suspend  ~__context ~vm =
 								TaskHelper.set_progress
 								~__context (x *. 0.9)
 							);
-						debug "suspend phase 3/4: recording memory usage";
-						(* Record the final memory usage of the VM, so *)
-						(* that we know how much memory to free before *)
-						(* attempting to resume this VM in future.     *)
-						let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
-						let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
-						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
-						(* CA-31759: avoid using the LBR to simplify upgrade *)
-						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;
 						debug "suspend phase 4/4: destroying the domain";
 						Vmops.destroy ~clear_currently_attached:false
 							~__context ~xc ~xs ~self:vm domid `Suspended;
-					with e ->
-						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-						Memory_control.balance_memory ~__context ~xc ~xs;
-						if is_paused then
-							(try Domain.pause ~xc domid with _ -> ());
-							raise e
+
 				)
 			)
 		) ()
@@ -789,37 +757,13 @@ let resume ~__context ~vm ~start_paused ~force =
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
 						assert_ha_always_run_is_true ~__context ~vm;
-						let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-						let memory_required_kib =
-							Memory.kib_of_bytes_used (
-								Memory_check.vm_compute_resume_memory
-								~__context vm) in
-(*
-						Vmops.with_enough_memory ~__context ~xc ~xs ~memory_required_kib
-  (fun () ->
-*)
-						debug "resume phase 0/3: allocating memory";
-						let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
-							debug "resume phase 1/3: creating an empty domain";
-							let domid = Vmops.create ~__context ~xc ~xs ~self:vm ~reservation_id
-								snapshot () in
 
-							debug "resume phase 2/3: executing Vmops.restore";
+
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
 							(* activated have been detached/de-activated and   *)
 							(* the domain is destroyed.                        *)
-							Vmops.restore ~__context ~xc ~xs ~self:vm domid;
-							Db.VM.set_domid ~__context ~self:vm
-								~value:(Int64.of_int domid);
-
-							debug "resume phase 3/3: %s unpausing domain"
-								(if start_paused then "not" else "");
-							if not start_paused then begin
-								Domain.unpause ~xc domid;
-							end;
-
-							Vmops.plug_pcidevs_noexn ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
+							Vmops.restore ~__context ~xc ~xs ~self:vm start_paused;
 
 							(* VM is now resident here *)
 							let localhost = Helpers.get_localhost ~__context in
