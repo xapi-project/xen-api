@@ -524,6 +524,10 @@ let sm_caps_of_sr session_id sr =
   | [ _, plugin ] ->
       plugin.API.sM_capabilities 
 
+let is_tools_sr session_id sr = 
+  let other_config = Client.SR.get_other_config !rpc session_id sr in
+  List.mem_assoc Xapi_globs.tools_sr_tag other_config 
+
 let foreach_sr session_id sr = 
   let ty = Client.SR.get_type !rpc session_id sr in
   let name = Client.SR.get_name_label !rpc session_id sr in
@@ -536,6 +540,17 @@ let foreach_sr session_id sr =
   | [ _, plugin ] ->
       let caps = plugin.API.sM_capabilities in
       debug test (Printf.sprintf "Capabilities reported: [ %s ]" (String.concat " " caps));
+      (* Mirror the special handling for the XenServer Tools SR; the
+         create and delete capabilities are forbidden in that special case.
+         See Xapi_sr.valid_operations. *)
+      let caps =
+        if is_tools_sr session_id sr then
+          List.filter
+            (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
+        else
+          caps
+      in
+      debug test (Printf.sprintf "Capabilities filtered to: [ %s ]" (String.concat " " caps));
       success test;
 
       sr_scan_test       caps session_id sr;
