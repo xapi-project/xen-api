@@ -289,6 +289,7 @@ let main_loop ifd ofd =
 		Printf.fprintf oc "PUT %s HTTP/1.0\r\ncontent-length: %Ld\r\n\r\n" path stat.Unix.LargeFile.st_size;
 		flush oc;
 		let resultline = input_line ic in
+		let headers = read_rest_of_headers ic in
 		(* Get the result header immediately *)
 		match http_response_code resultline with
 		  | 200 -> 
@@ -299,7 +300,6 @@ let main_loop ifd ofd =
 			Unix.shutdown fd' Unix.SHUTDOWN_SEND;
 			marshal ofd (Response OK)
 		  | 302 ->
-		      let headers = read_rest_of_headers ic in
 		      let newloc = List.assoc "location" headers in
 		      doit newloc
 		  | _ -> failwith "Unhandled response code"		    
