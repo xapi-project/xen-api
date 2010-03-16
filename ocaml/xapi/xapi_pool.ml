@@ -649,6 +649,13 @@ let eject ~__context ~host =
 		(* delete backup databases and any temporary restore databases *)
 		Unixext.unlink_safe Xapi_globs.backup_db_xml;
 		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+
+		(* If we've got local storage, remove it *)
+		if (Helpers.local_storage_exists ()) then begin
+		  ignore(Forkhelpers.execute_command_get_output "/bin/rm" ["-rf"; Xapi_globs.xapi_blob_location]);
+		  Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700;
+		end;
+
 		(* delete /local/ databases specified in the db.conf, so they get recreated on restart.
 		 * We must leave any remote database alone because these are owned by the pool and
 		 * not by this node. *)
