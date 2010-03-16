@@ -26,6 +26,7 @@ val set_result_on_task :
 val set_result : __context:Context.t -> Xml.xml list -> unit
 val complete : __context:Context.t -> Xml.xml list -> unit
 val set_cancellable : __context:Context.t -> unit
+val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool
 val exn_if_cancelling : __context:Context.t -> unit
 val cancel : __context:Context.t -> unit

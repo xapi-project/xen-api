@@ -382,6 +382,9 @@ let revert_vm_fields ~__context ~snapshot ~vm =
 let revert ~__context ~snapshot ~vm =
 	debug "Reverting %s to %s" (Ref.string_of vm) (Ref.string_of snapshot);
 
+    (* This is destructive and relatively fast. There's no point advertising cancel since it
+	   will result in a broken VM. *)
+	TaskHelper.set_not_cancellable ~__context;
 	try
 		let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 
