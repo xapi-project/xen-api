@@ -778,10 +778,13 @@ let allowed_VIF_devices_PV     = range_inclusive 0 6
 (** Given a VBD returns either Some devicename or None in the case where a device is set to
     autodetect and it hasn't been plugged in. *)
 let get_device_name_in_use ~__context ~self = 
-  let vbd_r = Db.VBD.get_record ~__context ~self in
-  match vbd_r.API.vBD_userdevice with
-  | "autodetect" -> Some vbd_r.API.vBD_device
-  | x -> Some x
+  try
+	let vbd_r = Db.VBD.get_record ~__context ~self in
+	match vbd_r.API.vBD_userdevice with
+	| "autodetect" -> Some vbd_r.API.vBD_device
+	| x -> Some x
+  with _ -> (* someone just destroyed the VBD *)
+	  None
 
 exception Invalid_device of string
 let translate_vbd_device_to_number name =
