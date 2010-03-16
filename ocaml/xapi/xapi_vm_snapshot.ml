@@ -203,6 +203,8 @@ let checkpoint ~__context ~vm ~new_name =
 		(* restore the power state of the VM *)
 		if power_state = `Running
 		then begin
+		  let fast_resume () = 
+			debug "Performing a fast resume";
 			try 
 				let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
 				Vmops.resume ~__context ~xc ~xs ~vm;
@@ -213,7 +215,19 @@ let checkpoint ~__context ~vm ~new_name =
 			with _ ->
 				Pervasiveext.may (fun snap -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted) snap;
 				Pervasiveext.may (fun snap -> Db.VM.destroy ~__context ~self:snap) snap;
-				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm]))
+				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm])) in
+		  let slow_resume () = 
+			debug "Performing a slow resume";
+			let old_domid = Helpers.domid_of_vm ~__context ~self:vm in
+			Vmops.destroy ~clear_currently_attached:false
+				~__context ~xc ~xs ~self:vm old_domid `Running;
+			Vmops.restore ~__context ~xc ~xs ~self:vm false in
+
+		  let domid = Helpers.domid_of_vm ~__context ~self:vm in
+		  let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+		  if hvm
+		  then fast_resume ()
+		  else slow_resume () (* most vendor kernels don't support fast resume *)
 		end;
 		match snap with
 		| None      -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
