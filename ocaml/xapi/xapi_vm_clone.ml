@@ -127,8 +127,6 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 			~self:(Db.VBD.get_VDI ~__context ~self:vbd)) with _ -> (vbd,0L)) vbds in
 	let total = Int64.to_float (List.fold_left (fun tot (_,size) -> Int64.add tot size) 0L sizes) in
 
-	Thread.delay 30.;
-
 	let fold_function (acc,done_so_far) (vbd,size) =
 		try
 			if TaskHelper.is_cancelling ~__context then raise (Api_errors.Server_error (Api_errors.task_cancelled, []));
