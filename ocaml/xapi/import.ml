@@ -226,7 +226,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
       raise e
     end
   end else
-    Db.VM.set_power_state ~__context ~self:vm ~value:vm_record.API.vM_power_state;
+    Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
 
   (* We might want to import a control domain *)
   Db.VM.set_is_control_domain~__context  ~self:vm ~value:vm_record.API.vM_is_control_domain;
