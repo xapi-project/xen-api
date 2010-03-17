@@ -604,6 +604,7 @@ let handler_rrd_updates (req: Http.request) s =
         ignore(Unix.write s xml 0 (String.length xml))
       end)
 
+let sent_clock_went_backwards_alert = ref false
 
 (* Updates all of the hosts rrds. We are passed a list of uuids that
  * is used as the primary source for which VMs are resident on us.
@@ -619,13 +620,20 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
      correctly represents the world *)
   let to_send_back = Mutex.execute mutex 
     (fun () -> 
-      let out_of_date =
-	match !host_rrd with 
-	  | None -> false
-	  | Some rrdi -> rrdi.rrd.Rrd.last_updated > timestamp
+      let out_of_date, by_how_much =
+		match !host_rrd with 
+		| None -> false, 0.
+		| Some rrdi -> rrdi.rrd.Rrd.last_updated > timestamp, abs_float (timestamp -. rrdi.rrd.Rrd.last_updated)
       in
       
-      if not out_of_date then begin
+	  if out_of_date then begin
+		warn "Clock just went backwards by %.0f seconds: RRD data may now be unreliable" by_how_much;
+		if not(!sent_clock_went_backwards_alert) then begin
+		  Xapi_alert.add ~name:Api_messages.host_clock_went_backwards ~priority:Api_messages.host_clock_went_backwards_priority 
+			  ~cls:`Host ~obj_uuid:(Xapi_inventory.lookup Xapi_inventory._installation_uuid) ~body:"";
+		  sent_clock_went_backwards_alert := true; (* send at most one *)
+		end;
+	  end;
 
 	let registered = Hashtbl.fold (fun k _ acc -> k::acc) vm_rrds [] in
 	let my_vms = uuids in
@@ -759,10 +767,6 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 	  Condition.broadcast condition;
 
 	to_send_back
-      end else begin
-	debug "Ignoring out-of-date update";
-	[] (* If out of date *)
-      end
     )
   in
   
