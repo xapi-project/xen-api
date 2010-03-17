@@ -238,7 +238,9 @@ let process_ds_value ds value interval =
 let ds_update rrd timestamp values transforms =
   (* Interval is the time between this and the last update *)
   let interval = timestamp -. rrd.last_updated in
-  
+  (* Work around the clock going backwards *)
+  let interval = if interval < 0. then 5. else interval in
+
   (* start time (st) and age of the last processed pdp and the currently occupied one *)
   let proc_pdp_st, proc_pdp_age = get_times rrd.last_updated rrd.timestep in
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
