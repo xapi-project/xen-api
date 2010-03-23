@@ -10,7 +10,7 @@ else
   LIBDIR = lib64
   export
 
-# Default to bytecode unless COMPILE_NATIVE is defined
+# Default to native code unless COMPILE_NATIVE is defined otherwise
 if $(not $(defined-env COMPILE_NATIVE))
   COMPILE_NATIVE = yes
   export
@@ -59,9 +59,6 @@ export CLEAN_OBJS
 #clean:
 #	rm -rf doc/
 
-.SUBDIRS: ocaml scripts java javascript
-
-
 if $(not $(defined-env COMPILE_OCAML))
   COMPILE_OCAML = yes
   export
@@ -71,6 +68,8 @@ if $(not $(defined-env COMPILE_JS))
 if $(not $(defined-env COMPILE_JAVA))
   COMPILE_JAVA = yes
   export
+
+.SUBDIRS: ocaml scripts $(if $(equal $(COMPILE_JAVA), yes), java) $(if $(equal $(COMPILE_JS), yes), javascript)
 
 # inherits COMPILE_XENSTUFF from the Makefile (NB don't set it here or else
 # you can't build the fakeserver etc on a machine without Xen, e.g. an Apple)
@@ -113,7 +112,9 @@ OCAML_PHASE3_XEN = \
 	ocaml/xenops-ts/runtest \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
+	ocaml/xiu/xiu \
 	ocaml/xapi/fakeguestagent \
+	ocaml/xapi/quicktestbin \
 	ocaml/xsrpc/xsrpc \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
@@ -137,11 +138,8 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/database/unit_test_marshall \
 	ocaml/database/block_device_io \
 	ocaml/toplevel \
-	ocaml/xiu/xiu \
 	ocaml/cdrommon/cdrommon \
 	ocaml/xapi/stresstest \
-	ocaml/xapi/fakeguestagent \
-	ocaml/xapi/quicktestbin \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
 	ocaml/idl/html_build \
