@@ -3,7 +3,7 @@
 JQUERY = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERYTREEVIEWZIP = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
-PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14")
+PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14 || echo false")
 
 OCAMLINCLUDES  = ocaml_backend ../database
 OCAMLPACKS     = xml-light2 sexpr log
