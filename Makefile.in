@@ -28,9 +28,9 @@ ifeq ($(HAVE_LINUX_CDROM),1)
 endif
 ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm
+	$(MAKE) -C mlvm
 endif
 	$(MAKE) -C forking_executioner
-	$(MAKE) -C mlvm
 	$(MAKE) -C xen-utils
 
 .PHONY: allxen
@@ -66,9 +66,9 @@ ifeq ($(HAVE_LINUX_CDROM),1)
 endif
 ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm install
+	$(MAKE) -C mlvm install
 endif
 	$(MAKE) -C forking_executioner install
-	$(MAKE) -C mlvm install
 	$(MAKE) -C xen-utils install
 
 installxen:
@@ -103,9 +103,9 @@ ifeq ($(HAVE_LINUX_CDROM),1)
 endif
 ifeq ($(HAVE_DEVICE_MAPPER),1)
 	$(MAKE) -C camldm uninstall
+	$(MAKE) -C mlvm uninstall
 endif
 	$(MAKE) -C forking_executioner uninstall
-	$(MAKE) -C mlvm uninstall
 	$(MAKE) -C xen-utils uninstall
 
 uninstallxen:
