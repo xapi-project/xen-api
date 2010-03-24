@@ -22,8 +22,17 @@
 *)
 
 exception Auth_failure of string
-exception Auth_service_error of string
+type auth_service_error_tag = E_GENERIC|E_LOOKUP|E_DENIED|E_CREDENTIALS|E_UNAVAILABLE
+exception Auth_service_error of auth_service_error_tag * string
 exception Subject_cannot_be_resolved
+
+let suffix_of_tag errtag =
+	match errtag with
+		| E_GENERIC -> ""
+		| E_LOOKUP -> Api_errors.auth_suffix_domain_lookup_failed
+		| E_DENIED -> Api_errors.auth_suffix_permission_denied
+		| E_CREDENTIALS -> Api_errors.auth_suffix_wrong_credentials
+		| E_UNAVAILABLE -> Api_errors.auth_suffix_unavailable
 
 (* required fields in subject.other_config *)
 let subject_information_field_subject_name = "subject-name"

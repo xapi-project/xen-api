@@ -537,6 +537,21 @@ let _ =
     ~doc:"External authentication is disabled, unable to resolve subject name." ();
   error Api_errors.auth_enable_failed ["message"]
     ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_wrong_credentials ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_permission_denied ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_domain_lookup_failed ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_unavailable ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_disable_failed ["message"]
+    ~doc:"The host failed to disable external authentication." ();
+  error Api_errors.auth_disable_failed_wrong_credentials ["message"]
+    ~doc:"The host failed to disable external authentication." ();
+  error Api_errors.auth_disable_failed_permission_denied ["message"]
+    ~doc:"The host failed to disable external authentication." ();
+
 
   (* Pool errors *)
   error Api_errors.pool_joining_host_cannot_contain_shared_SRs []
@@ -567,7 +582,21 @@ let _ =
     ~doc:"External authentication in this pool is already enabled for at least one host." ();
   error Api_errors.pool_auth_enable_failed ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_wrong_credentials ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_permission_denied ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_domain_lookup_failed ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_unavailable ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_duplicate_hostname ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_disable_failed ["host";"message"]
+    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+  error Api_errors.pool_auth_disable_failed_wrong_credentials ["host";"message"]
+    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+  error Api_errors.pool_auth_disable_failed_permission_denied ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
 
   (* External directory service *)
