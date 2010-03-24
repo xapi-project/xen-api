@@ -128,7 +128,10 @@ let is_maskable manufacturer family model stepping =
 		else false
 
 let get_features_from_xen () =
-	let features = Xc.with_intf (fun xc -> Xc.get_boot_cpufeatures xc) in
+	let features = 
+	  try Xc.with_intf (fun xc -> Xc.get_boot_cpufeatures xc) 
+	  with _ -> 0l, 0l, 0l, 0l, 0l, 0l, 0l, 0l 
+	in
 	match features with
 	| base_ecx, base_edx, ext_ecx, ext_edx,
 		masked_base_ecx, masked_base_edx, masked_ext_ecx, masked_ext_edx ->	
