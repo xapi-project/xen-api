@@ -308,8 +308,15 @@ let gc ~__context =
 	  let to_reap = n - Xapi_globs.message_limit in
 	  let rec reap_one i msgs =
 	    if i=to_reap then () else
-	      (destroy_real (snd (List.hd msgs));
-	       reap_one (i+1) (List.tl msgs))
+	      begin
+		begin
+		  try destroy_real (snd (List.hd msgs)) 
+		  with e -> 
+		    debug "Failed to destroy message %s" (snd (List.hd msgs));
+		    debug "Caught exception %s" (Printexc.to_string e)
+		end;
+		reap_one (i+1) (List.tl msgs)
+	      end
 	  in
 	  reap_one 0 sorted
 	end
