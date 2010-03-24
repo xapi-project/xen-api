@@ -679,7 +679,7 @@ let server_init() =
                 ", host_external_auth_service_name="^service_name^
                 ", error="^ (match !last_error with None -> "timeout" | Some e ->
                 (match e with 
-                  | Auth_signature.Auth_service_error errmsg -> errmsg (* this is the expected error msg *)
+                  | Auth_signature.Auth_service_error (errtag,errmsg) -> errmsg (* this is the expected error msg *)
                   | e ->  (ExnHelper.string_of_exn e) (* unknown error msg *)
                 ))
             );

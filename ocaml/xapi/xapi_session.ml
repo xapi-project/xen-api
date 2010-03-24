@@ -430,7 +430,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 					(* subject info caching problems in likewise) and closes the user's session *)
 					let subject_suspended = (try
 						is_subject_suspended subject_identifier
-					with (Auth_signature.Auth_service_error msg) ->
+					with (Auth_signature.Auth_service_error (errtag,msg)) ->
 						begin
 							debug "Failed to find if user %s (subject_id %s, from %s) is suspended: %s" uname subject_identifier (Context.get_origin __context) msg;
 							thread_delay_and_raise_error uname msg
@@ -457,7 +457,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 								debug "%s" msg;
 								thread_delay_and_raise_error uname msg
 							end
-						| Auth_signature.Auth_service_error msg ->
+						| Auth_signature.Auth_service_error (errtag,msg) ->
 							begin
 								debug "Failed to obtain the group membership closure for user %s (subject_id %s, from %s): %s" uname subject_identifier (Context.get_origin __context) msg;
 								thread_delay_and_raise_error uname msg
@@ -536,7 +536,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 							thread_delay_and_raise_error uname msg
 						end
 					| Auth_signature.Auth_failure msg 
-					| Auth_signature.Auth_service_error msg ->
+					| Auth_signature.Auth_service_error (_,msg) ->
 						begin
 							debug "A function failed to catch this exception for user %s from %s during external authentication: %s" uname (Context.get_origin __context) msg;
 							thread_delay_and_raise_error uname msg

@@ -116,7 +116,7 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		with e -> begin
 			(* in_string is usually the password or other sensitive param, so never write it to debug or exn *)
 			debug "Error writing to stdin for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e);
-			raise (Auth_signature.Auth_service_error (ExnHelper.string_of_exn e))
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,ExnHelper.string_of_exn e))
 		end
 		end;
 	  )
@@ -169,13 +169,13 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 			debug "Error likewise for cmd %s: %s" debug_cmd msg;
 			(* CA-27772: return user-friendly error messages when Likewise crashes *)
 			let msg = user_friendly_error_msg in
-			raise (Auth_signature.Auth_service_error msg)
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg))
 		| e -> (* unknown error *)
 		begin
 			debug "Parse_likewise error for cmd %s: %s" debug_cmd (ExnHelper.string_of_exn e);
 			(* CA-27772: return user-friendly error messages when Likewise crashes *)
 			let msg = user_friendly_error_msg in
-			raise (Auth_signature.Auth_service_error msg (*(ExnHelper.string_of_exn e)*))
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg (*(ExnHelper.string_of_exn e)*)))
 		end
 	in
 
@@ -201,11 +201,11 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 
 				| 524326    (* error joining AD domain *)
 				| 524359 -> (* error joining AD domain *)
-					raise (Auth_signature.Auth_service_error errmsg)
+					raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
 
 				| 40118 (* lsass server not responding *)
 				| _ ->  (* general Likewise error *)
-					raise (Auth_signature.Auth_service_error (Printf.sprintf "(%i) %s" code errmsg))
+					raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "(%i) %s" code errmsg)))
 		end
 	end	  
 )
@@ -285,7 +285,7 @@ let likewise_get_sid_bygid gid =
 		(* this should not have happend, likewise didn't return an SID field!! *)
 		let msg = (Printf.sprintf "Likewise didn't return an SID field for gid %s" gid) in
 		debug "Error likewise_get_sid_bygid for gid %s: %s" gid msg;
-		raise (Auth_signature.Auth_service_error msg) (* general Likewise error *)
+		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg)) (* general Likewise error *)
 	end
 
 let likewise_get_sid_byname _subject_name cmd = 
@@ -298,7 +298,7 @@ let likewise_get_sid_byname _subject_name cmd =
 		(* this should not have happend, likewise didn't return an SID field!! *)
 		let msg = (Printf.sprintf "Likewise didn't return an SID field for user %s" subject_name) in
 		debug "Error likewise_get_sid_byname for subject name %s: %s" subject_name msg;
-		raise (Auth_signature.Auth_service_error msg) (* general Likewise error *)
+		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,msg)) (* general Likewise error *)
 	end
 
 (* subject_id get_subject_identifier(string subject_name)
@@ -522,7 +522,7 @@ let on_enable config_params =
 			&& (List.mem_assoc "pass" config_params)
 		) 
 	then begin
-		raise (Auth_signature.Auth_service_error "enable requires two config params: user and pass.")
+		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,"enable requires two config params: user and pass."))
 	end
 	
 	else (* we have all the required parameters *)
@@ -539,7 +539,7 @@ let on_enable config_params =
 			let _domain = List.assoc "domain" config_params in
 			if service_name <> _domain 
 			then 
-				raise (Auth_signature.Auth_service_error "if present, config:domain must match service-name.")
+				raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,"if present, config:domain must match service-name."))
 			else 
 				service_name
 		end
@@ -562,7 +562,7 @@ let on_enable config_params =
 		begin
 			let errmsg = (Printf.sprintf "External authentication server not available after %i query tests" max_tries) in
 			debug "%s" errmsg;
-			raise (Auth_signature.Auth_service_error errmsg)
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_UNAVAILABLE,errmsg))
 		end;
 
 		(* OK SUCCESS, likewise has joined the AD domain successfully *)
@@ -581,25 +581,25 @@ let on_enable config_params =
 		() (* OK, return unit*)
 
 	with (*ERROR, we didn't join the AD domain*)
-	|Auth_signature.Auth_service_error errmsg ->
+	|Auth_signature.Auth_service_error (errtag,errmsg) as e ->
 		(*errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Error enabling external authentication for domain %s and user %s: %s" domain user errmsg;
 		if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
 			or has_substr errmsg "0x9C84" (* The user account is invalid *)
 		then begin
-			raise (Auth_signature.Auth_service_error "The username or password is wrong.")
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password is wrong."))
 		end
 		else if has_substr errmsg "(0x5)" (* Unknown error *)
 		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
-			raise (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to join the domain.")
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to join the domain or to modify the machine account in the Active Directory database."))
 		end
 		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)
 			or has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
 		then begin (* this seems to be a wrong domain controller name error... *)
-			raise (Auth_signature.Auth_service_error "Failed to lookup the domain controller for given domain.")
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_LOOKUP,"Failed to lookup the domain controller for given domain."))
 		end
 		else begin (* general Likewise error *)
-			raise (Auth_signature.Auth_service_error errmsg) 
+			raise e
 		end
 
 (* unit on_disable()
@@ -639,22 +639,22 @@ let on_disable config_params =
 		None (* no failure observed in likewise *)
 
 	with 
-	| Auth_signature.Auth_service_error errmsg ->
+	| Auth_signature.Auth_service_error (errtag,errmsg) as e ->
 		(* errors in stdout, let's bubble them up, making them as user-friendly as possible *)
 		debug "Internal Likewise error when disabling external authentication: %s" errmsg;
 
     if has_substr errmsg "0x9C56" (* The password is incorrect for the given username *)
       or has_substr errmsg "0x9C84" (* The user account is invalid *)
     then begin
-			Some (Auth_signature.Auth_service_error "The username or password is wrong.")
+			Some (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password was wrong and did not disable the machine account in the Active Directory database."))
 		end
 		else if has_substr errmsg "0x400A" (* Unkown error *)
 			or has_substr errmsg "(0xD)" (* ERROR_INVALID_DATA *)
 		then begin (* this seems to be a non-admin valid user error... *)
-			Some (Auth_signature.Auth_service_error "Permission denied. The user has no administrator rights to disable the machine account in the Active Directory database.")
+			Some (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to disable the machine account in the Active Directory database."))
 		end
 		else begin (* general Likewise error *)
-			Some (Auth_signature.Auth_service_error errmsg) 
+			Some e
 		end
 	| e -> (* unexpected error disabling likewise *)
 		( 
@@ -714,7 +714,7 @@ let on_xapi_initialize system_boot =
 	begin
 		let errmsg = (Printf.sprintf "External authentication server not available after %i query tests" max_tries) in
 		debug "%s" errmsg;
-		raise (Auth_signature.Auth_service_error errmsg)
+		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
 	end;
 	()
 
