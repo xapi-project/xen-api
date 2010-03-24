@@ -1079,12 +1079,12 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 				debug "Failed while enabling unknown external authentication type %s for service name %s in host %s" msg service_name host_name_label;
 				raise (Api_errors.Server_error(Api_errors.auth_unknown_type, [msg]))
 			end
-		| Auth_signature.Auth_service_error msg -> (* plugin returned some error *)
+		| Auth_signature.Auth_service_error (errtag,msg) -> (* plugin returned some error *)
 				(* we rollback to the original xapi configuration *)
 				Db.Host.set_external_auth_type ~__context ~self:host ~value:current_auth_type;
 				Db.Host.set_external_auth_service_name ~__context ~self:host ~value:current_service_name;
 				debug "Failed while enabling external authentication type %s for service name %s in host %s" msg service_name host_name_label;
-			raise (Api_errors.Server_error(Api_errors.auth_enable_failed, [msg]))
+			raise (Api_errors.Server_error(Api_errors.auth_enable_failed^(Auth_signature.suffix_of_tag errtag), [msg]))
 		| e -> (* unknown failure, just-enabled plugin might be in an inconsistent state *)
 			begin
 				(* we rollback to the original xapi configuration *)
@@ -1130,10 +1130,10 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 			(Ext_auth.d()).on_disable config;
 			None (* OK, on_disable succeeded *)
 		with 
-		| Auth_signature.Auth_service_error msg as e ->
+		| Auth_signature.Auth_service_error (errtag,msg) as e ->
 			begin
 				debug "Failed while calling on_disable event of external authentication plugin in host %s: %s" host_name_label msg;
-				Some (Api_errors.Server_error(Api_errors.auth_disable_failed, [msg]))
+				Some (Api_errors.Server_error(Api_errors.auth_disable_failed^(Auth_signature.suffix_of_tag errtag), [msg]))
 			end
 		| e -> (*absorb any exception*)
 			begin
