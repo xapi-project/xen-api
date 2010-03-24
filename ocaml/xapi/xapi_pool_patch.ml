@@ -639,14 +639,7 @@ let throw_patch_precheck_error patch s =
   | Bad_precheck_xml error ->
       raise (Api_errors.Server_error (Api_errors.invalid_patch_with_log, [error]))
 
-let precheck ~__context ~self ~host =
-  (* check we're not on oem *)
-  if on_oem ~__context
-    then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-precheck"]));
-
-  (* get the patch from the master (no-op if we're the master) *)
-  get_patch_to_local ~__context ~self;
-
+let run_precheck ~__context ~self ~host =
   let path = Db.Pool_patch.get_filename ~__context ~self in
     match execute_patch path [ "precheck" ] with
       | Success(output, _) -> output
@@ -658,6 +651,25 @@ let precheck ~__context ~self ~host =
         let msg = Printf.sprintf "Error running prechecks on patch %s: %s" (Ref.string_of self) log in
           debug "%s" msg;
           raise (Api_errors.Server_error(Api_errors.patch_precheck_failed_unknown_error, [Ref.string_of self; msg]))
+
+(* precheck API call entrypoint *)
+let precheck ~__context ~self ~host =
+  (* check we're not on oem *)
+  if on_oem ~__context
+    then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-precheck"]));
+
+  (* get the patch from the master (no-op if we're the master) *)
+  get_patch_to_local ~__context ~self;
+
+  finally 
+	  (fun () -> run_precheck ~__context ~self ~host)
+	  (fun () ->
+		   (* This prevents leaking space on the slave if the patch is repeatedly uploaded, prechecked and then destroyed *)
+		   if not (Pool_role.is_master ()) then begin		   
+			 let path = Db.Pool_patch.get_filename ~__context ~self in
+			 Unixext.unlink_safe path;		   
+		   end
+	  )
 
 let apply ~__context ~self ~host = 
   (* 0th, check we're not on oem *)
@@ -673,7 +685,7 @@ let apply ~__context ~self ~host =
   
   let path = Db.Pool_patch.get_filename ~__context ~self in
     (* 3rd, run prechecks *)
-    precheck ~__context ~self ~host;
+    run_precheck ~__context ~self ~host;
  
     (* 4th, apply the patch *)
     begin
