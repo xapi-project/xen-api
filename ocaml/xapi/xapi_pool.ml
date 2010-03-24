@@ -1096,7 +1096,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 	then begin
 		let errmsg = "At least two hosts in the pool have the same hostname" in
 		debug "%s" errmsg;
-		raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed,
+		raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed_duplicate_hostname,
 			[(Ref.string_of (List.hd hosts));errmsg]))
 	end
 	else
@@ -1159,10 +1159,10 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 		match err_of_e with 
 			| "" -> (* generic unknown exception *)
 				raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);string_of_e]))
-			| "AUTH_UNKNOWN_TYPE" ->
+			| err_of_e when err_of_e=Api_errors.auth_unknown_type ->
 				raise (Api_errors.Server_error(Api_errors.auth_unknown_type, [msg_of_e]))
-			| "AUTH_ENABLE_FAILED" ->
-				raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);msg_of_e]))
+			| err_of_e when Stringext.String.startswith Api_errors.auth_enable_failed err_of_e ->
+				raise (Api_errors.Server_error(Api_errors.pool_auth_prefix^err_of_e, [(Ref.string_of failed_host);msg_of_e]))
 			| _ -> (* Api_errors.Server_error *)
 				raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);string_of_e]))
 	end
@@ -1190,30 +1190,34 @@ let disable_external_auth ~__context ~pool ~config =
 			try	(* forward the call to the host in the pool *)
 				call_fn_on_host ~__context (Client.Host.disable_external_auth ~config) host;
 				(* no failed host to add to the filtered list, just visit next host *)
-				(host,"")
+				(host,"","")
 			with 
 			| Api_errors.Server_error (err,[host_msg]) as e -> begin
 				let msg = (Printf.sprintf "%s: %s" 
 					(Db.Host.get_name_label ~__context ~self:host) host_msg) in
 				debug "Failed to disable the external authentication of pool in host %s" msg;
 				(* no exception should be raised here, we want to visit every host in hosts *)
-				(host,msg)
+				(host,err,msg)
 				end
 			| e-> (* add failed host to the filtered list and visit next host *)
 				let msg = (Printf.sprintf "%s: %s" 
 					(Db.Host.get_name_label ~__context ~self:host) (ExnHelper.string_of_exn e)) in
 				debug "Failed to disable the external authentication of pool in host %s" msg;
 				(* no exception should be raised here, we want to visit every host in hosts *)
-				(host,msg)
+				(host,"err",msg)
 			) 
 		hosts
 	in
-	let failedhosts_list = List.filter (fun (host,msg) -> msg<>"") host_msgs_list in 
+	let failedhosts_list = List.filter (fun (host,err,msg) -> err<>"") host_msgs_list in 
 	if (List.length failedhosts_list > 0)
 	then begin (* FAILED *)
-		match List.hd failedhosts_list with (host,msg) ->
+		match List.hd failedhosts_list with (host,err,msg) ->
 		debug "Failed to disable the external authentication of at least one host in the pool";
-		raise (Api_errors.Server_error(Api_errors.pool_auth_disable_failed, [(Ref.string_of host);msg]));
+		if Stringext.String.startswith Api_errors.auth_disable_failed err
+		then (* tagged exception *)
+			raise (Api_errors.Server_error(Api_errors.pool_auth_prefix^err, [(Ref.string_of host);msg]))
+		else (* generic exception *)
+			raise (Api_errors.Server_error(Api_errors.pool_auth_disable_failed, [(Ref.string_of host);msg]));
 	end
 	else begin (* OK *)
 		debug "The external authentication of all hosts in the pool was disabled successfully";

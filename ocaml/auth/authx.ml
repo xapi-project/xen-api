@@ -45,7 +45,7 @@ let with_cmd cmd params_list fn =
 		with e -> begin
 			let errmsg = Printf.sprintf "[%s]: %s" debug_cmd (Printexc.to_string e) in
 			debug "Error executing cmd %s" errmsg;
-			raise (Auth_signature.Auth_service_error errmsg)
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
 		end
 	in
 	let output_lines = Stringext.String.split '\n' output_str in
