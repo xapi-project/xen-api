@@ -129,6 +129,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+	"message-destroy",
+	  {
+		  reqd=["uuid"];
+		  optn=[];
+		  help="Destroy an existing message.";
+		  implementation=No_fd Cli_operations.message_destroy;
+		  flags=[];
+	  };
+
 (*    "host-introduce",
     {
       reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"]; 
