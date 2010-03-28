@@ -524,9 +524,15 @@ let sm_caps_of_sr session_id sr =
   | [ _, plugin ] ->
       plugin.API.sM_capabilities 
 
-let is_tools_sr session_id sr = 
+(* Even though the SM backend may expose a VDI_CREATE capability attempts
+   to actually create a VDI will fail in (eg) the tools SR and any that
+   happen to be R/O NFS exports *)
+let avoid_vdi_create session_id sr = 
   let other_config = Client.SR.get_other_config !rpc session_id sr in
-  List.mem_assoc Xapi_globs.tools_sr_tag other_config 
+  let is_tools_sr = List.mem_assoc Xapi_globs.tools_sr_tag other_config in
+  let special_key = "quicktest-no-VDI_CREATE" in
+  let is_marked = List.mem_assoc special_key other_config && List.assoc special_key other_config = "true" in
+  is_tools_sr || is_marked
 
 let foreach_sr session_id sr = 
   let ty = Client.SR.get_type !rpc session_id sr in
@@ -544,7 +550,7 @@ let foreach_sr session_id sr =
          create and delete capabilities are forbidden in that special case.
          See Xapi_sr.valid_operations. *)
       let caps =
-        if is_tools_sr session_id sr then
+        if avoid_vdi_create session_id sr then
           List.filter
             (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
         else
