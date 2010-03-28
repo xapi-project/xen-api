@@ -736,6 +736,10 @@ let message_create printer rpc session_id params =
   in
   ignore(Client.Message.create rpc session_id name priority cls uuid body)
 
+let message_destroy printer rpc session_id params = 
+  let uuid = List.assoc "uuid" params in
+  let message = Client.Message.get_by_uuid rpc session_id uuid in
+  Client.Message.destroy rpc session_id message
 
 (* Pool operations *)
 
