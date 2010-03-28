@@ -3420,7 +3420,7 @@ let host_enable_external_auth = call ~flags:[`Session]
     String, "auth_type", "The type of authentication (e.g. AD for Active Directory)" 
     ]
   ~doc:"This call enables external authentication on a host"
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_POOL_ADMIN
   ()
 
 let host_disable_external_auth = call ~flags:[`Session]
@@ -3432,7 +3432,7 @@ let host_disable_external_auth = call ~flags:[`Session]
     {param_type=Map (String, String); param_name="config"; param_doc="Optional parameters as a list of key-values containing the configuration data"; param_release=george_release; param_default=Some (VMap [])}
     ]
   ~doc:"This call disables external authentication on the local host"
-  ~allowed_roles:_R_POOL_OP
+  ~allowed_roles:_R_POOL_ADMIN
   ()
 
 let host_set_license_params = call
