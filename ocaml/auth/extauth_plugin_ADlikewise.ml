@@ -589,7 +589,8 @@ let on_enable config_params =
 		then begin
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_CREDENTIALS,"The username or password is wrong."))
 		end
-		else if has_substr errmsg "(0x5)" (* Unknown error *)
+		else if has_substr errmsg "(0x5)" (* Windows ERROR_ACCESS_DENIED error *) 
+			or has_substr errmsg "(0x57)" (* CA-39450 INVALID_PARAMETER meaning permission-denied *)
 		then begin (* this seems to be a not-enough-permission-to-join-the-domain error *)
 			raise (Auth_signature.Auth_service_error (Auth_signature.E_DENIED,"Permission denied. The user has no rights to join the domain or to modify the machine account in the Active Directory database."))
 		end
