@@ -54,8 +54,11 @@ val read_cpu_info : unit -> cpu_info
 
 (** {2 Masking Checks} *)
 
-(** Check that this CPU can be masked to fit the pool. Raises {!CannotMaskCpu} 
- *  including a reason string if this is not possible. *)
+(** Apply a mask to given features. *)
+val mask_features : features -> features -> features
+
+(** Check that this CPU can be masked to fit the pool. Raises exception
+ *  indicating the reason if this is not possible. *)
 val assert_maskability : cpu_info -> manufacturer -> features -> unit
 
 (** Return the CPU masking string to add to the Xen command-line, 
