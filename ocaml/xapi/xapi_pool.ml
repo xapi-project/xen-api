@@ -37,7 +37,7 @@ let rpc host_address xml =
 let get_master ~rpc ~session_id =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
 	Client.Pool.get_master rpc session_id pool
-
+	
 (* Pre-join asserts *)
 let pre_join_checks ~__context ~rpc ~session_id ~force =
 	(* I cannot join a Pool if I have HA already enabled on me *)
@@ -178,9 +178,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		
 		let my_software_compare = get_software_version_fields my_software_version in
 		let master_software_compare = get_software_version_fields master_software_version in
-		
-		if my_software_compare <> master_software_compare then
-			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
 
 		debug "Pool pre-join Software homogeneity check:";
 		debug "Slave software:";
@@ -188,25 +185,51 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		debug "Master software:";
 		print_software_version master_software_compare;
 		
+		if my_software_compare <> master_software_compare then
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["software version differs"]));
+		
 		(* Check CPUs *)
 		
 		let master_cpu_info = master.API.host_cpu_info in
 		let my_cpu_info = Db.Host.get_cpu_info ~__context ~self:me in
-		
+		let pool_other_config = 
+			let pool = List.hd (Client.Pool.get_all rpc session_id) in
+			Client.Pool.get_other_config rpc session_id pool
+		in
+		let mask =
+			try
+				let features = List.assoc Xapi_globs.cpuid_feature_mask_key pool_other_config in
+				Some (Cpuid.string_to_features features)
+			with _ -> None
+		in
 		let get_comparable_fields cpu_info =
-			List.assoc "vendor" cpu_info, List.assoc "features" cpu_info in
+			List.assoc "vendor" cpu_info,
+			let features = List.assoc "features" cpu_info in
+			match mask with
+			| None -> features
+			| Some mask ->
+				let features = Cpuid.string_to_features features in
+				let relevant_features = Cpuid.mask_features features mask in
+				Cpuid.features_to_string relevant_features
+		in
 		let my_cpus_compare = get_comparable_fields my_cpu_info in
 		let master_cpus_compare = get_comparable_fields master_cpu_info in
 
-		let print_cpu (vendor, features) = debug "%s, %s" vendor features in
+		let print_cpu cpu = debug "%s, %s"
+			(List.assoc "vendor" cpu) (List.assoc "features" cpu) in
 		debug "Pool pre-join CPU homogeneity check:";
-		debug "Slave cpus:";
-		print_cpu my_cpus_compare;
-		debug "Master cpus:";
-		print_cpu master_cpus_compare;
+		debug "Slave CPUs:";
+		print_cpu my_cpu_info;
+		debug "Master CPUs:";
+		print_cpu master_cpu_info;
+		begin match mask with
+		| Some mask ->
+			debug "User-defined feature mask on pool: %s" (Cpuid.features_to_string mask)
+		| None -> ()
+		end;
 
 		if my_cpus_compare <> master_cpus_compare then
-			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["cpus differ"])) in
+			raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,["CPUs differ"])) in
 
 	let assert_not_joining_myself () =
 		let master = get_master rpc session_id in
