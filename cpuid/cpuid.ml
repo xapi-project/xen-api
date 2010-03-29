@@ -181,6 +181,14 @@ let read_cpu_info () =
 	
 (* === Masking checks === *)
 
+let mask_features features mask =
+	{
+		base_ecx = logand features.base_ecx mask.base_ecx;
+		base_edx = logand features.base_edx mask.base_edx;
+		ext_ecx = logand features.ext_ecx mask.ext_ecx;
+		ext_edx = logand features.ext_edx mask.ext_edx;
+	}
+
 let assert_maskability cpu manufacturer features = 
 	(* Manufacturers need to be the same *)
 	if manufacturer != cpu.manufacturer then 
