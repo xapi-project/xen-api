@@ -957,6 +957,11 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		(* CA-31759: avoid using the LBR to simplify upgrade *)
 		Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes
 	in
+	let do_final_actions_after_suspend () =
+		Domain.set_memory_dynamic_range ~xs ~min ~max domid;
+		Memory_control.balance_memory ~__context ~xc ~xs;
+		if is_paused then (try Domain.pause ~xc domid with _ -> ())
+	in
 	Xapi_xenops_errors.handle_xenops_error
 		(fun () ->
 			with_xc_and_xs
@@ -964,11 +969,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 					if is_paused then Domain.unpause ~xc domid;
 					finally
 						(do_suspend)
-					(fun () ->
-						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-						Memory_control.balance_memory ~__context ~xc ~xs;
-						if is_paused then
-							(try Domain.pause ~xc domid with _ -> ()))))
+						(do_final_actions_after_suspend)))
 
 let resume ~__context ~xc ~xs ~vm =
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
