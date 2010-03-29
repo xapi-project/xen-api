@@ -900,6 +900,18 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 	let max = Int64.to_int (Int64.div max 1024L) in
 	let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
 	let required_space = get_suspend_space __context vm in
+	let handle_death = function
+		| Xal.Suspended ->
+			() (* good *)
+		| Xal.Crashed ->
+			raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of vm ]))
+		| Xal.Rebooted ->
+			raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of vm ]))
+		| Xal.Halted | Xal.Vanished ->
+			raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of vm ]))
+		| Xal.Shutdown x ->
+			failwith (Printf.sprintf "Expected domain shutdown reason: %d" x)
+	in
 	Xapi_xenops_errors.handle_xenops_error
 		(fun () ->
 			with_xc_and_xs
@@ -933,19 +945,9 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 												Domain.suspend ~xc ~xs ~hvm domid fd []
 													~progress_callback:progress_cb
 													(fun () ->
-														match clean_shutdown_with_reason ~xal
+														handle_death (clean_shutdown_with_reason ~xal
 															~__context ~self:vm domid
-															Domain.Suspend with
-															| Xal.Suspended -> () (* good *)
-															| Xal.Crashed ->
-																raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of vm ]))
-															| Xal.Rebooted ->
-																raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of vm ]))
-															| Xal.Halted
-															| Xal.Vanished ->
-																raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of vm ]))
-															| Xal.Shutdown x ->
-																failwith (Printf.sprintf "Expected domain shutdown reason: %d" x)));
+															Domain.Suspend)));
 										(* If the suspend succeeds, set the suspend_VDI *)
 										Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;)
 									(fun () -> Unix.close fd);
