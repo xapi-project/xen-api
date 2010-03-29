@@ -66,10 +66,12 @@ let management_ip_cond = Condition.create ()
 
 let wait_for_management_ip () = 
     let ip = ref (match Helpers.get_management_ip_addr () with Some x -> x | None -> "") in
-    while !ip = "" do
-      Condition.wait management_ip_cond management_ip_mutex;
-      ip := (match Helpers.get_management_ip_addr () with Some x -> x | None -> "");
-    done;
+    Mutex.execute management_ip_mutex (fun () -> begin
+      while !ip = "" do
+	Condition.wait management_ip_cond management_ip_mutex;
+	ip := (match Helpers.get_management_ip_addr () with Some x -> x | None -> "")
+      done;
+    end);
     !ip
 
 let on_dom0_networking_change ~__context =
@@ -90,17 +92,18 @@ let on_dom0_networking_change ~__context =
 	debug "Changing Host.address in database to: %s" ip;
 	Db.Host.set_address ~__context ~self:localhost ~value:ip;
 	debug "Refreshing console URIs";
-	Dbsync_master.refresh_console_urls ~__context;
-	debug "Signalling anyone waiting for the management IP address to change";
-	Mutex.execute management_ip_mutex
-	  (fun () -> Condition.broadcast management_ip_cond)
+	Dbsync_master.refresh_console_urls ~__context
       end
   | None ->
       if Db.Host.get_address ~__context ~self:localhost <> "" then begin
 	debug "Changing Host.address in database to: '' (host has no management IP address)";
 	Db.Host.set_address ~__context ~self:localhost ~value:""
       end
-  end
+  end;
+  debug "Signalling anyone waiting for the management IP address to change";
+  Mutex.execute management_ip_mutex
+    (fun () -> Condition.broadcast management_ip_cond)
+
 
 let change_ip interface ip = Mutex.execute management_m (fun () -> change (interface, ip))
 
