@@ -904,7 +904,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 					let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
 					let min = Int64.to_int (Int64.div min 1024L) in
 					let max = Int64.to_int (Int64.div max 1024L) in
-					try
+					finally (fun () ->
 						(* Balloon down the guest as far as we can to force it to clear unnecessary caches etc. *)
 						debug "suspend phase 0/4: asking guest to balloon down";
 						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
@@ -960,13 +960,12 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 						let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
 						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
 						(* CA-31759: avoid using the LBR to simplify upgrade *)
-						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;
-					with e ->
+						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;)
+					(fun () ->
 						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
 						Memory_control.balance_memory ~__context ~xc ~xs;
 						if is_paused then
-							(try Domain.pause ~xc domid with _ -> ());
-						raise e))
+							(try Domain.pause ~xc domid with _ -> ()))))
 
 let resume ~__context ~xc ~xs ~vm =
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
