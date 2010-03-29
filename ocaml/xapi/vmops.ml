@@ -948,12 +948,13 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 					(fun () -> Unix.close fd);
 				debug "suspend: complete");
 		debug "suspend phase 4/4: recording memory usage";
-		(* Record the final memory usage of the VM, so *)
-		(* that we know how much memory to free before *)
-		(* attempting to resume this VM in future.     *)
+		(* Record the final memory usage of the VM, so that we know how much *)
+		(* memory to free before attempting to resume this VM in future.     *)
 		let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
-		let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
-		debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
+		let final_memory_bytes = Memory.bytes_of_pages
+			(Int64.of_nativeint di.Xc.total_memory_pages) in
+		debug "total_memory_pages=%Ld; storing target=%Ld"
+			(Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
 		(* CA-31759: avoid using the LBR to simplify upgrade *)
 		Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes
 	in
@@ -962,14 +963,12 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		Memory_control.balance_memory ~__context ~xc ~xs;
 		if is_paused then (try Domain.pause ~xc domid with _ -> ())
 	in
-	Xapi_xenops_errors.handle_xenops_error
-		(fun () ->
-			with_xc_and_xs
-				(fun xc xs ->
-					if is_paused then Domain.unpause ~xc domid;
-					finally
-						(do_suspend)
-						(do_final_actions_after_suspend)))
+	Xapi_xenops_errors.handle_xenops_error (fun () ->
+		with_xc_and_xs (fun xc xs ->
+			if is_paused then Domain.unpause ~xc domid;
+			finally
+				(do_suspend)
+				(do_final_actions_after_suspend)))
 
 let resume ~__context ~xc ~xs ~vm =
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
