@@ -919,48 +919,51 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 					(clean_shutdown_with_reason
 						~xal ~__context ~self:vm domid Domain.Suspend)))
 	in
+	let do_suspend () =
+		(* Balloon down the guest as far as we can to force it to clear unnecessary caches etc. *)
+		debug "suspend phase 0/4: asking guest to balloon down";
+		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+		Memory_control.balance_memory ~__context ~xc ~xs;
+		debug "suspend phase 1/4: hot-unplugging any PCI devices";
+		let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+		if hvm then unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
+		Sm_fs_ops.with_new_fs_vdi __context
+			~name_label:"Suspend image" ~name_description:"Suspend image"
+			~sR:suspend_SR ~_type:`suspend ~required_space
+			~sm_config:[Xapi_globs._sm_vm_hint, uuid]
+			(fun vdi_ref mount_point ->
+				let filename = sprintf "%s/suspend-image" mount_point in
+				debug "suspend: phase 2/4: opening suspend image file (%s)"
+					filename;
+				(* NB if the suspend file already exists it will be *)
+				(* overwritten. *)
+				let fd = Unix.openfile filename
+					[ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
+				finally
+					(fun () ->
+						debug "suspend: phase 3/4: suspending to disk";
+						suspend_domain ~fd ~hvm ();
+						(* If the suspend succeeds, set the suspend_VDI *)
+						Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;)
+					(fun () -> Unix.close fd);
+				debug "suspend: complete");
+		debug "suspend phase 4/4: recording memory usage";
+		(* Record the final memory usage of the VM, so *)
+		(* that we know how much memory to free before *)
+		(* attempting to resume this VM in future.     *)
+		let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
+		let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
+		debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
+		(* CA-31759: avoid using the LBR to simplify upgrade *)
+		Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes
+	in
 	Xapi_xenops_errors.handle_xenops_error
 		(fun () ->
 			with_xc_and_xs
 				(fun xc xs ->
 					if is_paused then Domain.unpause ~xc domid;
-					finally (fun () ->
-						(* Balloon down the guest as far as we can to force it to clear unnecessary caches etc. *)
-						debug "suspend phase 0/4: asking guest to balloon down";
-						Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-						Memory_control.balance_memory ~__context ~xc ~xs;
-						debug "suspend phase 1/4: hot-unplugging any PCI devices";
-						let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
-						if hvm then unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
-						Sm_fs_ops.with_new_fs_vdi __context
-							~name_label:"Suspend image" ~name_description:"Suspend image"
-							~sR:suspend_SR ~_type:`suspend ~required_space
-							~sm_config:[Xapi_globs._sm_vm_hint, uuid]
-							(fun vdi_ref mount_point ->
-								let filename = sprintf "%s/suspend-image" mount_point in
-								debug "suspend: phase 2/4: opening suspend image file (%s)"
-									filename;
-								(* NB if the suspend file already exists it will be *)
-								(* overwritten. *)
-								let fd = Unix.openfile filename
-									[ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
-								finally
-									(fun () ->
-										debug "suspend: phase 3/4: suspending to disk";
-										suspend_domain ~fd ~hvm ();
-										(* If the suspend succeeds, set the suspend_VDI *)
-										Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;)
-									(fun () -> Unix.close fd);
-								debug "suspend: complete");
-						debug "suspend phase 4/4: recording memory usage";
-						(* Record the final memory usage of the VM, so *)
-						(* that we know how much memory to free before *)
-						(* attempting to resume this VM in future.     *)
-						let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
-						let final_memory_bytes = Memory.bytes_of_pages (Int64.of_nativeint di.Xc.total_memory_pages) in
-						debug "total_memory_pages=%Ld; storing target=%Ld" (Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
-						(* CA-31759: avoid using the LBR to simplify upgrade *)
-						Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes;)
+					finally
+						(do_suspend)
 					(fun () ->
 						Domain.set_memory_dynamic_range ~xs ~min ~max domid;
 						Memory_control.balance_memory ~__context ~xc ~xs;
