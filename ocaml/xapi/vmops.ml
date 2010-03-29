@@ -892,18 +892,19 @@ exception Domain_architecture_not_supported_in_suspend
 
 let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 	let uuid = Db.VM.get_uuid ~__context ~self:vm in
-	let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 	let domid = Helpers.domid_of_vm ~__context ~self:vm in
+	let is_paused = Db.VM.get_power_state ~__context ~self:vm = `Paused in
+	let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+	let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+	let min = Int64.to_int (Int64.div min 1024L) in
+	let max = Int64.to_int (Int64.div max 1024L) in
+	let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
+	let required_space = get_suspend_space __context vm in
 	Xapi_xenops_errors.handle_xenops_error
 		(fun () ->
 			with_xc_and_xs
 				(fun xc xs ->
-					let is_paused = Db.VM.get_power_state ~__context ~self:vm = `Paused in
 					if is_paused then Domain.unpause ~xc domid;
-					let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
-					let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
-					let min = Int64.to_int (Int64.div min 1024L) in
-					let max = Int64.to_int (Int64.div max 1024L) in
 					finally (fun () ->
 						(* Balloon down the guest as far as we can to force it to clear unnecessary caches etc. *)
 						debug "suspend phase 0/4: asking guest to balloon down";
@@ -912,8 +913,6 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 						debug "suspend phase 1/4: hot-unplugging any PCI devices";
 						let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
 						if hvm then unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
-						let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
-						let required_space = get_suspend_space __context vm in
 						Sm_fs_ops.with_new_fs_vdi __context
 							~name_label:"Suspend image" ~name_description:"Suspend image"
 							~sR:suspend_SR ~_type:`suspend ~required_space
@@ -928,7 +927,6 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 									[ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 								finally
 									(fun () ->
-										let domid = Helpers.domid_of_vm ~__context ~self:vm in
 										debug "suspend: phase 3/4: suspending to disk";
 										with_xal
 											(fun xal ->
