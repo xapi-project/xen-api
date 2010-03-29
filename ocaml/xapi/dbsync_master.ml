@@ -59,6 +59,15 @@ let set_master_live ~__context =
 let set_master_pool_reference ~__context =
   let pool = List.hd (Db.Pool.get_all ~__context) in
     Db.Pool.set_master ~__context ~self:pool ~value:(Helpers.get_localhost ~__context) 
+    
+let set_pool_defaults ~__context =
+	(* If Pool.other_config has no cpuid_feature_mask_key yet, fill in the default. *)
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+	if not (List.mem_assoc Xapi_globs.cpuid_feature_mask_key other_config) then
+		Db.Pool.add_to_other_config ~__context ~self:pool
+			~key:Xapi_globs.cpuid_feature_mask_key
+			~value:Xapi_globs.cpuid_default_feature_mask
 
 (** Look at all running VMs, examine their consoles and regenerate the console URLs.
     This catches the case where the IP address changes but the URLs still point to the wrong
@@ -223,6 +232,7 @@ let update_env __context =
   set_master_pool_reference ~__context;
   set_master_ip ~__context;
   set_master_live ~__context;
+  set_pool_defaults ~__context;
 
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
