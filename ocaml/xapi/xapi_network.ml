@@ -124,6 +124,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
 		let networks = Db.Network.get_all ~__context in
 		let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
+		let mTU = if mTU <= 0L then 1500L else mTU in
 		let rec loop () = 
 			let name = stem ^ (string_of_int !counter) in
 			incr counter;
