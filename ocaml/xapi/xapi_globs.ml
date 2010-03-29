@@ -603,3 +603,12 @@ let old_hp_bios_strings =
 
 let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)
 
+(** {2 CPUID feature masking} *)
+
+(** Pool.other_config key to hold the user-defined feature mask, used to
+ *  override the feature equality checks at a Pool.join. *)
+let cpuid_feature_mask_key = "cpuid_feature_mask"
+
+(** Default feature mask: EST (base_ecx.7) is ignored. *)
+let cpuid_default_feature_mask = "ffffff7f-ffffffff-ffffffff-ffffffff"
+
