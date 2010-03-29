@@ -912,6 +912,13 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		| Xal.Shutdown x ->
 			failwith (Printf.sprintf "Expected domain shutdown reason: %d" x)
 	in
+	let suspend_domain ~fd ~hvm () = with_xal (fun xal ->
+		Domain.suspend ~xc ~xs ~hvm domid fd [] ~progress_callback:progress_cb
+			(fun () ->
+				handle_death
+					(clean_shutdown_with_reason
+						~xal ~__context ~self:vm domid Domain.Suspend)))
+	in
 	Xapi_xenops_errors.handle_xenops_error
 		(fun () ->
 			with_xc_and_xs
@@ -940,14 +947,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 								finally
 									(fun () ->
 										debug "suspend: phase 3/4: suspending to disk";
-										with_xal
-											(fun xal ->
-												Domain.suspend ~xc ~xs ~hvm domid fd []
-													~progress_callback:progress_cb
-													(fun () ->
-														handle_death (clean_shutdown_with_reason ~xal
-															~__context ~self:vm domid
-															Domain.Suspend)));
+										suspend_domain ~fd ~hvm ();
 										(* If the suspend succeeds, set the suspend_VDI *)
 										Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi_ref;)
 									(fun () -> Unix.close fd);
