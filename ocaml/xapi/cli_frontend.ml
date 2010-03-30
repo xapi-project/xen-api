@@ -876,10 +876,11 @@ let rec cmdtable_data : (string*cmd_spec) list =
 	{
 		reqd=["target"];
 		optn=[];
-		help="Set the memory target for a running VM. The given value must be within the "^
-		     "range defined by the VM's memory_dynamic_min and memory_dynamic_max values.";
+		help="Set the memory target for a halted or running VM. The given \
+		value must be within the range defined by the VM's memory_static_min \
+		and memory_static_max values.";
 		implementation= No_fd Cli_operations.vm_memory_target_set;
-		flags=[Deprecated ["vm-memory-dynamic-range-set"]; Vm_selectors; Hidden];
+		flags=[Vm_selectors];
 	};
 
 	"vm-memory-target-wait",
