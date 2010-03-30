@@ -41,7 +41,7 @@ let rfc822_to_string x = x
 
 (* Convert tm in localtime to calendar time, x *)
 let to_float_localtime x = 
-  Scanf.sscanf x "%04d%02d%02dT%02d:%02d:%02dZ"
+  Scanf.sscanf x "%04d%02d%02dT%02d:%02d:%02d"
     (fun y mon d h min s ->
        fst (Unix.mktime { Unix.tm_year = y - 1900;
 			  tm_mon = mon - 1;
