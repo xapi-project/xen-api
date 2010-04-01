@@ -220,16 +220,19 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn sessi
 	if (is_access_allowed ~__context ~session_id ~permission)
 	then (* allow access to action *)
 	begin
+		let sexpr_of_args =
+			Rbac_audit.allowed_pre_fn ~action ?args ()
+		in
 		try
 			let result = (fn ()) (* call rbac-protected function *)
 			in
-			Rbac_audit.allowed_ok ~__context ~session_id ~action
-					~permission ?args ~result ();
+			Rbac_audit.allowed_post_fn_ok ~__context ~session_id ~action
+					~permission ?sexpr_of_args ?args ~result ();
 			result
 		with error-> (* catch all exceptions *)
 			begin
-				Rbac_audit.allowed_error ~__context ~session_id ~action 
-					~permission ?args ~error ();
+				Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action 
+					~permission ?sexpr_of_args ?args ~error ();
 				raise error
 			end
 	end

@@ -314,7 +314,7 @@ let wrap fn =
 	with e -> (* never bubble up the error here *) 
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e)
 
-let sexpr_of __context session_id allowed_denied ok_error result_error ?args action permission =
+let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?sexpr_of_args action permission =
   let result_error = 
 		if result_error = "" then result_error else ":"^result_error
 	in
@@ -328,7 +328,11 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args act
     SExpr.String (call_type_of action)::
 		(*SExpr.String (Helper_hostname.get_hostname ())::*)
     SExpr.String action::
-    (SExpr.Node (sexpr_of_parameters action args))::
+    (SExpr.Node (
+			match sexpr_of_args with
+			| None -> (sexpr_of_parameters action args)
+			| Some sexpr_of_args -> sexpr_of_args
+		 ))::
 		[]
 	)
 
@@ -336,11 +340,11 @@ let append_line = Audit.audit
 
 let fn_append_to_master_audit_log = ref None
 
-let audit_line_of __context session_id allowed_denied ok_error result_error action permission ?args =
+let audit_line_of __context session_id allowed_denied ok_error result_error action permission ?args ?sexpr_of_args () =
 	let _line = 
 		(SExpr.string_of 
 			 (sexpr_of __context session_id allowed_denied 
-					ok_error result_error ?args action permission
+					ok_error result_error ?args ?sexpr_of_args action permission
 			 )
 		)
 	in
@@ -353,13 +357,24 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 		| None -> () 
 		| Some fn -> fn __context action audit_line
 
-let allowed_ok ~__context ~session_id ~action ~permission ?args ?result () =
+let allowed_pre_fn ~action ?args () =
+	try
+		if (has_to_audit action)
+			(* for now, we only cache arg results for destroy actions *)
+			&& (Stringext.String.has_substr action ".destroy")
+		then Some(sexpr_of_parameters action args)
+		else None
+	with e -> 
+		D.debug "ignoring %s" (ExnHelper.string_of_exn e);
+		None
+
+let allowed_post_fn_ok ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?result () =
 	wrap (fun () ->
 		if has_to_audit action then 
-			audit_line_of __context session_id "ALLOWED" "OK" "" action permission ?args
+			audit_line_of __context session_id "ALLOWED" "OK" "" action permission ?sexpr_of_args ?args ()
 	)
 
-let allowed_error ~__context ~session_id ~action ~permission ?args ?error () =
+let allowed_post_fn_error ~__context ~session_id ~action ~permission ?sexpr_of_args ?args ?error () =
 	wrap (fun () ->
 		if has_to_audit action then
 			let error_str = 
@@ -367,13 +382,13 @@ let allowed_error ~__context ~session_id ~action ~permission ?args ?error () =
 				| None -> ""
 				| Some error -> (ExnHelper.string_of_exn error)
 			in
-			audit_line_of __context session_id "ALLOWED" "ERROR" error_str action permission ?args
+			audit_line_of __context session_id "ALLOWED" "ERROR" error_str action permission ?sexpr_of_args  ?args ()
 	)
 	
 let denied ~__context ~session_id ~action ~permission ?args () =
 	wrap (fun () ->
 		if has_to_audit action then
-			audit_line_of __context session_id "DENIED" "" "" action permission ?args
+			audit_line_of __context session_id "DENIED" "" "" action permission ?args ()
 	)
 
 let session_destroy ~__context ~session_id =
