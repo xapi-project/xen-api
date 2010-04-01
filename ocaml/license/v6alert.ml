@@ -26,6 +26,9 @@ let send_alert msg body =
 let send_v6_grace_license () =
 	ignore (send_alert Api_messages.v6_grace_license "The license server is unreachable. However, a grace license is given, as a similar license was successfully checked out recently.")
 
+let send_v6_upgrade_grace_license () =
+	ignore (send_alert Api_messages.v6_grace_license "An upgrade grace license is given, which allows 30 days to connect to a license server holding a valid license.")
+	
 let send_v6_rejected () =
 	ignore (send_alert Api_messages.v6_rejected "The requested license is not available at the license server.")
 

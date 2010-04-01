@@ -373,6 +373,7 @@ let initialise ~__context ~host =
 				let expiry = upgrade_grace_expiry () in
 				write_grace_to_file expiry;
 				Unixext.unlink_safe !filename;
+				V6alert.send_v6_upgrade_grace_license ();
 				let sku, name = sku_and_name_of_edition "enterprise" in
 				{default with sku = sku; expiry = expiry; grace = "upgrade grace"; sku_marketing_name = name}
 			end

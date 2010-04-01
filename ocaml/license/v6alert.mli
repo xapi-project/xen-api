@@ -18,6 +18,8 @@ val send_alert : string -> string -> API.ref_message
 
 val send_v6_grace_license : unit -> unit
 
+val send_v6_upgrade_grace_license : unit -> unit
+
 val send_v6_rejected : unit -> unit
 
 val send_v6_comm_error : unit -> unit
