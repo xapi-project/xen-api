@@ -674,7 +674,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* Read resisdent-on field from vm to determine who to forward to  *)
     let forward_vm_op ~local_fn ~__context ~vm op =
-      do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op      
+      let state = Db.VM.get_power_state ~__context ~self:vm in
+      match state with
+	| `Running | `Paused ->  do_op_on ~local_fn ~__context ~host:(Db.VM.get_resident_on ~__context ~self:vm) op 
+	| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; Record_util.power_to_string state]))
 
     (* Notes on memory checking/reservation logic:
        When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1563,10 +1566,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let query_data_source ~__context ~self ~data_source =
       info "VM.query_data_source: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
       let local_fn = Local.VM.query_data_source ~self ~data_source in
-      with_vm_operation ~__context ~self ~doc:"VM.query_data_source" ~op:`data_source_op
-	(fun () -> 
-	  forward_vm_op ~local_fn ~__context ~vm:self
-	    (fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source))
+      forward_vm_op ~local_fn ~__context ~vm:self
+	(fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source)
 
     let forget_data_source_archives ~__context ~self ~data_source =
       info "VM.forget_data_source_archives: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
