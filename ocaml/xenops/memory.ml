@@ -216,28 +216,31 @@ let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
 	then HVM.footprint_mib target_mib max_mib vcpus shadow_multiplier
 	else Linux.footprint_mib target_mib
 
-let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=256) requested_memory_kib =
+let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib =
 	let rec wait accumulated_wait_time_seconds =
-		let free_memory_kib = get_free_memory_kib ~xc in
-		let scrub_memory_kib = get_scrub_memory_kib ~xc in
+		let host_info = Xc.physinfo xc in
+		let free_memory_kib =
+			kib_of_pages (Int64.of_nativeint host_info.Xc.free_pages) in
+		let scrub_memory_kib =
+			kib_of_pages (Int64.of_nativeint host_info.Xc.scrub_pages) in
 		(* At exponentially increasing intervals, write  *)
 		(* a debug message saying how long we've waited: *)
-		if is_power_of_2 accumulated_wait_time_seconds then
-			debug
-				"Waited %i second(s) for memory to become available: \
-				%Ld free, %Ld scrub, %Ld requested"
-				accumulated_wait_time_seconds free_memory_kib
-				scrub_memory_kib requested_memory_kib;
-		if free_memory_kib >= requested_memory_kib
-		then true
-		else begin
-			(* Give up if we've already waited the maximum amount of time. *)
-			if accumulated_wait_time_seconds >= maximum_wait_time_seconds
-			then false
-			else begin
-				Thread.delay 1.0;
-				wait (accumulated_wait_time_seconds + 1)
-			end
-		end
-	in
+		if is_power_of_2 accumulated_wait_time_seconds then debug
+			"Waited %i second(s) for memory to become available: \
+			%Ld KiB free, %Ld KiB scrub, %Ld KiB required"
+			accumulated_wait_time_seconds
+			free_memory_kib scrub_memory_kib required_memory_kib;
+		if free_memory_kib >= required_memory_kib
+			(* We already have enough memory. *)
+			then true else
+		if scrub_memory_kib = 0L
+			(* We'll never have enough memory. *)
+			then false else
+		if accumulated_wait_time_seconds >= maximum_wait_time_seconds
+			(* We've waited long enough. *)
+			then false else
+		begin
+			Thread.delay 1.0;
+			wait (accumulated_wait_time_seconds + 1)
+		end in
 	wait 0
