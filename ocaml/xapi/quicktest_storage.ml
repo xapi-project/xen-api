@@ -546,11 +546,15 @@ let foreach_sr session_id sr =
   | [ _, plugin ] ->
       let caps = plugin.API.sM_capabilities in
       debug test (Printf.sprintf "Capabilities reported: [ %s ]" (String.concat " " caps));
+	  let oc = Client.SR.get_other_config !rpc session_id sr in
+	  debug test (Printf.sprintf "SR.other_config = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) oc)));
+	  let avoid_vdi_create = avoid_vdi_create session_id sr in
+	  debug test (Printf.sprintf "avoid_vdi_create = %b" avoid_vdi_create);
       (* Mirror the special handling for the XenServer Tools SR; the
          create and delete capabilities are forbidden in that special case.
          See Xapi_sr.valid_operations. *)
       let caps =
-        if avoid_vdi_create session_id sr then
+        if avoid_vdi_create then
           List.filter
             (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
         else
