@@ -20,15 +20,6 @@ open Threadext
 
 let sync_lock = Mutex.create ()
 
-let post_sync_hook __context host =
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-    try
-      let result = Client.Client.Host.call_plugin rpc session_id host "post-blob-sync" "run" [] in
-      debug "Result of sync: '%s'" result
-    with e ->
-      warn "Post sync hook failed: exception: %s" (ExnHelper.string_of_exn e)
-  )
-
 let sync_host ~__context host =
   Mutex.execute sync_lock (fun () ->
     try
@@ -44,24 +35,19 @@ let sync_host ~__context host =
 	let env = Unix.environment () in
 	let output,log = Forkhelpers.execute_command_get_output ~env "/usr/bin/rsync" ["--delete";"-avz";localpath;remotepath;"-e";"/opt/xensource/bin/xsh"] in
 	debug "sync output: '%s' log: '%s'" output log;
-	post_sync_hook __context host
+	(* Store the last blob sync time in the Host.other_config *)
+	(try Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.last_blob_sync_time with _ -> ());
+	Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.last_blob_sync_time ~value:(string_of_float (Unix.gettimeofday ()));
       end else begin
 	debug "Ignoring host synchronise: localhost=%b host_has_storage=%b" localhost host_has_storage
       end; 
-      if host_has_storage && localhost then post_sync_hook __context host
     with Forkhelpers.Spawn_internal_error(log,output,status) ->
-      error "Error in rsyncing: log='%s' output='%s'" log output;
-      (* CA-20574: Supress the alert if we're in rolling upgrade mode -- we expect this to fail during rolling upgrade and we don't want
-	 the user to see a scary error message *)
-      if not (Helpers.rolling_upgrade_in_progress ~__context) then
-	begin
-	  let uuid = Db.Host.get_uuid ~__context ~self:host in
-	  let name = Db.Host.get_name_label ~__context ~self:host in
-	  ignore(Xapi_message.create ~__context ~name:Api_messages.host_sync_data_failed ~priority:2L ~cls:`Host ~obj_uuid:uuid
-		   ~body:(Printf.sprintf "Failed to synchonise data with host '%s'. Rsync reported '%s'" name log))
-	end
-      else
-	debug "Not generating HOST_SYNC_DATA_FAILED_ALERT because we are in rolling upgrade mode"
+		(* Do we think the host is supposed to be online? *)
+		let online = try let m = Db.Host.get_metrics ~__context ~self:host in Db.Host_metrics.get_live ~__context ~self:m with _ -> false in
+		(* In rolling upgrade mode we would also expect a failure *)
+		let rolling_upgrade = Helpers.rolling_upgrade_in_progress ~__context in
+		if online && not rolling_upgrade 
+		then error "Unexpected failure synchronising blobs to host %s; log='%s'; output='%s'" (Ref.string_of host) log output;
   )
 
 let do_sync () =
