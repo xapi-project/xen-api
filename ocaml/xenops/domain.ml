@@ -387,9 +387,13 @@ let create_channels ~xc domid =
 	let console = Xc.evtchn_alloc_unbound xc domid 0 in
 	store, console
 
-let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib domid =
-	debug "build_pre domid=%d; max=%Ld MiB; shadow=%Ld MiB"
-		domid xen_max_mib shadow_mib;
+let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib domid =
+	debug "build_pre domid=%d; max=%Ld MiB; shadow=%Ld MiB; required=%Ld MiB"
+		domid xen_max_mib shadow_mib required_host_free_mib;
+
+	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
+	Memory.wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib);
+
 	let shadow_mib = Int64.to_int shadow_mib in
 
 	let dom_path = xs.Xs.getdomainpath domid in
@@ -467,9 +471,11 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		Memory.Linux.xen_max_mib static_max_mib in
 	let shadow_mib =
 		Memory.Linux.shadow_mib in
+	let required_host_free_mib =
+		Memory.Linux.footprint_mib target_mib in
 
-	let store_port, console_port =
-		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
+	let store_port, console_port = build_pre ~xc ~xs
+		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
 	let cnx = XenguestHelper.connect
 	  [
@@ -531,9 +537,11 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		Memory.HVM.xen_max_mib static_max_mib in
 	let shadow_mib =
 		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
+	let required_host_free_mib =
+		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
-	let store_port, console_port =
-		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
+	let store_port, console_port = build_pre ~xc ~xs
+		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
 	let cnx = XenguestHelper.connect
 	  [
@@ -656,9 +664,11 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 		Memory.Linux.xen_max_mib static_max_mib in
 	let shadow_mib =
 		Memory.Linux.shadow_mib in
+	let required_host_free_mib =
+		Memory.Linux.footprint_mib target_mib in
 
-	let store_port, console_port =
-		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
+	let store_port, console_port = build_pre ~xc ~xs
+		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:false
 	                                            ~store_port ~console_port
@@ -685,9 +695,11 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~
 		Memory.HVM.xen_max_mib static_max_mib in
 	let shadow_mib =
 		Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
+	let required_host_free_mib =
+		Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
-	let store_port, console_port =
-		build_pre ~xc ~xs ~xen_max_mib ~shadow_mib ~vcpus domid in
+	let store_port, console_port = build_pre ~xc ~xs
+		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
 
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:true
 	                                            ~store_port ~console_port
