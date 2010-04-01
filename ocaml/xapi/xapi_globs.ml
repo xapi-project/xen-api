@@ -386,6 +386,8 @@ let xapi_rrd_location = "/var/xapi/blobs/rrds"
 
 let xapi_blob_location = "/var/xapi/blobs"
 
+let last_blob_sync_time = "last_blob_sync_time"
+
 (* Port on which to send network heartbeats *)
 let xha_udp_port = 694 (* same as linux-ha *)
 

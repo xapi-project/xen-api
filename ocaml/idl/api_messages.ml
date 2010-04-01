@@ -59,8 +59,6 @@ let vm_resumed = addMessage "VM_RESUMED"
 let vm_crashed = addMessage "VM_CRASHED"
 let vm_cloned = addMessage "VM_CLONED"
 
-let host_sync_data_failed = addMessage "HOST_SYNC_DATA_FAILED"
-
 let host_clock_skew_detected = addMessage "HOST_CLOCK_SKEW_DETECTED"
 let host_clock_skew_detected_priority = 10L
 let host_clock_went_backwards = addMessage "HOST_CLOCK_WENT_BACKWARDS"
