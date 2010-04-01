@@ -15,9 +15,6 @@
  * @group High Availability (HA)
  *)
  
-(** True if the VM is set to always run *)
-val vm_should_always_run : bool -> string -> bool
-
 val all_protected_vms : __context:Context.t -> (API.ref_VM * API.vM_t) list 
 
 (** Take a set of live VMs and attempt to restart all protected VMs which have failed *)
