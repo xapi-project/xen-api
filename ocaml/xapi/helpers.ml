@@ -611,9 +611,14 @@ let rec bisect f lower upper =
     then bisect f mid upper
     else bisect f lower mid
 
-(* Returns true if the specified VM is "protected" by xHA *)
-let is_xha_protected ~__context ~self = Db.VM.get_ha_always_run ~__context ~self
-let is_xha_protected_r record = record.API.vM_ha_always_run
+(* All non best-effort VMs with always_run set should be kept running at all costs *)
+let vm_should_always_run always_run restart_priority = 
+  always_run && (restart_priority <> Constants.ha_restart_best_effort)
+
+(* Returns true if the specified VM is "protected" (non best-effort) by xHA *)
+let is_xha_protected ~__context ~self = 
+  vm_should_always_run (Db.VM.get_ha_always_run ~__context ~self) (Db.VM.get_ha_restart_priority ~__context ~self)
+let is_xha_protected_r record = vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority
 
 open Listext
 

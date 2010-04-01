@@ -14,14 +14,10 @@
 module D = Debug.Debugger(struct let name="xapi_ha_vm_failover" end)
 open D
 
-(* All non best-effort VMs with always_run set should be kept running at all costs *)
-let vm_should_always_run always_run restart_priority = 
-  always_run && (restart_priority <> Constants.ha_restart_best_effort)
-
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
 let all_protected_vms ~__context = 
    let vms = Db.VM.get_all_records ~__context in
-   List.filter (fun (_, vm_rec) -> vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
+   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
 
 (* Comparison function which can be used to sort a list of VM ref, record by restart_priority *)
 let by_restart_priority (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
