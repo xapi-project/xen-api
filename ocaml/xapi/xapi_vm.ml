@@ -189,7 +189,7 @@ let assert_not_ha_protected ~__context ~vm =
   let pool = Helpers.get_pool ~__context in
   let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
   let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Xapi_ha_vm_failover.vm_should_always_run always_run priority)
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
   then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
 
 let pause_already_locked  ~__context ~vm = 
