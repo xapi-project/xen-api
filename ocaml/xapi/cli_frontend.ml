@@ -984,8 +984,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
    "snapshot-revert", 
    {
-      reqd = ["snapshot-uuid"];
-      optn = [];
+      reqd = [];
+      optn = ["uuid"];
       help ="Revert an existing VM to a previous checkpointed or snapshotted state.";
       implementation = No_fd Cli_operations.snapshot_revert;
       flags =[Standard];
@@ -1057,8 +1057,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
    
    "snapshot-reset-powerstate",
    {
-     reqd=["snapshot-uuid"]; 
-     optn=["force"];
+     reqd=[]; 
+     optn=["uuid"; "force"];
      help="Force the VM powerstate to halted in the management toolstack database only. This command is used to recover a snapshot that is marked as 'suspended'. This is a potentially dangerous operation: you must ensure that you do not need the memory image anymore (ie. you will not be able to resume your snapshot anymore).";
      implementation= No_fd Cli_operations.snapshot_reset_powerstate;
      flags=[Standard; Vm_selectors];
@@ -1257,8 +1257,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-export-to-template",
     {
-      reqd=["filename"; "snapshot-uuid"];
-      optn=["preserve-power-state"];
+      reqd=["filename"];
+      optn=["uuid"; "preserve-power-state"];
       help="Export a snapshot to <filename>.";
       implementation= With_fd Cli_operations.snapshot_export;
       flags=[Standard];
@@ -1266,8 +1266,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-clone",
     {
-      reqd=["new-name-label"; "snapshot-uuid"];
-      optn=["new-name-description"];
+      reqd=["new-name-label"];
+      optn=["uuid"; "new-name-description"];
       help="Create a new template by cloning an existing snapshot, using storage-level fast disk clone operation where available.";
       implementation= No_fd Cli_operations.snapshot_clone;
       flags=[Standard];
@@ -1275,8 +1275,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-copy",
     {
-      reqd=["new-name-label"; "snapshot-uuid"];
-      optn=["new-name-description"; "sr-uuid"];
+      reqd=["new-name-label"];
+      optn=["uuid"; "new-name-description"; "sr-uuid"];
       help="Create a new template by copying an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
       implementation= No_fd Cli_operations.snapshot_copy;
       flags=[Standard];
@@ -1284,8 +1284,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-uninstall",
    {
-     reqd=["snapshot-uuid"];
-     optn=["force"];
+     reqd=[];
+     optn=["uuid"; "force"];
      help="Uninstall a snapshot. This operation will destroy those VDIs that are marked RW and connected to this snapshot only. To simply destroy the VM record, use snapshot-destroy.";
      implementation= With_fd Cli_operations.snapshot_uninstall;
      flags=[Standard];
@@ -1293,8 +1293,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-destroy",
     {
-      reqd=["snapshot-uuid"];
-      optn=[];
+      reqd=[];
+      optn=["uuid"];
       help="Destroy a snapshot. This leaves the storage associated with the snapshot intact. To delete storage too, use snapshot-uninstall.";
       implementation=No_fd Cli_operations.snapshot_destroy;
       flags=[];
@@ -1302,8 +1302,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-disk-list",
    {
-     reqd=["snapshot-uuid"]; 
-     optn=["vbd-params";"vdi-params"];
+     reqd=[]; 
+     optn=["uuid"; "vbd-params";"vdi-params"];
      help="List the disks on the selected VM(s).";
      implementation= No_fd (Cli_operations.snapshot_disk_list false);
      flags=[Standard; Vm_selectors];

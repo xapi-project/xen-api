@@ -2171,6 +2171,11 @@ let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer
 let vm_snapshot_with_quiesce printer = vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false
 let vm_checkpoint printer = vm_clone_aux Client.VM.checkpoint "Checkpointed " printer false
 
+let get_snapshot_uuid params = 
+  if List.mem_assoc "snapshot-uuid" params
+  then List.assoc "snapshot-uuid" params
+  else List.assoc "uuid" params
+
 let snapshot_revert printer rpc session_id params =
 	let snap_uuid = List.assoc "snapshot-uuid" params in
 	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
@@ -2179,7 +2184,7 @@ let snapshot_revert printer rpc session_id params =
 let snapshot_op op printer rpc session_id params =
 	let new_name = List.assoc "new-name-label" params in
 	let desc = if List.mem_assoc "new-name-description" params then Some (List.assoc "new-name-description" params) else None in
-	let uuid = List.assoc "snapshot-uuid" params in
+	let uuid = get_snapshot_uuid params in
 	let ref = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
 	let new_ref = op ~rpc ~session_id ~vm:ref ~new_name in
 	ignore (may (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc) desc);
@@ -2194,13 +2199,13 @@ let snapshot_copy printer rpc session_id params =
 	snapshot_op op printer rpc session_id params
 
 let snapshot_destroy printer rpc session_id params =
-	let snap_uuid = List.assoc "snapshot-uuid" params in
+	let snap_uuid = get_snapshot_uuid params in
 	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
 	if Client.VM.get_power_state rpc session_id snap_ref <> `Halted then Client.VM.hard_shutdown ~rpc ~session_id ~vm:snap_ref;
 	Client.VM.destroy ~rpc ~session_id ~self:snap_ref
 
 let snapshot_uninstall fd printer rpc session_id params =
-	let snap_uuid = List.assoc "snapshot-uuid" params in
+	let snap_uuid = get_snapshot_uuid params in
 	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
 	vm_uninstall_common fd printer rpc session_id params [snap_ref]
 
@@ -2220,7 +2225,7 @@ let vm_reset_powerstate printer rpc session_id params =
 let snapshot_reset_powerstate printer rpc session_id params =
 	if not (List.mem_assoc "force" params) then
 		failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
-	let snapshot_uuid = List.assoc "snapshot-uuid" params in
+	let snapshot_uuid = get_snapshot_uuid params in
 	let snapshot = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
 	Client.VM.power_state_reset rpc session_id snapshot
 
@@ -2309,7 +2314,7 @@ let vm_disk_list is_cd_list printer rpc session_id params =
 	let ( _ : unit list) = do_vm_op printer rpc session_id op params ["vbd-params";"vdi-params"] in ()
 
 let snapshot_disk_list is_cd_list printer rpc session_id params =
-	let snapshot_uuid = List.assoc "snapshot-uuid" params in
+	let snapshot_uuid = get_snapshot_uuid params in
 	let snapshot_ref = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
 	let snapshot = vm_record rpc session_id snapshot_ref in
 	vm_disk_list_aux snapshot is_cd_list printer rpc session_id params
