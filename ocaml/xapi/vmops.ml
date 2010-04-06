@@ -489,6 +489,8 @@ let pcidevs_of_vm ~__context ~vm =
 			             (fun id a b c d -> (id, (a, b, c, d))) :: acc
 		with _ -> acc
 	) [] devs in
+	(* Preserve the configured order *)
+	let devs = List.rev devs in
 	if devs <> [] 
 	then Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
 	devs
