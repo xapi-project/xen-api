@@ -1188,7 +1188,11 @@ let list ~xc ~xs domid =
   let device_number_of_string x =
     (* remove the silly prefix *)
     int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  List.map (fun (x, y) -> device_number_of_string x, of_string y) pairs
+  let pairs' = List.map (fun (x, y) -> device_number_of_string x, of_string y) pairs in
+  (* Sort into the order the devices were plugged *)
+  let sorted = List.sort (fun a b -> compare (fst a) (fst b)) pairs' in
+  (* Assume the PCI bus ID is 0 *)
+  List.map (fun (_, y) -> 0, y) sorted
 
 
 let plug ~xc ~xs (domain, bus, dev, func) domid devid = 
