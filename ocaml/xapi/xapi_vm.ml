@@ -399,6 +399,7 @@ module Reboot = struct
 	 
 	 (* Before we destroy the old domain we check which PCI devices were plugged in *)
 	 let pcidevs = with_xc_and_xs (fun xc xs -> Device.PCI.list xc xs domid) in
+	 debug "Listed PCI devices: [ %s ]" (String.concat ", " (List.map (fun (x, dev) -> string_of_int x ^ "/" ^ (Device.PCI.to_string dev)) pcidevs));
 
 	 let localhost = Helpers.get_localhost ~__context in
          debug "%s phase 1/3: destroying old domain" api_call_name;
