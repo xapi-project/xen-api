@@ -1280,7 +1280,7 @@ let vm_revert = call
 let vm_checkpoint = call
   ~name:"checkpoint"
   ~in_product_since: rel_midnight_ride
-  ~doc:"Checkpoints the specified VM, making a new VM. Checkppoint automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write) and saves the memory image as well."
+  ~doc:"Checkpoints the specified VM, making a new VM. Checkpoint automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write) and saves the memory image as well."
   ~result: (Ref _vm, "The reference of the newly created VM.")
   ~params:[
     Ref _vm, "vm", "The VM to be checkpointed";
