@@ -305,6 +305,26 @@ let hosts_with_several_srs ~__context srs =
       _ -> false in
   List.filter filterfn hosts 
 
+(* Given an SR, return a PBD to use for some storage operation. *)
+(* In the case of SR.destroy we need to be able to forward the SR operation when all 
+   PBDs are unplugged - this is the reason for the consider_unplugged_pbds optional 
+   argument below. All other SR ops only consider plugged PBDs... *)
+let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () = 
+  let all_pbds = Db.SR.get_PBDs ~__context ~self in
+  let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
+  let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
+  if Helpers.is_sr_shared ~__context ~self then
+	let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
+	let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
+	(* shared SR operations must happen on the master *)
+	match Listext.List.intersect pbds_to_consider master_pbds with
+	| pbd :: _ -> pbd (* ok, master plugged *)
+	| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
+  else
+	match pbds_to_consider with
+	| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
+	| pbd :: _ -> pbd
+
     
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
   let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1243,6 +1263,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let local_fn = Local.VM.revert ~snapshot in
 		let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
+
+		(* We need to do a best-effort check that any suspend_VDI referenced by
+		   the snapshot (not the current VM) is currently accessible. This is because
+		   the revert code first clears space by deleting current VDIs before cloning
+		   the suspend VDI: we want to minimise the probability that the operation fails
+		   part-way through. *)
+		if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
+		  let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
+		  let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
+		  let pbd = choose_pbd_for_sr ~__context ~self:sr () in
+		  let host = Db.PBD.get_host ~__context ~self:pbd in
+		  let metrics = Db.Host.get_metrics ~__context ~self:host in
+		  let live = Db.is_valid_ref metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
+		  if not live
+		  then raise (Api_errors.Server_error(Api_errors.host_not_live, [ Ref.string_of host ]))
+		end;
 
 		with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
 			(fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
@@ -2437,28 +2473,11 @@ end
 
     (* -------- Forwarding helper functions: ------------------------------------ *)
 
-    (* Forward SR operation to host that has a suitable plugged PBD  *)
-    (* In the case of SR.destroy we need to be able to forward the SR operation when all PBDs are unplugged - this
-       is the reason for the consider_unplugged_pbds optional argument below. All other SR ops only consider plugged PBDs... *)
-    let forward_sr_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
-      let shared_srs = Helpers.get_shared_srs ~__context in
-      let all_pbds_for_this_sr = Db.SR.get_PBDs ~__context ~self in
-      let plugged_pbds_for_this_sr = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds_for_this_sr in
-      let pbds_to_consider = if consider_unplugged_pbds then all_pbds_for_this_sr else plugged_pbds_for_this_sr in
-      let i_am_shared = List.mem self shared_srs in
-	if i_am_shared then
-	  let master = Db.Pool.get_master ~__context ~self:(Helpers.get_pool ~__context) in
-	  (* we have to do shared SR op on the master; we throw an error if master PBD not plugged *)
-	  match List.filter (fun pbd->(Db.PBD.get_host ~__context ~self:pbd)=master) pbds_to_consider with
-	    _::_ -> (* ok, master plugged *)
-	      local_fn ~__context (* go ahead and do op on master *)
-	  | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
-	else
-	  match pbds_to_consider with
-	      [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-	    | (pbd::_) ->
-		let host = Db.PBD.get_host ~__context ~self:pbd in
-		  do_op_on ~local_fn ~__context ~host op
+    (* Forward SR operation to host that has a suitable plugged (or unplugged) PBD  *)
+    let forward_sr_op ?consider_unplugged_pbds ~local_fn ~__context ~self op =
+	  let pbd = choose_pbd_for_sr ?consider_unplugged_pbds ~__context ~self () in
+	  let host = Db.PBD.get_host ~__context ~self:pbd in
+	  do_op_on ~local_fn ~__context ~host op
 
     (* do op on a host that can view multiple SRs *)
     let forward_sr_multiple_op ~local_fn ~__context ~srs op =
