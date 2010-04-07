@@ -385,7 +385,12 @@ let get_ids name =
 	read_id_from (getpath name "device/vendor"),
 	read_id_from (getpath name "device/device")
 
-let is_physical name = try Unix.access (getpath name "device") [ Unix.F_OK ]; true with _ -> false
+let is_physical name = 
+  try 
+	let link = Unix.readlink (getpath name "device") in
+	(* filter out device symlinks which look like /../../../devices/xen-backend/vif- *)
+	not(List.mem "xen-backend" (String.split '/' link))
+  with _ -> false
 
 (* Dispatch network backend operations. *)
 
