@@ -709,6 +709,8 @@ let _ =
     ~doc:"The operation cannot be performed on physical device" ();
   error Api_errors.vdi_is_not_iso [ "vdi"; "type" ]
     ~doc:"This operation can only be performed on CD VDIs (iso files or CDROM drives)" ();
+  error Api_errors.host_cd_drive_empty [ ]
+	  ~doc:"The host CDROM drive does not contain a valid CD" ();
   error Api_errors.vdi_in_use [ "vdi"; "operation" ]
     ~doc:"This operation cannot be performed because this VDI is in use by some other operation" ();
   error Api_errors.vdi_not_available [ "vdi" ]

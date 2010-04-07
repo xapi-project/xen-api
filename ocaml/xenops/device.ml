@@ -29,6 +29,8 @@ exception Pause_token_mismatch
 exception Device_not_paused
 exception Device_not_found
 
+exception Cdrom
+
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 
@@ -579,6 +581,20 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	    debug "Caught Frontend_device_error: assuming it is safe to shutdown the backend";
 	    clean_shutdown ~xs device; (* assumes double-failure isn't possible *)
 	    release ~xs device;
+		(* Attempt to diagnose the error: the error from blkback ("2 creating vbd structure")
+		   doesn't give much away. *)
+		if phystype = Phys then begin
+		  try
+			(* Speculatively query the physical device as if a CDROM *)
+			  match Cdrom.query_cdrom_drive_status physpath with
+			  | Cdrom.DISC_OK -> () (* nothing unusual here *)
+			  | x -> 
+					error "CDROM device %s: %s" physpath (Cdrom.string_of_cdrom_drive_status x);
+					raise Cdrom
+		  with 
+		  | Cdrom as e' -> raise e'
+		  | _ -> () (* assume it wasn't a CDROM *)
+		end;
 	    raise e
 	end;
 	device
