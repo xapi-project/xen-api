@@ -2177,7 +2177,7 @@ let get_snapshot_uuid params =
   else List.assoc "uuid" params
 
 let snapshot_revert printer rpc session_id params =
-	let snap_uuid = List.assoc "snapshot-uuid" params in
+  let snap_uuid = get_snapshot_uuid params in
 	let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
 	Client.VM.revert ~rpc ~session_id ~snapshot:snap_ref
 
