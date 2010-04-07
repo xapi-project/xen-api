@@ -323,8 +323,9 @@ let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
 
   let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
   if original_sr.API.sR_content_type = "iso" then begin
-    (* Best effort: locate a VDI in any ISO SR with a matching VDI.location *)
-    let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso")
+    (* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
+    let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
+        && Client.SR.get_type rpc session_id self <> "udev")
       (Client.SR.get_all rpc session_id) in
     match List.filter (fun (_, vdir) -> 
 	vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
