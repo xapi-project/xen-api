@@ -22,6 +22,8 @@ exception Pause_token_mismatch
 exception Device_not_paused
 exception Device_not_found
 
+exception Cdrom
+
 module Generic :
 sig
 	val rm_device_state : xs:Xs.xsh -> device -> unit
