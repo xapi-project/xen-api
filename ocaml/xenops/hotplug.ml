@@ -78,6 +78,10 @@ let connected_node ~xs (x: device) =
 let tapdisk_error_node ~xs (x: device) = 
   sprintf "%s/backend/%s/%d/%d/tapdisk-error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 
+(* CA-39745: node written to by blkback to report an error (eg opening an empty CDROM drive) *)
+let blkback_error_node ~xs (x: device) = 
+  sprintf "%s/error/backend/vbd/%d/%d/error" (xs.Xs.getdomainpath x.backend.domid) x.backend.domid x.frontend.devid
+
 (* Poll a device to see whether it is instantaneously "online" where "online" means
    "currently-attached" in the database. The event thread AND the startup code call
    this function to resynchronise the state of the world with the database. 
@@ -134,11 +138,12 @@ let wait_for_frontend_plug ~xs (x: device) =
   debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
   try
     let ok_watch = Watch.value_to_appear (frontend_status_node x) in
-    let error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) in
+    let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) in
+	let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) in
     Stats.time_this "udev frontend add event" 
       (fun () ->
 	 match Watch.wait_for ~xs ~timeout:hotplug_timeout 
-	 (Watch.any_of [ `OK, ok_watch; `Failed, error_watch ]) with
+	 (Watch.any_of [ `OK, ok_watch; `Failed, tapdisk_error_watch; `Failed, blkback_error_watch ]) with
 	 | `OK, _ ->
 	     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
 	 | `Failed, e ->
