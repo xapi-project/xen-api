@@ -159,6 +159,8 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
 			if with_snapshot_metadata
 			then lookup table (Ref.string_of vm.API.vM_parent)
 			else Ref.null;
+		API.vM_current_operations = [];
+		API.vM_allowed_operations = [];
 		API.vM_VIFs = filter table (List.map Ref.string_of vm.API.vM_VIFs);
 		API.vM_VBDs = filter table (List.map Ref.string_of vm.API.vM_VBDs);
 		API.vM_crash_dumps = [];
@@ -187,7 +189,10 @@ let make_vif table ~preserve_power_state __context self =
 		API.vIF_currently_attached = if preserve_power_state then vif.API.vIF_currently_attached else false;
 		API.vIF_network = lookup table (Ref.string_of vif.API.vIF_network);
 		API.vIF_VM = lookup table (Ref.string_of vif.API.vIF_VM);
-		API.vIF_metrics = Ref.null; } in
+		API.vIF_metrics = Ref.null; 
+		API.vIF_current_operations = [];
+		API.vIF_allowed_operations = [];
+  } in
   { cls = Datamodel._vif; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.vIF_t vif }
@@ -197,7 +202,10 @@ let make_network table __context self =
   let net = Db.Network.get_record ~__context ~self in
   let net = { net with 
 		API.network_VIFs = filter table (List.map Ref.string_of net.API.network_VIFs);
-		API.network_PIFs = []; } in
+		API.network_PIFs = []; 
+		API.network_current_operations = [];
+		API.network_allowed_operations = [];
+  } in
   { cls = Datamodel._network; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.network_t net }
@@ -210,6 +218,8 @@ let make_vbd table ~preserve_power_state __context self =
 		API.vBD_VDI = lookup table (Ref.string_of vbd.API.vBD_VDI); 
 		API.vBD_VM = lookup table (Ref.string_of vbd.API.vBD_VM);
 		API.vBD_metrics = Ref.null;
+		API.vBD_current_operations = [];
+		API.vBD_allowed_operations = [];
 	    } in
   { cls = Datamodel._vbd; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
@@ -221,7 +231,10 @@ let make_vdi table __context self =
   let vdi = { vdi with 
 		API.vDI_VBDs = filter table (List.map Ref.string_of vdi.API.vDI_VBDs);
 		API.vDI_crash_dumps = [];
-		API.vDI_SR = lookup table (Ref.string_of vdi.API.vDI_SR); } in
+		API.vDI_SR = lookup table (Ref.string_of vdi.API.vDI_SR);
+		API.vDI_current_operations = [];
+		API.vDI_allowed_operations = [];
+  } in
   { cls = Datamodel._vdi; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
     snapshot = API.To.vDI_t vdi }  
@@ -231,10 +244,14 @@ let make_sr table __context self =
   let sr = Db.SR.get_record ~__context ~self in
   let sr = { sr with 
 		API.sR_VDIs = filter table (List.map Ref.string_of sr.API.sR_VDIs);
-		API.sR_PBDs = []; } in
+		API.sR_PBDs = []; 
+		API.sR_current_operations = [];
+		API.sR_allowed_operations = [];
+  } in
   { cls = Datamodel._sr; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.To.sR_t sr }    
+    snapshot = API.To.sR_t sr;
+  }    
 
 let make_all ~with_snapshot_metadata ~preserve_power_state table __context = 
 	let filter table rs = List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs in
