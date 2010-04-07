@@ -37,8 +37,8 @@ let nb_cpu_cores = ref 2
 let nb_cpu_threads = ref 1
 let cpu_usage = ref 1000L
 let cpu_speed_mhz = ref (1 * 1000) (* by default 1 ghz *)
-let physical_free_kib = ref ((4 * 1024 - 1) * 1024) (* by default ~4gb of free memory *)
-let physical_memory_kib = ref (4 * 1024 * 1024) (* by default 4gb of memory *)
+let physical_free_kib = ref ((16 * 1024 - 1) * 1024) (* by default ~16gb of free memory *)
+let physical_memory_kib = ref (16 * 1024 * 1024) (* by default 16gb of memory *)
 let host_m = Mutex.create ()
 
 let extra_kib = 512
