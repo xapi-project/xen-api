@@ -48,6 +48,8 @@ let to_api_error = function
       Server_error(internal_error, [ sprintf "device model failed to initialise: %s" msg ])
   | Device.Ioemu_failed_dying ->
       Server_error(internal_error, [ "internal error waiting for device model to stop (for either shutdown or suspend)" ])
+  | Device.Cdrom ->
+		Server_error(host_cd_drive_empty, [])
 	
   | Domain.Restore_signature_mismatch ->
       Server_error(internal_error, [ "restore file signature mismatch: has suspend image been corrupted?" ])
