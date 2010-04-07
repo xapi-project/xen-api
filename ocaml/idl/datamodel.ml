@@ -3672,7 +3672,7 @@ let network_introduce_params first_rel =
   [
     {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="name_description"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Int; param_name="mTU"; param_doc=""; param_release=first_rel; param_default=(Some (VInt 1500L))};
+    {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
   ]
