@@ -672,28 +672,30 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		  else
 		    rrdi.rrd
 		in
-		(* Check whether the memory ds has changed since last update *)
-		let last_values = Rrd.get_last_ds_values rrd in
 		(* CA-34383:
 		 * Memory updates from paused domains serve no useful purpose.
 		 * During a migrate such updates can also cause undesirable
 		 * discontinuities in the observed value of memory_actual.
 		 * Hence we ignore changes from paused domains:
 		 *)
-		let changed = not (List.mem vm_uuid paused_vms) &&
+		if not (List.mem vm_uuid paused_vms) then begin
+		  (* Check whether the memory ds has changed since last update *)
+		  let last_values = Rrd.get_last_ds_values rrd in
+		  let changed = 
 			begin try
-				let old_mem = List.assoc "memory" last_values in
-				let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
-				let cur_mem = cur_mem_ds.ds_value in
-				cur_mem <> old_mem
+			  let old_mem = List.assoc "memory" last_values in
+			  let cur_mem_ds = List.find (fun ds -> ds.ds_name = "memory") dss in
+			  let cur_mem = cur_mem_ds.ds_value in
+			  cur_mem <> old_mem
 			with _ -> true end in
-		if changed then
-		  dirty_memory := StringSet.add vm_uuid !dirty_memory;
-
-		(* Now update the rras/dss *)
-		Rrd.ds_update_named rrd timestamp 
-		  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
-		rrdi.dss <- dss;
+		  if changed then
+			dirty_memory := StringSet.add vm_uuid !dirty_memory;
+		  
+		  (* Now update the rras/dss *)
+		  Rrd.ds_update_named rrd timestamp 
+			  (List.map (fun ds -> (ds.ds_name,(ds.ds_value,ds.ds_pdp_transform_function))) dss);
+		  rrdi.dss <- dss;
+		end
 	      with
 		| Not_found ->
 		    debug "Creating fresh RRD for VM uuid=%s" vm_uuid;
