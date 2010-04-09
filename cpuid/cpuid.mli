@@ -21,6 +21,12 @@ type manufacturer =
 | Intel		(** Intel *)
 | Unknown	(** Other manufacturer *)
 
+(** Indicates whether CPUID features can be masked. *)
+and maskability =
+| No		(** No masking possible *)
+| Base		(** Only base features can be masked *)
+| Full		(** Both base and extended features can be masked *)
+
 (** CPU feature bit vector. *)
 and features
 
@@ -33,7 +39,7 @@ and cpu_info =
 		stepping: int32;				(** Stepping number of the CPU *)
 		features: features;				(** Feature bit vector of the CPU *)
 		physical_features: features;	(** Physical Feature bit vector of the CPU *)
-		maskable: bool;					(** Boolean indicating whether the CPU supports
+		maskable: maskability;			(** Indicates whether the CPU supports
 									        Intel FlexMigration or AMD Extended Migration,
 									        or cannot be masked *)
 	}
