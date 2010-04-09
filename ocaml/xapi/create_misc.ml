@@ -441,6 +441,11 @@ let create_host_cpu ~__context =
 	let cpuid = Cpuid.read_cpu_info () in
 	let features = Cpuid.features_to_string cpuid.Cpuid.features in
 	let physical_features = Cpuid.features_to_string cpuid.Cpuid.physical_features in
+	let maskable = match cpuid.Cpuid.maskable with
+		| Cpuid.No -> "no"
+		| Cpuid.Base -> "base"
+		| Cpuid.Full -> "full"
+	in
 	let cpu = [
 		"cpu_count", string_of_int number;
 		"vendor", vendor;
@@ -453,7 +458,7 @@ let create_host_cpu ~__context =
 		"features", features;
 		"features_after_reboot", features;
 		"physical_features", physical_features;
-		"maskable", string_of_bool cpuid.Cpuid.maskable;
+		"maskable", maskable;
 	] in
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
  
