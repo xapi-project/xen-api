@@ -209,7 +209,7 @@ let open_tcp_ssl server =
   let x = Stunnel.connect ~use_external_fd_wrapper:false 
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x) 
     ~extended_diagnosis:(!debug_file <> None) server port in
-  stunnel_process := Some x;
+  if !stunnel_process = None then stunnel_process := Some x;
   Unix.in_channel_of_descr x.Stunnel.fd, Unix.out_channel_of_descr x.Stunnel.fd
 
 let open_tcp server =
@@ -261,7 +261,10 @@ let main_loop ifd ofd =
 
   let exit_code = ref None in
   while !exit_code = None do
-    while (match Unix.select [ofd] [] [] 5.0 with
+    (* Wait for input asynchronously so that we can check the status
+       of Stunnel every now and then, for better debug/dignosis.
+    *)
+    while (match Unix.select [ifd] [] [] 5.0 with
            | _ :: _, _, _ -> false
            | _ -> 
                match !stunnel_process with
@@ -443,7 +446,7 @@ let main () =
 	    exit 0
     end;
 
-    if List.length args < 2 then usage () else
+    if List.length args < 2 then (usage (); exit 0) else
       begin
 	      let extra_args = try Sys.getenv "XE_EXTRA_ARGS" with _ -> "" in
 	      let split_extra = List.filter (fun s -> String.length s > 1) (String.split ',' extra_args) in    
@@ -488,7 +491,7 @@ let main () =
   | Unexpected_msg m ->
       error "Unexpected message from server: %s" (string_of_message m)
   | Stunnel_exit (i, e) ->
-      error "Stunnel process %d %s" i 
+      error "Stunnel process %d %s.\n" i 
         (match e with 
          | Unix.WEXITED c -> "existed with exit code " ^ string_of_int c
          | Unix.WSIGNALED c -> "killed by signal " ^ string_of_int c
@@ -496,7 +499,7 @@ let main () =
   | e ->
 	    error "Unhandled exception\n%s\n" (Printexc.to_string e) in
   begin match !stunnel_process with
-  | Some p ->
+  | Some p -> 
       if Sys.file_exists p.Stunnel.logfile then 
         begin
           if !exit_status <> 0 then
@@ -505,7 +508,8 @@ let main () =
              with e -> debug "%s\n" (Printexc.to_string e));
           try Unix.unlink p.Stunnel.logfile with _ -> ()
         end;
-      Stunnel.disconnect p
+      (try Stunnel.disconnect p 
+       with Unix.Unix_error(Unix.ECHILD, _, _) -> ())
   | None -> ()
   end;
   begin match !debug_file, !debug_channel with
