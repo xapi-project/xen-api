@@ -864,6 +864,7 @@ let set_hostname_live ~__context ~host ~hostname =
   if is_invalid_hostname hostname then
     raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
   ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/set-hostname" [hostname]);
+  Debug.invalidate_hostname_cache ();
   Db.Host.set_hostname ~__context ~self:host ~value:hostname
   )
 
