@@ -92,7 +92,15 @@ let find h ev =
     | m -> if ev = h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
-
+  
+let find_p h f =
+  let rec iter n =
+    match n with
+      -1 -> -1
+    | m -> if f h.data.(n).ev then n else iter (n-1)
+  in
+  iter (h.size-1)
+  
 let pop_maximum h = let m = maximum h in remove h 0; m
   
 let iter f h = 
