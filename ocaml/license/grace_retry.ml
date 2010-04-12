@@ -16,24 +16,27 @@
  
 open Client
 
+let event_name = "retry after obtaining grace license"
+let schedule = Xapi_periodic_scheduler.OneShot
+
 (** Schedule a timer to call [Host.apply_edition] again after an hour. Call this
  *  after getting a "grace" license in order to check whether the license server
  *  happened to come back. If so, a "real" license will be checked out.
  *  Note: the LPE already does a similar thing, but does not notify the product (xapi)
  *  if it succeeds to check out a "real" license! *)
 let retry_periodically host edition =
-	let period = 
+	let period =
 		if Xapi_fist.reduce_grace_retry_period () then
-			300.	(* 1h *)
+			300.	(* 5min *)
 		else
-			3600.	(* 5min *)
+			3600.	(* 1h *)
 	in
-	let schedule = Xapi_periodic_scheduler.OneShot in
 	let retry_fn () = 
-	    let now = (Unix.gettimeofday ()) in
+		let now = (Unix.gettimeofday ()) in
 		Server_helpers.exec_with_new_task "grace_retry"
 			(fun __context ->
 				Helpers.call_api_functions ~__context (fun rpc session_id ->
+					(* Retry checkout *)
 					Client.Host.apply_edition rpc session_id host edition;
 					(* Remove any newly generated grace alerts *)
 					let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
@@ -46,5 +49,7 @@ let retry_periodically host edition =
 				)
 			)
 	in
-	Xapi_periodic_scheduler.add_to_queue "retry after obtaining grace license" schedule period retry_fn
+	Xapi_periodic_scheduler.add_to_queue event_name schedule period retry_fn
 	
+let cancel () =
+	Xapi_periodic_scheduler.remove_from_queue event_name
