@@ -1204,6 +1204,7 @@ let set_localdb_key ~__context ~host ~key ~value =
 		
 let apply_edition ~__context ~host ~edition =
 	debug "apply_edition to %s" edition;
+	Grace_retry.cancel (); (* cancel any existing grace-retry timer *)
 	let current_edition = Db.Host.get_edition ~__context ~self:host in
 	let current_license = !License.license in
 	let default = License.default () in
