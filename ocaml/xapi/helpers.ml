@@ -384,8 +384,16 @@ let vif_of_devid ~__context ~vm devid =
     then raise Device_has_no_VIF
     else List.assoc devid table 
 
+(** Return the domid on the *local host* associated with a specific VM.
+	Note that if this is called without the VM lock then the result is undefined: the
+	domid might immediately change after the call returns. Caller beware! *)
 let domid_of_vm ~__context ~self =
-    Int64.to_int (Db.VM.get_domid ~__context ~self)
+  let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
+  let all = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
+  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.Xc.handle, di.Xc.domid) all in
+  if List.mem_assoc uuid uuid_to_domid
+  then List.assoc uuid uuid_to_domid
+  else -1 (* for backwards compat with old behaviour *)
 
 let get_guest_installer_network ~__context =
   let nets = Db.Network.get_all ~__context in
