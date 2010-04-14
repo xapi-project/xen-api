@@ -25,7 +25,8 @@ type origin =
 val initial : t
 
 (** [make ~__context ~subtask_of ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
-    [__context] is the calling context, 
+    [__context] is the calling context,
+	[quiet] silences "task created" log messages,
     [subtask_of] is a reference to the parent task, 
     [session_id] is the current session id,
     [task_in_database] indicates if the task needs to be stored the task in the database, 
@@ -33,6 +34,7 @@ val initial : t
     [task_name] is the task name of the created context. *)
 val make :
   ?__context:t ->
+  ?quiet:bool ->
   ?subtask_of:API.ref_task ->
   ?session_id:API.ref_session ->
   ?task_in_database:bool ->

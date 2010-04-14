@@ -66,7 +66,7 @@ module Early_wakeup = struct
   let table_m = Mutex.create ()
     
   let wait ((a, b) as key) time = 
-    debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time;
+    (* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
     let d = Delay.make () in
     Mutex.execute table_m (fun () -> Hashtbl.add table key d);
     finally
@@ -74,23 +74,23 @@ module Early_wakeup = struct
 	 let start = Unix.gettimeofday () in
 	 let waited_full_length = Delay.wait d time in
 	 let time_sleeping = Unix.gettimeofday () -. start in
-	 debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
+	 (* debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
 	   (if waited_full_length then "slept" else "woken") a b time_sleeping (time -. time_sleeping)
-      )
+     *)() )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
       
   let broadcast ((a, b) as key) = 
-    debug "Early_wakeup broadcast key = (%s, %s)" a b;
+    (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
     Mutex.execute table_m 
       (fun () -> 
-	 Hashtbl.iter (fun (a, b) d -> debug "Signalling thread blocked on (%s, %s)" a b; Delay.signal d) table
+	 Hashtbl.iter (fun (a, b) d -> (*debug "Signalling thread blocked on (%s, %s)" a b;*) Delay.signal d) table
       )
 
   let signal ((a, b) as key) = 
-    debug "Early_wakeup signal key = (%s, %s)" a b;
+    (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     Mutex.execute table_m 
       (fun () -> 
-	 if Hashtbl.mem table key then (debug "Signalling thread blocked on (%s,%s)" a b; Delay.signal (Hashtbl.find table key))
+	 if Hashtbl.mem table key then ((*debug "Signalling thread blocked on (%s,%s)" a b;*) Delay.signal (Hashtbl.find table key))
       )
 end
 
@@ -1242,7 +1242,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	(fun () ->
 	   forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.suspend rpc session_id vm));
       let uuid = Db.VM.get_uuid ~__context ~self:vm in
-	debug "placeholder for retrieving the current value of memory-actual";
+	(* debug "placeholder for retrieving the current value of memory-actual";*)
       let message_body = 
 	Printf.sprintf "VM '%s' suspended" 
 	  (Db.VM.get_name_label ~__context ~self:vm) 

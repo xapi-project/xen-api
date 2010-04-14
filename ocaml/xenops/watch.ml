@@ -66,7 +66,7 @@ let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
 	  failwith "internal error in Watch.wait: perhaps the list of paths was empty but the condition reports false?"
       end
   with Xs.Timeout -> 
-    debug "watch: timeout while watching xenstore after %f seconds" timeout;
+    error "watch: timeout while watching xenstore after %f seconds" timeout;
     (* Extra debugging to see if we've missed a watch somewhere *)
     (match x.evaluate ~xs with
      | KeepWaiting -> raise (Timeout timeout)
@@ -80,7 +80,7 @@ let value_to_appear (path: path): string t =
     evaluate = fun ~xs -> 
       try 
 	let v = xs.Xs.read path in
-	debug "watch: value has appeared: %s = %s" path v;
+	(*debug "watch: value has appeared: %s = %s" path v;*)
 	Result v
       with Xb.Noent -> KeepWaiting }
 
@@ -91,7 +91,7 @@ let key_to_disappear (path: path) : unit t =
       try 
 	ignore(xs.Xs.read path); KeepWaiting 
       with Xb.Noent ->
-	debug "watch: key has disappeared: %s" path;
+	(*debug "watch: key has disappeared: %s" path;*)
 	Result () 
   }
 
@@ -102,7 +102,7 @@ let value_to_become (path: path) (v: string) : unit t =
       try 
 	if xs.Xs.read path = v 
 	then begin
-	  debug "watch: value has become: %s = %s" path v;
+	  (*debug "watch: value has become: %s = %s" path v;*)
 	  Result () 
 	end else KeepWaiting 
       with Xb.Noent -> KeepWaiting }
