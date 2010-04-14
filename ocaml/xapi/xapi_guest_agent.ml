@@ -104,7 +104,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and last_updated = Unix.gettimeofday () in
 
   let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
-  debug "Number of entries in hashtbl: %d" num;
+  (* debug "Number of entries in hashtbl: %d" num; *)
 
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
      to -1 if it's not present in xenstore *)
@@ -257,7 +257,7 @@ let guest_metrics_liveness_thread () =
 	      Thread.delay Xapi_globs.guest_liveness_timeout;
 	      let doms = Xc.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
 	      let now = Unix.gettimeofday () in
-	      debug "Running liveness logic";
+	      (* debug "Running liveness logic"; *)
 	      Mutex.execute mutex (fun () -> 
 		List.iter (fun dom ->
 		  let domid = dom.Xc.domid in
@@ -266,33 +266,33 @@ let guest_metrics_liveness_thread () =
 		    let dead = IntSet.mem domid !dead_domains in
 		    if dead then
 		      begin
-			debug "Domain %d thought to be dead" domid;
+			(* debug "Domain %d thought to be dead" domid; *)
 			(* If it's marked as dead, check if we've received any update recently *)
 			if now -. last_updated < Xapi_globs.guest_liveness_timeout then
 			  begin
-			    debug "Marking as alive!";
+			    (* debug "Marking as alive!"; *)
 			    (* Mark guest as alive! *)
 			    dead_domains := IntSet.remove domid !dead_domains;
 				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:true;
-			    debug "Done"
+			    (* debug "Done" *)
 			      
 			  end			  
 		      end
 		    else
 		      begin
-			debug "Domain %d thought to be live" domid;
+			(* debug "Domain %d thought to be live" domid; *)
 			(* If it's marked as alive, check if we've received any update recently *)
 			if now -. last_updated > Xapi_globs.guest_liveness_timeout then
 			  begin
-			    debug "Marking as dead!";
+			    (* debug "Marking as dead!"; *)
 			    (* Mark guest as dead! *)
 			    dead_domains := IntSet.add domid !dead_domains;
 				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in				
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:false;
-			    debug "Done"
+			    (* debug "Done" *)
 			  end			  
 		      end
 		  with

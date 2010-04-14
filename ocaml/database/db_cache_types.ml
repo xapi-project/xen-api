@@ -72,7 +72,7 @@ let lookup_table_in_cache cache tbl =
 let lookup_row_in_table tbl tblname objref =
   try
     Hashtbl.find tbl objref
-  with Not_found -> raise (DBCache_NotFound ("missing row",tblname,objref))
+  with Not_found ->  raise (DBCache_NotFound ("missing row",tblname,objref))
 
 let iter_over_rows func table =
   Hashtbl.iter func table

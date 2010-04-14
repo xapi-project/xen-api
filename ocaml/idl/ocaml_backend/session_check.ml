@@ -27,7 +27,7 @@ let is_local_session __context session_id = default false
 
 (* intra_pool_only is true iff the call that's invoking this check can only be called from host<->host intra-pool communication *)
 let check ~intra_pool_only ~session_id =
-  Server_helpers.exec_with_new_task "session_check"
+  Server_helpers.exec_with_new_task ~quiet:true "session_check"
     (fun __context ->
        (* First see if this is a "local" session *)
        if is_local_session __context session_id 
@@ -48,7 +48,7 @@ let check ~intra_pool_only ~session_id =
 	      Db_actions.DB_Action.Session.set_last_active ~__context ~self:session_id
 		~value:(Date.of_float (Unix.time()))
 	  with 
-	  | Db_exn.DBCache_NotFound ("missing reference", tblname, reference) ->
+	  | Db_exn.DBCache_NotFound (_, tblname, reference) ->
 	      debug "Session check failed: missing reference; tbl = %s, ref = %s" tblname reference;
 	      raise (Api_errors.Server_error (Api_errors.session_invalid,[reference]))
 	  | Non_master_login_on_slave ->

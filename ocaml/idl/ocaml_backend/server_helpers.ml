@@ -110,7 +110,7 @@ let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) f 
         (fun () -> 
            if not called_async 
            then Context.destroy __context
-           else debug "nothing more to process for this thread"))
+           (* else debug "nothing more to process for this thread" *)))
     ()
 
 let dispatch_exn_wrapper f =
@@ -153,9 +153,9 @@ let do_dispatch ?session_id ?forward_op ?self _type called_async supports_async 
         in
           XMLRPC.Success (marshaller_fn result)
 
-let exec_with_new_task ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
+let exec_with_new_task ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
   exec_with_context 
-    ~__context:(Context.make ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name) 
+    ~__context:(Context.make ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name) 
     (fun ~__context -> f __context)
   
 let exec_with_forwarded_task ?session_id ?origin task_id f =
