@@ -87,17 +87,15 @@ let remove h s =
 
 let find h ev =
   let rec iter n =
-    match n with
-      -1 -> -1
-    | m -> if ev = h.data.(n).ev then n else iter (n-1)
+    if n < 0 then -1
+    else if ev = h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
   
 let find_p h f =
   let rec iter n =
-    match n with
-      -1 -> -1
-    | m -> if f h.data.(n).ev then n else iter (n-1)
+    if n < 0 then -1
+    else if f h.data.(n).ev then n else iter (n-1)
   in
   iter (h.size-1)
   
