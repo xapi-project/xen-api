@@ -93,10 +93,12 @@ let destroy ~__context task_id =
   then (
     assert_can_destroy ~ok_if_no_session_in_context:true ~__context task_id;
     Db_actions.DB_Action.Task.destroy ~__context ~self:task_id
-  );
+  )
+(*
   if Context.get_task_id __context = task_id
   then debug "task destroyed"
   else debug "task %s destroyed" (string_of_task "" task_id)
+*)
 
 (* set the ref fn to break the cyclic dependency *)
 let init () = 

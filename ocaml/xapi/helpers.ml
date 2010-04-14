@@ -103,7 +103,7 @@ let make_rpc ~__context xml =
     passing it the rpc function and session id, logout when finished. *)
 let call_api_functions ~__context f =
   let rpc = make_rpc ~__context in
-  let () = debug "logging into master" in
+  (* let () = debug "logging into master" in *)
   (* If we're the master then our existing session may be a client one without 'pool' flag set, so
      we consider making a new one. If we're a slave then our existing session (if we have one) must
      have the 'pool' flag set because it would have been created for us in the message forwarding layer
@@ -128,11 +128,11 @@ let call_api_functions ~__context f =
       with _ -> 
       do_master_login ()
   in
-  let () = debug "login done" in
+  (* let () = debug "login done" in *)
   finally 
     (fun () -> f rpc session_id) 
     (fun () ->
-       debug "remote client call finished; logging out";
+       (* debug "remote client call finished; logging out"; *)
        if !require_explicit_logout 
       then Client.Client.Session.logout rpc session_id)
 
