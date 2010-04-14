@@ -668,7 +668,6 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	(* CA-25297: domarch is r/o and not currently stored in the LBR *)
 	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
 
-	debug "For each disk which was attached to the VM when suspended, reattach SRs, VDIs and use VDIs";
 	let string_of_vbd_list vbds = String.concat "; " 
 	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
 
@@ -791,16 +790,14 @@ let restore ~__context ~xc ~xs ~self start_paused =
 			       The double domain destroy that you'll get (since the outer handler will also call destroy) is harmless since domids are
 			       not re-used until we loop round the whole range.
 			    *)
-			    debug "Vmops.restore (inner-handler) caught: %s." (ExnHelper.string_of_exn exn);
-			    debug "Vmops.restore (inner-handler): calling domain_destroy";
+			    debug "Vmops.restore (inner-handler) caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
 			    destroy ~__context ~xc ~xs ~self ~clear_currently_attached:false ~detach_devices:false ~deactivate_devices:false domid `Suspended;
 			    raise exn (* re-raise *)
 			  end
 		     )
 		 with exn ->
 		   begin
-		     debug "Vmops.restore caught: %s." (ExnHelper.string_of_exn exn);
-		     debug "Vmops.restore: calling domain_destroy";
+		     debug "Vmops.restore caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
 		     (* We do not detach/deactivate here because -- either devices were attached (in which case the storage_access
 			handler has already detached them by this point); or devices were _never_ attached because exn was thrown
 			before storage_access handler *)
@@ -1099,18 +1096,16 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 				not re-used until we loop round the whole range.
 			     *)
 			     begin
-			       debug "Vmops.start_paused (inner-handler) caught: %s." (ExnHelper.string_of_exn exn);
-			       debug "Vmops.start_paused (inner-handler): calling domain_destroy";
+			       debug "Vmops.start_paused (inner-handler) caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
 			       destroy ~__context ~xc ~xs ~self:vm ~detach_devices:false ~deactivate_devices:false domid `Halted;
 			       raise exn (* re-raise *)
 			     end
 			)
 		    with exn ->
-		      debug "Vmops.start_paused caught: %s."
+		      debug "Vmops.start_paused caught: %s: calling domain_destroy"
 			(ExnHelper.string_of_exn exn);
 		      error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc);
 
-		      debug "Vmops.start_paused: calling domain_destroy";
 		      (* We do not detach/deactivate here because -- either devices were attached (in which case the storage_access
 			 handler has already detached them by this point); or devices were _never_ attached because exn was thrown
 			 before storage_access handler *)

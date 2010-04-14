@@ -551,7 +551,7 @@ let guest_agent_update ctx domid uuid =
 
 (** Called from Xal *)
 let callback_guest_agent ctx domid = 
-  debug "VM (domid: %d) guest agent update" domid;
+  (* debug "VM (domid: %d) guest agent update" domid; *)
   try
 	(* This might fail if the domain has been destroyed: *)
 	let uuid = uuid_of_domid domid in

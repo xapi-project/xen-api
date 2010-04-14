@@ -82,9 +82,12 @@ let sample (name: string) (x: float) =
        Hashtbl.replace timings name p';
 (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
        p') in
+()
+(*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)
   then debug "Population %s time more than 3 standard deviations from the mean (time = %f; mean = %s)" name x (string_of p)
+*)
 
 (** Helper function to time a specific thing *)
 let time_this (name: string) f = 

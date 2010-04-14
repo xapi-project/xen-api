@@ -146,7 +146,7 @@ let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task
         origin = origin;
         task_name = task_name } 
 
-let make ?(__context=initial) ?subtask_of ?session_id ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
   let task_id, task_uuid =
     if task_in_database 
     then !__make_task ~__context ?description:task_description ?session_id ?subtask_of task_name
@@ -159,6 +159,7 @@ let make ?(__context=initial) ?subtask_of ?session_id ?(task_in_database=false) 
   in
 
   let info = if task_in_database then Real.info else Dummy.debug in
+  if not quiet && subtask_of <> None then
     info "task %s%s created%s%s" (* CP-982: promote tracking debug line to info status *)
       (!__string_of_task task_name task_id) 
       task_uuid
