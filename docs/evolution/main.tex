@@ -33,7 +33,7 @@ The goals of XenAPI evolution are:
 \item to allow bugs to be fixed efficiently\footnote{Some would consider even a bugfix to be a semantic change which breaks backwards compatability -- what if someone is relying on the buggy behaviour?};
 \item to allow new, innovative features to be added easily;
 \item to keep old, unmodified clients working as much as possible; and
-\item where backwards-incompatable changes are to be made, publish this information early to enable affected parties to give timely feedback.
+\item where backwards-incompatible changes are to be made, publish this information early to enable affected parties to give timely feedback.
 \end{itemize}
 
 \section{Background}
@@ -46,9 +46,9 @@ In this document, the term ``XenAPI'' refers to the XMLRPC-derived wire protocol
 \begin{verbatim}
 deprecated_since <release>
 \end{verbatim}
-where \texttt{release} identifies a major release of the software.
+where \texttt{<release>} identifies a major release of the software.
 
-\item Every release must be accomponied by a {\em deprecation statement} which lists all fields and messages marked as deprecated in the release. Next to each deprecated item should be an explanation of how to modify a client to avoid using the deprecated field or message.
+\item Every release must be accompanied by a {\em deprecation statement} which lists all fields and messages marked as deprecated in the release. Next to each deprecated item should be an explanation of how to modify a client to avoid using the deprecated field or message.
 
 \item The deprecation statement shall be prominently displayed in the XenAPI html documentation.
 
