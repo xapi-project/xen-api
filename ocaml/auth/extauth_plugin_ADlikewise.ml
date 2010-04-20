@@ -526,6 +526,22 @@ let on_enable config_params =
 	end
 	
 	else (* we have all the required parameters *)
+
+	let hostname =
+		Server_helpers.exec_with_new_task "retrieving hostname"
+			(fun __context ->
+				 let host = Helpers.get_localhost ~__context in
+				 Db.Host.get_hostname ~__context ~self:host
+			)
+	in
+	if (Stringext.String.fold_left
+			 (fun b ch -> b && (ch>='0')&&(ch<='9'))
+			 true
+			 hostname
+		 )
+	then 
+		raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,(Printf.sprintf "hostname '%s' cannot contain only digits." hostname)))
+	else
 	
 	let domain = 
 		let service_name = Server_helpers.exec_with_new_task "retrieving external_auth_service_name"
