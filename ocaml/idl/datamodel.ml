@@ -2853,6 +2853,7 @@ let session =
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _subject) "subject" "references the subject instance that created the session. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VDateTime(Date.of_float 0.))) ~ty:DateTime "validation_time" "time when session was last validated";
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
+		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_name" "the subject name of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
 		]
 	()
