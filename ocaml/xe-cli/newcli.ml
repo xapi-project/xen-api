@@ -115,11 +115,10 @@ let read_pwf () =
     with End_of_file ->
       error "Error: password file format: expecting username on the first line, password on the second line\n";
       exit 1
-  with
-    | _ ->
-	error "Error opening password file '%s'\n" !xapipasswordfile;
-	exit 1
-	  
+  with _ ->
+    error "Error opening password file '%s'\n" !xapipasswordfile;
+    exit 1
+
 
 let parse_port (x: string) = 
   try
@@ -337,9 +336,9 @@ let main_loop ifd ofd =
 		        doit url
 	        with
 	        | ClientSideError msg ->
-		          marshal ofd (Response Failed);
-		          Printf.fprintf stderr "Operation failed. Error: %s\n" msg;
-		          exit 1		    
+              marshal ofd (Response Failed);
+              Printf.fprintf stderr "Operation failed. Error: %s\n" msg;
+              exit_code := Some 1
 	        | e ->
 		          debug "HttpPut failure: %s\n%!" (Printexc.to_string e);
 		          (* Assume the server will figure out what's wrong and tell us over
@@ -401,9 +400,9 @@ let main_loop ifd ofd =
 	          doit url
 	        with 
 	        | ClientSideError msg ->
-		          marshal ofd (Response Failed);
-		          Printf.fprintf stderr "Operation failed. Error: %s\n" msg;
-		          exit 1		    
+              marshal ofd (Response Failed);
+              Printf.fprintf stderr "Operation failed. Error: %s\n" msg;
+              exit_code := Some 1
 	        | e ->
 		          debug "HttpGet failure: %s\n%!" (Printexc.to_string e);
 		          marshal ofd (Response Failed) 
@@ -508,8 +507,7 @@ let main () =
              with e -> debug "%s\n" (Printexc.to_string e));
           try Unix.unlink p.Stunnel.logfile with _ -> ()
         end;
-      (try Stunnel.disconnect p 
-       with Unix.Unix_error(Unix.ECHILD, _, _) -> ())
+      Stunnel.disconnect ~wait:false ~force:true p
   | None -> ()
   end;
   begin match !debug_file, !debug_channel with
