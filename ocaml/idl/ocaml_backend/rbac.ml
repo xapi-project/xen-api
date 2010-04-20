@@ -221,7 +221,7 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn sessi
 	then (* allow access to action *)
 	begin
 		let sexpr_of_args =
-			Rbac_audit.allowed_pre_fn ~action ?args ()
+			Rbac_audit.allowed_pre_fn ~__context ~action ?args ()
 		in
 		try
 			let result = (fn ()) (* call rbac-protected function *)
