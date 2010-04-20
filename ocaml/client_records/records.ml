@@ -619,7 +619,9 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
 			make_field ~name:"VCPUs-params"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
-				~add_to_map:(fun k v -> Client.VM.add_to_VCPUs_params rpc session_id vm k v)
+				~add_to_map:(fun k v -> match k with
+						| "weight" | "cap" | "mask" -> Client.VM.add_to_VCPUs_params rpc session_id vm k v
+						| _ -> raise (Record_util.Record_failure ("Failed to add parameter '"^k^"': expecting 'weight','cap' or 'mask'")))
 				~remove_from_map:(fun k -> Client.VM.remove_from_VCPUs_params rpc session_id vm k) 
 				~get_map:(fun () -> (x ()).API.vM_VCPUs_params) ();
 			make_field ~name:"VCPUs-max"
