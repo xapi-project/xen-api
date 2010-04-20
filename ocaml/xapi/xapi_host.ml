@@ -1269,7 +1269,7 @@ let refresh_pack_info ~__context ~host =
 let set_cpu_features ~__context ~host ~features =
 	debug "Set CPU features";
 	(* check restrictions *)
-	if not (Restrictions.ok_for_cpu_masking ()) then
+	if not (Restrictions.ok_for_cpu_masking ~__context) then
 		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
 	
 	let cpuid = Cpuid.read_cpu_info () in

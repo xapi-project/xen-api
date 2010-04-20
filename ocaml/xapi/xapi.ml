@@ -819,7 +819,7 @@ let server_init() =
       "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
-      "message_hook_thread", [ Startup.NoExnRaising ], Xapi_message.start_message_hook_thread;
+      "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
       "heartbeat thread", [ Startup.NoExnRaising; Startup.OnThread ], Db_gc.start_heartbeat_thread;
       "resynchronising HA state", [ Startup.NoExnRaising ], resynchronise_ha_state;
       "pool db backup", [ Startup.OnlyMaster; Startup.OnThread ], Pool_db_backup.pool_db_backup_thread;

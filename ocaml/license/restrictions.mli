@@ -71,7 +71,7 @@ val get : unit -> restrictions
 
 (** Return cache of pool restrictions, always updated at least once when the master reads its license.
  *  Called on the master to gate some operations. *)
-val get_pool : unit -> restrictions
+val get_pool : __context:Context.t -> restrictions
 
 (* called by xapi_host *)
 (** Called whenever a slave resets its Host.license_params after reading in a license. *)
@@ -81,21 +81,21 @@ val update_pool_restrictions : __context:Context.t -> unit
 val restrictions_of_sku : sku -> restrictions
 
 (** Checks whether we are entitled to enable Workload Balancing (WLB) in the pool. *)
-val license_ok_for_wlb : __context:'a -> bool
+val license_ok_for_wlb : __context:Context.t -> bool
 
 (** Checks whether we are entitled to enable Role-Based Access Control (RBAC) in the pool *)
-val license_ok_for_rbac : __context:'a -> bool
+val license_ok_for_rbac : __context:Context.t -> bool
 
 (** Checks whether we are entitled to enable Dynamic Memory Control (DMC)
   * in the pool. *)
-val context_ok_for_dmc : __context:'a -> bool
+val context_ok_for_dmc : __context:Context.t -> bool
 
 (** Checks whether we are entitled to enable checkpoint *)
-val ok_for_checkpoint : unit -> bool
+val ok_for_checkpoint : __context:Context.t -> bool
 
 (** Checks whether we are entitled to use a VSwitch Controller *)
-val ok_for_vswitch_controller : unit -> bool
+val ok_for_vswitch_controller : __context:Context.t -> bool
 
 (** Checks whether we are entitled to mask CPU features *)
-val ok_for_cpu_masking : unit -> bool
+val ok_for_cpu_masking : __context:Context.t -> bool
 

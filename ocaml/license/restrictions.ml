@@ -264,40 +264,36 @@ let rec restrictions_of_sku = function
 let get () =
 	restrictions_of_sku (get_sku ())
 
-(* Cache of pool restrictions, always updated at least once when the master reads its license *)
-let pool_restrictions = ref most_permissive
-let pool_restrictions_m = Mutex.create ()
+let get_pool ~__context =
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool)
 
-let get_pool () = Mutex.execute pool_restrictions_m (fun () -> !pool_restrictions)
-
-let update_pool_restrictions ~__context = 
-	Mutex.execute pool_restrictions_m (fun () ->
-		let hosts = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Db.Host.get_all_records ~__context) in
-		let new_restrictions = pool_restrictions_of_list (List.map of_assoc_list hosts) in
-		if new_restrictions <> !pool_restrictions then begin
-			info "Old pool restrictions: %s" (to_compact_string !pool_restrictions);
-			info "New pool restrictions: %s" (to_compact_string new_restrictions);
-			pool_restrictions := new_restrictions
-		end;
-		let pool = List.hd (Db.Pool.get_all ~__context) in
+let update_pool_restrictions ~__context =
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let pool_restrictions = of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
+	let hosts = List.map (fun (_, host_r) -> host_r.API.host_license_params) (Db.Host.get_all_records ~__context) in
+	let new_restrictions = pool_restrictions_of_list (List.map of_assoc_list hosts) in
+	if new_restrictions <> pool_restrictions then begin
+		info "Old pool restrictions: %s" (to_compact_string pool_restrictions);
+		info "New pool restrictions: %s" (to_compact_string new_restrictions);
 		Db.Pool.set_restrictions ~__context ~self:pool ~value:(to_assoc_list new_restrictions)
-	)
+	end
 
 let license_ok_for_wlb ~__context =
-	(get_pool()).enable_wlb
+	(get_pool ~__context).enable_wlb
 
 let license_ok_for_rbac ~__context =
-	(get_pool()).enable_rbac
+	(get_pool ~__context).enable_rbac
 
 let context_ok_for_dmc ~__context = 
-	(get_pool()).enable_dmc
+	(get_pool ~__context).enable_dmc
 
-let ok_for_checkpoint () =
-	(get_pool()).enable_checkpoint
+let ok_for_checkpoint ~__context =
+	(get_pool ~__context).enable_checkpoint
 
-let ok_for_vswitch_controller () =
-	(get_pool()).enable_vswitch_controller
+let ok_for_vswitch_controller ~__context =
+	(get_pool ~__context).enable_vswitch_controller
 
-let ok_for_cpu_masking () =
-	(get_pool()).enable_cpu_masking
+let ok_for_cpu_masking ~__context =
+	(get_pool ~__context).enable_cpu_masking
 
