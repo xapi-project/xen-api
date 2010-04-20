@@ -99,6 +99,11 @@ let is_subject_suspended subject_identifier =
 		end
 	)
 	in
+	let subject_name = 
+		if List.mem_assoc Auth_signature.subject_information_field_subject_name info
+		then List.assoc Auth_signature.subject_information_field_subject_name info
+		else ""
+	in
 	let get_suspension_value name info = 
 		if List.mem_assoc name info (* is the required field present? *)
 			then ((List.assoc name info)<>"false") (* no suspension only if value is explicitly false *)
@@ -119,7 +124,7 @@ let is_subject_suspended subject_identifier =
 		if (is_suspended) then begin
 			debug "Subject identifier %s is suspended" subject_identifier
 		end;
-		is_suspended
+		(is_suspended,subject_name)
 	end
 
 let destroy_db_session ~__context ~self = 
@@ -171,7 +176,8 @@ let revalidate_external_session ~__context ~session =
 			(* 2a. revalidate external authentication *)
 
 			(* CP-827: if the user was suspended (disabled,expired,locked-out), then we must destroy the session *)
-			if is_subject_suspended authenticated_user_sid
+			let (suspended,_)=is_subject_suspended authenticated_user_sid in
+			if suspended
 			then begin 
 				debug "Subject (identifier %s) has been suspended, destroying session %s" authenticated_user_sid (trackid session);
 				(* we must destroy the session in this case *)
@@ -261,7 +267,7 @@ let revalidate_all_sessions ~__context =
 
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
-let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~rbac_permissions =
+let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions =
 	let session_id = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let user = Ref.null in (* always return a null reference to the deprecated user object *)
@@ -281,8 +287,8 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
 	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
-	                  ~rbac_permissions;
-	Rbac_audit.session_create ~__context ~session_id;
+	                  ~auth_user_name ~rbac_permissions;
+	Rbac_audit.session_create ~__context ~session_id ~uname;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
 	let rpc = Helpers.make_rpc ~__context in
@@ -318,7 +324,7 @@ let slave_login ~__context ~host ~psecret =
   slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret;
   login_no_password ~__context ~uname:None ~host:host ~pool:true 
       ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
-      ~rbac_permissions:[]
+      ~auth_user_name:"" ~rbac_permissions:[]
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret = 
@@ -354,7 +360,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 		(* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
 		login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
 			~pool:false ~is_local_superuser:true ~subject:(Ref.null)(*~subject should be undefined here or not??? *)
-			~auth_user_sid:"" ~rbac_permissions:[]
+			~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[]
 	end 
 	else
 	let login_as_local_superuser auth_type = 
@@ -365,7 +371,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 			do_local_auth uname pwd;
 			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
 			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
-				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
+				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:""
 				~rbac_permissions:[]
 		end
 	in	
@@ -428,7 +434,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 					(* Otherwise, there might be cases where the initial authentication/login succeeds, but *)
 					(* then a few minutes later the revalidation finds that the user is 'suspended' (due to *)
 					(* subject info caching problems in likewise) and closes the user's session *)
-					let subject_suspended = (try
+					let (subject_suspended,subject_name) = (try
 						is_subject_suspended subject_identifier
 					with (Auth_signature.Auth_service_error (errtag,msg)) ->
 						begin
@@ -523,7 +529,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 								end
 						) in 
 						login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
-							~pool:false ~is_local_superuser:false ~subject:subject ~auth_user_sid:subject_identifier
+							~pool:false ~is_local_superuser:false ~subject:subject ~auth_user_sid:subject_identifier ~auth_user_name:subject_name
 							~rbac_permissions
 					end
 				(* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
