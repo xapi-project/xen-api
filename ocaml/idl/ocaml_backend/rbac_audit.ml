@@ -84,6 +84,8 @@ let get_subject_name __context session_id =
 		~fn_if_local_session:(fun()->"")
 		~fn_if_local_superuser:(fun()->"")
 		~fn_if_subject:(fun()->
+				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+			(*
 			let sid =
 				DB_Action.Session.get_auth_user_sid ~__context ~self:session_id
 			in
@@ -98,6 +100,7 @@ let get_subject_name __context session_id =
 			List.assoc
 				"subject-name" (*Auth_signature.subject_information_field_subject_name*)
 				subj.API.subject_other_config
+			*)
 		)
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
@@ -399,10 +402,19 @@ let session_destroy ~__context ~session_id =
 *)
 	()
 
-let session_create ~__context ~session_id =
-(*
-	(* this is currently only creating spam in the audit log *)
-	let action="session.create" in
-	allowed_ok ~__context ~session_id ~action ~permission:action ()
-*)
-	()
+let session_create ~__context ~session_id ~uname =
+  wrap (fun () ->
+	let session_rec = DB_Action.Session.get_record ~__context ~self:session_id in
+	let s_is_intrapool = session_rec.API.session_pool in
+	let s_is_lsu = session_rec.API.session_is_local_superuser in
+	(* filters out intra-pool logins to avoid spamming the audit log *)
+	if (not s_is_intrapool) && (not s_is_lsu) then (
+		let action="session.create" in
+		let sexpr_of_args = 
+			(get_sexpr_arg "uname" (match uname with None->""|Some u->u) "" "")::
+			[]
+		in
+		allowed_post_fn_ok ~__context ~session_id ~action ~sexpr_of_args ~permission:action ()
+	)
+	)
+
