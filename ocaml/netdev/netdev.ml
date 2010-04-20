@@ -39,11 +39,12 @@ exception Invalid_network_backend_operation of string * kind
 
 let string_of_kind kind = match kind with
   | Bridge -> "bridge"
-  | Vswitch -> "vswitch"
+  | Vswitch -> "openvswitch"
 
 let kind_of_string s = match s with
   | "bridge" -> Bridge
   | "vswitch" -> Vswitch
+  | "openvswitch" -> Vswitch
   | _ -> raise (Unknown_network_backend s)
 
 module Internal = struct
