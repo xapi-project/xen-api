@@ -194,18 +194,90 @@ let populate_audit_record_with_obj_names_of_refs line =
 		;
 		line
 
+let action_params_whitelist =
+	[ (* manual params asked by audit report team *)
+		("host.create",["hostname";"address";"external_auth_type";"external_auth_service_name";"edition"]);
+		("VM.create",["is_a_template";"memory_target";"memory_static_max";"memory_dynamic_max";"memory_dynamic_min";"memory_static_min";"ha_always_run";"ha_restart_priority"]);
+		("host.set_address",["value"]);
+		("VM.migrate",["dest";"live"]);
+		("VM.start_on",["start_paused";"force"]);
+		("VM.start",["start_paused";"force"]);
+		("pool.create_VLAN",["device";"vLAN"]);
+		("pool.join_force",["master_address"]);
+		("pool.join",["master_address"]);
+		("pool.enable_external_auth",["service_name";"auth_type"]);
+		("host.enable_external_auth",["service_name";"auth_type"]);
+		("subject.create",["subject_identifier";"other_config"]);
+		("subject.create.other_config",["subject-name"]);
+	]
+
+(* manual ref getters *)
+let get_subject_other_config_subject_name __context self =
+	try
+		List.assoc
+			"subject-name"
+			(DB_Action.Subject.get_other_config ~__context ~self:(Ref.of_string self))
+	with e ->
+		D.debug "couldn't get Subject.other_config.subject-name for ref %s: %s" self (ExnHelper.string_of_exn e);
+		"" 
+
+let get_role_name_label __context self =
+	try
+		(*Xapi_role.get_name_label ~__context ~self:(Ref.of_string self)*)
+		(*DB_Action.Role.get_name_label ~__context ~self:(Ref.of_string self)*)
+		let ps=(Rbac_static.all_static_roles@Rbac_static.all_static_permissions) in
+		let p=List.find (fun p->Ref.ref_prefix^p.role_uuid=self) ps in
+		p.role_name_label
+	with e ->
+		D.debug "couldn't get Role.name_label for ref %s: %s" self (ExnHelper.string_of_exn e);
+		"" 
+
+let action_param_ref_getter_fn =
+	[ (* manual override on ref getters *)
+		("subject.destroy",["self",(fun _ctx _ref->get_subject_other_config_subject_name _ctx _ref)]);
+		("subject.remove_from_roles",["self",(fun _ctx _ref->get_subject_other_config_subject_name _ctx _ref);"role",(fun _ctx _ref->get_role_name_label _ctx _ref)]);
+		("subject.add_to_roles",["self",(fun _ctx _ref->get_subject_other_config_subject_name _ctx _ref);"role",(fun _ctx _ref->get_role_name_label _ctx _ref)]);
+	]
+
+(* get a namevalue directly from db, instead from db_cache *)
+let get_db_namevalue __context name action _ref = 
+	if List.mem_assoc action action_param_ref_getter_fn 
+	then (
+		let params=List.assoc action action_param_ref_getter_fn in
+		if List.mem_assoc name params then (
+			let getter_fn=List.assoc name params in
+			getter_fn __context _ref
+		)
+		else
+			"" (* default value empty *)
+	)
+	else
+		"" (* default value empty *)
+
 (* Map selected xapi call arguments into audit sexpr arguments.
     Not all parameters are mapped into audit log arguments because
     some, like passwords, are sensitive and should not be persisted
     into the audit log. Use heuristics to map non-sensitive parameters.
 *)
-let sexpr_args_of name xml_value =
+let rec sexpr_args_of __context name xml_value action =
 	(* heuristic 1: print descriptive arguments in the xapi call *)
-	if (List.mem name ["name";"label";"description";"name_label";"name_description"])
+	if (List.mem name ["name";"label";"description";"name_label";"name_description";"new_name"]) (* param for any action *)
+		or (* action+param pair *)
+		(if List.mem_assoc action action_params_whitelist
+		 then
+			 let params=List.assoc action action_params_whitelist in
+			 List.mem name params
+		 else
+			 false
+		)
 	then
 	( match xml_value with
 		| Xml.PCData value -> Some (get_sexpr_arg name value "" "")
-		|_->None
+		| Xml.Element ("struct",_,_) -> Some (SExpr.Node
+    ((SExpr.String name)::(SExpr.Node (sexpr_of_parameters __context (action^"."^name) (Some (["__structure"],[xml_value]))))::(SExpr.String "")::(SExpr.String "")::[]))
+		|_-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)			
+			(*None*)
+			Some (get_sexpr_arg name (Xml.to_string xml_value) "" "")
 	)
 	else
 	(* heuristic 2: print uuid/refs arguments in the xapi call *)
@@ -216,18 +288,19 @@ let sexpr_args_of name xml_value =
 		| None ->
 			if Stringext.String.startswith Ref.ref_prefix value
 			then (* it's a ref, just not in the db cache *)
-				Some (get_sexpr_arg name "" "" value)
+				Some (get_sexpr_arg name (get_db_namevalue __context name action value) "" value)
 			else (* ignore values that are not a ref *)
 				None
 		| Some(_name_of_ref_value, uuid_of_ref_value, ref_of_ref_value) ->
-			let name_of_ref_value = (match _name_of_ref_value with|None->""|Some a -> a) in
+			let name_of_ref_value = (match _name_of_ref_value with|None->(get_db_namevalue __context name action ref_of_ref_value)|Some ""->(get_db_namevalue __context name action ref_of_ref_value)|Some a -> a) in
 			Some (get_sexpr_arg name name_of_ref_value uuid_of_ref_value ref_of_ref_value)
 		)
 	|_-> None
 
+and
 (* Given an action and its parameters, *)
 (* return the marshalled uuid params and corresponding names *)
-let rec sexpr_of_parameters action args : SExpr.t list =
+(*let rec*) sexpr_of_parameters __context action args : SExpr.t list =
 	match args with
 	| None -> []
 	| Some (str_names,xml_values) -> 
@@ -247,9 +320,10 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 			(* if it is a constructor structure, need to rewrap params *)
 			if str_name = "__structure"
 			then match xml_value with 
-				| Xml.Element (_,_,(Xml.Element ("struct",_,iargs))::[]) ->
+				| Xml.Element (_,_,(Xml.Element ("struct",_,iargs))::[])
+				| Xml.Element ("struct",_,iargs) ->
 						let (myparam:SExpr.t list) =
-							(sexpr_of_parameters action (Some
+							(sexpr_of_parameters __context action (Some
 							(List.fold_right
 								(fun xml_arg (acc_xn,acc_xv) ->
 									match xml_arg with
@@ -267,7 +341,7 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 						))
 						in myparam@params
 				| xml_value ->
-					(match (sexpr_args_of str_name xml_value)
+					(match (sexpr_args_of __context str_name xml_value action)
 					 with None->params|Some p->p::params
 					)
 			else 
@@ -283,7 +357,7 @@ let rec sexpr_of_parameters action args : SExpr.t list =
 						)
 					| _ -> str_name,xml_value
 				in
-				(match (sexpr_args_of name filtered_xml_value)
+				(match (sexpr_args_of __context name filtered_xml_value action)
 				 with None->params|Some p->p::params
 				)
 			end
@@ -333,7 +407,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args ?se
     SExpr.String action::
     (SExpr.Node (
 			match sexpr_of_args with
-			| None -> (sexpr_of_parameters action args)
+			| None -> (sexpr_of_parameters __context action args)
 			| Some sexpr_of_args -> sexpr_of_args
 		 ))::
 		[]
@@ -360,12 +434,12 @@ let audit_line_of __context session_id allowed_denied ok_error result_error acti
 		| None -> () 
 		| Some fn -> fn __context action audit_line
 
-let allowed_pre_fn ~action ?args () =
+let allowed_pre_fn ~__context ~action ?args () =
 	try
 		if (has_to_audit action)
 			(* for now, we only cache arg results for destroy actions *)
 			&& (Stringext.String.has_substr action ".destroy")
-		then Some(sexpr_of_parameters action args)
+		then Some(sexpr_of_parameters __context action args)
 		else None
 	with e -> 
 		D.debug "ignoring %s" (ExnHelper.string_of_exn e);
