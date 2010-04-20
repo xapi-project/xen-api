@@ -183,7 +183,8 @@ let diagnostic_license_status printer rpc session_id params =
   let invalid_hosts = List.map (fun (_, host_r) -> [ host_r.API.host_hostname;
 						     String.sub host_r.API.host_uuid 0 8;
 						     "-"; "-"; "-"; "-"; "-" ]) invalid in
-  let pool_restrictions = Restrictions.get_pool () in
+  let __context = Context.make "diagnostic_license_status" in
+  let pool_restrictions = Restrictions.get_pool ~__context in
   let pool_free = List.fold_left (||) false (List.map (fun h -> Restrictions.is_floodgate_free (Restrictions.sku_of_string h.license.License.sku)) host_licenses) in
   let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
   let pool = [ "-"; "-"; Restrictions.to_compact_string pool_restrictions; "-"; string_of_bool pool_free; "-"; "-" ] in

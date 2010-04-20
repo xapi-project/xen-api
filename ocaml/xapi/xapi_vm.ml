@@ -920,7 +920,7 @@ let revert ~__context ~snapshot =
 (* As the checkpoint operation modify the domain state, we take the vm_lock to do not let the event *)
 (* thread mess around with that. *)
 let checkpoint ~__context ~vm ~new_name =
-	if not (Restrictions.ok_for_checkpoint ()) then
+	if not (Restrictions.ok_for_checkpoint ~__context) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 	else begin
 		Local_work_queue.wait_in_line Local_work_queue.long_running_queue 

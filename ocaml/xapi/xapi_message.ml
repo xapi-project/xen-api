@@ -163,9 +163,9 @@ let message_to_string (_ref,message) =
   to_xml output _ref message;
   Buffer.contents buffer
 
-let handle_message message = 
+let handle_message ~__context message = 
   try
-    if not (Restrictions.get_pool ()).Restrictions.enable_email
+    if not (Restrictions.get_pool ~__context).Restrictions.enable_email
     then info "Email alerting is restricted by current license: not generating email"
     else begin
       let output, log = Forkhelpers.execute_command_get_output (Xapi_globs.xapi_message_script) [message] in
@@ -175,8 +175,8 @@ let handle_message message =
     error "Unexpected exception in message hook. Exception='%s'" (ExnHelper.string_of_exn e);
     log_backtrace ()
 
-let start_message_hook_thread () =
-  queue_push := Thread_queue.make ~name:"email message queue" ~max_q_length:100 handle_message
+let start_message_hook_thread ~__context () =
+  queue_push := Thread_queue.make ~name:"email message queue" ~max_q_length:100 (handle_message ~__context)
 
 
 (********************************************************************)
