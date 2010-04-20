@@ -130,12 +130,29 @@ let config_file verify_cert extended_diagnosis host port =
 
 let ignore_exn f x = try f x with _ -> ()
 
-let disconnect x = 
+let rec disconnect ?(wait = true) ?(force = false) x = 
   List.iter (ignore_exn Unix.close) [ x.fd ];
-  match x.pid with
-  | FEFork pid -> ignore(Forkhelpers.waitpid pid)
-  | StdFork pid -> ignore(Unix.waitpid [] pid)
-  | Nopid -> ()
+  let waiter, pid = match x.pid with
+    | FEFork pid ->
+        (fun () -> 
+           (if wait then Forkhelpers.waitpid 
+            else Forkhelpers.waitpid_nohang) pid),
+        Forkhelpers.getpid pid
+    | StdFork pid -> 
+        (fun () -> 
+           (if wait then Unix.waitpid [] 
+            else Unix.waitpid [Unix.WNOHANG]) pid),
+        pid in
+  let res = 
+    try waiter ()
+    with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
+  match res with
+  | 0, _ when force ->
+      (try Unix.kill pid Sys.sigkill 
+       with Unix.Unix_error (Unix.ESRCH, _, _) ->());
+      disconnect ~wait:wait ~force:force x
+  | _ -> ()
+
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
