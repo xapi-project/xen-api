@@ -53,7 +53,7 @@ val connect :
   string -> int -> t
 
 (** Disconnects from stunnel and cleans up *)
-val disconnect : t -> unit
+val disconnect : ?wait:bool -> ?force:bool -> t -> unit
 
 val diagnose_failure : t -> unit
 
