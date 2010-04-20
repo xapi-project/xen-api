@@ -139,13 +139,14 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 	    write_ok := true;
 	    result := res (* yippeee! return and exit from while loop *)
       with
+      (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Xmlrpcclient.Http_error (http_code,err_msg) ->
 	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg Xapi_globs.permanent_master_failure_retry_timeout;
 	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
 	  exit Xapi_globs.restart_return_code
       |	_ ->
 	  begin
-	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s *)
+	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
 	    begin
 	      match !my_connection with
 		None -> ()
