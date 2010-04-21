@@ -18,7 +18,7 @@ def run2(command):
 
    return run.returncode, out, err
 
-drac_path='/usr/sbin/racadm'
+drac_path='/opt/dell/srvadmin/sbin/racadm'
 def DRAC( power_on_ip, user, password):
     if( not os.path.exists(drac_path)):
         raise DRAC_NO_SUPP_PACK()
