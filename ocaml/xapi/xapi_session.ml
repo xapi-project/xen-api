@@ -624,6 +624,19 @@ let local_logout ~__context =
 	let session_id = Context.get_session_id __context in
 	Xapi_local_session.destroy ~__context ~self:session_id
 
+
+let get_group_subject_identifier_from_session ~__context ~session =
+	let subj = Db.Session.get_subject ~__context ~self:session in
+	try
+		Db.Subject.get_subject_identifier ~__context ~self:subj
+	with
+	|	Db_exn.DBCache_NotFound ("missing row",_,_) ->
+		(* expected error: subject was removed from subject list *)
+		""
+	| e -> (* unexpected error *)
+		debug "error obtaining sid from subject %s from session %s: %s" (Ref.string_of subj) (Ref.string_of session) (ExnHelper.string_of_exn e);
+		""
+
 let get_all_subject_identifiers ~__context = 
 	let all_sessions = Db.Session.get_all ~__context in
 	let all_extauth_sessions = List.filter (fun session ->
@@ -631,11 +644,17 @@ let get_all_subject_identifiers ~__context =
 		not (Db.Session.get_is_local_superuser ~__context ~self:session)
 		) all_sessions in
 	(* we only want to return sids of externally-authenticated sessions *)
-	let all_sids = List.map (fun session ->
+	let all_auth_user_sids_in_sessions = List.map (fun session ->
 		Db.Session.get_auth_user_sid ~__context ~self:session
 	) all_extauth_sessions in
+	let all_subject_list_sids_in_sessions = (List.filter (fun e->e<>"")
+		(List.map (fun session ->
+			(* TODO: better to look up the membership closure *)
+			get_group_subject_identifier_from_session ~__context ~session
+		) all_extauth_sessions)
+	) in
 	(* avoid returning repeated sids *)
-	Listext.List.setify all_sids
+	Listext.List.setify (all_auth_user_sids_in_sessions@all_subject_list_sids_in_sessions)
 	
 let logout_subject_identifier ~__context ~subject_identifier=
 	let all_sessions = Db.Session.get_all ~__context in
@@ -651,7 +670,14 @@ let logout_subject_identifier ~__context ~subject_identifier=
 		(Db.Session.get_uuid ~__context ~self:s) <> (Db.Session.get_uuid ~__context ~self:current_session)
 		&&
 		(* 3. we only consider those sessions associated with the specific subject_id received as parameter *)
+		(
+		(* 3.1. the sid of the authenticated user *)
 		(Db.Session.get_auth_user_sid ~__context ~self:s) = subject_identifier
+			or
+		(* 3.2. any sids of the group that authenticated the user *)
+		(* TODO: better to look up the membership closure *)
+		(get_group_subject_identifier_from_session ~__context ~session:s)	= subject_identifier
+		)
 		
 	) all_sessions in
 	debug "This session %s (user=%s subject_identifier=%s) is forcing the logout of these other sessions associated with subject_identifier=%s: trackids=[%s]"
