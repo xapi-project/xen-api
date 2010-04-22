@@ -808,9 +808,15 @@ let restore ~__context ~xc ~xs ~self start_paused =
 	      (fun () -> Helpers.log_exn_continue "restore" (fun () -> Unix.close fd) ()));
        
        (* No exception must have happened: safe to destroy the VDI *)
-       Helpers.call_api_functions ~__context
-	   (fun rpc session_id ->
-	      Client.VDI.destroy rpc session_id suspend_vdi);
+	   begin 
+		 try
+		   Helpers.call_api_functions ~__context
+			   (fun rpc session_id ->
+					Client.VDI.destroy rpc session_id suspend_vdi)
+		 with _ ->
+			 (* This should never happen but just in case, we log prominently and continue *)
+			 error "Failed to delete suspend image VDI: %s" (Db.VDI.get_uuid ~__context ~self:suspend_vdi);
+	   end;
        Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
 
 	   Db.VM.set_domid ~__context ~self ~value:(Int64.of_int domid);
