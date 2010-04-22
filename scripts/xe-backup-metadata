@@ -2,6 +2,8 @@
 # Script which backups metadata into a VDI
 # Citrix Systems Inc, 2008
 
+trap "cleanup" TERM INT
+
 if [ ! -e /etc/xensource-inventory ]; then
   echo Must run on a XenServer host.
   exit 1
@@ -57,11 +59,12 @@ leave_mounted=0
 init_fs=0
 create_vdi=0 
 just_find_vdi=0
+fs_uninitialised=0
 while getopts "hvink:u:dc" opt ; do
     case $opt in
     h) usage ;;
-    c) create_vdi=1 ;;
-    i) init_fs=1 ;;
+    c) create_vdi=1 ; fs_uninitialised=1 ;;
+    i) init_fs=1 ; fs_uninitialised=1 ;;
     k) history_kept=${OPTARG} ;;
     u) sr_uuid=${OPTARG} ;;
     d) leave_mounted=1 ;;
@@ -92,6 +95,7 @@ vdi_uuid=$(${XE} vdi-list other-config:ctxs-pool-backup=true sr-uuid=${sr_uuid} 
 
 mnt=
 function cleanup {
+   trap "" TERM INT
    cd /
    if [ ! -z "${mnt}" ]; then
       umount ${mnt} >/dev/null 2>&1
@@ -120,6 +124,9 @@ function cleanup {
               ${XE} vbd-destroy uuid=${vbd_uuid}
           fi
       fi
+   fi
+   if [ ${fs_uninitialised} -eq 1 -a -n "${vdi_uuid}" ] ; then
+      ${XE} vdi-destroy uuid=${vdi_uuid}
    fi
 }
 
@@ -174,6 +181,7 @@ if [ $init_fs -eq 1 ]; then
   ${debug} echo -n "Creating filesystem: "
   mkfs.ext3 -j -F ${device} > /dev/null 2>&1
   ${debug} echo "done"
+  fs_uninitialised=0
 fi
 
 ${debug} echo -n "Mounting filesystem: "
