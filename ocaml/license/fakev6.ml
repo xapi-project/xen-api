@@ -17,7 +17,7 @@ open D
 
 let initialise address port edition =
 	(* check edition  *)
-	if not (List.mem edition ["STD"; "ADV"; "ENT"; "PLT"]) then
+	if not (List.mem edition ["STD"; "ADV"; "ENT"; "XD"; "PLT"]) then
 		failwith "unknown edition";
 
 	("real", Int32.of_int (-1))
