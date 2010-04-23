@@ -393,6 +393,7 @@ def main():
         # Run ssmtp to send mail
         chld_stdin, chld_stdout = os.popen2(["/usr/sbin/ssmtp", "-C%s" % fname, destination])
         chld_stdin.write("From: noreply@%s\n" % getfqdn().encode('utf-8'))
+        chld_stdin.write('Content-Type: text/plain; charset="utf-8"\n')
         chld_stdin.write("To: %s\n" % destination.encode('utf-8'))
         chld_stdin.write("Subject: %s\n" % msg.generate_email_subject().encode('utf-8'))
         chld_stdin.write("\n")
