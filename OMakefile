@@ -10,16 +10,16 @@ else
   LIBDIR = lib64
   export
 
-# Default to native code unless COMPILE_NATIVE is defined otherwise
-if $(not $(defined-env COMPILE_NATIVE))
-  COMPILE_NATIVE = yes
-  export
-BYTE_ENABLED = false
-NATIVE_ENABLED = $(if $(equal $(COMPILE_NATIVE), yes), true, false)
+# By default compile to native code but not byte code unless specified otherwise
+NATIVE_ENABLED=$(getenv COMPILE_NATIVE, true)
+BYTE_ENABLED=$(getenv COMPILE_BYTE, false)
+if $(not $(or $(NATIVE_ENABLED), $(BYTE_ENABLED)))
+  eprintln(At least one of native and bytecode compilation modes should be enabled)
+  exit(1)
+export
 
-if $(not $(defined-env CARBON_DISTFILES))
-  CARBON_DISTFILES = /usr/groups/linux/distfiles
-  export
+CARBON_DISTFILES=$(getenv CARBON_DISTFILES, /usr/groups/linux/distfiles)
+export
 
 OCAMLDEP_MODULES_ENABLED = false
 
@@ -31,7 +31,7 @@ OCAMLFLAGS = -g -dtypes -thread -warn-error F
 OCAMLCFLAGS += -g
 OCAMLOPTFLAGS = -ccopt -fPIC
 CFLAGS+=-g -O2
-if $(defined-env COMPILE_NATIVE)
+if $(NATIVE_ENABLED)
   CFLAGS+=-DCOMPILE_NATIVE
   export
 
@@ -63,29 +63,23 @@ export CLEAN_OBJS
 #clean:
 #	rm -rf doc/
 
-if $(not $(defined-env COMPILE_OCAML))
-  COMPILE_OCAML = yes
-  export
-if $(not $(defined-env COMPILE_JS))
-  COMPILE_JS = yes
-  export
-if $(not $(defined-env COMPILE_JAVA))
-  COMPILE_JAVA = yes
-  export
+COMPILE_OCAML=$(getenv COMPILE_OCAML, yes)
+COMPILE_JS=$(getenv COMPILE_JS, yes)
+COMPILE_JAVA=$(getenv COMPILE_JAVA, yes)
+export
 
-.SUBDIRS: ocaml scripts $(if $(equal $(COMPILE_JAVA), yes), java) $(if $(equal $(COMPILE_JS), yes), javascript)
+.SUBDIRS: ocaml scripts $(if $(COMPILE_JAVA), java) $(if $(COMPILE_JS), javascript)
 
 # inherits COMPILE_XENSTUFF from the Makefile (NB don't set it here or else
 # you can't build the fakeserver etc on a machine without Xen, e.g. an Apple)
-if $(not $(defined-env COMPILE_XENSTUFF))
-  COMPILE_XENSTUFF = no
-  export
+COMPILE_XENSTUFF=$(getenv COMPILE_XENSTUFF, no)
+export
 
 .PHONY: none
 
 # Ocaml #############################################################################
 OCAML_PHASE1=
-OCAML_PHASE2= autogen_idl ocaml/idl/ocaml_backend/xapi_client.cmxa
+OCAML_PHASE2= autogen_idl $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa)
 
 # JS ################################################################################
 JS_PHASE1=
@@ -97,13 +91,13 @@ JAVA_PHASE1= XenServerConsole.jar
 JAVA_PHASE2=
 JAVA_PHASE3=
 
-JS_PHASE1_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE1), none)
-JS_PHASE2_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE2), none)
-JS_PHASE3_TARGETS = $(if $(equal $(COMPILE_JS), yes), $(JS_PHASE3), none)
+JS_PHASE1_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE1))
+JS_PHASE2_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE2))
+JS_PHASE3_TARGETS = $(if $(COMPILE_JS), $(JS_PHASE3))
 
-JAVA_PHASE1_TARGETS = $(if $(equal $(COMPILE_JAVA), yes), $(JAVA_PHASE1), none)
-JAVA_PHASE2_TARGETS = $(if $(equal $(COMPILE_JAVA), yes), $(JAVA_PHASE2), none)
-JAVA_PHASE3_TARGETS = $(if $(equal $(COMPILE_JAVA), yes), $(JAVA_PHASE3), none)
+JAVA_PHASE1_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE1))
+JAVA_PHASE2_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE2))
+JAVA_PHASE3_TARGETS = $(if $(COMPILE_JAVA), $(JAVA_PHASE3))
 
 # Phase 3 targets divided into two depending on whether we're building the Xen stuff or not:
 OCAML_PHASE3_XEN = \
@@ -158,11 +152,11 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/multipathrt/multipathrt
 
 
-OCAML_PHASE3 = $(if $(equal $(COMPILE_XENSTUFF), yes), $(OCAML_PHASE3_XEN) $(OCAML_PHASE3_NOXEN), $(OCAML_PHASE3_NOXEN))
+OCAML_PHASE3 = $(if $(COMPILE_XENSTUFF),$(OCAML_PHASE3_XEN)) $(OCAML_PHASE3_NOXEN)
 
-OCAML_PHASE1_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE1), none)
-OCAML_PHASE2_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE2), none)
-OCAML_PHASE3_TARGETS = $(if $(equal $(COMPILE_OCAML), yes), $(OCAML_PHASE3), none)
+OCAML_PHASE1_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE1))
+OCAML_PHASE2_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE2))
+OCAML_PHASE3_TARGETS = $(if $(COMPILE_OCAML), $(OCAML_PHASE3))
 
 #####################################################################################
 
