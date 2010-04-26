@@ -165,6 +165,7 @@ let check_template ~vmr ~op ~ref_str =
 		`changing_dynamic_range;
 		`changing_static_range;
 		`changing_memory_limits;
+		`changing_VCPUs;
 		`clone;
 		`copy;
 		`export;
