@@ -869,7 +869,7 @@ let host_record rpc session_id host =
   [
     make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.host_uuid) ();
     make_field ~name:"name-label"          ~get:(fun () -> (x ()).API.host_name_label) ~set:(fun s -> Client.Host.set_name_label rpc session_id host s) ();
-    make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.host_name_description) ();
+    make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.host_name_description) ~set:(fun s -> Client.Host.set_name_description rpc session_id host s) ();
     make_field ~name:"allowed-operations"
       ~get:(fun () -> String.concat "; " (List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations)) 
       ~get_set:(fun () -> List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations) ();
