@@ -368,13 +368,22 @@ let sles_9_template name architecture flags =
 		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
 	}
 
-let sles10_template name architecture flags =
+let sles10sp1_template name architecture flags =
 	let name = make_long_name name architecture in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
 		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
+	}
+
+let sles10_template name architecture flags =
+	let name = make_long_name name architecture in
+	let install_arch = technical_string_of_architecture architecture in
+	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
+	{ bt with
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:32 ();
 	}
 
 let sles11_template = sles10_template
@@ -434,14 +443,14 @@ let create_all_templates rpc session_id =
 		rhel5x_template "Oracle Enterprise Linux 5.3" X64 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5.4" X64 [    ];
 
-		sles_9_template "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
-		sles10_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
-		sles10_template "SUSE Linux Enterprise Server 10 SP2" X32 [    ];
-		sles11_template "SUSE Linux Enterprise Server 11"     X32 [    ];
-		sles10_template "SUSE Linux Enterprise Server 10 SP1" X64 [    ];
-		sles10_template "SUSE Linux Enterprise Server 10 SP2" X64 [    ];
-		sles10_template "SUSE Linux Enterprise Server 10 SP3" X64 [    ];
-		sles11_template "SUSE Linux Enterprise Server 11"     X64 [    ];
+		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
+		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
+		sles10_template    "SUSE Linux Enterprise Server 10 SP2" X32 [    ];
+		sles11_template    "SUSE Linux Enterprise Server 11"     X32 [    ];
+		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X64 [    ];
+		sles10_template    "SUSE Linux Enterprise Server 10 SP2" X64 [    ];
+		sles10_template    "SUSE Linux Enterprise Server 10 SP3" X64 [    ];
+		sles11_template    "SUSE Linux Enterprise Server 11"     X64 [    ];
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 
