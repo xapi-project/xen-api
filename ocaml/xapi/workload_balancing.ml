@@ -305,6 +305,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
           match error_msg with
           | "Connection refused" -> 
             raise_connection_refused ()
+          | "No route to host"
           | "No host resolved" -> 
             raise_unknown_host ()
           | "Invalid argument" -> 
