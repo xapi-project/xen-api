@@ -306,6 +306,7 @@ let diagnose_failure st_proc =
     check_verify_error line;
     check_error "Connection refused" line;
     check_error "No host resolved" line;
+    check_error "No route to host" line;
     check_error "Invalid argument" line in
   Unixext.readfile_line check_line st_proc.logfile
   (* If we reach here the whole stunnel log should have been gone through
