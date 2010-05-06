@@ -3073,7 +3073,8 @@ let export_common fd printer rpc session_id params filename num preserve_power_s
   
   finally 
     (fun () ->
-      download_file ~__context rpc session_id exporttask fd filename
+      let f = if !num > 1 then filename ^ (string_of_int !num) else filename in
+      download_file ~__context rpc session_id exporttask fd f
         (Printf.sprintf
            "%s?session_id=%s&task_id=%s&ref=%s&preserve_power_state=%b" 
  	   (if List.mem_assoc "metadata" params
