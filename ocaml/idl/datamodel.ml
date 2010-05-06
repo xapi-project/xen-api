@@ -5626,11 +5626,11 @@ let vm_guest_metrics =
       field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "PV_drivers_up_to_date"
 	"true if the PV drivers appear to be up to date";
 
-      field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
-      field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
-      field ~persist:false ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
-      field ~persist:true ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
-      field ~persist:false ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "memory" "free/used/total memory";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "disks" "disk configuration/free space";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
+      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
+      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
       field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
     ]
