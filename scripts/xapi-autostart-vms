@@ -15,6 +15,5 @@ XAPI_START_TIMEOUT_SECONDS=240
 /opt/xensource/bin/xapi-wait-init-complete ${XAPI_START_TIMEOUT_SECONDS}
 if [ $? -eq 0 ]; then
     # if xapi init completed then start vms (best effort, don't report errors)
-	. /etc/xensource-inventory
-    xe vm-start other-config:auto_poweron=true affinity=${INSTALLATION_UUID} power-state=halted --multiple >/dev/null 2>/dev/null || true
+    xe vm-start other-config:auto_poweron=true power-state=halted --multiple >/dev/null 2>/dev/null || true
 fi
