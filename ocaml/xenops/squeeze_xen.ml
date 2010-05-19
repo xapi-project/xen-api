@@ -262,6 +262,12 @@ let make_host ~verbose ~xc ~xs =
 			(fun di ->
 				try
 					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
+					let memory_shadow_kib =
+						if di.Xc.hvm_guest then
+							try
+								Memory.kib_of_mib (Int64.of_int (Xc.shadow_allocation_get xc di.Xc.domid))
+							with _ -> 0L
+						else 0L in
 					(* dom0 is special for some reason *)
 					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
 					(* Misc other stuff appears in max_memory_pages *)
@@ -308,18 +314,15 @@ let make_host ~verbose ~xc ~xs =
 					   "initial-reservation". *)
 					if not can_balloon then begin
 						let initial_reservation_kib = Domain.get_initial_reservation cnx di.Xc.domid in
-						(* memory_actual_kib is memory which xen has accounted to this domain. We bump this up to
-						   the "initial-reservation" and compute how much memory to subtract from the host's free
-						   memory *)
-						let unaccounted_kib = max 0L (Int64.sub initial_reservation_kib memory_actual_kib) in
+						let unaccounted_kib = max 0L
+							(initial_reservation_kib -* memory_actual_kib -* memory_shadow_kib) in
 						reserved_kib := Int64.add !reserved_kib unaccounted_kib;
-
 						[ { domain with Squeeze.
-						      dynamic_min_kib = initial_reservation_kib;
-						      dynamic_max_kib = initial_reservation_kib;
-						      target_kib = initial_reservation_kib;
-						      memory_actual_kib = max memory_actual_kib initial_reservation_kib;
-						  } ]
+							dynamic_min_kib   = memory_max_kib;
+							dynamic_max_kib   = memory_max_kib;
+							target_kib        = memory_max_kib;
+							memory_actual_kib = memory_max_kib;
+						} ]
 					end else begin
 
 						let target_kib = Domain.get_target cnx di.Xc.domid in
