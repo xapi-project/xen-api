@@ -217,14 +217,15 @@ let migration_failure_test_key = "migration_wings_fall_off" (* set in other-conf
    the disk flushing *)
 let migration_extra_paths_key = "migration_extra_paths"
 
-(* After this we start to invalidate older sessions *)
-let max_sessions = 200
-
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = 24. *. 60. *. 60. (* 24 hrs in seconds *) 
 
 (* After this we start to delete completed tasks (never pending ones) *)
 let max_tasks = 200
+
+(* After this we start to invalidate older sessions *)
+(* We must allow for more sessions than running tasks *)
+let max_sessions = max_tasks * 2
 
 let completed_task_timeout = 65. *. 60. (* 65 mins *)
 
