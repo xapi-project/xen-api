@@ -136,7 +136,7 @@ let destroy_db_session ~__context ~self =
   (* CP-982: create tracking id in log files to link username to actions *)
   info "Session.destroy %s" (trackid self);
 	Rbac_audit.session_destroy ~__context ~session_id:self;
-  Db.Session.destroy ~__context ~self;
+  (try Db.Session.destroy ~__context ~self; with _->());
   Rbac.destroy_session_permissions_tbl ~session_id:self
 
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
@@ -271,6 +271,7 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	let session_id = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let user = Ref.null in (* always return a null reference to the deprecated user object *)
+	let parent = try Context.get_session_id __context with _ -> Ref.null in
 	  (*match uname with   (* the user object is deprecated in favor of subject *)
 	      Some uname -> Helpers.get_user ~__context uname
 	    | None -> Ref.null in*)
@@ -280,14 +281,14 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
 	(* see also task creation in context.ml *)
 	(* CP-982: promote tracking debug line to info status *)
 	(* CP-982: create tracking id in log files to link username to actions *)
-	info "Session.create %s pool=%b uname=%s is_local_superuser=%b auth_user_sid=%s"
-		(trackid session_id) pool (match uname with None->""|Some u->u) is_local_superuser auth_user_sid;
+	info "Session.create %s pool=%b uname=%s is_local_superuser=%b auth_user_sid=%s parent=%s"
+		(trackid session_id) pool (match uname with None->""|Some u->u) is_local_superuser auth_user_sid (trackid parent);
 	Db.Session.create ~__context ~ref:session_id ~uuid
 	                  ~this_user:user ~this_host:host ~pool:pool
 	                  ~last_active:(Date.of_float (Unix.time ())) ~other_config:[] 
 	                  ~subject:subject ~is_local_superuser:is_local_superuser
 	                  ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
-	                  ~auth_user_name ~rbac_permissions;
+	                  ~auth_user_name ~rbac_permissions ~parent;
 	Rbac_audit.session_create ~__context ~session_id ~uname;
 	(* At this point, the session is created, but with an incorrect time *)
 	(* Force the time to be updated by calling an API function with this session *)
