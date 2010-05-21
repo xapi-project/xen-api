@@ -124,7 +124,11 @@ let call_api_functions ~__context f =
           then session_id
           else do_master_login ()
       end 
-      else Context.get_session_id __context
+      else
+          let session_id = Context.get_session_id __context in
+          (* read any attr to test if session is still valid *)
+          Db.Session.get_pool ~__context ~self:session_id;
+          session_id
       with _ -> 
       do_master_login ()
   in
