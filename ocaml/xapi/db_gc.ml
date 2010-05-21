@@ -207,7 +207,27 @@ let task_status_is_completed task_status =
     (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
 
 let timeout_sessions_common ~__context sessions =
-  let unused_sessions = List.filter (fun (_, y) -> List.for_all (fun t -> task_status_is_completed (Db.Task.get_status ~__context ~self:t)) y.Db_actions.session_tasks) sessions in
+  let unused_sessions = List.filter
+    (fun (x, _) -> 
+	  let rec is_session_unused s = 
+        if (s=Ref.null) then true (* top of session tree *)
+        else 
+        try (* if no session s, assume default value true=unused *)
+          let tasks = (Db.Session.get_tasks ~__context ~self:s) in
+          let parent = (Db.Session.get_parent ~__context ~self:s) in
+	      (List.for_all
+            (fun t -> task_status_is_completed
+              (* task might not exist anymore, assume completed in this case *)
+              (try Db.Task.get_status ~__context ~self:t with _->`success)
+            ) 
+            tasks
+          )
+          && (is_session_unused parent)
+        with _->true
+      in is_session_unused x
+    )
+    sessions
+  in
   let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
   let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
