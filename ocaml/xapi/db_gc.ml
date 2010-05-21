@@ -206,10 +206,8 @@ let check_host_liveness ~__context =
 let task_status_is_completed task_status =
     (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
 
-let timeout_sessions ~__context =
-  let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-  let not_intrapool_sessions = List.filter (fun (_, y) -> not y.Db_actions.session_pool) all_sessions in
-  let unused_sessions = List.filter (fun (_, y) -> List.for_all (fun t -> task_status_is_completed (Db.Task.get_status ~__context ~self:t)) y.Db_actions.session_tasks) not_intrapool_sessions in
+let timeout_sessions_common ~__context sessions =
+  let unused_sessions = List.filter (fun (_, y) -> List.for_all (fun t -> task_status_is_completed (Db.Task.get_status ~__context ~self:t)) y.Db_actions.session_tasks) sessions in
   let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
   let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
@@ -231,9 +229,20 @@ let timeout_sessions ~__context =
 	 ) sessions in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
   if unlucky <> [] 
-  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length all_sessions) Xapi_globs.max_sessions;
+  then debug "Number of disposable sessions in database (%d/%d) exceeds limit (%d): will delete the oldest" (List.length disposable_sessions) (List.length sessions) Xapi_globs.max_sessions;
   cancel "Timed out session because of its age" old;
   cancel "Timed out session because max number of sessions was exceeded" unlucky
+
+let timeout_sessions ~__context =
+  let all_sessions =
+    Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
+  in
+  let (intrapool_sessions, normal_sessions) =
+    List.partition (fun (_, y) -> y.Db_actions.session_pool) all_sessions
+  in begin
+    timeout_sessions_common ~__context normal_sessions;
+    timeout_sessions_common ~__context intrapool_sessions;
+  end
 
 let timeout_tasks ~__context =
   let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
