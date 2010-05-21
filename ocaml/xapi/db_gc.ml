@@ -203,10 +203,14 @@ let check_host_liveness ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   List.iter check_host all_hosts
 
+let task_status_is_completed task_status =
+    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled)
+
 let timeout_sessions ~__context =
   let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
   let not_intrapool_sessions = List.filter (fun (_, y) -> not y.Db_actions.session_pool) all_sessions in
-  let disposable_sessions = not_intrapool_sessions in
+  let unused_sessions = List.filter (fun (_, y) -> List.for_all (fun t -> task_status_is_completed (Db.Task.get_status ~__context ~self:t)) y.Db_actions.session_tasks) not_intrapool_sessions in
+  let disposable_sessions = unused_sessions in
   (* Only keep a list of (ref, last_active, uuid) *)
   let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
   (* Definitely invalidate sessions last used long ago *)
@@ -235,9 +239,6 @@ let timeout_tasks ~__context =
   let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
   let oldest_completed_time = Unix.time() -. Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
   let oldest_pending_time   = Unix.time() -. Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
-
-  let task_status_is_completed task_status =
-    (task_status=`success) || (task_status=`failure) || (task_status=`cancelled) in  
 
   let should_delete_task (_, t) = 
     if task_status_is_completed t.Db_actions.task_status

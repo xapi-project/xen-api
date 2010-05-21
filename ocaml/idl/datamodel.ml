@@ -2858,6 +2858,7 @@ let session =
 		  field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_name" "the subject name of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
+		  field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
 		]
 	()
 
@@ -5951,6 +5952,7 @@ let all_relations =
 
     (* subtasks hierarchy *)
     (_task, "subtask_of"), (_task, "subtasks");
+    (_task, "session"), (_session, "tasks");
     
     (_pif, "bond_slave_of"), (_bond, "slaves");
     (_bond, "master"), (_pif, "bond_master_of");
