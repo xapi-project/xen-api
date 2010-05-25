@@ -25,19 +25,6 @@ var component_deps = {};
 
 var root = '/bind/myrepos/';
 var code_url = 'http://xenbits.xen.org/xapi/';
-
-// function from http://www.bloggingdeveloper.com/post/JavaScript-QueryString-ParseGet-QueryString-with-Client-Side-JavaScript.aspx
-function getQuerystring(key, default_)
-{
-	if (default_ == null) default_ = ""; 
-	key = key.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
-	var regex = new RegExp("[\\?&]"+key+"=([^&#]*)");
-	var qs = regex.exec(window.location.href);
-	if (qs == null)
-		return default_;
-	else
-		return qs[1];
-}
     
 function fill_components()
 {
@@ -59,7 +46,7 @@ function do_search()
 		for (y in component_modules[c]) {
 			m = component_modules[c][y].name;
 			if (m.toLowerCase().indexOf(query) > -1)
-				html += '<a href="index.html?c=' + c + '&m=' + m + '">' + m + ' (' + c + ')</a><br/>';
+				html += '<a href="codedoc.html?c=' + c + '&m=' + m + '">' + m + ' (' + c + ')</a><br/>';
 		}
 	}
 	
@@ -101,19 +88,11 @@ function find_component_for_module(m)
 	return "";
 }
 
-function toggle(i)
-{
-	if (i % 2 == 0)
-		return ""
-	else
-		return "2"
-}
-
 function construct_url(mod, fn)
 {	
 	comp = find_component_for_module(mod.split('.')[0]);
 	if (comp != "")
-		return 'index.html?c=' + comp + '&m=' + mod + '#' + fn;
+		return 'codedoc.html?c=' + comp + '&m=' + mod + '#' + fn;
 	else
 		return '#';
 }
@@ -161,7 +140,7 @@ function value(v, n)
 	
 	html = '<div class="field' + toggle(n) + '">';
 	if (v.params.length > 0)
-		html += '<input type="button" class="small-button" value="show parameters" onclick="document.getElementById(\'' + name + '_params\').style.display=\'\';" />';
+		html += '<input type="button" class="small-button" value="parameters" onclick="showhide(document.getElementById(\'' + name + '_params\'))" />';
 	html += '<div class="field-type"><a name="' + name + '">[value]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 			
@@ -309,7 +288,7 @@ function included_module(v, n)
 	name = l[l.length - 1];
 		
 	html = '<div class="field' + toggle(n) + '">';
-	html += '<input type="button" class="small-button" value="show details" onclick="location=\'index.html?c=' + component + '&m=' + v.name + '\'" />';
+	html += '<input type="button" class="small-button" value="show details" onclick="location=\'codedoc.html?c=' + component + '&m=' + v.name + '\'" />';
 	html += '<div class="field-type"><a name="' + name + '">[module]</a></div>';
 	html += '<div class="field-name">' + name + '</div>';
 	html += '<div class="field-description">';
@@ -418,7 +397,7 @@ function make_dependencies(deps)
 	
 	uses = deps.uses.sort();
 
-	html = '<h2 class="title">Dependencies</h2>';
+	html = '<h2>Dependencies</h2>';
 	html += '<h3>Uses</h3>';
 	for (i in uses) {
 		c = find_component_for_module(uses[i])
@@ -443,14 +422,13 @@ function make_dependencies(deps)
 
 function moduledoc(mod)
 {	
-	set_sidebar("");
 	make_dependencies(mod.dependencies);
 	
 	html = "";
 	html += '<h1 class="title">Module: ';
 	chain = [];
 	for (i in module_chain)
-		chain[i] = '<a href="index.html?c=' + component + 
+		chain[i] = '<a href="codedoc.html?c=' + component + 
 			'&m=' + module_chain.slice(0,i+1).join('.') + '">' + 
 			module_chain[i] + '</a>';
 	html += chain.join('.') + '</h1>\n';
@@ -551,7 +529,7 @@ function module_index()
 	
 	// Sidebar
 	
-	html = '<h2 class="title">Module Groups</h2>';
+	html = '<h2>Module Groups</h2>';
 	if (group_names.length > 0) {
 		for (i in group_names)
 			html += '<a href="#' + group_names[i] + '">' + group_names[i] + '</a><br />';
@@ -570,7 +548,7 @@ function module_index()
 		html += '<h3>Libraries</h3>';
 		for (i in libs) {
 			if (libraries.indexOf(libs[i]) > -1)
-				html += '<a href="index.html?c=' + libs[i] + '">' + libs[i] + '</a><br />';
+				html += '<a href="codedoc.html?c=' + libs[i] + '">' + libs[i] + '</a><br />';
 			else
 				html += '<span class="grey">' + libs[i] + '</span><br />';
 		}
@@ -582,13 +560,13 @@ function module_index()
 		html += '<h3>Packages</h3>';
 		for (i in packs) {
 			if (packages.indexOf(packs[i]) > -1)
-				html += '<a href="index.html?c=' + packs[i] + '">' + packs[i] + '</a><br />';
+				html += '<a href="codedoc.html?c=' + packs[i] + '">' + packs[i] + '</a><br />';
 			else
 				html += '<span class="grey">' + packs[i] + '</span><br />';
 		}
 	}
 	
-	set_sidebar(html);
+	append_sidebar(html);
 }
 
 function component_index()
@@ -602,7 +580,7 @@ function component_index()
 		stats = component_stats[executables[i]];
 		total_descr_cnt += stats.descr_cnt;
 		total_completed_descr_cnt += stats.completed_descr_cnt;
-		html += '<a href="index.html?c=' + executables[i] + '">' + executables[i] + '</a>';
+		html += '<a href="codedoc.html?c=' + executables[i] + '">' + executables[i] + '</a>';
 		html += ' <span class="stat">(' + 
 			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
 	}
@@ -610,7 +588,7 @@ function component_index()
 	libraries.sort()
 	for (i in libraries) {
 		stats = component_stats[libraries[i]];
-		html += '<a href="index.html?c=' + libraries[i] + '">' + libraries[i] + '</a>';
+		html += '<a href="codedoc.html?c=' + libraries[i] + '">' + libraries[i] + '</a>';
 		html += ' <span class="stat">(' + 
 			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
 	}
@@ -618,7 +596,7 @@ function component_index()
 	packages.sort()
 	for (i in packages) {
 		stats = component_stats[packages[i]];
-		html += '<a href="index.html?c=' + packages[i] + '">' + packages[i] + '</a>';
+		html += '<a href="codedoc.html?c=' + packages[i] + '">' + packages[i] + '</a>';
 		html += ' <span class="stat">(' + 
 			Math.round(100 * stats.completed_descr_cnt / stats.descr_cnt) + '\%)</span><br />';
 	}
@@ -652,25 +630,5 @@ function build()
 		
 		moduledoc(mod);
 	}
-}
-
-function set_content(html)
-{
-	document.getElementById('content').innerHTML = html;
-}
-
-function append_content(html)
-{
-	document.getElementById('content').innerHTML += html;
-}
-
-function set_sidebar(html)
-{
-	document.getElementById('sidebar').innerHTML = html;
-}
-
-function append_sidebar(html)
-{
-	document.getElementById('sidebar').innerHTML += html;
 }
 
