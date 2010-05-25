@@ -188,7 +188,7 @@ table
 
 td {
 	vertical-align: top;
-	padding: 3px;
+	padding: 3px 1em 3px 0;
 }
 
 th {
@@ -274,11 +274,18 @@ tt, .code {
 	margin-left: .5em;
 }
 
+.lifecycle {
+	font-size: 90%;
+	float: right;
+	font-variant:small-caps;
+	color: #900;
+	margin: auto 0.5em;
+}
+
 .small-button {
 	font-size: 70%;
-//	text-align: right;
 	float: right;
-	margin: .5em 0;
+	margin: 0.2em 0 0.2em 0.5em;
 }
 
 .stat {
