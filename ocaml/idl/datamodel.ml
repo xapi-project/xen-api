@@ -2805,6 +2805,10 @@ let sr_make = call
   ~in_oss_since:None
   ~in_product_since:rel_rio
   ~internal_deprecated_since:rel_miami
+  ~lifecycle:[
+    Published, rel_rio, "Create a new Storage Repository on disk";
+    Deprecated, rel_miami, "Use SR.create instead"
+  ]
   ~versioned_params:(sr_host_param::dev_config_param::sr_physical_size_param::(sr_create_common @ [sr_sm_config]))
   ~doc:"Create a new Storage Repository on disk. This call is deprecated: use SR.create instead."
   ~result:(String, "The uuid of the newly created Storage Repository.")
@@ -2991,6 +2995,10 @@ let iobandwidth =
 (** Human users *)
 let user = (* DEPRECATED in favor of subject *)
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_user ~descr:"A user of the system" ~gen_events:false
+    ~lifecycle:[
+      Published, rel_rio, "A user of the system";
+      Deprecated, rel_george, "Deprecated in favor of subject";
+    ]
     ~doccomments:[] 
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~messages:[] ~contents:
@@ -3671,6 +3679,10 @@ let host_metrics =
 
 let hostcpu =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_hostcpu ~descr:"A physical CPU" ~gen_events:true
+      ~lifecycle:[
+        Published, rel_rio, "A physical CPU";
+        Deprecated, rel_midnight_ride, "Deprecated in favour of the Host.cpu_info field";
+      ]
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[] ~contents:
@@ -3766,10 +3778,13 @@ let network =
      ()
 
 let pif_create_VLAN = call
-  
   ~name:"create_VLAN"
   ~in_product_since:rel_rio
   ~doc:"Create a VLAN interface from an existing physical interface. This call is deprecated: use VLAN.create instead"
+  ~lifecycle:[
+    Published, rel_rio, "Create a VLAN interface from an existing physical interface";
+    Deprecated, rel_miami, "Replaced by VLAN.create";
+  ]
   ~params:[String, "device", "physical interface on which to create the VLAN interface";
 	   Ref _network, "network", "network to which this interface should be connected";
 	   Ref _host, "host", "physical machine to which this PIF is connected";
@@ -3784,6 +3799,10 @@ let pif_destroy = call
   ~name:"destroy"
   ~in_product_since:rel_rio
   ~doc:"Destroy the PIF object (provided it is a VLAN interface). This call is deprecated: use VLAN.destroy or Bond.destroy instead"
+  ~lifecycle:[
+    Published, rel_rio, "Destroy the PIF object (provided it is a VLAN interface)";
+    Deprecated, rel_miami, "Replaced by VLAN.destroy and Bond.destroy";
+  ]
   ~params:[Ref _pif, "self", "the PIF object to destroy"]
   ~errs:[Api_errors.pif_is_physical]
   ~internal_deprecated_since:rel_miami
