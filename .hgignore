@@ -104,6 +104,7 @@ stunnel-4.15/tools/stunnel.conf-sample
 stunnel-4.15/tools/stunnel.init
 zurich/java/com/xensource/autogen/*.java
 js/api.js
+java
 ocaml/cdrommon/cdrommon
 ocaml/console/console
 ocaml/database/db_filter_lex.ml
@@ -115,6 +116,9 @@ ocaml/database/block_device_io
 ocaml/db_process/xapi-db-process
 ocaml/db_process/xapi-db-upgrade-4.2
 ocaml/doc/content
+ocaml/doc/api
+ocaml/doc/jsapi
+ocaml/doc/components.js
 ocaml/events/event_listen
 ocaml/fdhelper/closeandexec
 ocaml/fdhelper/closeandexec_static
