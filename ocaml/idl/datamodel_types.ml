@@ -87,15 +87,12 @@ type api_value =
 	
 (** Each database field has a qualifier associated with it: *)
 type qualifier =
-	| RW
-		(** Read-write database field whose initial value is specified at the
-		time of object construction. *)
-	| StaticRO
-		(** Read-only database field whose final value is specified at the time
-		of object construction. *)
-	| DynamicRO
-		(** Read-only database field whose value is computed dynamically and
-		not specified at the time of object construction. *)
+	| RW        (** Read-write database field whose initial value is specified at the
+	              * time of object construction. *)
+	| StaticRO  (** Read-only database field whose final value is specified at the time
+	              * of object construction. *)
+	| DynamicRO (** Read-only database field whose value is computed dynamically and
+	              * not specified at the time of object construction. *)
 	with rpc
 	
 (** Release keeps track of which versions of opensource/internal products fields and messages are included in *)
@@ -104,6 +101,16 @@ type release = {
   internal: string list;
   internal_deprecated_since: string option; (* first release we said it was deprecated *)
 } with rpc
+
+type lifecycle_change =
+	| Published
+	| Extended
+	| Changed
+	| Deprecated
+	| Removed
+
+and lifecycle_transition = lifecycle_change * string * string
+with rpc
 
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
@@ -136,6 +143,7 @@ and message = {
     msg_pool_internal: bool; (* only allow on "pool-login" sessions *)
     msg_db_only: bool; (* this is a db_* only message; not exposed through api *)
     msg_release: release;
+    msg_lifecycle: lifecycle_transition list;
     msg_has_effect: bool; (* if true it appears in the custom operations *)
     msg_force_custom: qualifier option; (* unlike msg_has_effect, msg_force_custom=Some(RO|RW) always forces msg into custom operations, see gen_empty_custom.ml *)
     msg_no_current_operations: bool; (* if true it doesnt appear in the current operations *)
@@ -149,6 +157,7 @@ and message = {
 
 and field = {
     release: release;
+    lifecycle: lifecycle_transition list;
     field_persist: bool;
     default_value: api_value option;
     internal_only: bool;
@@ -192,20 +201,22 @@ type persist_option = PersistNothing | PersistEverything with rpc
    PersistNothing - no creates/writes to this table persisted *)
 
 (** An object (or entity) is represented by one of these: *)
-type obj = { name : string;
-	     description : string;
-	     contents : content list;
-	     messages : message list;
-	     doccomments : (string * string) list;
-	     gen_constructor_destructor: bool;
-	     force_custom_actions: qualifier option; (* None,Some(RW),Some(StaticRO) *)
-	     obj_allowed_roles: string list option; (* for construct, destruct and explicit obj msgs*)
-	     obj_implicit_msg_allowed_roles: string list option; (* for all other implicit obj msgs*)
-	     gen_events: bool;
-	     persist: persist_option;
-	     obj_release: release;
-	     in_database: bool (* If the object is in the database *)
-	   } with rpc
+type obj = {
+	name : string;
+	description : string;
+	obj_lifecycle: lifecycle_transition list;
+	contents : content list;
+	messages : message list;
+	doccomments : (string * string) list;
+	gen_constructor_destructor: bool;
+	force_custom_actions: qualifier option; (* None,Some(RW),Some(StaticRO) *)
+	obj_allowed_roles: string list option; (* for construct, destruct and explicit obj msgs*)
+	obj_implicit_msg_allowed_roles: string list option; (* for all other implicit obj msgs*)
+	gen_events: bool;
+	persist: persist_option;
+	obj_release: release;
+	in_database: bool (* If the object is in the database *)
+} with rpc
 
 (* val rpc_of_obj : obj -> Rpc.t *)
 (* let s = Jsonrpc.to_string (rpc_of_obj o) *)
