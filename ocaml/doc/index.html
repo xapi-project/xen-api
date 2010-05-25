@@ -2,38 +2,28 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 	<head>
-		<title>OCamlDoc</title>
+		<title>Xapi Toolstack</title>
 		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-		<script type="text/javascript" src="components.js"></script>
-		<script type="text/javascript" src="ocamldoc.js"></script>
-		<script>
-			for (z in components)
-				document.write('<script src="content/', components[z], '/index.json" type="text/JavaScript"><\/script>');
-			if (component != "" && module != "")
-				document.write('<script src="content/', component, '/', module_chain[0], '.json" type="text/JavaScript"><\/script>');
-		</script>
 		<link rel="stylesheet" href="style.css" />
 	</head>
 	<body onload="build();">
 		<div id="wrap">
 			<div id="header">
-				<h1 style="float:left">Xapi &ndash; OCaml Code Documentation</h1>
+				<h1 style="float:left">Xapi Toolstack Documentation</h1>
 				<ul id="menu">
-					<script>
-						document.write('<li><a href="index.html">Component Index</a></li>');
-						if (component != "") {
-							document.write('<li><a href="index.html?c=' + component + '">Module Index</a></li>');
-						}
-						document.write('<li><a href="#" onclick="search_page()">Search</a></li>');
-					</script>
+					<li><a href="apidoc.html">XenAPI Docs</a></li>
+					<li><a href="codedoc.html">Code Docs</a></li>
 				</ul>	
 			</div>
 			<div id="main">
 				<div id="container"><div id="content">
-					<h1 class="title">Introduction</h1>
-					<p>These web pages contain source documentation of the main libraries and executables related to xapi. The documentation is automatically generated from the OCaml source files via a custom generator for <a href="http://caml.inria.fr/pub/docs/manual-ocaml/manual029.html" target="_blank">OCamlDoc</a>. Below is a list of all components that are covered, the most important one being the <a href="index.html?c=xapi">xapi</a> executable itself. Clicking on a component name will bring up an overview of the OCaml modules contained in it. Clicking further will reveal the internals of a module.</p>
-					<p>The OCaml source code contains special comments that are displayed in the documentation, which explain the use of modules, functions etc. We are working hard to add such comments wherever they are needed, but a lot of work still needs to be done. We encourage everyone who contributes to xapi to help out and include good documentation! :)</p>
-					<p>Details on how to generate the documentation yourself, and how to properly document the source code, are described on <a href="http://wiki.xensource.com/xenwiki/OCaml_Doc" target="_blank">this</a> wiki page.</p>
+					<h1 class="title">Welcome</h1>
+					<p>These pages contain documentation of the Xapi toolstack, part of the Xen Cloud Platform, and the API it provides.
+					<ul>
+						<li><a href="apidoc.html">XenAPI Documentation</a></li>
+						<li><a href="codedoc.html">Xapi Code Documentation</a></li>
+					</ul>
+					<p>The documentation is automatically generated from comments in the source code.
 				</div></div>
 				<div id="sidebar"></div>
 				<div id="footer"></div>
