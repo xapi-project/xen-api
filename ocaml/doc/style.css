@@ -161,6 +161,16 @@ hr {
 	text-decoration: none;
 }
 
+#sidemenu {
+	padding-top: 1em;
+	padding-bottom: 1em;
+//	border-bottom: 1px solid white;
+	font-size: 1em;
+	text-align: center;
+	font-weight: bold;
+	background-color: #ee4400;
+}
+
 .grey {
 	color: #ccc;
 }
@@ -248,6 +258,20 @@ tt, .code {
 
 .field-table td {
 	padding: .3em .5em .3em 0;
+}
+
+.inline-type {
+	margin-right: .5em;
+}
+
+.inline-qualifier {
+	font-size: 70%;
+	vertical-align: top;
+	margin-left: .5em;
+}
+
+.inline-params {
+	margin-left: .5em;
 }
 
 .small-button {

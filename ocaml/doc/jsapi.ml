@@ -18,7 +18,7 @@ let _ =
 	let create_json obj =
 		let name = obj.Datamodel_types.name in
 		let s = Jsonrpc.to_string (Datamodel_types.rpc_of_obj obj) in
-		Unixext.write_string_to_file ("api/" ^ name ^ ".json") s;
+		Unixext.write_string_to_file ("api/" ^ name ^ ".json") ("clsdoc = " ^ s);
 		name
 	in
 	let names = List.map create_json objs in
