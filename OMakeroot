@@ -96,6 +96,17 @@ OCamlDocLibrary(name, modules) =
 	OCamlDoc($(name), $(modules), "library")
 
 #
+# Use Camlp4
+#
+UseCamlp4(packs, files) =
+       OCAMLPACKS     += $(packs)
+       OCAMLFINDFLAGS += -syntax camlp4o
+       $(addsuffix .cmx, $(files)):
+       $(addsuffix .o, $(files)):
+       $(addsuffix .cmi, $(files)):
+       $(addsuffix .cmo, $(files)):
+
+#
 # Include the OMakefile in this directory.
 #
 .SUBDIRS: .

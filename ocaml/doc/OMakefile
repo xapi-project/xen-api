@@ -2,7 +2,16 @@ OCAMLINCLUDES += +ocamldoc
 BYTE_ENABLED = TRUE
 OCamlLibrary(odoc_json, odoc_json)
 
+OCAML_LIBS += ../idl/datamodel
+OCAMLINCLUDES += ../idl
+OCamlProgram(jsapi, jsapi)
+
+.PHONY: doc
+doc: jsapi
+	mkdir -p api
+	./jsapi
+
 .PHONY: clean
 clean:
 	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
-	rm -rf components.js content
+	rm -rf components.js content jsapi

@@ -26,6 +26,12 @@
 
 *)
 
+module Date = struct
+	include Date
+	let iso8601_of_rpc rpc = Date.of_string (Rpc.string_of_rpc rpc)
+	let rpc_of_iso8601 date = Rpc.rpc_of_string (Date.to_string date)
+end
+
 (* useful constants for product vsn tracking *)
 let oss_since_303 = Some "3.0.3"
 let rel_george = "george"
@@ -65,6 +71,7 @@ type ty =
     | Map of ty * ty
     | Ref of string
     | Record of string
+    with rpc
 
 type api_value =
     VString of string
@@ -76,7 +83,8 @@ type api_value =
   | VMap of (api_value*api_value) list
   | VSet of api_value list
   | VRef of string
-
+	with rpc
+	
 (** Each database field has a qualifier associated with it: *)
 type qualifier =
 	| RW
@@ -88,13 +96,14 @@ type qualifier =
 	| DynamicRO
 		(** Read-only database field whose value is computed dynamically and
 		not specified at the time of object construction. *)
-
+	with rpc
+	
 (** Release keeps track of which versions of opensource/internal products fields and messages are included in *)
 type release = {
   opensource: string list;
   internal: string list;
   internal_deprecated_since: string option; (* first release we said it was deprecated *)
-}
+} with rpc
 
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
@@ -136,7 +145,7 @@ and message = {
     msg_hide_from_docs: bool;
     msg_allowed_roles: string list option;
     msg_map_keys_roles: (string * (string list option)) list
-}
+} 
 
 and field = {
     release: release;
@@ -153,7 +162,7 @@ and field = {
     field_setter_roles: string list option;
     field_getter_roles: string list option;
     field_map_keys_roles: (string * (string list option)) list
-}
+} 
 
 and error = { 
     err_name: string;
@@ -164,7 +173,7 @@ and error = {
 and mess = {
     mess_name: string;
     mess_doc: string;
-}
+} with rpc
 
 (** Getters and Setters will be generated for each field, depending on the qualifier. 
     Namespaces allow fields to be grouped together (and this can get reflected in the XML
@@ -173,11 +182,12 @@ and mess = {
 type content =
     | Field of field                     (** An individual field *)
     | Namespace of string * content list (** A nice namespace for a group of fields *)
-
+	with rpc
+	
 (* Note: there used be more than 2 persist_options -- that's why it isn't a bool.
    I figured even though there's only 2 now I may as well leave it as an enumeration type.. *)
 
-type persist_option = PersistNothing | PersistEverything
+type persist_option = PersistNothing | PersistEverything with rpc
 (* PersistEverything - all creates/writes persisted;
    PersistNothing - no creates/writes to this table persisted *)
 
@@ -195,7 +205,10 @@ type obj = { name : string;
 	     persist: persist_option;
 	     obj_release: release;
 	     in_database: bool (* If the object is in the database *)
-	   }
+	   } with rpc
+
+(* val rpc_of_obj : obj -> Rpc.t *)
+(* let s = Jsonrpc.to_string (rpc_of_obj o) *)
 
 (** A relation binds two fields together *)
 type relation = (string * string) * (string * string) 
