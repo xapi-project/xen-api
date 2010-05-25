@@ -15,6 +15,7 @@
 // global variables
 
 var cls = getQuerystring('c');
+var rel = getQuerystring('r');
 
 function qualifier(q)
 {
@@ -74,6 +75,29 @@ function transform_default(t)
 	return 'Unknown[' + t + ']';
 }
 
+function current_lifecycle_stage(s)
+{
+	if (s.length == 0)
+		return 'Prototype';
+	else {
+		last_transition = s[s.length-1][0];
+		switch (last_transition) {
+		case 'Deprecated':
+			return 'Deprecated';
+			break;
+		case 'Removed':
+			return 'Removed';
+			break;
+		case 'Published':
+		case 'Changed':
+		case 'Extended':
+		default:
+			return '';
+			break;
+		}
+	}
+}
+
 function make_field(fld, n)
 {
 	name = fld.field_name;
@@ -81,20 +105,22 @@ function make_field(fld, n)
 	html = "";	
 	html = '<div class="field' + toggle(n) + '">';
 	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'' + name + '_details\'))" />';
+	html += '<div class="lifecycle">' + current_lifecycle_stage(fld.lifecycle) + '</div>';
 	html += '<div><span class="inline-type">' + transform_type(fld.ty) + '</span> <span class="field-name">' + name + '</span> <span class="inline-qualifier">[' + qualifier(fld.qualifier) + ']</span></div>';
 	
 	html += '<div  id="' + name + '_details" style="display: none">';
 	html += '<div class="field-description">' + fld.field_description + '</div>';
 	
 	html += '<table class="field-table">';
-	if (fld.release != undefined) {
-		html += '<tr><td width="130px"><span class="field-head">Introduced in:</span></td><td>' + fld.release.internal[1] + '</td></tr>';
-		if (fld.release.internal_deprecated_since != undefined)
-			html += '<tr><td width="130px"><span class="field-head">Deprecated since:</span></td><td>' + fld.release.internal_deprecated_since + '</td></tr>';
-	}
 	if (fld.default_value != undefined)
 		html += '<tr><td width="130px"><span class="field-head">Default value:</span></td><td>' + transform_default(fld.default_value) + '</td></tr>';
+	html += '</table>';
 	
+	html += '<table class="field-table">';
+	for (i in fld.lifecycle) {
+		l = fld.lifecycle[i];
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
+	}
 	html += '</table>';
 	html += '</div></div>';
 	
@@ -109,6 +135,7 @@ function make_message(msg, n)
 	
 	html += '<div class="field' + toggle(n) + '">';
 	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'' + name + '_details\'))" />';
+	html += '<div class="lifecycle">' + current_lifecycle_stage(msg.msg_lifecycle) + '</div>';
 	html += '<div><span class="inline-type">' + 
 		(msg.msg_result != undefined ? transform_type(msg.msg_result[0]) : 'void') + 
 		'</span> <span class="field-name">' + name + '</span> <span class="inline-params">(' +
@@ -142,10 +169,12 @@ function make_message(msg, n)
 		}
 		html += '</table></td></tr>';
 	}
-	if (msg.msg_release != undefined) {
-		html += '<tr><td><span class="field-head">Introduced in:</span></td><td>' + msg.msg_release.internal[1] + '</td></tr>';
-		if (msg.msg_release.internal_deprecated_since != undefined)
-			html += '<tr><td><span class="field-head">Deprecated since:</span></td><td>' + msg.msg_release.internal_deprecated_since + '</td></tr>';
+	html += '</table>';
+	
+	html += '<table class="field-table">';
+	for (i in msg.msg_lifecycle) {
+		l = msg.msg_lifecycle[i];
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
 	
@@ -164,9 +193,20 @@ function class_doc()
 	messages.sort(function(a, b){return a.msg_name.toLowerCase().charCodeAt(0) - b.msg_name.toLowerCase().charCodeAt(0)});
 
 	html = "";
+	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'class_details\'))" />';
+	html += '<div class="lifecycle">' + current_lifecycle_stage(clsdoc.obj_lifecycle) + '</div>';
 	html += '<h1 class="title">Class: ' + cls + '</h1>\n';
 	
 	html += '<div class="description">' + clsdoc.description + '</div>';
+	
+	html += '<div  id="class_details" style="display: none">';
+	html += '<table class="field-table">';
+	for (i in clsdoc.obj_lifecycle) {
+		l = clsdoc.obj_lifecycle[i];
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
+	}
+	html += '</table>';
+	html += '</div>';
 	
 	html += '<h2>Fields</h2>';
 	if (fields.length > 0) {
@@ -187,9 +227,60 @@ function class_doc()
 	set_content(html);
 }
 
-function build()
+function compare_release_notes(a, b)
 {
+	function change_to_num(x) {
+		if (x.indexOf('Published') > -1) return '0';
+		else if (x.indexOf('Extended') > -1) return '1';
+		else if (x.indexOf('Changed') > -1) return '2';
+		else if (x.indexOf('Deprecated') > -1) return '3';
+		else if (x.indexOf('Removed') > -1) return '4';
+		else return '5';
+	}
+	function element_to_num(x) {
+		if (x.indexOf('object') > -1) return '0';
+		else if (x.indexOf('field') > -1) return '1';
+		else if (x.indexOf('message') > -1) return '2';
+		else return '3';
+	}
+	a = change_to_num(a[0]) + element_to_num(a[0]) + (a[1]+a[2]).toLowerCase();
+	b = change_to_num(b[0]) + element_to_num(b[0]) + (b[1]+b[2]).toLowerCase();
+	return a > b;
+}
+
+function release_doc()
+{	
+	changes = [];
+	
+	for (i in release_info) {
+		c = release_info[i];
+		for (j in c.obj_changes)
+			changes.push([c.obj_changes[j][0] + ' object', c.cls, '', c.obj_changes[j][2]]);
+		for (j in c.field_changes)
+			changes.push([c.field_changes[j][0] + ' field', c.cls, c.field_changes[j][1], c.field_changes[j][2]]);
+		for (j in c.msg_changes)
+			changes.push([c.msg_changes[j][0] + ' message', c.cls, c.msg_changes[j][1], c.msg_changes[j][2]]);
+	}
+	
+	changes.sort(compare_release_notes);
+	
 	html = "";
+	html += '<h1 class="title">Release notes: ' + rel + '</h1>\n';
+
+	html += '<table><tr><th style="width: 12em">Change</th><th>Element</th><th>Description</th></tr>';
+		
+	for (i in changes) {
+		html += '<tr><td>' + changes[i][0] + '</td><td><a href="?c=' + changes[i][1] + (changes[i][2] != '' ? '#' + changes[i][2] : '') + '">' +
+			changes[i][1] + (changes[i][2] != '' ? '.' + changes[i][2] : '') + '</a></td><td>' + changes[i][3] + '</td></tr>';
+	}
+	
+	html += '</table>';
+
+	set_content(html);
+}
+
+function class_list()
+{
 	html = '<h2 class="title">Classes</h2>';
 	
 	classes.sort(function(a, b){return a.toLowerCase().charCodeAt(0) - b.toLowerCase().charCodeAt(0)});
@@ -199,9 +290,35 @@ function build()
 	}
 	
 	append_sidebar(html);
+}
+
+function release_list()
+{
+	html = '<h2>Release notes</h2>';
 	
+	for (i in releases) {
+		r = releases[i];
+		html += '<a href="?r=' + r + '">' + r + '</a><br>';
+	}
+	
+	append_sidebar(html);
+}
+
+function build()
+{
 	if (cls != "") {
+		class_list();
+		release_list();
 		class_doc();
+	}
+	else if (rel != "") {
+		class_list();
+		release_list();
+		release_doc();
+	}
+	else {
+		class_list();
+		release_list();
 	}
 }
 
