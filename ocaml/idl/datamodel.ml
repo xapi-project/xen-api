@@ -185,41 +185,53 @@ let rio_release =
 	}
 
 let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?internal_deprecated_since
-    ?result ?(flags=[`Session;`Async])
-    ?(effect=true) ?(tag=Custom) ?(errs=[]) ?(custom_marshaller=false) ?(db_only=false)
-    ?(no_current_operations=false) ?(secret=false) ?(hide_from_docs=false)
-    ?(pool_internal=false)
-    ~allowed_roles
-    ?(map_keys_roles=[])
-    ?(params=[]) ?versioned_params () = 
-  (* if you specify versioned_params then these get put in the params field of the message record;
-     otherwise params go in with no default values and param_release=call_release...
-  *)
-  let call_release = {internal=get_product_releases in_product_since; 
-		      opensource=get_oss_releases in_oss_since;
-		      internal_deprecated_since = internal_deprecated_since;
-		     } in
-  { 
-    msg_name = name;
-    msg_params =
-      (match versioned_params with
-	 None ->
-	   List.map (fun (ptype, pname, pdoc) -> {param_type=ptype; param_name=pname; param_doc=pdoc; param_release=call_release; param_default=None}) params
-       | Some ps -> ps);
-    msg_result = result; msg_doc = doc;
-    msg_session = List.mem `Session flags; msg_async = List.mem `Async flags;
-    msg_db_only = db_only;
-    msg_release = call_release;
-    msg_has_effect = effect; msg_tag = tag; msg_obj_name="";
-    msg_force_custom = None;
-    msg_errors = List.map (Hashtbl.find errors) errs; msg_secret = secret;
-    msg_custom_marshaller = custom_marshaller;
-    msg_no_current_operations = no_current_operations;
-    msg_hide_from_docs = hide_from_docs;
-    msg_pool_internal = pool_internal;
-    msg_allowed_roles = allowed_roles;
-    msg_map_keys_roles = map_keys_roles
-  }
+	?result ?(flags=[`Session;`Async])
+	?(effect=true) ?(tag=Custom) ?(errs=[]) ?(custom_marshaller=false) ?(db_only=false)
+	?(no_current_operations=false) ?(secret=false) ?(hide_from_docs=false)
+	?(pool_internal=false)
+	~allowed_roles
+	?(map_keys_roles=[])
+	?(params=[]) ?versioned_params ?lifecycle () =
+	(* if you specify versioned_params then these get put in the params field of the message record;
+	 * otherwise params go in with no default values and param_release=call_release...
+	 *)
+	let call_release = {internal=get_product_releases in_product_since; 
+		opensource=get_oss_releases in_oss_since;
+		internal_deprecated_since = internal_deprecated_since;
+	} in
+	let lifecycle = match lifecycle with
+		| None ->
+			let publish = [Published, in_product_since, doc] in
+			let deprecated = match internal_deprecated_since with
+				| None -> []
+				| Some rel -> [Deprecated, rel, ""]
+			in
+			publish @ deprecated
+		| Some l -> l
+	in
+	{ 
+		msg_name = name;
+		msg_params =
+			(match versioned_params with
+			| None ->
+				List.map (fun (ptype, pname, pdoc) -> {param_type=ptype; param_name=pname;
+					param_doc=pdoc; param_release=call_release; param_default=None}) params
+			| Some ps -> ps);
+		msg_result = result; msg_doc = doc;
+		msg_session = List.mem `Session flags; msg_async = List.mem `Async flags;
+		msg_db_only = db_only;
+		msg_release = call_release;
+		msg_lifecycle = lifecycle;
+		msg_has_effect = effect; msg_tag = tag; msg_obj_name="";
+		msg_force_custom = None;
+		msg_errors = List.map (Hashtbl.find errors) errs; msg_secret = secret;
+		msg_custom_marshaller = custom_marshaller;
+		msg_no_current_operations = no_current_operations;
+		msg_hide_from_docs = hide_from_docs;
+		msg_pool_internal = pool_internal;
+		msg_allowed_roles = allowed_roles;
+		msg_map_keys_roles = map_keys_roles
+	}
 
 let assert_operation_valid enum cls self = call 
   ~in_oss_since:None
@@ -2610,36 +2622,50 @@ let vbd_assert_attachable = call
 
 (** Make an object field record *)
 let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(internal_only = false)
-    ?internal_deprecated_since ?(ignore_foreign_key = false) ?(writer_roles=None) ?(reader_roles=None)
-    ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true)
-    ?(map_keys_roles=[]) (* list of (key_name,(writer_roles)) for a map field *)
-    name desc =
-  
+	?internal_deprecated_since ?(ignore_foreign_key = false) ?(writer_roles=None) ?(reader_roles=None)
+	?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true)
+	?(map_keys_roles=[]) (* list of (key_name,(writer_roles)) for a map field *)
+	?lifecycle name desc =
+	
+	let lifecycle = match lifecycle with
+	| None ->
+		let publish = [Published, in_product_since, desc] in
+		let deprecated = match internal_deprecated_since with
+			| None -> []
+			| Some rel -> [Deprecated, rel, ""]
+		in
+		publish @ deprecated
+	| Some l -> l
+	in
+	Field {
+		release = {
+			internal=get_product_releases in_product_since; 
+			opensource=(get_oss_releases in_oss_since);
+			internal_deprecated_since=internal_deprecated_since;
+		};
+		lifecycle=lifecycle;
+		qualifier=qualifier; ty=ty; internal_only = internal_only; default_value = default_value;
+		field_name=name; 
+		full_name=[ name ];
+		field_description=desc;
+		field_persist=persist;
+		field_has_effect = effect;
+		field_ignore_foreign_key = ignore_foreign_key;
+		field_setter_roles = writer_roles;
+		field_getter_roles = reader_roles;
+		field_map_keys_roles = map_keys_roles;
+	}
 
-  Field { release={internal=get_product_releases in_product_since; 
-		   opensource=(get_oss_releases in_oss_since);
-		   internal_deprecated_since=internal_deprecated_since;};
-	  qualifier=qualifier; ty=ty; internal_only = internal_only; default_value = default_value;
-	  field_name=name; 
-	  full_name=[ name ];
-	  field_description=desc;
-	  field_persist=persist;
-	  field_has_effect = effect;
-	  field_ignore_foreign_key = ignore_foreign_key;
-	  field_setter_roles = writer_roles;
-	  field_getter_roles = reader_roles;
-	  field_map_keys_roles = map_keys_roles;
-	  }
-
-let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) refname =
+let uid ?(in_oss_since=Some "3.0.3") ?(reader_roles=None) ?lifecycle refname =
 	field
 		~in_oss_since
+		?lifecycle
 		~qualifier:DynamicRO
 		~ty:(String)
 		~writer_roles:_R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
 		~reader_roles
 		"uuid"
-		"unique identifier/object reference"
+		"Unique identifier/object reference"
 
 let allowed_and_current_operations ?(writer_roles=None) ?(reader_roles=None) operations_type =
   [ 
@@ -2660,28 +2686,39 @@ let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x-
 
 let default_field_reader_roles = _R_ALL (* by default, all can read fields *)
 let default_field_writer_roles = _R_POOL_ADMIN (* by default, only root can write to them *)
+
 (** Create an object and map the object name into the messages *)
-let create_obj ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_constructor_destructor ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
-  ?(contents_default_reader_roles=default_field_reader_roles) ?(contents_default_writer_roles=None)
-  ?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
-  ?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
-  ~messages_default_allowed_roles (* used in constructor, destructor and explicit obj msgs *)
-  () =
-    let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
-    let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
-    let get_field_writer_roles = function None->contents_default_writer_roles|r->r in
-    let get_msg_allowed_roles = function None->messages_default_allowed_roles|r->r in
-    let contents = List.map (function 
-      | Namespace(n,cs)->namespace ~get_field_writer_roles ~get_field_reader_roles ~name:n ~contents:cs ~idempotent:true ()
-      | Field f->Field{f with field_setter_roles=get_field_writer_roles f.field_setter_roles;
-          field_getter_roles=get_field_reader_roles f.field_getter_roles}
-      ) contents in
-    let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
-    { name = name; description = descr; messages = msgs; contents = contents;
-      doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
-      persist = persist; gen_events = gen_events; obj_release = {internal=get_product_releases in_product_since; opensource=get_oss_releases in_oss_since; internal_deprecated_since = internal_deprecated_since};
-      in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
-    }
+let create_obj ?lifecycle ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_constructor_destructor ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
+	?(contents_default_reader_roles=default_field_reader_roles) ?(contents_default_writer_roles=None)
+	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
+	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
+	~messages_default_allowed_roles (* used in constructor, destructor and explicit obj msgs *)
+	() =
+	let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
+	let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
+	let get_field_writer_roles = function None->contents_default_writer_roles|r->r in
+	let get_msg_allowed_roles = function None->messages_default_allowed_roles|r->r in
+	let contents = List.map (function 
+		| Namespace(n,cs)->namespace ~get_field_writer_roles ~get_field_reader_roles ~name:n ~contents:cs ~idempotent:true ()
+		| Field f->Field{f with field_setter_roles=get_field_writer_roles f.field_setter_roles;
+			field_getter_roles=get_field_reader_roles f.field_getter_roles}
+		) contents in
+	let lifecycle = match lifecycle with
+		| None ->
+			let publish = [Published, in_product_since, descr] in
+			let deprecated = match internal_deprecated_since with
+				| None -> []
+				| Some rel -> [Deprecated, rel, ""]
+			in
+			publish @ deprecated
+		| Some l -> l
+	in
+	let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
+	{ name = name; description = descr; obj_lifecycle = lifecycle; messages = msgs; contents = contents;
+		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
+		persist = persist; gen_events = gen_events; obj_release = {internal=get_product_releases in_product_since; opensource=get_oss_releases in_oss_since; internal_deprecated_since = internal_deprecated_since};
+		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
+	}
 
 (** Additional messages for srs *)
 let dev_config_param =
@@ -5682,6 +5719,7 @@ let event =
     () in
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
   {
+    obj_lifecycle=[];
     name = _event;
     gen_events = false;
     description = "Asynchronous event registration and handling";
