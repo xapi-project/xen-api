@@ -69,7 +69,7 @@ rm -rf $RPM_BUILD_ROOT
    /opt/xensource/libexec/pciutil
    /opt/xensource/libexec/sexprpp
    /opt/xensource/libexec/xmlpp
-   /opt/xensource/libexec/extentlistset_test
+
 
 %files devel
 %defattr(-,root,root,-)
@@ -107,8 +107,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/http-svr/http_svr.cmxa
    /usr/lib/ocaml/http-svr/server_io.cmi
    /usr/lib/ocaml/http-svr/server_io.cmx
-   /usr/lib/ocaml/http-svr/http_client.cmi
-   /usr/lib/ocaml/http-svr/http_client.cmx
    /usr/lib/ocaml/log/META
    /usr/lib/ocaml/log/debug.cmi
    /usr/lib/ocaml/log/debug.cmx
@@ -182,9 +180,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/dllstdext_stubs.so
    /usr/lib/ocaml/stdext/encodings.cmi
    /usr/lib/ocaml/stdext/encodings.cmx
-   /usr/lib/ocaml/stdext/extentlistSet.cmi
-   /usr/lib/ocaml/stdext/extentlistSet.cmx
-   /usr/lib/ocaml/stdext/extentlistset_test.cmx
    /usr/lib/ocaml/stdext/fe.cmi
    /usr/lib/ocaml/stdext/fe.cmx
    /usr/lib/ocaml/stdext/fecomms.cmi
@@ -201,11 +196,7 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/gzip.cmx
    /usr/lib/ocaml/stdext/hashtblext.cmi
    /usr/lib/ocaml/stdext/hashtblext.cmx
-   /usr/lib/ocaml/stdext/int64ext.cmi
-   /usr/lib/ocaml/stdext/int64ext.cmx
    /usr/lib/ocaml/stdext/libstdext_stubs.a
-   /usr/lib/ocaml/stdext/lazyList.cmi
-   /usr/lib/ocaml/stdext/lazyList.cmx
    /usr/lib/ocaml/stdext/listext.cmi
    /usr/lib/ocaml/stdext/listext.cmx
    /usr/lib/ocaml/stdext/mapext.cmi
@@ -220,8 +211,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/range.cmx
    /usr/lib/ocaml/stdext/ring.cmi
    /usr/lib/ocaml/stdext/ring.cmx
-   /usr/lib/ocaml/stdext/set_test.cmi
-   /usr/lib/ocaml/stdext/set_test.cmx
    /usr/lib/ocaml/stdext/sha1sum.cmi
    /usr/lib/ocaml/stdext/sha1sum.cmx
    /usr/lib/ocaml/stdext/stdext.a
@@ -241,10 +230,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/vIO.cmx
    /usr/lib/ocaml/stdext/zerocheck.cmi
    /usr/lib/ocaml/stdext/zerocheck.cmx
-   /usr/lib/ocaml/stdext/either.cmi
-   /usr/lib/ocaml/stdext/either.cmx
-   /usr/lib/ocaml/stdext/os.cmi
-   /usr/lib/ocaml/stdext/os.cmx
    /usr/lib/ocaml/stunnel/META
    /usr/lib/ocaml/stunnel/stunnel.a
    /usr/lib/ocaml/stunnel/stunnel.cma
@@ -271,14 +256,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/xml-light2/xml-light2.cmxa
    /usr/lib/ocaml/xml-light2/xml.cmi
    /usr/lib/ocaml/xml-light2/xml.cmx
-   /usr/lib/ocaml/vhd/META
-   /usr/lib/ocaml/vhd/dllvhd_stubs.so
-   /usr/lib/ocaml/vhd/libvhd_stubs.a
-   /usr/lib/ocaml/vhd/vhd.a
-   /usr/lib/ocaml/vhd/vhd.cma
-   /usr/lib/ocaml/vhd/vhd.cmi
-   /usr/lib/ocaml/vhd/vhd.cmx
-   /usr/lib/ocaml/vhd/vhd.cmxa
 
 %exclude /usr/lib/ocaml/close-and-exec/closeandexec_main.cmx
 %exclude /usr/lib/ocaml/pciutil/pciutil_main.cmx
@@ -296,13 +273,6 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/cpuid/cpuid.cmxa
    /usr/lib/ocaml/cpuid/dllcpuid_stubs.so
    /usr/lib/ocaml/cpuid/libcpuid_stubs.a
-   /usr/lib/ocaml/tapctl/META
-   /usr/lib/ocaml/tapctl/tapctl.a
-   /usr/lib/ocaml/tapctl/tapctl.cma
-   /usr/lib/ocaml/tapctl/tapctl.cmi
-   /usr/lib/ocaml/tapctl/tapctl.cmx
-   /usr/lib/ocaml/tapctl/tapctl.cmxa
-   /usr/lib/ocaml/netdev/*
    /usr/lib/ocaml/eventchn/META
    /usr/lib/ocaml/eventchn/dlleventchn_stubs.so
    /usr/lib/ocaml/eventchn/eventchn.a

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(XEN_ROOT)/usr/include -I../mmap -I./
+CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include -I../mmap -I./
 OCAMLC = ocamlc -g -I ../mmap -I ../uuid
 OCAMLOPT = ocamlopt
 OCAMLOPTFLAGS = -g -dtypes -I ../mmap -I ../uuid
