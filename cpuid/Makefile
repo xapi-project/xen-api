@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(XEN_ROOT)/usr/include
+CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include
 OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
 INCLUDES = -I ../stdext -I ../xc -I ../xen-utils
