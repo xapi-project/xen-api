@@ -1,7 +1,7 @@
 .PHONY: install
 install:
-	mkdir -p $(DIST)/staging/opt/xensource/packages/post-install-scripts
-	$(IPROG) debug $(DIST)/staging/opt/xensource/packages/post-install-scripts
-	$(IPROG) debian $(DIST)/staging/opt/xensource/packages/post-install-scripts/debian-etch
-#	ln -f $(DIST)/staging/opt/xensource/packages/post-install-scripts/debian-etch
-#	      $(DIST)/staging/opt/xensource/packages/post-install-scripts/debian-sarge
+	mkdir -p $(DESTDIR)/opt/xensource/packages/post-install-scripts
+	$(IPROG) debug $(DESTDIR)/opt/xensource/packages/post-install-scripts
+	$(IPROG) debian $(DESTDIR)/opt/xensource/packages/post-install-scripts/debian-etch
+#	ln -f $(DESTDIR)/opt/xensource/packages/post-install-scripts/debian-etch
+#	      $(DESTDIR)/opt/xensource/packages/post-install-scripts/debian-sarge

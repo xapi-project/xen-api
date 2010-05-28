@@ -19,5 +19,5 @@ clean:
 install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) multipathrt $(DEBUGDIST)
-	mkdir -p $(DIST)/staging/etc/xapi.d/plugins
-	$(IEXE) multipathrt-helper $(DIST)/staging/etc/xapi.d/plugins/multipathrt-helper
+	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+	$(IEXE) multipathrt-helper $(DESTDIR)/etc/xapi.d/plugins/multipathrt-helper
