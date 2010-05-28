@@ -19,15 +19,6 @@ OCamlLibraryClib(sigutil, sigutil, sigutil_stub)
 
 OCamlLibrary(encodings, encodings)
 
-version.ml: version.template
-	sed -e "s/@@@HG_ID@@@/$(shell hg id | sed -r 's/(.+)\s.*/\1/g')/" \
-	    -e "s/@@@HOSTNAME@@@/$(shell hostname)/" \
-	    -e "s/@@@DATE@@@/$(shell date -u +%Y-%m-%d)/" \
-	    -e "s/@@@PRODUCT_VERSION@@@/$(PRODUCT_VERSION)/" \
-	    -e "s/@@@PRODUCT_BRAND@@@/$(PRODUCT_BRAND)/" \
-	    -e "s/@@@BUILD_NUMBER@@@/$(BUILD_NUMBER)/" \
-	    < $< > $@
-
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)

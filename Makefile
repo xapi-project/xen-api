@@ -74,3 +74,15 @@ doc:
 	omake ocaml/util/version.ml
 	omake phase1 phase2
 	omake doc
+ 
+.PHONY: version
+version:
+	echo "let hg_id = \"$(shell hg id | sed -r 's/(.+)\s.*/\1/g')\"" > ocaml/util/version.ml
+	echo "let hostname = \"$(shell hostname)\"" >> ocaml/util/version.ml
+	echo "let date = \"$(shell date -u +%Y-%m-%d)\"" >> ocaml/util/version.ml
+	echo "let product_version = \"$(PRODUCT_VERSION)\"" >> ocaml/util/version.ml
+	echo "let product_brand = \"$(PRODUCT_BRAND)\"" >> ocaml/util/version.ml
+	echo "let build_number = \"$(BUILD_NUMBER)\"" >> ocaml/util/version.ml
+ 
+ .PHONY: clean
+ clean:
