@@ -1,70 +1,34 @@
-NO_DEFAULT_BUILD := yes
 ifdef B_BASE
 include $(B_BASE)/common.mk
+include $(B_BASE)/rpmbuild.mk
+REPO = $(call hg_loc,xen-api-libs)
 else
-MY_OUTPUT_DIR         ?= $(CURDIR)/_build/output-devel
-MY_MAIN_PACKAGES      ?= $(CURDIR)/_build/output
-MY_OBJ_DIR            ?= $(CURDIR)/_build/obj
-MY_SOURCES            ?= $(CURDIR)/_build/output-src
-MY_SOURCES_DIRSTAMP   ?= $(MY_SOURCES)/.dirstamp
-
+REPO ?= $(CURDIR)
 %/.dirstamp:
 	@mkdir -p $*
 	@touch $@
 endif
 
-REPO                   = $(call hg_loc,xen-api-libs)
-STAGING               ?= $(MY_OBJ_DIR)/staging
-OUTPUT_API_DEVEL_PKG  ?= $(MY_OUTPUT_DIR)/api-libs-devel.tar.gz
-OUTPUT_XAPI_DEVEL_PKG ?= $(MY_OUTPUT_DIR)/xapi-libs-devel.tar.gz
-OUTPUT_API_PKG        ?= $(MY_MAIN_PACKAGES)/api-libs.tar.bz2
-OUTPUT_SRC            ?= $(MY_SOURCES)/xen-api-libs-src.tar.bz2
+RPM_BINDIR=$(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)
 
-$(OUTPUT_API_DEVEL_PKG):
-	rm -rf $(STAGING)
-	mkdir -p $(MY_OUTPUT_DIR)
-	(cd $(REPO) && sh autogen.sh && ./configure)
-	$(MAKE) -C $(REPO) clean
-	$(MAKE) -C $(REPO) all
-	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) install
-	tar -C $(STAGING) -zcf $@ .
-
-$(OUTPUT_API_PKG): $(OUTPUT_API_DEVEL_PKG)
-	rm -rf $(STAGING)
+.PHONY: build
+build: srpm $(MY_SOURCES)/MANIFEST
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb ../xapi-libs.spec
 	mkdir -p $(MY_MAIN_PACKAGES)
-	(cd $(REPO) && sh autogen.sh && ./configure)
-	$(MAKE) -C $(REPO) bins
-	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) REPO=$(REPO) bininstall
-	tar -C $(STAGING) -jcf $@ .
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
 
-$(OUTPUT_XAPI_DEVEL_PKG):
-	rm -rf $(STAGING)
-	mkdir -p $(MY_OUTPUT_DIR)
-	(cd $(REPO) && sh autogen.sh && ./configure)
-	$(MAKE) -C $(REPO) cleanxen
-	$(MAKE) -C $(REPO) allxen
-	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) installxen
-	tar -C $(STAGING) -zcf $@ .
+.PHONY: srpm
+srpm:
+	mkdir -p $(RPM_SRPMSDIR) $(RPM_SPECSDIR) $(RPM_SOURCESDIR) $(RPM_RPMSDIR)
+	hg archive -p xapi-libs-0 -t tbz2 $(RPM_SOURCESDIR)/xapi-libs-0.tar.bz2
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bs ../xapi-libs.spec
 
-$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_SRC)
-	mkdir -p $(MY_SOURCES)
-	echo api lgpl-with-linking-exception file $(OUTPUT_SRC) > $@
-
-$(OUTPUT_SRC):
-	mkdir -p $(MY_SOURCES)
-	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
-
-.PHONY: api-libs
-api-libs: $(OUTPUT_API_DEVEL_PKG) $(OUTPUT_API_PKG) $(MY_SOURCES)/MANIFEST
-
-.PHONY: xapi-libs
-xapi-libs: $(OUTPUT_XAPI_DEVEL_PKG) $(MY_SOURCES)/MANIFEST
+$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
+	rm -f $@
+	@for srpm in "$(/bin/ls -1 ${MY_OUTPUT_DIR}/SRPMS)"; do \
+		path=$(MY_OUTPUT_DIR)/SRPMS/${srpm}; \
+		echo "$(${RPM} --qf "%{name}" -qp ${path}) $(${RPM} --qf "%{License}" -qp ${path}) ${path}" >>$@; \
+	done
 
 .PHONY: clean
-	rm -f $(STAGING)
-	rm -f $(OUTPUT_API_DEVEL_PKG)
-	rm -f $(OUTPUT_API_PKG)
-	rm -f $(OUTPUT_XAPI_DEVEL_PKG)
-	rm -f $(OUTPUT_SRC)
-	$(MAKE) -C $(REPO) clean
-	$(MAKE) -C $(REPO) cleanxen
+	rm -f *.rpm
