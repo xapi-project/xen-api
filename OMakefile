@@ -21,6 +21,8 @@ if $(not $(defined-env CARBON_DISTFILES))
   CARBON_DISTFILES = /usr/groups/linux/distfiles
   export
 
+OCAMLDEP_MODULES_ENABLED = false
+
 USE_OCAMLFIND = true
 
 OCAMLFLAGS = -g -dtypes -thread -warn-error F
