@@ -64,11 +64,11 @@ install:
 	mkdir -p $(DEBUGDIST)
 	cp -f $(DEBUG_PROGS) $(DEBUGDIST)
 	sh -c 'for i in $(SYMLINK_PROGS); do ln -nfs xenops $(DEBUGDIST)/$$i; done'
-	mkdir -p $(DIST)/staging/opt/xensource/bin
-	$(IPROG) $(BIN_PROGS) $(DIST)/staging/opt/xensource/bin
-	mkdir -p $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) fence $(DIST)/staging/opt/xensource/libexec/fence.bin
-	$(IPROG) squeezed $(DIST)/staging/opt/xensource/libexec/squeezed
+	mkdir -p $(DESTDIR)/opt/xensource/bin
+	$(IPROG) $(BIN_PROGS) $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) fence $(DESTDIR)/opt/xensource/libexec/fence.bin
+	$(IPROG) squeezed $(DESTDIR)/opt/xensource/libexec/squeezed
 
 .PHONY: sdk-install
 sdk-install: install

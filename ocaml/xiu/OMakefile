@@ -10,10 +10,10 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
+	mkdir -p $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) xiu $(DESTDIR)/opt/xensource/libexec/
 
 .PHONY: sdk-install
 sdk-install:
-	mkdir -p $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) xiu $(DIST)/staging/opt/xensource/libexec/
+	mkdir -p $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) xiu $(DESTDIR)/opt/xensource/libexec/

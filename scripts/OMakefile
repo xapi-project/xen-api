@@ -2,71 +2,71 @@
 
 .PHONY: install
 install:
-	mkdir -p $(DIST)/staging/opt/xensource/bin
-	mkdir -p $(DIST)/staging/var/patch
-	mkdir -p $(DIST)/staging/var/patch/applied
-	mkdir -p $(DIST)/staging/var/xapi
-	mkdir -p $(DIST)/staging/etc/xensource
-	mkdir -p $(DIST)/staging/etc/logrotate.d
-	mkdir -p $(DIST)/staging/etc/xensource/master.d
+	mkdir -p $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DESTDIR)/var/patch
+	mkdir -p $(DESTDIR)/var/patch/applied
+	mkdir -p $(DESTDIR)/var/xapi
+	mkdir -p $(DESTDIR)/etc/xensource
+	mkdir -p $(DESTDIR)/etc/logrotate.d
+	mkdir -p $(DESTDIR)/etc/xensource/master.d
 	mkdir -p $(LIBEXEC)
-	$(IPROG) fence $(DIST)/staging/opt/xensource/libexec	
-	$(IPROG) xha-lc $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) xapi-health-check $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) license-check.py $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) mail-alarm $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) audit-logrotate $(DIST)/staging/etc/logrotate.d/audit
-	$(IPROG) xapi-logrotate $(DIST)/staging/etc/logrotate.d/xapi
-	$(IPROG) xapi-wait-init-complete $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xapi-autostart-vms $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) udhcpd.skel $(DIST)/staging/var/xapi/udhcpd.skel
-	$(IPROG) xapi-ssl.conf $(DIST)/staging/etc/xensource/xapi-ssl.conf
-	$(IPROG) xapi.conf $(DIST)/staging/etc/xensource/xapi.conf
-	$(IPROG) log.conf $(DIST)/staging/etc/xensource/log.conf
-	$(IPROG) db.conf.skel $(DIST)/staging/etc/xensource/db.conf
-	$(IPROG) rio.db.conf.skel $(DIST)/staging/etc/xensource/db.conf.rio
-	mkdir -p $(DIST)/staging/etc/rc.d/init.d
-	$(IPROG) init.d-xenservices $(DIST)/staging/etc/rc.d/init.d/xenservices
-	$(IPROG) init.d-xapi $(DIST)/staging/etc/rc.d/init.d/xapi
-	$(IPROG) init.d-xapissl $(DIST)/staging/etc/rc.d/init.d/xapissl
-	$(IPROG) init.d-xapi-domains $(DIST)/staging/etc/rc.d/init.d/xapi-domains
-	$(IPROG) init.d-squeezed $(DIST)/staging/etc/rc.d/init.d/squeezed
-	$(IPROG) init.d-management-interface $(DIST)/staging/etc/rc.d/init.d/management-interface
-	$(IDATA) squeezed-logrotate $(DIST)/staging/etc/logrotate.d/squeezed
-	$(IPROG) init.d-v6d $(DIST)/staging/etc/rc.d/init.d/v6d
-	$(IDATA) v6d-logrotate $(DIST)/staging/etc/logrotate.d/v6d
-	mkdir -p $(DIST)/staging/etc/xensource/master.d
-	$(IPROG) on-master-start $(DIST)/staging/etc/xensource/master.d/01-example
-	$(IPROG) mpathalert-daemon $(DIST)/staging/etc/xensource/master.d/03-mpathalert-daemon
-	mkdir -p $(DIST)/staging/etc/sysconfig
-	$(IPROG) sysconfig-xapi $(DIST)/staging/etc/sysconfig/xapi
-	mkdir -p $(DIST)/staging/etc/udev
-	$(IPROG) xen-backend.rules $(DIST)/staging/etc/udev/
-	$(IPROG) xen-frontend.rules $(DIST)/staging/etc/udev/
+	$(IPROG) fence $(DESTDIR)/opt/xensource/libexec	
+	$(IPROG) xha-lc $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) xapi-health-check $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) license-check.py $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) mail-alarm $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
+	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
+	$(IPROG) xapi-wait-init-complete $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xapi-autostart-vms $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
+	$(IPROG) xapi-ssl.conf $(DESTDIR)/etc/xensource/xapi-ssl.conf
+	$(IPROG) xapi.conf $(DESTDIR)/etc/xensource/xapi.conf
+	$(IPROG) log.conf $(DESTDIR)/etc/xensource/log.conf
+	$(IPROG) db.conf.skel $(DESTDIR)/etc/xensource/db.conf
+	$(IPROG) rio.db.conf.skel $(DESTDIR)/etc/xensource/db.conf.rio
+	mkdir -p $(DESTDIR)/etc/rc.d/init.d
+	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
+	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
+	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
+	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
+	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
+	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
+	$(IDATA) squeezed-logrotate $(DESTDIR)/etc/logrotate.d/squeezed
+	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
+	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
+	mkdir -p $(DESTDIR)/etc/xensource/master.d
+	$(IPROG) on-master-start $(DESTDIR)/etc/xensource/master.d/01-example
+	$(IPROG) mpathalert-daemon $(DESTDIR)/etc/xensource/master.d/03-mpathalert-daemon
+	mkdir -p $(DESTDIR)/etc/sysconfig
+	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
+	mkdir -p $(DESTDIR)/etc/udev
+	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev/
+	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev/
 	$(IPROG) generate_ssl_cert $(LIBEXEC)/
-	$(IPROG) fix_firewall.sh $(DIST)/staging/opt/xensource/bin/
-	mkdir -p $(DIST)/staging/opt/xensource/debug
-	$(IPROG) debug_ha_query_liveset $(DIST)/staging/opt/xensource/debug
-	$(IPROG) xe-scsi-dev-map $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-mount-iso-sr $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-set-iscsi-iqn $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-toolstack-restart $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-xentrace $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-edit-bootloader $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) static-vdis $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) with-vdi $(DIST)/staging/opt/xensource/debug
-	mkdir -p $(DIST)/staging/etc/udev/rules.d
+	$(IPROG) fix_firewall.sh $(DESTDIR)/opt/xensource/bin/
+	mkdir -p $(DESTDIR)/opt/xensource/debug
+	$(IPROG) debug_ha_query_liveset $(DESTDIR)/opt/xensource/debug
+	$(IPROG) xe-scsi-dev-map $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-mount-iso-sr $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-toolstack-restart $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-xentrace $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-edit-bootloader $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) static-vdis $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) with-vdi $(DESTDIR)/opt/xensource/debug
+	mkdir -p $(DESTDIR)/etc/udev/rules.d
 	sh -c \
-	'cd $(DIST)/staging/etc/udev/rules.d; \
+	'cd $(DESTDIR)/etc/udev/rules.d; \
 	ln -sf ../xen-backend.rules; \
 	ln -sf ../xen-frontend.rules'
-	mkdir -p $(DIST)/staging/etc/xensource/scripts/
-	$(IPROG) block block-frontend vif tap $(DIST)/staging/etc/xensource/scripts/
-	$(IPROG) pool.conf $(DIST)/staging/etc/xensource/
-	mkdir -p $(DIST)/staging/etc/pam.d
-	$(IPROG) pam.d-xapi $(DIST)/staging/etc/pam.d/xapi
+	mkdir -p $(DESTDIR)/etc/xensource/scripts/
+	$(IPROG) block block-frontend vif tap $(DESTDIR)/etc/xensource/scripts/
+	$(IPROG) pool.conf $(DESTDIR)/etc/xensource/
+	mkdir -p $(DESTDIR)/etc/pam.d
+	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(LIBEXEC)/
-	mkdir -p $(DIST)/staging/opt/xensource/packages/iso #omg XXX
+	mkdir -p $(DESTDIR)/opt/xensource/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(LIBEXEC)
 	$(IPROG) InterfaceReconfigure.py $(LIBEXEC)
 	$(IPROG) InterfaceReconfigureBridge.py $(LIBEXEC)
@@ -78,8 +78,8 @@ install:
 	$(IPROG) set-hostname $(LIBEXEC)
 	$(IPROG) update-mh-info $(LIBEXEC)
 	$(IPROG) host-bugreport-upload $(LIBEXEC)/host-bugreport-upload
-	$(IPROG) xe-backup-metadata $(DIST)/staging/opt/xensource/bin/
-	$(IPROG) xe-restore-metadata $(DIST)/staging/opt/xensource/bin/
+	$(IPROG) xe-backup-metadata $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-restore-metadata $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) link-vms-by-sr.py $(LIBEXEC)
 	$(IPROG) print-custom-templates $(LIBEXEC)
 	$(IPROG) backup-sr-metadata.py $(LIBEXEC)
@@ -88,22 +88,22 @@ install:
 	$(IPROG) backup-metadata-cron $(LIBEXEC)
 	$(IPROG) c_rehash $(LIBEXEC)
 	$(IPROG) lw-force-domain-leave $(LIBEXEC)
-	$(IPROG) init.d-perfmon $(DIST)/staging/etc/rc.d/init.d/perfmon
-	mkdir -p $(DIST)/staging/etc/sysconfig
-	$(IPROG) sysconfig-perfmon $(DIST)/staging/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DIST)/staging/opt/xensource/bin/
-	mkdir -p $(DIST)/staging/etc/xapi.d/plugins
-	$(IPROG) plugins/perfmon $(DIST)/staging/etc/xapi.d/plugins/
-	$(IPROG) plugins/extauth-hook $(DIST)/staging/etc/xapi.d/plugins/
-	$(IPROG) plugins/extauth-hook-AD.py $(DIST)/staging/etc/xapi.d/plugins/
+	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
+	mkdir -p $(DESTDIR)/etc/sysconfig
+	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
+	$(IPROG) perfmon $(DESTDIR)/opt/xensource/bin/
+	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+	$(IPROG) plugins/perfmon $(DESTDIR)/etc/xapi.d/plugins/
+	$(IPROG) plugins/extauth-hook $(DESTDIR)/etc/xapi.d/plugins/
+	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)/etc/xapi.d/plugins/
 	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
 
 .PHONY: sdk-install
 sdk-install: install
 	cp motd $(SDK)/motd
-	$(IPROG) init.d-sdkinit $(DIST)/staging/etc/rc.d/init.d/sdkinit
-	mkdir -p $(DIST)/staging/usr/lib/python2.4/site-packages/xen/lowlevel
-	touch $(DIST)/staging/usr/lib/python2.4/site-packages/xen/__init__.py
-	touch $(DIST)/staging/usr/lib/python2.4/site-packages/xen/lowlevel/__init__.py
-	cp xc.py $(DIST)/staging/usr/lib/python2.4/site-packages/xen/lowlevel
+	$(IPROG) init.d-sdkinit $(DESTDIR)/etc/rc.d/init.d/sdkinit
+	mkdir -p $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel
+	touch $(DESTDIR)/usr/lib/python2.4/site-packages/xen/__init__.py
+	touch $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel/__init__.py
+	cp xc.py $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel
 

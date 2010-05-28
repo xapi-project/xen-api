@@ -21,10 +21,10 @@ OCamlDocProgram(v6d, $(V6FILES) v6testd)
 
 .PHONY: install
 install: $(V6D)
-	mkdir -p $(DIST)/staging/opt/xensource/libexec
-	$(IPROG) $(V6D) $(DIST)/staging/opt/xensource/libexec/v6d
-	mkdir -p $(DIST)/staging/opt/xensource/bin
-	$(IPROG) v6d-reopen-logs $(DIST)/staging/opt/xensource/bin
+	mkdir -p $(LIBEXEC)
+	$(IPROG) $(V6D) $(LIBEXEC)/v6d
+	mkdir -p $(DESTDIR)/opt/xensource/bin
+	$(IPROG) v6d-reopen-logs $(DESTDIR)/opt/xensource/bin
 
 .PHONY: sdk-install
 sdk-install: install

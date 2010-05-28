@@ -48,11 +48,13 @@ XEN_OCAML_CLIBS=
 # For the Zurich chroot environment
 CFLAGS+=-I$(shell ocamlc -where)
 
+DESTDIR=$(getenv DESTDIR, $(ROOT)/dist/staging)
+DEBUGDIST=$(DESTDIR)/opt/xensource/debug
+LIBEXEC=$(DESTDIR)/opt/xensource/libexec
+
 DIST=$(ROOT)/dist
-SDK=$(ROOT)/dist/staging/SDK
-SDKWWW=$(ROOT)/dist/staging/SDKwww
-DEBUGDIST=$(DIST)/staging/opt/xensource/debug
-LIBEXEC=$(DIST)/staging/opt/xensource/libexec
+SDK=$(DESTDIR)/usr/share/doc/xapi
+SDKWWW=$(DESTDIR)/usr/share/doc/xapi/www
 
 CLEAN_OBJS = *.cmi *.cmo *.cmx *.cma *.cmxa *.annot *.run *.opt *.o *.a
 export CLEAN_OBJS
