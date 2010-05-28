@@ -140,9 +140,12 @@ else
 	INSTALL_PATH = $(shell ocamlfind printconf destdir)
 	export
 
+DATAMODEL_PACK_DIR=/tmp/xapi-datamodel
+
 lib-install: META
 	mkdir -p $(INSTALL_PATH)
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-client META xapi_client.{cmxa,a} $(addsuffixes .cmi .cmx, $(XAPI_CLIENT_OBJS))
+
 
 .PHONY: lib-uninstall
 lib-uninstall:
