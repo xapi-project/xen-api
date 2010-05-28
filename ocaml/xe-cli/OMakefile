@@ -95,12 +95,12 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DIST)/staging/opt/xensource/bin
-	$(IPROG) xe $(DIST)/staging/opt/xensource/bin
-	mkdir -p $(DIST)/staging/usr/bin
-	ln -sf /opt/xensource/bin/xe $(DIST)/staging/usr/bin/xe
-	mkdir -p $(DIST)/staging/etc/bash_completion.d
-	$(IPROG) bash-completion $(DIST)/staging/etc/bash_completion.d/cli
+	mkdir -p $(DESTDIR)/opt/xensource/bin
+	$(IPROG) xe $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DESTDIR)/usr/bin
+	ln -sf /opt/xensource/bin/xe $(DESTDIR)/usr/bin/xe
+	mkdir -p $(DESTDIR)/etc/bash_completion.d
+	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/cli
 	mkdir -p $(DEBUGDIST)
 
 .PHONY: sdk-install

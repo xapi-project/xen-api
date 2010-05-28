@@ -11,6 +11,6 @@ clean:
 
 #.PHONY: install
 #install:
-#	mkdir -p $(DIST)/staging/opt/xensource/bin
-#	cp xinstall $(DIST)/staging/opt/xensource/bin
+#	mkdir -p $(DESTDIR)/opt/xensource/bin
+#	cp xinstall $(DESTDIR)/opt/xensource/bin
 

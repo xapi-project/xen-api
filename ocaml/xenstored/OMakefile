@@ -18,10 +18,10 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DIST)/staging/opt/xensource/bin
-	cp xenstored $(DIST)/staging/opt/xensource/bin
-	mkdir -p $(DIST)/staging/etc/xensource
-	cp xenstored.conf $(DIST)/staging/etc/xensource
+	mkdir -p $(DESTDIR)/opt/xensource/bin
+	cp xenstored $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(DESTDIR)/etc/xensource
+	cp xenstored.conf $(DESTDIR)/etc/xensource
 
 .PHONY: sdk-install
 sdk-install: install
