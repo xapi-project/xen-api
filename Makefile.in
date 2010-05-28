@@ -133,7 +133,6 @@ bininstall:
 	$(MAKE) -C stdext bininstall
 	$(MAKE) -C close-and-exec bininstall
 	$(MAKE) -C forking_executioner bininstall
-	$(MAKE) -C scripts bininstall
 
 binuninstall:
 	$(MAKE) -C pciutil binuninstall
@@ -142,7 +141,6 @@ binuninstall:
 	$(MAKE) -C stdext binuninstall
 	$(MAKE) -C close-and-exec binuninstall
 	$(MAKE) -C forking_executioner binuninstall
-	$(MAKE) -C scripts binuninstall
 
 .PHONY: doc
 doc:
@@ -197,4 +195,20 @@ cleanxen:
 	$(MAKE) -C xs clean
 	$(MAKE) -C xsrpc clean
 	$(MAKE) -C eventchn clean
+
+RPM_SPECSDIR=/usr/src/redhat/SPECS
+RPM_SOURCEDIR=/usr/src/redhat/SOURCES
+XEN_RELEASE=xcp0.2
+
+$(RPM_SPECSDIR)/xapi-libs.spec: xapi.spec.in
+	sed -e s\,@XEN_RELEASE@,$(XEN_RELEASE),g   \
+	    < xapi.spec.in                         \
+	    > $(RPM_SPECSDIR)/xapi-libs.spec
+
+$(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2:
+	hg archive -p xapi-0 -t tbz2 $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2
+
+.PHONY: rpm
+rpm: $(RPM_SPECSDIR)/xapi-libs.spec $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2
+	rpmbuild -ba $(RPM_SPECSDIR)/xapi-libs.spec
 
