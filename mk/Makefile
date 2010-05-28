@@ -32,68 +32,53 @@ export PRODUCT_BRAND
 export PRODUCT_VERSION
 
 .PHONY: build
-build: $(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_CLI_RT) $(OUTPUT_SDK) $(MY_OBJ_DIR)/.rpmbuild.cli.stamp $(MY_SOURCES)/MANIFEST
+build: $(OUTPUT_CLI_RT) $(OUTPUT_SDK) $(MY_SOURCES)/MANIFEST
 	$(call mkdir_clean,$(MY_LINUX_CDFILES)/client_install)
-	install -m 755 -o root -g root $(RPM_RPMSDIR)/i386/xe-cli-*.rpm $(MY_LINUX_CDFILES)/client_install/
+	install -m 755 -o root -g root $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe*.rpm $(MY_LINUX_CDFILES)/client_install/
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XAPI_SRC)
-	echo api gpl+lgpl-with-linking-exception file $(OUTPUT_XAPI_SRC) > $@
+	rm -f $@
+	@for srpm in "$(/bin/ls -1 ${MY_OUTPUT_DIR}/SRPMS)"; do \
+		path=$(MY_OUTPUT_DIR)/SRPMS/${srpm}; \
+		echo "$(${RPM} --qf "%{name}" -qp ${path}) $(${RPM} --qf "%{License}" -qp ${path}) ${path}" >>$@; \
+	done
 	echo api gpl file $(JQUERY_PACK_DIST) >> $@
 	echo api gpl file $(JQUERY_TV_DIST) >> $@
 
 $(OUTPUT_XAPI_SRC):
 	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
 
-$(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
+$(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	$(MAKE) clean
 	$(MAKE) -C $(REPO) version
-	$(MAKE) -C $(REPO)
+	$(MAKE) -C $(REPO) srpm
+	mkdir -p $(RPM_RPMSDIR)/$(DOMAIN_ZERO_OPTIMIZED)
+	$(RPMBUILD) --rebuild --target $(DOMAIN0_ARCH_OPTIMIZED) $(MY_OUTPUT_DIR)/SRPMS/xapi-*.src.rpm
+	# extract the cli-rt/ binaries from xapi-tests
+	mkdir -p $(MY_OUTPUT_DIR)/tmp
+	(cd $(MY_OUTPUT_DIR); rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-tests*.rpm | cpio -i --make-directories; cd cli-rt; tar -zcf $(OUTPUT_CLI_RT) .)
+	rm -rf $(MY_OUTPUT_DIR)/tmp
 
-	rm -rf $(STAGING) $(STAGING_CLI_RT)
-	$(MAKE) -C $(REPO) install
-	mkdir -p $(MY_MAIN_PACKAGES)
-	tar -C $(STAGING) -jcf $(OUTPUT_XAPI) .
-	mkdir -p $(MY_OUTPUT_DIR)
-	tar -C $(STAGING_CLI_RT) -zcf $(OUTPUT_CLI_RT) .
+	# extract the xapi-docs
+	mkdir -p $(OUTPUT_SDK_DIR)/tmp
+	(cd $(OUTPUT_SDK_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-docs*.rpm | cpio -i --make-directories; tar -zcf $(OUTPUT_SDK) .;zip -9rv $(OUTPUT_WEBZIP) .)
+	rm -rf $(OUTPUT_SDK_DIR)/tmp
 
-	rm -rf $(STAGING)
-	$(MAKE) -C $(REPO) DESTDIR=$(STAGING) lib-install
-	tar -C $(STAGING) -zcf $(OUTPUT_XAPI_DEVEL) .
-
-	rm -rf $(STAGING)
-	$(MAKE) -C $(REPO) sdk-install
-	$(call mkdir_clean,$(OUTPUT_DOCS))
-	cp $(STAGING)/SDK/README.html $(OUTPUT_DOCS)/
-	cp -a $(STAGING)/SDK/docs $(OUTPUT_DOCS)/
-	cd $(STAGING)/SDKwww && zip -9rv $(OUTPUT_WEBZIP) .
-	mkdir -p $(OUTPUT_SDK_DIR)
-	tar -C $(STAGING) -zcf $(OUTPUT_SDK) .
-
+	# Unpack the xapi-datamodel-devel RPM for now
 	rm -rf $(OUTPUT_DATAMODEL_DIR)
-	mkdir -p $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/datamodel.a $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/datamodel.cmxa $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/datamodel.cmi $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/datamodel_types.cmi $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/datamodel_utils.cmi $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/dm_api.cmi $(OUTPUT_DATAMODEL_DIR)
-	install -m 644 -o root -g root $(REPO)/ocaml/idl/api_messages.cmi $(OUTPUT_DATAMODEL_DIR)
+	mkdir -p $(OUTPUT_DATAMODEL_DIR)/tmp
+	(cd $(OUTPUT_DATAMODEL_DIR)/tmp; rpm2cpio $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-datamodel-devel*.rpm | cpio -i --make-directories)
+	mv $(OUTPUT_DATAMODEL_DIR)/tmp/usr/lib/ocaml/xapi-datamodel/* $(OUTPUT_DATAMODEL_DIR)
+	rm -rf $(OUTPUT_DATAMODEL_DIR)/tmp
 
-$(RPM_SOURCESDIR)/xe: $(REPO)/ocaml/xe-cli/xe
-	mkdir -p $(RPM_SOURCESDIR)
-	cp $< $@
-
-$(RPM_SOURCESDIR)/bash-completion: $(REPO)/ocaml/xe-cli/bash-completion
-	mkdir -p $(RPM_SOURCESDIR)
-	cp $< $@
-
-$(RPM_SPECSDIR)/xe.spec: xe.spec.in
-	mkdir -p $(RPM_SPECSDIR)
-	$(call brand,xe.spec.in) > $@
-
-$(MY_OBJ_DIR)/.rpmbuild.cli.stamp: $(RPM_DIRECTORIES) $(RPM_SPECSDIR)/xe.spec $(OUTPUT_CLI_RPM_SOURCES)
-	$(RPMBUILD) --target i386 -ba $(RPM_SPECSDIR)/xe.spec
-	touch $@
+	# Make sure the right RPMs appear on the install CD
+	mkdir $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-core-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-squeezed-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-tests-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-www-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_MAIN_PACKAGES)
+	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xenops-*.rpm $(MY_MAIN_PACKAGES)
 
 .PHONY: clean
 clean:
