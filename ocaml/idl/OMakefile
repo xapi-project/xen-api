@@ -53,7 +53,8 @@ xenapi-html-doc: datamodel xenapi-datamodel-graph.dot xenapi-datamodel-graph.gif
 
 xenenterpriseapi-html-doc: datamodel #xenapi-datamodel-graph.dot xenenterpriseapi-datamodel-graph.gif xenenterpriseapi-datamodel-graph.map
 	mkdir -p $(DOCDIR)/model/xe
-	cp xenenterpriseapi-datamodel-graph.{map,gif} $(DOCDIR)/model/xe
+	cp xenenterpriseapi-datamodel-graph.map $(DOCDIR)/model/xe
+	cp xenenterpriseapi-datamodel-graph.gif $(DOCDIR)/model/xe
 	cp api.css userguide.css $(DOCDIR)/model/xe
 	cp xensource_logo.png xensource_toplogo.gif check.png $(DOCDIR)/model/xe
 	./datamodel -closed -html $(DOCDIR)/model/xe
@@ -108,7 +109,8 @@ clean:
 .PHONY: sdk-install
 sdk-install: datamodel html_build xenenterpriseapi.pdf
 	mkdir -p $(SDK)/docs/html
-	cp xenenterpriseapi-datamodel-graph.{map,gif} $(SDK)/docs/html
+	cp xenenterpriseapi-datamodel-graph.map $(SDK)/docs/html
+	cp xenenterpriseapi-datamodel-graph.gif $(SDK)/docs/html
 	cp html/*.css html/*.js html/*.html $(SDK)/docs/html
 	mkdir -p $(SDK)/docs/html/images
 	cp html/images/* $(SDK)/docs/html/images
@@ -132,10 +134,6 @@ sdk-install: datamodel html_build xenenterpriseapi.pdf
 	cp sdk-README.html $(SDK)/README.html
 	lynx -dump sdk-README.html > $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
-	# and then the version suitable for the website
-	mkdir -p $(SDKWWW)/docs/html
-	sh -c '/bin/cp -ar $(SDK)/docs $(SDKWWW)'
-	cp sdkwww-index.html $(SDKWWW)/index.html
 
 
 META: META.in

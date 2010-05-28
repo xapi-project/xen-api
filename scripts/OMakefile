@@ -100,6 +100,7 @@ install:
 
 .PHONY: sdk-install
 sdk-install: install
+	mkdir -p $(SDK)
 	cp motd $(SDK)/motd
 	$(IPROG) init.d-sdkinit $(DESTDIR)/etc/rc.d/init.d/sdkinit
 	mkdir -p $(DESTDIR)/usr/lib/python2.4/site-packages/xen/lowlevel
