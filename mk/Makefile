@@ -46,6 +46,7 @@ $(OUTPUT_XAPI_SRC):
 
 $(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(call hg_req,xen-api) $(MY_MAIN_PACKAGES)/.dirstamp
 	$(MAKE) clean
+	$(MAKE) -C $(REPO) version
 	$(MAKE) -C $(REPO)
 
 	rm -rf $(STAGING) $(STAGING_CLI_RT)
