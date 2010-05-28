@@ -11,7 +11,6 @@ export PRODUCT_VERSION PRODUCT_BRAND BUILD_NUMBER
 
 .PHONY: all
 all:
-	omake ocaml/util/version.ml
 	omake phase1 phase2
 	omake lib-uninstall
 	omake lib-install
@@ -86,3 +85,32 @@ version:
  
  .PHONY: clean
  clean:
+
+
+ifdef B_BASE
+include $(B_BASE)/common.mk
+include $(B_BASE)/rpmbuild.mk
+REPO=$(call hg_loc,xen-api)
+else
+MY_OUTPUT_DIR ?= $(CURDIR)/output
+MY_OBJ_DIR ?= $(CURDIR)/obj
+REPO ?= $(CURDIR)
+
+RPM_SPECSDIR?=/usr/src/redhat/SPECS
+RPM_SRPMSDIR?=/usr/src/redhat/SRPMS
+RPM_SOURCESDIR?=/usr/src/redhat/SOURCES
+RPMBUILD?=rpmbuild
+XEN_RELEASE?=unknown
+endif
+
+.PHONY: srpm
+srpm: 
+	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
+	hg archive -t tbz2 $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2
+	make -C $(REPO) version
+	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
+	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
+	cp -f xapi.spec $(RPM_SPECSDIR)/
+	chown root.root $(RPM_SPECSDIR)/xapi.spec
+	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
+

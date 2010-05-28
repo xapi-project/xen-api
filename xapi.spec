@@ -100,12 +100,7 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 rm -rf $RPM_BUILD_ROOT
 
 %post core
-[ ! -x /sbin/chkconfig ] || chkconfig --add xapi
-[ ! -x /sbin/chkconfig ] || chkconfig --add management-interface
-[ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
-[ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
-[ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
-[ ! -x /sbin/chkconfig ] || chkconfig --add v6d
+[ ! -x /sbin/chkconfig ] || chkconfig xapi on
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
@@ -175,7 +170,6 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/bin/xe-edit-bootloader
 /opt/xensource/bin/xe-mount-iso-sr
 /opt/xensource/bin/xe-restore-metadata
-/opt/xensource/bin/xe-reset-networking
 /opt/xensource/bin/xe-scsi-dev-map
 /opt/xensource/bin/xe-set-iscsi-iqn
 /opt/xensource/bin/xe-toolstack-restart
@@ -231,7 +225,6 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/libexec/shell.pyo
 /opt/xensource/libexec/shell.pyc
 /opt/xensource/libexec/shutdown
-/opt/xensource/libexec/sparse_dd
 /opt/xensource/libexec/update-mh-info
 /opt/xensource/libexec/upload-wrapper
 /opt/xensource/libexec/v6d
