@@ -101,6 +101,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %post core
 [ ! -x /sbin/chkconfig ] || chkconfig xapi on
+[ ! -x /sbin/chkconfig ] || chkconfig management-interface on
+[ ! -x /sbin/chkconfig ] || chkconfig xenservices on
+[ ! -x /sbin/chkconfig ] || chkconfig xapi-domains on
+[ ! -x /sbin/chkconfig ] || chkconfig perfmon on
+[ ! -x /sbin/chkconfig ] || chkconfig v6d on
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
