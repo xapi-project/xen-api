@@ -13,7 +13,7 @@ RPM_BINDIR=$(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)
 
 .PHONY: build
 build: srpm $(MY_SOURCES)/MANIFEST
-	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb ../xapi-libs.spec
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb $(RPM_SPECSDIR)/xapi-libs.spec
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
 
@@ -21,7 +21,8 @@ build: srpm $(MY_SOURCES)/MANIFEST
 srpm:
 	mkdir -p $(RPM_SRPMSDIR) $(RPM_SPECSDIR) $(RPM_SOURCESDIR) $(RPM_RPMSDIR)
 	hg archive -p xapi-libs-0 -t tbz2 $(RPM_SOURCESDIR)/xapi-libs-0.tar.bz2
-	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bs ../xapi-libs.spec
+	install -o root -g root ../xapi-libs.spec $(RPM_SPECSDIR)
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bs $(RPM_SPECSDIR)/xapi-libs.spec
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
 	rm -f $@
