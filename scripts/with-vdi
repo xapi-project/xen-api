@@ -18,14 +18,17 @@ if [ -z "$(xe vdi-list params=uuid uuid=${VDI})" ]; then
   usage
   exit 1
 fi
+
 COMMAND=$2
 if [ -z "$COMMAND" ]; then
   COMMAND=/bin/sh
-fi
-if [ ! -x "$COMMAND" ]; then
+elif ! which "$COMMAND" > /dev/null ; then
   echo Failed to find command: ${COMMAND}
   usage
   exit 1
+else
+  shift 1
+  COMMAND=$*
 fi
 
 . /etc/xensource-inventory
@@ -41,6 +44,7 @@ DEVICE=`xe vbd-param-get uuid=${VBD} param-name=device`
 export DEVICE
 echo DEVICE=${DEVICE}
 ${COMMAND}
+RC=$?
 xe vbd-unplug uuid=${VBD}
 xe vbd-destroy uuid=${VBD}
-
+exit ${RC}
