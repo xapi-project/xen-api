@@ -272,15 +272,6 @@ let scan ~__context ~host =
   let existing_macs = List.map fst t.mac_to_pif_table in
   let physical_macs = List.map fst t.mac_to_phy_table in
 
-  (* Filter out the interfaces that are enslaved as part of bonds: CA-12690 *)
-  let physical_macs =
-    List.filter
-      (fun mac ->
-	 let device = List.assoc mac t.mac_to_phy_table in
-	 let is_enslaved = try Unix.access ("/sys/class/net/"^device^"/master") [Unix.F_OK]; true with _ -> false in
-	 not is_enslaved)
-      physical_macs in
-
   (* Create PIF records for the new interfaces *)
   List.iter
     (fun mac -> 
