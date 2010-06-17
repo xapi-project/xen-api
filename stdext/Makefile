@@ -22,7 +22,7 @@ OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
 STDEXT_OBJS = fun listext filenameext stringext arrayext hashtblext pervasiveext threadext ring \
 	qring fring opt bigbuffer unixext range vIO trie config date encodings fe fecomms \
-	forkhelpers gzip sha1sum zerocheck base64 backtrace tar mapext
+	forkhelpers gzip sha1sum zerocheck base64 backtrace tar mapext os
 
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
