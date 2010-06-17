@@ -197,6 +197,8 @@ let safe_hd = function
 	| a::_ -> Some a
 	| [] -> None
 
+let make_assoc op l = map (fun item -> item, op item) l
+
 let rec replace_assoc key new_value = function
 	| [] -> []
 	| (k, _) as p :: tl ->
@@ -204,5 +206,7 @@ let rec replace_assoc key new_value = function
 			(key, new_value) :: tl
 		else
 			p :: replace_assoc key new_value tl
+
+let make_assoc op l = map (fun item -> item, op item) l
 
 end
