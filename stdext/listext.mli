@@ -176,6 +176,7 @@ module List :
     val take : int -> 'a list -> 'a list
 	
     val tails : 'a list -> ('a list) list
+	val safe_hd : 'a list -> 'a option
 
 	(** Replace the value belonging to a key in an association list. *)
 	val replace_assoc : 'a -> 'b -> ('a * 'b) list -> ('a * 'b) list
