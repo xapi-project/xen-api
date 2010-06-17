@@ -193,6 +193,10 @@ let rec tails = function
     | [] -> [[]]
     | (_::xs) as l -> l :: tails xs
 
+let safe_hd = function
+	| a::_ -> Some a
+	| [] -> None
+
 let rec replace_assoc key new_value = function
 	| [] -> []
 	| (k, _) as p :: tl ->
