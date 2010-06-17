@@ -47,3 +47,32 @@ function showhide(obj)
 		obj.style.display = '';
 }
 
+// functional stuff
+
+function filter(f, l)
+{
+	var x = [];
+	for (i in l) {
+		if (f(l[i]))
+			x.push(l[i]);
+	}
+	return x;
+}
+
+function map(f, l)
+{
+	var x = [];
+	for (i in l) {
+		x[i] = f(l[i]);
+	}
+	return x;
+}
+
+// compare function for sorting
+function compare(a, b)
+{
+	if (a < b) return -1;
+	if (a > b) return 1;
+	return 0;
+}
+

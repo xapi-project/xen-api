@@ -68,9 +68,9 @@ function transform_default(t)
 		return t[1] + ' record';
 		return t[1];
 	case "VSet":
-		return '{' + t[1].map(function(v){return transform_default(v)}) + '}';
+		return '{' + map(function(v){return transform_default(v)}, t[1]) + '}';
 	case "VMap":
-		return '{' + t[1].map(function(v){return transform_default(v[0]) + ' \u2192 ' + transform_default(v[1])}) + '}';
+		return '{' + map(function(v){return transform_default(v[0]) + ' \u2192 ' + transform_default(v[1])}, t[1]) + '}';
 	}
 	return 'Unknown[' + t + ']';
 }
@@ -144,7 +144,7 @@ function make_message(msg, n)
 	html += '<div><span class="inline-type">' + 
 		(msg.msg_result != undefined ? transform_type(msg.msg_result[0]) : 'void') + 
 		'</span> <span class="field-name">' + name + '</span> <span class="inline-params">(' +
-		msg.msg_params.map(function(p){return transform_type(p.param_type)}).join(', ') + 
+		map(function(p){return transform_type(p.param_type)}, msg.msg_params).join(', ') + 
 		')</span></div>';
 	
 	html += '<div class="field-description">' + msg.msg_doc + '</div>';
@@ -191,11 +191,12 @@ function make_message(msg, n)
 function class_doc()
 {	
 	contents = clsdoc.contents;
-	fields = contents.filter(function(f){return f[0] == "Field";}).map(function(f){return f[1];});
-	fields.sort(function(a, b){return a.field_name.toLowerCase().charCodeAt(0) - b.field_name.toLowerCase().charCodeAt(0);});
+	fields = filter(function(f){return f[0] == "Field";}, contents);
+	fields = map(function(f){return f[1];}, fields);
+	fields.sort(function(a, b){return compare(a.field_name.toLowerCase(), b.field_name.toLowerCase());});
 	messages = clsdoc.messages;
-	messages = messages.filter(function(m){return m.msg_hide_from_docs == false;})
-	messages.sort(function(a, b){return a.msg_name.toLowerCase().charCodeAt(0) - b.msg_name.toLowerCase().charCodeAt(0)});
+	messages = filter(function(m){return m.msg_hide_from_docs == false;}, messages);
+	messages.sort(function(a, b){return compare(a.msg_name.toLowerCase(), b.msg_name.toLowerCase())});
 
 	html = "";
 	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'class_details\'))" />';
@@ -248,9 +249,9 @@ function compare_release_notes(a, b)
 		else if (x.indexOf('message') > -1) return '2';
 		else return '3';
 	}
-	a = change_to_num(a[0]) + element_to_num(a[0]) + (a[1]+a[2]).toLowerCase();
-	b = change_to_num(b[0]) + element_to_num(b[0]) + (b[1]+b[2]).toLowerCase();
-	return a > b;
+	x = change_to_num(a[0]) + element_to_num(a[0]) + (a[1]+a[2]).toLowerCase();
+	y = change_to_num(b[0]) + element_to_num(b[0]) + (b[1]+b[2]).toLowerCase();
+	return compare(x, y);
 }
 
 function release_doc()
@@ -288,7 +289,7 @@ function class_list()
 {
 	html = '<h2 class="title">Classes</h2>';
 	
-	classes.sort(function(a, b){return a.toLowerCase().charCodeAt(0) - b.toLowerCase().charCodeAt(0)});
+	classes.sort(function(a, b){return compare(a.toLowerCase(), b.toLowerCase())});
 	for (i in classes) {
 		c = classes[i];
 		html += '<a href="?c=' + c + '">' + c + '</a><br>';
