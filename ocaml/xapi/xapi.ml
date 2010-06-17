@@ -816,6 +816,7 @@ let server_init() =
     end;
  
     Startup.run ~__context [
+      "Synchronising bonds/VLANs on slave with master", [], Sync_networking.sync_slave_with_master ~__context;
       "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
