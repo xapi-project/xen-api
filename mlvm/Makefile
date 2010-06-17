@@ -59,8 +59,8 @@ clean :
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "stdext,camldm,uuid,unix" ""
-	
+	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "stdext,camldm,uuid,unix" "" "'${PP}'"
+
 lvmconfigparser.ml : lvmconfigparser.mly
 	ocamlyacc lvmconfigparser.mly
 	$(OCAMLOPT) $(COMPFLAG) -c lvmconfigparser.mli

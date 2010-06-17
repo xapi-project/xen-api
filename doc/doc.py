@@ -26,6 +26,10 @@ modules = set(sys.argv[4].split())
 includes = sys.argv[5].split()
 packs = sys.argv[6].replace(',',' ').split()
 libs = sys.argv[7].split()
+if len(sys.argv) >= 9:
+	pp = '-pp ' + sys.argv[8]
+else:
+	pp = ''
 
 libs = list(set(libs))	# remove duplicates
 packs = list(set(packs))	# remove duplicates
@@ -41,7 +45,7 @@ if len(packs) > 0:
 else:
 	packages = ""
 
-doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' '
+doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' ' + pp
 
 files = []
 for m in modules:
