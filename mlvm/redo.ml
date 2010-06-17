@@ -68,7 +68,7 @@ let write fd offset size ops =
 	    raise (OutOfSize op.so_seqno)
 	  else begin
 	    ignore(Unix.LargeFile.lseek fd ofs Unix.SEEK_SET);
-	    Unix.write fd str 0 len;
+	    ignore(Unix.write fd str 0 len);
 	    let new_pos = Int64.add ofs (Int64.of_int len) in
 	    write_initial_pos fd offset new_pos;
 	    write new_pos ops
