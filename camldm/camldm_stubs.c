@@ -166,8 +166,13 @@ value camldm_table(value dev)
 
   tmp=Val_int(0);
 
-  do { 
+  do {
     next = dm_get_next_target(dmt, next, &start, &length, &target_type, &params);
+
+    /* This is how dmsetup.c checks for an empty table: */
+    if (!target_type)
+      continue;
+
     dm_task_get_info(dmt, &info);
 
     tuple=caml_alloc_tuple(4);
@@ -181,8 +186,6 @@ value camldm_table(value dev)
     Store_field(r, 1, tmp);
 
     tmp=r;
-
-    printf("params=%s\n",params);
   } while(next);
 
   Store_field(result,9,tmp);
