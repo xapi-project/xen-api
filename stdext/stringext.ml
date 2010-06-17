@@ -89,7 +89,7 @@ let escaped ?rules string = match rules with
 		concat "" (fold_right aux string [])
 
 (** Take a predicate and a string, return a list of strings separated by
-runs of characters where the predicate was true *)
+runs of characters where the predicate was true (excluding those characters from the result) *)
 let split_f p str =
 	let not_p = fun x -> not (p x) in
 	let rec split_one p acc = function
