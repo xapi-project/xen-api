@@ -50,3 +50,6 @@ val mknod : string -> int -> int -> int -> unit
 val get_sector_pos_of : mapping -> int64 -> (string * string) list -> string * int64
 val to_string : mapping array -> string
 val of_string : string -> mapping array
+
+val rpc_of_status : status -> Rpc.t
+val ls : unit -> (string list) option
