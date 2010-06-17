@@ -238,39 +238,45 @@ void camldm_mknod(value path, value mode, value major, value minor)
   CAMLreturn0;
 }
 
-/*
-  May leak memory.  who knows?  (Does the c function (_process_all)
-  where I copied this from (dmsetup.c) care about memory?  dmsetup
-  exits shortly after executing it.  After testing: It does not seem
-  to leak.  Probably "dm_task_destroy(dmt);" is doing some cleaning
-  up.
-*/
+
+/* Helper functions for camldm_ls */
+
 #define none Val_int(0)
 #define Tag_some Val_int(0)
+
+value some (value content) {
+  CAMLparam1 (content);
+  CAMLlocal1 (result);
+  result = caml_alloc (1, Tag_some);
+  Store_field (result, 0, content);
+  CAMLreturn (result);
+};
+value cons (value car_value, value cdr_value) {
+  CAMLparam2 (car_value, cdr_value);
+  CAMLlocal1 (cell);
+  
+  const int car = 0;
+  const int cdr = 1;
+  cell = caml_alloc (2, Tag_cons);
+  Store_field (cell, car, car_value);
+  Store_field (cell, cdr, cdr_value);
+  
+  CAMLreturn (cell);
+};
+/*
+  camldm_ls may leak memory.  Who knows?  (Does the c function (_process_all)
+  where I copied this from (dmsetup.c) care about memory?  dmsetup
+  exits shortly after executing it, anyway.
+  
+  After testing: It does _not_ seem to leak.  Probably
+  "dm_task_destroy(dmt);" is doing some cleaning up.
+*/
 value camldm_ls()
 {
   CAMLparam0 ();
   CAMLlocal1 (list);
   
-  value some (value content) {
-    CAMLparam1 (content);
-    CAMLlocal1 (result);
-    result = caml_alloc (1, Tag_some);
-    Store_field (result, 0, content);
-    CAMLreturn (result);
-  };
-  value cons (value car_value, value cdr_value) {
-    CAMLparam2 (car_value, cdr_value);
-    CAMLlocal1 (cell);
 
-    const int car = 0;
-    const int cdr = 1;
-    cell = caml_alloc (2, Tag_cons);
-    Store_field (cell, car, car_value);
-    Store_field (cell, cdr, cdr_value);
-    
-    CAMLreturn (cell);
-  };
 
   struct dm_names *names;
   struct dm_task *dmt;
