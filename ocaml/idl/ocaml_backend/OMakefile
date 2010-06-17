@@ -149,4 +149,4 @@ lib-install: META
 
 .PHONY: lib-uninstall
 lib-uninstall:
-	ocamlfind remove xapi-client
+	ocamlfind remove -destdir $(INSTALL_PATH) xapi-client

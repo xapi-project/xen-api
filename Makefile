@@ -46,7 +46,7 @@ lib-install:
 
 .PHONY: lib-uninstall
 lib-uninstall:
-	omake lib-uninstall
+	omake DESTDIR=$(DESTDIR) lib-uninstall
 
 .PHONY: sdk-install
 sdk-install:
