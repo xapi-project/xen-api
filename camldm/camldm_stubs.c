@@ -307,7 +307,7 @@ value camldm_ls()
     
     list = cons (caml_copy_string(names->name), list);
     
-    printf("%s\t(:Debug only)\n", names->name);
+    // printf("%s\t(:Debug only)\n", names->name);
     next = names->next;
   } while (next);
 
