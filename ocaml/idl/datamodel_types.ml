@@ -35,6 +35,7 @@ let rel_symc = "symc"
 let rel_miami = "miami"
 let rel_rio = "rio"
 let rel_midnight_ride = "midnight-ride"
+let rel_cowley = "cowley"
 
 let release_order =
 	[ rel_rio
@@ -44,6 +45,7 @@ let release_order =
 	; rel_orlando_update_1
 	; rel_george
 	; rel_midnight_ride
+	; rel_cowley
 	]
 
 exception Unknown_release of string
