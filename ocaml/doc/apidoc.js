@@ -98,6 +98,11 @@ function current_lifecycle_stage(s)
 	}
 }
 
+function get_release_name(s)
+{
+	return s;
+}
+
 function make_field(fld, n)
 {
 	name = fld.field_name;
@@ -119,7 +124,7 @@ function make_field(fld, n)
 	html += '<table class="field-table">';
 	for (i in fld.lifecycle) {
 		l = fld.lifecycle[i];
-		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</div></div>';
@@ -174,7 +179,7 @@ function make_message(msg, n)
 	html += '<table class="field-table">';
 	for (i in msg.msg_lifecycle) {
 		l = msg.msg_lifecycle[i];
-		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
 	
@@ -203,7 +208,7 @@ function class_doc()
 	html += '<table class="field-table">';
 	for (i in clsdoc.obj_lifecycle) {
 		l = clsdoc.obj_lifecycle[i];
-		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + l[1] + '</td><td>' + l[2] + '</td></tr>';
+		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</div>';
@@ -238,7 +243,7 @@ function compare_release_notes(a, b)
 		else return '5';
 	}
 	function element_to_num(x) {
-		if (x.indexOf('object') > -1) return '0';
+		if (x.indexOf('class') > -1) return '0';
 		else if (x.indexOf('field') > -1) return '1';
 		else if (x.indexOf('message') > -1) return '2';
 		else return '3';
@@ -255,7 +260,7 @@ function release_doc()
 	for (i in release_info) {
 		c = release_info[i];
 		for (j in c.obj_changes)
-			changes.push([c.obj_changes[j][0] + ' object', c.cls, '', c.obj_changes[j][2]]);
+			changes.push([c.obj_changes[j][0] + ' class', c.cls, '', c.obj_changes[j][2]]);
 		for (j in c.field_changes)
 			changes.push([c.field_changes[j][0] + ' field', c.cls, c.field_changes[j][1], c.field_changes[j][2]]);
 		for (j in c.msg_changes)
@@ -265,7 +270,7 @@ function release_doc()
 	changes.sort(compare_release_notes);
 	
 	html = "";
-	html += '<h1 class="title">Release notes: ' + rel + '</h1>\n';
+	html += '<h1 class="title">Release notes: ' + get_release_name(rel) + '</h1>\n';
 
 	html += '<table><tr><th style="width: 12em">Change</th><th>Element</th><th>Description</th></tr>';
 		
@@ -298,7 +303,7 @@ function release_list()
 	
 	for (i in releases) {
 		r = releases[i];
-		html += '<a href="?r=' + r + '">' + r + '</a><br>';
+		html += '<a href="?r=' + r + '">' + get_release_name(r) + '</a><br>';
 	}
 	
 	append_sidebar(html);
