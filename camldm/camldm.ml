@@ -68,6 +68,7 @@ external _remove : string -> unit = "camldm_remove"
 external _suspend : string -> unit = "camldm_suspend"
 external _resume : string -> unit = "camldm_resume"
 external _mknod : string -> int -> int -> int -> unit = "camldm_mknod"
+external _ls : unit -> (string list) option = "camldm_ls"
 
 (* Helper to convert from our type to the string*string 
  * type expected by libdevmapper *)
@@ -141,3 +142,4 @@ let mknods = _mknods
 let mknod = _mknod
 let suspend = _suspend
 let resume = _resume 
+let ls = _ls

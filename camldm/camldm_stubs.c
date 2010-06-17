@@ -237,3 +237,72 @@ void camldm_mknod(value path, value mode, value major, value minor)
   mknod(String_val(path),S_IFBLK | Int_val(mode), makedev(Int_val(major),Int_val(minor)));
   CAMLreturn0;
 }
+
+// may leak memory.  who knows?  (Does the c function I copied this
+// from (dmsetup.c) care about memory?  dmsetup exits shortly after executing
+// it.
+#define none Val_int(0)
+#define Tag_some Val_int(0)
+value camldm_ls()
+{
+  CAMLparam0 ();
+  CAMLlocal1 (list);
+  
+  value some (value content) {
+    CAMLparam1 (content);
+    CAMLlocal1 (result);
+    result = caml_alloc (1, Tag_some);
+    Store_field (result, 0, content);
+    CAMLreturn (result);
+  };
+  value cons (value car_value, value cdr_value) {
+    CAMLparam2 (car_value, cdr_value);
+    CAMLlocal1 (cell);
+
+    const int car = 0;
+    const int cdr = 1;
+    cell = caml_alloc (2, Tag_cons);
+    Store_field (cell, car, car_value);
+    Store_field (cell, cdr, cdr_value);
+    
+    CAMLreturn (cell);
+  };
+
+  struct dm_names *names;
+  struct dm_task *dmt;
+
+  if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
+    CAMLreturn(none);
+  
+  if (!dm_task_run(dmt)) {
+    dm_task_destroy(dmt);
+    CAMLreturn(none);
+  }
+  
+  if (!(names = dm_task_get_names(dmt))) {
+    dm_task_destroy(dmt);
+    CAMLreturn(none);
+  }
+  
+  list = Val_emptylist;
+  if (!names->dev) {
+    dm_task_destroy(dmt);
+    CAMLreturn(some(list));
+  }
+
+  unsigned int next = 0;
+
+  do {
+    names = (void *) names + next;
+    //    printf("%s\t(%d, %d)\n", names->name,
+    //	   (int) MAJOR(names->dev), (int) MINOR(names->dev));
+    
+    list = cons (caml_copy_string(names->name), list);
+    
+    printf("%s\t(:Debug only)\n", names->name);
+    next = names->next;
+  } while (next);
+
+  dm_task_destroy(dmt);
+  CAMLreturn(some(list));
+}
