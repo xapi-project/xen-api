@@ -180,4 +180,6 @@ sig
 
 	(** Replace the value belonging to a key in an association list. *)
 	val replace_assoc : 'a -> 'b -> ('a * 'b) list -> ('a * 'b) list
+
+	val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
 end
