@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 60
+let schema_minor_vsn = 61
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -33,9 +33,12 @@ let orlando_release_schema_minor_vsn = 55
 let george_release_schema_major_vsn = 5
 let george_release_schema_minor_vsn = 57
 
+let midnight_ride_release_schema_major_vsn = 5
+let midnight_ride_release_schema_minor_vsn = 60
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = george_release_schema_major_vsn
-let last_release_schema_minor_vsn = george_release_schema_minor_vsn
+let last_release_schema_major_vsn = midnight_ride_release_schema_major_vsn
+let last_release_schema_minor_vsn = midnight_ride_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
