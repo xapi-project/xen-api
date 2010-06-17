@@ -484,6 +484,7 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	(* update PIFs *)
 	let my_pifs = Db.PIF.get_all_records ~__context in
+	let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_physical) my_pifs in
 	let (_ : API.ref_PIF option list) =
 		List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
 
