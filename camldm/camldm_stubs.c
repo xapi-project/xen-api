@@ -238,9 +238,13 @@ void camldm_mknod(value path, value mode, value major, value minor)
   CAMLreturn0;
 }
 
-// may leak memory.  who knows?  (Does the c function I copied this
-// from (dmsetup.c) care about memory?  dmsetup exits shortly after executing
-// it.
+/*
+  May leak memory.  who knows?  (Does the c function (_process_all)
+  where I copied this from (dmsetup.c) care about memory?  dmsetup
+  exits shortly after executing it.  After testing: It does not seem
+  to leak.  Probably "dm_task_destroy(dmt);" is doing some cleaning
+  up.
+*/
 #define none Val_int(0)
 #define Tag_some Val_int(0)
 value camldm_ls()
