@@ -30,10 +30,10 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 camldm.cmxa: libcamldm_stubs.a $(foreach obj,$(OBJS),$(obj).cmx)
-	$(OCAMLOPT) $(OCAMLFLAGS) -a -o $@ -cclib -lcamldm_stubs -cclib -ldevmapper $(foreach obj,$(OBJS),$(obj).cmx)
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -a -o $@ -cclib -lcamldm_stubs -cclib -ldevmapper $(foreach obj,$(OBJS),$(obj).cmx)
 
 camldm.cma: $(foreach obj,$(OBJS),$(obj).cmo)
-	$(OCAMLC) $(OCAMLFLAGS) -a -dllib dllcamldm_stubs.so -cclib -lcamldm_stubs -cclib -ldevmapper -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
+	$(OCAMLC) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -a -dllib dllcamldm_stubs.so -cclib -lcamldm_stubs -cclib -ldevmapper -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 camldm_stubs.a: camldm_stubs.o
 	ocamlmklib -o camldm_stubs -ldevmapper $+
@@ -49,7 +49,7 @@ libcamldm_stubs.a: camldm_stubs.o
 	$(OCAMLC) $(OCAMLFLAGS) -c -o $@ $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLFLAGS) -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAMLFLAGS) -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
