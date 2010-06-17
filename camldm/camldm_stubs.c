@@ -276,8 +276,6 @@ value camldm_ls()
   CAMLparam0 ();
   CAMLlocal1 (list);
   
-
-
   struct dm_names *names;
   struct dm_task *dmt;
 
