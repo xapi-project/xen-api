@@ -12,151 +12,151 @@
  * GNU Lesser General Public License for more details.
  *)
 module List :
-  sig
-    val setify : 'a list -> 'a list
-    val subset : 'a list -> 'a list -> bool
-    val set_equiv : 'a list -> 'a list -> bool
-    val length : 'a list -> int
-    val hd : 'a list -> 'a
-    val tl : 'a list -> 'a list
-    val nth : 'a list -> int -> 'a
-    val rev : 'a list -> 'a list
-    val append : 'a list -> 'a list -> 'a list
-    val rev_append : 'a list -> 'a list -> 'a list
-    val concat : 'a list list -> 'a list
-    val flatten : 'a list list -> 'a list
-    val iter : ('a -> unit) -> 'a list -> unit
-    val map : ('a -> 'b) -> 'a list -> 'b list
-    val rev_map : ('a -> 'b) -> 'a list -> 'b list
-    val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
-    val fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b
-    val iter2 : ('a -> 'b -> unit) -> 'a list -> 'b list -> unit
-    val map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
-    val rev_map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
-    val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b list -> 'c list -> 'a
-    val fold_right2 :
-      ('a -> 'b -> 'c -> 'c) -> 'a list -> 'b list -> 'c -> 'c
-    val for_all : ('a -> bool) -> 'a list -> bool
-    val exists : ('a -> bool) -> 'a list -> bool
-    val for_all2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
-    val exists2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
-    val mem : 'a -> 'a list -> bool
-    val memq : 'a -> 'a list -> bool
-    val find : ('a -> bool) -> 'a list -> 'a
-    val filter : ('a -> bool) -> 'a list -> 'a list
-    val find_all : ('a -> bool) -> 'a list -> 'a list
-    val partition : ('a -> bool) -> 'a list -> 'a list * 'a list
-    val assoc : 'a -> ('a * 'b) list -> 'b
-    val assq : 'a -> ('a * 'b) list -> 'b
-    val mem_assoc : 'a -> ('a * 'b) list -> bool
-    val mem_assq : 'a -> ('a * 'b) list -> bool
-    val remove_assoc : 'a -> ('a * 'b) list -> ('a * 'b) list
-    val remove_assq : 'a -> ('a * 'b) list -> ('a * 'b) list
-    val split : ('a * 'b) list -> 'a list * 'b list
-    val combine : 'a list -> 'b list -> ('a * 'b) list
-    val sort : ('a -> 'a -> int) -> 'a list -> 'a list
-    val stable_sort : ('a -> 'a -> int) -> 'a list -> 'a list
-    val fast_sort : ('a -> 'a -> int) -> 'a list -> 'a list
-    val merge : ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list
+sig
+	val setify : 'a list -> 'a list
+	val subset : 'a list -> 'a list -> bool
+	val set_equiv : 'a list -> 'a list -> bool
+	val length : 'a list -> int
+	val hd : 'a list -> 'a
+	val tl : 'a list -> 'a list
+	val nth : 'a list -> int -> 'a
+	val rev : 'a list -> 'a list
+	val append : 'a list -> 'a list -> 'a list
+	val rev_append : 'a list -> 'a list -> 'a list
+	val concat : 'a list list -> 'a list
+	val flatten : 'a list list -> 'a list
+	val iter : ('a -> unit) -> 'a list -> unit
+	val map : ('a -> 'b) -> 'a list -> 'b list
+	val rev_map : ('a -> 'b) -> 'a list -> 'b list
+	val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
+	val fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b
+	val iter2 : ('a -> 'b -> unit) -> 'a list -> 'b list -> unit
+	val map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
+	val rev_map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
+	val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b list -> 'c list -> 'a
+	val fold_right2 :
+		('a -> 'b -> 'c -> 'c) -> 'a list -> 'b list -> 'c -> 'c
+	val for_all : ('a -> bool) -> 'a list -> bool
+	val exists : ('a -> bool) -> 'a list -> bool
+	val for_all2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
+	val exists2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
+	val mem : 'a -> 'a list -> bool
+	val memq : 'a -> 'a list -> bool
+	val find : ('a -> bool) -> 'a list -> 'a
+	val filter : ('a -> bool) -> 'a list -> 'a list
+	val find_all : ('a -> bool) -> 'a list -> 'a list
+	val partition : ('a -> bool) -> 'a list -> 'a list * 'a list
+	val assoc : 'a -> ('a * 'b) list -> 'b
+	val assq : 'a -> ('a * 'b) list -> 'b
+	val mem_assoc : 'a -> ('a * 'b) list -> bool
+	val mem_assq : 'a -> ('a * 'b) list -> bool
+	val remove_assoc : 'a -> ('a * 'b) list -> ('a * 'b) list
+	val remove_assq : 'a -> ('a * 'b) list -> ('a * 'b) list
+	val split : ('a * 'b) list -> 'a list * 'b list
+	val combine : 'a list -> 'b list -> ('a * 'b) list
+	val sort : ('a -> 'a -> int) -> 'a list -> 'a list
+	val stable_sort : ('a -> 'a -> int) -> 'a list -> 'a list
+	val fast_sort : ('a -> 'a -> int) -> 'a list -> 'a list
+	val merge : ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list
 
-    (** Perform a lookup on an association list of (value, key) pairs. *)
-    val inv_assoc : 'a -> ('b * 'a) list -> 'b
+	(** Perform a lookup on an association list of (value, key) pairs. *)
+	val inv_assoc : 'a -> ('b * 'a) list -> 'b
 
-    (** A tail-recursive map. *)
-    val map_tr : ('a -> 'b) -> 'a list -> 'b list
+	(** A tail-recursive map. *)
+	val map_tr : ('a -> 'b) -> 'a list -> 'b list
 
-    (** Count the number of list elements matching the given predicate. *)
-    val count : ('a -> bool) -> 'a list -> int
+	(** Count the number of list elements matching the given predicate. *)
+	val count : ('a -> bool) -> 'a list -> int
 
-    (** Find the indices of all elements matching the given predicate. *)
-    val position : ('a -> bool) -> 'a list -> int list
+	(** Find the indices of all elements matching the given predicate. *)
+	val position : ('a -> bool) -> 'a list -> int list
 
-    (** Map the given function over a list, supplying the integer index as well
-	as the element value. *)
-    val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
+	(** Map the given function over a list, supplying the integer
+	 * index as well as the element value. *)
+	val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
 
-    val iteri : (int -> 'a -> unit) -> 'a list -> unit
+	val iteri : (int -> 'a -> unit) -> 'a list -> unit
 
-    val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
+	val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
 
-    (** Map the given function over a list in reverse order. *)
-    val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
+	(** Map the given function over a list in reverse order. *)
+	val rev_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
 
-    (** Tail-recursive [mapi]. *)
-    val mapi_tr : (int -> 'a -> 'b) -> 'a list -> 'b list
+	(** Tail-recursive [mapi]. *)
+	val mapi_tr : (int -> 'a -> 'b) -> 'a list -> 'b list
 
-    (** Split a list at the given index to give a pair of lists. *)
-    val chop : int -> 'a list -> 'a list * 'a list
+	(** Split a list at the given index to give a pair of lists. *)
+	val chop : int -> 'a list -> 'a list * 'a list
 
-    (** Split a list at the given index to give a pair of lists, the first in
-	reverse order. *)
-    val rev_chop : int -> 'a list -> 'a list * 'a list
+	(** Split a list at the given index to give a pair of lists, the first in
+		reverse order. *)
+	val rev_chop : int -> 'a list -> 'a list * 'a list
 
-    (** Tail-recursive [chop]. *)
-    val chop_tr : int -> 'a list -> 'a list * 'a list
+	(** Tail-recursive [chop]. *)
+	val chop_tr : int -> 'a list -> 'a list * 'a list
 
-    (** Split a list into lists with the given number of elements. *)
-    val dice : int -> 'a list -> 'a list list
+	(** Split a list into lists with the given number of elements. *)
+	val dice : int -> 'a list -> 'a list list
 
-    (** Extract the sub-list between the given indices. *)
-    val sub : int -> int -> 'a list -> 'a list
+	(** Extract the sub-list between the given indices. *)
+	val sub : int -> int -> 'a list -> 'a list
 
-    (** Remove the element at the given index. *)
-    val remove : int -> 'a list -> 'a list
+	(** Remove the element at the given index. *)
+	val remove : int -> 'a list -> 'a list
 
-    (** Extract the element at the given index, returning the element and the
-	list without that element. *)
-    val extract : int -> 'a list -> 'a * 'a list
+	(** Extract the element at the given index, returning the element and the
+		list without that element. *)
+	val extract : int -> 'a list -> 'a * 'a list
 
-    (** Insert the given element at the given index. *)
-    val insert : int -> 'a -> 'a list -> 'a list
+	(** Insert the given element at the given index. *)
+	val insert : int -> 'a -> 'a list -> 'a list
 
-    (** Replace the element at the given index with the given value. *)
-    val replace : int -> 'a -> 'a list -> 'a list
+	(** Replace the element at the given index with the given value. *)
+	val replace : int -> 'a -> 'a list -> 'a list
 
-    (** Apply the given function to the element at the given index. *)
-    val morph : int -> ('a -> 'a) -> 'a list -> 'a list
+	(** Apply the given function to the element at the given index. *)
+	val morph : int -> ('a -> 'a) -> 'a list -> 'a list
 
-    (** Insert the element [e] between every pair of adjacent elements in the
-	given list. *)
-    val between : 'a -> 'a list -> 'a list
+	(** Insert the element [e] between every pair of adjacent elements in the
+		given list. *)
+	val between : 'a -> 'a list -> 'a list
 
-    (** Tail-recursive [between]. *)
-    val between_tr : 'a -> 'a list -> 'a list
+	(** Tail-recursive [between]. *)
+	val between_tr : 'a -> 'a list -> 'a list
 
-    (** Generate a random permutation of the given list. *)
-    val randomize : 'a list -> 'a list
+	(** Generate a random permutation of the given list. *)
+	val randomize : 'a list -> 'a list
 
-    (** Distribute the given element over the given list, returning a list of
-	lists with the new element in each position. *)
-    val distribute : 'a -> 'a list -> 'a list list
+	(** Distribute the given element over the given list, returning a list of
+		lists with the new element in each position. *)
+	val distribute : 'a -> 'a list -> 'a list list
 
-    (** Generate all permutations of the given list. *)
-    val permute : 'a list -> 'a list list
+	(** Generate all permutations of the given list. *)
+	val permute : 'a list -> 'a list list
 
-    (** Run-length encode the given list using the given equality function. *)
-    val rle_eq : ('a -> 'a -> bool) -> 'a list -> ('a * int) list
+	(** Run-length encode the given list using the given equality function. *)
+	val rle_eq : ('a -> 'a -> bool) -> 'a list -> ('a * int) list
 
-    (** Run-length encode the given list using built-in equality. *)
-    val rle : 'a list -> ('a * int) list
+	(** Run-length encode the given list using built-in equality. *)
+	val rle : 'a list -> ('a * int) list
 
-    (** Decode a run-length encoded list. *)
-    val unrle : (int * 'a) list -> 'a list
+	(** Decode a run-length encoded list. *)
+	val unrle : (int * 'a) list -> 'a list
 
-    (** Compute the inner product of two lists. *)
-    val inner :
-      (('a -> 'b -> 'c -> 'd) -> 'e -> 'f -> 'g -> 'h) ->
-      'e -> ('b -> 'c -> 'i) -> 'f -> 'g -> ('a -> 'i -> 'd) -> 'h
-	
-	(** Applies a function f that generates optional values, to each 
-	    of the items in a list A [a1; ...; am], generating a new list
-	    of non-optional values B [b1; ...; bn], with m >= n. For each
-	    value a in list A, list B contains a corresponding value b if
-	    and only if the application of (f a) results in Some b.      *)
+	(** Compute the inner product of two lists. *)
+	val inner :
+		(('a -> 'b -> 'c -> 'd) -> 'e -> 'f -> 'g -> 'h) ->
+		'e -> ('b -> 'c -> 'i) -> 'f -> 'g -> ('a -> 'i -> 'd) -> 'h
+
+	(** Applies a function f that generates optional values, to each
+	 * of the items in a list A [a1; ...; am], generating a new list of
+	 * non-optional values B [b1; ...; bn], with m >= n. For each value
+	 * a in list A, list B contains a corresponding value b if and only
+	 * if the application of (f a) results in Some b.  *)
 	val filter_map : ('a -> 'b option) -> 'a list -> 'b list
 
 	(** Returns true if and only if the given list is in sorted order
-	    according to the given comparison function.                  *)
+	 * according to the given comparison function.  *)
 	val is_sorted : ('a -> 'a -> int) -> 'a list -> bool
 
 	(** Returns the intersection of two lists. *)
@@ -165,19 +165,19 @@ module List :
 	(** Returns the set difference of two lists *)
 	val set_difference : 'a list -> 'a list -> 'a list
 
-    (** Act as List.assoc, but return the given default value if the key
-        is not in the list. *)
-    val assoc_default : 'a -> ('a * 'b) list -> 'b -> 'b
+	(** Act as List.assoc, but return the given default value if the
+	 * key is not in the list. *)
+	val assoc_default : 'a -> ('a * 'b) list -> 'b -> 'b
 
-    (* Like Lisp cons*)
-    val cons : 'a -> 'a list -> 'a list
+	(* Like Lisp cons*)
+	val cons : 'a -> 'a list -> 'a list
 
-    (* take n list: Return the first n elements of list (or less if list is shorter).*)
-    val take : int -> 'a list -> 'a list
-	
-    val tails : 'a list -> ('a list) list
+	(* take n list: Return the first n elements of list (or less if list is shorter).*)
+	val take : int -> 'a list -> 'a list
+
+	val tails : 'a list -> ('a list) list
 	val safe_hd : 'a list -> 'a option
 
 	(** Replace the value belonging to a key in an association list. *)
 	val replace_assoc : 'a -> 'b -> ('a * 'b) list -> ('a * 'b) list
-  end
+end
