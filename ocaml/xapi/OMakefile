@@ -181,6 +181,7 @@ XAPI_MODULES = $(COMMON) \
 	dbsync \
 	dbsync_slave \
 	dbsync_master \
+	sync_networking \
 	storage_access \
 	events \
 	import_xva \
