@@ -86,7 +86,7 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 (* Interval between host heartbeats *)
 let host_heartbeat_interval = 30.0
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
-let host_assumed_dead_interval = 200.0 
+let host_assumed_dead_interval = 600.0 (* 10 minutes *)
 
 let http_realm = "xapi"
 
