@@ -438,6 +438,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 #ifdef HVM_PARAM_VIRIDIAN
 	xc_set_hvm_param(_H(handle), _D(domid), HVM_PARAM_VIRIDIAN, f.viridian);	
 #endif
+	configure_vcpus(_H(handle), _D(domid), f);
 
 	caml_enter_blocking_section();
 	r = xc_domain_restore(_H(handle), Int_val(fd), _D(domid),
