@@ -397,13 +397,6 @@ let is_physical name =
 	not(List.mem "xen-backend" (String.split '/' link))
   with _ -> false
 
-let get_bios_name name =
-	try
-		let output, _ = Forkhelpers.execute_command_get_output "/sbin/biosdevname" ["-i"; name] in
-		let output = String.strip String.isspace output in
-		output
-	with _ -> name
-
 (* Dispatch network backend operations. *)
 
 let network_config_file = "/etc/xensource/network.conf"
