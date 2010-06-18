@@ -31,14 +31,6 @@ let ( -- ) = Int64.sub
 let ( ** ) = Int64.mul
 let ( // ) = Int64.div
 
-let trim_end s =
-        let i = ref (String.length s - 1) in
-        while !i > 0 && (List.mem s.[!i] [ ' '; '\t'; '\n'; '\r' ])
-	do
-		decr i
-	done;
-        if !i >= 0 then String.sub s 0 (!i + 1) else ""
-
 (* create localhost record *)
 
 let get_my_ip_addr() =
@@ -114,35 +106,6 @@ let refresh_localhost_info ~__context =
       Db.Host.add_to_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage ~value:"true"
     end else
       Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
-
-(* CA-25162: Dechainify VLANs. We're actually doing this for _all_
- * PIFs, not just those relevant to localhost. Mostly this will be
- * a no-op, and it shouldn't matter if we fix problems for other hosts
- * here, and it covers the case where we're a slave and the master has
- * broken vlans which need to be corrected before we try to replicate
- * them *)
-let fix_chained_vlans ~__context =
-  let pifs = Db.PIF.get_all_records ~__context in 
-  let (vlan_pifs,underlying_pifs) = List.partition (fun (_,pifr) -> pifr.API.pIF_VLAN >= 0L) pifs in
-  List.iter (fun (vlan_pif_ref,vlan_pif_record) ->
-    let pif_underneath_vlan = Helpers.get_pif_underneath_vlan ~__context vlan_pif_ref in
-    if not (List.exists (fun (pif_ref,_) -> pif_ref = pif_underneath_vlan) underlying_pifs) then begin
-      (* There's a problem - the underlying PIF of the vlan might be a vlan itself (or might not exist)
-	 Find the real underlying PIF by matching the host and device *)
-      try
-	let (real_pif_ref,real_pif_rec) = List.find (fun (_,pif_rec) -> 
-	  pif_rec.API.pIF_host = vlan_pif_record.API.pIF_host &&
-	    pif_rec.API.pIF_device = vlan_pif_record.API.pIF_device) underlying_pifs in
-	let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
-	warn "Resetting tagged PIF of VLAN %s, previously was %s" (Ref.string_of vlan) (Ref.string_of pif_underneath_vlan);
-	Db.VLAN.set_tagged_PIF ~__context ~self:vlan ~value:real_pif_ref
-      with _ ->
-	(* Can't find an underlying PIF - delete the VLAN record. This is pretty unlikely. *)
-	error "Destroying dangling VLAN and associated PIF record - the underlying device has disappeared";
-	let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
-	Db.VLAN.destroy ~__context ~self:vlan;
-	Db.PIF.destroy ~__context ~self:vlan_pif_ref
-    end) vlan_pifs
 
 (*************** update database tools ******************)
 
@@ -556,11 +519,6 @@ let update_env __context sync_keys =
   debug "resynchronising db with host physical interfaces";
   update_physical_networks ~__context;
 *)
-
-  switched_sync Xapi_globs.sync_dechainify_vlans (fun () ->
-    debug "dechainifying VLANs";
-    fix_chained_vlans ~__context
-  );
 
   switched_sync Xapi_globs.sync_resynchronise_pif_currently_attached (fun () ->
     debug "resynchronising PIF.currently_attached";
