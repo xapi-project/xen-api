@@ -25,6 +25,33 @@ function qualifier(q)
 		return 'read/write';
 }
 
+function make_enum(t)
+{
+	n = t[1];
+	obj = document.getElementById('enums');
+	i = obj.children.length + 1;
+	obj.style.display = ''
+	
+	if (document.getElementById('enum_' + n) == null) {
+		html = '<div id="enum_' + n + '" class="field' + toggle(i) + '">';
+		html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'enum_' + n + '_details\'))" />';
+		html += '<div class="field-name">' + n + '</div>';
+		html += '<div id="enum_' + n + '_details" style="display: none">';
+		
+		html += '<table class="field-table">';
+		var first = true;
+		for (i in t[2]) {
+			html += '<tr><td style="white-space: nowrap">' + (first ? '<span class="field-head">Values:</span>' : '') + '</td>';
+			html += '<td style="white-space: nowrap">' + i + '</td><td>' + t[2][i] + '</td></tr>';
+			first = false;
+		}
+		html += '</table>';
+		html += '</div></div>';
+
+		obj.innerHTML += html;
+	}
+}
+
 function transform_type(t)
 {
 	switch (t) {
@@ -42,7 +69,8 @@ function transform_type(t)
 	case "Record":
 		return t[1] + ' record';
 	case "Enum":
-		return t[1];
+		make_enum(t);
+		return '<a href="#enum_' + t[1] + '">' + t[1] + '</a>';
 	case "Set":
 		return transform_type(t[1]) + ' set';
 	case "Map":
@@ -113,18 +141,16 @@ function make_field(fld, n)
 	html += '<div class="lifecycle">' + current_lifecycle_stage(fld.lifecycle) + '</div>';
 	html += '<div><span class="inline-type">' + transform_type(fld.ty) + '</span> <span class="field-name">' + name + '</span> <span class="inline-qualifier">[' + qualifier(fld.qualifier) + ']</span></div>';
 	
-	html += '<div  id="' + name + '_details" style="display: none">';
+	html += '<div id="' + name + '_details" style="display: none">';
 	html += '<div class="field-description">' + fld.field_description + '</div>';
 	
 	html += '<table class="field-table">';
 	if (fld.default_value != undefined)
-		html += '<tr><td width="130px"><span class="field-head">Default value:</span></td><td>' + transform_default(fld.default_value) + '</td></tr>';
-	html += '</table>';
-	
-	html += '<table class="field-table">';
+		html += '<tr><td style="white-space: nowrap"><span class="field-head">Default value:</span></td><td colspan="2">' + transform_default(fld.default_value) + '</td></tr>';
+		
 	for (i in fld.lifecycle) {
 		l = fld.lifecycle[i];
-		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
+		html += '<tr><td style="white-space: nowrap"><span class="field-head">' + l[0] + ' in:</span></td><td style="white-space: nowrap">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</div></div>';
@@ -149,40 +175,35 @@ function make_message(msg, n)
 	
 	html += '<div class="field-description">' + msg.msg_doc + '</div>';
 	
-	html += '<div  id="' + name + '_details" style="display: none">';
+	html += '<div id="' + name + '_details" style="display: none">';
 	html += '<table class="field-table">';
-	
-	html += '<tr id="' + name + '_params"><td width="130px"><span class="field-head">Parameters:</span></td><td>';
-	html += '<table>';
 	for (i in msg.msg_params) {
 		p = msg.msg_params[i];
-		html += '<tr><td style="padding: 0 .4em 0 0">' + transform_type(p.param_type) + '  ' + p.param_name + '</td>';
-		html += '<td style="padding: 0 0 0 .4em">' + p.param_doc + '</td></tr>';
+		html += '<tr><td style="white-space: nowrap">' + (i == 0 ? '<span class="field-head">Parameters:</span>' : '') + '</td>';
+		html += '<td style="white-space: nowrap">' + transform_type(p.param_type) + '  ' + p.param_name + '</td>';
+		html += '<td>' + p.param_doc + '</td></tr>';
 	}
-	html += '</table></td></tr>';	
 
-	html += '<tr><td><span class="field-head">Minimum role:</span></td><td>' + msg.msg_allowed_roles[msg.msg_allowed_roles.length - 1] + '</td></tr>';
+	html += '<tr><td><span class="field-head">Minimum role:</span></td><td colspan="2">' + msg.msg_allowed_roles[msg.msg_allowed_roles.length - 1] + '</td></tr>';
+	
 	if (msg.msg_result != undefined)
-		html += '<tr><td><span class="field-head">Result:</span></td><td>' + msg.msg_result[1] + '</td></tr>';
+		html += '<tr><td><span class="field-head">Result:</span></td><td colspan="2">' + msg.msg_result[1] + '</td></tr>';
+		
 	if (msg.msg_errors != undefined && msg.msg_errors.length > 0) {
-		html += '<tr><td><span class="field-head">Errors:</span></td><td>'
-		html += '<table>';
 		for (i in msg.msg_errors) {
 			e = msg.msg_errors[i];
-			html += '<tr><td style="padding: 0 .4em 0 0">' + e.err_name + '</td>';
-			html += '<td style="padding: 0 0 0 .4em">' + e.err_doc + '</td></tr>';
+			html += '<tr><td style="white-space: nowrap">' + (i == 0 ? '<span class="field-head">Errors:</span>' : '') + '</td>';
+			html += '<td style="white-space: nowrap">' + e.err_name + '</td>';
+			html += '<td>' + e.err_doc + '</td></tr>';
 		}
-		html += '</table></td></tr>';
 	}
-	html += '</table>';
 	
-	html += '<table class="field-table">';
 	for (i in msg.msg_lifecycle) {
 		l = msg.msg_lifecycle[i];
-		html += '<tr><td width="130px"><span class="field-head">' + l[0] + ' in:</span></td><td width="130px">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
+		html += '<tr><td style="white-space: nowrap"><span class="field-head">' + l[0] + ' in:</span></td>';
+		html += '<td style="white-space: nowrap">' + get_release_name(l[1]) + '</td><td>' + l[2] + '</td></tr>';
 	}
 	html += '</table>';
-	
 	html += '</div></div>';	
 	
 	return html;
@@ -214,7 +235,11 @@ function class_doc()
 	html += '</table>';
 	html += '</div>';
 	
-	html += '<h2>Fields</h2>';
+	html += '<div id="enums" style="display: none"><h2>Enums</h2></div>';
+	
+	set_content(html);
+	
+	html = '<h2>Fields</h2>';
 	if (fields.length > 0) {
 		for (i in fields)
 			html += make_field(fields[i], i);
@@ -230,7 +255,7 @@ function class_doc()
 	else
 		html += '<p>None.</p>';
 	
-	set_content(html);
+	append_content(html);
 }
 
 function compare_release_notes(a, b)
