@@ -44,7 +44,7 @@ let _ =
   ("-a",Arg.Set all,"Run all the tests") ]
     (fun _ -> raise (Failure "Invalid argument! (try -help for help)"))
     "VM testing utility";
-  let cli : Util.t_cli = Util.cli_offhost in 
+  let cli : Util.t_cli = Util.cli_onhost in 
   let version = Cliops.get_version cli in
   let short_version = Cliops.get_short_version cli in
   let tests = Parsers.explode !tests ',' in
