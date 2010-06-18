@@ -2593,10 +2593,17 @@ let host_get_vms_which_prevent_evacuation printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
   let vms = Client.Host.get_vms_which_prevent_evacuation rpc session_id host in
-  let table = List.map (fun (vm, result) -> 
-			  Printf.sprintf "%s (%s)" (Client.VM.get_uuid rpc session_id vm) (Client.VM.get_name_label rpc session_id vm),
-			  print_assert_exception (Api_errors.Server_error(List.hd result, List.tl result))) vms in
-  printer (Cli_printer.PTable [ ("VM", "Error") :: table ])  
+
+  let op (vm, error) = 
+    let error = String.concat "," error in
+    let record = vm_record rpc session_id vm in
+    let extra_field = make_field ~name:"reason" ~get:(fun () -> error) () in
+    let record = { record with fields = record.fields @ [ extra_field ] } in
+    let selected = List.hd (select_fields params [record] [ "uuid"; "name-label"; "reason"]) in
+    let table = List.map print_field selected in
+    printer (Cli_printer.PTable [table])
+  in
+  ignore(List.iter op vms)
 
 let host_get_uncooperative_vms printer rpc session_id params = 
   let uuid = List.assoc "uuid" params in
