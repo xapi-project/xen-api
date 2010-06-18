@@ -345,7 +345,6 @@ let sync_remove_leaked_vbds = "sync_remove_leaked_vbds"
 let sync_resynchronise_pif_currently_attached = "sync_resynchronise_pif_currently_attached"
 let sync_patch_update_db = "sync_patch_update_db"
 let sync_pbd_reset = "sync_pbd_reset"
-let sync_dechainify_vlans = "sync_dechainify_vlans"
 let sync_bios_strings = "sync_bios_strings"
 
 (* create_storage *)
