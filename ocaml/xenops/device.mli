@@ -117,6 +117,8 @@ sig
 	val save : xs:Xs.xsh -> Xc.domid -> unit
 	val get_statefile : xs:Xs.xsh -> Xc.domid -> string option
 	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> int
+
+	val vnc_port_path : Xc.domid -> string
 end
 
 module PCI :
@@ -210,3 +212,5 @@ sig
 	val resume : xs:Xs.xsh -> Xc.domid -> unit
 	val stop : xs:Xs.xsh -> Xc.domid -> unit
 end
+
+val vnc_port_path: xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> string
