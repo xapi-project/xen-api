@@ -85,7 +85,7 @@ memory, for a running VM. If the VM is currently subject to a memory balloon
 operation, this function returns the maximum amount of memory that the VM will
 need between now, and the point in future time when the operation completes. *)
 let vm_compute_used_memory ~__context policy vm_ref =
-	if Xapi_fist.disable_memory_checks () then (0L, 0L) else
+	if Xapi_fist.disable_memory_checks () then 0L else
 	let vm_main_record = Db.VM.get_record ~__context ~self:vm_ref in
 	let vm_boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
 	let memory_static_max = vm_boot_record.API.vM_memory_static_max in
@@ -96,8 +96,7 @@ let vm_compute_used_memory ~__context policy vm_ref =
 		if ballooning_enabled && policy = Dynamic_min
 		then memory_dynamic_min
 		else memory_static_max in
-	vm_compute_required_memory vm_boot_record
-		(Memory.kib_of_bytes_used memory_required)
+	memory_required +++ vm_main_record.API.vM_memory_overhead
 
 let vm_compute_resume_memory ~__context vm_ref =
 	if Xapi_fist.disable_memory_checks () then 0L else
@@ -174,8 +173,7 @@ let host_compute_free_memory_with_policy ~__context summary policy =
 	let all_vms = summary.resident @ summary.scheduled in
 	let all_vm_memories = List.map (vm_compute_used_memory ~__context policy)
 		all_vms in
-	let total_vm_memory = List.fold_left Int64.add 0L
-		(List.map (fun (x, y) -> Int64.add x y) all_vm_memories) in
+	let total_vm_memory = List.fold_left Int64.add 0L all_vm_memories in
 	let host_mem_available = Int64.sub
 		summary.host_maximum_guest_memory_bytes total_vm_memory in
 	max 0L host_mem_available
@@ -224,16 +222,14 @@ let host_compute_free_memory_with_maximum_compression
 			(mib summary.host_maximum_guest_memory_bytes);
 		List.iter
 			(fun v -> 
-				let main, shadow = vm_compute_used_memory ~__context
-					Static_max v in
-				debug "Memory_check: VM %s (%s): main memory %Ld (%Ld MiB); \
-					shadow memory %Ld (%Ld MiB)"
+				let reqd = vm_compute_used_memory ~__context Static_max v in
+				debug "Memory_check: VM %s (%s): memory %Ld (%Ld MiB)"
 					(Db.VM.get_uuid ~__context ~self:v)
 					(if List.mem v summary.resident
 						then "resident here"
 						else "scheduled to be resident here"
 					)
-					main (mib main) shadow (mib shadow)
+					reqd (mib reqd)
 			)
 			(summary.scheduled @ summary.resident);
 		debug "Memory_check: available memory: %Ld (%Ld MiB)"
