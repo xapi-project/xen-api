@@ -100,12 +100,12 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 rm -rf $RPM_BUILD_ROOT
 
 %post core
-[ ! -x /sbin/chkconfig ] || chkconfig xapi on
-[ ! -x /sbin/chkconfig ] || chkconfig management-interface on
-[ ! -x /sbin/chkconfig ] || chkconfig xenservices on
-[ ! -x /sbin/chkconfig ] || chkconfig xapi-domains on
-[ ! -x /sbin/chkconfig ] || chkconfig perfmon on
-[ ! -x /sbin/chkconfig ] || chkconfig v6d on
+[ ! -x /sbin/chkconfig ] || chkconfig --add xapi
+[ ! -x /sbin/chkconfig ] || chkconfig --add management-interface
+[ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
+[ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
+[ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
+[ ! -x /sbin/chkconfig ] || chkconfig --add v6d
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
