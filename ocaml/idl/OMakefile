@@ -156,4 +156,4 @@ lib-install: META
 
 .PHONY: lib-uninstall
 lib-uninstall:
-	ocamlfind remove xapi-datamodel
+	ocamlfind remove -destdir $(INSTALL_PATH) xapi-datamodel
