@@ -4,6 +4,14 @@
 
 import sys, xmlrpclib, XenAPI
 
+class Failure(Exception):
+    """Provide compatibilty with plugins written against XenServer 5.5 API"""
+
+    def __init__(self, code, params):
+        Exception.__init__(self)
+        self._params = [ code ] + params
+    def __str__(self):
+        return str(self._params)
 
 def success_message(result):
     rpcparams = { 'Status': 'Success', 'Value': result }
