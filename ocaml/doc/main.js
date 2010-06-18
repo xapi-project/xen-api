@@ -68,6 +68,14 @@ function map(f, l)
 	return x;
 }
 
+function fold(f, a, l)
+{
+	if (l.length == 0)
+		return a;
+	else
+		return fold(f, f(a, l[0]), l.slice(1));
+}
+
 // compare function for sorting
 function compare(a, b)
 {
