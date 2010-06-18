@@ -15,10 +15,10 @@ XE=/opt/xensource/bin/xe
 
 device_number=
 grub_conf=
-default_file_list="/boot/grub/menu.lst /grub/menu.lst"
+default_file_list="/boot/grub/menu.lst /grub/menu.lst /boot/grub/grub.cfg /grub/grub.cfg"
 
 function usage {
-    echo "Usage: $0 [-u <VM UUID>] [-n <VM name]"
+    echo "Usage: $0 [-u <VM UUID>] [-n <VM name>]"
     echo "    [-p <partition number>] [-f <filename>]"
     echo
     echo " -u: UUID of the VM boot disk you wish to edit"
