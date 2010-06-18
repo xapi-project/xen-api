@@ -133,7 +133,7 @@ function get_release_name(s)
 
 function make_field(fld, n)
 {
-	name = fld.field_name;
+	name = fld.full_name.join('_');
 
 	html = "";	
 	html = '<div class="field' + toggle(n) + '">';
@@ -211,10 +211,15 @@ function make_message(msg, n)
 
 function class_doc()
 {	
-	contents = clsdoc.contents;
-	fields = filter(function(f){return f[0] == "Field";}, contents);
+	contents = clsdoc.contents;	
+	fields = fold(function(a, x){
+		if (x[0] == "Field") a.push(x);
+		else a = a.concat(x[2]);
+		return a;
+		}, [], contents);
 	fields = map(function(f){return f[1];}, fields);
-	fields.sort(function(a, b){return compare(a.field_name.toLowerCase(), b.field_name.toLowerCase());});
+	
+	fields.sort(function(a, b){return compare(a.full_name.join('_').toLowerCase(), b.full_name.join('_').toLowerCase());});
 	messages = clsdoc.messages;
 	messages = filter(function(m){return m.msg_hide_from_docs == false;}, messages);
 	messages.sort(function(a, b){return compare(a.msg_name.toLowerCase(), b.msg_name.toLowerCase())});
