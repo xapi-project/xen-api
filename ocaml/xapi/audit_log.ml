@@ -125,7 +125,7 @@ let handler (req: request) (bio: Buf_io.t) =
 
 	let s = Buf_io.fd_of bio in
 	Buf_io.assert_buffer_empty bio;
-	req.close := true;
+	req.close <- true;
 
 	Xapi_http.with_context (* makes sure to signal task-completed to cli *)
 		(Printf.sprintf "audit_log_get request")
