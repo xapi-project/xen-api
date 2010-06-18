@@ -21,7 +21,11 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let delete_disks rpc session_id disks =
-	List.iter (fun (vbd,vdi) -> try Client.VDI.destroy rpc session_id vdi with _ -> ()) disks
+	List.iter (fun (vbd,vdi,on_error_delete) ->
+				   if on_error_delete
+				   then try Client.VDI.destroy rpc session_id vdi with _ -> ()
+				   else debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
+			  ) disks
 
 let wait_for_clone ?progress_minmax ~__context task =
 	Helpers.call_api_functions ~__context (fun rpc session ->
@@ -134,14 +138,14 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
 			(* If the VBD is empty there is no VDI to copy. *)
 			(* If the VBD is a CD then eject it (we cannot make copies of ISOs: they're identified *)
 			(* by their filename unlike other VDIs) *)
-			let newvdi = 
+			let newvdi, on_error_delete = 
 				if vbd_r.API.vBD_empty
-				then Ref.null
+				then Ref.null, false
 				else if vbd_r.API.vBD_type = `CD
-				then vbd_r.API.vBD_VDI
-				else clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id disk_op ~__context vbd_r.API.vBD_VDI driver_params
+				then vbd_r.API.vBD_VDI, false (* don't delete the original CD *)
+				else clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id disk_op ~__context vbd_r.API.vBD_VDI driver_params, true (* do delete newly created VDI *)
 			in
-			((vbd,newvdi)::acc, (Int64.add done_so_far size))
+			((vbd,newvdi,on_error_delete)::acc, (Int64.add done_so_far size))
 		with e ->
 			debug "Error in safe_clone_disks: %s" (Printexc.to_string e);
 			delete_disks rpc session_id acc; (* Delete those cloned so far *)
@@ -348,8 +352,7 @@ let clone disk_op ~__context ~vm ~new_name =
 				
 				(* copy VBDs *)
 				let new_vbds : [`VBD] Ref.t list =
-					List.map (fun (vbd, newvdi) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in
-				
+					List.map (fun (vbd, newvdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in				
 				(* copy VIFs *)
 				let new_vifs : [`VIF] Ref.t list =
 					List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm:ref ~preserve_mac_address:is_a_snapshot vif) vifs in
