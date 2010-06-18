@@ -98,16 +98,12 @@ let strip_cr r =
     String.sub r 0 ((String.length r)-1)
 
 type method_t = Get | Post | Put | Connect | Unknown of string
-let string_of_method_t = function
-  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
-let method_t_of_string = function
-  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
 
-type authorization = 
+and authorization = 
     | Basic of string * string
     | UnknownAuth of string
 
-type request = { m: method_t; 
+and request = { m: method_t; 
 		 uri: string; 
 		 query: (string*string) list; 
 		 version: string; 
@@ -119,8 +115,14 @@ type request = { m: method_t;
 		 subtask_of: string option;
 		 content_type: string option;
 		 user_agent: string option;
-		 close: bool ref;
-		 headers: string list;}
+		 mutable close: bool;
+		 headers: string list} with rpc
+
+let string_of_method_t = function
+  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
+let method_t_of_string = function
+  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
+
 
 let nullreq = { m=Unknown "";
 		uri="";
@@ -134,7 +136,7 @@ let nullreq = { m=Unknown "";
 		subtask_of=None;
 		content_type = None;
 		user_agent = None;
-		close= ref true;
+		close= true;
 		headers=[];}
 
 let authorization_of_string x = 
@@ -218,7 +220,7 @@ let request_of_string x =
       let uri, query = parse_uri uri in
       { m = method_t_of_string m; uri = uri; query = query; 
 	content_length = None; transfer_encoding = None;
-	version = version; cookie = []; auth = None; task = None; subtask_of = None; content_type = None; user_agent = None; close=ref false; headers=[] } 
+	version = version; cookie = []; auth = None; task = None; subtask_of = None; content_type = None; user_agent = None; close=false; headers=[] } 
   | _ -> raise Http_parse_failure
 
 let pretty_string_of_request x =
