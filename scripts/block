@@ -4,13 +4,59 @@ TYPE=`echo ${XENBUS_PATH} | cut -f 2 -d '/'`
 DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
 DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
 
+DEVNAME=$TYPE-$DOMID-$DEVID
+
+SYSFS_PATH=/sys/devices/xen-backend/$DEVNAME
+
 XAPI=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
 
-case "$1" in
+HOTPLUG="${XAPI}/hotplug"
+PAUSE="${XENBUS_PATH}/pause"
+PAUSE_DONE="${XENBUS_PATH}/pause-done"
+
+syslog ()
+{
+	logger -pdaemon.info -tscripts-block -- "$DEVNAME[$ACTION]: $*"
+}
+
+case "$ACTION" in
 add)
-        xenstore-write "${XAPI}/hotplug" "online"
-        ;;
+	syslog "writing $HOTPLUG = online"
+	xenstore write "$HOTPLUG" "online"
+
+	echo $(((1<<1) | (1<<3))) > $SYSFS_PATH/queue_events # running|paused
+	;;
+
+change)
+	state=$(xenstore read "${XENBUS_PATH}/queue-state")
+	case "$state" in
+		1) state=running;;
+		3) state=paused;;
+		*) state="unexpected-$state";;
+	esac
+
+	syslog "queue-state = $state"
+
+	case "$state" in
+		paused)
+			if xenstore exists "$PAUSE"
+			then
+				syslog "writing $PAUSE_DONE"
+				xenstore write "$PAUSE_DONE" ""
+			fi
+			;;
+		running)
+			if xenstore exists "$PAUSE_DONE"
+			then
+				syslog "removing $PAUSE_DONE"
+				xenstore rm "$PAUSE_DONE"
+			fi
+			;;
+	esac
+	;;
+
 remove)
-        xenstore-rm "${XAPI}/hotplug"
-        ;;
+	syslog "removing $HOTPLUG"
+	xenstore rm "${XAPI}/hotplug"
+	;;
 esac
