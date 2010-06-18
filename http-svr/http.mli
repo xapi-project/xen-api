@@ -38,9 +38,12 @@ type request = {
 	subtask_of: string option;
 	content_type: string option;
 	user_agent: string option;
-	close: bool ref;
+	mutable close: bool;
     headers: string list;
 }
+
+val rpc_of_request : request -> Rpc.t 
+val request_of_rpc : Rpc.t -> request
  
 val nullreq : request
 val authorization_of_string : string -> authorization
