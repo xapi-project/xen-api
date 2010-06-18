@@ -87,7 +87,7 @@ let get_return_version req =
     
 let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
   let version = get_return_version req in
-  let keep_alive = if !(req.close) then false else true in
+  let keep_alive = if req.close then false else true in
   headers s ((http_200_ok_with_content response_length ~version ~keep_alive ()) @ hdrs);
   write_response_to_fd_fn s
 
@@ -142,7 +142,7 @@ let response_file ?(hdrs=[]) ~mime_content_type s file =
 (** If no handler matches the request then call this callback *)
 let default_callback req bio = 
   response_forbidden (Buf_io.fd_of bio);
-  req.close := true
+  req.close <- true
     
 
 let write_error bio message =
@@ -190,7 +190,7 @@ let handle_connection _ ss =
 
       (* Default for HTTP/1.1 is persistent connections. Anything else closes *)
       (* the channel as soon as the request is processed *)
-      if req.version <> "HTTP/1.1" then req.close := true;
+      if req.version <> "HTTP/1.1" then req.close <- true;
       
       let rec read_rest_of_headers left =
 	let cl_hdr = "content-length: " in
@@ -229,8 +229,8 @@ let handle_connection _ ss =
 	  begin
 	    let token = String.lowercase (end_of_string r (String.length connection_hdr)) in
 	    match token with
-	    | "keep-alive" -> req.close := false
-	    | "close" -> req.close := true
+	    | "keep-alive" -> req.close <- false
+	    | "close" -> req.close <- true
             | _ -> ()
 	  end;
 	if r <> "" then (
@@ -278,7 +278,7 @@ let handle_connection _ ss =
         Buf_io.assert_buffer_empty ic;
         handlerfn req fd
       );
-      finished := !(req.close)
+      finished := (req.close)
     with
       End_of_file -> 
 	DCritical.debug "Premature termination of connection!";
