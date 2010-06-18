@@ -8,6 +8,8 @@ LDFLAGS = -cclib -L./
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 
+PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
+
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
@@ -31,13 +33,13 @@ http_svr.cma: $(foreach obj,$(OBJS),$(obj).cmo)
 	$(OCAMLC) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 %.cmo: %.ml %.cmi
-	$(OCAMLC) -c -thread -I ../stdext -I ../log -o $@ $<
+	$(OCAMLC) -c -pp '${PP}' -thread -I ../rpc-light -I ../stdext -I ../log -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) -c -thread -o $@ $<
+	$(OCAMLC) -c -I ../rpc-light -thread -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -thread -I ../stdext -I ../log -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -pp '${PP}' -c -thread -I ../rpc-light -I ../stdext -I ../log -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
