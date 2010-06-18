@@ -42,6 +42,6 @@ let vncsnapshot_handler (req: request) s =
 	   )
 	   (fun () -> try Unix.unlink tmp with _ -> ())
        with e ->
-	 req.close := true;
+	 req.close <- true;
 	 raise e
     )

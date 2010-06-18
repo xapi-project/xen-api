@@ -429,7 +429,7 @@ let pool_patch_download_handler (req: request) s =
   
         Http_svr.response_file ~mime_content_type:None s path;
       end;
-      req.close := true
+      req.close <- true
     )
       
 let get_patch_to_local ~__context ~self =

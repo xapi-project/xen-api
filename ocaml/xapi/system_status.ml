@@ -102,7 +102,7 @@ let send_via_cp __context s entries output =
                 
 let handler (req: request) s =
   debug "In system status http handler...";
-  req.close := true;
+  req.close <- true;
   let get_param s =
     try List.assoc s req.query
     with _ -> ""

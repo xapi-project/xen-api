@@ -385,7 +385,7 @@ let get_all_records_where ~__context ~expr =
    days worth of messages as an RSS feed. *)  
 let handler (req: Http.request) (bio: Buf_io.t) = 
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   debug "Message handler";
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
