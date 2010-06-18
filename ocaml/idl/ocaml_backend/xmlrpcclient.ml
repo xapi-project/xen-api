@@ -19,6 +19,7 @@ module D = Debug.Debugger(struct let name = "http" end)
 open D
 
 let set_stunnelpid_callback : (string -> int -> unit) option ref = ref None
+let unset_stunnelpid_callback : (string -> int -> unit) option ref = ref None
 
 (* Headers for an HTTP CONNECT operation *)
 let connect_headers ?session_id ?task_id ?subtask_of host path = 
@@ -340,14 +341,23 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
   let s = st_proc.Stunnel.fd in
   let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
   info "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid use_stunnel_cache host port;
-  begin
-    match task_id with
-        None -> debug "Did not write stunnel pid: no task passed to http_rpc fn"
-      | Some t ->
-          match !set_stunnelpid_callback with
-	      None -> warn "Did not write stunnel pid: no callback registered"
-	    | Some f -> f t s_pid
-  end;
+
+  (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
+  let with_recorded_stunnelpid task_opt s_pid f =
+	begin
+	  match task_id, !set_stunnelpid_callback with
+	  | Some t, Some f -> f t s_pid
+	  | _, _ -> ()
+	end;
+	finally f
+		(fun () ->
+			 match task_id, !unset_stunnelpid_callback with
+			 | Some t, Some f -> f t s_pid
+			 | _, _ -> ()
+		) in
+
+  with_recorded_stunnelpid task_id s_pid
+	(fun () ->
   finally
     (fun () ->
       try
@@ -368,7 +378,7 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
           Stunnel.disconnect st_proc
         end
     )
-      
+     ) 
 
 (** Take an optional content_length and task_id together with a socket
     and return the XMLRPC response as an XML document *)
