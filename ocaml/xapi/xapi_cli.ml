@@ -154,8 +154,13 @@ let exec_command req is_compat cmd s session args =
   let rpc = Helpers.get_rpc () req s in
   Cli_frontend.populate_cmdtable rpc Ref.null;
   (* Log the actual CLI command to help diagnose failures like CA-25516 *)
-  debug "xe %s %s" (get_cmdname cmd) (String.concat " " (List.map (fun (k, v) -> let v' = if k = "password" then "(omitted)" else v in k ^ "=" ^ v') params));
-  if get_cmdname cmd = "help"
+  let cmd_name = get_cmdname cmd in
+  if String.startswith "secret-" cmd_name
+	then
+		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
+	else
+		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
+  if cmd_name = "help"
   then do_help is_compat cmd minimal s 
   else do_rpcs req s u p minimal is_compat cmd session args
 	
