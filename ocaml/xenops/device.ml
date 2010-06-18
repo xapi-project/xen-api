@@ -865,7 +865,7 @@ module PV_Vnc = struct
 
 let vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 
-let path domid = sprintf "/local/domain/%d/serial/0/vnc-port" domid
+let vnc_port_path domid = sprintf "/local/domain/%d/serial/0/vnc-port" domid
 
 let pid ~xs domid =
 	try
@@ -924,7 +924,7 @@ let start ?statefile ~xs domid =
 	
 	(* Block waiting for it to write the VNC port into the store *)
 	try
-	  let port = Watch.wait_for ~xs (Watch.value_to_appear (path domid)) in
+	  let port = Watch.wait_for ~xs (Watch.value_to_appear (vnc_port_path domid)) in
 	  debug "vncterm: wrote vnc port %s into the store" port;
 	  int_of_string port
 	with Watch.Timeout _ ->
@@ -1665,3 +1665,8 @@ let stop ~xs domid  =
 	end
 
 end
+
+let vnc_port_path ~xc ~xs domid = 
+  if (Xc.domain_getinfo xc domid).Xc.hvm_guest
+  then Dm.vnc_port_path domid
+  else PV_Vnc.vnc_port_path domid
