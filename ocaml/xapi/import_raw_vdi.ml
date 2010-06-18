@@ -24,7 +24,7 @@ open Unixext
 open Pervasiveext
 
 let handler (req: request) (s: Unix.file_descr) =
-  req.close := true;
+  req.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
       let vdi = 

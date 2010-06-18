@@ -116,7 +116,7 @@ let check_vm_is_running_here __context console =
 (* GET /console_uri?ref=.....
    Cookie: <session id> *)
 let handler proxy_fn (req: request) s =
-  req.close := true;
+  req.close <- true;
   Xapi_http.with_context "Connection to VM console" req s
     (fun __context ->
       let console = console_of_request __context req in

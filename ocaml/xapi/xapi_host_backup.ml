@@ -59,7 +59,7 @@ let host_backup_handler_core ~__context s =
 	    raise (Api_errors.Server_error (Api_errors.backup_script_failed, [log]))
 
 let host_backup_handler (req: request) s = 
-  req.close := true;
+  req.close <- true;
   Xapi_http.with_context "Downloading host backup" req s
     (fun __context ->
       Http_svr.headers s (Http.http_200_ok ());
@@ -89,7 +89,7 @@ let close to_close fd =
   to_close := List.filter (fun x -> fd <> x) !to_close 
 
 let host_restore_handler (req: request) s = 
-  req.close := true;
+  req.close <- true;
   Xapi_http.with_context "Uploading host backup" req s
     (fun __context ->
       Http_svr.headers s (Http.http_200_ok ());

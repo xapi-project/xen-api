@@ -208,7 +208,7 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
         | None -> Server_helpers.exec_with_new_task ~task_in_database:(not dummy) label fail
         | Some task_id -> Server_helpers.exec_with_forwarded_task task_id fail
     end;
-    req.close := true;
+    req.close <- true;
     raise e
 
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
