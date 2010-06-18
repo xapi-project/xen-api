@@ -139,6 +139,9 @@ sdk-install: datamodel html_build xenenterpriseapi.pdf
 	lynx -dump sdk-README.html > $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
 
+.PHONY: doc
+doc: sdk-install
+
 
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
