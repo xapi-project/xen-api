@@ -316,41 +316,41 @@ function parse_structure(structure)
 	types = [];
 	module_types = [];
 	for (i in structure) {
-		item = structure[i];
-		for (j in item) {
+		el = structure[i];
+		for (j in el) {
 			switch (j) {
 			case 'module':
-				included_module(item[j], i);
-				l = item[j].name.split('.');
+				included_module(el[j], i);
+				l = el[j].name.split('.');
 				name = l[l.length - 1];
 				included_modules.push(name);
 				break;
 			case 'value':
-				value(item[j], i);
-				l = item[j].name.split('.');
+				value(el[j], i);
+				l = el[j].name.split('.');
 				name = l[l.length - 1];
 				values.push(name);
 				break;
 			case 'exception':
-				exception(item[j], i);
-				l = item[j].name.split('.');
+				exception(el[j], i);
+				l = el[j].name.split('.');
 				name = l[l.length - 1];
 				exceptions.push(name);
 				break;
 			case 'type':
-				type(item[j], i);
-				l = item[j].name.split('.');
+				type(el[j], i);
+				l = el[j].name.split('.');
 				name = l[l.length - 1];
 				types.push(name);
 				break;
 			case 'module_type':
-				module_type(item[j], i);
-				l = item[j].name.split('.');
+				module_type(el[j], i);
+				l = el[j].name.split('.');
 				name = l[l.length - 1];
 				module_types.push(name);
 				break;
 			case 'comment':
-				comment(item[j], i);
+				comment(el[j], i);
 				break;
 			default: break;
 			}
