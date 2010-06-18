@@ -131,13 +131,8 @@ val get_carrier : string -> bool
 (** Returns PCI vendor and device ID for network device. *)
 val get_ids : string -> string * string
 
-(** Indicates whether the given interface is a physical interface. *)
+(** Indicates whether the given interface is a physical interface *)
 val is_physical : string -> bool
 
-(** Returns the device name of the given interface according to [biosdevname]. This is a name
- *  that is based on the BIOS name and should not be affected by changes in the Linux kernel or
- *  manual device renaming. *)
-val get_bios_name : string -> string
-
-(** Dispatch operation to correct backend device. *)
+(** Dispatch operation to correct backend device *)
 val network : network_ops
