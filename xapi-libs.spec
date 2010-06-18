@@ -230,6 +230,10 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/vIO.cmx
    /usr/lib/ocaml/stdext/zerocheck.cmi
    /usr/lib/ocaml/stdext/zerocheck.cmx
+   /usr/lib/ocaml/stdext/either.cmi
+   /usr/lib/ocaml/stdext/either.cmx
+   /usr/lib/ocaml/stdext/os.cmi
+   /usr/lib/ocaml/stdext/os.cmx
    /usr/lib/ocaml/stunnel/META
    /usr/lib/ocaml/stunnel/stunnel.a
    /usr/lib/ocaml/stunnel/stunnel.cma
