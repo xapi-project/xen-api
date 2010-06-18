@@ -157,7 +157,8 @@ function value(v, n)
 		n = v.params[c].name;
 		html += '<tr><td width="20%" style="padding: 0 0 .2em">' +
 			(n == "" ? '(no name)' : v.params[c].name) + '</td>';
-		html += '<td style="padding: 0 0 .2em">' + transform_type(v.params[c].type) + '</td></tr>';
+		html += '<td style="padding: 0 0 .2em">' + transform_type(v.params[c].type) + '</td>';
+		html += '<td style="padding: 0 0 .2em">' + (v.params[c].comment != undefined ? v.params[c].comment : '') + '</td></tr>';
 	}
 	html += '</table>';
 	html += '</td></tr>';	
