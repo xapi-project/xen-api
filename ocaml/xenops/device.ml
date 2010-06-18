@@ -1670,3 +1670,8 @@ let vnc_port_path ~xc ~xs domid =
   if (Xc.domain_getinfo xc domid).Xc.hvm_guest
   then Dm.vnc_port_path domid
   else PV_Vnc.vnc_port_path domid
+
+let vnc_port_path ~xc ~xs domid = 
+  if (Xc.domain_getinfo xc domid).Xc.hvm_guest
+  then Dm.vnc_port_path domid
+  else PV_Vnc.vnc_port_path domid
