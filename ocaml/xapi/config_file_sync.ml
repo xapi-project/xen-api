@@ -21,7 +21,7 @@ let config_file_sync_handler (req: Http.request) s =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
-      req.Http.close := true;
+      req.Http.close <- true;
       debug "sending headers";
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
       debug "writing dom0 config files";

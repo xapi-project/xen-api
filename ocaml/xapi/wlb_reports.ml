@@ -224,7 +224,7 @@ let handle req bio method_name tokens (method_name, request_func) =
   let client_sock = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
   debug "handle: fd = %d" (Unixext.int_of_file_descr client_sock);
-  req.close := true;
+  req.close <- true;
 
   Xapi_http.with_context (sprintf "WLB %s request" method_name) req
     client_sock

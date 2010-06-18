@@ -40,7 +40,7 @@ exception No_storage
 
 let handler (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   debug "blob handler";
   if not(List.mem_assoc "ref" query) then begin
     let headers = Http.http_400_badrequest in
