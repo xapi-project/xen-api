@@ -204,9 +204,15 @@ let register_callback_fns() =
       Db.Task.set_stunnelpid ~__context:Context.initial ~self:(Ref.of_string t) ~value:(Int64.of_int s_pid);
     with _ -> 
       debug "Did not write stunnel pid: no task record in db for this action"
-    in
+  in
+  let unset_stunnelpid t s_pid = 
+	try
+	  Db.Task.set_stunnelpid ~__context:Context.initial ~self:(Ref.of_string t) ~value:0L
+	with _ -> () in
+
     Helpers.rpc_fun := Some fake_rpc;
     Xmlrpcclient.set_stunnelpid_callback := Some set_stunnelpid;
+    Xmlrpcclient.unset_stunnelpid_callback := Some unset_stunnelpid;
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
     TaskHelper.init ()
 
