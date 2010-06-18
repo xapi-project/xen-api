@@ -307,7 +307,7 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 		try
 			debug "Copying the VBDs";
 			let (_ : [`VBD] Ref.t list) =
-				List.map (fun (vbd, vdi) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) cloned_disks in
+				List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) cloned_disks in
 			TaskHelper.set_progress ~__context 0.8;
 
 			debug "Update the suspend_VDI";
@@ -323,7 +323,8 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 
 		with e ->
 			error "Error while updating the new VBD, VDI and VIF records. Cleaning up the cloned VDIs.";
-			List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) (cloned_suspend_VDI :: List.map snd cloned_disks);
+			let vdis = cloned_suspend_VDI :: (List.fold_left (fun acc (_, vdi, on_error_delete) -> if on_error_delete then vdi::acc else acc) [] cloned_disks) in
+			List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis;
 			raise e)
 
 let update_guest_metrics ~__context ~vm ~snapshot =
