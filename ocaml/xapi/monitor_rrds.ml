@@ -413,7 +413,7 @@ exception Invalid_RRD
 
 let receive_handler (req: Http.request) (bio: Buf_io.t) =
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   debug "RRD receive handler";
   if not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
@@ -468,7 +468,7 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
 (** Send handler, for sending out requested RRDs *)
 let handler (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   debug "RRD handler";
   if not(List.mem_assoc "ref" query) && not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
@@ -526,7 +526,7 @@ let handler (req: Http.request) s =
 (** Send handler, for sending out requested host RRDs *)
 let handler_host (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   debug "RRD host handler";
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
@@ -579,7 +579,7 @@ let get_host_stats ?(json=false) start interval cfopt host uuid =
 
 let handler_rrd_updates (req: Http.request) s =
   let query = req.Http.query in
-  req.Http.close := true;
+  req.Http.close <- true;
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
       if not(List.mem_assoc "start" query) then begin
