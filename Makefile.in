@@ -37,6 +37,7 @@ endif
 allxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C mmap
+	$(MAKE) -C netdev
 	$(MAKE) -C xc
 	$(MAKE) -C xb
 	$(MAKE) -C xs
@@ -74,6 +75,7 @@ endif
 installxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C mmap install
+	$(MAKE) -C netdev install
 	$(MAKE) -C xc install
 	$(MAKE) -C xb install
 	$(MAKE) -C xs install
@@ -112,6 +114,7 @@ uninstallxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C eventchn uninstall
 	$(MAKE) -C xsrpc uninstall
+	$(MAKE) -C netdev uninstall
 	$(MAKE) -C xs uninstall
 	$(MAKE) -C xb uninstall
 	$(MAKE) -C xc uninstall
@@ -162,6 +165,7 @@ doc:
 	$(MAKE) -C stunnel doc
 	$(MAKE) -C xsrpc doc
 	$(MAKE) -C mmap doc
+	$(MAKE) -C netdev doc
 	$(MAKE) -C forking_executioner doc
 	$(MAKE) -C mlvm doc
 	$(MAKE) -C cpuid doc
@@ -190,6 +194,7 @@ clean:
 
 cleanxen:
 	$(MAKE) -C mmap clean
+	$(MAKE) -C netdev clean
 	$(MAKE) -C xc clean
 	$(MAKE) -C xb clean
 	$(MAKE) -C xs clean
