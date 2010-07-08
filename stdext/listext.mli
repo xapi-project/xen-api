@@ -72,7 +72,7 @@ sig
 	val position : ('a -> bool) -> 'a list -> int list
 
 	(** Map the given function over a list, supplying the integer
-	 * index as well as the element value. *)
+	    index as well as the element value. *)
 	val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
 
 	val iteri : (int -> 'a -> unit) -> 'a list -> unit
@@ -89,7 +89,7 @@ sig
 	val chop : int -> 'a list -> 'a list * 'a list
 
 	(** Split a list at the given index to give a pair of lists, the first in
-		reverse order. *)
+		  reverse order. *)
 	val rev_chop : int -> 'a list -> 'a list * 'a list
 
 	(** Tail-recursive [chop]. *)
@@ -118,7 +118,7 @@ sig
 	val morph : int -> ('a -> 'a) -> 'a list -> 'a list
 
 	(** Insert the element [e] between every pair of adjacent elements in the
-		given list. *)
+	    given list. *)
 	val between : 'a -> 'a list -> 'a list
 
 	(** Tail-recursive [between]. *)
@@ -128,7 +128,7 @@ sig
 	val randomize : 'a list -> 'a list
 
 	(** Distribute the given element over the given list, returning a list of
-		lists with the new element in each position. *)
+	    lists with the new element in each position. *)
 	val distribute : 'a -> 'a list -> 'a list list
 
 	(** Generate all permutations of the given list. *)
@@ -149,14 +149,14 @@ sig
 		'e -> ('b -> 'c -> 'i) -> 'f -> 'g -> ('a -> 'i -> 'd) -> 'h
 
 	(** Applies a function f that generates optional values, to each
-	 * of the items in a list A [a1; ...; am], generating a new list of
-	 * non-optional values B [b1; ...; bn], with m >= n. For each value
-	 * a in list A, list B contains a corresponding value b if and only
-	 * if the application of (f a) results in Some b.  *)
+	    of the items in a list A [a1; ...; am], generating a new list of
+	    non-optional values B [b1; ...; bn], with m >= n. For each value
+	    a in list A, list B contains a corresponding value b if and only
+	    if the application of (f a) results in Some b.  *)
 	val filter_map : ('a -> 'b option) -> 'a list -> 'b list
 
 	(** Returns true if and only if the given list is in sorted order
-	 * according to the given comparison function.  *)
+	    according to the given comparison function.  *)
 	val is_sorted : ('a -> 'a -> int) -> 'a list -> bool
 
 	(** Returns the intersection of two lists. *)
@@ -166,13 +166,18 @@ sig
 	val set_difference : 'a list -> 'a list -> 'a list
 
 	(** Act as List.assoc, but return the given default value if the
-	 * key is not in the list. *)
+	    key is not in the list. *)
 	val assoc_default : 'a -> ('a * 'b) list -> 'b -> 'b
+
+	(** [map_assoc_with_key op al] transforms every value in [al] based on the
+	    key and the value using [op]. *)
+	val map_assoc_with_key : ('k -> 'v1 -> 'v2) -> ('k * 'v1) list -> ('k * 'v2) list
 
 	(* Like Lisp cons*)
 	val cons : 'a -> 'a list -> 'a list
 
-	(* take n list: Return the first n elements of list (or less if list is shorter).*)
+	(** [take n list] returns the first [n] elements of [list] (or less if list
+	    is shorter).*)
 	val take : int -> 'a list -> 'a list
 
 	val tails : 'a list -> ('a list) list
@@ -182,4 +187,12 @@ sig
 	val replace_assoc : 'a -> 'b -> ('a * 'b) list -> ('a * 'b) list
 
 	val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
+
+	(** Unbox all values from the option list. *)
+	val unbox_list : 'a option list -> 'a list
+
+	(** [restrict_with_default default keys al] makes a new association map
+	    from [keys] to previous values for [keys] in [al]. If a key is not found
+	    in [al], the [default] is used. *)
+	val restrict_with_default : 'v -> 'k list -> ('k * 'v) list -> ('k * 'v) list
 end

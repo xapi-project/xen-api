@@ -53,8 +53,6 @@ let fold_right f opt accu =
 	| Some x -> f x accu
 	| None -> accu
 
-let cat_some a = List.map unbox (List.filter is_boxed a)
-
 let join = function
     | Some (Some a) -> Some a
     | _ -> None
