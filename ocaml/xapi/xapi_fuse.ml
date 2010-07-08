@@ -19,7 +19,7 @@ open D
 
 let time f = 
   let start = Unix.gettimeofday () in
-  f ();
+  (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));
   Unix.gettimeofday () -. start
 
 (* give xapi time to reply to API messages by means of a 10 second fuse! *)
