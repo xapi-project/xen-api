@@ -1,10 +1,10 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils
+OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev
 OCAML_LIBS    =  ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../netdev ../auth ../license ../client_records ../rfb ../gpg
+	../auth ../license ../client_records ../rfb ../gpg
 
 
 
@@ -14,7 +14,7 @@ CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 # (the same holds for OCaml packages)
-XEN_OCAML_LIBS = ../netdev/netdev ../xenops/xenops ../auth/pam
+XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
 XEN_OCAMLINCLUDES =
 XEN_OCAMLPACKS = xc xs cpuid
 OCAML_CLIBS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAML_CLIBS) $(OCAML_CLIBS), $(OCAML_CLIBS)) 
