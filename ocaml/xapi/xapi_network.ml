@@ -24,10 +24,10 @@ open Db_filter
 let get_allowed_messages ~__context ~self = []
 *)
 
-let create_internal_bridge ~bridge =
-  debug "Creating internal bridge %s" bridge;
+let create_internal_bridge ~bridge ~uuid =
+  debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
   let current = Netdev.network.Netdev.list () in
-  if not(List.mem bridge current) then Netdev.network.Netdev.add bridge;
+  if not(List.mem bridge current) then Netdev.network.Netdev.add bridge ?uuid:(Some uuid);
   if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
@@ -36,10 +36,11 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check:management_interface in
 
   let bridge = Db.Network.get_bridge ~__context ~self in
+  let uuid = Db.Network.get_uuid ~__context ~self in
 
   (* Ensure internal bridge exists and is up. external bridges will be
      brought up by call to interface-reconfigure. *)
-  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge;
+  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge ~uuid;
 
   (* Check if we're a guest-installer network: *)
   let other_config = Db.Network.get_other_config ~__context ~self in

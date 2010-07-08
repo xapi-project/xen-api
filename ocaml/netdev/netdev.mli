@@ -21,7 +21,7 @@ type kind =
 (** Possible operations on each network backend type. *)
 type network_ops = {
   kind : kind;                              (** The type of network backend. *)
-  add : string -> unit;                     (** Add a bridge. *)
+  add : string -> ?uuid:string -> unit;     (** Add a bridge. *)
   del : string -> unit;                     (** Remove a bridge. *)
   list : unit -> string list;               (** List all bridges. *)
   exists : string -> bool;                  (** Query the existance of a bridge. *)
