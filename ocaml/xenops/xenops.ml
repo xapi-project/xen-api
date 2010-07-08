@@ -233,11 +233,9 @@ let find_device ~xs (frontend: endpoint) (backend: endpoint) =
   | _ -> failwith "failed to find device"
 
 let del_vbd ~xs ~domid ~backend_domid ~virtpath ~phystype =
-	let physty = Device.Vbd.physty_of_string phystype in
-	let kind = Device.Vbd.kind_of_physty physty in
 	let devid = Device.Vbd.device_number virtpath in
-	let frontend = { domid = domid; kind = kind; devid = devid } in
-	let backend = { domid = backend_domid; kind = kind; devid = devid } in
+	let frontend = { domid = domid; kind = Vbd; devid = devid } in
+	let backend = { domid = backend_domid; kind = Vbd; devid = devid } in
 	let device = find_device ~xs frontend backend in
 	Device.clean_shutdown ~xs device
 
