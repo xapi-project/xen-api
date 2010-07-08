@@ -408,48 +408,16 @@ let create_all_templates rpc session_id =
 		rhel4x_template "Red Hat Enterprise Linux 4.6" X32 [  s;];
 		rhel4x_template "Red Hat Enterprise Linux 4.7" X32 [l;s;];
 		rhel4x_template "Red Hat Enterprise Linux 4.8" X32 [l;  ];
-		rhel5x_template "Red Hat Enterprise Linux 5.0" X32 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.1" X32 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.2" X32 [l;  ];
-		rhel5x_template "Red Hat Enterprise Linux 5.3" X32 [l;  ];
-		rhel5x_template "Red Hat Enterprise Linux 5.4" X32 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.5" X32 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.0" X64 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.1" X64 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.2" X64 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.3" X64 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.4" X64 [    ];
-		rhel5x_template "Red Hat Enterprise Linux 5.5" X64 [    ];
-
 		rhel4x_template "CentOS 4.5" X32 [  s;];
 		rhel4x_template "CentOS 4.6" X32 [  s;];
 		rhel4x_template "CentOS 4.7" X32 [l;s;];
 		rhel4x_template "CentOS 4.8" X32 [l;  ];
-		rhel5x_template "CentOS 5.0" X32 [    ];
-		rhel5x_template "CentOS 5.1" X32 [    ];
-		rhel5x_template "CentOS 5.2" X32 [l;  ];
-		rhel5x_template "CentOS 5.3" X32 [l;  ];
-		rhel5x_template "CentOS 5.4" X32 [    ];
-		rhel5x_template "CentOS 5.5" X32 [    ];
-		rhel5x_template "CentOS 5.0" X64 [    ];
-		rhel5x_template "CentOS 5.1" X64 [    ];
-		rhel5x_template "CentOS 5.2" X64 [    ];
-		rhel5x_template "CentOS 5.3" X64 [    ];
-		rhel5x_template "CentOS 5.4" X64 [    ];
-		rhel5x_template "CentOS 5.5" X64 [    ];
-
-		rhel5x_template "Oracle Enterprise Linux 5.0" X32 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.1" X32 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.2" X32 [l;  ];
-		rhel5x_template "Oracle Enterprise Linux 5.3" X32 [l;  ];
-		rhel5x_template "Oracle Enterprise Linux 5.4" X32 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.5" X32 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.0" X64 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.1" X64 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.2" X64 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.3" X64 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.4" X64 [    ];
-		rhel5x_template "Oracle Enterprise Linux 5.5" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5"   X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5"   X64 [    ];
+		rhel5x_template "CentOS 5" X32 [    ];
+		rhel5x_template "CentOS 5" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5" X64 [    ];
 
 		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
@@ -467,6 +435,44 @@ let create_all_templates rpc session_id =
 		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike [    ];
+
+
+		rhel5x_template "Red Hat Enterprise Linux 5.0" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.1" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.2" X32 [l;  ];
+		rhel5x_template "Red Hat Enterprise Linux 5.3" X32 [l;  ];
+		rhel5x_template "Red Hat Enterprise Linux 5.4" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.5" X32 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.0" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.1" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.2" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.3" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.4" X64 [    ];
+		rhel5x_template "Red Hat Enterprise Linux 5.5" X64 [    ];
+		rhel5x_template "CentOS 5.0" X32 [    ];
+		rhel5x_template "CentOS 5.1" X32 [    ];
+		rhel5x_template "CentOS 5.2" X32 [l;  ];
+		rhel5x_template "CentOS 5.3" X32 [l;  ];
+		rhel5x_template "CentOS 5.4" X32 [    ];
+		rhel5x_template "CentOS 5.5" X32 [    ];
+		rhel5x_template "CentOS 5.0" X64 [    ];
+		rhel5x_template "CentOS 5.1" X64 [    ];
+		rhel5x_template "CentOS 5.2" X64 [    ];
+		rhel5x_template "CentOS 5.3" X64 [    ];
+		rhel5x_template "CentOS 5.4" X64 [    ];
+		rhel5x_template "CentOS 5.5" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.0" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.1" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.2" X32 [l;  ];
+		rhel5x_template "Oracle Enterprise Linux 5.3" X32 [l;  ];
+		rhel5x_template "Oracle Enterprise Linux 5.4" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.5" X32 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.0" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.1" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.2" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.3" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.4" X64 [    ];
+		rhel5x_template "Oracle Enterprise Linux 5.5" X64 [    ];
 
 		sdk_install_template
 	] in
