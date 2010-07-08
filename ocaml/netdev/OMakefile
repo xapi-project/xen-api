@@ -1,5 +1,0 @@
-OCamlLibraryClib(netdev, netdev, netdev_stubs)
-StaticCLibrary(netdev_stubs, bridge_stubs link_stubs addr_stubs)
-OCamlDocLibrary(netdev, netdev)
-
-OCAML_LIBS += netdev
