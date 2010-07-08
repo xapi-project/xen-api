@@ -253,7 +253,7 @@ module Resync = struct
 	     Device.Generic.rm_device_state ~xs device;
 	     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	     if exists
-	     then Storage_access.VDI.detach ~__context ~self:vdi
+	     then Storage_access.deactivate_and_detach ~__context ~vdi
 	     else debug "VBD %s: Skipping VDI.detach of %s since device doesn't exist" (Ref.string_of vbd) (Ref.string_of vdi)
 	   );
 	   (* If VM is suspended, leave currently_attached and the VDI lock
