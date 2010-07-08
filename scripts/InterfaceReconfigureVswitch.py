@@ -431,4 +431,5 @@ class DatapathVswitch(Datapath):
 
         if dp:
             vsctl_argv += deconfigure_datapath(dp)
-            datapath_modify_config(vsctl_argv)
+
+        datapath_modify_config(vsctl_argv)
