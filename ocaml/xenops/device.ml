@@ -252,9 +252,7 @@ type physty = File | Phys | Qcow | Vhd | Aio
 let backendty_of_physty = function
 	| File -> "file"
 	| Phys -> "phy"
-	| Qcow -> "tap"
-	| Vhd  -> "tap"
-	| Aio  -> "tap"
+	| Qcow | Vhd | Aio -> "phy"
 
 let string_of_physty = function
 	| Qcow -> "qcow"
@@ -485,14 +483,9 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
         ?(protocol=Protocol_Native) ?extra_backend_keys ?(extra_private_keys=[]) ?(backend_domid=0) domid  =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
 	let devid = device_number virtpath in
-
-	let backend_tap ty physpath =
-		Hashtbl.add back_tbl "params" (ty ^ ":" ^ physpath);
-		"tap", { domid = backend_domid; kind = Tap; devid = devid }
-		in
-	let backend_blk ty physpath =
-		Hashtbl.add back_tbl "params" physpath;
-		"vbd", { domid = backend_domid; kind = Vbd; devid = devid }
+	let device = 
+	  let backend = { domid = backend_domid; kind = Vbd; devid = devid } 
+	  in  device_of_backend backend domid
 	in
 
 	debug "Device.Vbd.add (virtpath=%s | physpath=%s | phystype=%s)"
@@ -512,30 +505,16 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
 	 | None -> ());
 
-	let frontend = { domid = domid; kind = Vbd; devid = devid } in
-
-	let backend_ty, backend = match phystype with
-	| File ->
-		(* Note: qemu access device images itself, so requires the path
-		   of the original file or block device. CDROM media change is achieved
-		   by changing the path in xenstore. Only PV guests need the loopback *)
-		let backend_ty, backend = backend_blk "file" physpath in
-		if not(hvm) then begin
-		  let device = { backend = backend; frontend = frontend } in
-		  let loopdev = Hotplug.mount_loopdev ~xs device physpath (mode = ReadOnly) in
-		  Hashtbl.add back_tbl "physical-device" (string_of_major_minor loopdev);
-		  Hashtbl.add back_tbl "loop-device" loopdev;
-		end;
-		backend_ty, backend
-	| Phys ->
-		Hashtbl.add back_tbl "physical-device" (string_of_major_minor physpath);
-		backend_blk "raw" physpath
-	| Qcow | Vhd | Aio ->
-		backend_tap (string_of_physty phystype) physpath
-		in
-
-	let device = { backend = backend; frontend = frontend } in
-	
+	begin match phystype with
+	  | File ->
+	      if not(hvm) then begin
+		let loopdev = Hotplug.mount_loopdev ~xs device physpath (mode = ReadOnly) in
+		Hashtbl.add back_tbl "physical-device" (string_of_major_minor loopdev);
+		Hashtbl.add back_tbl "loop-device" loopdev
+	      end
+	  | Phys | Qcow | Vhd | Aio ->
+	      Hashtbl.add back_tbl "physical-device" (string_of_major_minor physpath)
+          end;
 
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
@@ -554,6 +533,7 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 		"dev", (if domid = 0 && virtpath.[0] = 'x' then "/dev/" else "") ^ virtpath;
 		"type", backendty_of_physty phystype;
 		"mode", string_of_mode mode;
+		"params", physpath;
 	];
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);

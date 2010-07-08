@@ -41,11 +41,9 @@ let vbd_of_devid ~__context ~vm devid =
 let device_of_vbd ~__context ~self = 
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-  let vdi = Db.VBD.get_VDI ~__context ~self in
-  let kind = kind_of_vdi ~__context ~self:vdi in
   let devid = devid_of_vbd ~__context ~self in
   let backend = { Device_common.domid = 0; 
-		  kind = kind;
+		  kind = Device_common.Vbd;
 		  devid = devid } in
   Device_common.device_of_backend backend domid 
 
