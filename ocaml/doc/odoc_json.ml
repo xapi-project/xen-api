@@ -87,7 +87,7 @@ let remove_asterisks str =
 			else
 				Buffer.add_char res str.[i]
 		| 1 -> 
-			if str.[i] != '\n' && str.[i] != ' ' & str.[i] != '*' then begin
+			if not (List.mem str.[i] ['\n'; '\t'; ' '; '*']) then begin
 				phase := 0;
 				Buffer.add_char res str.[i]
 			end
