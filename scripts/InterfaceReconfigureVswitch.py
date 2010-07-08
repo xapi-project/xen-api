@@ -1,5 +1,5 @@
 # Copyright (c) 2008,2009 Citrix Systems, Inc.
-# Copyright (c) 2009 Nicira Networks.
+# Copyright (c) 2009,2010 Nicira Networks.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published
@@ -118,25 +118,20 @@ A VLAN PIF cannot be a datapath PIF.
         return [pif]
 
 def datapath_deconfigure_physical(netdev):
-    # The use of [!0-9] keeps an interface of 'eth0' from matching
-    # VLANs attached to eth0 (such as 'eth0.123'), which are distinct
-    # interfaces.
-    return ['--del-match=bridge.*.port=%s' % netdev,
-            '--del-match=port.%s.[!0-9]*' % netdev,
-            '--del-match=bonding.*.slave=%s' % netdev,
-            '--del-match=iface.%s.[!0-9]*' % netdev]
+    return ['--', '--if-exists', 'del-port', netdev]
 
 def datapath_configure_bond(pif,slaves):
+    bridge = pif_bridge_name(pif)
     pifrec = db().get_pif_record(pif)
     interface = pif_netdev_name(pif)
 
-    argv = ['--del-match=bonding.%s.[!0-9]*' % interface]
-    argv += ["--add=bonding.%s.slave=%s" % (interface, pif_netdev_name(slave))
-             for slave in slaves]
-    argv += ['--add=bonding.%s.fake-iface=true' % interface]
+    argv = ['--', '--fake-iface', 'add-bond', bridge, interface]
+    for slave in slaves:
+        argv += [pif_netdev_name(slave)]
 
-    if pifrec['MAC'] != "":
-        argv += ['--add=port.%s.mac=%s' % (interface, pifrec['MAC'])]
+    # XXX need ovs-vsctl support
+    #if pifrec['MAC'] != "":
+    #    argv += ['--add=port.%s.mac=%s' % (interface, pifrec['MAC'])]
 
     # Bonding options.
     bond_options = {
@@ -154,44 +149,33 @@ def datapath_configure_bond(pif,slaves):
     overrides = map(lambda (key,val): (key[5:], val), overrides)
     bond_options.update(overrides)
     for (name,val) in bond_options.items():
-        argv += ["--add=bonding.%s.%s=%s" % (interface, name, val)]
+        # XXX need ovs-vsctl support for bond options
+        #argv += ["--add=bonding.%s.%s=%s" % (interface, name, val)]
+        pass
     return argv
 
 def datapath_deconfigure_bond(netdev):
-    # The use of [!0-9] keeps an interface of 'eth0' from matching
-    # VLANs attached to eth0 (such as 'eth0.123'), which are distinct
-    # interfaces.
-    return ['--del-match=bonding.%s.[!0-9]*' % netdev,
-            '--del-match=port.%s.[!0-9]*' % netdev]
+    return ['--', '--if-exists', 'del-port', netdev]
 
 def datapath_deconfigure_ipdev(interface):
-    # The use of [!0-9] keeps an interface of 'eth0' from matching
-    # VLANs attached to eth0 (such as 'eth0.123'), which are distinct
-    # interfaces.
-    return ['--del-match=bridge.*.port=%s' % interface,
-            '--del-match=port.%s.[!0-9]*' % interface,
-            '--del-match=iface.%s.[!0-9]*' % interface,
-            '--del-match=vlan.%s.trunks=*' % interface,
-            '--del-match=vlan.%s.tag=*' % interface]
+    return ['--', '--if-exists', 'del-port', interface]
 
 def datapath_modify_config(commands):
     #log("modifying configuration:")
     #for c in commands:
     #    log("  %s" % c)
-
-    rc = run_command(['/usr/bin/ovs-cfg-mod', '-vANY:console:emer',
-                 '-F', '/etc/ovs-vswitchd.conf']
-                + [c for c in commands if c[0] != '#'] + ['-c'])
-    if not rc:
+            
+    rc = run_command(['/usr/bin/ovs-vsctl'] + ['--timeout=20']
+                     + [c for c in commands if not c.startswith('#')])
+    if not rc:       
         raise Error("Failed to modify vswitch configuration")
-    run_command(['/sbin/service', 'vswitch', 'reload'])
     return True
 
 #
 # Toplevel Datapath Configuration.
 #
 
-def configure_datapath(pif):
+def configure_datapath(pif, parent=None, vlan=None):
     """Bring up the datapath configuration for PIF.
 
     Should be careful not to glitch existing users of the datapath, e.g. other VLANs etc.
@@ -199,12 +183,12 @@ def configure_datapath(pif):
     Should take care of tearing down other PIFs which encompass common physical devices.
 
     Returns a tuple containing
-    - A list containing the necessary cfgmod command line arguments
+    - A list containing the necessary vsctl command line arguments
     - A list of additional devices which should be brought up after
       the configuration is applied.
     """
 
-    cfgmod_argv = []
+    vsctl_argv = []
     extra_up_ports = []
 
     bridge = pif_bridge_name(pif)
@@ -260,42 +244,46 @@ def configure_datapath(pif):
         #ifdown(b)
         # XXX
         netdev_down(b)
-        cfgmod_argv += ['# remove bridge %s' % b]
-        cfgmod_argv += ['--del-match=bridge.%s.*' % b]
+        vsctl_argv += ['# remove bridge %s' % b]
+        vsctl_argv += ['--', '--if-exists', 'del-br', b]
 
     for n in extra_down_ports:
         dev = pif_netdev_name(n)
-        cfgmod_argv += ['# deconfigure sibling physical device %s' % dev]
-        cfgmod_argv += datapath_deconfigure_physical(dev)
+        vsctl_argv += ['# deconfigure sibling physical device %s' % dev]
+        vsctl_argv += datapath_deconfigure_physical(dev)
         netdev_down(dev)
 
     for n in extra_down_bonds:
         dev = pif_netdev_name(n)
-        cfgmod_argv += ['# deconfigure bond device %s' % dev]
-        cfgmod_argv += datapath_deconfigure_bond(dev)
+        vsctl_argv += ['# deconfigure bond device %s' % dev]
+        vsctl_argv += datapath_deconfigure_bond(dev)
         netdev_down(dev)
 
     for p in physical_devices:
         dev = pif_netdev_name(p)
-        cfgmod_argv += ['# deconfigure physical port %s' % dev]
-        cfgmod_argv += datapath_deconfigure_physical(dev)
+        vsctl_argv += ['# deconfigure physical port %s' % dev]
+        vsctl_argv += datapath_deconfigure_physical(dev)
+
+    if parent and datapath:
+        vsctl_argv += ['--', '--may-exist', 'add-br', bridge, parent, vlan]
+    else:
+        vsctl_argv += ['--', '--may-exist', 'add-br', bridge]
+
     if len(physical_devices) > 1:
-        cfgmod_argv += ['# deconfigure bond %s' % pif_netdev_name(pif)]
-        cfgmod_argv += datapath_deconfigure_bond(pif_netdev_name(pif))
-        cfgmod_argv += ['--del-entry=bridge.%s.port=%s' % (bridge,pif_netdev_name(pif))]
-        cfgmod_argv += ['# configure bond %s' % pif_netdev_name(pif)]
-        cfgmod_argv += datapath_configure_bond(pif, physical_devices)
-        cfgmod_argv += ['--add=bridge.%s.port=%s' % (bridge,pif_netdev_name(pif)) ]
+        vsctl_argv += ['# deconfigure bond %s' % pif_netdev_name(pif)]
+        vsctl_argv += datapath_deconfigure_bond(pif_netdev_name(pif))
+        vsctl_argv += ['# configure bond %s' % pif_netdev_name(pif)]
+        vsctl_argv += datapath_configure_bond(pif, physical_devices)
         extra_up_ports += [pif_netdev_name(pif)]
     else:
         iface = pif_netdev_name(physical_devices[0])
-        cfgmod_argv += ['# add physical device %s' % iface]
-        cfgmod_argv += ['--add=bridge.%s.port=%s' % (bridge,iface) ]
+        vsctl_argv += ['# add physical device %s' % iface]
+        vsctl_argv += ['--', '--may-exist', 'add-port', bridge, iface]
 
-    return cfgmod_argv,extra_up_ports
+    return vsctl_argv,extra_up_ports
 
 def deconfigure_datapath(pif):
-    cfgmod_argv = []
+    vsctl_argv = []
 
     bridge = pif_bridge_name(pif)
 
@@ -306,18 +294,18 @@ def deconfigure_datapath(pif):
 
     for p in physical_devices:
         dev = pif_netdev_name(p)
-        cfgmod_argv += ['# deconfigure physical port %s' % dev]
-        cfgmod_argv += datapath_deconfigure_physical(dev)
+        vsctl_argv += ['# deconfigure physical port %s' % dev]
+        vsctl_argv += datapath_deconfigure_physical(dev)
         netdev_down(dev)
 
     if len(physical_devices) > 1:
-        cfgmod_argv += ['# deconfigure bond %s' % pif_netdev_name(pif)]
-        cfgmod_argv += datapath_deconfigure_bond(pif_netdev_name(pif))
+        vsctl_argv += ['# deconfigure bond %s' % pif_netdev_name(pif)]
+        vsctl_argv += datapath_deconfigure_bond(pif_netdev_name(pif))
 
-    cfgmod_argv += ['# deconfigure bridge %s' % bridge]
-    cfgmod_argv += ['--del-match=bridge.%s.*' % bridge]
+    vsctl_argv += ['# deconfigure bridge %s' % bridge]
+    vsctl_argv += ['--', '--if-exists', 'del-br', bridge]
 
-    return cfgmod_argv
+    return vsctl_argv
 
 #
 #
@@ -338,7 +326,7 @@ class DatapathVswitch(Datapath):
         cfg.write("TYPE=Ethernet\n")
 
     def preconfigure(self, parent):
-        cfgmod_argv = []
+        vsctl_argv = []
         extra_ports = []
 
         pifrec = db().get_pif_record(self._pif)
@@ -346,13 +334,15 @@ class DatapathVswitch(Datapath):
 
         ipdev = self._ipdev
         bridge = pif_bridge_name(self._dp)
-        c,e = configure_datapath(self._dp)
-        cfgmod_argv += c
+        if pif_is_vlan(self._pif):
+            datapath = pif_datapath(self._pif)
+            c,e = configure_datapath(self._dp, datapath, pifrec['VLAN'])
+        else:
+            c,e = configure_datapath(self._dp)
+        vsctl_argv += c
         extra_ports += e
 
-        cfgmod_argv += ['# configure xs-network-uuids']
-        cfgmod_argv += ['--del-match=bridge.%s.xs-network-uuids=*' % bridge]
-
+        xs_network_uuids = []
         for nwpif in db().get_pifs_by_device(db().get_pif_record(self._pif)['device']):
             rec = db().get_pif_record(nwpif)
 
@@ -363,23 +353,25 @@ class DatapathVswitch(Datapath):
             #    log("Network PIF %s not currently attached (%s)" % (rec['uuid'],pifrec['uuid']))
             #    continue
             nwrec = db().get_network_record(rec['network'])
-            cfgmod_argv += ['--add=bridge.%s.xs-network-uuids=%s' % (bridge, nwrec['uuid'])]
+            xs_network_uuids += [nwrec['uuid']]
 
-        cfgmod_argv += ["# deconfigure ipdev %s" % ipdev]
-        cfgmod_argv += datapath_deconfigure_ipdev(ipdev)
-        cfgmod_argv += ["# reconfigure ipdev %s" % ipdev]
-        cfgmod_argv += ['--add=bridge.%s.port=%s' % (bridge, ipdev)]
-        if bridge == ipdev:
-            cfgmod_argv += ['--add=bridge.%s.mac=%s' % (bridge, dprec['MAC'])]
-        else:
-            cfgmod_argv += ['--add=iface.%s.mac=%s' % (ipdev, dprec['MAC'])]
-            
-        if pif_is_vlan(self._pif):
-            cfgmod_argv += ['--add=vlan.%s.tag=%s' % (ipdev, pifrec['VLAN'])]
-            cfgmod_argv += ['--add=iface.%s.internal=true' % (ipdev)]
-            cfgmod_argv += ['--add=iface.%s.fake-bridge=true' % (ipdev)]
+        vsctl_argv += ['# configure xs-network-uuids']
+        vsctl_argv += ['--', 'br-set-external-id', bridge,
+                'xs-network-uuids', ';'.join(xs_network_uuids)]
 
-        self._cfgmod_argv = cfgmod_argv
+        if ipdev != bridge:
+            vsctl_argv += ["# deconfigure ipdev %s" % ipdev]
+            vsctl_argv += datapath_deconfigure_ipdev(ipdev)
+            vsctl_argv += ["# reconfigure ipdev %s" % ipdev]
+            vsctl_argv += ['--', 'add-port', bridge, ipdev]
+
+        # XXX Needs support in ovs-vsctl
+        #if bridge == ipdev:
+        #    vsctl_argv += ['--add=bridge.%s.mac=%s' % (bridge, dprec['MAC'])]
+        #else:
+        #    vsctl_argv += ['--add=iface.%s.mac=%s' % (ipdev, dprec['MAC'])]
+
+        self._vsctl_argv = vsctl_argv
         self._extra_ports = extra_ports
 
     def bring_down_existing(self):
@@ -408,7 +400,7 @@ class DatapathVswitch(Datapath):
             if len(offload):
                 run_command(['/sbin/ethtool', '-K', dev] + offload)
 
-        datapath_modify_config(self._cfgmod_argv)
+        datapath_modify_config(self._vsctl_argv)
 
     def post(self):
         for p in self._extra_ports:
@@ -416,7 +408,7 @@ class DatapathVswitch(Datapath):
             netdev_up(p)
 
     def bring_down(self):
-        cfgmod_argv = []
+        vsctl_argv = []
 
         dp = self._dp
         ipdev = self._ipdev
@@ -425,12 +417,12 @@ class DatapathVswitch(Datapath):
 
         #nw = db().get_pif_record(self._pif)['network']
         #nwrec = db().get_network_record(nw)
-        #cfgmod_argv += ['# deconfigure xs-network-uuids']
-        #cfgmod_argv += ['--del-entry=bridge.%s.xs-network-uuids=%s' % (bridge,nwrec['uuid'])]
+        #vsctl_argv += ['# deconfigure xs-network-uuids']
+        #vsctl_argv += ['--del-entry=bridge.%s.xs-network-uuids=%s' % (bridge,nwrec['uuid'])]
 
         log("deconfigure ipdev %s on %s" % (ipdev,bridge))
-        cfgmod_argv += ["# deconfigure ipdev %s" % ipdev]
-        cfgmod_argv += datapath_deconfigure_ipdev(ipdev)
+        vsctl_argv += ["# deconfigure ipdev %s" % ipdev]
+        vsctl_argv += datapath_deconfigure_ipdev(ipdev)
 
         if pif_is_vlan(self._pif):
             # If the VLAN's slave is attached, leave datapath setup.
@@ -456,5 +448,5 @@ class DatapathVswitch(Datapath):
                 dp = None
 
         if dp:
-            cfgmod_argv += deconfigure_datapath(dp)
-            datapath_modify_config(cfgmod_argv)
+            vsctl_argv += deconfigure_datapath(dp)
+            datapath_modify_config(vsctl_argv)
