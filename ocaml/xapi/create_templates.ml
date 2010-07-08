@@ -463,6 +463,8 @@ let create_all_templates rpc session_id =
 		sles11_template    "SUSE Linux Enterprise Server 11 SP1" X64 [    ];
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
+		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
+		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike [    ];
 
