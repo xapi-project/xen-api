@@ -15,6 +15,20 @@ class HOST_POWER_ON_NOT_CONFIGURED(Exception):
         Exception.__init__(self, *args)
 
 
+def waitForXapi(session,host):
+    attempts = 0
+    finished = False
+    metrics = None
+    while not finished and (attempts < 120):
+        attempts = attempts + 1
+        time.sleep(5)
+        metrics = session.xenapi.host.get_metrics(host)
+        try:
+            finished = session.xenapi.host_metrics.get_live(metrics)
+        except:
+            pass
+    return str(finished)
+
 
 def main(session, args):
     remote_host_uuid = args['remote_host_uuid']
@@ -33,20 +47,21 @@ def main(session, args):
         secret = power_on_config['power_on_password_secret']
         secretref=session.xenapi.secret.get_by_uuid(secret)
         password = session.xenapi.secret.get_value(secretref)
-        
         if mode == "iLO":
             modu= __import__('iLO')
-            return modu.iLO( ip, user, password)
+            modu.iLO( ip, user, password)
         else: 
             modu= __import__('DRAC')
-            return modu.DRAC(ip, user, password)
+            modu.DRAC( ip, user, password)
+        return waitForXapi(session,remote_host)
     elif mode=="wake-on-lan":
         modu= __import__('wlan')
         return modu.wake_on_lan(session, remote_host, remote_host_uuid)
     # Custom script
     elif mode!="":
         modu= __import__(mode)
-        return modu.custom(session,remote_host,power_on_config)
+        modu.custom(session,remote_host,power_on_config)
+        return waitForXapi(session,remote_host)
     # Disabled
     else: 
         raise HOST_POWER_ON_NOT_CONFIGURED()
