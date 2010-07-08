@@ -1,10 +1,10 @@
-OCAMLINCLUDES    = ../netdev ../util
-OCAML_LIBS       = ../netdev/netdev ../util/stats
+OCAMLINCLUDES    = ../util
+OCAML_LIBS       = ../util/stats
 OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
 OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS)
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = threads xc xs stdext log cdrom
+OCAMLPACKS     = threads xc xs stdext log cdrom netdev
 OCAMLFLAGS    += -thread
 
 LIBFILES = xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc
@@ -42,7 +42,7 @@ OCamlProgram(fence, fence)
 OCamlProgram(dbgring, dbgring)
 
 section
-	OCAMLINCLUDES   = ../idl/ocaml_backend ../netdev ../idl
+	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
 	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
 	OCAMLPACKS = xc xs
 	OCamlProgram(xs, xenstore_readdir)

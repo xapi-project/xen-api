@@ -22,7 +22,6 @@ OCAMLPACKS    = stdext log
 	xva \
 	guest \
 	console \
-	netdev \
 	auth \
 	events \
 	in_guest_install \

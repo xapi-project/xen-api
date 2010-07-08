@@ -11,11 +11,10 @@ section
 
 section
 
-	OCAMLPACKS += xb xs
-	OCAML_CLIBS = ../xenops/statdev_stubs ../netdev/netdev_stubs
+	OCAMLPACKS += xb xs netdev
+	OCAML_CLIBS = ../xenops/statdev_stubs 
 
 	OCamlProgram(fatxe, cli options \
-		../netdev/netdev \
 		../xapi/xapi_cli \
 		../xapi/pool_role \
 		../xapi/helpers \
