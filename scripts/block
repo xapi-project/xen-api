@@ -11,8 +11,14 @@ SYSFS_PATH=/sys/devices/xen-backend/$DEVNAME
 XAPI=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
 
 HOTPLUG="${XAPI}/hotplug"
+
+KTHREAD_PID="${XENBUS_PATH}/kthread-pid"
+
 PAUSE="${XENBUS_PATH}/pause"
 PAUSE_DONE="${XENBUS_PATH}/pause-done"
+
+SHUTDOWN="${XENBUS_PATH}/shutdown-request"
+SHUTDOWN_DONE="${XENBUS_PATH}/shutdown-done"
 
 syslog ()
 {
@@ -24,25 +30,36 @@ add)
 	syslog "writing $HOTPLUG = online"
 	xenstore write "$HOTPLUG" "online"
 
-	echo $(((1<<1) | (1<<3))) > $SYSFS_PATH/queue_events # running|paused
+	# RUNNING          (1<<0)
+	# PAUSE_DONE       (1<<1)
+	# SHUTDOWN_DONE    (1<<2)
+	# PAUSE_REQUEST    (1<<3)
+	# SHUTDOWN_REQUEST (1<<4)
+
+	# echo $(((1<<1) | (1<<3))) > $SYSFS_PATH/queue_events # unpaused|paused
 	;;
 
 change)
-	state=$(xenstore read "${XENBUS_PATH}/queue-state")
-	case "$state" in
-		1) state=running;;
-		3) state=paused;;
-		*) state="unexpected-$state";;
-	esac
+	if pid=$(xenstore read "$KTHREAD_PID" 2>/dev/null)
+	then
+		state=running
+	else
+		state=stopped
+	fi
 
-	syslog "queue-state = $state"
+	syslog "kthread-pid = '$pid'"
 
 	case "$state" in
-		paused)
+		stopped)
 			if xenstore exists "$PAUSE"
 			then
 				syslog "writing $PAUSE_DONE"
 				xenstore write "$PAUSE_DONE" ""
+			fi
+			if xenstore exists "$SHUTDOWN"
+			then
+				syslog "writing $SHUTDOWN_DONE"
+				xenstore write "$SHUTDOWN_DONE" ""
 			fi
 			;;
 		running)
@@ -51,12 +68,16 @@ change)
 				syslog "removing $PAUSE_DONE"
 				xenstore rm "$PAUSE_DONE"
 			fi
+			if xenstore exists "$SHUTDOWN_DONE"
+			then
+				syslog "WARNING: queue restart in shutdown state."
+			fi
 			;;
 	esac
 	;;
 
 remove)
 	syslog "removing $HOTPLUG"
-	xenstore rm "${XAPI}/hotplug"
+	xenstore rm "$HOTPLUG"
 	;;
 esac
