@@ -184,7 +184,19 @@ let rio_release =
 	; internal_deprecated_since=None
 	}
 
-let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?internal_deprecated_since
+let get_published lifecycle =
+	try
+		let _, published, _ = List.find (fun (t, _, _) -> t = Published) lifecycle in
+		Some published
+	with Not_found -> None
+
+let get_deprecated lifecycle =
+	try
+		let _, deprecated, _ = List.find (fun (t, _, _) -> t = Deprecated) lifecycle in
+		Some deprecated
+	with Not_found -> None
+
+let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ?in_product_since ?internal_deprecated_since
 	?result ?(flags=[`Session;`Async])
 	?(effect=true) ?(tag=Custom) ?(errs=[]) ?(custom_marshaller=false) ?(db_only=false)
 	?(no_current_operations=false) ?(secret=false) ?(hide_from_docs=false)
@@ -195,19 +207,29 @@ let call ~name ?(doc="") ?(in_oss_since=Some "3.0.3") ~in_product_since ?interna
 	(* if you specify versioned_params then these get put in the params field of the message record;
 	 * otherwise params go in with no default values and param_release=call_release...
 	 *)
-	let call_release = {internal=get_product_releases in_product_since; 
-		opensource=get_oss_releases in_oss_since;
-		internal_deprecated_since = internal_deprecated_since;
-	} in
+	if lifecycle = None && in_product_since = None then
+		failwith ("Lifecycle for message '" ^ name ^ "' not specified");
 	let lifecycle = match lifecycle with
 		| None ->
-			let publish = [Published, in_product_since, doc] in
+			let published = match in_product_since with
+				| None -> []
+				| Some rel -> [Published, rel, doc]
+			in
 			let deprecated = match internal_deprecated_since with
 				| None -> []
 				| Some rel -> [Deprecated, rel, ""]
 			in
-			publish @ deprecated
+			published @ deprecated
 		| Some l -> l
+	in
+	let call_release =
+		{
+			internal = (match get_published lifecycle with 
+				| Some published -> get_product_releases published
+				| None -> ["closed"]);
+			opensource = get_oss_releases in_oss_since;
+			internal_deprecated_since = get_deprecated lifecycle;
+		}
 	in
 	{ 
 		msg_name = name;
@@ -2621,28 +2643,40 @@ let vbd_assert_attachable = call
 
 
 (** Make an object field record *)
-let field ?(in_oss_since = Some "3.0.3") ?(in_product_since = rel_rio) ?(internal_only = false)
+let field ?(in_oss_since = Some "3.0.3") ?in_product_since ?(internal_only = false)
 	?internal_deprecated_since ?(ignore_foreign_key = false) ?(writer_roles=None) ?(reader_roles=None)
 	?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None) ?(persist = true)
 	?(map_keys_roles=[]) (* list of (key_name,(writer_roles)) for a map field *)
 	?lifecycle name desc =
-	
+	(* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
+	 * This should eventually become 'None'. *)
+	let in_product_since = match in_product_since with None -> Some rel_rio | x -> x in
+	if lifecycle = None && in_product_since = None then
+		failwith ("Lifecycle for field '" ^ name ^ "' not specified");
 	let lifecycle = match lifecycle with
-	| None ->
-		let publish = [Published, in_product_since, desc] in
-		let deprecated = match internal_deprecated_since with
-			| None -> []
-			| Some rel -> [Deprecated, rel, ""]
-		in
-		publish @ deprecated
-	| Some l -> l
+		| None ->
+			let published = match in_product_since with
+				| None -> []
+				| Some rel -> [Published, rel, desc]
+			in
+			let deprecated = match internal_deprecated_since with
+				| None -> []
+				| Some rel -> [Deprecated, rel, ""]
+			in
+			published @ deprecated
+		| Some l -> l
+	in
+	let release =
+		{
+			internal = (match get_published lifecycle with 
+				| Some published -> get_product_releases published
+				| None -> ["closed"]);
+			opensource = get_oss_releases in_oss_since;
+			internal_deprecated_since = get_deprecated lifecycle;
+		}
 	in
 	Field {
-		release = {
-			internal=get_product_releases in_product_since; 
-			opensource=(get_oss_releases in_oss_since);
-			internal_deprecated_since=internal_deprecated_since;
-		};
+		release = release;
 		lifecycle=lifecycle;
 		qualifier=qualifier; ty=ty; internal_only = internal_only; default_value = default_value;
 		field_name=name; 
@@ -2688,7 +2722,7 @@ let default_field_reader_roles = _R_ALL (* by default, all can read fields *)
 let default_field_writer_roles = _R_POOL_ADMIN (* by default, only root can write to them *)
 
 (** Create an object and map the object name into the messages *)
-let create_obj ?lifecycle ~in_oss_since ~in_product_since ~internal_deprecated_since ~gen_constructor_destructor ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
+let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_since=None) ~gen_constructor_destructor ~gen_events ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
 	?(contents_default_reader_roles=default_field_reader_roles) ?(contents_default_writer_roles=None)
 	?(implicit_messages_allowed_roles=_R_ALL) (* used in implicit obj msgs (get_all, etc) *)
 	?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
@@ -2703,20 +2737,34 @@ let create_obj ?lifecycle ~in_oss_since ~in_product_since ~internal_deprecated_s
 		| Field f->Field{f with field_setter_roles=get_field_writer_roles f.field_setter_roles;
 			field_getter_roles=get_field_reader_roles f.field_getter_roles}
 		) contents in
+	if lifecycle = None && in_product_since = None then
+		failwith ("Lifecycle for class '" ^ name ^ "' not specified");
 	let lifecycle = match lifecycle with
 		| None ->
-			let publish = [Published, in_product_since, descr] in
+			let published = match in_product_since with
+				| None -> []
+				| Some rel -> [Published, rel, descr]
+			in
 			let deprecated = match internal_deprecated_since with
 				| None -> []
 				| Some rel -> [Deprecated, rel, ""]
 			in
-			publish @ deprecated
+			published @ deprecated
 		| Some l -> l
+	in	
+	let release =
+		{
+			internal = (match get_published lifecycle with 
+				| Some published -> get_product_releases published
+				| None -> ["closed"]);
+			opensource = get_oss_releases in_oss_since;
+			internal_deprecated_since = get_deprecated lifecycle;
+		}
 	in
 	let msgs = List.map (fun m -> {m with msg_obj_name=name;msg_allowed_roles=get_msg_allowed_roles m.msg_allowed_roles}) messages in
 	{ name = name; description = descr; obj_lifecycle = lifecycle; messages = msgs; contents = contents;
 		doccomments = doccomments; gen_constructor_destructor = gen_constructor_destructor; force_custom_actions = force_custom_actions;
-		persist = persist; gen_events = gen_events; obj_release = {internal=get_product_releases in_product_since; opensource=get_oss_releases in_oss_since; internal_deprecated_since = internal_deprecated_since};
+		persist = persist; gen_events = gen_events; obj_release = release;
 		in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
 	}
 
