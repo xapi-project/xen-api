@@ -587,11 +587,11 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 			(fun (host, _) ->
 				Client.Host.update_pool_secret my_rpc my_session_id host !cluster_secret;
 				Client.Host.update_master my_rpc my_session_id host master_address)
-		(Db.Host.get_all_records ~__context))
+		(Db.Host.get_all_records ~__context));
+	Xapi_hooks.pool_join_hook ~__context
 
 let join ~__context ~master_address ~master_username ~master_password  =
   join_common ~__context ~master_address ~master_username ~master_password ~force:false
-
 let join_force ~__context ~master_address ~master_username ~master_password  =
   join_common ~__context ~master_address ~master_username ~master_password ~force:true
 
@@ -726,7 +726,8 @@ let eject ~__context ~host =
 				Xapi_globs.remote_db_conf_fragment_path
 				(Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ()
 		)
-		(fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject())
+		(fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject());
+		Xapi_hooks.pool_eject_hook ~__context
 	end
 
 (* Prohibit parallel flushes since they're so expensive *)
