@@ -20,8 +20,8 @@ FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_con
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
-STDEXT_OBJS = fun listext filenameext stringext arrayext hashtblext pervasiveext threadext ring \
-	qring fring opt bigbuffer unixext range vIO trie config date encodings fe fecomms \
+STDEXT_OBJS = fun opt listext filenameext stringext arrayext hashtblext pervasiveext threadext ring \
+	qring fring bigbuffer unixext range vIO trie config date encodings fe fecomms \
 	forkhelpers gzip sha1sum zerocheck base64 backtrace tar mapext os either
 
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
