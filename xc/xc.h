@@ -19,7 +19,6 @@
 #include <xen/sysctl.h>
 #include <xen/domctl.h>
 #include <xen/sched.h>
-#include <xen/sysctl.h>
 #include <xen/platform.h>
 #if XEN_SYSCTL_INTERFACE_VERSION < 4
 #include <xen/linux/privcmd.h>
