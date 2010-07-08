@@ -39,6 +39,8 @@ let reason__fenced = "fenced"
 (* Names of Pool script hooks *)
 let scriptname__pool_ha_overcommitted = "pool-ha-overcommitted"
 let scriptname__pool_pre_ha_vm_restart = "pool-pre-ha-vm-restart"
+let scriptname__pool_join = "pool-join"
+let scriptname__pool_eject = "pool-eject"
 let reason__none = "none"
 
 (* Exit codes: *)
@@ -120,5 +122,11 @@ let pool_ha_overcommitted_hook ~__context =
 
 let pool_pre_ha_vm_restart_hook ~__context = 
   execute_pool_hook ~__context ~script_name:scriptname__pool_pre_ha_vm_restart ~reason:reason__none
+
+let pool_join_hook ~__context =
+  execute_pool_hook ~__context ~script_name:scriptname__pool_join ~reason:reason__none
+
+let pool_eject_hook ~__context =
+  execute_pool_hook ~__context ~script_name:scriptname__pool_eject ~reason:reason__none
 
 let pool_pre_ha_vm_restart_hook_exists () = Array.length (list_individual_hooks ~script_name:scriptname__pool_pre_ha_vm_restart) > 0
