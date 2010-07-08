@@ -42,8 +42,8 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "100.0"
-let xencenter_max_verstring = "100.1"
+let xencenter_min_verstring = "1.7"
+let xencenter_max_verstring = "1.7"
 
 (** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
 let dbv = "2009.0201"
