@@ -1,0 +1,10 @@
+#!/bin/sh
+
+echo "This is just a temporary fix. Ideally, the effect would be the same when"
+echo "just running the following two commands: make clean && make."
+
+make clean
+. ./export.sh
+make version
+omake ocaml/autogen/aPI.cmx
+make
