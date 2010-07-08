@@ -30,16 +30,7 @@
 #include <caml/custom.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
-
-static void failwith_errno(void)
-{
-        char buf[256];
-	char buf2[280];
-	memset(buf, '\0', sizeof(buf));
-	strerror_r(errno, buf, sizeof(buf));
-	snprintf(buf2, sizeof(buf2), "errno: %d msg: %s", errno, buf);
-	caml_failwith(buf2);
-}
+#include <caml/unixsupport.h>
 
 /* Set the TCP_NODELAY flag on a Unix.file_descr */
 CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
@@ -48,7 +39,7 @@ CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
 	int c_fd = Int_val(fd);
 	int opt = (Bool_val(bool)) ? 1 : 0;
 	if (setsockopt(c_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&opt, sizeof(opt)) != 0){
-		failwith_errno();
+		uerror("setsockopt", Nothing);
 	}
 	CAMLreturn(Val_unit);
 }
@@ -57,7 +48,7 @@ CAMLprim value stub_unixext_fsync (value fd)
 {
 	CAMLparam1(fd);
 	int c_fd = Int_val(fd);
-	if (fsync(c_fd) != 0) failwith_errno();
+	if (fsync(c_fd) != 0) uerror("fsync", Nothing);
 	CAMLreturn(Val_unit);
 }
 	
@@ -67,7 +58,7 @@ CAMLprim value stub_unixext_blkgetsize64(value fd)
   uint64_t size;
   int c_fd = Int_val(fd);
   if(ioctl(c_fd,BLKGETSIZE64,&size)) {
-    failwith_errno();
+    uerror("ioctl(BLKGETSIZE64)", Nothing);
   }
   CAMLreturn(caml_copy_int64(size));
 }
