@@ -18,7 +18,7 @@ type kind = Bridge | Vswitch
 
 type network_ops = { 
   kind: kind;
-  add: string -> unit;
+  add: string -> ?uuid:string -> unit;
   del: string -> unit;
   list: unit -> string list;
 
@@ -99,7 +99,7 @@ module Bridge = struct
 external _add : Unix.file_descr -> string -> unit = "stub_bridge_add"
 external _del : Unix.file_descr -> string -> unit = "stub_bridge_del"
 
-let add name =
+let add name ?uuid = 
 	Internal.with_fd (fun fd -> _add fd name)
 
 let del name =
@@ -224,7 +224,11 @@ let vsctl args =
     | "" -> []
     | s -> Stringext.String.split '\n' s
 
-let add name = ignore(vsctl ["add-br" ; name])
+let add name ?uuid = 
+  let extra = match uuid with
+    | Some uuid' -> ["--"; "br-set-external-id"; name; "network-uuids"; uuid']
+    | None -> ["--"; "foo"] in
+  ignore(vsctl (["add-br" ; name] @ extra))
 let del name = ignore(vsctl ["del-br" ; name])
 let list () = vsctl [ "list-br" ]
 
