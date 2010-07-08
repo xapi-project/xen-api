@@ -145,12 +145,11 @@ let migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self domid r
 	  | Xal.Halted ->
 		  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of self ]))
 	  | Xal.Shutdown x -> vm_migrate_failed (Printf.sprintf "Domain shutdown for unexpected reason: %d" x)
-     end else 
+     end else
        vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
-  ) else (
-      Vmops.clean_shutdown_with_reason ~xal ~__context ~self domid Domain.Suspend;
-      ()
-  )
+  ) else
+      ignore(Vmops.clean_shutdown_with_reason ~xal ~__context ~self domid Domain.Suspend)
+
 
 (* ------------------------------------------------------------------- *)
 (* Part 2: transmitter and receiver functions                          *)
@@ -387,7 +386,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
     (function Some exn -> debug "Receiver caught exception during VDI attach: %s" (ExnHelper.string_of_exn exn) | None -> ())
     results;
   if List.exists (function Some exn -> true | None -> false) results then begin
-    let Some exn = List.find (function Some exn -> true | None -> false) results in
+		(* The following is ugly. Write/import and use the Option module in ocaml-libs. *)
+		let exn = match List.find (function Some exn -> true | None -> false) results with Some exn -> exn | None -> raise Not_found in
     Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn exn));
     List.iter2 (fun (vdi,_) r -> if r = None then Storage_access.VDI.detach ~__context ~self:vdi) needed_vdis results;
     raise exn;
@@ -517,154 +517,158 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
     detach_all_vdis ();
     raise e
 
+
 (* ------------------------------------------------------------------- *)
 (* Part 3: setup code (connecting, authenticating, locking)            *)
 
 let pool_migrate_nolock  ~__context ~vm ~host ~options =
-  let destination_enabled = Db.Host.get_enabled ~__context ~self:host in
-  let _ =
-    if not destination_enabled
-    then raise (Api_errors.Server_error (Api_errors.host_disabled, [Ref.string_of vm]))
-  in
-  let vm_r = Db.VM.get_record ~__context ~self:vm in
-  let domid = Int64.to_int vm_r.API.vM_domid in
-  let localhost = Helpers.get_localhost ~__context in
+	let destination_enabled = Db.Host.get_enabled ~__context ~self:host in
+	if not destination_enabled then
+		raise (Api_errors.Server_error (Api_errors.host_disabled, [Ref.string_of vm]));
+	let vm_r = Db.VM.get_record ~__context ~self:vm in
+	let domid = Int64.to_int vm_r.API.vM_domid in
+	let localhost = Helpers.get_localhost ~__context in
 
-  (* transmitter can see this is localhost migration if he is same host as the specified destination host *)
-  let localhost_migration = (host = localhost) in
+	(* transmitter can see this is localhost migration if he is same host as the specified destination host *)
+	let localhost_migration = (host = localhost) in
 
-  (* check if the flags are similar *)
-  let localcpu = List.hd (Db.Host.get_host_CPUs ~__context ~self:localhost)
-  and destcpu = List.hd (Db.Host.get_host_CPUs ~__context ~self:host) in
-  let localflags = Db.Host_cpu.get_flags ~__context ~self:localcpu
-  and destflags = Db.Host_cpu.get_flags ~__context ~self:destcpu in
-    
-    (* XXX : maybe we should just check SVM and VMX flags *)
-    if localflags <> destflags then
-      warn "Doing migrate between hosts with different cpu flags -- local cpu flags : \"%s\" destination cpu flags : \"%s\"" localflags destflags;
+	(* check if the flags are similar *)
+	let localcpu = List.hd (Db.Host.get_host_CPUs ~__context ~self:localhost)
+	and destcpu = List.hd (Db.Host.get_host_CPUs ~__context ~self:host) in
+	let localflags = Db.Host_cpu.get_flags ~__context ~self:localcpu
+	and destflags = Db.Host_cpu.get_flags ~__context ~self:destcpu in
 
-  match vm_r.API.vM_power_state with
-  | `Halted | `Suspended ->
-      debug "VM is either halted or suspended; resetting affinity only";
-      Db.VM.set_affinity ~__context ~self:vm ~value:host
-  | `Running ->
-      debug "VM is running; attempting migration";
-      let live = try bool_of_string (List.assoc "live" options) with _ -> false in
-      debug "Sender doing a %s migration" (if live then "live" else "dead");
-      let raise_api_error = migration_failure vm localhost host in
+	(* XXX : maybe we should just check SVM and VMX flags *)
+	if localflags <> destflags then
+		warn "Doing migrate between hosts with different cpu flags -- local cpu flags : \"%s\" destination cpu flags : \"%s\"" localflags destflags;
 
-      (* We need to connect directly to the receiving host *)
-      let hostname = Db.Host.get_address ~__context ~self:host in
+	match vm_r.API.vM_power_state with
+	| `Halted | `Suspended ->
+			debug "VM is either halted or suspended; resetting affinity only";
+			Db.VM.set_affinity ~__context ~self:vm ~value:host
+	| `Running ->
+			debug "VM is running; attempting migration";
+			let live = try bool_of_string (List.assoc "live" options) with _ -> false in
+			debug "Sender doing a %s migration" (if live then "live" else "dead");
+			let raise_api_error = migration_failure vm localhost host in
 
-      (* Open a cleartext socket to pass to xc_linux_save. We send the session_id in the clear
-	 but not any username or password. *)
-      let insecure_fd =
-	try Unixext.open_connection_fd hostname !Xapi_globs.http_port
-	with _ -> raise (Api_errors.Server_error(Api_errors.host_offline, [ Ref.string_of host ])) in
-      finally
-	(fun () ->      
-	   Unixext.set_tcp_nodelay insecure_fd true;
+			(* We need to connect directly to the receiving host *)
+			let hostname = Db.Host.get_address ~__context ~self:host in
 
-           (* Set the task allowed_operations to include cancel *)
-           TaskHelper.set_cancellable ~__context;
+			(* Open stunnel if 'encrypt' is set. Otherwise, open a cleartext socket. *)
+			let use_https = try bool_of_string (List.assoc "encrypt" options) with _ -> false in
+			let offline_ex = Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of host]) in
+			let stunnel : Stunnel.t option =
+				if use_https then
+					try Some (Stunnel.connect hostname !Xapi_globs.https_port)
+						(* Alternative: Xmlrpcclient.get_reusable_stunnel hostname !Xapi_globs.https_port *)
+					with _ -> raise offline_ex
+				else None in
+			let fd = match stunnel with Some st -> st.Stunnel.fd | None ->
+				try Unixext.open_connection_fd hostname !Xapi_globs.http_port
+				with _ -> raise offline_ex in
+			finally
+				(fun () ->
+					 if not use_https then Unixext.set_tcp_nodelay fd true;
+					 (* Set the task allowed_operations to include cancel *)
+					 TaskHelper.set_cancellable ~__context;
+					 let secure_rpc = Helpers.make_rpc ~__context in
+					 debug "Sender 1. Logging into remote server";
+					 let session_id = Client.Session.slave_login ~rpc:secure_rpc ~host
+						 ~psecret:!Xapi_globs.pool_secret in
+					 finally
+						 (fun () ->
+								with_xc_and_xs
+									(fun xc xs ->
 
-	   let secure_rpc = Helpers.make_rpc ~__context in
-	   debug "Sender 1. Logging into remote server";
-	   let session_id = Client.Session.slave_login ~rpc:secure_rpc ~host
-	     ~psecret:!Xapi_globs.pool_secret in
-	   finally
-	     (fun () ->
-		with_xc_and_xs
-		  (fun xc xs ->
+										 (* We want to minimise the amount of memory the VM is currently using *)
+										 let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
+										 let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
+										 let min = Int64.to_int (Int64.div min 1024L) in
+										 let max = Int64.to_int (Int64.div max 1024L) in
+										 Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+										 Memory_control.balance_memory ~__context ~xc ~xs;
+										 try
+											 begin
 
-		(* We want to minimise the amount of memory the VM is currently using *)
-		let min = Db.VM.get_memory_dynamic_min ~__context ~self:vm in
-                let max = Db.VM.get_memory_dynamic_max ~__context ~self:vm in
-                let min = Int64.to_int (Int64.div min 1024L) in
-                let max = Int64.to_int (Int64.div max 1024L) in
-		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
-		Memory_control.balance_memory ~__context ~xc ~xs;
-		try
-		  begin
+												 (* The lowest upper-bound on the amount of memory the domain can consume during
+														the migration is the max of maxmem and memory_actual (with our overheads subtracted),
+														assuming no reconfiguring of target happens during the process. *)
+												 let info = Xc.domain_getinfo xc domid in
+												 let totmem =
+													 Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
+												 let maxmem =
+													 let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+													 let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
+													 Int64.sub raw_bytes overhead_bytes in
+												 (* CA-31764: maxmem may be larger than static_max if maxmem has been increased to initial-reservation. *)
+												 let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
 
-		(* The lowest upper-bound on the amount of memory the domain can consume during 
-		   the migration is the max of maxmem and memory_actual (with our overheads subtracted), 
-		   assuming no reconfiguring of target happens during the process. *)
-		let info = Xc.domain_getinfo xc domid in
-		let totmem =
-			Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
-		let maxmem = 
-		  let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
-		  let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
-		  Int64.sub raw_bytes overhead_bytes in
-		(* CA-31764: maxmem may be larger than static_max if maxmem has been increased to initial-reservation. *)
-		let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
+												 (* We send this across to the other side as a new target value. The other side will
+														need to add its own overheads e.g. if the machine has a different version of Xen
+														or has HAP or something. *)
+												 let path = sprintf "%s?ref=%s&%s=%Ld"
+													 Constants.migrate_uri (Ref.string_of vm)
+													 _memory_required_kib memory_required_kib in
+												 let task_id = Context.get_task_id __context in
+												 let headers = Xmlrpcclient.connect_headers
+													 ~session_id:(Ref.string_of session_id)
+													 ~task_id:(Ref.string_of task_id) hostname path in
 
-		(* We send this across to the other side as a new target value. The other side will
-		   need to add its own overheads e.g. if the machine has a different version of Xen
-		   or has HAP or something. *)
-		let path = sprintf "%s?ref=%s&%s=%Ld"
-	          Constants.migrate_uri (Ref.string_of vm)
-		  _memory_required_kib memory_required_kib in
-		let task_id = Context.get_task_id __context in
-		let headers = Xmlrpcclient.connect_headers
-		  ~session_id:(Ref.string_of session_id) 
-		  ~task_id:(Ref.string_of task_id) hostname path in
+												 debug "Sender 2. Transmitting an HTTP CONNECT to URI: %s" path;
+												 let _ (*content_length*), _ (*task_id*) =
+													 try
+														 Xmlrpcclient.http_rpc_fd fd headers ""
+													 with e ->
+														 debug "Caught HTTP-level exception: %s" (ExnHelper.string_of_exn e);
+														 begin match Db.Task.get_error_info ~__context ~self:task_id with
+															 | [] ->
+																 debug "No information in the task object";
+																 raise e
+															 | code :: params ->
+																 debug "Task object contains error: %s [ %s ]" code (String.concat "; " params);
+																 raise (Api_errors.Server_error(code, params))
+														 end in
+												 (* At this point we must have received an HTTP 200 OK from the remote. *)
 
-		debug "Sender 2. Transmitting an HTTP CONNECT to URI: %s" path;
-		let content_length, task_id = 
-		  try
-		    Xmlrpcclient.http_rpc_fd insecure_fd headers "" 
-		  with e ->
-		    debug "Caught HTTP-level exception: %s" (ExnHelper.string_of_exn e);
-		    begin match Db.Task.get_error_info ~__context ~self:task_id with
-		    | [] -> 
-			debug "No information in the task object";
-			raise e
-		    | code :: params ->
-			debug "Task object contains error: %s [ %s ]" code (String.concat "; " params);
-			raise (Api_errors.Server_error(code, params))
-		    end in
-		(* At this point we must have received an HTTP 200 OK from the remote. *)
+												 try
+													 (* Transfer the memory image *)
+													 with_xal
+														 (fun xal ->
+																transmitter ~xal ~__context localhost_migration fd (vm_migrate_failed vm localhost host)
+																	host session_id vm xc xs live);
+												 with e ->
+													 debug "Sender Caught exception: %s" (ExnHelper.string_of_exn e);
+													 with_xc_and_xs (fun xc xs ->
+																						 if Mtc.is_this_vm_protected ~__context ~self:vm then (
+																							 debug "MTC: exception encountered.  Resuming source domain";
+																							 let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+																							 let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+																							 Domain.resume ~xc ~xs ~hvm ~cooperative:true domid
+																						 ));
 
-		try
-		  (* Transfer the memory image *)
-		  with_xal
-		    (fun xal ->
-			    transmitter ~xal ~__context localhost_migration insecure_fd (vm_migrate_failed vm localhost host) 
-			      host session_id vm xc xs live);
-		with e ->
-		  debug "Sender Caught exception: %s" (ExnHelper.string_of_exn e);
- 	          with_xc_and_xs (fun xc xs -> 
-                      if Mtc.is_this_vm_protected ~__context ~self:vm then (
- 	                debug "MTC: exception encountered.  Resuming source domain";
-                        let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-			let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
-			Domain.resume ~xc ~xs ~hvm ~cooperative:true domid 
-	              ));
+													 (* NB the domain might now be in a crashed state: rely on the event thread
+															to do the cleanup asynchronously. *)
+													 raise_api_error e
+											 end
+										 with e ->
+											 debug "Writing original memory policy back to xenstore";
+											 Domain.set_memory_dynamic_range ~xs ~min ~max domid;
+											 Memory_control.balance_memory ~__context ~xc ~xs;
+											 raise e
+									)
+						 ) (fun () ->
+									debug "Sender 8.Logging out of remote server";
+									Client.Session.logout ~rpc:secure_rpc ~session_id
+							 )
+				) (fun () ->
+						 debug "Sender 9. Closing memory image transfer socket";
+						 match stunnel with Some st -> Stunnel.disconnect st | None -> Unix.close fd)
+	| _ ->
+		let msg = "Illegal power state in migrate: should have been prevented by allowed_operations" in
+		error "%s" msg;
+		raise (Api_errors.Server_error(Api_errors.internal_error, [msg]))
 
-		  (* NB the domain might now be in a crashed state: rely on the event thread
-		     to do the cleanup asynchronously. *)
-		  raise_api_error e
-		  end
-		with e ->
-		  debug "Writing original memory policy back to xenstore";
-		  Domain.set_memory_dynamic_range ~xs ~min ~max domid;
-		  Memory_control.balance_memory ~__context ~xc ~xs;
-		  raise e
-		  )
-	     ) (fun () -> 
-		  debug "Sender 8.Logging out of remote server";
-		  Client.Session.logout ~rpc:secure_rpc ~session_id
-	       )
-	) (fun () -> 
-	     debug "Sender 9. Closing memory image transfer socket";
-	     Unix.close insecure_fd)
-
-  | _ ->
-      let msg = "Illegal power state in migrate: should have been prevented by allowed_operations" in
-      error "%s" msg;
-      raise (Api_errors.Server_error(Api_errors.internal_error, [ msg ]))
 
 (* CA-24232: unfortunately the paused/unpaused states of VBDs are not represented in the API so we cannot
    block the migrate request in the master's message forwarding layer. We have to block the request here until
