@@ -373,6 +373,7 @@ let make_software_version () =
 	"linux", info.linux_verstring;
 	"xencenter_min", Xapi_globs.xencenter_min_verstring;
 	"xencenter_max", Xapi_globs.xencenter_max_verstring;
+	"network_backend", Netdev.string_of_kind Netdev.network.Netdev.kind;
 	] @
 	(option_to_list "oem_manufacturer" info.oem_manufacturer) @
 	(option_to_list "oem_model" info.oem_model) @
