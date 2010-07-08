@@ -1,0 +1,22 @@
+#!/bin/sh
+
+echo "This is just a temporary fix. Ideally, the effect would be the same when"
+echo "just running the following command: make doc."
+
+echo "[Installing v6 proprietary code...]"
+cd /myrepos/v6.hg
+./install.sh . ../xen-api.hg/
+
+echo "[Making xen-api documentation...]"
+cd ../xen-api.hg
+make doc
+
+if [ -e ../xen-api-libs.hg ]
+then
+  echo "[Found xen-api-libs.hg: making its documentation...]"
+  cd ../xen-api-libs.hg
+  make doc
+  cd ../xen-api.hg
+fi
+
+echo "Open 'ocaml/doc/index.html' to explore the generated documentation."
