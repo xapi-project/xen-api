@@ -21,6 +21,7 @@ open Cli_cmdtable
 open Stringext
 open Pervasiveext
 open Listext
+open Fun
 
 module D=Debug.Debugger(struct let name="cli" end)
 open D
@@ -2265,17 +2266,15 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
   with
     | Records.CLI_failed_to_find_param name ->
         failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
-    
-let vm_migrate printer rpc session_id params = 
-  (* Hack to match host-uuid and host-name for backwards compatibility *)
-  let params = List.map (fun (k,v) -> if (k="host-uuid")||(k="host-name") then ("host",v) else (k,v)) params in
-  if not (List.mem_assoc "host" params) then
-    failwith "No destination host specified";
-  let host = get_host_by_name_or_id rpc session_id (List.assoc "host" params) in
-  let host = host.getref () in
-  let live = (List.mem_assoc "live" params) && (bool_of_string "live" (List.assoc "live" params)) in
-  let options = [ "live", if live then "true" else "false" ] in
-  ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref()) host options) params ["host"; "host-uuid"; "host-name"; "live"])
+
+let vm_migrate printer rpc session_id params =
+	(* Hack to match host-uuid and host-name for backwards compatibility *)
+	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
+	if not (List.mem_assoc "host" params) then failwith "No destination host specified";
+	let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
+	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["live"; "encrypt"] params) in
+	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
+					 params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
 
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
