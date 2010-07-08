@@ -147,18 +147,9 @@ let unrle l =
 let inner fold_left2 base f l1 l2 g =
 	fold_left2 (fun accu e1 e2 -> g accu (f e1 e2)) base l1 l2
 
-let filter_map f list =
-	List.fold_right
-		begin
-			fun element list -> match (f element) with
-				| Some x -> x :: list
-				| None -> list
-		end
-		list []
-
-let rec is_sorted compare list = 
+let rec is_sorted compare list =
 	match list with
-		| x :: y :: list -> 
+		| x :: y :: list ->
 			if compare x y <= 0
 				then is_sorted compare (y :: list)
 				else false
@@ -171,6 +162,9 @@ let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 let assoc_default k l d =
   if List.mem_assoc k l then List.assoc k l else d
+
+let map_assoc_with_key op al =
+	List.map (fun (k, v1) -> (k, op k v1)) al
 
 (* Like the Lisp cons *)
 let cons a b = a :: b
@@ -197,8 +191,6 @@ let safe_hd = function
 	| a::_ -> Some a
 	| [] -> None
 
-let make_assoc op l = map (fun item -> item, op item) l
-
 let rec replace_assoc key new_value = function
 	| [] -> []
 	| (k, _) as p :: tl ->
@@ -207,6 +199,14 @@ let rec replace_assoc key new_value = function
 		else
 			p :: replace_assoc key new_value tl
 
-let make_assoc op l = map (fun item -> item, op item) l
+let make_assoc op l = map (fun key -> key, op key) l
+
+let unbox_list a = List.map Opt.unbox (List.filter Opt.is_boxed a)
+
+let filter_map f list =
+	(unbox_list +++ map) f list
+
+let restrict_with_default default keys al =
+	make_assoc (fun k -> assoc_default k al default) keys
 
 end
