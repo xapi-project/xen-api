@@ -232,7 +232,7 @@ let eject_vbd ~__context ~self =
 					let cmd = [| "eject"; location |] in
 					ignore (Unixext.spawnvp cmd.(0) cmd)
 				);
-				Storage_access.VDI.detach ~__context ~self:vdi;
+				Storage_access.deactivate_and_detach ~__context ~vdi;
 			)
 		) else (
 			Db.VBD.set_empty ~__context ~self ~value:true;
