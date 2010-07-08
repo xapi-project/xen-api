@@ -826,8 +826,8 @@ let remove_other_keys table valid_keys =
 
 let update_vswitch_controller ~__context ~host =
 	try call_api_functions ~__context (fun rpc session_id ->
-		let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"vswitch-cfg-update" ~fn:"update" ~args:[] in
-		debug "vswitch-cfg-update(on %s): %s"
+		let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"openvswitch-cfg-update" ~fn:"update" ~args:[] in
+		debug "openvswitch-cfg-update(on %s): %s"
 			(Db.Host.get_name_label ~__context ~self:host)
 			result)
 	with e ->
