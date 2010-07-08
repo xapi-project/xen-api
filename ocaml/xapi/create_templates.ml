@@ -277,14 +277,16 @@ type windows_template_flags =
 type architecture =
 	| X32
 	| X64
+	| X64_debianlike
 
 let friendly_string_of_architecture = function
 	| X32 -> "(32-bit)"
-	| X64 -> "(64-bit)"
+	| X64 | X64_debianlike -> "(64-bit)"
 
 let technical_string_of_architecture = function
 	| X32 -> "i386"
 	| X64 -> "x86_64"
+	| X64_debianlike -> "amd64"
 
 let make_long_name name architecture =
 	Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture)
@@ -303,7 +305,7 @@ let windows_template
 	} in
 	let maximum_supported_memory_mib = match architecture with
 		| X32 -> 4
-		| X64 -> 32 in
+		| X64 | X64_debianlike -> 32 in
 	let base = other_install_media_template
 		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
 	let xen_app = List.mem XenApp flags in
@@ -453,6 +455,8 @@ let create_all_templates rpc session_id =
 		sles11_template    "SUSE Linux Enterprise Server 11"     X64 [    ];
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike [    ];
 
 		sdk_install_template
 	] in
