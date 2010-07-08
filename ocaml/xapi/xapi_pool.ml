@@ -15,6 +15,7 @@ open Client
 open Db_filter_types
 open Pervasiveext
 open Threadext
+open Stringext
 
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -387,18 +388,36 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.re
 	new_vdi_ref
 
 let create_or_get_network_on_master __context rpc session_id (network_ref, network) : API.ref_network =
-	let my_name = network.API.network_name_label in
+	let my_bridge = network.API.network_bridge in
 
 	let new_network_ref =
-		try List.hd (Client.Network.get_by_name_label ~rpc ~session_id ~label:my_name)
-		with _ ->
-			debug "Found no network with name_label = '%s' on the master, so creating one." my_name;
-			Client.Network.pool_introduce ~rpc ~session_id
-				~name_label:my_name
+		if String.startswith "xenbr" my_bridge then
+			(* Physical network: try to join an existing one with the same bridge name, or create one.
+			 * This relies on the convention that PIFs with the same label need to be connected. *)
+			try
+				let pool_networks = Client.Network.get_all_records ~rpc ~session_id in
+				let net_ref, _ = List.find (fun (_, net) -> net.API.network_bridge = my_bridge) pool_networks in
+				net_ref
+			with _ ->
+				debug "Found no network with bridge = '%s' on the master, so creating one." my_bridge;
+				Client.Network.pool_introduce ~rpc ~session_id
+					~name_label:network.API.network_name_label
+					~name_description:network.API.network_name_description
+					~mTU:network.API.network_MTU
+					~other_config:network.API.network_other_config
+					~bridge:network.API.network_bridge
+		else begin
+			debug "Recreating network '%s' as internal network." network.API.network_name_label;
+			(* This call will generate a new 'xapi#' bridge name rather than keeping the
+			 * current, possibly colliding one. *)
+			Client.Network.create ~rpc ~session_id
+				~name_label:network.API.network_name_label
 				~name_description:network.API.network_name_description
 				~mTU:network.API.network_MTU
 				~other_config:network.API.network_other_config
-				~bridge:network.API.network_bridge in
+				~tags:network.API.network_tags
+		end
+	in
 
 	new_network_ref
 
