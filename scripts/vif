@@ -23,9 +23,8 @@
 BRCTL="/usr/sbin/brctl"
 IP="/sbin/ip"
 
-cfg_mod="/usr/bin/ovs-cfg-mod"
 vsctl="/usr/bin/ovs-vsctl"
-service="/sbin/service"
+dump_vif_details="/usr/share/vswitch/scripts/dump-vif-details"
 
 handle_promiscuous()
 {
@@ -67,34 +66,6 @@ handle_mtu()
     fi
 }
 
-handle_vswitch_vif_details()
-{
-    local vif_details=
-    local net_uuid=$(xenstore-read "${PRIVATE}/network-uuid" 2>/dev/null)
-    if [ -n "${net_uuid}" ] ; then
-	vif_details="$vif_details --add=port.${dev}.net-uuid=${net_uuid}"
-    fi
-
-    local address=$(xenstore-read "/local/domain/$DOMID/device/vif/$DEVID/mac" 2>/dev/null)
-    if [ -n "${address}" ] ; then
-	vif_details="$vif_details --add=port.${dev}.vif-mac=${address}"
-    fi
-
-    local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
-    if [ -n "${vif_uuid}" ] ; then
-	vif_details="$vif_details --add=port.${dev}.vif-uuid=${vif_uuid}"
-    fi
-
-    local vm=$(xenstore-read "/local/domain/$DOMID/vm" 2>/dev/null)
-    if [ $? -eq 0 -a -n "${vm}" ] ; then
-	local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
-    fi
-    if [ -n "${vm_uuid}" ] ; then
-	vif_details="$vif_details --add=port.${dev}.vm-uuid=${vm_uuid}"
-    fi
-    echo ${vif_details}
-}
-
 add_to_bridge()
 {
     local address=$(xenstore-read "${PRIVATE}/bridge-MAC")
@@ -121,25 +92,12 @@ add_to_bridge()
 	    ${BRCTL} addif "${bridge}" "${dev}"                 || logger -t scripts-vif "Failed to brctl addif ${bridge} ${dev}"
 	    ;;
 	vswitch)
-	    local VLAN_ID=$($vsctl br-to-vlan $bridge)
-	    local vid=
-	    if [ "$VLAN_ID" -ne 0 ] ; then
-		bridge=$($vsctl br-to-parent $bridge)
-		vid="--add=vlan.${dev}.tag=${VLAN_ID}"
-	    fi
+		local vif_details=$($dump_vif_details $DOMID $DEVID)
+		if [ $? -ne 0 -o -z "${vif_details}" ]; then
+			logger -t scripts-vif "Failed to retrieve vif details for vswitch"
+		fi
 
-	    if [ "$TYPE" = "vif" ] ; then
-		local vif_details=$(handle_vswitch_vif_details)
-	    fi
-
-	    $cfg_mod -F /etc/ovs-vswitchd.conf \
-		--del-match="bridge.*.port=${dev}" \
-		--del-match="vlan.${dev}.trunks=*" \
-		--del-match="vlan.${dev}.tag=*" \
-		--del-match="port.${dev}.[!0-9]*" \
-		--add="bridge.$bridge.port=${dev}" \
-		$vid $vif_details -c 
-	    $service vswitch reload
+		$vsctl add-port $bridge $dev $vif_details
 	    ;;
     esac
 	    
@@ -153,19 +111,20 @@ remove_from_bridge()
 	    # Nothing to do
 	    ;;
 	vswitch)
-	    $cfg_mod -vANY:console:emer -F /etc/ovs-vswitchd.conf \
-		--del-match="bridge.*.port=${dev}" \
-		--del-match="vlan.${dev}.trunks=*" \
-		--del-match="vlan.${dev}.tag=*" \
-		--del-match="port.${dev}.[!0-9]*" -c
-	    $service vswitch reload
+        $vsctl del-port $bridge $dev
 	    ;;
     esac
 }
 
 NETWORK_MODE=$(cat /etc/xensource/network.conf)
 ACTION=$1
-TYPE=$2
+
+# Older versions of XenServer do not pass in the type as an argument
+if [[ $# -lt 2 ]]; then
+    TYPE=vif
+else
+    TYPE=$2
+fi
 
 case $NETWORK_MODE in
     bridge|vswitch) ;;
