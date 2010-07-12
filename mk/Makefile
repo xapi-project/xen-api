@@ -26,10 +26,7 @@ srpm:
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
 	rm -f $@
-	@for srpm in "$(/bin/ls -1 ${MY_OUTPUT_DIR}/SRPMS)"; do \
-		path=$(MY_OUTPUT_DIR)/SRPMS/${srpm}; \
-		echo "$(${RPM} --qf "%{name}" -qp ${path}) $(${RPM} --qf "%{License}" -qp ${path}) ${path}" >>$@; \
-	done
+	/bin/sh ./srpms-to-manifest api-libs $(MY_OUTPUT_DIR)/SRPMS > $@
 
 .PHONY: clean
 	rm -f *.rpm
