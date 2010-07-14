@@ -49,6 +49,20 @@ let assert_no_vlans ~__context ~self =
   if Db.PIF.get_VLAN ~__context ~self <> (-1L) && not (Xapi_fist.allow_forget_of_vlan_pif ())
   then raise (Api_errors.Server_error (Api_errors.pif_vlan_still_exists, [ Ref.string_of self ]))
 
+let assert_no_tunnels ~__context ~self = 
+  (* Disallow if this is a transport interface of any existing tunnel *)
+  let tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
+  debug "PIF %s assert_no_tunnels = [ %s ]" 
+    (Db.PIF.get_uuid ~__context ~self) (String.concat "; " (List.map Ref.string_of tunnels));
+  if tunnels <> [] then begin
+    debug "PIF has associated tunnels: [ %s ]" 
+      (String.concat "; " (List.map (fun self -> Db.Tunnel.get_uuid ~__context ~self) tunnels));
+    raise (Api_errors.Server_error (Api_errors.pif_tunnel_still_exists, [ Ref.string_of self ]))
+  end;
+  (* Disallow if this is an access interface of a tunnel *)
+  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
+  then raise (Api_errors.Server_error (Api_errors.pif_tunnel_still_exists, [ Ref.string_of self ]))
+
 let assert_not_management_pif ~__context ~self = 
   if Db.PIF.get_currently_attached ~__context ~self 
     && Db.PIF.get_management ~__context ~self then
@@ -259,6 +273,7 @@ let introduce ~__context ~host ~mAC ~device =
 let forget ~__context ~self = 
   assert_not_in_bond ~__context ~self;
   assert_no_vlans ~__context ~self;
+  assert_no_tunnels ~__context ~self;
   assert_not_slave_management_pif ~__context ~self; 
   assert_no_protection_enabled ~__context ~self;
 
