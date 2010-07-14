@@ -141,12 +141,12 @@ let diagnostic_db_log printer rpc session_id params =
 type host_license = {
   hostname: string;
   uuid: string;
-  rstr: Restrictions.restrictions;
+  rstr: Features.feature list;
   license: License.license
 }
 let host_license_of_r host_r =
   let params = host_r.API.host_license_params in
-  let rstr = Restrictions.of_assoc_list params in
+  let rstr = Features.of_assoc_list params in
   let license = License.of_assoc_list params in
   { hostname = host_r.API.host_hostname;
     uuid = host_r.API.host_uuid;
@@ -162,8 +162,8 @@ let diagnostic_license_status printer rpc session_id params =
   (* Sort licenses into nearest-expiry first then free *)
   let host_licenses = List.sort (fun a b -> 
 				   let a_expiry = a.license.License.expiry and b_expiry = b.license.License.expiry in
-				   let a_free = Restrictions.is_floodgate_free (Restrictions.sku_of_string a.license.License.sku)
-				   and b_free = Restrictions.is_floodgate_free (Restrictions.sku_of_string b.license.License.sku) in
+				   let a_free = (Edition.of_string a.license.License.sku) = Edition.Free
+				   and b_free = (Edition.of_string b.license.License.sku) = Edition.Free in
 				   if a_expiry < b_expiry then -1
 				   else 
 				     if a_expiry > b_expiry then 1
@@ -175,9 +175,9 @@ let diagnostic_license_status printer rpc session_id params =
   let now = Unix.gettimeofday () in
   let hosts = List.map (fun h -> [ h.hostname; 
 				   String.sub h.uuid 0 8; 
-				   Restrictions.to_compact_string h.rstr; 
-				   Restrictions.obfuscated_string_of_sku (Restrictions.sku_of_string h.license.License.sku); 
-				   string_of_bool (Restrictions.is_floodgate_free (Restrictions.sku_of_string h.license.License.sku)); 
+				   Features.to_compact_string h.rstr; 
+				   Edition.to_short_string (Edition.of_string h.license.License.sku); 
+				   string_of_bool ((Edition.of_string h.license.License.sku) = Edition.Free);			   
 				   Date.to_string (Date.of_float h.license.License.expiry);
 				   Printf.sprintf "%.1f" ((h.license.License.expiry -. now) /. (24. *. 60. *. 60.));
 				 ]) host_licenses in
@@ -185,10 +185,11 @@ let diagnostic_license_status printer rpc session_id params =
 						     String.sub host_r.API.host_uuid 0 8;
 						     "-"; "-"; "-"; "-"; "-" ]) invalid in
   let __context = Context.make "diagnostic_license_status" in
-  let pool_restrictions = Restrictions.get_pool ~__context in
-  let pool_free = List.fold_left (||) false (List.map (fun h -> Restrictions.is_floodgate_free (Restrictions.sku_of_string h.license.License.sku)) host_licenses) in
+  let pool = List.hd (Db.Pool.get_all ~__context) in
+  let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
+  let pool_free = List.fold_left (||) false (List.map (fun h -> (Edition.of_string h.license.License.sku) = Edition.Free) host_licenses) in
   let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
-  let pool = [ "-"; "-"; Restrictions.to_compact_string pool_restrictions; "-"; string_of_bool pool_free; "-"; "-" ] in
+  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; string_of_bool pool_free; "-"; "-" ] in
   let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
 
   (* Compute the required column widths *)

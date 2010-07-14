@@ -535,9 +535,9 @@ let handle_licensing () =
   Server_helpers.exec_with_new_task "Licensing host"
     (fun __context ->
        let host = Helpers.get_localhost ~__context in
-       License.initialise ~__context ~host;
+       License_init.initialise ~__context ~host;
        (* Copy resulting license to the database *)
-       Xapi_host.copy_license_to_db ~__context
+       Xapi_host.copy_license_to_db ~__context ~host
     )
 
 (** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
@@ -763,7 +763,6 @@ let server_init() =
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
   ];
-    let (_: Restrictions.restrictions) = Restrictions.get () in
     begin match Pool_role.get_role () with
     | Pool_role.Master ->
 	()

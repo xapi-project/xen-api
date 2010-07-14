@@ -68,7 +68,7 @@ module Vm_memory_constraints : T = struct
 	let assert_valid_for_current_context ~__context ~vm ~constraints =
 	  (* NB we don't want to prevent dom0 ballooning even if we do want to prevent
 		 domU ballooning. *)
-		(if Db.VM.get_is_control_domain ~__context ~self:vm || (Restrictions.context_ok_for_dmc ~__context)
+		(if Db.VM.get_is_control_domain ~__context ~self:vm || (Features.is_enabled ~__context Features.DMC)
 			then assert_valid
 			else assert_valid_and_pinned_at_static_max)
 		~constraints
