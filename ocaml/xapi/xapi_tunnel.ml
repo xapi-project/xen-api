@@ -25,9 +25,15 @@ let choose_tunnel_device_name ~__context ~host =
 	choose 0
 
 let create ~__context ~transport_PIF ~network =
+	let pool = Helpers.get_pool ~__context in
+	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
+	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
+	if Netdev.network.Netdev.kind <> Netdev.Vswitch then
+		raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []));
+	if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:transport_PIF <> [] then
+		raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of transport_PIF]));
 	let tunnel = Ref.make () in
 	let access_PIF = Ref.make () in
-	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
 	let device = choose_tunnel_device_name ~__context ~host in
 	let device_name = device in
 	let mAC = Xapi_vif_helpers.gen_mac (0, Uuid.to_string (Uuid.make_uuid ())) in
