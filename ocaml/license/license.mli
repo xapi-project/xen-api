@@ -54,10 +54,6 @@ val default : unit -> license
 (** Check whether a given license is valid or expired. *)
 val check_expiry : license -> bool
 
-(** Check whether the current license is valid or expired.
- *  Called from xapi/license_check.ml. *)
-val license_valid : unit -> bool
-
 (** Thrown if we fail to find a license param. *)
 exception Missing_license_param of string
 
