@@ -61,23 +61,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	let assert_restrictions_match () =
 		let host_records = List.map snd (Client.Host.get_all_records ~rpc ~session_id) in
 		(* check pool edition *)
-		let pool_editions = List.map (fun host_r -> host_r.API.host_edition) host_records in
-		let edition_to_int = function
-		| "platinum" -> 2
-		| "enterprise" | "enterprise-xd" -> 1
-		| "free" | _ -> 0
-		in
-		let int_to_edition = function
-		| 2 -> "platinum"
-		| 1 -> "enterprise"
-		| 0 | _ -> "free"
-		in
-		let pool_edition = List.fold_left (fun m e -> min m (edition_to_int e)) 2 pool_editions in
-		let my_edition = edition_to_int (Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context)) in
-		if pool_edition <> my_edition then begin
+		let pool_editions = List.map (fun host_r -> Edition.of_string host_r.API.host_edition) host_records in
+		let pool_edition = Edition.min pool_editions in
+		let my_edition = Edition.of_string (Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context)) in
+		if not (Edition.equal pool_edition my_edition) then begin
 			error "Pool.join failed because of editions mismatch";
-			error "Remote has %s" (int_to_edition pool_edition);
-			error "Local has  %s" (int_to_edition my_edition);
+			error "Remote has %s" (Edition.to_string pool_edition);
+			error "Local has  %s" (Edition.to_string my_edition);
 			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 		end
 	in
