@@ -18,8 +18,8 @@
 
 (** Raises {!Api_errors.license_expired} if the current license has expired.
  *  The consequence would be that the VM is not allowed to start. *)
-val vm : __context:'a -> API.ref_VM -> unit
+val vm : __context:Context.t -> API.ref_VM -> unit
 
 (** Executes function [f] only if the current license has not yet expired.
  *  If it has expired, it raises {!Api_errors.license_expired}. *)
-val with_vm_license_check : __context:'a -> [`VM] Ref.t -> (unit -> 'b) -> 'b
+val with_vm_license_check : __context:Context.t -> [`VM] Ref.t -> (unit -> 'b) -> 'b
