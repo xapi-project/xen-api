@@ -439,6 +439,13 @@ let _ =
   error Api_errors.pif_device_not_found []
     ~doc:"The specified device was not found." ();
 
+  error Api_errors.openvswitch_not_active []
+    ~doc:"This operation needs the OpenVSwitch networking backend to be enabled." ();
+  error Api_errors.transport_pif_not_configured ["PIF"]
+    ~doc:"The tunnel transport PIF has no IP configuration set." ();
+  error Api_errors.is_tunnel_access_pif ["PIF"]
+    ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
+
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -4111,6 +4118,7 @@ let tunnel_create = call
 	~result:(Ref _tunnel, "The reference of the created tunnel object")
 	~lifecycle:[]
 	~allowed_roles:_R_POOL_OP
+	~errs:[Api_errors.openvswitch_not_active; Api_errors.transport_pif_not_configured; Api_errors.is_tunnel_access_pif]
 	()
 
 let tunnel_destroy = call
