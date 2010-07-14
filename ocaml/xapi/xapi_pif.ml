@@ -308,6 +308,9 @@ let vLAN_create ~__context ~tagged_PIF ~tag ~network =
   if List.mem (device, tag) other_keys
   then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
 
+  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
+    raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of tagged_PIF]));
+		
   (* Copy the MTU from the base PIF *)
   let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
 
@@ -420,9 +423,17 @@ let unplug ~__context ~self =
   then abort_if_network_attached_to_protected_vms ~__context ~self;
   Nm.bring_pif_down ~__context self
 
-let plug ~__context ~self =
+let rec plug ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
   let host = Db.PIF.get_host ~__context ~self in
+  let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
+  if tunnel <> [] then
+    let tunnel = List.hd tunnel in
+    let transport_PIF = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+    if Db.PIF.get_ip_configuration_mode ~__context ~self:transport_PIF = `None then
+      raise (Api_errors.Server_error (Api_errors.transport_pif_not_configured, [Ref.string_of transport_PIF]))
+    else
+	  plug ~__context ~self:transport_PIF;    
   Xapi_network.attach ~__context ~network ~host
    
 let calculate_pifs_required_at_start_of_day ~__context =
