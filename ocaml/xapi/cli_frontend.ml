@@ -1353,6 +1353,24 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.vlan_destroy;
       flags=[];
     };
+    
+   "tunnel-create",
+   {
+     reqd=["pif-uuid"; "network-uuid"];
+     optn=[];
+     help="Create a new tunnel on a host.";
+     implementation= No_fd Cli_operations.tunnel_create;
+     flags=[];
+   };
+
+   "tunnel-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a tunnel.";
+      implementation=No_fd Cli_operations.tunnel_destroy;
+      flags=[];
+    };
 
    "pif-unplug",
     {
