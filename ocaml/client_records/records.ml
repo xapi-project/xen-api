@@ -156,6 +156,29 @@ let vlan_record rpc session_id vlan =
 	make_field ~name:"tag"          ~get:(fun () -> Int64.to_string (x ()).API.vLAN_tag) ();
       ]
   }
+  
+let tunnel_record rpc session_id tunnel = 
+  let _ref = ref tunnel in
+  let empty_record = ToGet (fun () -> Client.Tunnel.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields=
+      [
+	make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.tunnel_uuid) ();
+	make_field ~name:"access-PIF"   ~get:(fun () -> get_uuid_from_ref (x ()).API.tunnel_access_PIF) ();
+	make_field ~name:"transport-PIF" ~get:(fun () -> get_uuid_from_ref (x ()).API.tunnel_transport_PIF) ();
+	make_field ~name:"status"        ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.tunnel_status) ();
+	make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.tunnel_other_config)
+		~add_to_map:(fun k v -> Client.Tunnel.add_to_other_config rpc session_id tunnel k v)
+		~remove_from_map:(fun k -> Client.Tunnel.remove_from_other_config rpc session_id tunnel k) 
+		~get_map:(fun () -> (x ()).API.tunnel_other_config) ();
+
+      ]
+  }
 
 let message_record rpc session_id message = 
   let _ref = ref message in
