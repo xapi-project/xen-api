@@ -762,7 +762,11 @@ let syslog_reconfigure ~__context ~host =
 
 	syslog_config_write destination destination_only listen_remote
 
-  
+let get_management_interface ~__context ~host =
+	let pifs = Db.PIF.get_all_records ~__context in
+	let management_pif, _ = List.find (fun (_, pif) -> pif.API.pIF_management && pif.API.pIF_host = host) pifs in
+	management_pif
+
 let change_management_interface ~__context interface = 
     debug "Changing management interface";
     let addrs = Netdev.Addr.get interface in

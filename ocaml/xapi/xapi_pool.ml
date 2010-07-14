@@ -651,6 +651,51 @@ let eject ~__context ~host =
 			(* FIXME: in the future, we should send the windows AD admin/pass here *)
 			(* in order to remove the slave from the AD database during pool-eject *)
 
+		debug "Pool.eject: rewrite networking first-boot files";
+		let management_pif = Xapi_host.get_management_interface ~__context ~host in
+		let pif = Db.PIF.get_record ~__context ~self:management_pif in
+		let management_mac =
+			(* assumes that the management interface is either physical or a bond *)
+			if pif.API.pIF_bond_master_of <> [] then
+				let bond = List.hd pif.API.pIF_bond_master_of in
+				let slaves = Db.Bond.get_slaves ~__context ~self:bond in
+				let first_slave = List.hd slaves in
+				Db.PIF.get_MAC ~__context ~self:first_slave
+			else
+				pif.API.pIF_MAC
+		in
+		let mode = match pif.API.pIF_ip_configuration_mode with
+			| `None -> "none"
+			| `DHCP -> "dhcp"
+			| `Static -> "static"
+		in
+		let t = Xapi_pif.make_tables ~__context ~host in
+		let interfaces = List.fold_left
+			(fun ifs (mac, device) ->
+				let s =
+					if mac <> management_mac then
+						"LABEL='" ^ device ^ "'\nMODE=none\n"
+					else begin
+						let bridge = Xapi_pif.bridge_naming_convention device in
+						Xapi_inventory.update Xapi_inventory._management_interface bridge;
+						"LABEL='" ^ device ^ "'\nMODE=" ^ mode ^
+						if mode = "static" then
+							"\nIP=" ^ pif.API.pIF_IP ^
+							"\nNETMASK=" ^ pif.API.pIF_netmask ^
+							"\nGATEWAY=" ^ pif.API.pIF_gateway ^
+							"\nDNS=" ^ pif.API.pIF_DNS ^ "\n"
+						else
+							"\n"
+					end
+				in
+				Unixext.write_string_to_file (Xapi_globs.first_boot_dir ^ "data/interface-" ^ mac ^ ".conf") s;
+				mac :: ifs
+			) [] t.Xapi_pif.mac_to_biosname_table
+		in
+		let s = "ADMIN_INTERFACE='" ^ management_mac ^ "'\nINTERFACES='" ^ (String.concat " " interfaces) ^ "'\n" in
+		Unixext.write_string_to_file (Xapi_globs.first_boot_dir ^ "data/network.conf") s;
+		Xapi_inventory.update Xapi_inventory._current_interfaces "";
+
 		debug "Pool.eject: deleting Host record (the point of no return)";
 		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
 		Db.Host.destroy ~__context ~self:host;

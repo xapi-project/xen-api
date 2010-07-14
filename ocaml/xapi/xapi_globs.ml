@@ -610,3 +610,5 @@ let cpuid_feature_mask_key = "cpuid_feature_mask"
 (** Default feature mask: EST (base_ecx.7) is ignored. *)
 let cpuid_default_feature_mask = "ffffff7f-ffffffff-ffffffff-ffffffff"
 
+let first_boot_dir = "/etc/firstboot.d/"
+
