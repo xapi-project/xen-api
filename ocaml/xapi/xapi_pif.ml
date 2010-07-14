@@ -415,25 +415,37 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
      device (e.g. because it's a management i/f that was brought up independently by init scripts) *)
   mark_pif_as_dirty (Db.PIF.get_device ~__context ~self) (Db.PIF.get_VLAN ~__context ~self)
 
-let unplug ~__context ~self = 
+let rec unplug ~__context ~self = 
   assert_no_protection_enabled ~__context ~self;
   assert_not_management_pif ~__context ~self;
   let host = Db.PIF.get_host ~__context ~self in
   if Db.Host.get_enabled ~__context ~self:host
   then abort_if_network_attached_to_protected_vms ~__context ~self;
+
+  let network = Db.PIF.get_network ~__context ~self in
+  let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
+  if tunnel <> [] then begin
+    debug "PIF is tunnel transport PIF... also bringing down access PIF";
+    let tunnel = List.hd tunnel in
+    let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+    unplug ~__context ~self:access_PIF
+  end;
   Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
   let host = Db.PIF.get_host ~__context ~self in
   let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
-  if tunnel <> [] then
+  if tunnel <> [] then begin
     let tunnel = List.hd tunnel in
     let transport_PIF = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
     if Db.PIF.get_ip_configuration_mode ~__context ~self:transport_PIF = `None then
       raise (Api_errors.Server_error (Api_errors.transport_pif_not_configured, [Ref.string_of transport_PIF]))
-    else
-	  plug ~__context ~self:transport_PIF;    
+    else begin
+      debug "PIF is tunnel access PIF... also bringing up transport PIF";
+      plug ~__context ~self:transport_PIF
+    end
+  end;
   Xapi_network.attach ~__context ~network ~host
    
 let calculate_pifs_required_at_start_of_day ~__context =
