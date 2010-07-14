@@ -85,6 +85,7 @@ let _auth = "auth"
 let _subject = "subject"
 let _role = "role"
 let _secret = "secret"
+let _tunnel = "tunnel"
 
 
 (** All the various static role names *)
@@ -4004,13 +4005,15 @@ let pif =
 	field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "netmask" "IP netmask" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "gateway" "IP gateway" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "DNS" "IP address of DNS servers to use" ~default_value:(Some (VString ""));
-	field ~in_oss_since:None ~ty:(Ref _bond) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_slave_of" "indicates which bond this interface is part of" ~default_value:(Some (VRef ""));
-	field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "indicates this PIF represents the results of a bond";	
-	field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
-	field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "indicates which VLANs this interface transmits tagged traffic to";
-	field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
-	field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
+	field ~in_oss_since:None ~ty:(Ref _bond) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_slave_of" "Indicates which bond this interface is part of" ~default_value:(Some (VRef ""));
+	field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";	
+	field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
+	field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
+	field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
+	field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
+	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
+	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
+	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
       ]
 	()
 
@@ -4099,6 +4102,38 @@ let vlan =
        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";	  
      ])
     ()
+    
+let tunnel_create = call
+	~name:"create"
+	~doc:"Create a tunnel"
+	~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
+		Ref _network, "network", "Network to receive the tunnelled traffic" ]
+	~result:(Ref _tunnel, "The reference of the created tunnel object")
+	~lifecycle:[]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let tunnel_destroy = call
+	~name:"destroy"
+	~doc:"Destroy a tunnel"
+	~params:[Ref _tunnel, "self", "tunnel to destroy"]
+	~lifecycle:[]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let tunnel = 
+	create_obj ~in_db:true ~lifecycle:[] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
+	~doccomments:[]
+	~messages_default_allowed_roles:_R_POOL_OP
+	~messages:[ tunnel_create; tunnel_destroy ]
+	~contents:([
+		uid _tunnel ~lifecycle:[];
+		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[] "access_PIF" "The interface through which the tunnel is accessed" ~default_value:(Some (VRef ""));
+		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
+		field ~ty:(Map(String, String)) ~lifecycle:[] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
+		field ~lifecycle:[] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";	  
+	])
+	()
 
  let pbd_set_device_config = call
    ~name:"set_device_config"
@@ -6045,6 +6080,7 @@ let all_system =
 		blob;
 		message;
 		secret;
+		tunnel;
 	]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -6063,6 +6099,8 @@ let all_relations =
     (_pif, "bond_slave_of"), (_bond, "slaves");
     (_bond, "master"), (_pif, "bond_master_of");
     (_vlan, "tagged_PIF"), (_pif, "VLAN_slave_of");
+    (_tunnel, "access_PIF"), (_pif, "tunnel_access_PIF_of");
+    (_tunnel, "transport_PIF"), (_pif, "tunnel_transport_PIF_of");
 
     (_pbd, "host"), (_host, "PBDs");
     (_pbd, "SR"), (_sr, "PBDs");
@@ -6142,7 +6180,7 @@ let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_sourc
     or SR *)
 let expose_get_all_messages_for = [ _task; (* _alert; *) _host; _host_metrics; _hostcpu; _sr; _vm; _vm_metrics; _vm_guest_metrics;
 	_network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
-	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role; _secret ]
+	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role; _secret; _tunnel ]
 
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

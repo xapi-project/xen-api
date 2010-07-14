@@ -421,6 +421,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of vlan
 		with _ -> "invalid"
 
+	let tunnel_uuid ~__context tunnel =
+		try if Pool_role.is_master () then
+			Db.Tunnel.get_uuid __context tunnel
+		else
+			Ref.string_of tunnel
+		with _ -> "invalid"
 
 	let bond_uuid ~__context bond =
 		try if Pool_role.is_master () then
@@ -2332,6 +2338,21 @@ end
       let local_fn = Local.VLAN.destroy ~self in
   do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:(Db.VLAN.get_tagged_PIF ~__context ~self)) (fun session_id rpc -> Client.VLAN.destroy rpc session_id self)
   end
+  
+	module Tunnel = struct
+		let create ~__context ~transport_PIF ~network = 
+			info "Tunnel.create: network = '%s'" (network_uuid ~__context network);
+			let local_fn = Local.Tunnel.create ~transport_PIF ~network in
+			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
+				(fun session_id rpc -> Client.Tunnel.create rpc session_id transport_PIF network)
+	  
+		let destroy ~__context ~self = 
+			info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self);
+			let local_fn = Local.Tunnel.destroy ~self in
+			do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context
+				~self:(Db.Tunnel.get_transport_PIF ~__context ~self))
+				(fun session_id rpc -> Client.Tunnel.destroy rpc session_id self)
+	end
 
   module Bond = struct
     let create ~__context ~network ~members ~mAC = 

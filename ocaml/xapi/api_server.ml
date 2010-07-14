@@ -71,6 +71,7 @@ module Actions = struct
 	module Blob = Xapi_blob
 	module Message = Xapi_message
 	module Secret = Xapi_secret
+	module Tunnel = Xapi_tunnel
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)
