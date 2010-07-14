@@ -155,7 +155,5 @@ let license : license ref = ref (default ())
 (* Calls to obtain info about license *)
 
 let check_expiry l =
-  Unix.time () < l.expiry
-
-let license_valid () = check_expiry !license
+	Unix.time () < l.expiry
 
