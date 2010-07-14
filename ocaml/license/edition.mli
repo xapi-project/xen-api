@@ -19,7 +19,7 @@
 type edition =
 	| Free (** Default Edition *)
 
-(** Raised by {!of_string} if the given string does not map to an edition. *)
+(** Raised by {!edition_of_string} if the given string does not map to an edition. *)
 exception Undefined_edition of string
 
 (** Convert a string to an {!edition}. *)
@@ -36,10 +36,4 @@ val to_marketing_name : edition -> string
 
 (** Get the list of {!feature}s enabled for a given {!edition}. *)
 val to_features : edition -> Features.feature list
-
-(** Compare two editions for equality (used before pool join). *)
-val equal : edition -> edition -> bool
-
-(** Return the "least capable" edition (used to determine the pool edition). *)
-val min : edition list -> edition
 

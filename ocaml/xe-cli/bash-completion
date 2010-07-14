@@ -170,7 +170,7 @@ _xe()
                 ;;
             edition) # for host-apply-edition (licensing)
                 IFS=$'\n,'
-                COMPREPLY=( $(compgen -W "free ,enterprise ,platinum " -- ${value}) )
+                COMPREPLY=( $(compgen -W "free ,enterprise ,platinum ,enterprise-xd " -- ${value}) )
                 return 0
                 ;;
 			*)

@@ -346,10 +346,11 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 	let allowed_xsdata (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith p x) [ "vm-data/"; "FIST/" ]) in
 	let xsdata = List.filter allowed_xsdata xsdata in
 
-	let rstr = Restrictions.get () in
 	let platformdata =
 		let p = Db.VM.get_platform ~__context ~self in
-		if rstr.Restrictions.platform_filter then List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p else p
+		if not (Features.is_enabled ~__context Features.No_platform_filter) then
+			List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
+		else p
 	in
 	(* XXX: add extra configuration info to the platform/ map for now.
 	   Eventually we'll put this somewhere where the guest can't see it. *)

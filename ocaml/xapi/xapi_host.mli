@@ -65,7 +65,7 @@ val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
 val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
-val copy_license_to_db : __context:Context.t -> unit
+val copy_license_to_db : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val is_slave : __context:'a -> host:'b -> bool
 
 (** Contact the host and return whether it is a slave or not. 

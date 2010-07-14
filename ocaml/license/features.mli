@@ -36,7 +36,6 @@ type feature =
 | Connection			(** Used by XenCenter *)
 | No_platform_filter	(** Filter platform data *)
 | No_nag_dialog			(** Used by XenCenter *)
-| VMPR					(** Enable use of VM Protection and Recovery *)
 	
 (** The list of all known features. *)
 val all_features : feature list

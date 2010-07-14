@@ -57,14 +57,14 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 		end in
 
-	(* CA-26975: Pool restrictions (implied by pool_sku) MUST match *)
+	(* CA-26975: Pool edition MUST match *)
 	let assert_restrictions_match () =
 		let host_records = List.map snd (Client.Host.get_all_records ~rpc ~session_id) in
 		(* check pool edition *)
 		let pool_editions = List.map (fun host_r -> host_r.API.host_edition) host_records in
 		let edition_to_int = function
 		| "platinum" -> 2
-		| "enterprise" -> 1
+		| "enterprise" | "enterprise-xd" -> 1
 		| "free" | _ -> 0
 		in
 		let int_to_edition = function
@@ -78,16 +78,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			error "Pool.join failed because of editions mismatch";
 			error "Remote has %s" (int_to_edition pool_edition);
 			error "Local has  %s" (int_to_edition my_edition);
-			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-		end;
-		(* check pool restrictions *)
-		let pool_license_params = List.map (fun host_r -> host_r.API.host_license_params) host_records in
-		let pool_restrictions = Restrictions.pool_restrictions_of_list (List.map Restrictions.of_assoc_list pool_license_params) in
-		let my_restrictions = Restrictions.get() in
-		if pool_restrictions <> my_restrictions then begin
-			error "Pool.join failed because of license restrictions mismatch";
-			error "Remote has %s" (Restrictions.to_compact_string pool_restrictions);
-			error "Local has  %s" (Restrictions.to_compact_string my_restrictions);
 			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 		end
 	in
