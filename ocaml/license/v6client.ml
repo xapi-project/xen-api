@@ -34,7 +34,7 @@ let socket = "/var/xapi/v6"
 let v6rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:socket ~path:"/" xml
 
 (* conversion to v6 edition codes *)
-let editions = ["enterprise", "ENT"; "platinum", "PLT"; "enterprise-xd", "XD"]
+let editions = [Edition.Free, "FREE"]
 	
 (* reset to not-licensed state *)
 let reset_state () =
@@ -57,8 +57,8 @@ let disconnect () =
 				if success then begin
 					match !licensed with
 					| None -> ()
-					| Some l ->
-						info "Checked %s license back in to license server." l;
+					| Some edition ->
+						info "Checked %s license back in to license server." (Edition.to_string edition);
 						reset_state ()
 				end
 			| _ -> 
@@ -123,11 +123,11 @@ let connect_and_get_license edition address port =
 				end;
 				(* check return status *)
 				if license = "real" then begin
-					info "Checked out %s license from license server." edition;
+					info "Checked out %s license from license server." (Edition.to_string edition);
 					licensed := Some edition;
 					grace := false
 				end else if license = "grace" then begin
-					info "Obtained %s grace license." edition;
+					info "Obtained %s grace license." (Edition.to_string edition);
 					licensed := Some edition;
 					grace := true;
 					if Xapi_fist.reduce_grace_period () then
@@ -153,7 +153,7 @@ let rec get_v6_license ~__context ~host ~edition =
 		let ls = Db.Host.get_license_server ~__context ~self:host in
 		let address = List.assoc "address" ls in
 		let port = int_of_string (List.assoc "port" ls) in
-		debug "obtaining %s v6 license; license server address: %s; port: %d" edition address port;
+		debug "obtaining %s v6 license; license server address: %s; port: %d" (Edition.to_string edition) address port;
 		(* obtain v6 license *)
 		connect_and_get_license edition address port
 	with
