@@ -47,6 +47,8 @@ let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
 
+let use_compression = "use_compression"
+
 (* If VM.HVM_boot_policy is set to this then we boot using qemu-dm *)
 let hvm_boot_policy_bios_order = "BIOS order"
 (* Key we expect to find in VM.HVM_boot_params if VM.HVM_boot_policy = BIOS_order.
