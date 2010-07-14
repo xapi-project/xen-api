@@ -1210,53 +1210,54 @@ let apply_edition ~__context ~host ~edition =
 	let current_edition = Db.Host.get_edition ~__context ~self:host in
 	let current_license = !License.license in
 	let default = License.default () in
-	let new_license = match edition with
-	| "free" ->	
-		if current_edition = "free" then begin
-			info "The host's edition is already 'free'. No change.";
-			current_license
-		end else begin
-			info "Downgrading from %s to free edition." current_edition;			
-			(* CA-27011: if HA is enabled block the application from downgrading to free *)
-			let pool = List.hd (Db.Pool.get_all ~__context) in
-			if Db.Pool.get_ha_enabled ~__context ~self:pool then
-				raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-			else begin
-				V6client.release_v6_license ();
-				Unixext.unlink_safe !License_file.filename; (* delete activation key, if it exists *)
-				default (* default is free edition with 30 day grace validity *)
+	let new_license = 
+		try match Edition.of_string edition with
+		| Edition.Free ->	
+			if Edition.of_string current_edition = Edition.Free then begin
+				info "The host's edition is already 'free'. No change.";
+				current_license
+			end else begin
+				info "Downgrading from %s to free edition." current_edition;			
+				(* CA-27011: if HA is enabled block the application from downgrading to free *)
+				let pool = List.hd (Db.Pool.get_all ~__context) in
+				if Db.Pool.get_ha_enabled ~__context ~self:pool then
+					raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
+				else begin
+					V6client.release_v6_license ();
+					Unixext.unlink_safe !License_file.filename; (* delete activation key, if it exists *)
+					default (* default is free edition with 30 day grace validity *)
+				end
 			end
-		end
-	| "enterprise" | "platinum" | "enterprise-xd" ->
-		(* Try to get the a v6 license; if one has already been checked out,
-		 * it will be automatically checked back in. *)
-		if current_edition = "free" then
-			info "Upgrading from free to %s edition..." edition
-		else
-			info "(Re)applying %s license..." edition;
+		| e ->
+			(* Try to get the a v6 license; if one has already been checked out,
+			 * it will be automatically checked back in. *)
+			if Edition.of_string current_edition = Edition.Free then
+				info "Upgrading from free to %s edition..." edition
+			else
+				info "(Re)applying %s license..." edition;
 		
-		begin try
-			V6client.get_v6_license ~__context ~host ~edition
-		with _ -> raise (Api_errors.Server_error (Api_errors.missing_connection_details, [])) end;
+			begin try
+				V6client.get_v6_license ~__context ~host ~edition:e
+			with _ -> raise (Api_errors.Server_error (Api_errors.missing_connection_details, [])) end;
 		
-		begin match !V6client.licensed with 
-		| None -> 
-			error "License could not be checked out. Edition is not changed.";
-			V6client.release_v6_license ();
-			raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
-		| Some license ->
-			let name = Edition.to_marketing_name (Edition.of_string edition) in
-			let basic = {default with License.sku = edition; License.sku_marketing_name = name;
-				License.expiry = !V6client.expires} in
-			if !V6client.grace then begin
-				Grace_retry.retry_periodically host edition;
-				{basic with License.grace = "regular grace"}
-			end else
-				basic
-		end
-	| _ ->
-		error "Invalid edition ('%s')!" edition;
-		raise (Api_errors.Server_error (Api_errors.invalid_edition, [edition]))
+			begin match !V6client.licensed with 
+			| None -> 
+				error "License could not be checked out. Edition is not changed.";
+				V6client.release_v6_license ();
+				raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
+			| Some license ->
+				let name = Edition.to_marketing_name (Edition.of_string edition) in
+				let basic = {default with License.sku = edition; License.sku_marketing_name = name;
+					License.expiry = !V6client.expires} in
+				if !V6client.grace then begin
+					Grace_retry.retry_periodically host edition;
+					{basic with License.grace = "regular grace"}
+				end else
+					basic
+			end
+		with Edition.Undefined_edition e ->
+			error "Invalid edition ('%s')!" e;
+			raise (Api_errors.Server_error (Api_errors.invalid_edition, [e]))
 	in
 	License.license := new_license;
 	Db.Host.set_edition ~__context ~self:host ~value:edition;
