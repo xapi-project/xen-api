@@ -18,7 +18,7 @@
 
 (** {2 State variables} *)
 
-val licensed : string option ref
+val licensed : Edition.edition option ref
 (** Equal to the edition string, if a license has been checked out,
  *  or None otherwise *)
 val expires : float ref
@@ -29,7 +29,7 @@ val grace : bool ref
 
 (** {2 Obtaining and Releasing a License} *)
 
-val get_v6_license : __context:Context.t -> host:[`host] Ref.t -> edition:string -> unit
+val get_v6_license : __context:Context.t -> host:[`host] Ref.t -> edition:Edition.edition -> unit
 (** Obtain a v6 license via the licensing daemon. The edition parameter is
  *  either "enterprise" or "platinum". Uses the contact details in host.license_server. *)
 val release_v6_license : unit -> unit
