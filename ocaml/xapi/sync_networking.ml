@@ -170,7 +170,54 @@ let copy_vlans_from_master ~__context =
 		(* for each of the master's pifs, create a corresponding one on this host if necessary *)
 		List.iter maybe_create_vlan_pif_for_me master_vlan_pifs
 	)
-			
+
+(** Copy tunnels from master *)
+let copy_tunnels_from_master ~__context =
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		debug "Resynchronising tunnels";
+		
+		let me = !Xapi_globs.localhost_ref in
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+
+		let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
+		let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) all_pifs in
+		let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) all_pifs in
+
+		let master_tunnel_pifs = List.filter (fun (_,prec) -> prec.API.pIF_tunnel_access_PIF_of <> []) all_master_pifs in
+		let my_tunnel_pifs = List.filter (fun (_,prec) -> prec.API.pIF_tunnel_access_PIF_of <> []) my_pifs in
+
+		let get_network_of_transport_pif access_pif =
+			let [tunnel] = Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif in
+			let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+			Db.PIF.get_network ~__context ~self:transport_pif
+		in
+		
+		let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
+			(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
+			let existing_pif = List.filter (fun (my_pif_ref,my_pif_record) -> 
+				(* Is my VLAN PIF that we're considering (my_pif_ref) the one that corresponds to the master_pif we're considering (master_pif_ref)? *)
+				my_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+				) my_tunnel_pifs in
+			(* if I don't have any such pif(s) then make one: *)
+			if List.length existing_pif = 0 
+			then
+				begin
+					(* On the master, we find the network the tunnel transport PIF is on *)
+					let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_ref in
+					match List.filter (fun (_,prec) -> prec.API.pIF_network=network_of_transport_pif_on_master) my_pifs with
+					| [] -> () (* we have no PIF on which to make the tunnel; do nothing *)
+					| [(pif_ref,_)] -> (* this is the PIF on which we want as transport PIF; let's make it *)
+						ignore (Client.Tunnel.create ~rpc ~session_id ~transport_PIF:pif_ref
+							~network:master_pif_rec.API.pIF_network)
+					| _ -> () (* this should never happen cos we should never have more than one of _our_ pifs on the same nework *)
+				end
+		in 
+		(* for each of the master's pifs, create a corresponding one on this host if necessary *)
+		List.iter maybe_create_tunnel_for_me master_tunnel_pifs
+	)
+
+
 let sync_slave_with_master ~__context () =
 	if Pool_role.is_master () then () (* if master do nothing *)
 	else begin
@@ -178,7 +225,8 @@ let sync_slave_with_master ~__context () =
 		try
 			(* Sync VLANs after bonds so we can add VLANs on top of bonded interfaces (but not v.v.) *)
 			copy_bonds_from_master ~__context;
-			copy_vlans_from_master ~__context
+			copy_vlans_from_master ~__context;
+			copy_tunnels_from_master ~__context
 		with e -> (* Errors here are non-data-corrupting hopefully, so we'll just carry on regardless... *)
 			error "Caught exception syncing PIFs from the master: %s" (ExnHelper.string_of_exn e);
 		log_backtrace ()
