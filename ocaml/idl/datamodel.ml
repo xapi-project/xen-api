@@ -421,6 +421,8 @@ let _ =
     ~doc:"The MAC address specified still exists on this host." ();
   error Api_errors.mac_invalid [ "MAC" ]
     ~doc:"The MAC address specified is not valid." ();
+  error Api_errors.duplicate_pif_device_name [ "device" ]
+    ~doc:"A PIF with this specified device name already exists." ();
 
   error Api_errors.vlan_tag_invalid ["VLAN"]
     ~doc:"You tried to create a VLAN, but the tag you gave was invalid -- it must be between 0 and 4094.  The parameter echoes the VLAN tag you gave." ();
@@ -3911,6 +3913,15 @@ let pif_scan = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let pif_scan_bios = call
+  ~name:"scan_bios"
+  ~doc:"Scan for physical interfaces on a host and create PIF objects to represent them. Use BIOS-based device names."
+  ~params:[Ref _host, "host", "The host on which to scan"]
+  ~result:(Set (Ref _pif), "List of newly created PIFs")
+  ~lifecycle:[]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 let pif_introduce = call
   ~name:"introduce"
   ~doc:"Create a PIF object matching a particular network interface"
@@ -3992,7 +4003,7 @@ let pif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_POOL_OP
-      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_scan; pif_introduce; pif_forget;
+      ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_scan; pif_scan_bios; pif_introduce; pif_forget;
 		pif_unplug; pif_plug; pif_pool_introduce;
 		pif_db_introduce; pif_db_forget
 		] ~contents:

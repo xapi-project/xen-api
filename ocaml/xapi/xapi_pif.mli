@@ -80,6 +80,8 @@ val forget : __context:Context.t -> self:API.ref_PIF -> unit
  *  corresponding networks are present and up-to-date. Uses {!introduce_internal}. *)
 val scan : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
+val scan_bios : __context:Context.t -> host:[ `host ] Ref.t -> [ `PIF ] Ref.t list
+
 (** External facing call to create a new VLAN interface
  * @deprecated since Miami; use [VLAN.create] instead *)
 val create_VLAN :
@@ -130,7 +132,8 @@ val set_difference : 'a list -> 'a list -> 'a list
 (** Convenient lookup tables for scanning etc *)
 type tables = {
   mac_to_pif_table : (string * API.ref_PIF) list;	(** MAC address to PIF reference (all PIFs) *)
-  mac_to_phy_table : (string * string) list;		(** MAC address to physical-interface name (all physical interfaces) *)
+  mac_to_phy_table : (string * string) list;		(** MAC address to kernel device name (all physical interfaces) *)
+  mac_to_biosname_table: (string * string) list;	(** MAC address to BIOS device name (all physical interfaces) *)
 }
 
 (** Construct and return lookup {!tables} with information about the network interfaces *)

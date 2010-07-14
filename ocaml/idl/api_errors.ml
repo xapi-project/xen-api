@@ -100,6 +100,7 @@ let cannot_plug_vif = "CANNOT_PLUG_VIF"
 let mac_still_exists = "MAC_STILL_EXISTS"
 let mac_does_not_exist = "MAC_DOES_NOT_EXIST"
 let mac_invalid = "MAC_INVALID"
+let duplicate_pif_device_name = "DUPLICATE_PIF_DEVICE_NAME"
 
 let openvswitch_not_active = "OPENVSWITCH_NOT_ACTIVE"
 let transport_pif_not_configured = "TRANSPORT_PIF_NOT_CONFIGURED"
