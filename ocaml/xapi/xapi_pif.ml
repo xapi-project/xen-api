@@ -126,7 +126,8 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 type tables = { mac_to_pif_table: (string * API.ref_PIF) list;
-		mac_to_phy_table: (string * string) list }
+		mac_to_phy_table: (string * string) list;
+		mac_to_biosname_table: (string * string) list}
 
 let make_tables ~__context ~host = 
   (* Enumerate known MAC addresses *)
@@ -139,8 +140,12 @@ let make_tables ~__context ~host =
   let physical_macs = List.map Netdev.get_address physical in
   let mac_to_phy_table = List.combine physical_macs physical in
 
+  let bios_names = List.map Netdev.get_bios_name physical in
+  let mac_to_biosname_table = List.combine physical_macs bios_names in
+
   { mac_to_pif_table = mac_to_pif_table;
-    mac_to_phy_table = mac_to_phy_table }
+    mac_to_phy_table = mac_to_phy_table;
+    mac_to_biosname_table = mac_to_biosname_table}
 
 let is_my_management_pif ~__context ~self = 
   let net = Db.PIF.get_network ~__context ~self in
@@ -183,6 +188,7 @@ let mark_pif_as_dirty device vLAN =
 let introduce_internal ?network ?(physical=true) ~t ~__context ~host ~mAC ~mTU ~device ~vLAN ~vLAN_master_of () = 
   let is_vlan = vLAN >= 0L in
 
+  (* Assert that an interface with the given MAC address exists (ALSO DONE IN [introduce]!) *)
   if not(List.mem_assoc mAC t.mac_to_phy_table) && not(is_vlan)
   then raise (Api_errors.Server_error(Api_errors.mac_does_not_exist, [ mAC ]));
 
@@ -256,6 +262,13 @@ let introduce ~__context ~host ~mAC ~device =
 
   let mAC = String.lowercase mAC in (* just a convention *)
   let t = make_tables ~__context ~host in
+  
+  (* Assert that a local PIF with the given device name does not already exist *)
+  let existing_pifs = List.map snd t.mac_to_pif_table in
+  List.iter (fun pif -> if Db.PIF.get_device ~__context ~self:pif = device then 
+    raise (Api_errors.Server_error(Api_errors.duplicate_pif_device_name, [device]))
+  ) existing_pifs;
+  
   (* Make sure the MAC exists *)
   let devices = Netdev.get_by_address mAC in
   match List.filter Netdev.is_physical devices with
@@ -297,6 +310,23 @@ let scan ~__context ~host =
 
   (* Make sure the right PIF(s) are marked as management PIFs *)
   update_management_flags ~__context ~host
+
+let scan_bios ~__context ~host =	
+	let t = make_tables ~__context ~host in
+	
+	let existing_macs = List.map fst t.mac_to_pif_table in
+	let physical_macs = List.map fst t.mac_to_biosname_table in
+	
+	(* Create PIF records for the new interfaces *)
+	let new_pifs =
+		List.map (fun mac -> 
+			let device = List.assoc mac t.mac_to_phy_table in
+			let device' = List.assoc mac t.mac_to_biosname_table in
+			let mTU = Int64.of_string (Netdev.get_mtu device) in
+			introduce_internal ~t ~__context ~host ~mAC:mac ~mTU ~vLAN:(-1L) ~vLAN_master_of:Ref.null ~device:device' ()
+		) (set_difference physical_macs existing_macs)
+	in
+	new_pifs
 
 (* Dummy MAC used by the VLAN *)
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
