@@ -121,6 +121,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_hooks \
 	xapi_bond \
 	xapi_vlan \
+	xapi_tunnel \
 	xapi_sr \
 	xapi_sm \
 	xapi_pbd \
