@@ -165,7 +165,7 @@ let message_to_string (_ref,message) =
 
 let handle_message ~__context message = 
   try
-    if not (Restrictions.get_pool ~__context).Restrictions.enable_email
+    if not (Features.is_enabled ~__context Features.Email)
     then info "Email alerting is restricted by current license: not generating email"
     else begin
       let output, log = Forkhelpers.execute_command_get_output (Xapi_globs.xapi_message_script) [message] in

@@ -131,7 +131,6 @@ XAPI_MODULES = $(COMMON) \
 	config_file_sync \
 	config_file_io \
 	slave_backup \
-	../license/restrictions \
 	sm_fs_ops \
 	vmopshelpers \
 	vm_config \
@@ -234,7 +233,11 @@ XAPI_MODULES = $(COMMON) \
 	bios_strings \
 	xapi_config \
 	../license/grace_retry \
-	../license/v6alert
+	../license/v6alert \
+	../license/edition \
+	../license/features \
+	../license/license_file \
+	../license/license_init
 
 OCamlProgram(xapi, $(XAPI_MODULES))
 OCamlDocProgram(xapi, $(XAPI_MODULES))
