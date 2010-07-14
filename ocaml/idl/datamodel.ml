@@ -445,6 +445,8 @@ let _ =
     ~doc:"The tunnel transport PIF has no IP configuration set." ();
   error Api_errors.is_tunnel_access_pif ["PIF"]
     ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
+  error Api_errors.pif_tunnel_still_exists ["PIF"]
+    ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
 
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
@@ -3871,6 +3873,7 @@ let pif_plug = call
   ~params:[Ref _pif, "self", "the PIF object to plug"]
   ~in_product_since:rel_miami
   ~allowed_roles:_R_POOL_OP
+  ~errs:[Api_errors.transport_pif_not_configured]
   ()
 
 let pif_unplug = call
@@ -3926,6 +3929,7 @@ let pif_forget = call
   ~params:[Ref _pif, "self", "The PIF object to destroy"]
   ~in_product_since:rel_miami
   ~allowed_roles:_R_POOL_OP
+  ~errs:[Api_errors.pif_tunnel_still_exists]
   ()
 
 let pif_introduce_params first_rel =
