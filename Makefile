@@ -4,14 +4,16 @@ COMPILE_XENSTUFF ?= yes
 export COMPILE_XENSTUFF
 
 PRODUCT_VERSION?=unknown
-PRODUCT_BRAND?=Miamidev
+PRODUCT_BRAND?=Rio
 BUILD_NUMBER?=6666
-COMPILE_NATIVE?=yes
-export PRODUCT_VERSION PRODUCT_BRAND BUILD_NUMBER
+COMPILE_NATIVE=yes
+COMPILE_BYTE=no # bytecode version does not build
+export PRODUCT_VERSION PRODUCT_BRAND BUILD_NUMBER COMPILE_NATIVE COMPILE_BYTE
 
 .PHONY: all
-all:
-	omake phase1 phase2
+all: version
+	omake phase1
+	omake phase2
 	omake lib-uninstall
 	omake lib-install
 	omake phase3
