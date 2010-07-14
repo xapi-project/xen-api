@@ -679,7 +679,8 @@ let gen_cmds rpc session_id =
 	(make_param_funs (Client.Pool.get_all) (Client.Pool.get_all_records_where) (Client.Pool.get_by_uuid) (pool_record) "pool" [] ["uuid";"name-label";"name-description";"master";"default-SR"] rpc session_id) @ 
 	(make_param_funs (Client.PIF.get_all) (Client.PIF.get_all_records_where) (Client.PIF.get_by_uuid) (pif_record) "pif" [] ["uuid";"device";"VLAN";"mac";"network-uuid"; "currently-attached"] rpc session_id) @ 
 	(make_param_funs (Client.Bond.get_all) (Client.Bond.get_all_records_where) (Client.Bond.get_by_uuid) (bond_record) "bond" [] ["uuid";"master";"slaves"] rpc session_id) @ 
-	(make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @ 
+	(make_param_funs (Client.VLAN.get_all) (Client.VLAN.get_all_records_where) (Client.VLAN.get_by_uuid) (vlan_record) "vlan" [] ["uuid";"tagged-PIF";"untagged-PIF"; "tag"] rpc session_id) @
+	(make_param_funs (Client.Tunnel.get_all) (Client.Tunnel.get_all_records_where) (Client.Tunnel.get_by_uuid) (tunnel_record) "tunnel" [] ["uuid";"transport-PIF";"access-PIF";"status"] rpc session_id) @  
 	(make_param_funs (Client.VIF.get_all) (Client.VIF.get_all_records_where) (Client.VIF.get_by_uuid) (vif_record) "vif" [] ["uuid";"device";"vm-uuid";"network-uuid"] rpc session_id)  @
 	(make_param_funs (Client.Network.get_all) (Client.Network.get_all_records_where) (Client.Network.get_by_uuid) (net_record) "network" [] ["uuid";"name-label";"name-description";"bridge"] rpc session_id) @
 	(make_param_funs (Client.Console.get_all) (Client.Console.get_all_records_where) (Client.Console.get_by_uuid) (console_record) "console" [] ["uuid";"vm-uuid";"vm-name-label";"protocol";"location"] rpc session_id) @
@@ -3208,6 +3209,18 @@ let vlan_destroy printer rpc session_id params =
 	let pif = Client.PIF.get_by_uuid rpc session_id uuid in
 	Client.PIF.destroy rpc session_id pif
 
+let tunnel_create printer rpc session_id params = 
+	let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
+	let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
+	let tunnel = Client.Tunnel.create rpc session_id pif network in
+	let pif' = Client.Tunnel.get_access_PIF rpc session_id tunnel in
+	let uuid = Client.PIF.get_uuid rpc session_id pif' in
+	printer (Cli_printer.PList [uuid])
+  
+let tunnel_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
+	Client.Tunnel.destroy rpc session_id tunnel
 
 let pif_reconfigure_ip printer rpc session_id params = 
   let read_optional_case_insensitive key =
