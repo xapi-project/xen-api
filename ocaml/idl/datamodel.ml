@@ -5210,6 +5210,9 @@ let pool_audit_log_append = call
 let pool_set_vswitch_controller = call
   ~in_oss_since:None
   ~in_product_since:rel_midnight_ride
+  ~lifecycle:[
+    Published, rel_midnight_ride, "Set the IP address of the vswitch controller.";
+    Extended, rel_cowley, "Allow to be set to the empty string (no controller is used)."]
   ~name:"set_vswitch_controller"
   ~params:[String, "address", "IP address of the vswitch controller."]
   ~doc:"Set the IP address of the vswitch controller."
