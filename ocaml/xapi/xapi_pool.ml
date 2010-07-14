@@ -246,7 +246,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
 			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
-			if my_controller <> controller then
+			if my_controller <> controller && my_controller <> "" then
 				raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
 		| _ -> ()
 	in
@@ -675,7 +675,7 @@ let eject ~__context ~host =
 		(* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
 		Db.Host.destroy ~__context ~self:host;
 
-		debug "Reset CPU features";
+		debug "Pool.eject: resetting CPU features";
 		(* Clear the CPU feature masks from the Xen command line *)
 		ignore (Xen_cmdline.delete_cpuid_masks
 			["cpuid_mask_ecx"; "cpuid_mask_edx"; "cpuid_mask_ext_ecx"; "cpuid_mask_ext_edx"]);
@@ -1416,7 +1416,8 @@ let set_vswitch_controller ~__context ~address =
 		let pool = Helpers.get_pool ~__context in
 		let current_address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
 		if current_address <> address then begin
-			assert_is_valid_ip address;
+			if address <> "" then
+				assert_is_valid_ip address;
 			Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
 			List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
 		end
