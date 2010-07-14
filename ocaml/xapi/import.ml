@@ -576,17 +576,66 @@ let handle_all __context config rpc session_id (xs: obj list) =
     end;
     raise e
 
-(** Read the next file from the tar stream as XML metadata *)
-let get_xml fd filename =
-  (* Read the xml header *)
-  let xml = Tar.Archive.with_next_file fd
-    (fun s hdr ->
-       if hdr.Tar.Header.file_name <> filename then raise (IFailure (Unexpected_file (filename, hdr.Tar.Header.file_name)));
-       let file_size = hdr.Tar.Header.file_size in
-       let xml_string = Bigbuffer.make () in
-       really_read_bigbuffer s xml_string file_size;
-       xml_string) in
-  Xml.parse_bigbuffer xml
+(** Read the next file in the archive as xml *)
+let read_xml hdr fd = 
+  let xml_string = Bigbuffer.make () in
+  really_read_bigbuffer fd xml_string hdr.Tar.Header.file_size;
+  Xml.parse_bigbuffer xml_string
+
+let assert_filename_is hdr filename = 
+  if hdr.Tar.Header.file_name <> filename then begin
+    let hex = Tar.Header.to_hex in
+    error "import expects the next file in the stream to be [%s]; got [%s]"
+      (hex  hdr.Tar.Header.file_name) (hex Xva.xml_filename);
+    raise (IFailure (Unexpected_file(hdr.Tar.Header.file_name, Xva.xml_filename)))
+  end
+
+(** Takes an fd and a function, tries first to read the first tar block
+    and checks for the existence of 'ova.xml'. If that fails then pipe
+    the lot through gzip and try again *)
+let with_open_archive fd f = 
+  (* Read the first header's worth into a buffer *)
+  let buffer = String.make Tar.Header.length ' ' in
+  let retry_with_gzip = ref true in
+  try
+    really_read fd buffer 0 Tar.Header.length;
+
+    (* we assume the first block is not all zeroes *)
+    let Some hdr = Tar.Header.unmarshal buffer in
+    assert_filename_is hdr Xva.xml_filename;
+
+    (* successfully opened uncompressed stream *)
+    retry_with_gzip := false;
+    let xml = read_xml hdr fd in
+    Tar.Archive.skip fd (Tar.Header.compute_zero_padding_length hdr);
+    f xml fd
+  with e ->
+    if not(!retry_with_gzip) then raise e;
+    debug "Failed to directly open the archive; trying gzip";
+    let pipe_out, pipe_in = Unix.pipe () in
+    let t = Thread.create
+      (Gzip.decompress pipe_in)
+      (fun compressed_in ->
+	 (* Write the initial buffer *)
+	 Unix.set_close_on_exec compressed_in;
+	 debug "Writing initial buffer";
+	 Unix.write compressed_in buffer 0 Tar.Header.length;
+	 let n = Unixext.copy_file fd compressed_in in
+	 debug "Written a total of %d + %Ld bytes" Tar.Header.length n;
+      ) in
+    finally
+      (fun () ->
+	 let hdr = Tar.Header.get_next_header pipe_out in
+	 assert_filename_is hdr Xva.xml_filename;
+
+	 let xml = read_xml hdr pipe_out in
+	 Tar.Archive.skip pipe_out (Tar.Header.compute_zero_padding_length hdr);
+	 f xml pipe_out)
+      (fun () ->
+	 debug "Closing pipes";
+	 Unix.close pipe_in;
+	 Unix.close pipe_out;
+	 Thread.join t)
 
 (** Remove "import" from the current operations of all created VMs, complete the
     task including the VM references *)
@@ -622,7 +671,9 @@ let metadata_handler (req: request) s =
 	 [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 	   content_type ] in
        Http_svr.headers s headers;
-       let metadata = get_xml s Xva.xml_filename in
+       with_open_archive s
+       (fun metadata s ->
+	    debug "Got XML";
        (* Skip trailing two zero blocks *)
        Tar.Archive.skip s (Tar.Header.length * 2);
 
@@ -651,7 +702,7 @@ let metadata_handler (req: request) s =
 	 cleanup on_cleanup_stack;
 	 end;
 	 raise e
-    ))
+    )))
 
 let handler (req: request) s = 
   req.close <- true;
@@ -730,8 +781,9 @@ let handler (req: request) s =
 			content_type ] in
 		    Http_svr.headers s headers;
 		    debug "Reading XML";
-		    let metadata = get_xml s Xva.xml_filename in
-		    debug "Got XML";
+		    with_open_archive s
+		      (fun metadata s ->
+			 debug "Got XML";
 		    let old_zurich_or_geneva = try ignore(Xva.of_xml metadata); true with _ -> false in
 		    let vmrefs = 
 		      if old_zurich_or_geneva 
@@ -769,7 +821,8 @@ let handler (req: request) s =
 			  (* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
 			  if header.version.export_vsn < 2 then 
 			    begin
-			      let expected_checksums = checksum_table_of_xmlrpc (get_xml s Xva.checksum_filename) in
+			      let xml = Tar.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
+			      let expected_checksums = checksum_table_of_xmlrpc xml in
 			      if not(compare_checksums checksum_table expected_checksums) then begin
 				error "Some data checksums were incorrect: VM may be corrupt";
 				if not(force)
@@ -793,6 +846,7 @@ let handler (req: request) s =
 		    in
 		    complete_import ~__context vmrefs;
 		    debug "import successful"
+		    )
 	      with 
 		| IFailure failure ->
 		    begin
