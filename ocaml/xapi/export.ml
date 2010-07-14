@@ -419,6 +419,8 @@ let handler (req: request) s =
   
   Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req;
     
+  let use_compression = List.mem_assoc Constants.use_compression req.query && List.assoc Constants.use_compression req.query = "true" in
+  debug "Using compression: %b" use_compression;
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
   
@@ -485,7 +487,11 @@ let handler (req: request) s =
  	       with_vm_locked ~__context ~vm:vm_ref ~task_id `export
 		 (fun () -> 
 		    Http_svr.headers s headers;
-		    export refresh_session __context rpc session_id s vm_ref preserve_power_state)
+		    let go fd = export refresh_session __context rpc session_id fd vm_ref preserve_power_state in
+		    if use_compression
+		    then Gzip.compress s go
+		    else go s
+		 )
 		 
        	     (* Exceptions are handled by Server_helpers.with_context *)
 	     ))
