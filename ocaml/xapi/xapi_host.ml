@@ -35,7 +35,7 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
 
 let set_license_params ~__context ~self ~value = 
   Db.Host.set_license_params ~__context ~self ~value;
-  Restrictions.update_pool_restrictions ~__context
+  Features.update_pool_features ~__context
   
 let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
@@ -521,9 +521,11 @@ let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
 
 exception Pool_record_expected_singleton
-let copy_license_to_db ~__context =
+let copy_license_to_db ~__context ~host =
   let license_kvpairs = License.to_assoc_list !License.license in
-  let restrict_kvpairs = Restrictions.to_assoc_list (Restrictions.get ()) in
+  let edition = Edition.of_string (Db.Host.get_edition ~__context ~self:host) in
+  let features = Edition.to_features edition in
+  let restrict_kvpairs = Features.to_assoc_list features in
   let license_params = license_kvpairs @ restrict_kvpairs in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
@@ -563,7 +565,7 @@ let license_apply ~__context ~host ~contents =
   let edition = Db.Host.get_edition ~__context ~self:host in
   if edition <> "free" then raise (Api_errors.Server_error(Api_errors.activation_while_not_free, []));
   let license = Base64.decode contents in
-  let tmp = Filenameext.temp_file_in_dir !License.filename in
+  let tmp = Filenameext.temp_file_in_dir !License_file.filename in
   let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
   let close =
     let already_done = ref false in
@@ -577,28 +579,28 @@ let license_apply ~__context ~host ~contents =
     close ();
 
     (* if downgrade and in a pool [i.e. a slave, or a master with >1 host record] then fail *)
-    let new_license = match License.read_license_file tmp with
+    let new_license = match License_file.read_license_file tmp with
       | Some l -> l
       | None -> failwith "Failed to read license" (* Gets translated into generic failure below *)
     in
     
     (* CA-27011: if HA is enabled block the application of a license whose SKU does not support HA *)
-    let new_restrictions = Restrictions.restrictions_of_sku (Restrictions.sku_of_string new_license.License.sku) in
+    let new_features = Edition.to_features (Edition.of_string new_license.License.sku) in
     let pool = List.hd (Db.Pool.get_all ~__context) in
-    if Db.Pool.get_ha_enabled ~__context ~self:pool && (not new_restrictions.Restrictions.enable_xha)
+    if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (List.mem Features.HA new_features))
     then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
-      License.do_parse_and_validate tmp; (* throws exception if not valid which should really be translated into API error here.. *)
-      Unix.rename tmp !License.filename; (* atomically overwrite host license file *)
-      copy_license_to_db ~__context;     (* update pool.license_params for clients that want to see license info through API *)
+      License_file.do_parse_and_validate tmp; (* throws exception if not valid which should really be translated into API error here.. *)
+      Unix.rename tmp !License_file.filename; (* atomically overwrite host license file *)
+      copy_license_to_db ~__context ~host; (* update pool.license_params for clients that want to see license info through API *)
       Unixext.unlink_safe tmp;
   with
       _ as e ->
 	close ();
 	Unixext.unlink_safe tmp;
 	match e with
-	  | License.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
-	  | License.License_file_deprecated -> raise (Api_errors.Server_error(Api_errors.license_file_deprecated, []))
+	  | License_file.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
+	  | License_file.License_file_deprecated -> raise (Api_errors.Server_error(Api_errors.license_file_deprecated, []))
 	  | (Api_errors.Server_error (x,y)) -> raise (Api_errors.Server_error (x,y)) (* pass through api exceptions *)
 	  | e ->
 	      begin
@@ -1221,11 +1223,11 @@ let apply_edition ~__context ~host ~edition =
 				raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
 			else begin
 				V6client.release_v6_license ();
-				Unixext.unlink_safe !License.filename; (* delete activation key, if it exists *)
+				Unixext.unlink_safe !License_file.filename; (* delete activation key, if it exists *)
 				default (* default is free edition with 30 day grace validity *)
 			end
 		end
-	| "enterprise" | "platinum" ->
+	| "enterprise" | "platinum" | "enterprise-xd" ->
 		(* Try to get the a v6 license; if one has already been checked out,
 		 * it will be automatically checked back in. *)
 		if current_edition = "free" then
@@ -1243,8 +1245,8 @@ let apply_edition ~__context ~host ~edition =
 			V6client.release_v6_license ();
 			raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
 		| Some license ->
-			let sku, name = License.sku_and_name_of_edition edition in
-			let basic = {default with License.sku = sku; License.sku_marketing_name = name;
+			let name = Edition.to_marketing_name (Edition.of_string edition) in
+			let basic = {default with License.sku = edition; License.sku_marketing_name = name;
 				License.expiry = !V6client.expires} in
 			if !V6client.grace then begin
 				Grace_retry.retry_periodically host edition;
@@ -1258,7 +1260,7 @@ let apply_edition ~__context ~host ~edition =
 	in
 	License.license := new_license;
 	Db.Host.set_edition ~__context ~self:host ~value:edition;
-	copy_license_to_db ~__context; (* update host.license_params, pool sku and restrictions *)
+	copy_license_to_db ~__context ~host; (* update host.license_params, pool sku and restrictions *)
 	Unixext.unlink_safe Xapi_globs.upgrade_grace_file (* delete upgrade-grace file, if it exists *)
 
 let refresh_pack_info ~__context ~host =
@@ -1269,7 +1271,7 @@ let refresh_pack_info ~__context ~host =
 let set_cpu_features ~__context ~host ~features =
 	debug "Set CPU features";
 	(* check restrictions *)
-	if not (Restrictions.ok_for_cpu_masking ~__context) then
+	if not (Features.is_enabled ~__context Features.CPU_masking) then
 		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
 	
 	let cpuid = Cpuid.read_cpu_info () in

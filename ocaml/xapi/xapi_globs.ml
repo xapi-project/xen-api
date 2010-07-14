@@ -543,9 +543,6 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
-(** Contains an XML key/value pair database containing the mapping from sku_type to sku_marketing_name *)
-let sku_marketing_name_db = "/etc/xensource/sku.db"
-
 (** Directory used by the v6 license policy engine for caching *)
 let upgrade_grace_file = "/var/xapi/ugp"
 

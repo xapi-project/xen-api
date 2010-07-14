@@ -34,7 +34,7 @@ let socket = "/var/xapi/v6"
 let v6rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:socket ~path:"/" xml
 
 (* conversion to v6 edition codes *)
-let editions = ["enterprise", "ENT"; "platinum", "PLT"]
+let editions = ["enterprise", "ENT"; "platinum", "PLT"; "enterprise-xd", "XD"]
 	
 (* reset to not-licensed state *)
 let reset_state () =
