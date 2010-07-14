@@ -116,12 +116,19 @@ val request_backup :
 val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
 val syslog_config_write : string -> bool -> bool -> unit
 val syslog_reconfigure : __context:Context.t -> host:'a -> unit
+
+(** {2 Management Interface} *)
+
+val get_management_interface : __context:Context.t -> host:API.ref_host -> API.ref_PIF
 val change_management_interface : __context:Context.t -> string -> unit
 val local_management_reconfigure :
   __context:Context.t -> interface:string -> unit
 val management_reconfigure :
   __context:Context.t -> pif:[ `PIF ] Ref.t -> unit
 val management_disable : __context:Context.t -> unit
+
+(** {2 (Fill in title!)} *)
+
 val get_system_status_capabilities :
   __context:'a -> host:API.ref_host -> string
 val get_diagnostic_timing_stats :
