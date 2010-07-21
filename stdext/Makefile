@@ -22,12 +22,13 @@ OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
 STDEXT_OBJS = fun opt listext filenameext stringext arrayext hashtblext pervasiveext threadext ring \
 	qring fring bigbuffer unixext range vIO trie config date encodings fe fecomms \
-	forkhelpers gzip sha1sum zerocheck base64 backtrace tar mapext os either
+	forkhelpers gzip sha1sum zerocheck base64 backtrace tar mapext os either \
+	lazyList extentlistSet set_test
 
 INTF = $(foreach obj, $(STDEXT_OBJS),$(obj).cmi)
 LIBS = stdext.cma stdext.cmxa
 
-PROGRAMS = base64pp fe_cli fe_test
+PROGRAMS = base64pp fe_cli fe_test extentlistset_test
 
 DOCDIR = /myrepos/xen-api-libs.hg/doc
 
@@ -45,6 +46,9 @@ fe_cli: fe_cli.ml all libstdext_stubs.a
 
 fe_test: fe_test.ml all libstdext_stubs.a
 	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa ../uuid/uuid.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -I ../uuid -o $@ $< -ccopt -L.
+
+extentlistset_test: extentlistset_test.ml all libstdext_stubs.a
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
 
 stdext.cmxa: libstdext_stubs.a $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ -cclib -lstdext_stubs $(foreach obj,$(STDEXT_OBJS),$(obj).cmx)
