@@ -69,7 +69,7 @@ rm -rf $RPM_BUILD_ROOT
    /opt/xensource/libexec/pciutil
    /opt/xensource/libexec/sexprpp
    /opt/xensource/libexec/xmlpp
-
+   /opt/xensource/libexec/extentlistset_test
 
 %files devel
 %defattr(-,root,root,-)
@@ -180,6 +180,9 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/dllstdext_stubs.so
    /usr/lib/ocaml/stdext/encodings.cmi
    /usr/lib/ocaml/stdext/encodings.cmx
+   /usr/lib/ocaml/stdext/extentlistSet.cmi
+   /usr/lib/ocaml/stdext/extentlistSet.cmx
+   /usr/lib/ocaml/stdext/extentlistset_test.cmx
    /usr/lib/ocaml/stdext/fe.cmi
    /usr/lib/ocaml/stdext/fe.cmx
    /usr/lib/ocaml/stdext/fecomms.cmi
@@ -197,6 +200,8 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/hashtblext.cmi
    /usr/lib/ocaml/stdext/hashtblext.cmx
    /usr/lib/ocaml/stdext/libstdext_stubs.a
+   /usr/lib/ocaml/stdext/lazyList.cmi
+   /usr/lib/ocaml/stdext/lazyList.cmx
    /usr/lib/ocaml/stdext/listext.cmi
    /usr/lib/ocaml/stdext/listext.cmx
    /usr/lib/ocaml/stdext/mapext.cmi
@@ -211,6 +216,8 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/range.cmx
    /usr/lib/ocaml/stdext/ring.cmi
    /usr/lib/ocaml/stdext/ring.cmx
+   /usr/lib/ocaml/stdext/set_test.cmi
+   /usr/lib/ocaml/stdext/set_test.cmx
    /usr/lib/ocaml/stdext/sha1sum.cmi
    /usr/lib/ocaml/stdext/sha1sum.cmx
    /usr/lib/ocaml/stdext/stdext.a
