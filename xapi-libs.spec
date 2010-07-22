@@ -267,6 +267,14 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/xml-light2/xml-light2.cmxa
    /usr/lib/ocaml/xml-light2/xml.cmi
    /usr/lib/ocaml/xml-light2/xml.cmx
+   /usr/lib/ocaml/vhd/META
+   /usr/lib/ocaml/vhd/dllvhd_stubs.so
+   /usr/lib/ocaml/vhd/libvhd_stubs.a
+   /usr/lib/ocaml/vhd/vhd.a
+   /usr/lib/ocaml/vhd/vhd.cma
+   /usr/lib/ocaml/vhd/vhd.cmi
+   /usr/lib/ocaml/vhd/vhd.cmx
+   /usr/lib/ocaml/vhd/vhd.cmxa
 
 %exclude /usr/lib/ocaml/close-and-exec/closeandexec_main.cmx
 %exclude /usr/lib/ocaml/pciutil/pciutil_main.cmx
