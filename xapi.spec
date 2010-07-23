@@ -230,6 +230,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/libexec/shell.pyo
 /opt/xensource/libexec/shell.pyc
 /opt/xensource/libexec/shutdown
+/opt/xensource/libexec/sparse_dd
 /opt/xensource/libexec/update-mh-info
 /opt/xensource/libexec/upload-wrapper
 /opt/xensource/libexec/v6d
