@@ -292,6 +292,12 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/cpuid/cpuid.cmxa
    /usr/lib/ocaml/cpuid/dllcpuid_stubs.so
    /usr/lib/ocaml/cpuid/libcpuid_stubs.a
+   /usr/lib/ocaml/tapctl/META
+   /usr/lib/ocaml/tapctl/tapctl.a
+   /usr/lib/ocaml/tapctl/tapctl.cma
+   /usr/lib/ocaml/tapctl/tapctl.cmi
+   /usr/lib/ocaml/tapctl/tapctl.cmx
+   /usr/lib/ocaml/tapctl/tapctl.cmxa
    /usr/lib/ocaml/netdev/*
    /usr/lib/ocaml/eventchn/META
    /usr/lib/ocaml/eventchn/dlleventchn_stubs.so
