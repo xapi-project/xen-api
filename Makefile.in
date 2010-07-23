@@ -45,6 +45,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C eventchn
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
+	$(MAKE) -C tapctl
 endif
 
 install:
@@ -84,6 +85,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C eventchn install
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
+	$(MAKE) -C tapctl install
 endif
 
 uninstall:
@@ -123,6 +125,7 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C mmap uninstall
 	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C vhd uninstall
+	$(MAKE) -C tapctl uninstall
 endif
 
 bins:
@@ -173,6 +176,7 @@ doc:
 	$(MAKE) -C mlvm doc
 	$(MAKE) -C cpuid doc
 	$(MAKE) -C vhd doc
+	$(MAKE) -C tapctl doc
 	$(MAKE) -C xen-utils doc
 
 .PHONY: clean
@@ -195,6 +199,7 @@ clean:
 	$(MAKE) -C mlvm clean
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
+	$(MAKE) -C tapctl clean
 	$(MAKE) -C xen-utils clean
 
 cleanxen:
