@@ -272,20 +272,37 @@ let send_host_rrd_to_master () =
     We save our host RRD and running VM RRDs on the local filesystem and pick them up when we restart. *)
 let backup ?(save_stats_locally=true) () =
   debug "backup safe_stats_locally=%b" save_stats_locally;
-  let vrrds = 
-    Mutex.execute mutex (fun () -> Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) vm_rrds []) 
-  in
-  List.iter (fun (uuid,rrd) -> 
-              debug "Backup: saving RRD for VM uuid=%s to local disk" uuid; 
-              let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrd) in
-              archive_rrd uuid ~save_stats_locally rrd) 
-    vrrds;
-  match !host_rrd with 
-    | Some rrdi -> 
-        debug "Backup: saving RRD for host to local disk";
-        let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrdi.rrd) in
-        archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally rrd
-    | None -> ()
+  let total_cycles = 5 in
+  let cycles_tried = ref 0 in
+  while !cycles_tried < total_cycles do
+    if Mutex.try_lock mutex then begin
+      cycles_tried := total_cycles;
+      let vrrds = 
+        try 
+          Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) vm_rrds []
+        with exn ->
+          Mutex.unlock mutex;
+          raise exn
+      in
+      Mutex.unlock mutex;
+      List.iter (fun (uuid,rrd) -> 
+                  debug "Backup: saving RRD for VM uuid=%s to local disk" uuid; 
+                  let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrd) in
+                  archive_rrd uuid ~save_stats_locally rrd) 
+        vrrds;
+      match !host_rrd with 
+        | Some rrdi -> 
+            debug "Backup: saving RRD for host to local disk";
+            let rrd = Mutex.execute mutex (fun () -> Rrd.to_string rrdi.rrd) in
+            archive_rrd (Helpers.get_localhost_uuid ()) ~save_stats_locally rrd
+        | None -> ()
+    end else begin
+      cycles_tried := 1 + !cycles_tried;
+      if !cycles_tried >= total_cycles
+      then debug "Could not acquire RRD lock, skipping RRD backup"
+      else Thread.delay 1.
+    end
+  done
 
 (** Maybe_remove_rrd - remove an RRD from the local filesystem, if it exists *)
 let maybe_remove_rrd uuid =
