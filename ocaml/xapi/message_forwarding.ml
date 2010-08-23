@@ -505,6 +505,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Role = Local.Role
   module Task = Local.Task
   module Event = Local.Event
+  module VMPP = Local.VMPP
   (* module Alert = Local.Alert *)
 
   module Pool = struct
@@ -850,9 +851,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     (* don't forward create. this just makes a db record *)
-    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations =
+    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy =
       info "VM.create: name_label = '%s' name_description = '%s'" name_label name_description;
-      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations
+      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
 
     (* don't forward destroy. this just deletes db record *)
     let destroy ~__context ~self =
@@ -2067,6 +2068,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Host.get_servertime ~host in
       do_op_on ~local_fn ~__context ~host
 	(fun session_id rpc -> Client.Host.get_servertime rpc session_id host)
+
+    let get_server_localtime ~__context ~host =
+      (* info "Host.get_servertime"; *) (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
+      let local_fn = Local.Host.get_server_localtime ~host in
+  do_op_on ~local_fn ~__context ~host
+  (fun session_id rpc -> Client.Host.get_server_localtime rpc session_id host)
 
     let enable_binary_storage ~__context ~host =
       info "Host.enable_binary_storage: host = '%s'" (host_uuid ~__context host);

@@ -82,6 +82,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~pV_args:""
 				~pCI_bus:"" ~other_config:[] ~xenstore_data:[] ~recommendations:""
 				~ha_always_run:false ~ha_restart_priority:"" ~tags:[]
+				~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
 			      in
 
                  TaskHelper.operate_on_db_task ~__context
