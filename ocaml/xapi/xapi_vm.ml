@@ -1196,3 +1196,11 @@ let copy_bios_strings ~__context ~vm ~host =
 		Db.VM.set_affinity ~__context ~self:vm ~value:host
 	end
 	
+let set_protection_policy ~__context ~self ~value = 
+  if Db.VM.get_is_control_domain ~__context ~self
+  then ( (* do not assign vmpps to the dom0 vm of any host in the pool *)
+    raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]))
+  )
+  else (
+    Db.VM.set_protection_policy ~__context ~self ~value
+  )

@@ -1673,6 +1673,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let copy_bios_strings ~__context ~vm ~host =
 		info "VM.copy_bios_strings: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
 		Local.VM.copy_bios_strings ~__context ~vm ~host
+
+	let set_protection_policy ~__context ~self ~value =
+		info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
+		Local.VM.set_protection_policy ~__context ~self ~value
+
   end
 
   module VM_metrics = struct
