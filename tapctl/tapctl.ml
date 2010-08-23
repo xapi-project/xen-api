@@ -8,7 +8,8 @@ type tapdev = {
 	tapdisk_pid : int;
 } with rpc
 
-type t = tapdev * string * (string * string) option
+type t = tapdev * string * (string * string) option 
+
 
 type context = {
 	host_local_dir: string;
@@ -16,6 +17,8 @@ type context = {
 }
 
 let create () = { host_local_dir = ""; dummy = false }
+let create_dummy dir = 
+	{host_local_dir=dir; dummy=true }
 
 let get_devnode_dir ctx =
 	let d = Printf.sprintf "%s/dev/xen/blktap-2" ctx.host_local_dir in
@@ -30,86 +33,292 @@ let string_of_driver = function
 | Vhd -> "vhd"
 | Aio -> "aio"
 
+(* DUMMY MODE FUNCTIONS *)
+
+let get_minor tapdev = tapdev.minor
+let get_tapdisk_pid tapdev = tapdev.tapdisk_pid
+
+module Dummy = struct 
+	type dummy_tap = {
+		d_minor : int option;
+		d_pid : int option;
+		d_state : string option;
+		d_args : string option;
+	} and dummy_tap_list = dummy_tap list with rpc
+			
+	let d_lock = Mutex.create ()
+		
+	let get_dummy_tapdisk_list_filename ctx =
+		let file = Printf.sprintf "%s/dev/tapdisks" ctx.host_local_dir in
+		Unixext.mkdir_rec (Filename.dirname file) 0o777;
+		file
+			
+	let get_dummy_tapdisk_list ctx =
+		let filename = get_dummy_tapdisk_list_filename ctx in
+		try
+			dummy_tap_list_of_rpc (Jsonrpc.of_string (Unixext.read_whole_file_to_string filename))
+		with _ -> []
+			
+	let write_dummy_tapdisk_list ctx list =
+		let filename = get_dummy_tapdisk_list_filename ctx in
+		let str = Jsonrpc.to_string (rpc_of_dummy_tap_list list) in
+		Unixext.write_string_to_file filename str
+			
+	let find_next_unused_number list =
+		if List.length list = 0 then 0 else
+			let list_plus_one = List.map ((+) 1) list in
+			let diff = List.set_difference list_plus_one list in
+			List.hd diff
+				
+	let find_next_unused_minor list =
+		let minors = List.filter_map (fun t -> t.d_minor) list in
+		find_next_unused_number minors
+			
+	let find_next_unused_pid list =
+		let pids = List.filter_map (fun t -> t.d_pid) list in
+		find_next_unused_number pids
+			
+	let get_entry_from_pid pid list =
+		try Some (List.find (fun entry -> entry.d_pid = Some pid) list) with _ -> None
+			
+	let get_entry_from_minor minor list =
+		try Some (List.find (fun entry -> entry.d_minor = Some minor) list) with _ -> None
+			
+	let allocate ctx =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let minor = find_next_unused_minor list in
+			let entry = {
+				d_minor = Some minor;
+				d_pid = None;
+				d_state = None;
+				d_args = None;
+			} in
+			write_dummy_tapdisk_list ctx (entry::list);
+			minor
+		)
+			
+	let spawn ctx =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let pid = find_next_unused_pid list in
+			let entry = {
+				d_minor = None;
+				d_pid = Some pid;
+				d_state = None;
+				d_args = None;
+			} in
+			write_dummy_tapdisk_list ctx (entry::list);
+			pid
+		)
+			
+	let attach ctx pid minor =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			begin (* sanity check *)
+				match (get_entry_from_pid pid list, get_entry_from_minor minor list) with
+					| Some e1, Some e2 ->
+						if e1.d_minor <> None then failwith "pid already attached!";
+						if e2.d_pid <> None then failwith "minor already in use!";
+					| None, Some _ -> 
+						failwith "pid nonexistant"
+					| Some _, None ->
+						failwith "minor nonexistant"
+					| None, None -> 
+						failwith "neither pid nor minor exist!"
+			end;
+			let new_entry = {
+				d_minor = Some minor;
+				d_pid = Some pid;
+				d_state = Some "0";
+				d_args = None;
+			} in
+			let list = List.filter (fun e -> e.d_pid <> Some pid && e.d_minor <> Some minor) list in
+			write_dummy_tapdisk_list ctx (new_entry::list);
+			{tapdisk_pid=pid; minor=minor})
+		
+	let _open ctx t leaf_path driver =
+		let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let list = List.map (fun e -> 
+				if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor 
+				then { e with 
+					d_state = Some "0";
+					d_args = Some args }
+				else e) list in
+			write_dummy_tapdisk_list ctx list)
+
+	let close ctx t =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let list = List.map (fun e -> 
+				if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor 
+				then { e with 
+					d_state = Some "0x2";
+					d_args = None }
+				else e) list in
+			write_dummy_tapdisk_list ctx list)
+
+	let pause ctx t =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let list = List.map (fun e -> 
+				if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor 
+				then { e with d_state = Some "0x2a" }
+				else e) list in
+			write_dummy_tapdisk_list ctx list)
+
+	let unpause ctx t leaf_path driver =
+		let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let list = List.map (fun e -> 
+				if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor 
+				then { e with 
+					d_state = Some "0";
+					d_args = Some args }
+				else e) list in
+			write_dummy_tapdisk_list ctx list)
+
+	let detach ctx t = 
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			let (a,b) = get_entry_from_pid t.tapdisk_pid list, get_entry_from_minor t.minor list in
+			if a<>None && a <> b then failwith "Not attached";
+			let list = List.filter (fun entry -> entry.d_pid <> Some t.tapdisk_pid) list in
+			let list = { d_minor = Some t.minor;
+			             d_pid = None;
+						 d_state = None;
+						 d_args = None; }::list in
+			write_dummy_tapdisk_list ctx list)
+
+	let free ctx minor =
+		Mutex.execute d_lock (fun () ->
+			let list = get_dummy_tapdisk_list ctx in
+			let entry = get_entry_from_minor minor list in
+			begin (* sanity check *)
+				match entry with
+					| Some e -> if e.d_pid <> None then failwith "Can't free an attached minor"
+					| None -> failwith "Unknown minor"
+			end;
+			let list = List.filter (fun e -> e.d_minor <> Some minor) list in
+			write_dummy_tapdisk_list ctx list)
+
+	let list ?t ctx =
+		Mutex.execute d_lock (fun () -> 
+			let list = get_dummy_tapdisk_list ctx in
+			List.filter_map (fun e -> 
+				let args = 
+					match Opt.map (String.split ':') e.d_args with
+						| Some (ty::arguments) ->
+							Some (ty,String.concat ":" arguments)
+						| _ -> None
+				in
+				match (e.d_minor, e.d_pid, e.d_state, t) with
+					| Some m, Some p, Some s, None ->
+						Some ({tapdisk_pid=p; minor=m},s,args) 
+					| Some m, Some p, Some s, Some t ->
+						if t.tapdisk_pid = p && t.minor=m then 
+							Some ({tapdisk_pid=p; minor=m},s,args) 
+						else 
+							None
+					| _ -> None) list)
+end
+ 		
+
+(* END OF DUMMY STUFF *)
+
 let invoke_tap_ctl ctx cmd args =
-	if ctx.dummy then
-		match cmd with
-			| "allocate" ->
-				let path = Printf.sprintf "%s%d" (get_blktapstem ctx) (Random.int max_int) in
-				Unixext.mkdir_rec (Filename.dirname path) 0o700;
-				Unix.close (Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT; Unix.O_EXCL] 0o700);
-				path
-			| _ -> ""
-	else
-		let stdout, stderr = execute_command_get_output ~env:[|"PATH=" ^ (Sys.getenv "PATH") |] "/usr/sbin/tap-ctl" (cmd::args) in
-		stdout
+	let stdout, stderr = execute_command_get_output ~env:[|"PATH=" ^ (Sys.getenv "PATH") |] "/usr/sbin/tap-ctl" (cmd::args) in
+	stdout
 
 let allocate ctx =
-	let result = invoke_tap_ctl ctx "allocate" [] in
-	let stem = get_tapdevstem ctx in
-	let stemlen = String.length stem in
-	assert(String.startswith stem result);
-	let minor_str = (String.sub result stemlen (String.length result - stemlen)) in
-	let minor = Scanf.sscanf minor_str "%d" (fun d -> d) in
-	minor
+	if ctx.dummy then Dummy.allocate ctx else begin
+		let result = invoke_tap_ctl ctx "allocate" [] in
+		let stem = get_tapdevstem ctx in
+		let stemlen = String.length stem in
+		assert(String.startswith stem result);
+		let minor_str = (String.sub result stemlen (String.length result - stemlen)) in
+		let minor = Scanf.sscanf minor_str "%d" (fun d -> d) in
+		minor
+	end
 
 let devnode ctx minor =
 	Printf.sprintf "%s%d" (get_tapdevstem ctx) minor
 
 let spawn ctx =
-	let result = invoke_tap_ctl ctx "spawn" [] in
-	let pid = Scanf.sscanf result "%d" (fun d -> d) in
-	pid
+	if ctx.dummy then Dummy.spawn ctx else begin
+		let result = invoke_tap_ctl ctx "spawn" [] in
+		let pid = Scanf.sscanf result "%d" (fun d -> d) in
+		pid
+	end
 
 let attach ctx pid minor =
-	let _ = invoke_tap_ctl ctx "attach" ["-p"; string_of_int pid; "-m"; string_of_int minor] in
-	{minor=minor; tapdisk_pid=pid}
+	if ctx.dummy then Dummy.attach ctx pid minor else begin
+		let _ = invoke_tap_ctl ctx "attach" ["-p"; string_of_int pid; "-m"; string_of_int minor] in
+		{minor=minor; tapdisk_pid=pid}
+	end
 
 let args tapdev =
 	["-p"; string_of_int tapdev.tapdisk_pid; "-m"; string_of_int tapdev.minor]
 
 let _open ctx t leaf_path driver =
-	ignore(invoke_tap_ctl ctx "open" (args t @ ["-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path]))
+	if ctx.dummy then Dummy._open ctx t leaf_path driver else begin
+		ignore(invoke_tap_ctl ctx "open" (args t @ ["-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path]))
+	end
 
 let close ctx t =
-	ignore(invoke_tap_ctl ctx "close" (args t))
-
+	if ctx.dummy then Dummy.close ctx t else begin
+		ignore(invoke_tap_ctl ctx "close" (args t))
+	end
 let pause ctx t =
-	ignore(invoke_tap_ctl ctx "pause" (args t))
+	if ctx.dummy then Dummy.pause ctx t else begin
+		ignore(invoke_tap_ctl ctx "pause" (args t))
+	end
 
 let unpause ctx t leaf_path driver =
-	ignore(invoke_tap_ctl ctx "unpause" (args t @ [ "-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path ]))
+	if ctx.dummy then Dummy.unpause ctx t leaf_path driver else begin
+		ignore(invoke_tap_ctl ctx "unpause" (args t @ [ "-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path ]))
+	end
 
 let detach ctx t =
-	ignore(invoke_tap_ctl ctx "detach" (args t))
+	if ctx.dummy then Dummy.detach ctx t else begin
+		ignore(invoke_tap_ctl ctx "detach" (args t))
+	end
 
 let free ctx minor =
-	ignore(invoke_tap_ctl ctx "free" ["-m"; string_of_int minor])
+	if ctx.dummy then Dummy.free ctx minor else begin
+		ignore(invoke_tap_ctl ctx "free" ["-m"; string_of_int minor])
+	end
 
 let list ?t ctx =
-	let args = match t with
-		| Some tapdev -> args tapdev
-		| None -> []
-	in
-	let result = invoke_tap_ctl ctx "list" args in
-	let lines = String.split '\n' result in
-	List.filter_map (fun line ->
-		try 
-			let fields = String.split_f String.isspace line in
-			let assoc = List.filter_map (fun field -> 
-				match String.split '=' field with
-					| x::ys -> 
-						Some (x,String.concat "=" ys)
-					| _ -> 
-						None) fields
-			in
-			let args = 
-				match String.split ':' (List.assoc "args" assoc) with
-					| ty::arguments ->
-						Some (ty,String.concat ":" arguments)
-					| _ -> None
-			in
-			Some ({tapdisk_pid=int_of_string (List.assoc "pid" assoc); minor=int_of_string (List.assoc "minor" assoc)},(List.assoc "state" assoc),args)
-		with _ -> None) lines
+	if ctx.dummy then Dummy.list ?t ctx else begin
+		let args = match t with
+			| Some tapdev -> args tapdev
+			| None -> []
+		in
+		let result = invoke_tap_ctl ctx "list" args in
+		let lines = String.split '\n' result in
+		List.filter_map (fun line ->
+			try 
+				let fields = String.split_f String.isspace line in
+				let assoc = List.filter_map (fun field -> 
+					match String.split '=' field with
+						| x::ys -> 
+							Some (x,String.concat "=" ys)
+						| _ -> 
+							None) fields
+				in
+				let args = 
+					match String.split ':' (List.assoc "args" assoc) with
+						| ty::arguments ->
+							Some (ty,String.concat ":" arguments)
+						| _ -> None
+				in
+				Some ({tapdisk_pid=int_of_string (List.assoc "pid" assoc); minor=int_of_string (List.assoc "minor" assoc)},(List.assoc "state" assoc),args)
+			with _ -> None) lines
+	end
 
 let is_paused ctx t =
 	let result = list ~t ctx in
