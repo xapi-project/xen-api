@@ -260,6 +260,7 @@ install:
 	$(IPROG) quicktest $(DEBUGDIST)
 	cp -f quicktestbin $(DEBUGDIST)
 	$(IPROG) rrddump $(DEBUGDIST)
+	mkdir -p $(DESTDIR)/opt/xensource/libexec
 	$(IPROG) sparse_dd $(DESTDIR)/opt/xensource/libexec
 
 .PHONY: sdk-install
