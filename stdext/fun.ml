@@ -17,4 +17,6 @@ let (++) f g x = comp f g x
 let comp2 f g a b = f (g a b)
 let (+++) f g a b = comp2 f g a b
 
+let (|>) a f = f a
+
 let ($) f a = f a
