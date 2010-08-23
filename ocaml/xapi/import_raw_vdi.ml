@@ -20,8 +20,12 @@ open D
 
 open Http
 open Importexport
+open Sparse_encoding
 open Unixext
 open Pervasiveext
+
+let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
+	Chunk.fold (fun () -> Chunk.write fd) () s
 
 let vdi_of_req ~__context (req: request) = 
 	let vdi = 
@@ -37,6 +41,7 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
       let vdi = vdi_of_req ~__context req in
+      let chunked = List.mem_assoc "chunked" req.Http.query in
       try
 	match req.transfer_encoding, req.content_length with
 	| Some "chunked", _ ->
@@ -56,7 +61,9 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 		      finally 
 			(fun () -> 
 			   try
-			     Unixext.copy_file ~limit:len s fd;
+			     if chunked
+			     then receive_chunks s fd
+			     else ignore(Unixext.copy_file ~limit:len s fd);
 			     Unixext.fsync fd
 			   with Unix.Unix_error(Unix.EIO, _, _) ->
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
