@@ -26,13 +26,15 @@ mailhub=@MAILHUB@
 FromLineOverride=YES
 """
 
+ma_username="__dom0__mail_alarm"
+
 def log_err(err):
     print >>sys.stderr, err
     syslog.syslog(syslog.LOG_USER | syslog.LOG_ERR, "%s: %s" % (sys.argv[0], err))
 
 def get_pool_name():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password(ma_username, "")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         pool_name = session.xenapi.pool.get_name_label(opaque_ref)
@@ -47,16 +49,35 @@ def get_pool_name():
 
 def get_pool_other_config():
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password(ma_username, "")
     try:
         opaque_ref = session.xenapi.pool.get_all()[0]
         return session.xenapi.pool.get_other_config(opaque_ref)
     finally:
         session.xenapi.session.logout()
 
+def get_vmpp_alarm_config(uuid):
+    session = XenAPI.xapi_local()
+    session.xenapi.login_with_password(ma_username, "")
+    try:
+        opaque_ref = session.xenapi.VMPP.get_by_uuid(uuid)
+        vmpp_alarm_config = session.xenapi.VMPP.get_alarm_config(opaque_ref)
+        vmpp_is_alarm_enabled = session.xenapi.VMPP.get_is_alarm_enabled(opaque_ref)
+        try:
+            vmpp_smtp_server=vmpp_alarm_config['smtp_server']
+            vmpp_smtp_port=vmpp_alarm_config['smtp_port']
+            vmpp_email_address=vmpp_alarm_config['email_address']
+        except:
+            log_err("VMPP uuid=%s: not sending email alert due to incomplete configuration" % uuid)
+            sys.exit(1)
+        other_config = {'ssmtp-mailhub':"%s %s" % (vmpp_smtp_server,vmpp_smtp_port),'mail-destination':vmpp_email_address}
+        return vmpp_is_alarm_enabled,other_config
+    finally:
+        session.xenapi.session.logout()
+
 def get_VM_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password(ma_username, "")
     try:
         try:
             opaque_ref = session.xenapi.VM.get_by_uuid(uuid)
@@ -68,7 +89,7 @@ def get_VM_params(uuid):
 
 def get_host_params(uuid):
     session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "")
+    session.xenapi.login_with_password(ma_username, "")
     try:
         try:
             opaque_ref = session.xenapi.host.get_by_uuid(uuid)
@@ -290,6 +311,12 @@ class XapiMessage:
     def get_priority(self):
         return int(self.priority)
 
+    def get_cls(self):
+        return self.cls
+
+    def get_obj_uuid(self):
+        return self.obj_uuid
+
     def __get_email_text_generator(self):
         """Returns an EmailTextGenerator object appropriate to this XapiMessage or None if none found"""
         if hasattr(self,'cached_etg'):
@@ -371,11 +398,18 @@ def main():
     # We only mail messages with level min_priority or higher
     if msg.get_priority() < min_priority:
         return 0
-    
-    config = get_config_file()
+
+    if msg.get_cls() == "VMPP":
+        config = default_config
+        vmpp_is_alarm_enabled, other_config = get_vmpp_alarm_config(msg.get_obj_uuid())
+        if not vmpp_is_alarm_enabled:
+          return 0
+    else:        
+        config = get_config_file()
+
     search_replace = get_search_replace(other_config)
     destination = get_destination(other_config)
-    
+
     if not destination:
         log_err("pool:other-config:mail-destination not specified")
         return 1

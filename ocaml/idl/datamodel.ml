@@ -6049,7 +6049,9 @@ let message =
     Enum ("cls", [ "VM", "VM";
                    "Host", "Host";
 		   "SR", "SR";
-		   "Pool","Pool";])
+		   "Pool","Pool";
+       "VMPP","VMPP";
+    ])
   in
   let create = call
     ~name:"create"
