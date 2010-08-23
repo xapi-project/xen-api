@@ -460,7 +460,6 @@ let clone ~__context ~vdi ~driver_params =
        raise e)
 
 let copy ~__context ~vdi ~sr =
-  Sm.assert_pbd_is_plugged ~__context ~sr;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   let task_id = Ref.string_of (Context.get_task_id __context) in
 
@@ -489,8 +488,10 @@ let copy ~__context ~vdi ~sr =
     dst
   with 
       e -> 
-	destroy ~__context ~self:dst;
-	raise e
+      Helpers.call_api_functions ~__context
+      (fun rpc session_id -> Client.VDI.destroy rpc session_id dst);
+      raise e
+
 
 
 let force_unlock ~__context ~vdi = 
