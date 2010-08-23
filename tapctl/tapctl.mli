@@ -33,5 +33,11 @@ val list : ?t:tapdev -> context -> t list
 val is_paused : context -> tapdev -> bool
 val is_active : context -> tapdev -> bool
 
+(** Thrown by [of_device x] when [x] is a device not owned by blktap *)
+exception Not_blktap
+
+(** Thrown by [of_device x] when [x] is not a device *)
+exception Not_a_device
+
 (** Given a path to a device, return the corresponding tap information *)
 val of_device : context -> string -> t

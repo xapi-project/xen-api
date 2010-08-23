@@ -332,8 +332,24 @@ let is_active ctx t =
 		| [(tapdev,state,Some _ )] -> true
 		| _ -> false
 
+(* We need to be able to check that a given device's major number corresponds to the right driver *)
+let read_proc_devices () : (int * string) list = 
+	let parse_line x = match List.filter (fun x -> x <> "") (String.split ' ' x) with
+	| [x; y] -> (try Some (int_of_string x, y) with _ -> None)
+	| _ -> None in
+	List.concat (List.map Opt.to_list ( Unixext.file_lines_fold (fun acc x -> parse_line x :: acc) [] "/proc/devices") )
+
+let driver_of_major major = List.assoc major (read_proc_devices ())
+
+exception Not_blktap
+exception Not_a_device
+
 let of_device ctx path =
-	let minor = (Unix.stat path).Unix.st_rdev mod 256 in
+	let stat = Unix.stat path in
+	if stat.Unix.st_kind <> Unix.S_BLK then raise Not_a_device;
+	let major = stat.Unix.st_rdev / 256 in
+	let minor = stat.Unix.st_rdev mod 256 in
+	if driver_of_major major <> "tapdev" then raise Not_blktap;
 	match List.filter (fun (tapdev, _, _) -> tapdev.minor = minor) (list ctx) with
 		| [ t ] -> t
 		| _ -> raise Not_found
