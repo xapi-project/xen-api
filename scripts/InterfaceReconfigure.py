@@ -632,8 +632,8 @@ def ethtool_settings(oc):
             log("Invalid value for ethtool-speed = %s. Must be 10|100|1000." % val)
     if oc.has_key('ethtool-duplex'):
         val = oc['ethtool-duplex']
-        if val in ["10", "100", "1000"]:
-            settings += ['duplex', 'val']
+        if val in ["half", "full"]:
+            settings += ['duplex', val]
         else:
             log("Invalid value for ethtool-duplex = %s. Must be half|full." % val)
     if oc.has_key('ethtool-autoneg'):
