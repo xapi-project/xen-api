@@ -41,7 +41,8 @@ let class_to_string cls =
     | `VM -> "VM" 
     | `Host -> "Host" 
     | `SR -> "SR" 
-    | `Pool -> "Pool" 
+    | `Pool -> "Pool"
+    | `VMPP -> "VMPP" 
     | _ -> "unknown"
 
 let string_to_class str = 
@@ -50,6 +51,7 @@ let string_to_class str =
     | "Host" -> `Host
     | "SR" -> `SR
     | "Pool" -> `Pool
+    | "VMPP" -> `VMPP
     | _ -> failwith "Bad type"
 
 (* We use the timestamp to name the file. For consistency, use this function *)
@@ -148,7 +150,9 @@ let check_uuid ~__context ~cls ~uuid =
       | `VM -> ignore(Db.VM.get_by_uuid ~__context ~uuid)
       | `Host -> ignore(Db.Host.get_by_uuid ~__context ~uuid)
       | `SR -> ignore(Db.SR.get_by_uuid ~__context ~uuid)
-      | `Pool -> ignore(Db.Pool.get_by_uuid ~__context ~uuid));
+      | `Pool -> ignore(Db.Pool.get_by_uuid ~__context ~uuid)
+      | `VMPP -> ignore(Db.VMPP.get_by_uuid ~__context ~uuid)
+    );
     true
   with _ -> 
     false
