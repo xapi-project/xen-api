@@ -1,4 +1,4 @@
-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd
+OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xs
 OCAML_LIBS    =  ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
@@ -33,6 +33,7 @@ OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLPACKS) $(OCAMLPA
 
 OCamlProgram(http_test, http_test)
 OCamlProgram(sparse_dd, sparse_dd)
+OCamlProgram(show_bat, show_bat)
 
 COMMON = \
 	xapi_templates \
