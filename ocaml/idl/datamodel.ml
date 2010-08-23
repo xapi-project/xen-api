@@ -5875,12 +5875,25 @@ let vmpp_archive_now = call ~flags:[`Session]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ~result:(String, "An XMLRPC result")
   ()
+let vmpp_create_alert = call ~flags:[`Session]
+  ~name:"create_alert"
+  ~in_oss_since:None
+  ~in_product_since:rel_cowley
+  ~params:[Ref _vmpp, "vmpp", "The protection policy where the alert should be created";
+     String, "name", "The name of the message";
+	   Int, "priority", "The priority of the message";
+	   String, "body", "The body of the message";
+  ]
+  ~doc:"This call creates an alert for some protection policy"
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~hide_from_docs:true
+  ()
 let vmpp_get_alerts = call ~flags:[`Session]
   ~name:"get_alerts"
   ~in_oss_since:None
   ~in_product_since:rel_cowley
   ~params:[Ref _vmpp, "vmpp", "The protection policy";
-    DateTime, "since", "oldest record to fetch";
+    Int, "hours_from_now", "how many hours in the past the oldest record to fetch is";
   ]
   ~doc:"This call fetches a history of alerts for a given protection policy"
   ~allowed_roles:_R_POOL_OP
@@ -6116,6 +6129,7 @@ let vmpp =
     ~messages:[
       vmpp_protect_now;
       vmpp_archive_now;
+      vmpp_create_alert;
       vmpp_get_alerts;
       vmpp_set_is_backup_running;
       vmpp_set_is_archive_running;
