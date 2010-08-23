@@ -2168,6 +2168,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.reset_cpu_features: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.Host.reset_cpu_features ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reset_cpu_features rpc session_id host)
+      
+    let reset_networking ~__context ~host = 
+      info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);
+      Local.Host.reset_networking ~__context ~host
 end
 
   module Host_crashdump = struct

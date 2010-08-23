@@ -1272,6 +1272,30 @@ let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
 	let software_version = Create_misc.make_software_version () in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
+	
+let reset_networking ~__context ~host =
+	debug "Resetting networking";
+	let local_pifs = List.filter (fun pif -> Db.PIF.get_host ~__context ~self:pif = host) (Db.PIF.get_all ~__context) in
+	let bond_is_local bond =
+		List.fold_left (fun a pif -> Db.Bond.get_master ~__context ~self:bond = pif || a) false local_pifs
+	in
+	let vlan_is_local vlan =
+		List.fold_left (fun a pif -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan = pif || a) false local_pifs
+	in
+	let tunnel_is_local tunnel =
+		List.fold_left (fun a pif -> Db.Tunnel.get_access_PIF ~__context ~self:tunnel = pif || a) false local_pifs
+	in
+	let bonds = List.filter bond_is_local (Db.Bond.get_all ~__context) in
+	List.iter (fun bond -> debug "destroying bond %s" (Db.Bond.get_uuid ~__context ~self:bond);
+		Db.Bond.destroy ~__context ~self:bond) bonds;
+	let vlans = List.filter vlan_is_local (Db.VLAN.get_all ~__context) in
+	List.iter (fun vlan -> debug "destroying VLAN %s" (Db.VLAN.get_uuid ~__context ~self:vlan);
+		Db.VLAN.destroy ~__context ~self:vlan) vlans;
+	let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
+	List.iter (fun tunnel -> debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel);
+		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
+	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
+		Db.PIF.destroy ~__context ~self:pif) local_pifs
 		
 let set_cpu_features ~__context ~host ~features =
 	debug "Set CPU features";
