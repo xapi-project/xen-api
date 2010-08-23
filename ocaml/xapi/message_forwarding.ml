@@ -960,18 +960,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.copy ~vm ~new_name ~sr in
-      (* Are we copying to a new SR? *)
-      let new_sr_copy = try ignore(Db.SR.get_uuid ~__context ~self:sr); true with _ -> false in
-      let fwd_fn = 
-	if new_sr_copy 
-	then forward_to_access_srs_and ~extra_sr:sr
-	else forward_to_access_srs in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 	 uses the API to clone and lock the individual VDIs. We don't give any atomicity
 	 guarantees here but we do prevent disk corruption. *)
       with_vm_operation ~__context ~self:vm ~doc:"VM.copy" ~op:`copy
 	(fun () ->
-	   fwd_fn ~local_fn ~__context ~vm 
+	   forward_to_access_srs ~local_fn ~__context ~vm 
 	     (fun session_id rpc -> Client.VM.copy rpc session_id vm new_name sr))
 
     
