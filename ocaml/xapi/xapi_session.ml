@@ -325,7 +325,7 @@ let slave_login ~__context ~host ~psecret =
   slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret;
   login_no_password ~__context ~uname:None ~host:host ~pool:true 
       ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
-      ~auth_user_name:"" ~rbac_permissions:[]
+      ~auth_user_name:(Ref.string_of host) ~rbac_permissions:[]
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret = 
@@ -360,8 +360,8 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 		(* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
 		(* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
 		login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
-			~pool:false ~is_local_superuser:true ~subject:(Ref.null)(*~subject should be undefined here or not??? *)
-			~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[]
+			~pool:false ~is_local_superuser:true ~subject:(Ref.null)
+			~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
 	end 
 	else
 	let login_as_local_superuser auth_type = 
@@ -372,7 +372,7 @@ let login_with_password ~__context ~uname ~pwd ~version = wipe_params_after_fn [
 			do_local_auth uname pwd;
 			debug "Successful local authentication user %s from %s" uname (Context.get_origin __context);
 			login_no_password ~__context ~uname:(Some uname) ~host:(Helpers.get_localhost ~__context) 
-				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:""
+				~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:uname
 				~rbac_permissions:[]
 		end
 	in	
