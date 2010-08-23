@@ -251,3 +251,6 @@ val set_cpu_features : __context:Context.t -> host:API.ref_host -> features:stri
 (** Remove the feature mask, such that after a reboot all features of the CPU are enabled. *)
 val reset_cpu_features : __context:Context.t -> host:API.ref_host -> unit
 
+(** Purge all network-related metadata associated with the given host. *)
+val reset_networking : __context:Context.t -> host:API.ref_host -> unit
+

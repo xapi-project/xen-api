@@ -2503,7 +2503,7 @@ let host_refresh_pack_info = call
   ~params:[Ref _host, "host", "The Host to modify"]
   ~allowed_roles:_R_POOL_OP
   () 
-  
+    
 (* ------------------------------------------------------------------------------------------------------------
    VDI Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -3576,7 +3576,6 @@ let host_apply_edition = call ~flags:[`Session]
   ~allowed_roles:_R_POOL_OP
   ()
  
-  
 let host_set_power_on_mode = call
   ~name:"set_power_on_mode"
   ~in_product_since:rel_midnight_ride
@@ -3609,6 +3608,15 @@ let host_reset_cpu_features = call ~flags:[`Session]
   ]
   ~allowed_roles:_R_POOL_OP
   ()
+
+let host_reset_networking = call
+	~name:"reset_networking"
+	~lifecycle:[]
+	~doc:"Purge all network-related metadata associated with the given host."
+	~params:[Ref _host, "host", "The Host to modify"]
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	() 
   
 (** Hosts *)
 let host =
@@ -3681,6 +3689,7 @@ let host =
 		 host_set_power_on_mode;
 		 host_set_cpu_features;
 		 host_reset_cpu_features;
+		 host_reset_networking;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3990,7 +3999,6 @@ let pif_db_introduce = call
   ~hide_from_docs:false
   ~allowed_roles:_R_POOL_OP
   ()
-
 
 let pif_db_forget = call
   ~name:"db_forget"
