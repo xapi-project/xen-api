@@ -73,6 +73,7 @@ XAPI_MODULES = $(COMMON) \
 	console \
 	xen_helpers \
 	importexport \
+	sparse_encoding \
 	create_storage \
 	create_networks \
 	xapi_fist \
