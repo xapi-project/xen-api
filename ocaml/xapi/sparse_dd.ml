@@ -4,6 +4,7 @@
 open Pervasiveext
 open Stringext
 open Listext
+open Zerocheck
 
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub
@@ -23,13 +24,6 @@ let roundup x =
 	let quantum = 16384 in
 	((x + quantum + quantum - 1) / quantum) * quantum
 
-(** Represents a substring without making a copy *)
-type substring = {
-	buf: string;
-	offset: int;
-	len: int;
-}
-
 (** The copying routine has inputs and outputs which both look like a 
     Unix file-descriptor *)
 module type IO = sig
@@ -37,10 +31,10 @@ module type IO = sig
 	val op: t -> int64 -> substring -> unit
 end
 	
-(* [fold_over_blocks (s, len) skip f initial] applies contiguous (start, length) pairs to 
+(* [partition_into_blocks (s, len) skip f initial] applies contiguous (start, length) pairs to 
    [f] starting at [s] up to maximum length [len] where each pair is as large as possible
    up to [skip]. *)
-let fold_over_blocks (s, len) skip f initial = 
+let partition_into_blocks (s, len) skip f initial = 
 	let rec inner offset acc = 
 		if offset = s +* len then acc
 		else
@@ -59,27 +53,32 @@ type stats = {
 
 (** Perform the data duplication ("DD") *)
 module DD(Input : IO)(Output : IO) = struct
+	let fold bat sparse (src: Input.t) size f initial = 
+		let buf = String.create (Int64.to_int blocksize) in
+		let do_block acc (offset, this_chunk) =
+			Input.op src offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
+			begin match sparse with
+			| Some zero -> fold_over_nonzeros buf (Int64.to_int this_chunk) roundup (f offset) acc
+			| None -> f offset acc { buf = buf; offset = 0; len = Int64.to_int this_chunk }
+			end in
+		(* For each entry from the BAT, copy it as a sequence of sub-blocks *)
+		Bat.fold_left (fun acc b -> partition_into_blocks b blocksize do_block acc) initial bat
+
 	(** [copy progress_cb bat sparse src dst size] copies blocks of data from [src] to [dst]
 	    where [bat] represents the allocated / dirty blocks in [src];
 	    where if sparse is None it means don't scan for and skip over blocks of zeroes in [src]
 	    where if sparse is (Some c) it means do scan for and skip over blocks of 'c' in [src]
 	    while calling [progress_cb] frequently to report the fraction complete
 	*)
-	let copy progress_cb bat sparse (src: Input.t) (dst: Output.t) size = 
-		let buf = String.create (Int64.to_int blocksize) in
-		let do_block stats (offset, this_chunk) : stats =
-			progress_cb ((Int64.to_float offset) /. (Int64.to_float size));   
-			Input.op src offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
-			let write_extent stats (s, e) = 
-				Output.op dst (offset +* (Int64.of_int s)) { buf = buf; offset = s; len = e };
-				{ stats with writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int e) }
-			in
-			begin match sparse with
-			| Some zero -> Zerocheck.fold_over_nonzeros buf (Int64.to_int this_chunk) roundup write_extent stats
-			| None -> write_extent stats (0, Int64.to_int this_chunk)
-			end in
-		(* For each entry from the BAT, copy it as a sequence of sub-blocks *)
-		Bat.fold_left (fun stats b -> fold_over_blocks b blocksize do_block stats) { writes = 0; bytes = 0L } bat
+	let copy progress_cb bat sparse src dst size =
+		let total_work = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
+		fold bat sparse src size
+			(fun offset stats substr -> 
+				Output.op dst (offset +* (Int64.of_int substr.offset)) substr;
+				let stats' = { writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int substr.len) } in
+				progress_cb (Int64.to_float stats'.bytes /. (Int64.to_float total_work));
+				stats')
+			{ writes = 0; bytes = 0L }
 end
 
 (* Helper function to always return a block of zeroes, like /dev/null *)
