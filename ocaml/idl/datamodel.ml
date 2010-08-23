@@ -5875,6 +5875,17 @@ let vmpp_archive_now = call ~flags:[`Session]
   ~allowed_roles:_R_VM_POWER_ADMIN
   ~result:(String, "An XMLRPC result")
   ()
+let vmpp_get_alerts = call ~flags:[`Session]
+  ~name:"get_alerts"
+  ~in_oss_since:None
+  ~in_product_since:rel_cowley
+  ~params:[Ref _vmpp, "vmpp", "The protection policy";
+    DateTime, "since", "oldest record to fetch";
+  ]
+  ~doc:"This call fetches a history of alerts for a given protection policy"
+  ~allowed_roles:_R_POOL_OP
+  ~result:(Set (String), "A list of alerts encoded in xml")
+  ()
 let vmpp_backup_type = Enum ("vmpp_backup_type",
   [
     "snapshot", "The backup is a snapshot";
@@ -6105,6 +6116,7 @@ let vmpp =
     ~messages:[
       vmpp_protect_now;
       vmpp_archive_now;
+      vmpp_get_alerts;
       vmpp_set_is_backup_running;
       vmpp_set_is_archive_running;
       vmpp_set_backup_frequency;

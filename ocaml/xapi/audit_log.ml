@@ -26,7 +26,16 @@ let line_timestamp_length = 21 (* the timestamp length at the debug line *)
 let timestamp_index line = 
 	try ((String.index line '[') + 1) with Not_found -> 0
 
-let write_line line fd since =
+let went_through ?filter line =
+	match filter with
+	|None->true
+	|Some fs->
+		 List.fold_left
+			 (fun acc f->acc&&(String.has_substr line f))
+			 true
+       fs
+
+let write_line line fd ?filter since =
 	if String.length line >
 		(line_timestamp_length + (timestamp_index line))
 	then
@@ -35,10 +44,12 @@ let write_line line fd since =
 	in
 	if since="" or ((String.compare line_timestamp since) >= 0)
 	then
+	if went_through ?filter line
+  then
 	let len = String.length line in
 	ignore(Unix.write fd line 0 len)
 
-let transfer_audit_file _path compression fd_out since =
+let transfer_audit_file _path compression fd_out ?filter since =
 	let path = Unixext.resolve_dot_and_dotdot _path in
 	let in_whitelist = (String.startswith audit_log_whitelist_prefix path) in
 	if in_whitelist then
@@ -50,7 +61,7 @@ let transfer_audit_file _path compression fd_out since =
 			if compression="" (* uncompressed *)
 			then begin
 				Unixext.readfile_line
-					(fun line -> write_line (line^"\n") fd_out since)
+					(fun line -> write_line (line^"\n") fd_out ?filter since)
 					path
 			end
 			else if compression="gz"
@@ -63,7 +74,7 @@ let transfer_audit_file _path compression fd_out since =
 								try
 									while true do
 										let line = input_line cin in
-										write_line (line^"\n") fd_out since
+										write_line (line^"\n") fd_out ?filter since
 									done
 								with End_of_file -> () (* ok, expected *)
 							)
@@ -79,7 +90,7 @@ let transfer_audit_file _path compression fd_out since =
 		end
 	end
 
-let transfer_all_audit_files fd_out since =
+let transfer_all_audit_files fd_out ?filter since =
 	let atransfer _infix _suffix =
 		let infix = if _infix="" then "" else "."^_infix in
 		let suffix = if _suffix="" then "" else "."^_suffix in
@@ -87,6 +98,7 @@ let transfer_all_audit_files fd_out since =
 			(audit_log_whitelist_prefix^infix^suffix)
 			_suffix
 			fd_out
+			?filter
 			since
 	in
 	let atransfer_try_gz infix =
