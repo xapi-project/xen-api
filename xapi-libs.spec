@@ -201,6 +201,8 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/gzip.cmx
    /usr/lib/ocaml/stdext/hashtblext.cmi
    /usr/lib/ocaml/stdext/hashtblext.cmx
+   /usr/lib/ocaml/stdext/int64ext.cmi
+   /usr/lib/ocaml/stdext/int64ext.cmx
    /usr/lib/ocaml/stdext/libstdext_stubs.a
    /usr/lib/ocaml/stdext/lazyList.cmi
    /usr/lib/ocaml/stdext/lazyList.cmx
