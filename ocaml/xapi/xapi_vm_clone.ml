@@ -254,7 +254,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
       (let session = Context.get_session_id __context in
        let uname = Db.Session.get_auth_user_name ~__context ~self:session in
        let is_lsu = Db.Session.get_is_local_superuser ~__context ~self:session in
-       is_lsu && (uname = "__dom0__vmpr")
+       is_lsu && (uname = Xapi_vmpp.vmpr_username)
       )
 		with e ->
       debug "Error obtaining is_snapshot_from_vmpp: %s" (Printexc.to_string e);

@@ -15,6 +15,7 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let vmpr_plugin = "vmpr"
+let vmpr_username = "__dom0__vmpr"
 
 let protect_now ~__context ~vmpp = 
   let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
@@ -33,6 +34,69 @@ let archive_now ~__context ~snapshot =
     vmpr_plugin
     "archive_now"
     args
+
+let add_alert ~__context ~vmpp ~name ~priority ~body =
+  ()
+
+let get_alerts ~__context ~vmpp ~since =
+  let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
+  let filter=["unix-RPC|message.create";vmpr_username;vmpp_uuid] in
+  let tmp_filename = Filename.temp_file "vmpp-alerts-" ".dat" in
+  let fd = Unix.openfile tmp_filename [Unix.O_RDWR] 0o600 in
+  let since = Date.to_string since in
+  let messages=Audit_log.transfer_all_audit_files fd ~filter since in
+  let cout = Unix.out_channel_of_descr fd in
+  flush cout;
+  let cin = Unix.in_channel_of_descr fd in
+  seek_in cin 0;
+  let lines = ref [] in
+  let i = ref 0 in (* hard limit on maximum number of lines to parse *)
+  (try while !i<1000 do let line = input_line cin in lines:=line::!lines; i:=!i+1 done with End_of_file->());
+	let lines = !lines in
+  Unix.close fd;
+  Sys.remove tmp_filename;
+  let alerts = List.map (fun line->
+    let sexpr_init = try (String.index line ']')+1 with Not_found -> -1 in
+    if sexpr_init>=0 && sexpr_init<(String.length line) then (
+			let sexpr_str = Stringext.String.sub_to_end line sexpr_init in
+			let (sroot:SExpr.t) = 
+        (try SExpr_TS.of_string sexpr_str
+        with e->
+          debug "error %s parsing sexpr: %s"
+            (ExnHelper.string_of_exn e) sexpr_str
+          ;
+          (SExpr.Node [])
+        )
+      in
+      match sroot with
+			|SExpr.Node (SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.Node params::[])->(
+        let kvs = List.fold_right (fun (sexpr:SExpr.t) acc ->
+        match sexpr with
+				  |SExpr.Node (SExpr.String name::SExpr.String value::SExpr.String _::SExpr.String _::[]) when name="name" or name="body"->
+            (name,value)::acc
+          |_->acc
+        ) params []
+        in
+        if kvs=[] then None else Some kvs
+			)
+			|_->None
+		)
+    else None
+	) lines
+  in
+  let alerts = List.fold_right (fun a acc->match a with None->acc|Some a->a::acc) alerts [] in
+  let inside_data_tag str =
+    let tag_begin="<data>" and tag_end="</data>" in
+    let tag_begin_idx=try List.hd (Stringext.String.find_all tag_begin str) with _-> -1 in
+    let tag_end_idx=try List.hd (List.rev (Stringext.String.find_all tag_end str)) with _-> -1 in
+    try
+      let start=(tag_begin_idx+(String.length tag_begin)) in
+      let len=tag_end_idx - start in
+      Some (String.sub str start len)
+    with _->None
+  in
+  let alerts = List.fold_right (fun a acc->if List.mem_assoc "body" a then (let data=inside_data_tag(List.assoc "body" a) in match data with None->acc|Some data->data::acc) else acc) alerts [] in
+  alerts
 
 let set_is_backup_running ~__context ~self ~value =
   Db.VMPP.set_is_backup_running ~__context ~self ~value

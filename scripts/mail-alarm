@@ -17,6 +17,7 @@ import tempfile
 import traceback
 import syslog
 from xml.dom import minidom
+from xml.sax.saxutils import unescape
 from xml.parsers.expat import ExpatError
 from socket import getfqdn
 
@@ -286,6 +287,29 @@ class HAHostFailedETG(EmailTextGenerator):
             'This alarm is set to be triggered when a host belonging to a high availability pool fails.' \
             '\n' % self.text
 
+class VmppETG(EmailTextGenerator):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def generate_subject(self):
+        msg = self.msg
+        return "[%s] XenServer Message: %s %s %s" % (msg.pool_name, msg.cls, msg.obj_uuid, msg.name)
+
+    def generate_body(self):
+        msg = self.msg
+        msg_body = unescape(msg.body)
+        try:
+            xmldoc = minidom.parseString(msg_body)
+            body_message = xmldoc.getElementsByTagName('message')[0]
+            email_message = body_message.getElementsByTagName('email')[0].firstChild.data
+            return \
+            "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
+            "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t\t%s\n" % \
+            (msg.name,msg.priority,msg.cls,msg.obj_uuid,msg.timestamp,msg.uuid,msg.pool_name,email_message)
+        except:
+            log_err("Badly formatted XML, or missing field")
+            sys.exit(1)
+
 class XapiMessage:
     def __init__(self, xml):
         "Parse message XML"
@@ -322,7 +346,9 @@ class XapiMessage:
         if hasattr(self,'cached_etg'):
             return self.cached_etg
 
-        if self.name == 'ALARM':
+        if self.cls == 'VMPP':
+            etg = VmppETG(self)
+        elif self.name == 'ALARM':
             # Extract the current level of the variable
             # (this will raise an exception if the 1st line of <body> is not in the correct format, namely "value: %f\n")
             value_line = self.body.split("\n",2)[0]
