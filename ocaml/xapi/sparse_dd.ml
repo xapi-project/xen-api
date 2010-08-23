@@ -126,29 +126,132 @@ module File_writer = struct
 		then raise (ShortWrite(offset, len, n))
 end
 
+(** Marshals data across the network in chunks *)
+module Network_writer = struct
+	open Sparse_encoding
+	type t = Unix.file_descr
+
+	type url = {
+		host: string;
+		port: int;
+		auth: (string * string) option;
+		uri: string;
+		https: bool;
+	}
+
+	let url_of_string url = 
+		let host x = match String.split ':' x with
+		| host :: _ -> host
+		| _ -> failwith (Printf.sprintf "Failed to parse host: %s" x) in
+		let port x = match String.split ':' x with
+		| _ :: port :: _ -> Some (int_of_string port)
+		| _ -> None in
+		let uname_password_host_port x = match String.split '@' x with
+		| [ _ ] -> None, host x, port x
+		| [ uname_password; host_port ] -> 
+			begin match String.split ':' uname_password with 
+			| [ uname; password ] -> Some (uname, password), host host_port, port host_port
+			| _ -> failwith (Printf.sprintf "Failed to parse authentication substring: %s" uname_password)
+			end 
+		| _ -> failwith (Printf.sprintf "Failed to parse username password host and port: %s" x) in
+		match String.split '/' url with
+		| http_or_https :: "" :: x :: uri ->
+			let uname_password, host, port = uname_password_host_port x in
+			if not(List.mem http_or_https [ "https:"; "http:" ])
+			then failwith (Printf.sprintf "Unknown URL scheme: %s" http_or_https);
+			let https = String.startswith "https://" url in
+			let port = (match port with Some p -> p | None -> if https then 443 else 80) in
+			{ host = host; port = port; auth = uname_password; uri = "/" ^ (String.concat "/" uri); https = https }
+		| _ -> failwith (Printf.sprintf "Failed to parse URL: %s" url)
+
+	let open_url url f = 
+		let with_ssl url f = 
+			Printf.printf "connecting to %s:%d\n" url.host url.port;
+			let stunnel = Stunnel.connect url.host url.port in
+			finally
+			(fun () -> f stunnel.Stunnel.fd)
+			(fun () -> Stunnel.disconnect stunnel) in
+		let with_plaintext url f = 
+			let fd = Unixext.open_connection_fd url.host url.port in
+			finally
+			(fun () -> f fd)
+			(fun () -> Unix.close fd) in
+		let uri, query = Http.parse_uri url.uri in
+		let request = { Http.m = Http.Put;
+				uri = uri;
+				query = query;
+				version = "1.0";
+				transfer_encoding = None;
+				content_length = None;
+				auth = Opt.map (fun (username, password) -> Http.Basic(username, password)) url.auth;
+				cookie = [ "chunked", "true" ];
+				task = None; subtask_of = None;
+				content_type = None;
+				user_agent = Some "sparse_dd/0.1";
+				close = true;
+				headers = [] } in
+		try
+			if url.https
+			then with_ssl url (fun fd -> Http_client.rpc fd request "" f)
+			else with_plaintext url (fun fd -> Http_client.rpc fd request "" f)
+		with Http_client.Http_error("401") as e ->
+			Printf.printf "HTTP 401 Unauthorized\n";
+			raise e
+
+	let op stream stream_offset { buf = buf; offset = offset; len = len } =
+		let copy = String.create len in
+		String.blit buf offset copy 0 len;
+		let x = { Chunk.start = stream_offset; data = copy } in
+		Chunk.marshal stream x
+
+	let close stream = Chunk.marshal stream { Chunk.start = 0L; data = "" }
+end
+
 (** An implementation of the DD algorithm over strings *)
 module String_copy = DD(String_reader)(String_writer)
 
-(** An implementatino of the DD algorithm over Unix files *)
+(** An implementation of the DD algorithm over Unix files *)
 module File_copy = DD(File_reader)(File_writer)
+
+(** An implementatino of the DD algorithm from Unix files to a Network socket *)
+module Network_copy = DD(File_reader)(Network_writer)
 
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
     If [size] is not given, will assume a plain file and will use st_size from Unix.stat.
     If [prezeroed] is false, will first explicitly write zeroes to all blocks not in [bat].
     Will then write blocks from [src] into [dst], using the [bat]. If [prezeroed] will additionally
-    scan for zeroes within the allocated blocks. *)     
+    scan for zeroes within the allocated blocks.
+    If [dst] has the format:
+       fd:X
+    then data is written directly to file descriptor X in a chunked encoding. Otherwise
+    it is written directly to the file referenced by [dst].
+ *)     
 let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst = 
 	let size = match size with
 	| None -> (Unix.LargeFile.stat src).Unix.LargeFile.st_size 
 	| Some x -> x in
 	let ifd = Unix.openfile src [ Unix.O_RDONLY ] 0o600 in
-	let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
- 	(* Make sure the output file has the right size *)
-	Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET;
-	Unix.write ofd "\000" 0 1;
-	Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET;
-	Printf.printf "Copying\n";
-	File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
+	if String.startswith "http:" dst || String.startswith "https:" dst then begin
+		(* Network copy *)
+		Network_writer.open_url (Network_writer.url_of_string dst)
+		(fun _ ofd ->
+			Printf.printf "\nWriting chunked encoding to fd: %d\n" (Unixext.int_of_file_descr ofd);
+			let stats = Network_copy.copy progress_cb bat prezeroed ifd ofd blocksize size in
+			Printf.printf "\nSending final chunk\n";
+			Network_writer.close ofd;			
+			Printf.printf "Waiting for connection to close\n";
+			(try let tmp = " " in Unixext.really_read ofd tmp 0 1 with End_of_file -> ());
+			Printf.printf "Connection closed\n";
+			stats)
+	end else begin
+		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
+	 	(* Make sure the output file has the right size *)
+		Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET;
+		Unix.write ofd "\000" 0 1;
+		Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET;
+		Printf.printf "Copying\n";
+		File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
+	end 
 
 (** [make_random size zero nonzero] returns a string (of size [size]) and a BAT. Blocks not in the BAT
     are guaranteed to be [zero]. Blocks in the BAT are randomly either [zero] or [nonzero]. *)
@@ -322,6 +425,7 @@ let progress_cb =
 		last_percent := new_percent
 
 let _ = 
+	Stunnel.init_stunnel_path ();
 	let base = ref None and src = ref None and dest = ref None and size = ref (-1L) and prezeroed = ref false and test = ref false in
 	Arg.parse [ "-base", Arg.String (fun x -> base := Some x), "base disk to search for differences from (default: None)";
 		    "-src", Arg.String (fun x -> src := Some x), "source disk";
@@ -333,7 +437,12 @@ let _ =
 	(fun x -> Printf.fprintf stderr "Warning: ignoring unexpected argument %s\n" x)
 	(String.concat "\n" [ "Usage:";
 			      Printf.sprintf "%s [-base x] [-prezeroed] <-src y> <-dest z> <-size s>" Sys.argv.(0);
-			      "  -- copy <s> bytes from <y> to <z>. If <-base x> is specified then only copy differences";
+			      "  -- copy <s> bytes from <y> to <z>.";
+			      "     <x> and <y> are always interpreted as filenames. If <z> is a URL then the URL";
+			      "     is opened and encoded chunks of data are written directly to it";
+			      "     otherwise <z> is interpreted as a filename.";
+			      "";
+			      "     If <-base x> is specified then only copy differences";
 			      "     between <x> and <y>. If [-base x] is unspecified and [-prezeroed] is unspecified ";
 			      "     then assume the destination must be fully wiped.";
 			      "";
