@@ -69,21 +69,14 @@ let protect_now ~__context ~vmpp =
     "protect_now"
     args
 
-let archive_now ~__context ~snapshot = ""
-(*
-  let archive_target_config 
+let archive_now ~__context ~snapshot = 
+  let snapshot_uuid = Db.VM.get_uuid ~__context ~self:snapshot in
+  let args = [ "snapshot_uuid", snapshot_uuid ] in
   Xapi_plugins.call_plugin
     (Context.get_session_id __context)
     vmpr_plugin
-    "mount_archive_target"
+    "archive_now"
     args
-
-  Xapi_plugins.call_plugin
-    (Context.get_session_id __context)
-    vmpr_plugin
-    "unmount_archive_target"
-    args
-*)
 
 let set_is_backup_running ~__context ~self ~value =
   Db.VMPP.set_is_backup_running ~__context ~self ~value
