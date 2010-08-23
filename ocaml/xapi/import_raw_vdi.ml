@@ -70,7 +70,7 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 	raise e)
 
 let return_302_redirect (req: request) s address =
-	let url = Printf.sprintf "https://%s%s?%s" address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
+	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
 	let headers = Http.http_302_redirect url in
 	debug "HTTP 302 redirect to: %s" url;
 	Http_svr.headers s headers
