@@ -23,14 +23,16 @@ open Importexport
 open Sparse_encoding
 open Unixext
 open Pervasiveext
+open Client
 
 let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
 	Chunk.fold (fun () -> Chunk.write fd) () s
 
 let vdi_of_req ~__context (req: request) = 
+	let all = req.Http.query @ req.Http.cookie in
 	let vdi = 
-		if List.mem_assoc "vdi" req.Http.query
-		then List.assoc "vdi" req.Http.query
+		if List.mem_assoc "vdi" all
+		then List.assoc "vdi" all
 		else raise (Failure "Missing vdi query parameter") in
 	if Db_cache.DBCache.is_valid_ref vdi 
 	then Ref.of_string vdi 
@@ -40,21 +42,25 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
   req.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
+	let all = req.Http.query @ req.Http.cookie in
       let vdi = vdi_of_req ~__context req in
-      let chunked = List.mem_assoc "chunked" req.Http.query in
-      try
-	match req.transfer_encoding, req.content_length with
-	| Some "chunked", _ ->
+      let chunked = List.mem_assoc "chunked" all in
+      let task_id = Context.get_task_id __context in
+	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
+	 try
+	match req.transfer_encoding with
+	| Some "chunked" ->
 	    error "Chunked encoding not yet implemented in the import code";
 	    Http_svr.headers s http_403_forbidden;
 	    raise (Failure "import code cannot handle chunked encoding")
-	| None, Some len ->
+	| None ->
 	    let headers = Http.http_200_ok ~keep_alive:false () @
-	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
+	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);
 		content_type ] in
             Http_svr.headers s headers;
 	    
-
+		Server_helpers.exec_with_new_task "VDI.import" 
+		(fun __context -> 
 		 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
 		   (fun device ->
 		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
@@ -63,16 +69,18 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 			   try
 			     if chunked
 			     then receive_chunks s fd
-			     else ignore(Unixext.copy_file ~limit:len s fd);
-			     Unixext.fsync fd
+			     else ignore(Unixext.copy_file ?limit:req.content_length s fd);
+			     Unixext.fsync fd;
 			   with Unix.Unix_error(Unix.EIO, _, _) ->
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
 			)
 			(fun () -> Unix.close fd)
-		   );
-
-	    TaskHelper.complete ~__context []
+		   )
+	    );
+	    TaskHelper.complete ~__context [];
       with e ->
+	error "Caught exception: %s" (ExnHelper.string_of_exn e);
+	log_backtrace ();
 	TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
 	raise e)
 
