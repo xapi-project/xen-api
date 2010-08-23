@@ -168,6 +168,38 @@ _xe()
                 COMPREPLY=`${xe} host-list params=uuid --minimal 2>/dev/null`
                 return 0
                 ;;
+			backup-type) # for vmpp
+                                IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "snapshot,checkpoint" -- ${value}) )
+				return 0
+				;;
+                        backup-frequency) # for vmpp
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen -W "hourly,daily,weekly" -- ${value}) )
+                                return 0
+                                ;;
+                        archive-frequency) # for vmpp
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen -W "never,always_after_backup,daily,weekly" -- ${value}) )
+                                return 0
+                                ;;
+                        archive-target-type) # for vmpp
+                                IFS=$'\n,'
+                                COMPREPLY=( $(compgen -W "none,cifs,nfs" -- ${value}) )
+                                return 0
+                                ;;
+			backup-schedule:days) # for vmpp 
+                                IFS=$'\n,'
+			        LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                                COMPREPLY=( $(compgen -W "monday,tuesday,wednesday,thursday,friday,saturday,sunday" -- ${LAST_VALUE}) )
+                                return 0
+                                ;;
+                        archive-schedule:days) # for vmpp
+                                IFS=$'\n,'
+			        LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                                COMPREPLY=( $(compgen -W "monday,tuesday,wednesday,thursday,friday,saturday,sunday " -- ${LAST_VALUE}) )
+                                return 0
+                                ;;
             edition) # for host-apply-edition (licensing)
                 IFS=$'\n,'
                 COMPREPLY=( $(compgen -W "free ,enterprise ,platinum ,enterprise-xd " -- ${value}) )
@@ -205,6 +237,10 @@ _xe()
 		hostselectors=`${xe} help ${COMP_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
 		isdeviceconfig=`echo "${param}" | grep "device-config:"`
 		isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
+		isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
+		isvmpparchiveschedule=`echo "${param}" | grep "archive-schedule:"`
+		isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
+		isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
 		if [ "${isdeviceconfig}" ]; then
 			IFS=" " type=$(for i in ${COMP_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr [A-Z] [a-z])
 			extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
@@ -222,6 +258,22 @@ _xe()
 		   else
 		      extraargs=",host="
 		   fi
+		elif [ "${isvmppbackupschedule}" ]; then
+		   pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
+		   COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
+                   return 0
+                elif [ "${isvmpparchiveschedule}" ]; then
+		   pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
+                   COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
+                   return 0
+                elif [ "${isvmpparchivetargetconfig}" ]; then
+		   pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
+                   COMPREPLY=( $(compgen -W "${pfx}:location=,${pfx}:username=,${pfx}:password=" -- ${param}) )
+                   return 0
+                elif [ "${isvmppalarmconfig}" ]; then
+		   pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
+                   COMPREPLY=( $(compgen -W "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" -- ${param}) )
+                   return 0
 		else
    		   extraargs=""
 		fi
