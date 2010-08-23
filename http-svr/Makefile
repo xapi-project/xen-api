@@ -14,7 +14,7 @@ OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
-OBJS = server_io buf_io http http_svr
+OBJS = server_io buf_io http http_svr http_client
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
 
@@ -60,6 +60,6 @@ uninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "http-svr" "package" "$(OBJS)" "." "log,stdext" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)

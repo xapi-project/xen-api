@@ -107,6 +107,8 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/http-svr/http_svr.cmxa
    /usr/lib/ocaml/http-svr/server_io.cmi
    /usr/lib/ocaml/http-svr/server_io.cmx
+   /usr/lib/ocaml/http-svr/http_client.cmi
+   /usr/lib/ocaml/http-svr/http_client.cmx
    /usr/lib/ocaml/log/META
    /usr/lib/ocaml/log/debug.cmi
    /usr/lib/ocaml/log/debug.cmx
