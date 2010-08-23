@@ -23,14 +23,20 @@ open Importexport
 open Unixext
 open Pervasiveext
 
-let handler (req: request) (s: Unix.file_descr) =
+let vdi_of_req ~__context (req: request) = 
+	let vdi = 
+		if List.mem_assoc "vdi" req.Http.query
+		then List.assoc "vdi" req.Http.query
+		else raise (Failure "Missing vdi query parameter") in
+	if Db_cache.DBCache.is_valid_ref vdi 
+	then Ref.of_string vdi 
+	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
+
+let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
   req.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
-      let vdi = 
-	if List.mem_assoc "vdi" req.Http.query
-	then Ref.of_string (List.assoc "vdi" req.Http.query)
-	else raise (Failure "Missing vdi query parameter") in
+      let vdi = vdi_of_req ~__context req in
       try
 	match req.transfer_encoding, req.content_length with
 	| Some "chunked", _ ->
@@ -43,8 +49,7 @@ let handler (req: request) (s: Unix.file_descr) =
 		content_type ] in
             Http_svr.headers s headers;
 	    
-	    Helpers.call_api_functions ~__context
-	      (fun rpc session_id ->
+
 		 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
 		   (fun device ->
 		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
@@ -57,10 +62,37 @@ let handler (req: request) (s: Unix.file_descr) =
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
 			)
 			(fun () -> Unix.close fd)
-		   )
-	      );
+		   );
 
 	    TaskHelper.complete ~__context []
       with e ->
 	TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
 	raise e)
+
+let return_302_redirect (req: request) s address =
+	let url = Printf.sprintf "https://%s%s?%s" address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
+	let headers = Http.http_302_redirect url in
+	debug "HTTP 302 redirect to: %s" url;
+	Http_svr.headers s headers
+
+let handler (req: request) (s: Unix.file_descr) =
+	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
+
+	(* Perform the SR reachability check using a fresh context/task because
+	   we don't want to complete the task in the forwarding case *)
+	Server_helpers.exec_with_new_task "VDI.import" 
+	(fun __context -> 
+		Helpers.call_api_functions ~__context 
+		(fun rpc session_id ->
+			let vdi = vdi_of_req ~__context req in
+			let sr = Db.VDI.get_SR ~__context ~self:vdi in
+			debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
+			if (Importexport.check_sr_availability ~__context sr)
+			then localhost_handler rpc session_id req s
+			else 
+				let host = Importexport.find_host_for_sr ~__context sr in
+				let address = Db.Host.get_address ~__context ~self:host in
+				return_302_redirect req s address
+		)
+       )
+
