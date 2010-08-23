@@ -84,6 +84,9 @@ val destroy : t -> unit
 (** [is_unix_socket fd] *)
 val is_unix_socket : Unix.file_descr -> bool
 
+(** [is_unencrypted fd] returns true if the calling connection is not encrypted *)
+val is_unencrypted : Unix.file_descr -> bool
+
 (** [preauth ~__context] *)
 val preauth : __context:t -> bool
 
