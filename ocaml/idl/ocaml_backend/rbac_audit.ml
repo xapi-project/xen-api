@@ -81,26 +81,14 @@ let get_subject_identifier __context session_id =
 let get_subject_name __context session_id =
 	get_subject_common ~__context ~session_id
 		~fnname:"get_subject_name"
-		~fn_if_local_session:(fun()->"")
-		~fn_if_local_superuser:(fun()->"")
+		~fn_if_local_session:(fun()->
+				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+		)
+		~fn_if_local_superuser:(fun()->
+				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+		)
 		~fn_if_subject:(fun()->
 				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
-			(*
-			let sid =
-				DB_Action.Session.get_auth_user_sid ~__context ~self:session_id
-			in
-			let subjs = DB_Action.Subject.get_records_where ~__context
-				~expr:(Eq(Field "subject_identifier", Literal (sid)))
-			in
-			if List.length subjs > 1 then
-				failwith (Printf.sprintf
-					"More than one subject for subject_identifier %s"sid
-				);
-			let (subj_id,subj) = List.hd subjs in
-			List.assoc
-				"subject-name" (*Auth_signature.subject_information_field_subject_name*)
-				subj.API.subject_other_config
-			*)
 		)
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
@@ -209,6 +197,8 @@ let action_params_whitelist =
 		("host.enable_external_auth",["service_name";"auth_type"]);
 		("subject.create",["subject_identifier";"other_config"]);
 		("subject.create.other_config",["subject-name"]);
+    (* used for VMPP alert logs *)
+    ("message.create",["name";"body"]);
 	]
 
 (* manual ref getters *)
