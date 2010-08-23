@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+
+"""
+Copyright (C) 2006-2009 Citrix Systems Inc.
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published
+by the Free Software Foundation; version 2.1 only. with the special
+exception on linking described in file LICENSE.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+"""
+
+import sys
+import os
+import commands
+import time
+from optparse import OptionParser
+#import XenAPI
+
+pool_conf = '/etc/xensource/pool.conf'
+interface_reconfigure = '/opt/xensource/libexec/interface-reconfigure'
+inventory_file = '/etc/xensource-inventory'
+network_reset = '/tmp/network-reset'
+
+# read inventory file
+def read_inventory():
+	f = open(inventory_file, 'r')
+	inventory = {}
+	for l in f.readlines():
+		kv = l.split('=')
+		inventory[kv[0]] = kv[1][1:-2]
+	return inventory
+	
+def write_inventory(inventory):
+	f = open(inventory_file, 'w')
+	for k in inventory:
+		f.write(k + "='" + inventory[k] + "'\n")
+	f.close()
+	
+def biosdevname(d):
+	try:
+		p = os.popen('biosdevname -i ' + d)
+		return p.read().strip()
+	except:
+		return d
+
+if __name__ == "__main__":
+	parser = OptionParser()
+	parser.add_option("-m", "--master", help="Master's address", dest="address", default=None)
+	parser.add_option("--mac", help="MAC address of new management interface", dest="mac", default=None)
+	parser.add_option("--mode", help='IP configuration mode for new management interface: "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
+	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
+	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
+	parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
+	parser.add_option("--dns", help="DNS server for new management interface", dest="dns", default='')
+	(options, args) = parser.parse_args()
+	
+	# Determine pool role
+	try:
+		f = open(pool_conf, 'r')
+		try:
+			l = f.readline()
+			ls = l.split(':')
+			if ls[0] == 'master':
+				master = True
+				address = 'localhost'
+			else:
+				master = False
+				address = ls[1]
+		finally:
+			f.close()
+	except:
+		pass
+	
+	# Check if a MAC is given
+	if options.mac == None:
+		parser.error("please specify the MAC address of the management interface")
+		sys.exit(1)
+	else:
+		mac = options.mac.lower()
+		
+	# Determine IP configuration for management interface
+	options.mode = options.mode.lower()
+	if options.mode not in ["dhcp", "static"]:
+		parser.error('mode should be either "dhcp" or "static"')
+		sys.exit(1)
+		
+	if options.mode == 'static' and (options.ip == '' or options.netmask == ''):
+		parser.error("if static IP mode is selected, an IP address and netmask need to be specified")
+		sys.exit(1)
+	
+	# Warn user
+	res = raw_input("This command will reboot the host and reset its network configuration.\nAny running VMs should first be shut down.\nType 'yes' to continue.\n")
+	if res <> 'yes':
+		sys.exit(1)
+	
+	# Update master's IP, if needed and given
+	if master == True and options.address != None:
+		address = options.address
+		print "Setting master's ip (" + address + ")..."
+		try:
+			f = open(pool_conf, 'w')
+			f.write('slave:' + address)
+		finally:
+			f.close()
+	
+	# Stop networking subsystem to ensure bonds etc are down
+	os.system('service network stop')
+	
+	# Find existing network interfaces (MAC and device name)
+	sysfs = '/sys/class/net/'
+	device = None
+	# iterate over all devices
+	for d in os.listdir(sysfs):
+		# only continue if it is a physical device
+		if os.access(sysfs + d + '/device', os.F_OK):
+			# try to get the MAC
+			m = None
+			try:
+				f = open(sysfs + d + '/address', 'r')
+				m = f.readline()[:-1].lower()
+			finally:
+				f.close()
+			if m == mac:
+				device = biosdevname(d)
+				break
+	
+	# Find current device name for management interface
+	if device == None:
+		print "Could not find MAC", mac
+		print "Aborting."
+		sys.exit(1)
+		
+	# Construct bridge name for management interface based on convention
+	if device[:3] == 'eth':
+		bridge = 'xenbr' + device[3:]
+	else:
+		bridge = 'br' + device
+	
+	# Ensure xapi is not running
+	print "Stopping xapi..."
+	os.system('service xapi stop >/dev/null 2>/dev/null')
+	
+	# Reconfigure new management interface
+	print "Reconfiguring " + device + "..."
+	if_args = ' --force ' + bridge + ' rewrite --mac=' + mac + ' --device=' + device + ' --mode=' + options.mode
+	if options.mode == 'static':
+		if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
+		if options.gateway != '':
+			if_args += ' --gateway=' + options.gateway
+	os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
+
+	# Update interfaces in inventory file
+	print 'Updating inventory file...'
+	inventory = read_inventory()
+	inventory['MANAGEMENT_INTERFACE'] = bridge
+	inventory['CURRENT_INTERFACES'] = ''
+	write_inventory(inventory)
+	
+	# Write trigger file for XAPI to continue the network reset on startup
+	try:
+		f = file(network_reset, 'w')
+		f.write('MAC=' + mac + '\n')
+		f.write('MODE=' + options.mode + '\n')
+		if options.mode == 'static':
+			f.write('IP=' + options.ip + '\n')
+			f.write('NETMASK=' + options.netmask + '\n')
+			if options.gateway != '':
+				f.write('GATEWAY=' + gateway + '\n')
+			if options.dns != '':
+				f.write('DNS=' + dns + '\n')
+	finally:
+		f.close()
+	
+	# Reboot
+	os.system("/sbin/reboot")
+
