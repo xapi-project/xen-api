@@ -3072,9 +3072,16 @@ let blob_create printer rpc session_id params =
     raise (Cli_util.Cli_failure "Need one of: vm-uuid, host-uuid, network-uuid, sr-uuid or pool-uuid")
 
     
-let export_common fd printer rpc session_id params filename num use_compression preserve_power_state vm =
+let export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm =
   let vm_record = vm.record () in
-  let exporttask = Client.Task.create rpc session_id (Printf.sprintf "Export of VM: %s" (vm_record.API.vM_uuid)) "" in
+  let exporttask, task_destroy_fn = 
+    match task_uuid with
+		| None -> (* manage task internally *)
+      let exporttask = Client.Task.create rpc session_id (Printf.sprintf "Export of VM: %s" (vm_record.API.vM_uuid)) "" in
+      (exporttask,(fun ()->Client.Task.destroy rpc session_id exporttask))
+		| Some task_uuid -> (* do not destroy the task that has been received *)
+			((Client.Task.get_by_uuid rpc session_id task_uuid),(fun ()->()))
+  in
   
   (* Initially mark the task progress as -1.0. The first thing the export handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
@@ -3099,15 +3106,16 @@ let export_common fd printer rpc session_id params filename num use_compression 
 		preserve_power_state)
         "Export";
         num := !num + 1)
-    (fun () -> Client.Task.destroy rpc session_id exporttask)
+    (fun () -> task_destroy_fn ())
     
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
   let use_compression = List.mem_assoc "compress" params && (List.assoc "compress" params = "true") in
   let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
+  let task_uuid = if (List.mem_assoc "task-uuid" params) then Some (List.assoc "task-uuid" params) else None in
   let num = ref 1 in
   let op vm = 
-    export_common fd printer rpc session_id params filename num use_compression preserve_power_state vm
+    export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm
   in
   ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "compress"; "preserve-power-state"])
 
