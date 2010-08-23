@@ -118,6 +118,13 @@ and request = { m: method_t;
 		 mutable close: bool;
 		 headers: string list} with rpc
 
+module Response = struct
+	type t = {
+		content_length: int64 option;
+		task: string option;
+	}
+end
+
 let string_of_method_t = function
   | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
 let method_t_of_string = function
@@ -149,20 +156,14 @@ let authorization_of_string x =
     | _ -> UnknownAuth x
   else UnknownAuth x
 
+let string_of_authorization = function
+| UnknownAuth x -> x
+| Basic(username, password) -> "Basic " ^ (Base64.encode (username ^ ":" ^ password))
+
 exception Malformed_url of string
 
 let print_keyvalpairs xs = 
   String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) xs)
-
-let http_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
-  let cookie = default [] (may (fun x -> [ "Cookie: " ^ (print_keyvalpairs x) ]) cookie) in
-  let content_length = default [] (may (fun l -> [ "Content-Length: "^(Int64.to_string l)]) length) in
-  [ Printf.sprintf "%s %s HTTP/%s" (string_of_method_t meth) path version;
-    Printf.sprintf "Host: %s" host;
-    Printf.sprintf "Connection: %s" (if keep_alive then "keep-alive" else "close");
-    Printf.sprintf "%s :%s" user_agent_hdr user_agent;
-  ] @ cookie @ content_length
-
 
 let urldecode url =
     let chars = String.explode url in
@@ -209,11 +210,12 @@ let parse_keyvalpairs xs =
 	    | k :: vs -> ((urldecode k), urldecode (String.concat "=" vs))
 	    | [] -> raise Http_parse_failure) kvpairs
 
+let parse_uri x = match String.split '?' x with
+| [ uri ] -> uri, []
+| [ uri; params ] -> uri, parse_keyvalpairs params
+| _ -> raise Http_parse_failure
+
 let request_of_string x = 
-  let parse_uri x = match String.split '?' x with
-    | [ uri ] -> uri, []
-    | [ uri; params ] -> uri, parse_keyvalpairs params
-    | _ -> raise Http_parse_failure in
   match String.split_f String.isspace x with
   | [ m; uri; version ] ->
       (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
@@ -222,6 +224,7 @@ let request_of_string x =
 	content_length = None; transfer_encoding = None;
 	version = version; cookie = []; auth = None; task = None; subtask_of = None; content_type = None; user_agent = None; close=false; headers=[] } 
   | _ -> raise Http_parse_failure
+
 
 let pretty_string_of_request x =
   let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
@@ -237,8 +240,34 @@ let pretty_string_of_request x =
     (default "" x.content_type)
     (default "" x.user_agent)
 
+let http_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
+  let cookie = default [] (may (fun x -> [ "Cookie: " ^ (print_keyvalpairs x) ]) cookie) in
+  let content_length = default [] (may (fun l -> [ "Content-Length: "^(Int64.to_string l)]) length) in
+  [ Printf.sprintf "%s %s HTTP/%s" (string_of_method_t meth) path version;
+    Printf.sprintf "Host: %s" host;
+    Printf.sprintf "Connection: %s" (if keep_alive then "keep-alive" else "close");
+    Printf.sprintf "%s :%s" user_agent_hdr user_agent;
+  ] @ cookie @ content_length
+
+let string_list_of_request x = 
+	let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
+	let query = if x.query = [] then "" else "?" ^ (kvpairs x.query) in
+	let cookie = if x.cookie = [] then [] else [ "Cookie: " ^ (kvpairs x.cookie) ] in
+	let transfer_encoding = Opt.default [] (Opt.map (fun x -> [ "transfer-encoding: " ^ x ]) x.transfer_encoding) in
+	let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "content-length: %Ld" x ]) x.content_length) in
+	let auth = Opt.default [] (Opt.map (fun x -> [ "authorization: " ^ (string_of_authorization x) ]) x.auth) in
+	let task = Opt.default [] (Opt.map (fun x -> [ task_id_hdr ^ ": " ^ x ]) x.task) in
+	let subtask_of = Opt.default [] (Opt.map (fun x -> [ subtask_of_hdr ^ ": " ^ x ]) x.subtask_of) in
+	let content_type = Opt.default [] (Opt.map (fun x -> [ "content-type: " ^ x ]) x.content_type) in
+	let user_agent = Opt.default [] (Opt.map (fun x -> [ "user-agent: " ^ x ]) x.user_agent) in
+	let close = [ "Connection: " ^ (if x.close then "close" else "keep-alive") ] in
+	[ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
+	@ cookie @ transfer_encoding @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
+	@ x.headers
+
 let escape uri =
 	String.escaped ~rules:[ '<', "&lt;"; '>', "&gt;"; '\'', "&apos;"; '"', "&quot;"; '&', "&amp;" ] uri
+
 
 (* For transfer-encoding: chunked *)
 

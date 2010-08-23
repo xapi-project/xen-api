@@ -42,13 +42,27 @@ type request = {
     headers: string list;
 }
 
+(** Parsed form of the HTTP response *)
+module Response : sig
+	type t = {
+		content_length: int64 option;
+		task: string option;
+	}
+end
+
 val rpc_of_request : request -> Rpc.t 
 val request_of_rpc : Rpc.t -> request
  
 val nullreq : request
 val authorization_of_string : string -> authorization
+
+val parse_uri : string -> string * ((string * string) list)
+
 val request_of_string : string -> request
 val pretty_string_of_request : request -> string
+
+(** Marshal a request back into wire-format *)
+val string_list_of_request : request -> string list
 
 val http_request : ?version:string -> ?keep_alive:bool -> ?cookie:((string*string) list) -> ?length:(int64) -> user_agent:(string) -> method_t -> string -> string -> string list
 
