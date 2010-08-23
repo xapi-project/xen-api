@@ -4038,8 +4038,8 @@ let pif =
 	field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
 	field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
-	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
-	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
+	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
+	field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
       ]
 	()
 
@@ -4135,7 +4135,7 @@ let tunnel_create = call
 	~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
 		Ref _network, "network", "Network to receive the tunnelled traffic" ]
 	~result:(Ref _tunnel, "The reference of the created tunnel object")
-	~lifecycle:[]
+	~lifecycle:[Published, rel_cowley, "Create a tunnel"]
 	~allowed_roles:_R_POOL_OP
 	~errs:[Api_errors.openvswitch_not_active; Api_errors.transport_pif_not_configured; Api_errors.is_tunnel_access_pif]
 	()
@@ -4144,21 +4144,21 @@ let tunnel_destroy = call
 	~name:"destroy"
 	~doc:"Destroy a tunnel"
 	~params:[Ref _tunnel, "self", "tunnel to destroy"]
-	~lifecycle:[]
+	~lifecycle:[Published, rel_cowley, "Destroy a tunnel"]
 	~allowed_roles:_R_POOL_OP
 	()
 
 let tunnel = 
-	create_obj ~in_db:true ~lifecycle:[] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
+	create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
 	~doccomments:[]
 	~messages_default_allowed_roles:_R_POOL_OP
 	~messages:[ tunnel_create; tunnel_destroy ]
 	~contents:([
-		uid _tunnel ~lifecycle:[];
-		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[] "access_PIF" "The interface through which the tunnel is accessed" ~default_value:(Some (VRef ""));
-		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
-		field ~ty:(Map(String, String)) ~lifecycle:[] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
-		field ~lifecycle:[] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";	  
+		uid _tunnel ~lifecycle:[Published, rel_cowley, "Unique identifier/object reference"];
+		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface through which the tunnel is accessed"] "access_PIF" "The interface through which the tunnel is accessed" ~default_value:(Some (VRef ""));
+		field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface used by the tunnel"] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
+		field ~ty:(Map(String, String)) ~lifecycle:[Published, rel_cowley, "Status information about the tunnel"] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
+		field ~lifecycle:[Published, rel_cowley, "Additional configuration"] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
 	])
 	()
 
