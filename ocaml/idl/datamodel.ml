@@ -1916,6 +1916,17 @@ let vm_copy_bios_strings = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vm_set_protection_policy = call
+  ~name:"set_protection_policy"
+  ~in_oss_since:None
+  ~in_product_since:rel_orlando
+  ~doc:"Set the value of the protection_policy field"
+  ~params:[Ref _vm, "self", "The VM";
+     Ref _vmpp, "value", "The value"]
+  ~flags:[`Session]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -5734,6 +5745,7 @@ let vm =
 		vm_update_snapshot_metadata;
 		vm_retrieve_wlb_recommendations;
 		vm_copy_bios_strings;
+    vm_set_protection_policy;
 		]
       ~contents:
       ([ uid _vm;
@@ -5795,7 +5807,7 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
 
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
-  field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:RW ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
+  field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
   field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
       ])
 	()

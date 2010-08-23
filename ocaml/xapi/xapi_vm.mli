@@ -260,3 +260,4 @@ val copy_bios_strings :
 (** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings
  *  had already been set. *)
 
+val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
