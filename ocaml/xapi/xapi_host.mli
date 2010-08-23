@@ -168,6 +168,7 @@ val call_plugin :
 val sync_data : __context:Context.t -> host:API.ref_host -> unit
 val backup_rrds : __context:'a -> host:'b -> delay:float -> unit
 val get_servertime : __context:'a -> host:'b -> Date.iso8601
+val get_server_localtime : __context:'a -> host:'b -> Date.iso8601
 val enable_binary_storage :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
 val disable_binary_storage :
