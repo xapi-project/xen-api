@@ -5273,6 +5273,7 @@ let pool_test_archive_target = call ~flags:[`Session]
   ]
   ~doc:"This call tests if a location is valid"
   ~allowed_roles:_R_POOL_OP
+  ~result:(String, "An XMLRPC result")
   ()
 
 (** A pool class *)
@@ -5858,6 +5859,7 @@ let vmpp_protect_now = call ~flags:[`Session]
   ~params:[Ref _vmpp, "vmpp", "The protection policy to execute";]
   ~doc:"This call executes the protection policy immediately"
   ~allowed_roles:_R_POOL_OP
+  ~result:(String, "An XMLRPC result")
   ()
 let vmpp_archive_now = call ~flags:[`Session]
   ~name:"archive_now"
@@ -5866,6 +5868,7 @@ let vmpp_archive_now = call ~flags:[`Session]
   ~params:[Ref _vm, "snapshot", "The snapshot to archive";]
   ~doc:"This call archives the snapshot provided as a parameter"
   ~allowed_roles:_R_VM_POWER_ADMIN
+  ~result:(String, "An XMLRPC result")
   ()
 let vmpp_backup_type = Enum ("vmpp_backup_type",
   [
