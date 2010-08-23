@@ -3,13 +3,20 @@ type tapdev
 val tapdev_of_rpc : Rpc.t -> tapdev
 val rpc_of_tapdev : tapdev -> Rpc.t
 
+val get_minor : tapdev -> int
+val get_tapdisk_pid : tapdev -> int
+
 type t = tapdev * string * (string * string) option
 
 type context
 val create : unit -> context
+val create_dummy : string -> context
 
 type driver = Vhd | Aio
 val string_of_driver : driver -> string
+
+val get_devnode_dir : context -> string
+val get_tapdevstem : context -> string
 
 val allocate : context -> int
 val devnode : context -> int -> string
