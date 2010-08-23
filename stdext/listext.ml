@@ -176,16 +176,16 @@ let cons a b = a :: b
    Con: Less robust.
 *)
 let take n list =
-    let rec helper i acc list =
+	let rec helper i acc list =
 	if i <= 0 || list = []
 	then acc
 	else helper (i-1)  (List.hd list :: acc) (List.tl list)
-    in List.rev $ helper n [] list
+	in List.rev $ helper n [] list
 
 (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
 let rec tails = function
-    | [] -> [[]]
-    | (_::xs) as l -> l :: tails xs
+	| [] -> [[]]
+	| (_::xs) as l -> l :: tails xs
 
 let safe_hd = function
 	| a::_ -> Some a
