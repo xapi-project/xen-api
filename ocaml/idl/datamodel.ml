@@ -5894,7 +5894,8 @@ let vmpp_create_alert = call ~flags:[`Session]
   ~params:[Ref _vmpp, "vmpp", "The protection policy where the alert should be created";
      String, "name", "The name of the message";
 	   Int, "priority", "The priority of the message";
-	   String, "body", "The body of the message";
+	   String, "body", "The body of the email message";
+     String, "data", "The data in xml";
   ]
   ~doc:"This call creates an alert for some protection policy"
   ~allowed_roles:_R_LOCAL_ROOT_ONLY

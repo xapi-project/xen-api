@@ -199,8 +199,45 @@ let action_params_whitelist =
 		("subject.create.other_config",["subject-name"]);
     (* used for VMPP alert logs *)
     ("message.create",["name";"body"]);
-    ("VMPP.create_alert",["name";"body"]);
+    ("VMPP.create_alert",["name";"data"]);
 	]
+
+let action_params_zip =
+  [ (* params that should be compressed *)
+    ("VMPP.create_alert",["data"]);
+  ]
+
+let zip data = (* todo: remove i/o, make this more efficient *)
+  try
+    let tmp_path = Filename.temp_file "zip-" ".dat" in
+    let zdata = ref "" in
+    Pervasiveext.finally
+      (fun ()->
+        Unixext.atomic_write_to_file tmp_path 0o600
+        (fun fd ->
+          Gzip.compress fd (fun fd ->
+            let len = String.length data in
+            let written = Unix.write fd data 0 len in
+            if written <> len then failwith (Printf.sprintf "zip: wrote only %i bytes of %i" written len)
+          )
+        );
+        let fd_in = Unix.openfile tmp_path [ Unix.O_RDONLY] 0o400 in
+        Pervasiveext.finally
+          (fun ()->
+            let cin=Unix.in_channel_of_descr fd_in in
+            let cin_len = in_channel_length cin in
+            zdata := (String.create cin_len);
+            for i = 1 to cin_len do !zdata.[i-1] <- input_char cin done;
+          )
+          (fun ()->Unix.close fd_in)
+      )
+      (fun ()-> Sys.remove tmp_path)
+    ;
+    let b64zdata = Base64.encode !zdata in
+    b64zdata
+  with e->
+    D.debug "error %s zipping data: %s" (ExnHelper.string_of_exn e) data;
+    ""
 
 (* manual ref getters *)
 let get_subject_other_config_subject_name __context self =
@@ -251,19 +288,30 @@ let get_db_namevalue __context name action _ref =
     into the audit log. Use heuristics to map non-sensitive parameters.
 *)
 let rec sexpr_args_of __context name xml_value action =
+  let is_selected_action_param action_params =
+    (if List.mem_assoc action action_params
+     then
+       let params=List.assoc action action_params in
+       List.mem name params
+     else
+       false
+    )
+  in
 	(* heuristic 1: print descriptive arguments in the xapi call *)
 	if (List.mem name ["name";"label";"description";"name_label";"name_description";"new_name"]) (* param for any action *)
 		or (* action+param pair *)
-		(if List.mem_assoc action action_params_whitelist
-		 then
-			 let params=List.assoc action action_params_whitelist in
-			 List.mem name params
-		 else
-			 false
-		)
+    (is_selected_action_param action_params_whitelist)
 	then
 	( match xml_value with
-		| Xml.PCData value -> Some (get_sexpr_arg name value "" "")
+		| Xml.PCData value ->
+			Some (get_sexpr_arg
+				name 
+				(if is_selected_action_param action_params_zip
+				  then (zip value)
+				  else value
+				)
+				"" ""
+			)
 		| Xml.Element ("struct",_,_) -> Some (SExpr.Node
     ((SExpr.String name)::(SExpr.Node (sexpr_of_parameters __context (action^"."^name) (Some (["__structure"],[xml_value]))))::(SExpr.String "")::(SExpr.String "")::[]))
 		|_-> (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)			
