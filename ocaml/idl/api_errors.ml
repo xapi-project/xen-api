@@ -392,6 +392,9 @@ let crl_already_exists = "CRL_ALREADY_EXISTS"
 let crl_name_invalid = "CRL_NAME_INVALID"
 let crl_corrupt = "CRL_CORRUPT"
 
+let vmpp_has_vm = "VMPP_HAS_VM"
+let vmpp_archive_more_frequent_than_backup = "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
+
 let ssl_verify_error = "SSL_VERIFY_ERROR"
 
 let cannot_enable_redo_log = "CANNOT_ENABLE_REDO_LOG"
