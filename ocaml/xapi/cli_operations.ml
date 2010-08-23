@@ -3925,19 +3925,17 @@ let vmpp_create printer rpc session_id params =
 	let name_description = get "name-description" ~default:"" in
 	let is_policy_enabled = Record_util.bool_of_string(get "is-policy-enabled" ~default:"true") in
   let backup_retention_value = map "backup-retention-value" ~default:"1" XMLRPC.To.string API.From.int64 in
-  let backup_last_run_time = Date.of_string (get "backup-last-run-time"	~default:(Date.to_string (Date.of_float 0.))) in
 	let archive_frequency = map "archive-frequency" ~default:"never" XMLRPC.To.string API.From.vmpp_archive_frequency in
 	let archive_target_type = map "archive-target-type" ~default:"none" XMLRPC.To.string API.From.vmpp_archive_target_type in
 	let archive_target_config = read_map_params "archive-target-config" params in
 	let archive_schedule = read_map_params "archive-schedule" params in
-	let archive_last_run_time = Date.of_string (get "archive-last-run-time" ~default:(Date.to_string (Date.of_float 0.))) in
 	let is_alarm_enabled = Record_util.bool_of_string(get "is-alarm-enabled" ~default:"false") in
 	let alarm_config = read_map_params "alarm-config" params in
 	let ref = Client.VMPP.create ~rpc ~session_id ~name_label ~name_description
 		~is_policy_enabled ~backup_type ~backup_retention_value ~backup_frequency
-    ~backup_schedule ~backup_last_run_time ~archive_target_type
+    ~backup_schedule ~archive_target_type
     ~archive_target_config ~archive_frequency ~archive_schedule
-    ~archive_last_run_time ~is_alarm_enabled ~alarm_config
+    ~is_alarm_enabled ~alarm_config
 	in
   let uuid = Client.VMPP.get_uuid ~rpc ~session_id ~self:ref in
   printer (Cli_printer.PList [uuid])
