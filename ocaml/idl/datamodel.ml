@@ -1259,7 +1259,9 @@ let vm_clone = call
 (* VM.Copy *)
 let vm_copy = call
   ~name:"copy"
-  ~in_product_since:rel_rio
+  ~lifecycle:[
+	Published, rel_rio, "Copies a VM to an SR. There must be a host that can see both the source and destination SRs simultaneously";
+	Extended, rel_cowley, "The copy can now be performed between any two SRs." ]
   ~doc:"Copied the specified VM, making a new VM. Unlike clone, copy does not exploits the capabilities of the underlying storage repository in which the VM's disk images are stored. Instead, copy guarantees that the disk images of the newly created VM will be 'full disks' - i.e. not part of a CoW chain.  This function can only be called when the VM is in the Halted State."
   ~result:(Ref _vm, "The reference of the newly created VM.")
   ~params:[
@@ -2555,7 +2557,9 @@ let vdi_resize_online = call
 
 let vdi_copy = call
   ~name:"copy"
-  ~in_product_since:rel_rio
+  ~lifecycle:[
+	Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
+	Extended, rel_cowley, "The copy can now be performed between any two SRs." ]
   ~in_oss_since:None
   ~params:[Ref _vdi, "vdi", "The VDI to copy"; Ref _sr, "sr", "The destination SR" ]
   ~doc:"Make a fresh VDI in the specified SR and copy the supplied VDI's data to the new disk"
