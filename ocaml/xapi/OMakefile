@@ -32,7 +32,7 @@ OCAMLPACKS = $(if $(equal $(COMPILE_XENSTUFF), yes), $(XEN_OCAMLPACKS) $(OCAMLPA
 #OCAML_CLIBS += stubs
 
 OCamlProgram(http_test, http_test)
-OCamlProgram(sparse_dd, sparse_dd)
+OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
 OCamlProgram(show_bat, show_bat)
 
 COMMON = \
