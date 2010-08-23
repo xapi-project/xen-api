@@ -302,6 +302,12 @@ let ip_configuration_mode_of_string m =
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
 
+let bool_of_string s =
+	match String.lowercase s with
+		|"true"|"yes"->true
+		|"false"|"no"->false
+		|_-> raise (Record_failure ("Expected 'true','yes','false','no', got "^s))
+
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> a^": "^b) x)
