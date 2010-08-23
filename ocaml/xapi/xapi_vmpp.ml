@@ -55,27 +55,16 @@ let add_to_recent_alerts ~__context ~vmpp ~value =
   Db.VMPP.set_recent_alerts ~__context ~self:vmpp
 		~value:(trunc 10 recent_alerts)
 
-let inside_data_tag str =
-  let tag_begin="<data>" and tag_end="</data>" in
-  let tag_begin_idx=try List.hd (Stringext.String.find_all tag_begin str) with _-> -1 in
-  let tag_end_idx=try List.hd (List.rev (Stringext.String.find_all tag_end str)) with _-> -1 in
-  try
-    let start=(tag_begin_idx+(String.length tag_begin)) in
-    let len=tag_end_idx - start in
-    Some (String.sub str start len)
-  with _->None
-
-let create_alert ~__context ~vmpp ~name ~priority ~body =
+let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
   assert_licensed ~__context;
-  match inside_data_tag body with
-  | None ->
-		debug "invalid body: %s" body
-  | Some value ->
+  let value =
+    (*"<message><email>"^body^"</email><data>"^data^"</data></message>"*)
+    data
+  in
   let successful = priority < 5L in
   if successful
   then ( (* alert indicates a vmpp success *)
 		add_to_recent_alerts ~__context ~vmpp ~value;
-    (*add_alert_to_audit_log ~__context ~vmpp ~name ~priority ~body*)
   )
   else ( (* alert indicates a vmpp failure *)
     add_to_recent_alerts ~__context ~vmpp ~value;
@@ -84,6 +73,39 @@ let create_alert ~__context ~vmpp ~name ~priority ~body =
     Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body;
     ()
   )
+
+let unzip b64zdata = (* todo: remove i/o, make this more efficient *)
+  try
+  let zdata = Base64.decode b64zdata in
+  let tmp_path = Filename.temp_file "unzip-" ".dat" in
+  let data = ref "" in
+  Pervasiveext.finally
+    (fun ()->
+      let fd = Unix.openfile tmp_path [ Unix.O_RDWR] 0o600 in
+      Pervasiveext.finally
+        (fun ()->Unix.write fd zdata 0 (String.length zdata);)
+        (fun ()->Unix.close fd;)
+      ;
+      Unixext.with_file tmp_path [ Unix.O_RDONLY ] 0o0
+        (fun gz_fd_in ->
+          Gzip.decompress_passive gz_fd_in
+            (fun fd_in -> (*fd_in is closed by gzip module*)
+              let cin = Unix.in_channel_of_descr fd_in in
+                try
+                  while true do
+                    let line = input_line cin in
+                    data := !data ^ line
+                  done
+                with End_of_file -> () (* ok, expected *)
+            )
+         )
+    )
+    (fun ()->Sys.remove tmp_path)
+  ;
+  (Some !data)
+  with e->
+    debug "error %s unzipping zdata: %s" (ExnHelper.string_of_exn e) b64zdata;
+    None
 
 let get_alerts ~__context ~vmpp ~hours_from_now =
   let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
@@ -120,7 +142,7 @@ let get_alerts ~__context ~vmpp ~hours_from_now =
 			|SExpr.Node (SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.String _::SExpr.Node params::[])->(
         let kvs = List.fold_right (fun (sexpr:SExpr.t) acc ->
         match sexpr with
-				  |SExpr.Node (SExpr.String name::SExpr.String value::SExpr.String _::SExpr.String _::[]) when name="name" or name="body"->
+				  |SExpr.Node (SExpr.String name::SExpr.String value::SExpr.String _::SExpr.String _::[]) when name="data"->
             (name,value)::acc
           |_->acc
         ) params []
@@ -133,7 +155,7 @@ let get_alerts ~__context ~vmpp ~hours_from_now =
 	) lines
   in
   let alerts = List.fold_right (fun a acc->match a with None->acc|Some a->a::acc) alerts [] in
-  let alerts = List.fold_right (fun a acc->if List.mem_assoc "body" a then (let data=inside_data_tag(List.assoc "body" a) in match data with None->acc|Some data->data::acc) else acc) alerts [] in
+  let alerts = List.fold_right (fun a acc->if List.mem_assoc "data" a then (let data=(unzip(List.assoc "data" a)) in match data with None->acc|Some data->data::acc) else acc) alerts [] in
   alerts
 
 let set_is_backup_running ~__context ~self ~value =
