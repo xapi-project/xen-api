@@ -353,18 +353,23 @@ let vhd_of_device path =
 			match Tapctl.of_device (Tapctl.create ()) path with
 			| _, _, (Some (_, vhd)) -> Some vhd
 			| _, _, _ -> raise Not_found
-		with Not_found -> None in
-	match tapdisk_of_path path with
-	| Some vhd -> Some vhd
-	| None ->
-		begin match find_underlying_tapdisk path with
-		| Some path ->
-			begin match tapdisk_of_path path with
-			| Some vhd -> Some vhd
-			| None -> None
-			end
+		with Tapctl.Not_blktap ->
+			Printf.printf "Device %s is not controlled by blktap\n" path;
+			None
+		| Tapctl.Not_a_device ->
+			Printf.printf "%s is not a device\n" path;
+			None
+		| _ -> 
+			Printf.printf "Device %s has an unknown driver\n" path;
+			None in
+	begin match find_underlying_tapdisk path with
+	| Some path ->
+		begin match tapdisk_of_path path with
+		| Some vhd -> Some vhd
 		| None -> None
 		end
+	| None -> None
+	end
 
 let deref_symlinks path = 
 	let rec inner seen_already path = 
@@ -472,6 +477,7 @@ let _ =
 	end;
 	let empty = Bat.of_list [] in
 
+	Printf.printf "src = %s; dest = %s; base = %s; size = %Ld\n" (Opt.default "None" !src) (Opt.default "None" !dest) (Opt.default "None" !base) !size;
         let size = Some !size in
 
 	(** [chain_of_device device] returns [None] if [device] is None.
@@ -484,7 +490,7 @@ let _ =
 		let vhd : string option = flatten (Opt.map vhd_of_device device) in
 		let chain : string list option = Opt.map chain_of_vhd vhd in
 		let option y = Opt.default "None" (Opt.map (fun x -> "Some " ^ x) y) in
-		Printf.printf "%s has chain: [ %s ]" (option device) (option (Opt.map (String.concat "; ") chain));
+		Printf.printf "%s has chain: [ %s ]\n" (option device) (option (Opt.map (String.concat "; ") chain));
 		chain in
 
 	let bat : Bat.t option = 
