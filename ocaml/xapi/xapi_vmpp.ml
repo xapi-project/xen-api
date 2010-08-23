@@ -14,6 +14,8 @@
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+let vmpr_plugin = "vmpr"
+
 (*
     val protect_now : __context:Context.t -> self:ref_VMPP -> unit
     val archive_now : __context:Context.t -> self:ref_VM -> unit
@@ -58,8 +60,30 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
 let destroy ~__context ~self = 
   Db.VMPP.destroy ~__context ~self
 
-let protect_now ~__context ~vmpp = ()
-let archive_now ~__context ~snapshot = ()
+let protect_now ~__context ~vmpp = 
+  let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
+  let args = [ "vmpp_uuid", vmpp_uuid ] in
+  Xapi_plugins.call_plugin
+    (Context.get_session_id __context)
+    vmpr_plugin
+    "protect_now"
+    args
+
+let archive_now ~__context ~snapshot = ""
+(*
+  let archive_target_config 
+  Xapi_plugins.call_plugin
+    (Context.get_session_id __context)
+    vmpr_plugin
+    "mount_archive_target"
+    args
+
+  Xapi_plugins.call_plugin
+    (Context.get_session_id __context)
+    vmpr_plugin
+    "unmount_archive_target"
+    args
+*)
 
 let set_is_backup_running ~__context ~self ~value =
   Db.VMPP.set_is_backup_running ~__context ~self ~value

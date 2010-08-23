@@ -1457,4 +1457,11 @@ let audit_log_append ~__context ~line =
 	Rbac_audit.append_line ~raw:true "%s" line;
 	()
 
-let test_archive_target ~__context ~self ~config = ()
+let test_archive_target ~__context ~self ~config =
+  Xapi_plugins.call_plugin
+    (Context.get_session_id __context)
+    Xapi_vmpp.vmpr_plugin
+    "test_archive_target"
+    config
+
+               
