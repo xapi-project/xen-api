@@ -35,15 +35,68 @@ let archive_now ~__context ~snapshot =
     "archive_now"
     args
 
-let add_alert ~__context ~vmpp ~name ~priority ~body =
-  ()
+let add_to_recent_alerts ~__context ~vmpp ~value =
+  let recent_alerts = value ::
+    (Db.VMPP.get_recent_alerts ~__context ~self:vmpp)
+  in
+  (* keep up to 10 elements in the set *)
+  let rec trunc i alerts =
+    if i<1 then []   
+    else match alerts with [] -> []|x::xs -> x::(trunc (i-1) xs)
+  in
+  Db.VMPP.set_recent_alerts ~__context ~self:vmpp
+		~value:(trunc 10 recent_alerts)
 
-let get_alerts ~__context ~vmpp ~since =
+let inside_data_tag str =
+  let tag_begin="<data>" and tag_end="</data>" in
+  let tag_begin_idx=try List.hd (Stringext.String.find_all tag_begin str) with _-> -1 in
+  let tag_end_idx=try List.hd (List.rev (Stringext.String.find_all tag_end str)) with _-> -1 in
+  try
+    let start=(tag_begin_idx+(String.length tag_begin)) in
+    let len=tag_end_idx - start in
+    Some (String.sub str start len)
+  with _->None
+
+(*
+let add_alert_to_audit_log ~__context ~vmpp ~name ~priority ~body =
+  let session_id=Context.get_session_id __context in
+  let action="message.create" in
+  let permission=action in
+  let uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
+  let name_label = Db.VMPP.get_name_label ~__context ~self:vmpp in
+  let s_name = Rbac_audit.get_sexpr_arg "name" name "" "" in
+  let s_obj_uuid = Rbac_audit.get_sexpr_arg "obj_uuid" name_label uuid (Ref.string_of vmpp) in
+  let s_body = Rbac_audit.get_sexpr_arg "body" body "" "" in
+  let sexpr_of_args = s_name::s_obj_uuid::s_body::[] in
+  Rbac_audit.allowed_post_fn_ok ~__context ~session_id ~action ~permission ~sexpr_of_args ()
+*)
+
+let create_alert ~__context ~vmpp ~name ~priority ~body =
+  match inside_data_tag body with
+  | None ->
+		debug "invalid body: %s" body
+  | Some value ->
+  let successful = priority < 5L in
+  if successful
+  then ( (* alert indicates a vmpp success *)
+		add_to_recent_alerts ~__context ~vmpp ~value;
+    (*add_alert_to_audit_log ~__context ~vmpp ~name ~priority ~body*)
+  )
+  else ( (* alert indicates a vmpp failure *)
+    add_to_recent_alerts ~__context ~vmpp ~value;
+    let cls = `VMPP in
+    let obj_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
+    Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body;
+    ()
+  )
+
+let get_alerts ~__context ~vmpp ~hours_from_now =
   let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
-  let filter=["unix-RPC|message.create";vmpr_username;vmpp_uuid] in
+  let filter=["unix-RPC|VMPP.create_alert";vmpr_username;vmpp_uuid] in
   let tmp_filename = Filename.temp_file "vmpp-alerts-" ".dat" in
   let fd = Unix.openfile tmp_filename [Unix.O_RDWR] 0o600 in
-  let since = Date.to_string since in
+  let now = (Unix.time ()) in
+  let since = Date.to_string (Date.of_float (now -. ( (Int64.to_float hours_from_now) *. 3600.0))) in
   let messages=Audit_log.transfer_all_audit_files fd ~filter since in
   let cout = Unix.out_channel_of_descr fd in
   flush cout;
@@ -85,16 +138,6 @@ let get_alerts ~__context ~vmpp ~since =
 	) lines
   in
   let alerts = List.fold_right (fun a acc->match a with None->acc|Some a->a::acc) alerts [] in
-  let inside_data_tag str =
-    let tag_begin="<data>" and tag_end="</data>" in
-    let tag_begin_idx=try List.hd (Stringext.String.find_all tag_begin str) with _-> -1 in
-    let tag_end_idx=try List.hd (List.rev (Stringext.String.find_all tag_end str)) with _-> -1 in
-    try
-      let start=(tag_begin_idx+(String.length tag_begin)) in
-      let len=tag_end_idx - start in
-      Some (String.sub str start len)
-    with _->None
-  in
   let alerts = List.fold_right (fun a acc->if List.mem_assoc "body" a then (let data=inside_data_tag(List.assoc "body" a) in match data with None->acc|Some data->data::acc) else acc) alerts [] in
   alerts
 
