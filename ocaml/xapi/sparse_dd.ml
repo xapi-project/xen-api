@@ -23,13 +23,20 @@ let roundup x =
 	let quantum = 16384 in
 	((x + quantum + quantum - 1) / quantum) * quantum
 
-(** The copying routine can operate on anything which looks like a file-descriptor/Stream *)
-module type Stream = sig
-	type stream
-	val read: stream -> int64 -> string -> int -> int -> unit
-	val write: stream -> int64 -> string -> int -> int -> int
-end
+(** Represents a substring without making a copy *)
+type substring = {
+	buf: string;
+	offset: int;
+	len: int;
+}
 
+(** The copying routine has inputs and outputs which both look like a 
+    Unix file-descriptor *)
+module type IO = sig
+	type t
+	val op: t -> int64 -> substring -> unit
+end
+	
 (* [fold_over_blocks (s, len) skip f initial] applies contiguous (start, length) pairs to 
    [f] starting at [s] up to maximum length [len] where each pair is as large as possible
    up to [skip]. *)
@@ -51,22 +58,21 @@ type stats = {
 }
 
 (** Perform the data duplication ("DD") *)
-module DD(S : Stream) = struct
+module DD(Input : IO)(Output : IO) = struct
 	(** [copy progress_cb bat sparse src dst size] copies blocks of data from [src] to [dst]
 	    where [bat] represents the allocated / dirty blocks in [src];
 	    where if sparse is None it means don't scan for and skip over blocks of zeroes in [src]
 	    where if sparse is (Some c) it means do scan for and skip over blocks of 'c' in [src]
 	    while calling [progress_cb] frequently to report the fraction complete
 	*)
-	let copy progress_cb bat sparse (src: S.stream) (dst: S.stream) size = 
+	let copy progress_cb bat sparse (src: Input.t) (dst: Output.t) size = 
 		let buf = String.create (Int64.to_int blocksize) in
 		let do_block stats (offset, this_chunk) : stats =
 			progress_cb ((Int64.to_float offset) /. (Int64.to_float size));   
-			S.read src offset buf 0 (Int64.to_int this_chunk);
+			Input.op src offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
 			let write_extent stats (s, e) = 
-				let n = S.write dst (offset +* (Int64.of_int s)) buf s e in
-				if n < e then raise (ShortWrite(s, e, n));
-				{ stats with writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int n) }
+				Output.op dst (offset +* (Int64.of_int s)) { buf = buf; offset = s; len = e };
+				{ stats with writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int e) }
 			in
 			begin match sparse with
 			| Some zero -> Zerocheck.fold_over_nonzeros buf (Int64.to_int this_chunk) roundup write_extent stats
@@ -77,54 +83,57 @@ module DD(S : Stream) = struct
 end
 
 (* Helper function to always return a block of zeroes, like /dev/null *)
-let read_zeroes _ _ buf offset len = 
-	for i = 0 to len - 1 do
-		buf.[offset + i] <- '\000'
-	done
+module Zero_reader = struct
+	type t = unit
+	let op _ _ { buf = buf; offset = offset; len = len } = 
+		for i = 0 to len - 1 do
+			buf.[offset + i] <- '\000'
+		done
+end
 
-(** A Stream interface implemented over strings, useful for testing *)
-module String_stream = struct
-	type stream = string
-	let blit src srcoff dst dstoff len = 
-		(* Printf.printf "[%s](%d) -> [%s](%d) %d\n" "?" srcoff "?" dstoff len; *)
-		String.blit src srcoff dst dstoff len
-	let read str stream_offset buf offset len = 
+let blit src srcoff dst dstoff len = 
+	(* Printf.printf "[%s](%d) -> [%s](%d) %d\n" "?" srcoff "?" dstoff len; *)
+	String.blit src srcoff dst dstoff len
+
+module String_reader = struct
+	type t = string
+	let op str stream_offset { buf = buf; offset = offset; len = len } = 
 		blit str (Int64.to_int stream_offset) buf offset len
-	let write str stream_offset buf offset len = 
-		blit buf offset str (Int64.to_int stream_offset) len;
-		len
+end
+module String_writer = struct
+	type t = string
+	let op str stream_offset { buf = buf; offset = offset; len = len } = 
+		blit buf offset str (Int64.to_int stream_offset) len
 end
 
 (** A File interface implemented over open Unix files *)
-module File_stream = struct
-	type stream = Unix.file_descr
-		
-	let read stream stream_offset buf offset len = 
+module File_reader = struct
+	type t = Unix.file_descr
+	let op stream stream_offset { buf = buf; offset = offset; len = len } = 
 		Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET; 
 		Unixext.really_read stream buf offset len 
-	let write stream stream_offset buf offset len = 
+end
+module File_writer = struct
+	type t = Unix.file_descr
+	let op stream stream_offset { buf = buf; offset = offset; len = len } = 
 		let newoff = Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET in
 		(* Printf.printf "Unix.write buf len %d; offset %d; len %d\n" (String.length buf) offset len; *)
-		Unix.write stream buf offset len
+		let n = Unix.write stream buf offset len in
+		if n < len
+		then raise (ShortWrite(offset, len, n))
 end
 
 (** An implementation of the DD algorithm over strings *)
-module String_copy = DD(String_stream)
+module String_copy = DD(String_reader)(String_writer)
 
 (** An implementatino of the DD algorithm which copies zeroes into strings *)
-module String_write_zero = DD(struct
-	include String_stream
-	let read = read_zeroes
-end)
+module String_write_zero = DD(Zero_reader)(String_writer)
 
 (** An implementatino of the DD algorithm over Unix files *)
-module File_copy = DD(File_stream)
+module File_copy = DD(File_reader)(File_writer)
 
 (** An implementatin of the DD algorithm which copies zeroes into files *)
-module File_write_zero = DD(struct
-	include File_stream
-	let read = read_zeroes
-end)
+module File_write_zero = DD(Zero_reader)(File_writer)
 
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
     If [size] is not given, will assume a plain file and will use st_size from Unix.stat.
@@ -154,7 +163,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 		(fun fraction -> progress_cb (0.5 *. fraction)),
 		(fun fraction -> progress_cb (0.5 *. fraction +. 0.5)) in
 	Printf.printf "Wiping\n";
-	File_write_zero.copy progress_cb_zero bat' None ifd ofd size;
+	File_write_zero.copy progress_cb_zero bat' None () ofd size;
 	Printf.printf "Copying\n";
 	File_copy.copy progress_cb_copy bat (if prezeroed then Some '\000' else None) ifd ofd size
 
@@ -199,7 +208,7 @@ let test_dd (input, bat) ignore_bat prezeroed zero nonzero =
 		let bat' = if prezeroed
 		then empty_bat
 		else Bat.difference full_bat bat in	
-		String_write_zero.copy (fun _ -> ()) bat' None input output (Int64.of_int size);
+		String_write_zero.copy (fun _ -> ()) bat' None () output (Int64.of_int size);
 		let stats = String_copy.copy (fun _ -> ()) bat (if prezeroed then Some zero else None) input output (Int64.of_int size) in
 		assert (String.compare input output = 0);
 		stats
