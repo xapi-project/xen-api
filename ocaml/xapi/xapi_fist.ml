@@ -114,3 +114,6 @@ let simulate_internal_shutdown () =
 
 (** Disables the artificial reboot delay, for faster testing. *)
 let disable_reboot_delay () = fistpoint "disable_reboot_delay"
+
+
+let force_remote_vdi_copy () = fistpoint "force_remote_vdi_copy"
