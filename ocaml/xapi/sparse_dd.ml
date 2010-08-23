@@ -237,7 +237,7 @@ let vhd_of_device path =
 					let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
 					let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
 					match String.split '/' backend with
-					| "local" :: "domain" :: bedomid :: _ ->
+					| "" :: "local" :: "domain" :: bedomid :: _ ->
 						assert (self = bedomid);
 						Some params
 					| _ -> raise Not_found
@@ -263,15 +263,43 @@ let vhd_of_device path =
 		| None -> None
 		end
 
+let deref_symlinks path = 
+	let rec inner seen_already path = 
+		if List.mem path seen_already
+		then failwith "Circular symlink";
+		let stats = Unix.lstat path in
+		if stats.Unix.st_kind = Unix.S_LNK
+		then inner (path :: seen_already) (Unix.readlink path)
+		else path in
+	inner [] path
+
+let with_rdonly_vhd path f = 
+	let h = Vhd._open path [ Vhd.Open_rdonly ] in
+	finally
+	(fun () -> f h)
+	(fun () -> Vhd.close h)
+
+let parent_of_vhd vhd = 
+	let vhd' = deref_symlinks vhd in
+	let parent = with_rdonly_vhd vhd' Vhd.get_parent in
+	(* Make path absolute *)
+	if String.length parent > 0 && String.startswith "./" parent
+	then Filename.concat (Filename.dirname vhd') parent
+	else parent
+
+let rec chain_of_vhd vhd = 
+	try
+		let p = parent_of_vhd vhd in
+		vhd :: (chain_of_vhd p)
+	with (Failure "Disk is not a differencing disk") -> [ vhd ]
+
 (** Given a vhd filename, return the BAT *)
 let bat vhd = 
-	let h = Vhd._open vhd [ Vhd.Open_rdonly ] in
-	finally
-	(fun () -> 
+	with_rdonly_vhd vhd
+	(fun h ->
 		let b = Vhd.get_bat h in
 		let b' = List.map_tr (fun (s, l) -> 2L ** mib ** (Int64.of_int s), 2L ** mib ** (Int64.of_int l)) b in
 		Bat.of_list b')
-	(fun () -> Vhd.close h)
 
 (* Record when the binary started for performance measuring *)
 let start = Unix.gettimeofday ()
@@ -338,9 +366,19 @@ let _ =
         let size = Some !size in
 	let src_vhd = vhd_of_device !src and dest_vhd = vhd_of_device !dest in
 	Printf.printf "auto-detect src vhd:  %s\n" (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) src_vhd));
-	let src_bat = Opt.map bat src_vhd in 
+	let bat = match src_vhd with
+	| Some vhd ->
+		(try
+			let chain = chain_of_vhd vhd in
+			Printf.printf "chain: %s\n" (String.concat "; " chain);
+			let empty = Bat.of_list [] in
+			Some (List.fold_left Bat.union empty (List.map bat chain))
+		with e ->
+			Printf.printf "Caught exception: %s while calculating BAT. Ignoring all BAT information\n" (Printexc.to_string e);
+			None)
+	| None -> None in
 	progress_cb 0.;
-	let stats = file_dd ~progress_cb ?size ?bat:src_bat !prezeroed !src !dest in
+	let stats = file_dd ~progress_cb ?size ?bat !prezeroed !src !dest in
 	Printf.printf "Time: %.2f seconds\n" (Unix.gettimeofday () -. start);
 	Printf.printf "\nNumber of writes: %d\n" stats.writes;
 	Printf.printf "Number of bytes: %Ld\n" stats.bytes
