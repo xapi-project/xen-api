@@ -81,6 +81,14 @@ let is_unix_socket s =
       Unix.ADDR_UNIX _ -> true
     | Unix.ADDR_INET _ -> false
 
+(** Calls coming directly into xapi on port 80 from remote IPs are unencrypted *)
+let is_unencrypted s = 
+  match Unix.getpeername s with
+    | Unix.ADDR_UNIX _ -> false
+    | Unix.ADDR_INET (addr, _) when addr = Unix.inet_addr_loopback -> false
+    | Unix.ADDR_INET _ -> true
+
+
 let preauth ~__context =
   match __context.origin with
       Internal -> false
