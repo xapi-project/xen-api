@@ -1004,9 +1004,8 @@ let ha_compute_max_host_failures_to_tolerate ~__context =
 
 let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration = 
   (* Check the restart priorities all look valid *)
-  let valid_priorities = [ "1"; "2"; "3"; Constants.ha_restart_best_effort ] in
   List.iter (fun (_, pri) -> 
-	       if not(List.mem pri valid_priorities)
+	       if not(List.mem pri Constants.ha_valid_restart_priorities)
 	       then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; pri ]))) configuration;
 
   let protected_vms = List.map fst (List.filter (fun (vm, priority) -> Helpers.vm_should_always_run true priority) configuration) in
