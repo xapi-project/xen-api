@@ -5941,6 +5941,16 @@ let vmpp_schedule_days = "days"
 let vmpp_archive_target_config_location = "location"
 let vmpp_archive_target_config_username = "username"
 let vmpp_archive_target_config_password = "password"
+let vmpp_set_backup_retention_value = call ~flags:[`Session]
+  ~name:"set_backup_retention_value"
+  ~in_oss_since:None
+  ~in_product_since:rel_cowley
+  ~allowed_roles:_R_POOL_OP
+  ~params:[
+    Ref _vmpp, "self", "The protection policy";
+    Int, "value", "the value to set"
+  ]
+  ()
 let vmpp_set_is_backup_running = call ~flags:[`Session]
   ~name:"set_is_backup_running"
   ~in_oss_since:None
@@ -6163,6 +6173,7 @@ let vmpp =
       vmpp_archive_now;
       vmpp_create_alert;
       vmpp_get_alerts;
+      vmpp_set_backup_retention_value;
       vmpp_set_is_backup_running;
       vmpp_set_is_archive_running;
       vmpp_set_backup_frequency;
@@ -6189,7 +6200,7 @@ let vmpp =
       namespace ~name:"name" ~contents:(names None RW) ();
       field ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
       field ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy";
-      field ~qualifier:RW ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 1L));
+      field ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 1L));
       field ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule";
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone";
       field ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
