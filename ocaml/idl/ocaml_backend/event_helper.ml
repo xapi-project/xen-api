@@ -40,6 +40,7 @@ open Pervasiveext
      | Pool of             [`pool] Ref.t *  API.pool_t
      | Message of          [`message] Ref.t * API.message_t
      | Secret of           [`secret] Ref.t * API.secret_t  
+     | VMPP of             [`VMPP] Ref.t * API.vMPP_t
 
   let record_of_event ev =
    let xmlrpc = match ev.Event_types.snapshot with Some x -> x | None -> failwith "no record in event" in
@@ -70,5 +71,5 @@ open Pervasiveext
      | "pool" ->             Pool (Ref.of_string ev.Event_types.reference,API.From.pool_t "" xmlrpc)
      | "message" ->          Message (Ref.of_string ev.Event_types.reference,API.From.message_t "" xmlrpc)
      | "secret" ->           Secret (Ref.of_string ev.Event_types.reference,API.From.secret_t "" xmlrpc)
-  
+     | "vmpp" ->             VMPP (Ref.of_string ev.Event_types.reference,API.From.vMPP_t "" xmlrpc)
   
