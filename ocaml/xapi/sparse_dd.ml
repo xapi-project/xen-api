@@ -322,10 +322,10 @@ let progress_cb =
 		last_percent := new_percent
 
 let _ = 
-	let base = ref "" and src = ref "" and dest = ref "" and size = ref (-1L) and prezeroed = ref false and test = ref false in
-	Arg.parse [ "-base", Arg.Set_string base, "base disk to search for differences from (default: None)";
-		    "-src", Arg.Set_string src, "source disk";
-		    "-dest", Arg.Set_string dest, "destination disk";
+	let base = ref None and src = ref None and dest = ref None and size = ref (-1L) and prezeroed = ref false and test = ref false in
+	Arg.parse [ "-base", Arg.String (fun x -> base := Some x), "base disk to search for differences from (default: None)";
+		    "-src", Arg.String (fun x -> src := Some x), "source disk";
+		    "-dest", Arg.String (fun x -> dest := Some x), "destination disk";
 		    "-size", Arg.String (fun x -> size := Int64.of_string x), "number of bytes to copy";
 		    "-prezeroed", Arg.Set prezeroed, "assume the destination disk has been prezeroed";
 		    "-machine", Arg.Set machine_readable, "emit machine-readable output";
@@ -357,28 +357,47 @@ let _ =
 		test_lots_of_strings ();
 		exit 0
 	end;
-	if !src = "" || !dest = "" || !size = (-1L) then begin
+	if !src = None || !dest = None || !size = (-1L) then begin
 		Printf.fprintf stderr "Must have -src -dest and -size arguments\n";
 		exit 1;
 	end;
-
+	let empty = Bat.of_list [] in
 
         let size = Some !size in
-	let src_vhd = vhd_of_device !src and dest_vhd = vhd_of_device !dest in
-	Printf.printf "auto-detect src vhd:  %s\n" (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) src_vhd));
-	let bat = match src_vhd with
-	| Some vhd ->
-		(try
-			let chain = chain_of_vhd vhd in
-			Printf.printf "chain: %s\n" (String.concat "; " chain);
-			let empty = Bat.of_list [] in
-			Some (List.fold_left Bat.union empty (List.map bat chain))
-		with e ->
-			Printf.printf "Caught exception: %s while calculating BAT. Ignoring all BAT information\n" (Printexc.to_string e);
-			None)
-	| None -> None in
+
+	(** [chain_of_device device] returns [None] if [device] is None.
+	    If device is [Some d] then returns [None] if no vhds were detected or [Some chain] *)
+	let chain_of_device device = 
+		let flatten = function
+		| Some (Some x) -> Some x
+		| Some None -> None
+		| None -> None in
+		let vhd : string option = flatten (Opt.map vhd_of_device device) in
+		let chain : string list option = Opt.map chain_of_vhd vhd in
+		let option y = Opt.default "None" (Opt.map (fun x -> "Some " ^ x) y) in
+		Printf.printf "%s has chain: [ %s ]" (option device) (option (Opt.map (String.concat "; ") chain));
+		chain in
+
+	let bat : Bat.t option = 
+	try
+		let src_chain = chain_of_device !src in
+		let base_chain = chain_of_device !base in
+
+		(* If the src_chain is None then we have no BAT information *)
+		Opt.map
+		(fun s ->
+			let b = Opt.default [] base_chain in
+			(* We need to copy blocks from: (base - src) + (src - base)
+			   ie. everything except for blocks from the shared nodes *)
+			let unshared = List.set_difference b s @ (List.set_difference s b) in
+			List.fold_left Bat.union empty (List.map bat unshared)
+		) src_chain
+	with e ->
+		Printf.printf "Caught exception: %s while calculating BAT. Ignoring all BAT information\n" (Printexc.to_string e);
+		None in
+
 	progress_cb 0.;
-	let stats = file_dd ~progress_cb ?size ?bat !prezeroed !src !dest in
+	let stats = file_dd ~progress_cb ?size ?bat !prezeroed (Opt.unbox !src) (Opt.unbox !dest) in
 	Printf.printf "Time: %.2f seconds\n" (Unix.gettimeofday () -. start);
 	Printf.printf "\nNumber of writes: %d\n" stats.writes;
 	Printf.printf "Number of bytes: %Ld\n" stats.bytes
