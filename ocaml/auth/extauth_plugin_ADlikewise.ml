@@ -199,6 +199,8 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 				| 40017    (* The authentication request could not be handled *)
 					-> raise (Auth_signature.Auth_failure errmsg)
 
+				| 524334
+					-> raise (Auth_signature.Auth_service_error (Auth_signature.E_INVALID_OU,errmsg))
 				| 524326    (* error joining AD domain *)
 				| 524359 -> (* error joining AD domain *)
 					raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,errmsg))
@@ -564,13 +566,14 @@ let on_enable config_params =
 	in
 	let _user = List.assoc "user" config_params in
 	let pass = List.assoc "pass" config_params in
+	let (ou_conf,ou_params) = if (List.mem_assoc "ou" config_params) then let ou=(List.assoc "ou" config_params) in ([("ou",ou)],["--ou";ou]) else ([],[]) in
 	
 	(* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
 	let user = convert_nt_to_upn_username _user in
 	
 	(* execute the likewise domain join cmd *)
 	try
-		likewise_common ~stdin_string:pass ["--minimal";"join";"--ignore-pam";"--ignore-ssh";domain;user]
+		likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
 			"/usr/bin/domainjoin-cli";
 
 		let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
@@ -587,7 +590,7 @@ let on_enable config_params =
 		let extauthconf = [
 			("domain", domain);
 			("user", user)
-		] in
+		] @ ou_conf in
 		Server_helpers.exec_with_new_task "storing external_auth_configuration"
 			(fun __context -> 
 				let host = Helpers.get_localhost ~__context in
