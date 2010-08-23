@@ -61,11 +61,8 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 	    
 		Server_helpers.exec_with_new_task "VDI.import" 
 		(fun __context -> 
-		 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
-		   (fun device ->
-		      let fd = Unix.openfile device  [ Unix.O_WRONLY ] 0 in
-		      finally 
-			(fun () -> 
+		 Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
+		   (fun fd ->
 			   try
 			     if chunked
 			     then receive_chunks s fd
@@ -73,8 +70,6 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 			     Unixext.fsync fd;
 			   with Unix.Unix_error(Unix.EIO, _, _) ->
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
-			)
-			(fun () -> Unix.close fd)
 		   )
 	    );
 	    TaskHelper.complete ~__context [];
