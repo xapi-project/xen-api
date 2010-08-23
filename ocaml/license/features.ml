@@ -19,7 +19,7 @@ open D
 
 type feature = VLAN | QoS | Shared_storage | Netapp | Equalogic | Pooling
 	| HA | Marathon | Email | Performance | WLB | RBAC | DMC | Checkpoint
-	| Vswitch_controller | CPU_masking | Connection | No_platform_filter | No_nag_dialog
+	| Vswitch_controller | CPU_masking | Connection | No_platform_filter | No_nag_dialog | VMPR
 
 type orientation = Positive | Negative
 
@@ -44,6 +44,7 @@ let keys_of_features =
 		Connection, ("restrict_connection", Negative, "Cnx");
 		No_platform_filter, ("platform_filter", Negative, "Plat");
 		No_nag_dialog, ("regular_nag_dialog", Negative, "nonag");
+		VMPR, ("restrict_vmpr", Negative, "VMPR");
 	]
 
 let string_of_feature f =
