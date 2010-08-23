@@ -53,10 +53,10 @@ type stats = {
 
 (** Perform the data duplication ("DD") *)
 module DD(Input : IO)(Output : IO) = struct
-	let fold bat sparse (src: Input.t) size f initial = 
+	let fold bat sparse input_op blocksize size f initial = 
 		let buf = String.create (Int64.to_int blocksize) in
 		let do_block acc (offset, this_chunk) =
-			Input.op src offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
+			input_op offset { buf = buf; offset = 0; len = Int64.to_int this_chunk };
 			begin match sparse with
 			| Some zero -> fold_over_nonzeros buf (Int64.to_int this_chunk) roundup (f offset) acc
 			| None -> f offset acc { buf = buf; offset = 0; len = Int64.to_int this_chunk }
@@ -66,28 +66,32 @@ module DD(Input : IO)(Output : IO) = struct
 
 	(** [copy progress_cb bat sparse src dst size] copies blocks of data from [src] to [dst]
 	    where [bat] represents the allocated / dirty blocks in [src];
-	    where if sparse is None it means don't scan for and skip over blocks of zeroes in [src]
-	    where if sparse is (Some c) it means do scan for and skip over blocks of 'c' in [src]
+	    where if prezeroed is true it means do scan for and skip over blocks of \000
 	    while calling [progress_cb] frequently to report the fraction complete
 	*)
-	let copy progress_cb bat sparse src dst size =
-		let total_work = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
-		fold bat sparse src size
-			(fun offset stats substr -> 
-				Output.op dst (offset +* (Int64.of_int substr.offset)) substr;
-				let stats' = { writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int substr.len) } in
-				progress_cb (Int64.to_float stats'.bytes /. (Int64.to_float total_work));
-				stats')
-			{ writes = 0; bytes = 0L }
-end
-
-(* Helper function to always return a block of zeroes, like /dev/null *)
-module Zero_reader = struct
-	type t = unit
-	let op _ _ { buf = buf; offset = offset; len = len } = 
-		for i = 0 to len - 1 do
-			buf.[offset + i] <- '\000'
-		done
+	let copy progress_cb bat prezeroed src dst blocksize size =
+		(* If [prezeroed] then nothing needs wiping; otherwise we wipe not(bat) *)
+		let empty = Bat.of_list [] and full = Bat.of_list [0L, size] in
+		let bat = Opt.default full bat in
+		let bat' = if prezeroed then empty else Bat.difference full bat in
+		let sizeof bat = Bat.fold_left (fun total (_, size) -> total +* size) 0L bat in 
+		let total_work = sizeof bat +* (sizeof bat') in
+		let stats = { writes = 0; bytes = 0L } in
+		let with_stats f offset stats substr = 
+			f offset stats substr;
+			let stats' = { writes = stats.writes + 1; bytes = stats.bytes +* (Int64.of_int substr.len) } in
+			progress_cb (Int64.to_float stats'.bytes /. (Int64.to_float total_work));
+			stats' in
+		let copy offset stats substr = 
+			Output.op dst (offset +* (Int64.of_int substr.offset)) substr in
+		let input_zero offset { buf = buf; offset = offset; len = len } =
+			for i = 0 to len - 1 do
+				buf.[offset + i] <- '\000'
+			done in
+		(* Do any necessary pre-zeroing then do the real work *)
+		let sparse = if prezeroed then Some '\000' else None in
+		fold bat sparse (Input.op src) blocksize size (with_stats copy) 
+			(fold bat' sparse input_zero blocksize size (with_stats copy) stats)
 end
 
 let blit src srcoff dst dstoff len = 
@@ -97,7 +101,7 @@ let blit src srcoff dst dstoff len =
 module String_reader = struct
 	type t = string
 	let op str stream_offset { buf = buf; offset = offset; len = len } = 
-		blit str (Int64.to_int stream_offset) buf offset len
+		blit str (Int64.to_int stream_offset) buf offset len	
 end
 module String_writer = struct
 	type t = string
@@ -125,14 +129,8 @@ end
 (** An implementation of the DD algorithm over strings *)
 module String_copy = DD(String_reader)(String_writer)
 
-(** An implementatino of the DD algorithm which copies zeroes into strings *)
-module String_write_zero = DD(Zero_reader)(String_writer)
-
 (** An implementatino of the DD algorithm over Unix files *)
 module File_copy = DD(File_reader)(File_writer)
-
-(** An implementatin of the DD algorithm which copies zeroes into files *)
-module File_write_zero = DD(Zero_reader)(File_writer)
 
 (** [file_dd ?progress_cb ?size ?bat prezeroed src dst]
     If [size] is not given, will assume a plain file and will use st_size from Unix.stat.
@@ -149,22 +147,8 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 	Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET;
 	Unix.write ofd "\000" 0 1;
 	Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET;
-	let full_bat = Bat.of_list [0L, size] in
-	let empty_bat = Bat.of_list [] in
-	let bat = Opt.default full_bat bat in
-	(* If not prezeroed then: 
-	   1. explicitly write zeroes into the complement of the BAT;
-	   2. don't scan and skip zeroes in the source disk *)
-	let bat' = if prezeroed
-	then empty_bat
-	else Bat.difference full_bat bat in	
-	let progress_cb_zero, progress_cb_copy = 
-		(fun fraction -> progress_cb (0.5 *. fraction)),
-		(fun fraction -> progress_cb (0.5 *. fraction +. 0.5)) in
-	Printf.printf "Wiping\n";
-	File_write_zero.copy progress_cb_zero bat' None () ofd size;
 	Printf.printf "Copying\n";
-	File_copy.copy progress_cb_copy bat (if prezeroed then Some '\000' else None) ifd ofd size
+	File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
 
 (** [make_random size zero nonzero] returns a string (of size [size]) and a BAT. Blocks not in the BAT
     are guaranteed to be [zero]. Blocks in the BAT are randomly either [zero] or [nonzero]. *)
@@ -185,7 +169,7 @@ let make_random size zero nonzero =
 		let offset' = min size (offset + bs) in
 		offset', if bit then (offset, offset' - offset) :: acc else acc) (0, []) bits) in
 	let bat = Bat.of_list (List.map (fun (x, y) -> Int64.of_int x, Int64.of_int y) bat) in
-	result, bat
+	result, Some bat
 
 (** [test_dd (input, bat) ignore_bat prezeroed zero nonzero] uses the DD algorithm to make a copy of
     the string [input]. 
@@ -195,20 +179,11 @@ let make_random size zero nonzero =
  *)
 let test_dd (input, bat) ignore_bat prezeroed zero nonzero = 
 	let size = String.length input in
+	let blocksize = Int64.of_int (size / 100) in
 	let output = String.make size (if prezeroed then zero else nonzero) in
 	try
 
-		let full_bat = Bat.of_list [0L, Int64.of_int size] in
-		let empty_bat = Bat.of_list [] in
-		let bat = if ignore_bat then full_bat else bat in
-		(* If not prezeroed then: 
-		   1. explicitly write zeroes into the complement of the BAT;
-		   2. don't scan and skip zeroes in the source disk *)
-		let bat' = if prezeroed
-		then empty_bat
-		else Bat.difference full_bat bat in	
-		String_write_zero.copy (fun _ -> ()) bat' None () output (Int64.of_int size);
-		let stats = String_copy.copy (fun _ -> ()) bat (if prezeroed then Some zero else None) input output (Int64.of_int size) in
+		let stats = String_copy.copy (fun _ -> ()) bat prezeroed input output blocksize (Int64.of_int size) in
 		assert (String.compare input output = 0);
 		stats
 	with e ->
@@ -225,7 +200,7 @@ let test_dd (input, bat) ignore_bat prezeroed zero nonzero =
 
 (** Generates lots of random strings and makes copies with the DD algorithm, checking that the copies are identical *)
 let test_lots_of_strings () =
-	let n = 1000 and m = 1000 in
+	let n = 1000 and m = 100000 in
 	let writes = ref 0 and bytes = ref 0L in
 	for i = 0 to n do
 		if i mod 100 = 0 then (Printf.printf "i = %d\n" i; flush stdout);
