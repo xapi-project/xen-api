@@ -17,7 +17,13 @@ open D
 let vmpr_plugin = "vmpr"
 let vmpr_username = "__dom0__vmpr"
 
+let assert_licensed ~__context =
+  if (not (Features.is_enabled ~__context Features.VMPR))
+  then
+    raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
 let protect_now ~__context ~vmpp = 
+  assert_licensed ~__context;
   let vmpp_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
   let args = [ "vmpp_uuid", vmpp_uuid ] in
   Xapi_plugins.call_plugin
@@ -27,6 +33,7 @@ let protect_now ~__context ~vmpp =
     args
 
 let archive_now ~__context ~snapshot = 
+  assert_licensed ~__context;
   let snapshot_uuid = Db.VM.get_uuid ~__context ~self:snapshot in
   let args = [ "snapshot_uuid", snapshot_uuid ] in
   Xapi_plugins.call_plugin
@@ -36,6 +43,7 @@ let archive_now ~__context ~snapshot =
     args
 
 let add_to_recent_alerts ~__context ~vmpp ~value =
+  assert_licensed ~__context;
   let recent_alerts = value ::
     (Db.VMPP.get_recent_alerts ~__context ~self:vmpp)
   in
@@ -72,6 +80,7 @@ let add_alert_to_audit_log ~__context ~vmpp ~name ~priority ~body =
 *)
 
 let create_alert ~__context ~vmpp ~name ~priority ~body =
+  assert_licensed ~__context;
   match inside_data_tag body with
   | None ->
 		debug "invalid body: %s" body
@@ -142,9 +151,11 @@ let get_alerts ~__context ~vmpp ~hours_from_now =
   alerts
 
 let set_is_backup_running ~__context ~self ~value =
+  assert_licensed ~__context;
   Db.VMPP.set_is_backup_running ~__context ~self ~value
 
 let set_is_archive_running ~__context ~self ~value =
+  assert_licensed ~__context;
   Db.VMPP.set_is_archive_running ~__context ~self ~value
 
 (* mini datamodel for type and key value restrictions in the vmpp map fields *)
@@ -431,6 +442,7 @@ let assert_frequency ~archive_frequency ~backup_frequency =
 (* 1/3: values of non-map fields can only change if their corresponding maps contain the expected keys *)
 
 let set_backup_frequency ~__context ~self ~value =
+  assert_licensed ~__context;
   let archive_frequency = Db.VMPP.get_archive_frequency ~__context ~self in
   assert_frequency ~archive_frequency ~backup_frequency:value;
   let backup_schedule = Db.VMPP.get_backup_schedule ~__context ~self in
@@ -440,6 +452,7 @@ let set_backup_frequency ~__context ~self ~value =
   Db.VMPP.set_backup_schedule ~__context ~self ~value:new_backup_schedule
 
 let set_archive_frequency ~__context ~self ~value =
+  assert_licensed ~__context;
   let backup_frequency = Db.VMPP.get_backup_frequency ~__context ~self in
   assert_frequency ~archive_frequency:value ~backup_frequency;
   let archive_schedule = (Db.VMPP.get_archive_schedule ~__context ~self) in
@@ -452,6 +465,7 @@ let set_archive_frequency ~__context ~self ~value =
   Db.VMPP.set_archive_schedule ~__context ~self ~value:new_archive_schedule
 
 let set_archive_target_type ~__context ~self ~value =
+  assert_licensed ~__context;
   let archive_target_config = Db.VMPP.get_archive_target_config ~__context ~self in
   let archive_frequency = Db.VMPP.get_archive_frequency ~__context ~self in
   let archive_schedule = Db.VMPP.get_archive_schedule ~__context ~self in
@@ -463,6 +477,7 @@ let set_archive_target_type ~__context ~self ~value =
   Db.VMPP.set_archive_schedule ~__context ~self ~value:new_archive_schedule
 
 let set_is_alarm_enabled ~__context ~self ~value =
+  assert_licensed ~__context;
   let alarm_config = Db.VMPP.get_alarm_config ~__context ~self in
   let new_alarm_config =  assert_set_is_alarm_enabled ~is_alarm_enabled:value ~alarm_config in
   Db.VMPP.set_is_alarm_enabled ~__context ~self ~value;
@@ -472,20 +487,24 @@ let set_is_alarm_enabled ~__context ~self ~value =
 (* 2/3: values of map fields can change as long as the key names and values are valid *)
 
 let set_backup_schedule ~__context ~self ~value =
+  assert_licensed ~__context;
   let value = assert_keys ~ty:"" ~ks:backup_schedule_all_keys ~value ~db:(Db.VMPP.get_backup_schedule ~__context ~self) in
   Db.VMPP.set_backup_schedule ~__context ~self ~value
 
 let add_to_backup_schedule ~__context ~self ~key ~value =
+  assert_licensed ~__context;
   let value = List.assoc key (assert_keys ~ty:"" ~ks:backup_schedule_all_keys ~value:[(key,value)] ~db:(Db.VMPP.get_backup_schedule ~__context ~self)) in
   Db.VMPP.add_to_backup_schedule ~__context ~self ~key ~value
 
 let set_archive_target_config ~__context ~self ~value =
+  assert_licensed ~__context;
   let config = (Db.VMPP.get_archive_target_config ~__context ~self) in
   assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value ~db:config;
 	let value = map_any_passwords_to_secrets ~__context ~value ~db:config in
   Db.VMPP.set_archive_target_config ~__context ~self ~value
 
 let add_to_archive_target_config ~__context ~self ~key ~value =
+  assert_licensed ~__context;
   let config = (Db.VMPP.get_archive_target_config ~__context ~self) in
   assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value:[(key,value)] ~db:config;
   let value =
@@ -496,38 +515,46 @@ let add_to_archive_target_config ~__context ~self ~key ~value =
   Db.VMPP.add_to_archive_target_config ~__context ~self ~key ~value
 
 let set_archive_schedule ~__context ~self ~value =
+  assert_licensed ~__context;
   let value = assert_keys ~ty:"" ~ks:archive_schedule_all_keys ~value ~db:(Db.VMPP.get_archive_schedule ~__context ~self) in
   Db.VMPP.set_archive_schedule ~__context ~self ~value
 
 let add_to_archive_schedule ~__context ~self ~key ~value =
+  assert_licensed ~__context;
   let value = List.assoc key (assert_keys ~ty:"" ~ks:archive_schedule_all_keys ~value:[(key,value)] ~db:(Db.VMPP.get_archive_schedule ~__context ~self)) in
   Db.VMPP.add_to_archive_schedule ~__context ~self ~key ~value
 
 let set_alarm_config ~__context ~self ~value =
+  assert_licensed ~__context;
   assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value ~db:(Db.VMPP.get_alarm_config ~__context ~self);
   Db.VMPP.set_alarm_config ~__context ~self ~value
 
 let add_to_alarm_config ~__context ~self ~key ~value =
+  assert_licensed ~__context;
   assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value:[(key,value)] ~db:(Db.VMPP.get_alarm_config ~__context ~self);
   Db.VMPP.add_to_alarm_config ~__context ~self ~key ~value
 
 (* 3/3: the CLI requires any key in any map to be removed at will *)
 
 let remove_from_backup_schedule ~__context ~self ~key =
+  assert_licensed ~__context;
   assert_non_required_key ~ks:backup_schedule_keys ~key ~db:(Db.VMPP.get_backup_schedule ~__context ~self);
   Db.VMPP.remove_from_backup_schedule ~__context ~self ~key
 
 let remove_from_archive_target_config ~__context ~self ~key =
+  assert_licensed ~__context;
   let db = (Db.VMPP.get_archive_target_config ~__context ~self) in
   assert_non_required_key ~ks:archive_target_config_keys ~key ~db;
   remove_any_secrets ~__context ~config:db ~key:Datamodel.vmpp_archive_target_config_password;
   Db.VMPP.remove_from_archive_target_config ~__context ~self ~key
 
 let remove_from_archive_schedule ~__context ~self ~key =
+  assert_licensed ~__context;
   assert_non_required_key ~ks:archive_schedule_keys ~key ~db:(Db.VMPP.get_archive_schedule ~__context ~self);
   Db.VMPP.remove_from_archive_schedule ~__context ~self ~key
 
 let remove_from_alarm_config ~__context ~self ~key =
+  assert_licensed ~__context;
   assert_non_required_key ~ks:alarm_config_keys ~key ~db:(Db.VMPP.get_alarm_config ~__context ~self);
   Db.VMPP.remove_from_alarm_config ~__context ~self ~key
 
@@ -539,6 +566,7 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
   ~is_alarm_enabled ~alarm_config
 : API.ref_VMPP =
 
+  assert_licensed ~__context;
   (* assert all provided field values, key names and key values are valid *)
   assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency)) ~ks:backup_schedule_keys ~value:backup_schedule ~db:[];
   assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency)) ~ks:archive_schedule_keys ~value:archive_schedule ~db:[];
