@@ -85,14 +85,13 @@ module Chunk = struct
 	}
 
 	let really_write fd offset buf off len = 
+		ignore(Unix.LargeFile.lseek fd offset Unix.SEEK_SET);
 		let n = Unix.write fd buf off len in
 		if n < len 
 		then failwith "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n
 
 	(** Writes a single block of data to the output device *)
-	let write fd x = 
-		ignore(Unix.LargeFile.lseek fd x.start Unix.SEEK_SET);
-		really_write fd x.start x.data 0 (String.length x.data)
+	let write fd x = really_write fd x.start x.data 0 (String.length x.data)
 
 	(** Reads a type t from a file descriptor *)
 	let unmarshal fd = 
