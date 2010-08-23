@@ -30,6 +30,7 @@ STDEXT_OBJS = \
 	hashtblext \
 	pervasiveext \
 	threadext \
+	int64ext \
 	ring \
 	qring \
 	fring \
