@@ -1202,5 +1202,7 @@ let set_protection_policy ~__context ~self ~value =
     raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]))
   )
   else (
+    (* if unlicensed, allow only to change to protection policy to null *)
+    (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
     Db.VM.set_protection_policy ~__context ~self ~value
   )
