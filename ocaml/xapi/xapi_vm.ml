@@ -75,9 +75,8 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value = 
 	set_is_a_template ~__context ~self ~value
 
-let valid_restart_priorities = [ Constants.ha_restart_best_effort; "1"; "2"; "3" ]
 let validate_restart_priority include_empty_string x = 
-  if not(List.mem x (valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
+  if not(List.mem x (Constants.ha_valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
   then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; x ]))
 
 let set_ha_always_run ~__context ~self ~value = 
