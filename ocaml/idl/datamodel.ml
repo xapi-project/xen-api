@@ -6049,6 +6049,26 @@ let vmpp_set_alarm_config = call ~flags:[`Session]
     Map(String,String), "value", "the value to set"
   ]
   ()
+let vmpp_set_backup_last_run_time = call ~flags:[`Session]
+  ~name:"set_backup_last_run_time"
+  ~in_oss_since:None
+  ~in_product_since:rel_cowley
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~params:[
+    Ref _vmpp, "self", "The protection policy";
+    DateTime, "value", "the value to set"
+  ]
+  ()
+let vmpp_set_archive_last_run_time = call ~flags:[`Session]
+  ~name:"set_archive_last_run_time"
+  ~in_oss_since:None
+  ~in_product_since:rel_cowley
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~params:[
+    Ref _vmpp, "self", "The protection policy";
+    DateTime, "value", "the value to set"
+  ]
+  ()
 let vmpp_add_to_backup_schedule = call ~flags:[`Session]
   ~name:"add_to_backup_schedule"
   ~in_oss_since:None
@@ -6161,6 +6181,8 @@ let vmpp =
       vmpp_remove_from_archive_target_config;
       vmpp_remove_from_archive_schedule;
       vmpp_remove_from_alarm_config;
+      vmpp_set_backup_last_run_time;
+      vmpp_set_archive_last_run_time;
     ]
     ~contents:[
       uid _vmpp;
@@ -6171,13 +6193,13 @@ let vmpp =
       field ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule";
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone";
       field ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
-      field ~qualifier:RW ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+      field ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
       field ~qualifier:StaticRO ~ty:vmpp_archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
       field ~qualifier:StaticRO ~ty:vmpp_archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone" ~default_value:(Some (VMap []));
       field ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
-      field ~qualifier:RW ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+      field ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";
       field ~qualifier:StaticRO ~ty:Bool "is_alarm_enabled" "true if alarm is enabled for this policy" ~default_value:(Some (VBool false));
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "alarm_config" "configuration for the alarm" ~default_value:(Some (VMap []));

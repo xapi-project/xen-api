@@ -65,20 +65,6 @@ let inside_data_tag str =
     Some (String.sub str start len)
   with _->None
 
-(*
-let add_alert_to_audit_log ~__context ~vmpp ~name ~priority ~body =
-  let session_id=Context.get_session_id __context in
-  let action="message.create" in
-  let permission=action in
-  let uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
-  let name_label = Db.VMPP.get_name_label ~__context ~self:vmpp in
-  let s_name = Rbac_audit.get_sexpr_arg "name" name "" "" in
-  let s_obj_uuid = Rbac_audit.get_sexpr_arg "obj_uuid" name_label uuid (Ref.string_of vmpp) in
-  let s_body = Rbac_audit.get_sexpr_arg "body" body "" "" in
-  let sexpr_of_args = s_name::s_obj_uuid::s_body::[] in
-  Rbac_audit.allowed_post_fn_ok ~__context ~session_id ~action ~permission ~sexpr_of_args ()
-*)
-
 let create_alert ~__context ~vmpp ~name ~priority ~body =
   assert_licensed ~__context;
   match inside_data_tag body with
@@ -558,11 +544,19 @@ let remove_from_alarm_config ~__context ~self ~key =
   assert_non_required_key ~ks:alarm_config_keys ~key ~db:(Db.VMPP.get_alarm_config ~__context ~self);
   Db.VMPP.remove_from_alarm_config ~__context ~self ~key
 
+let set_backup_last_run_time ~__context ~self ~value =
+  assert_licensed ~__context;
+  Db.VMPP.set_backup_last_run_time ~__context ~self ~value
+
+let set_archive_last_run_time ~__context ~self ~value =
+  assert_licensed ~__context;
+  Db.VMPP.set_archive_last_run_time ~__context ~self ~value
+
 (* constructors/destructors *)
 
 let create ~__context ~name_label ~name_description ~is_policy_enabled
-  ~backup_type ~backup_retention_value ~backup_frequency ~backup_schedule ~backup_last_run_time
-  ~archive_target_type ~archive_target_config ~archive_frequency ~archive_schedule  ~archive_last_run_time
+  ~backup_type ~backup_retention_value ~backup_frequency ~backup_schedule 
+  ~archive_target_type ~archive_target_config ~archive_frequency ~archive_schedule
   ~is_alarm_enabled ~alarm_config
 : API.ref_VMPP =
 
@@ -589,10 +583,12 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
   Db.VMPP.create ~__context ~ref ~uuid
     ~name_label ~name_description ~is_policy_enabled
     ~backup_type ~backup_retention_value
-    ~backup_frequency ~backup_schedule ~backup_last_run_time
+    ~backup_frequency ~backup_schedule
+    ~backup_last_run_time:(Date.of_float 0.)
     ~is_backup_running:false ~is_archive_running:false
     ~archive_target_type ~archive_target_config
-    ~archive_frequency ~archive_schedule ~archive_last_run_time
+    ~archive_frequency ~archive_schedule
+    ~archive_last_run_time:(Date.of_float 0.)
     ~is_alarm_enabled ~alarm_config ~recent_alerts:[];
   ref
 
