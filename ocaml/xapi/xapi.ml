@@ -530,15 +530,56 @@ let record_boot_time_host_free_memory () =
 			(Printexc.to_string e)
 	end
 
-(* Make sure our license is set correctly *)
+(** Reset the networking-related metadata for this host if the command [xe-reset-networking]
+ *  was executed before the restart. *)
+let check_network_reset () =
+	try
+		(* Raises exception if the file is not there and no reset is required *)
+		let reset_file = Unixext.read_whole_file_to_string (Xapi_globs.network_reset_trigger) in
+		Server_helpers.exec_with_new_task "Performing emergency network reset"
+			(fun __context ->
+				let host = Helpers.get_localhost ~__context in
+				(* Parse reset file *)
+				let args = String.split '\n' reset_file in
+				let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
+				let mAC = List.assoc "MAC" args in
+				let mode = match List.assoc "MODE" args with
+					| "static" -> `Static
+					| "dhcp" | _ -> `DHCP
+				in
+				let iP = if List.mem_assoc "IP" args then List.assoc "IP" args else "" in
+				let netmask = if List.mem_assoc "NETMASK" args then List.assoc "NETMASK" args else "" in
+				let gateway = if List.mem_assoc "GATEWAY" args then List.assoc "GATEWAY" args else "" in
+				let dNS = if List.mem_assoc "DNS" args then List.assoc "DNS" args else "" in
+				
+				(* Erase networking database objects for this host *)
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						Client.Client.Host.reset_networking rpc session_id host
+					);
+				
+				(* Introduce PIFs for remaining interfaces *)
+				let pifs = Xapi_pif.scan_bios ~__context ~host in
+				
+				(* Introduce and configure the management PIF *)
+				let pif = List.find (fun p -> Db.PIF.get_MAC ~__context ~self:p = mAC) pifs in
+				Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask ~gateway ~dNS;
+				Xapi_host.management_reconfigure ~__context ~pif;
+			);
+		(* Remove trigger file *)
+		Unix.unlink("/tmp/network-reset")
+	with _ -> () (* TODO: catch specific exception for missing fields in reset_file and inform user *)
+	
+
+(** Make sure our license is set correctly *)
 let handle_licensing () = 
-  Server_helpers.exec_with_new_task "Licensing host"
-    (fun __context ->
-       let host = Helpers.get_localhost ~__context in
-       License_init.initialise ~__context ~host;
-       (* Copy resulting license to the database *)
-       Xapi_host.copy_license_to_db ~__context ~host
-    )
+	Server_helpers.exec_with_new_task "Licensing host"
+		(fun __context ->
+			let host = Helpers.get_localhost ~__context in
+			License_init.initialise ~__context ~host;
+			(* Copy resulting license to the database *)
+			Xapi_host.copy_license_to_db ~__context ~host
+		)
 
 (** Writes the memory policy to xenstore and triggers the ballooning daemon. *)
 let control_domain_memory () =
@@ -765,62 +806,63 @@ let server_init() =
   ];
     begin match Pool_role.get_role () with
     | Pool_role.Master ->
-	()
+        ()
     | Pool_role.Broken ->
-	info "This node is broken; moving straight to emergency mode";
-	Xapi_host.set_emergency_mode_error Api_errors.host_broken [];
+        info "This node is broken; moving straight to emergency mode";
+        Xapi_host.set_emergency_mode_error Api_errors.host_broken [];
 
-	(* XXX: consider not restarting here *)
-	server_run_in_emergency_mode ()
+        (* XXX: consider not restarting here *)
+        server_run_in_emergency_mode ()
     | Pool_role.Slave _ ->
-	info "Running in 'Pool Slave' mode";
-	(* Set emergency mode until we actually talk to the master *)
-	Xapi_globs.slave_emergency_mode := true;
-	(* signal the init script that it should succeed even though we're bust *)
-	Helpers.touch_file !Xapi_globs.ready_file; 
-		
-	(* Keep trying to log into master *)
-	let finished = ref false in
-	while not(!finished) do
-	  (* Grab the management IP address (wait forever for it if necessary) *)
-	  let ip = wait_for_management_ip_address () in
-	  
-	  debug "Attempting to communicate with master";
-	  (* Try to say hello to the pool *)
-	  begin match attempt_pool_hello ip with
-	  | None -> finished := true
-	  | Some Temporary ->
-	      debug "I think the error is a temporary one, retrying in 5s";
-	      Thread.delay 5.;
-	  | Some Permanent ->
-	      error "Permanent error in Pool.hello, will retry after %.0fs just in case" Xapi_globs.permanent_master_failure_retry_timeout;
-	      Thread.delay Xapi_globs.permanent_master_failure_retry_timeout
-	  end;
-	done;
-	debug "Startup successful";
-	Xapi_globs.slave_emergency_mode := false;
-	Master_connection.connection_timeout := initial_connection_timeout;
-	
-	begin
-	  try
-	    (* We can't tolerate an exception in db synchronization so fall back into emergency mode
-	       if this happens and try again later.. *)
-	    Master_connection.restart_on_connection_timeout := false;
-	    Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
-	    Db_cache.DBCache.initialise_db_cache();
-	    Dbsync.setup ()
-	  with e ->
-	    begin
-	      debug "Failure in slave dbsync; slave will pause and then restart to try again. Entering emergency mode.";
-	      server_run_in_emergency_mode()
-	    end
-	end;
-	Master_connection.connection_timeout := Xapi_globs.master_connect_retry_timeout;
-	Master_connection.restart_on_connection_timeout := true;
-	Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
+        info "Running in 'Pool Slave' mode";
+        (* Set emergency mode until we actually talk to the master *)
+        Xapi_globs.slave_emergency_mode := true;
+        (* signal the init script that it should succeed even though we're bust *)
+        Helpers.touch_file !Xapi_globs.ready_file; 
+                
+        (* Keep trying to log into master *)
+        let finished = ref false in
+        while not(!finished) do
+          (* Grab the management IP address (wait forever for it if necessary) *)
+          let ip = wait_for_management_ip_address () in
+          
+          debug "Attempting to communicate with master";
+          (* Try to say hello to the pool *)
+          begin match attempt_pool_hello ip with
+          | None -> finished := true
+          | Some Temporary ->
+              debug "I think the error is a temporary one, retrying in 5s";
+              Thread.delay 5.;
+          | Some Permanent ->
+              error "Permanent error in Pool.hello, will retry after %.0fs just in case" Xapi_globs.permanent_master_failure_retry_timeout;
+              Thread.delay Xapi_globs.permanent_master_failure_retry_timeout
+          end;
+        done;
+        debug "Startup successful";
+        Xapi_globs.slave_emergency_mode := false;
+        Master_connection.connection_timeout := initial_connection_timeout;
+        
+        begin
+          try
+            (* We can't tolerate an exception in db synchronization so fall back into emergency mode
+               if this happens and try again later.. *)
+            Master_connection.restart_on_connection_timeout := false;
+            Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
+            Db_cache.DBCache.initialise_db_cache();
+            Dbsync.setup ()
+          with e ->
+            begin
+              debug "Failure in slave dbsync; slave will pause and then restart to try again. Entering emergency mode.";
+              server_run_in_emergency_mode()
+            end
+        end;
+        Master_connection.connection_timeout := Xapi_globs.master_connect_retry_timeout;
+        Master_connection.restart_on_connection_timeout := true;
+        Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end;
  
     Startup.run ~__context [
+      "Checking emergency network reset", [], check_network_reset;
       "Synchronising bonds/VLANs on slave with master", [], Sync_networking.sync_slave_with_master ~__context;
       "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
       "Initialising licensing", [], handle_licensing;
