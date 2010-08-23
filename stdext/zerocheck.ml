@@ -25,6 +25,12 @@ let wrap f x len offset =
 let find_a_nonzero = wrap _find_a_nonzero
 let find_a_zero = wrap _find_a_zero
 
+type substring = {
+	buf: string;
+	offset: int;
+	len: int
+}
+
 let fold_over_nonzeros x len roundup f initial = 
 	let rec inner acc offset = 
 		if offset = len then acc
@@ -36,6 +42,6 @@ let fold_over_nonzeros x len roundup f initial =
 			| None -> len
 			| Some e -> e in
 			let e = min len (roundup e) in
-			inner (f acc (s, e - s)) e in
+			inner (f acc { buf = x; offset = s; len = e - s }) e in
 	inner initial 0
 
