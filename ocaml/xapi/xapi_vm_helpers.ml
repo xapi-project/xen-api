@@ -115,7 +115,8 @@ let create ~__context ~name_label ~name_description
            ~platform
            ~pCI_bus ~other_config ~xenstore_data ~recommendations
 	   ~ha_always_run ~ha_restart_priority ~tags 
-	   ~blocked_operations
+	   ~blocked_operations ~protection_policy
+     ~is_snapshot_from_vmpp
 	   : API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -175,7 +176,10 @@ let create ~__context ~name_label ~name_description
 		~blobs:[]
 		~ha_restart_priority
 		~ha_always_run ~tags
-		~bios_strings:[];
+		~bios_strings:[]
+    ~protection_policy:Ref.null
+    ~is_snapshot_from_vmpp:false 
+    ;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	update_memory_overhead ~__context ~vm:vm_ref;

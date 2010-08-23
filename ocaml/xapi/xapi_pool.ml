@@ -1456,3 +1456,5 @@ let audit_log_append ~__context ~line =
 	(* copy audit record from slave exactly as it is, without any new prefixes *)
 	Rbac_audit.append_line ~raw:true "%s" line;
 	()
+
+let test_archive_target ~__context ~self ~config = ()

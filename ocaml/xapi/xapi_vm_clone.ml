@@ -307,7 +307,10 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~ha_restart_priority:all.Db_actions.vM_ha_restart_priority
 		~ha_always_run:false
 		~tags:all.Db_actions.vM_tags
-		~bios_strings:all.Db_actions.vM_bios_strings;
+		~bios_strings:all.Db_actions.vM_bios_strings
+		~protection_policy:Ref.null
+		~is_snapshot_from_vmpp:false(*from_protection_policy*)
+	;
 
 	ref, uuid
 
