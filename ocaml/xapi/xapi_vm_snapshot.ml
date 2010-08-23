@@ -353,6 +353,7 @@ let do_not_copy = [
 	Db_names.guest_metrics;
 	Db_names.resident_on;
 	Db_names.domid;
+	Db_names.protection_policy;
 	Db_names.scheduled_to_be_resident_on ]
 
 let default_values = [ 
