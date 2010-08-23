@@ -199,6 +199,7 @@ let action_params_whitelist =
 		("subject.create.other_config",["subject-name"]);
     (* used for VMPP alert logs *)
     ("message.create",["name";"body"]);
+    ("VMPP.create_alert",["name";"body"]);
 	]
 
 (* manual ref getters *)
