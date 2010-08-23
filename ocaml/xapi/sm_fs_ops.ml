@@ -310,7 +310,7 @@ try
 		let ifd=Unix.openfile device_src [Unix.O_RDONLY] 0o600 in
 		finally
 		(fun () ->
-			if local_copy 
+			if local_copy && not (Xapi_fist.force_remote_vdi_copy ())
 			then with_block_attached_device __context rpc session_id vdi_dst `RW
 				(fun device_dst ->
 					let ofd=Unix.openfile device_dst [Unix.O_WRONLY; Unix.O_SYNC] 0o600 in
