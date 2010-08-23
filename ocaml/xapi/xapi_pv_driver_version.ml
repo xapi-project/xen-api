@@ -148,4 +148,4 @@ let make_error_opt version vm self =
     | (Linux(major, minor, micro, _) | Windows(major, minor, micro, _)) as x -> 
 	if is_up_to_date x 
 	then None
-	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of self; string_of_int major; string_of_int minor; string_of_int micro])
+	else Some(Api_errors.vm_old_pv_drivers, [ Ref.string_of vm; string_of_int major; string_of_int minor; string_of_int micro])
