@@ -5894,6 +5894,12 @@ let vmpp_archive_target_type = Enum ("vmpp_archive_target_type",
     "cifs", "CIFS target config";
     "nfs", "NFS target config";
   ])
+let vmpp_schedule_min = "min"
+let vmpp_schedule_hour = "hour"
+let vmpp_schedule_days = "days"
+let vmpp_archive_target_config_location = "location"
+let vmpp_archive_target_config_username = "username"
+let vmpp_archive_target_config_password = "password"
 let vmpp_set_is_backup_running = call ~flags:[`Session]
   ~name:"set_is_backup_running"
   ~in_oss_since:None
