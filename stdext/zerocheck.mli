@@ -27,8 +27,14 @@ val find_a_zero: string -> int -> int -> int option
     strictly the first nonzero. *)
 val find_a_nonzero: string -> int -> int -> int option
 
+type substring = {
+	buf: string;
+	offset: int;
+	len: int
+}
+
 (** [fold_over_nonzeros buf len roundup f initial] folds [f] over all 
     (start, length) pairs of non-zero data in string [buf] up to [len]. 
     The end offset of each pair is rounded up with [roundup] (e.g. to 
     potential block boudaries. *)
-val fold_over_nonzeros: string -> int -> (int -> int) -> ('a -> int * int -> 'a) -> 'a -> 'a
+val fold_over_nonzeros: string -> int -> (int -> int) -> ('a -> substring -> 'a) -> 'a -> 'a
