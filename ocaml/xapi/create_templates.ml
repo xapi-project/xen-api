@@ -208,6 +208,8 @@ let blank_template memory = {
 	vM_tags = [];
 	
 	vM_bios_strings = [];
+  vM_protection_policy = Ref.null;
+  vM_is_snapshot_from_vmpp = false;
 }
 
 let other_install_media_template memory = 

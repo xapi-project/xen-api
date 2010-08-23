@@ -181,7 +181,10 @@ val create :
   xenstore_data:(string * string) list ->
   ha_always_run:bool ->
   ha_restart_priority:string ->
-  tags:string list -> blocked_operations:'a -> API.ref_VM
+  tags:string list -> blocked_operations:'a ->
+  protection_policy:[ `VMPP ] Ref.t ->
+  is_snapshot_from_vmpp:bool
+-> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
