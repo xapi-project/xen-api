@@ -170,6 +170,7 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
 		API.vM_consoles = [];
 		API.vM_metrics = Ref.null;
 		API.vM_guest_metrics = lookup table (Ref.string_of vm.API.vM_guest_metrics);
+		API.vM_protection_policy = Ref.null;
 		API.vM_bios_strings = vm.API.vM_bios_strings } in
   { cls = Datamodel._vm; 
     id = Ref.string_of (lookup table (Ref.string_of self)); 
