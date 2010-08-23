@@ -423,6 +423,13 @@ let assert_frequency ~archive_frequency ~backup_frequency =
   then
     raise (Api_errors.Server_error (Api_errors.vmpp_archive_more_frequent_than_backup,[]))
 
+let assert_backup_retention_value ~backup_retention_value =
+  let value = backup_retention_value in
+  (if (value < 1L) or (value > 10L)
+  then 
+    err "backup_retention_value" "" (Printf.sprintf "%Li" value)
+  )
+
 (* == the setters with customized key cross-integrity checks == *)
 
 (* 1/3: values of non-map fields can only change if their corresponding maps contain the expected keys *)
@@ -552,6 +559,11 @@ let set_archive_last_run_time ~__context ~self ~value =
   assert_licensed ~__context;
   Db.VMPP.set_archive_last_run_time ~__context ~self ~value
 
+let set_backup_retention_value ~__context ~self ~value =
+  assert_licensed ~__context;
+  assert_backup_retention_value ~backup_retention_value:value;
+  Db.VMPP.set_backup_retention_value ~__context ~self ~value
+
 (* constructors/destructors *)
 
 let create ~__context ~name_label ~name_description ~is_policy_enabled
@@ -577,6 +589,8 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
 
   (* assert frequency constraints *)
   assert_frequency ~archive_frequency ~backup_frequency;
+  (* other constraints *)
+  assert_backup_retention_value ~backup_retention_value;
 
   let ref=Ref.make() in
   let uuid=Uuid.to_string (Uuid.make_uuid()) in
