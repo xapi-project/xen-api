@@ -49,7 +49,7 @@ install:
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)/opt/xensource/debug
 	$(IPROG) xe-scsi-dev-map $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) xe-mount-iso-sr $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-reset-networking $(DIST)/staging/opt/xensource/bin/
+	$(IPROG) xe-reset-networking $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) xe-toolstack-restart $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) xe-xentrace $(DESTDIR)/opt/xensource/bin/
