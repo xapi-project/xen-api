@@ -372,13 +372,19 @@ let bring_up_management_if ~__context () =
     debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
 (** When booting as a slave we must have a management IP address in order to talk to the master. *)
-let wait_for_management_ip_address () = 
-  debug "Attempting to acquire a management IP address";
-  Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
-  let ip = Xapi_mgmt_iface.wait_for_management_ip () in
-  debug "Acquired management IP address: %s" ip;
-  Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
-  ip
+let wait_for_management_ip_address () =
+	debug "Attempting to acquire a management IP address";
+	Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
+	let ip = Xapi_mgmt_iface.wait_for_management_ip () in
+	debug "Acquired management IP address: %s" ip;
+	Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
+	(* Check whether I am my own slave. *)
+	let masters_ip = Pool_role.get_master_address () in
+	if masters_ip = "127.0.0.1" || masters_ip = ip then begin
+		debug "Realised that I am my own slave!";
+		Xapi_host.set_emergency_mode_error Api_errors.host_its_own_slave [];
+	end;
+	ip
 
 type hello_error =
   | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
@@ -818,14 +824,14 @@ let server_init() =
         (* Set emergency mode until we actually talk to the master *)
         Xapi_globs.slave_emergency_mode := true;
         (* signal the init script that it should succeed even though we're bust *)
-        Helpers.touch_file !Xapi_globs.ready_file; 
-                
+        Helpers.touch_file !Xapi_globs.ready_file;
+
         (* Keep trying to log into master *)
         let finished = ref false in
         while not(!finished) do
           (* Grab the management IP address (wait forever for it if necessary) *)
           let ip = wait_for_management_ip_address () in
-          
+
           debug "Attempting to communicate with master";
           (* Try to say hello to the pool *)
           begin match attempt_pool_hello ip with
