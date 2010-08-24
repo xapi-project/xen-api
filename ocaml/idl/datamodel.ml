@@ -565,6 +565,8 @@ let _ =
   error Api_errors.host_power_on_mode_disabled []
     ~doc:"This operation cannot be completed as the host power on mode is disabled." ();
 
+  error Api_errors.host_its_own_slave []
+    ~doc:"The host is its own slave. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
   error Api_errors.host_still_booting []
     ~doc:"The host is still booting." ();
   error Api_errors.host_has_no_management_ip []
