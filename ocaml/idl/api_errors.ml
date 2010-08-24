@@ -64,6 +64,7 @@ let host_name_invalid = "HOST_NAME_INVALID"
 let host_has_resident_vms = "HOST_HAS_RESIDENT_VMS"
 
 (* Host errors which explain why the host is in emergency mode *)
+let host_its_own_slave = "HOST_ITS_OWN_SLAVE"
 let host_still_booting = "HOST_STILL_BOOTING"
 (* license *)
 let host_has_no_management_ip = "HOST_HAS_NO_MANAGEMENT_IP"
