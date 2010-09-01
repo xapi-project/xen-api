@@ -175,6 +175,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/bin/xe-edit-bootloader
 /opt/xensource/bin/xe-mount-iso-sr
 /opt/xensource/bin/xe-restore-metadata
+/opt/xensource/bin/xe-reset-networking
 /opt/xensource/bin/xe-scsi-dev-map
 /opt/xensource/bin/xe-set-iscsi-iqn
 /opt/xensource/bin/xe-toolstack-restart
