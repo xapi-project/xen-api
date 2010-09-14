@@ -1,0 +1,9 @@
+# OASIS_START
+# DO NOT EDIT (digest: e83bfa6f3010d59876976bc2f1ae0517)
+version = "0.1"
+description = "xenops library"
+requires = "uuid xc xs stdext log cdrom netdev xcputil"
+archive(byte) = "xenops.cma"
+archive(native) = "xenops.cmxa"
+# OASIS_STOP
+
