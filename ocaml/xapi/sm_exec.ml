@@ -57,9 +57,13 @@ type call = {
   vdi_ref: API.ref_VDI option;
   vdi_location: string option;
   vdi_uuid: string option;
+  vdi_on_boot: string option;
+  vdi_allow_caching : string option;
 
   (* Reference to the task which performs the call *)
   subtask_of: API.ref_task option;
+
+  local_cache_sr: string option;
 
   cmd: string;
   args: string list;
@@ -73,6 +77,10 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uui
 	 then vdi_location
 	 else may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref in
        let vdi_uuid = may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref in
+	   let vdi_on_boot = may (fun self -> 
+		   match Db.VDI.get_on_boot ~__context ~self with `persist -> "persist" | `reset -> "reset") vdi_ref in
+	   let vdi_allow_caching = may (fun self -> string_of_bool (Db.VDI.get_allow_caching ~__context ~self)) vdi_ref in
+	   let local_cache_sr = try Some (Db.SR.get_uuid ~__context ~self:(Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost __context))) with _ -> None in
        let sr_uuid = may (fun self -> Db.SR.get_uuid ~__context ~self) sr_ref in
        { host_ref = !Xapi_globs.localhost_ref;
 	 session_ref = None; (* filled in at the last minute *)
@@ -85,8 +93,11 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uui
 	 vdi_ref = vdi_ref;
 	 vdi_location = vdi_location;
 	 vdi_uuid = vdi_uuid;
+	 vdi_on_boot = vdi_on_boot;
+	 vdi_allow_caching = vdi_allow_caching;
 	 new_uuid = new_uuid;
 	 subtask_of = subtask_of;
+	 local_cache_sr = local_cache_sr;
 	 cmd = cmd;
 	 args = args
        })
@@ -108,13 +119,15 @@ let xmlrpc_of_call (call: call) =
   let vdi_ref = default [] (may (fun x -> [ "vdi_ref", XMLRPC.To.string (Ref.string_of x) ]) call.vdi_ref) in
   let vdi_location = default [] (may (fun x -> [ "vdi_location", XMLRPC.To.string x ]) call.vdi_location) in
   let vdi_uuid = default [] (may (fun x -> [ "vdi_uuid", XMLRPC.To.string x ]) call.vdi_uuid) in
+  let vdi_on_boot = default [] (may (fun x -> [ "vdi_on_boot", XMLRPC.To.string x ]) call.vdi_on_boot) in
+  let vdi_allow_caching = default [] (may (fun x -> [ "vdi_allow_caching", XMLRPC.To.string x ]) call.vdi_allow_caching) in
   let new_uuid = default [] (may (fun x -> [ "new_uuid", XMLRPC.To.string x ]) call.new_uuid) in
 
   let driver_params = default [] (may (fun x -> [ "driver_params", kvpairs x ]) call.driver_params) in
   let vdi_sm_config = default [] (may (fun x -> [ "vdi_sm_config", kvpairs x ]) call.vdi_sm_config) in
   let subtask_of = default [] (may (fun x -> [ "subtask_of", XMLRPC.To.string (Ref.string_of x) ]) call.subtask_of) in
-
-  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of in
+  let local_cache_sr = default [] (may (fun x -> ["local_cache_sr", XMLRPC.To.string x]) call.local_cache_sr) in
+  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of @ vdi_on_boot @ vdi_allow_caching @ local_cache_sr in
   XMLRPC.To.methodCall call.cmd [ XMLRPC.To.structure all ]
 
 let methodResponse xml =
@@ -260,6 +273,7 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
   let lookup_table = 
     [ "SR_PROBE",       Sr_probe;
       "SR_UPDATE",      Sr_update;
+	  "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
       "VDI_CREATE",     Vdi_create;
       "VDI_DELETE",     Vdi_delete;
       "VDI_ATTACH",     Vdi_attach;
@@ -273,6 +287,7 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
       "VDI_UPDATE",     Vdi_update;
       "VDI_INTRODUCE",  Vdi_introduce;
       "VDI_GENERATE_CONFIG", Vdi_generate_config;
+	  "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
     ] in
   let strings = XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info) in
   List.iter (fun s -> 

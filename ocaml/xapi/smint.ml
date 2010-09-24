@@ -32,15 +32,18 @@ let make_vdi_info ~location ?uuid () =
 
 (** Very primitive first attempt at a set of backend capabilities *)
 type capability =
-    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update
+    | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
+	| Sr_supports_local_caching
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
     | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
     | Vdi_update | Vdi_introduce 
     | Vdi_resize_online
     | Vdi_generate_config
+	| Vdi_reset_on_boot
 
 let all_capabilities =
   [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
+    Sr_supports_local_caching; 
     Vdi_create; Vdi_delete; Vdi_attach; Vdi_detach;
     Vdi_clone; Vdi_resize; Vdi_activate; Vdi_deactivate;
     Vdi_update; Vdi_introduce;
