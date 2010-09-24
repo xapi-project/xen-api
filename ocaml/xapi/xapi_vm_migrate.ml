@@ -479,7 +479,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      else
        begin
 	 debug "Receiver 7a. Activating VDIs";
-	 List.iter (fun (vdi,_) -> Storage_access.VDI.activate ~__context ~self:vdi) needed_vdis
+	 List.iter (fun (vdi,mode) -> Storage_access.VDI.activate ~__context ~self:vdi ~mode) needed_vdis
        end;
      
      if delay_device_create_until_after_activate then
