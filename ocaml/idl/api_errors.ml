@@ -62,6 +62,9 @@ let host_cannot_destroy_self = "HOST_CANNOT_DESTROY_SELF"
 let host_is_slave = "HOST_IS_SLAVE"
 let host_name_invalid = "HOST_NAME_INVALID"
 let host_has_resident_vms = "HOST_HAS_RESIDENT_VMS"
+let hosts_failed_to_enable_caching = "HOSTS_FAILED_TO_ENABLE_CACHING"
+let hosts_failed_to_disable_caching = "HOSTS_FAILED_TO_DISABLE_CACHING"
+let host_cannot_see_SR = "HOST_CANNOT_SEE_SR"
 
 (* Host errors which explain why the host is in emergency mode *)
 let host_its_own_slave = "HOST_ITS_OWN_SLAVE"
@@ -181,6 +184,7 @@ let vdi_missing = "VDI_MISSING"
 let vdi_incompatible_type = "VDI_INCOMPATIBLE_TYPE"
 let vdi_not_managed = "VDI_NOT_MANAGED"
 let vdi_io_error = "VDI_IO_ERROR"
+let vdi_on_boot_mode_incompatable_with_operation = "VDI_ON_BOOT_MODE_INCOMPATABLE_WITH_OPERATION"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
 

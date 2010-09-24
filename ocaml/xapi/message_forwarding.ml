@@ -2184,6 +2184,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let reset_networking ~__context ~host = 
       info "Host.reset_networking: host = '%s'" (host_uuid ~__context host);
       Local.Host.reset_networking ~__context ~host
+
+	let enable_local_storage_caching ~__context ~host ~sr =
+		let local_fn = Local.Host.enable_local_storage_caching ~host ~sr in
+		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.enable_local_storage_caching rpc session_id host sr)
+
+	let disable_local_storage_caching ~__context ~host =
+		let local_fn = Local.Host.disable_local_storage_caching ~host in
+		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.disable_local_storage_caching rpc session_id host)
 end
 
   module Host_crashdump = struct
@@ -2793,6 +2801,24 @@ end
       Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_physical_utilisation ~__context ~self ~value
 
+	let ensure_vdi_not_on_running_vm ~__context ~self =
+		let vbds = Db.VDI.get_VBDs ~__context ~self in
+		List.iter (fun vbd ->
+			let vm = Db.VBD.get_VM ~__context ~self:vbd in
+			let state = Db.VM.get_power_state ~__context ~self:vm in
+			match state with
+				| `Halted -> ()
+				| _ -> raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, 
+				        [Ref.string_of vm; "halted"; Record_util.power_to_string state]))) vbds
+
+	let set_on_boot ~__context ~self ~value =
+		ensure_vdi_not_on_running_vm ~__context ~self;
+		Local.VDI.set_on_boot ~__context ~self ~value
+
+	let set_allow_caching ~__context ~self ~value =
+		ensure_vdi_not_on_running_vm ~__context ~self;
+		Local.VDI.set_allow_caching ~__context ~self ~value
+
     (* know sr so just use SR forwarding policy direct here *)
     let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
       info "VDI.create: SR = '%s'; name label = '%s'" (sr_uuid ~__context sR) name_label;
@@ -2912,7 +2938,7 @@ end
 	(fun () ->
 	   forward_vdi_op ~local_fn ~__context ~self:vdi
 	     (fun session_id rpc -> Client.VDI.force_unlock rpc session_id vdi))
-	
+
   end
   module VBD = struct
 

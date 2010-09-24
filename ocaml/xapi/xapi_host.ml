@@ -96,8 +96,14 @@ let bugreport_upload ~__context ~host ~url ~options =
     end
 
 (** Check that a) there are no running VMs present on the host, b) there are no VBDs currently 
-    attached to dom0, and c) that there are no tasks running *)
-let assert_can_shutdown ~__context ~host =
+    attached to dom0, c) host is disabled.
+
+	This is approximately maintainance mode as defined by the gui. However, since 
+	we haven't agreed on an exact definition of this mode, we'll not call this maintainance mode here, but we'll
+	use a synonym. According to http://thesaurus.com/browse/maintenance, bacon is a synonym 
+	for maintainance, hence the name of the following function.
+*)
+let assert_bacon_mode ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host 
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
 
@@ -107,14 +113,14 @@ let assert_can_shutdown ~__context ~host =
   (* We always expect a control domain to be resident on a host *)
   if List.length vms > 1 then
     raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vm"; List.hd (List.map Ref.string_of vms) ]));
-  debug "Shutdown test: VMs OK - %d running VMs" (List.length vms);
+  debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
   let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
       Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in  
   let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
       Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
   if List.length vbds > 0 then
     raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
-  debug "Shutdown test: VBDs OK"
+  debug "Bacon test: VBDs OK"
 
 let pif_update_dhcp_address ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
@@ -463,7 +469,7 @@ let enable  ~__context ~host =
   end
 
 let shutdown_and_reboot_common ~__context ~host label description operation cmd = 
-  assert_can_shutdown ~__context ~host;
+  assert_bacon_mode ~__context ~host;
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Remote_requests.stop_request_thread();
 
@@ -648,6 +654,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~bios_strings:[]
     ~power_on_mode:""
     ~power_on_config:[]
+	  ~local_cache_sr:Ref.null
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1354,3 +1361,31 @@ let reset_cpu_features ~__context ~host =
 	let physical_features = List.assoc "physical_features" cpu_info in
 	let cpu_info = List.replace_assoc "features_after_reboot" physical_features cpu_info in
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
+
+let enable_local_storage_caching ~__context ~host ~sr =
+	assert_bacon_mode ~__context ~host;
+	let ty = Db.SR.get_type ~__context ~self:sr in
+	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+	let shared = Db.SR.get_shared ~__context ~self:sr in
+	let has_required_capability = 
+		let caps = Sm.capabilities_of_driver ty in
+		List.mem Smint.Sr_supports_local_caching caps
+	in
+	debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared (List.length pbds) has_required_capability;
+	if (shared=false) && (List.length pbds = 1) && has_required_capability then begin
+		let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
+		if pbd_host <> host then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
+		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
+		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true
+	end else begin
+		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
+	end
+
+let disable_local_storage_caching ~__context ~host =
+	assert_bacon_mode ~__context ~host;
+	let sr = Db.Host.get_local_cache_sr ~__context ~self:host in
+	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
+	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> () 
+
+
+		

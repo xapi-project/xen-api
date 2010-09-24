@@ -30,6 +30,9 @@ let check_operation_error ~__context ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
   let vdi_is_sharable = record.Db_actions.vDI_sharable in
+
+  let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
+
   (* Policy:
      1. any current_operation implies exclusivity; fail everything else
      2. if doing a VM start then assume the sharing check is done elsewhere
@@ -111,6 +114,8 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	  else None	    
 	  | `snapshot when record.Db_actions.vDI_sharable ->
 			Some (Api_errors.vdi_is_sharable, [ _ref ])
+	  | `snapshot when reset_on_boot ->
+		    Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation, [])
       | _ -> None
     )
 
@@ -236,7 +241,8 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~physical_utilisation:(-1L) ~_type
     ~sharable ~read_only
     ~xenstore_data ~sm_config
-    ~other_config ~storage_lock:false ~location ~managed:true ~missing:false ~parent:Ref.null ~tags:[];
+    ~other_config ~storage_lock:false ~location ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
+	  ~on_boot:`persist ~allow_caching:false;
   ref
 
 let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
@@ -330,6 +336,9 @@ let snapshot ~__context ~vdi ~driver_params =
   Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
   Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
   Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
+  Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
+  Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
+
   (* Record the fact this is a snapshot *)
  
   (*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
@@ -421,6 +430,8 @@ let clone ~__context ~vdi ~driver_params =
     Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
     Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
     Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
+	Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
+	Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
 
     update_allowed_operations ~__context ~self:newvdi;
     newvdi
@@ -467,7 +478,7 @@ let copy ~__context ~vdi ~sr =
   let dst =
     Helpers.call_api_functions ~__context
       (fun rpc session_id ->
-	 Client.VDI.create ~rpc ~session_id
+	let result = Client.VDI.create ~rpc ~session_id
 	   ~name_label:src.API.vDI_name_label
 	   ~name_description:src.API.vDI_name_description
 	   ~sR:sr
@@ -477,9 +488,15 @@ let copy ~__context ~vdi ~sr =
 	   ~read_only:src.API.vDI_read_only
 	   ~other_config:src.API.vDI_other_config
 	   ~xenstore_data:src.API.vDI_xenstore_data
-	   ~sm_config:src.API.vDI_sm_config ~tags:[]
+	   ~sm_config:src.API.vDI_sm_config ~tags:[] in
+    if src.API.vDI_on_boot = `reset then begin
+		try Client.VDI.set_on_boot ~rpc ~session_id ~self:result ~value:(`reset) with _ -> ()
+	end;
+	result
       ) in
   try
+	Db.VDI.set_allow_caching ~__context ~self:dst ~value:src.API.vDI_allow_caching;
+
     Sm_fs_ops.copy_vdi ~__context vdi dst;
 
     Db.VDI.remove_from_current_operations ~__context ~self:dst ~key:task_id;
@@ -514,3 +531,24 @@ let set_virtual_size ~__context ~self ~value =
 
 let set_physical_utilisation ~__context ~self ~value = 
   Db.VDI.set_physical_utilisation ~__context ~self ~value
+
+let set_on_boot ~__context ~self ~value =
+	let sr = Db.VDI.get_SR ~__context ~self in
+	let ty = Db.SR.get_type ~__context ~self:sr in
+	let caps = Sm.capabilities_of_driver ty in
+	if not (List.mem Smint.Vdi_reset_on_boot caps) then 
+		raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
+	Sm.assert_pbd_is_plugged ~__context ~sr;
+	Sm.call_sm_vdi_functions ~__context ~vdi:self
+		(fun srconf srtype sr ->
+			let vdi_info = Sm.vdi_clone srconf srtype [] __context sr self in
+			let uuid = require_uuid vdi_info in
+			let ref = Db.VDI.get_by_uuid ~__context ~uuid in
+			Sm.vdi_delete srconf srtype sr ref);
+	Db.VDI.set_on_boot ~__context ~self ~value
+
+let set_allow_caching ~__context ~self ~value =
+	Db.VDI.set_allow_caching ~__context ~self ~value
+
+	
+		
