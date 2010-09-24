@@ -447,7 +447,7 @@ let clone ~__context ~vdi ~driver_params =
       ~read_only:a.Db_actions.vDI_read_only
       ~other_config:a.Db_actions.vDI_other_config
       ~xenstore_data:a.Db_actions.vDI_xenstore_data
-      ~sm_config:a.Db_actions.vDI_sm_config ~tags:[]
+      ~sm_config:[] ~tags:[]
     in
     (try
        (* Remove the vdi_clone from the SR's current operations, this prevents the whole
@@ -488,7 +488,7 @@ let copy ~__context ~vdi ~sr =
 	   ~read_only:src.API.vDI_read_only
 	   ~other_config:src.API.vDI_other_config
 	   ~xenstore_data:src.API.vDI_xenstore_data
-	   ~sm_config:src.API.vDI_sm_config ~tags:[] in
+	   ~sm_config:[] ~tags:[] in
     if src.API.vDI_on_boot = `reset then begin
 		try Client.VDI.set_on_boot ~rpc ~session_id ~self:result ~value:(`reset) with _ -> ()
 	end;
