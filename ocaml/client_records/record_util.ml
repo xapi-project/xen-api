@@ -324,6 +324,11 @@ let i642fm_to_string sep x =
 let i642sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %s" a b) x)
 
+let on_boot_to_string onboot =
+	match onboot with
+		| `reset -> "reset"
+		| `persist -> "persist"
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x = 
   let isdigit c = c >= '0' && c <= '9' in

@@ -450,6 +450,42 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[Host_selectors];
     };
 
+   "host-enable-local-storage-caching",
+	{ 
+		reqd=["sr-uuid"];
+		optn=[];
+		help="Enable local storage caching on the specified host";
+		implementation=No_fd Cli_operations.host_enable_local_storage_caching;
+		flags=[Host_selectors];
+	};
+
+   "host-disable-local-storage-caching",
+	{ 
+		reqd=[];
+		optn=[];
+		help="Disable local storage caching on the specified host";
+		implementation=No_fd Cli_operations.host_disable_local_storage_caching;
+		flags=[Host_selectors];
+	};
+	  
+   "pool-enable-local-storage-caching",
+	{
+		reqd=["uuid"];
+		optn=[];
+		help="Enable local storage caching across the pool";
+		implementation=No_fd Cli_operations.pool_enable_local_storage_caching;
+		flags=[];
+	};
+
+   "pool-disable-local-storage-caching",
+	{
+		reqd=["uuid"];
+		optn=[];
+		help="Disable local storage caching across the pool";
+		implementation=No_fd Cli_operations.pool_disable_local_storage_caching;
+		flags=[];
+	};
+
    "host-shutdown",
     {
       reqd=[];

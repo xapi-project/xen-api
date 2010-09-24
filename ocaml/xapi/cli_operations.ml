@@ -3338,6 +3338,23 @@ let host_dmesg printer rpc session_id params =
   in
   ignore(do_host_op rpc session_id op params [])
   
+let host_enable_local_storage_caching printer rpc session_id params =
+	ignore(do_host_op rpc session_id (fun _ host -> 
+		let sr_uuid = List.assoc "sr-uuid" params in
+		let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
+		Client.Host.enable_local_storage_caching rpc session_id (host.getref ()) sr
+	) params ["sr-uuid"])
+
+let host_disable_local_storage_caching printer rpc session_id params =
+	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.disable_local_storage_caching rpc session_id (host.getref ())) params [])
+
+let pool_enable_local_storage_caching printer rpc session_id params =
+	let pool = List.hd (Client.Pool.get_all rpc session_id) in
+	Client.Pool.enable_local_storage_caching rpc session_id pool
+	
+let pool_disable_local_storage_caching printer rpc session_id params =
+	let pool = List.hd (Client.Pool.get_all rpc session_id) in
+	Client.Pool.disable_local_storage_caching rpc session_id pool
   
 let host_set_power_on_mode printer rpc session_id params =
   let power_on_mode = List.assoc "power-on-mode" params in

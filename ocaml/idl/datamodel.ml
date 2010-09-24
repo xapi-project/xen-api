@@ -3653,6 +3653,28 @@ let host_reset_networking = call
 	~hide_from_docs:true
 	() 
   
+let host_enable_local_storage_caching = call ~flags:[`Session]
+	~name:"enable_local_storage_caching"
+	~in_product_since:rel_cowley
+	~doc:"Enable the use of a local SR for caching purposes"
+	~params:[
+		Ref _host, "host", "The host";
+		Ref _sr, "sr", "The SR to use as a local cache"
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let host_disable_local_storage_caching = call ~flags:[`Session]
+	~name:"disable_local_storage_caching"
+	~in_product_since:rel_cowley
+	~doc:"Disable the use of a local SR for caching purposes"
+	~params:[
+		Ref _host, "host", "The host"
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -3726,6 +3748,8 @@ let host =
 		 host_set_cpu_features;
 		 host_reset_cpu_features;
 		 host_reset_networking;
+		 host_enable_local_storage_caching;
+		 host_disable_local_storage_caching;
 		 ]
       ~contents:
         ([ uid _host;
@@ -3767,7 +3791,7 @@ let host =
     field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
-
+	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
  ])
 	()
 
@@ -4430,6 +4454,7 @@ let storage_repository =
  	field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None ~internal_only:true "default_vdi_visibility" "";
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
+	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
       ])
 	()
 
@@ -4665,6 +4690,31 @@ let vdi_set_missing = call
    ~allowed_roles:_R_VM_ADMIN
    ()
 
+let on_boot = Enum ("on_boot", [ "reset", "The VDI will be reset to the state it was in at the last clone";
+"persist", "The VDIs contents are persistent" ])
+
+ let vdi_set_on_boot = call
+	 ~name:"set_on_boot"
+	 ~in_oss_since:None
+	 ~in_product_since:rel_cowley
+	 ~params:[Ref _vdi, "self", "The VDI to modify";
+	          on_boot, "value", "The value to set"]
+	 ~doc:"Set the value of the on_boot parameter"
+	 ~hide_from_docs:true
+	 ~allowed_roles:_R_VM_ADMIN
+	 ()
+
+let vdi_set_allow_caching = call
+	~name:"set_allow_caching"
+	~in_oss_since:None
+	~in_product_since:rel_cowley
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	Bool, "value", "The value to set"]
+	~doc:"Set the value of the allow_caching parameter"
+	~hide_from_docs:true
+	~allowed_roles:_R_VM_ADMIN
+	()
+			  
 (** A virtual disk *)
 let vdi =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -4685,6 +4735,8 @@ let vdi =
 		 vdi_set_virtual_size;
 		 vdi_set_physical_utilisation;
 		 vdi_generate_config;
+		 vdi_set_on_boot;
+		 vdi_set_allow_caching;
 		]
       ~contents:
       ([ uid _vdi;
@@ -4713,6 +4765,9 @@ let vdi =
 	field ~in_product_since:rel_orlando                                              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "snapshots" "List pointing to all the VDIs snapshots.";
 	field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime         "snapshot_time" "Date/time when this snapshot was created.";
 	field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
+	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
+	
       ])
 	()
 
@@ -5294,6 +5349,24 @@ let pool_test_archive_target = call ~flags:[`Session]
   ~result:(String, "An XMLRPC result")
   ()
 
+let pool_enable_local_storage_caching = call 
+	~name:"enable_local_storage_caching"
+	~in_oss_since:None
+	~in_product_since:rel_cowley
+	~params:[Ref _pool, "self", "Reference to the pool"]
+	~doc:"This call attempts to enable pool-wide local storage caching"
+	~allowed_roles:_R_POOL_OP
+	()
+
+let pool_disable_local_storage_caching = call 
+	~name:"disable_local_storage_caching"
+	~in_oss_since:None
+	~in_product_since:rel_cowley
+	~params:[Ref _pool, "self", "Reference to the pool"]
+	~doc:"This call disables pool-wide local storage caching"
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A pool class *)
 let pool =
 	create_obj
@@ -5356,6 +5429,8 @@ let pool =
 			; pool_audit_log_append
 			; pool_set_vswitch_controller
 			; pool_test_archive_target
+			; pool_enable_local_storage_caching
+			; pool_disable_local_storage_caching
 			]
 		~contents:
 			[uid ~in_oss_since:None _pool

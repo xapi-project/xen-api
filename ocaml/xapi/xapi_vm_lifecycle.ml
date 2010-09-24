@@ -16,6 +16,7 @@
  *)
 
 open Xapi_pv_driver_version
+open Listext
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -202,7 +203,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
-let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
+let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
@@ -245,6 +246,18 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~op =
 		&& op <> `changing_dynamic_range
 	then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
 
+	(* Check for an error due to VDI caching/reset behaviour *)
+	else if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
+ 	then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
+		if List.exists fst vdis_reset_and_caching 
+		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+		else None
+	else if op = `pool_migrate then
+		(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
+		if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
+		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+		else None
+
 	(* check PV drivers constraints if needed *)
 	else if need_pv_drivers_check ~power_state ~op
 	then check_drivers ~vmr ~vmgmr ~op ~ref
@@ -271,24 +284,32 @@ let get_info ~__context ~self =
 	let all = Db.VM.get_record_internal ~__context ~self in
 	let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
 	let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
-	all, gm, clone_suspended_vm_enabled
+	let vdis_reset_and_caching = List.filter_map (fun vbd -> 
+		try 
+			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+	        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+			Some 
+				((try List.assoc "on_boot" sm_config = "reset" with _ -> false),
+				(try String.lowercase (List.assoc "caching" sm_config) = "true" with _ -> false))
+		with _ -> None) all.Db_actions.vM_VBDs in	
+	all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
 
 let is_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled op with
+	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled op with
+	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
-	let all, gm, clone_suspended_vm_enabled = get_info ~__context ~self in
+	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
 	let check accu op =
-		match check_operation_error all gm self clone_suspended_vm_enabled op with
+		match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 		| None -> op :: accu
 		| _    -> accu
 	in
