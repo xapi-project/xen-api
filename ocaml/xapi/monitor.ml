@@ -422,6 +422,77 @@ let read_mem_metrics xc =
    (Host,ds_make ~name:"xapi_allocation_kib" ~description:"Memory allocation done by the xapi daemon"
      ~value:(Rrd.VT_Float xapigrad_kib) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
   ]
+
+(**** Local cache SR stuff *)
+
+type last_vals = {
+	time : float;
+	cache_size_raw : int64;
+	cache_hits_raw : int64;
+	cache_misses_raw : int64;
+}
+
+let last_cache_stats = ref None
+let cache_sr_uuid = ref None
+let cache_sr_lock = Mutex.create () 
+let cached_cache_dss = ref []
+
+(* Avoid a db lookup every 5 secs by caching the cache sr uuid. Set by xapi_host and dbsync_slave *)
+let set_cache_sr sr_uuid = 
+	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
+
+let unset_cache_sr () =
+	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
+
+let read_cache_stats timestamp =
+	let cache_sr_opt = Mutex.execute cache_sr_lock (fun () -> !cache_sr_uuid) in
+
+	let do_read cache_sr =
+		let (cache_stats_out,err) = Forkhelpers.execute_command_get_output "/opt/xensource/bin/tapdisk-cache-stats" [cache_sr] in
+		let assoc_list = 
+			List.filter_map (fun line -> try let hd::tl = String.split '=' line in Some (hd,String.concat "=" tl) with _ -> None) 
+				(String.split '\n' cache_stats_out) 
+		in
+		(*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
+		{ time = timestamp;
+		  cache_size_raw = Int64.of_string (List.assoc "TOTAL_CACHE_UTILISATION" assoc_list);
+		  cache_hits_raw = Int64.of_string (List.assoc "TOTAL_CACHE_HITS" assoc_list);
+		  cache_misses_raw = Int64.of_string (List.assoc "TOTAL_CACHE_MISSES" assoc_list); }
+	in
+
+	let get_dss cache_sr oldvals newvals =
+		[ 
+			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr) ~description:"Size in bytes of the cache SR"
+				~value:(Rrd.VT_Int64 newvals.cache_size_raw) ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr) ~description:"Hits per second of the cache"
+				~value:(Rrd.VT_Int64 (Int64.div (Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
+					(Int64.of_float (newvals.time -. oldvals.time))))
+				~ty:Rrd.Gauge ~min:0.0 ~default:true ());
+			(Host,ds_make ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr) ~description:"Misses per second of the cache"
+				~value:(Rrd.VT_Int64 (Int64.div (Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw) 
+					(Int64.of_float (newvals.time -. oldvals.time))))
+				~ty:Rrd.Gauge ~min:0.0 ~default:true ()) ]
+	in
+
+	match !last_cache_stats,cache_sr_opt with 
+		| None, None -> 
+			[]
+		| None, Some cache_sr ->
+			let stats = do_read cache_sr in
+			last_cache_stats := Some stats;
+			[]
+		| Some oldstats, None ->
+			last_cache_stats := None;
+			[]
+		| Some oldstats, Some cache_sr ->
+			if timestamp -. oldstats.time > 55.0 then begin
+				let newstats = do_read cache_sr in
+				last_cache_stats := Some newstats;
+				let dss = get_dss cache_sr oldstats newstats in
+				cached_cache_dss := dss;
+				dss
+			end else !cached_cache_dss
+
       
 let read_all_dom0_stats __context =
   let handle_exn log f default =
@@ -452,6 +523,7 @@ let read_all_dom0_stats __context =
 	handle_exn "read_mem_metrics" (fun ()->read_mem_metrics xc) [];
         vcpus;
 	vifs;
+	handle_exn "cache_stats" (fun () -> read_cache_stats timestamp) [];
 	handle_exn "update_pcpus" (fun ()->update_pcpus xc) [];
 	handle_exn "update_vbds" (fun ()->update_vbds domains) [];
 	handle_exn "update_loadavg" (fun ()-> [ update_loadavg () ]) [];

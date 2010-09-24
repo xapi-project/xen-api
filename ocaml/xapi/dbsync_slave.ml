@@ -480,6 +480,15 @@ let update_env __context sync_keys =
   (* record who we are in xapi_globs *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
 
+  (* Set the cache_sr *)
+  begin 
+	  try
+		  let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
+		  let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
+		  Monitor.set_cache_sr cache_sr_uuid
+	  with _ -> Monitor.unset_cache_sr () 
+  end;
+  
   (* Load the host rrd *)
   Monitor_rrds.load_rrd ~__context (Helpers.get_localhost_uuid ()) true;
 
