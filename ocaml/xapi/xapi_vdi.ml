@@ -320,12 +320,7 @@ let snapshot ~__context ~vdi ~driver_params =
 
   (* While we don't have blkback support for pause/unpause we only do this
      for .vhd-based backends. *)
-  let vdi_info =
-    if Xen_helpers.kind_of_vdi ~__context ~self:vdi = Device_common.Tap then
-		Sm.with_all_vbds_paused ~__context ~vdis:[vdi] call_snapshot
-    else 
-		call_snapshot () in
-
+  let vdi_info = call_snapshot () in
   let uuid = require_uuid vdi_info in
   let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
 
