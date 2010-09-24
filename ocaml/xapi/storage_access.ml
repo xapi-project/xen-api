@@ -218,14 +218,15 @@ module VDI =
 	   debug "Executed detach succesfully on VDI '%s'; attach refcount now: %d" (Uuid.to_string uuid) newval
 	)
 
-    let activate ~__context ~self =
+    let activate ~__context ~self ~mode =
     with_vdi_lock
       (fun () ->
 	 if (check_enclosing_sr_for_capability __context Smint.Vdi_activate self) then
 	   begin
+		   if mode=`RW then debug "foo";
 	     Sm.call_sm_vdi_functions ~__context ~vdi:self
 	       (fun device_config sr_type sr ->
-		  Sm.vdi_activate device_config sr_type sr self);
+		  Sm.vdi_activate device_config sr_type sr self (mode = `RW));
 	     let newval = increment_activate_refcount self in
 	     debug "Executed activate succesfully on VDI '%s'; activate refcount now: %d" (Ref.string_of self) newval
 	   end
@@ -270,7 +271,7 @@ module VDI =
 let use_vdi ~__context ~vdi ~mode =
   VDI.attach ~__context ~self:vdi ~mode;
   try
-    VDI.activate ~__context ~self:vdi
+    VDI.activate ~__context ~self:vdi ~mode;
   with e ->
     (* if activate fails then best effort detach VDI before propogating original exception *)
     begin
@@ -311,7 +312,7 @@ let with_careful_attach_and_activate ~__context ~vdis ~leave_activated f =
       let do_single_attach (vdi,mode) =
 	VDI.attach ~__context ~self:vdi ~mode;
 	Hashtbl.replace attached vdi ();
-	VDI.activate ~__context ~self:vdi;
+	VDI.activate ~__context ~self:vdi ~mode;
 	Hashtbl.replace activated vdi () in
       (* Attach/activate vbds recording what we've done *)
       List.iter do_single_attach vdis;
