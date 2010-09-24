@@ -27,7 +27,7 @@ sig
 
   val attach     : __context:Context.t -> self:API.ref_VDI -> mode:[`RO|`RW] -> unit
   val detach     : __context:Context.t -> self:API.ref_VDI -> unit
-  val activate   : __context:Context.t -> self:API.ref_VDI -> unit
+  val activate   : __context:Context.t -> self:API.ref_VDI -> mode:[`RO|`RW] -> unit
   val deactivate : __context:Context.t -> self:API.ref_VDI -> unit
 
   val check_enclosing_sr_for_capability : Context.t -> Smint.capability -> [ `VDI ] Ref.t -> bool
