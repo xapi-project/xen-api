@@ -1376,7 +1376,8 @@ let enable_local_storage_caching ~__context ~host ~sr =
 		let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
 		if pbd_host <> host then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
-		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true
+		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
+		Monitor.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr);		
 	end else begin
 		raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
 	end
@@ -1385,6 +1386,7 @@ let disable_local_storage_caching ~__context ~host =
 	assert_bacon_mode ~__context ~host;
 	let sr = Db.Host.get_local_cache_sr ~__context ~self:host in
 	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
+	Monitor.unset_cache_sr ();
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> () 
 
 
