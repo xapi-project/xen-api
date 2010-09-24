@@ -16,6 +16,7 @@ open Db_filter_types
 open Pervasiveext
 open Threadext
 open Stringext
+open Listext
 
 module L = Debug.Debugger(struct let name="license" end)
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -1464,4 +1465,50 @@ let test_archive_target ~__context ~self ~config =
     "test_archive_target"
     config
 
-               
+let enable_local_storage_caching ~__context ~self =
+    let srs = Db.SR.get_all_records ~__context in
+	let pbds = Db.PBD.get_all_records ~__context in
+	let hosts = Db.Host.get_all ~__context in
+
+	(* Exception handler is to cope with transient PBDs with invalid references *)
+	let hosts_and_srs = List.filter_map (fun (pbdref,pbdrec) -> 
+		try Some (pbdrec.API.pBD_host, pbdrec.API.pBD_SR, List.assoc pbdrec.API.pBD_SR srs) with _ -> None) pbds 
+	in
+	
+	let acceptable = List.filter (fun (href,srref,srrec) -> 
+		(not srrec.API.sR_shared) && 
+			(List.length srrec.API.sR_PBDs = 1) && 
+			(List.mem Smint.Sr_supports_local_caching (Sm.capabilities_of_driver srrec.API.sR_type))
+	) hosts_and_srs in
+
+	let failed_hosts = 
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> 
+				let failed = List.filter_map (fun host ->
+					let result = ref (Some host) in
+					let acceptable_srs = List.filter (fun (href,srref,srrec) -> href=host) acceptable in
+					List.iter (fun (href,ref,sr) -> 
+						try Client.Host.enable_local_storage_caching rpc session_id host ref; result := None with _ -> ()) acceptable_srs;
+					!result
+				) hosts in
+				failed)
+	in
+	if List.length failed_hosts > 0 then 
+		raise (Api_errors.Server_error (Api_errors.hosts_failed_to_enable_caching, List.map Ref.string_of failed_hosts))
+	else ()
+
+		
+let disable_local_storage_caching ~__context ~self =
+	let hosts = Db.Host.get_all ~__context in
+	let failed_hosts = Helpers.call_api_functions ~__context
+		(fun rpc session_id -> 
+			List.filter_map (fun host -> 
+				try 
+					Client.Host.disable_local_storage_caching ~rpc ~session_id ~host;
+					None
+				with _ -> 
+					Some host) hosts)
+	in
+	if List.length failed_hosts > 0 then
+		raise (Api_errors.Server_error (Api_errors.hosts_failed_to_disable_caching, List.map Ref.string_of failed_hosts))
+	else ()

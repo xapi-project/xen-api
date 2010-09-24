@@ -1057,6 +1057,7 @@ let host_record rpc session_id host =
     make_field ~name:"power-on-mode" ~get:(fun () -> (x ()).API.host_power_on_mode) ();
     make_field ~name:"power-on-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_power_on_config)
       ~get_map:(fun () -> (x ()).API.host_power_on_config) ();
+	make_field ~name:"local-cache-sr" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_local_cache_sr) ();
   ]}
 
 let vdi_record rpc session_id vdi =
@@ -1113,6 +1114,10 @@ let vdi_record rpc session_id vdi =
       ~get_map:(fun () -> (x ()).API.vDI_xenstore_data) ();
     make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_sm_config) 
       ~get_map:(fun () -> (x ()).API.vDI_sm_config) ();
+	make_field ~name:"on-boot" ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot) 
+		~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (match onboot with "persist" -> `persist | "reset" -> `reset)) ();
+		make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching) 
+		~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
   ]}
 
 let vbd_record rpc session_id vbd =
@@ -1272,6 +1277,7 @@ let sr_record rpc session_id sr =
     make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_sm_config) 
       ~get_map:(fun () -> (x ()).API.sR_sm_config) ();
     make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.sR_blobs) ();
+	make_field ~name:"local-cache-enabled" ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled) ();
   ]}
     
 let pbd_record rpc session_id pbd =
