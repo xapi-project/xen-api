@@ -15,6 +15,6 @@ endif
 
 .PHONY: srpm
 srpm:
-	hg archive -p xapi-0 -t tbz2 $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2
+	hg archive -p xapi-libs-0 -t tbz2 $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2
 	rpmbuild --define "XEN_RELEASE $(XEN_RELEASE)" -bs --nodeps xapi-libs.spec
 
