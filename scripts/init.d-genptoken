@@ -1,0 +1,31 @@
+#! /bin/sh
+#
+# genptoken    Generate a pool secret (ptoken)
+#
+# chkconfig: 2345 22 78
+# description: Generate pool secret
+
+. /etc/init.d/functions
+
+start() {
+    echo -n $"Creating pool secret (this may take some time)"
+
+    if [ ! -f /etc/xensource/ptoken ]; then
+        /opt/xensource/libexec/genptoken -f -o /etc/xensource/ptoken
+    fi
+
+    [ $? -eq 0 ] && success $"Done" || failure
+    echo
+}
+
+case "$1" in
+    start)
+        start
+	;;
+    stop|status)
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|status}"
+	exit 1
+        ;;
+esac
