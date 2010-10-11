@@ -145,7 +145,7 @@ sig
 	val reset : xs:Xs.xsh -> device -> unit
 	val bind : (int * int * int * int) list -> unit
 	val plug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> int -> unit
+		-> (int * int * int * int) -> Xc.domid -> unit
 	val unplug : xc:Xc.handle -> xs:Xs.xsh
 		-> (int * int * int * int) -> Xc.domid -> unit
 	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
