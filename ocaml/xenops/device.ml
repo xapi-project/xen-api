@@ -1174,25 +1174,28 @@ let wait_device_model ~xc ~xs domid =
   xs.Xs.rm (device_model_state_path xs be_domid domid);
   answer
 							
-(* Return a list of PCI devices *)
-let list ~xc ~xs domid = 
+(* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X indicates the order in
+   which the device was plugged. *)
+let read_pcidir ~xc ~xs domid = 
   let path = device_model_pci_device_path xs 0 domid in
   let prefix = "dev-" in
   let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
   (* The values are the PCI device (domain, bus, dev, func) strings *)
-  let pairs = List.map (fun x -> x, xs.Xs.read (path ^ "/" ^ x)) all in
   let device_number_of_string x =
     (* remove the silly prefix *)
     int_of_string (String.sub x (String.length prefix) (String.length x - (String.length prefix))) in
-  let pairs' = List.map (fun (x, y) -> device_number_of_string x, of_string y) pairs in
+  let pairs = List.map (fun x -> device_number_of_string x, of_string (xs.Xs.read (path ^ "/" ^ x))) all in
   (* Sort into the order the devices were plugged *)
-  let sorted = List.sort (fun a b -> compare (fst a) (fst b)) pairs' in
-  (* Assume the PCI bus ID is 0 *)
-  List.map (fun (_, y) -> 0, y) sorted
+  List.sort (fun a b -> compare (fst a) (fst b)) pairs
+
+(* Return a list of PCI devices *)
+let list ~xc ~xs domid = 
+	(* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
+	List.map (fun (_, y) -> (0, y)) (read_pcidir ~xc ~xs domid)
 
 
-let plug ~xc ~xs (domain, bus, dev, func) domid devid = 
-    let current = list ~xc ~xs domid in
+let plug ~xc ~xs (domain, bus, dev, func) domid = 
+    let current = read_pcidir ~xc ~xs domid in
 	let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
 	
 	let pci = to_string (domain, bus, dev, func) in

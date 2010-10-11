@@ -258,7 +258,7 @@ let add_pci ~xc ~xs ~hvm ~domid ~devid ~pci =
 
 let plug_pci ~xc ~xs ~domid ~devid ~pci = 
 	let pcidev = pci_of_string pci in
-	Device.PCI.plug ~xc ~xs pcidev domid devid
+	Device.PCI.plug ~xc ~xs pcidev domid
 
 let unplug_pci ~xc ~xs ~domid ~devid ~pci = 
 	let pcidev = pci_of_string pci in

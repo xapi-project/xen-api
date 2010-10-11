@@ -506,12 +506,12 @@ let plug_pcidevs_noexn ~__context ~vm domid pcidevs =
 	   (fun xc xs ->
 	      if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
 			List.iter 
-				(fun (devid, devices) ->
+				(fun (_, devices) ->
 					 Device.PCI.bind devices;
 					 List.iter
 						 (fun ((a, b, c, d) as device) ->
 							  debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
-							  Device.PCI.plug ~xc ~xs device domid devid
+							  Device.PCI.plug ~xc ~xs device domid
 						 ) devices
 				) (sort_pcidevs pcidevs)
 	      end
