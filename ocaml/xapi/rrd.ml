@@ -384,6 +384,7 @@ let rrd_create dss rras timestep inittime =
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
     correctly at the moment! *)
 let rrd_add_ds rrd newds =
+  if List.mem newds.ds_name (ds_names rrd) then rrd else 
   let now = Unix.gettimeofday () in
   let npdps = Int64.div (Int64.of_float now) rrd.timestep in
   {rrd with
@@ -681,10 +682,26 @@ let from_xml input =
 	let dss = List.filter_map (function El ("ds",elts) -> Some (process_ds elts) | _ -> None) elts in
 	let rras = List.filter_map (function El ("rra",elts) -> Some (process_rra elts) | _ -> None) elts in 	
 	let kvs = kvs elts in
-	{last_updated=float_of_string (List.assoc "lastupdate" kvs);
-	 timestep=Int64.of_string (List.assoc "step" kvs);
-	 rrd_dss=Array.of_list dss;
-	 rrd_rras=Array.of_list rras}
+	let rrd = {last_updated=float_of_string (List.assoc "lastupdate" kvs);
+	timestep=Int64.of_string (List.assoc "step" kvs);
+	rrd_dss=Array.of_list dss;
+	rrd_rras=Array.of_list rras} in
+	(* Purge any repeated data sources from the RRD *)
+	let ds_names = ds_names rrd in
+	let ds_names_set = Listext.List.setify ds_names in
+	let ds_name_counts = List.map (fun name ->
+		let (x,y) = List.partition ((=) name) ds_names in
+		(name,List.length x)) ds_names_set
+	in
+	let removals_required = List.filter (fun (_,x) -> x > 1) ds_name_counts in
+	List.fold_left (fun rrd (name,n) -> 
+		(* Remove n-1 lots of this data source *)
+		let rec inner rrd n =
+			if n=1 
+			then rrd
+			else inner (rrd_remove_ds rrd name) (n-1)
+		in
+		inner rrd n) rrd removals_required
     | _ -> failwith "Bad xml!"
 
 let to_xml output rrd =
