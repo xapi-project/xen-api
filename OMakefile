@@ -121,6 +121,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/license/v6d-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
+		     ocaml/ptoken/genptoken \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
 	ocaml/xsh/xsh \

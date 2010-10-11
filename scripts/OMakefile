@@ -32,6 +32,7 @@ install:
 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
+	$(IPROG) init.d-genptoken $(DESTDIR)/etc/rc.d/init.d/genptoken
 	$(IDATA) squeezed-logrotate $(DESTDIR)/etc/logrotate.d/squeezed
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d

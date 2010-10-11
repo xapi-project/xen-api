@@ -106,6 +106,7 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
 [ ! -x /sbin/chkconfig ] || chkconfig --add v6d
+[ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
@@ -125,6 +126,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/xapissl
 /etc/rc.d/init.d/xenservices
 /etc/rc.d/init.d/sdkinit
+/etc/rc.d/init.d/genptoken
 /etc/sysconfig/perfmon
 /etc/sysconfig/xapi
 /etc/udev/rules.d/xen-backend.rules
@@ -220,6 +222,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/libexec/mail-alarm
 /opt/xensource/libexec/print-custom-templates
 /opt/xensource/libexec/probe-device-for-file
+/opt/xensource/libexec/genptoken
 /opt/xensource/libexec/qemu-dm-wrapper
 /opt/xensource/libexec/restore-sr-metadata.py
 /opt/xensource/libexec/restore-sr-metadata.pyo
