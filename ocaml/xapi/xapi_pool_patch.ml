@@ -448,6 +448,7 @@ let get_patch_to_local ~__context ~self =
                [ Printf.sprintf "GET %s HTTP/1.1" request; ] in  
              let length = Some (Db.Pool_patch.get_size ~__context ~self) in
              let f content_length tast_opt s =
+               let _ = Unixext.mkdir_safe patch_dir 0o755 in
                read_in_and_check_patch length s path
              in
              let master_address = Pool_role.get_master_address () in
