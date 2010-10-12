@@ -616,7 +616,7 @@ let on_enable config_params =
 		else if has_substr errmsg "0x9CAC" (* Failed to lookup the domain controller for given domain. *)
 			or has_substr errmsg "0x251E" (* DNS_ERROR_BAD_PACKET *)
 		then begin (* this seems to be a wrong domain controller name error... *)
-			raise (Auth_signature.Auth_service_error (Auth_signature.E_LOOKUP,"Failed to lookup the domain controller for given domain."))
+			raise (Auth_signature.Auth_service_error (Auth_signature.E_LOOKUP,"Failed to look up the domain controller for the given domain."))
 		end
 		else begin (* general Likewise error *)
 			raise e
