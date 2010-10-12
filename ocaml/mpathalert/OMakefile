@@ -3,6 +3,7 @@ OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
 OCamlProgram(mpathalert, mpathalert)
+OCamlDocProgram(mpathalert, mpathalert)
 
 .PHONY: clean
 
