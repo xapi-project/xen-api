@@ -59,9 +59,9 @@ let add_to_recent_alerts ~__context ~vmpp ~value =
 
 let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
   assert_licensed ~__context;
-  let value =
-    (*"<message><email>"^body^"</email><data>"^data^"</data></message>"*)
-    data
+  let value = data in
+  let msg = 
+    "<message><email>"^body^"</email><data>"^value^"</data></message>"
   in
   let successful = priority < 5L in
   if successful
@@ -72,7 +72,7 @@ let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
     add_to_recent_alerts ~__context ~vmpp ~value;
     let cls = `VMPP in
     let obj_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
-    Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body;
+    Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body:msg;
     ()
   )
 

@@ -297,11 +297,15 @@ class VmppETG(EmailTextGenerator):
 
     def generate_body(self):
         msg = self.msg
+        msg_body = unescape(msg.body)
         try:
+            xmldoc = minidom.parseString(msg_body)
+            body_message = xmldoc.getElementsByTagName('message')[0]
+            email_message = body_message.getElementsByTagName('email')[0].firstChild.data
             return \
             "Field\t\tValue\n-----\t\t-----\nName:\t\t%s\nPriority:\t%s\nClass:\t\t%s\n" \
             "Object UUID:\t%s\nTimestamp:\t%s\nMessage UUID:\t%s\nPool name:\t%s\nBody:\t\t%s\n" % \
-            (msg.name,msg.priority,msg.cls,msg.obj_uuid,msg.timestamp,msg.uuid,msg.pool_name,msg.body)
+            (msg.name,msg.priority,msg.cls,msg.obj_uuid,msg.timestamp,msg.uuid,msg.pool_name,email_message)
         except:
             log_err("Badly formatted XML, or missing field")
             sys.exit(1)
