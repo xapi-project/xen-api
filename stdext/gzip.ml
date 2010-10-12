@@ -28,6 +28,20 @@ type input_type =
   | Active  (** we provide a function which writes into the compressor and a fd output *)
   | Passive (** we provide an fd input and a function which reads from the compressor *)
 
+(* renice/ionice the pid with lowest priority so that it doesn't *)
+(* use up all cpu resources in dom0 *)
+let lower_priority pid =
+  let pid=Printf.sprintf "%d" (Forkhelpers.getpid pid) in
+  (* renice 19 -p pid *)
+  let renice="/usr/bin/renice" in
+  let renice_args = ["19";"-p";pid] in
+  let _=Forkhelpers.execute_command_get_output renice renice_args in
+  (* ionice -c 3 [idle] -p pid *)
+  let ionice="/usr/bin/ionice" in
+  let ionice_args = ["-c";"3";"-p";pid] in
+  let _=Forkhelpers.execute_command_get_output ionice ionice_args in
+  ()
+
 (** Runs a zcat process which is either:
     i) a compressor; or (ii) a decompressor
     and which has either
@@ -57,8 +71,11 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 	       zcat_out in                                 (* close this before waitpid *)
 	 let pid = Forkhelpers.safe_close_and_exec stdin stdout None [] gzip args in
 	 close close_now;
-	 finally
-	   (fun () -> f close_later)
+   finally
+     (fun () -> 
+       lower_priority pid;  (* lowest priority to gzip *)
+       f close_later
+     )
 	   (fun () ->
 	      let failwith_error s =
 		let mode = if mode = Compress then "Compression" else "Decompression" in
