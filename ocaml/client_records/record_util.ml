@@ -135,7 +135,7 @@ let vif_operation_to_string = function
   | `unplug -> "unplug"
 
 let cpu_feature_to_string f =
-  match f with 
+  match f with
     `FPU -> "FPU"
   | `VME -> "VME"
   | `DE -> "DE"
@@ -218,9 +218,9 @@ let cpu_feature_list_to_string list =
   String.concat "," (List.map (fun x -> cpu_feature_to_string x) list)
 
 let task_allowed_operations_to_string s =
-  match s with 
+  match s with
       `cancel -> "Cancel"
-    
+
 let alert_level_to_string s =
   match s with
   | `Info -> "info"
@@ -228,8 +228,8 @@ let alert_level_to_string s =
   | `Error -> "error"
 
 let on_normal_exit_to_string x =
-  match x with 
-    `destroy -> "Destroy" 
+  match x with
+    `destroy -> "Destroy"
   | `restart -> "Restart"
 
 let string_to_on_normal_exit s =
@@ -238,8 +238,8 @@ let string_to_on_normal_exit s =
   | "restart" -> `restart
   | _ -> raise (Record_failure ("Expected 'destroy' or 'restart', got "^s))
 
-let on_crash_behaviour_to_string x= 
- match x with 
+let on_crash_behaviour_to_string x=
+ match x with
    `destroy -> "Destroy"
  | `coredump_and_destroy -> "Core dump and destroy"
  | `restart -> "Restart"
@@ -248,14 +248,15 @@ let on_crash_behaviour_to_string x=
  | `rename_restart -> "Rename restart"
 
 let string_to_on_crash_behaviour s=
-  match String.lowercase s with
-    "destroy" -> `destroy
-  | "coredump_and_destroy" -> `coredump_and_destroy
-  | "restart" -> `restart
-  | "coredump_and_restart" -> `coredump_and_restart
-  | "preserve" -> `preserve
-  | "rename_restart" -> `rename_restart
-  | _ -> raise (Record_failure ("Expected 'on_crash_behaviour' type, got "^s))
+	match String.lowercase s with
+	| "destroy" -> `destroy
+	| "coredump_and_destroy" -> `coredump_and_destroy
+	| "restart" -> `restart
+	| "coredump_and_restart" -> `coredump_and_restart
+	| "preserve" -> `preserve
+	| "rename_restart" -> `rename_restart
+	| _ -> raise (Record_failure ("Expected 'destroy', 'coredump_and_destroy'," ^
+		"'restart', 'coredump_and_restart', 'preserve' or 'rename_restart', got "^s))
 
 let boot_type_to_string x =
   match x with
@@ -268,7 +269,25 @@ let string_to_boot_type s =
     "bios" -> `bios
   | "grub" -> `grub
   | "kernelexternal" -> `kernelexternal
-  | _ -> raise (Record_failure ("Expected 'bios','grub' or 'kernelexternal', got "^s))
+  | _ -> raise (Record_failure ("Expected 'bios', 'grub' or 'kernelexternal', got "^s))
+
+let string_to_vdi_onboot s =
+	match String.lowercase s with
+		| "persist" -> `persist
+		| "reset" -> `reset
+		| _ -> raise (Record_failure ("Expected 'persist' or 'reset', got "^s))
+
+let string_to_vbd_mode s =
+	match String.lowercase s with
+		| "ro" -> `RO
+		| "rw" -> `RW
+		| _ -> raise (Record_failure ("Expected 'RO' or 'RW', got "^s))
+
+let string_to_vbd_type s =
+	match String.lowercase s with
+		| "cd" -> `CD
+		| "disk" -> `Disk
+		| _ -> raise (Record_failure ("Expected 'CD' or 'Disk', got "^s))
 
 let power_to_string h =
   match h with
@@ -295,7 +314,7 @@ let ip_configuration_mode_to_string = function
   | `DHCP -> "DHCP"
   | `Static -> "Static"
 
-let ip_configuration_mode_of_string m = 
+let ip_configuration_mode_of_string m =
   match String.lowercase m with
   | "dhcp"   -> `DHCP
   | "none"   -> `None
@@ -330,7 +349,7 @@ let on_boot_to_string onboot =
 		| `persist -> "persist"
 
 (** Parse a string which might have a units suffix on the end *)
-let bytes_of_string field x = 
+let bytes_of_string field x =
   let isdigit c = c >= '0' && c <= '9' in
   let ( ** ) a b = Int64.mul a b in
   let max_size_TiB = Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L) in
@@ -349,7 +368,7 @@ let bytes_of_string field x =
         raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field));
     in
   match (String.split_f (fun c -> String.isspace c || (isdigit c)) x) with
-  | [] -> 
+  | [] ->
       (* no suffix on the end *)
       int64_of_string x
   | [ suffix ] -> begin
@@ -360,7 +379,7 @@ let bytes_of_string field x =
 	  | "bytes" -> 1L
 	  | "KiB" -> 1024L
 	  | "MiB" -> 1024L ** 1024L
-	  | "GiB" -> 1024L ** 1024L ** 1024L 
+	  | "GiB" -> 1024L ** 1024L ** 1024L
 	  | "TiB" -> 1024L ** 1024L ** 1024L ** 1024L
 	  | x -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': Unknown suffix: '%s' (try KiB, MiB, GiB or TiB)" field x)) in
         (* FIXME: detect overflow *)
@@ -384,6 +403,3 @@ let mac_from_int_array macs =
 (* generate a random mac that is locally administered *)
 let random_mac_local () =
   mac_from_int_array (Array.init 6 (fun i -> Random.int 0x100))
-
-
-
