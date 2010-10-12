@@ -54,9 +54,14 @@ type t = {
 	max: int }
 
 let to_string alert =
-	Printf.sprintf "[%s] host=%s; host-name=\"%s\"; pbd=%s; scsi_id=%s; current=%d; max=%d"
-		(time_of_float alert.timestamp) (String.escaped (Uuid.to_string alert.host))
-		alert.host_name (Uuid.to_string alert.pbd) alert.scsi_id alert.current alert.max
+	if alert.pbd <> Uuid.null then
+		Printf.sprintf "[%s] host=%s; host-name=\"%s\"; pbd=%s; scsi_id=%s; current=%d; max=%d"
+			(time_of_float alert.timestamp) (String.escaped (Uuid.to_string alert.host))
+			alert.host_name (Uuid.to_string alert.pbd) alert.scsi_id alert.current alert.max
+	else	
+		Printf.sprintf "[%s] host=%s; host-name=\"%s\"; root=true; current=%d; max=%d"
+			(time_of_float alert.timestamp) (String.escaped (Uuid.to_string alert.host))
+			alert.host_name alert.current alert.max
 
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
@@ -76,7 +81,7 @@ let rec retry_with_session f rpc x =
 let keep_mpath = List.filter (fun (key, value) -> Stringext.String.startswith "mpath-" key)
 
 (* create a list of alerts from a PBD event *)
-let create_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
+let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
 	let aux (key, value) =
 		let scsi_id = String.sub_to_end key 6 in
 		let current, max = Scanf.sscanf value "[%d, %d]" (fun current max -> current, max) in
@@ -97,26 +102,53 @@ let create_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
 
 	let diff = List.set_difference (keep_mpath pbd_rec.API.pBD_other_config) snapshot in
 	List.map aux diff
+	
+(* create a list of alerts from a host event *)
+let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
+	let aux (key, value) =
+		let scsi_id = "n/a" in
+		let current, max = Scanf.sscanf value "[%d, %d]" (fun current max -> current, max) in
+		let host = Uuid.of_string host_rec.API.host_uuid in
+		let host_name = host_rec.API.host_name_label in
+		let pbd = Uuid.null in
+		let alert = {
+			host = host;
+			host_name = host_name;
+			pbd = pbd;
+			timestamp = timestamp;
+			scsi_id = scsi_id;
+			current = current;
+			max = max
+			} in
+		debug "Alert '%s' created from %s=%s" (to_string alert) key value;
+		alert in
+
+	let diff = List.set_difference (keep_mpath host_rec.API.host_other_config) snapshot in
+	List.map aux diff
 
 let listener rpc session queue =
 	let snapshot = Hashtbl.create 48 in
-	let update_snapshot pbd_ref other_config =
-		if Hashtbl.mem snapshot pbd_ref then
-			debug "Update an entry of the snapshot table: %s" (Ref.string_of pbd_ref)
+	let update_snapshot r other_config =
+		let r = Ref.string_of r in
+		if Hashtbl.mem snapshot r then
+			debug "Update an entry of the snapshot table: %s" r
 		else
-			debug "Add a new entry to the snapshot table: %s" (Ref.string_of pbd_ref);
-		Hashtbl.replace snapshot pbd_ref other_config in
-	let remove_from_snapshot pbd_ref =
-		debug "Remove an entry to the snapshot table: %s" (Ref.string_of pbd_ref);
-		Hashtbl.remove snapshot pbd_ref in
-	let get_snapshot = Hashtbl.find snapshot in
+			debug "Add a new entry to the snapshot table: %s" r;
+		Hashtbl.replace snapshot r other_config in
+	let remove_from_snapshot r =
+		let r = Ref.string_of r in
+		debug "Remove an entry to the snapshot table: %s" r;
+		Hashtbl.remove snapshot r in
+	let get_snapshot r = Hashtbl.find snapshot (Ref.string_of r) in
 
-	Client.Event.register rpc session ["pbd"];
+	Client.Event.register rpc session ["pbd"; "host"];
 
 	(* populate the snapshot cache *)
 	let pbds = Client.PBD.get_all_records rpc session in
 	List.iter (fun (pbd_ref, pbd_rec) -> update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)) pbds;
-
+	let hosts = Client.Host.get_all_records rpc session in
+	List.iter (fun (host_ref, host_rec) -> update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)) hosts;
+	
 	(* proceed events *)
 	let proceed event =
 		match Event_helper.record_of_event event with
@@ -130,9 +162,24 @@ let listener rpc session queue =
 				remove_from_snapshot pbd_ref
 			| Mod ->
 				debug "Processing a MOD event";
-				let alerts = create_alerts rpc session (get_snapshot pbd_ref) (pbd_ref, pbd_rec, event.ts) in
+				let alerts = create_pbd_alerts rpc session (get_snapshot pbd_ref) (pbd_ref, pbd_rec, event.ts) in
 				List.iter (fun alert -> with_global_lock (fun () -> Queue.push alert queue)) alerts;
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
+			| _ -> () (* this should never happens *)
+			end			
+		| Event_helper.Host (host_ref, host_rec) ->
+			begin match event.op with
+			| Add -> 
+				debug "Processing an ADD event";
+				update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
+			| Del ->
+				debug "Processing a DEL event";
+				remove_from_snapshot host_ref
+			| Mod ->
+				debug "Processing a MOD event";
+				let alerts = create_host_alerts rpc session (get_snapshot host_ref) (host_ref, host_rec, event.ts) in
+				List.iter (fun alert -> with_global_lock (fun () -> Queue.push alert queue)) alerts;
+				update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
 			| _ -> () (* this should never happens *)
 			end
 		| _ -> () (* this should never happen *) in
@@ -146,8 +193,10 @@ let listener rpc session queue =
 let state_of_the_world rpc session =
 	debug "Generating the current state of the world";
 	let pbds = Client.PBD.get_all_records rpc session in
-	let alerts = List.flatten (List.map (fun (pbd_ref, pbd_rec) -> create_alerts rpc session [] (pbd_ref, pbd_rec, Unix.gettimeofday ())) pbds) in
-	let alerts = List.filter (fun alert -> alert.current <> alert.max) alerts in
+	let pbd_alerts = List.flatten (List.map (fun (pbd_ref, pbd_rec) -> create_pbd_alerts rpc session [] (pbd_ref, pbd_rec, Unix.gettimeofday ())) pbds) in
+	let hosts = Client.Host.get_all_records rpc session in
+	let host_alerts = List.flatten (List.map (fun (host_ref, host_rec) -> create_host_alerts rpc session [] (host_ref, host_rec, Unix.gettimeofday ())) hosts) in
+	let alerts = List.filter (fun alert -> alert.current <> alert.max) (pbd_alerts @ host_alerts) in
 	debug "State of the world generated";
 	alerts
 
