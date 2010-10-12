@@ -89,7 +89,7 @@ let sanity_check connections =
 
 let parse_db_conf s =
   try
-    let conf = Unixext.read_whole_file_to_string s in
+    let conf = Unixext.string_of_file s in
     let lines : string list ref = ref [] in
     let consume_line() = lines := List.tl !lines in
     lines := String.split '\n' conf;

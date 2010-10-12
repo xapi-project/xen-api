@@ -18,7 +18,7 @@
 
 let _etc_passwd="/etc/passwd"
 let read_config_files() =
-  Unixext.read_whole_file_to_string _etc_passwd
+  Unixext.string_of_file _etc_passwd
 let rewrite_config_files s =
   Unixext.write_string_to_file _etc_passwd s (* a bit naughty, but will be fine.. ;) *)
 

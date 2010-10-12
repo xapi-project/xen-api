@@ -33,7 +33,7 @@ let string_of_t = function
   | Broken -> "broken"
 
 let read_pool_role() =
-  let s = String.strip String.isspace (Unixext.read_whole_file_to_string Xapi_globs.pool_config_file) in
+  let s = String.strip String.isspace (Unixext.string_of_file Xapi_globs.pool_config_file) in
   match String.split ~limit:2 ':' s with
   | [ "master" ]      -> Master
   | [ "slave"; m_ip ] -> Slave m_ip

@@ -536,7 +536,7 @@ let main () =
       close_out ch;
       if !exit_status <> 0 then begin
         output_string stderr "\nDebug info:\n\n";
-        output_string stderr (Unixext.read_whole_file_to_string f)
+        output_string stderr (Unixext.string_of_file f)
       end;
       try Unix.unlink f with _ -> ()
     end

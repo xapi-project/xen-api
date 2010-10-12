@@ -23,7 +23,7 @@ let write_grace_to_file grace_expiry =
 
 let read_grace_from_file () =
 	try
-		let grace_expiry_str = Unixext.read_whole_file_to_string Xapi_globs.upgrade_grace_file in
+		let grace_expiry_str = Unixext.string_of_file Xapi_globs.upgrade_grace_file in
 		float_of_string grace_expiry_str
 	with _ -> 0.
 

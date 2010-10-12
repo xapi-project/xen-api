@@ -102,7 +102,7 @@ let common ty filename signature size f =
 		 List.iter close' [ result_in; status_in ];
 		 finally (* always waitpid eventually *)
 		   (fun () ->
-		      let gpg_status = Unixext.read_whole_file 500 500 status_out in
+		      let gpg_status = Unixext.string_of_fd status_out in
 		      let fingerprint = parse_gpg_status gpg_status in
 		      f fingerprint result_out)
 		   (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)) with

@@ -16,7 +16,7 @@
  *)
  
 let _ = 
-  let body = Unixext.read_whole_file_to_string Sys.argv.(1) in
+  let body = Unixext.string_of_file Sys.argv.(1) in
   let input = Xmlm.make_input (`String (0, body)) in
   let rrd = Rrd.from_xml input in
   Rrd.text_export rrd []

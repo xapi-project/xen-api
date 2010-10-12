@@ -101,11 +101,11 @@ let read_gzipped_file_with_fallback path =
   if gz_exists then begin
     Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
       (fun fd -> Gzip.decompress_passive fd 
-	(fun fd -> result := Unixext.read_whole_file 1024 1024 fd));
+	(fun fd -> result := Unixext.string_of_fd fd));
     !result
   end else begin
     (* If this fails, let the exception propagate *)
-    Unixext.read_whole_file_to_string path 
+    Unixext.string_of_file path 
   end
 
 

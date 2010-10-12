@@ -79,4 +79,4 @@ let write_out_specified_count dbconn count =
 
 let read dbconn =
   let gencount_fname = gen_count_file dbconn in
-  try Int64.of_string (Unixext.read_whole_file_to_string gencount_fname) with _ -> 0L
+  try Int64.of_string (Unixext.string_of_file gencount_fname) with _ -> 0L

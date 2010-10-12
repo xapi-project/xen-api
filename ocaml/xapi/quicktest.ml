@@ -334,7 +334,7 @@ let vbd_pause_unpause_test session_id vm =
 	 vm_uninstall test session_id vm);
   success test
 
-let read_sys path = Stringext.String.strip Stringext.String.isspace (Unixext.read_whole_file_to_string path)
+let read_sys path = Stringext.String.strip Stringext.String.isspace (Unixext.string_of_file path)
 
 let verify_network_connectivity session_id test vm =
   let vifs = Client.VM.get_VIFs !rpc session_id vm in

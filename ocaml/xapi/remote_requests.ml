@@ -193,7 +193,7 @@ let stop_request_thread () =
 
 let read_response result content_length task_id s =
   try
-    result := Unixext.read_whole_file 1024 1024 s
+    result := Unixext.string_of_fd s
   with
     | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
         raise Xmlrpcclient.Connection_reset

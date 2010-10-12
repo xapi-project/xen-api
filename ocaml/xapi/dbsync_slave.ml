@@ -57,7 +57,7 @@ let get_start_time () =
   try
     debug "Calculating boot time...";
     let now = Unix.time () in
-    let uptime = Unixext.read_whole_file_to_string "/proc/uptime" in
+    let uptime = Unixext.string_of_file "/proc/uptime" in
     let uptime = String.strip String.isspace uptime in
     let uptime = String.split ' ' uptime in
     let uptime = List.hd uptime in
@@ -332,7 +332,7 @@ let record_host_memory_properties ~__context =
 	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
 	let boot_memory_string =
 		try
-			Some (Unixext.read_whole_file_to_string boot_memory_file)
+			Some (Unixext.string_of_file boot_memory_file)
 		with e ->
 			warn "Could not read host free memory file. This may prevent \
 			VMs from being started on this host. (%s)" (Printexc.to_string e);

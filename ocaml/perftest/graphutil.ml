@@ -50,7 +50,7 @@ let floats_from_file fname =
 
 let get_info ?(separate=false) files : info list =
 	let aux f =
-		match Testtypes.from_string (Unixext.read_whole_file_to_string f) with
+		match Testtypes.from_string (Unixext.string_of_file f) with
 		| None -> [ (f, "", ""), floats_from_file f]
 		| Some results -> List.flatten (List.map (info_from_raw_result ~separate f) results)
 	in

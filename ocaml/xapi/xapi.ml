@@ -541,7 +541,7 @@ let record_boot_time_host_free_memory () =
 let check_network_reset () =
 	try
 		(* Raises exception if the file is not there and no reset is required *)
-		let reset_file = Unixext.read_whole_file_to_string (Xapi_globs.network_reset_trigger) in
+		let reset_file = Unixext.string_of_file (Xapi_globs.network_reset_trigger) in
 		Server_helpers.exec_with_new_task "Performing emergency network reset"
 			(fun __context ->
 				let host = Helpers.get_localhost ~__context in
