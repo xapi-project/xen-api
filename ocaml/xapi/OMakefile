@@ -38,7 +38,6 @@ OCamlProgram(show_bat, show_bat)
 COMMON = \
 	xapi_templates \
 	../idl/api_lowlevel \
-	db \
 	nm \
 	xapi_mgmt_iface \
 	smint \
@@ -108,7 +107,6 @@ XAPI_MODULES = $(COMMON) \
 	../auth/extauth_plugin_ADlikewise \
 	../auth/parse_likewise \
 	xapi_subject \
-	xapi_role \
 	audit_log \
 	xapi_vmpp \
 	xapi_vm_lifecycle \
