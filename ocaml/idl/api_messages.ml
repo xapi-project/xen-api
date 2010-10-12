@@ -89,7 +89,7 @@ let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE"
 (* VMPP message types *)
 let vmpp_backup_lock_failed = addMessage "VMPP_BACKUP_LOCK_FAILED" (*'The backup sub-policy is already executing for this protection policy. Please try again later'*)
 let vmpp_backup_succeeded = addMessage "VMPP_BACKUP_SUCCEEDED" (*'Successfully performed the snapshot phase of the protection policy'*)
-let vmpp_archive_lock_failed = addMessage "VMPP_ARCHIVE_LOCK_FAILED" (*'The archive sub-policy is already executing for this protection policy.Please try again later'*)
+let vmpp_archive_lock_failed = addMessage "VMPP_ARCHIVE_LOCK_FAILED" (*'The archive sub-policy is already executing for some protection policy in the pool.Please try again later'*)
 let vmpp_archive_failed_0 = addMessage "VMPP_ARCHIVE_FAILED_0" (*'The archive phase failed for this protection policy'*)
 let vmpp_archive_suceeded = addMessage "VMPP_ARCHIVE_SUCCEEDED" (*'Successfully performed the archive phase of the protection policy'*)
 let vmpp_archive_target_mount_failed = addMessage "VMPP_ARCHIVE_TARGET_MOUNT_FAILED" (*'Failed to mount the archive target. Please check the archive target configuration settings'*)
