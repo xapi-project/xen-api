@@ -90,7 +90,7 @@ let maybe_shutdown_guest_installer_network bridge =
   begin
     match with_logfile_fd "fix_firewall"
       (fun out ->
-	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash " [Constants.fix_firewall_script;bridge] in
+	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash" [Constants.fix_firewall_script;bridge] in
 	waitpid pid)
     with
       | Success(log,_) -> ()
