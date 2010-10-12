@@ -79,11 +79,21 @@ _xe()
 				return 0
 				;;
 
-			# param name is used by *-param-add
+			# param name is used by *-param-add, *-param-remove, and *-param-get
 			param-name)
 				if echo ${COMP_WORDS[1]} | grep "param-add" > /dev/null; then
 					class=`echo ${COMP_WORDS[1]} | sed s/-param-add//g`
 					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
+					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
+					return 0
+				elif echo ${COMP_WORDS[1]} | grep "param-remove" > /dev/null; then
+					class=`echo ${COMP_WORDS[1]} | sed s/-param-remove//g`
+					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
+					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
+					return 0
+				elif echo ${COMP_WORDS[1]} | grep "param-get" > /dev/null; then
+					class=`echo ${COMP_WORDS[1]} | sed s/-param-get//g`
+					paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
 					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
 					return 0
 				fi
