@@ -41,9 +41,11 @@ type host_memory_summary = {
 
 (** Different users will wish to use a different VM accounting policy, depending
 on how conservative or liberal they are. *)
-type accounting_policy = 
+type accounting_policy =
 	| Static_max
 		(** use static_max: conservative: useful for HA. *)
+	| Dynamic_max
+		(** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
 	| Dynamic_min
 		(** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
