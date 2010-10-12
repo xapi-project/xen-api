@@ -488,7 +488,6 @@ let create_all_templates rpc session_id =
 		windows_template "Vista"          X32 1024 24 [n;  ];
 		windows_template "7"              X32 1024 24 [n;  ];
 		windows_template "7"              X64 2048 24 [n;  ];
-		windows_template "2000 SP4"       X32  128  8 [    ];
 		windows_template "Server 2003"    X32  256  8 [    ];
 		windows_template "Server 2003"    X32  256  8 [  x;];
 		windows_template "Server 2003"    X64  256  8 [n;  ];
