@@ -23,6 +23,9 @@ val daemonize : unit -> unit
 val with_file : string -> Unix.open_flag list -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
 
+(** Exception to be raised in function to break out of [file_lines_fold]. *)
+exception Break
+
 (** Folds function [f] over every line in the file at [file_path] using the
 starting value [start]. *)
 val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a

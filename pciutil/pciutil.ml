@@ -41,7 +41,7 @@ let parse_from file vendor device =
 					if xdevice = device then (
 						device_str := Some (String.sub line 7 (String.length line - 7));
 						(* abort reading, we found what we want *)
-						raise End_of_file
+						raise Unixext.Break
 					)
 				)
 			) else (

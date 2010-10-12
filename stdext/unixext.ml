@@ -85,6 +85,8 @@ let daemonize () =
 		end
 	| _ -> exit 0
 
+exception Break
+
 let file_lines_fold f start file_path =
 	let input = open_in file_path in
 	let rec fold accumulator =
@@ -92,7 +94,7 @@ let file_lines_fold f start file_path =
 			try Some (input_line input)
 			with End_of_file -> None in
 		match line with
-			| Some line -> fold (f accumulator line)
+			| Some line -> (try fold (f accumulator line) with Break -> accumulator)
 			| None -> accumulator in
 	finally
 		(fun () -> fold start)
