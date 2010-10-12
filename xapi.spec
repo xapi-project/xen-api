@@ -258,6 +258,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude   /usr/lib/python2.4/site-packages/xen/*
 %exclude   /usr/lib/python2.4/site-packages/xen/lowlevel/*
 /var/xapi/udhcpd.skel
+/opt/xensource/debug/rbac_static.csv
 
 %files xe
 %defattr(-,root,root,-)
