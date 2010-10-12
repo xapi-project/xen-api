@@ -112,6 +112,20 @@ let with_file file mode perms f =
 	Unix.close fd;
 	r
 
+(** [file_blocks_fold block_size f start file_path] folds [f] over blocks (strings)
+    from the file [file_path] with initial value [start] *)
+let file_blocks_fold block_size f start file_path = 
+	with_file file_path [ Unix.O_RDONLY ] 0
+	(fun fd ->
+		let block = String.create block_size in
+		let rec fold acc = 
+			let n = Unix.read fd block 0 block_size in
+			(* Consider making the interface explicitly use Substrings *)
+			let s = if n = block_size then block else String.sub block 0 n in
+			if n = 0 then acc else fold (f acc s) in
+		fold start
+	)
+
 let with_directory dir f =
 	let dh = Unix.opendir dir in
 	let r =

@@ -30,6 +30,10 @@ val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
 (** Applies function [f] to every line in the file at [file_path]. *)
 val file_lines_iter : (string -> unit) -> string -> unit
 
+(** [file_blocks_fold block_size f start file_path] folds [f] over blocks (strings)
+    from the file [file_path] with initial value [start] *)
+val file_blocks_fold: int -> ('a -> string -> 'a) -> 'a -> string -> 'a
+
 (** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
 val read_whole_file : int -> int -> Unix.file_descr -> string
