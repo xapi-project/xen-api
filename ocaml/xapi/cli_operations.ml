@@ -42,10 +42,12 @@ let bool_of_string param string =
     | "0" -> false
     | _ -> failwith ("Failed to parse parameter '"^param^"': expecting 'true' or 'false'")
 
-open Client
+let get_bool_param params ?(default = false) param =
+	if List.mem_assoc param params
+	then bool_of_string param (List.assoc param params)
+	else default
 
-(* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
-let getparam param params = try Some (List.assoc param params) with _ -> None
+open Client
 
  (* Return the list of k=v pairs for maps *)
 let read_map_params name params = 
@@ -312,7 +314,8 @@ let string_of_task_status task = match task.API.task_status with
 *)
 
 let user_password_change _ rpc session_id params = 
-  let old_pwd = if List.mem_assoc "old" params then List.assoc "old" params else ""
+  let old_pwd = List.assoc_default "old" params ""
+	(* "new" must be in params here, since it is a required parameter. *)
   and new_pwd = List.assoc "new" params in
   Client.Session.change_password rpc session_id old_pwd new_pwd
    
@@ -525,12 +528,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
     (* Filter all the records *)
     let records = List.fold_left filter_records_on_fields all_recs filter_params in
 
-    let print_all = 
-      if List.mem_assoc "all" params then
-	List.assoc "all" params = "true" 
-      else
-	false
-    in
+    let print_all = get_bool_param params "all" in
     
     let print_params = select_fields params (if print_all then all_recs else records) def_list_params in
     let print_params = List.map (fun fields -> List.filter (fun field -> not field.hidden) fields) print_params in
@@ -813,7 +811,7 @@ let pool_designate_new_master printer rpc session_id params =
 
 let pool_join printer rpc session_id params =
   try
-    let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
+    let force = get_bool_param params "force" in
     if force then
       Client.Pool.join_force ~rpc ~session_id
 	~master_address:(List.assoc "master-address" params)
@@ -834,7 +832,7 @@ let pool_join printer rpc session_id params =
 let pool_eject fd printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in
   let host=Client.Host.get_by_uuid rpc session_id host_uuid in
-  let force = List.mem_assoc "force" params && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
 
   let go () = 
     Client.Pool.eject ~rpc ~session_id ~host;
@@ -1016,8 +1014,8 @@ let vdi_introduce printer rpc session_id params =
    let name_label = try List.assoc "name-label" params with _ -> "" in
    let name_description = if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
    let _type = vdi_type_of_string (List.assoc "type" params) in
-   let sharable = if List.mem_assoc "sharable" params then bool_of_string "sharable" (List.assoc "sharable" params) else false in
-   let read_only = if List.mem_assoc "read-only" params then bool_of_string "read-only" (List.assoc "read-only" params) else false in
+   let sharable = get_bool_param params "sharable" in
+   let read_only = get_bool_param params "read-only" in
    (* NB call is new so backwards compat other-config- not required *)
    let other_config = read_map_params "other-config" params in
    let xenstore_data = read_map_params "xenstore-data" params in
@@ -1181,10 +1179,7 @@ let vbd_create printer rpc session_id params =
     if empty 
     then Ref.null
     else Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "vdi-uuid" params) in
-  let bootable = 
-    if List.mem_assoc "bootable" params 
-    then bool_of_string "bootable" (List.assoc "bootable" params)
-    else false in
+  let bootable = get_bool_param params "bootable" in
   let mode =
     if List.mem_assoc "mode" params
     then match String.lowercase (List.assoc "mode" params) with
@@ -1197,10 +1192,7 @@ let vbd_create printer rpc session_id params =
     | "cd" -> `CD | "disk" -> `Disk 
     | x -> failwith (Printf.sprintf "Unknown type: %s (should be \"cd\" or \"disk\"" x)
     else `Disk in
-  let unpluggable = 
-    if List.mem_assoc "unpluggable" params
-    then bool_of_string "unpluggable" (List.assoc "unpluggable" params)
-    else true in
+  let unpluggable = get_bool_param params ~default:true "unpluggable" in
   if _type=`Disk && empty then failwith "Empty VBDs can only be made for type=CD";
   let vbd=Client.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:(List.assoc "device" params)
       ~bootable
@@ -1237,7 +1229,7 @@ let vbd_unplug printer rpc session_id params =
     if List.mem_assoc "timeout" params then
       (try float_of_string (List.assoc "timeout" params) with _ -> failwith "Failed to parse parameter 'timeout': expecting a float")
     else 0. in
-  let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
   let start = Unix.gettimeofday () in
   try
     (if force then Client.VBD.unplug_force else Client.VBD.unplug) rpc session_id vbd
@@ -1291,9 +1283,8 @@ let parse_device_config params =
       Record_util.bytes_of_string "physical-size" (List.assoc "physical-size" params) 
     with _ -> 0L in
   let _type=List.assoc "type" params in
-  let content_type = try List.assoc "content-type" params with _ -> "" in
-  let shared = if List.mem_assoc "shared" params then List.assoc "shared" params else "false" in
-  let shared = bool_of_string "shared" shared in
+  let content_type = List.assoc_default "content-type" params "" in
+  let shared = get_bool_param params "shared" in
 
   let device_config = parse_device_config params in
 
@@ -1310,10 +1301,9 @@ let parse_device_config params =
 let sr_introduce printer rpc session_id params =
   let name_label=List.assoc "name-label" params in
   let _type=List.assoc "type" params in
-  let content_type = try List.assoc "content-type" params with _ -> "" in
+  let content_type = List.assoc_default "content-type" params "" in
   let uuid = List.assoc "uuid" params in
-  let shared = if List.mem_assoc "shared" params then List.assoc "shared" params else "false" in
-  let shared = bool_of_string "shared" shared in
+  let shared = get_bool_param params "shared" in
   let _ = Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:"" ~_type ~content_type ~shared ~sm_config:[] in
   printer (Cli_printer.PList [uuid])
 
@@ -1375,7 +1365,7 @@ let vif_create printer rpc session_id params =
   let device = List.assoc "device" params in
   let network_uuid = List.assoc "network-uuid" params in
   let vm_uuid=List.assoc "vm-uuid" params in
-  let mac=try List.assoc "mac" params with _ -> "" in
+  let mac=List.assoc_default "mac" params "" in
   let mac=if mac="random" then (Record_util.random_mac_local ()) else mac in
   let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
   let network=Client.Network.get_by_uuid rpc session_id network_uuid in
@@ -1401,7 +1391,7 @@ let vif_unplug printer rpc session_id params =
 
 let net_create printer rpc session_id params = 
   let network = List.assoc "name-label" params in
-  let descr = if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
+  let descr = List.assoc_default "name-description" params "" in
   let mtu = if List.mem_assoc "MTU" params then Int64.of_string (List.assoc "MTU" params) else 1500L in
   let net = Client.Network.create rpc session_id network descr mtu [] [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
@@ -1418,7 +1408,7 @@ let net_attach printer rpc session_id params =
 
 let vm_create printer rpc session_id params =
   let name_label=List.assoc "name-label" params in
-  let name_description=if List.mem_assoc "name-description" params then List.assoc "name-description" params else "" in
+  let name_description=List.assoc_default "name-description" params "" in
   let ( ** ) = Int64.mul in
   let mib = 1024L ** 1024L in
   let memory_max = 256L ** mib in
@@ -1669,9 +1659,6 @@ let select_vm_geneva rpc session_id params =
     (failwith ("Must select a VM using either vm-name or vm-id: params="
        ^(String.concat "," (List.map (fun (a,b) -> a^"="^b) params))))
       
-let compat_mode params =
-  (List.mem_assoc "compat" params) && (bool_of_string "compat" (List.assoc "compat" params))
- 
 exception Multiple_failure of (string * string) list
 
 let format_message msg =
@@ -1714,7 +1701,7 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
              printer rpc session_id op params ?(multiple=true) ignore_params =
   let msg_prio = try Int64.of_string (List.assoc "message-priority" params) with _ -> 1L in
   let op = wrap_op printer msg_prio rpc session_id op in
-  if compat_mode params
+  if get_bool_param params "compat_mode"
   then 
     (* Geneva compatability mode *)
     let vm = select_vm_geneva rpc session_id params in
@@ -1727,7 +1714,7 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
       | 0 -> failwith "No matching VMs found"
       | 1 -> [ op (List.hd vms) ]
       | _ ->
-	if multiple && (List.mem_assoc "multiple" params) && (bool_of_string "multiple" (List.assoc "multiple" params)) then
+	if multiple && get_bool_param params "multiple" then
 	  do_multiple op vms
 	else
 	  failwith
@@ -1739,7 +1726,7 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
 	  failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
 
 let do_host_op rpc session_id op params ?(multiple=true) ignore_params =
-  if compat_mode params
+  if get_bool_param params "compat_mode"
   then
     let host = host_record rpc session_id (get_host_from_session rpc session_id) in
     [op 1 host]
@@ -1749,7 +1736,7 @@ let do_host_op rpc session_id op params ?(multiple=true) ignore_params =
     | 0 -> failwith "No matching hosts found"
     | 1 -> [ op 1 (List.hd hosts) ]
     | _ ->
-      if multiple && (List.mem_assoc "multiple" params) && (bool_of_string "multiple" (List.assoc "multiple" params)) then
+      if multiple && get_bool_param params "multiple" then
 	do_multiple (op (List.length hosts)) hosts
       else
 	failwith 
@@ -1943,8 +1930,8 @@ let vm_memory_shadow_multiplier_set printer rpc session_id params =
   ()
     
 let vm_start printer rpc session_id params =
-  let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
-  let paused = List.mem_assoc "paused" params && (bool_of_string "paused" (List.assoc "paused" params)) in
+  let force = get_bool_param params "force" in
+  let paused = get_bool_param params "paused" in
   ignore(do_vm_op printer rpc session_id 
 	    (fun vm -> 
 	      let vm=vm.getref () in
@@ -1960,7 +1947,7 @@ let vm_suspend printer rpc session_id params =
   ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.suspend rpc session_id (vm.getref ())) params [])
 
 let vm_resume printer rpc session_id params =
-  let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
   ignore(do_vm_op printer rpc session_id 
 	    (fun vm -> 
 	      if List.mem_assoc "on" params then
@@ -2094,7 +2081,7 @@ let vm_install printer rpc session_id params =
 let vm_uninstall_common fd printer rpc session_id params vms =
   let toremove = ref [] in
   let toprint = ref [] in
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   (* Destroy the disks too *)
   let choose_objects_to_delete vm =
     let vbds=Client.VM.get_VBDs rpc session_id vm in
@@ -2139,7 +2126,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
   List.iter choose_objects_to_delete vms;
   marshal fd (Command (Print "The following items are about to be destroyed"));
   List.iter (fun s -> marshal fd (Command (Print s))) !toprint;
-  let force = compat || ((List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params))) in
+  let force = compat || (get_bool_param params "force") in
   if force then
     (List.iter (fun f -> f ()) !toremove; marshal fd (Command (Print "All objects destroyed")))
   else
@@ -2159,7 +2146,7 @@ let template_uninstall fd printer rpc session_id params =
   vm_uninstall_common fd printer rpc session_id params [ vm ]
 
 let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session_id params =
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   let new_name = 
     if compat then 
       List.assoc "new-name" params
@@ -2237,20 +2224,20 @@ let snapshot_reset_powerstate printer rpc session_id params =
 	Client.VM.power_state_reset rpc session_id snapshot
 
 let vm_shutdown printer rpc session_id params =
-  let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
   ignore(if force 
   then do_vm_op printer rpc session_id (fun vm -> Client.VM.hard_shutdown rpc session_id (vm.getref())) params []
   else do_vm_op printer rpc session_id (fun vm -> Client.VM.clean_shutdown rpc session_id (vm.getref())) params [])
   
 let vm_reboot printer rpc session_id params =
-  let force = (List.mem_assoc "force" params) && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
   ignore(if force 
   then do_vm_op printer rpc session_id (fun vm -> Client.VM.hard_reboot rpc session_id (vm.getref())) params []
   else do_vm_op printer rpc session_id (fun vm -> Client.VM.clean_reboot rpc session_id (vm.getref())) params [])
 
 let vm_compute_maximum_memory printer rpc session_id params = 
   let total = Record_util.bytes_of_string "total" (List.assoc "total" params) in
-  let approximate = List.mem_assoc "approximate" params && (bool_of_string "approximate" (List.assoc "approximate" params)) in
+  let approximate = get_bool_param params "approximate" in
   ignore(do_vm_op printer rpc session_id 
     (fun vm ->
        let max = Client.VM.maximise_memory rpc session_id (vm.getref()) total approximate in
@@ -2335,7 +2322,7 @@ let vm_crashdump_list printer rpc session_id params =
  * can be optionally specified. A VBD is then creased with the device name as specified *)
 let vm_disk_add printer rpc session_id params =
 (* Required params *)
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   let vdi_size = 
     if not compat then
       Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params) 
@@ -2376,7 +2363,7 @@ let vm_disk_add printer rpc session_id params =
   ignore(do_vm_op printer rpc session_id op params ["sr-uuid";"device";"disk-size"])
 
 let vm_disk_remove printer rpc session_id params =
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   let device = 
     if not compat then
       List.assoc "device" params 
@@ -2407,7 +2394,7 @@ let vm_disk_detach printer rpc session_id params =
   ignore(do_vm_op printer rpc session_id op params ["device"])
 
 let vm_disk_resize printer rpc session_id params =
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   let device = 
     if not compat then 
       List.assoc "device" params 
@@ -2449,7 +2436,7 @@ let vm_cd_remove printer rpc session_id params =
   ignore(do_vm_op printer rpc session_id op params ["cd-name"])
 
 let vm_cd_add printer rpc session_id params =
-  let compat = compat_mode params in
+  let compat = get_bool_param params "compat_mode" in
   let cd_name = List.assoc "cd-name" params in
   let vdis = Client.VDI.get_by_name_label rpc session_id cd_name in
   let vdis = List.filter (fun vdi -> let sr = Client.VDI.get_SR rpc session_id vdi in "iso"=Client.SR.get_content_type rpc session_id sr) vdis in
@@ -2501,10 +2488,10 @@ let host_forget fd printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
   let pool = List.hd (Client.Pool.get_all rpc session_id) in
-  let pool_master = Client.Pool.get_master rpc session_id pool in
+  let _ (* unused variable 'pool_master' *) = Client.Pool.get_master rpc session_id pool in
   (* if pool_master = host then failwith "Cannot forget pool master"; *)
 
-  let force = List.mem_assoc "force" params && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
 
   let go () = ignore (Client.Host.destroy rpc session_id host) in
 
@@ -2742,9 +2729,9 @@ let pool_retrieve_wlb_diagnostics fd printer rpc session_id params =
 
 let vm_import fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let full_restore = List.mem_assoc "preserve" params && (List.assoc "preserve" params = "true") in
-  let vm_metadata_only = List.mem_assoc "metadata" params in
-  let force = List.mem_assoc "force" params && (List.assoc "force" params = "true") in
+  let full_restore = get_bool_param params "preserve" in
+  let vm_metadata_only = get_bool_param params "metadata" in
+  let force = get_bool_param params "force" in
   let sr = 
     if List.mem_assoc "sr-uuid" params 
     then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params) 
@@ -3027,7 +3014,7 @@ let blob_put fd printer rpc session_id params =
 
 let blob_create printer rpc session_id params =
   let name = List.assoc "name" params in
-  let mime_type = try List.assoc "mime-type" params with _ -> "" in
+  let mime_type = List.assoc_default "mime-type" params "" in
   if (List.mem_assoc "vm-uuid" params) then
     begin
       let uuid = List.assoc "vm-uuid" params in
@@ -3073,6 +3060,7 @@ let blob_create printer rpc session_id params =
 
     
 let export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm =
+  let vm_metadata_only = get_bool_param params "metadata" in
   let vm_record = vm.record () in
   let exporttask, task_destroy_fn = 
     match task_uuid with
@@ -3095,9 +3083,7 @@ let export_common fd printer rpc session_id params filename num ?task_uuid use_c
       download_file ~__context rpc session_id exporttask fd f
         (Printf.sprintf
            "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b" 
- 	   (if List.mem_assoc "metadata" params
- 	    then Constants.export_metadata_uri
- 	    else Constants.export_uri)
+ 	   (if vm_metadata_only then Constants.export_metadata_uri else Constants.export_uri)
 	   (Ref.string_of session_id)
            (Ref.string_of exporttask) 
 	   (Ref.string_of (vm.getref ()))
@@ -3110,8 +3096,8 @@ let export_common fd printer rpc session_id params filename num ?task_uuid use_c
     
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = List.mem_assoc "compress" params && (List.assoc "compress" params = "true") in
-  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
+  let use_compression = get_bool_param params "compress" in
+  let preserve_power_state = get_bool_param params "preserve-power-state" in
   let task_uuid = if (List.mem_assoc "task-uuid" params) then Some (List.assoc "task-uuid" params) else None in
   let num = ref 1 in
   let op vm = 
@@ -3121,8 +3107,8 @@ let vm_export fd printer rpc session_id params =
 
 let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = List.mem_assoc "compress" params && (List.assoc "compress" params = "true") in
-  let preserve_power_state = List.mem_assoc "preserve-power-state" params && bool_of_string "preserve-power-state" (List.assoc "preserve-power-state" params) in
+  let use_compression = get_bool_param params "compress" in
+  let preserve_power_state = get_bool_param params "preserve-power-state" in
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
@@ -3238,15 +3224,13 @@ let pif_reconfigure_ip printer rpc session_id params =
   let read_optional_case_insensitive key =
     let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
     let lower_case_key = String.lowercase key in
-    if List.mem_assoc lower_case_key lower_case_params then
-      List.assoc lower_case_key lower_case_params
-    else "" in
+    List.assoc_default lower_case_key lower_case_params "" in
 
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let mode = Record_util.ip_configuration_mode_of_string (List.assoc "mode" params) in
   let ip = read_optional_case_insensitive "IP" in
-  let netmask = if List.mem_assoc "netmask" params then List.assoc "netmask" params else "" in
-  let gateway = if List.mem_assoc "gateway" params then List.assoc "gateway" params else "" in
+  let netmask = List.assoc_default "netmask" params "" in
+  let gateway = List.assoc_default "gateway" params "" in
   let dns = read_optional_case_insensitive "DNS" in
   let () = Client.PIF.reconfigure_ip rpc session_id pif mode ip netmask gateway dns in ()
 
@@ -3287,7 +3271,7 @@ let pif_db_forget printer rpc session_id params =
 
 let bond_create printer rpc session_id params = 
   let network = List.assoc "network-uuid" params in
-  let mac = if List.mem_assoc "mac" params then List.assoc "mac" params else "" in
+  let mac = List.assoc_default "mac" params "" in
   let network = Client.Network.get_by_uuid rpc session_id network in
   let pifs = List.assoc "pif-uuids" params in
   let uuids = String.split ',' pifs in
@@ -3366,7 +3350,7 @@ let host_set_power_on_mode printer rpc session_id params =
 
 let host_crash_upload printer rpc session_id params = 
   let crash = Client.Host_crashdump.get_by_uuid rpc session_id (List.assoc "uuid" params) in
-  let url = if List.mem_assoc "url" params then List.assoc "url" params else "" in
+  let url = List.assoc_default "url" params "" in
   (* pass everything else in as an option *)
   let options = List.filter (fun (k, _) -> k <> "uuid" && k <> "url") params in
   Client.Host_crashdump.upload rpc session_id crash url options
@@ -3377,7 +3361,7 @@ let host_crash_destroy printer rpc session_id params =
 
 let host_bugreport_upload printer rpc session_id params = 
   let op _ host =
-    let url = if List.mem_assoc "url" params then List.assoc "url" params else "" in
+    let url = List.assoc_default "url" params "" in
     (* pass everything else in as an option *)
     let options = List.filter (fun (k, _) -> k <> "host" && k <> "url") params in
     Client.Host.bugreport_upload rpc session_id (host.getref ()) url options
@@ -3520,11 +3504,7 @@ let wait_for_task rpc session_id task __context fd op_str =
  
 let host_get_system_status fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let get_param s =
-    try List.assoc s params
-    with _ -> ""
-  in
-  let entries = get_param "entries" in
+  let entries = List.assoc_default "entries" params "" in
   let output = try List.assoc "output" params with _ -> "tar.bz2" in
   begin match output with "tar.bz2" | "tar" | "zip" -> () | _ -> 
     failwith "Invalid output format. Must be 'tar', 'zip' or 'tar.bz2'" end;
@@ -3536,7 +3516,7 @@ let host_get_system_status fd printer rpc session_id params =
       output   
   in
   let op n host =      
-    let fname =
+    let _ (* unused variable 'fname' *) =
       if n > 1 
       then
         Printf.sprintf "%s-%s%s%s"
@@ -3732,7 +3712,7 @@ let host_emergency_management_reconfigure printer rpc session_id params =
   Client.Host.local_management_reconfigure rpc session_id interface
 
 let host_emergency_ha_disable printer rpc session_id params = 
-  let force = List.mem_assoc "force" params && (bool_of_string "force" (List.assoc "force" params)) in
+  let force = get_bool_param params "force" in
   if not force then failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   Client.Host.emergency_ha_disable rpc session_id 
 
@@ -3748,7 +3728,7 @@ let host_signal_networking_change printer rpc session_id params =
 
 let host_notify printer rpc session_id params =
   let ty = List.assoc "type" params in
-  let args = if List.mem_assoc "params" params then List.assoc "params" params else "" in
+  let args = List.assoc_default "params" params "" in
   Client.Host.notify rpc session_id ty args
 
 let host_syslog_reconfigure printer rpc session_id params =
@@ -3831,9 +3811,9 @@ let subject_remove printer rpc session_id params =
   Client.Subject.destroy ~rpc ~session_id ~self:subject
 
 let subject_role_common rpc session_id params =
-  let role_uuid = if List.mem_assoc "role-uuid" params then List.assoc "role-uuid" params else "" in
-  let role_name = if List.mem_assoc "role-name" params then List.assoc "role-name" params else "" in
-  if role_uuid="" && role_name="" 
+  let role_uuid = List.assoc_default "role-uuid" params "" in
+  let role_name = List.assoc_default "role-name" params "" in
+  if role_uuid="" && role_name=""
     then failwith "Required parameter not found: role-uuid or role-name"
   else
   if role_uuid<>"" && role_name<>""
