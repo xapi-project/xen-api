@@ -651,49 +651,62 @@ let squeeze_test () =
   else failed test "one or more scenarios failed"
 
 let _ =
-  let all_tests = [ "storage"; "vm-placement"; "vm-memory-constraints"; "encodings"; "http"; "event"; "vdi"; "async"; "import"; "powercycle"; "squeezing"; "lifecycle"; "vhd" ] in
-  let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
+	let all_tests = [
+		"storage";
+		"vm-placement";
+		"vm-memory-constraints";
+		"encodings";
+		"http";
+		"event";
+		"vdi";
+		"async";
+		"import";
+		"powercycle";
+		"squeezing";
+		"lifecycle";
+		"vhd";
+	] in
+	let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
-  let tests_to_run = ref default_tests in (* default is everything *)
-  Arg.parse 
-    [ "-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
-	  "-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
-      "-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
-    (fun x -> match !host, !username, !password with
-     | "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
-     | _, "", _ -> username := x
-     | _, _, "" -> password := x
-     | _, _, _ -> Printf.fprintf stderr "Skipping unrecognised argument: %s" x)
-    "Perform some quick functional tests. The default is to test localhost over a Unix socket. For remote server supply <hostname> <username> and <password> arguments.";
-  if !host = "" then host := "localhost";
-  if !username = "" then username := "root";
-  
-  let maybe_run_test name f = 
-    assert (List.mem name all_tests);
-	if List.mem name !tests_to_run then f () in
+	let tests_to_run = ref default_tests in (* default is everything *)
+	Arg.parse [
+		"-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
+		"-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
+		"-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
+		(fun x -> match !host, !username, !password with
+			| "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
+			| _, "", _ -> username := x
+			| _, _, "" -> password := x
+			| _, _, _ -> Printf.fprintf stderr "Skipping unrecognised argument: %s" x)
+		"Perform some quick functional tests. The default is to test localhost over a Unix socket. For remote server supply <hostname> <username> and <password> arguments.";
+	if !host = "" then host := "localhost";
+	if !username = "" then username := "root";
+	
+	let maybe_run_test name f = 
+		assert (List.mem name all_tests);
+		if List.mem name !tests_to_run then f () in
 
-  Stunnel.init_stunnel_path ();
-  let s = init_session !username !password in
-  finally
-    (fun () ->
-       (try
-	  maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
-	  maybe_run_test "squeezing" squeeze_test;
-	  maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
-	  maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
-	  maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
-	  maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
-	  maybe_run_test "event" event_next_unblocking_test;
-	  maybe_run_test "vdi" (fun () -> vdi_test s);
-	  maybe_run_test "async" (fun () -> async_test s);
-	  maybe_run_test "import" (fun () -> import_export_test s);
-	  maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
-	  maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
-	  maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
-
-	with
-	| Api_errors.Server_error (a,b) ->
-	    output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));
-	| e ->
-	    output_string stderr (Printexc.to_string e))
-    ) (fun () -> summarise ())
+	Stunnel.init_stunnel_path ();
+	let s = init_session !username !password in
+	finally
+		(fun () ->
+			(try
+				maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
+				maybe_run_test "squeezing" squeeze_test;
+				maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
+				maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
+				maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
+				maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
+				maybe_run_test "event" event_next_unblocking_test;
+				maybe_run_test "vdi" (fun () -> vdi_test s);
+				maybe_run_test "async" (fun () -> async_test s);
+				maybe_run_test "import" (fun () -> import_export_test s);
+				maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
+				maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
+				maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
+			with
+				| Api_errors.Server_error (a,b) ->
+					output_string stderr (Printf.sprintf "%s: %s" a (String.concat "," b));
+				| e ->
+					output_string stderr (Printexc.to_string e))
+		) (fun () -> summarise ())
