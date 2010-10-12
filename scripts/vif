@@ -82,22 +82,22 @@ handle_vswitch_vif_details()
         local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
     fi
     if [ -n "${vm_uuid}" ] ; then
-        set_vif_external_id "vm-uuid" "${vm_uuid}"
+        set_vif_external_id "xs-vm-uuid" "${vm_uuid}"
     fi
 
     local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
     if [ -n "${vif_uuid}" ] ; then
-	set_vif_external_id "vif-uuid" "${vif_uuid}"
+	set_vif_external_id "xs-vif-uuid" "${vif_uuid}"
     fi
 
     local vif_details=
     local net_uuid=$(xenstore-read "${PRIVATE}/network-uuid" 2>/dev/null)
     if [ -n "${net_uuid}" ] ; then
-	set_vif_external_id "network-uuid" "${net_uuid}"
+	set_vif_external_id "xs-network-uuid" "${net_uuid}"
     fi
     local address=$(xenstore-read "/local/domain/$DOMID/device/vif/$DEVID/mac" 2>/dev/null)
     if [ -n "${address}" ] ; then
-        set_vif_external_id "vif-mac" "${address}"
+        set_vif_external_id "xs-vif-mac" "${address}"
     fi
 }
 
