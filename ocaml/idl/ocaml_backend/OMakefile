@@ -14,8 +14,9 @@ OCAMLINCLUDES += .. ../.. ../../database $(AUTOGEN_DIR) ../../xapi ../../client_
 OCAMLPACKS += sexpr http-svr
 
 # only gen_api requires datamodel library:
-GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping xMLRPC locking ../api_lowlevel
-OCamlProgram(gen_api_main, $(GEN_API_FILES) gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper)
+GEN_API_FILES = gen_api genOCaml ref ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../../database/escaping xMLRPC locking ../api_lowlevel gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api $(AUTOGEN_HELPER_DIR)/string_marshall_helper
+OCamlProgram(gen_api_main, $(GEN_API_FILES))
+OCamlDocProgram(gen_api_main, $(GEN_API_FILES))
 
 FILTER = closed # or opensource or closed or debug or implementation
 
