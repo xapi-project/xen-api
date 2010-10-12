@@ -484,7 +484,6 @@ let create_all_templates rpc session_id =
 		let x = XenApp in
 	[
 		other_install_media_template (default_memory_parameters 128L);
-		windows_template "XP SP2"         X32  256  8 [    ];
 		windows_template "XP SP3"         X32  256  8 [    ];
 		windows_template "Vista"          X32 1024 24 [n;  ];
 		windows_template "7"              X32 1024 24 [n;  ];
