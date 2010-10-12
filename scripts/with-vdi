@@ -45,6 +45,6 @@ export DEVICE
 echo DEVICE=${DEVICE}
 ${COMMAND}
 RC=$?
-xe vbd-unplug uuid=${VBD}
+xe vbd-unplug uuid=${VBD} timeout=15
 xe vbd-destroy uuid=${VBD}
 exit ${RC}
