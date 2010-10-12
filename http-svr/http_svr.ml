@@ -81,9 +81,9 @@ let get_return_version req =
   try
     let (maj,min) = Scanf.sscanf req.version "HTTP/%d.%d" (fun a b -> (a,b)) in
     match (maj,min) with
-	(1,0) -> "HTTP/1.0"
-      | _ -> "HTTP/1.1"
-  with _ -> "HTTP/1.1"
+	(1,0) -> "1.0"
+      | _ -> "1.1"
+  with _ -> "1.1"
     
 let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
   let version = get_return_version req in
@@ -124,7 +124,7 @@ let response_file ?(hdrs=[]) ~mime_content_type s file =
     | None    -> []
     | Some ty -> [ "Content-Type: " ^ ty ]
     in
-  headers s (http_200_ok_with_content size ~version:"HTTP/1.1" ~keep_alive:true ()
+  headers s (http_200_ok_with_content size ~version:"1.1" ~keep_alive:true ()
             @ mime_header);
   let buffer = String.make 65536 '\000' in
   let ic = open_in file in

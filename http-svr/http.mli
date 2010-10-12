@@ -66,6 +66,8 @@ val string_list_of_request : request -> string list
 
 val http_request : ?version:string -> ?keep_alive:bool -> ?cookie:((string*string) list) -> ?length:(int64) -> user_agent:(string) -> method_t -> string -> string -> string list
 
+val http_request_request : ?version:string -> ?keep_alive:bool -> ?cookie:((string*string) list) -> ?length:(int64) -> user_agent:(string) -> method_t -> string -> string -> request
+
 val http_403_forbidden : string list
 val http_200_ok : ?version:string -> ?keep_alive:bool -> unit -> string list
 

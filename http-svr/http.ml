@@ -34,8 +34,8 @@ let http_200_ok ?(version="1.1") ?(keep_alive=true) () =
       "Connection: " ^ (if keep_alive then "keep-alive" else "close");
       "Cache-Control: no-cache, no-store" ]
 
-let http_200_ok_with_content length ?(version="HTTP/1.1") ?(keep_alive=true) () =
-    [ version^" 200 OK";
+let http_200_ok_with_content length ?(version="1.1") ?(keep_alive=true) () =
+    [ Printf.sprintf "HTTP/%s 200 OK" version;
       "Connection: " ^ (if keep_alive then "keep-alive" else "close");
       "Content-Length: "^(Int64.to_string length);
       "Cache-Control: no-cache, no-store" ]
@@ -239,6 +239,18 @@ let pretty_string_of_request x =
     (default "" x.subtask_of)
     (default "" x.content_type)
     (default "" x.user_agent)
+
+let http_request_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
+{ nullreq with
+  version = version;
+  close = not keep_alive;
+  cookie = Opt.default [] cookie;
+  content_length = length;
+  user_agent = Some user_agent;
+  m = meth;
+  uri = path;
+  headers = [ Printf.sprintf "Host: %s" host ];
+}
 
 let http_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
   let cookie = default [] (may (fun x -> [ "Cookie: " ^ (print_keyvalpairs x) ]) cookie) in
