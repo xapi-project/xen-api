@@ -75,7 +75,7 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 	   )
       ) (fun () -> List.iter close !to_close)
 
-let compress = go Compress Active
-let decompress = go Decompress Active
+let compress fd f = go Compress Active fd f
+let decompress fd f = go Decompress Active fd f
 
-let decompress_passive = go Decompress Passive
+let decompress_passive fd f = go Decompress Passive fd f
