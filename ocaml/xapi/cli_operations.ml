@@ -3941,7 +3941,7 @@ let vmpp_create printer rpc session_id params =
   (* optional parameters with default values *)
 	let name_description = get "name-description" ~default:"" in
 	let is_policy_enabled = Record_util.bool_of_string(get "is-policy-enabled" ~default:"true") in
-  let backup_retention_value = map "backup-retention-value" ~default:"1" XMLRPC.To.string API.From.int64 in
+  let backup_retention_value = map "backup-retention-value" ~default:"7" XMLRPC.To.string API.From.int64 in
 	let archive_frequency = map "archive-frequency" ~default:"never" XMLRPC.To.string API.From.vmpp_archive_frequency in
 	let archive_target_type = map "archive-target-type" ~default:"none" XMLRPC.To.string API.From.vmpp_archive_target_type in
 	let archive_target_config = read_map_params "archive-target-config" params in

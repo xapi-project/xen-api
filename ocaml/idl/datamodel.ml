@@ -6278,7 +6278,7 @@ let vmpp =
       namespace ~name:"name" ~contents:(names None RW) ();
       field ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
       field ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy";
-      field ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 1L));
+      field ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
       field ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule";
       field ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in XenServer Local Timezone";
       field ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
