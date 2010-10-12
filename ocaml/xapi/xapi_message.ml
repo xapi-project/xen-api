@@ -434,5 +434,5 @@ let handler (req: Http.request) (bio: Buf_io.t) =
       let body = "<?xml version=\"1.0\"?>" ^ body in
       Http_svr.headers s ((Http.http_200_ok_with_content 
 			      (Int64.of_int (String.length body)) 
-			      ~version:"HTTP/1.1" ~keep_alive:false ())@["Content-Type: application/rss+xml"]);
+			      ~version:"1.1" ~keep_alive:false ())@["Content-Type: application/rss+xml"]);
       ignore(Unix.write s body 0 (String.length body)))

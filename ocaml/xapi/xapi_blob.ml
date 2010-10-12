@@ -67,7 +67,7 @@ let handler (req: Http.request) s =
 		    let ifd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
 		    let size = (Unix.LargeFile.stat path).Unix.LargeFile.st_size in
 		    Http_svr.headers s ((Http.http_200_ok_with_content 
-					    size ~version:"HTTP/1.1" ~keep_alive:false ()) 
+					    size ~version:"1.1" ~keep_alive:false ()) 
 					 @ ["Content-Type: "^(Db.Blob.get_mime_type ~__context ~self)]);
 		    ignore(Pervasiveext.finally 
 			      (fun () -> Unixext.copy_file ifd s) 
