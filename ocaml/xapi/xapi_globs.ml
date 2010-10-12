@@ -16,6 +16,7 @@
  
 open Stringext
 open Printf
+open Util_globs_inventory
 
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
@@ -89,9 +90,6 @@ let host_heartbeat_interval = 30.0
 let host_assumed_dead_interval = 600.0 (* 10 minutes *)
 
 let http_realm = "xapi"
-
-(* path to the xensource inventory file *)
-let inventory_filename = "/etc/xensource-inventory"
 
 (* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
 let xe_key = "/mh/XenSource-TM_XenEnterprise-TM"
