@@ -49,11 +49,33 @@ let make_id =
     incr counter;
     "Ref:" ^ (string_of_int this)
 
-let rec update_table ~__context ~include_snapshots ~preserve_power_state ~table vm =
+let rec update_table ~__context ~include_snapshots ~preserve_power_state ~include_vhd_parents ~table vm =
   let add r = 
 	  if not (Hashtbl.mem table (Ref.string_of r)) then
 		  Hashtbl.add table (Ref.string_of r)(make_id ()) in
- 
+
+  let rec add_vdi v =
+    add v;
+    let r = Db.VDI.get_record ~__context ~self:v in
+    add r.API.vDI_SR;
+    if include_vhd_parents then
+      begin
+        let sm_config = r.API.vDI_sm_config in
+        if List.mem_assoc Xapi_globs.vhd_parent sm_config then
+          begin
+            let parent_uuid = List.assoc Xapi_globs.vhd_parent sm_config in
+            try
+              let parent_ref = Db.VDI.get_by_uuid ~__context ~uuid:parent_uuid in
+			  (* Only recurse if we haven't already seen this VDI *)
+			  if not (Hashtbl.mem table (Ref.string_of parent_ref))
+              then add_vdi parent_ref
+            with _ ->
+              warn "VM.export_metadata: lookup of parent VDI %s failed"
+                parent_uuid
+          end
+      end
+  in
+
   if Db.is_valid_ref vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
   add vm;
   let vm = Db.VM.get_record ~__context ~self:vm in
@@ -69,22 +91,18 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~table 
 	       let vbd = Db.VBD.get_record ~__context ~self:vbd in
 	       if not(vbd.API.vBD_empty)
 	       then
-		 let vdi = vbd.API.vBD_VDI in
-		 add vdi;
-		 let vdi = Db.VDI.get_record ~__context ~self:vdi in
-		 add vdi.API.vDI_SR end) 
+		 add_vdi vbd.API.vBD_VDI
+	       end) 
 	vm.API.vM_VBDs;
   (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *) 
   if include_snapshots then
 	  List.iter 
-		  (fun snap -> update_table ~__context ~include_snapshots:false ~preserve_power_state ~table snap)
+		  (fun snap -> update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table snap)
 		  vm.API.vM_snapshots;
   (* If VM is suspended then add the suspend_VDI *)
   let vdi = vm.API.vM_suspend_VDI in
   if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref vdi then begin
-    add vdi;
-    let vdi = Db.VDI.get_record ~__context ~self:vdi in
-    add vdi.API.vDI_SR
+    add_vdi vdi
   end;
   (* Add also the guest metrics *)
   add vm.API.vM_guest_metrics;
@@ -94,7 +112,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~table 
   add vm.API.vM_affinity;
 
   (* Add the parent VM *)
-  if include_snapshots then update_table ~__context ~include_snapshots:false ~preserve_power_state ~table vm.API.vM_parent
+  if include_snapshots then update_table ~__context ~include_snapshots:false ~preserve_power_state ~include_vhd_parents ~table vm.API.vM_parent
   end
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
@@ -272,9 +290,9 @@ open Xapi_globs
 (* on normal export, do not include snapshot metadata;
    on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs 
    which are snapshots of the exported VM. *)
-let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms =
+let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms =
   let table = create_table () in
-  List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~preserve_power_state ~table) vms;
+  List.iter (update_table ~__context ~include_snapshots:with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~table) vms;
   let objects = make_all ~with_snapshot_metadata ~preserve_power_state table __context in
   let header = { version = this_version __context;
 		   objects = objects } in
@@ -288,19 +306,20 @@ let string_of_vm ~__context vm =
 	with _ -> "invalid"
 
 (** Export a VM's metadata only *)
-let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~vms s =
+let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~vms s =
 	begin match vms with
 	| [] -> failwith "need to specify at least one VM"
-	| [vm] -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s" 
+	| [vm] -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; include_vhd_parents = '%b'; preserve_power_state = '%s" 
 				(string_of_vm ~__context vm)
 				with_snapshot_metadata
+				include_vhd_parents
 				(string_of_bool preserve_power_state)
 	| vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s"
 				(String.concat ", " (List.map (string_of_vm ~__context) vms)) 
 				with_snapshot_metadata
 				(string_of_bool preserve_power_state) end;
 
-	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~__context ~vms in
+	let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms in
 	let hdr = Tar.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
 	Tar.write_block hdr (fun s -> Tar.write_bigbuffer s ova_xml) s
 
@@ -309,7 +328,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 	  (string_of_vm ~__context vm_ref)
 	  (string_of_bool preserve_power_state);
 
-  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false  ~preserve_power_state ~__context ~vms:[vm_ref] in
+  let table, ova_xml = vm_metadata ~with_snapshot_metadata:false  ~preserve_power_state ~include_vhd_parents:false ~__context ~vms:[vm_ref] in
 
   debug "Outputting ova.xml";
 
@@ -362,10 +381,16 @@ let vm_from_request ~__context (req: request) =
       Helpers.call_api_functions 
         ~__context (fun rpc session_id -> Client.VM.get_by_uuid rpc session_id uuid) 
 
-let export_all_vms_from_request ~__context (req: request) = 
-	if List.mem_assoc "all" req.query
-	then bool_of_string (List.assoc "all" req.query)
+let bool_from_request ~__context (req: request) k =
+	if List.mem_assoc k req.query
+	then bool_of_string (List.assoc k req.query)
 	else false
+
+let export_all_vms_from_request ~__context (req: request) = 
+	bool_from_request ~__context req "all"
+
+let include_vhd_parents_from_request ~__context (req: request) = 
+	bool_from_request ~__context req "include_vhd_parents"
 
 let metadata_handler (req: request) s = 
 	debug "metadata_handler called";
@@ -374,6 +399,7 @@ let metadata_handler (req: request) s =
 	(* Xapi_http.with_context always completes the task at the end *)
 	Xapi_http.with_context "VM.export_metadata" req s
 		(fun __context ->
+			let include_vhd_parents = include_vhd_parents_from_request ~__context req in
 			let export_all = export_all_vms_from_request ~__context req in
 
 			(* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
@@ -406,7 +432,7 @@ let metadata_handler (req: request) s =
 			(* lock all the VMs before exporting their metadata *)
 			List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
 			finally
- 				(fun () -> export_metadata ~with_snapshot_metadata:true ~preserve_power_state:true ~__context ~vms:vm_refs s)
+ 				(fun () -> export_metadata ~with_snapshot_metadata:true ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs s)
  				(fun () ->
  					 List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs;
  					 Tar.write_end s);
