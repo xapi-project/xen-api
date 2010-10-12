@@ -82,7 +82,12 @@ let get_subject_name __context session_id =
 	get_subject_common ~__context ~session_id
 		~fnname:"get_subject_name"
 		~fn_if_local_session:(fun()->
-				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+			(* we are in emergency mode here, do not call DB_Action:
+			 - local sessions are not in the normal DB
+			 - local sessions do not have a username field
+			 - DB_Action will block forever trying to access an inaccessible master
+			*)
+			""
 		)
 		~fn_if_local_superuser:(fun()->
 				DB_Action.Session.get_auth_user_name ~__context ~self:session_id
