@@ -11,9 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Type-safe UUIDs. *)
 
-(** Internally, a UUID is simply a string. *)
+(* Internally, a UUID is simply a string. *)
 type 'a t = string
 
 type cookie = string
@@ -31,7 +30,7 @@ let string_of_cookie s = s
 
 let cookie_of_string s = s
 
-(** FIXME: using /dev/random is too slow but using /dev/urandom is too
+(* FIXME: using /dev/random is too slow but using /dev/urandom is too
     deterministic. *)
 let dev_random = "/dev/urandom"
 
@@ -51,30 +50,11 @@ let uuid_of_int_array uuid =
     uuid.(6) uuid.(7) uuid.(8) uuid.(9) uuid.(10) uuid.(11)
     uuid.(12) uuid.(13) uuid.(14) uuid.(15)
 
-(** Return a new random UUID *)
 let make_uuid() = uuid_of_int_array (read_random 16)
 
-(** Return a new random, big UUID (hopefully big and random enough to be
-    unguessable) *)
 let make_cookie() =
   let bytes = Array.to_list (read_random 64) in
   String.concat "" (List.map (Printf.sprintf "%1x") bytes)
-(*
-  let hexencode x = 
-    let nibble x =
-      char_of_int (if x < 10 
-		   then int_of_char '0' + x
-		   else int_of_char 'a' + (x - 10)) in
-    let result = String.make (String.length x * 2) ' ' in
-    for i = 0 to String.length x - 1 do
-      let byte = int_of_char x.[i] in
-      result.[i * 2 + 0] <- nibble((byte lsr 4) land 15);
-      result.[i * 2 + 1] <- nibble((byte lsr 0) land 15);
-    done;
-    result in
-  let n = 64 in
-  hexencode (String.concat "" (List.map (fun x -> String.make 1 (char_of_int x)) (Array.to_list (read_n_random_bytes n))))
-*)
 
 let int_array_of_uuid s =
   try
