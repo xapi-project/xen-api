@@ -218,7 +218,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		let master_uuid = Client.Host.get_uuid rpc session_id master in
 		let my_uuid = Db.Host.get_uuid ~__context ~self:(Helpers.get_localhost ~__context) in
 		if master_uuid = my_uuid then
-			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Host cannot become slave of itself"])) in
+		let error_msg =
+			if 1 < List.length (Db.Host.get_all ~__context)
+			then "Host is already part of a pool"
+			else "Host cannot become slave of itself" in
+			raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [error_msg])) in
 
 	let assert_homogeneous_vswitch_configuration () =
 		match Netdev.network.Netdev.kind with
