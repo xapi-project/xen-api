@@ -72,6 +72,15 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 		   Xapi_mgmt_iface.rebind ()
 		 end;
 		 
+		(* sync MTU *)
+		(try
+			let device = Db.PIF.get_device ~__context ~self:pif in
+			let mtu = Int64.of_string (Netdev.get_mtu device) in
+			Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
+		with _ ->
+			debug "could not update MTU field on PIF %s" uuid
+		);
+  
 		Xapi_mgmt_iface.on_dom0_networking_change ~__context;
 		
 		update_inventory ~__context
