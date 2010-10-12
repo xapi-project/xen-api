@@ -14,8 +14,8 @@
 let msgList = ref []
 
 let addMessage x =
-  let _ = msgList := x::!msgList in
-    x
+	let _ = msgList := x::!msgList in
+	x
 
 let license_does_not_support_pooling = addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING"
 (* Fired by license-check.py *)
@@ -58,7 +58,7 @@ let vm_suspended = addMessage "VM_SUSPENDED"
 let vm_resumed = addMessage "VM_RESUMED"
 let vm_crashed = addMessage "VM_CRASHED"
 let vm_cloned = addMessage "VM_CLONED"
-
+let host_sync_data_failed = addMessage "HOST_SYNC_DATA_FAILED" (* Kept for backward compatibility. *)
 let host_clock_skew_detected = addMessage "HOST_CLOCK_SKEW_DETECTED"
 let host_clock_skew_detected_priority = 10L
 let host_clock_went_backwards = addMessage "HOST_CLOCK_WENT_BACKWARDS"
@@ -100,5 +100,3 @@ let vmpp_backup_missed_event = addMessage "VMPP_BACKUP_MISSED_EVENT" (*'A schedu
 let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" (*'A scheduled archive event was missed due to another on-going scheduled archive run. This is unexpected behaviour, please re-configure your archive sub-policy'*)
 let vmpp_backup_failed = addMessage "VMPP_BACKUP_FAILED" (*'The snapshot phase of the protection policy failed.'*)
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
-
-
