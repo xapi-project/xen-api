@@ -145,7 +145,7 @@ class CpuUsageAlarmETG(EmailTextGenerator):
             'CPU usage on %s "%s" has been on average %.1f%% for the last %d seconds.\n' \
             'This alarm is set to be triggered when CPU usage is more than %.1f%%.\n' \
             '\n' \
-            'For more information please log into your XenCenter Console and click on "%s"->\n' \
+            'For Alarm Settings, please log into your XenCenter Console and click on "%s"->\n' \
             '"Properties"->"Alerts"\n' % \
             (self.cls, 
              self.params['name_label'],
@@ -177,7 +177,7 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
             'Network usage on %s "%s" has been on average %d B/s for the last %d seconds.\n' \
             'This alarm is set to be triggered when Network usage is more than %d B/s.\n' \
             '\n' \
-            'For more information please log into your XenCenter Console and click on "%s"->\n' \
+            'For Alarm Settings, please log into your XenCenter Console and click on "%s"->\n' \
             '"Properties"->"Alerts"\n' % \
             (self.cls, 
              self.params['name_label'],
@@ -206,7 +206,7 @@ class DiskUsageAlarmETG(EmailTextGenerator):
             'Disk usage on VM "%s" has been on average %d B/s for the last %d seconds.\n' \
             'This alarm is set to be triggered when Disk usage is more than %d B/s.\n' \
             '\n' \
-            'For more information please log into your XenCenter Console and click on "VM"->\n' \
+            'For Alarm Settings, please log into your XenCenter Console and click on "VM"->\n' \
             '"Properties"->"Alerts"\n' % \
             (self.params['name_label'],
              self.value,
