@@ -34,3 +34,4 @@ val local_logout: __context:Context.t -> unit
 val get_group_subject_identifier_from_session: __context:Context.t -> session:[ `session ] Ref.t -> string
 val get_all_subject_identifiers: __context:Context.t -> string list
 val logout_subject_identifier: __context:Context.t -> subject_identifier:string -> unit
+val get_top: __context:Context.t -> self:API.ref_session -> API.ref_session

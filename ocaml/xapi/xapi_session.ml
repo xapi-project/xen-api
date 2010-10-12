@@ -691,3 +691,25 @@ let logout_subject_identifier ~__context ~subject_identifier=
 	(* kill all filtered sessions *)
 	List.iter (fun s -> destroy_db_session ~__context ~self:s) sessions
 
+
+(* returns the ancestry chain of session s, starting with s *)
+let rec get_ancestry ~__context ~self =
+  if (self=Ref.null) then [] (* top of session tree *)
+  else (
+    let parent =
+      try Db.Session.get_parent ~__context ~self
+      with e->
+        debug "error %s getting ancestry for session %s"
+          (ExnHelper.string_of_exn e) (trackid self)
+        ;
+        Ref.null
+    in
+      self::(get_ancestry ~__context ~self:parent)
+  )
+
+(* returns the original session up the ancestry chain that created s *)
+let get_top ~__context ~self =
+  let ancestry = get_ancestry ~__context ~self in
+  match ancestry with
+  | [] -> Ref.null
+  | ancestry -> List.nth ancestry ((List.length ancestry)-1)
