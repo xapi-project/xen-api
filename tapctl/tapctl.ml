@@ -94,6 +94,10 @@ module Dummy = struct
 				d_state = None;
 				d_args = None;
 			} in
+			let stem = get_tapdevstem ctx in
+			let dummy_device = Printf.sprintf "%s%d" stem minor in
+			Unixext.unlink_safe dummy_device;
+			Unixext.touch_file dummy_device;
 			write_dummy_tapdisk_list ctx (entry::list);
 			minor
 		)
