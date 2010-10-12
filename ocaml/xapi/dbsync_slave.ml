@@ -420,7 +420,7 @@ let remove_all_leaked_vbds __context =
  * interface (defined by what is brought up before xapi starts) as attached too.
  * For example, this will prevent needless glitches in storage interfaces.
  *)
-let resynchronise_pif_currently_attached ~__context =
+let resynchronise_pif_params ~__context =
   let localhost = Helpers.get_localhost () in
   (* See which PIFs were brought up at start of day, according to the inventory file *)
   let pifs_brought_up =
@@ -443,7 +443,15 @@ let resynchronise_pif_currently_attached ~__context =
                               (Mtc.is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self) in
        Db.PIF.set_currently_attached ~__context ~self ~value:mark_as_attached;
        Db.PIF.set_management ~__context ~self ~value:is_management_pif;
-       debug "Marking PIF device %s as %s" (Db.PIF.get_device ~__context ~self) (if mark_as_attached then "attached" else "offline")
+       debug "Marking PIF device %s as %s" (Db.PIF.get_device ~__context ~self) (if mark_as_attached then "attached" else "offline");
+       
+       (* sync MTU *)
+       try
+         let device = Db.PIF.get_device ~__context ~self in
+         let mtu = Int64.of_string (Netdev.get_mtu device) in
+         Db.PIF.set_MTU ~__context ~self ~value:mtu;
+       with _ ->
+         debug "could not update MTU field on PIF %s" (Db.PIF.get_uuid ~__context ~self)
     )
     (Db.Host.get_PIFs ~__context ~self:localhost)
 
@@ -529,9 +537,9 @@ let update_env __context sync_keys =
   update_physical_networks ~__context;
 *)
 
-  switched_sync Xapi_globs.sync_resynchronise_pif_currently_attached (fun () ->
-    debug "resynchronising PIF.currently_attached";
-    resynchronise_pif_currently_attached ~__context;
+  switched_sync Xapi_globs.sync_pif_params (fun () ->
+    debug "resynchronising PIF params";
+    resynchronise_pif_params ~__context;
   );
 
   switched_sync Xapi_globs.sync_patch_update_db (fun () ->

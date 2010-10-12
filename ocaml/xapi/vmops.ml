@@ -82,8 +82,9 @@ let check_vm_parameters ~__context ~self ~snapshot =
 
 let add_vif ~__context ~xs vif_device = 
   if vif_device.Vm_config.bridge = "" then failwith "Don't know how to connect a VIF to this type of Network";
+  let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref in
   let extra_private_keys = ["ref", Ref.string_of vif_device.Vm_config.vif_ref;
-                            "vif-uuid", Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref;
+                            "vif-uuid", vif_uuid;
                             "network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref] in
   Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
   Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
@@ -97,7 +98,15 @@ let add_vif ~__context ~xs vif_device =
 	 vif_device.Vm_config.domid in
        ()
     );
-  Db.VIF.set_currently_attached ~__context ~self:vif_device.Vm_config.vif_ref ~value:true
+  Db.VIF.set_currently_attached ~__context ~self:vif_device.Vm_config.vif_ref ~value:true;
+  (* sync MTU *)
+  try
+    let device = "vif" ^ (string_of_int vif_device.Vm_config.domid) ^ "." ^ (string_of_int vif_device.Vm_config.devid) in
+    let mtu = Int64.of_string (Netdev.get_mtu device) in
+    Db.VIF.set_MTU ~__context ~self:vif_device.Vm_config.vif_ref ~value:mtu
+  with _ ->
+    debug "could not update MTU field on VIF %s" vif_uuid
+
 
 (* take a list of vif devices and attach them to the domid *)
 let create_vifs ~__context ~xs vifs =
