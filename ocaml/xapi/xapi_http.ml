@@ -214,6 +214,8 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
 	  
 let http_request = Http.http_request ~user_agent:Xapi_globs.xapi_user_agent
+let http_request_request = Http.http_request_request ~user_agent:Xapi_globs.xapi_user_agent
+
 let svr_bind = Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog
 
 let add_handler (name, handler) =

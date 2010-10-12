@@ -21,6 +21,7 @@
  *)
 
 open Listext
+open Pervasiveext
 
 (* We're not currently printing any debug data in this module. This is commented out
    so that we can link a standalone binary with this without bringing in logs 
@@ -92,7 +93,6 @@ type rra = {
   mutable rra_updatehook : (rrd -> int -> unit) option; (** Hook that gets called when an update happens *)
 }
 
-
 (** DS - a data source
     This defines how we deal with incoming data. Type is one of:
     
@@ -121,6 +121,44 @@ and rrd = {
   timestep: int64;                       (** Period between PDPs *)
   rrd_dss: ds array; 
   rrd_rras: rra array;
+}
+
+let copy_cdp_prep x = 
+{
+  cdp_value = x.cdp_value;
+  cdp_unknown_pdps = x.cdp_unknown_pdps;
+}
+
+let copy_rra x =
+{
+  rra_cf = x.rra_cf;
+  rra_row_cnt = x.rra_row_cnt;
+  rra_pdp_cnt = x.rra_pdp_cnt;
+  rra_xff = x.rra_xff;
+  rra_data = Array.map Fring.copy x.rra_data;
+  rra_cdps = Array.map copy_cdp_prep x.rra_cdps;
+  rra_updatehook = x.rra_updatehook
+}
+
+
+let copy_ds x = 
+{
+  ds_name = x.ds_name; (* not mutable *)
+  ds_ty = x.ds_ty;
+  ds_min = x.ds_min;
+  ds_max = x.ds_max;
+  ds_mrhb = x.ds_mrhb;
+  ds_last = x.ds_last;
+  ds_value = x.ds_value;
+  ds_unknown_sec = x.ds_unknown_sec;
+}
+
+let copy_rrd x = 
+{
+  last_updated = x.last_updated;
+  timestep = x.timestep;
+  rrd_dss = Array.map copy_ds x.rrd_dss;
+  rrd_rras = Array.map copy_rra x.rrd_rras;
 }
 
 (** Helper function to get the start time and age of the current/last PDP *)
@@ -704,16 +742,28 @@ let from_xml input =
 		inner rrd n) rrd removals_required
     | _ -> failwith "Bad xml!"
 
-let to_xml output rrd =
-  let tag n next () = 
+(** Repeatedly call [f string] where [string] contains a fragment of the RRD XML *)
+let xml_to_fd rrd fd =
+	(* We use an output channel for Xmlm-compat buffered output. Provided we flush
+	   at the end we should be safe. *)  
+	let with_out_channel_output fd f = 
+		let oc = Unix.out_channel_of_descr fd in
+		finally
+		(fun () ->
+			let output = Xmlm.make_output (`Channel oc) in
+			f output
+		)
+		(fun () -> flush oc) in
+
+  let tag n next output = 
     Xmlm.output output (`El_start (("",n),[])); 
-    List.iter (fun x -> x ()) next; 
+    List.iter (fun x -> x output) next; 
     Xmlm.output output (`El_end) 
   in
-  let tags n next () =
-    List.iter (fun next -> tag n next ()) next
+  let tags n next output =
+    List.iter (fun next -> tag n next output) next
   in
-  let data dat () = Xmlm.output output (`Data dat) in
+  let data dat output = Xmlm.output output (`Data dat) in
 
   let do_dss ds_list =
     [tags "ds" (List.map (fun ds -> [
@@ -758,17 +808,22 @@ let to_xml output rrd =
       tag "database" (do_database rra.rra_data)]) rra_list)]
   in
 	
-  Xmlm.output output (`Dtd None);
-  tag "rrd" 
-    (List.concat 
-	[[tag "version" [data "0003"];
-	  tag "step" [data (Int64.to_string rrd.timestep)];
-	  tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
-	 do_dss (Array.to_list rrd.rrd_dss);
-	 do_rras (Array.to_list rrd.rrd_rras);
- 	]) ()
+	with_out_channel_output fd
+	(fun output ->
+		Xmlm.output output (`Dtd None);
+		tag "rrd"
+		(List.concat
+			[[tag "version" [data "0003"];
+			tag "step" [data (Int64.to_string rrd.timestep)];
+			tag "lastupdate" [data (Printf.sprintf "%Ld" (Int64.of_float (rrd.last_updated)))]];
+			do_dss (Array.to_list rrd.rrd_dss);
+			do_rras (Array.to_list rrd.rrd_rras);
+		]) output
+	)
 
-let to_json rrd =
+let json_to_fd rrd fd =
+	let write x = if Unix.write fd x 0 (String.length x) <> String.length x then failwith "json_to_fd: short write" in
+
   let do_dss ds_list =
     "ds:["^(String.concat "," (List.map (fun ds -> 
       "{name:\""^ds.ds_name^"\",type:\""^(match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")^
@@ -805,18 +860,36 @@ let to_json rrd =
 	"},database:"^(do_database rra.rra_data)) rra_list))^"}]"
   in
 	
-  "{version: \"0003\",step:"^(Int64.to_string rrd.timestep)^",lastupdate:"^
-    (f_to_s rrd.last_updated)^","^(do_dss (Array.to_list rrd.rrd_dss))^","^
-    do_rras (Array.to_list rrd.rrd_rras)^"}"
+	write "{version: \"0003\",step:";
+	write (Int64.to_string rrd.timestep);
+	write ",lastupdate:";
+	write (f_to_s rrd.last_updated);
+	write ",";
+	write (do_dss (Array.to_list rrd.rrd_dss));
+	write ",";
+	write (do_rras (Array.to_list rrd.rrd_rras)^"}") (* XXX need to split this *)
 
-let to_string ?(json=false) rrd =
-  if json then
-    to_json rrd
-  else
-    (let buffer = Buffer.create 10 in
-    let output = Xmlm.make_output (`Buffer buffer) in
-    to_xml output rrd;
-    Buffer.contents buffer)
+let iter_to_string_list f x = 
+   let acc = ref [] in
+   f x (fun string -> acc := string :: !acc);
+   List.rev !acc
+
+(*
+(* XXX: we copy and return to avoid holding locks: this is why we aren't exposing
+   an iter/fold interface here. It would be better to copy the original (compact)
+   data then top copy the expanded version. *)
+let to_bigbuffer ?(json=false) rrd =
+  let b = Bigbuffer.make () in
+  begin
+	if json 
+	then Bigbuffer.append_string b (to_json rrd) (* XXX: might be too big *)
+  	else iter_over_xml rrd (Bigbuffer.append_string b)
+  end;
+  b
+*)
+
+let to_fd ?(json=false) rrd fd = (if json then json_to_fd else xml_to_fd) rrd fd
+
 
 (** WARNING WARNING: Do not call the following function from within xapi! *)
 let text_export rrd grouping =
