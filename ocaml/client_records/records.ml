@@ -91,20 +91,26 @@ let safe_get_field x =
   try x.get ()
   with
     | Api_errors.Server_error(s,_) as e-> if s=Api_errors.handle_invalid then "<invalid reference>" else raise e
-    | e -> raise e 
+    | e -> raise e
 
 let get_uuid_from_ref r =
-  try
-    let Some x = (Ref_index.lookup (Ref.string_of r)) in
-    x.Ref_index.uuid
-  with _ -> nid
+	try
+		match Ref_index.lookup (Ref.string_of r) with
+			| None -> raise (CLI_failed_to_find_param "uuid")
+			| Some x -> x.Ref_index.uuid
+	with _ -> nid
 
 let get_name_from_ref r =
-  try
-    let Some x = (Ref_index.lookup (Ref.string_of r)) in
-    let Some y = x.Ref_index.name_label in
-    y
-  with _ -> nid
+	try
+		match Ref_index.lookup (Ref.string_of r) with
+			| None -> raise (CLI_failed_to_find_param "name")
+			| Some x ->
+				begin
+					match x.Ref_index.name_label with
+					| None -> raise (CLI_failed_to_find_param "name")
+					| Some y -> y
+				end
+	with _ -> nid
 
 
 (** If the given list is of length 1, get a ref for the PBD's host,
@@ -347,98 +353,105 @@ let vif_record rpc session_id vif =
 	    string_of_float ((Client.VM.query_data_source rpc session_id (x ()).API.vIF_VM name) /. 1024.0)
 	  with _ -> "<unknown>") ~expensive:true ();
       ]}
-	
-	
-let net_record rpc session_id net = 
-  let _ref = ref net in
-  let empty_record = ToGet (fun () -> Client.Network.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-      [
-	make_field ~name:"uuid"             ~get:(fun () -> (x ()).API.network_uuid) ();
-	make_field ~name:"name-label"       ~get:(fun () -> (x ()).API.network_name_label) 
-	  ~set:(fun x -> Client.Network.set_name_label rpc session_id net x) ();
-	make_field ~name:"name-description" ~get:(fun () -> (x ()).API.network_name_description)
-	  ~set:(fun x -> Client.Network.set_name_description rpc session_id net x) ();
-	make_field ~name:"VIF-uuids" ~get:(fun () -> String.concat "; " (List.map (fun vif -> get_uuid_from_ref vif) (x ()).API.network_VIFs))
-	  ~get_set:(fun () -> (List.map (fun vif -> get_uuid_from_ref vif) (x ()).API.network_VIFs)) ();
-	make_field ~name:"PIF-uuids" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)) 
-	  ~get_set:(fun () -> (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)) ();
-	make_field ~name:"MTU" ~get:(fun () -> (Int64.to_string (x ()).API.network_MTU)) ~set:(fun x -> Client.Network.set_MTU rpc session_id net (Int64.of_string x)) ();
-	make_field ~name:"bridge" ~get:(fun () -> (x ()).API.network_bridge) ();
-	make_field ~name:"other-config"         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.network_other_config)
-	  ~add_to_map:(fun k v -> Client.Network.add_to_other_config rpc session_id net k v)
-	  ~remove_from_map:(fun k -> Client.Network.remove_from_other_config rpc session_id net k) 
-	  ~get_map:(fun () -> (x ()).API.network_other_config) ();
-	make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.network_blobs) ();
-      ] }
 
 
-let pool_record rpc session_id pool = 
-  let _ref = ref pool in
-  let empty_record = ToGet (fun () -> Client.Pool.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-[
-  make_field ~name:"uuid"             ~get:(fun () -> (x ()).API.pool_uuid) ();
-  make_field ~name:"name-label"       ~get:(fun () -> (x ()).API.pool_name_label) 
-     ~set:(fun x -> Client.Pool.set_name_label rpc session_id pool x) ();
-  make_field ~name:"name-description" ~get:(fun () -> (x ()).API.pool_name_description)
-     ~set:(fun x -> Client.Pool.set_name_description rpc session_id pool x) ();
-  make_field ~name:"master"
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_master) ();
-  make_field ~name:"default-SR"       
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_default_SR)
-     ~set:(fun x -> 
-       let sr_ref = (Client.SR.get_by_uuid rpc session_id x) in       
-       Client.Pool.set_default_SR rpc session_id pool sr_ref) ();
-  make_field ~name:"crash-dump-SR"       
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_crash_dump_SR)
-     ~set:(fun x -> 
-       let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in       
-       Client.Pool.set_crash_dump_SR rpc session_id pool sr_ref) ();
-  make_field ~name:"suspend-image-SR"       
-     ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_suspend_image_SR)
-     ~set:(fun x -> 
-       let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in
-       Client.Pool.set_suspend_image_SR rpc session_id pool sr_ref) ();
-  make_field ~name:"supported-sr-types" ~get:(fun () -> String.concat "; " (Client.SR.get_supported_types rpc session_id)) ~expensive:true ();
+let net_record rpc session_id net =
+	let _ref = ref net in
+	let empty_record = ToGet (fun () -> Client.Network.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{ setref=(fun r -> _ref := r; record := empty_record );
+	  setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+	  record=x;
+	  getref=(fun () -> !_ref);
+	  fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.network_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.network_name_label)
+				~set:(fun x -> Client.Network.set_name_label rpc session_id net x) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.network_name_description)
+				~set:(fun x -> Client.Network.set_name_description rpc session_id net x) ();
+			make_field ~name:"VIF-uuids" ~get:(fun () -> String.concat "; " (List.map (fun vif -> get_uuid_from_ref vif) (x ()).API.network_VIFs))
+				~get_set:(fun () -> (List.map (fun vif -> get_uuid_from_ref vif) (x ()).API.network_VIFs)) ();
+			make_field ~name:"PIF-uuids" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs))
+				~get_set:(fun () -> (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)) ();
+			make_field ~name:"MTU" ~get:(fun () -> (Int64.to_string (x ()).API.network_MTU)) ~set:(fun x -> Client.Network.set_MTU rpc session_id net (Int64.of_string x)) ();
+			make_field ~name:"bridge" ~get:(fun () -> (x ()).API.network_bridge) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.network_other_config)
+				~add_to_map:(fun k v -> Client.Network.add_to_other_config rpc session_id net k v)
+				~remove_from_map:(fun k -> Client.Network.remove_from_other_config rpc session_id net k)
+				~get_map:(fun () -> (x ()).API.network_other_config) ();
+			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.network_blobs) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.network_tags)
+				~get_set:(fun () -> (x ()).API.network_tags)
+				~add_to_set:(fun tag -> Client.Network.add_tags rpc session_id net tag)
+				~remove_from_set:(fun tag -> Client.Network.remove_tags rpc session_id net tag) ();
+		]}
 
-  make_field ~name:"other-config"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_other_config)
-     ~add_to_map:(fun k v -> Client.Pool.add_to_other_config rpc session_id pool k v)
-     ~remove_from_map:(fun k -> Client.Pool.remove_from_other_config rpc session_id pool k) 
-     ~get_map:(fun () -> (x ()).API.pool_other_config) ();
-  make_field ~name:"ha-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_enabled) ();
-  make_field ~name:"ha-configuration"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_ha_configuration) ();
-  make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.pool_ha_statefiles)) ();
-  make_field ~name:"ha-host-failures-to-tolerate" ~get:(fun () -> Int64.to_string (x ()).API.pool_ha_host_failures_to_tolerate) ~set:(fun x -> Client.Pool.set_ha_host_failures_to_tolerate rpc session_id pool (Int64.of_string x)) ();
-  make_field ~name:"ha-plan-exists-for" ~get:(fun () -> Int64.to_string (x ()).API.pool_ha_plan_exists_for) ();
-  make_field ~name:"ha-allow-overcommit" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_allow_overcommit) ~set:(fun x -> Client.Pool.set_ha_allow_overcommit rpc session_id pool (bool_of_string x)) ();
-  make_field ~name:"ha-overcommitted" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted) ();
-  make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.pool_blobs) ();
-  make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ();
-  make_field ~name:"wlb-username" ~get:(fun () -> (x ()).API.pool_wlb_username) ();
-  make_field ~name:"wlb-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled) ~set:(fun x -> Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)) ();
-  make_field ~name:"wlb-verify-cert" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert) ~set:(fun x -> Client.Pool.set_wlb_verify_cert rpc session_id pool (bool_of_string x)) ();
-  make_field ~name:"gui-config" 
-    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config) 
-    ~add_to_map:(fun k v -> Client.Pool.add_to_gui_config rpc session_id pool k v)
-    ~remove_from_map:(fun k -> Client.Pool.remove_from_gui_config rpc session_id pool k)
-    ~get_map:(fun () -> (x ()).API.pool_gui_config)
-    ~expensive:true ();
-  make_field ~name:"vswitch-controller" ~hidden:true ~get:(fun () -> let r = (x ()).API.pool_vswitch_controller in if r = "" then "<not set>" else r) ();
-  make_field ~name:"restrictions" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions) ();
-]}
+
+let pool_record rpc session_id pool =
+	let _ref = ref pool in
+	let empty_record = ToGet (fun () -> Client.Pool.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{ setref=(fun r -> _ref := r; record := empty_record );
+	  setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+	  record=x;
+	  getref=(fun () -> !_ref);
+	  fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pool_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.pool_name_label)
+				~set:(fun x -> Client.Pool.set_name_label rpc session_id pool x) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.pool_name_description)
+				~set:(fun x -> Client.Pool.set_name_description rpc session_id pool x) ();
+			make_field ~name:"master"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_master) ();
+			make_field ~name:"default-SR"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_default_SR)
+				~set:(fun x ->
+					let sr_ref = (Client.SR.get_by_uuid rpc session_id x) in
+					Client.Pool.set_default_SR rpc session_id pool sr_ref) ();
+			make_field ~name:"crash-dump-SR"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_crash_dump_SR)
+				~set:(fun x ->
+					let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in
+					Client.Pool.set_crash_dump_SR rpc session_id pool sr_ref) ();
+			make_field ~name:"suspend-image-SR"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_suspend_image_SR)
+				~set:(fun x ->
+					let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in
+					Client.Pool.set_suspend_image_SR rpc session_id pool sr_ref) ();
+			make_field ~name:"supported-sr-types" ~get:(fun () -> String.concat "; " (Client.SR.get_supported_types rpc session_id)) ~expensive:true ();
+			make_field ~name:"other-config"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_other_config)
+				~add_to_map:(fun k v -> Client.Pool.add_to_other_config rpc session_id pool k v)
+				~remove_from_map:(fun k -> Client.Pool.remove_from_other_config rpc session_id pool k)
+				~get_map:(fun () -> (x ()).API.pool_other_config) ();
+			make_field ~name:"ha-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_enabled) ();
+			make_field ~name:"ha-configuration"     ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_ha_configuration) ();
+			make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.pool_ha_statefiles)) ();
+			make_field ~name:"ha-host-failures-to-tolerate" ~get:(fun () -> Int64.to_string (x ()).API.pool_ha_host_failures_to_tolerate) ~set:(fun x -> Client.Pool.set_ha_host_failures_to_tolerate rpc session_id pool (Int64.of_string x)) ();
+			make_field ~name:"ha-plan-exists-for" ~get:(fun () -> Int64.to_string (x ()).API.pool_ha_plan_exists_for) ();
+			make_field ~name:"ha-allow-overcommit" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_allow_overcommit) ~set:(fun x -> Client.Pool.set_ha_allow_overcommit rpc session_id pool (bool_of_string x)) ();
+			make_field ~name:"ha-overcommitted" ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted) ();
+			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.pool_blobs) ();
+			make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ();
+			make_field ~name:"wlb-username" ~get:(fun () -> (x ()).API.pool_wlb_username) ();
+			make_field ~name:"wlb-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled) ~set:(fun x -> Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)) ();
+			make_field ~name:"wlb-verify-cert" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert) ~set:(fun x -> Client.Pool.set_wlb_verify_cert rpc session_id pool (bool_of_string x)) ();
+			make_field ~name:"gui-config"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config)
+				~add_to_map:(fun k v -> Client.Pool.add_to_gui_config rpc session_id pool k v)
+				~remove_from_map:(fun k -> Client.Pool.remove_from_gui_config rpc session_id pool k)
+				~get_map:(fun () -> (x ()).API.pool_gui_config)
+				~expensive:true ();
+			make_field ~name:"vswitch-controller" ~hidden:true ~get:(fun () -> let r = (x ()).API.pool_vswitch_controller in if r = "" then "<not set>" else r) ();
+			make_field ~name:"restrictions" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.pool_tags)
+				~get_set:(fun () -> (x ()).API.pool_tags)
+				~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
+				~remove_from_set:(fun tag -> Client.Pool.remove_tags rpc session_id pool tag) ();
+		]}
 
 let subject_record rpc session_id subject = 
   let _ref = ref subject in
@@ -670,26 +683,25 @@ let vm_record rpc session_id vm =
 		inner 0
 	in
 	let get_memory_target () =
-	        try
-		Int64.to_string (
-			try
-				Int64.of_float (
-					Client.VM.query_data_source
-						rpc session_id !_ref "memory_target"
-				)
-			with Api_errors.Server_error (code, _)
-			when code = Api_errors.vm_bad_power_state -> 0L
-		)
-                with _ -> "<unknown>"
+		try
+			Int64.to_string (
+				try
+					Int64.of_float (
+						Client.VM.query_data_source
+							rpc session_id !_ref "memory_target"
+					)
+				with Api_errors.Server_error (code, _)
+						when code = Api_errors.vm_bad_power_state -> 0L
+			)
+		with _ -> "<unknown>"
 	in
 	let xgm () = lzy_get guest_metrics in
 	{
-		setref = (fun r -> _ref := r; record := empty_record );
-		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
-		record = x;
-		getref = (fun () -> !_ref);
-		fields =
-		[
+	  setref = (fun r -> _ref := r; record := empty_record );
+	  setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+	  record = x;
+	  getref = (fun () -> !_ref);
+	  fields = [
 			make_field ~name:"uuid"
 				~get:(fun () -> (x ()).API.vM_uuid) ();
 			make_field ~name:"name-label"
@@ -747,8 +759,8 @@ let vm_record rpc session_id vm =
 			make_field ~name:"VCPUs-params"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
 				~add_to_map:(fun k v -> match k with
-						| "weight" | "cap" | "mask" -> Client.VM.add_to_VCPUs_params rpc session_id vm k v
-						| _ -> raise (Record_util.Record_failure ("Failed to add parameter '"^k^"': expecting 'weight','cap' or 'mask'")))
+					| "weight" | "cap" | "mask" -> Client.VM.add_to_VCPUs_params rpc session_id vm k v
+					| _ -> raise (Record_util.Record_failure ("Failed to add parameter '"^k^"': expecting 'weight','cap' or 'mask'")))
 				~remove_from_map:(fun k -> Client.VM.remove_from_VCPUs_params rpc session_id vm k) 
 				~get_map:(fun () -> (x ()).API.vM_VCPUs_params) ();
 			make_field ~name:"VCPUs-max"
@@ -893,10 +905,14 @@ let vm_record rpc session_id vm =
 			make_field ~name:"protection-policy"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_protection_policy)
 				~set:(fun x -> if x="" then Client.VM.set_protection_policy rpc session_id vm Ref.null else Client.VM.set_protection_policy rpc session_id vm (Client.VMPP.get_by_uuid rpc session_id x)) ();
-      make_field ~name:"is-snapshot-from-vmpp"
-        ~get:(fun () -> string_of_bool (x ()).API.vM_is_snapshot_from_vmpp) ();
-		]
-	}
+			make_field ~name:"is-snapshot-from-vmpp"
+				~get:(fun () -> string_of_bool (x ()).API.vM_is_snapshot_from_vmpp) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.vM_tags)
+				~get_set:(fun () -> (x ()).API.vM_tags)
+				~add_to_set:(fun tag -> Client.VM.add_tags rpc session_id vm tag)
+				~remove_from_set:(fun tag -> Client.VM.remove_tags rpc session_id vm tag) ();
+		]}
 
 let host_crashdump_record rpc session_id host = 
   let _ref = ref host in
@@ -980,145 +996,150 @@ let host_cpu_record rpc session_id host_cpu =
       with _ -> "<unknown>") ~expensive:true ();
   ]}
 
-let host_record rpc session_id host = 
-  let _ref = ref host in
-  let empty_record = ToGet (fun () -> Client.Host.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  let metrics = ref (ToGet (fun () -> try Some (Client.Host_metrics.get_record rpc session_id (x ()).API.host_metrics) with _ -> None)) in
-  let xm () = lzy_get metrics in
-  let get_patches () = 
-    let host_patch_refs = (x ()).API.host_patches in
-    let patch_refs = List.map (fun x -> Client.Host_patch.get_pool_patch ~rpc ~session_id ~self:x) host_patch_refs in
-    let patch_uuids = List.map (fun x -> Client.Pool_patch.get_uuid ~rpc ~session_id ~self:x) patch_refs in
-      patch_uuids
-  in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-  [
-    make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.host_uuid) ();
-    make_field ~name:"name-label"          ~get:(fun () -> (x ()).API.host_name_label) ~set:(fun s -> Client.Host.set_name_label rpc session_id host s) ();
-    make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.host_name_description) ~set:(fun s -> Client.Host.set_name_description rpc session_id host s) ();
-    make_field ~name:"allowed-operations"
-      ~get:(fun () -> String.concat "; " (List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations)) 
-      ~get_set:(fun () -> List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations) ();
-    make_field ~name:"current-operations"
-      ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations)) 
-      ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations) ();    
-    make_field ~name:"enabled"             ~get:(fun () -> string_of_bool (x ()).API.host_enabled) ();
-    make_field ~name:"API-version-major"   ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_major) ();
-    make_field ~name:"API-version-minor"   ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_minor) ();
-    make_field ~name:"API-version-vendor"  ~get:(fun () -> (x ()).API.host_API_version_vendor) ();
-    make_field ~name:"API-version-vendor-implementation"  
-      ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_API_version_vendor_implementation) 
-      ~get_map:(fun () -> (x ()).API.host_API_version_vendor_implementation) ();
-
-    make_field ~name:"logging"             ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_logging) 
-      ~add_to_map:(fun k v -> Client.Host.add_to_logging rpc session_id host k v)
-      ~remove_from_map:(fun k -> Client.Host.remove_from_logging rpc session_id host k)
-      ~get_map:(fun () -> (x ()).API.host_logging) ();
-    make_field ~name:"suspend-image-sr-uuid"    ~get:(fun () -> get_uuid_from_ref (x ()).API.host_suspend_image_sr) 
-      ~set:(fun s -> Client.Host.set_suspend_image_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
-    make_field ~name:"crash-dump-sr-uuid"       ~get:(fun () -> get_uuid_from_ref (x ()).API.host_crash_dump_sr) 
-      ~set:(fun s -> Client.Host.set_crash_dump_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
-
-    make_field ~name:"software-version"    ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_software_version) 
-      ~get_map:(fun () -> (x ()).API.host_software_version) ();
-    make_field ~name:"capabilities"        ~get:(fun () -> String.concat "; " (x ()).API.host_capabilities) 
-      ~get_set:(fun () -> (x ()).API.host_capabilities) ();
-    make_field ~name:"other-config"        ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_other_config)
-      ~add_to_map:(fun k v -> Client.Host.add_to_other_config rpc session_id host k v)
-      ~remove_from_map:(fun k -> Client.Host.remove_from_other_config rpc session_id host k) 
-      ~get_map:(fun () -> (x ()).API.host_other_config) ();
-    make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_cpu_info) ~get_map:(fun () -> (x ()).API.host_cpu_info) ();
-    make_field ~name:"hostname"          ~get:(fun () -> (x ()).API.host_hostname) ();
-    make_field ~name:"address"           ~get:(fun () -> (x ()).API.host_address) ();
-    make_field ~name:"supported-bootloaders" ~get:(fun () -> String.concat "; " (x ()).API.host_supported_bootloaders) 
-      ~get_set:(fun () -> (x ()).API.host_supported_bootloaders) ();
-    make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.host_blobs) ();
-    make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead) ();
-    make_field ~name:"memory-total" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) )) ();
-    make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
-    make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
-    make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
-    make_field ~name:"patches" ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
-    make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();
-    make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_network_peers)) ();
-
-    make_field ~name:"external-auth-type" ~get:(fun () -> (x ()).API.host_external_auth_type) ();
-    make_field ~name:"external-auth-service-name" ~get:(fun () -> (x ()).API.host_external_auth_service_name) ();
-    make_field ~name:"external-auth-configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_external_auth_configuration)
-      ~get_map:(fun () -> (x ()).API.host_external_auth_configuration) ();
-    make_field ~name:"edition" ~get:(fun () -> (x ()).API.host_edition) ();
-    make_field ~name:"license-server" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_license_server) ~get_map:(fun () -> (x ()).API.host_license_server) ();
-    make_field ~name:"power-on-mode" ~get:(fun () -> (x ()).API.host_power_on_mode) ();
-    make_field ~name:"power-on-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_power_on_config)
-      ~get_map:(fun () -> (x ()).API.host_power_on_config) ();
-	make_field ~name:"local-cache-sr" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_local_cache_sr) ();
-  ]}
+let host_record rpc session_id host =
+	let _ref = ref host in
+	let empty_record = ToGet (fun () -> Client.Host.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	let metrics = ref (ToGet (fun () -> try Some (Client.Host_metrics.get_record rpc session_id (x ()).API.host_metrics) with _ -> None)) in
+	let xm () = lzy_get metrics in
+	let get_patches () =
+		let host_patch_refs = (x ()).API.host_patches in
+		let patch_refs = List.map (fun x -> Client.Host_patch.get_pool_patch ~rpc ~session_id ~self:x) host_patch_refs in
+		let patch_uuids = List.map (fun x -> Client.Pool_patch.get_uuid ~rpc ~session_id ~self:x) patch_refs in
+		patch_uuids
+	in
+	{ setref=(fun r -> _ref := r; record := empty_record );
+	  setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+	  record=x;
+	  getref=(fun () -> !_ref);
+	  fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.host_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.host_name_label) ~set:(fun s -> Client.Host.set_name_label rpc session_id host s) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.host_name_description) ~set:(fun s -> Client.Host.set_name_description rpc session_id host s) ();
+			make_field ~name:"allowed-operations"
+				~get:(fun () -> String.concat "; " (List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations))
+				~get_set:(fun () -> List.map Record_util.host_operation_to_string (x ()).API.host_allowed_operations) ();
+			make_field ~name:"current-operations"
+				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations))
+				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.host_operation_to_string b) (x ()).API.host_current_operations) ();
+			make_field ~name:"enabled" ~get:(fun () -> string_of_bool (x ()).API.host_enabled) ();
+			make_field ~name:"API-version-major" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_major) ();
+			make_field ~name:"API-version-minor" ~get:(fun () -> Int64.to_string (x ()).API.host_API_version_minor) ();
+			make_field ~name:"API-version-vendor" ~get:(fun () -> (x ()).API.host_API_version_vendor) ();
+			make_field ~name:"API-version-vendor-implementation"
+				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_API_version_vendor_implementation)
+				~get_map:(fun () -> (x ()).API.host_API_version_vendor_implementation) ();
+			make_field ~name:"logging"						 ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_logging)
+				~add_to_map:(fun k v -> Client.Host.add_to_logging rpc session_id host k v)
+				~remove_from_map:(fun k -> Client.Host.remove_from_logging rpc session_id host k)
+				~get_map:(fun () -> (x ()).API.host_logging) ();
+			make_field ~name:"suspend-image-sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_suspend_image_sr)
+				~set:(fun s -> Client.Host.set_suspend_image_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
+			make_field ~name:"crash-dump-sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_crash_dump_sr)
+				~set:(fun s -> Client.Host.set_crash_dump_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
+			make_field ~name:"software-version" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_software_version)
+				~get_map:(fun () -> (x ()).API.host_software_version) ();
+			make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.host_capabilities)
+				~get_set:(fun () -> (x ()).API.host_capabilities) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_other_config)
+				~add_to_map:(fun k v -> Client.Host.add_to_other_config rpc session_id host k v)
+				~remove_from_map:(fun k -> Client.Host.remove_from_other_config rpc session_id host k)
+				~get_map:(fun () -> (x ()).API.host_other_config) ();
+			make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_cpu_info) ~get_map:(fun () -> (x ()).API.host_cpu_info) ();
+			make_field ~name:"hostname" ~get:(fun () -> (x ()).API.host_hostname) ();
+			make_field ~name:"address" ~get:(fun () -> (x ()).API.host_address) ();
+			make_field ~name:"supported-bootloaders" ~get:(fun () -> String.concat "; " (x ()).API.host_supported_bootloaders)
+				~get_set:(fun () -> (x ()).API.host_supported_bootloaders) ();
+			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.host_blobs) ();
+			make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead) ();
+			make_field ~name:"memory-total" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) )) ();
+			make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
+			make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
+			make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
+			make_field ~name:"patches" ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
+			make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();
+			make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_network_peers)) ();
+			make_field ~name:"external-auth-type" ~get:(fun () -> (x ()).API.host_external_auth_type) ();
+			make_field ~name:"external-auth-service-name" ~get:(fun () -> (x ()).API.host_external_auth_service_name) ();
+			make_field ~name:"external-auth-configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_external_auth_configuration)
+				~get_map:(fun () -> (x ()).API.host_external_auth_configuration) ();
+			make_field ~name:"edition" ~get:(fun () -> (x ()).API.host_edition) ();
+			make_field ~name:"license-server" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_license_server) ~get_map:(fun () -> (x ()).API.host_license_server) ();
+			make_field ~name:"power-on-mode" ~get:(fun () -> (x ()).API.host_power_on_mode) ();
+			make_field ~name:"power-on-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_power_on_config)
+				~get_map:(fun () -> (x ()).API.host_power_on_config) ();
+			make_field ~name:"local-cache-sr" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_local_cache_sr) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.host_tags)
+				~get_set:(fun () -> (x ()).API.host_tags)
+				~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
+				~remove_from_set:(fun tag -> Client.Host.remove_tags rpc session_id host tag) ();
+		]}
 
 let vdi_record rpc session_id vdi =
-  let _ref = ref vdi in
-  let empty_record = ToGet (fun () -> Client.VDI.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-  [
-    make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vDI_uuid) ();
-    make_field ~name:"name-label" ~get:(fun () -> (x ()).API.vDI_name_label) 
-      ~set:(fun label -> Client.VDI.set_name_label rpc session_id vdi label) ();
-    make_field ~name:"name-description" ~get:(fun () -> (x ()).API.vDI_name_description)
-      ~set:(fun desc -> Client.VDI.set_name_description rpc session_id vdi desc) ();
-    make_field ~name:"is-a-snapshot" ~get:(fun () -> string_of_bool (x ()).API.vDI_is_a_snapshot) (); 
-    make_field ~name:"snapshot-of"   ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_snapshot_of) ();
-    make_field ~name:"snapshots"     ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_snapshots)) ();
-    make_field ~name:"snapshot-time" ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time) ();
-    make_field ~name:"allowed-operations"
-      ~get:(fun () -> String.concat "; " (List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations)) 
-      ~get_set:(fun () -> List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations) ();
-    make_field ~name:"current-operations"
-      ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations)) 
-      ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations) ();    
-    make_field ~name:"sr-uuid"
-      ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_SR) ();
-    make_field ~name:"sr-name-label"
-      ~get:(fun () -> get_name_from_ref (x ()).API.vDI_SR) ();
-    make_field ~name:"vbd-uuids"
-      ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_VBDs)) 
-      ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vDI_VBDs) ();
-    make_field ~name:"crashdump-uuids"
-      ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps)) 
-      ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps) ();
-    make_field ~name:"virtual-size" ~get:(fun () -> Int64.to_string (x ()).API.vDI_virtual_size) ();
-    make_field ~name:"physical-utilisation" ~get:(fun () -> Int64.to_string (x ()).API.vDI_physical_utilisation) ();
-    make_field ~name:"location" ~get:(fun () -> (x ()).API.vDI_location) ();
-    make_field ~name:"type" ~get:(fun () -> Record_util.vdi_type_to_string (x ()).API.vDI_type) ();
-    make_field ~name:"sharable" ~get:(fun () -> string_of_bool (x ()).API.vDI_sharable) ();
-    make_field ~name:"read-only" ~get:(fun () -> string_of_bool (x ()).API.vDI_read_only) ();
-    make_field ~name:"storage-lock" ~get:(fun () -> string_of_bool (x ()).API.vDI_storage_lock) ();
-    make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.vDI_managed) ();
-    make_field ~name:"parent" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_parent) ();
-    make_field ~name:"missing" ~get:(fun () -> string_of_bool (x ()).API.vDI_missing) ();
-    make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config) 
-      ~add_to_map:(fun k v -> Client.VDI.add_to_other_config rpc session_id vdi k v)
-      ~remove_from_map:(fun k -> Client.VDI.remove_from_other_config rpc session_id vdi k) 
-      ~get_map:(fun () -> (x ()).API.vDI_other_config) ();
-    make_field ~name:"xenstore-data" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_xenstore_data) 
-      ~get_map:(fun () -> (x ()).API.vDI_xenstore_data) ();
-    make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_sm_config) 
-      ~get_map:(fun () -> (x ()).API.vDI_sm_config) ();
-	make_field ~name:"on-boot" ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot) 
-		~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (Record_util.string_to_vdi_onboot onboot)) ();
-		make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching) 
-		~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
-  ]}
+	let _ref = ref vdi in
+	let empty_record = ToGet (fun () -> Client.VDI.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{ setref=(fun r -> _ref := r; record := empty_record );
+	  setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+	  record=x;
+	  getref=(fun () -> !_ref);
+	  fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vDI_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.vDI_name_label)
+				~set:(fun label -> Client.VDI.set_name_label rpc session_id vdi label) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.vDI_name_description)
+				~set:(fun desc -> Client.VDI.set_name_description rpc session_id vdi desc) ();
+			make_field ~name:"is-a-snapshot" ~get:(fun () -> string_of_bool (x ()).API.vDI_is_a_snapshot) ();
+			make_field ~name:"snapshot-of" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_snapshot_of) ();
+			make_field ~name:"snapshots" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_snapshots)) ();
+			make_field ~name:"snapshot-time" ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time) ();
+			make_field ~name:"allowed-operations"
+				~get:(fun () -> String.concat "; " (List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations))
+				~get_set:(fun () -> List.map Record_util.vdi_operation_to_string (x ()).API.vDI_allowed_operations) ();
+			make_field ~name:"current-operations"
+				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations))
+				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations) ();
+			make_field ~name:"sr-uuid"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_SR) ();
+			make_field ~name:"sr-name-label"
+				~get:(fun () -> get_name_from_ref (x ()).API.vDI_SR) ();
+			make_field ~name:"vbd-uuids"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_VBDs))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vDI_VBDs) ();
+			make_field ~name:"crashdump-uuids"
+				~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps) ();
+			make_field ~name:"virtual-size" ~get:(fun () -> Int64.to_string (x ()).API.vDI_virtual_size) ();
+			make_field ~name:"physical-utilisation" ~get:(fun () -> Int64.to_string (x ()).API.vDI_physical_utilisation) ();
+			make_field ~name:"location" ~get:(fun () -> (x ()).API.vDI_location) ();
+			make_field ~name:"type" ~get:(fun () -> Record_util.vdi_type_to_string (x ()).API.vDI_type) ();
+			make_field ~name:"sharable" ~get:(fun () -> string_of_bool (x ()).API.vDI_sharable) ();
+			make_field ~name:"read-only" ~get:(fun () -> string_of_bool (x ()).API.vDI_read_only) ();
+			make_field ~name:"storage-lock" ~get:(fun () -> string_of_bool (x ()).API.vDI_storage_lock) ();
+			make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.vDI_managed) ();
+			make_field ~name:"parent" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_parent) ();
+			make_field ~name:"missing" ~get:(fun () -> string_of_bool (x ()).API.vDI_missing) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config)
+				~add_to_map:(fun k v -> Client.VDI.add_to_other_config rpc session_id vdi k v)
+				~remove_from_map:(fun k -> Client.VDI.remove_from_other_config rpc session_id vdi k)
+				~get_map:(fun () -> (x ()).API.vDI_other_config) ();
+			make_field ~name:"xenstore-data" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_xenstore_data)
+				~get_map:(fun () -> (x ()).API.vDI_xenstore_data) ();
+			make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_sm_config)
+				~get_map:(fun () -> (x ()).API.vDI_sm_config) ();
+			make_field ~name:"on-boot" ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot)
+				~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (Record_util.string_to_vdi_onboot onboot)) ();
+			make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching)
+				~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
+				~get_set:(fun () -> (x ()).API.vDI_tags)
+				~add_to_set:(fun tag -> Client.VDI.add_tags rpc session_id vdi tag)
+				~remove_from_set:(fun tag -> Client.VDI.remove_tags rpc session_id vdi tag) ();
+		]}
 
 let vbd_record rpc session_id vbd =
   let _ref = ref vbd in
@@ -1231,55 +1252,59 @@ let sm_record rpc session_id sm =
 
 
 let sr_record rpc session_id sr =
-  let _ref = ref sr in
-  let empty_record = ToGet (fun () -> Client.SR.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields = 
-  [
-    make_field ~name:"uuid" ~get:(fun () -> (x ()).API.sR_uuid) ();
-    make_field ~name:"name-label" ~get:(fun () -> (x ()).API.sR_name_label) 
-      ~set:(fun x -> Client.SR.set_name_label rpc session_id sr x) ();
-    make_field ~name:"name-description" ~get:(fun () -> (x ()).API.sR_name_description) 
-      ~set:(fun x -> Client.SR.set_name_description rpc session_id sr x) ();
-    make_field ~name:"host"
-      ~get:(fun () ->
-	      let sr_rec = x() in
-	      let pbds = sr_rec.API.sR_PBDs in
-	      if List.length pbds>1 then "<shared>"
-	      else get_name_from_ref (get_sr_host rpc session_id sr_rec)) ();
-    make_field ~name:"allowed-operations"
-      ~get:(fun () -> String.concat "; " (List.map Record_util.sr_operation_to_string (x ()).API.sR_allowed_operations)) 
-      ~get_set:(fun () -> List.map Record_util.sr_operation_to_string (x ()).API.sR_allowed_operations) ();
-    make_field ~name:"current-operations"
-      ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.sr_operation_to_string b) (x ()).API.sR_current_operations)) 
-      ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.sr_operation_to_string b) (x ()).API.sR_current_operations) ();   
-    make_field ~name:"VDIs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_VDIs)) 
-      ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_VDIs) ();
-    make_field ~name:"PBDs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_PBDs)) 
-      ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_PBDs) ();
-    make_field ~name:"virtual-allocation" ~get:(fun () -> Int64.to_string (x ()).API.sR_virtual_allocation) ();
-    make_field ~name:"physical-utilisation" ~get:(fun () -> Int64.to_string (x ()).API.sR_physical_utilisation) ();
-    make_field ~name:"physical-size" ~get:(fun () -> Int64.to_string (x ()).API.sR_physical_size) ();
-    make_field ~name:"type" ~get:(fun () -> (x ()).API.sR_type) ();
-    make_field ~name:"content-type" ~get:(fun () -> (x ()).API.sR_content_type) ();
-    make_field ~name:"shared" 
-      ~get:(fun () -> string_of_bool ((x ()).API.sR_shared))
-      ~set:(fun x -> Client.SR.set_shared rpc session_id sr (safe_bool_of_string "shared" x)) ();
-    make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_other_config) 
-      ~add_to_map:(fun k v -> Client.SR.add_to_other_config rpc session_id sr k v)
-      ~remove_from_map:(fun k -> Client.SR.remove_from_other_config rpc session_id sr k) 
-      ~get_map:(fun () -> (x ()).API.sR_other_config) ();
-    make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_sm_config) 
-      ~get_map:(fun () -> (x ()).API.sR_sm_config) ();
-    make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.sR_blobs) ();
-	make_field ~name:"local-cache-enabled" ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled) ();
-  ]}
-    
+	let _ref = ref sr in
+	let empty_record = ToGet (fun () -> Client.SR.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{ setref=(fun r -> _ref := r; record := empty_record );
+	  setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+	  record=x;
+	  getref=(fun () -> !_ref);
+	  fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.sR_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.sR_name_label)
+				~set:(fun x -> Client.SR.set_name_label rpc session_id sr x) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.sR_name_description)
+				~set:(fun x -> Client.SR.set_name_description rpc session_id sr x) ();
+			make_field ~name:"host"
+				~get:(fun () ->
+					let sr_rec = x() in
+					let pbds = sr_rec.API.sR_PBDs in
+					if List.length pbds>1 then "<shared>"
+					else get_name_from_ref (get_sr_host rpc session_id sr_rec)) ();
+			make_field ~name:"allowed-operations"
+				~get:(fun () -> String.concat "; " (List.map Record_util.sr_operation_to_string (x ()).API.sR_allowed_operations))
+				~get_set:(fun () -> List.map Record_util.sr_operation_to_string (x ()).API.sR_allowed_operations) ();
+			make_field ~name:"current-operations"
+				~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.sr_operation_to_string b) (x ()).API.sR_current_operations))
+				~get_set:(fun () -> List.map (fun (a,b) -> Record_util.sr_operation_to_string b) (x ()).API.sR_current_operations) ();
+			make_field ~name:"VDIs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_VDIs))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_VDIs) ();
+			make_field ~name:"PBDs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_PBDs))
+				~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_PBDs) ();
+			make_field ~name:"virtual-allocation" ~get:(fun () -> Int64.to_string (x ()).API.sR_virtual_allocation) ();
+			make_field ~name:"physical-utilisation" ~get:(fun () -> Int64.to_string (x ()).API.sR_physical_utilisation) ();
+			make_field ~name:"physical-size" ~get:(fun () -> Int64.to_string (x ()).API.sR_physical_size) ();
+			make_field ~name:"type" ~get:(fun () -> (x ()).API.sR_type) ();
+			make_field ~name:"content-type" ~get:(fun () -> (x ()).API.sR_content_type) ();
+			make_field ~name:"shared"
+				~get:(fun () -> string_of_bool ((x ()).API.sR_shared))
+				~set:(fun x -> Client.SR.set_shared rpc session_id sr (safe_bool_of_string "shared" x)) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_other_config)
+				~add_to_map:(fun k v -> Client.SR.add_to_other_config rpc session_id sr k v)
+				~remove_from_map:(fun k -> Client.SR.remove_from_other_config rpc session_id sr k)
+				~get_map:(fun () -> (x ()).API.sR_other_config) ();
+			make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_sm_config)
+				~get_map:(fun () -> (x ()).API.sR_sm_config) ();
+			make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.sR_blobs) ();
+			make_field ~name:"local-cache-enabled" ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled) ();
+			make_field ~name:"tags"
+				~get:(fun () -> String.concat ", " (x ()).API.sR_tags)
+				~get_set:(fun () -> (x ()).API.sR_tags)
+				~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
+				~remove_from_set:(fun tag -> Client.SR.remove_tags rpc session_id sr tag) ();
+		]}
+
 let pbd_record rpc session_id pbd =
 	let _ref = ref pbd in
 	let empty_record = ToGet (fun () -> Client.PBD.get_record rpc session_id !_ref) in
@@ -1289,7 +1314,7 @@ let pbd_record rpc session_id pbd =
 		; setrefrec=(fun (a,b) -> _ref := a; record := Got b)
 		; record=x
 		; getref=(fun () -> !_ref)
-		; fields = 
+		; fields =
 			[ make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pBD_uuid) ()
 			; make_field ~name:"host" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ~deprecated:true ()
 			; make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pBD_host) ()
