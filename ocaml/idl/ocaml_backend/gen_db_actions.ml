@@ -52,7 +52,7 @@ let dm_to_string tys : O.Module.t =
   let ty_fun ty =
     let body = match ty with
       | DT.Bool -> "string_of_bool"
-      | DT.DateTime -> "fun x -> Date.to_string x"
+      | DT.DateTime -> "fun x -> (try Date.assert_utc x with Invalid_argument s -> raise (DateTimeError s)); Date.to_string x"
       | DT.Enum(name, cs) ->
           let aux (c, _) = (OU.constructor_of c)^" -> \""^c^"\"" in
           "\n    fun v -> match v with\n      "^
@@ -80,6 +80,7 @@ let dm_to_string tys : O.Module.t =
   O.Module.make
     ~name:_dm_to_string
     ~preamble: [ "exception StringEnumTypeError of string";
+                 "exception DateTimeError of string";
                  "open String_marshall_helper" ]
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys) ()

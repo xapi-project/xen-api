@@ -47,10 +47,10 @@ let error_of_exn e =
     | Db_cache.Read_missing_uuid (tbl,ref,uuid) ->
 	uuid_invalid, [ tbl; uuid ]
 	  
-    | Db_actions.DM_to_String.StringEnumTypeError s ->
-	invalid_value, [ s ]
+    | Db_actions.DM_to_String.StringEnumTypeError s
+    | Db_actions.DM_to_String.DateTimeError s
     | Db_actions.String_to_DM.StringEnumTypeError s ->
-	invalid_value, [ s ]
+        invalid_value, [ s ]
 	  
 (* These are the two catch-all patterns. If ever an Errors.Server_error exception   *)
 (* is raised, this is assumed to be an API error, and passed straight on. Any other *)
