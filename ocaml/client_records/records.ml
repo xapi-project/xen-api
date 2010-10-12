@@ -1086,9 +1086,9 @@ let vdi_record rpc session_id vdi =
     make_field ~name:"current-operations"
       ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations)) 
       ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vdi_operation_to_string b) (x ()).API.vDI_current_operations) ();    
-    make_field ~name:"sr-uuid" 
+    make_field ~name:"sr-uuid"
       ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_SR) ();
-    make_field ~name:"sr-name-label" 
+    make_field ~name:"sr-name-label"
       ~get:(fun () -> get_name_from_ref (x ()).API.vDI_SR) ();
     make_field ~name:"vbd-uuids"
       ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_VBDs)) 
@@ -1115,7 +1115,7 @@ let vdi_record rpc session_id vdi =
     make_field ~name:"sm-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_sm_config) 
       ~get_map:(fun () -> (x ()).API.vDI_sm_config) ();
 	make_field ~name:"on-boot" ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot) 
-		~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (match onboot with "persist" -> `persist | "reset" -> `reset)) ();
+		~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (Record_util.string_to_vdi_onboot onboot)) ();
 		make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching) 
 		~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
   ]}
@@ -1131,10 +1131,10 @@ let vbd_record rpc session_id vbd =
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;
     getref=(fun () -> !_ref);
-    fields = 
+    fields =
   [
     make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vBD_uuid) ();
-    make_field ~name:"vm-uuid" 
+    make_field ~name:"vm-uuid"
       ~get:(fun () -> get_uuid_from_ref (x ()).API.vBD_VM) ();
     make_field ~name:"vm-name-label"
       ~get:(fun () -> get_name_from_ref (x ()).API.vBD_VM) ();
@@ -1145,7 +1145,7 @@ let vbd_record rpc session_id vbd =
       ~get_set:(fun () -> List.map Record_util.vbd_operation_to_string (x ()).API.vBD_allowed_operations) ();
     make_field ~name:"current-operations"
       ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vbd_operation_to_string b) (x ()).API.vBD_current_operations)) 
-      ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vbd_operation_to_string b) (x ()).API.vBD_current_operations) ();   
+      ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vbd_operation_to_string b) (x ()).API.vBD_current_operations) ();
     make_field ~name:"empty" ~get:(fun () -> string_of_bool (x ()).API.vBD_empty) ();
     make_field ~name:"device" ~get:(fun () -> (x ()).API.vBD_device) ();
     make_field ~name:"userdevice" ~get:(fun () -> (x ()).API.vBD_userdevice)
@@ -1153,9 +1153,9 @@ let vbd_record rpc session_id vbd =
     make_field ~name:"bootable" ~get:(fun () -> string_of_bool (x ()).API.vBD_bootable)
       ~set:(fun boot -> Client.VBD.set_bootable rpc session_id vbd (safe_bool_of_string "bootable" boot)) ();
     make_field ~name:"mode" ~get:(fun () -> match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW") 
-      ~set:(fun mode -> Client.VBD.set_mode rpc session_id vbd (match mode with "RO" -> `RO | "RW" -> `RW)) ();
+      ~set:(fun mode -> Client.VBD.set_mode rpc session_id vbd (Record_util.string_to_vbd_mode mode)) ();
     make_field ~name:"type" ~get:(fun () -> match (x ()).API.vBD_type with `CD -> "CD" | `Disk -> "Disk")
-      ~set:(fun ty -> Client.VBD.set_type rpc session_id vbd (match ty with "CD" -> `CD | "Disk" -> `Disk)) ();
+      ~set:(fun ty -> Client.VBD.set_type rpc session_id vbd (Record_util.string_to_vbd_type ty)) ();
     make_field ~name:"unpluggable" ~get:(fun () -> string_of_bool (x ()).API.vBD_unpluggable)
       ~set:(fun unpluggable -> Client.VBD.set_unpluggable rpc session_id vbd (safe_bool_of_string "unpluggable" unpluggable)) ();
     make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool (x ()).API.vBD_currently_attached) ();
@@ -1175,12 +1175,12 @@ let vbd_record rpc session_id vbd =
       ~add_to_map:(fun k v -> Client.VBD.add_to_other_config rpc session_id vbd k v)
       ~remove_from_map:(fun k -> Client.VBD.remove_from_other_config rpc session_id vbd k) 
       ~get_map:(fun () -> (x ()).API.vBD_other_config) ();
-    make_field ~name:"io_read_kbs" ~get:(fun () -> 
+    make_field ~name:"io_read_kbs" ~get:(fun () ->
       try
 	let name = Printf.sprintf "vbd_%s_read" (x ()).API.vBD_device in
 	string_of_float ((Client.VM.query_data_source rpc session_id (x ()).API.vBD_VM name) /. 1024.0)
       with _ -> "<unknown>") ~expensive:true ();
-    make_field ~name:"io_write_kbs" ~get:(fun () -> 
+    make_field ~name:"io_write_kbs" ~get:(fun () ->
       try
 	let name = Printf.sprintf "vbd_%s_write" (x ()).API.vBD_device in
 	string_of_float ((Client.VM.query_data_source rpc session_id (x ()).API.vBD_VM name) /. 1024.0)
