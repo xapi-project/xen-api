@@ -642,7 +642,6 @@ let subset a b = List.fold_left (fun acc x -> acc && (List.mem x b)) true a
 let is_sr_properly_shared ~__context ~self = 
   let shared = Db.SR.get_shared ~__context ~self in
   if not shared then begin
-    warn "SR %s not shared properly: field 'shared' is set to false'" (Ref.string_of self);
     false
   end else begin
     let pbds = Db.SR.get_PBDs ~__context ~self in
