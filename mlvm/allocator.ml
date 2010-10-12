@@ -66,7 +66,7 @@ let contained : area -> area -> bool =
 	let (name2, (start2, size2)) = unpack_area a2 in
 	name=name2 && start >= start2 && Int64.add start size <= Int64.add start2 size2
 
-exception PVS_DONT_MATCH
+exception PVS_DONT_MATCH of string * string
 
 (* assumes all areas stem from the same pv *)
 let normalize_single_pv areas =
@@ -75,7 +75,7 @@ let normalize_single_pv areas =
     let merge1 (a1, acc) a2 =
 	let (name, (start1, size1)) = unpack_area a1
 	and (name2, (start2, size2)) = unpack_area a2 in
-	if (name != name2) then raise PVS_DONT_MATCH
+	if (name <> name2) then raise (PVS_DONT_MATCH (name, name2))
 	else if (Int64.add start1 size1) = start2 then
 	    (make_area name start1 (Int64.add size1 size2), acc)
 	else

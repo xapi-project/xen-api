@@ -284,9 +284,11 @@ let lv_deactivate vg lv =
 	 lv_deactivate_internal None dm_name)
 
 let lv_change_internal dm_name dm_map dereference_table =
-  Camldm.reload dm_name dm_map dereference_table;
-  Camldm.suspend dm_name;
-  Camldm.resume dm_name
+  if not !Constants.dummy_mode then begin
+    Camldm.reload dm_name dm_map dereference_table;
+    Camldm.suspend dm_name;
+    Camldm.resume dm_name
+  end
 
 let with_active_lv vg lv use_tmp fn =
   let name = dm_name_of vg lv in
