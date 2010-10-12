@@ -15,8 +15,9 @@
  * @group Command-Line Interface (CLI)
  *)
  
-open Stringext
 open Pervasiveext
+open Listext
+open Stringext
 open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
@@ -144,30 +145,31 @@ let do_help is_compat cmd minimal s =
   marshal s (Command (Exit 0))
 
 let exec_command req is_compat cmd s session args =
-  let params = get_params cmd in
-  let minimal = 
-    if (List.mem_assoc "minimal" params)
-    then bool_of_string (List.assoc "minimal" params)
-    else false in
-  let u = try List.assoc "username" params with _ -> "" in
-  let p = try List.assoc "password" params with _ -> "" in
-  let rpc = Helpers.get_rpc () req s in
-  Cli_frontend.populate_cmdtable rpc Ref.null;
-  (* Log the actual CLI command to help diagnose failures like CA-25516 *)
-  let cmd_name = get_cmdname cmd in
-  if String.startswith "secret-" cmd_name
+	let params = get_params cmd in
+	let minimal =
+		if (List.mem_assoc "minimal" params)
+		then bool_of_string (List.assoc "minimal" params)
+		else false in
+	let u = try List.assoc "username" params with _ -> "" in
+	let p = try List.assoc "password" params with _ -> "" in
+	let params = List.replace_assoc "password" "null" params in
+	let rpc = Helpers.get_rpc () req s in
+	Cli_frontend.populate_cmdtable rpc Ref.null;
+	(* Log the actual CLI command to help diagnose failures like CA-25516 *)
+	let cmd_name = get_cmdname cmd in
+	if String.startswith "secret-" cmd_name
 	then
 		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if k = "value" then "(omitted)" else v in k ^ "=" ^ v') params))
 	else
 		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-  if cmd_name = "help"
-  then do_help is_compat cmd minimal s 
-  else do_rpcs req s u p minimal is_compat cmd session args
-	
+	if cmd_name = "help"
+	then do_help is_compat cmd minimal s
+	else do_rpcs req s u p minimal is_compat cmd session args
+
 
 let get_line str i =
   try
-    let next_endl = String.index_from str i '\n' in 
+    let next_endl = String.index_from str i '\n' in
     (Some (next_endl+1),String.sub str i (next_endl - i))
   with
       Not_found -> (None,String.sub str i (String.length str - i))
