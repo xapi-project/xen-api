@@ -73,7 +73,7 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 	 close close_now;
    finally
      (fun () -> 
-       lower_priority pid;  (* lowest priority to gzip *)
+       (try lower_priority pid with _->()); (* lowest priority to gzip *)
        f close_later
      )
 	   (fun () ->
