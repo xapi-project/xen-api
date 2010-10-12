@@ -998,11 +998,11 @@ let vdi_create printer rpc session_id params =
 	let str_type = List.assoc "type" params in
 	let virtual_size = Record_util.bytes_of_string "virtual-size" (List.assoc "virtual-size" params) in
 	let ty = vdi_type_of_string str_type in
-
+	let sharable = get_bool_param params "sharable" in
 	let sm_config=read_map_params "sm-config" params in
 
 	let vdi = Client.VDI.create ~rpc ~session_id ~name_label ~name_description:"" ~sR ~virtual_size ~_type:ty
-		~sharable:false ~read_only:false ~xenstore_data:[] ~other_config:[] ~sm_config ~tags:[] in
+		~sharable ~read_only:false ~xenstore_data:[] ~other_config:[] ~sm_config ~tags:[] in
 	let vdi_uuid = Client.VDI.get_uuid rpc session_id vdi in
 	printer (Cli_printer.PList [vdi_uuid])
 
