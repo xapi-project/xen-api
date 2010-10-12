@@ -28,8 +28,13 @@ let create ~__context ~transport_PIF ~network =
 	let pool = Helpers.get_pool ~__context in
 	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
-	if Netdev.network.Netdev.kind <> Netdev.Vswitch then
-		raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []));
+	let hosts = Db.Host.get_all ~__context in
+	List.iter
+		(fun h ->
+			let v = Db.Host.get_software_version ~__context ~self:h in
+			if not (List.mem_assoc "network_backend" v && List.assoc "network_backend" v = "openvswitch") then
+				raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []));
+		) hosts;
 	if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:transport_PIF <> [] then
 		raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of transport_PIF]));
 	let tunnel = Ref.make () in
