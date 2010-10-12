@@ -31,8 +31,8 @@ let list () =
   let all = try Array.to_list (Sys.readdir main_dir) with Sys_error _ -> [] in
   List.map (fun x ->
 	      let path = Filename.concat main_dir x in
-	      let uuid = Unixext.read_whole_file_to_string (Filename.concat path "vdi-uuid") in
-	      let reason = Unixext.read_whole_file_to_string (Filename.concat path "reason") in
+	      let uuid = Unixext.string_of_file (Filename.concat path "vdi-uuid") in
+	      let reason = Unixext.string_of_file (Filename.concat path "reason") in
 	      let bool_of_string x = String.lowercase x = "true" in
 	      let delete_next_boot = 
 		try ignore(Unix.stat (Filename.concat path "delete-next-boot")); true 

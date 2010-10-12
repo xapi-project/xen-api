@@ -24,7 +24,7 @@ let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true w
 
 let fistpoint_read name =
 	try
-		Some (Unixext.read_whole_file_to_string ("/tmp/fist_" ^ name))
+		Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
 	with _ -> None
 
 let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)

@@ -48,7 +48,7 @@ let split_colon line =
   List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line))
 
 let meminfo () = 
-  let all = Unixext.read_whole_file_to_string "/proc/meminfo" in
+  let all = Unixext.string_of_file "/proc/meminfo" in
   let total = ref (-1)
   and free = ref (-1)
   and buffered = ref (-1)
@@ -71,7 +71,7 @@ let string_of_meminfo (x: meminfo) =
   Printf.sprintf "MemTotal: %d KiB; MemFree: %d KiB; Buffered: %d KiB; Cached: %d KiB; SwapTotal: %d KiB; SwapFree: %d KiB" x.total x.free x.buffered x.cached x.swap_total x.swap_free
 
 let process_memory_info_of_pid (pid: int) = 
-  let all = Unixext.read_whole_file_to_string (Printf.sprintf "/proc/%d/status" pid) in
+  let all = Unixext.string_of_file (Printf.sprintf "/proc/%d/status" pid) in
   let peak = ref (-1)
   and size = ref (-1)
   and locked = ref (-1)

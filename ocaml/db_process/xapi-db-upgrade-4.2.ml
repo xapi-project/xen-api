@@ -41,7 +41,7 @@ let (_:unit) =
 		(fun dbconn ->
 			let path = dbconn.Parse_db_conf.path in
 			(* first, fit the database into memory *)
-			let state_db = Unixext.read_whole_file_to_string path in
+			let state_db = Unixext.string_of_file path in
 			(* second, save the original database in a backup file, using a timestamp *)
 			Unixext.write_string_to_file (path ^ ".prev_version." ^ (string_of_float (Unix.gettimeofday()))) state_db;
 			(* finally, transform the database and replace the database file by a new one *)

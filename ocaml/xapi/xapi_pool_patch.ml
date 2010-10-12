@@ -539,7 +539,7 @@ let update_db ~__context =
       (* Full paths of the /var/patch/applied files *)
       let stampfiles = List.map (Filename.concat patch_applied_dir) (try Array.to_list (Sys.readdir patch_applied_dir) with _ -> []) in
       let parse x = 
-	try [ patch_info_of_string (Unixext.read_whole_file_to_string x), (Unix.stat x).Unix.st_mtime ]
+	try [ patch_info_of_string (Unixext.string_of_file x), (Unix.stat x).Unix.st_mtime ]
 	with e -> warn "Error parsing patch stampfile %s: %s" x (ExnHelper.string_of_exn e); [] in
       List.concat (List.map parse stampfiles) in
 

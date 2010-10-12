@@ -61,7 +61,7 @@ let validate_signature fname =
 	| None -> 
 	    debug "No fingerprint!";
 	    raise Gpg.InvalidSignature);
-      Unixext.read_whole_file 500 500 fd)
+      Unixext.string_of_fd fd)
       
 (* only activation keys are accepted as license files since XS 5.6 *)
 let parse_license license_data =

@@ -158,7 +158,7 @@ let get_cert is_cert name =
     raise_name_invalid is_cert name;
   let filename = library_filename is_cert name in
   try
-    read_whole_file_to_string filename
+    string_of_file filename
   with
     | e ->
         warn "Exception reading %s %s: %s" (get_type is_cert) name
@@ -283,7 +283,7 @@ and trim_cert' acc = function
 let get_server_certificate () =
   try
     String.concat "\n"
-      (trim_cert (String.split '\n' (read_whole_file_to_string server_cert)))
+      (trim_cert (String.split '\n' (string_of_file server_cert)))
   with
     | e ->
         warn "Exception reading server certificate: %s"

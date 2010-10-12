@@ -468,7 +468,7 @@ let lookup_vdi_fields f vdi_refs l =
 (* Read pool secret if there, otherwise create a new one *)
 let get_pool_secret () =
   if (try (Unix.access pool_secret_path [Unix.F_OK]; true) with _ -> false) then
-    pool_secret := Unixext.read_whole_file_to_string pool_secret_path
+    pool_secret := Unixext.string_of_file pool_secret_path
   else
     begin
       let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
@@ -703,7 +703,7 @@ let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
 let loadavg () =
   let split_colon line =
     List.filter (fun x -> x <> "") (List.map (String.strip String.isspace) (String.split ' ' line)) in
-  let all = Unixext.read_whole_file_to_string "/proc/loadavg" in
+  let all = Unixext.string_of_file "/proc/loadavg" in
   try
     float_of_string (List.hd (split_colon all))
   with _ -> -1.

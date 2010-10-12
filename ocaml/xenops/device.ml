@@ -1357,7 +1357,7 @@ let write_logfile_to_log domid =
 	try
 		let fd = Unix.openfile logfile [ Unix.O_RDONLY ] 0o0 in
 		finally
-		  (fun () -> debug "qemu-dm: logfile contents: %s" (Unixext.read_whole_file 1024 1024 fd))
+		  (fun () -> debug "qemu-dm: logfile contents: %s" (Unixext.string_of_fd fd))
 		  (fun () -> Unix.close fd)
 	with e ->
 		debug "Caught exception reading qemu log file from %s: %s" logfile (Printexc.to_string e);
@@ -1589,7 +1589,7 @@ let stop ~xs domid  =
 		in
 		let readcmdline pid =
 		  try
-		    match Unixext.read_whole_file_to_string (sprintf "/proc/%d/cmdline" pid) with
+		    match Unixext.string_of_file (sprintf "/proc/%d/cmdline" pid) with
 		    | "" -> None (* CA-27800: proc/cmdline returns empty strings during _exit() *)
 		    | x -> Some x
 		  with e -> None in

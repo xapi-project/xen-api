@@ -46,8 +46,8 @@ let gen_manifest gen_count =
   {
     installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid;
     control_domain_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
-    pool_conf = Unixext.read_whole_file_to_string Xapi_globs.pool_config_file;
-    pool_token = Unixext.read_whole_file_to_string Xapi_globs.pool_secret_path;
+    pool_conf = Unixext.string_of_file Xapi_globs.pool_config_file;
+    pool_token = Unixext.string_of_file Xapi_globs.pool_secret_path;
     schema_major_vsn = Datamodel.schema_major_vsn;
     schema_minor_vsn = Datamodel.schema_minor_vsn;
     product_version = Version.product_version;
