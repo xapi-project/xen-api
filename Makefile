@@ -89,6 +89,8 @@ version:
 	echo "let hostname = \"$(shell hostname)\"" >> ocaml/util/version.ml
 	echo "let date = \"$(shell date -u +%Y-%m-%d)\"" >> ocaml/util/version.ml
 	echo "let product_version = \"$(PRODUCT_VERSION)\"" >> ocaml/util/version.ml
+	echo "let product_version_text = \"$(PRODUCT_VERSION_TEXT)\"" >> ocaml/util/version.ml
+	echo "let product_version_text_short = \"$(PRODUCT_VERSION_TEXT_SHORT)\"" >> ocaml/util/version.ml
 	echo "let product_brand = \"$(PRODUCT_BRAND)\"" >> ocaml/util/version.ml
 	echo "let build_number = Util_inventory.lookup \"BUILD_NUMBER\" (* \"$(BUILD_NUMBER)\" *)" >> ocaml/util/version.ml
  
