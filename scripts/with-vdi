@@ -38,7 +38,7 @@ if [ `xe vdi-param-get uuid=${VDI} param-name=read-only` = "true" ] ; then
 else
     MODE=RW
 fi
-VBD=`xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} device=autodetect mode=${MODE}`
+VBD=`xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} device=autodetect mode=${MODE} unpluggable=true`
 xe vbd-plug uuid=${VBD}
 DEVICE=`xe vbd-param-get uuid=${VBD} param-name=device`
 export DEVICE
