@@ -449,7 +449,7 @@ let _ =
     ~doc:"The specified device was not found." ();
 
   error Api_errors.openvswitch_not_active []
-    ~doc:"This operation needs the OpenVSwitch networking backend to be enabled." ();
+    ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
   error Api_errors.transport_pif_not_configured ["PIF"]
     ~doc:"The tunnel transport PIF has no IP configuration set." ();
   error Api_errors.is_tunnel_access_pif ["PIF"]
