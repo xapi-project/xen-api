@@ -2168,7 +2168,9 @@ let vm_checkpoint printer = vm_clone_aux Client.VM.checkpoint "Checkpointed " pr
 let get_snapshot_uuid params =
 	if List.mem_assoc "snapshot-uuid" params
 	then List.assoc "snapshot-uuid" params
-	else List.assoc "uuid" params
+	else if List.mem_assoc "uuid" params
+	then List.assoc "uuid" params
+	else raise (failwith "Required parameter not found: snapshot-uuid or uuid.")
 
 let snapshot_revert printer rpc session_id params =
 	let snap_uuid = get_snapshot_uuid params in
