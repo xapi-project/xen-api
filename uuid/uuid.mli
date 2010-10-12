@@ -27,6 +27,9 @@ type 'a t
 
 (** Create a fresh UUID *)
 val make_uuid : unit -> 'a t
+val make_uuid_prng : unit -> 'a t
+val make_uuid_urnd : unit -> 'a t
+val make_uuid_rnd : unit -> 'a t
 
 (** Create a UUID from a string. *)
 val of_string : string -> 'a t

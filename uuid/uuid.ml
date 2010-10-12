@@ -30,12 +30,34 @@ let string_of_cookie s = s
 
 let cookie_of_string s = s
 
-(* FIXME: using /dev/random is too slow but using /dev/urandom is too
-    deterministic. *)
-let dev_random = "/dev/urandom"
+let dev_random = "/dev/random"
+let dev_urandom = "/dev/urandom"
 
-let read_random n = 
-  let ic = open_in_bin dev_random in
+let rnd_array n =
+	let fstbyte i = 0xff land i in
+	let sndbyte i = fstbyte (i lsr 8) in
+	let thdbyte i = sndbyte (i lsr 8) in
+	let rec rnd_list n acc = match n with
+		| 0 -> acc
+		| 1 ->
+			let b = fstbyte (Random.bits ()) in
+			b :: acc
+		| 2 ->
+			let r = Random.bits () in
+			let b1 = fstbyte r in
+			let b2 = sndbyte r in
+			b1 :: b2 :: acc
+		| n -> 
+			let r = Random.bits () in
+			let b1 = fstbyte r in
+			let b2 = sndbyte r in
+			let b3 = thdbyte r in
+			rnd_list (n - 3) (b1 :: b2 :: b3 :: acc)
+	in
+	Array.of_list (rnd_list n [])
+
+let read_array dev n = 
+  let ic = open_in_bin dev in
   try
     let result = Array.init n (fun _ -> input_byte ic) in
     close_in ic;
@@ -50,10 +72,13 @@ let uuid_of_int_array uuid =
     uuid.(6) uuid.(7) uuid.(8) uuid.(9) uuid.(10) uuid.(11)
     uuid.(12) uuid.(13) uuid.(14) uuid.(15)
 
-let make_uuid() = uuid_of_int_array (read_random 16)
+let make_uuid_prng () = uuid_of_int_array (rnd_array 16)
+let make_uuid_urnd () = uuid_of_int_array (read_array dev_urandom 16)
+let make_uuid_rnd () = uuid_of_int_array (read_array dev_random 16)
+let make_uuid = make_uuid_urnd
 
 let make_cookie() =
-  let bytes = Array.to_list (read_random 64) in
+  let bytes = Array.to_list (read_array dev_urandom 64) in
   String.concat "" (List.map (Printf.sprintf "%1x") bytes)
 
 let int_array_of_uuid s =
