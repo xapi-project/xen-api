@@ -527,7 +527,12 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
 	let maxmems = IntMap.mapi
 	  (fun domid domain ->
 		   if List.mem domid declared_inactive_domids 
-		   then min domain.target_kib domain.memory_actual_kib
+		   then 
+			(* CA-41832: clip the target of an 'inactive' domain to within the dynamic min-max range.
+			   The danger here is that a domain might be using less than dynamic min now, but might 
+			   suddenly wake up and allocate memory belonging to someone else later. *)
+			let ideal_kib = min domain.target_kib domain.memory_actual_kib in
+			min domain.dynamic_max_kib (max domain.dynamic_min_kib ideal_kib)
 		   else 
 			 if List.mem_assoc domid new_targets
 			 then List.assoc domid new_targets
