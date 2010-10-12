@@ -754,7 +754,7 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 		let new_defaults = List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) default_dss in
 		let rrd = 
 		  if List.length new_defaults > 0 then
-		    let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrdi.rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
+		    let rrd = List.fold_left (fun rrd ds -> Rrd.rrd_add_ds rrd (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)) rrdi.rrd new_defaults in
 		    host_rrd := Some {rrd=rrd; dss=host_dss};
 		    rrd
 		  else
