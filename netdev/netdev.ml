@@ -226,7 +226,7 @@ let vsctl args =
 
 let add name ?uuid = 
   let extra = match uuid with
-    | Some uuid' -> ["--"; "br-set-external-id"; name; "network-uuids"; uuid']
+    | Some uuid' -> ["--"; "br-set-external-id"; name; "xs-network-uuids"; uuid']
     | None -> ["--"; "foo"] in
   ignore(vsctl (["add-br" ; name] @ extra))
 let del name = ignore(vsctl ["del-br" ; name])
