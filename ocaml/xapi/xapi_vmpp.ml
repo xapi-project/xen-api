@@ -16,6 +16,7 @@ open D
 
 let vmpr_plugin = "vmpr"
 let vmpr_username = "__dom0__vmpr"
+let vmpr_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
 
 let assert_licensed ~__context =
   if (not (Features.is_enabled ~__context Features.VMPR))
@@ -640,3 +641,30 @@ let destroy ~__context ~self =
     Db.VMPP.destroy ~__context ~self
   )
 
+(* verify if this action is happening due to a VM protection policy *)
+let is_snapshot_from_vmpp ~__context =
+  try
+    (let session = Xapi_session.get_top ~__context ~self:(Context.get_session_id __context) in
+     let uname = Db.Session.get_auth_user_name ~__context ~self:session in
+     let is_lsu = Db.Session.get_is_local_superuser ~__context ~self:session in
+     is_lsu && (uname = vmpr_username)
+    )
+  with e ->
+    debug "Error obtaining is_snapshot_from_vmpp: %s" (Printexc.to_string e);
+    false
+
+let show_task_in_xencenter ~__context =
+  if is_snapshot_from_vmpp ~__context then
+    (
+      let task = Context.get_task_id __context in
+      try
+        debug "show_in_xencenter: task=%s" (Ref.string_of task);
+        (* this key is used to make sure the snapshotting task *)
+        (* is seen from all xencenter clients *)
+        Db.Task.add_to_other_config ~__context ~self:task
+          ~key:vmpr_snapshot_other_config_show_in_xencenter
+          ~value:""
+      with e->
+        debug "Error adding other_config:show_in_xencenter to task %s: %s"
+          (Ref.string_of task) (Printexc.to_string e)
+    )
