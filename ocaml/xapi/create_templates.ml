@@ -26,9 +26,10 @@ let kib = 1024L
 let mib = 1024L ** kib
 let gib = 1024L ** mib
 
-let base_platform_flags = ["acpi","true";"apic","true";"pae","true";Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value]
-let with_nx_platform_flags = ("nx","true") :: base_platform_flags
-let no_nx_platform_flags = ("nx","false") :: base_platform_flags
+let viridian_flag = (Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value)
+let nx_flag = ("nx","true")
+let no_nx_flag = ("nx","false")
+let base_platform_flags = ["acpi","true";"apic","true";"pae","true"]
 
 let default_template = (Xapi_globs.default_template_key, "true")
 let linux_template = (Xapi_globs.linux_template_key, "true")
@@ -176,7 +177,7 @@ let blank_template memory = {
 	vM_HVM_boot_policy = "";
 	vM_HVM_boot_params = [ ];
 	vM_HVM_shadow_multiplier = 1.;
-	vM_platform = no_nx_platform_flags;
+	vM_platform = no_nx_flag :: base_platform_flags @ [ viridian_flag ];
 	vM_PCI_bus = "";
 	vM_other_config = [];
 	vM_is_control_domain = false;
@@ -266,15 +267,16 @@ let sdk_install_template =
         ];
   }
 
-(* Linux and Windows templates -----------------------------------------------*)
+    (* PV Linux and HVM templates -----------------------------------------------*)
 
 type linux_template_flags =
 	| Limit_machine_address_size
 	| Suppress_spurious_page_faults
 
-type windows_template_flags =
+type hvm_template_flags =
 	| NX
 	| XenApp
+	| Viridian
 
 type architecture =
 	| X32
@@ -293,7 +295,7 @@ let technical_string_of_architecture = function
 let make_long_name name architecture =
 	Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture)
 
-let windows_template
+let hvm_template
 		name architecture
 		minimum_supported_memory_mib
 		root_disk_size_gib
@@ -311,7 +313,7 @@ let windows_template
 	let base = other_install_media_template
 		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
 	let xen_app = List.mem XenApp flags in
-	let name = Printf.sprintf "%sWindows %s"
+	let name = Printf.sprintf "%s%s"
 		(if xen_app then "Citrix XenApp on " else "")
 		(make_long_name name architecture) in
 	{
@@ -328,8 +330,14 @@ let windows_template
 		] @ (if xen_app then ["application_template", "1"] else []);
 		vM_platform =
 			if List.mem NX flags
-			then with_nx_platform_flags
-			else base.vM_platform;
+			then
+				if List.mem Viridian flags
+				then nx_flag :: base_platform_flags @ [ viridian_flag ]
+				else nx_flag :: base_platform_flags
+			else 
+				if List.mem Viridian flags
+				then no_nx_flag :: base_platform_flags @ [ viridian_flag ]
+				else no_nx_flag :: base_platform_flags;
 		vM_HVM_shadow_multiplier =
 			(if xen_app then 4.0 else base.vM_HVM_shadow_multiplier);
 		vM_recommendations = (recommendations ~memory:maximum_supported_memory_mib ());
@@ -360,6 +368,18 @@ let rhel5x_template name architecture flags =
 		else [] in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: m_a_s @ bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:16 ();
+	}
+
+let rhel6x_template name architecture flags =
+	let name = make_long_name name architecture in
+	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
+	let m_a_s =
+		if List.mem Limit_machine_address_size flags
+		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		else [] in
+	{ bt with 
+		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel6","true") :: m_a_s @ bt.vM_other_config;
 		vM_recommendations = recommendations ~memory:16 ();
 	}
 
@@ -420,6 +440,7 @@ let create_all_templates rpc session_id =
 		rhel5x_template "CentOS 5" X64 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5" X32 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5" X64 [    ];
+		rhel6x_template "Red Hat Enterprise Linux 6"   X32 [    ];
 
 		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
@@ -479,37 +500,39 @@ let create_all_templates rpc session_id =
 		sdk_install_template
 	] in
 
-	let windows_static_templates =
-		let n = NX     in
-		let x = XenApp in
+	let hvm_static_templates =
+		let n = NX       in
+		let x = XenApp   in
+		let v = Viridian in
 	[
 		other_install_media_template (default_memory_parameters 128L);
-		windows_template "XP SP3"         X32  256  8 [    ];
-		windows_template "Vista"          X32 1024 24 [n;  ];
-		windows_template "7"              X32 1024 24 [n;  ];
-		windows_template "7"              X64 2048 24 [n;  ];
-		windows_template "Server 2003"    X32  256  8 [    ];
-		windows_template "Server 2003"    X32  256  8 [  x;];
-		windows_template "Server 2003"    X64  256  8 [n;  ];
-		windows_template "Server 2003"    X64  256  8 [n;x;];
-		windows_template "Server 2008"    X32  512 24 [n;  ];
-		windows_template "Server 2008"    X32  512 24 [n;x;];
-		windows_template "Server 2008"    X64  512 24 [n;  ];
-		windows_template "Server 2008"    X64  512 24 [n;x;];
-		windows_template "Server 2008 R2" X64  512 24 [n;  ];
-		windows_template "Server 2008 R2" X64  512 24 [n;x;];
+		hvm_template "Windows XP SP3"             X32  256  8 [    v;];
+		hvm_template "Windows Vista"              X32 1024 24 [n;  v;];
+		hvm_template "Windows 7"                  X32 1024 24 [n;  v;];
+		hvm_template "Windows 7"                  X64 2048 24 [n;  v;];
+		hvm_template "Windows Server 2003"        X32  256  8 [    v;];
+		hvm_template "Windows Server 2003"        X32  256  8 [  x;v;];
+		hvm_template "Windows Server 2003"        X64  256  8 [n;  v;];
+		hvm_template "Windows Server 2003"        X64  256  8 [n;x;v;];
+		hvm_template "Windows Server 2008"        X32  512 24 [n;  v;];
+		hvm_template "Windows Server 2008"        X32  512 24 [n;x;v;];
+		hvm_template "Windows Server 2008"        X64  512 24 [n;  v;];
+		hvm_template "Windows Server 2008"        X64  512 24 [n;x;v;];
+		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;  v;];
+		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;x;v;];
+		hvm_template "Red Hat Enterprise Linux 6" X64  512 8  [n;    ];
 	] in
 
 	(* put default_template key in static_templates other_config of static_templates: *)
-	let windows_static_templates =
-		List.map (fun t -> {t with vM_other_config = default_template::t.vM_other_config}) windows_static_templates in
+	let hvm_static_templates =
+		List.map (fun t -> {t with vM_other_config = default_template::t.vM_other_config}) hvm_static_templates in
 
 	(* put default_template key and linux_template key in other_config for linux_static_templates: *)
 	let linux_static_templates =
 		List.map (fun t -> {t with vM_other_config = default_template::linux_template::t.vM_other_config}) linux_static_templates in
 
-	(* Create the windows templates *)
-	List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) windows_static_templates;
+	(* Create the HVM templates *)
+	List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) hvm_static_templates;
 
 	(* NB we now create the 'static' linux templates whether or not the 'linux pack' is 
 	   installed because these only depend on eliloader, which is always installed *)
