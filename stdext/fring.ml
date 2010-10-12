@@ -23,6 +23,13 @@ let make size init =
 	done;
 	ring
 
+let copy x = 
+	let y = make x.size 0. in
+	for i = 0 to Bigarray.Array1.dim x.data - 1 do
+		Bigarray.Array1.set y.data i (Bigarray.Array1.get x.data i)
+	done;
+	y
+
 let length ring = ring.size
 
 let push ring e =

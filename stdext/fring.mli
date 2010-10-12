@@ -22,6 +22,9 @@ type t = {
 (** create a ring structure with [size] record; records initialised to [init] *)
 val make : int -> float -> t
 
+(** create a duplicate ring structure *)
+val copy : t -> t
+
 (** length of the ring *)
 val length : t -> int
 
