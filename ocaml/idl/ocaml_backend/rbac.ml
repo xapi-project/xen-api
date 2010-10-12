@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+open Listext
+
 module D = Debug.Debugger(struct let name="rbac" end)
 open D
 
@@ -216,7 +219,7 @@ let nofn = fun () -> ()
 let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn session_id action =
 
 	let permission = permission_of_action action ?args ~keys in
-	
+
 	if (is_access_allowed ~__context ~session_id ~permission)
 	then (* allow access to action *)
 	begin
@@ -231,18 +234,28 @@ let check ?(extra_dmsg="") ?(extra_msg="") ?args ?(keys=[]) ~__context ~fn sessi
 			result
 		with error-> (* catch all exceptions *)
 			begin
-				Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action 
+				Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action
 					~permission ?sexpr_of_args ?args ~error ();
 				raise error
 			end
 	end
-	else (* deny access to action *)
-	begin
-		let msg=(Printf.sprintf "No permission in user session%s" extra_msg) in
+	else begin (* deny access to action *)
+		let allowed_roles_string =
+			try
+				let allowed_roles = Xapi_role.get_by_permission_name_label ~__context ~label:permission in
+				List.fold_left
+					(fun acc allowed_role -> acc ^ (if acc = "" then "" else ", ") ^
+						 (Xapi_role.get_name_label ~__context ~self:allowed_role))
+					"" allowed_roles
+			with e -> debug "Could not obtain allowed roles for %s (%s)" permission (ExnHelper.string_of_exn e);
+				"<Could not obtain the list.>"
+		in
+		let msg = (Printf.sprintf "No permission in user session. (Roles with this permission: %s)%s"
+								 allowed_roles_string extra_msg) in
 		debug "%s[%s]: %s %s %s" action permission msg (trackid session_id) extra_dmsg;
-		Rbac_audit.denied ~__context ~session_id ~action ~permission 
+		Rbac_audit.denied ~__context ~session_id ~action ~permission
 			?args ();
-		raise (Api_errors.Server_error 
+		raise (Api_errors.Server_error
 			(Api_errors.rbac_permission_denied,[permission;msg]))
 	end
 

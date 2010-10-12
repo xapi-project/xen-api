@@ -98,6 +98,8 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	../../xapi/xapi_inventory \
 	../../xapi/hashtbl_xml \
 	../../xapi/localdb \
+	../../xapi/xapi_role \
+	../../xapi/db \
 	rbac \
 	rbac_audit \
 	../../autogen/rbac_static \
