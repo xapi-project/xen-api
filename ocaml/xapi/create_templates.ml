@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -82,7 +82,7 @@ let find_xs_tools_vdi rpc session_id =
 	Client.SR.scan rpc session_id sr
       with e ->
 	error "Scan of tools SR failed - exception was '%s'" (ExnHelper.string_of_exn e);
-	error "Ignorining error and continuing"
+	error "Ignoring error and continuing"
     end;
     
     let vdis = Client.SR.get_VDIs rpc session_id sr in
@@ -418,6 +418,10 @@ let debian_template name release architecture flags =
 	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,http,ftp") :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
+		vM_name_description = bt.vM_name_description ^ (match release with
+			| "lenny"   -> "\nOfficial Debian Lenny CD/DVD images do not support XenServer. To find ISO images that do, please refer to: http://community.citrix.com/display/xs/Debian+Lenny"
+			| "squeeze" -> "\nIn order to install Debian Squeeze from CD/DVD the multi-arch ISO image is required."
+			| _         -> "")
 	}
 
 let create_all_templates rpc session_id =
