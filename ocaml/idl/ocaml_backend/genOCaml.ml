@@ -101,7 +101,7 @@ let gen_to_xmlrpc api tys = block
 (** Generate code to marshal from the given datamodel type to XML-RPC. *)
 let ty_of_xmlrpc api ty =
   let alias_of_ty_param t = "("^(alias_of_ty t)^" param)" in
-  let wrap var_binding b = "fun " ^ var_binding ^ " -> try ("^b^") with _ -> raise (Api_errors.Server_error (Api_errors.field_type_error,[param]))" in
+  let wrap var_binding b = "fun " ^ var_binding ^ " -> try ("^b^") with _ -> log_backtrace (); raise (Api_errors.Server_error (Api_errors.field_type_error,[param]))" in
   let f = match ty with
     | Bool -> wrap "xml" "From.boolean xml"
     | DateTime -> wrap "xml" "From.datetime xml"
@@ -110,7 +110,7 @@ let ty_of_xmlrpc api ty =
 	  wrap "xml"
 	    ("\n    match String.lowercase (From.string xml) with\n      "^
 	       String.concat "\n    | " (List.map aux cs)^
-	       "\n    | _ -> raise (RunTimeTypeError(\""^name^"\", xml))")
+	       "\n    | _ -> log_backtrace(); raise (RunTimeTypeError(\""^name^"\", xml))")
     | Float -> wrap "xml" "From.double xml"
     | Int -> wrap "xml" "Int64.of_string(From.string xml)"
     | Map(key, value) ->
@@ -147,7 +147,7 @@ let ty_of_xmlrpc api ty =
 			      DT.Set (DT.Ref _) -> Some (DT.VSet [])
 			    | _ -> fld.DT.default_value in
 			  match default_value with
-			    None -> "(my_assoc \"" ^ field_name ^ "\" all)" 
+			    None -> "(my_assoc \"" ^ field_name ^ "\" all)"
 			  | Some default ->
 			      Printf.sprintf "(if (List.mem_assoc \"%s\" all) then (my_assoc \"%s\" all) else %s)"
 				field_name field_name

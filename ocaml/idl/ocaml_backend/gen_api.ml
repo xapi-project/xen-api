@@ -35,7 +35,7 @@ let gen_type highapi = function
   | ty -> [ "and "^OU.alias_of_ty ty^" = "^OU.ocaml_of_ty ty ]
 
 let gen_client highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+  let _ (* unused variable: all_types *) = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   List.iter (List.iter print)
     (List.between [""]
        [[ "open Xml";
@@ -49,20 +49,26 @@ let gen_client highapi =
        ])
 
 let gen_client_types highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
-  List.iter (List.iter print)
-    (List.between [""]
-       [[ "open Xml";
-	  "open XMLRPC";
-          "open Date"; ];
-	"type __unused = unit " :: (List.concat (List.map (gen_type highapi) all_types));
-	GenOCaml.gen_of_xmlrpc highapi all_types;
-	GenOCaml.gen_to_xmlrpc highapi all_types;
-	O.Signature.strings_of (Gen_client.gen_signature highapi);
-       ])
+	let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+	List.iter (List.iter print)
+		(List.between [""]
+			[
+				[
+					"open Xml";
+					"open XMLRPC";
+					"open Date";
+					"module D = Debug.Debugger(struct let name = \"backtrace\" end)";
+					"open D"
+				];
+				"type __unused = unit " :: (List.concat (List.map (gen_type highapi) all_types));
+				GenOCaml.gen_of_xmlrpc highapi all_types;
+				GenOCaml.gen_to_xmlrpc highapi all_types;
+				O.Signature.strings_of (Gen_client.gen_signature highapi);
+			]
+		)
 
 let gen_server highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+  let _ (* Unused variable: all_types *) = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   List.iter (List.iter print)
     (List.between [""]
        [[ "open Xml";
