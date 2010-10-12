@@ -15,7 +15,6 @@
 type iso8601 = string
 type rfc822 = string
 
-(* Convert calendar time, x, to tm in UTC *)
 let of_float x = 
   let time = Unix.gmtime x in
   Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
@@ -64,5 +63,10 @@ let to_float x =
 
 let to_string x = x
 let of_string x = x
+
+let assert_utc x =
+	try
+		Scanf.sscanf x "%_[0-9]T%_[0-9]:%_[0-9]:%_[0-9]Z" ()
+	with _ -> invalid_arg x
 
 let never = of_float 0.0
