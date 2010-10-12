@@ -141,7 +141,7 @@ let do_help is_compat cmd minimal s =
   let (printer,flush)=Cli_printer.make_printer is_compat s minimal in
   cmd_help printer minimal is_compat cmd;
   flush ();
-  marshal s (Command (Exit 1))
+  marshal s (Command (Exit 0))
 
 let exec_command req is_compat cmd s session args =
   let params = get_params cmd in
