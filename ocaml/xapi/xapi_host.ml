@@ -104,23 +104,26 @@ let bugreport_upload ~__context ~host ~url ~options =
 	for maintainance, hence the name of the following function.
 *)
 let assert_bacon_mode ~__context ~host =
-  if Db.Host.get_enabled ~__context ~self:host 
-  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
+	if Db.Host.get_enabled ~__context ~self:host 
+	then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
 
-  let selfref = Ref.string_of host in
-  let vms = Db.VM.get_refs_where ~__context ~expr:(And(Eq (Field "resident_on", Literal (Ref.string_of host)),
-						       Eq (Field "power_state", Literal "Running"))) in
-  (* We always expect a control domain to be resident on a host *)
-  if List.length vms > 1 then
-    raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vm"; List.hd (List.map Ref.string_of vms) ]));
-  debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
-  let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
-      Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in  
-  let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
-      Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
-  if List.length vbds > 0 then
-    raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
-  debug "Bacon test: VBDs OK"
+	let selfref = Ref.string_of host in
+	let vms = Db.VM.get_refs_where ~__context ~expr:(And(Eq (Field "resident_on", Literal (Ref.string_of host)),
+									Eq (Field "power_state", Literal "Running"))) in
+	(* We always expect a control domain to be resident on a host *)
+	match List.filter (fun vm -> not (Db.VM.get_is_control_domain ~__context ~self:vm)) vms with
+	| [] -> ()
+	| guest_vms -> 
+		let vm_data = [selfref; "vm"; Ref.string_of (List.hd guest_vms)] in
+		raise (Api_errors.Server_error (Api_errors.host_in_use, vm_data))
+	debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
+	let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
+			Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in  
+	let vbds = List.filter (fun vbd -> Db.VBD.get_VM ~__context ~self:vbd = controldomain &&
+			Db.VBD.get_currently_attached ~__context ~self:vbd) (Db.VBD.get_all ~__context) in
+	if List.length vbds > 0 then
+		raise (Api_errors.Server_error (Api_errors.host_in_use, [ selfref; "vbd"; List.hd (List.map Ref.string_of vbds) ]));
+	debug "Bacon test: VBDs OK"
 
 let pif_update_dhcp_address ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
