@@ -53,6 +53,9 @@ let run ~__context tasks =
 
   (* iterate tasks *)
   List.iter (fun (tsk_name, tsk_flags, tsk_fct) ->
+	(* Wrap the function with a timer *)
+	let tsk_fct () = Stats.time_this tsk_name tsk_fct in
+
     let only_master, only_slave, exnraise, onthread = get_flags_of_list tsk_flags in
     try
       if (only_master && is_master)
@@ -73,3 +76,5 @@ let run ~__context tasks =
       if exnraise then
         raise exn
   ) tasks
+
+let run ~__context tasks = Stats.time_this "overall xapi startup" (fun () -> run ~__context tasks)
