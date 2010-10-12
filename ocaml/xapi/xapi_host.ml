@@ -509,7 +509,7 @@ let power_on ~__context ~host =
   let result = Xapi_plugins.call_plugin (Context.get_session_id __context) 
     Constants.power_on_plugin Constants.power_on_fn 
     [ "remote_host_uuid", Db.Host.get_uuid ~__context ~self:host ] in
-  if result <> "True" then failwith (Printf.sprintf "Poweron plugin reports: %s" result)
+  if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
 	Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc)
