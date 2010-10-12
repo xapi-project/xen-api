@@ -87,8 +87,8 @@ let v6_rejected = addMessage "LICENSE_NOT_AVAILABLE"
 let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE"
 
 (* VMPP message types *)
-let vmpp_backup_lock_failed = addMessage "VMPP_BACKUP_LOCK_FAILED" (*'The backup sub-policy is already executing for this protection policy. Please try again later'*)
-let vmpp_backup_succeeded = addMessage "VMPP_BACKUP_SUCCEEDED" (*'Successfully performed the snapshot phase of the protection policy'*)
+let vmpp_backup_lock_failed = addMessage "VMPP_SNAPSHOT_LOCK_FAILED" (*'The snapshot phase is already executing for this protection policy. Please try again later'*)
+let vmpp_backup_succeeded = addMessage "VMPP_SNAPSHOT_SUCCEEDED" (*'Successfully performed the snapshot phase of the protection policy'*)
 let vmpp_archive_lock_failed = addMessage "VMPP_ARCHIVE_LOCK_FAILED" (*'The archive sub-policy is already executing for some protection policy in the pool.Please try again later'*)
 let vmpp_archive_failed_0 = addMessage "VMPP_ARCHIVE_FAILED_0" (*'The archive phase failed for this protection policy'*)
 let vmpp_archive_suceeded = addMessage "VMPP_ARCHIVE_SUCCEEDED" (*'Successfully performed the archive phase of the protection policy'*)
@@ -96,7 +96,7 @@ let vmpp_archive_target_mount_failed = addMessage "VMPP_ARCHIVE_TARGET_MOUNT_FAI
 let vmpp_archive_target_unmount_failed = addMessage "VMPP_ARCHIVE_TARGET_UNMOUNT_FAILED" (*'Failed to unmount the archive target. Please make sure than the local directory was mounted successfully and has no open handles'*)
 let vmpp_license_error = addMessage "VMPP_LICENSE_ERROR" (*'This operation is not allowed under your license.  Please contact your support representative'*)
 let vmpp_xapi_logon_failure = addMessage "VMPP_XAPI_LOGON_FAILURE" (*'Could not login to API session.'*)
-let vmpp_backup_missed_event = addMessage "VMPP_BACKUP_MISSED_EVENT" (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your backup sub-policy',*)
+let vmpp_backup_missed_event = addMessage "VMPP_SNAPSHOT_MISSED_EVENT" (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your snapshot sub-policy',*)
 let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" (*'A scheduled archive event was missed due to another on-going scheduled archive run. This is unexpected behaviour, please re-configure your archive sub-policy'*)
-let vmpp_backup_failed = addMessage "VMPP_BACKUP_FAILED" (*'The snapshot phase of the protection policy failed.'*)
+let vmpp_backup_failed = addMessage "VMPP_SNAPSHOT_FAILED" (*'The snapshot phase of the protection policy failed.'*)
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
