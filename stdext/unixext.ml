@@ -112,19 +112,16 @@ let with_file file mode perms f =
 	Unix.close fd;
 	r
 
-(** [file_blocks_fold block_size f start file_path] folds [f] over blocks (strings)
-    from the file [file_path] with initial value [start] *)
-let file_blocks_fold block_size f start file_path = 
-	with_file file_path [ Unix.O_RDONLY ] 0
-	(fun fd ->
-		let block = String.create block_size in
-		let rec fold acc = 
-			let n = Unix.read fd block 0 block_size in
-			(* Consider making the interface explicitly use Substrings *)
-			let s = if n = block_size then block else String.sub block 0 n in
-			if n = 0 then acc else fold (f acc s) in
-		fold start
-	)
+(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
+    from the fd [fd] with initial value [start] *)
+let fd_blocks_fold block_size f start fd = 
+	let block = String.create block_size in
+	let rec fold acc = 
+		let n = Unix.read fd block 0 block_size in
+		(* Consider making the interface explicitly use Substrings *)
+		let s = if n = block_size then block else String.sub block 0 n in
+		if n = 0 then acc else fold (f acc s) in
+	fold start
 
 let with_directory dir f =
 	let dh = Unix.opendir dir in
@@ -135,30 +132,19 @@ let with_directory dir f =
 	Unix.closedir dh;
 	r
 
-let buffer_of_file file_path = 
-	file_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) file_path
+let buffer_of_fd fd = 
+	fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
 
-let bigbuffer_of_file file_path = 
-	file_blocks_fold 1024 (fun b s -> Bigbuffer.append_string b s; b) (Bigbuffer.make ()) file_path
+let bigbuffer_of_fd fd = 
+	fd_blocks_fold 1024 (fun b s -> Bigbuffer.append_string b s; b) (Bigbuffer.make ()) fd
 
-(** Read whole file from specified fd *)
-let read_whole_file size_hint block_size fd =
-  let filebuf = Buffer.create size_hint in
-  let blockbuf = String.create block_size in
-  let rec do_read() =
-    let nread = Unix.read fd blockbuf 0 block_size in
-      if nread=0 then
-	Buffer.contents filebuf
-      else
-	begin
-	  Buffer.add_substring filebuf blockbuf 0 nread;
-	  do_read()
-	end in
-    do_read()
+let string_of_fd fd = Buffer.contents (buffer_of_fd fd)
 
-(** Read whole file into string *)
-let read_whole_file_to_string fname =
-	with_file fname [ Unix.O_RDONLY ] 0o0 (read_whole_file 1024 1024)
+let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd
+
+let bigbuffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 bigbuffer_of_fd
+
+let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
 
 (** Opens a temp file, applies the fd to the function, when the function completes, renames the file
     as required. *)
@@ -286,7 +272,7 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout=10.) pid =
 		let loop_time_waiting = 0.03 in
 		let left = ref timeout in
 		let readcmdline pid =
-			try read_whole_file_to_string (Printf.sprintf "/proc/%d/cmdline" pid)
+			try string_of_file (Printf.sprintf "/proc/%d/cmdline" pid)
 			with _ -> ""
 			in
 		let reference = readcmdline pid and quit = ref false in

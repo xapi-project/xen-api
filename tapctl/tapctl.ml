@@ -56,7 +56,7 @@ module Dummy = struct
 	let get_dummy_tapdisk_list ctx =
 		let filename = get_dummy_tapdisk_list_filename ctx in
 		try
-			dummy_tap_list_of_rpc (Jsonrpc.of_string (Unixext.read_whole_file_to_string filename))
+			dummy_tap_list_of_rpc (Jsonrpc.of_string (Unixext.string_of_file filename))
 		with _ -> []
 			
 	let write_dummy_tapdisk_list ctx list =

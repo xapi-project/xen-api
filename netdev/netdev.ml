@@ -409,7 +409,7 @@ let get_bios_name name =
 let network_config_file = "/etc/xensource/network.conf"
 let network_backend = 
   try 
-    kind_of_string (String.strip String.isspace (Unixext.read_whole_file_to_string network_config_file))
+    kind_of_string (String.strip String.isspace (Unixext.string_of_file network_config_file))
   with
   | Unix.Unix_error(Unix.ENOENT, "open", _) -> Bridge
   | Unix.Unix_error(err, op, path) -> failwith (Printf.sprintf "Unix error: %s (%s,%s)\n" (Unix.error_message err) op path)

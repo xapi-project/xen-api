@@ -30,12 +30,22 @@ val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
 (** Applies function [f] to every line in the file at [file_path]. *)
 val file_lines_iter : (string -> unit) -> string -> unit
 
-(** [file_blocks_fold block_size f start file_path] folds [f] over blocks (strings)
-    from the file [file_path] with initial value [start] *)
-val file_blocks_fold: int -> ('a -> string -> 'a) -> 'a -> string -> 'a
+(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
+    from the fd [fd] with initial value [start] *)
+val fd_blocks_fold: int -> ('a -> string -> 'a) -> 'a -> Unix.file_descr -> 'a
 
 (** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
+
+(** [buffer_of_fd fd] returns a Buffer.t containing all data read from [fd] up to EOF *)
+val buffer_of_fd : Unix.file_descr -> Buffer.t
+
+(** [bigbuffer_of_fd fd] returns a Bigbuffer.t containing all data read from [fd] up 
+to EOF *)
+val bigbuffer_of_fd : Unix.file_descr -> Bigbuffer.t
+
+(** [string_of_fd fd] returns a string containing all data read from [fd] up to EOF *)
+val string_of_fd : Unix.file_descr -> string
 
 (** [buffer_of_file file] returns a Buffer.t containing the contents of [file] *)
 val buffer_of_file : string -> Buffer.t
@@ -43,8 +53,9 @@ val buffer_of_file : string -> Buffer.t
 (** [bigbuffer_of_file file] returns a Bigbuffer.t containing the contents of [file] *)
 val bigbuffer_of_file : string -> Bigbuffer.t
 
-val read_whole_file : int -> int -> Unix.file_descr -> string
-val read_whole_file_to_string : string -> string
+(** [string_of_file file] returns a string containing the contents of [file] *)
+val string_of_file : string -> string
+
 val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val write_string_to_file : string -> string -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr

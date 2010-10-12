@@ -68,10 +68,9 @@ type 'a result = Success of string * 'a | Failure of string * exn
 let with_logfile_fd ?(delete = true) prefix f = 
   let logfile = Filename.temp_file prefix ".log" in
   let read_logfile () = 
-    let log_fd = Unix.openfile logfile [ Unix.O_RDONLY ] 0o0 in
-    finally
-      (fun () -> Unixext.read_whole_file 1024 1024 log_fd)
-      (fun () -> Unix.close log_fd; Unix.unlink logfile) in
+    let contents = Unixext.string_of_file logfile in
+    Unix.unlink logfile;
+    contents in
 
   let log_fd = Unix.openfile logfile [ Unix.O_WRONLY; Unix.O_CREAT ] 0o0 in
   try
