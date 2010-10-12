@@ -42,7 +42,6 @@ def refresh(session, args):
     return send_perfmon_cmd("refresh")
 
 def debug_mem(session,args):
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
     return send_perfmon_cmd("debug_mem")
 
 if __name__ == "__main__":
