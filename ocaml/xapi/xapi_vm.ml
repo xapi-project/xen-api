@@ -623,10 +623,21 @@ let hard_reboot ~__context ~vm =
 
 (** VM.hard_shutdown entrypoint *)
 let hard_shutdown ~__context ~vm =
-  let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
-  record_shutdown_details ~__context ~vm Xal.Halted "external" action;
-  let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
-  retry_on_conflict args (of_action action)
+	try
+		let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
+		record_shutdown_details ~__context ~vm Xal.Halted "external" action;
+		let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
+		retry_on_conflict args (of_action action)
+	with
+		| Api_errors.Server_error(code, _) as e
+				when code = Api_errors.vm_bad_power_state ->
+			(* ToDo: How do you test directly if the VM is already shut-down?
+			   I hope we are not masking bugs here.
+			 *)
+			debug ("hard_shutdown: VM_BAD_POWER_STATE raised, and caught.  Probably it was already halted.")
+		| e ->
+			(debug ("hard_shutdown: caught any exception besides VM_BAD_POWER_STATE, re-raising.");
+			raise e)
 
 (** VM.clean_reboot entrypoint *)
 let clean_reboot ~__context ~vm =
