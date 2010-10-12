@@ -1614,7 +1614,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "vdi-create",
     {
       reqd=["sr-uuid";"name-label";"type";"virtual-size"];
-      optn=["sm-config:"];
+      optn=["sm-config:";"sharable"];
       help="Create a VDI. Type is 'system' 'user' 'suspend' or 'crashdump'.";
       implementation=No_fd Cli_operations.vdi_create;
       flags=[];
