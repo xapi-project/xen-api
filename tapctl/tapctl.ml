@@ -315,10 +315,12 @@ let list ?t ctx =
 							None) fields
 				in
 				let args = 
-					match String.split ':' (List.assoc "args" assoc) with
-						| ty::arguments ->
-							Some (ty,String.concat ":" arguments)
-						| _ -> None
+					try 
+						match String.split ':' (List.assoc "args" assoc) with
+							| ty::arguments ->
+								Some (ty,String.concat ":" arguments)
+							| _ -> None
+					with _ -> None
 				in
 				Some ({tapdisk_pid=int_of_string (List.assoc "pid" assoc); minor=int_of_string (List.assoc "minor" assoc)},(List.assoc "state" assoc),args)
 			with _ -> None) lines
