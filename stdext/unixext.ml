@@ -98,16 +98,7 @@ let file_lines_fold f start file_path =
 		(fun () -> fold start)
 		(fun () -> close_in input)
 
-let file_lines_iter f file_path =
-	let input = open_in file_path in
-	try
-		while true do
-			let line = input_line input in
-			f line
-		done
-	with
-		| End_of_file -> close_in input
-		| exn -> close_in input; raise exn
+let file_lines_iter f file_path = file_lines_fold (fun () line -> ignore(f line)) () file_path
 
 let readfile_line = file_lines_iter
 
