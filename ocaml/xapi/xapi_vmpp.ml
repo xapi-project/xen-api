@@ -17,6 +17,7 @@ open D
 let vmpr_plugin = "vmpr"
 let vmpr_username = "__dom0__vmpr"
 let vmpr_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
+let vmpr_snapshot_other_config_applies_to = "applies_to"
 
 let assert_licensed ~__context =
   if (not (Features.is_enabled ~__context Features.VMPR))
@@ -653,7 +654,7 @@ let is_snapshot_from_vmpp ~__context =
     debug "Error obtaining is_snapshot_from_vmpp: %s" (Printexc.to_string e);
     false
 
-let show_task_in_xencenter ~__context =
+let show_task_in_xencenter ~__context ~vm =
   if is_snapshot_from_vmpp ~__context then
     (
       let task = Context.get_task_id __context in
@@ -663,7 +664,10 @@ let show_task_in_xencenter ~__context =
         (* is seen from all xencenter clients *)
         Db.Task.add_to_other_config ~__context ~self:task
           ~key:vmpr_snapshot_other_config_show_in_xencenter
-          ~value:""
+          ~value:"";
+        Db.Task.add_to_other_config ~__context ~self:task
+          ~key:vmpr_snapshot_other_config_applies_to
+          ~value:(Ref.string_of vm)
       with e->
         debug "Error adding other_config:show_in_xencenter to task %s: %s"
           (Ref.string_of task) (Printexc.to_string e)
