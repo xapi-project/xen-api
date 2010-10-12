@@ -135,6 +135,12 @@ let with_directory dir f =
 	Unix.closedir dh;
 	r
 
+let buffer_of_file file_path = 
+	file_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) file_path
+
+let bigbuffer_of_file file_path = 
+	file_blocks_fold 1024 (fun b s -> Bigbuffer.append_string b s; b) (Bigbuffer.make ()) file_path
+
 (** Read whole file from specified fd *)
 let read_whole_file size_hint block_size fd =
   let filebuf = Buffer.create size_hint in

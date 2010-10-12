@@ -36,6 +36,13 @@ val file_blocks_fold: int -> ('a -> string -> 'a) -> 'a -> string -> 'a
 
 (** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
+
+(** [buffer_of_file file] returns a Buffer.t containing the contents of [file] *)
+val buffer_of_file : string -> Buffer.t
+
+(** [bigbuffer_of_file file] returns a Bigbuffer.t containing the contents of [file] *)
+val bigbuffer_of_file : string -> Bigbuffer.t
+
 val read_whole_file : int -> int -> Unix.file_descr -> string
 val read_whole_file_to_string : string -> string
 val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
