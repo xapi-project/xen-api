@@ -15,8 +15,8 @@ module L = Debug.Debugger(struct let name="license" end)
 open Vmopshelpers
 open Stringext
 
-let vm ~__context vm =
-	(* Here we check that the license is still valid - this should be the only place where this happens *)
+let vm ~__context vm = ()
+(*	(* Here we check that the license is still valid - this should be the only place where this happens *)
 	let host = Helpers.get_localhost ~__context in
 	let license = Db.Host.get_license_params ~__context ~self:host in
 	let expired =
@@ -28,7 +28,7 @@ let vm ~__context vm =
 			Unix.time () > expiry
 		end
 	in
-	if expired then raise (Api_errors.Server_error (Api_errors.license_expired, []))
+	if expired then raise (Api_errors.Server_error (Api_errors.license_expired, [])) *)
 
 (* XXX: why use a "with_" style function here? *)
 let with_vm_license_check ~__context v f =
