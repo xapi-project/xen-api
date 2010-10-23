@@ -1,4 +1,4 @@
-IPROG=install -m 755 -o root -g root
+IPROG=install -m 755 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g

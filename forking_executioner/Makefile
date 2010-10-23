@@ -1,4 +1,4 @@
-IPROG=install -m 755 -o root -g root
+IPROG=install -m 755
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
 OCAMLC = ocamlc -g
@@ -6,8 +6,8 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
-LIBEXEC  = "/opt/xensource/libexec"
-INIT_D   = "/etc/rc.d/init.d"
+LIBEXEC  = /opt/xensource/libexec
+INIT_D   = /etc/rc.d/init.d
 VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
 OCAMLOPTFLAGS = -g -dtypes
 

@@ -1,4 +1,4 @@
-IPROG=install -m 755 -o root -g root
+IPROG=install -m 755
 OCAMLPACKS = xmlm
 
 CC = gcc

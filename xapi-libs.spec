@@ -11,6 +11,7 @@ License: LGPL+linking exception
 URL:  http://www.xen.org
 Source0: xapi-libs-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
+BuildRequires: ocaml, ocaml-findlib, ocaml-camlp4, ocaml-type-conv, ocaml-getopt, ocaml-xmlm, ocaml-xmlm-devel, autoconf, automake, xen-devel, blktap-devel, e2fsprogs-devel
 
 %description
 The xapi toolstack development libraries and tools.

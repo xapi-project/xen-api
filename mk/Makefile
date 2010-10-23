@@ -21,7 +21,7 @@ build: srpm $(MY_SOURCES)/MANIFEST
 srpm:
 	mkdir -p $(RPM_SRPMSDIR) $(RPM_SPECSDIR) $(RPM_SOURCESDIR) $(RPM_RPMSDIR)
 	hg archive -p xapi-libs-0 -t tbz2 $(RPM_SOURCESDIR)/xapi-libs-0.tar.bz2
-	install -o root -g root ../xapi-libs.spec $(RPM_SPECSDIR)
+	install ../xapi-libs.spec $(RPM_SPECSDIR)
 	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bs $(RPM_SPECSDIR)/xapi-libs.spec
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
