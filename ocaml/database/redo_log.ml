@@ -339,17 +339,34 @@ let action_write_db marker generation_count write_fn sock datasockpath =
     (fun () ->
       (* Send data straight down the data channel, then close it to send an EOF. *)
       (* Ideally, we would check whether this completes before the latest_response_time. Could implement this by performing the write in a separate thread. *)
-      write_fn datasock
+
+      try
+        write_fn datasock;
+        R.debug "Finished writing database to data socket";
+      with
+      | Sys_error("Connection reset by peer") ->
+          (* CA-41914: Note that if the block_device_io process internally
+           * throws Timeout (or indeed any other exception), it will forcibly
+           * close this connection, we'll see a Sys_error("Connection reset by
+           * peer"). This can be safely suppressed because we'll hear all the
+           * gory details in the response we read over the control socket. *)
+          R.warn "I/O process forcibly closed the data socket while trying to write database to it. Await the response to see why it did that.";
+      | e ->
+          (* We'll re-raise other exceptions, though. *)
+          R.error "Got an unexpected exception while trying to write database to the data socket: %s. Re-raising." (Printexc.to_string e);
+          raise e
     )
     (fun () ->
-      R.debug "Finished writing database to data socket";
       (* Ensure the data socket is closed even if exception is thrown from write_fn *)
-      Unix.close datasock
+      R.info "Closing data socket";
+      Unix.close datasock;
     );
   
   (* Read response *)
   let response_length = 12 in
+  R.debug "Reading response...";
   let response = Unixext.time_limited_read sock response_length latest_response_time in
+  R.debug "Got response [%s]" response;
   match response with
   | "writedb|ack_" -> ()
   | "writedb|nack" ->

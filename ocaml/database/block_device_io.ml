@@ -328,6 +328,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
     )
     (fun () -> 
       (* Close the connection *)
+      (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
       R.info "Closing connection on data socket";
       ignore_exn (fun () -> Unix.close data_client)
     ) in
