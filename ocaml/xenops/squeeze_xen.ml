@@ -74,12 +74,12 @@ module Domain = struct
   let set_maxmem_noexn (xc, xs) domid m = 
 	let per_domain = get_per_domain (xc, xs) domid in
 	if per_domain.maxmem <> m then begin
-      debug "Xc.domain_setmaxmem domid=%d max=%Ld" domid m;      
+		debug "Xc.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid m per_domain.maxmem;
 	  try
 		Xc.domain_setmaxmem xc domid m;
 		per_domain.maxmem <- m
 	  with e ->
-		error "Xc.domain_setmaxmem domid=%d max=%Ld: %s" domid m (Printexc.to_string e)
+		  error "Xc.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s" domid m per_domain.maxmem (Printexc.to_string e)
 	end
 
   (** Read a particular domain's key, using the cache *)
