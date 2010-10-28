@@ -784,15 +784,21 @@ let _ =
                 let target_response_time = Unix.gettimeofday() +. Xapi_globs.redo_log_max_block_time in
                 (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
                 let action_fn = match str with
-                | "writedelta" -> action_writedelta
-                | "writedb___" -> action_writedb
-                | "read______" -> action_read
-                | "empty_____" -> action_empty
-                | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)) in
+                  | "writedelta" -> action_writedelta
+                  | "writedb___" -> action_writedb
+                  | "read______" -> action_read
+                  | "empty_____" -> action_empty
+                  | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str))
+                in
                 action_fn block_dev_fd client !datasock target_response_time
-              with End_of_file -> stop := true
+              with (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
+              | End_of_file ->
+                  R.info "The client sent EOF";
+                  stop := true
+              | e ->
+                  R.info "Unexpected error when trying to read from client: %s. Closing connection." (Printexc.to_string e);
+                  stop := true
             done;
-            (* The client sent EOF *)
             R.debug "Stopping.";
             ignore_exn (fun () -> Unix.close client)
           )
@@ -802,11 +808,11 @@ let _ =
           )
       with (* problems opening block device *)
       | Unix.Unix_error(a,b,c) ->
-        R.error "Unix error on %s (%s) [%s]" b (Unix.error_message a) c;
+        R.error "Unix error when opening block device: %s (%s) [%s]" b (Unix.error_message a) c;
         ignore_exn (fun () -> send_failure client connect_failure_mesg (Printf.sprintf "Unix error on %s (%s) [%s]" b (Unix.error_message a) c));
         ignore_exn (fun () -> Unix.close client)
       | e ->
-        R.error "Received exception: %s" (Printexc.to_string e);
+        R.error "Unexpected exception when opening block device: %s" (Printexc.to_string e);
         ignore_exn (fun () -> send_failure client connect_failure_mesg (Printexc.to_string e));
         ignore_exn (fun () -> Unix.close client)
     done
