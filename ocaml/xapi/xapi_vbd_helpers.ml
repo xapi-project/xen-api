@@ -148,9 +148,10 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     if not record.Db_actions.vBD_currently_attached && expensive_sharing_checks 
     then begin
       (* Perform the sharing checks *)
-      (* Careful to not count this VBD *)
-	let vbds = List.filter (fun vbd -> vbd <> _ref') vdi_record.Db_actions.vDI_VBDs in
-	let vbd_records = List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds in	
+      (* Careful to not count this VBD and be careful to be robust to parallel deletions of unrelated VBDs *)
+		let vbd_records = 
+			let vbds = List.filter (fun vbd -> vbd <> _ref') vdi_record.Db_actions.vDI_VBDs in
+			List.concat (List.map (fun self -> try [ Db.VBD.get_record_internal ~__context ~self ] with _ -> []) vbds) in	
 	(* Any VBD with a current_operation is said to conflict
 	   EXCEPT if I'm a control_domain (running pygrub) and the VBD is being 'attach'ed for booting *)
 	let any p xs = try ignore(List.find p xs); true with Not_found -> false in
