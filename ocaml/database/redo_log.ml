@@ -452,7 +452,7 @@ let shutdown () =
   
           (* Terminate the child process *)
 	    let ipid = Forkhelpers.getpid p in
-          R.debug "Killing I/O process with pid %d" ipid;
+          R.info "Killing I/O process with pid %d" ipid;
           Unix.kill ipid Sys.sigkill;
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore (Thread.create (fun () ->
@@ -512,11 +512,11 @@ let startup () =
 		          
 		        (* Start the I/O process *)
 		        let [ctrlsockpath; datasockpath] = List.map (fun suffix -> Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix) ["ctrl"; "data"] in
-		        R.debug "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
+		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
 		        let p = start_io_process block_dev ctrlsockpath datasockpath in
 		          
 		        pid := Some (p, ctrlsockpath, datasockpath);
-		        R.debug "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
+		        R.info "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
 		      end
           end
       end;
@@ -576,7 +576,9 @@ let perform_action f desc sock =
     match !pid with 
     | None -> ()
     | Some (_, _, datasockpath) ->
+      R.debug "About to perform action %s" desc;
       f sock datasockpath;
+      R.debug "Action '%s' completed successfully" desc;
       healthy () (* no exceptions: we can be confident that the redo log is working healthily *)
   with
   | Unixext.Timeout ->

@@ -309,7 +309,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
   (* Open the data channel *)
   let s = listen_on sock in
   let data_client = accept_conn s target_response_time in
-  R.debug "Accepted connection on data socket";
+  R.info "Accepted connection on data socket";
   ignore_exn (fun () -> Unix.close s);
 
   (* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
@@ -328,6 +328,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
     )
     (fun () -> 
       (* Close the connection *)
+      R.info "Closing connection on data socket";
       ignore_exn (fun () -> Unix.close data_client)
     ) in
   R.debug "Finished reading from data socket";
