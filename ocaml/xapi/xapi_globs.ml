@@ -495,10 +495,19 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {3 Settings related to the connection to the block device I/O process} *)
 
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died *)
-let redo_log_max_block_time = 2.
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
+let redo_log_max_block_time_empty = 2.
 
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process while initially connecting to it before assuming that it has died *)
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while reading *)
+let redo_log_max_block_time_read = 30.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a delta *)
+let redo_log_max_block_time_writedelta = 2.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a database *)
+let redo_log_max_block_time_writedb = 30.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
 let redo_log_max_startup_time = 5.
 
 (** The delay between each attempt to connect to the block device I/O process *)
