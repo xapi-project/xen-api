@@ -781,16 +781,16 @@ let _ =
                 let str = String.make command_size '\000' in
                 Unixext.really_read client str 0 command_size;
                 
-                (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
-                let target_response_time = Unix.gettimeofday() +. Xapi_globs.redo_log_max_block_time in
                 (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
-                let action_fn = match str with
-                  | "writedelta" -> action_writedelta
-                  | "writedb___" -> action_writedb
-                  | "read______" -> action_read
-                  | "empty_____" -> action_empty
-                  | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str))
+                let (action_fn, block_time) = match str with
+                  | "writedelta" -> action_writedelta, Xapi_globs.redo_log_max_block_time_writedelta
+                  | "writedb___" -> action_writedb,    Xapi_globs.redo_log_max_block_time_writedb
+                  | "read______" -> action_read,       Xapi_globs.redo_log_max_block_time_read
+                  | "empty_____" -> action_empty,      Xapi_globs.redo_log_max_block_time_empty
+                  | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)), 0.
                 in
+                (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
+                let target_response_time = Unix.gettimeofday() +. block_time in
                 action_fn block_dev_fd client !datasock target_response_time
               with (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
               | End_of_file ->
