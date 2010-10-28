@@ -157,6 +157,9 @@ let transfer_reservation_to_domain args =
 		let kib = xs.Xs.read (reservation_path _service session_id reservation_id) in
 		(* This code is single-threaded, no need to make this transactional: *)
 		xs.Xs.write (xs.Xs.getdomainpath domid ^ "/memory/initial-reservation") kib;
+							maybe
+								(fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn (xc, xs) domid maxmem)
+								(try Some (Int64.of_string kib) with _ -> None);
 		del_reservation xs _service session_id reservation_id;
 		[]
 	     )
