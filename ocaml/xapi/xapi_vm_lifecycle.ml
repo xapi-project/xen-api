@@ -204,77 +204,118 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
 let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
+	debug "Check operation error: op=%s" (Record_util.vm_operation_to_string op);
+	debug "vdis_reset_and_caching: [%s]" (String.concat ";" (List.map (fun (a,b) -> (Printf.sprintf "(%b,%b)" a b)) vdis_reset_and_caching));
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
+	let is_template = vmr.Db_actions.vM_is_a_template in
+	let is_snapshot = vmr.Db_actions.vM_is_a_snapshot in
 
 	(* Check if the operation has been explicitly blocked by the/a user *)
-	if List.mem_assoc op vmr.Db_actions.vM_blocked_operations
-	then Some (Api_errors.operation_blocked, [ ref_str; List.assoc op vmr.Db_actions.vM_blocked_operations ])
+	let current_error = None in
+
+	let check c f = match c with | Some e -> Some e | None -> f () in
+
+	let current_error = check current_error (fun () -> 
+		if List.mem_assoc op vmr.Db_actions.vM_blocked_operations
+		then Some (Api_errors.operation_blocked, [ ref_str; List.assoc op vmr.Db_actions.vM_blocked_operations ]) 
+		else None) in
 
 	(* if no other operations are done at the same time, first check if the new operation can be done *)
-	else if List.length current_ops = 0 &&  not (is_allowed_sequentially ~power_state ~op)
-	then report_power_state_error ~power_state ~op ~ref_str
+	let current_error = check current_error (fun () -> 
+		if List.length current_ops = 0 &&  not (is_allowed_sequentially ~power_state ~op)
+		then report_power_state_error ~power_state ~op ~ref_str
+		else None) in
 
 	(* if other operations are in progress, check that the new operation concurrently to these ones. *)
-	else if List.length current_ops <> 0 && not (is_allowed_concurrently ~op ~current_ops)
-	then report_concurrent_operations_error ~current_ops ~ref_str
+	let current_error = check current_error (fun () -> 
+		if List.length current_ops <> 0 && not (is_allowed_concurrently ~op ~current_ops)
+		then report_concurrent_operations_error ~current_ops ~ref_str 
+		else None) in
 
 	(* if the VM is a template, check the template behavior exceptions. *)
-	else if vmr.Db_actions.vM_is_a_template && not vmr.Db_actions.vM_is_a_snapshot
-	then check_template ~vmr ~op ~ref_str
-	
+	let current_error = check current_error (fun () -> 
+		if is_template && not is_snapshot
+		then check_template ~vmr ~op ~ref_str
+		else None) in
+
 	(* if the VM is a snapshot, check the snapshot behavior exceptions. *)
-	else if vmr.Db_actions.vM_is_a_snapshot
-	then check_snapshot ~vmr ~op ~ref_str
+	let current_error = check current_error (fun () -> 
+		if is_snapshot
+		then check_snapshot ~vmr ~op ~ref_str
+		else None) in
 
 	(* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
-	else if op = `provision
-	then Some (Api_errors.only_provision_template, [])
+	let current_error = check current_error (fun () -> 
+		if op = `provision && (not is_template)
+		then Some (Api_errors.only_provision_template, [])
+		else None) in
 
-	else if op = `revert
-	then Some (Api_errors.only_revert_snapshot, [])
+	let current_error = check current_error (fun () -> 
+		if op = `revert && (not is_snapshot)
+		then Some (Api_errors.only_revert_snapshot, [])
+		else None) in
 
 	(* Check if the VM is a control domain (eg domain 0).            *)
 	(* FIXME: Instead of special-casing for the control domain here, *)
 	(* make use of the Helpers.ballooning_enabled_for_vm function.   *)
-	else if vmr.Db_actions.vM_is_control_domain
-		&& op <> `data_source_op
-		&& op <> `changing_memory_live
-		&& op <> `awaiting_memory_live
-		&& op <> `metadata_export
-		&& op <> `changing_dynamic_range
-	then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
+	let current_error = check current_error (fun () -> 
+		if vmr.Db_actions.vM_is_control_domain
+			&& op <> `data_source_op
+			&& op <> `changing_memory_live
+			&& op <> `awaiting_memory_live
+			&& op <> `metadata_export
+			&& op <> `changing_dynamic_range
+		then Some (Api_errors.operation_not_allowed, ["Operations on domain 0 are not allowed"])
+		else None) in
 
 	(* check PV drivers constraints if needed *)
-	else if need_pv_drivers_check ~power_state ~op
-	then check_drivers ~vmr ~vmgmr ~op ~ref
+	let current_error = check current_error (fun () -> 
+		if need_pv_drivers_check ~power_state ~op
+		then check_drivers ~vmr ~vmgmr ~op ~ref
+		else None) in
 
 	(* check is the correct flag is set to allow clone/copy on suspended VM. *)
-	else if power_state = `Suspended && (op = `clone || op = `copy) && not clone_suspended_vm_enabled
-	then Some (Api_errors.vm_bad_power_state, [ref_str; "halted"; Record_util.power_to_string power_state])
+	let current_error = check current_error (fun () ->
+		if (power_state = `Suspended && (op = `clone || op = `copy)
+		    && not is_snapshot && not clone_suspended_vm_enabled)
+		then Some (Api_errors.vm_bad_power_state, [ref_str; "halted"; Record_util.power_to_string power_state])
+		else None) in
 
 	(* check if the dynamic changeable operations are still valid *)
-	else if op = `snapshot_with_quiesce && 
-		(Pervasiveext.maybe_with_default true
-			 (fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in 
-			  not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other)) 
-			 vmgmr)
-	then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
+	let current_error = check current_error (fun () -> 
+		if op = `snapshot_with_quiesce && 
+			(Pervasiveext.maybe_with_default true
+				(fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in 
+				not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other)) 
+				vmgmr)
+		then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
+		else None) in
 
 	(* Check for an error due to VDI caching/reset behaviour *)
-	else if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
- 	then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
-		if List.exists fst vdis_reset_and_caching 
-		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
-		else None
-	else if op = `pool_migrate then
-		(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
-		if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
-		then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
-		else None
+	let current_error = check current_error (fun () -> 
+		if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
+ 		then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
+			begin
+				debug "Checking for vdis_reset_and_caching...";
+				if List.exists fst vdis_reset_and_caching 
+				then begin 
+					debug "Op disallowed!"; Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+				end else begin
+					debug "Op allowed!";
+					None
+				end
+			end
+		else if op = `pool_migrate then
+			(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
+			if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
+			then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+			else None
 
-	else None
+		else None) in
+	
+	current_error
 
 let maybe_get_guest_metrics ~__context ~ref =
 	if Db.is_valid_ref ref
