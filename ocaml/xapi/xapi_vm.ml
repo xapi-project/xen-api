@@ -535,6 +535,9 @@ module Shutdown = struct
 		  )
 	end;
 
+	(* Invoke pre-start hook *)
+	Xapi_hooks.vm_pre_start ~__context ~reason:Xapi_hooks.reason__none ~vm;
+
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
       debug "hard_shutdown: destroying any suspend VDI";
       
