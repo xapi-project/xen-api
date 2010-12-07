@@ -1,10 +1,10 @@
-OASISFormat: 0.1
+OASISFormat: 0.2
 Name:        Xenops
 Version:     0.1
 Synopsis:    xenops library
 Authors:     Citrix
 License:     LGPL
-Plugins:     META (0.1), DevFiles (0.1)
+Plugins:     META (0.2), DevFiles (0.2)
 
 Library xenops
   Path:       src
