@@ -1,5 +1,119 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 0630c32961bf7ee37e1aca70f0ea4428) *)
+(* DO NOT EDIT (digest: 97a463f8fda1d857232e04fe40d950b2) *)
+module OASISGettext = struct
+# 21 "/tmp/oasis/src/oasis/OASISGettext.ml"
+  
+  let ns_ str = 
+    str
+  
+  let s_ str = 
+    str
+  
+  let f_ (str : ('a, 'b, 'c, 'd) format4) =
+    str
+  
+  let fn_ fmt1 fmt2 n =
+    if n = 1 then
+      fmt1^^""
+    else
+      fmt2^^""
+  
+  let init = 
+    []
+  
+end
+
+module OASISExpr = struct
+# 21 "/tmp/oasis/src/oasis/OASISExpr.ml"
+  
+  
+  
+  open OASISGettext
+  
+  type test = string 
+  
+  type flag = string 
+  
+  type t =
+    | EBool of bool
+    | ENot of t
+    | EAnd of t * t
+    | EOr of t * t
+    | EFlag of flag
+    | ETest of test * string
+    
+  
+  type 'a choices = (t * 'a) list 
+  
+  let eval var_get t =
+    let rec eval' = 
+      function
+        | EBool b ->
+            b
+  
+        | ENot e -> 
+            not (eval' e)
+  
+        | EAnd (e1, e2) ->
+            (eval' e1) && (eval' e2)
+  
+        | EOr (e1, e2) -> 
+            (eval' e1) || (eval' e2)
+  
+        | EFlag nm ->
+            let v =
+              var_get nm
+            in
+              assert(v = "true" || v = "false");
+              (v = "true")
+  
+        | ETest (nm, vl) ->
+            let v =
+              var_get nm
+            in
+              (v = vl)
+    in
+      eval' t
+  
+  let choose ?printer ?name var_get lst =
+    let rec choose_aux = 
+      function
+        | (cond, vl) :: tl ->
+            if eval var_get cond then 
+              vl 
+            else
+              choose_aux tl
+        | [] ->
+            let str_lst = 
+              if lst = [] then
+                s_ "<empty>"
+              else
+                String.concat 
+                  (s_ ", ")
+                  (List.map
+                     (fun (cond, vl) ->
+                        match printer with
+                          | Some p -> p vl
+                          | None -> s_ "<no printer>")
+                     lst)
+            in
+              match name with 
+                | Some nm ->
+                    failwith
+                      (Printf.sprintf 
+                         (f_ "No result for the choice list '%s': %s")
+                         nm str_lst)
+                | None ->
+                    failwith
+                      (Printf.sprintf
+                         (f_ "No result for a choice list: %s")
+                         str_lst)
+    in
+      choose_aux (List.rev lst)
+  
+end
+
+
 module BaseEnvLight = struct
 # 21 "/tmp/oasis/src/base/BaseEnvLight.ml"
   
@@ -89,6 +203,11 @@ module BaseEnvLight = struct
         Buffer.contents buff
     in
       var_expand (MapString.find name env)
+  
+  let var_choose lst env = 
+    OASISExpr.choose
+      (fun nm -> var_get nm env)
+      lst
 end
 
 
@@ -214,14 +333,15 @@ module MyOCamlbuildBase = struct
   type dir = string 
   type file = string 
   type name = string 
+  type tag = string 
   
-# 54 "/tmp/oasis/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
+# 55 "/tmp/oasis/src/plugins/ocamlbuild/MyOCamlbuildBase.ml"
   
   type t =
       {
         lib_ocaml: (name * dir list) list;
         lib_c:     (name * dir * file list) list; 
-        flags:     (string list * spec) list;
+        flags:     (tag list * (spec OASISExpr.choices)) list;
       } 
   
   let env_filename =
@@ -234,86 +354,89 @@ module MyOCamlbuildBase = struct
         (fun dispatch -> dispatch e)
         lst 
   
-  let dispatch t = 
-    function
-      | Before_options ->
-          let env = 
-            BaseEnvLight.load 
-              ~filename:env_filename 
-              ~allow_empty:true
-              ()
-          in
-          let no_trailing_dot s =
-            if String.length s >= 1 && s.[0] = '.' then
-              String.sub s 1 ((String.length s) - 1)
-            else
-              s
-          in
+  let dispatch t e = 
+    let env = 
+      BaseEnvLight.load 
+        ~filename:env_filename 
+        ~allow_empty:true
+        ()
+    in
+      match e with 
+        | Before_options ->
+            let no_trailing_dot s =
+              if String.length s >= 1 && s.[0] = '.' then
+                String.sub s 1 ((String.length s) - 1)
+              else
+                s
+            in
+              List.iter
+                (fun (opt, var) ->
+                   try 
+                     opt := no_trailing_dot (BaseEnvLight.var_get var env)
+                   with Not_found ->
+                     Printf.eprintf "W: Cannot get variable %s" var)
+                [
+                  Options.ext_obj, "ext_obj";
+                  Options.ext_lib, "ext_lib";
+                  Options.ext_dll, "ext_dll";
+                ]
+  
+        | After_rules -> 
+            (* Declare OCaml libraries *)
+            List.iter 
+              (function
+                 | lib, [] ->
+                     ocaml_lib lib;
+                 | lib, dir :: tl ->
+                     ocaml_lib ~dir:dir lib;
+                     List.iter 
+                       (fun dir -> 
+                          flag 
+                            ["ocaml"; "use_"^lib; "compile"] 
+                            (S[A"-I"; P dir]))
+                       tl)
+              t.lib_ocaml;
+  
+            (* Declare C libraries *)
             List.iter
-              (fun (opt, var) ->
-                 try 
-                   opt := no_trailing_dot (BaseEnvLight.var_get var env)
-                 with Not_found ->
-                   Printf.eprintf "W: Cannot get variable %s" var)
-              [
-                Options.ext_obj, "ext_obj";
-                Options.ext_lib, "ext_lib";
-                Options.ext_dll, "ext_dll";
-              ]
+              (fun (lib, dir, headers) ->
+                   (* Handle C part of library *)
+                   flag ["link"; "library"; "ocaml"; "byte"; "use_lib"^lib]
+                     (S[A"-dllib"; A("-l"^lib); A"-cclib"; A("-l"^lib)]);
   
-      | After_rules -> 
-          (* Declare OCaml libraries *)
-          List.iter 
-            (function
-               | lib, [] ->
-                   ocaml_lib lib;
-               | lib, dir :: tl ->
-                   ocaml_lib ~dir:dir lib;
-                   List.iter 
-                     (fun dir -> 
-                        flag 
-                          ["ocaml"; "use_"^lib; "compile"] 
-                          (S[A"-I"; P dir]))
-                     tl)
-            t.lib_ocaml;
+                   flag ["link"; "library"; "ocaml"; "native"; "use_lib"^lib]
+                     (S[A"-cclib"; A("-l"^lib)]);
+                        
+                   flag ["link"; "program"; "ocaml"; "byte"; "use_lib"^lib]
+                     (S[A"-dllib"; A("dll"^lib)]);
   
-          (* Declare C libraries *)
-          List.iter
-            (fun (lib, dir, headers) ->
-                 (* Handle C part of library *)
-                 flag ["link"; "library"; "ocaml"; "byte"; "use_lib"^lib]
-                   (S[A"-dllib"; A("-l"^lib); A"-cclib"; A("-l"^lib)]);
+                   (* When ocaml link something that use the C library, then one
+                      need that file to be up to date.
+                    *)
+                   dep  ["link"; "ocaml"; "use_lib"^lib] 
+                     [dir/"lib"^lib^"."^(!Options.ext_lib)];
   
-                 flag ["link"; "library"; "ocaml"; "native"; "use_lib"^lib]
-                   (S[A"-cclib"; A("-l"^lib)]);
-                      
-                 flag ["link"; "program"; "ocaml"; "byte"; "use_lib"^lib]
-                   (S[A"-dllib"; A("dll"^lib)]);
+                   (* TODO: be more specific about what depends on headers *)
+                   (* Depends on .h files *)
+                   dep ["compile"; "c"] 
+                     headers;
   
-                 (* When ocaml link something that use the C library, then one
-                    need that file to be up to date.
-                  *)
-                 dep  ["link"; "ocaml"; "use_lib"^lib] 
-                   [dir/"lib"^lib^"."^(!Options.ext_lib)];
+                   (* Setup search path for lib *)
+                   flag ["link"; "ocaml"; "use_"^lib] 
+                     (S[A"-I"; P(dir)]);
+              )
+              t.lib_c;
   
-                 (* TODO: be more specific about what depends on headers *)
-                 (* Depends on .h files *)
-                 dep ["compile"; "c"] 
-                   headers;
-  
-                 (* Setup search path for lib *)
-                 flag ["link"; "ocaml"; "use_"^lib] 
-                   (S[A"-I"; P(dir)]);
-            )
-            t.lib_c;
-  
-            (* Add flags *)
-            List.iter
-            (fun (tags, spec) ->
-               flag tags & spec)
-            t.flags
-      | _ -> 
-          ()
+              (* Add flags *)
+              List.iter
+              (fun (tags, cond_specs) ->
+                 let spec = 
+                   BaseEnvLight.var_choose cond_specs env
+                 in
+                   flag tags & spec)
+              t.flags
+        | _ -> 
+            ()
   
   let dispatch_default t =
     dispatch_combine 
@@ -333,17 +456,17 @@ let package_default =
      flags =
        [
           (["oasis_library_xenops_byte"; "ocaml"; "link"; "byte"],
-            S [A "-thread"]);
+            [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_library_xenops_native"; "ocaml"; "link"; "native"],
-            S [A "-thread"]);
+            [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_library_xenops_byte"; "ocaml"; "ocamldep"; "byte"],
-            S [A "-thread"]);
+            [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_library_xenops_native"; "ocaml"; "ocamldep"; "native"],
-            S [A "-thread"]);
+            [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_library_xenops_byte"; "ocaml"; "compile"; "byte"],
-            S [A "-thread"]);
+            [(OASISExpr.EBool true, S [A "-thread"])]);
           (["oasis_library_xenops_native"; "ocaml"; "compile"; "native"],
-            S [A "-thread"])
+            [(OASISExpr.EBool true, S [A "-thread"])])
        ];
      }
   ;;
