@@ -1,0 +1,23 @@
+ifdef B_BASE
+include $(B_BASE)/common.mk
+REPO=$(call hg_loc,xen-api)
+else
+MY_OUTPUT_DIR ?= $(CURDIR)/output
+MY_OBJ_DIR ?= $(CURDIR)/obj
+REPO ?= $(CURDIR)
+
+RPM_SPECSDIR?=/usr/src/redhat/SPECS
+RPM_SRPMSDIR?=/usr/src/redhat/SRPMS
+RPM_SOURCEDIR?=/usr/src/redhat/SOURCES
+XEN_RELEASE?=unknown
+endif
+
+
+.PHONY: srpm
+srpm:
+	git archive --format=tar --prefix=xapi-0.2/ HEAD | bzip2 > $(RPM_SOURCEDIR)/xapi-0.2.tar.bz2
+	rpmbuild --define "XEN_RELEASE $(XEN_RELEASE)" -bs --nodeps xapi.spec
+
+.PHONY: rpm
+rpm:
+	rpmbuild -bb xapi.spec
