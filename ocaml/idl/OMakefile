@@ -139,10 +139,18 @@ sdk-install: datamodel html_build xenenterpriseapi.pdf $(JQUERY) $(JQUERYTREEVIE
 	mkdir -p $(SDK)/docs/html
 	sh -c '/bin/cp -ar /tmp/docs/html/merged/API $(SDK)/docs/html'
 	cp /tmp/docs/html/autogen/classes.html $(SDK)/docs/html
-	cp $(JQUERY) $(SDK)/docs/html
+	if test -f $(JQUERY); then \
+		cp $(JQUERY) $(SDK)/docs/html; \
+	else; \
+		(cd $(SDK)/docs/html; wget http://jqueryjs.googlecode.com/files/jquery-1.1.3.1.pack.js); \
+	fi
 	mkdir -p $(SDK)/docs/html/images
-	unzip -o -j -d $(SDK)/docs/html/images $(JQUERYTREEVIEWZIP) images/*
-	unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) '*.js' images/*
+	if test -f $(JQUERYTREEVIEWZIP); then \
+		unzip -o -j -d $(SDK)/docs/html/images $(JQUERYTREEVIEWZIP) images/*; \
+		unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) *.js images/*; \
+	else; \
+		echo "We are using an old version of treeview, the available version requires jquery 1.2.  Time to upgrade."; \
+	fi
 	#./datamodel -closed -html $(SDK)/docs/html
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
