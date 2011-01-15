@@ -277,6 +277,7 @@ _VLAN_XML_TAG = "vlan"
 _TUNNEL_XML_TAG = "tunnel"
 _BOND_XML_TAG = "bond"
 _NETWORK_XML_TAG = "network"
+_POOL_XML_TAG = "pool"
 
 _ETHTOOL_OTHERCONFIG_ATTRS = ['ethtool-%s' % x for x in 'autoneg', 'speed', 'duplex', 'rx', 'tx', 'sg', 'tso', 'ufo', 'gso', 'gro', 'lro' ]
 
@@ -340,6 +341,12 @@ _NETWORK_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                    'other_config': (lambda x, p, t, v: _otherconfig_to_xml(x, p, v, _NETWORK_OTHERCONFIG_ATTRS),
                                     lambda n: _otherconfig_from_xml(n, _NETWORK_OTHERCONFIG_ATTRS)),
                  }
+
+_POOL_OTHERCONFIG_ATTRS = ['vswitch-controller-fail-mode']
+
+_POOL_ATTRS = { 'other_config': (lambda x, p, t, v: _otherconfig_to_xml(x, p, v, _POOL_OTHERCONFIG_ATTRS),
+                                 lambda n: _otherconfig_from_xml(n, _POOL_OTHERCONFIG_ATTRS)),
+              }
 
 #
 # Database Cache object
@@ -436,6 +443,20 @@ class DatabaseCache(object):
                 if not rec['other_config'].has_key(f): continue
                 self.__networks[n]['other_config'][f] = rec['other_config'][f]
 
+    def __get_pool_records_from_xapi(self, session):
+        self.__pools = {}
+        for p in session.xenapi.pool.get_all():
+            rec = session.xenapi.pool.get_record(p)
+
+            self.__pools[p] = {}
+
+            for f in _POOL_ATTRS:
+                self.__pools[p][f] = rec[f]
+
+            for f in _POOL_OTHERCONFIG_ATTRS:
+                if rec['other_config'].has_key(f):
+                    self.__pools[p]['other_config'][f] = rec['other_config'][f]
+
     def __to_xml(self, xml, parent, key, ref, rec, attrs):
         """Encode a database object as XML"""
         e = xml.createElement(key)
@@ -481,7 +502,7 @@ class DatabaseCache(object):
                 host = session.xenapi.host.get_by_uuid(inventory['INSTALLATION_UUID'])
 
                 self.__get_pif_records_from_xapi(session, host)
-
+                self.__get_pool_records_from_xapi(session)
                 self.__get_tunnel_records_from_xapi(session)
                 self.__get_vlan_records_from_xapi(session)
                 self.__get_bond_records_from_xapi(session)
@@ -497,6 +518,7 @@ class DatabaseCache(object):
             self.__pifs = {}
             self.__bonds = {}
             self.__vlans = {}
+            self.__pools = {}
             self.__tunnels = {}
             self.__networks = {}
 
@@ -523,6 +545,9 @@ class DatabaseCache(object):
                 elif n.nodeName == _NETWORK_XML_TAG:
                     (ref,rec) = self.__from_xml(n, _NETWORK_ATTRS)
                     self.__networks[ref] = rec
+                elif n.nodeName == _POOL_XML_TAG:
+                    (ref,rec) = self.__from_xml(n, _POOL_ATTRS)
+                    self.__pools[ref] = rec
                 else:
                     raise Error("Unknown XML element %s" % n.nodeName)
 
@@ -541,6 +566,8 @@ class DatabaseCache(object):
         for (ref,rec) in self.__networks.items():
             self.__to_xml(xml, xml.documentElement, _NETWORK_XML_TAG, ref, rec,
                           _NETWORK_ATTRS)
+        for (ref,rec) in self.__pools.items():
+            self.__to_xml(xml, xml.documentElement, _POOL_XML_TAG, ref, rec, _POOL_ATTRS)
 
         f = open(cache_file, 'w')
         f.write(xml.toprettyxml())
@@ -615,6 +642,9 @@ class DatabaseCache(object):
             return self.__vlans[vlan]
         else:
             return None
+
+    def get_pool_record(self):
+        return self.__pools.values()[0]
 
 #
 #
