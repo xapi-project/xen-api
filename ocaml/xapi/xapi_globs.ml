@@ -334,6 +334,7 @@ let _start_time_key = "start_time"
 let sync_switch_off = "nosync" (* Set the following keys to this value to disable the dbsync operation *)
 
 (* dbsync_slave *)
+let sync_local_vdi_activations = "sync_local_vdi_activations"
 let sync_create_localhost = "sync_create_localhost"
 let sync_enable_localhost = "sync_enable_localhost"
 let sync_refresh_localhost_info = "sync_refresh_localhost_info"
