@@ -169,9 +169,9 @@ if __name__ == "__main__":
 			f.write('IP=' + options.ip + '\n')
 			f.write('NETMASK=' + options.netmask + '\n')
 			if options.gateway != '':
-				f.write('GATEWAY=' + gateway + '\n')
+				f.write('GATEWAY=' + options.gateway + '\n')
 			if options.dns != '':
-				f.write('DNS=' + dns + '\n')
+				f.write('DNS=' + options.dns + '\n')
 	finally:
 		f.close()
 	
