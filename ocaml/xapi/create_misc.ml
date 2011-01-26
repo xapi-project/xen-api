@@ -31,11 +31,14 @@ type host_info = {
 	linux_verstring : string;
 	hostname : string;
 	uuid : string;
+	dom0_uuid : string;
 	oem_manufacturer : string option;
 	oem_model : string option;
 	oem_build_number : string option;
 	machine_serial_number: string option;
 	machine_serial_name: string option;
+	total_memory_mib: int64;
+	dom0_static_max: int64;
 }
 
 let read_localhost_info () =
@@ -55,32 +58,40 @@ let read_localhost_info () =
 	let me = Helpers.get_localhost_uuid () in
 	let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
 	let this_host_name = Helpers.get_hostname() in
+	let total_memory_mib = 
+		Vmopshelpers.with_xc
+			(fun xc -> Memory.get_total_memory_mib ~xc) in
+	let dom0_static_max = 
+		(* Query the balloon driver to determine how much memory is available for domain 0. *)
+		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
+		(* max_memory_pages is hard-wired to the maximum native integer value ("infinity"). *)
+		let map = Balloon.parse_proc_xen_balloon () in
+		let lookup = fun x -> Opt.unbox (List.assoc x map) in
+		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
+		let values = List.map lookup keys in
+		let result = List.fold_left Int64.add 0L values in
+		Memory.bytes_of_kib result in
+
 	  {name_label=this_host_name;
 	   xen_verstring=xen_verstring;
 	   linux_verstring=linux_verstring;
 	   hostname=this_host_name;
 	   uuid=me;
+	   dom0_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
 	   oem_manufacturer = lookup_inventory_nofail Xapi_inventory._oem_manufacturer;
 	   oem_model = lookup_inventory_nofail Xapi_inventory._oem_model;
 	   oem_build_number = lookup_inventory_nofail Xapi_inventory._oem_build_number;
 	   machine_serial_number = lookup_inventory_nofail Xapi_inventory._machine_serial_number;
 	   machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
+	   total_memory_mib = total_memory_mib;
+	   dom0_static_max = dom0_static_max;
 	   }
-
-(** Extracts a value from an option that is assumed to have a value. *)
-(** Fails at run time if there is no such value.                     *)
-let val_of x = match x with (Some x) -> x
 
 (** Returns the maximum of two values. *)
 let maximum x y = if x > y then x else y
 
 (** Returns the minimum of two values. *)
 let minimum x y = if x < y then x else y
-
-(** Returns the total amount of memory available in this host. *)
-let host_get_total_memory_mib () =
-	Vmopshelpers.with_xc
-		(fun xc -> Memory.get_total_memory_mib ~xc)
 
 let (+++) = Int64.add
 
@@ -93,24 +104,24 @@ let (+++) = Int64.add
 (** This function makes sure there is exactly one record of each type. *)
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
-let rec ensure_domain_zero_records ~__context : unit =
-	let domain_zero_ref = ensure_domain_zero_record ~__context in
+let rec ensure_domain_zero_records ~__context (host_info: host_info) : unit =
+	let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
 	ensure_domain_zero_console_record ~__context ~domain_zero_ref;
-	ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref;
+	ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info;
 	ensure_domain_zero_shadow_record ~__context ~domain_zero_ref
 
-and ensure_domain_zero_record ~__context =
+and ensure_domain_zero_record ~__context (host_info: host_info): [`VM] Ref.t =
 	let ref_lookup () = Helpers.get_domain_zero ~__context in
 	let ref_create () = Ref.make () in
 	let (domain_zero_ref, found) =
 		try       ref_lookup (), true
 		with _ -> ref_create (), false in
 	if found
-		then update_domain_zero_record ~__context ~domain_zero_ref
-		else create_domain_zero_record ~__context ~domain_zero_ref;
+		then update_domain_zero_record ~__context ~domain_zero_ref host_info
+		else create_domain_zero_record ~__context ~domain_zero_ref host_info;
 	domain_zero_ref
 
-and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
+and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	match Db.VM.get_consoles ~__context ~self: domain_zero_ref with
 		| [] ->
 			(* if there are no consoles then make one *)
@@ -124,38 +135,37 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
 			(* going on; make a new one                                   *)
 			create_domain_zero_console_record ~__context ~domain_zero_ref
 
-and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref =
+and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
 		let metrics_ref = Ref.make() in
-		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_default_memory_constraints ())
+		create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_default_memory_constraints host_info)
 		~vcpus:(calculate_domain_zero_vcpu_count ~__context);
 		Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
 	end
 
-and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref =
+and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref : unit =
 	(* Always create a new shadow record. *)
 	let domain_zero_record = Db.VM.get_record ~__context ~self:domain_zero_ref in
 	Helpers.set_boot_record ~__context ~self:domain_zero_ref domain_zero_record
 
-and create_domain_zero_record ~__context ~domain_zero_ref =
+and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Determine domain 0 memory constraints. *)
-	let memory = create_domain_zero_default_memory_constraints () in
+	let memory = create_domain_zero_default_memory_constraints host_info in
 	(* Determine information about the host machine. *)
 	let domarch =
 		let i = Int64.of_nativeint (Int64.to_nativeint 0xffffffffL) in
 		Domain.string_of_domarch (if i > 0L then Domain.Arch_X64 else Domain.Arch_X32) in
 	let localhost = Helpers.get_localhost ~__context in
-	let hostname = Helpers.get_hostname() in
 	(* Read the control domain uuid from the inventory file *)
-	let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	let uuid = host_info.dom0_uuid in
 	(* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
 	let vcpus = calculate_domain_zero_vcpu_count ~__context in
 	let metrics = Ref.make () in
 	(* Now create the database record. *)
 	Db.VM.create ~__context ~ref:domain_zero_ref
-		~name_label:("Control domain on host: " ^ hostname) ~uuid
+		~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
 		~name_description:"The domain which manages physical devices and manages other domains"
 		~hVM_boot_policy:"" ~hVM_boot_params:[] ~hVM_shadow_multiplier:1. ~platform:[] ~pCI_bus:""
 		~pV_args:"" ~pV_ramdisk:"" ~pV_kernel:"" ~pV_bootloader:"" ~pV_bootloader_args:"" ~pV_legacy_args:""
@@ -179,7 +189,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref =
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
-and create_domain_zero_console_record ~__context ~domain_zero_ref =
+and create_domain_zero_console_record ~__context ~domain_zero_ref : unit =
 	debug "Domain 0 record does not have associated console record. Creating now";
 	(* first delete any old dom0 console records that may be kicking around: *)
 	let this_dom0s_consoles = Db.Console.get_refs_where ~__context ~expr: (Eq(Field "_ref", Literal (Ref.string_of domain_zero_ref))) in
@@ -196,7 +206,7 @@ and create_domain_zero_console_record ~__context ~domain_zero_ref =
 		~other_config:[]
 		~port: (Int64.of_int Xapi_globs.host_console_vncport)
 
-and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus =
+and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
 	let rec mkints = function
 		| 0 -> []
 		| n -> (mkints (n - 1) @ [n]) in
@@ -213,7 +223,7 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
 		~last_updated: Date.never
 		~other_config:[];
 
-and create_domain_zero_default_memory_constraints () =
+and create_domain_zero_default_memory_constraints host_info : Vm_memory_constraints.t =
         try  
 	  let constraints = {
 	    static_min = Int64.of_string (Localdb.get Constants.pool_join_mem_stat_min);
@@ -229,7 +239,7 @@ and create_domain_zero_default_memory_constraints () =
 	  Localdb.del Constants.pool_join_mem_target;
 	  constraints 
 	with _ -> 
-	  let static_min, static_max = calculate_domain_zero_memory_static_range () in
+	  let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
 	  let target = static_min +++ (Memory.bytes_of_mib 100L) in
 	  let target = if target > static_max then static_max else target in
 	  {
@@ -240,16 +250,16 @@ and create_domain_zero_default_memory_constraints () =
 	    static_max  = static_max;
 	  }
 
-and update_domain_zero_record ~__context ~domain_zero_ref : unit =
+and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
 	(* Fetch existing memory constraints for domain 0. *)
 	let constraints = Vm_memory_constraints.get ~__context ~vm_ref:domain_zero_ref in
 	(* Generate new memory constraints from the old constraints. *)
-	let constraints = update_domain_zero_memory_constraints constraints in
+	let constraints = update_domain_zero_memory_constraints host_info constraints in
 	(* Write the updated memory constraints to the database. *)
 	Vm_memory_constraints.set ~__context ~vm_ref:domain_zero_ref ~constraints
 
-and update_domain_zero_memory_constraints constraints =
-	let static_min, static_max = calculate_domain_zero_memory_static_range () in
+and update_domain_zero_memory_constraints (host_info: host_info) (constraints: Vm_memory_constraints.t) : Vm_memory_constraints.t =
+	let static_min, static_max = calculate_domain_zero_memory_static_range host_info in
 	let constraints = {constraints with
 		static_min = static_min;
 		static_max = static_max;} in
@@ -257,17 +267,17 @@ and update_domain_zero_memory_constraints constraints =
 		| None ->
 			(* The existing constraints are invalid, and cannot be transformed  *)
 			(* into valid constraints. Reset the constraints to their defaults. *)
-			create_domain_zero_default_memory_constraints ()
+			create_domain_zero_default_memory_constraints host_info
 		| Some constraints ->
 			constraints
 
 (** Calculates the range of memory to which domain 0 is constrained, in bytes. *)
-and calculate_domain_zero_memory_static_range () =
+and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * int64 =
 
 	(** Calculates the minimum amount of memory needed by domain 0, in bytes. *)
 	let calculate_domain_zero_memory_static_min () =
 		(* Base our calculation on the total amount of host memory. *)
-		let host_total_memory_mib = host_get_total_memory_mib () in
+		let host_total_memory_mib = host_info.total_memory_mib in
 		let minimum = 200L in            (*   lower hard limit                               *)
 		let intercept = 126L in          (*   [domain 0 memory] when [total host memory] = 0 *)
 		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
@@ -275,25 +285,13 @@ and calculate_domain_zero_memory_static_range () =
 		let result = if result < minimum then minimum else result in
 		Memory.bytes_of_mib result in
 
-	(** Calculates the maximum amount of memory available to domain 0, in bytes. *)
-	let calculate_domain_zero_memory_static_max () =
-		(* Query the balloon driver to determine how much memory is available for domain 0. *)
-		(* We cannot ask XenControl for this information, since for domain 0, the value of  *)
-		(* max_memory_pages is hard-wired to the maximum native integer value ("infinity"). *)
-		let map = Balloon.parse_proc_xen_balloon () in
-		let lookup = fun x -> val_of (List.assoc x map) in
-		let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
-		let values = List.map lookup keys in
-		let result = List.fold_left Int64.add 0L values in
-		Memory.bytes_of_kib result in
-
 	(* static_min must not be greater than static_max *)
 	let static_min = calculate_domain_zero_memory_static_min () in
-	let static_max = calculate_domain_zero_memory_static_max () in
+	let static_max = host_info.dom0_static_max in
 	let static_min = minimum static_min static_max in
 	static_min, static_max
 
-and calculate_domain_zero_vcpu_count ~__context =
+and calculate_domain_zero_vcpu_count ~__context : int =
 	List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
 
 open Db_filter
@@ -487,4 +485,4 @@ let create_host_cpu ~__context =
 			~utilisation:0. ~flags ~stepping ~model ~family
 			~features:"" ~other_config:[])
 	done
-	
+

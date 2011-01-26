@@ -57,18 +57,14 @@ let refresh_local_vdi_activations ~__context =
 			| None ->
 				warn "Warning: Local db think's we've activated a VDI that's not in the database. Restarting xapi after a scan might fix this...";
 				())
-		
-	
-
-(* create localhost record *)
 
 let get_my_ip_addr() =
   match (Helpers.get_management_ip_addr()) with
       Some ip -> ip
     | None -> (error "Cannot read IP address. Check the control interface has an IP address"; "")
 
-let create_localhost ~__context =
-  let info = Create_misc.read_localhost_info () in
+
+let create_localhost ~__context info =
   let ip = get_my_ip_addr () in
   let me = try Some (Db.Host.get_by_uuid ~__context ~uuid:info.uuid) with _ -> None in
   (* me = None on firstboot only *)
@@ -79,7 +75,7 @@ let create_localhost ~__context =
 	~hostname:info.hostname ~address:ip 
 	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
 	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
-    in ()
+    in ()		
 
 (* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
@@ -100,9 +96,8 @@ let get_start_time () =
         Date.never
 
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
-let refresh_localhost_info ~__context =
+let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
-  let info = read_localhost_info () in
   let software_version = Create_misc.make_software_version () in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
@@ -530,10 +525,12 @@ let update_env __context sync_keys =
 
   (* Ensure basic records exist: *)
 
+  let info = Create_misc.read_localhost_info () in
+
   (* create localhost record if doesn't already exist *)
   switched_sync Xapi_globs.sync_create_localhost (fun () -> 
     debug "creating localhost";
-    create_localhost ~__context; 
+    create_localhost ~__context info; 
   );
 
   (* record who we are in xapi_globs *)
@@ -563,7 +560,7 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_create_domain_zero (fun () ->
     debug "creating domain 0";
-    Create_misc.ensure_domain_zero_records ~__context;
+    Create_misc.ensure_domain_zero_records ~__context info;
   );
 
   let localhost = Helpers.get_localhost ~__context in
@@ -610,7 +607,7 @@ let update_env __context sync_keys =
 
   (* refresh host info fields *)
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () -> 
-    refresh_localhost_info ~__context;
+    refresh_localhost_info ~__context info;
   );
 
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->

@@ -226,7 +226,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_remotecmd \
 	redo_log_usage \
 	redo_log_alert \
-	xapi \
 	workload_balancing \
 	wlb_reports \
 	remote_requests \
@@ -241,8 +240,10 @@ XAPI_MODULES = $(COMMON) \
 	pool_features \
 	../license/license_init
 
-OCamlProgram(xapi, $(XAPI_MODULES))
-OCamlDocProgram(xapi, $(XAPI_MODULES))
+OCamlProgram(xapi, xapi $(XAPI_MODULES))
+OCamlDocProgram(xapi, xapi $(XAPI_MODULES))
+
+OCamlProgram(xapi_unit_test, xapi_db_upgrade_test $(XAPI_MODULES))
 
 OCamlProgram(bootloader, bootloader bootloader_test)
 

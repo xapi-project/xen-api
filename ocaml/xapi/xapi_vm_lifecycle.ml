@@ -126,8 +126,8 @@ let is_rhel3 gmr =
     since we still allow them to be migrated we might as well allow them to be suspended because
     the code is mostly the same.
  *)
-let check_drivers ~vmr ~vmgmr ~op ~ref =
-	let has_booted_hvm = Helpers.has_booted_hvm_of_record vmr in
+let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
+	let has_booted_hvm = Helpers.has_booted_hvm_of_record ~__context vmr in
 	let pv_drivers = of_guest_metrics vmgmr in
 	let has_pv_drivers = has_pv_drivers pv_drivers in
 
@@ -204,7 +204,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
-let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
+let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
@@ -272,7 +272,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_rese
 	(* check PV drivers constraints if needed *)
 	let current_error = check current_error (fun () -> 
 		if need_pv_drivers_check ~power_state ~op
-		then check_drivers ~vmr ~vmgmr ~op ~ref
+		then check_drivers ~__context ~vmr ~vmgmr ~op ~ref
 		else None) in
 
 	(* check is the correct flag is set to allow clone/copy on suspended VM. *)
@@ -337,20 +337,20 @@ let get_info ~__context ~self =
 
 let is_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 	| None   -> true
 	| Some _ -> false
 
 let assert_operation_valid ~__context ~self ~op =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-	match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+	match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 	| None       -> ()
 	| Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
 	let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
 	let check accu op =
-		match check_operation_error all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
+		match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op with
 		| None -> op :: accu
 		| _    -> accu
 	in
