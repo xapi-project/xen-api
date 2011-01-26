@@ -20,7 +20,7 @@ let vmpr_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
 let vmpr_snapshot_other_config_applies_to = "applies_to"
 
 let assert_licensed ~__context =
-  if (not (Features.is_enabled ~__context Features.VMPR))
+  if (not (Pool_features.is_enabled ~__context Features.VMPR))
   then
     raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 

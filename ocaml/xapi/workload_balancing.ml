@@ -87,7 +87,7 @@ let wlb_host_port ~__context =
     split_host_port url
 
 let assert_wlb_licensed ~__context =
-  if not (Features.is_enabled ~__context Features.WLB)
+  if not (Pool_features.is_enabled ~__context Features.WLB)
   then
     raise_license_restriction()
 

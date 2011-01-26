@@ -357,7 +357,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
 
 	let platformdata =
 		let p = Db.VM.get_platform ~__context ~self in
-		if not (Features.is_enabled ~__context Features.No_platform_filter) then
+		if not (Pool_features.is_enabled ~__context Features.No_platform_filter) then
 			List.filter (fun (k, v) -> List.mem k filtered_platform_flags) p
 		else p
 	in

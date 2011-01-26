@@ -50,8 +50,3 @@ val to_assoc_list : feature list -> (string * string) list
 (** Convert an association list of features into a {!feature} list. *)
 val of_assoc_list : (string * string) list -> feature list
 
-(** Check whether a given feature is currently enabled on the pool. *)
-val is_enabled : __context:Context.t -> feature -> bool
-
-(** Update the pool-level restrictions list in the database. *)
-val update_pool_features : __context:Context.t -> unit

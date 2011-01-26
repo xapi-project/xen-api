@@ -35,7 +35,7 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
 
 let set_license_params ~__context ~self ~value = 
   Db.Host.set_license_params ~__context ~self ~value;
-  Features.update_pool_features ~__context
+  Pool_features.update_pool_features ~__context
   
 let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
@@ -1324,7 +1324,7 @@ let reset_networking ~__context ~host =
 let set_cpu_features ~__context ~host ~features =
 	debug "Set CPU features";
 	(* check restrictions *)
-	if not (Features.is_enabled ~__context Features.CPU_masking) then
+	if not (Pool_features.is_enabled ~__context Features.CPU_masking) then
 		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
 	
 	let cpuid = Cpuid.read_cpu_info () in
