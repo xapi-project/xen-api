@@ -150,7 +150,7 @@ and message = {
     msg_tag: tag;
     msg_obj_name: string;
     msg_custom_marshaller: bool;
-    msg_hide_from_docs: bool;
+    msg_hide_from_docs: bool; (* don't list the function in the documentation and do not include it in the SDK *)
     msg_allowed_roles: string list option;
     msg_map_keys_roles: (string * (string list option)) list
 } 
