@@ -882,9 +882,11 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
   let result = ref None in
   while (Unix.gettimeofday () -. start < total_timeout) && (!result = None) do
     try
-      debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
-      result := Some (Xal.wait_release xal ~timeout:rel_timeout domid);
-    with Xal.Timeout -> 
+		debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
+		Xs.monitor_paths xs [ "@releaseDomain","X" ] rel_timeout
+			(fun _ -> (Xc.domain_getinfo xc domid).Xc.shutdown);
+		result := Some (try Domain.shutdown_reason_of_int (Xc.domain_getinfo xc domid).Xc.shutdown_code with _ -> Domain.Unknown (-1));
+    with Xs.Timeout -> 
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
       (* Update progress and repeat *)
@@ -916,16 +918,14 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 	let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm in
 	let required_space = get_suspend_space __context vm in
 	let handle_death = function
-		| Xal.Suspended ->
+		| Domain.Suspend ->
 			() (* good *)
-		| Xal.Crashed ->
+		| Domain.Crash ->
 			raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of vm ]))
-		| Xal.Rebooted ->
+		| Domain.Reboot ->
 			raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of vm ]))
-		| Xal.Halted | Xal.Vanished ->
+		| Domain.Halt | Domain.Unknown _ ->
 			raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of vm ]))
-		| Xal.Shutdown x ->
-			failwith (Printf.sprintf "Expected domain shutdown reason: %d" x)
 	in
 	let suspend_domain ~fd ~hvm () = with_xal (fun xal ->
 		Domain.suspend ~xc ~xs ~hvm domid fd [] ~progress_callback:progress_cb
