@@ -234,6 +234,7 @@ XAPI_MODULES = $(COMMON) \
 	../database/db_hiupgrade \
 	certificates \
 	../license/v6client \
+	../license/v6rpc \
 	bios_strings \
 	xapi_config \
 	../license/grace_retry \

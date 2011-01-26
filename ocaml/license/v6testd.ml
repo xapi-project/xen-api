@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module P = V6xmlrpc.V6process(Fakev6)
+module P = V6rpc.V6process(Fakev6)
 
 let _ =
 	Logs.reset_all [ "file:/var/log/v6d.log" ];

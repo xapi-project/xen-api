@@ -30,9 +30,9 @@ let xmlrpc_handler process req bio =
 	let body = Http_svr.read_body req bio in
 	debug "Request: %s" body;
 	let s = Buf_io.fd_of bio in
-	let xml = Xml.parse_string body in
-	let result = process xml in
-	let str = Xml.to_string result in
+	let rpc = Xmlrpc.call_of_string body in
+	let result = process rpc in
+	let str = Xmlrpc.string_of_response result in
 	debug "Response: %s" str;
 	Http_svr.response_str req s str
 	

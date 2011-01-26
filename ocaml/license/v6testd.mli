@@ -17,5 +17,5 @@
 (** Instatiate licensing daemon XML/RPC handler *)
 module P : sig 
 	(** Process an XML/RPC call *)
-	val process : XMLRPC.xmlrpc -> XMLRPC.xmlrpc
+	val process : Rpc.call -> Rpc.response
 end
