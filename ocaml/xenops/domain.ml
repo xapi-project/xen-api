@@ -469,10 +469,12 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		Memory.Linux.build_start_mib target_mib in
 	let xen_max_mib =
 		Memory.Linux.xen_max_mib static_max_mib in
+	let shadow_multiplier =
+		Memory.Linux.shadow_multiplier_default in
 	let shadow_mib =
-		Memory.Linux.shadow_mib in
+		Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib in
+		Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
@@ -662,10 +664,12 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let xen_max_mib =
 		Memory.Linux.xen_max_mib static_max_mib in
+	let shadow_multiplier =
+		Memory.Linux.shadow_multiplier_default in
 	let shadow_mib =
-		Memory.Linux.shadow_mib in
+		Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
 	let required_host_free_mib =
-		Memory.Linux.footprint_mib target_mib in
+		Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
 
 	let store_port, console_port = build_pre ~xc ~xs
 		~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in

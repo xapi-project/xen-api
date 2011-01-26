@@ -132,14 +132,9 @@ let guest_balloonable xc xs g = string_of_bool
 	(xs_exists xs (supports_ballooning_path (guest_domain_id xc xs g)))
 let guest_uncooperative xc xs g = string_of_bool
 	(xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
-let guest_shadow_bytes xc xs g = Int64.to_string
-	(if g.Xc.hvm_guest
-		then
-			try
-				Memory.bytes_of_mib
-					(Int64.of_int (Xc.shadow_allocation_get xc g.Xc.domid))
-			with _ -> 0L
-		else 0L)
+let guest_shadow_bytes xc xs g = Int64.to_string (
+	try Memory.bytes_of_mib (Int64.of_int (Xc.shadow_allocation_get xc g.Xc.domid))
+	with _ -> 0L)
 
 let guest_fields = [
 		"id"           , guest_id           , "-"    ;
