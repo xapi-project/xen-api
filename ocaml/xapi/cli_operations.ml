@@ -2629,6 +2629,10 @@ let host_apply_edition printer rpc session_id params =
 			raise e
 		| e -> raise e
 
+let host_all_editions printer rpc session_id params =
+	let editions = List.map (fun (e, _, _, _) -> e) (V6client.get_editions ()) in
+	printer (Cli_printer.PList editions)
+
 let host_evacuate printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let host = Client.Host.get_by_uuid rpc session_id uuid in
