@@ -463,8 +463,8 @@ let powercycle_test session_id vm =
 			debug test "Cloning suspended VM";
 			let vm' = Client.VM.clone !rpc session_id vm "clone-suspended-test" in
 			debug test "Snapshoting the VM twice";
-			let snap1 = Client.VM.snapshot !rpc session_id vm' "snap1" in
-			let snap2 = Client.VM.snapshot !rpc session_id vm' "snap2" in
+			ignore(Client.VM.snapshot !rpc session_id vm' "snap1");
+			ignore(Client.VM.snapshot !rpc session_id vm' "snap2");
 
 			debug test "Comparing original, clone VIF configuration";
 			compare_vifs session_id test vm vm';

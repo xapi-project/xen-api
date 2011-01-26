@@ -52,7 +52,7 @@ let make_iscsi session_id pool network =
 		Client.VM.set_PV_bootloader rpc session_id newvm "pygrub";
 		Client.VM.set_PV_args rpc session_id newvm (Printf.sprintf "net_ip=%s net_mask=255.255.255.0" (make_iscsi_ip pool));
 		Client.VM.set_HVM_boot_policy rpc session_id newvm "";
-		Client.VIF.create rpc session_id "0" network newvm "" 1500L [oc_key,pool.key] "" [];
+		let (_ : API.ref_VIF) = Client.VIF.create rpc session_id "0" network newvm "" 1500L [oc_key,pool.key] "" [] in
 		Client.VM.add_to_other_config rpc session_id newvm oc_key pool.key;
 		let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
 		Client.VM.start_on rpc session_id newvm (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false;

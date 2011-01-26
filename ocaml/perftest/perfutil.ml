@@ -23,7 +23,6 @@ let rpc xml =
 let remoterpc host xml = 
   Instrumented_xmlrpcclient.do_secure_xml_rpc ~host:host ~version:"1.1" ~port:443 ~path:"/" xml
 
-
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR. This is cut-n-pasted from cli_util.ml *)
 let rewrite_provisioning_xml rpc session_id new_vm sr_uuid = 
   let rewrite_xml xml newsrname =

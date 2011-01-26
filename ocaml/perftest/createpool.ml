@@ -191,7 +191,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 	let interfaces = initialise session_id template pool in
 
 	Printf.printf "Creating iSCSI target VM serving %d LUNs\n%!" pool.iscsi_luns;
-	let iscsi_vm = CreateVM.make_iscsi session_id pool (Client.VIF.get_network rpc session_id interfaces.(2)) in
+	let (_ : API.ref_VM option) = CreateVM.make_iscsi session_id pool (Client.VIF.get_network rpc session_id interfaces.(2)) in
 
 	debug "Creating %d SDK VMs" pool.hosts;
 	let hosts = Array.init pool.hosts (
@@ -389,7 +389,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 	let slave_uuids = List.filter (fun x -> x <> master_uuid) (Array.to_list host_uuids) in
 	let host_uuids = Array.of_list (slave_uuids @ [ master_uuid ]) in
 
-	let bonds = Array.mapi (fun i host_uuid ->
+	let (_ : API.ref_Bond array array) = Array.mapi (fun i host_uuid ->
 		let host_ref = Client.Host.get_by_uuid poolrpc poolses host_uuid in
 		let pifs = List.filter (fun pif -> Client.PIF.get_host poolrpc poolses pif = host_ref) pifs in
 		Array.init pool.bonds (fun bnum ->
