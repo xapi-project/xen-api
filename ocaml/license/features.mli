@@ -17,30 +17,30 @@
 
 (** Features than can be enabled and disabled. *)
 type feature =
-| VLAN					(** Enable VLAN. Currently not used. *)
-| QoS					(** Enable QoS control. Currently not used. *)
-| Shared_storage		(** Enable shared storage. Currently not used? *)
-| Netapp				(** Enable use of NetApp SRs *)
-| Equalogic				(** Enable use of Equalogic SRs *)
-| Pooling				(** Enable pooling of hosts *)
-| HA					(** Enable High Availability (HA) *)
-| Marathon				(** Currently not used *)
-| Email					(** Enable email alerting *)
-| Performance			(** Currently not used? *)
-| WLB					(** Enable Workload Balancing (WLB) *)
-| RBAC					(** Enable Role-Based Access Control (RBAC) *)
-| DMC					(** Enable Dynamic Memory Control (DMC) *)
-| Checkpoint			(** Enable Checkpoint functionality *)
-| Vswitch_controller	(** Enable use of a Distributed VSwitch (DVS) Controller *)
-| CPU_masking			(** Enable masking of CPU features *)
-| Connection			(** Used by XenCenter *)
-| No_platform_filter	(** Filter platform data *)
-| No_nag_dialog			(** Used by XenCenter *)
-| VMPR					(** Enable use of VM Protection and Recovery *)
-	
+	| VLAN                         (** Enable VLAN. Currently not used. *)
+	| QoS                          (** Enable QoS control. Currently not used. *)
+	| Shared_storage               (** Enable shared storage. Currently not used? *)
+	| Netapp                       (** Enable use of NetApp SRs *)
+	| Equalogic                    (** Enable use of Equalogic SRs *)
+	| Pooling                      (** Enable pooling of hosts *)
+	| HA                           (** Enable High Availability (HA) *)
+	| Marathon                     (** Currently not used *)
+	| Email                        (** Enable email alerting *)
+	| Performance                  (** Currently not used? *)
+	| WLB                          (** Enable Workload Balancing (WLB) *)
+	| RBAC                         (** Enable Role-Based Access Control (RBAC) *)
+	| DMC                          (** Enable Dynamic Memory Control (DMC) *)
+	| Checkpoint                   (** Enable Checkpoint functionality *)
+	| Vswitch_controller           (** Enable use of a Distributed VSwitch (DVS) Controller *)
+	| CPU_masking                  (** Enable masking of CPU features *)
+	| Connection                   (** Used by XenCenter *)
+	| No_platform_filter           (** Filter platform data *)
+	| No_nag_dialog                (** Used by XenCenter *)
+	| VMPR                         (** Enable use of VM Protection and Recovery *)
+
 (** The list of all known features. *)
 val all_features : feature list
-	
+
 (** Returns a compact list of the current restrictions. *)
 val to_compact_string : feature list -> string
 
@@ -55,4 +55,3 @@ val is_enabled : __context:Context.t -> feature -> bool
 
 (** Update the pool-level restrictions list in the database. *)
 val update_pool_features : __context:Context.t -> unit
-
