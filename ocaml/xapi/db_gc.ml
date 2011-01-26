@@ -419,38 +419,37 @@ let update_vm_cooperativeness ~__context =
   StringSet.iter (set_uncooperative_flag false) cooperative_domains;
 
   current_uncooperative_domains := domains
-    
+
 let single_pass () = 
-  Server_helpers.exec_with_new_task "DB GC" (fun __context ->
-  Db_lock.with_lock
-    (fun () ->
-      (* do VDIs first because this will cause some VBDs to be affected *)
-       gc_VDIs ~__context;
-       gc_PIFs ~__context;
-       gc_VBDs ~__context;
-       gc_crashdumps ~__context;
-       gc_VIFs ~__context;
-       gc_PBDs ~__context;
-       gc_Host_patches ~__context;
-       gc_host_cpus ~__context;
-       timeout_sessions ~__context;
-       timeout_tasks ~__context;
-       gc_messages ~__context;
-       (* timeout_alerts ~__context; *)
-       (* CA-29253: wake up all blocked clients *)
-       Xapi_event.heartbeat ~__context;
-       update_vm_cooperativeness ~__context;
-    );
-  
-  Mutex.execute use_host_heartbeat_for_liveness_m 
-    (fun () -> 
-      if !use_host_heartbeat_for_liveness
-      then check_host_liveness ~__context);
-
-  (* Note we don't hold the DB lock because we want to use the CLI from 
-     external script hooks: *)
-  detect_rolling_upgrade ~__context)
-
+	Server_helpers.exec_with_new_task "DB GC"
+		(fun __context ->
+			Db_lock.with_lock
+				(fun () ->
+					(* do VDIs first because this will *)
+					(* cause some VBDs to be affected  *)
+					gc_VDIs ~__context;
+					gc_PIFs ~__context;
+					gc_VBDs ~__context;
+					gc_crashdumps ~__context;
+					gc_VIFs ~__context;
+					gc_PBDs ~__context;
+					gc_Host_patches ~__context;
+					gc_host_cpus ~__context;
+					timeout_sessions ~__context;
+					timeout_tasks ~__context;
+					gc_messages ~__context;
+					(* timeout_alerts ~__context; *)
+					(* CA-29253: wake up all blocked clients *)
+					Xapi_event.heartbeat ~__context;
+					update_vm_cooperativeness ~__context;
+					);
+	Mutex.execute use_host_heartbeat_for_liveness_m
+		(fun () -> 
+			if !use_host_heartbeat_for_liveness
+			then check_host_liveness ~__context);
+	(* Note that we don't hold the DB lock, because we *)
+	(* want to use the CLI from external script hooks: *)
+	detect_rolling_upgrade ~__context)
 
 let start_db_gc_thread() =
   Thread.create 
