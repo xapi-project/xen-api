@@ -47,7 +47,6 @@ let _ =
       | 8682 -> Tc_8682.run rpc session
       | 8700 -> Tc_8700.run rpc session
       | 8707 -> Tc_8707.run rpc session
-      | 8713 -> Tc_8713.run rpc session
       | 8766 -> Tc_8766.run rpc session
 	  | 8775 -> Tc_8775.run rpc session
       | _ -> failwith "Unknown test case!"

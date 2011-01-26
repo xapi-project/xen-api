@@ -541,9 +541,6 @@ let redo_log_maximum_backoff_delay = 120
 (** Pool.other_config key which, when set to the value "true", enables generation of METADATA_LUN_{HEALTHY_BROKEN} alerts *)
 let redo_log_alert_key = "metadata_lun_alerts"
 
-(** Called from the SR.lvhd_stop_using_these_vdis_and_call_script *)
-let lvhd_script_hook = "lvhd-script-hook"
-
 (** Mutex for the external authentication in pool *)
 (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 let serialize_pool_enable_disable_extauth = Mutex.create()

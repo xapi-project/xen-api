@@ -433,29 +433,3 @@ let create_new_blob ~__context ~sr ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
   Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
   blob
-
-let lvhd_stop_using_these_vdis_and_call_script ~__context ~vdis ~plugin ~fn ~args = 
-  (* Sanity check: all VDIs should be in the same SR *)
-  let srs = List.setify (List.concat (List.map (fun vdi -> try [ Db.VDI.get_SR ~__context ~self:vdi ] with _ -> []) vdis)) in
-  if List.length srs > 1
-  then failwith "VDIs must all be in the same SR";
-  (* If vdis = [] then srs = []. Otherwise vdis <> [] and len(srs) = 1 *)
-  if List.length srs = 1 then begin
-    Sm.assert_pbd_is_plugged ~__context ~sr:(List.hd srs);
-    if not (Helpers.i_am_srmaster ~__context ~sr:(List.hd srs))
-    then failwith "I am not the SRmaster"; (* should never happen *)
-  end;
-
-  (* Find all the VBDs with currently_attached = true. We rely on logic in the master forwarding layer
-     to guarantee that no other VBDs may become currently_attached = true. *)
-  let localhost = Helpers.get_localhost ~__context in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       Sm.with_all_vbds_paused ~__context ~vdis
-	 (fun () ->
-	    Client.Host.call_plugin rpc session_id localhost
-	      plugin
-	      fn
-	      args
-	 )
-    )

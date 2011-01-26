@@ -414,12 +414,7 @@ let test_vhd_locking_hook session_id vm =
 	(* Give the background thread a chance to start *)
 	Thread.delay 1.5;
 	(* Verify that the function 'test' can be called in the script *)
-	
-	while Unix.gettimeofday () -. start < 30. do
-		let start' = Unix.gettimeofday () in
-		let result = Client.SR.lvhd_stop_using_these_vdis_and_call_script !rpc session_id vdis "echo" "main" [ ] in
-		debug test (Printf.sprintf "lvhd-script-hook tool %.2f seconds; output was: %s" (Unix.gettimeofday () -. start') result);
-	done;
+
 	Thread.join t;
 	debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
 	success test
