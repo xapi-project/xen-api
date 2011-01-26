@@ -413,12 +413,13 @@ let sles10_template name architecture ?(is_experimental=false) flags =
 
 let sles11_template = sles10_template
 
-let debian_template name release architecture ?(is_experimental=false) flags =
+let debian_template name release architecture ?(supports_cd=true) ?(is_experimental=false) flags =
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in
+	let methods = if supports_cd then "cdrom,http,ftp" else "http,ftp" in
 	{ bt with 
-		vM_other_config = (install_methods_otherconfig_key, "cdrom,http,ftp") :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
+		vM_other_config = (install_methods_otherconfig_key, methods) :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
 		vM_name_description = bt.vM_name_description ^ (match release with
 			| "lenny"   -> "\nOfficial Debian Lenny CD/DVD images do not support XenServer. To find ISO images that do, please refer to: http://community.citrix.com/display/xs/Debian+Lenny"
 			| "squeeze" -> "\nIn order to install Debian Squeeze from CD/DVD the multi-arch ISO image is required."
@@ -446,6 +447,7 @@ let create_all_templates rpc session_id =
 		rhel5x_template "Oracle Enterprise Linux 5" X32 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5" X64 [    ];
 		rhel6x_template "Red Hat Enterprise Linux 6"   X32 ~is_experimental:true [    ];
+		rhel6x_template "Red Hat Enterprise Linux 6"   X64 ~is_experimental:true [    ];
 
 		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
@@ -461,8 +463,8 @@ let create_all_templates rpc session_id =
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike ~is_experimental:true [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32  [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike  [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false [    ];
 
 		sdk_install_template
 	] in
@@ -487,7 +489,6 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2008"        X64  512 24 [n;x;v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;  v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;x;v;];
-		hvm_template "Red Hat Enterprise Linux 6" X64  ~is_experimental:true 512 8  [n;    ];
 	] in
 
 	(* put default_template key in static_templates other_config of static_templates: *)
