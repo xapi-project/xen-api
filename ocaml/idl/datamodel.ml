@@ -1388,58 +1388,68 @@ let vm_provision = call
 (* VM.Start *)
 
 let vm_start = call
-  ~name:"start"
-  ~in_product_since:rel_rio
-  ~doc:"Start the specified VM.  This function can only be called with the VM is in the Halted State."
-  ~params:[Ref _vm, "vm", "The VM to start";
-           Bool, "start_paused", "Instantiate VM in paused state if set to true.";
-	   Bool, "force", "Attempt to force the VM to start. If this flag is false then the VM may fail pre-boot safety checks (e.g. if the CPU the VM last booted on looks substantially different to the current one)";
-	  ]
-  ~errs:[Api_errors.vm_bad_power_state; Api_errors.vm_hvm_required; Api_errors.vm_is_template; Api_errors.other_operation_in_progress;
-         Api_errors.operation_not_allowed;
-	 Api_errors.bootloader_failed;
-	 Api_errors.unknown_bootloader;
-	 Api_errors.no_hosts_available;
-	 Api_errors.license_restriction;
-]
-  ~allowed_roles:_R_VM_OP
-  ()
+	~name:"start"
+	~in_product_since:rel_rio
+	~doc:"Start the specified VM.  This function can only be called with the VM is in the Halted State."
+	~params:[
+		Ref _vm, "vm", "The VM to start";
+		Bool, "start_paused", "Instantiate VM in paused state if set to true.";
+		Bool, "force", "Attempt to force the VM to start. If this flag is false then the VM may fail pre-boot safety checks (e.g. if the CPU the VM last booted on looks substantially different to the current one)";
+	]
+	~errs:[
+		Api_errors.vm_bad_power_state;
+		Api_errors.vm_hvm_required;
+		Api_errors.vm_is_template;
+		Api_errors.other_operation_in_progress;
+		Api_errors.operation_not_allowed;
+		Api_errors.bootloader_failed;
+		Api_errors.unknown_bootloader;
+		Api_errors.no_hosts_available;
+		Api_errors.license_restriction;
+	]
+	~allowed_roles:_R_VM_OP
+	()
 
 let vm_assert_can_boot_here = call
-  ~name:"assert_can_boot_here"
-  ~in_product_since:rel_rio
-  ~doc:"Returns an error if the VM could not boot on this host for some reason"
-  ~params:[Ref _vm, "self", "The VM";
-	   Ref _host, "host", "The host"; ]
-  ~allowed_roles:_R_READ_ONLY
-  ~errs:[Api_errors.host_not_enough_free_memory; Api_errors.vm_requires_sr]
-  ()
+	~name:"assert_can_boot_here"
+	~in_product_since:rel_rio
+	~doc:"Returns an error if the VM could not boot on this host for some reason"
+	~params:[
+		Ref _vm, "self", "The VM";
+		Ref _host, "host", "The host";
+	]
+	~allowed_roles:_R_READ_ONLY
+	~errs:[
+		Api_errors.host_not_enough_free_memory;
+		Api_errors.vm_requires_sr;
+	]
+	()
 
 let vm_assert_agile = call
-  ~name:"assert_agile"
-  ~in_product_since:rel_orlando
-  ~doc:"Returns an error if the VM is not considered agile e.g. because it is tied to a resource local to a host"
-  ~params:[Ref _vm, "self", "The VM"]
-  ~allowed_roles:_R_READ_ONLY
-  ()
+	~name:"assert_agile"
+	~in_product_since:rel_orlando
+	~doc:"Returns an error if the VM is not considered agile e.g. because it is tied to a resource local to a host"
+	~params:[Ref _vm, "self", "The VM"]
+	~allowed_roles:_R_READ_ONLY
+	()
 
 let vm_get_possible_hosts = call
-  ~name:"get_possible_hosts"
-  ~in_product_since:rel_rio
-  ~doc:"Return the list of hosts on which this VM may run."
-  ~params:[Ref _vm, "vm", "The VM" ]
-  ~result:(Set (Ref _host), "The possible hosts")
-  ~allowed_roles:_R_READ_ONLY
-  ()
-  
+	~name:"get_possible_hosts"
+	~in_product_since:rel_rio
+	~doc:"Return the list of hosts on which this VM may run."
+	~params:[Ref _vm, "vm", "The VM" ]
+	~result:(Set (Ref _host), "The possible hosts")
+	~allowed_roles:_R_READ_ONLY
+	()
+
 let vm_retrieve_wlb_recommendations = call
-  ~name:"retrieve_wlb_recommendations"
-  ~in_product_since:rel_george
-  ~doc:"Returns mapping of hosts to ratings, indicating the suitability of starting the VM at that location according to wlb. Rating is replaced with an error if the VM cannot boot there."
-  ~params:[Ref _vm, "vm", "The VM";]
-  ~result:(Map (Ref _host, Set(String)), "The potential hosts and their corresponding recommendations or errors")
-  ~allowed_roles:_R_READ_ONLY
-  ()
+	~name:"retrieve_wlb_recommendations"
+	~in_product_since:rel_george
+	~doc:"Returns mapping of hosts to ratings, indicating the suitability of starting the VM at that location according to wlb. Rating is replaced with an error if the VM cannot boot there."
+	~params:[Ref _vm, "vm", "The VM";]
+	~result:(Map (Ref _host, Set(String)), "The potential hosts and their corresponding recommendations or errors")
+	~allowed_roles:_R_READ_ONLY
+	()
   
 
 let vm_maximise_memory = call
