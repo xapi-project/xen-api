@@ -282,18 +282,20 @@ type architecture =
 	| X32
 	| X64
 	| X64_debianlike
+	| X64_sol
 
 let friendly_string_of_architecture = function
-	| X32 -> "(32-bit)"
-	| X64 | X64_debianlike -> "(64-bit)"
+	| X32 -> " (32-bit)"
+	| X64 | X64_debianlike -> " (64-bit)"
+	| X64_sol -> ""	
 
 let technical_string_of_architecture = function
 	| X32 -> "i386"
-	| X64 -> "x86_64"
+	| X64 | X64_sol -> "x86_64"
 	| X64_debianlike -> "amd64"
 
 let make_long_name name architecture is_experimental =
-	let long_name =  Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture) in
+	let long_name =  Printf.sprintf "%s%s" name (friendly_string_of_architecture architecture) in
 	if is_experimental then long_name ^ " (experimental)" else long_name
 
 let hvm_template
@@ -310,7 +312,7 @@ let hvm_template
 	} in
 	let maximum_supported_memory_mib = match architecture with
 		| X32 -> 4
-		| X64 | X64_debianlike -> 32 in
+		| X64 | X64_sol| X64_debianlike -> 32 in
 	let base = other_install_media_template
 		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
 	let xen_app = List.mem XenApp flags in
@@ -489,6 +491,7 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2008"        X64  512 24 [n;x;v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;  v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;x;v;];
+		hvm_template "Solaris 10"                 X64_sol  ~is_experimental:true 1024 24 [n;    ];
 	] in
 
 	(* put default_template key in static_templates other_config of static_templates: *)
