@@ -61,7 +61,13 @@ let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
   assert_licensed ~__context;
   let value = data in
   let msg = 
-    "<message><email>"^body^"</email><data>"^value^"</data></message>"
+		(* value is expected to be valid xml data,
+		   whereas body is not expected to be a valid xml string
+		*)
+    "<message><email>"
+		(* escape any invalid xml string *)
+		^(Xml.to_string (Xml.PCData body))
+    ^"</email><data>"^value^"</data></message>"
   in
   let successful = priority < 5L in
   if successful
