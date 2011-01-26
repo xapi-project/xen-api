@@ -171,7 +171,7 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
 		&& (try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics with _ -> false) in
 	let live_hosts_and_snapshots, dead_hosts_and_snapshots = List.partition is_alive all_hosts_and_snapshots in
 
-	let live_hosts = List.map fst live_hosts_and_snapshots and dead_hosts = List.map fst dead_hosts_and_snapshots in
+	let live_hosts = List.map fst live_hosts_and_snapshots (* and dead_hosts = List.map fst dead_hosts_and_snapshots *) in
 
 	(* Any deterministic ordering is fine here: *)
 	let vms_to_ensure_running = List.sort (fun (_, a) (_, b) -> compare a.API.vM_uuid b.API.vM_uuid) vms_to_ensure_running in
