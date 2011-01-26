@@ -50,52 +50,55 @@ let version_check db =
 		raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
     end 
 
-(** Restore all of our state from an XML backup. This includes the pool config, token etc *)
-let restore_from_xml __context dry_run (xml_filename: string) = 
-	debug "attempting to restore database from %s" xml_filename;
-	let db = Db_xml.From.file (Schema.of_datamodel ()) xml_filename in
+(** Makes a new database suitable for xapi by rewriting some configuration from the current
+	database. *)
+let prepare_database_for_restore ~old_context ~new_context = 
 
-	(* Do not write the pool_conf: it contains only the master/slave configuration which is
-       managed separately *)
-	version_check db;
 	(* To prevent duplicate installation_uuids or duplicate IP address confusing the
        "no other masters" check we remove all hosts from the backup except the master. *)
-	let ts = Database.tableset db in
-	let hosts = TableSet.find Db_names.host ts in
-	let uuid_to_ref = Table.fold
-		(fun _ref r acc -> (Row.find "uuid" r, _ref)::acc) hosts [] in
 
 	(* Look up the pool master: *)
-	let pools = TableSet.find Db_names.pool ts in
-	let master = Table.fold
-		(fun _ref r acc -> Row.find Db_names.master r) pools "" in
+	let pool = Helpers.get_pool ~__context:new_context in
+	let master = Db.Pool.get_master ~__context:new_context ~self:pool in
 
 	(* Remove all slaves from the database *)
-	let master_row = Table.find master hosts in
-	let hosts' = Table.add master master_row Table.empty in
+	List.iter (fun self -> 
+		if self <> master then begin
+			List.iter (fun self -> Db.PIF.destroy ~__context:new_context ~self)
+				(Db.Host.get_PIFs ~__context:new_context ~self);
+			Db.Host.destroy ~__context:new_context ~self
+		end)
+		(Db.Host.get_all ~__context:new_context);
 
-	let db = set_table Db_names.host hosts' db in
+	(* Set the master's uuid to ours *)
+	let my_installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
+	Db.Host.set_uuid ~__context:new_context ~self:master ~value:my_installation_uuid;
 
-	debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
-	debug "Previous master: %s" master;
-  
+	(* Set the master's dom0 to ours *)
+	let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+	begin match List.filter (fun self -> Db.VM.get_is_control_domain ~__context:new_context ~self)
+		(Db.Host.get_resident_VMs ~__context:new_context ~self:master) with
+			| [ dom0 ] ->
+				Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid
+			| _ -> error "Failed to set master control domain's uuid"
+	end;
+	
 	(* Rewrite this host's PIFs' MAC addresses based on device name. *)
 	
 	(* First inspect the current machine's configuration and build up a table of 
        device name -> PIF reference. *)
-	let localhost = Helpers.get_localhost ~__context in  
-	let all_pifs = Db.Host.get_PIFs ~__context ~self:localhost in
+	let all_pifs = Db.Host.get_PIFs ~__context:old_context ~self:(Helpers.get_localhost ~__context:old_context) in
     
 	let device_to_ref = 
-		let physical = List.filter (fun self -> Db.PIF.get_physical ~__context ~self) all_pifs in
-		List.map (fun self -> Db.PIF.get_device ~__context ~self, self) physical in
+		let physical = List.filter (fun self -> Db.PIF.get_physical ~__context:old_context ~self) all_pifs in
+		List.map (fun self -> Db.PIF.get_device ~__context:old_context ~self, self) physical in
   
 	(* Since it's difficult for us to change the /etc/xensource-inventory and the ifcfg-
        files, we /preserve/ the current management PIF across the restore. NB this interface
        might be a bond or a vlan. *)
 	let mgmt_dev = 
-		match List.filter (fun self -> Db.PIF.get_management ~__context ~self) all_pifs with
-			| [ dev ] -> Some (Db.PIF.get_device ~__context ~self:dev)
+		match List.filter (fun self -> Db.PIF.get_management ~__context:old_context ~self) all_pifs with
+			| [ dev ] -> Some (Db.PIF.get_device ~__context:old_context ~self:dev)
 			| _ -> None (* no management interface configured *) in
 	
 	(* The PIFs of the master host in the backup need their MAC addresses adjusting
@@ -111,56 +114,53 @@ let restore_from_xml __context dry_run (xml_filename: string) =
        
        PIFs whose device name are not recognised or those belonging to (now dead) 
        slaves are forgotten. *)
-	let pifs = TableSet.find "PIF" ts in
-	
-	let pifs' = ref Table.empty in
+
 	let found_mgmt_if = ref false in
 	let ifs_in_backup = ref [] in
-	Table.iter
-		(fun _ref r ->
-			if Row.find "host" r = master then begin
-				let device = Row.find "device" r in
-				ifs_in_backup := device :: !ifs_in_backup;
+	List.iter
+		(fun self ->
+			let device = Db.PIF.get_device ~__context:new_context ~self in
+			ifs_in_backup := device :: !ifs_in_backup;
 
-				let uuid = Row.find "uuid" r in
-				let physical = bool_of_string (Row.find "physical" r) in
+			let uuid = Db.PIF.get_uuid ~__context:new_context ~self in
+			let physical = Db.PIF.get_physical ~__context:new_context ~self in
+			let is_mgmt = Some device = mgmt_dev in
+			Db.PIF.set_management ~__context:new_context ~self ~value:is_mgmt;
+			if is_mgmt then found_mgmt_if := true;
 
-				let is_mgmt = Some device = mgmt_dev in
-				let pif = Row.add "management" (string_of_bool is_mgmt) r in
-				if is_mgmt then found_mgmt_if := true;
-
-				(* We only need to rewrite the MAC addresses of physical PIFs *)
-				let pif = 
-					if not physical then pif
-					else begin
-						(* If this is a physical PIF but we can't find the device name 
-						   on the restore target, bail out. *)
-						if not(List.mem_assoc device device_to_ref)
-						then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
-						(* Otherwise rewrite the MAC address to match the current machine
-						   and set the management flag accordingly *)
-						let existing_pif = List.assoc device device_to_ref in
-						Row.add "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif) pif
-					end in
-	 
-				debug "Rewriting PIF uuid %s device %s (management %s -> %s) MAC %s -> %s"
-					uuid device (Row.find "management" r) (Row.find "management" pif)
-					(Row.find "MAC" r) (Row.find "MAC" pif);
-				pifs' := Table.add _ref pif !pifs'
-			end else begin
-				(* don't bother copying forgotten slave PIFs *)
-				debug "Forgetting slave PIF uuid %s" (Row.find "uuid" r)
-			end
-		) pifs;
-	let db = set_table "PIF" !pifs' db in
+			(* We only need to rewrite the MAC addresses of physical PIFs *)
+			if physical then begin
+				(* If this is a physical PIF but we can't find the device name 
+				   on the restore target, bail out. *)
+				if not(List.mem_assoc device device_to_ref)
+				then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
+				(* Otherwise rewrite the MAC address to match the current machine
+				   and set the management flag accordingly *)
+				let existing_pif = List.assoc device device_to_ref in
+				Db.PIF.set_MAC ~__context:new_context ~self ~value:(Db.PIF.get_MAC ~__context:old_context ~self:existing_pif)
+			end;
+			debug "Rewriting PIF uuid %s device %s management %b MAC %s"
+				uuid device is_mgmt (Db.PIF.get_MAC ~__context:new_context ~self);
+		) (Db.Host.get_PIFs ~__context:new_context ~self:master);
 
 	(* Check that management interface was synced up *)
 	if not(!found_mgmt_if) && mgmt_dev <> None
-	then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));
-	
+	then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup))
+
+
+(** Restore all of our state from an XML backup. This includes the pool config, token etc *)
+let restore_from_xml __context dry_run (xml_filename: string) = 
+	debug "attempting to restore database from %s" xml_filename;
+	let db = Db_upgrade.generic_database_upgrade (Db_xml.From.file (Schema.of_datamodel ()) xml_filename) in
+	version_check db;
+
+	let db_ref = Db_ref.in_memory (ref (ref db)) in
+	let new_context = Context.make ~database:db_ref "restore_db" in
+
+	prepare_database_for_restore ~old_context:__context ~new_context;
 	(* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
 	if not(dry_run) 
-	then Db_xml.To.file Xapi_globs.db_temporary_restore_path db
+	then Db_xml.To.file Xapi_globs.db_temporary_restore_path (Db_ref.get_database (Context.database_of new_context))
   
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req: Http.request) s =

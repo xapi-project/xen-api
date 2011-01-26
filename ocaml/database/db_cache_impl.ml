@@ -270,7 +270,7 @@ let process_structured_field t (key,value) tblname fld objref proc_fn_selector =
 		process_structured_field_locked t (key,value) tblname fld objref proc_fn_selector)
 	
 (* -------------------------------------------------------------------- *)
-		
+	
 let load connections default_schema =
     
 	(* We also consider populating from the HA metadata LUN and the general metadata LUN *)
@@ -280,15 +280,9 @@ let load connections default_schema =
 	
     (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
     let populate db =
-		Printf.printf "populate\n%!";
-		let backup = Parse_db_conf.make Xapi_globs.db_temporary_restore_path in
-		match Db_connections.choose [ backup ] with
-			| Some c -> Db_backend.post_restore_hook (Backend_xml.populate default_schema c)
-			| None ->
-				begin match Db_connections.choose connections with
-					| Some c -> Backend_xml.populate default_schema c
-					| None -> db (* empty *) 
-				end in
+		 match Db_connections.choose connections with
+			 | Some c -> Backend_xml.populate default_schema c
+			 | None -> db in (* empty *) 
 
 	let empty = Database.update_manifest (Manifest.update_schema (fun _ -> Some (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn))) (Database.make default_schema) in
 

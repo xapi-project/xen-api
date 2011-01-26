@@ -70,7 +70,11 @@ open Db_cache_types
 let start_database_engine () =
 	let schema = Schema.of_datamodel () in
 	
-	let connections = Db_conn_store.read_db_connections () in
+	(* If the temporary restore file is present then we must populate from that *)
+	let connections = 
+		if Sys.file_exists Xapi_globs.db_temporary_restore_path
+		then [ Parse_db_conf.make Xapi_globs.db_temporary_restore_path ]
+		else Db_conn_store.read_db_connections () in
 	let t = Db_backend.make () in
 	Db_cache_impl.make t connections schema;
 	Db_cache_impl.sync connections (Db_ref.get_database t);
