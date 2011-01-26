@@ -265,106 +265,144 @@ let assert_can_see_SRs ~__context ~self ~host =
 	  then raise (Api_errors.Server_error (Api_errors.vm_requires_sr, [ Ref.string_of self; Ref.string_of (List.hd not_available) ]))
 
 let assert_host_is_enabled ~__context ~host =
-  (* Check the host is enabled first *)
-  if not (Db.Host.get_enabled ~__context ~self:host) then raise (Api_errors.Server_error (Api_errors.host_disabled, [Ref.string_of host]))
+	(* Check the host is enabled first *)
+	if not (Db.Host.get_enabled ~__context ~self:host) then
+		raise (Api_errors.Server_error (
+			Api_errors.host_disabled, [Ref.string_of host]))
 
 let is_host_live ~__context host =
-  try
-    Db.Host_metrics.get_live ~__context ~self:(Db.Host.get_metrics ~__context ~self:host)
-  with _ -> false
+	try
+		Db.Host_metrics.get_live
+			~__context ~self:(Db.Host.get_metrics ~__context ~self:host)
+	with _ -> false
 
 let assert_host_is_live ~__context ~host =
-  let host_is_live = is_host_live ~__context host in
-    if not host_is_live then
-      raise (Api_errors.Server_error (Api_errors.host_not_live, []))
+	let host_is_live = is_host_live ~__context host in
+	if not host_is_live then
+		raise (Api_errors.Server_error (Api_errors.host_not_live, []))
 
-(* We only check if a VM can boot here wrt the configuration snapshot. If the database is 
-   modified in parallel then this check will be inaccurate. We must use the snapshot to 
-   boot the VM... *)
-let assert_can_boot_here_common ~__context ~self ~host ~snapshot do_memory_check = 
+(* We only check if a VM can boot here w.r.t. the configuration snapshot. If
+ * the database is modified in parallel then this check will be inaccurate.
+ * We must use the snapshot to boot the VM.
+ *)
+let assert_can_boot_here_common
+		~__context ~self ~host ~snapshot do_memory_check =
+
 	(* First check to see if the VM is obviously malformed *)
 	validate_basic_parameters ~__context ~self ~snapshot;
-        (* Check host is live *)
-        assert_host_is_live ~__context ~host;
-        (* Check host is enabled *)
-        assert_host_is_enabled ~__context ~host;
+	(* Check host is live *)
+	assert_host_is_live ~__context ~host;
+	(* Check host is enabled *)
+	assert_host_is_enabled ~__context ~host;
 	(* Check SRs *)
-        assert_can_see_SRs ~__context ~self ~host;
+	assert_can_see_SRs ~__context ~self ~host;
 	(* Check Networks *)
 	let vifs = Db.VM.get_VIFs ~__context ~self in
-	let reqd_nets = List.map (fun self -> Db.VIF.get_network ~__context ~self) vifs in
+	let reqd_nets =
+		List.map (fun self -> Db.VIF.get_network ~__context ~self) vifs in
 
-	let assert_enough_memory_available() =
+	let assert_enough_memory_available () =
 		let host_mem_available =
 			Memory_check.host_compute_free_memory_with_maximum_compression
 				~__context ~host (Some self) in
+		let main, shadow =
+			Memory_check.vm_compute_start_memory ~__context snapshot in
+		let mem_reqd_for_vm = Int64.add main shadow in
+		debug "host %s; available_memory = %Ld; memory_required = %Ld"
+			(Db.Host.get_name_label ~self:host ~__context)
+			host_mem_available
+			mem_reqd_for_vm;
+		if host_mem_available < mem_reqd_for_vm then
+			raise (Api_errors.Server_error (
+				Api_errors.host_not_enough_free_memory,
+				[
+					Int64.to_string mem_reqd_for_vm;
+					Int64.to_string host_mem_available;
+				]))
+	in
 
-	  let main, shadow = Memory_check.vm_compute_start_memory ~__context snapshot in
-	  let mem_reqd_for_vm = Int64.add main shadow in
-	  debug "host %s; available_memory = %Ld; memory_required = %Ld"
-	    (Db.Host.get_name_label ~self:host ~__context) host_mem_available mem_reqd_for_vm;
-	  if host_mem_available < mem_reqd_for_vm then
-	    raise (Api_errors.Server_error (Api_errors.host_not_enough_free_memory, [Int64.to_string mem_reqd_for_vm; Int64.to_string host_mem_available])) in
-	    
-	  let is_network_available_on host net = 
-	    (* has the network been actualised by one or more PIFs? *)
-	  let pifs = Db.Network.get_PIFs ~__context ~self:net in
-	  if pifs <> [] then begin
-	      (* network is only available if one of the PIFs connects to the target host *)
-	      let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) pifs in
-	      List.mem host hosts
-	  end else begin
-	      (* find all the VIFs on this network and whose VM's are running *)
-	      (* XXX: in many environments this will perform O(Vms) VM.getRecord calls *)
-	      let vifs = Db.Network.get_VIFs ~__context ~self:net in
-	      let vms = List.map (fun self -> Db.VIF.get_VM ~__context ~self) vifs in
-	      let vms = List.map (fun self -> Db.VM.get_record ~__context ~self) vms in
+	let is_network_available_on host net =
+		(* has the network been actualised by one or more PIFs? *)
+		let pifs = Db.Network.get_PIFs ~__context ~self:net in
+		if pifs <> [] then begin
+			(* network is only available if one of  *)
+			(* the PIFs connects to the target host *)
+			let hosts =
+				List.map (fun self -> Db.PIF.get_host ~__context ~self) pifs in
+			List.mem host hosts
+		end else begin
+			(* find all the VIFs on this network and whose VM's are running. *)
+			(* XXX: in many environments this will perform O (Vms) calls to  *)
+			(* VM.getRecord. *)
+			let vifs = Db.Network.get_VIFs ~__context ~self:net in
+			let vms = List.map (fun self -> Db.VIF.get_VM ~__context ~self) vifs in
+			let vms = List.map (fun self -> Db.VM.get_record ~__context ~self) vms in
+			let vms = List.filter (fun vm -> vm.API.vM_power_state = `Running) vms in
+			let hosts = List.map (fun vm -> vm.API.vM_resident_on) vms in
+			(* either not pinned to any host OR pinned to this host already *)
+			hosts = [] || (List.mem host hosts)
+		end
+	in
 
-	      let vms = List.filter (fun vm -> vm.API.vM_power_state = `Running) vms in
-	      let hosts = List.map (fun vm -> vm.API.vM_resident_on) vms in
-	      (* either not pinned to any host OR pinned to this host already *)
-	      hosts = [] || (List.mem host hosts)
-	  end in
 	let avail_nets = List.filter (is_network_available_on host) reqd_nets in
 	let not_available = set_difference reqd_nets avail_nets in
 
-	List.iter (fun net -> warn "Host %s cannot see Network %s"
-		     (Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self:host))
-		     (Helpers.checknull (fun () -> Db.Network.get_name_label ~__context ~self:net))) not_available;
-	if not_available <> []
-	then raise (Api_errors.Server_error (Api_errors.vm_requires_net, [ Ref.string_of self; Ref.string_of (List.hd not_available) ]));
-
-	(* Also, for each of the available networks, we need to ensure that host can bring it up on the specified host; i.e.
-	   it doesn't shaft a network on that host (i.e. one that's attached to an enslaved PIF) that we currently require.
-	*)
 	List.iter
-	  (fun network->
-	     try
-	       ignore (Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self:network ~host ~overide_management_if_check:false)
-		 (* throw exception more appropriate to this context: *)
-	     with exn ->
-	       debug "Caught exception while checking if network %s could be attached on host %s:%s"
-		 (Ref.string_of network) (Ref.string_of host) (ExnHelper.string_of_exn exn);
-	       raise (Api_errors.Server_error (Api_errors.host_cannot_attach_network, [ Ref.string_of host; Ref.string_of network ]))
-	  )
-	  avail_nets;
-	
+		(fun net -> warn "Host %s cannot see Network %s"
+			(Helpers.checknull
+				(fun () -> Db.Host.get_name_label ~__context ~self:host))
+			(Helpers.checknull
+				(fun () -> Db.Network.get_name_label ~__context ~self:net)))
+		not_available;
+	if not_available <> [] then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_net, [
+			Ref.string_of self;
+			Ref.string_of (List.hd not_available)
+		]));
+
+	(* Also, for each of the available networks, we need to ensure that host  *)
+	(* can bring it up on the specified host; i.e. it doesn't shaft a network *)
+	(* on that host (i.e. one that's attached to an enslaved PIF) that we     *)
+	(* currently require. *)
+	List.iter
+		(fun network->
+			try
+				ignore
+					(Xapi_network_attach_helpers.assert_can_attach_network_on_host
+						~__context
+						~self:network
+						~host
+						~overide_management_if_check:false)
+					(* throw exception more appropriate to this context: *)
+			with exn ->
+				debug
+					"Caught exception while checking if network %s could be attached on host %s:%s"
+					(Ref.string_of network)
+					(Ref.string_of host)
+					(ExnHelper.string_of_exn exn);
+				raise (Api_errors.Server_error (
+					Api_errors.host_cannot_attach_network, [
+						Ref.string_of host; Ref.string_of network ]))
+		)
+		avail_nets;
+
 	(* Check if the VM would boot HVM and the target machine is HVM-capable *)
 	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	let capabilities = Db.Host.get_capabilities ~__context ~self:host in
-	(* For now we say that a host supports HVM if any of the capability strings contains
-	   the substring "hvm" *)
+	(* For now we say that a host supports HVM if any of    *)
+	(* the capability strings contains the substring "hvm". *)
 	let host_supports_hvm = List.fold_left (||) false 
-	  (List.map (fun x -> String.has_substr x "hvm") capabilities) in
-	  if hvm && not(host_supports_hvm)
-	  then raise (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of self]));
-	  if do_memory_check then assert_enough_memory_available()
+		(List.map (fun x -> String.has_substr x "hvm") capabilities) in
+	if hvm && not(host_supports_hvm)
+	then raise (Api_errors.Server_error (
+		Api_errors.vm_hvm_required, [Ref.string_of self]));
+	if do_memory_check then assert_enough_memory_available()
 
 let assert_can_boot_here ~__context ~self ~host ~snapshot = 
-  assert_can_boot_here_common ~__context ~self ~host ~snapshot true 
+	assert_can_boot_here_common ~__context ~self ~host ~snapshot true 
 
 let assert_can_boot_here_no_memcheck ~__context ~self ~host ~snapshot = 
-  assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
+	assert_can_boot_here_common ~__context ~self ~host ~snapshot false 
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
