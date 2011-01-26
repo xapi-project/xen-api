@@ -223,7 +223,6 @@ module VDI =
       (fun () ->
 	 if (check_enclosing_sr_for_capability __context Smint.Vdi_activate self) then
 	   begin
-		   if mode=`RW then debug "foo";
 	     Sm.call_sm_vdi_functions ~__context ~vdi:self
 	       (fun device_config sr_type sr ->
 		  Sm.vdi_activate device_config sr_type sr self (mode = `RW));
@@ -242,7 +241,7 @@ module VDI =
 
 	     (* CA-15824: we decrement refcount whether or not deactivate call is succesful *)
 	     ignore (decrement_activate_refcount self); (* caps at 0 *)
-	     debug "Considering execute deactive on VDI '%s'; activate refcount now: %d" (Ref.string_of self) activate_refcount;
+	     debug "Considering execute deactivate on VDI '%s'; activate refcount now: %d" (Ref.string_of self) activate_refcount;
 	     if activate_refcount<=1 then (* do deactivate on 1->0 transition, but also allow detach through if we're already at 0.. *) 
 	       begin
 		 if activate_refcount<1 then

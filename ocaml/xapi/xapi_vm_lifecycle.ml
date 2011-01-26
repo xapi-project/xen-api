@@ -204,8 +204,6 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
 let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
-	debug "Check operation error: op=%s" (Record_util.vm_operation_to_string op);
-	debug "vdis_reset_and_caching: [%s]" (String.concat ";" (List.map (fun (a,b) -> (Printf.sprintf "(%b,%b)" a b)) vdis_reset_and_caching));
 	let ref_str = Ref.string_of ref in
 	let power_state = vmr.Db_actions.vM_power_state in
 	let current_ops = vmr.Db_actions.vM_current_operations in
