@@ -30,7 +30,6 @@ type db_dump_manifest =
     {
       schema_major_vsn : int;
       schema_minor_vsn : int;
-      build_number : string;
       xapi_major_vsn : int;
       xapi_minor_vsn : int;
       generation_count : Generation.t
@@ -40,7 +39,6 @@ let gen_manifest gen_count =
   {
     schema_major_vsn = Datamodel.schema_major_vsn;
     schema_minor_vsn = Datamodel.schema_minor_vsn;
-    build_number = Version.build_number;
     xapi_major_vsn = Xapi_globs.version_major;
     xapi_minor_vsn = Xapi_globs.version_minor;
     generation_count = gen_count
