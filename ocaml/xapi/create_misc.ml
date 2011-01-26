@@ -369,8 +369,11 @@ let make_packs_info () =
 let make_software_version () =
 	let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
 	let info = read_localhost_info () in
+	let v6_version = V6client.get_version () in
 	Xapi_globs.software_version @
-	["xapi", get_xapi_verstring ();
+	(if v6_version = "" then [] else ["dbv", v6_version]) @
+	[
+	"xapi", get_xapi_verstring ();
 	"xen", info.xen_verstring;
 	"linux", info.linux_verstring;
 	"xencenter_min", Xapi_globs.xencenter_min_verstring;

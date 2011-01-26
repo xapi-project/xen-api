@@ -15,12 +15,21 @@
 module D=Debug.Debugger(struct let name="v6api" end)
 open D
 
-let initialise address port edition =
-	("real", Int32.of_int (-1))
+let supported_editions = [Edition.Free]
+
+let apply_edition edition additional_params =
+	let edition' = Edition.of_string edition in
+	if List.mem edition' supported_editions then
+		edition, Edition.to_features edition', []
+	else
+		failwith "unknown edition"
 		
-let shutdown () =
-	debug "shutdown";
-	true
+let get_editions () =
+	List.map (fun e -> Edition.to_string e, Edition.to_marketing_name e,
+		Edition.to_short_string e, Edition.to_int e) supported_editions
+
+let get_version () =
+	""
 
 let reopen_logs () =
 	try
@@ -29,4 +38,4 @@ let reopen_logs () =
 		debug "Logfiles reopened";
 		true
 	with _ -> false
-	  
+

@@ -32,10 +32,6 @@ let local_assert_healthy ~__context = match Pool_role.get_role () with
   | Pool_role.Master -> ()
   | Pool_role.Broken -> raise !Xapi_globs.emergency_mode_error 
   | Pool_role.Slave _ -> if !Xapi_globs.slave_emergency_mode then raise !Xapi_globs.emergency_mode_error
-
-let set_license_params ~__context ~self ~value = 
-  Db.Host.set_license_params ~__context ~self ~value;
-  Pool_features.update_pool_features ~__context
   
 let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Db.Host.set_power_on_mode ~__context ~self ~value:power_on_mode;
@@ -63,9 +59,8 @@ let assert_safe_to_reenable ~__context ~self =
       let unplugged_pifs = List.filter (fun pif -> not(Db.PIF.get_currently_attached ~__context ~self:pif)) pifs in
       (* Make sure it is 'ok' to have these PIFs remain unplugged *)
       List.iter (fun self -> Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self) unplugged_pifs;
-      (* Make sure our license hasn't expired *)
-      if !License.license.License.expiry < Unix.gettimeofday ()
-      then raise (Api_errors.Server_error(Api_errors.license_expired, []))
+      (* Make sure our license hasn't expired (an exception is raised is it is) *)
+      License_check.check_expiry ~__context ~host:self
     end
 
 let xen_bugtool = "/usr/sbin/xen-bugtool"
@@ -529,18 +524,6 @@ let send_debug_keys ~__context ~host ~keys =
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
 
-exception Pool_record_expected_singleton
-let copy_license_to_db ~__context ~host =
-  let license_kvpairs = License.to_assoc_list !License.license in
-  let edition = Edition.of_string (Db.Host.get_edition ~__context ~self:host) in
-  let features = Edition.to_features edition in
-  let restrict_kvpairs = Features.to_assoc_list features in
-  let license_params = license_kvpairs @ restrict_kvpairs in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       (* This will trigger a pool sku/restrictions recomputation *)
-       Client.Client.Host.set_license_params rpc session_id !Xapi_globs.localhost_ref license_params)
-
 let is_slave ~__context ~host = not (Pool_role.is_master ())
 
 let ask_host_if_it_is_a_slave ~__context ~host = 
@@ -569,53 +552,6 @@ let is_host_alive ~__context ~host =
     debug "is_host_alive host=%s is marked as dead in the database; treating this as definitive." (Ref.string_of host);
     false
   end
-
-let license_apply ~__context ~host ~contents =
-  let edition = Db.Host.get_edition ~__context ~self:host in
-  if edition <> "free" then raise (Api_errors.Server_error(Api_errors.activation_while_not_free, []));
-  let license = Base64.decode contents in
-  let tmp = Filenameext.temp_file_in_dir !License_file.filename in
-  let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-  let close =
-    let already_done = ref false in
-    fun () -> if not(!already_done) then begin
-	Unix.close fd;
-	already_done := true
-      end in
-  try
-    let length = String.length license in
-    if Unix.write fd license 0 length <> length then (failwith "Short write!");
-    close ();
-
-    (* if downgrade and in a pool [i.e. a slave, or a master with >1 host record] then fail *)
-    let new_license = match License_file.read_license_file tmp with
-      | Some l -> l
-      | None -> failwith "Failed to read license" (* Gets translated into generic failure below *)
-    in
-    
-    (* CA-27011: if HA is enabled block the application of a license whose SKU does not support HA *)
-    let new_features = Edition.to_features (Edition.of_string new_license.License.sku) in
-    let pool = List.hd (Db.Pool.get_all ~__context) in
-    if Db.Pool.get_ha_enabled ~__context ~self:pool && (not (List.mem Features.HA new_features))
-    then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
-
-      License_file.do_parse_and_validate tmp; (* throws exception if not valid which should really be translated into API error here.. *)
-      Unix.rename tmp !License_file.filename; (* atomically overwrite host license file *)
-      copy_license_to_db ~__context ~host; (* update pool.license_params for clients that want to see license info through API *)
-      Unixext.unlink_safe tmp;
-  with
-      _ as e ->
-	close ();
-	Unixext.unlink_safe tmp;
-	match e with
-	  | License_file.License_expired l -> raise (Api_errors.Server_error(Api_errors.license_expired, []))
-	  | License_file.License_file_deprecated -> raise (Api_errors.Server_error(Api_errors.license_file_deprecated, []))
-	  | (Api_errors.Server_error (x,y)) -> raise (Api_errors.Server_error (x,y)) (* pass through api exceptions *)
-	  | e ->
-	      begin
-		debug "Exception processing license: %s" (Printexc.to_string e);
-		raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
-	      end
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
 
@@ -1231,72 +1167,63 @@ let set_localdb_key ~__context ~host ~key ~value =
 	debug "Local-db key '%s' has been set to '%s'" key value
 
 (* Licensing *)
-		
+
+exception Pool_record_expected_singleton
+let copy_license_to_db ~__context ~host ~features ~additional =
+	let restrict_kvpairs = Features.to_assoc_list features in
+	let license_params = additional @ restrict_kvpairs in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			(* This will trigger a pool sku/restrictions recomputation *)
+			Client.Client.Host.set_license_params rpc session_id !Xapi_globs.localhost_ref license_params)
+
+let set_license_params ~__context ~self ~value = 
+	Db.Host.set_license_params ~__context ~self ~value;
+	Pool_features.update_pool_features ~__context
+	
 let apply_edition ~__context ~host ~edition =
-	debug "apply_edition to %s" edition;
-	Grace_retry.cancel (); (* cancel any existing grace-retry timer *)
-	let current_edition = Db.Host.get_edition ~__context ~self:host in
-	let current_license = !License.license in
-	let default = License.default () in
-	let new_license = 
-		try match Edition.of_string edition with
-		| Edition.Free ->	
-			if Edition.of_string current_edition = Edition.Free then begin
-				info "The host's edition is already 'free'. No change.";
-				current_license
-			end else begin
-				info "Downgrading from %s to free edition." current_edition;			
-				(* CA-27011: if HA is enabled block the application from downgrading to free *)
-				let pool = List.hd (Db.Pool.get_all ~__context) in
-				if Db.Pool.get_ha_enabled ~__context ~self:pool then
-					raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
-				else begin
-					V6client.release_v6_license ();
-					Unixext.unlink_safe !License_file.filename; (* delete activation key, if it exists *)
-					default (* default is free edition with 30 day grace validity *)
-				end
-			end
-		| e ->
-			(* Try to get the a v6 license; if one has already been checked out,
-			 * it will be automatically checked back in. *)
-			if Edition.of_string current_edition = Edition.Free then
-				info "Upgrading from free to %s edition..." edition
-			else
-				info "(Re)applying %s license..." edition;
+	(* if HA is enabled do not allow the edition to be changed *)
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	if Db.Pool.get_ha_enabled ~__context ~self:pool then
+		raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
+	else begin
+		let edition', features, additional = V6client.apply_edition ~__context edition [] in
+		Db.Host.set_edition ~__context ~self:host ~value:edition';
+		copy_license_to_db ~__context ~host ~features ~additional
+	end
+
+let license_apply ~__context ~host ~contents =
+	let license = Base64.decode contents in
+	let tmp = "/tmp/new_license" in
+	let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
+	let length = String.length license in
+	let written = Unix.write fd license 0 length in
+	Unix.close fd;
+	finally
+		(fun () ->
+			if written <> length then begin
+				debug "Short write!";
+				raise (Api_errors.Server_error(Api_errors.license_processing_error, []))
+			end;
+			let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
+			Db.Host.set_edition ~__context ~self:host ~value:edition';
+			copy_license_to_db ~__context ~host ~features ~additional
+		)
+		(fun () ->
+			(* The language will have been moved to a standard location if it was valid, and
+			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
+			Unixext.unlink_safe tmp
+		)
 		
-			begin try
-				V6client.get_v6_license ~__context ~host ~edition:e
-			with _ -> raise (Api_errors.Server_error (Api_errors.missing_connection_details, [])) end;
-		
-			begin match !V6client.licensed with 
-			| None -> 
-				error "License could not be checked out. Edition is not changed.";
-				V6client.release_v6_license ();
-				raise (Api_errors.Server_error (Api_errors.license_checkout_error, [edition]))
-			| Some license ->
-				let name = Edition.to_marketing_name (Edition.of_string edition) in
-				let basic = {default with License.sku = edition; License.sku_marketing_name = name;
-					License.expiry = !V6client.expires} in
-				if !V6client.grace then begin
-					Grace_retry.retry_periodically host edition;
-					{basic with License.grace = "regular grace"}
-				end else
-					basic
-			end
-		with Edition.Undefined_edition e ->
-			error "Invalid edition ('%s')!" e;
-			raise (Api_errors.Server_error (Api_errors.invalid_edition, [e]))
-	in
-	License.license := new_license;
-	Db.Host.set_edition ~__context ~self:host ~value:edition;
-	copy_license_to_db ~__context ~host; (* update host.license_params, pool sku and restrictions *)
-	Unixext.unlink_safe Xapi_globs.upgrade_grace_file (* delete upgrade-grace file, if it exists *)
+(* Supplemental packs *)
 
 let refresh_pack_info ~__context ~host =
 	debug "Refreshing software_version";
 	let software_version = Create_misc.make_software_version () in
 	Db.Host.set_software_version ~__context ~self:host ~value:software_version
-	
+
+(* Network reset *)
+
 let reset_networking ~__context ~host =
 	debug "Resetting networking";
 	let local_pifs = List.filter (fun pif -> Db.PIF.get_host ~__context ~self:pif = host) (Db.PIF.get_all ~__context) in
@@ -1320,7 +1247,9 @@ let reset_networking ~__context ~host =
 		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
 	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
 		Db.PIF.destroy ~__context ~self:pif) local_pifs
-		
+
+(* CPU feature masking *)
+
 let set_cpu_features ~__context ~host ~features =
 	debug "Set CPU features";
 	(* check restrictions *)
@@ -1365,6 +1294,8 @@ let reset_cpu_features ~__context ~host =
 	let cpu_info = List.replace_assoc "features_after_reboot" physical_features cpu_info in
 	Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info
 
+(* Local storage caching *)
+
 let enable_local_storage_caching ~__context ~host ~sr =
 	assert_bacon_mode ~__context ~host;
 	let ty = Db.SR.get_type ~__context ~self:sr in
@@ -1393,4 +1324,3 @@ let disable_local_storage_caching ~__context ~host =
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> () 
 
 
-		

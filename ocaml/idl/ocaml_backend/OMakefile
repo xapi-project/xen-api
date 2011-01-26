@@ -112,9 +112,11 @@ XAPI_CLIENT_OBJS = \
 	../../util/util_inventory \
 	../../util/version \
 	../../xapi/xapi_inventory \
+	../../xapi/xapi_fist \
 	../../xapi/features \
 	../../license/v6rpc \
 	../../license/v6daemon \
+	../../license/v6errors \
 	$(COMMON_OBJS) \
 	$(CLIENT_OBJS)
 
@@ -155,7 +157,6 @@ DATAMODEL_PACK_DIR=/tmp/xapi-datamodel
 lib-install: META
 	mkdir -p $(INSTALL_PATH)
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-client META $(addsuffixes .cmi, $(XAPI_CLIENT_OBJS)) $(if $(BYTE_ENABLED), xapi_client.cma) $(if $(NATIVE_ENABLED), xapi_client.cmxa xapi_client.a $(addsuffixes .cmx, $(XAPI_CLIENT_OBJS)))
-
 
 .PHONY: lib-uninstall
 lib-uninstall:

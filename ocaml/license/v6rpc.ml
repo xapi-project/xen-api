@@ -12,31 +12,34 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Debugger(struct let name="v6xmlrpc" end)
+module D = Debug.Debugger(struct let name="v6rpc" end)
 open D
 
-exception Unmarshalling_error of string
-
-type initialise_in = {
-	address: string;
-	port: int32;
-	edition: string;
+type apply_edition_in = {
+	edition_in: string;
+	additional_in: (string * string) list;
 } with rpc
 
-type initialise_out = {
-	license: string;
-	days_to_expire: int32;
+type apply_edition_out = {
+	edition_out: string;
+	features_out: Features.feature list;
+	additional_out: (string * string) list;
 } with rpc
 
-type failure = string * (string list) with rpc
-let response_of_failure code params =
-	Rpc.failure (rpc_of_failure (code, params))
-let response_of_fault code =
-	Rpc.failure (rpc_of_failure ("Fault", [code]))
+type names = string * string * string * int with rpc
+type get_editions_out = {
+	editions: names list;
+} with rpc
 
 module type V6api = sig
-	val initialise : string -> int32 -> string -> string * int32
-	val shutdown : unit -> bool
+	(* edition -> additional_params -> enabled_features, additional_params *)
+	val apply_edition : string -> (string * string) list ->
+		string * Features.feature list * (string * string) list
+	(* () -> list of editions (name, marketing name, short name) *)
+	val get_editions : unit -> (string * string * string * int) list
+	(* () -> result *)
+	val get_version : unit -> string
+	(* () -> version *)
 	val reopen_logs : unit -> bool
 end
 
@@ -44,22 +47,34 @@ module V6process = functor(V: V6api) -> struct
 	let process call =
 		let response =
 			try match call.Rpc.name with
-			| "initialise" -> 
-				let arg_rpc = match call.Rpc.params with [a] -> a | _ -> raise (Unmarshalling_error "initialise") in
-				let arg = initialise_in_of_rpc arg_rpc in
-				let l,d = V.initialise arg.address arg.port arg.edition in
-				let response = rpc_of_initialise_out { license = l; days_to_expire = d } in 
+			| "apply_edition" -> 
+				let arg_rpc = match call.Rpc.params with [a] -> a | _ -> raise (V6errors.Error ("unmarchalling_error", [])) in
+				let arg = apply_edition_in_of_rpc arg_rpc in
+				let edition, features, additional_params = V.apply_edition arg.edition_in arg.additional_in in
+				let response = rpc_of_apply_edition_out
+					{edition_out = edition; features_out = features; additional_out = additional_params} in 
 				Rpc.success response
-			| "shutdown" ->
-				let response = Rpc.rpc_of_bool (V.shutdown ()) in
+			| "get_editions" ->
+				let response = rpc_of_get_editions_out {editions = V.get_editions ()} in
+				Rpc.success response
+			| "get_version" ->
+				let response = Rpc.rpc_of_string (V.get_version ()) in
 				Rpc.success response
 			| "reopen-logs" ->
 				let response = Rpc.rpc_of_bool (V.reopen_logs ()) in
 				Rpc.success response
-			| x -> response_of_fault ("unknown RPC: " ^ x)
-			with e ->
+			| x -> failwith ("unknown RPC: " ^ x)
+			with 
+			| V6errors.Error e as exn ->
+				error "%s" (V6errors.to_string exn);
 				log_backtrace ();
-				response_of_failure "INTERNAL_ERROR" [Printexc.to_string e] in
+				Rpc.failure (V6errors.rpc_of_error e)
+			| e ->
+				let e = Printexc.to_string e in
+				error "Error: %s" e;
+				log_backtrace ();
+				Rpc.failure (V6errors.rpc_of_error (V6errors.v6d_failure, [e]))
+		in
 		response
 end
 

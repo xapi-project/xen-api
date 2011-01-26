@@ -150,8 +150,6 @@ let default () =
       sku_marketing_name = Edition.to_marketing_name edition;
     }
 
-let license : license ref = ref (default ())
-
 (* Calls to obtain info about license *)
 
 let check_expiry l = 

@@ -16,6 +16,9 @@
  * @group Licensing
  *)
 
+(** Raises {!Api_errors.license_expired} if the current license has expired. *)
+val check_expiry : __context:Context.t -> host:API.ref_host -> unit
+
 (** Raises {!Api_errors.license_expired} if the current license has expired.
  *  The consequence would be that the VM is not allowed to start. *)
 val vm : __context:Context.t -> API.ref_VM -> unit

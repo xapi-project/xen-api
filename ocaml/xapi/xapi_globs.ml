@@ -46,9 +46,6 @@ let tools_version = ref (-1, -1, -1, -1)
 let xencenter_min_verstring = "1.8"
 let xencenter_max_verstring = "1.8"
 
-(** Date-Based Version: burn-in date of current XenServer release (RTM date) *)
-let dbv = "2009.0201"
-
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
 let packs_dir = "/etc/xensource/installed-repos"
@@ -141,8 +138,7 @@ let software_version = [ _product_version, Version.product_version;
 			 _build_number,    Version.build_number;
 			 _hg_id,           Version.hg_id;
 			 _hostname,        Version.hostname;
-			 _date,            Version.date;
-			 _dbv, 			   dbv ]
+			 _date,            Version.date]
 
 let pygrub_path = "/usr/bin/pygrub"
 let eliloader_path = "/usr/bin/eliloader"

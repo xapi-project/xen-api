@@ -37,6 +37,9 @@ val to_marketing_name : edition -> string
 (** Get the list of {!feature}s enabled for a given {!edition}. *)
 val to_features : edition -> Features.feature list
 
+(** Provides a total order. *)
+val to_int : edition -> int
+
 (** Compare two editions for equality (used before pool join). *)
 val equal : edition -> edition -> bool
 

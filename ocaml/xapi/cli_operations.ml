@@ -144,28 +144,43 @@ type host_license = {
 	hostname: string;
 	uuid: string;
 	rstr: Features.feature list;
-	license: License.license
+	edition: string;
+	edition_short: string;
+	expiry: float;
 }
-let host_license_of_r host_r =
+let host_license_of_r host_r editions =
 	let params = host_r.API.host_license_params in
 	let rstr = Features.of_assoc_list params in
-	let license = License.of_assoc_list params in
-	{ hostname = host_r.API.host_hostname;
-	uuid = host_r.API.host_uuid;
-	rstr = rstr;
-	license = license }
+	let expiry =
+		if List.mem_assoc "expiry" params then
+			Date.to_float (Date.of_string (List.assoc "expiry" params))
+		else
+			0.
+	in
+	let edition = host_r.API.host_edition in
+	let edition_short = List.hd
+		(List.filter_map (fun (a, _, b, _) -> if a = edition then Some b else None) editions) in
+	{
+		hostname = host_r.API.host_hostname;
+		uuid = host_r.API.host_uuid;
+		rstr = rstr;
+		edition = edition;
+		edition_short = edition_short;
+		expiry = expiry;
+	}
 
 let diagnostic_license_status printer rpc session_id params =
 	let hosts = Client.Host.get_all_records rpc session_id in
 	let heading = [ "Hostname"; "UUID"; "Features"; "Code"; "Free"; "Expiry"; "Days left" ] in
+	let editions = V6client.get_editions () in
 
-	let valid, invalid = List.partition (fun (_, host_r) -> try ignore(host_license_of_r host_r); true with _ -> false) hosts in
-	let host_licenses = List.map (fun (_, host_r) -> host_license_of_r host_r) valid in
+	let valid, invalid = List.partition (fun (_, host_r) -> try ignore(host_license_of_r host_r editions); true with _ -> false) hosts in
+	let host_licenses = List.map (fun (_, host_r) -> host_license_of_r host_r editions) valid in
 	(* Sort licenses into nearest-expiry first then free *)
 	let host_licenses = List.sort (fun a b ->
-		let a_expiry = a.license.License.expiry and b_expiry = b.license.License.expiry in
-		let a_free = (Edition.of_string a.license.License.sku) = Edition.Free
-		and b_free = (Edition.of_string b.license.License.sku) = Edition.Free in
+		let a_expiry = a.expiry and b_expiry = b.expiry in
+		let a_free = a.edition = "free"
+		and b_free = b.edition = "free" in
 		if a_expiry < b_expiry then -1
 		else
 			if a_expiry > b_expiry then 1
@@ -176,12 +191,12 @@ let diagnostic_license_status printer rpc session_id params =
 					else 0) host_licenses in
 	let now = Unix.gettimeofday () in
 	let hosts = List.map (fun h -> [ h.hostname;
-	String.sub h.uuid 0 8;
-	Features.to_compact_string h.rstr;
-	Edition.to_short_string (Edition.of_string h.license.License.sku);
-	string_of_bool ((Edition.of_string h.license.License.sku) = Edition.Free);
-	Date.to_string (Date.of_float h.license.License.expiry);
-	Printf.sprintf "%.1f" ((h.license.License.expiry -. now) /. (24. *. 60. *. 60.));
+		String.sub h.uuid 0 8;
+		Features.to_compact_string h.rstr;
+		h.edition_short; 
+		string_of_bool (h.edition = "free");				
+		Date.to_string (Date.of_float h.expiry);
+		Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
 	]) host_licenses in
 	let invalid_hosts = List.map (fun (_, host_r) -> [ host_r.API.host_hostname;
 	String.sub host_r.API.host_uuid 0 8;
@@ -189,7 +204,7 @@ let diagnostic_license_status printer rpc session_id params =
 	let __context = Context.make "diagnostic_license_status" in
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
-	let pool_free = List.fold_left (||) false (List.map (fun h -> (Edition.of_string h.license.License.sku) = Edition.Free) host_licenses) in
+	let pool_free = List.fold_left (||) false (List.map (fun h -> h.edition = "free") host_licenses) in
 	let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
 	let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; string_of_bool pool_free; "-"; "-" ] in
 	let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
@@ -2592,7 +2607,7 @@ let host_apply_edition printer rpc session_id params =
 	try
 		Client.Host.apply_edition rpc session_id host edition
 	with
-		| Api_errors.Server_error (name, args) when name = Api_errors.license_checkout_error ->
+		| Api_errors.Server_error (name, args) as e when name = Api_errors.license_checkout_error ->
 			(* Put back original license server details *)
 			Client.Host.set_license_server rpc session_id host current_license_server;
 			let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
@@ -2602,10 +2617,16 @@ let host_apply_edition printer rpc session_id params =
 					printer (Cli_printer.PStderr msg.API.message_body)
 			in
 			if alerts = [] then
-				printer (Cli_printer.PStderr "Internal error: the licensing daemon was not found.")
-			else
+				raise e
+			else begin
 				List.iter print_if_checkout_error alerts;
-			raise (ExitWithError 1)
+				raise (ExitWithError 1)
+			end
+		| Api_errors.Server_error (name, args) as e when name = Api_errors.invalid_edition ->
+			let editions = List.map (fun (x, _, _, _) -> x) (V6client.get_editions ()) in
+			let editions = String.concat ", " editions in
+			printer (Cli_printer.PStderr ("Valid editions are: " ^ editions));
+			raise e
 		| e -> raise e
 
 let host_evacuate printer rpc session_id params =

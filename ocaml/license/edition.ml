@@ -36,11 +36,11 @@ let to_marketing_name = function
 let to_features = function
 	| Free -> all_features
 
-let edition_to_int = function
+let to_int = function
 	| Free | _ -> 0
 
 let equal e0 e1 =
-	edition_to_int e0 = edition_to_int e1
+	to_int e0 = to_int e1
 	
 let min l =
 	Free

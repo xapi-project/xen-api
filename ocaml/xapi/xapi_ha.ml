@@ -439,17 +439,16 @@ module Monitor = struct
 				) livemap;
 
 				(* Find hosts whose license expiry is in the past and forcibly disable them if necessary. *)
-				let now = Unix.gettimeofday () in
 				let license_has_expired host =
-					let params = Db.Host.get_license_params ~__context ~self:host in
-					try
-						let license = License.of_assoc_list params in
-						license.License.expiry < now
-					with _ -> false (* fail safe *) in
+				let params = Db.Host.get_license_params ~__context ~self:host in
+				try
+					License_check.check_expiry ~__context ~host;
+					true
+				with _ -> false (* fail safe *) in
 				let expired_hosts = List.filter license_has_expired all_hosts in
 				(* Find the expired ones which are still enabled *)
 				let enabled_but_expired = List.filter (fun self -> Db.Host.get_enabled ~__context ~self) expired_hosts in
-				List.iter
+				List.iter 
 					(fun host ->
 						warn "Host uuid %s: license expired in the past; forcibly disabling" (Db.Host.get_uuid ~__context ~self:host);
 						Db.Host.set_enabled ~__context ~self:host ~value:false
@@ -514,6 +513,7 @@ module Monitor = struct
 
 				end;
 
+				let now = Unix.gettimeofday () in
 				let plan_too_old = now -. !last_plan_time > Xapi_globs.ha_monitor_plan_timer in
 				if plan_too_old || !plan_out_of_date then begin
 					let changed = Xapi_ha_vm_failover.update_pool_status ~__context in

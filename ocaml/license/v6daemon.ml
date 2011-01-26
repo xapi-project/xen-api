@@ -28,12 +28,12 @@ let xmlrpc_handler process req bio =
 	in
 	debug "path=%s" path;
 	let body = Http_svr.read_body req bio in
-	debug "Request: %s" body;
 	let s = Buf_io.fd_of bio in
 	let rpc = Xmlrpc.call_of_string body in
+	debug "Request: %s %s" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params));
 	let result = process rpc in
+	debug "Response: %s" (Rpc.to_string result.Rpc.contents);
 	let str = Xmlrpc.string_of_response result in
-	debug "Response: %s" str;
 	Http_svr.response_str req s str
 	
 

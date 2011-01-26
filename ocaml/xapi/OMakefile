@@ -6,7 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg
 
-
+UseCamlp4(rpc-light.syntax, features)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -42,7 +42,6 @@ COMMON = \
 	xapi_mgmt_iface \
 	smint \
 	../gpg/gpg \
-	../license/license \
 	helpers \
 	at_least_once_more \
 	create_templates \
@@ -235,14 +234,11 @@ XAPI_MODULES = $(COMMON) \
 	certificates \
 	../license/v6client \
 	../license/v6rpc \
+	../license/v6errors \
 	bios_strings \
 	xapi_config \
 	features \
 	pool_features \
-	../license/grace_retry \
-	../license/v6alert \
-	../license/edition \
-	../license/license_file \
 	../license/license_init
 
 OCamlProgram(xapi, $(XAPI_MODULES))
