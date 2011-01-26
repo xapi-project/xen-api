@@ -45,7 +45,7 @@ let read_from_redo_log staging_path =
           (* Read from the file into the cache *)
 		  let conn = Parse_db_conf.make temp_file in
           (* ideally, the reading from the file would also respect the latest_response_time *)
-		  let db = Backend_xml.populate (Schema.of_datamodel ()) conn in
+		  let db = Backend_xml.populate (Datamodel_schema.of_datamodel ()) conn in
 		  let t = Db_backend.make () in
 		  Db_ref.update_database t (fun _ -> db);
 

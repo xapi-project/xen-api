@@ -68,7 +68,7 @@ open Db_cache_types
     Also this function depends on being able to call API functions through the external interface.
 *)
 let start_database_engine () =
-	let schema = Schema.of_datamodel () in
+	let schema = Datamodel_schema.of_datamodel () in
 	
 	(* If the temporary restore file is present then we must populate from that *)
 	let connections = 

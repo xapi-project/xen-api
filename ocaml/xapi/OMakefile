@@ -221,6 +221,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_upgrade \
 	xapi_blob \
 	xapi_message \
+	../idl/datamodel_schema \
 	debug_populate \
 	ds \
 	xapi_remotecmd \

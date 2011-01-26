@@ -32,6 +32,95 @@ let remote_database_access_handler_v2 req bio =
 
 module Local_tests = Database_test.Tests(Db_cache_impl)
 
+let schema = 
+	let _ref = {
+		Schema.Column.name = Db_names.ref;
+		persistent = true;
+		empty = "";
+		default = None;
+		issetref = false;
+	} in
+	let uuid = {
+		Schema.Column.name = Db_names.uuid;
+		persistent = true;
+		empty = "";
+		default = None;
+		issetref = false;
+	} in
+	let name_label = {
+		Schema.Column.name = Db_names.name_label;
+		persistent = true;
+		empty = "";
+		default = None;
+		issetref = false;
+	} in
+	let name_description = {
+		Schema.Column.name = "name__description";
+		persistent = true;
+		empty = "";
+		default = None;
+		issetref = false;
+	} in
+	let vbds = {
+		Schema.Column.name = "VBDs";
+		persistent = false;
+		empty = "()";
+		default = Some("()");
+		issetref = true;
+	} in
+	let other_config = {
+		Schema.Column.name = "other_config";
+		persistent = false;
+		empty = "()";
+		default = Some("()");
+		issetref = false;
+	} in
+	let pp = {
+		Schema.Column.name = "protection_policy";
+		persistent = true;
+		empty = "";
+		default = Some("OpaqueRef:NULL");
+		issetref = false;
+	} in
+	let tags = {
+		Schema.Column.name = "tags";
+		persistent = true;
+		empty = "";
+		default = Some("()");
+		issetref = false;
+	} in
+	let vm = {
+		Schema.Column.name = "VM";
+		persistent = true;
+		empty = "";
+		default = None;
+		issetref = false;
+	} in
+
+	let vm_table = {
+		Schema.Table.name = "VM";
+		columns = [ _ref; uuid; name_label; vbds; pp; name_description; tags; other_config ];
+		persistent = true;
+	} in
+	let vbd_table = {
+		Schema.Table.name = "VBD";
+		columns = [ _ref; uuid; vm ];
+		persistent = true;
+	} in
+	let database = { 
+		Schema.Database.tables = [ vm_table; vbd_table ];
+	} in
+	let one_to_many = Schema.StringMap.add "VBD" [ "VM", "VM", "VBDs" ] (Schema.StringMap.empty) in
+	{
+		
+		Schema.major_vsn = 1;
+		minor_vsn = 1;
+		database = database;
+		(** indexed by table name, a list of (this field, foreign table, foreign field) *)
+		one_to_many = one_to_many;
+		many_to_many = Schema.StringMap.empty;
+	}
+
 let _ = 
 	let listen_path = ref "./database" in
 	let self_test = ref false in
@@ -55,7 +144,7 @@ let _ =
 					let db = Parse_db_conf.make db_filename in
 					Db_conn_store.initialise_db_connections [ db ];
 					let t = Db_backend.make () in					
-					Db_cache_impl.make t [ db ] (Schema.of_datamodel ());
+					Db_cache_impl.make t [ db ] schema;
 					Db_cache_impl.sync [ db ] (Db_ref.get_database t);
 
 					Unixext.unlink_safe !listen_path;
