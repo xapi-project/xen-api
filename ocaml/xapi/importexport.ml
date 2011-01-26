@@ -82,7 +82,7 @@ let this_version __context =
 let assert_compatable ~__context other_version = 
   let this_version = this_version __context in
   let error() = 
-    error "Import version is incompitable";
+    error "Import version is incompatible";
     raise (Api_errors.Server_error(Api_errors.import_incompatible_version, [])) in
   (* error if major versions differ; also error if this host has a
      lower minor vsn than the import *)
