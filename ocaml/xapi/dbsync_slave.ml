@@ -421,39 +421,61 @@ let remove_all_leaked_vbds __context =
  * For example, this will prevent needless glitches in storage interfaces.
  *)
 let resynchronise_pif_params ~__context =
-  let localhost = Helpers.get_localhost () in
-  (* See which PIFs were brought up at start of day, according to the inventory file *)
-  let pifs_brought_up =
-    try
-      let bridges_already_up = Xapi_pif.read_bridges_from_inventory () in
-      debug "HA interfaces: [%s]" (String.concat "; " bridges_already_up);
-      (* Create a list pairing each PIF with the bridge for the network that it is on *)
-      let pifs_with_bridges = List.map (fun (pif,pifr) -> (pif, Db.Network.get_bridge ~__context ~self:pifr.API.pIF_network)) (Db.PIF.get_all_records ~__context) in
-      (* Retain the (pif, bridge) pairs where the bridge was listed in the inventory as an HA interface *)
-      List.filter (fun (_,bridge_name) -> List.mem bridge_name bridges_already_up) pifs_with_bridges
-    with
-      Xapi_inventory.Missing_inventory_key _ -> []
-    in
-  List.iter
-    (fun self ->
-       let is_management_pif = Xapi_pif.is_my_management_pif ~__context ~self in
-       let was_pif_brought_up_at_start_of_day = List.mem self (List.map fst pifs_brought_up) in
-       (* Mark important interfaces as attached *)
-       let mark_as_attached = is_management_pif || was_pif_brought_up_at_start_of_day || 
-                              (Mtc.is_pif_attached_to_mtc_vms_and_should_not_be_offline ~__context ~self) in
-       Db.PIF.set_currently_attached ~__context ~self ~value:mark_as_attached;
-       Db.PIF.set_management ~__context ~self ~value:is_management_pif;
-       debug "Marking PIF device %s as %s" (Db.PIF.get_device ~__context ~self) (if mark_as_attached then "attached" else "offline");
-       
-       (* sync MTU *)
-       try
-         let device = Db.PIF.get_device ~__context ~self in
-         let mtu = Int64.of_string (Netdev.get_mtu device) in
-         Db.PIF.set_MTU ~__context ~self ~value:mtu;
-       with _ ->
-         debug "could not update MTU field on PIF %s" (Db.PIF.get_uuid ~__context ~self)
-    )
-    (Db.Host.get_PIFs ~__context ~self:localhost)
+	let localhost = Helpers.get_localhost () in
+	(* 1. Acquire data. We minimise round-trips not bandwidth *)
+	let networks = Db.Network.get_all_records ~__context in
+	let expr = Db_filter_types.Eq(Db_filter_types.Field "host", Db_filter_types.Literal (Ref.string_of localhost)) in
+	let pifs = Db.PIF.get_records_where ~__context ~expr in
+
+	(* 2. Inspect current system configuration *)
+	let bridges_already_up = 
+		try Xapi_pif.read_bridges_from_inventory ()
+		with Xapi_inventory.Missing_inventory_key _ -> [] in
+	debug "dom0 interfaces: [%s]" (String.concat "; " bridges_already_up);
+	let management_bridge = 
+		try [ Xapi_inventory.lookup Xapi_inventory._management_interface ]
+		with Xapi_inventory.Missing_inventory_key _ -> [] in			
+	debug "management interface: [%s]" (String.concat "; " management_bridge);
+
+	(* 3. Produce internal lookup tables *)
+	let network_to_bridge = List.map (fun (net, net_r) -> net, net_r.API.network_bridge) networks in
+
+	(* PIF -> bridge option: None means "dangling PIF" *)
+	let pifs_to_bridge =
+		let all_up_bridges = management_bridge @ bridges_already_up in
+		(* Create a list pairing each PIF with the bridge for the network 
+		   that it is on *)
+		List.map (fun (pif, pif_r) ->
+			let net = pif_r.API.pIF_network in
+			let bridge = if List.mem_assoc net network_to_bridge
+			then Some (List.assoc net network_to_bridge) else None in
+			pif, bridge) pifs in
+
+	(* 4. Perform the database resynchronisation *)
+	List.iter
+		(fun (pif, pif_r) ->
+			let all_up_bridges = management_bridge @ bridges_already_up in
+			let bridge = List.assoc pif pifs_to_bridge in
+			let currently_attached = Opt.default false (Opt.map (fun x -> List.mem x all_up_bridges) bridge) in
+			let management = Opt.default false (Opt.map (fun x -> List.mem x management_bridge) bridge) in
+			if pif_r.API.pIF_currently_attached <> currently_attached then begin
+				Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached;
+				debug "PIF %s currently_attached <- %b" (Ref.string_of pif) currently_attached;
+			end;
+			if pif_r.API.pIF_management <> management then begin
+				Db.PIF.set_management ~__context ~self:pif ~value:management;
+				debug "PIF %s management <- %b" (Ref.string_of pif) management;
+			end;
+			(* sync MTU *)
+			try
+				let mtu = Int64.of_string (Netdev.get_mtu pif_r.API.pIF_device) in
+				if pif_r.API.pIF_MTU <> mtu then begin
+					Db.PIF.set_MTU ~__context ~self:pif ~value:mtu;
+					debug "PIF %s MTU <- %Ld" (Ref.string_of pif) mtu;
+				end;
+			with _ ->
+				debug "could not update MTU field on PIF %s" (Db.PIF.get_uuid ~__context ~self:pif)
+		) pifs       
 
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
