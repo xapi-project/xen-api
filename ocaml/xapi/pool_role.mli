@@ -17,6 +17,9 @@ type t =
   | Slave of string (** IP address *)
   | Broken
 
+(** Returns a printable version ot [t] *)
+val string_of: t -> string
+
 (** Returns the role of this node *)
 val get_role: unit -> t
 (** Reset the role on disk, takes effect on next server restart only! *)

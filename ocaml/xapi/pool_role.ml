@@ -27,7 +27,7 @@ type t =
 let role = ref None
 let role_m = Mutex.create ()
 
-let string_of_t = function
+let string_of = function
   | Master -> "master"
   | Slave x -> "slave:" ^ x
   | Broken -> "broken"
@@ -54,7 +54,7 @@ let set_role r =
   let old_role = get_role () in
   Mutex.execute role_m
     (fun () ->
-       Unixext.write_string_to_file Xapi_globs.pool_config_file (string_of_t r));
+       Unixext.write_string_to_file Xapi_globs.pool_config_file (string_of r));
   Localdb.put Constants.this_node_just_became_master (string_of_bool (old_role <> Master && r = Master))
 
 let is_master () = get_role () = Master
