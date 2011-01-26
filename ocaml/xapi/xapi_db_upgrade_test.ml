@@ -95,8 +95,62 @@ let upgrade_bios () =
 	Unixext.unlink_safe "/var/tmp/.previousInventory";
 	Printf.printf "upgrade_bios: OK\n"
 
+
+let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
+		?(user_version=1L) ?(is_a_template=false) ?(affinity=Ref.null)
+		?(memory_target=500L) ?(memory_static_max=1000L) ?(memory_dynamic_max=500L)
+		?(memory_dynamic_min=500L) ?(memory_static_min=0L) ?(vCPUs_params=[])
+		?(vCPUs_max=1L) ?(vCPUs_at_startup=1L) ?(actions_after_shutdown=`destroy)
+		?(actions_after_reboot=`restart) ?(actions_after_crash=`destroy)
+		?(pV_bootloader="") ?(pV_kernel="") ?(pV_ramdisk="") ?(pV_args="") 
+		?(pV_bootloader_args="") ?(pV_legacy_args="") ?(hVM_boot_policy="BIOS order")
+		?(hVM_boot_params=[]) ?(hVM_shadow_multiplier=1.) ?(platform=[]) ?(pCI_bus="")
+		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
+		?(ha_restart_priority="1") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
+		?(is_snapshot_from_vmpp=false) () = 
+	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template 
+		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
+        ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
+		~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk 
+		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
+		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
+		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
+		~is_snapshot_from_vmpp
+
+let update_snapshots () = 
+	let __context = make_test_database () in
+	let a = make_vm ~__context ~name_label:"a" () in
+	let a_snap = make_vm ~__context ~name_label:"a snap" () in
+	Db.VM.set_snapshot_of ~__context ~self:a_snap ~value:a;
+	Db.VM.set_snapshot_time ~__context ~self:a_snap ~value:(Date.of_float 1.);
+
+	let b = make_vm ~__context ~name_label:"b" () in
+	let b_snap = make_vm ~__context ~name_label:"b snap" () in
+	Db.VM.set_snapshot_of ~__context ~self:b_snap ~value:b;
+	Db.VM.set_snapshot_time ~__context ~self:b_snap ~value:(Date.of_float 1.);
+	let b_snap2 = make_vm ~__context ~name_label:"b snap2" () in
+	Db.VM.set_snapshot_of ~__context ~self:b_snap2 ~value:b;
+	Db.VM.set_snapshot_time ~__context ~self:b_snap2 ~value:(Date.of_float 2.);
+	
+	update_snapshots.fn ~__context;
+	
+	(* a.parent = a_snap *)
+	if Db.VM.get_parent ~__context ~self:a <> a_snap
+	then failwith "a.parent <> a_snap";
+
+	(* b.parent = b_snap2 *)
+	if Db.VM.get_parent ~__context ~self:b <> b_snap2
+	then failwith "b.parent <> b_snap2";
+
+	(* b_snap2.parent = b_snap *)
+	if Db.VM.get_parent ~__context ~self:b_snap2 <> b_snap
+	then failwith "b_snap2.parent <> b_snap";
+
+	Printf.printf "update_snapshots: OK\n"
+
 let _ = 
 	upgrade_vm_memory_for_dmc ();
-	upgrade_bios ()
+	upgrade_bios ();
+	update_snapshots ()
 	
 
