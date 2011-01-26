@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -20,9 +20,32 @@ open Threadext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+let inventory_filename = Util_globs_inventory.inventory_filename
+
+(* Keys which must exist: *)
+let _installation_uuid		= "INSTALLATION_UUID"
+let _control_domain_uuid	= "CONTROL_DOMAIN_UUID"
+let _management_interface	= "MANAGEMENT_INTERFACE"
+
+(* Optional keys: *)
+let _current_interfaces		= "CURRENT_INTERFACES"
+let _oem_manufacturer		= "OEM_MANUFACTURER"
+let _oem_model				= "OEM_MODEL"
+let _oem_build_number		= "OEM_BUILD_NUMBER"
+let _machine_serial_number	= "MACHINE_SERIAL_NUMBER"
+let _machine_serial_name	= "MACHINE_SERIAL_NAME"
+
 let loaded_inventory = ref false
 let inventory = Hashtbl.create 10
 let inventory_m = Mutex.create ()
+
+(* Compute the minimum necessary inventory file contents *)
+let minimum_default_entries () = 
+  let host_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+  let dom0_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+  [ _installation_uuid, host_uuid;
+    _control_domain_uuid, dom0_uuid;
+    _management_interface, "" ]
 
 (* trim any quotes off the ends *)
 let strip_quotes v =
@@ -39,7 +62,17 @@ let parse_inventory_entry line =
 			Some (k, strip_quotes ++ String.strip String.isspace $ v)
 		| _ -> None
 
+let string_of_table h = 
+	let lines = List.fold_left (fun acc (k, v) ->
+		Printf.sprintf "%s='%s'\n" k v :: acc) [] h in
+	String.concat "" lines
+
 let read_inventory_contents () =
+	if not (Sys.file_exists inventory_filename) then begin
+		warn "%s does not exist: generating a minimal one" inventory_filename;
+		Unixext.write_string_to_file inventory_filename (
+			string_of_table (minimum_default_entries ()))
+	end;
 	(* Perhaps we should blank the old inventory before we read the new one?
 	   What is the desired behaviour? *)
 	Unixext.file_lines_iter (fun line ->
@@ -47,7 +80,7 @@ let read_inventory_contents () =
 			| Some (k, v) -> Hashtbl.add inventory k v
 			| None -> warn
 				"Failed to parse line from xensource-inventory file: %s" line)
-		Util_globs_inventory.inventory_filename;
+		inventory_filename;
 	loaded_inventory := true
 
 let read_inventory () = Mutex.execute inventory_m read_inventory_contents
@@ -57,18 +90,19 @@ let reread_inventory () = Mutex.execute inventory_m (fun () ->
 
 exception Missing_inventory_key of string
 
-let lookup key =
-	if not (!loaded_inventory) then read_inventory();
-	if not (Hashtbl.mem inventory key)
-	then raise (Missing_inventory_key key);
-	Hashtbl.find inventory key
+let lookup ?default key =
+	(if not (!loaded_inventory) then read_inventory());
+	if (Hashtbl.mem inventory key)
+	then
+		Hashtbl.find inventory key
+	else
+		match default with
+			| None   -> raise (Missing_inventory_key key)
+			| Some v -> v
 
 let flush_to_disk_locked () =
-	let lines = Hashtbl.fold
-		(fun k v acc -> Printf.sprintf "%s='%s'\n" k v :: acc)
-		inventory [] in
-	Unixext.write_string_to_file Util_globs_inventory.inventory_filename
-		$ String.concat "" lines
+	let h = Hashtbl.fold (fun k v acc -> (k, v) :: acc) inventory [] in
+	Unixext.write_string_to_file inventory_filename (string_of_table h)
 
 let update key value = Mutex.execute inventory_m (fun () ->
 	Hashtbl.clear inventory;
@@ -81,25 +115,3 @@ let remove key = Mutex.execute inventory_m (fun () ->
 	read_inventory_contents ();
 	Hashtbl.remove inventory key;
 	flush_to_disk_locked ())
-
-let _product_brand = "PRODUCT_BRAND"
-let _product_name = "PRODUCT_NAME"
-let _product_version = "PRODUCT_VERSION='0.5.1'"
-let _build_number = "BUILD_NUMBER"
-let _kernel_version = "KERNEL_VERSION"
-let _xen_version = "XEN_VERSION"
-let _installation_date = "INSTALLATION_DATE"
-let _default_sr = "DEFAULT_SR"
-let _primary_disk = "PRIMARY_DISK"
-let _backup_partition = "BACKUP_PARTITION"
-let _installation_uuid = "INSTALLATION_UUID"
-let _default_sr_physdevs = "DEFAULT_SR_PHYSDEVS"
-let _control_domain_uuid = "CONTROL_DOMAIN_UUID"
-let _management_interface = "MANAGEMENT_INTERFACE"
-let _current_interfaces = "CURRENT_INTERFACES"
-let _dom0_mem = "DOM0_MEM"
-let _oem_manufacturer = "OEM_MANUFACTURER"
-let _oem_model = "OEM_MODEL"
-let _oem_build_number = "OEM_BUILD_NUMBER"
-let _machine_serial_number = "MACHINE_SERIAL_NUMBER"
-let _machine_serial_name = "MACHINE_SERIAL_NAME"

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -25,9 +25,9 @@ val read_inventory: unit -> unit
 (** Clears the copy of the inventory file in memory and reads the file from disk. *)
 val reread_inventory: unit -> unit
 
-(** Return the value of key [key] in the inventory file. Throws {!Missing_inventory_key}
- *  if the key does not exist. *)
-val lookup: string -> string
+(** Return the value of key [key] in the inventory file. If the key does not exist,
+ *  returns the default if supplied, or throws {!Missing_inventory_key} otherwise. *)
+val lookup: ?default:string -> string -> string
 
 (** Remove the key with the given name from the inventory file, if it exists. *)
 val remove: string -> unit
@@ -40,6 +40,9 @@ val update: string -> string -> unit
 val parse_inventory_entry: string -> (string * string) option
 
 (* Keys defined in Geneva *)
+(** UUID of the Host object in the xapi database *)
+val _installation_uuid : string
+(*
 (** Brand name, such as "XenServer" *)
 val _product_brand : string
 
@@ -70,15 +73,12 @@ val _primary_disk : string
 (** Device path of backup partition *)
 val _backup_partition : string
 
-(** UUID of the Host object in the xapi database *)
-val _installation_uuid : string
-
 (** Device path of the default SR used for local storage *)
 val _default_sr_physdevs : string
 
 (** Memory size of dom0 (?) *)
 val _dom0_mem : string
-
+*)
 
 (* Keys defined in Rio *)
 (** UUID of the control domain (dom0) *)
