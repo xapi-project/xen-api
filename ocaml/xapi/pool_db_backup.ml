@@ -40,7 +40,7 @@ let write_database (s: Unix.file_descr) ~__context =
 		let len = String.length minimally_compliant_miami_database in
 		ignore (Unix.write s minimally_compliant_miami_database 0 len)
 	else
-		Db_cache.DBCache.dump_db_cache (Generation.read_generation()) s
+		Db_cache.DBCache.dump_db_cache s
 
 (** Make sure the backup database version is compatible *)
 let version_check manifest =
@@ -242,7 +242,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
 	(fun dbconn ->
 	   Threadext.Mutex.execute slave_backup_m
 	     (fun () ->
-		Db_connections.force_flush_specified_cache dbconn manifest.Db_cache_types.generation_count unmarshalled_db;
+		Db_connections.force_flush_specified_cache dbconn unmarshalled_db;
 		Slave_backup.notify_write dbconn (* update writes_this_period for this connection *)
 	     )
 	)
@@ -260,12 +260,13 @@ let pool_db_backup_thread () =
       begin
 	let hosts = Db.Host.get_all ~__context in
 	let hosts = List.filter (fun hostref -> hostref <> !Xapi_globs.localhost_ref) hosts in
+	let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
 	let dohost host =
 	  try
 	    Thread.delay pool_db_sync_timer;
 	    debug "Starting DB synchronise with host %s" (Ref.string_of host);
 	    Helpers.call_api_functions ~__context
-	      (fun rpc session_id -> Client.Host.request_backup rpc session_id host (Generation.read_generation()) false);
+	      (fun rpc session_id -> Client.Host.request_backup rpc session_id host generation false);
 	    debug "Finished DB synchronise";
 	  with
 	    e -> 

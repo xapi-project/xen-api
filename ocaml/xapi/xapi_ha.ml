@@ -1524,10 +1524,11 @@ let enable __context heartbeat_srs configuration =
 
 				(* ... *)
 				(* Make sure everyone's got a fresh database *)
+				let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
 				let errors = thread_iter_all_exns
 					(fun host ->
 						debug "Synchronising database with host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-						Client.Host.request_backup rpc session_id host (Generation.read_generation()) true;
+						Client.Host.request_backup rpc session_id host generation true;
 						count_call ()
 					) hosts in
 				List.iter

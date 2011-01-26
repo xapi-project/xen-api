@@ -124,12 +124,15 @@ module From = struct
     | _ -> f acc
     in
     let (cache, _, manifest) = f (create_empty_cache (), create_empty_table (), []) in
+	let generation_count = Int64.of_string (List.assoc _generation_count manifest) in
+	Db_cache_types.set_generation cache generation_count;
     (* Manifest is actually a record *)
     let manifest = { 
       schema_major_vsn = int_of_string (List.assoc _schema_major_vsn manifest);
       schema_minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest);
-      generation_count = Int64.of_string (List.assoc _generation_count manifest)
+      generation_count = generation_count
     } in
+
     manifest, cache
 
   let file xml_filename =

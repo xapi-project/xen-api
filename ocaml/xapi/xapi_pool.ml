@@ -763,7 +763,7 @@ let eject ~__context ~host =
 			(* We need to delete all local dbs but leave remote ones alone *)
 			let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
 			List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);
-			List.iter Unixext.unlink_safe (List.map Generation.gen_count_file local);
+			List.iter Unixext.unlink_safe (List.map Generation.filename local);
 			(* remove any shared databases from my db.conf *)
 			(* XXX: on OEM edition the db.conf is rebuilt on every boot *)
 			Parse_db_conf.write_db_conf local;
@@ -794,10 +794,11 @@ let sync_database ~__context =
        then debug "flushed database to metadata VDI: assuming this is sufficient."
        else begin
 	 debug "flushing database to all online nodes";
+		   let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
 	 Threadext.thread_iter
 	   (fun host ->
 	      Helpers.call_api_functions ~__context
-		(fun rpc session_id -> Client.Host.request_backup rpc session_id host (Generation.read_generation()) true))
+		(fun rpc session_id -> Client.Host.request_backup rpc session_id host generation true))
 	   (Db.Host.get_all ~__context)
        end
     )	 

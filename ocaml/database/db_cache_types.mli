@@ -29,10 +29,14 @@ type db_dump_manifest = {
 }
 
 val make_manifest : int -> int -> Int64.t -> db_dump_manifest
-val manifest_of_cache: cache -> Int64.t -> db_dump_manifest
+val manifest_of_cache: cache -> db_dump_manifest
 
 val schema_of_cache: cache -> int * int
 val set_schema_vsn: cache -> int * int -> unit
+
+val generation_of_cache: cache -> Generation.t
+val set_generation: cache -> Generation.t -> unit
+val increment: cache -> unit
 
 val lookup_field_in_row : row -> string -> string
 val lookup_table_in_cache : cache -> string -> table

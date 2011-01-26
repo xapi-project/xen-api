@@ -18,6 +18,7 @@ type table = (string, row) Hashtbl.t
 type cache = {
 	cache: (string, table) Hashtbl.t;
 	schema: (int * int) option ref;
+	generation: Generation.t ref;
 }
 
 type where_record = {table:string; return:string; where_field:string; where_value:string}
@@ -47,11 +48,17 @@ let schema_of_cache cache = match !(cache.schema) with
 | None -> (0, 0)
 | Some (major, minor) -> major, minor
 
-let manifest_of_cache cache gen_count = 
+let manifest_of_cache cache = 
 	let major, minor = schema_of_cache cache in
-	make_manifest major minor gen_count
+	make_manifest major minor !(cache.generation)
 
 let set_schema_vsn cache (major, minor) = cache.schema := Some (major, minor)
+
+let increment cache = cache.generation := Int64.add !(cache.generation) 1L
+
+let generation_of_cache cache = !(cache.generation)
+
+let set_generation cache generation = cache.generation := generation
 
 (* Our versions of hashtbl.find *)
 let lookup_field_in_row row fld =
@@ -91,7 +98,7 @@ let create_empty_row () = Hashtbl.create 20
 
 let create_empty_table () = Hashtbl.create 20
 
-let create_empty_cache () = { cache = Hashtbl.create 20; schema = ref None }
+let create_empty_cache () = { cache = Hashtbl.create 20; schema = ref None; generation = ref Generation.null_generation }
 
 let fold_over_fields func row acc = Hashtbl.fold func row acc
 
@@ -140,4 +147,6 @@ let snapshot cache : cache =
        
        let newcache = create_empty_cache () in  
        iter_over_tables (table newcache) cache;
+
+	   set_generation newcache (generation_of_cache cache);
        newcache)
