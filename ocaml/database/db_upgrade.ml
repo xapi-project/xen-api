@@ -19,51 +19,6 @@ open Db_cache_types
 open Stringext
 open Pervasiveext
 
-(* ---------------------- upgrade db file from last release schema -> current schema.
-
-   upgrade_from_last_release contains the generic mechanism for upgrade (i.e. filling in default values
-   specified in IDL).
-
-   There are also some non-generic db upgrade rules coded specifically in non_generic_db_upgrade_rules.
-
-   For Orlando we have to make these rules idempontent and run them on _every_ master populate. This
-   makes sure we'll run them from MiamiGA->Orlando, as well as beta_x->Orlando etc. etc. (for the
-   beta upgrades we don't have the luxury of a db schema version change to trigger off.) If we can
-   get this done earlier for the next release we can trigger off the schema vsn change again..
-*)
-
-module Names = Db_names
-
-(** {Release-specific custom database upgrade rules} *)
-
-(** The type of an upgrade rule. The rules should ideally be idempotent and composable.
-    All new fields will have been created with default values and new tables will exist. *)
-type upgrade_rule = {
-  description: string;
-  version: int * int; (** rule will be applied if the schema version is <= this number *)
-  fn: Database.t -> Database.t;
-}
-
-(** Apply all the rules needed for the previous_version *)
-let apply_upgrade_rules rules previous_version db = 
-  debug "Looking for database upgrade rules:";
-  let required_rules = List.filter (fun r -> previous_version <= r.version) rules in
-  List.fold_left
-    (fun db r ->
-		debug "Applying database upgrade rule: %s" r.description;
-		try
-			r.fn db
-		with exn ->
-			error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn);
-			db
-    ) db required_rules
-  
-(** A list of all the custom database upgrade rules known to the system. *)
-let upgrade_rules = 
-  let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn in
-  [ ]
-(** {Generic database upgrade handling} *)
-
 (** Automatically insert blank tables and new columns with default values *)
 let generic_database_upgrade db =
   let existing_table_names = TableSet.fold (fun name _ acc -> name :: acc) (Database.tableset db) [] in
