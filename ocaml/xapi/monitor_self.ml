@@ -100,7 +100,7 @@ let string_of_process_memory_info (x: process_memory_info) =
   Printf.sprintf "size: %d KiB; rss: %d KiB; data: %d KiB; stack: %d KiB"
     x.size x.rss x.data x.stack
 
-let summarise_db_size () = match Db_cache.DBCache.stats () with
+let summarise_db_size () = match Db_cache_impl.stats () with
   | [] -> "(running as slave; no in-memory db cache)"
   | xs -> Printf.sprintf "(%s)" (String.concat "; " (List.map (fun (tbl, x) -> Printf.sprintf "%s[%d records]" tbl x) xs))
 

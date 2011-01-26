@@ -15,8 +15,14 @@ module D = Debug.Debugger(struct let name = "sql" end)
 open D
 
 type getrecord = unit -> XMLRPC.xmlrpc 
+
 let get_record_table : (string, __context:Context.t -> self:string -> getrecord ) Hashtbl.t = Hashtbl.create 20
-let find_get_record x = try Hashtbl.find get_record_table x with Not_found as e -> debug "Failed to find get_record function for class: %s" x; raise e
+
+let find_get_record x ~__context ~self () : XMLRPC.xmlrpc option = 
+	if Hashtbl.mem get_record_table x
+	then Some (Hashtbl.find get_record_table x ~__context ~self ())
+	else None
+
   (* If a record is created or destroyed, then
      for any (Ref _) field which is one end of a relationship, need to send
      modified events for all those other objects. *)

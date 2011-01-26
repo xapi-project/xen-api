@@ -13,7 +13,7 @@
  *)
 open Pervasiveext (* for ignore_exn *)
 
-module R = Debug.Debugger(struct let name = "redo_log" end)
+module R = Debug.Debugger(struct let name = "xapi" end)
 
 exception NoGeneration
 exception DeltaTooOld
@@ -48,7 +48,7 @@ let read_from_redo_log staging_path =
           } in
           (* ideally, the reading from the file would also respect the latest_response_time *)
           ignore (Backend_xml.populate_and_read_manifest fake_conn_db_file);
-          R.debug "Finished reading database from %s into cache" temp_file;
+          R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
 
           (* Set the generation count *)
           latest_generation := Some gen_count
@@ -61,7 +61,7 @@ let read_from_redo_log staging_path =
 
     let read_delta gen_count delta =
       (* Apply the delta *)
-      Db_cache.DBCache.apply_delta_to_cache delta;
+      Db_cache.apply_delta_to_cache delta;
       (* Update the generation count *)
       match !latest_generation with
       | None -> raise NoGeneration (* we should have already read in a database with a generation count *)
@@ -90,6 +90,7 @@ let read_from_redo_log staging_path =
         R.debug "No database was read, so no staging is necessary";
         raise NoGeneration
       | Some generation ->
+		  R.debug "Database from redo log has generation %Ld" generation;
         (* Write the in-memory cache to the file *)
 		  (* Make sure the generation count is right -- is this necessary? *)
 		  Db_cache_types.set_generation Db_backend.cache generation;

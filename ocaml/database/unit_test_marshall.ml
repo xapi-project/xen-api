@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Db_remote_marshall
+open Db_rpc_common_v1
 open Db_cache_types
 open Db_filter
 open Db_filter_types

@@ -33,6 +33,7 @@ let vm_connect_uri = "http"                           (* ocaml/xapi/xapi_udhcpd.
 let vncsnapshot_uri = "/vncsnapshot"                  (* ocaml/xapi/xapi_vncsnapshot.ml *)
 let system_status_uri = "/system-status"              (* ocaml/xapi/system_status.ml *)
 let remote_db_access_uri = "/remote_db_access"        (* ocaml/xapi/xapi.ml *)
+let remote_db_access_uri_v2 = "/remote_db_access_v2"        (* ocaml/xapi/xapi.ml *)
 let remote_stats_uri = "/remote_stats"                (* ocaml/xapi/xapi.ml *)
 let json_uri = "/json"                                (* ocaml/xapi/xapi.ml *)
 let cli_uri = "/cli"                                  (* ocaml/xapi/xapi_cli.ml *)

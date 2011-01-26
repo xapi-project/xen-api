@@ -999,8 +999,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			  try
 			    Db.SR.get_by_uuid ~__context ~uuid:sr
 			  with
-			    Db_cache.Read_missing_uuid (_,_,_)
-			  | Db_cache.Too_many_values (_,_,_) ->
+			    Db_exn.Read_missing_uuid (_,_,_)
+			  | Db_exn.Too_many_values (_,_,_) ->
 			      begin
 				match (Db.SR.get_by_name_label ~__context ~label:sr) with
 				  [] -> raise Not_forwarding (* couldn't find it. Do it locally and will report correct error *)

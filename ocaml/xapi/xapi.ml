@@ -49,7 +49,7 @@ let startup_check () =
     
 (* Tell the dbcache whether we're a master or a slave *)
 let set_db_mode() =
-  Db_cache.database_mode := Some (if Pool_role.is_master () then Db_cache.Master else Db_cache.Slave)
+	Db_cache.set_master (Pool_role.is_master ())
 
 (* Parse db conf file from disk and use this to initialise database connections. This is done on
    both master and slave. On masters the parsed data is used to flush databases to and to populate
@@ -78,7 +78,7 @@ let start_database_engine () =
 
   (* Initialise in-memory database cache *)
   debug "Populating db cache";
-  Db_cache.DBCache.initialise_db_cache();
+  Db_cache_impl.initialise ();
   debug "Performing initial DB GC";
   Db_gc.single_pass ();
 
@@ -104,23 +104,20 @@ let wait_until_database_is_ready_for_clients () =
     (fun () -> 
        while not !database_ready_for_clients do Condition.wait database_ready_for_clients_c database_ready_for_clients_m done)
 
-let read_and_parse_body req bio =
-  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
-  fd, Xml.parse_string body 
-
 (** Handler for the remote database access URL *)
 let remote_database_access_handler req bio = 
-  wait_until_database_is_ready_for_clients ();
+	wait_until_database_is_ready_for_clients ();
+	Db_remote_cache_access_v1.handler req bio
 
-  let fd, body_xml = read_and_parse_body req bio in
-  let response = Xml.to_bigbuffer (Db_remote_cache_access.DBCacheRemoteListener.process_xmlrpc body_xml) in
-  Http_svr.response_fct req fd (Bigbuffer.length response)
-    (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s)))) 
+(** Handler for the remote database access URL *)
+let remote_database_access_handler_v2 req bio = 
+	wait_until_database_is_ready_for_clients ();
+	Db_remote_cache_access_v2.handler req bio
 
 (** Handler for the legacy remote stats URL *)
 let remote_stats_handler req bio = 
   wait_until_database_is_ready_for_clients ();
+	let fd = Buf_io.fd_of bio in (* fd only used for writing *)
 
   (* CA-20487: need to authenticate this URL, but only when we're not in pool rolling-upgrade mode; this
      URL is depricated and should be removed ASAP.. *)
@@ -137,13 +134,15 @@ let remote_stats_handler req bio =
       with _ ->
 	auth_failed()
     end;
-  let fd, body_xml = read_and_parse_body req bio in
+
+  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  let body_xml = Xml.parse_string body in  
   Stats.time_this "remote_stats"
     (fun () ->
        let stats = Monitor_transfer.unmarshall body_xml in
        Server_helpers.exec_with_new_task "performance monitor"
 	 (fun __context -> Monitor_master.update_all ~__context stats);
-       let response = Xml.to_string (Db_remote_marshall.marshall_unit ()) in
+       let response = Xml.to_string (Db_rpc_common_v1.marshall_unit ()) in
        Http_svr.response_str req fd response
     )
 
@@ -245,7 +244,6 @@ let init_args() =
 	       "-logconfig", Arg.Set_string Xapi_globs.log_config_file, "set log config file to use";
 	       "-writereadyfile", Arg.Set_string Xapi_globs.ready_file, "touch specified file when xapi is ready to accept requests";
 	       "-writeinitcomplete", Arg.Set_string Xapi_globs.init_complete, "touch specified file when xapi init process is complete";
-	       "-writelog", Arg.Set writelog, "display sql writelog";
 	       "-nowatchdog", Arg.Set nowatchdog, "turn watchdog off, avoiding initial fork";
 	       "-setdom0mem", Arg.Unit (fun () -> ()), "(ignored)";
 	       "-dom0memgradient", Arg.Unit (fun () -> ()), "(ignored)";
@@ -255,8 +253,7 @@ let init_args() =
 	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
 	       "-version", Arg.Unit show_version, "show version of the binary"
 	     ] (fun x -> printf "Warning, ignoring unknown argument: %s" x)
-    "Citrix XenServer API server";
-  if !writelog then Db_cache.DBCache.display_sql_writelog !writelog
+    "Citrix XenServer API server"
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
@@ -616,6 +613,7 @@ let startup_script () =
 let master_only_http_handlers = [
   (* CA-26044: don't let people DoS random slaves *)
   ("post_remote_db_access", (Http_svr.BufIO remote_database_access_handler));
+  ("post_remote_db_access_v2", (Http_svr.BufIO remote_database_access_handler_v2));
 ]
 
 let common_http_handlers = [
@@ -856,7 +854,7 @@ let server_init() =
                if this happens and try again later.. *)
             Master_connection.restart_on_connection_timeout := false;
             Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
-            Db_cache.DBCache.initialise_db_cache();
+            Db_cache_impl.initialise ();
             Dbsync.setup ()
           with e ->
             begin

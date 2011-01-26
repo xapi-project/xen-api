@@ -21,8 +21,8 @@ type cache = {
 	generation: Generation.t ref;
 }
 
-type where_record = {table:string; return:string; where_field:string; where_value:string}
-type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
+type where_record = {table:string; return:string; where_field:string; where_value:string} with rpc
+type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap with rpc
 
 let string_of_structured_op op = match op with
   | AddSet -> "add_set"

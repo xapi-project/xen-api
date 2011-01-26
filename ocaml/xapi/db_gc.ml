@@ -39,6 +39,7 @@ let _time = "time"
 let valid_ref x = Db.is_valid_ref x
 
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_record =
+	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in	  
   let all_refs = get_all ~__context in
   let do_gc ref =
     let print_valid b = if b then "valid" else "INVALID" in
@@ -49,7 +50,7 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
       if not (ref_1_valid && ref_2_valid) then
 	begin
 	  let table,reference,valid1,valid2 = 
-	    (match Db_cache.DBCache.get_table_from_ref (Ref.string_of ref) with
+	    (match DB.get_table_from_ref (Ref.string_of ref) with
 		 None -> "UNKNOWN CLASS"
 	       | Some c -> c),
 	    (Ref.string_of ref),

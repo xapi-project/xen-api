@@ -63,13 +63,19 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/xml_spaces \
 	$(AUTOGEN_HELPER_DIR)/db_action_helper \
 	$(AUTOGEN_HELPER_DIR)/db_xml \
-	$(AUTOGEN_HELPER_DIR)/db_remote_marshall \
-	$(AUTOGEN_HELPER_DIR)/db_remote_cache_access \
+	$(AUTOGEN_HELPER_DIR)/db_remote_cache_access_v1 \
+	$(AUTOGEN_HELPER_DIR)/db_rpc_common_v1 \
+	$(AUTOGEN_HELPER_DIR)/db_rpc_client_v1 \
+	$(AUTOGEN_HELPER_DIR)/db_remote_cache_access_v2 \
+	$(AUTOGEN_HELPER_DIR)/db_rpc_common_v2 \
+	$(AUTOGEN_HELPER_DIR)/db_rpc_client_v2 \
 	$(AUTOGEN_HELPER_DIR)/db_cache_types \
 	$(AUTOGEN_HELPER_DIR)/db_filter \
+	$(AUTOGEN_HELPER_DIR)/db_filter_types \
 	$(AUTOGEN_HELPER_DIR)/db_filter_parse \
 	$(AUTOGEN_HELPER_DIR)/db_filter_lex \
 	$(AUTOGEN_HELPER_DIR)/db_cache \
+	$(AUTOGEN_HELPER_DIR)/db_cache_impl \
 	$(AUTOGEN_HELPER_DIR)/db_names \
 	$(AUTOGEN_HELPER_DIR)/db_upgrade \
 	$(AUTOGEN_HELPER_DIR)/db_exn \
