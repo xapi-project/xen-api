@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -99,7 +99,7 @@ let set_ha_always_run ~__context ~self ~value =
 (* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
 let assert_ha_always_run_is_true ~__context ~vm =
 	let rp = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-	if (rp = "1" or rp = Constants.ha_restart_best_effort)
+	if (List.mem rp (Constants.ha_valid_restart_priorities))
 	then set_ha_always_run ~__context ~self:vm ~value:true
 (* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
 let assert_ha_always_run_is_false ~__context ~vm =
