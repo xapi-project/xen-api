@@ -355,13 +355,12 @@ module Reboot = struct
 		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
 							~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
 							~__context ~self:vm domid Domain.Reboot) with
-		| Xal.Vanished
-		| Xal.Rebooted -> () (* good *)
-		| Xal.Suspended ->
+		| Domain.Reboot | Domain.Unknown _ -> () (* good *)
+		| Domain.Suspend ->
 			  error "VM: %s suspended when asked to reboot" (Ref.string_of vm)
-		| Xal.Crashed ->
+		| Domain.Crash ->
 			  error "VM: %s crashed when asked to reboot" (Ref.string_of vm)
-		| Xal.Halted ->
+		| Domain.Halt ->
 			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
       end else begin
 		debug "%s phase 0/3: no shutdown request required since this is a hard_reboot" api_call_name;
@@ -493,15 +492,16 @@ module Shutdown = struct
 		match with_xal (fun xal -> Vmops.clean_shutdown_with_reason ~xal
 							~at:(TaskHelper.set_progress ~__context)
 							~__context ~self:vm domid Domain.Halt) with
-		| Xal.Vanished
-		| Xal.Halted -> () (* good *)
-		| Xal.Suspended ->
+		| Domain.PowerOff
+		| Domain.Unknown _
+		| Domain.Halt -> () (* good *)
+		| Domain.Suspend ->
 			  (* Log the failure but continue *)
 			  error "VM: %s suspended when asked to shutdown" (Ref.string_of vm)
-		| Xal.Crashed ->
+		| Domain.Crash ->
 			  (* Log the failure but continue *)
 			error "VM: %s crashed when asked to shutdown" (Ref.string_of vm)
-		| Xal.Rebooted ->
+		| Domain.Reboot ->
 			  (* Log the failure but continue *)
 			  error "VM: %s attempted to reboot when asked to shutdown" (Ref.string_of vm)
       end else begin

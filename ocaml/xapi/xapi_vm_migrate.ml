@@ -136,15 +136,14 @@ let migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self domid r
      the migration *)
     if (ack = `ACKED) then begin
       match Vmops.clean_shutdown_with_reason ~xal ~__context ~self ~rel_timeout:0.25 domid Domain.Suspend with
-	  | Xal.Suspended -> () (* good *)
-	  | Xal.Crashed ->
+	  | Domain.Suspend -> () (* good *)
+	  | Domain.Crash ->
 		  raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of self ]))
-	  | Xal.Rebooted ->
+	  | Domain.Reboot ->
 		  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of self ]))
-	  | Xal.Vanished
-	  | Xal.Halted ->
+	  | Domain.Unknown _
+	  | Domain.Halt ->
 		  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of self ]))
-	  | Xal.Shutdown x -> vm_migrate_failed (Printf.sprintf "Domain shutdown for unexpected reason: %d" x)
      end else
        vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
   ) else
