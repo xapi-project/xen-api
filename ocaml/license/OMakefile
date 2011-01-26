@@ -1,12 +1,12 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
-IEXE=install -m 755 -o root -g root
+UseCamlp4(rpc-light.syntax, v6rpc)
 
 V6FILES = \
 	fakev6 \
-	v6xmlrpc \
+	v6rpc \
 	v6daemon
 
 # Name of daemon to install in dom0:

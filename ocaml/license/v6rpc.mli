@@ -26,5 +26,22 @@ module type V6api =
 module V6process : functor (V : V6api) ->
 	sig
 		(** Process an XML/RPC call *)
-		val process : XMLRPC.xmlrpc -> XMLRPC.xmlrpc
+		val process : Rpc.call -> Rpc.response
 	end
+
+(** {2 Marshaling functions} *)
+
+type initialise_in = {
+	address: string;
+	port: int32;
+	edition: string;
+}
+
+val rpc_of_initialise_in : initialise_in -> Rpc.t
+
+type initialise_out = {
+	license: string;
+	days_to_expire: int32;
+}
+
+val initialise_out_of_rpc : Rpc.t -> initialise_out
