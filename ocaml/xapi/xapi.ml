@@ -585,9 +585,7 @@ let handle_licensing () =
 	Server_helpers.exec_with_new_task "Licensing host"
 		(fun __context ->
 			let host = Helpers.get_localhost ~__context in
-			License_init.initialise ~__context ~host;
-			(* Copy resulting license to the database *)
-			Xapi_host.copy_license_to_db ~__context ~host
+			License_init.initialise ~__context ~host
 		)
 
 (** Writes the memory policy to xenstore and triggers the ballooning daemon. *)

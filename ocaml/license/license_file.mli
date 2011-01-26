@@ -24,7 +24,7 @@ val read_license_file : string -> License.license option
 
 (** As read_license_file, but also set license state variable if not expired.
  *  Called from host.license_apply. *)
-val do_parse_and_validate : string -> unit
+val do_parse_and_validate : string -> License.license
 
 
 (** Thrown if the license data is malformed. *)

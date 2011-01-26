@@ -25,11 +25,6 @@ val set_emergency_mode_error : string -> string list -> unit
 
 val local_assert_healthy : __context:'a -> unit 
 
-val set_license_params :
-  __context:Context.t ->
-  self:[ `host ] Ref.t -> value:(string * string) list -> unit
-(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
-  
 val set_power_on_mode :
   __context:Context.t ->
   self:[ `host ] Ref.t -> power_on_mode: string -> power_on_config:(string * string) list -> unit
@@ -65,7 +60,6 @@ val dmesg_clear : __context:'a -> host:'b -> 'c
 val get_log : __context:'a -> host:'b -> 'c
 val send_debug_keys : __context:'a -> host:'b -> keys:string -> unit
 val list_methods : __context:'a -> 'b
-val copy_license_to_db : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val is_slave : __context:'a -> host:'b -> bool
 
 (** Contact the host and return whether it is a slave or not. 
@@ -78,7 +72,6 @@ val ask_host_if_it_is_a_slave :
     to make sure. *)
 val is_host_alive : __context:Context.t -> host:API.ref_host -> bool
 
-val license_apply : __context:Context.t -> host:API.ref_host -> contents:string -> unit
 val create :
   __context:Context.t ->
   uuid:string ->
@@ -235,14 +228,26 @@ val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
 
 (** {2 Licensing} *)
 
-(** Attempt to activate the given edition (one of "free", "enterprise" or "platinum".
+(** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
+val set_license_params :
+	__context:Context.t ->
+	self:[ `host ] Ref.t -> value:(string * string) list -> unit
+
+val copy_license_to_db :
+	__context:Context.t ->
+	host:[ `host ] Ref.t ->
+	features:Features.feature list -> additional:(string * string) list -> unit
+
+val license_apply : __context:Context.t -> host:API.ref_host -> contents:string -> unit
+
+(** Attempt to activate the given edition.
  *  In needed, the function automatically checks v6 licenses in and out
  *  from the license server (via the v6 daemon). If the requested edition is not
  *  available, the call will fail with an exception, leaving the edition as it is.
  *  Also call this function to change to a different license server, after the
  *  connection details in host.license_server have been amended. *)
 val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> unit 
- 
+
 
 (** {2 CPU Feature Masking} *)
  

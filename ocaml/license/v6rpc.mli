@@ -17,12 +17,18 @@
 (** The XML/RPC interface of the licensing daemon *)
 module type V6api =
 	sig
-		val initialise : string -> int32 -> string -> string * int32
-		val shutdown : unit -> bool
+		(* edition -> additional_params -> enabled_features, additional_params *)
+		val apply_edition : string -> (string * string) list ->
+			string * Features.feature list * (string * string) list
+		(* () -> list of editions *)
+		val get_editions : unit -> (string * string * string * int) list
+		(* () -> result *)
+		val get_version : unit -> string
+		(* () -> version *)
 		val reopen_logs : unit -> bool
-	end
-  
+	end  
 (** XML/RPC handler *)
+
 module V6process : functor (V : V6api) ->
 	sig
 		(** Process an XML/RPC call *)
@@ -31,17 +37,28 @@ module V6process : functor (V : V6api) ->
 
 (** {2 Marshaling functions} *)
 
-type initialise_in = {
-	address: string;
-	port: int32;
-	edition: string;
+type apply_edition_in = {
+	edition_in: string;
+	additional_in: (string * string) list;
 }
 
-val rpc_of_initialise_in : initialise_in -> Rpc.t
+val apply_edition_in_of_rpc : Rpc.t -> apply_edition_in
+val rpc_of_apply_edition_in : apply_edition_in -> Rpc.t
 
-type initialise_out = {
-	license: string;
-	days_to_expire: int32;
+type apply_edition_out = {
+	edition_out: string;
+	features_out: Features.feature list;
+	additional_out: (string * string) list;
 }
 
-val initialise_out_of_rpc : Rpc.t -> initialise_out
+val apply_edition_out_of_rpc : Rpc.t -> apply_edition_out
+val rpc_of_apply_edition_out : apply_edition_out -> Rpc.t
+
+type names = string * string * string * int
+type get_editions_out = {
+	editions: names list;
+}
+
+val get_editions_out_of_rpc : Rpc.t -> get_editions_out
+val rpc_of_get_editions_out : get_editions_out -> Rpc.t
+

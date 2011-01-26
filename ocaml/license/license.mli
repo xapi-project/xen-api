@@ -39,9 +39,6 @@ type license =
 		sku_marketing_name : string;	(** Official marketing name of the license *)
 	}
 
-(** The current license on this host. *)
-val license : license ref
-
 (** Converts a license into a association list to place in DB. *)
 val to_assoc_list : license -> (string * string) list
 

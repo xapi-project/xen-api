@@ -41,7 +41,8 @@ exception License_expired of license
 exception License_file_deprecated
 
 (* Set from config file: *)
-let filename = ref ""
+(* ...but only in xapi, not in the v6 daemon!!! *)
+let filename = ref "/etc/xensource/license"
 
 (* License setting functions *)
 	
@@ -128,7 +129,7 @@ let do_parse_and_validate fname =
     (if not (License.check_expiry newlicense) then raise (License_expired newlicense));
 
     (* At this point, license is valid and hasn't expired *)
-    license := newlicense
+    newlicense
   with e ->
     (match e with
       | License_expired l -> warn "License has expired"

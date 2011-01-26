@@ -37,6 +37,7 @@ type feature =
 	| No_platform_filter
 	| No_nag_dialog
 	| VMPR
+	with rpc
 
 type orientation = Positive | Negative
 

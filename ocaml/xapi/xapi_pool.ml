@@ -60,15 +60,23 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
 	(* CA-26975: Pool edition MUST match *)
 	let assert_restrictions_match () =
+		let editions = V6client.get_editions () in
+		let edition_to_int e =
+			match List.find (fun (name, _, _, _) -> name = e) editions with _, _, _, a -> a
+		in
+		let min_edition l =
+			List.fold_left (fun m e -> if edition_to_int e < edition_to_int m then e else m) (List.hd l) l
+		in
+		(* get pool edition: the "minimum" edition among all hosts *)
 		let host_records = List.map snd (Client.Host.get_all_records ~rpc ~session_id) in
-		(* check pool edition *)
-		let pool_editions = List.map (fun host_r -> Edition.of_string host_r.API.host_edition) host_records in
-		let pool_edition = Edition.min pool_editions in
-		let my_edition = Edition.of_string (Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context)) in
-		if not (Edition.equal pool_edition my_edition) then begin
+		let pool_editions = List.map (fun host_r -> host_r.API.host_edition) host_records in
+		let pool_edition = min_edition pool_editions in
+		(* compare my edition to pool edition *)
+		let my_edition = Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context) in
+		if (edition_to_int pool_edition) <> (edition_to_int my_edition) then begin
 			error "Pool.join failed because of editions mismatch";
-			error "Remote has %s" (Edition.to_string pool_edition);
-			error "Local has  %s" (Edition.to_string my_edition);
+			error "Remote has %s" pool_edition;
+			error "Local has  %s" my_edition;
 			raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 		end
 	in

@@ -294,6 +294,7 @@ let license_processing_error = "LICENSE_PROCESSING_ERROR"
 let license_cannot_downgrade_in_pool = "LICENSE_CANNOT_DOWNGRADE_WHILE_IN_POOL"
 let license_does_not_support_xha = "LICENSE_DOES_NOT_SUPPORT_XHA"
 
+let v6d_failure = "V6D_FAILURE"
 let invalid_edition = "INVALID_EDITION"
 let missing_connection_details = "MISSING_CONNECTION_DETAILS"
 let license_checkout_error = "LICENSE_CHECKOUT_ERROR"

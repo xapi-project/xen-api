@@ -1911,7 +1911,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=["edition"];
       optn=["host-uuid"; "license-server-address"; "license-server-port"];
-      help="Change to another edition, or reactivate it after a license has expired. Possible editions are 'free', 'enterprise', and 'platinum'. Upgrading from free to enterprise or platinum is subject to the successful checkout of an appropriate license from the license server.";
+      help="Change to another edition, or reactivate the current edition after a license has expired. This may be subject to the successful checkout of an appropriate license";
       implementation=No_fd Cli_operations.host_apply_edition;
       flags=[];
     };

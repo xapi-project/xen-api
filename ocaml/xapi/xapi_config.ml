@@ -98,7 +98,7 @@ let read_config filename =
         in
 
     let configargs = [
-        "license_filename", Config.Set_string License_file.filename;
+(*      "license_filename", Config.Set_string License_file.filename; *)
         "http-port", Config.Set_int http_port;
         "stunnelng", Config.Set_bool Stunnel.use_new_stunnel;
         "log", Config.String set_log;
@@ -118,5 +118,5 @@ let dump_config () =
     debug "build_number: %s" Version.build_number;
     debug "hg changeset: %s" Version.hg_id;
     debug "version: %d.%d" version_major version_minor;
-    debug "License filename: %s" !License_file.filename
+(*  debug "License filename: %s" !License_file.filename *)
     

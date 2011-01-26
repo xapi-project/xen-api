@@ -15,10 +15,15 @@
 (** An example implementation of a licensing service which always returns "real" 
     licenses that never expire. *)
 
-val initialise : string -> int32 -> string -> string * int32
 (** Obtain a license *)
-val shutdown : unit -> bool
+val apply_edition : string -> (string * string) list ->
+	string * Features.feature list * (string * string) list
+
 (** Release the license *)
-val reopen_logs : unit -> bool
+val get_editions : unit -> (string * string * string * int) list
+
+val get_version : unit -> string
+
 (** Close and re-open the log file *)
+val reopen_logs : unit -> bool
 

@@ -326,8 +326,10 @@ let _ =
   error Api_errors.license_does_not_support_xha []
     ~doc:"XHA cannot be enabled because this host's license does not allow it" ();
 
+  error Api_errors.v6d_failure []
+    ~doc:"There was a problem with the license daemon (v6d). Is it running?" ();
   error Api_errors.invalid_edition ["edition"]
-    ~doc:"The edition you supplied is invalid. Valid editions are 'free', 'enterprise' and 'platinum'." ();
+    ~doc:"The edition you supplied is invalid." ();
   error Api_errors.missing_connection_details []
     ~doc:"The license-server connection details (address or port) were missing or incomplete." ();
   error Api_errors.license_checkout_error ["reason"]
@@ -3613,7 +3615,7 @@ let host_set_license_params = call
 let host_apply_edition = call ~flags:[`Session]
   ~name:"apply_edition"
   ~in_product_since:rel_midnight_ride
-  ~doc:"Change to another edition, or reactivate it after a license has expired. Possible editions are 'free', 'enterprise', and 'platinum'. Upgrading from free to enterprise or platinum is subject to the successful checkout of an appropriate license from the license server."
+  ~doc:"Change to another edition, or reactivate the current edition after a license has expired. This may be subject to the successful checkout of an appropriate license."
   ~params:[ 
     Ref _host, "host", "The host";
     String, "edition", "The requested edition"

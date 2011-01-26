@@ -38,6 +38,9 @@ type feature =
 	| No_nag_dialog                (** Used by XenCenter *)
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
 
+val feature_of_rpc : Rpc.t -> feature
+val rpc_of_feature : feature -> Rpc.t
+
 (** The list of all known features. *)
 val all_features : feature list
 
