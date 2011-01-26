@@ -22,7 +22,6 @@ exception Unmarshall_error of string
 let name x = ("", x) (* no namespace *)
 let make_tag n attrs : Xmlm.tag = (name n), List.map (fun (k, v) -> name k, v) attrs
 
-let _pool_token = "pool_token"
 let _schema_major_vsn = "schema_major_vsn"
 let _schema_minor_vsn = "schema_minor_vsn"
 let _product_version = "product_version"
@@ -63,7 +62,6 @@ module To = struct
   (* Write out a manifest *)
   let manifest (output: Xmlm.output) (manifest: db_dump_manifest) : unit = 
     Xmlm.output output (`El_start (make_tag "manifest" []));
-    string output _pool_token manifest.pool_token;
     int    output _schema_major_vsn manifest.schema_major_vsn;
     int    output _schema_minor_vsn manifest.schema_minor_vsn;
     string output _product_version manifest.product_version;
@@ -138,7 +136,6 @@ module From = struct
     let (cache, _, manifest) = f (create_empty_cache (), create_empty_table (), []) in
     (* Manifest is actually a record *)
     let manifest = { 
-      pool_token = List.assoc _pool_token manifest;
       schema_major_vsn = int_of_string (List.assoc _schema_major_vsn manifest);
       schema_minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest);
       product_version = List.assoc _product_version manifest;
