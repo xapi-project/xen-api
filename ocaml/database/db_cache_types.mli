@@ -25,7 +25,6 @@ type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
 type db_dump_manifest = {
   schema_major_vsn : int;
   schema_minor_vsn : int;
-  xapi_major_vsn : int;
   xapi_minor_vsn : int;
   generation_count : Int64.t;
 }
