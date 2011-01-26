@@ -58,39 +58,10 @@ let apply_upgrade_rules rules previous_version db =
 			db
     ) db required_rules
   
-
-
-let update_snapshots db = 
-	(* GEORGE -> MIDNIGHT RIDE *)
-	let ts = Database.tableset db in
-	let vm_table = TableSet.find Names.vm ts in
-	let vm_rows = Table.rows vm_table in
-	let update_snapshots vm_row vm_table : Table.t =
-		let vm = Row.find Names.ref vm_row in
-		let snapshot_rows = List.filter (fun s -> Row.find Names.snapshot_of s = vm) vm_rows in
-		let compare s1 s2 =
-			let t1 = Row.find Names.snapshot_time s1 in
-			let t2 = Row.find Names.snapshot_time s2 in
-			compare t1 t2 in
-		let ordered_snapshot_rows = List.sort compare snapshot_rows in
-		debug "Snapshots(%s) = {%s}" vm (String.concat ", " (List.map (fun s -> Row.find Names.ref s) ordered_snapshot_rows));
-		let rec aux snaps vm_table = match snaps with
-			| [] | [_] -> vm_table
-			| s1 :: s2 :: t ->
-				let row' = Row.add Names.parent (Row.find Names.ref s1) s2 in
-				let vm_table = Table.add (Row.find Names.ref s2) s2 vm_table in
-				aux (s2 :: t) vm_table in
-		aux (ordered_snapshot_rows @ [ vm_row]) vm_table in
-	let vm_table = Table.fold (fun _ vm_row tbl -> update_snapshots vm_row tbl) vm_table vm_table in
-	set_table Names.vm vm_table db
-
 (** A list of all the custom database upgrade rules known to the system. *)
 let upgrade_rules = 
   let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn in
-  [ { description = "Updating snapshot parent references";
-      version = george;
-      fn = update_snapshots } ]
-
+  [ ]
 (** {Generic database upgrade handling} *)
 
 (** Automatically insert blank tables and new columns with default values *)

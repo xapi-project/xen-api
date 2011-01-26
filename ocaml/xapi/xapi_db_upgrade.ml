@@ -169,12 +169,34 @@ let upgrade_bios_strings = {
 				update_vms Xapi_globs.generic_bios_strings
 }
 
+let update_snapshots = {
+	description = "Updating snapshot parent references";
+	version = (fun x -> x <= george);
+	fn = fun ~__context ->
+		let all_vms = Db.VM.get_all ~__context in
+		let update_snapshots self =
+			let snapshots = List.filter (fun snap -> Db.VM.get_snapshot_of ~__context ~self:snap = self) all_vms in
+			let compare s1 s2 =
+				let t1 = Db.VM.get_snapshot_time ~__context ~self:s1 in
+				let t2 = Db.VM.get_snapshot_time ~__context ~self:s2 in
+				compare t1 t2 in
+			let ordered_snapshots = List.sort compare snapshots in
+			debug "Snapshots(%s) = {%s}" (Ref.string_of self) (String.concat ", " (List.map Ref.string_of ordered_snapshots));
+			let rec aux snaps = match snaps with
+				| [] | [_] -> ()
+				| s1 :: s2 :: t ->
+					Db.VM.set_parent ~__context ~self:s2 ~value:s1;
+					aux (s2 :: t) in
+			aux (ordered_snapshots @ [ self]) in
+		List.iter update_snapshots all_vms
+}
 
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
+	update_snapshots;
 ]
 
 (* Maybe upgrade most recent db *)
