@@ -30,13 +30,14 @@ open Stringext
 
 (** Return the minimum size of an HA statefile, as of
     XenServer HA state-file description vsn 1.3 *)
-let minimum_size number_of_hosts =
+let minimum_size =
 	let ( ** ) = Int64.mul
 	and ( ++ ) = Int64.add in
 
 	let global_section_size = 4096L
-	and host_section_size = 4096L in
-	global_section_size ++ (Int64.of_int number_of_hosts) ** host_section_size
+	and host_section_size = 4096L
+  and maximum_number_of_hosts = 64L in
+	global_section_size ++ maximum_number_of_hosts ** host_section_size
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
@@ -70,7 +71,7 @@ let list_srs_which_can_host_statefile ~__context =
 
 let create ~__context ~sr =
 	assert_sr_can_host_statefile ~__context ~sr;
-	let size = minimum_size (List.length (Db.Host.get_all ~__context)) in
+	let size = minimum_size in
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			Client.VDI.create ~rpc ~session_id
@@ -87,7 +88,7 @@ let create ~__context ~sr =
     have access to stale data. *)
 let find_or_create ~__context ~sr =
 	assert_sr_can_host_statefile ~__context ~sr;
-	let size = minimum_size (List.length (Db.Host.get_all ~__context)) in
+	let size = minimum_size in
 	match
 		List.filter
 			(fun self -> true
