@@ -470,7 +470,7 @@ let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret)
 		try Client.Secret.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
 		with _ ->
 			debug "Found no secret with uuid = '%s' on master, so creating one." my_uuid;
-			Client.Secret.introduce ~rpc ~session_id ~uuid:my_uuid ~value:my_value
+			Client.Secret.introduce ~rpc ~session_id ~uuid:my_uuid ~value:my_value ~other_config:[]
 	in
 	new_secret_ref
 

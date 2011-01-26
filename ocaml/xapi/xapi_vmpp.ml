@@ -377,7 +377,7 @@ let map_password_to_secret ~__context ~new_password ~db =
     ignore (ExnHelper.string_of_exn e);
     let new_secret_ref = Ref.make() in
     let new_secret_uuid = Uuid.to_string(Uuid.make_uuid()) in
-    Db.Secret.create ~__context ~ref:new_secret_ref ~uuid:new_secret_uuid ~value:new_password;
+    Db.Secret.create ~__context ~ref:new_secret_ref ~uuid:new_secret_uuid ~value:new_password ~other_config:[];
     new_secret_uuid
   )
 
