@@ -35,9 +35,12 @@ let sync_host ~__context host =
 				and session = Xapi_session.slave_login ~__context ~host:(Helpers.get_localhost ~__context) ~psecret:!Xapi_globs.pool_secret in
 				Unix.putenv "XSH_SESSION" (Ref.string_of session);
 
-				let env = Unix.environment () in
-				let output,log = Forkhelpers.execute_command_get_output ~env "/usr/bin/rsync" ["--delete";"-avz";localpath;remotepath;"-e";"/opt/xensource/bin/xsh"] in
-				debug "sync output: '%s' log: '%s'" output log;
+				let output,log = Forkhelpers.execute_command_get_output
+					~env:(Unix.environment ())
+					"/usr/bin/rsync"
+					["--delete";"--stats";"-az";localpath;remotepath;"-e";"/opt/xensource/bin/xsh"] in
+				debug "sync output: \n%s" output;
+				debug "log output: '%s'" log;
 
 				(* Store the last blob sync time in the Host.other_config *)
 				(try Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.last_blob_sync_time with _ -> ());
