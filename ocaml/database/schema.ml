@@ -84,20 +84,22 @@ let of_datamodel () =
 				[] -> acc
 			| (Datamodel_types.Field f)::fs -> flatten_fields fs (f::acc)
 			| (Datamodel_types.Namespace (_,internal_fs))::fs -> flatten_fields fs (flatten_fields internal_fs acc) in
-	let column f = {
-		Column.name = Escaping.escape_id f.Datamodel_types.full_name;
-		persistent = f.Datamodel_types.field_persist;
-		empty = Datamodel_values.gen_empty_db_val f.Datamodel_types.ty;
-		(* NB Set(Ref _) fields aren't allowed to have a default value specified so we hardcode one here *)
-		default = begin match f.Datamodel_types.ty with
-			| Datamodel_types.Set (Datamodel_types.Ref _) -> Some (SExpr.string_of (SExpr.Node []))
-			| _ -> Opt.map Datamodel_values.to_db_string f.Datamodel_types.default_value
-		end ;
-		issetref = begin match f.Datamodel_types.ty with
+	let column f = 
+		let issetref = match f.Datamodel_types.ty with
 			| Datamodel_types.Set (Datamodel_types.Ref _) -> true
-			| _ -> false
-		end ;
-	} in
+			| _ -> false in 
+		{
+			Column.name = Escaping.escape_id f.Datamodel_types.full_name;
+			(* NB we always regenerate Set(Ref _) fields *)
+			persistent = f.Datamodel_types.field_persist && not issetref;
+			empty = Datamodel_values.gen_empty_db_val f.Datamodel_types.ty;
+			(* NB Set(Ref _) fields aren't allowed to have a default value specified so we hardcode one here *)
+			default = 
+				if issetref 
+				then Some (SExpr.string_of (SExpr.Node []))
+				else Opt.map Datamodel_values.to_db_string f.Datamodel_types.default_value ;
+			issetref = issetref;
+		} in
 
 	(* We store the reference in two places for no good reason still: *)
 	let _ref = {

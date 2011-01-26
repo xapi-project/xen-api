@@ -361,8 +361,10 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		Printf.printf "read_record <valid table> <valid ref> foreign key\n";
 		Client.create_row "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref;
 		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
-		if List.assoc "VBDs" fvs_list <> [ vbd_ref ]
-		then failwith "read_record <valid table> <valid ref> 3";
+		if List.assoc "VBDs" fvs_list <> [ vbd_ref ] then begin
+			Printf.printf "fv_list = [ %s ] fvs_list = [ %s ]\n%!" (String.concat "; " (List.map (fun (k, v) -> k ^":" ^ v) fv_list))  (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ (String.concat ", " v)) fvs_list));
+			failwith "read_record <valid table> <valid ref> 3"
+		end;
 		Printf.printf "read_record <valid table> <valid ref> deleted foreign key\n";
 		Client.delete_row "VBD" vbd_ref;
 		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
