@@ -199,11 +199,8 @@ let marshal_message = function
   | Response x -> marshal_int 10 ^ (marshal_response x)
   | Blob x     -> marshal_int 11 ^ (marshal_blob_header x) 
 
-let really_write (fd: Unix.file_descr) buf ofs len = 
-  if Unix.write fd buf ofs len <> len then raise End_of_file
-
 let write_string (fd: Unix.file_descr) buf = 
-  really_write fd buf 0 (String.length buf)
+  Unixext.really_write fd buf 0 (String.length buf)
 
 (** Marshal a message to a file descriptor prefixing it with total header length *)
 let marshal (fd: Unix.file_descr) x = 

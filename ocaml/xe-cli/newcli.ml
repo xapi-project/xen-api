@@ -312,7 +312,7 @@ let main_loop ifd ofd =
             let left = ref length in
             while !left > 0 do
               let n = Unix.read fd buffer 0 (min (String.length buffer) !left) in
-              really_write ofd buffer 0 n;
+              Unixext.really_write ofd buffer 0 n;
               left := !left - n
             done;
             marshal ofd (Blob End);
@@ -396,7 +396,7 @@ let main_loop ifd ofd =
                   while not(!finished) do
                     let num = input ic buffer 0 (String.length buffer) in
                     begin try
-                      really_write fd buffer 0 num;
+                      Unixext.really_write fd buffer 0 num;
                     with
                       Unix.Unix_error (a,b,c) ->
                         raise (ClientSideError (Printf.sprintf "%s: %s, %s." (Unix.error_message a) b c))
