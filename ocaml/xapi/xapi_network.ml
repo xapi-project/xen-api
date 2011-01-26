@@ -31,7 +31,7 @@ let create_internal_bridge ~bridge ~uuid =
   if not(Netdev.Link.is_up bridge) then Netdev.Link.up bridge
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
-  let host = Helpers.get_localhost () in
+  let host = Helpers.get_localhost ~__context in
   let shafted_pifs, local_pifs = 
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check:management_interface in
 

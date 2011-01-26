@@ -39,6 +39,7 @@ type t = { session_id: API.ref_session option;
 	   forwarded_task : bool;
 	   origin: origin;
 	   task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
+	   database: Db_ref.t;
 	 }
 
 let get_session_id x =
@@ -75,6 +76,8 @@ let string_of x =
     (string_of_origin x.origin)
     x.task_name
 
+let database_of x = x.database
+
 (** Calls coming in from the unix socket are pre-authenticated *)
 let is_unix_socket s =
   match Unix.getpeername s with
@@ -88,6 +91,10 @@ let is_unencrypted s =
     | Unix.ADDR_INET (addr, _) when addr = Unix.inet_addr_loopback -> false
     | Unix.ADDR_INET _ -> true
 
+let default_database () = 
+	if Pool_role.is_master ()
+	then Db_backend.make ()
+	else Db_ref.Remote
 
 let preauth ~__context =
   match __context.origin with
@@ -101,6 +108,7 @@ let initial =
     forwarded_task = false;
     origin = Internal;
     task_name = "initial_task";
+	database = default_database ();
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
@@ -152,9 +160,11 @@ let from_forwarded_task ?(__context=initial) ?session_id ?(origin=Internal) task
         forwarded_task = true;
         task_in_database = not (Ref.is_dummy task_id);
         origin = origin;
-        task_name = task_name } 
+        task_name = task_name;
+		database = default_database ();
+	  } 
 
-let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
   let task_id, task_uuid =
     if task_in_database 
     then !__make_task ~__context ?description:task_description ?session_id ?subtask_of task_name
@@ -177,6 +187,7 @@ let make ?(__context=initial) ?(quiet=false) ?subtask_of ?session_id ?(task_in_d
         | Some subtask_of -> " by task " ^ !__string_of_task "" subtask_of)
     ;
     { session_id = session_id;
+	  database = database;
       task_id = task_id;
       task_in_database = task_in_database;
       origin = origin;

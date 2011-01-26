@@ -666,7 +666,7 @@ let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
    it really should take a backup *)
    
 let request_backup ~__context ~host ~generation ~force = 
-  if Helpers.get_localhost () <> host
+  if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
   let master_address = Helpers.get_main_ip_address __context in
   Pool_db_backup.fetch_database_backup ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
@@ -748,7 +748,7 @@ let management_reconfigure ~__context ~pif =
     Xapi_network.attach_internal ~management_interface:true ~__context ~self:net ();
     change_management_interface ~__context bridge;
   
-    Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ())
+    Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
   end
 
 let management_disable ~__context = 
@@ -763,10 +763,10 @@ let management_disable ~__context =
 
   Xapi_mgmt_iface.stop ();
   (* Make sure all my PIFs are marked appropriately *)
-  Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ())
+  Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
 let get_system_status_capabilities ~__context ~host =
-  if Helpers.get_localhost () <> host
+  if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
   System_status.get_capabilities()
 

@@ -317,7 +317,7 @@ let check_operation_error ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_rese
 	current_error
 
 let maybe_get_guest_metrics ~__context ~ref =
-	if Db.is_valid_ref ref
+	if Db.is_valid_ref __context ref
 	then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
 	else None
 

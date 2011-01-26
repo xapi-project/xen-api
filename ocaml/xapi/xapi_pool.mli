@@ -80,7 +80,7 @@ val sync_m : Threadext.Mutex.t
 val sync_database : __context:Context.t -> unit
 val designate_new_master : __context:Context.t -> host:'a -> unit
 val initial_auth : __context:'a -> string
-val is_slave : __context:'a -> host:'b -> bool
+val is_slave : __context:Context.t -> host:'b -> bool
 val hello :
   __context:Context.t ->
   host_uuid:string ->

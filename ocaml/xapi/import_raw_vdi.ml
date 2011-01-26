@@ -34,7 +34,7 @@ let vdi_of_req ~__context (req: request) =
 		if List.mem_assoc "vdi" all
 		then List.assoc "vdi" all
 		else raise (Failure "Missing vdi query parameter") in
-	if Db.is_valid_ref (Ref.of_string vdi) 
+	if Db.is_valid_ref __context (Ref.of_string vdi) 
 	then Ref.of_string vdi 
 	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 

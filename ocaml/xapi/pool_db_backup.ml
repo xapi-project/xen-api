@@ -40,7 +40,7 @@ let write_database (s: Unix.file_descr) ~__context =
 		let len = String.length minimally_compliant_miami_database in
 		ignore (Unix.write s minimally_compliant_miami_database 0 len)
 	else
-		Db_xml.To.fd s (Db_backend.get_database ())
+		Db_xml.To.fd s (Db_ref.get_database (Context.database_of __context))
 
 (** Make sure the backup database version is compatible *)
 let version_check db =
@@ -263,7 +263,7 @@ let pool_db_backup_thread () =
       begin
 	let hosts = Db.Host.get_all ~__context in
 	let hosts = List.filter (fun hostref -> hostref <> !Xapi_globs.localhost_ref) hosts in
-	let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
+	let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_ref.get_database (Context.database_of __context)))) in
 	let dohost host =
 	  try
 	    Thread.delay pool_db_sync_timer;

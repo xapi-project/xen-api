@@ -90,7 +90,7 @@ let refresh_console_urls ~__context =
 let reset_vms_running_on_missing_hosts ~__context =
   List.iter (fun vm ->
 	       let vm_r = Db.VM.get_record ~__context ~self:vm in
-	       let valid_resident_on = Db.is_valid_ref vm_r.API.vM_resident_on in
+	       let valid_resident_on = Db.is_valid_ref __context vm_r.API.vM_resident_on in
 	       if not valid_resident_on then begin
 		 if vm_r.API.vM_is_control_domain then begin
 		   info "Deleting control domain VM uuid '%s' ecause VM.resident_on refers to a Host which is nolonger in the Pool" vm_r.API.vM_uuid;
@@ -200,7 +200,7 @@ let clear_uncooperative_flags_noexn __context = Helpers.log_exn_continue "cleari
 let ensure_vm_metrics_records_exist __context = 
   List.iter (fun vm ->
 				 let m = Db.VM.get_metrics ~__context ~self:vm in
-				 if not(Db.is_valid_ref m) then begin
+				 if not(Db.is_valid_ref __context m) then begin
 				   info "Regenerating missing VM_metrics record for VM %s" (Ref.string_of vm);
 				   let m = Ref.make () in
 				   let uuid = Uuid.to_string (Uuid.make_uuid ()) in

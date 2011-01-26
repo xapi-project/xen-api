@@ -180,7 +180,7 @@ let update_vms ~xal ~__context =
   (* Remove all the scheduled_to_be_resident_on VMs which are resident_on somewhere since that host 'owns' them.
      NB if resident_on this host the VM will still be counted in the all_resident_on_vms set *)
   let really_my_scheduled_to_be_resident_on_vms = 
-    List.filter (fun (_, vm_r) -> not (Db.is_valid_ref vm_r.API.vM_resident_on)) all_scheduled_to_be_resident_on_vms in
+    List.filter (fun (_, vm_r) -> not (Db.is_valid_ref __context vm_r.API.vM_resident_on)) all_scheduled_to_be_resident_on_vms in
   let all_vms_assigned_to_me = Listext.List.setify (all_resident_on_vms @ really_my_scheduled_to_be_resident_on_vms) in
 
   let all_vbds = Db.VBD.get_records_where ~__context ~expr:Db_filter_types.True in
@@ -234,7 +234,7 @@ let update_vms ~xal ~__context =
 	 List.iter
 	   (fun vbd ->
 	      try
-			if Db.is_valid_ref vbd && not (Db.VBD.get_empty ~__context ~self:vbd)
+			if Db.is_valid_ref __context vbd && not (Db.VBD.get_empty ~__context ~self:vbd)
 			then Events.Resync.vbd ~__context token vmref vbd
 	      with e ->
 		warn "Caught error resynchronising VBD: %s" (ExnHelper.string_of_exn e)) vm_vbds;
@@ -242,7 +242,7 @@ let update_vms ~xal ~__context =
 	 List.iter 
 	   (fun vif ->
 	      try
-			if Db.is_valid_ref vif
+			if Db.is_valid_ref __context vif
 			then Events.Resync.vif ~__context token vmref vif
 	      with e ->
 		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs
@@ -450,7 +450,7 @@ let remove_all_leaked_vbds __context =
  * For example, this will prevent needless glitches in storage interfaces.
  *)
 let resynchronise_pif_params ~__context =
-	let localhost = Helpers.get_localhost () in
+	let localhost = Helpers.get_localhost ~__context in
 	(* 1. Acquire data. We minimise round-trips not bandwidth *)
 	let networks = Db.Network.get_all_records ~__context in
 	let expr = Db_filter_types.Eq(Db_filter_types.Field "host", Db_filter_types.Literal (Ref.string_of localhost)) in

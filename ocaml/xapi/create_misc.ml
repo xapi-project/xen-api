@@ -117,7 +117,7 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
 			create_domain_zero_console_record ~__context ~domain_zero_ref
 		| [console_ref] ->
 			(* if there's a single reference but it's invalid, make a new one: *)
-			if not (Db.is_valid_ref console_ref) then
+			if not (Db.is_valid_ref __context console_ref) then
 				create_domain_zero_console_record ~__context ~domain_zero_ref
 		| _ ->
 			(* if there's more than one console then something strange is *)
@@ -125,7 +125,7 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref =
 			create_domain_zero_console_record ~__context ~domain_zero_ref
 
 and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref =
-	if not (Db.is_valid_ref (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
+	if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
 	begin
 		debug "Domain 0 record does not have associated guest metrics record. Creating now";
 		let metrics_ref = Ref.make() in

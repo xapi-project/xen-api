@@ -136,7 +136,7 @@ let update_host_metrics ~__context ~host ~memory_total ~memory_free =
   let last_updated = Date.of_float (Unix.gettimeofday ()) in
   let m = Db.Host.get_metrics ~__context ~self:host in
   (* Every host should always have a Host_metrics object *)
-  if Db.is_valid_ref m then begin
+  if Db.is_valid_ref __context m then begin
     Db.Host_metrics.set_memory_total ~__context ~self:m ~value:memory_total;
     Db.Host_metrics.set_memory_free ~__context ~self:m ~value:memory_free;
     Db.Host_metrics.set_last_updated ~__context ~self:m ~value:last_updated;

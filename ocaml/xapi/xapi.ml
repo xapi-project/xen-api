@@ -47,10 +47,6 @@ let check_control_domain () =
 let startup_check () =
   Sanitycheck.check_for_bad_link ()
     
-(* Tell the dbcache whether we're a master or a slave *)
-let set_db_mode() =
-	Db_cache.set_master (Pool_role.is_master ())
-
 (* Parse db conf file from disk and use this to initialise database connections. This is done on
    both master and slave. On masters the parsed data is used to flush databases to and to populate
    cache; on the slave the parsed data is used to determine where to put backups.
@@ -75,11 +71,12 @@ let start_database_engine () =
 	let schema = Schema.of_datamodel () in
 	
 	let connections = Db_conn_store.read_db_connections () in
-	Db_cache_impl.make connections schema;
-	Db_cache_impl.sync connections (Db_backend.get_database ());
+	let t = Db_backend.make () in
+	Db_cache_impl.make t connections schema;
+	Db_cache_impl.sync connections (Db_ref.get_database t);
 
-	Db_backend.update_database (Database.register_callback "redo_log" Redo_log.database_callback);
-	Db_backend.update_database (Database.register_callback "events" Eventgen.database_callback);
+	Db_ref.update_database t (Database.register_callback "redo_log" Redo_log.database_callback);
+	Db_ref.update_database t (Database.register_callback "events" Eventgen.database_callback);
 
   debug "Performing initial DB GC";
   Db_gc.single_pass ();
@@ -472,7 +469,7 @@ let resynchronise_ha_state () =
   try
     Server_helpers.exec_with_new_task "resynchronise_ha_state"
       (fun __context ->
-	 let pool = Helpers.get_pool () in
+	 let pool = Helpers.get_pool ~__context in
 	 let pool_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 	 let local_ha_enabled = bool_of_string (Localdb.get Constants.ha_armed) in
 	 match local_ha_enabled, pool_ha_enabled with
@@ -793,8 +790,6 @@ let server_init() =
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;
     "Listening localhost", [], listen_localhost;
-    (* Pre-requisite for starting HA since it may temporarily use the DB cache *)
-    "Set DB mode", [], set_db_mode;
     "Checking HA configuration", [], start_ha;
 	"Checking for non-HA redo-log", [], start_redo_log;
     (* It is a pre-requisite for starting db engine *)

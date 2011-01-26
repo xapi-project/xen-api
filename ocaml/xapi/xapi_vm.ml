@@ -670,7 +670,7 @@ let power_state_reset ~__context ~vm =
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
   if power_state = `Running || power_state = `Paused then begin
     debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
-    let localhost = Helpers.get_localhost () in
+    let localhost = Helpers.get_localhost ~__context in
     (* We only query domid, resident_on and Xc.domain_getinfo with the VM lock held to make
        sure the VM isn't in the middle of a migrate/reboot/shutdown. Note we don't hold it for
        the whole of this function which might perform off-box RPCs. *)
@@ -925,7 +925,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 let revert ~__context ~snapshot =
 	let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
 	let vm = 
-		if Db.is_valid_ref vm 
+		if Db.is_valid_ref __context vm 
 		then vm
 		else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
 	Xapi_vm_snapshot.revert ~__context ~snapshot ~vm

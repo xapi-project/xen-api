@@ -105,7 +105,7 @@ val abort_new_master : __context:'a -> address:string -> unit
 val update_master : __context:'a -> host:'b -> master_address:'c -> 'd
 val emergency_ha_disable : __context:'a -> unit
 val request_backup :
-  __context:'a -> host:API.ref_host -> generation:int64 -> force:bool -> unit
+  __context:Context.t -> host:API.ref_host -> generation:int64 -> force:bool -> unit
 val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
 val syslog_config_write : string -> bool -> bool -> unit
 val syslog_reconfigure : __context:Context.t -> host:'a -> unit
@@ -123,9 +123,9 @@ val management_disable : __context:Context.t -> unit
 (** {2 (Fill in title!)} *)
 
 val get_system_status_capabilities :
-  __context:'a -> host:API.ref_host -> string
+  __context:Context.t -> host:API.ref_host -> string
 val get_diagnostic_timing_stats :
-  __context:'a -> host:'b -> (string * string) list
+  __context:Context.t -> host:'b -> (string * string) list
 val set_hostname_live :
   __context:Context.t -> host:[ `host ] Ref.t -> hostname:string -> unit
 val is_in_emergency_mode : __context:'a -> bool

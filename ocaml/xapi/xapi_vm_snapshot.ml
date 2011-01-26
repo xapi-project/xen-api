@@ -215,7 +215,7 @@ let checkpoint ~__context ~vm ~new_name =
 			try 
 				let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
 				Vmops.resume ~__context ~xc ~xs ~vm;
-				if Db.is_valid_ref suspend_VDI then begin
+				if Db.is_valid_ref __context suspend_VDI then begin
 					Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
 					Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.destroy rpc session_id suspend_VDI);
 				end;
@@ -249,7 +249,8 @@ let checkpoint ~__context ~vm ~new_name =
 let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
 	assert (Pool_role.is_master ());
 	debug "copying metadata into %s" (Ref.string_of dst);
-	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in
+	let db = Context.database_of __context in
+	let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in
 	List.iter
 		(fun (key,value) -> 
 			let value = 
@@ -257,21 +258,21 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
 				then List.assoc key default_values
 				else value in
 			 if not (List.mem key do_not_copy)
-			 then DB.write_field Db_names.vm (Ref.string_of dst) key value)
+			 then DB.write_field db Db_names.vm (Ref.string_of dst) key value)
 		metadata
 		
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
-	if Db.is_valid_ref vbd then begin
+	if Db.is_valid_ref __context vbd then begin
 		Client.VBD.destroy rpc session_id vbd
 	end
 
 let safe_destroy_vif ~__context ~rpc ~session_id vif =
-	if Db.is_valid_ref vif then begin
+	if Db.is_valid_ref __context vif then begin
 		Client.VIF.destroy rpc session_id vif
 	end
 
 let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
-	if Db.is_valid_ref vdi then begin
+	if Db.is_valid_ref __context vdi then begin
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		if not (Db.SR.get_content_type ~__context ~self:sr = "iso") then
 			Client.VDI.destroy rpc session_id vdi
@@ -337,8 +338,8 @@ let update_guest_metrics ~__context ~vm ~snapshot =
 	let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
 
 	debug "Reverting the guest metrics";
-	if Db.is_valid_ref vm_gm then Db.VM_guest_metrics.destroy ~__context ~self:vm_gm;
-	if Db.is_valid_ref snap_gm then begin
+	if Db.is_valid_ref __context vm_gm then Db.VM_guest_metrics.destroy ~__context ~self:vm_gm;
+	if Db.is_valid_ref __context snap_gm then begin
 		let new_gm = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm:snapshot in
 		Db.VM.set_guest_metrics ~__context ~self:vm ~value:new_gm
 	end
@@ -381,7 +382,7 @@ let revert_vm_fields ~__context ~snapshot ~vm =
 	let snap_metadata =
 		if post_MNR
 		then Helpers.vm_string_to_assoc snap_metadata 
-		else Helpers.vm_string_to_assoc (Helpers.vm_to_string snapshot) in
+		else Helpers.vm_string_to_assoc (Helpers.vm_to_string __context snapshot) in
 	let do_not_copy =
 		if post_MNR
 		then do_not_copy

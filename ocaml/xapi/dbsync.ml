@@ -36,7 +36,7 @@ let create_host_metrics ~__context =
   List.iter 
     (fun self ->
        let m = Db.Host.get_metrics ~__context ~self in
-       if not(Db.is_valid_ref m) then begin
+       if not(Db.is_valid_ref __context m) then begin
 	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
 	 let r = Ref.make () in
 	 Db.Host_metrics.create ~__context ~ref:r

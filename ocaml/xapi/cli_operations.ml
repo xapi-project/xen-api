@@ -2837,7 +2837,7 @@ let vm_import fd printer rpc session_id params =
 							let host =
 								if sr<>Ref.null
 								then Importexport.find_host_for_sr ~__context sr
-								else Helpers.get_localhost ()
+								else Helpers.get_localhost __context
 							in
 							let address = Client.Host.get_address rpc session_id host in
 							(* Although it's inefficient use a loopback HTTP connection *)

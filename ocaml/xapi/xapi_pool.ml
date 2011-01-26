@@ -815,7 +815,7 @@ let sync_database ~__context =
        then debug "flushed database to metadata VDI: assuming this is sufficient."
        else begin
 	 debug "flushing database to all online nodes";
-		   let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
+		   let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_ref.get_database (Context.database_of __context)))) in
 	 Threadext.thread_iter
 	   (fun host ->
 	      Helpers.call_api_functions ~__context
@@ -836,7 +836,7 @@ let designate_new_master ~__context ~host =
 		let all_hosts = Db.Host.get_all ~__context in
 		(* We make no attempt to demand a quorum or anything. *)
 		let addresses = List.map (fun self -> Db.Host.get_address ~__context ~self) all_hosts in
-		let my_address = Db.Host.get_address ~__context ~self:(Helpers.get_localhost ()) in
+		let my_address = Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context) in
 		let peers = List.filter (fun x -> x <> my_address) addresses in
 		Xapi_pool_transition.attempt_two_phase_commit_of_new_master ~__context true peers my_address
 	end
@@ -850,7 +850,7 @@ let is_slave ~__context ~host =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)" (if is_slave then "slave" else "master");
   debug "About to kick the database connection to make sure it's still working...";
-  Db.is_valid_ref (Ref.of_string "Pool.is_slave checking to see if the database connection is up");
+  Db.is_valid_ref __context (Ref.of_string "Pool.is_slave checking to see if the database connection is up");
   is_slave
 
 let hello ~__context ~host_uuid ~host_address =

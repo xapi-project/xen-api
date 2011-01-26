@@ -160,13 +160,14 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
     else None in
+  let localhost = Server_helpers.exec_with_new_task "with_context" (fun __context -> Helpers.get_localhost ~__context) in
   try
     let session_id,must_logout = 
       if List.mem_assoc "session_id" all
       then Ref.of_string (List.assoc "session_id" all), false
       else 
 	    if List.mem_assoc "pool_secret" all
-	    then Client.Session.slave_login inet_rpc (Helpers.get_localhost ()) (List.assoc "pool_secret" all), true
+	    then Client.Session.slave_login inet_rpc localhost (List.assoc "pool_secret" all), true
 	    else begin
 	      match req.Http.auth with
 	        | Some (Http.Basic(username, password)) ->

@@ -75,7 +75,7 @@ let create_pool_snapshot_summary __context extra_guests pool =
 (** Returns a list of affinity host identifiers for the given [guest]. *)
 let affinity_host_ids_of_guest __context guest =
 	let affinity_host = Db.VM.get_affinity ~__context ~self:guest in
-	let affinity_host_is_valid = Db.is_valid_ref affinity_host in
+	let affinity_host_is_valid = Db.is_valid_ref __context affinity_host in
 	if affinity_host_is_valid
 		then [Db.Host.get_uuid __context affinity_host]
 		else []

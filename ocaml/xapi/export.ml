@@ -76,17 +76,17 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~includ
       end
   in
 
-  if Db.is_valid_ref vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
+  if Db.is_valid_ref __context vm && not (Hashtbl.mem table (Ref.string_of vm)) then begin
   add vm;
   let vm = Db.VM.get_record ~__context ~self:vm in
   List.iter 
-	(fun vif -> if Db.is_valid_ref vif then begin
+	(fun vif -> if Db.is_valid_ref __context vif then begin
 	       add vif;
 	       let vif = Db.VIF.get_record ~__context ~self:vif in
 	       add vif.API.vIF_network end) 
 	vm.API.vM_VIFs;
   List.iter 
-	(fun vbd -> if Db.is_valid_ref vbd then begin
+	(fun vbd -> if Db.is_valid_ref __context vbd then begin
 	       add vbd;
 	       let vbd = Db.VBD.get_record ~__context ~self:vbd in
 	       if not(vbd.API.vBD_empty)
@@ -101,7 +101,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state ~includ
 		  vm.API.vM_snapshots;
   (* If VM is suspended then add the suspend_VDI *)
   let vdi = vm.API.vM_suspend_VDI in
-  if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref vdi then begin
+  if preserve_power_state && vm.API.vM_power_state = `Suspended && Db.is_valid_ref __context vdi then begin
     add_vdi vdi
   end;
   (* Add also the guest metrics *)

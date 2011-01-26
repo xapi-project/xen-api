@@ -1049,7 +1049,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
 		ignore(attach_metadata_vdi ~__context metadata_vdi);
 	end;
 
-	write_uuid_to_ip_mapping ();
+	write_uuid_to_ip_mapping ~__context;
 
 	let base_t = Timeouts.get_base_t ~__context in
 	Localdb.put Constants.ha_base_t (string_of_int base_t)
@@ -1237,7 +1237,7 @@ let disable_internal __context =
 		   nodes to self-fence if the statefile disappears. *)
 		Helpers.log_exn_continue
 			"stopping HA daemon on the master after setting pool state to invalid"
-			(fun () -> ha_stop_daemon __context (Helpers.get_localhost ())) ();
+			(fun () -> ha_stop_daemon __context (Helpers.get_localhost ~__context)) ();
 
 		(* No node may become the master automatically without the statefile so we can safely change
 		   the Pool state to disabled *)
@@ -1393,7 +1393,7 @@ let enable __context heartbeat_srs configuration =
 	(* Check also that any PIFs with IP information set are currently attached - it's a non-fatal
 	   error if they are, but we'll warn with a message *)
 	let pifs_with_ip_config = List.filter (fun (_,pifr) -> pifr.API.pIF_ip_configuration_mode <> `None) pifs in
-	let not_bond_slaves = List.filter (fun (_,pifr) -> not (Db.is_valid_ref pifr.API.pIF_bond_slave_of)) pifs_with_ip_config in
+	let not_bond_slaves = List.filter (fun (_,pifr) -> not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)) pifs_with_ip_config in
 	let without_disallow_unplug = List.filter (fun (_,pifr) -> not (pifr.API.pIF_disallow_unplug || pifr.API.pIF_management)) not_bond_slaves in
 	if List.length without_disallow_unplug > 0 then begin
 		let pifinfo = List.map (fun (pif,pifr) -> (Db.Host.get_name_label ~__context ~self:pifr.API.pIF_host, pif, pifr)) without_disallow_unplug in
@@ -1403,7 +1403,7 @@ let enable __context heartbeat_srs configuration =
 		in
 		warn "Warning: A possible network anomaly was found. The following hosts possibly have storage PIFs that can be unplugged: %s"
 			(String.concat ", " bodylines);
-		ignore(Xapi_message.create ~__context ~name:Api_messages.ip_configured_pif_can_unplug ~priority:5L ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ()))
+		ignore(Xapi_message.create ~__context ~name:Api_messages.ip_configured_pif_can_unplug ~priority:5L ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
 			~body:(String.concat "\n" bodylines))
 	end;
 
@@ -1526,7 +1526,7 @@ let enable __context heartbeat_srs configuration =
 
 				(* ... *)
 				(* Make sure everyone's got a fresh database *)
-				let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
+				let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_ref.get_database (Db_backend.make ())))) in
 				let errors = thread_iter_all_exns
 					(fun host ->
 						debug "Synchronising database with host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);

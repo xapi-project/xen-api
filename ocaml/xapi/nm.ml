@@ -103,7 +103,7 @@ let bring_pif_down ~__context (pif: API.ref_PIF) =
        (* Check that the PIF is not in-use *)
        let uuid = Db.PIF.get_uuid ~__context ~self:pif in
        let network = Db.PIF.get_network ~__context ~self:pif in
-       Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost()) ~network;
+       Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost ~__context) ~network;
        Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context pif;
        if Db.PIF.get_currently_attached ~__context ~self:pif = true then begin
 		 debug "PIF %s has currently_attached set to true; bringing down now" uuid;

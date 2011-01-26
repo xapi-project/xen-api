@@ -778,14 +778,14 @@ let touch_file fname =
   with
   | e -> (warn "Unable to touch ready file '%s': %s" fname (Printexc.to_string e))
 
-let vm_to_string vm = 
+let vm_to_string __context vm = 
 	let str = Ref.string_of vm in
 
-	if not (Db.is_valid_ref vm)
+	if not (Db.is_valid_ref __context vm)
 	then raise (Api_errors.Server_error(Api_errors.invalid_value ,[str]));
-
-	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in
-	let fields = fst (DB.read_record Db_names.vm str) in
+	let t = Context.database_of __context in
+	let module DB = (val (Db_cache.get t) : Db_interface.DB_ACCESS) in
+	let fields = fst (DB.read_record t Db_names.vm str) in
 	let sexpr = SExpr.Node (List.map (fun (key,value) -> SExpr.Node [SExpr.String key; SExpr.String value]) fields) in
 	SExpr.string_of sexpr
 

@@ -79,16 +79,22 @@ let database_callback event db =
 	let other_tbl_refs_for_this_field tblname fldname =
 		List.filter (fun (_,fld) -> fld=fldname) (other_tbl_refs tblname) in	
 
+	let is_valid_ref r = 
+		try
+			ignore(Database.table_of_ref r db);
+			true
+		with _ -> false in
+
 	match event with
 		| WriteField (tblname, objref, fldname, oldval, newval) ->
 			let events_old_val = 
-				if Db_cache_impl.is_valid_ref oldval then 
+				if is_valid_ref oldval then 
 					events_of_other_tbl_refs
 						(List.map (fun (tbl,fld) ->
 							(tbl, oldval, find_get_record tbl ~__context:context ~self:oldval)) (other_tbl_refs_for_this_field tblname fldname)) 
 				else [] in
 			let events_new_val =
-				if Db_cache_impl.is_valid_ref newval then
+				if is_valid_ref newval then
 					events_of_other_tbl_refs
 						(List.map (fun (tbl,fld) ->
 							(tbl, newval, find_get_record tbl ~__context:context ~self:newval)) (other_tbl_refs_for_this_field tblname fldname)) 
@@ -131,7 +137,7 @@ let database_callback event db =
 			let other_tbl_refs =
 				List.fold_left (fun accu (remote_tbl,fld) ->
 					let fld_value = List.assoc fld kv in
-					if Db_cache_impl.is_valid_ref fld_value 
+					if is_valid_ref fld_value 
 					then (remote_tbl, fld_value, find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu 
 					else accu) 
 					[] other_tbl_refs in
@@ -150,7 +156,7 @@ let database_callback event db =
 			let other_tbl_refs =
 				List.fold_left (fun accu (tbl,fld) ->
 					let fld_value = List.assoc fld kv in
-					if Db_cache_impl.is_valid_ref fld_value 
+					if is_valid_ref fld_value 
 					then (tbl, fld_value, find_get_record tbl ~__context:context ~self:fld_value) :: accu
 					else accu) 
 					[] other_tbl_refs in
