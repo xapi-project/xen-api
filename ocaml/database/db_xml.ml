@@ -24,7 +24,6 @@ let make_tag n attrs : Xmlm.tag = (name n), List.map (fun (k, v) -> name k, v) a
 
 let _schema_major_vsn = "schema_major_vsn"
 let _schema_minor_vsn = "schema_minor_vsn"
-let _xapi_minor_vsn = "xapi_minor_vsn"
 let _generation_count = "generation_count"
 
 module To = struct
@@ -60,7 +59,6 @@ module To = struct
     Xmlm.output output (`El_start (make_tag "manifest" []));
     int    output _schema_major_vsn manifest.schema_major_vsn;
     int    output _schema_minor_vsn manifest.schema_minor_vsn;
-    int    output _xapi_minor_vsn manifest.xapi_minor_vsn;
     int64  output _generation_count manifest.generation_count;
     Xmlm.output output `El_end
 
@@ -130,7 +128,6 @@ module From = struct
     let manifest = { 
       schema_major_vsn = int_of_string (List.assoc _schema_major_vsn manifest);
       schema_minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest);
-      xapi_minor_vsn = int_of_string (List.assoc _xapi_minor_vsn manifest);
       generation_count = Int64.of_string (List.assoc _generation_count manifest)
     } in
     manifest, cache
