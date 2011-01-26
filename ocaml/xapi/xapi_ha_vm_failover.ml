@@ -433,215 +433,215 @@ let last_start_attempt : (API.ref_VM, float) Hashtbl.t = Hashtbl.create 10
 (* Takes the current live_set and number of hosts we're planning to handle, updates the host records in the database 
    and restarts any offline protected VMs *)
 let restart_auto_run_vms ~__context live_set n =
-  (* ensure we have live=false on the host_metrics for those hosts not in the live_set; and force state to Halted for
-     all VMs that are "running" or "paused" with resident_on set to one of the hosts that is now dead
-  *)
-  debug "restart_auto_run_vms called";
-  let hosts = Db.Host.get_all ~__context in
-  (* Keep a list of all the VMs whose power-states we force to Halted to use later in the
-     'best-effort' restart code. Note that due to the weakly consistent database this is not
-     an accurate way to determine 'failed' VMs but it will suffice for our 'best-effort' 
-     category. *)
-  let reset_vms = ref [] in
-  List.iter
-    (fun h ->
-       if not (List.mem h live_set) then
-	 begin
-	   let hostname = Db.Host.get_hostname ~__context ~self:h in
-	   debug "Setting host %s to dead" hostname;
-	   (* Sample this before calling any hook scripts *)
-	   let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
-	   (* Skip control domains *)
-	   let resident_on_vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) resident_on_vms in
-	   reset_vms := resident_on_vms @ !reset_vms;
+	(* ensure we have live=false on the host_metrics for those hosts not in the live_set; and force state to Halted for
+	   all VMs that are "running" or "paused" with resident_on set to one of the hosts that is now dead
+	*)
+	debug "restart_auto_run_vms called";
+	let hosts = Db.Host.get_all ~__context in
+	(* Keep a list of all the VMs whose power-states we force to Halted to use later in the
+	   'best-effort' restart code. Note that due to the weakly consistent database this is not
+	   an accurate way to determine 'failed' VMs but it will suffice for our 'best-effort' 
+	   category. *)
+	let reset_vms = ref [] in
+	List.iter
+		(fun h ->
+			if not (List.mem h live_set) then
+				begin
+					let hostname = Db.Host.get_hostname ~__context ~self:h in
+					debug "Setting host %s to dead" hostname;
+					(* Sample this before calling any hook scripts *)
+					let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
+					(* Skip control domains *)
+					let resident_on_vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) resident_on_vms in
+					reset_vms := resident_on_vms @ !reset_vms;
 
-	   (* ensure live=false *)
-	   begin
-	     try
-	       let h_metrics = Db.Host.get_metrics ~__context ~self:h in
-	       let current = Db.Host_metrics.get_live ~__context ~self:h_metrics in
-	       if current then begin
-		 (* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
-		 let shutting_down = Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
-		 if not (List.exists (fun x -> x=h) shutting_down) then begin
-		   let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
-		   let host_name = Db.Host.get_name_label ~__context ~self:h in
-		   Xapi_alert.add ~name:Api_messages.ha_host_failed ~priority:Api_messages.ha_host_failed_priority ~cls:`Host ~obj_uuid
-		     ~body:(Printf.sprintf "Server '%s' has failed" host_name);
-		 end;
-		 (* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
-		 Xapi_hooks.host_pre_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
-		 Db.Host_metrics.set_live ~__context ~self:h_metrics ~value:false; (* since slave is fenced, it will not set this to true again itself *)
-		 Xapi_host_helpers.update_allowed_operations ~__context ~self:h;
-		 Xapi_hooks.host_post_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
-	       end
-	     with _ -> 
-	       (* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
-	       ()
-	   end;
-	   debug "Setting all VMs running or paused on %s to Halted" hostname;
-	   (* ensure all vms resident_on this host running or paused have their powerstates reset *)
+					(* ensure live=false *)
+					begin
+						try
+							let h_metrics = Db.Host.get_metrics ~__context ~self:h in
+							let current = Db.Host_metrics.get_live ~__context ~self:h_metrics in
+							if current then begin
+								(* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
+								let shutting_down = Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () -> !Xapi_globs.hosts_which_are_shutting_down) in
+								if not (List.exists (fun x -> x=h) shutting_down) then begin
+									let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
+									let host_name = Db.Host.get_name_label ~__context ~self:h in
+									Xapi_alert.add ~name:Api_messages.ha_host_failed ~priority:Api_messages.ha_host_failed_priority ~cls:`Host ~obj_uuid
+										~body:(Printf.sprintf "Server '%s' has failed" host_name);
+								end;
+								(* Call external host failed hook (allows a third-party to use power-fencing if desired) *)
+								Xapi_hooks.host_pre_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
+								Db.Host_metrics.set_live ~__context ~self:h_metrics ~value:false; (* since slave is fenced, it will not set this to true again itself *)
+								Xapi_host_helpers.update_allowed_operations ~__context ~self:h;
+								Xapi_hooks.host_post_declare_dead ~__context ~host:h ~reason:Xapi_hooks.reason__fenced;
+							end
+						with _ -> 
+							(* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
+							()
+					end;
+					debug "Setting all VMs running or paused on %s to Halted" hostname;
+					(* ensure all vms resident_on this host running or paused have their powerstates reset *)
 
-	   List.iter
-	     (fun vm ->
-		let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
-		let control = Db.VM.get_is_control_domain ~__context ~self:vm in
-		if not(control) && (vm_powerstate=`Running || vm_powerstate=`Paused) then
-		  Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-	     )
-	     resident_on_vms
-	 end
-    )
-    hosts;
+					List.iter
+						(fun vm ->
+							let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
+							let control = Db.VM.get_is_control_domain ~__context ~self:vm in
+							if not(control) && (vm_powerstate=`Running || vm_powerstate=`Paused) then
+								Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+						)
+						resident_on_vms
+				end
+		)
+		hosts;
 
-  (* If something has changed then we'd better refresh the pool status *)
-  if !reset_vms <> [] then ignore(update_pool_status ~__context);
+	(* If something has changed then we'd better refresh the pool status *)
+	if !reset_vms <> [] then ignore(update_pool_status ~__context);
 
-    (* At this point failed protected agile VMs are Halted, not resident_on anywhere *)
+	(* At this point failed protected agile VMs are Halted, not resident_on anywhere *)
 
-    let all_protected_vms = all_protected_vms ~__context in
+	let all_protected_vms = all_protected_vms ~__context in
 
-    let plan, plan_is_complete = 
-      try
-	if Xapi_fist.simulate_planner_failure () then failwith "fist_simulate_planner_failure";
-	(* CA-23981: if the pool-pre-ha-vm-restart hook exists AND if we're about to auto-start some VMs then
-	   call the script hook first and then recompute the plan aftwards. Note that these VMs may either
-	   be protected or best-effort. For the protected ones we assume that these are included in the VM
-	   restart plan-- we ignore the possibility that the planner may fail here (even through there is some
-	   last-ditch code later to perform best-effort VM.starts). This is ok since it should never happen and 
-	   this particular hook is really a 'best-effort' integration point since it conflicts with the overcommit
-	   protection.
-	   For the best-effort VMs we call the script
-	   when we have reset some VMs to halted (no guarantee there is enough resource but better safe than sorry) *)
-	let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms n in
-	let plan, config, vms_not_restarted, non_agile_protected_vms_exist = 
-	  if true
-	  && Xapi_hooks.pool_pre_ha_vm_restart_hook_exists ()
-	  && (plan <> [] || !reset_vms <> []) then begin
-	    (* We're about to soak up some resources for 'Level 1' VMs somewhere; before we do that give 'Level 2' VMs a shot *)
-	    (* Whatever this script does we don't let it break our restart thread *)
-	    begin
-	      try
-		Xapi_hooks.pool_pre_ha_vm_restart_hook ~__context
-	      with e ->
-		error "pool-pre-ha-vm-restart-hook failed: %s: continuing anyway" (ExnHelper.string_of_exn e)
-	    end;
-	    debug "Recomputing restart plan to take into account new state of the world after running the script";
-	    compute_restart_plan ~__context ~all_protected_vms n
-	  end else plan, config, vms_not_restarted, non_agile_protected_vms_exist (* nothing needs recomputing *)
-	in
+	let plan, plan_is_complete = 
+		try
+			if Xapi_fist.simulate_planner_failure () then failwith "fist_simulate_planner_failure";
+			(* CA-23981: if the pool-pre-ha-vm-restart hook exists AND if we're about to auto-start some VMs then
+			   call the script hook first and then recompute the plan aftwards. Note that these VMs may either
+			   be protected or best-effort. For the protected ones we assume that these are included in the VM
+			   restart plan-- we ignore the possibility that the planner may fail here (even through there is some
+			   last-ditch code later to perform best-effort VM.starts). This is ok since it should never happen and 
+			   this particular hook is really a 'best-effort' integration point since it conflicts with the overcommit
+			   protection.
+			   For the best-effort VMs we call the script
+			   when we have reset some VMs to halted (no guarantee there is enough resource but better safe than sorry) *)
+			let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms n in
+			let plan, config, vms_not_restarted, non_agile_protected_vms_exist = 
+				if true
+					&& Xapi_hooks.pool_pre_ha_vm_restart_hook_exists ()
+					&& (plan <> [] || !reset_vms <> []) then begin
+						(* We're about to soak up some resources for 'Level 1' VMs somewhere; before we do that give 'Level 2' VMs a shot *)
+						(* Whatever this script does we don't let it break our restart thread *)
+						begin
+							try
+								Xapi_hooks.pool_pre_ha_vm_restart_hook ~__context
+							with e ->
+								error "pool-pre-ha-vm-restart-hook failed: %s: continuing anyway" (ExnHelper.string_of_exn e)
+						end;
+						debug "Recomputing restart plan to take into account new state of the world after running the script";
+						compute_restart_plan ~__context ~all_protected_vms n
+					end else plan, config, vms_not_restarted, non_agile_protected_vms_exist (* nothing needs recomputing *)
+			in
 
-	(* If we are undercommitted then vms_not_restarted = [] and plan will include all offline protected_vms *)
-	let plan_is_complete = vms_not_restarted = [] in
-	plan, plan_is_complete 
-      with e ->
-	error "Caught unexpected exception in HA planner: %s" (ExnHelper.string_of_exn e);
-	[], false in
+			(* If we are undercommitted then vms_not_restarted = [] and plan will include all offline protected_vms *)
+			let plan_is_complete = vms_not_restarted = [] in
+			plan, plan_is_complete 
+		with e ->
+			error "Caught unexpected exception in HA planner: %s" (ExnHelper.string_of_exn e);
+			[], false in
 
-    (* Send at most one alert per protected VM failure *)
-    let consider_sending_failed_alert_for vm = 
-      debug "We failed to restart protected VM %s: considering sending an alert" (Ref.string_of vm);
-      if not(Hashtbl.mem restart_failed vm) then begin
-	Hashtbl.replace restart_failed vm ();
-	let obj_uuid = Db.VM.get_uuid ~__context ~self:vm in
-	Xapi_alert.add ~name:Api_messages.ha_protected_vm_restart_failed ~priority:1L ~cls:`VM ~obj_uuid ~body:""
-      end in
+	(* Send at most one alert per protected VM failure *)
+	let consider_sending_failed_alert_for vm = 
+		debug "We failed to restart protected VM %s: considering sending an alert" (Ref.string_of vm);
+		if not(Hashtbl.mem restart_failed vm) then begin
+			Hashtbl.replace restart_failed vm ();
+			let obj_uuid = Db.VM.get_uuid ~__context ~self:vm in
+			Xapi_alert.add ~name:Api_messages.ha_protected_vm_restart_failed ~priority:1L ~cls:`VM ~obj_uuid ~body:""
+		end in
 
-    (* execute the plan *)
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
+	(* execute the plan *)
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
 
-	 (* Helper function to start a VM somewhere. If the HA overcommit protection stops us then disable it and try once more.
-	    Returns true if the VM was restarted and false otherwise. *)
-	 let restart_vm vm ?host () = 	   
-	   let go () = 
+			(* Helper function to start a VM somewhere. If the HA overcommit protection stops us then disable it and try once more.
+			   Returns true if the VM was restarted and false otherwise. *)
+			let restart_vm vm ?host () = 	   
+				let go () = 
 
-	     if Xapi_fist.simulate_restart_failure () then begin
-	       match Random.int 3 with
-	       | 0 -> raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
-	       | 1 -> raise (Api_errors.Server_error("FIST: unexpected exception", []))
-	       | 2 -> () 
-	     end;
+					if Xapi_fist.simulate_restart_failure () then begin
+						match Random.int 3 with
+							| 0 -> raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
+							| 1 -> raise (Api_errors.Server_error("FIST: unexpected exception", []))
+							| 2 -> () 
+					end;
 
-	     (* If we tried before and failed, don't retry again within 2 minutes *)
-	     let attempt_restart = 
-	       if Hashtbl.mem last_start_attempt vm 
-	       then Unix.gettimeofday () -. (Hashtbl.find last_start_attempt vm) > 120.
-	       else true in
+					(* If we tried before and failed, don't retry again within 2 minutes *)
+					let attempt_restart = 
+						if Hashtbl.mem last_start_attempt vm 
+						then Unix.gettimeofday () -. (Hashtbl.find last_start_attempt vm) > 120.
+						else true in
 
-	     if attempt_restart then begin
-	       Hashtbl.replace last_start_attempt vm (Unix.gettimeofday ());
-	       match host with
-	       | None -> Client.Client.VM.start rpc session_id vm false true
-	       | Some h -> Client.Client.VM.start_on rpc session_id vm h false true 
-	     end else failwith (Printf.sprintf "VM: %s restart attempt delayed for 120s" (Ref.string_of vm)) in
-	   try
-	     go ();
-	     true
-	   with 
-	   | Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
-	       (* This should never happen since the planning code would always allow the restart of a protected VM... *)
-	       error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
-	       mark_pool_as_overcommitted ~__context;
-	       begin
-		 try
-		   go ();
-		   true
-		 with e ->
-		   error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
-		   false
-	       end
-	   | e ->
-	       error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
-	       false in
+					if attempt_restart then begin
+						Hashtbl.replace last_start_attempt vm (Unix.gettimeofday ());
+						match host with
+							| None -> Client.Client.VM.start rpc session_id vm false true
+							| Some h -> Client.Client.VM.start_on rpc session_id vm h false true
+					end else failwith (Printf.sprintf "VM: %s restart attempt delayed for 120s" (Ref.string_of vm)) in
+				try
+					go ();
+					true
+				with 
+					| Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
+						(* This should never happen since the planning code would always allow the restart of a protected VM... *)
+						error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
+						mark_pool_as_overcommitted ~__context;
+						begin
+							try
+								go ();
+								true
+							with e ->
+								error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
+								false
+						end
+					| e ->
+						error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
+						false in
 
-	 (* Build a list of bools, one per Halted protected VM indicating whether we managed to start it or not *)
-	 let started =
-	   if not plan_is_complete then begin
-	     (* If the Pool is overcommitted the restart priority will make the difference between a VM restart or not,
-		while if we're undercommitted the restart priority only affects the timing slightly. *)
-	     let all = List.filter (fun (_, r) -> r.API.vM_power_state = `Halted) all_protected_vms in
-	     let all = List.sort by_restart_priority all in
-	     warn "Failed to find plan to restart all protected VMs: falling back to simple VM.start in priority order";
-	     List.map (fun (vm, _) -> vm, restart_vm vm ()) all
-	   end else begin
-	     (* Walk over the VMs in priority order, starting each on the planned host *)
-	     let all = List.sort by_restart_priority (List.map (fun (vm, _) -> vm, Db.VM.get_record ~__context ~self:vm) plan) in
-	     List.map (fun (vm, _) -> 
-			 vm, (if List.mem_assoc vm plan
-			      then restart_vm vm ~host:(List.assoc vm plan) ()
-			      else false)) all
-	   end in
-	 (* Perform one final restart attempt of any that weren't started. *)
-	 let started = List.map (fun (vm, started) -> match started with
-				 | true -> vm, true
-				 | false -> vm, restart_vm vm ()) started in
-	 (* Send an alert for any failed VMs *)
-	 List.iter (fun (vm, started) -> if not started then consider_sending_failed_alert_for vm) started;
+			(* Build a list of bools, one per Halted protected VM indicating whether we managed to start it or not *)
+			let started =
+				if not plan_is_complete then begin
+					(* If the Pool is overcommitted the restart priority will make the difference between a VM restart or not,
+					   while if we're undercommitted the restart priority only affects the timing slightly. *)
+					let all = List.filter (fun (_, r) -> r.API.vM_power_state = `Halted) all_protected_vms in
+					let all = List.sort by_restart_priority all in
+					warn "Failed to find plan to restart all protected VMs: falling back to simple VM.start in priority order";
+					List.map (fun (vm, _) -> vm, restart_vm vm ()) all
+				end else begin
+					(* Walk over the VMs in priority order, starting each on the planned host *)
+					let all = List.sort by_restart_priority (List.map (fun (vm, _) -> vm, Db.VM.get_record ~__context ~self:vm) plan) in
+					List.map (fun (vm, _) -> 
+						vm, (if List.mem_assoc vm plan
+						then restart_vm vm ~host:(List.assoc vm plan) ()
+						else false)) all
+				end in
+			(* Perform one final restart attempt of any that weren't started. *)
+			let started = List.map (fun (vm, started) -> match started with
+				| true -> vm, true
+				| false -> vm, restart_vm vm ()) started in
+			(* Send an alert for any failed VMs *)
+			List.iter (fun (vm, started) -> if not started then consider_sending_failed_alert_for vm) started;
 
-	 (* Forget about previously failed VMs which have gone *)
-	 let vms_we_know_about = List.map fst started in
-	 let gc_table tbl = 
-	   let vms_in_table = Hashtbl.fold (fun vm _ acc -> vm :: acc) tbl [] in
-	   List.iter (fun vm -> if not(List.mem vm vms_we_know_about) then (debug "Forgetting VM: %s" (Ref.string_of vm); Hashtbl.remove tbl vm)) vms_in_table in
-	 gc_table last_start_attempt;
-	 gc_table restart_failed;
-	 
-	 (* Consider restarting the best-effort VMs we *think* have failed (but we might get this wrong --
-	    ok since this is 'best-effort'). NOTE we do not use the restart_vm function above as this will mark the
-	    pool as overcommitted if an HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN is received (although this should never
-	    happen it's better safe than sorry) *)
-	 List.iter
-	   (fun vm ->
-	      try
-                if Db.VM.get_power_state ~__context ~self:vm = `Halted
-                  && Db.VM.get_ha_always_run ~__context ~self:vm
-                  && Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart_best_effort  
-		then Client.Client.VM.start rpc session_id vm false true
-	      with e ->
-		error "Failed to restart best-effort VM %s (%s): %s" 
-		  (Db.VM.get_uuid ~__context ~self:vm)
-		  (Db.VM.get_name_label ~__context ~self:vm)
-		  (ExnHelper.string_of_exn e)) !reset_vms
+			(* Forget about previously failed VMs which have gone *)
+			let vms_we_know_about = List.map fst started in
+			let gc_table tbl = 
+				let vms_in_table = Hashtbl.fold (fun vm _ acc -> vm :: acc) tbl [] in
+				List.iter (fun vm -> if not(List.mem vm vms_we_know_about) then (debug "Forgetting VM: %s" (Ref.string_of vm); Hashtbl.remove tbl vm)) vms_in_table in
+			gc_table last_start_attempt;
+			gc_table restart_failed;
+			
+			(* Consider restarting the best-effort VMs we *think* have failed (but we might get this wrong --
+			   ok since this is 'best-effort'). NOTE we do not use the restart_vm function above as this will mark the
+			   pool as overcommitted if an HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN is received (although this should never
+			   happen it's better safe than sorry) *)
+			List.iter
+				(fun vm ->
+					try
+						if Db.VM.get_power_state ~__context ~self:vm = `Halted
+							&& Db.VM.get_ha_always_run ~__context ~self:vm
+							&& Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart_best_effort  
+						then Client.Client.VM.start rpc session_id vm false true
+					with e ->
+						error "Failed to restart best-effort VM %s (%s): %s" 
+							(Db.VM.get_uuid ~__context ~self:vm)
+							(Db.VM.get_name_label ~__context ~self:vm)
+							(ExnHelper.string_of_exn e)) !reset_vms
 
-      )
+		)

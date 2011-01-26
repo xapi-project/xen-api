@@ -40,22 +40,29 @@ let subtest_string key tag =
 	else Printf.sprintf "%s (%s)" key tag
 
 let startall rpc session_id test =
-  let vms = Client.VM.get_all_records rpc session_id in
-  let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
-  let tags = List.setify (List.flatten tags) in
-  List.map (fun tag ->
-    debug "Starting VMs with tag: %s" tag;
-    let vms = List.filter (fun (vm,vmr) -> List.mem tag vmr.API.vM_tags) vms in
-    let vms = List.sort (fun (vm1,vmr1) (vm2,vmr2) -> compare vmr1.API.vM_affinity vmr2.API.vM_affinity) vms in
-    let vms_names_uuids = List.map (fun (vm,vmr) -> (vm,vmr.API.vM_name_label, vmr.API.vM_uuid)) vms in
-    let times = List.map 
-      (fun (vm,name_label,uuid) -> 
-	debug "Starting VM uuid '%s' (%s)" uuid name_label;
-	let result = time (fun () -> Client.VM.start rpc session_id vm false false) in
-	debug "Elapsed time: %f" result; 
-	result) vms_names_uuids in
-    {resultname=test.testname; subtest=subtest_string test.key tag; xenrtresult=(List.fold_left (+.) 0.0 times); rawresult=StartTest times}
-  ) tags  
+	let vms = Client.VM.get_all_records rpc session_id in
+	let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
+	let tags = List.setify (List.flatten tags) in
+	List.map
+		(fun tag ->
+			debug "Starting VMs with tag: %s" tag;
+			let vms = List.filter (fun (vm,vmr) -> List.mem tag vmr.API.vM_tags) vms in
+			let vms = List.sort (fun (vm1,vmr1) (vm2,vmr2) -> compare vmr1.API.vM_affinity vmr2.API.vM_affinity) vms in
+			let vms_names_uuids = List.map (fun (vm,vmr) -> (vm,vmr.API.vM_name_label, vmr.API.vM_uuid)) vms in
+			let times = List.map 
+				(fun (vm,name_label,uuid) -> 
+					debug "Starting VM uuid '%s' (%s)" uuid name_label;
+					let result = time (fun () -> Client.VM.start rpc session_id vm false false) in
+					debug "Elapsed time: %f" result; 
+					result)
+				vms_names_uuids in
+			{
+				resultname=test.testname;
+				subtest=subtest_string test.key tag;
+				xenrtresult=(List.fold_left (+.) 0.0 times);
+				rawresult=StartTest times
+			})
+		tags  
 
 let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
     (* Not starting in affinity order *)

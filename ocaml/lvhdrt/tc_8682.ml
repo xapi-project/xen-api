@@ -34,7 +34,7 @@ let really_run rpc session () =
 	let srs, _ = List.split srs in
 	if srs = [] then
 		raise (Test_error "No dummy SR found");
-	
+
 	(* Then, find a VM with a VDI on one of these SRs *)
 	let vdis = List.flatten (List.map (fun sr -> Client.SR.get_VDIs rpc session sr) srs) in
 	if vdis = [] then
@@ -56,23 +56,23 @@ let really_run rpc session () =
 		try f ()
 		with 
 			| Api_errors.Server_error("SR_BACKEND_FAILURE_1", _) ->
-                            Printf.printf "Received error. Failure is inevitable.\n%!";
-                            manager.failure ();
+				Printf.printf "Received error. Failure is inevitable.\n%!";
+				manager.failure ();
 			| _ -> ()
 	in
-	
+
 	(* start/force_shutdown loop for the VM *)
 	let rec start_loop n =
 		Printf.printf "Start/shutdown loop: %d iterations remaining\n%!" n;
 		if n <> 0 && manager.continue () then begin
 			with_dummySR_failure 
 				(fun () -> 
-					 debug "%i/%i: Starting VM ..." (number_of_loop - n + 1) number_of_loop; 
-					 Client.VM.start rpc session vm false false;
-					 Thread.delay 10.;
-					 debug "%i/%i: Shutdowning VM ..." (number_of_loop - n + 1) number_of_loop; 
-					 Client.VM.hard_shutdown rpc session vm;
-					 Thread.delay 10.);
+					debug "%i/%i: Starting VM ..." (number_of_loop - n + 1) number_of_loop; 
+					Client.VM.start rpc session vm false false;
+					Thread.delay 10.;
+					debug "%i/%i: Shutdowning VM ..." (number_of_loop - n + 1) number_of_loop; 
+					Client.VM.hard_shutdown rpc session vm;
+					Thread.delay 10.);
 			start_loop (n-1)
 		end else if n = 0 then
 			manager.success ()

@@ -1023,74 +1023,96 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	     )
 	)
 
-    let start ~__context ~vm ~start_paused ~force =
-      info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.start ~vm ~start_paused ~force in
+	let start ~__context ~vm ~start_paused ~force =
+		info "VM.start: VM = '%s'" (vm_uuid ~__context vm);
+		let local_fn = Local.VM.start ~vm ~start_paused ~force in
+		let host =
+			with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
+				(fun () ->
+					with_vbds_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
+						(fun vbds ->
+							with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
+								(fun vifs ->
+									(* The start operation makes use of the cached memory overhead *)
+									(* value when reserving memory. It's important to recalculate  *)
+									(* the cached value before performing the start since there's  *)
+									(* no guarantee that the cached value is valid. In particular, *)
+									(* we must recalculate the value BEFORE creating the snapshot. *)
+									Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
+									let snapshot = Db.VM.get_record ~__context ~self:vm in
+									forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
+										(fun session_id rpc ->
+											Client.VM.start
+												rpc
+												session_id
+												vm
+												start_paused
+												force)))) in
+		update_vbd_operations ~__context ~vm;
+		update_vif_operations ~__context ~vm;
+		let uuid = Db.VM.get_uuid ~__context ~self:vm in
+		let message_body = 
+			Printf.sprintf "VM '%s' started on host: %s (uuid: %s)" 
+				(Db.VM.get_name_label ~__context ~self:vm)
+				(Db.Host.get_name_label ~__context ~self:host) 
+				(Db.Host.get_uuid ~__context ~self:host)
+		in
+		(try ignore
+			(Xapi_message.create
+				~__context
+				~name:Api_messages.vm_started
+				~priority:1L
+				~cls:`VM
+				~obj_uuid:uuid
+				~body:message_body)
+			with _ -> ());
+		Monitor_rrds.push_rrd __context uuid
 
-      let host = 
-	with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
-	  (fun () ->
-	    with_vbds_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
-	      (fun vbds ->
-		with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
-		  (fun vifs ->
-			(* The start operation makes use of the cached memory overhead *)
-			(* value when reserving memory. It's important to recalculate  *)
-			(* the cached value before performing the start since there's  *)
-			(* no guarantee that the cached value is valid. In particular, *)
-			(* we must recalculate the value BEFORE creating the snapshot. *)
-			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
-		    let snapshot = Db.VM.get_record ~__context ~self:vm in
-		    forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_start
-		      (fun session_id rpc -> Client.VM.start rpc session_id vm start_paused force))))
-      in
-      update_vbd_operations ~__context ~vm;      
-      update_vif_operations ~__context ~vm;
-      let uuid = Db.VM.get_uuid ~__context ~self:vm in
-      let message_body = 
-	Printf.sprintf "VM '%s' started on host: %s (uuid: %s)" 
-	  (Db.VM.get_name_label ~__context ~self:vm)
-	  (Db.Host.get_name_label ~__context ~self:host) 
-	  (Db.Host.get_uuid ~__context ~self:host)
-      in
-      (try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_started 
-		     ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
-      Monitor_rrds.push_rrd __context uuid
-    
-    let start_on ~__context ~vm ~host ~start_paused ~force =
-      info "VM.start_on: VM = '%s'; host '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
-      let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
-
-      with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
-	(fun () ->
-	   with_vbds_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
-	     (fun vbds ->
-		with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
-		  (fun vifs ->
-			(* The start operation makes use of the cached memory overhead *)
-			(* value when reserving memory. It's important to recalculate  *)
-			(* the cached value before performing the start since there's  *)
-			(* no guarantee that the cached value is valid. In particular, *)
-			(* we must recalculate the value BEFORE creating the snapshot. *)
-			Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
-
-		     let snapshot = Db.VM.get_record ~__context ~self:vm in		     
-		     reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_start
-		       (fun () ->
-			  do_op_on ~local_fn ~__context ~host
-			    (fun session_id rpc -> Client.VM.start rpc session_id vm start_paused force)))));
-      update_vbd_operations ~__context ~vm;      
-      update_vif_operations ~__context ~vm;
-      let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
-      let message_body = 
-	Printf.sprintf "VM '%s' started on host: %s (uuid: %s)" 
-	  (Db.VM.get_name_label ~__context ~self:vm)
-	  (Db.Host.get_name_label ~__context ~self:host) 
-	  (Db.Host.get_uuid ~__context ~self:host)
-      in
-      (try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_started 
-		     ~priority:1L ~cls:`VM ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm) ~body:message_body) with _ -> ());
-      Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
+	let start_on ~__context ~vm ~host ~start_paused ~force =
+		info "VM.start_on: VM = '%s'; host '%s'"
+			(vm_uuid ~__context vm) (host_uuid ~__context host);
+		let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
+		with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
+			(fun () ->
+				with_vbds_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
+					(fun vbds ->
+						with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
+							(fun vifs ->
+								(* The start operation makes use of the cached memory overhead *)
+								(* value when reserving memory. It's important to recalculate  *)
+								(* the cached value before performing the start since there's  *)
+								(* no guarantee that the cached value is valid. In particular, *)
+								(* we must recalculate the value BEFORE creating the snapshot. *)
+								Xapi_vm_helpers.update_memory_overhead ~__context ~vm;
+								let snapshot = Db.VM.get_record ~__context ~self:vm in
+								reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_start
+									(fun () ->
+										do_op_on ~local_fn ~__context ~host
+											(fun session_id rpc ->
+												Client.VM.start
+													rpc
+													session_id
+													vm
+													start_paused
+													force)))));
+		update_vbd_operations ~__context ~vm;
+		update_vif_operations ~__context ~vm;
+		let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
+		let message_body =
+			Printf.sprintf "VM '%s' started on host: %s (uuid: %s)" 
+				(Db.VM.get_name_label ~__context ~self:vm)
+				(Db.Host.get_name_label ~__context ~self:host) 
+				(Db.Host.get_uuid ~__context ~self:host) in
+		(try ignore
+			(Xapi_message.create
+				~__context
+				~name:Api_messages.vm_started
+				~priority:1L
+				~cls:`VM
+				~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+				~body:message_body)
+			with _ -> ());
+		Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
 
     let pause ~__context ~vm =
       info "VM.pause: VM = '%s'" (vm_uuid ~__context vm);

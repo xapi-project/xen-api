@@ -122,8 +122,11 @@ module Fct = functor(Remote: API.API) -> struct
 	let get_info vm = get_uuid vm, get_name vm, get_power_state vm
 
 	let start vm =
-		get_task (Remote.Async.VM.start ~session_id:!session_id
-		                                ~start_paused:true ~vm)
+		get_task
+			(Remote.Async.VM.start
+				~session_id:!session_id
+				~start_paused:true
+				~vm)
 
 	let unpause vm = Remote.VM.unpause ~rpc ~session_id:!session_id ~vm
 	let pause vm = Remote.VM.pause ~rpc ~session_id:!session_id ~vm

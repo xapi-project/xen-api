@@ -109,91 +109,91 @@ open Client
 open Pervasiveext
 
 let one s vm test = 
-  let t = make_test (string_of_test test) 1 in
-  start t;
-  let event = "/tmp/fist_disable_event_lifecycle_path" in
-  let sync = "/tmp/fist_disable_sync_lifecycle_path" in
-  let simulate = "/tmp/fist_simulate_internal_shutdown" in
-  let delay = "/tmp/fist_disable_reboot_delay" in
+	let t = make_test (string_of_test test) 1 in
+	start t;
+	let event = "/tmp/fist_disable_event_lifecycle_path" in
+	let sync = "/tmp/fist_disable_sync_lifecycle_path" in
+	let simulate = "/tmp/fist_simulate_internal_shutdown" in
+	let delay = "/tmp/fist_disable_reboot_delay" in
 
-  finally
-	  (fun () ->
-		   try
-			 begin 
-			   Unixext.unlink_safe simulate;
-			   Unixext.touch_file delay;
-			   match test.code_path with
-			   | Sync ->
-					 Unixext.unlink_safe sync;
-					 Unixext.touch_file event
-			   | Event ->
-					 Unixext.unlink_safe event;
-					 Unixext.touch_file sync
-			   | Both ->
-					 Unixext.unlink_safe sync;
-					 Unixext.unlink_safe event
-			 end;
-			   if Client.VM.get_power_state !rpc s vm = `Halted
-			   then Client.VM.start !rpc s vm false false;
-			   
-			   let call_api = function
-				 | Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm
-				 | Shutdown Hard -> Client.VM.hard_shutdown !rpc s vm
-				 | Reboot Clean -> Client.VM.clean_reboot !rpc s vm
-				 | Reboot Hard -> Client.VM.hard_reboot !rpc s vm in
-			   
-			   let domid = Client.VM.get_domid !rpc s vm in
-			   begin match test with
-			   | { api = None; parallel_op = Some x } ->
-					 let reason = match x with
-					   | Internal_reboot -> Xc.Reboot
-					   | Internal_halt -> Xc.Halt
-					   | Internal_crash -> Xc.Crash
-					   | Internal_suspend -> Xc.Suspend in
-					 begin 
-					   try
-						 Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
-					   with e ->
-						   debug t (Printf.sprintf "Ignoring exception: %s" (Printexc.to_string e))
-					 end
-			   | { api = Some x; parallel_op = Some y } ->
-					 let reason = match y with
-					   | Internal_reboot -> "reboot"
-					   | Internal_halt -> "halt"
-					   | Internal_crash -> "crash"
-					   | Internal_suspend -> "suspend" in
-					 Unixext.write_string_to_file simulate reason;
-					 call_api x
-			   | { api = Some x; parallel_op = None } ->
-					 call_api x
-			   | t -> failwith (Printf.sprintf "Invalid test: %s" (string_of_test t))
-			   end;
-			   
-			   let wait_for_domid p =
-				 let start = Unix.gettimeofday () in
-				 let finished = ref false in
-				 while Unix.gettimeofday () -. start < 300. && (not !finished) do
-				   finished := p (Client.VM.get_domid !rpc s vm);
-					 if not !finished then Thread.delay 1.
-				 done;
-				 if not !finished then failwith "timeout"
-			   in
-			   
-			   begin match expected_result test with
-			   | None -> failwith (Printf.sprintf "Invalid test: %s" (string_of_test test))
-			   | Some Rebooted ->
-					 wait_for_domid (fun domid' -> domid <> domid')
-			   | Some Halted ->
-					 wait_for_domid (fun domid' -> domid' = -1L)
-			   end
-		   with e -> failed t (Printexc.to_string e)
-	  )
-	  (fun () ->
-		   Unixext.unlink_safe sync;
-		   Unixext.unlink_safe event;
-		   Unixext.unlink_safe delay
-	  );
-  success t
+	finally
+		(fun () ->
+			try
+				begin 
+					Unixext.unlink_safe simulate;
+					Unixext.touch_file delay;
+					match test.code_path with
+						| Sync ->
+							Unixext.unlink_safe sync;
+							Unixext.touch_file event
+						| Event ->
+							Unixext.unlink_safe event;
+							Unixext.touch_file sync
+						| Both ->
+							Unixext.unlink_safe sync;
+							Unixext.unlink_safe event
+				end;
+				if Client.VM.get_power_state !rpc s vm = `Halted
+				then Client.VM.start !rpc s vm false false;
+				
+				let call_api = function
+					| Shutdown Clean -> Client.VM.clean_shutdown !rpc s vm
+					| Shutdown Hard -> Client.VM.hard_shutdown !rpc s vm
+					| Reboot Clean -> Client.VM.clean_reboot !rpc s vm
+					| Reboot Hard -> Client.VM.hard_reboot !rpc s vm in
+				
+				let domid = Client.VM.get_domid !rpc s vm in
+				begin match test with
+					| { api = None; parallel_op = Some x } ->
+						let reason = match x with
+							| Internal_reboot -> Xc.Reboot
+							| Internal_halt -> Xc.Halt
+							| Internal_crash -> Xc.Crash
+							| Internal_suspend -> Xc.Suspend in
+						begin 
+							try
+								Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
+							with e ->
+								debug t (Printf.sprintf "Ignoring exception: %s" (Printexc.to_string e))
+						end
+					| { api = Some x; parallel_op = Some y } ->
+						let reason = match y with
+							| Internal_reboot -> "reboot"
+							| Internal_halt -> "halt"
+							| Internal_crash -> "crash"
+							| Internal_suspend -> "suspend" in
+						Unixext.write_string_to_file simulate reason;
+						call_api x
+					| { api = Some x; parallel_op = None } ->
+						call_api x
+					| t -> failwith (Printf.sprintf "Invalid test: %s" (string_of_test t))
+				end;
+				
+				let wait_for_domid p =
+					let start = Unix.gettimeofday () in
+					let finished = ref false in
+					while Unix.gettimeofday () -. start < 300. && (not !finished) do
+						finished := p (Client.VM.get_domid !rpc s vm);
+						if not !finished then Thread.delay 1.
+					done;
+					if not !finished then failwith "timeout"
+				in
+				
+				begin match expected_result test with
+					| None -> failwith (Printf.sprintf "Invalid test: %s" (string_of_test test))
+					| Some Rebooted ->
+						wait_for_domid (fun domid' -> domid <> domid')
+					| Some Halted ->
+						wait_for_domid (fun domid' -> domid' = -1L)
+				end
+			with e -> failed t (Printexc.to_string e)
+		)
+		(fun () ->
+			Unixext.unlink_safe sync;
+			Unixext.unlink_safe event;
+			Unixext.unlink_safe delay
+		);
+	success t
 
 let test s vm = 
   List.iter (one s vm) all_valid_tests

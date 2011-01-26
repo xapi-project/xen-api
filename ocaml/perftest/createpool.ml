@@ -173,260 +173,260 @@ let iscsi_vm_iso_must_exist session_id =
 	then failwith (Printf.sprintf "The iSCSI target VM iso could not be found (%s)" CreateVM.iscsi_vm_iso)
 
 let create_sdk_pool session_id sdkname pool_name key ipbase =
-  iscsi_vm_iso_must_exist session_id;
-  default_sr_must_be_suitable session_id;
-  let pool = List.find (fun p -> p.id = pool_name) pools in
-  let pool = {pool with key=key; ipbase=ipbase} in
+	iscsi_vm_iso_must_exist session_id;
+	default_sr_must_be_suitable session_id;
+	let pool = List.find (fun p -> p.id = pool_name) pools in
+	let pool = {pool with key=key; ipbase=ipbase} in
 
-  let template = 
-	try List.hd (Client.VM.get_by_name_label rpc session_id sdkname)
-	with _ -> debug ~out:stderr "template '%s' not found" sdkname; exit 1
-  in
-  let uuid = Client.VM.get_uuid rpc session_id template in
-  debug "Creating test pool '%s' using SDK template uuid=%s" pool.id uuid;
+	let template = 
+		try List.hd (Client.VM.get_by_name_label rpc session_id sdkname)
+		with _ -> debug ~out:stderr "template '%s' not found" sdkname; exit 1
+	in
+	let uuid = Client.VM.get_uuid rpc session_id template in
+	debug "Creating test pool '%s' using SDK template uuid=%s" pool.id uuid;
 
-  (* Clear up any leftover state on the template *)
-  reset_template session_id template;
+	(* Clear up any leftover state on the template *)
+	reset_template session_id template;
 
-  let interfaces = initialise session_id template pool in
+	let interfaces = initialise session_id template pool in
 
-  Printf.printf "Creating iSCSI target VM serving %d LUNs\n%!" pool.iscsi_luns;
-  let iscsi_vm = CreateVM.make_iscsi session_id pool (Client.VIF.get_network rpc session_id interfaces.(2)) in
+	Printf.printf "Creating iSCSI target VM serving %d LUNs\n%!" pool.iscsi_luns;
+	let iscsi_vm = CreateVM.make_iscsi session_id pool (Client.VIF.get_network rpc session_id interfaces.(2)) in
 
-  debug "Creating %d SDK VMs" pool.hosts;
-  let hosts = Array.init pool.hosts (
-    fun i -> 
-      let n = i + 1 in
-      let vm = Client.VM.clone rpc session_id template (Printf.sprintf "perftestpool%d" n) in
-      Client.VM.provision rpc session_id vm;
-      Array.iteri (fun i _ -> 
-	ignore(Client.VM.add_to_xenstore_data rpc session_id vm (Printf.sprintf "vm-data/provision/interfaces/%d/ip" i)
-		  (Printf.sprintf "192.168.%d.%d" (i+pool.ipbase) n))) interfaces;
-      vm)
-  in
+	debug "Creating %d SDK VMs" pool.hosts;
+	let hosts = Array.init pool.hosts (
+		fun i -> 
+			let n = i + 1 in
+			let vm = Client.VM.clone rpc session_id template (Printf.sprintf "perftestpool%d" n) in
+			Client.VM.provision rpc session_id vm;
+			Array.iteri (fun i _ -> 
+				ignore(Client.VM.add_to_xenstore_data rpc session_id vm (Printf.sprintf "vm-data/provision/interfaces/%d/ip" i)
+					(Printf.sprintf "192.168.%d.%d" (i+pool.ipbase) n))) interfaces;
+			vm)
+	in
 
-  debug "Setting memory on master to be 256 Megs";
-  Client.VM.set_memory_static_max rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
-  Client.VM.set_memory_static_min rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
-  Client.VM.set_memory_dynamic_max rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
-  Client.VM.set_memory_dynamic_min rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
+	debug "Setting memory on master to be 256 Megs";
+	Client.VM.set_memory_static_max rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
+	Client.VM.set_memory_static_min rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
+	Client.VM.set_memory_dynamic_max rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
+	Client.VM.set_memory_dynamic_min rpc session_id hosts.(0) (Int64.mul 256L 1048576L);
 
-  Client.VM.add_to_other_config rpc session_id hosts.(0) master_of_pool pool.key;
-  Client.VM.add_to_other_config rpc session_id hosts.(0) management_ip (Printf.sprintf "192.168.%d.1" pool.ipbase);
+	Client.VM.add_to_other_config rpc session_id hosts.(0) master_of_pool pool.key;
+	Client.VM.add_to_other_config rpc session_id hosts.(0) management_ip (Printf.sprintf "192.168.%d.1" pool.ipbase);
 
-  let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
-  Array.iteri (fun i host -> debug "Starting VM %d" i; Client.VM.start_on rpc session_id host (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false) hosts;
+	let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
+	Array.iteri (fun i host -> debug "Starting VM %d" i; Client.VM.start_on rpc session_id host (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false) hosts;
 
-  ignore(Sys.command (Printf.sprintf "ifconfig %s 192.168.%d.200 up" (Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id interfaces.(0))) pool.ipbase));
+	ignore(Sys.command (Printf.sprintf "ifconfig %s 192.168.%d.200 up" (Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id interfaces.(0))) pool.ipbase));
 
-  reset_template session_id template;
+	reset_template session_id template;
 
-  debug "Guests are now booting...";
-  let pingable = Array.make (Array.length hosts) false in
-  let firstboot = Array.make (Array.length hosts) false in
-  let string_of_status () = 
-    String.implode 
-      (Array.to_list 
-	 (Array.mapi (fun i ping ->
-			let boot = firstboot.(i) in match ping, boot with
-			  | false, false -> '.'
-			  | true, false -> 'P'
-			  | true, true -> 'B'
-			  | _, _ -> '?') pingable)) in
+	debug "Guests are now booting...";
+	let pingable = Array.make (Array.length hosts) false in
+	let firstboot = Array.make (Array.length hosts) false in
+	let string_of_status () = 
+		String.implode 
+			(Array.to_list 
+				(Array.mapi (fun i ping ->
+					let boot = firstboot.(i) in match ping, boot with
+						| false, false -> '.'
+						| true, false -> 'P'
+						| true, true -> 'B'
+						| _, _ -> '?') pingable)) in
 
-  let has_guest_booted i vm =
-    let ip = Printf.sprintf "192.168.%d.%d" pool.ipbase (i+1) in
-    let is_pingable () = 
-      if pingable.(i) then true else begin
-	if Sys.command (Printf.sprintf "ping -W 1 -c 1 %s 2>/dev/null >/dev/null" ip) = 0 then begin
-	  pingable.(i) <- true;
-	  debug "Individual host status: %s" (string_of_status ());
-	  true
-	end else false
-      end in
-    let firstbooted () = 
-      if firstboot.(i) then true else begin
-	let rpc = remoterpc ip in
-	try
-	  let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in    
-	  finally
-	    (fun () ->
-	       let host = List.hd (Client.Host.get_all rpc s) in (* only one host because it hasn't joined the pool yet *)
-	       let other_config = Client.Host.get_other_config rpc s host in
-	       let key = "firstboot-complete" in
-	       (* Since these are 'fresh' hosts which have never booted, the key goes from missing -> present *)
-	       if List.mem_assoc key other_config then begin
-		 firstboot.(i) <- true;
-		 debug "Individual host status: %s" (string_of_status ());
-		 true;
-	       end else false
-	    )
-	    (fun () -> Client.Session.logout rpc s)
-	with _ -> false
-      end in
-    is_pingable () && (firstbooted ()) in
+	let has_guest_booted i vm =
+		let ip = Printf.sprintf "192.168.%d.%d" pool.ipbase (i+1) in
+		let is_pingable () = 
+			if pingable.(i) then true else begin
+				if Sys.command (Printf.sprintf "ping -W 1 -c 1 %s 2>/dev/null >/dev/null" ip) = 0 then begin
+					pingable.(i) <- true;
+					debug "Individual host status: %s" (string_of_status ());
+					true
+				end else false
+			end in
+		let firstbooted () = 
+			if firstboot.(i) then true else begin
+				let rpc = remoterpc ip in
+				try
+					let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in    
+					finally
+						(fun () ->
+							let host = List.hd (Client.Host.get_all rpc s) in (* only one host because it hasn't joined the pool yet *)
+							let other_config = Client.Host.get_other_config rpc s host in
+							let key = "firstboot-complete" in
+							(* Since these are 'fresh' hosts which have never booted, the key goes from missing -> present *)
+							if List.mem_assoc key other_config then begin
+								firstboot.(i) <- true;
+								debug "Individual host status: %s" (string_of_status ());
+								true;
+							end else false
+						)
+						(fun () -> Client.Session.logout rpc s)
+				with _ -> false
+			end in
+		is_pingable () && (firstbooted ()) in
 
-  let wait_until_guests_have_booted () = 
-    for i = 0 to Array.length pingable - 1 do
-      pingable.(i) <- false;
-    done;
-    let finished = ref false in
-    while not !finished do
-      finished := List.fold_left (&&) true (Array.to_list (Array.mapi has_guest_booted hosts));
-      Unix.sleep 20;    
-    done in
+	let wait_until_guests_have_booted () = 
+		for i = 0 to Array.length pingable - 1 do
+			pingable.(i) <- false;
+		done;
+		let finished = ref false in
+		while not !finished do
+			finished := List.fold_left (&&) true (Array.to_list (Array.mapi has_guest_booted hosts));
+			Unix.sleep 20;    
+		done in
 
-  wait_until_guests_have_booted ();
-  debug "Guests have booted; issuing Pool.joins.";
-
-  let host_uuids = Array.mapi (fun i vm -> 
-    let n = i + 1 in
-    let rpc = remoterpc (Printf.sprintf "192.168.%d.%d" pool.ipbase n) in
-    let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in
-    let h = List.hd (Client.Host.get_all rpc s) in
-    let u = Client.Host.get_uuid rpc s h in
-    debug "Setting name of host %d" n;
-    Client.Host.set_name_label rpc s h (Printf.sprintf "perftest host %d" i);
-    if i<>0 then begin
-      debug "Joining to pool";
-      Client.Pool.join rpc s (Printf.sprintf "192.168.%d.1" pool.ipbase) "root" "xensource"
-    end;
-    u
-  ) hosts in
-
-  let poolrpc = remoterpc (Printf.sprintf "192.168.%d.1" pool.ipbase) in
-  let poolses = Client.Session.login_with_password poolrpc "root" "xensource" "1.1" in
-
-  let vpool=List.hd (Client.Pool.get_all poolrpc poolses) in
-  Client.Pool.add_to_other_config poolrpc poolses vpool "scenario" pool_name;
-
-  debug "Waiting for all hosts to become live and enabled";
-  let hosts = Array.of_list (Client.Host.get_all poolrpc poolses) in
-  let live = Array.make (Array.length hosts) false in
-  let enabled = Array.make (Array.length hosts) false in
-  let string_of_status () = 
-    String.implode 
-      (Array.to_list 
-	 (Array.mapi (fun i live ->
-			let enabled = enabled.(i) in match live, enabled with
-			  | false, false -> '.'
-			  | true, false -> 'L'
-			  | true, true -> 'E'
-			  | _, _ -> '?') live)) in
-
-  let has_host_booted rpc session_id i host = 
-    try
-      if live.(i) && enabled.(i) then true else begin
-	let metrics = Client.Host.get_metrics rpc session_id host in
-	let live' = Client.Host_metrics.get_live rpc session_id metrics in
-	let enabled' = Client.Host.get_enabled rpc session_id host in
-	if live.(i) <> live' || enabled.(i) <> enabled' then debug "Individual host status: %s" (string_of_status ());
-	live.(i) <- live';
-	enabled.(i) <- enabled';
-	live' && enabled'
-      end
-    with _ -> false in
-  let finished = ref false in
-  while not !finished do
-    Unix.sleep 20;
-    finished := List.fold_left (&&) true (Array.to_list (Array.mapi (has_host_booted poolrpc poolses) hosts));
-  done;
-  debug "All hosts are ready.";
-
-  let mypool = List.hd (Client.Pool.get_all poolrpc poolses) in
-  let master = Client.Pool.get_master poolrpc poolses mypool in
-
-  let iscsi_vm_ip = CreateVM.make_iscsi_ip pool in
-
-  let xml = try
-      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
-	~device_config:["target",iscsi_vm_ip] 
-	~sm_config:[]
-	~_type:"lvmoiscsi"
-    with Api_errors.Server_error("SR_BACKEND_FAILURE_96",[a;b;xml]) ->
-      xml  
-  in
-  let iqns = parse_sr_probe_for_iqn xml in
-  if iqns = [] then failwith "iSCSI target VM failed again - maybe you should fix it this time?";
-  let iqn = List.hd iqns in
-  let xml = try
-      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
-	~device_config:["target",iscsi_vm_ip; "targetIQN",iqn] 
-	~sm_config:[]
-	~_type:"lvmoiscsi"
-    with Api_errors.Server_error("SR_BACKEND_FAILURE_107",[a;b;xml]) ->
-      xml  
-  in
-
-  (* Create an SR for each LUN found *)
-  Printf.printf "Creating LVMoISCSI SRs (one for each of %d LUNs)\n%!" pool.iscsi_luns;
-  let scsiids = Array.of_list (parse_sr_probe_for_scsiids xml) in
-  if Array.length scsiids <> pool.iscsi_luns then failwith (Printf.sprintf "We created %d VDIs on the iSCSI target VM but found %d LUNs" pool.iscsi_luns (Array.length scsiids));
-  let lun_srs = Array.init pool.iscsi_luns
-    (fun i ->
-      Printf.printf " - Creating shared LVMoISCSI SR %d...\n%!" i;
-      let name_label = Printf.sprintf "LVMoISCSI-%d" i in
-      Client.SR.create poolrpc poolses master ["target",iscsi_vm_ip; "targetIQN",iqn; "SCSIid",scsiids.(i)]
-        0L name_label "" "lvmoiscsi" "" true [])
-  in
-
-  let local_srs = Array.mapi (fun i host_uuid -> 
-    let h = Client.Host.get_by_uuid poolrpc poolses host_uuid in
-    let name_label = Printf.sprintf "Local LVM on host %d" i in
-    Client.SR.create poolrpc poolses h ["device","/dev/"^sr_disk_device] 0L name_label "" "lvm" "" false []) host_uuids
-  in
-
-  let pifs = Client.PIF.get_all poolrpc poolses in
-
-  let bondednets = Array.init pool.bonds (fun i ->
-    Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] [])
-  in
-
-  let unused_nets = ref (List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in
-
-  (* Reconfigure the master's networking last as this will be the most destructive *)
-  let master_uuid = Client.Host.get_uuid poolrpc poolses master in
-  let slave_uuids = List.filter (fun x -> x <> master_uuid) (Array.to_list host_uuids) in
-  let host_uuids = Array.of_list (slave_uuids @ [ master_uuid ]) in
-
-  let bonds = Array.mapi (fun i host_uuid ->
-    let host_ref = Client.Host.get_by_uuid poolrpc poolses host_uuid in
-    let pifs = List.filter (fun pif -> Client.PIF.get_host poolrpc poolses pif = host_ref) pifs in
-    Array.init pool.bonds (fun bnum ->
-      let device = Printf.sprintf "eth%d" (bnum*2) in
-      let device2 = Printf.sprintf "eth%d" (bnum*2 + 1) in
-      let master = List.find (fun pif -> Client.PIF.get_device poolrpc poolses pif = device) pifs in
-      let pifs = List.filter (fun pif -> let d = Client.PIF.get_device poolrpc poolses pif in d=device || d=device2) pifs in
-      let nets = List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs in
-      unused_nets := List.filter (fun net -> not (List.mem net nets)) !unused_nets;
-      let mac = Client.PIF.get_MAC poolrpc poolses master in
-      let bond = Client.Bond.create poolrpc poolses bondednets.(bnum) pifs mac in
-      let bondpif = Client.Bond.get_master poolrpc poolses bond in
-      Client.PIF.reconfigure_ip poolrpc poolses bondpif `Static (Client.PIF.get_IP poolrpc poolses master) "255.255.255.0" "" "";
-      if Client.PIF.get_management poolrpc poolses master then begin
-	(try Client.Host.management_reconfigure poolrpc poolses bondpif;
-	  with _ -> ());
-	debug "Reconfigured management interface to be on the bond.";
-	(* In case we've lost our network connection *)
 	wait_until_guests_have_booted ();
-      end;
-      bond
-    )
-  ) host_uuids in
-  debug "Waiting for all guests to be pingable again.";
-  wait_until_guests_have_booted ();
-  debug "Successfully pinged all virtual hosts.";
-  (* We'll use the Windows XP SP3 template to create the VMs required *)
+	debug "Guests have booted; issuing Pool.joins.";
 
-  let nets_for_vms = !unused_nets @ (Array.to_list bondednets) in
+	let host_uuids = Array.mapi (fun i vm -> 
+		let n = i + 1 in
+		let rpc = remoterpc (Printf.sprintf "192.168.%d.%d" pool.ipbase n) in
+		let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" in
+		let h = List.hd (Client.Host.get_all rpc s) in
+		let u = Client.Host.get_uuid rpc s h in
+		debug "Setting name of host %d" n;
+		Client.Host.set_name_label rpc s h (Printf.sprintf "perftest host %d" i);
+		if i<>0 then begin
+			debug "Joining to pool";
+			Client.Pool.join rpc s (Printf.sprintf "192.168.%d.1" pool.ipbase) "root" "xensource"
+		end;
+		u
+	) hosts in
 
-  debug "Nets for VMs: %s" (String.concat "," (List.map (fun net -> Client.Network.get_name_label poolrpc poolses net) nets_for_vms));
+	let poolrpc = remoterpc (Printf.sprintf "192.168.%d.1" pool.ipbase) in
+	let poolses = Client.Session.login_with_password poolrpc "root" "xensource" "1.1" in
 
-  let networks = Array.of_list nets_for_vms in
-  
-  Printf.printf "Creating VMs (%s)\n%!" (if pool.use_shared_storage then "on shared storage" else "on local storage");
-  let storages = if pool.use_shared_storage then lun_srs else local_srs in
-  List.iter (fun vm -> CreateVM.make ~rpc:poolrpc ~session_id:poolses ~networks ~storages ~pool ~vm) pool.vms
+	let vpool=List.hd (Client.Pool.get_all poolrpc poolses) in
+	Client.Pool.add_to_other_config poolrpc poolses vpool "scenario" pool_name;
+
+	debug "Waiting for all hosts to become live and enabled";
+	let hosts = Array.of_list (Client.Host.get_all poolrpc poolses) in
+	let live = Array.make (Array.length hosts) false in
+	let enabled = Array.make (Array.length hosts) false in
+	let string_of_status () = 
+		String.implode 
+			(Array.to_list 
+				(Array.mapi (fun i live ->
+					let enabled = enabled.(i) in match live, enabled with
+						| false, false -> '.'
+						| true, false -> 'L'
+						| true, true -> 'E'
+						| _, _ -> '?') live)) in
+
+	let has_host_booted rpc session_id i host = 
+		try
+			if live.(i) && enabled.(i) then true else begin
+				let metrics = Client.Host.get_metrics rpc session_id host in
+				let live' = Client.Host_metrics.get_live rpc session_id metrics in
+				let enabled' = Client.Host.get_enabled rpc session_id host in
+				if live.(i) <> live' || enabled.(i) <> enabled' then debug "Individual host status: %s" (string_of_status ());
+				live.(i) <- live';
+				enabled.(i) <- enabled';
+				live' && enabled'
+			end
+		with _ -> false in
+	let finished = ref false in
+	while not !finished do
+		Unix.sleep 20;
+		finished := List.fold_left (&&) true (Array.to_list (Array.mapi (has_host_booted poolrpc poolses) hosts));
+	done;
+	debug "All hosts are ready.";
+
+	let mypool = List.hd (Client.Pool.get_all poolrpc poolses) in
+	let master = Client.Pool.get_master poolrpc poolses mypool in
+
+	let iscsi_vm_ip = CreateVM.make_iscsi_ip pool in
+
+	let xml = try
+		Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
+			~device_config:["target",iscsi_vm_ip] 
+			~sm_config:[]
+			~_type:"lvmoiscsi"
+	with Api_errors.Server_error("SR_BACKEND_FAILURE_96",[a;b;xml]) ->
+		xml  
+	in
+	let iqns = parse_sr_probe_for_iqn xml in
+	if iqns = [] then failwith "iSCSI target VM failed again - maybe you should fix it this time?";
+	let iqn = List.hd iqns in
+	let xml = try
+		Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
+			~device_config:["target",iscsi_vm_ip; "targetIQN",iqn] 
+			~sm_config:[]
+			~_type:"lvmoiscsi"
+	with Api_errors.Server_error("SR_BACKEND_FAILURE_107",[a;b;xml]) ->
+		xml
+	in
+
+	(* Create an SR for each LUN found *)
+	Printf.printf "Creating LVMoISCSI SRs (one for each of %d LUNs)\n%!" pool.iscsi_luns;
+	let scsiids = Array.of_list (parse_sr_probe_for_scsiids xml) in
+	if Array.length scsiids <> pool.iscsi_luns then failwith (Printf.sprintf "We created %d VDIs on the iSCSI target VM but found %d LUNs" pool.iscsi_luns (Array.length scsiids));
+	let lun_srs = Array.init pool.iscsi_luns
+		(fun i ->
+			Printf.printf " - Creating shared LVMoISCSI SR %d...\n%!" i;
+			let name_label = Printf.sprintf "LVMoISCSI-%d" i in
+			Client.SR.create poolrpc poolses master ["target",iscsi_vm_ip; "targetIQN",iqn; "SCSIid",scsiids.(i)]
+				0L name_label "" "lvmoiscsi" "" true [])
+	in
+
+	let local_srs = Array.mapi (fun i host_uuid -> 
+		let h = Client.Host.get_by_uuid poolrpc poolses host_uuid in
+		let name_label = Printf.sprintf "Local LVM on host %d" i in
+		Client.SR.create poolrpc poolses h ["device","/dev/"^sr_disk_device] 0L name_label "" "lvm" "" false []) host_uuids
+	in
+
+	let pifs = Client.PIF.get_all poolrpc poolses in
+
+	let bondednets = Array.init pool.bonds (fun i ->
+		Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] [])
+	in
+
+	let unused_nets = ref (List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in
+
+	(* Reconfigure the master's networking last as this will be the most destructive *)
+	let master_uuid = Client.Host.get_uuid poolrpc poolses master in
+	let slave_uuids = List.filter (fun x -> x <> master_uuid) (Array.to_list host_uuids) in
+	let host_uuids = Array.of_list (slave_uuids @ [ master_uuid ]) in
+
+	let bonds = Array.mapi (fun i host_uuid ->
+		let host_ref = Client.Host.get_by_uuid poolrpc poolses host_uuid in
+		let pifs = List.filter (fun pif -> Client.PIF.get_host poolrpc poolses pif = host_ref) pifs in
+		Array.init pool.bonds (fun bnum ->
+			let device = Printf.sprintf "eth%d" (bnum*2) in
+			let device2 = Printf.sprintf "eth%d" (bnum*2 + 1) in
+			let master = List.find (fun pif -> Client.PIF.get_device poolrpc poolses pif = device) pifs in
+			let pifs = List.filter (fun pif -> let d = Client.PIF.get_device poolrpc poolses pif in d=device || d=device2) pifs in
+			let nets = List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs in
+			unused_nets := List.filter (fun net -> not (List.mem net nets)) !unused_nets;
+			let mac = Client.PIF.get_MAC poolrpc poolses master in
+			let bond = Client.Bond.create poolrpc poolses bondednets.(bnum) pifs mac in
+			let bondpif = Client.Bond.get_master poolrpc poolses bond in
+			Client.PIF.reconfigure_ip poolrpc poolses bondpif `Static (Client.PIF.get_IP poolrpc poolses master) "255.255.255.0" "" "";
+			if Client.PIF.get_management poolrpc poolses master then begin
+				(try Client.Host.management_reconfigure poolrpc poolses bondpif;
+				with _ -> ());
+				debug "Reconfigured management interface to be on the bond.";
+				(* In case we've lost our network connection *)
+				wait_until_guests_have_booted ();
+			end;
+			bond
+		)
+	) host_uuids in
+	debug "Waiting for all guests to be pingable again.";
+	wait_until_guests_have_booted ();
+	debug "Successfully pinged all virtual hosts.";
+	(* We'll use the Windows XP SP3 template to create the VMs required *)
+
+	let nets_for_vms = !unused_nets @ (Array.to_list bondednets) in
+
+	debug "Nets for VMs: %s" (String.concat "," (List.map (fun net -> Client.Network.get_name_label poolrpc poolses net) nets_for_vms));
+
+	let networks = Array.of_list nets_for_vms in
+
+	Printf.printf "Creating VMs (%s)\n%!" (if pool.use_shared_storage then "on shared storage" else "on local storage");
+	let storages = if pool.use_shared_storage then lun_srs else local_srs in
+	List.iter (fun vm -> CreateVM.make ~rpc:poolrpc ~session_id:poolses ~networks ~storages ~pool ~vm) pool.vms
 
 let create_pool session_id sdkname pool_name key ipbase =
 	iscsi_vm_iso_must_exist session_id;
