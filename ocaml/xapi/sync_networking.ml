@@ -122,25 +122,28 @@ let copy_bonds_from_master ~__context =
    PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
 *)
 let copy_vlans_from_master ~__context =
-	Helpers.call_api_functions ~__context (fun rpc session_id ->
-		debug "Resynchronising VLANs";
+      Helpers.call_api_functions ~__context
+		  (fun rpc session_id ->
+			  debug "Resynchronising VLANs";
+			  (* 1. Download data from the master, minimising round-trips *)
+			  let me = !Xapi_globs.localhost_ref in
+			  let pool = Helpers.get_pool ~__context in
+			  let master = Db.Pool.get_master ~__context ~self:pool in
+			  let pifs = Db.PIF.get_all_records ~__context in
+			  let vlans = Db.VLAN.get_all_records ~__context in
+			  (* 2. Make lists and lookup tables *)
+			  let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) pifs in
+			  let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) pifs in
+			  let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
+			  let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
 
-		let me = !Xapi_globs.localhost_ref in
-		let pool = List.hd (Db.Pool.get_all ~__context) in
-		let master = Db.Pool.get_master ~__context ~self:pool in
-
-		let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
-		let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) all_pifs in
-		let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) all_pifs in
-
-		let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
-		let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
-
-		let get_network_of_pif_underneath_vlan vlan_pif_ref =
-			let pif_underneath_vlan = Helpers.get_pif_underneath_vlan ~__context vlan_pif_ref in
-			let network_of_pif_underneath_vlan = Db.PIF.get_network ~__context ~self:pif_underneath_vlan in
-			network_of_pif_underneath_vlan
-		in
+			  let get_network_of_pif_underneath_vlan vlan_pif_ref =
+				  let pif_r = List.assoc vlan_pif_ref pifs in
+				  let vlan = pif_r.API.pIF_VLAN_master_of in
+				  let vlan_r = List.assoc vlan vlans in
+				  let pif_underneath_vlan = vlan_r.API.vLAN_tagged_PIF in
+				  let pif_underneath_vlan_r = List.assoc pif_underneath_vlan pifs in
+				  pif_underneath_vlan_r.API.pIF_network in
 
 		let maybe_create_vlan_pif_for_me (master_pif_ref, master_pif_rec) =
 			(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
