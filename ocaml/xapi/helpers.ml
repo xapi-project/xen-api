@@ -257,7 +257,7 @@ let rolling_upgrade_in_progress ~__context =
 		false
 
 (** Fetch the configuration the VM was booted with *)
-let get_boot_record_of_record ~string:lbr ~uuid:current_vm_uuid =
+let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
   try
     try
       begin
@@ -272,12 +272,11 @@ let get_boot_record_of_record ~string:lbr ~uuid:current_vm_uuid =
         end
   with e -> 
     warn "Warning: exception '%s' parsing last booted record - returning current record instead" (ExnHelper.string_of_exn e);
-    Server_helpers.exec_with_new_task "getting last booted record" (fun __context ->
-      Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid))
+      Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
 
 let get_boot_record ~__context ~self = 
   let r = Db.VM.get_record_internal ~__context ~self in  
-  let lbr = get_boot_record_of_record r.Db_actions.vM_last_booted_record r.Db_actions.vM_uuid in
+  let lbr = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
   (* CA-31903: we now use an unhealthy mix of fields from the boot_records and the live VM.
      In particular the VM is currently using dynamic_min and max from the live VM -- not the boot-time settings. *)
   { lbr with 
@@ -360,10 +359,10 @@ let has_booted_hvm ~__context ~self =
     let boot_record = get_boot_record ~__context ~self in
     boot_record.API.vM_HVM_boot_policy <> ""
 
-let has_booted_hvm_of_record r =
+let has_booted_hvm_of_record ~__context r =
   (not (r.Db_actions.vM_is_control_domain))
   &&
-    let boot_record = get_boot_record_of_record r.Db_actions.vM_last_booted_record r.Db_actions.vM_uuid in
+    let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
     boot_record.API.vM_HVM_boot_policy <> ""
    
 let device_protocol_of_string domarch =
