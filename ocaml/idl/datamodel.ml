@@ -6706,13 +6706,44 @@ let _ = Dm_api.check all_api (List.map (fun (obj,msg) -> obj.name, msg.msg_name)
 (** List of classes to skip generating async handlers for *)
 let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_source; _blob ]
 
-(** List of classes to generate 'get_all' messages for (currently we don't allow
-    a user to enumerate all the VBDs or VDIs directly: that must be through a VM
-    or SR *)
-let expose_get_all_messages_for = [ _task; (* _alert; *) _host; _host_metrics; _hostcpu; _sr; _vm; _vm_metrics; _vm_guest_metrics;
-	_network; _vif; _vif_metrics; _pif; _pif_metrics; _pbd; _vdi; _vbd; _vbd_metrics; _console; 
-	_crashdump; _host_crashdump; _host_patch; _pool; _sm; _pool_patch; _bond; _vlan; _blob; _subject; _role; _secret; _tunnel; _vmpp; ]
-
+(** List of classes to generate 'get_all' messages for. Currently we don't
+ ** allow a user to enumerate all the VBDs or VDIs directly: that must be
+ ** through a VM or SR. *)
+let expose_get_all_messages_for = [
+	_task;
+	(* _alert; *)
+	_host;
+	_host_metrics;
+	_hostcpu;
+	_sr;
+	_vm;
+	_vm_metrics;
+	_vm_guest_metrics;
+	_network;
+	_vif;
+	_vif_metrics;
+	_pif;
+	_pif_metrics;
+	_pbd;
+	_vdi;
+	_vbd;
+	_vbd_metrics;
+	_console; 
+	_crashdump;
+	_host_crashdump;
+	_host_patch;
+	_pool;
+	_sm;
+	_pool_patch;
+	_bond;
+	_vlan;
+	_blob;
+	_subject;
+	_role;
+	_secret;
+	_tunnel;
+	_vmpp;
+]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
 
