@@ -267,72 +267,72 @@ let compare_snapshots session_id test one two =
 
 (* CA-24232 serialising VBD.pause VBD.unpause *)
 let vbd_pause_unpause_test session_id vm =
-  let vm = Client.VM.clone !rpc session_id vm "vbd-pause-unpause-test" in
-  let test = make_test "VBD.pause and VBD.unpause" 1 in
-  start test;
-  finally
-    (fun () ->
-       let vbds = Client.VM.get_VBDs !rpc session_id vm in
-       (* CA-24275 *)
-       debug test "VBD.pause should fail for offline VMs";
-       let vbd = List.hd vbds in
-       begin
-	 try
-	   ignore(Client.VBD.pause !rpc session_id vbd);
-	   failed test "VBD.pause should not have succeeded";
-	 with 
-	 | (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-	 | e ->
-	     failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-       end;
-       debug test "VBD.unpause should fail for offline VMs";
-       begin
-	 try
-	   ignore(Client.VBD.unpause !rpc session_id vbd "");
-	   failed test "VBD.unpause should not have succeeded";
-	 with 
-	 | (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-	 | e ->
-	     failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-       end;
-       debug test "Starting VM";
-       Client.VM.start !rpc session_id vm false false;
-       debug test "A solitary unpause should succeed";
-       Client.VBD.unpause !rpc session_id vbd "";
-       debug test "100 pause/unpause cycles should succeed";
-       for i = 0 to 100 do
-	 let token = Client.VBD.pause !rpc session_id vbd in
-	 Client.VBD.unpause !rpc session_id vbd token
-       done;
-       debug test "force-shutdown should still work even if a device is paused";
-       debug test "pausing device";
-       let token = Client.VBD.pause !rpc session_id vbd in
-       debug test "performing hard shutdown";
-       let (_: unit) = Client.VM.hard_shutdown !rpc session_id vm in
-       begin
-	 try
-	   ignore(Client.VBD.unpause !rpc session_id vbd "");
-	   failed test "VBD.unpause should not have succeeded";
-	 with 
-	 | (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-	 | e ->
-	     failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-       end;
-       debug test "starting VM again";
-       try
-	 Client.VM.start !rpc session_id vm false false;
-	 Client.VBD.unpause !rpc session_id vbd token;
-       with 
-       | Api_errors.Server_error(code, params) as e -> 
-	   debug test (Printf.sprintf "Api_error %s [ %s ]" code (String.concat "; " params));
-	   raise e
-       | e ->
-	   debug test (Printf.sprintf "Exception: %s" (Printexc.to_string e));
-	   raise e
-    ) (fun () -> 
-	 Client.VM.hard_shutdown !rpc session_id vm;
-	 vm_uninstall test session_id vm);
-  success test
+	let vm = Client.VM.clone !rpc session_id vm "vbd-pause-unpause-test" in
+	let test = make_test "VBD.pause and VBD.unpause" 1 in
+	start test;
+	finally
+		(fun () ->
+			let vbds = Client.VM.get_VBDs !rpc session_id vm in
+			(* CA-24275 *)
+			debug test "VBD.pause should fail for offline VMs";
+			let vbd = List.hd vbds in
+			begin
+				try
+					ignore(Client.VBD.pause !rpc session_id vbd);
+					failed test "VBD.pause should not have succeeded";
+				with 
+					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
+					| e ->
+						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
+			end;
+			debug test "VBD.unpause should fail for offline VMs";
+			begin
+				try
+					ignore(Client.VBD.unpause !rpc session_id vbd "");
+					failed test "VBD.unpause should not have succeeded";
+				with 
+					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
+					| e ->
+						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
+			end;
+			debug test "Starting VM";
+			Client.VM.start !rpc session_id vm false false;
+			debug test "A solitary unpause should succeed";
+			Client.VBD.unpause !rpc session_id vbd "";
+			debug test "100 pause/unpause cycles should succeed";
+			for i = 0 to 100 do
+				let token = Client.VBD.pause !rpc session_id vbd in
+				Client.VBD.unpause !rpc session_id vbd token
+			done;
+			debug test "force-shutdown should still work even if a device is paused";
+			debug test "pausing device";
+			let token = Client.VBD.pause !rpc session_id vbd in
+			debug test "performing hard shutdown";
+			let (_: unit) = Client.VM.hard_shutdown !rpc session_id vm in
+			begin
+				try
+					ignore(Client.VBD.unpause !rpc session_id vbd "");
+					failed test "VBD.unpause should not have succeeded";
+				with 
+					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
+					| e ->
+						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
+			end;
+			debug test "starting VM again";
+			try
+				Client.VM.start !rpc session_id vm false false;
+				Client.VBD.unpause !rpc session_id vbd token;
+			with 
+				| Api_errors.Server_error(code, params) as e -> 
+					debug test (Printf.sprintf "Api_error %s [ %s ]" code (String.concat "; " params));
+					raise e
+				| e ->
+					debug test (Printf.sprintf "Exception: %s" (Printexc.to_string e));
+					raise e
+		) (fun () -> 
+			Client.VM.hard_shutdown !rpc session_id vm;
+			vm_uninstall test session_id vm);
+	success test
 
 let read_sys path = Stringext.String.strip Stringext.String.isspace (Unixext.string_of_file path)
 
@@ -379,145 +379,145 @@ let rec wait_for_task_complete session_id task =
 
 (* CP-831 *)
 let test_vhd_locking_hook session_id vm =
-  let test = make_test "test vhd locking hook" 2 in
-  start test;
-  Client.VM.start !rpc session_id vm false false;
-  (* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
-  let vbds = Client.VM.get_VBDs !rpc session_id vm in
-  let vdis = List.map (fun vbd -> Client.VBD.get_VDI !rpc session_id vbd) vbds in
+	let test = make_test "test vhd locking hook" 2 in
+	start test;
+	Client.VM.start !rpc session_id vm false false;
+	(* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
+	let vbds = Client.VM.get_VBDs !rpc session_id vm in
+	let vdis = List.map (fun vbd -> Client.VBD.get_VDI !rpc session_id vbd) vbds in
 
-  let pool = get_pool session_id in
-  let default_SR = Client.Pool.get_default_SR !rpc session_id pool in
-  let new_vdi = Client.VDI.create !rpc session_id "lvhd_testvdi"
-    "description" default_SR 4194304L `user false false [] [] [] [] in
-  let new_vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:new_vdi ~userdevice:"9" ~bootable:false
-    ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""] 
-    ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
-  
-  (* In a background thread plug/unplug the new VBD to cause some transient locking failures *)
-  let start = Unix.gettimeofday () in
-  debug test "Starting up conflicting thread in the background";
-  let total_bg_ops = ref 0 in
-  let t = Thread.create
-    (fun () ->
-       while Unix.gettimeofday () -. start < 30. do
-	 (* We throw away exceptions because unplugs can fail (if the guest isn't ready) and this causes the
-	    next plug to fail. We use asynchronous operations because we are sharing a single HTTP connection to the
-	    master and we genuinely want the operations to (attempt to) execute in parallel *)
-	 let task = Client.Async.VBD.plug !rpc session_id new_vbd in
-	 incr total_bg_ops;
-	 wait_for_task_complete session_id task;
-	 let task = Client.Async.VBD.unplug !rpc session_id new_vbd in
-	 incr total_bg_ops;
-	 wait_for_task_complete session_id task
-       done) () in
-  (* Give the background thread a chance to start *)
-  Thread.delay 1.5;
-  (* Verify that the function 'test' can be called in the script *)
-  
-  while Unix.gettimeofday () -. start < 30. do
-    let start' = Unix.gettimeofday () in
-    let result = Client.SR.lvhd_stop_using_these_vdis_and_call_script !rpc session_id vdis "echo" "main" [ ] in
-    debug test (Printf.sprintf "lvhd-script-hook tool %.2f seconds; output was: %s" (Unix.gettimeofday () -. start') result);
-  done;
-  Thread.join t;
-  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
-  success test
+	let pool = get_pool session_id in
+	let default_SR = Client.Pool.get_default_SR !rpc session_id pool in
+	let new_vdi = Client.VDI.create !rpc session_id "lvhd_testvdi"
+		"description" default_SR 4194304L `user false false [] [] [] [] in
+	let new_vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:new_vdi ~userdevice:"9" ~bootable:false
+		~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""] 
+		~qos_algorithm_type:"" ~qos_algorithm_params:[] in
+	
+	(* In a background thread plug/unplug the new VBD to cause some transient locking failures *)
+	let start = Unix.gettimeofday () in
+	debug test "Starting up conflicting thread in the background";
+	let total_bg_ops = ref 0 in
+	let t = Thread.create
+		(fun () ->
+			while Unix.gettimeofday () -. start < 30. do
+				(* We throw away exceptions because unplugs can fail (if the guest isn't ready) and this causes the
+				   next plug to fail. We use asynchronous operations because we are sharing a single HTTP connection to the
+				   master and we genuinely want the operations to (attempt to) execute in parallel *)
+				let task = Client.Async.VBD.plug !rpc session_id new_vbd in
+				incr total_bg_ops;
+				wait_for_task_complete session_id task;
+				let task = Client.Async.VBD.unplug !rpc session_id new_vbd in
+				incr total_bg_ops;
+				wait_for_task_complete session_id task
+			done) () in
+	(* Give the background thread a chance to start *)
+	Thread.delay 1.5;
+	(* Verify that the function 'test' can be called in the script *)
+	
+	while Unix.gettimeofday () -. start < 30. do
+		let start' = Unix.gettimeofday () in
+		let result = Client.SR.lvhd_stop_using_these_vdis_and_call_script !rpc session_id vdis "echo" "main" [ ] in
+		debug test (Printf.sprintf "lvhd-script-hook tool %.2f seconds; output was: %s" (Unix.gettimeofday () -. start') result);
+	done;
+	Thread.join t;
+	debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
+	success test
 
 let powercycle_test session_id vm = 
-  let test = make_test "Powercycling VM" 1 in
-  start test;
-  (* avoid the race whereby reboot requests are ignored if too early *)
-  let delay () = 
-    debug test "Pausing for 10s";
-    Thread.delay 10. in
-  debug test (Printf.sprintf "Trying to enable VM.clone for suspended VMs pool-wide");
-  let pool = get_pool session_id in
-  let enabled_csvm = 
-    try Client.Pool.add_to_other_config !rpc session_id pool "allow_clone_suspended_vm" "true"; true
-    with _ -> false in
-  finally
-    (fun () ->
-       (* We play with three VMs:
-	  1. a clean install of a VM                         (vm)
-	  2. a suspended clone of (1)                        (vm')
-	  3. a metadata import of the metadata export of (2) (vm'')
-       *)
-       debug test "Starting VM";
-       Client.VM.start !rpc session_id vm false false;
-       delay ();
-       debug test "Rebooting VM";
-       Client.VM.clean_reboot !rpc session_id vm;
-       delay ();
-       debug test "Shutting down VM";
-       Client.VM.clean_shutdown !rpc session_id vm;
-       debug test "Starting VM again";
-       Client.VM.start !rpc session_id vm false false;
-       verify_network_connectivity session_id test vm;
-       delay ();
-       debug test "Setting shadow-multiplier live to 10.";
-       Client.VM.set_shadow_multiplier_live !rpc session_id vm 10.;
-       delay ();
-       debug test "Suspending VM";
-       Client.VM.suspend !rpc session_id vm;
-       debug test "Cloning suspended VM";
-       let vm' = Client.VM.clone !rpc session_id vm "clone-suspended-test" in
-       debug test "Snapshoting the VM twice";
-       let snap1 = Client.VM.snapshot !rpc session_id vm' "snap1" in
-       let snap2 = Client.VM.snapshot !rpc session_id vm' "snap2" in
+	let test = make_test "Powercycling VM" 1 in
+	start test;
+	(* avoid the race whereby reboot requests are ignored if too early *)
+	let delay () = 
+		debug test "Pausing for 10s";
+		Thread.delay 10. in
+	debug test (Printf.sprintf "Trying to enable VM.clone for suspended VMs pool-wide");
+	let pool = get_pool session_id in
+	let enabled_csvm = 
+		try Client.Pool.add_to_other_config !rpc session_id pool "allow_clone_suspended_vm" "true"; true
+		with _ -> false in
+	finally
+		(fun () ->
+			(* We play with three VMs:
+			   1. a clean install of a VM                         (vm)
+			   2. a suspended clone of (1)                        (vm')
+			   3. a metadata import of the metadata export of (2) (vm'')
+			*)
+			debug test "Starting VM";
+			Client.VM.start !rpc session_id vm false false;
+			delay ();
+			debug test "Rebooting VM";
+			Client.VM.clean_reboot !rpc session_id vm;
+			delay ();
+			debug test "Shutting down VM";
+			Client.VM.clean_shutdown !rpc session_id vm;
+			debug test "Starting VM again";
+			Client.VM.start !rpc session_id vm false false;
+			verify_network_connectivity session_id test vm;
+			delay ();
+			debug test "Setting shadow-multiplier live to 10.";
+			Client.VM.set_shadow_multiplier_live !rpc session_id vm 10.;
+			delay ();
+			debug test "Suspending VM";
+			Client.VM.suspend !rpc session_id vm;
+			debug test "Cloning suspended VM";
+			let vm' = Client.VM.clone !rpc session_id vm "clone-suspended-test" in
+			debug test "Snapshoting the VM twice";
+			let snap1 = Client.VM.snapshot !rpc session_id vm' "snap1" in
+			let snap2 = Client.VM.snapshot !rpc session_id vm' "snap2" in
 
-       debug test "Comparing original, clone VIF configuration";
-       compare_vifs session_id test vm vm';
-       debug test "Comparing original, clone VM configuration";
-       compare_vms session_id test vm vm';
+			debug test "Comparing original, clone VIF configuration";
+			compare_vifs session_id test vm vm';
+			debug test "Comparing original, clone VM configuration";
+			compare_vms session_id test vm vm';
 
-       debug test "Importing metadata export of cloned suspended VM";
-       Unixext.unlink_safe export_filename;
-       vm_export ~metadata_only:true test session_id vm' export_filename;
-       let vms = vm_import ~metadata_only:true test session_id export_filename in
-       let vm'' = List.find (fun vm -> Client.VM.get_name_label !rpc session_id vm = "clone-suspended-test") vms in
-       debug test "Comparing clone, import VIF configuration";
-       compare_vifs session_id test vm' vm'';
-       debug test "Comparing clone, import VBD configuration";
-       compare_vbds session_id test vm' vm'';
-       debug test "Comparing clone, import VM configuration";
-       compare_vms session_id test vm' vm'';
-       debug test "Comparing clone, import snapshot configuration";
-       compare_snapshots session_id test vm' vm'';
-       debug test "Comparing original, import VIF configuration";
-       compare_vifs session_id test vm vm'';
-       debug test "Comparing original, import VM configuration";
-       compare_vms session_id test vm vm'';
+			debug test "Importing metadata export of cloned suspended VM";
+			Unixext.unlink_safe export_filename;
+			vm_export ~metadata_only:true test session_id vm' export_filename;
+			let vms = vm_import ~metadata_only:true test session_id export_filename in
+			let vm'' = List.find (fun vm -> Client.VM.get_name_label !rpc session_id vm = "clone-suspended-test") vms in
+			debug test "Comparing clone, import VIF configuration";
+			compare_vifs session_id test vm' vm'';
+			debug test "Comparing clone, import VBD configuration";
+			compare_vbds session_id test vm' vm'';
+			debug test "Comparing clone, import VM configuration";
+			compare_vms session_id test vm' vm'';
+			debug test "Comparing clone, import snapshot configuration";
+			compare_snapshots session_id test vm' vm'';
+			debug test "Comparing original, import VIF configuration";
+			compare_vifs session_id test vm vm'';
+			debug test "Comparing original, import VM configuration";
+			compare_vms session_id test vm vm'';
 
-       debug test "Resuming original VM";
-       Client.VM.resume !rpc session_id vm false false;
-       verify_network_connectivity session_id test vm;
-       let host = Client.VM.get_resident_on !rpc session_id vm in
-       debug test "Performing localhost migrate of original VM";
-       Client.VM.pool_migrate !rpc session_id vm host [];
-       verify_network_connectivity session_id test vm;
-       debug test "Shutting down original VM";
-       Client.VM.clean_shutdown !rpc session_id vm;
-       debug test "Resuming imported VM";
-       Client.VM.resume !rpc session_id vm'' false false;
-       verify_network_connectivity session_id test vm'';
-       debug test "Shutting down imported VMs";
-       List.iter (fun vm -> if Client.VM.get_power_state !rpc session_id vm <> `Halted then Client.VM.hard_shutdown !rpc session_id vm) vms;
- 
-       (* Keep the imported VM and chuck away the clone *)
-       (* NB cannot do this earlier because the suspend VDI would be destroyed
-	  and prevent the other VM being resumed *)
-       Client.VM.hard_shutdown !rpc session_id vm';
-       vm_uninstall test session_id vm';
+			debug test "Resuming original VM";
+			Client.VM.resume !rpc session_id vm false false;
+			verify_network_connectivity session_id test vm;
+			let host = Client.VM.get_resident_on !rpc session_id vm in
+			debug test "Performing localhost migrate of original VM";
+			Client.VM.pool_migrate !rpc session_id vm host [];
+			verify_network_connectivity session_id test vm;
+			debug test "Shutting down original VM";
+			Client.VM.clean_shutdown !rpc session_id vm;
+			debug test "Resuming imported VM";
+			Client.VM.resume !rpc session_id vm'' false false;
+			verify_network_connectivity session_id test vm'';
+			debug test "Shutting down imported VMs";
+			List.iter (fun vm -> if Client.VM.get_power_state !rpc session_id vm <> `Halted then Client.VM.hard_shutdown !rpc session_id vm) vms;
+			
+			(* Keep the imported VM and chuck away the clone *)
+			(* NB cannot do this earlier because the suspend VDI would be destroyed
+			   and prevent the other VM being resumed *)
+			Client.VM.hard_shutdown !rpc session_id vm';
+			vm_uninstall test session_id vm';
 
-       debug test "Uninstalling imported VMs";
-       List.iter (vm_uninstall test session_id) vms;
-       success test;
-    ) (fun () ->
-	 if enabled_csvm then begin
-	   debug test (Printf.sprintf "Disabling VM.clone for suspended VMs pool-wide");
-	   Client.Pool.remove_from_other_config !rpc session_id pool "allow_clone_suspended_vm"
-	 end)
+			debug test "Uninstalling imported VMs";
+			List.iter (vm_uninstall test session_id) vms;
+			success test;
+		) (fun () ->
+			if enabled_csvm then begin
+				debug test (Printf.sprintf "Disabling VM.clone for suspended VMs pool-wide");
+				Client.Pool.remove_from_other_config !rpc session_id pool "allow_clone_suspended_vm"
+			end)
 
 (* Make a VDI, find a host to put it on, create a VBD to dom0 on that host,
  * Attach, Unattach, destroy VBD, destroy VDI *)

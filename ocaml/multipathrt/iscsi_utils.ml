@@ -36,41 +36,41 @@ let assert_sr_exists rpc session_id sr name =
   try Client.SR.get_record rpc session_id sr; () with _ -> raise (Multipathrt_exceptions.Test_error (Printf.sprintf "%s does not exist" name))
 
 let make_iscsi rpc session_id iscsi_luns num_vifs sr_disk_size key network =
-  let iscsi_iso = match find_iscsi_iso rpc session_id with
-    | Some vdi -> vdi
-    | None -> failwith "iSCSI VM iso not found" in
-  let template = List.hd (Client.VM.get_by_name_label rpc session_id iscsi_vm_template) in
-  let newvm = Client.VM.clone rpc session_id template "ISCSI target server" in
-  try
-    Client.VM.provision rpc session_id newvm;
-    let isovbd = Client.VBD.create rpc session_id newvm iscsi_iso "0" true `RO `CD false false [] "" [] in
-    let realpool = List.hd (Client.Pool.get_all rpc session_id) in
-    let defaultsr = Client.Pool.get_default_SR rpc session_id realpool in
-    assert_sr_exists rpc session_id defaultsr "pool's default SR";
+	let iscsi_iso = match find_iscsi_iso rpc session_id with
+		| Some vdi -> vdi
+		| None -> failwith "iSCSI VM iso not found" in
+	let template = List.hd (Client.VM.get_by_name_label rpc session_id iscsi_vm_template) in
+	let newvm = Client.VM.clone rpc session_id template "ISCSI target server" in
+	try
+		Client.VM.provision rpc session_id newvm;
+		let isovbd = Client.VBD.create rpc session_id newvm iscsi_iso "0" true `RO `CD false false [] "" [] in
+		let realpool = List.hd (Client.Pool.get_all rpc session_id) in
+		let defaultsr = Client.Pool.get_default_SR rpc session_id realpool in
+		assert_sr_exists rpc session_id defaultsr "pool's default SR";
 
-    for i = 0 to iscsi_luns - 1 do
-      let storage_vdi_label = Printf.sprintf "SCSI VDI %d" i in
-      let storage_vdi = Client.VDI.create rpc session_id storage_vdi_label "" defaultsr sr_disk_size `user false false [oc_key,key] [] [] [] in
-      let userdevice = Printf.sprintf "%d" (i+1) in
-      Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW `Disk false false [] "" []
-    done;
+		for i = 0 to iscsi_luns - 1 do
+			let storage_vdi_label = Printf.sprintf "SCSI VDI %d" i in
+			let storage_vdi = Client.VDI.create rpc session_id storage_vdi_label "" defaultsr sr_disk_size `user false false [oc_key,key] [] [] [] in
+			let userdevice = Printf.sprintf "%d" (i+1) in
+			Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW `Disk false false [] "" []
+		done;
 
-    Client.VM.set_PV_bootloader rpc session_id newvm "pygrub";
-    Client.VM.set_HVM_boot_policy rpc session_id newvm "";
+		Client.VM.set_PV_bootloader rpc session_id newvm "pygrub";
+		Client.VM.set_HVM_boot_policy rpc session_id newvm "";
 
-    for i = 0 to num_vifs - 1 do
-      ignore (Client.VIF.create rpc session_id (string_of_int i) network newvm "" 1500L [oc_key,key] "" [])
-    done;
+		for i = 0 to num_vifs - 1 do
+			ignore (Client.VIF.create rpc session_id (string_of_int i) network newvm "" 1500L [oc_key,key] "" [])
+		done;
 
-    Client.VM.add_to_other_config rpc session_id newvm oc_key key;
-    Client.VM.start rpc session_id newvm false false;
-    newvm
-  with e ->
-    debug "Caught exception with iscsi VM: %s" (Printexc.to_string e);
-    debug "Trying to clean up iscsi VM...";
-    (try Client.VM.destroy rpc session_id newvm with _ -> ());
-    raise e
- 
+		Client.VM.add_to_other_config rpc session_id newvm oc_key key;
+		Client.VM.start rpc session_id newvm false false;
+		newvm
+	with e ->
+		debug "Caught exception with iscsi VM: %s" (Printexc.to_string e);
+		debug "Trying to clean up iscsi VM...";
+		(try Client.VM.destroy rpc session_id newvm with _ -> ());
+		raise e
+
 (* --------------- iSCSI SR probe helper functions --------------- *)
 (* Copied and pasted from perftest/perfutil.ml *)
 

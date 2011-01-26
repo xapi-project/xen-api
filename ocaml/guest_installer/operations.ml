@@ -82,7 +82,7 @@ let vm_construct session_id distro params =
   vm
 
 let boot_vm session_id vm =
-  Client.VM.start rpc session_id vm false true
+	Client.VM.start rpc session_id vm false true
 
 let reset_bootloader session_id vm =
   Client.VM.set_PV_bootloader rpc session_id vm "pygrub"
