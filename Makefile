@@ -1,3 +1,19 @@
+ifdef B_BASE
+include $(B_BASE)/common.mk
+include $(B_BASE)/rpmbuild.mk
+REPO=$(call hg_loc,xen-api)
+else
+MY_OUTPUT_DIR ?= $(CURDIR)/output
+MY_OBJ_DIR ?= $(CURDIR)/obj
+REPO ?= $(CURDIR)
+
+RPM_SPECSDIR?=/usr/src/redhat/SPECS
+RPM_SRPMSDIR?=/usr/src/redhat/SRPMS
+RPM_SOURCESDIR?=/usr/src/redhat/SOURCES
+RPMBUILD?=rpmbuild
+XEN_RELEASE?=unknown
+endif
+
 COMPILE_NATIVE=yes
 COMPILE_BYTE=no # bytecode version does not build
 export COMPILE_NATIVE COMPILE_BYTE
@@ -70,9 +86,11 @@ api-libs-doc:
 	@(cd ../xen-api-libs.hg 2> /dev/null && $(MAKE) doc) || \
 	 (echo ">>> If you have a myclone of xen-api-libs, its documentation will be included. <<<")
 
+V6=$(call hg_loc,v6)
+XENAPI=$(call hg_loc,xen-api)
 .PHONY: import-v6
 import-v6:
-	cd /myrepos/v6.hg; ./install.sh . ../xen-api.hg/
+	cd $(V6); ./install.sh . $(XENAPI)
  
 .PHONY: version
 version:
@@ -90,22 +108,6 @@ version:
  clean:
 
 
-ifdef B_BASE
-include $(B_BASE)/common.mk
-include $(B_BASE)/rpmbuild.mk
-REPO=$(call hg_loc,xen-api)
-else
-MY_OUTPUT_DIR ?= $(CURDIR)/output
-MY_OBJ_DIR ?= $(CURDIR)/obj
-REPO ?= $(CURDIR)
-
-RPM_SPECSDIR?=/usr/src/redhat/SPECS
-RPM_SRPMSDIR?=/usr/src/redhat/SRPMS
-RPM_SOURCESDIR?=/usr/src/redhat/SOURCES
-RPMBUILD?=rpmbuild
-XEN_RELEASE?=unknown
-endif
-
 .PHONY: srpm
 srpm: 
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
@@ -116,4 +118,8 @@ srpm:
 	cp -f xapi.spec $(RPM_SPECSDIR)/
 	chown root.root $(RPM_SPECSDIR)/xapi.spec
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
+
+
+.PHONY: build
+build: all
 
