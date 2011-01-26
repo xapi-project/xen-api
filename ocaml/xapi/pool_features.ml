@@ -15,27 +15,46 @@ open Features
 module D = Debug.Debugger(struct let name="pool_features" end)
 open D
 
+let all_flags = List.map (fun (k, v) -> k) (to_assoc_list all_features)
+
+let new_restrictions params =
+	let kvs = List.filter (fun (k, v) ->
+			try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags)
+			with Invalid_argument _ -> false
+		) params in
+	List.map (fun (k, v) -> k) kvs
+
 let pool_features_of_list hosts =
 	List.fold_left Listext.List.intersect all_features hosts
-	
+
 let get_pool_features ~__context =
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool)
-	
+
 let is_enabled ~__context f =
 	let pool_features = get_pool_features ~__context in
 	List.mem f pool_features
 
 let update_pool_features ~__context =
 	let pool = List.hd (Db.Pool.get_all ~__context) in
-	let pool_features = get_pool_features ~__context in
+	let pool_restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
 	let hosts = List.map
-		(fun (_, host_r) -> of_assoc_list host_r.API.host_license_params)
+		(fun (_, host_r) -> host_r.API.host_license_params)
 		(Db.Host.get_all_records ~__context) in
-	let new_features = pool_features_of_list hosts in
-	if new_features <> pool_features then begin
+	let new_features = pool_features_of_list (List.map of_assoc_list hosts) in
+	let additional_flags = new_restrictions (List.hd hosts) in
+	let rec find_additional = function
+		| [] -> []
+		| flag :: rest ->
+			let switches = List.map (function params -> bool_of_string (List.assoc flag params)) hosts in
+			(flag, string_of_bool (List.fold_left (||) false switches)) :: find_additional rest
+	in
+	let additional_restrictions = find_additional additional_flags in
+	let new_restrictions = additional_restrictions @ (to_assoc_list new_features) in
+	if new_restrictions <> pool_restrictions then begin
+		let pool_features = of_assoc_list pool_restrictions in
 		info "Old pool features enabled: %s" (to_compact_string pool_features);
 		info "New pool features enabled: %s" (to_compact_string new_features);
-		Db.Pool.set_restrictions ~__context ~self:pool ~value:(to_assoc_list new_features)
+		Db.Pool.set_restrictions ~__context ~self:pool ~value:new_restrictions
 	end
 

@@ -31,7 +31,6 @@ type feature =
 	| RBAC
 	| DMC
 	| Checkpoint
-	| Vswitch_controller
 	| CPU_masking
 	| Connection
 	| No_platform_filter
@@ -57,7 +56,6 @@ let keys_of_features =
 		RBAC, ("restrict_rbac", Negative, "RBAC");
 		DMC, ("restrict_dmc", Negative, "DMC");
 		Checkpoint, ("restrict_checkpoint", Negative, "chpt");
-		Vswitch_controller, ("restrict_vswitch_controller", Negative, "DVSC");
 		CPU_masking, ("restrict_cpu_masking", Negative, "Mask");
 		Connection, ("restrict_connection", Negative, "Cnx");
 		No_platform_filter, ("platform_filter", Negative, "Plat");
