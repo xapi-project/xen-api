@@ -91,6 +91,15 @@ start() {
 			fi
 		fi
 
+		# If running on multipath root we need to update
+		# the multipath info on the Host object
+		ROOT_PART_MAJOR=$(stat --format=%t /dev/root)
+		DEVICE_MAPPER_MAJOR=$(sed -ne 's/^\([0-9]\+\) device-mapper$/\1/p' /proc/devices)
+		DEVICE_MAPPER_MAJOR_HEX=$(printf "%x" ${DEVICE_MAPPER_MAJOR})
+		if [ "$ROOT_PART_MAJOR" == "$DEVICE_MAPPER_MAJOR_HEX" ] ; then
+		    /opt/xensource/sm/mpathcount.py
+		fi
+
 		if [ -e ${XAPI_STARTUP_COOKIE} ]; then
 			touch /var/lock/subsys/xapi
 			echo -n $"start-of-day complete."
