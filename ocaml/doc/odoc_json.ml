@@ -267,7 +267,7 @@ class gen () =
 		node ("h" ^ string_of_int n) (self#t_of_text t)
 	| Odoc_info.Latex s -> node "span" ~atts:["class", "latex"] [self#t_of_raw s]
 	| Odoc_info.Link (s, t) -> node "a" ~atts: ["href", s] (self#t_of_text t)
-	| Odoc_info.Ref (name, ref_opt) -> self#t_of_Ref name ref_opt
+	| Odoc_info.Ref (name, ref_opt, _) -> self#t_of_Ref name ref_opt
 	| Odoc_info.Superscript t -> node "sup" (self#t_of_text t)
 	| Odoc_info.Subscript t -> node "sub" (self#t_of_text t)
 	| Odoc_info.Module_list l -> Leaf "" (* self#json_of_Module_list l *)
