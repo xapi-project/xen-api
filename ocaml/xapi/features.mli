@@ -26,7 +26,7 @@ type feature =
 	| HA                           (** Enable High Availability (HA) *)
 	| Marathon                     (** Currently not used *)
 	| Email                        (** Enable email alerting *)
-	| Performance                  (** Currently not used? *)
+	| Performance                  (** Used by XenCenter to restrict the performance graphs *)
 	| WLB                          (** Enable Workload Balancing (WLB) *)
 	| RBAC                         (** Enable Role-Based Access Control (RBAC) *)
 	| DMC                          (** Enable Dynamic Memory Control (DMC) *)
@@ -38,7 +38,10 @@ type feature =
 	| No_nag_dialog                (** Used by XenCenter *)
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
 
+(** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
+
+(** Convert {!feature}s into RPC *)
 val rpc_of_feature : feature -> Rpc.t
 
 (** The list of all known features. *)

@@ -12,9 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** XML/RPC handler for the licensing daemon *)
+(** RPC definition of the licensing daemon *)
 
-(** The XML/RPC interface of the licensing daemon *)
+(** The RPC interface of the licensing daemon *)
 module type V6api =
 	sig
 		(* edition -> additional_params -> enabled_features, additional_params *)
@@ -27,38 +27,57 @@ module type V6api =
 		(* () -> version *)
 		val reopen_logs : unit -> bool
 	end  
-(** XML/RPC handler *)
 
+(** RPC handler module *)
 module V6process : functor (V : V6api) ->
 	sig
-		(** Process an XML/RPC call *)
+		(** Process an RPC call *)
 		val process : Rpc.call -> Rpc.response
 	end
 
 (** {2 Marshaling functions} *)
 
+(** Definition of [apply_edition] RPC *)
 type apply_edition_in = {
-	edition_in: string;
-	additional_in: (string * string) list;
+	edition_in: string; (** The requested edition *)
+	additional_in: (string * string) list; (** Additional parameters *)
 }
 
+(** Convert RPC into {!apply_edition_in} structure *)
 val apply_edition_in_of_rpc : Rpc.t -> apply_edition_in
+
+(** Convert {!apply_edition_in} structure into RPC *)
 val rpc_of_apply_edition_in : apply_edition_in -> Rpc.t
 
+(** Return type of the [apply_edition] RPC *)
 type apply_edition_out = {
-	edition_out: string;
-	features_out: Features.feature list;
-	additional_out: (string * string) list;
+	edition_out: string; (** The edition that was applied *)
+	features_out: Features.feature list; (** The features that are now enabled *)
+	additional_out: (string * string) list; (** Additional parameters *)
 }
 
+(** Convert RPC into {!apply_edition_out} structure *)
 val apply_edition_out_of_rpc : Rpc.t -> apply_edition_out
+
+(** Convert {!apply_edition_out} structure into RPC *)
 val rpc_of_apply_edition_out : apply_edition_out -> Rpc.t
 
+(** Format of the editions list returns by the [get_editions] RPC:
+    - Name of the edition;
+    - Long name of the edition;
+    - Abbreviation of the edition name;
+    - Edition order number.
+ *)
 type names = string * string * string * int
+
+(** Return type of the [get_editions] RPC *)
 type get_editions_out = {
-	editions: names list;
+	editions: names list; (** List of all available editions *)
 }
 
+(** Convert RPC into {!get_editions_out} structure *)
 val get_editions_out_of_rpc : Rpc.t -> get_editions_out
+
+(** Convert {!get_editions_out} structure into RPC *)
 val rpc_of_get_editions_out : get_editions_out -> Rpc.t
 
