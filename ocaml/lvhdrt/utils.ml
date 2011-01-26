@@ -232,6 +232,8 @@ let with_sacrificial_vm rpc session f =
     Pervasiveext.finally 
       (fun () -> f vm')
       (fun () ->
+	 if Client.VM.get_power_state rpc session vm' <> `Halted then
+	   Client.VM.hard_shutdown rpc session vm';
 	 List.iter 
 	   (fun vbd ->
 	      let vdi = Client.VBD.get_VDI rpc session vbd in
