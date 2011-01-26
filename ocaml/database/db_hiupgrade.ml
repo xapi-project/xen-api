@@ -39,7 +39,7 @@ let upgrade_wlb_configuration ~__context () =
 			then Ref.null
 			else if String.startswith "OpaqueRef:" old_wlb_pwd
 				then Db.Pool.get_wlb_password ~__context ~self:pool
-				else Xapi_secret.create ~__context ~value:old_wlb_pwd
+				else Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
 	in
 	Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref
 

@@ -443,7 +443,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
 		match (data_from_leaf (descend_and_match["Id"] inner_xml)) with 
 		| _ ->
 			let old_secret_ref = Db.Pool.get_wlb_password ~__context ~self:pool in
-			let wlb_secret_ref = Xapi_secret.create ~__context ~value:wlb_password in
+			let wlb_secret_ref = Xapi_secret.create ~__context ~value:wlb_password ~other_config:[] in
 			Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username;
 			Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref;
 			Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;

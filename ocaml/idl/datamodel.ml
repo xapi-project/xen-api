@@ -6515,7 +6515,7 @@ let secret =
 	let introduce = call
 		~name:"introduce"
 		~in_product_since:rel_midnight_ride
-		~params:[String, "uuid", ""; String, "value", ""]
+		~params:[String, "uuid", ""; String, "value", ""; (Map (String,String)), "other_config", ""]
 		~flags:[`Session]
 		~result:(Ref _secret, "")
 		~secret:true
@@ -6540,6 +6540,7 @@ let secret =
 		~contents:
 			[ uid ~reader_roles:_R_POOL_OP _secret
 			; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "value" "the secret"
+                        ; field ~qualifier:RW ~ty:(Map (String,String)) "other_config" "other_config" ~default_value:(Some (VMap []));
 			]
 		()
 

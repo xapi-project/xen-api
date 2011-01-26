@@ -20,14 +20,14 @@ open Stringext
 module D = Debug.Debugger(struct let name = "xapi_secret" end)
 open D
 
-let introduce ~__context ~uuid ~value =
+let introduce ~__context ~uuid ~value ~other_config =
 	let ref = Ref.make () in
-	Db.Secret.create ~__context ~ref ~uuid ~value;
+	Db.Secret.create ~__context ~ref ~uuid ~value ~other_config;
 	ref
 
-let create ~__context ~value =
+let create ~__context ~value ~other_config=
 	let uuid = Uuid.to_string(Uuid.make_uuid()) in
-	let ref = introduce ~__context ~uuid ~value in
+	let ref = introduce ~__context ~uuid ~value ~other_config in
 	ref
 
 let destroy ~__context ~self =
@@ -53,7 +53,7 @@ let duplicate_passwds ~__context strmap =
 		then 
 			let sr = Db.Secret.get_by_uuid ~__context ~uuid:v in
 			let v = Db.Secret.get_value ~__context ~self:sr in
-			let new_sr = create ~__context ~value:v in
+			let new_sr = create ~__context ~value:v ~other_config:[] in
 			let new_uuid = Db.Secret.get_uuid ~__context ~self:new_sr in
 			(k, new_uuid)
 		else (k, v)
