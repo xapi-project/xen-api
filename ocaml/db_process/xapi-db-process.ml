@@ -50,15 +50,12 @@ let initialise_db_connections() =
   dbs
 
 let read_in_database() =
-  (* Make sure we're running in master mode: we cannot be a slave
-     and then access the dbcache *)
-  Db_cache.set_master true;
   let connections = initialise_db_connections() in
   (* Initialiase in-memory database cache *)
-  Db_cache_impl.make connections Schema.empty
+  Db_cache_impl.make (Db_backend.make ()) connections Schema.empty
 
 let write_out_databases() =
-	Db_cache_impl.sync (Db_conn_store.read_db_connections ()) (Db_backend.get_database ())
+	Db_cache_impl.sync (Db_conn_store.read_db_connections ()) (Db_ref.get_database (Db_backend.make ()))
 
 (* should never be thrown due to checking argument at start *)
 exception UnknownFormat
@@ -71,7 +68,7 @@ let write_out_database filename =
 			Parse_db_conf.path=filename;
 			Parse_db_conf.mode=Parse_db_conf.No_limit;
 			Parse_db_conf.compress=(!compress)
-    } ] (Db_backend.get_database ())
+    } ] (Db_ref.get_database (Db_backend.make ()))
 
 let help_pad = "      "
 let operation_list =
@@ -93,7 +90,7 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-		Db_xml.To.fd (Unix.descr_of_out_channel stdout) (Db_backend.get_database ())
+		Db_xml.To.fd (Unix.descr_of_out_channel stdout) (Db_ref.get_database (Db_backend.make()))
     else
       write_out_database !filename
   end
@@ -101,7 +98,7 @@ let do_write_database() =
 let find_my_host_row() =
   Xapi_inventory.read_inventory ();
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
-  let db = Db_backend.get_database () in
+  let db = Db_ref.get_database (Db_backend.make ()) in
   let tbl = TableSet.find Db_names.host (Database.tableset db) in
   Table.fold (fun r row acc -> if Row.find Db_names.uuid row = localhost_uuid then (Some (r, row)) else acc) tbl None
 
@@ -136,7 +133,7 @@ let do_write_hostiqn() =
 				  (* ... otherwise add new key/value pair *)
 				  (_iscsi_iqn,new_iqn)::other_config in
 		  let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
-		  Db_backend.update_database (set_field_in_row Db_names.host r Db_names.other_config other_config);
+		  Db_ref.update_database (Db_backend.make ()) (set_field_in_row Db_names.host r Db_names.other_config other_config);
 		  write_out_databases()
 
 let do_am_i_in_the_database () = 

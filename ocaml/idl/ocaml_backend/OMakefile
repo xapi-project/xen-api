@@ -82,6 +82,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/db_exn \
 	$(AUTOGEN_HELPER_DIR)/ref_index \
 	$(AUTOGEN_HELPER_DIR)/db_backend \
+	$(AUTOGEN_HELPER_DIR)/db_ref \
 	$(AUTOGEN_HELPER_DIR)/backend_xml \
 	$(AUTOGEN_HELPER_DIR)/generation \
 	$(AUTOGEN_HELPER_DIR)/db_connections \

@@ -54,10 +54,9 @@ let _ =
 					Printf.printf "Database path: %s\n%!" db_filename;
 					let db = Parse_db_conf.make db_filename in
 					Db_conn_store.initialise_db_connections [ db ];
-					Db_cache.set_master true;
-
-					Db_cache_impl.make [ db ] (Schema.of_datamodel ());
-					Db_cache_impl.sync [ db ] (Db_backend.get_database ());
+					let t = Db_backend.make () in					
+					Db_cache_impl.make t [ db ] (Schema.of_datamodel ());
+					Db_cache_impl.sync [ db ] (Db_ref.get_database t);
 
 					Unixext.unlink_safe !listen_path;
 					let sockaddr = Unix.ADDR_UNIX !listen_path in

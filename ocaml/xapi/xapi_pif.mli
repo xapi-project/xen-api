@@ -216,7 +216,7 @@ val vLAN_destroy : __context:Context.t -> self:[ `VLAN ] Ref.t -> unit
     interfaces required by storage NICs etc. (these interface are not filtered out at the moment).
  *)
 val calculate_pifs_required_at_start_of_day :
-  __context:'a -> ('b Ref.t * API.pIF_t) list
+  __context:Context.t -> ('b Ref.t * API.pIF_t) list
   
 (** Attempt to bring up (plug) the required PIFs when the host starts up.
  *  Uses {!calculate_pifs_required_at_start_of_day}. *)

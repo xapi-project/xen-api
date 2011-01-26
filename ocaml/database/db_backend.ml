@@ -24,15 +24,11 @@ open D
 let db_FLUSH_TIMER=2.0 (* flush db write buffer every db_FLUSH_TIMER seconds *)
 let display_sql_writelog_val = ref true (* compute/write sql-writelog debug string *)
 
-(* The cache itself: *)
-let database : Db_cache_types.Database.t ref = ref (Db_cache_types.Database.make (Schema.of_datamodel ()))
-
 (* --------------------- Util functions on db datastructures *)
 
-let update_database f = 
-	database := f (!database)
+let master_database = ref (Db_cache_types.Database.make Schema.empty)
 
-let get_database () = !database
+let make () = Db_ref.in_memory (ref master_database)
 
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we

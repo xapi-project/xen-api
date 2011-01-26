@@ -263,7 +263,7 @@ let destroy  ~__context ~self =
 	let metrics = Db.VIF.get_metrics ~__context ~self in
 	(* Don't let a failure to destroy the metrics stop us *)
 	Helpers.log_exn_continue "VIF_metrics.destroy" 
-	  (fun self -> if Db.is_valid_ref self then Db.VIF_metrics.destroy ~__context ~self) metrics;
+	  (fun self -> if Db.is_valid_ref __context self then Db.VIF_metrics.destroy ~__context ~self) metrics;
 	
 	Db.VIF.destroy ~__context ~self
 

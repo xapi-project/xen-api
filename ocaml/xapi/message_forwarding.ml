@@ -613,7 +613,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VBDs after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
+		if Db.is_valid_ref __context self then begin
 			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
@@ -651,7 +651,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let task_id = Ref.string_of (Context.get_task_id __context) in
       iter_with_drop ~doc:("unmarking VIFs after " ^ doc)
 	(fun self ->
-		if Db.is_valid_ref self then begin 
+		if Db.is_valid_ref __context self then begin 
 			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
@@ -1280,7 +1280,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 		let vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
 		let vm = 
-			if Db.is_valid_ref vm
+			if Db.is_valid_ref __context vm
 			then vm
 			else Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot in
 
@@ -1298,7 +1298,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		  let pbd = choose_pbd_for_sr ~__context ~self:sr () in
 		  let host = Db.PBD.get_host ~__context ~self:pbd in
 		  let metrics = Db.Host.get_metrics ~__context ~self:host in
-		  let live = Db.is_valid_ref metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
+		  let live = Db.is_valid_ref __context metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
 		  if not live
 		  then raise (Api_errors.Server_error(Api_errors.host_not_live, [ Ref.string_of host ]))
 		end;
@@ -2310,7 +2310,7 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VIF after " ^ doc)
 	(fun self ->
-		if Db.is_valid_ref self then begin
+		if Db.is_valid_ref __context self then begin
 			Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_vif_helpers.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
@@ -2515,7 +2515,7 @@ end
       debug "Unmarking SR after %s (task=%s)" doc task_id;
       log_exn_ignore ~doc:("unmarking SR after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
+		if Db.is_valid_ref __context self then begin
 			Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_sr.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
@@ -2659,7 +2659,7 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn_ignore ~doc:("unmarking VDI after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
+		if Db.is_valid_ref __context self then begin
 			Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_vdi.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
@@ -2891,7 +2891,7 @@ end
       let task_id = Ref.string_of (Context.get_task_id __context) in
       log_exn ~doc:("unmarking VBD after " ^ doc)
 	(fun self -> 
-		if Db.is_valid_ref self then begin
+		if Db.is_valid_ref __context self then begin
 			Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
 			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)

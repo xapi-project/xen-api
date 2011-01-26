@@ -88,7 +88,7 @@ val unpause : __context:Context.t -> vm:API.ref_VM -> unit
 val start :
   __context:Context.t ->
   vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
-val assert_host_is_localhost : __context:'a -> host:API.ref_host -> unit
+val assert_host_is_localhost : __context:Context.t -> host:API.ref_host -> unit
 val start_on :
   __context:Context.t ->
   vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
@@ -213,14 +213,14 @@ val set_memory_dynamic_range :
 val set_memory_target_live :
   __context:'a -> self:API.ref_VM -> target:'b -> unit
 val wait_memory_target_live : __context:Context.t -> self:API.ref_VM -> unit
-val get_cooperative : __context:'a -> self:[ `VM ] Ref.t -> bool
+val get_cooperative : __context:Context.t -> self:[ `VM ] Ref.t -> bool
 val set_HVM_shadow_multiplier :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:float -> unit
 val set_shadow_multiplier_live :
   __context:Context.t -> self:API.ref_VM -> multiplier:float -> unit
 val send_sysrq : __context:'a -> vm:API.ref_VM -> key:'b -> 'c
 val send_trigger : __context:'a -> vm:API.ref_VM -> trigger:'b -> 'c
-val get_boot_record : __context:'a -> self:API.ref_VM -> API.vM_t
+val get_boot_record : __context:Context.t -> self:API.ref_VM -> API.vM_t
 val get_data_sources :
   __context:Context.t -> self:[ `VM ] Ref.t -> API.data_source_t list
 val record_data_source :

@@ -100,16 +100,11 @@ let string_of_process_memory_info (x: process_memory_info) =
   Printf.sprintf "size: %d KiB; rss: %d KiB; data: %d KiB; stack: %d KiB"
     x.size x.rss x.data x.stack
 
-let summarise_db_size () = match Db_cache_impl.stats () with
-  | [] -> "(running as slave; no in-memory db cache)"
-  | xs -> Printf.sprintf "(%s)" (String.concat "; " (List.map (fun (tbl, x) -> Printf.sprintf "%s[%d records]" tbl x) xs))
-
 let one () = 
   let pid = Unix.getpid () in
   let pmi = process_memory_info_of_pid pid in
-  let db = summarise_db_size () in
   let mi = string_of_meminfo (meminfo ()) in
-  debug "Process: %s; Database: %s" (string_of_process_memory_info pmi) db;
+  debug "Process: %s" (string_of_process_memory_info pmi);
   debug "System: %s" mi
     
 let last_log = ref 0.

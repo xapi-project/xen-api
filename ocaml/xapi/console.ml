@@ -78,9 +78,10 @@ let console_of_request __context req =
   (* The _ref may be either a VM ref in which case we look for a
      default VNC console or it may be a console ref in which case we
      go for that. *)
+  let db = Context.database_of __context in
   let is_vm, is_console = 
-	  let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in	  
-	  match DB.get_table_from_ref _ref with
+	  let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in	  
+	  match DB.get_table_from_ref db _ref with
 	| Some c when c = Db_names.vm -> true, false
 	| Some c when c = Db_names.console -> false, true
 	| _ ->

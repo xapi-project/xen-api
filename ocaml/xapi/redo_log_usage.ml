@@ -46,7 +46,8 @@ let read_from_redo_log staging_path =
 		  let conn = Parse_db_conf.make temp_file in
           (* ideally, the reading from the file would also respect the latest_response_time *)
 		  let db = Backend_xml.populate (Schema.of_datamodel ()) conn in
-		  Db_backend.update_database (fun _ -> db);
+		  let t = Db_backend.make () in
+		  Db_ref.update_database t (fun _ -> db);
 
           R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
 
@@ -93,8 +94,9 @@ let read_from_redo_log staging_path =
 		  R.debug "Database from redo log has generation %Ld" generation;
         (* Write the in-memory cache to the file *)
 		  (* Make sure the generation count is right -- is this necessary? *)
-		  Db_backend.update_database (Db_cache_types.Database.set_generation generation);
-		  let db = Db_backend.get_database () in
+		  let t = Db_backend.make () in
+		  Db_ref.update_database t (Db_cache_types.Database.set_generation generation);
+		  let db = Db_ref.get_database t in
 		  Db_xml.To.file staging_path db;
           Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
     end

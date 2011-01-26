@@ -155,20 +155,20 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			)
 
 	(* Verify the ref_index contents are correct for a given [tblname] and [key] (uuid/ref) *)
-	let check_ref_index tblname key = match Ref_index.lookup key with
+	let check_ref_index t tblname key = match Ref_index.lookup key with
 		| None ->
 			(* We should fail to find the row *)
 			expect_missing_row tblname key
-				(fun () -> let (_: string) = Client.read_field tblname "uuid" key in ());
+				(fun () -> let (_: string) = Client.read_field t tblname "uuid" key in ());
 			expect_missing_uuid tblname key
-				(fun () -> let (_: string) = Client.db_get_by_uuid tblname key in ())
+				(fun () -> let (_: string) = Client.db_get_by_uuid t tblname key in ())
 		| Some { Ref_index.name_label = name_label; uuid = uuid; _ref = _ref } ->
 			(* key should be either uuid or _ref *)
 			if key <> uuid && (key <> _ref)
 			then failwith (Printf.sprintf "check_ref_index %s key %s: got ref %s uuid %s" tblname key _ref uuid);
-			let real_ref = if Client.is_valid_ref key then key else Client.db_get_by_uuid tblname key in
+			let real_ref = if Client.is_valid_ref t key then key else Client.db_get_by_uuid t tblname key in
 			let real_name_label = 
-				try Some (Client.read_field tblname "name__label" real_ref)
+				try Some (Client.read_field t tblname "name__label" real_ref)
 				with _ -> None in
 			if name_label <> real_name_label
 			then failwith (Printf.sprintf "check_ref_index %s key %s: ref_index name_label = %s; db has %s" tblname key (Opt.default "None" name_label) (Opt.default "None" real_name_label))
@@ -248,6 +248,8 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		let invalid_ref = "foo" in
 		let invalid_uuid = "bar" in
 		
+		let t = if in_process then Db_backend.make () else Db_ref.Remote in
+
 	let vbd_ref = "waz" in
 		let vbd_uuid = "whatever" in
 
@@ -256,255 +258,255 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		(* Before we begin, clear out any old state: *)
 		expect_missing_row "VM" valid_ref
 			(fun () ->
-				Client.delete_row "VM" valid_ref;
+				Client.delete_row t "VM" valid_ref;
 		);
-		if in_process then check_ref_index "VM" valid_ref;
+		if in_process then check_ref_index t "VM" valid_ref;
 
 		expect_missing_row "VBD" vbd_ref
 		(fun () ->
-			Client.delete_row "VBD" vbd_ref;
+			Client.delete_row t "VBD" vbd_ref;
 		);
-		if in_process then check_ref_index "VBD" vbd_ref;
+		if in_process then check_ref_index t "VBD" vbd_ref;
 
 		Printf.printf "Deleted stale state from previous test\n";
 		
 		Printf.printf "get_table_from_ref <invalid ref>\n";
 		begin
-			match Client.get_table_from_ref invalid_ref with
+			match Client.get_table_from_ref t invalid_ref with
 				| None -> Printf.printf "Reference '%s' has no associated table\n" invalid_ref
 				| Some t -> failwith (Printf.sprintf "Reference '%s' exists in table '%s'" invalid_ref t)
 		end;
 		Printf.printf "is_valid_ref <invalid_ref>\n";
-		if Client.is_valid_ref invalid_ref then failwith "is_valid_ref <invalid_ref> = true";
+		if Client.is_valid_ref t invalid_ref then failwith "is_valid_ref <invalid_ref> = true";
 		
 		Printf.printf "read_refs <valid tbl>\n";
-		let existing_refs = Client.read_refs "VM" in
+		let existing_refs = Client.read_refs t "VM" in
 		Printf.printf "VM refs: [ %s ]\n" (String.concat "; " existing_refs);
 		Printf.printf "read_refs <invalid tbl>\n";
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let (_: string list) = Client.read_refs "Vm" in
+				let (_: string list) = Client.read_refs t "Vm" in
 				()
 			);
 		Printf.printf "delete_row <invalid ref>\n";
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				Client.delete_row "VM" invalid_ref;
+				Client.delete_row t "VM" invalid_ref;
 				failwith "delete_row of a non-existent row silently succeeded"
 			);
 		Printf.printf "create_row <unique ref> <unique uuid> <missing required field>\n";
 		expect_missing_field "name__label"
 			(fun () ->
 				let broken_vm = List.filter (fun (k, _) -> k <> "name__label") (make_vm valid_ref valid_uuid) in
-				Client.create_row "VM" broken_vm valid_ref;
+				Client.create_row t "VM" broken_vm valid_ref;
 				failwith "create_row <unique ref> <unique uuid> <missing required field>"
 			);
 		Printf.printf "create_row <unique ref> <unique uuid>\n";
-		Client.create_row "VM" (make_vm valid_ref valid_uuid) valid_ref;
-		if in_process then check_ref_index "VM" valid_ref;
+		Client.create_row t "VM" (make_vm valid_ref valid_uuid) valid_ref;
+		if in_process then check_ref_index t "VM" valid_ref;
 		Printf.printf "is_valid_ref <valid ref>\n";
-		if not (Client.is_valid_ref valid_ref)
+		if not (Client.is_valid_ref t valid_ref)
 		then failwith "is_valid_ref <valid_ref> = false, after create_row";
 		Printf.printf "get_table_from_ref <valid ref>\n";
-		begin match Client.get_table_from_ref valid_ref with
+		begin match Client.get_table_from_ref t valid_ref with
 			| Some "VM" -> ()
 			| Some t -> failwith "get_table_from_ref <valid ref> : invalid table"
 			| None -> failwith "get_table_from_ref <valid ref> : None"
 		end;
 		Printf.printf "read_refs includes <valid ref>\n";
-		if not (List.mem valid_ref (Client.read_refs "VM"))
+		if not (List.mem valid_ref (Client.read_refs t "VM"))
 		then failwith "read_refs did not include <valid ref>";
 		
 		Printf.printf "create_row <duplicate ref> <unique uuid>\n";
 		expect_uniqueness_violation "VM" "_ref" valid_ref
 			(fun () ->
-				Client.create_row "VM" (make_vm valid_ref (valid_uuid ^ "unique")) valid_ref;
+				Client.create_row t "VM" (make_vm valid_ref (valid_uuid ^ "unique")) valid_ref;
 				failwith "create_row <duplicate ref> <unique uuid>"
 			);
 		Printf.printf "create_row <unique ref> <duplicate uuid>\n";
 		expect_uniqueness_violation "VM" "uuid" valid_uuid
 			(fun () ->
-				Client.create_row "VM" (make_vm (valid_ref ^ "unique") valid_uuid) (valid_ref ^ "unique");
+				Client.create_row t "VM" (make_vm (valid_ref ^ "unique") valid_uuid) (valid_ref ^ "unique");
 				failwith "create_row <unique ref> <duplicate uuid>"
 			);
 		Printf.printf "db_get_by_uuid <valid uuid>\n";
-		let r = Client.db_get_by_uuid "VM" valid_uuid in
+		let r = Client.db_get_by_uuid t "VM" valid_uuid in
 		if r <> valid_ref
 		then failwith (Printf.sprintf "db_get_by_uuid <valid uuid>: got %s; expected %s" r valid_ref);
 		Printf.printf "db_get_by_uuid <invalid uuid>\n";
 		expect_missing_uuid "VM" invalid_uuid
 			(fun () ->
-				let (_: string) = Client.db_get_by_uuid "VM" invalid_uuid in
+				let (_: string) = Client.db_get_by_uuid t "VM" invalid_uuid in
 				failwith "db_get_by_uuid <invalid uuid>"
 			);
 		Printf.printf "get_by_name_label <invalid name label>\n";
-		if Client.db_get_by_name_label "VM" invalid_name <> []
+		if Client.db_get_by_name_label t "VM" invalid_name <> []
 		then failwith "db_get_by_name_label <invalid name label>";
 		
 		Printf.printf "get_by_name_label <valid name label>\n";
-		if Client.db_get_by_name_label "VM" name <> [ valid_ref ]
+		if Client.db_get_by_name_label t "VM" name <> [ valid_ref ]
 		then failwith "db_get_by_name_label <valid name label>";
 		
 		Printf.printf "read_field <valid field> <valid objref>\n";
-		if Client.read_field "VM" "name__label" valid_ref <> name
+		if Client.read_field t "VM" "name__label" valid_ref <> name
 		then failwith "read_field <valid field> <valid objref> : invalid name";
 
 		Printf.printf "read_field <valid defaulted field> <valid objref>\n";
-		if Client.read_field "VM" "protection_policy" valid_ref <> "OpaqueRef:NULL"
+		if Client.read_field t "VM" "protection_policy" valid_ref <> "OpaqueRef:NULL"
 		then failwith "read_field <valid defaulted field> <valid objref> : invalid protection_policy";
 
 		Printf.printf "read_field <valid field> <invalid objref>\n";
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				let (_: string) = Client.read_field "VM" "name__label" invalid_ref in
+				let (_: string) = Client.read_field t "VM" "name__label" invalid_ref in
 				failwith "read_field <valid field> <invalid objref>"
 			);
 		Printf.printf "read_field <invalid field> <valid objref>\n";
 		expect_missing_field "name_label"
 			(fun () ->
-				let (_: string) = Client.read_field "VM" "name_label" valid_ref in
+				let (_: string) = Client.read_field t "VM" "name_label" valid_ref in
 				failwith "read_field <invalid field> <valid objref>"
 			);
 		Printf.printf "read_field <invalid field> <invalid objref>\n";
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				let (_: string) = Client.read_field "VM" "name_label" invalid_ref in
+				let (_: string) = Client.read_field t "VM" "name_label" invalid_ref in
 				failwith "read_field <invalid field> <invalid objref>"
 			);
 		Printf.printf "read_field_where <valid table> <valid return> <valid field> <valid value>\n";
 		let where_name_label = 
 			{ Db_cache_types.table = "VM"; return = Escaping.escape_id(["name"; "label"]); where_field="uuid"; where_value = valid_uuid } in
-		let xs = Client.read_field_where where_name_label in
+		let xs = Client.read_field_where t where_name_label in
 		if not (List.mem name xs)
 		then failwith "read_field_where <valid table> <valid return> <valid field> <valid value>";
-		test_invalid_where_record "read_field_where" Client.read_field_where;
+		test_invalid_where_record "read_field_where" (Client.read_field_where t);
 		
-		let xs = Client.read_set_ref where_name_label in
+		let xs = Client.read_set_ref t where_name_label in
 		if not (List.mem name xs)
 		then failwith "read_set_ref <valid table> <valid return> <valid field> <valid value>";
-		test_invalid_where_record "read_set_ref" Client.read_set_ref;
+		test_invalid_where_record "read_set_ref" (Client.read_set_ref t);
 		
 		Printf.printf "write_field <invalid table>\n";
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let (_: unit) = Client.write_field "Vm" "" "" "" in
+				let (_: unit) = Client.write_field t "Vm" "" "" "" in
 				failwith "write_field <invalid table>"
 			);
 		Printf.printf "write_field <valid table> <invalid ref>\n";
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				let (_: unit) = Client.write_field "VM" invalid_ref "" "" in
+				let (_: unit) = Client.write_field t "VM" invalid_ref "" "" in
 				failwith "write_field <valid table> <invalid ref>"
 			);
 		Printf.printf "write_field <valid table> <valid ref> <invalid field>\n";
 		expect_missing_field "wibble"
 			(fun () ->
-				let (_: unit) = Client.write_field "VM" valid_ref "wibble" "" in
+				let (_: unit) = Client.write_field t "VM" valid_ref "wibble" "" in
 				failwith "write_field <valid table> <valid ref> <invalid field>"
 			);
 		Printf.printf "write_field <valid table> <valid ref> <valid field>\n";
-		let (_: unit) = Client.write_field "VM" valid_ref (Escaping.escape_id ["name"; "description"]) "description" in
-		if in_process then check_ref_index "VM" valid_ref;		
+		let (_: unit) = Client.write_field t "VM" valid_ref (Escaping.escape_id ["name"; "description"]) "description" in
+		if in_process then check_ref_index t "VM" valid_ref;		
 		Printf.printf "write_field <valid table> <valid ref> <valid field> - invalidating ref_index\n";
-		let (_: unit) = Client.write_field "VM" valid_ref (Escaping.escape_id ["name"; "label"]) "newlabel" in
-		if in_process then check_ref_index "VM" valid_ref;		
+		let (_: unit) = Client.write_field t "VM" valid_ref (Escaping.escape_id ["name"; "label"]) "newlabel" in
+		if in_process then check_ref_index t "VM" valid_ref;		
 
 		Printf.printf "read_record <invalid table> <invalid ref>\n";
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let _ = Client.read_record "Vm" invalid_ref in
+				let _ = Client.read_record t "Vm" invalid_ref in
 				failwith "read_record <invalid table> <invalid ref>"
 			);
 		Printf.printf "read_record <valid table> <valid ref>\n";
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				let _ = Client.read_record "VM" invalid_ref in
+				let _ = Client.read_record t "VM" invalid_ref in
 				failwith "read_record <valid table> <invalid ref>"
 			);
 		Printf.printf "read_record <valid table> <valid ref>\n";
-		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+		let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 		if not(List.mem_assoc (Escaping.escape_id [ "name"; "label" ]) fv_list)
 		then failwith "read_record <valid table> <valid ref> 1";
 		if List.assoc "VBDs" fvs_list <> []
 		then failwith "read_record <valid table> <valid ref> 2";
 		Printf.printf "read_record <valid table> <valid ref> foreign key\n";
-		Client.create_row "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref;
-		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+		Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref;
+		let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 		if List.assoc "VBDs" fvs_list <> [ vbd_ref ] then begin
 			Printf.printf "fv_list = [ %s ] fvs_list = [ %s ]\n%!" (String.concat "; " (List.map (fun (k, v) -> k ^":" ^ v) fv_list))  (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ (String.concat ", " v)) fvs_list));
 			failwith "read_record <valid table> <valid ref> 3"
 		end;
 		Printf.printf "read_record <valid table> <valid ref> deleted foreign key\n";
-		Client.delete_row "VBD" vbd_ref;
-		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+		Client.delete_row t "VBD" vbd_ref;
+		let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 		if List.assoc "VBDs" fvs_list <> []
 		then failwith "read_record <valid table> <valid ref> 4";
 		Printf.printf "read_record <valid table> <valid ref> overwritten foreign key\n";
-		Client.create_row "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref;
-		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+		Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref;
+		let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 		if List.assoc "VBDs" fvs_list = []
 		then failwith "read_record <valid table> <valid ref> 5";
-		Client.write_field "VBD" vbd_ref (Escaping.escape_id [ "VM" ]) "overwritten";
-		let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+		Client.write_field t "VBD" vbd_ref (Escaping.escape_id [ "VM" ]) "overwritten";
+		let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 		if List.assoc "VBDs" fvs_list <> []
 		then failwith "read_record <valid table> <valid ref> 6";	
 		
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let _ = Client.read_records_where "Vm" Db_filter_types.True in
+				let _ = Client.read_records_where t "Vm" Db_filter_types.True in
 				()
 			);
-		let xs = Client.read_records_where "VM" Db_filter_types.True in
+		let xs = Client.read_records_where t "VM" Db_filter_types.True in
 		if List.length xs <> 1
 		then failwith "read_records_where <valid table> 2";
-		let xs = Client.read_records_where "VM" Db_filter_types.False in
+		let xs = Client.read_records_where t "VM" Db_filter_types.False in
 		if xs <> []
 		then failwith "read_records_where <valid table> 3";
 		
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let xs = Client.find_refs_with_filter "Vm" Db_filter_types.True in
+				let xs = Client.find_refs_with_filter t "Vm" Db_filter_types.True in
 				failwith "find_refs_with_filter <invalid table>";
 			);
-		let xs = Client.find_refs_with_filter "VM" Db_filter_types.True in
+		let xs = Client.find_refs_with_filter t "VM" Db_filter_types.True in
 		if List.length xs <> 1
 		then failwith "find_refs_with_filter <valid table> 1";
-		let xs = Client.find_refs_with_filter "VM" Db_filter_types.False in
+		let xs = Client.find_refs_with_filter t "VM" Db_filter_types.False in
 		if xs <> []
 		then failwith "find_refs_with_filter <valid table> 2";
 		
 		expect_missing_tbl "Vm"
 			(fun () ->
-				Client.process_structured_field ("","") "Vm" "wibble" invalid_ref Db_cache_types.AddSet;
+				Client.process_structured_field t ("","") "Vm" "wibble" invalid_ref Db_cache_types.AddSet;
 				failwith "process_structure_field <invalid table> <invalid fld> <invalid ref>"
 			);
 		expect_missing_field "wibble"
 			(fun () ->
-				Client.process_structured_field ("","") "VM" "wibble" valid_ref Db_cache_types.AddSet;
+				Client.process_structured_field t ("","") "VM" "wibble" valid_ref Db_cache_types.AddSet;
 				failwith "process_structure_field <valid table> <invalid fld> <valid ref>"
 			);
 		expect_missing_row "VM" invalid_ref
 			(fun () ->
-				Client.process_structured_field ("","") "VM" (Escaping.escape_id ["name"; "label"]) invalid_ref Db_cache_types.AddSet;
+				Client.process_structured_field t ("","") "VM" (Escaping.escape_id ["name"; "label"]) invalid_ref Db_cache_types.AddSet;
 				failwith "process_structure_field <valid table> <valid fld> <invalid ref>"
 			);
-		Client.process_structured_field ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
-		if Client.read_field "VM" "tags" valid_ref <> "('foo')"
+		Client.process_structured_field t ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
+		if Client.read_field t "VM" "tags" valid_ref <> "('foo')"
 		then failwith "process_structure_field expected ('foo')";
-		Client.process_structured_field ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
-		if Client.read_field "VM" "tags" valid_ref <> "('foo')"
+		Client.process_structured_field t ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
+		if Client.read_field t "VM" "tags" valid_ref <> "('foo')"
 		then failwith "process_structure_field expected ('foo') 2";
-		Client.process_structured_field ("foo", "bar") "VM" "other_config" valid_ref Db_cache_types.AddMap;
+		Client.process_structured_field t ("foo", "bar") "VM" "other_config" valid_ref Db_cache_types.AddMap;
 		
-		if Client.read_field "VM" "other_config" valid_ref <> "(('foo' 'bar'))"
+		if Client.read_field t "VM" "other_config" valid_ref <> "(('foo' 'bar'))"
 		then failwith "process_structure_field expected (('foo' 'bar')) 3";
 		
 		begin
 			try
-				Client.process_structured_field ("foo", "bar") "VM" "other_config" valid_ref Db_cache_types.AddMap;
+				Client.process_structured_field t ("foo", "bar") "VM" "other_config" valid_ref Db_cache_types.AddMap;
 			with Db_exn.Duplicate_key("VM", "other_config", r', "foo") when r' = valid_ref -> ()
 		end;
-		if Client.read_field "VM" "other_config" valid_ref <> "(('foo' 'bar'))"
+		if Client.read_field t "VM" "other_config" valid_ref <> "(('foo' 'bar'))"
 		then failwith "process_structure_field expected (('foo' 'bar')) 4";
 		
 		(* Check that non-persistent fields are filled with an empty value *)
@@ -523,7 +525,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			let n = 5000 in
 			
 			let rpc_time = time n (fun _ ->
-				let (_: bool) = Client.is_valid_ref valid_ref in ()) in
+				let (_: bool) = Client.is_valid_ref t valid_ref in ()) in
 			
 			Printf.printf "%.2f primitive RPC calls/sec\n" rpc_time;
 			
@@ -532,14 +534,14 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 				(fun i ->
 					let rf = Printf.sprintf "%s:%d" vbd_ref i in
 					try
-						Client.delete_row "VBD" rf
+						Client.delete_row t "VBD" rf
 					with _ -> ()
 				) in
 			Printf.printf "Deleted %d VBD records, %.2f calls/sec\n%!" n delete_time;
 			
 			expect_missing_row "VBD" vbd_ref
 				(fun () ->
-					Client.delete_row "VBD" vbd_ref;
+					Client.delete_row t "VBD" vbd_ref;
 				);
 			
 			(* Create lots of VBDs referening no VM *)
@@ -547,7 +549,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 				(fun i ->
 					let rf = Printf.sprintf "%s:%d" vbd_ref i in
 					let uuid = Printf.sprintf "%s:%d" vbd_uuid i in
-					Client.create_row "VBD" (make_vbd invalid_ref rf uuid) rf;
+					Client.create_row t "VBD" (make_vbd invalid_ref rf uuid) rf;
 				) in
 			Printf.printf "Created %d VBD records, %.2f calls/sec\n%!" n create_time;
 			
@@ -558,10 +560,10 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 				(fun i ->
 					if i < (m / 3 * 2) then begin
 						if i mod 2 = 0
-						then Client.create_row "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
-						else Client.delete_row "VBD" vbd_ref
+						then Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
+						else Client.delete_row t "VBD" vbd_ref
 					end else
-						let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+						let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 						()
 				) in
 			Printf.printf "good sequence: %.2f calls/sec\n%!" benign_time;
@@ -569,9 +571,9 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			let malign_time = time m
 				(fun i ->
 					match i mod 3 with
-						| 0 -> Client.create_row "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
-						| 1 -> Client.delete_row "VBD" vbd_ref
-						| 2 -> let fv_list, fvs_list = Client.read_record "VM" valid_ref in
+						| 0 -> Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
+						| 1 -> Client.delete_row t "VBD" vbd_ref
+						| 2 -> let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
 						()
 				) in
 			Printf.printf "bad sequence: %.2f calls/sec\n%!" malign_time;

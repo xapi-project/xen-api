@@ -24,11 +24,12 @@ type origin =
 (** [initial] is the initial context. *)
 val initial : t
 
-(** [make ~__context ~subtask_of ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
+(** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin name] creates a new context. 
     [__context] is the calling context,
 	[quiet] silences "task created" log messages,
     [subtask_of] is a reference to the parent task, 
     [session_id] is the current session id,
+	[database] is the database to use in future Db.* operations
     [task_in_database] indicates if the task needs to be stored the task in the database, 
     [task_descrpition] is the description of the task,
     [task_name] is the task name of the created context. *)
@@ -37,6 +38,7 @@ val make :
   ?quiet:bool ->
   ?subtask_of:API.ref_task ->
   ?session_id:API.ref_session ->
+  ?database:Db_ref.t ->
   ?task_in_database:bool ->
   ?task_description:string -> ?origin:origin -> string -> t
 
@@ -74,6 +76,9 @@ val get_origin : t -> string
 
 (** [string_of __context] returns a string representing the context. *)
 val string_of : t -> string
+
+(** [database_of __context] returns a database handle, which can be used by Db.* *)
+val database_of : t -> Db_ref.t
 
 (** {6 Destructors} *)
 

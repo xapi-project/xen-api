@@ -26,7 +26,8 @@ let string_of (x: indexrec) =
   Printf.sprintf "%s%s" x.uuid (Opt.default "" (Opt.map (fun name -> Printf.sprintf " (%s)" name) x.name_label))
 
 let lookup key =
-	let db = Db_backend.get_database () in
+	let t = Db_backend.make () in
+	let db = Db_ref.get_database t in
 	let r (tblname, objref) = 
 		let row = Table.find objref (TableSet.find tblname (Database.tableset db)) in {
 			name_label = (try Some (Row.find Db_names.name_label row) with _ -> None);

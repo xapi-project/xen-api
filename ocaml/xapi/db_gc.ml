@@ -39,7 +39,8 @@ let _time = "time"
 let valid_ref x = Db.is_valid_ref x
 
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_record =
-	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in	  
+	let db = Context.database_of __context in
+	let module DB = (val (Db_cache.get db) : Db_interface.DB_ACCESS) in	  
   let all_refs = get_all ~__context in
   let do_gc ref =
     let print_valid b = if b then "valid" else "INVALID" in
@@ -50,7 +51,7 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
       if not (ref_1_valid && ref_2_valid) then
 	begin
 	  let table,reference,valid1,valid2 = 
-	    (match DB.get_table_from_ref (Ref.string_of ref) with
+	    (match DB.get_table_from_ref db (Ref.string_of ref) with
 		 None -> "UNKNOWN CLASS"
 	       | Some c -> c),
 	    (Ref.string_of ref),
@@ -62,7 +63,7 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
   List.iter do_gc all_refs
 
 let gc_PIFs ~__context =
-  gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref x.pIF_host) (fun x->valid_ref x.pIF_network) 
+  gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network) 
     (fun ~__context ~self ->
        (* We need to destroy the PIF, it's metrics and any VLAN/bond records that this PIF was a master of. *)
        (* bonds_to_gc is actually a list which is either empty (not part of a bond) or containing exactly one reference.. *)
@@ -74,10 +75,10 @@ let gc_PIFs ~__context =
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
        Db.PIF.destroy ~__context ~self)
 let gc_VBDs ~__context =
-  gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref x.vBD_VM) (fun x->valid_ref x.vBD_VDI || x.vBD_empty) 
+  gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty) 
     (fun ~__context ~self ->
       (* When GCing VBDs that are CDs, set them to empty rather than destroy them entirely *)
-      if (valid_ref (Db.VBD.get_VM ~__context ~self)) && (Db.VBD.get_type ~__context ~self = `CD) then
+      if (valid_ref __context (Db.VBD.get_VM ~__context ~self)) && (Db.VBD.get_type ~__context ~self = `CD) then
 	begin
 	  Db.VBD.set_VDI ~__context ~self ~value:Ref.null;
 	  Db.VBD.set_empty ~__context ~self ~value:true;
@@ -92,22 +93,22 @@ let gc_VBDs ~__context =
 
 let gc_crashdumps ~__context =
   gc_connector ~__context Db.Crashdump.get_all Db.Crashdump.get_record
-    (fun x->valid_ref x.crashdump_VM) (fun x->valid_ref x.crashdump_VDI) Db.Crashdump.destroy
+    (fun x->valid_ref __context x.crashdump_VM) (fun x->valid_ref __context x.crashdump_VDI) Db.Crashdump.destroy
 let gc_VIFs ~__context =
-  gc_connector ~__context Db.VIF.get_all Db.VIF.get_record (fun x->valid_ref x.vIF_VM) (fun x->valid_ref x.vIF_network)
+  gc_connector ~__context Db.VIF.get_all Db.VIF.get_record (fun x->valid_ref __context x.vIF_VM) (fun x->valid_ref __context x.vIF_network)
     (fun ~__context ~self ->
        let metrics = Db.VIF.get_metrics ~__context ~self in
        (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ());
        Db.VIF.destroy ~__context ~self)
 let gc_PBDs ~__context =
-  gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref x.pBD_host) (fun x->valid_ref x.pBD_SR) Db.PBD.destroy
+  gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
 let gc_Host_patches ~__context =
-  gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record (fun x->valid_ref x.host_patch_host) (fun x->valid_ref x.host_patch_pool_patch) Db.Host_patch.destroy
+  gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record (fun x->valid_ref __context x.host_patch_host) (fun x->valid_ref __context x.host_patch_pool_patch) Db.Host_patch.destroy
 let gc_host_cpus ~__context =
   let host_cpus = Db.Host_cpu.get_all ~__context in
     List.iter
       (fun hcpu ->
-	 if not (valid_ref (Db.Host_cpu.get_host ~__context ~self:hcpu)) then
+	 if not (valid_ref __context (Db.Host_cpu.get_host ~__context ~self:hcpu)) then
 	   Db.Host_cpu.destroy ~__context ~self:hcpu) host_cpus
 
 (* If the SR record is missing, delete the VDI record *)

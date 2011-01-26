@@ -79,7 +79,7 @@ let flush dbconn db =
 (* NB We don't do incremental flushing *)
 
 let flush_dirty dbconn =
-	let db = get_database () in
+	let db = Db_ref.get_database (Db_backend.make ()) in
 	let g = Manifest.generation (Database.manifest db) in
 	if g > dbconn.Parse_db_conf.last_generation_count then begin
 		flush dbconn db;

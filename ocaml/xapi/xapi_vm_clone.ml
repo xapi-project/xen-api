@@ -165,9 +165,9 @@ let snapshot_info ~power_state ~is_a_snapshot =
 	else
 		[]
 
-let snapshot_metadata ~vm ~is_a_snapshot =
+let snapshot_metadata ~__context ~vm ~is_a_snapshot =
 	if is_a_snapshot then
-		Helpers.vm_to_string vm
+		Helpers.vm_to_string __context vm
 	else
 		""
 
@@ -212,7 +212,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	in
 	(* Copy the old metrics if available, otherwise generate a fresh one *)
 	let m =
-		if Db.is_valid_ref all.Db_actions.vM_metrics
+		if Db.is_valid_ref __context all.Db_actions.vM_metrics
 		then Some (Db.VM_metrics.get_record_internal ~__context ~self:all.Db_actions.vM_metrics)
 		else None
 	in
@@ -268,7 +268,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~snapshot_of:(if is_a_snapshot then vm else Ref.null)
 		~snapshot_time:(if is_a_snapshot then Date.of_float (Unix.gettimeofday ()) else Date.never)
 		~snapshot_info:(snapshot_info ~power_state ~is_a_snapshot)
-		~snapshot_metadata:(snapshot_metadata ~vm ~is_a_snapshot)
+		~snapshot_metadata:(snapshot_metadata ~__context ~vm ~is_a_snapshot)
 		~transportable_snapshot_id:""
 		~parent
 		~resident_on:Ref.null
