@@ -5,8 +5,6 @@ OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 IEXE=install -m 755 -o root -g root
 
 V6FILES = \
-	../xapi/xapi_inventory \
-	v6alert \
 	fakev6 \
 	v6xmlrpc \
 	v6daemon
