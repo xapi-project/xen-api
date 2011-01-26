@@ -28,7 +28,6 @@ let string_of_structured_op op = match op with
 
 type db_dump_manifest =
     {
-      installation_uuid : string;
       control_domain_uuid : string;
       pool_conf : string;
       pool_token : string;
@@ -44,7 +43,6 @@ type db_dump_manifest =
 
 let gen_manifest gen_count =
   {
-    installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid;
     control_domain_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
     pool_conf = Unixext.string_of_file Xapi_globs.pool_config_file;
     pool_token = Unixext.string_of_file Xapi_globs.pool_secret_path;

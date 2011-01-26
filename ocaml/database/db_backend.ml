@@ -199,35 +199,30 @@ let post_restore_hook manifest =
   let my_installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
   let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 
-  let uuid_of_master_in_db = manifest.Db_cache_types.installation_uuid in
-  let uuid_of_master_dom0_in_db = manifest.Db_cache_types.control_domain_uuid in
+  let not_found = "" in
+  (* Look up the pool master: *)
+  let pools = lookup_table_in_cache cache Db_names.pool in
+  let master = fold_over_rows (fun _ref r acc -> lookup_field_in_row r Db_names.master) pools not_found in
+  if master = not_found
+  then debug "No master record to update"
+  else begin
 
-  let find_row_by_uuid uuid tbl =
-    let rs = get_rowlist tbl in
-    try Some (List.find (fun r->(lookup_field_in_row r uuid_fname)=uuid) rs)
-    with e -> (debug "find_row_by_uuid 'uuid=%s' failed: %s"
-		 uuid (Printexc.to_string e);
-	       None) in
-  
-  let master_host_record = find_row_by_uuid uuid_of_master_in_db (lookup_table_in_cache cache "host") in
-  let master_dom0_record = find_row_by_uuid uuid_of_master_dom0_in_db (lookup_table_in_cache cache "VM") in
-
-  (* update master host record in db, so it has my installation uuid from my inventory file *)
-  begin
-    match master_host_record with
-      None -> debug "Not updating host record"
-    | Some mhr -> 
-	(set_field_in_row mhr uuid_fname my_installation_uuid;
-	 let _ref = lookup_field_in_row mhr reference_fname in
-	 Ref_index.update_uuid _ref my_installation_uuid)
+	  let mhr = find_row cache Db_names.host master in
+	  set_field_in_row mhr uuid_fname my_installation_uuid;
+	  let _ref = lookup_field_in_row mhr reference_fname in
+	  Ref_index.update_uuid _ref my_installation_uuid
   end;
-  (* update master dom0 record in db, so it has my control domain uuid from my inventory file in dom0 *)
-  begin
-    match master_dom0_record with
-      None -> debug "Not updating dom0 record"
-    | Some mhr -> 
-	(set_field_in_row mhr uuid_fname my_control_uuid;
-	 let _ref = lookup_field_in_row mhr reference_fname in
-	 Ref_index.update_uuid _ref my_control_uuid)
+
+  (* Look up the pool master's control domain: *)
+  let vms = lookup_table_in_cache cache Db_names.vm in
+  let master_dom0 = fold_over_rows (fun _ref r acc -> if lookup_field_in_row r Db_names.resident_on = master && (lookup_field_in_row r Db_names.is_control_domain = "true") then _ref else acc) vms not_found in  
+  if master_dom0 = not_found
+  then debug "No master control domain record to update"
+  else begin
+
+	  let mdr = find_row cache Db_names.vm master_dom0 in
+	  set_field_in_row mdr uuid_fname my_control_uuid;
+	  let _ref = lookup_field_in_row mdr reference_fname in
+	  Ref_index.update_uuid _ref my_control_uuid
   end;
   debug "post_restore_hook executed"
