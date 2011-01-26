@@ -80,11 +80,11 @@ let atomically_write_to_db_file filename marshall =
 let flush_db_to_redo_log cache_to_flush =
   if Redo_log.is_enabled () then begin
     (* Atomically read the generation count and take a deep copy of the cache *)
-    let (gen_count, cache_copy) = Db_lock.with_lock (fun () -> Generation.read_generation(), Db_cache_types.snapshot cache_to_flush) in
+    let cache_copy = Db_lock.with_lock (fun () -> Db_cache_types.snapshot cache_to_flush) in
     debug "Flushing cache to redo-log";
-    let db_cache_manifest = Db_cache_types.manifest_of_cache cache_to_flush gen_count in
+    let db_cache_manifest = Db_cache_types.manifest_of_cache cache_to_flush in
     let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd (db_cache_manifest, cache_copy)) in
-    Redo_log.write_db gen_count write_db_to_fd
+    Redo_log.write_db (Db_cache_types.generation_of_cache cache_copy) write_db_to_fd
   end
 
 (* atomically flush entire db cache to disk. If we are given a cache then flush that, otherwise flush the
@@ -104,7 +104,7 @@ let flush_common dbconn optional_cache =
 
   let do_flush cache_to_flush filename =
     flush_db_to_redo_log cache_to_flush;
-    let db_cache_manifest = Db_cache_types.manifest_of_cache cache (Generation.read_generation()) in
+    let db_cache_manifest = Db_cache_types.manifest_of_cache cache in
     if not dbconn.Parse_db_conf.compress
     then Db_xml.To.file filename (db_cache_manifest, cache_to_flush)
     else 
@@ -126,7 +126,9 @@ let flush_common dbconn optional_cache =
 	(* if we were given a specific cache to flush then just do it; no locks required *)
     | Some c -> do_flush c filename in
   let filename = dbconn.Parse_db_conf.path in
+  let generation_filename = Generation.filename dbconn in
   atomically_write_to_db_file filename marshall;
+  Unixext.write_string_to_file generation_filename (Int64.to_string (Db_cache_types.generation_of_cache cache));
   debug "XML backend [%s] -- Write buffer flushed. Time: %f" filename (Unix.gettimeofday() -. time)
 
 
@@ -188,6 +190,5 @@ let create_empty_db (major, minor) dbconn =
   Db_cache_types.set_schema_vsn empty_cache (major, minor);
 
   List.iter (fun tbl -> set_table_in_cache empty_cache tbl (create_empty_table ())) db_table_names;
-  let manifest = Db_cache_types.make_manifest major minor 0L (* new gen count *) in
-  let marshall filename = Db_lock.with_lock (fun () -> Db_xml.To.file filename (manifest, empty_cache)) in
-  atomically_write_to_db_file dbconn.Parse_db_conf.path marshall;
+  flush_common dbconn (Some empty_cache)
+

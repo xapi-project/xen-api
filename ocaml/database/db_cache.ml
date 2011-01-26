@@ -52,7 +52,7 @@ exception Too_many_values of   (*class*) string * (*ref*) string * (*uuid*) stri
 module type DB_CACHE =
 sig
 
-  val dump_db_cache : Int64.t -> Unix.file_descr -> unit
+  val dump_db_cache : Unix.file_descr -> unit
 
   val stats : unit -> (string * int) list
 
@@ -159,7 +159,7 @@ struct
 
     let save_in_redo_log context entry =
       if Redo_log.is_enabled() then begin
-        Redo_log.write_delta (Generation.read_generation()) entry
+        Redo_log.write_delta (Db_cache_types.generation_of_cache Db_backend.cache) entry
           (fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
             Backend_xml.flush_db_to_redo_log Db_backend.cache
           )
@@ -212,7 +212,7 @@ struct
 		   (* Only flush to disk if persistent *)
 		   Db_dirty.set_all_row_dirty_status objref Db_dirty.Modified;
 		   Db_dirty.set_all_dirty_table_status tblname;
-		   Generation.increment();
+		   Db_cache_types.increment Db_backend.cache;
 		   save_in_redo_log context (Redo_log.WriteField(tblname, objref, fldname, newval))
 		 end;
 
@@ -358,7 +358,7 @@ struct
 	       (* Update cache dirty status *)
 	       Db_dirty.clear_all_row_dirty_status objref;
 	       Db_dirty.set_all_dirty_table_status tblname;
-	       Generation.increment();
+		   Db_cache_types.increment Db_backend.cache;
 	       save_in_redo_log context (Redo_log.DeleteRow(tblname, objref))
 	     end;
 	   Ref_index.remove objref;
@@ -405,7 +405,7 @@ struct
 	     begin
 	       Db_dirty.set_all_row_dirty_status new_objref Db_dirty.New;
 	       Db_dirty.set_all_dirty_table_status tblname;
-	       Generation.increment();
+		   Db_cache_types.increment Db_backend.cache;
 	       save_in_redo_log context (Redo_log.CreateRow(tblname, new_objref, kvs))
 	     end;
 	   add_ref_to_table_map new_objref tblname (* track ref against this table *);
@@ -492,7 +492,6 @@ struct
 		if Sys.file_exists Xapi_globs.gen_metadata_db
 		then fake_gen_dbconn :: connections else connections in
 	
-      Db_connections.init_gen_count connections;
       (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
       let db = 
 	if Sys.file_exists Xapi_globs.db_temporary_restore_path then begin
@@ -660,8 +659,8 @@ struct
 	   let processed_str = SExpr.string_of (SExpr.Node processed) in
 	   write_field context tbl objref fld processed_str)
 	    
-    let dump_db_cache generation fd =
-		let db_cache_manifest = Db_cache_types.manifest_of_cache Db_backend.cache generation in
+    let dump_db_cache fd =
+		let db_cache_manifest = Db_cache_types.manifest_of_cache Db_backend.cache in
       let time = Unix.gettimeofday() in
       (* Snapshot the cache (uses the lock) and then slowly serialise the copy *)
       Db_xml.To.fd fd (db_cache_manifest, snapshot cache);
@@ -855,7 +854,7 @@ struct
 	"process_structured_field"
 	(a,b,c,d,e)
 
-    let dump_db_cache _ _ = () (* this is master-only *)
+    let dump_db_cache _ = () (* this is master-only *)
 
     let apply_delta_to_cache _ = () (* this is master-only *)
 
@@ -936,8 +935,8 @@ struct
   let read_records_where s e =
     Stats.log_db_call None ("record(where):"^s) Stats.Read;
     (sw Master.read_records_where Slave.read_records_where) s e
-  let dump_db_cache manifest fd =
-    (sw Master.dump_db_cache Slave.dump_db_cache) manifest fd
+  let dump_db_cache fd =
+    (sw Master.dump_db_cache Slave.dump_db_cache) fd
   let apply_delta_to_cache entry =
     (sw Master.apply_delta_to_cache Slave.apply_delta_to_cache) entry
 

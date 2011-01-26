@@ -18,11 +18,6 @@ open D
 let get_dbs_and_gen_counts() =
   List.map (fun conn->(Generation.read conn, conn)) (Db_conn_store.read_db_connections())
     
-let init_gen_count connections =
-  let gens = List.map Generation.read connections in
-  let max = List.fold_left (fun max x -> if x>max then x else max) 0L gens in
-  Generation.set_count max
-
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
 let pick_most_recent_db connections =
@@ -78,17 +73,11 @@ let pre_exit_hook () =
 let flush_dirty_and_maybe_exit dbconn exit_spec =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
-       let flush_conn dbconn =
-	 let was_anything_flushed = Backend_xml.flush_dirty dbconn in
-	 if was_anything_flushed then
-	   Generation.write_out dbconn;
-     was_anything_flushed in
-
        (* if we're being told to shutdown by signal handler then flush every connection
 	  - the rationale is that we're not sure which db connections will be available on next restart *)
        if !exit_on_next_flush then
 	 begin
-	   flush_conn dbconn;
+	   Backend_xml.flush_dirty dbconn;
 	   let refcount = dec_and_read_db_flush_thread_refcount() in
 	   (* last flushing thread close the door on the way out.. *)
 	   if refcount = 0 then
@@ -101,7 +90,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 	     debug "refcount is %d; not exiting" refcount
 	 end;
        
-       let was_anything_flushed = flush_conn dbconn in
+       let was_anything_flushed = Backend_xml.flush_dirty dbconn in
        
        (* exit if we've been told to by caller *)
        begin
@@ -109,7 +98,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 	   None -> ()
 	 | (Some ret_code) -> pre_exit_hook(); exit ret_code
        end;
-       was_anything_flushed
+	   was_anything_flushed
     )
 (*
 let create_empty_db (major, minor) dbconn =
@@ -117,27 +106,19 @@ let create_empty_db (major, minor) dbconn =
   Backend_xml.create_empty_db (major, minor) dbconn
   *)
 let maybe_create_new_db (major,minor) dbconn =
-  if not (Sys.file_exists dbconn.Parse_db_conf.path) then
-    begin
-      Generation.create_fresh dbconn;
-      Backend_xml.create_empty_db (major,minor) dbconn
-    end
+	if not (Sys.file_exists dbconn.Parse_db_conf.path) 
+	then Backend_xml.create_empty_db (major,minor) dbconn
 
 let force_flush_all dbconn =
-  debug "About to flush database: %s" dbconn.Parse_db_conf.path;
-  Db_conn_store.with_db_conn_lock dbconn
-    (fun () ->
-       begin
-	 Backend_xml.force_flush_all dbconn None
-       end;
-       Generation.write_out dbconn
-    )
+	debug "About to flush database: %s" dbconn.Parse_db_conf.path;
+	Db_conn_store.with_db_conn_lock dbconn
+		(fun () ->
+			Backend_xml.force_flush_all dbconn None
+		)
 
-let force_flush_specified_cache dbconn generation_count cache =
-  Db_conn_store.with_db_conn_lock dbconn
-    (fun () ->
-       begin
-	 Backend_xml.force_flush_all dbconn (Some cache)
-       end;
-       Generation.write_out_specified_count dbconn generation_count
-    )
+let force_flush_specified_cache dbconn cache =
+	Db_conn_store.with_db_conn_lock dbconn
+		(fun () ->
+			Backend_xml.force_flush_all dbconn (Some cache)
+		)
+

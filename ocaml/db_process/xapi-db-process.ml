@@ -94,18 +94,11 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-		Db_cache.DBCache.dump_db_cache (Generation.read_generation()) (Unix.descr_of_out_channel stdout)
+		Db_cache.DBCache.dump_db_cache (Unix.descr_of_out_channel stdout)
     else
       write_out_database !filename
   end
     
-let do_read_gencount() =
-  initialise_db_connections();
-  let connections = Db_conn_store.read_db_connections () in
-  Db_connections.init_gen_count connections;
-  let maxgen = Generation.read_generation() in
-  Printf.printf "%Ld\n" maxgen
-
 let find_my_host_row() =
   Xapi_inventory.read_inventory ();
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
@@ -171,8 +164,6 @@ let _ =
   match parse_operation !operation with
   | Write_database ->
       do_write_database()
-  | Read_gencount ->
-      do_read_gencount()
   | Read_hostiqn ->
       do_read_hostiqn()
   | Write_hostiqn ->
