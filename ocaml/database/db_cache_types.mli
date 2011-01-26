@@ -23,7 +23,6 @@ type where_record = {
 }
 type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
 type db_dump_manifest = {
-  control_domain_uuid : string;
   pool_conf : string;
   pool_token : string;
   schema_major_vsn : int;
