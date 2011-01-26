@@ -51,11 +51,11 @@ let initialise_db_connections() =
 let read_in_database() =
   (* Make sure we're running in master mode: we cannot be a slave
      and then access the dbcache *)
-  Db_cache.database_mode := Some Db_cache.Master;
+  Db_cache.set_master true;
   initialise_db_connections();
   Db_dirty.make_blank_dirty_records();  
   (* Initialiase in-memory database cache *)
-  Db_cache.DBCache.initialise_db_cache_nosync()
+  Db_cache_impl.initialise_db_cache_nosync()
 
 let write_out_databases() =
   List.iter 
@@ -94,7 +94,7 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-		Db_cache.DBCache.dump_db_cache (Unix.descr_of_out_channel stdout)
+		Db_cache_impl.dump_db_cache (Unix.descr_of_out_channel stdout)
     else
       write_out_database !filename
   end

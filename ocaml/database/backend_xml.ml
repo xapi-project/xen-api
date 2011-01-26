@@ -53,7 +53,7 @@ let unmarshall dbconn =
 
 (* Given table name, read all rows from db and store in cache *)
 let populate_and_read_manifest dbconn =
-  debug "attempting to restore database from %s" dbconn.Parse_db_conf.path;
+  Printf.printf "attempting to restore database from %s\n" dbconn.Parse_db_conf.path;
   let manifest, unmarshalled_db = unmarshall dbconn in
   debug "finished parsing xml";
   (* version_check manifest; *) 

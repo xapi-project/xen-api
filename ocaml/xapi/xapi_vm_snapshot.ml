@@ -249,6 +249,7 @@ let checkpoint ~__context ~vm ~new_name =
 let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
 	assert (Pool_role.is_master ());
 	debug "copying metadata into %s" (Ref.string_of dst);
+	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in
 	List.iter
 		(fun (key,value) -> 
 			let value = 
@@ -256,7 +257,7 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
 				then List.assoc key default_values
 				else value in
 			 if not (List.mem key do_not_copy)
-			 then Db_cache.DBCache.write_field __context Db_names.vm (Ref.string_of dst) key value)
+			 then DB.write_field Db_names.vm (Ref.string_of dst) key value)
 		metadata
 		
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =

@@ -11,32 +11,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Debugger(struct let name = "sql" end)
+module D = Debug.Debugger(struct let name = "xapi" end)
 module R = Debug.Debugger(struct let name = "redo_log" end)
 open D
 
 let get_dbs_and_gen_counts() =
   List.map (fun conn->(Generation.read conn, conn)) (Db_conn_store.read_db_connections())
     
+exception No_databases
+
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
-let pick_most_recent_db connections =
-  let conns_and_gens = List.map (fun conn -> Generation.read conn, conn) connections in
-  let _ = List.iter (fun (g,conn)->debug "Dbconf contains: %Ld, %s" g conn.Parse_db_conf.path) conns_and_gens in
-  let conn = ref Parse_db_conf.dummy_conf in
-  let rec pick_largest l sofar =
-    match l,sofar with
-      [], g -> !conn
-    | (this_g, this_conn)::cs, largest_g ->
-	if this_g > largest_g then
-	  begin
-	    conn := this_conn;
-	    pick_largest cs this_g
-	  end
-	else pick_largest cs largest_g in
-  let most_recent = pick_largest conns_and_gens (Int64.sub 0L 1L) in
-  debug "Most recent db in db.conf file is '%s'" most_recent.Parse_db_conf.path;
-  most_recent
+let pick_most_recent_db = function
+| [] -> raise No_databases
+| (c :: cs) as connections ->
+	List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Generation.read c)) connections;
+	let gen, most_recent = List.fold_left (fun (g, c) c' -> 
+		let g' = Generation.read c' in 
+		if g' > g then (g', c') else (g, c)) 
+		(Generation.read c, c) cs in
+	debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
+	most_recent
 
 let preferred_write_db () =
   List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)  

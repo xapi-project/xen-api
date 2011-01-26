@@ -21,7 +21,13 @@ type where_record = {
   where_field : string;
   where_value : string;
 }
+val rpc_of_where_record: where_record -> Rpc.t
+val where_record_of_rpc: Rpc.t -> where_record
+
 type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
+val rpc_of_structured_op_t: structured_op_t -> Rpc.t
+val structured_op_t_of_rpc: Rpc.t -> structured_op_t
+
 type db_dump_manifest = {
   schema_major_vsn : int;
   schema_minor_vsn : int;

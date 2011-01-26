@@ -38,7 +38,7 @@ let light_fuse_and_run ?(fuse_length=Xapi_globs.fuse_time) () =
 	       *)
 	       try
 		 let dbconn = Db_connections.preferred_write_db () in
-		 Db_cache.DBCache.flush_and_exit dbconn Xapi_globs.restart_return_code
+		 Db_cache_impl.flush_and_exit dbconn Xapi_globs.restart_return_code
 	       with e ->
 		 warn "Caught an exception flushing database (perhaps it hasn't been initialised yet): %s; restarting immediately" (ExnHelper.string_of_exn e);
 		 exit Xapi_globs.restart_return_code
@@ -66,7 +66,7 @@ let light_fuse_and_dont_restart ?(fuse_length=Xapi_globs.fuse_time) () =
 		debug "light_fuse_and_dont_restart: calling Monitor_rrds.backup to save current RRDs locally";
 	       Monitor_rrds.backup ();
 	       Thread.delay (float_of_int fuse_length);
-	       Db_cache.DBCache.flush_and_exit (Db_connections.preferred_write_db ()) 0) ());
+	       Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) 0) ());
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence
      the use of a background thread. *)
   Helpers.log_exn_continue "setting Host.enabled to false"

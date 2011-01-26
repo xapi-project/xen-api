@@ -784,7 +784,8 @@ let vm_to_string vm =
 	if not (Db.is_valid_ref vm)
 	then raise (Api_errors.Server_error(Api_errors.invalid_value ,[str]));
 
-	let fields = fst (Db_cache.DBCache.read_record Db_names.vm str) in
+	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in
+	let fields = fst (DB.read_record Db_names.vm str) in
 	let sexpr = SExpr.Node (List.map (fun (key,value) -> SExpr.Node [SExpr.String key; SExpr.String value]) fields) in
 	SExpr.string_of sexpr
 

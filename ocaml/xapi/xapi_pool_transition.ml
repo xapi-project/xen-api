@@ -129,7 +129,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
     error "Some hosts failed to commit [ %s ]: this node will now restart in a broken state"
       (String.concat "; " !hosts_which_failed);
     (* Immediately just in case *)
-    Db_cache.DBCache.flush_and_exit (Db_connections.preferred_write_db ()) Xapi_globs.restart_return_code
+    Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) Xapi_globs.restart_return_code
   end;
   (* If this is an automatic transition then there is no other master to clash with and so
      we can restart immediately. NB if we are the master (and this code is being used to assert
@@ -137,7 +137,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
   if not(manual) then
     if am_master_already
     then info "Not restarting since we are the master already"
-    else Db_cache.DBCache.flush_and_exit (Db_connections.preferred_write_db ()) Xapi_globs.restart_return_code;
+    else Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) Xapi_globs.restart_return_code;
 
 	(* If manual, periodicly access to the database to check whether the old master has restarted. *)
 	if manual then

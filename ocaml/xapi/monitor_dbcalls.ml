@@ -184,7 +184,7 @@ let full_update_fn () =
       if Pool_role.is_master () then 
 	Monitor_master.update_all ~__context host_stats (* read stats locally and update locally *)
       else
-	ignore (Master_connection.execute_remote_fn (Monitor_transfer.marshall host_stats) Constants.remote_stats_uri);
+	ignore (Master_connection.execute_remote_fn (Xml.to_string_fmt (Monitor_transfer.marshall host_stats)) Constants.remote_stats_uri);
     )
 (* End of legacy function *)
 

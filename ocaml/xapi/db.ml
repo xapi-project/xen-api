@@ -17,4 +17,5 @@
  
 include Db_actions.DB_Action
 let is_valid_ref r =
-	Db_cache.DBCache.is_valid_ref (Ref.string_of r)
+	let module DB = (val (Db_cache.get ()) : Db_interface.DB_ACCESS) in
+	DB.is_valid_ref (Ref.string_of r)

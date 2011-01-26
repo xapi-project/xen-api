@@ -107,10 +107,10 @@ let connection_timeout = ref 10. (* -ve means retry forever *)
    are exceeded *)
 let restart_on_connection_timeout = ref true
   
-let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml = 
+let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string = 
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
-  let result = ref (Xml.PCData "") in
+  let result = ref "" in
   let surpress_no_timeout_logs = ref false in
   let backoff_delay = ref 2.0 in (* initial delay = 2s *)
   let update_backoff_delay () =
@@ -122,7 +122,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
   do
     begin
       try
-	let req_string = Xml.to_string_fmt req in
+	let req_string = req in
 	let headers = Xmlrpcclient.xmlrpc_headers ~version:"1.1" host path (String.length req_string + 0) in
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
 	let headers = headers @ ["Cookie: pool_secret="^(!Xapi_globs.pool_secret)] in
@@ -135,7 +135,11 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
 	       in_channel function: the input channel will buffer an arbitrary amount of stuff
 	       and we'll be out of sync with the next request. *)
 	    if content_length < 0 then raise Xmlrpcclient.Content_length_required;
-	    let res = with_timestamp (fun ()->Xmlrpcclient.read_xml_rpc_response content_length task_id fd) in
+	    let res = with_timestamp (fun ()->
+			let buffer = String.make content_length '\000' in
+			Unixext.really_read fd buffer 0 content_length;
+			buffer
+		) in
 	    write_ok := true;
 	    result := res (* yippeee! return and exit from while loop *)
       with
@@ -193,9 +197,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: Xml.xml) : Xml.xml =
   done;
   !result
     
-let execute_remote_fn xml path =
+let execute_remote_fn string path =
   let host = Pool_role.get_master_address () in
   Db_lock.with_lock
     (fun () ->
        (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-       do_db_xml_rpc_persistent_with_reopen ~host ~path xml)
+       do_db_xml_rpc_persistent_with_reopen ~host ~path string)
