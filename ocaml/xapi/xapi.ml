@@ -343,7 +343,10 @@ let init_local_database () =
   (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
   if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false";
   (* After a reboot we assume all PBDs have currently_attached = false *)
-  if !Xapi_globs.on_system_boot then Xapi_local_pbd_state.clear ()
+  if !Xapi_globs.on_system_boot then Xapi_local_pbd_state.clear ();
+
+  (* Ditto for VDIs *)
+  if !Xapi_globs.on_system_boot then Xapi_local_vdi_state.clear ()
 
 
 let bring_up_management_if ~__context () = 
