@@ -4230,7 +4230,7 @@ let tunnel =
 	])
 	()
 
- let pbd_set_device_config = call
+let pbd_set_device_config = call
    ~name:"set_device_config"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4358,7 +4358,7 @@ let storage_operations =
 	  "vdi_clone", "Cloneing a VDI"; 
 	  "vdi_snapshot", "Snapshotting a VDI" ])
 
- let sr_set_virtual_allocation = call
+let sr_set_virtual_allocation = call
    ~name:"set_virtual_allocation"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4369,7 +4369,7 @@ let storage_operations =
    ~allowed_roles:_R_POOL_OP
    ()
 
- let sr_set_physical_size = call
+let sr_set_physical_size = call
    ~name:"set_physical_size"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4380,7 +4380,7 @@ let storage_operations =
    ~allowed_roles:_R_POOL_OP
    ()
 
- let sr_set_physical_utilisation = call
+let sr_set_physical_utilisation = call
    ~name:"set_physical_utilisation"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4391,7 +4391,7 @@ let storage_operations =
    ~allowed_roles:_R_POOL_OP
    ()
 
- let sr_update = call
+let sr_update = call
    ~name:"update"
    ~in_oss_since:None
    ~in_product_since:rel_symc
@@ -4400,7 +4400,7 @@ let storage_operations =
    ~allowed_roles:_R_POOL_OP
    ()
 
- let sr_assert_can_host_ha_statefile = call
+let sr_assert_can_host_ha_statefile = call
    ~name:"assert_can_host_ha_statefile"
    ~in_oss_since:None
    ~in_product_since:rel_orlando
@@ -4409,7 +4409,7 @@ let storage_operations =
    ~allowed_roles:_R_POOL_OP
    ()
 
- let sr_lvhd_stop_using_these_vdis_and_call_script = call
+let sr_lvhd_stop_using_these_vdis_and_call_script = call
    ~name:"lvhd_stop_using_these_vdis_and_call_script"
    ~in_oss_since:None
    ~in_product_since:rel_george
@@ -4622,7 +4622,7 @@ let vdi_set_missing = call
   ~allowed_roles:_R_VM_ADMIN
    ()  
 
- let vdi_set_read_only = call
+let vdi_set_read_only = call
    ~name:"set_read_only"
    ~in_oss_since:None
    ~in_product_since:rel_rio
@@ -4633,7 +4633,7 @@ let vdi_set_missing = call
   ~allowed_roles:_R_VM_ADMIN
    ()
 
- let vdi_set_sharable = call
+let vdi_set_sharable = call
    ~name:"set_sharable"
    ~in_oss_since:None
    ~in_product_since:rel_george
@@ -4644,7 +4644,7 @@ let vdi_set_missing = call
   ~allowed_roles:_R_VM_ADMIN
    ()
 
- let vdi_set_managed = call
+let vdi_set_managed = call
    ~name:"set_managed"
    ~in_oss_since:None
 	 ~in_product_since:rel_rio
@@ -4655,7 +4655,7 @@ let vdi_set_missing = call
   ~allowed_roles:_R_VM_ADMIN
    ()
  
- let vdi_set_virtual_size = call
+let vdi_set_virtual_size = call
    ~name:"set_virtual_size"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4666,7 +4666,7 @@ let vdi_set_missing = call
   ~allowed_roles:_R_VM_ADMIN
    ()
 
- let vdi_set_physical_utilisation = call
+let vdi_set_physical_utilisation = call
    ~name:"set_physical_utilisation"
    ~in_oss_since:None
    ~in_product_since:rel_miami
@@ -4678,7 +4678,7 @@ let vdi_set_missing = call
    ()
 
 (** An API call for debugging and testing only *)
- let vdi_generate_config = call
+let vdi_generate_config = call
    ~name:"generate_config"
    ~in_oss_since:None
    ~in_product_since:rel_orlando
@@ -4693,7 +4693,7 @@ let vdi_set_missing = call
 let on_boot = Enum ("on_boot", [ "reset", "The VDI will be reset to the state it was in at the last clone";
 "persist", "The VDIs contents are persistent" ])
 
- let vdi_set_on_boot = call
+let vdi_set_on_boot = call
 	 ~name:"set_on_boot"
 	 ~in_oss_since:None
 	 ~in_product_since:rel_cowley
