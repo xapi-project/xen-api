@@ -628,7 +628,7 @@ let hard_shutdown ~__context ~vm =
 		let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
 		retry_on_conflict args (of_action action)
 	with
-		| Api_errors.Server_error(code, _) as e
+		| Api_errors.Server_error(code, _)
 				when code = Api_errors.vm_bad_power_state ->
 			(* ToDo: How do you test directly if the VM is already shut-down?
 			   I hope we are not masking bugs here.
