@@ -38,7 +38,7 @@ let make_iscsi session_id pool network =
     let template = List.hd (Client.VM.get_by_name_label rpc session_id iscsi_vm_template) in
     let newvm = Client.VM.clone rpc session_id template "ISCSI target server" in
     Client.VM.provision rpc session_id newvm;
-    let isovbd = Client.VBD.create rpc session_id newvm iscsi_iso "0" true `RO `CD false false [] "" [] in
+    let _ (* isovbd *) = Client.VBD.create rpc session_id newvm iscsi_iso "0" true `RO `CD false false [] "" [] in
     let realpool = List.hd (Client.Pool.get_all rpc session_id) in
     let defaultsr = Client.Pool.get_default_SR rpc session_id realpool in
 
@@ -46,7 +46,7 @@ let make_iscsi session_id pool network =
       let storage_vdi_label = Printf.sprintf "SCSI VDI %d" i in
       let storage_vdi = Client.VDI.create rpc session_id storage_vdi_label "" defaultsr sr_disk_size `user false false [oc_key,pool.key] [] [] [] in
       let userdevice = Printf.sprintf "%d" (i+1) in
-      Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW `Disk false false [] "" []
+      ignore(Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW `Disk false false [] "" [])
     done;
 
     Client.VM.set_PV_bootloader rpc session_id newvm "pygrub";

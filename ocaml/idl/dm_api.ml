@@ -193,8 +193,8 @@ let check api emergency_calls =
 
   (* Sanity check 7: message parameters must be in increasing order of in_product_since *)
   let are_in_vsn_order ps =
-    let rec getlast l =
-      match l with [x] -> x | x::xs -> getlast xs in
+    let rec getlast l = (* TODO: move to standard library *)
+      match l with [x] -> x | _::xs -> getlast xs | [] -> raise (Invalid_argument "getlast") in
     let release_lt x y = release_leq x y && x<>y in
     let in_since releases = (* been in since the lowest of releases *)
       let rec find_smallest sofar l =

@@ -72,4 +72,4 @@ open Pervasiveext
      | "message" ->          Message (Ref.of_string ev.Event_types.reference,API.From.message_t "" xmlrpc)
      | "secret" ->           Secret (Ref.of_string ev.Event_types.reference,API.From.secret_t "" xmlrpc)
      | "vmpp" ->             VMPP (Ref.of_string ev.Event_types.reference,API.From.vMPP_t "" xmlrpc)
-  
+     | _ -> failwith "unknown event type"

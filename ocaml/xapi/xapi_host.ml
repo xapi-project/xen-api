@@ -111,11 +111,11 @@ let assert_bacon_mode ~__context ~host =
 	let vms = Db.VM.get_refs_where ~__context ~expr:(And(Eq (Field "resident_on", Literal (Ref.string_of host)),
 									Eq (Field "power_state", Literal "Running"))) in
 	(* We always expect a control domain to be resident on a host *)
-	match List.filter (fun vm -> not (Db.VM.get_is_control_domain ~__context ~self:vm)) vms with
+	(match List.filter (fun vm -> not (Db.VM.get_is_control_domain ~__context ~self:vm)) vms with
 	| [] -> ()
 	| guest_vms -> 
 		let vm_data = [selfref; "vm"; Ref.string_of (List.hd guest_vms)] in
-		raise (Api_errors.Server_error (Api_errors.host_in_use, vm_data))
+		raise (Api_errors.Server_error (Api_errors.host_in_use, vm_data)));
 	debug "Bacon test: VMs OK - %d running VMs" (List.length vms);
 	let controldomain = List.find (fun vm -> Db.VM.get_resident_on ~__context ~self:vm = host &&
 			Db.VM.get_is_control_domain ~__context ~self:vm) (Db.VM.get_all ~__context) in  

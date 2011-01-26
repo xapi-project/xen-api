@@ -159,8 +159,6 @@ let set_memory_limits ~__context ~self
 	if Db.VM.get_power_state ~__context ~self <> `Halted
 	then failwith "assertion_failed: set_memory_limits should only be \
 		called when the VM is Halted";
-	(* Support the redundant target field. *)
-	let target = dynamic_min in
 	(* Check that the new limits are in the correct order. *)
 	let constraints = {Vm_memory_constraints.
 		static_min  = static_min;
