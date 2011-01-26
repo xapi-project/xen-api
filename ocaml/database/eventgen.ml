@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -68,3 +68,104 @@ let events_of_other_tbl_refs other_tbl_refs =
 		   (* Probably means the reference was dangling *)
 		   warn "skipping event for dangling reference %s: %s" tbl fld;
 		   []) other_tbl_refs)
+
+open Db_cache_types
+open Db_action_helper
+
+let database_callback event db = 
+	let context = Context.make "eventgen" in
+
+	let other_tbl_refs tblname = follow_references tblname in
+	let other_tbl_refs_for_this_field tblname fldname =
+		List.filter (fun (_,fld) -> fld=fldname) (other_tbl_refs tblname) in	
+
+	match event with
+		| WriteField (tblname, objref, fldname, oldval, newval) ->
+			let events_old_val = 
+				if Db_cache_impl.is_valid_ref oldval then 
+					events_of_other_tbl_refs
+						(List.map (fun (tbl,fld) ->
+							(tbl, oldval, find_get_record tbl ~__context:context ~self:oldval)) (other_tbl_refs_for_this_field tblname fldname)) 
+				else [] in
+			let events_new_val =
+				if Db_cache_impl.is_valid_ref newval then
+					events_of_other_tbl_refs
+						(List.map (fun (tbl,fld) ->
+							(tbl, newval, find_get_record tbl ~__context:context ~self:newval)) (other_tbl_refs_for_this_field tblname fldname)) 
+				else [] 
+			in
+			(* Generate event *)
+			let snapshot = find_get_record tblname ~__context:context ~self:objref in
+			let record = snapshot() in
+			List.iter (function 
+				| tbl, ref, None ->
+					error "Failed to send MOD event for %s %s" tbl ref;
+					Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref;
+				| tbl, ref, Some s ->
+					events_notify ~snapshot:s tbl "mod" ref
+			) events_old_val;
+			begin match record with
+				| None ->
+					error "Failed to send MOD event for %s %s" tblname objref;
+					Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref;
+				| Some record ->
+					events_notify ~snapshot:record tblname "mod" objref;
+			end;
+			List.iter (function 
+				| tbl, ref, None ->
+					error "Failed to send MOD event for %s %s" tbl ref;
+					Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref;
+				| tbl, ref, Some s -> 
+					events_notify ~snapshot:s tbl "mod" ref
+			) events_new_val;
+		| PreDelete(tblname, objref) ->
+			begin match find_get_record tblname ~__context:context ~self:objref () with
+				| None ->
+					error "Failed to generate DEL event for %s %s" tblname objref;
+					(*				Printf.printf "Failed to generate DEL event for %s %s\n%!" tblname objref; *)
+				| Some snapshot ->
+					events_notify ~snapshot tblname "del" objref
+			end
+		| Delete(tblname, objref, kv) ->
+			let other_tbl_refs = follow_references tblname in
+			let other_tbl_refs =
+				List.fold_left (fun accu (remote_tbl,fld) ->
+					let fld_value = List.assoc fld kv in
+					if Db_cache_impl.is_valid_ref fld_value 
+					then (remote_tbl, fld_value, find_get_record remote_tbl ~__context:context ~self:fld_value) :: accu 
+					else accu) 
+					[] other_tbl_refs in
+			let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
+			List.iter (function
+				| tbl, ref, None ->
+					error "Failed to generate MOD event on %s %s" tbl ref;
+(*					Printf.printf "Failed to generate MOD event on %s %s\n%!" tbl ref; *)
+				| tbl, ref, Some s -> 
+					events_notify ~snapshot:s tbl "mod" ref
+			) other_tbl_ref_events
+
+		| Create (tblname, new_objref, kv) ->
+			let snapshot = find_get_record tblname ~__context:context ~self:new_objref in
+			let other_tbl_refs = follow_references tblname in
+			let other_tbl_refs =
+				List.fold_left (fun accu (tbl,fld) ->
+					let fld_value = List.assoc fld kv in
+					if Db_cache_impl.is_valid_ref fld_value 
+					then (tbl, fld_value, find_get_record tbl ~__context:context ~self:fld_value) :: accu
+					else accu) 
+					[] other_tbl_refs in
+			let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in
+			begin match snapshot() with
+				| None ->
+					error "Failed to generate ADD event for %s %s" tblname new_objref;
+					(*				Printf.printf "Failed to generate ADD event for %s %s\n%!" tblname new_objref; *)
+				| Some snapshot ->
+					events_notify ~snapshot tblname "add" new_objref;
+			end;
+			List.iter (function
+				| tbl, ref, None ->
+					error "Failed to generate MOD event for %s %s" tbl ref;
+					(* 				Printf.printf "Failed to generate MOD event for %s %s\n%!" tbl ref;*)
+				| tbl, ref, Some s ->
+					events_notify ~snapshot:s tbl "mod" ref
+			) other_tbl_events

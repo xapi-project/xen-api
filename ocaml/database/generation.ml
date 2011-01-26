@@ -23,8 +23,5 @@ let to_string g = Int64.to_string g
 let add_int a b = Int64.add a (Int64.of_int b)
 let null_generation = -1L
 
-let filename dbconn = dbconn.Parse_db_conf.path^".generation"
+let suffix = ".generation"
 
-let read dbconn =
-  let gencount_fname = filename dbconn in
-  try Int64.of_string (Unixext.string_of_file gencount_fname) with _ -> 0L

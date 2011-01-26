@@ -171,7 +171,7 @@ let read_set_ref obj other full_name =
 	  Printf.sprintf "if not(DB.is_valid_ref %s)" Client._self;
 	  Printf.sprintf "then raise (Api_errors.Server_error(Api_errors.handle_invalid, [ %s ]))" Client._self;
 	  Printf.sprintf "else List.map %s.%s (DB.read_set_ref " _string_to_dm (OU.alias_of_ty (DT.Ref other));
-	  Printf.sprintf "    { table = \"%s\"; return=Db_action_helper.reference; " (Escaping.escape_obj obj');
+	  Printf.sprintf "    { table = \"%s\"; return=Db_names.ref; " (Escaping.escape_obj obj');
 	  Printf.sprintf "      where_field = \"%s\"; where_value = %s })" fld' Client._self
   ]
 

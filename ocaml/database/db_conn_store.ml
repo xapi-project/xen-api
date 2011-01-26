@@ -14,8 +14,6 @@
 (* ------------------- List of db connections that are active (read from db.conf file) *)
 
 let db_connections : Parse_db_conf.db_connection list ref = ref [] (* initalised by ocaml/xapi/xapi.ml *)
-exception Cannot_populate_database (* should never be thrown *)
-exception No_db_connections_available
 
 (* Locks for each db connection *)
 let db_conn_locks_m = Mutex.create() (* mutex used to protect access to table of mutexes -- nice! *)

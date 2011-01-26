@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-let reference = "_ref"
 
 (** Take a field name as a list (including namespaces) and return a flat name *)
 let escape_id x = String.concat "__" x

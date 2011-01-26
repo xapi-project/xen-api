@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Table column name which contains the reference *)
-let reference = Escaping.reference
-
-(** Table column name which contains the uuid *)
-let uuid = "uuid"
-
 (* General DB utils *)
 
 let __callback : ((?snapshot: XMLRPC.xmlrpc -> string -> string -> string -> unit) option ref) = ref None

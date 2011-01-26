@@ -760,6 +760,8 @@ let eject ~__context ~host =
 		(* delete backup databases and any temporary restore databases *)
 		Unixext.unlink_safe Xapi_globs.backup_db_xml;
 		Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+		Unixext.unlink_safe Xapi_globs.ha_metadata_db;
+		Unixext.unlink_safe Xapi_globs.gen_metadata_db;
 
 		(* If we've got local storage, remove it *)
 		if (Helpers.local_storage_exists ()) then begin
@@ -780,7 +782,7 @@ let eject ~__context ~host =
 			(* We need to delete all local dbs but leave remote ones alone *)
 			let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
 			List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);
-			List.iter Unixext.unlink_safe (List.map Generation.filename local);
+			List.iter Unixext.unlink_safe (List.map Parse_db_conf.generation_filename local);
 			(* remove any shared databases from my db.conf *)
 			(* XXX: on OEM edition the db.conf is rebuilt on every boot *)
 			Parse_db_conf.write_db_conf local;
@@ -801,6 +803,8 @@ let eject ~__context ~host =
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
 
+open Db_cache_types
+
 let sync_database ~__context = 
   Mutex.execute sync_m
     (fun () ->
@@ -811,7 +815,7 @@ let sync_database ~__context =
        then debug "flushed database to metadata VDI: assuming this is sufficient."
        else begin
 	 debug "flushing database to all online nodes";
-		   let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
+		   let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
 	 Threadext.thread_iter
 	   (fun host ->
 	      Helpers.call_api_functions ~__context

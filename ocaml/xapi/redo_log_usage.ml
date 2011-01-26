@@ -13,7 +13,7 @@
  *)
 open Pervasiveext (* for ignore_exn *)
 
-module R = Debug.Debugger(struct let name = "xapi" end)
+module R = Debug.Debugger(struct let name = "redo_log" end)
 
 exception NoGeneration
 exception DeltaTooOld
@@ -43,11 +43,11 @@ let read_from_redo_log staging_path =
           if total_read <> expected_length then raise (DatabaseWrongSize (expected_length, total_read));
     
           (* Read from the file into the cache *)
-          let fake_conn_db_file = { Parse_db_conf.dummy_conf with
-            Parse_db_conf.path = temp_file
-          } in
+		  let conn = Parse_db_conf.make temp_file in
           (* ideally, the reading from the file would also respect the latest_response_time *)
-          ignore (Backend_xml.populate_and_read_manifest fake_conn_db_file);
+		  let db = Backend_xml.populate (Schema.of_datamodel ()) conn in
+		  Db_backend.update_database (fun _ -> db);
+
           R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
 
           (* Set the generation count *)
@@ -60,19 +60,19 @@ let read_from_redo_log staging_path =
     in
 
     let read_delta gen_count delta =
-      (* Apply the delta *)
-      Db_cache.apply_delta_to_cache delta;
-      (* Update the generation count *)
-      match !latest_generation with
-      | None -> raise NoGeneration (* we should have already read in a database with a generation count *)
-      | Some g ->
-        if gen_count > g
-        then latest_generation := Some gen_count
-        else raise DeltaTooOld (* the delta should be at least as new as the database to which it applies *)
+		(* Apply the delta *)
+		Db_cache.apply_delta_to_cache delta;
+		(* Update the generation count *)
+		match !latest_generation with
+			| None -> raise NoGeneration (* we should have already read in a database with a generation count *)
+			| Some g ->
+				if gen_count > g 
+				then latest_generation := Some gen_count
+				else raise DeltaTooOld (* the delta should be at least as new as the database to which it applies *)
     in
 
     R.debug "Reading from redo log";
-    Redo_log.apply read_db read_delta;
+    Redo_log.apply read_db read_delta; 
 
     (* 3. Write the database and generation to a file 
      * Note: if there were no deltas applied then this is semantically 
@@ -93,10 +93,10 @@ let read_from_redo_log staging_path =
 		  R.debug "Database from redo log has generation %Ld" generation;
         (* Write the in-memory cache to the file *)
 		  (* Make sure the generation count is right -- is this necessary? *)
-		  Db_cache_types.set_generation Db_backend.cache generation;
-          let manifest = Db_cache_types.manifest_of_cache Db_backend.cache in
-        Db_xml.To.file staging_path (manifest, Db_backend.cache);
-        Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
+		  Db_backend.update_database (Db_cache_types.Database.set_generation generation);
+		  let db = Db_backend.get_database () in
+		  Db_xml.To.file staging_path db;
+          Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
     end
   with _ -> () (* it's just a best effort. if we can't read from the log, then don't worry. *)
 

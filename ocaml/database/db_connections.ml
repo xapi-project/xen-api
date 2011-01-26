@@ -16,22 +16,25 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 open D
 
 let get_dbs_and_gen_counts() =
-  List.map (fun conn->(Generation.read conn, conn)) (Db_conn_store.read_db_connections())
-    
-exception No_databases
+  List.map (fun conn->(Parse_db_conf.generation_read conn, conn)) (Db_conn_store.read_db_connections())
 
+(** Returns true if the supplied connection actually exists, false otherwise *)
+let exists connection = 
+	Sys.file_exists (Parse_db_conf.generation_filename connection)
+	&& (Sys.file_exists connection.Parse_db_conf.path)
+    
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
-let pick_most_recent_db = function
-| [] -> raise No_databases
+let choose connections = match List.filter exists connections with
+| [] -> None
 | (c :: cs) as connections ->
-	List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Generation.read c)) connections;
+	List.iter (fun c -> debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path (Parse_db_conf.generation_read c)) connections;
 	let gen, most_recent = List.fold_left (fun (g, c) c' -> 
-		let g' = Generation.read c' in 
+		let g' = Parse_db_conf.generation_read c' in 
 		if g' > g then (g', c') else (g, c)) 
-		(Generation.read c, c) cs in
+		(Parse_db_conf.generation_read c, c) cs in
 	debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
-	most_recent
+	Some most_recent
 
 let preferred_write_db () =
   List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)  
@@ -95,25 +98,13 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
        end;
 	   was_anything_flushed
     )
-(*
-let create_empty_db (major, minor) dbconn =
-  Generation.create_fresh dbconn;
-  Backend_xml.create_empty_db (major, minor) dbconn
-  *)
-let maybe_create_new_db (major,minor) dbconn =
-	if not (Sys.file_exists dbconn.Parse_db_conf.path) 
-	then Backend_xml.create_empty_db (major,minor) dbconn
 
-let force_flush_all dbconn =
+let flush dbconn db =
 	debug "About to flush database: %s" dbconn.Parse_db_conf.path;
 	Db_conn_store.with_db_conn_lock dbconn
 		(fun () ->
-			Backend_xml.force_flush_all dbconn None
+			Backend_xml.flush dbconn db
 		)
 
-let force_flush_specified_cache dbconn cache =
-	Db_conn_store.with_db_conn_lock dbconn
-		(fun () ->
-			Backend_xml.force_flush_all dbconn (Some cache)
-		)
+
 

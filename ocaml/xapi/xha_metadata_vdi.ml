@@ -68,6 +68,6 @@ open Pervasiveext
 (** Attempt to flush the database to the metadata VDI *)
 let flush_database ~__context = 
   try
-    Backend_xml.flush_db_to_redo_log Db_backend.cache;
+    Redo_log.flush_db_to_redo_log (Db_backend.get_database ());
     true
   with _ -> false

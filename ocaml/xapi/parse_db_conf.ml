@@ -26,7 +26,8 @@ type db_connection =
      write_limit_period:int;
      write_limit_write_cycles:int;
      is_on_remote_storage:bool;
-     other_parameters:(string*string) list
+     other_parameters:(string*string) list;
+	 mutable last_generation_count: Generation.t;
     }
 
 let default_write_limit_period = 21600 (* 6 hours *)
@@ -39,13 +40,18 @@ let dummy_conf =
    write_limit_write_cycles=default_write_cycles;
    compress=false;
    is_on_remote_storage=false;
-   other_parameters=[]
+   other_parameters=[];
+   last_generation_count = Generation.null_generation;
   }
 
-(* the db conf that we use for temporary backup/restore files *)
-let backup_file_dbconn = {dummy_conf with
-			    path=Xapi_globs.db_temporary_restore_path
-			 }
+let make path = { dummy_conf with path = path }
+
+let generation_filename dbconn = dbconn.path ^ Generation.suffix
+
+let generation_read dbconn =
+  let gencount_fname = generation_filename dbconn in
+  try Generation.of_string (Unixext.string_of_file gencount_fname) with _ -> 0L
+
 
 (* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
 let db_snapshot_dbconn = {dummy_conf with
@@ -122,7 +128,8 @@ let parse_db_conf s =
        is_on_remote_storage = maybe_put_in "is_on_remote_storage" false bool_of_string;
        write_limit_period=maybe_put_in "write_limit_period" default_write_limit_period int_of_string;
        write_limit_write_cycles=maybe_put_in "write_limit_write_cycles" default_write_cycles int_of_string;
-       other_parameters = !key_values (* the things remaining in key_values at this point are the ones we haven't parsed out explicitly above.. *)
+       other_parameters = !key_values; (* the things remaining in key_values at this point are the ones we haven't parsed out explicitly above.. *)
+	   last_generation_count = Generation.null_generation;
       } in
     let connections : db_connection list ref = ref [] in
     while !lines<>[] do

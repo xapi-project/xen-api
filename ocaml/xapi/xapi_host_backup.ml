@@ -62,22 +62,8 @@ let host_backup_handler (req: request) s =
   req.close <- true;
   Xapi_http.with_context "Downloading host backup" req s
     (fun __context ->
-      Http_svr.headers s (Http.http_200_ok ());
-      
-      if on_oem __context && Pool_role.is_master ()
-      then
-        begin
-          List.iter (fun (_,db)-> Db_connections.force_flush_all db) (Db_connections.get_dbs_and_gen_counts());
-          Threadext.Mutex.execute 
-            Db_lock.global_flush_mutex 
-            (fun () -> 
-              host_backup_handler_core ~__context s
-            )
-        end
-      else
-        begin
+      Http_svr.headers s (Http.http_200_ok ());      
           host_backup_handler_core ~__context s 
-        end
     )
 
 (** Helper function to prevent double-closes of file descriptors 
