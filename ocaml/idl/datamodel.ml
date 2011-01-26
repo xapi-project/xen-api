@@ -4421,20 +4421,6 @@ let sr_assert_can_host_ha_statefile = call
    ~allowed_roles:_R_POOL_OP
    ()
 
-let sr_lvhd_stop_using_these_vdis_and_call_script = call
-   ~name:"lvhd_stop_using_these_vdis_and_call_script"
-   ~in_oss_since:None
-   ~in_product_since:rel_george
-   ~params:[Set(Ref _vdi), "vdis", "The VDIs to stop using";
-	    String, "plugin", "Name of the plugin script to call";
-	    String, "fn", "Name of the function within the script to call";
-	    Map(String, String), "args", "Arguments to pass to the script"]
-   ~result:(String, "output from the lvhd script hook")
-   ~doc:"Pauses active VBDs associated with the given VDIs and prevents other VDIs becoming active; then calls a script and unwinds"
-   ~hide_from_docs:true
-   ~allowed_roles:_R_POOL_OP
-   ()
-
 (** A storage repository. Note we overide default create/destroy methods with our own here... *)
 let storage_repository =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
@@ -4447,7 +4433,6 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
-		  sr_lvhd_stop_using_these_vdis_and_call_script;
 		]
       ~contents:
       ([ uid _sr;

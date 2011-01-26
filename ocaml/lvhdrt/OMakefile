@@ -4,7 +4,7 @@ OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
 IEXE=install -m 755 -o root -g root
 
-OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 tc_8699 tc_8700 tc_8707 tc_8713 tc_8766 tc_8775)
+OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 tc_8699 tc_8700 tc_8707 tc_8766 tc_8775)
 
 .PHONY: clean
 
