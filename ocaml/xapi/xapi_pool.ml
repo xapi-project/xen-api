@@ -143,6 +143,25 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []));
 		end in
 
+	let assert_product_version_matches () = 
+		let me = Db.Host.get_record ~__context ~self:(Helpers.get_localhost ~__context) in
+		let master_ref = get_master rpc session_id in
+		let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
+		let my_software_version = me.API.host_software_version in
+		let master_software_version = master.API.host_software_version in
+		let product_version x = 
+			if List.mem_assoc "product_version" x
+			then Some (List.assoc "product_version" x)
+			else None in
+		let master_product_version = product_version master_software_version in
+		let my_product_version = product_version my_software_version in
+		if master_product_version <> my_product_version then begin
+			debug "master PRODUCT_VERSION = %s; my PRODUCT_VERSION = %s" 
+				(Opt.default "Unknown" master_product_version)
+				(Opt.default "Unknown" my_product_version);
+			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_product_version, []))
+		end in
+
 	let assert_hosts_homogeneous () =
 		let me = Helpers.get_localhost ~__context in
 		let master_ref = get_master rpc session_id in
@@ -264,6 +283,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	assert_i_know_of_no_other_hosts();
 	assert_no_running_vms_on_me ();
 	assert_no_vms_with_current_ops ();
+	assert_product_version_matches ();
 	if (not force) then assert_hosts_homogeneous ();
 	assert_no_shared_srs_on_me ();
 	assert_management_interface_is_physical ();
@@ -564,14 +584,11 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 		pre_join_checks ~__context ~rpc ~session_id ~force;
 		cluster_secret := Client.Pool.initial_auth rpc session_id;
 
-		(* get pool db from new master so I have a backup ready if we failover to me -- if 
-		this fails the whole join operation fails.
-		CA-22449: this is where a --force'd pool.join across differing product versions
-		will fail because the database schema has the wrong version. *)
+		(* get pool db from new master so I have a backup ready if we failover to me *)
 		begin try
 			Pool_db_backup.fetch_database_backup ~master_address ~pool_secret:!cluster_secret ~force:None
-		with Api_errors.Server_error(code, _) when code = Api_errors.restore_incompatible_version ->
-			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_product_version, []))
+		with e ->
+			error "Failed fetching a database backup from the master: %s" (ExnHelper.string_of_exn e)
 		end;
 
 		(* this is where we try and sync up as much state as we can
