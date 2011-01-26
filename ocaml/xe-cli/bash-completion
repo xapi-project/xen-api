@@ -52,7 +52,8 @@ _xe()
 				case "${COMP_WORDS[1]}" in
 					diagnostic-vm-status) cmd=vm-list;;
 					diagnostic-vdi-status) cmd=vdi-list;;
-					*) cmd=`echo ${COMP_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ { print $1 "-" $2 }$0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ { print $1 }'`-list;;
+					*) cmd=`echo ${COMP_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ { print $1 "-" $2 }
+$0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ { print $1 }'`-list;;
 				esac
 				IFS=$'\n,'
 				COMPREPLY=( $(compgen_names "$cmd" uuid "$value") )
@@ -220,11 +221,13 @@ _xe()
 				COMPREPLY=( $(compgen -W "vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin" -- ${LAST_VALUE}) )
 				return 0
 				;;
-            edition) # for host-apply-edition (licensing)
-                IFS=$'\n,'
-                COMPREPLY=( $(compgen -W "free ,enterprise ,platinum ,enterprise-xd " -- ${value}) )
-                return 0
-                ;;
+			edition) # for host-apply-edition (licensing)
+				IFS=$'\n,'
+				LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+				EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
+				COMPREPLY=( $(compgen -W "${EDITIONS}" -- ${LAST_VALUE}) )
+				return 0
+				;;
 			*)
 				snd=`echo ${param} | cut -d- -f2`
 				fst=`echo ${param} | cut -d- -f1`
