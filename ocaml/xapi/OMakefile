@@ -237,10 +237,11 @@ XAPI_MODULES = $(COMMON) \
 	../license/v6rpc \
 	bios_strings \
 	xapi_config \
+	features \
+	pool_features \
 	../license/grace_retry \
 	../license/v6alert \
 	../license/edition \
-	../license/features \
 	../license/license_file \
 	../license/license_init
 

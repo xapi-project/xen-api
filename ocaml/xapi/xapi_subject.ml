@@ -64,7 +64,7 @@ let create ~__context ~subject_identifier ~other_config =
 	(* CP-1224: Free Edition: Newly created subjects will have the Pool Administrator role. *)
 	(* CP-1224: Paid-for Edition: Newly created subjects will have an empty role. *)
 	let default_roles =
-		if (Features.is_enabled ~__context Features.RBAC)
+		if (Pool_features.is_enabled ~__context Features.RBAC)
 		then (* paid-for edition: we can only create a subject with no roles*)
 			[]
 		else (*free edition: one fixed role of pool-admin only*)
@@ -177,7 +177,7 @@ let add_to_roles ~__context ~self ~role =
 	
 	(* CP-1224: Free Edition: Attempts to add or remove roles *)
 	(* will fail with a LICENSE_RESTRICTION error.*)
-	if (not (Features.is_enabled ~__context Features.RBAC)) then
+	if (not (Pool_features.is_enabled ~__context Features.RBAC)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 	else
 
@@ -215,7 +215,7 @@ let remove_from_roles ~__context ~self ~role =
 
 	(* CP-1224: Free Edition: Attempts to add or remove roles *)
 	(* will fail with a LICENSE_RESTRICTION error.*)
-	if not (Features.is_enabled ~__context Features.RBAC) then
+	if not (Pool_features.is_enabled ~__context Features.RBAC) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 	else
 
