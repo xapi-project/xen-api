@@ -65,6 +65,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	                                -> [`Halted; `Running]
 	| `clone
 	| `copy
+	| `create_template (* Don't touch until XMLRPC unmarshal code is able to pre-blank fields on input. *)
 	| `export
 	                                -> [`Halted; `Suspended]
 	| `hard_reboot
