@@ -42,7 +42,6 @@ let get_database () = !database
 (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
    if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *)
 let blow_away_non_persistent_fields (schema: Schema.t) db =
-	Printf.printf "blow_away\n%!";
 	(* Generate a new row given a table schema *)
 	let row schema row : Row.t =
 		Row.fold 

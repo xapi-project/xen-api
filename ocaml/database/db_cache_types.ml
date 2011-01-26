@@ -222,8 +222,47 @@ module Database = struct
 						) 
 						tbl acc)
 				x.tables KeyMap.empty in
+		(* For each of the one-to-many relationships, recompute the many end *)
+		let tables = 
+			Schema.StringMap.fold
+				(fun one_tblname rels tables ->
+					List.fold_left (fun tables (one_fldname, many_tblname, many_fldname) ->
+						(* VBD.VM : Ref(VM) -> VM.VBDs : Set(Ref(VBD)) *)
+						let one_tbl = TableSet.find one_tblname tables in
+						let many_tbl = TableSet.find many_tblname tables in
+						(* Initialise all VM.VBDs = [] (otherwise VMs with no 
+						   VBDs may be missing a VBDs field altogether on
+						   upgrade) *)
+						let many_tbl' = Table.fold
+							(fun vm row acc ->
+								let row' = Row.add many_fldname (SExpr.string_of (SExpr.Node [])) row in
+								Table.add vm row' acc)
+							many_tbl Table.empty in
+
+						(* Build up a table of VM -> VBDs *)
+
+						let vm_to_vbds = Table.fold
+							(fun vbd row acc ->
+								let vm = Row.find one_fldname row in
+								let existing = if Schema.StringMap.mem vm acc then Schema.StringMap.find vm acc else [] in
+								Schema.StringMap.add vm (vbd :: existing) acc)
+							one_tbl Schema.StringMap.empty in
+						let many_tbl'' = Schema.StringMap.fold
+							(fun vm vbds acc ->
+								if not(Table.mem vm acc)
+								then acc
+								else
+									let row = Table.find vm acc in
+									let vbds' = SExpr.string_of (SExpr.Node (List.map (fun x -> SExpr.String x) vbds)) in
+									let row' = Row.add many_fldname vbds' row in
+									Table.add vm row' acc)
+							vm_to_vbds many_tbl' in
+						TableSet.add many_tblname many_tbl'' tables)
+						tables rels)
+				x.schema.Schema.one_to_many
+				x.tables in
 		
-		{ x with keymap = keymap }
+		{ x with keymap = keymap; tables = tables }
 
 
 	let table_of_ref rf db = fst (KeyMap.find (Ref rf) db.keymap)
