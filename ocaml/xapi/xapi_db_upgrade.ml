@@ -1,0 +1,175 @@
+(*
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+(* DB upgrade steps that would be difficult to do in db_upgrade.ml
+   This module is an ugly hack to work around the problems with creating new
+   rows in db_upgrade.ml:non_generic_db_upgrade_rules (a context is required,
+   which would have to be built manually).
+*)
+module D = Debug.Debugger(struct let name = "db_hiupgrade" end)
+open D
+
+open Stringext
+open Pervasiveext
+
+(** The type of an upgrade rule. The rules should ideally be idempotent and composable.
+    All new fields will have been created with default values and new tables will exist. *)
+type upgrade_rule = {
+  description: string;
+  version: (int * int) -> bool; (** rule will be applied if this is true *)
+  fn: __context:Context.t -> unit;
+}
+
+(** Apply all the rules needed for the previous_version *)
+let apply_upgrade_rules ~__context rules previous_version = 
+  debug "Looking for database upgrade rules:";
+  let required_rules = List.filter (fun r -> r.version previous_version) rules in
+  List.iter
+    (fun r ->
+		debug "Applying database upgrade rule: %s" r.description;
+		try
+			r.fn ~__context
+		with exn ->
+			error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn)
+    ) required_rules
+
+let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
+
+let upgrade_vm_memory_overheads = {
+	description = "Upgrade VM.memory_overhead fields";
+	version = (fun _ -> true);
+	fn = fun ~__context ->
+		List.iter
+			(fun vm -> Xapi_vm_helpers.update_memory_overhead ~__context ~vm)
+			(Db.VM.get_all ~__context)
+}
+
+let upgrade_wlb_configuration = {
+	description = "Upgrade WLB to use secrets";
+    version = (fun _ -> true);
+    fn = fun ~__context ->
+		(* there can be only one pool *)
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		(* get a Secret reference that makes sense, if there is no password ("")
+		   then use null, otherwise convert if clear-text and else keep what's
+		   there *)
+		let wlb_passwd_ref = 
+			let old_wlb_pwd = Ref.string_of
+				(Db.Pool.get_wlb_password ~__context ~self:pool) in
+			if old_wlb_pwd = ""
+			then Ref.null
+			else if String.startswith "OpaqueRef:" old_wlb_pwd
+			then Db.Pool.get_wlb_password ~__context ~self:pool
+			else Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
+		in
+		Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref
+}
+
+(** On upgrade to the first ballooning-enabled XenServer, we reset memory
+properties to safe defaults to avoid triggering something bad.
+{ul
+	{- For guest domains, we replace the current set of possibly-invalid memory
+	constraints {i s} with a new set of valid and unballooned constraints {i t}
+	such that:
+	{ol
+		{- t.dynamic_max := s.static_max}
+		{- t.target      := s.static_max}
+		{- t.dynamic_min := s.static_max}
+		{- t.static_min  := minimum (s.static_min, s.static_max)}}}
+	{- For control domains, we respect the administrator's choice of target:
+	{ol
+		{- t.dynamic_max := s.target}
+		{- t.dynamic_min := s.target}}}
+}
+*)
+let upgrade_vm_memory_for_dmc = { 
+	description = "Upgrading VM memory fields for DMC";
+    version = (fun x -> x <= george);
+    fn = 
+		fun ~__context ->
+			debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
+			let module VMC = Vm_memory_constraints.Vm_memory_constraints in
+			
+			let update_vm (vm_ref, vm_rec) = 
+				if vm_rec.API.vM_is_control_domain then begin
+					let target = vm_rec.API.vM_memory_target in
+					debug "VM %s (%s) dynamic_{min,max} <- %Ld"
+						vm_rec.API.vM_uuid
+						vm_rec.API.vM_name_label
+						target;
+					Db.VM.set_memory_dynamic_min ~__context ~self:vm_ref ~value:target;
+					Db.VM.set_memory_dynamic_max ~__context ~self:vm_ref ~value:target;
+				end else begin
+					(* Note this will also transform templates *)
+					let safe_constraints = VMC.reset_to_safe_defaults ~constraints:
+						{ VMC.static_min  = vm_rec.API.vM_memory_static_min
+						; dynamic_min = vm_rec.API.vM_memory_dynamic_min
+						; target      = vm_rec.API.vM_memory_target
+						; dynamic_max = vm_rec.API.vM_memory_dynamic_max
+						; static_max  = vm_rec.API.vM_memory_static_max
+						} in
+					debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
+						vm_rec.API.vM_uuid vm_rec.API.vM_name_label
+						safe_constraints.VMC.static_max;
+					Db.VM.set_memory_static_min ~__context ~self:vm_ref ~value:safe_constraints.VMC.static_min;
+					Db.VM.set_memory_dynamic_min ~__context ~self:vm_ref ~value:safe_constraints.VMC.dynamic_min;
+					Db.VM.set_memory_target ~__context ~self:vm_ref ~value:safe_constraints.VMC.target;
+					Db.VM.set_memory_dynamic_max ~__context ~self:vm_ref ~value:safe_constraints.VMC.dynamic_max;
+					
+					Db.VM.set_memory_static_max ~__context ~self:vm_ref ~value:safe_constraints.VMC.static_max;
+				end in
+			List.iter update_vm (Db.VM.get_all_records ~__context)
+}
+
+let rules = [
+	upgrade_vm_memory_overheads;
+	upgrade_wlb_configuration;
+	upgrade_vm_memory_for_dmc;
+]
+
+(* Maybe upgrade most recent db *)
+let maybe_upgrade ~__context =
+	let db_ref = Context.database_of __context in
+	let db = Db_ref.get_database db_ref in
+	let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Db_cache_types.Manifest.schema (Db_cache_types.Database.manifest db) in
+	let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
+	let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
+	let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
+	debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;
+	if previous_vsn > latest_vsn then begin
+		warn "Database schema version %s is more recent than binary %s: downgrade is unsupported." previous_string previous_string;
+	end else begin
+		if previous_vsn < latest_vsn then begin
+			apply_upgrade_rules ~__context rules previous_vsn;
+			debug "Upgrade rules applied, bumping schema version to %d.%d" latest_major_vsn latest_minor_vsn;
+			Db_ref.update_database db_ref
+				((Db_cache_types.Database.update_manifest ++ Db_cache_types.Manifest.update_schema)
+					(fun _ -> Some (latest_major_vsn, latest_minor_vsn)))
+		end else begin
+			debug "Database schemas match, no upgrade required";
+		end
+	end
+
+(* This function is called during the xapi startup (xapi.ml:server_init).
+   By the time it's called we've lost information about whether we need
+   to upgrade, hence it has to be idempotent.
+   N.B. This function is release specific:
+   REMEMBER TO UPDATE IT AS WE MOVE TO NEW RELEASES.
+*)
+let hi_level_db_upgrade_rules ~__context () =
+	try
+		maybe_upgrade ~__context;
+	with e ->
+		error
+			"Could not perform high-level database upgrade: '%s'"
+			(Printexc.to_string e)

@@ -75,6 +75,7 @@ XAPI_MODULES = $(COMMON) \
 	sparse_encoding \
 	create_storage \
 	create_networks \
+	xapi_db_upgrade \
 	xapi_fist \
 	xapi_udhcpd \
 	xapi_network_types \
@@ -230,7 +231,6 @@ XAPI_MODULES = $(COMMON) \
 	wlb_reports \
 	remote_requests \
 	xapi_secret \
-	../database/db_hiupgrade \
 	certificates \
 	../license/v6client \
 	../license/v6rpc \

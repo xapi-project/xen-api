@@ -294,7 +294,6 @@ let load connections default_schema =
 
 	let db = 
 		((Db_backend.blow_away_non_persistent_fields default_schema)
-		++ Db_upgrade.maybe_upgrade
 		++ Db_upgrade.generic_database_upgrade
 		++ populate) empty in
 		

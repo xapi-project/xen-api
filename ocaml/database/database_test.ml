@@ -200,7 +200,6 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		let db = 
 			((fun x -> x)
 			++ (Db_backend.blow_away_non_persistent_fields schema)
-			++ (Db_upgrade.maybe_upgrade)
 			++ (Db_upgrade.generic_database_upgrade))
 			(Database.make schema) in
 		(* make a foo with bars = [] *)
