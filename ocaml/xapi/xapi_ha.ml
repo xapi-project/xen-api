@@ -443,8 +443,10 @@ module Monitor = struct
 				let params = Db.Host.get_license_params ~__context ~self:host in
 				try
 					License_check.check_expiry ~__context ~host;
-					true
-				with _ -> false (* fail safe *) in
+					false
+				with 
+					| Api_errors.Server_error (code, []) when code = Api_errors.license_expired -> true
+					| _ -> false (* fail safe *) in
 				let expired_hosts = List.filter license_has_expired all_hosts in
 				(* Find the expired ones which are still enabled *)
 				let enabled_but_expired = List.filter (fun self -> Db.Host.get_enabled ~__context ~self) expired_hosts in
