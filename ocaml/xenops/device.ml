@@ -475,8 +475,7 @@ let is_paused ~xs (x: device) =
 	let request_path = backend_pause_request_path_of_device ~xs x in
 	try ignore(xs.Xs.read request_path); true with Xb.Noent -> false
 
-(* Add the VBD to the domain, taking care of allocating any resources (specifically
-   loopback mounts). When this command returns, the device is ready. (This isn't as
+(* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
 let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
@@ -494,8 +493,7 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	   1. qemu accesses devices images itself and so needs the path of the original
               file (in params)
            2. when windows PV drivers initialise, the new blockfront connects to the
-              up-til-now idle blockback and this requires the loop-device, in the file
-	      case
+              up-til-now idle blockback.
            3. when the VM is fully PV, Ioemu devices do not work; all devices must be PV
 	   4. in the future an HVM guest might support a mixture of both
 	*)
@@ -505,16 +503,6 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
 	 | None -> ());
 
-	begin match phystype with
-	  | File ->
-	      if not(hvm) then begin
-		let loopdev = Hotplug.mount_loopdev ~xs device physpath (mode = ReadOnly) in
-		Hashtbl.add back_tbl "physical-device" (string_of_major_minor loopdev);
-		Hashtbl.add back_tbl "loop-device" loopdev
-	      end
-	  | Phys | Qcow | Vhd | Aio ->
-	      Hashtbl.add back_tbl "physical-device" (string_of_major_minor physpath)
-          end;
 
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
@@ -523,6 +511,7 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 		"device-type", if dev_type = CDROM then "cdrom" else "disk";
 	];
 	Hashtbl.add_list back_tbl [
+		"physical-device", (string_of_major_minor physpath);
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
