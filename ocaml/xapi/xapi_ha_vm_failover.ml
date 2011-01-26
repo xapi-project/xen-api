@@ -148,7 +148,7 @@ let compute_restart_plan ~__context ~all_protected_vms ?(change=no_configuration
 	let vms_to_ensure_running = List.map (fun (vm_ref, vm_t) ->
 		let leaving = List.filter (fun (_, (vm, _)) -> vm_ref = vm) change.old_vms_leaving in
 		let leaving_host = List.map (fun (host, (vm, _)) -> vm, host) leaving in
-		let leaving_snapshots = List.map snd leaving in
+		(* let leaving_snapshots = List.map snd leaving in *)
 		let arriving = List.filter (fun (_, (vm, _)) -> vm_ref = vm) change.old_vms_arriving in
 		let arriving_host = List.map (fun (host, (vm, _)) -> vm, host) arriving in
 		let arriving_snapshots = List.map snd arriving in
