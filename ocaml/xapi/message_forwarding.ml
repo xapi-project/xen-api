@@ -17,6 +17,7 @@
  
 open Threadext
 open Pervasiveext
+open Listext
 open Stringext
 open Server_helpers
 open Client
@@ -1080,7 +1081,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			    (fun session_id rpc -> Client.VM.start rpc session_id vm start_paused force)))));
       update_vbd_operations ~__context ~vm;      
       update_vif_operations ~__context ~vm;
-      let uuid = Db.VM.get_uuid ~__context ~self:vm in
+      let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
       let message_body = 
 	Printf.sprintf "VM '%s' started on host: %s (uuid: %s)" 
 	  (Db.VM.get_name_label ~__context ~self:vm)
@@ -1177,8 +1178,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			else
 			  Some (Db.VBD.get_VDI ~__context ~self:vbd))
 		     (Db.VM.get_VBDs ~__context ~self:vm) in
-		 let all_vm_vdis = List.filter (fun x -> match x with (Some _) -> true | _ -> false) all_vm_vdis in
-		 let all_vm_vdis = List.map (fun x -> match x with (Some y)->y) all_vm_vdis in
+		 let all_vm_vdis = List.unbox_list all_vm_vdis in
 		 let all_vm_srs = List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis in
 		 let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm
 		   ~choose_fn:(Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:all_vm_srs) () in

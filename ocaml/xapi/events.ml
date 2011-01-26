@@ -497,7 +497,7 @@ let callback_devices ctx domid dev_event =
 		       then Hashtbl.replace Monitor.uncooperative_domains domid ()
 		       else Hashtbl.remove Monitor.uncooperative_domains domid
 		    )
-	      | x -> debug "no handler for this event"
+	      (*unused case, consider removing: | x -> debug "no handler for this event"*)
 		  
 	    with Vm_corresponding_to_domid_not_in_db domid ->
 	      error "device_event could not be processed because VM record not in database"

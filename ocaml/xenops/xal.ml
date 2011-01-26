@@ -65,7 +65,6 @@ let string_of_dev_state = function
 
 let string_of_dev_event ev =
 	let string_of_string_opt = function None -> "\"\"" | Some s -> s in
-	let string_of_b b = if b then "B" else "F" in
 	match ev with
 	| DevEject i ->
 		sprintf "device eject {%s}" i
