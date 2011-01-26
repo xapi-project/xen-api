@@ -18,7 +18,6 @@ open D
 open Db_cache_types
 open Stringext
 open Pervasiveext
-open Vm_memory_constraints.Vm_memory_constraints
 
 (* ---------------------- upgrade db file from last release schema -> current schema.
 
@@ -59,69 +58,6 @@ let apply_upgrade_rules rules previous_version db =
 			db
     ) db required_rules
   
-
-let (+++) = Int64.add
-
-(** On upgrade to the first ballooning-enabled XenServer, we reset memory
-properties to safe defaults to avoid triggering something bad.
-{ul
-	{- For guest domains, we replace the current set of possibly-invalid memory
-	constraints {i s} with a new set of valid and unballooned constraints {i t}
-	such that:
-	{ol
-		{- t.dynamic_max := s.static_max}
-		{- t.target      := s.static_max}
-		{- t.dynamic_min := s.static_max}
-		{- t.static_min  := minimum (s.static_min, s.static_max)}}}
-	{- For control domains, we respect the administrator's choice of target:
-	{ol
-		{- t.dynamic_max := s.target}
-		{- t.dynamic_min := s.target}}}
-}
-*)
-let upgrade_vm_records db : Database.t =
-	debug "Upgrading VM.memory_dynamic_{min,max} in guest and control domains.";
-	let ts = Database.tableset db in
-	let vm_table = TableSet.find Names.vm ts in
-
-	let update_row vm_row = 
-		(* Helper functions to access the database. *)
-		let get field_name = Int64.of_string
-			(Row.find field_name vm_row) in
-		let set field_name value vm_row = Row.add
-			field_name (Int64.to_string value) vm_row in
-		if Row.find Names.is_control_domain vm_row = "true" then begin
-			let target = get Names.memory_target in
-			debug "VM %s (%s) dynamic_{min,max} <- %Ld"
-				(Row.find Names.uuid vm_row)
-				(Row.find Names.name_label vm_row)
-				target;
-			((set Names.memory_dynamic_min target)
-			++ (set Names.memory_dynamic_max target))
-				vm_row
-		end else begin
-			(* Note this will also transform templates *)
-			let safe_constraints = reset_to_safe_defaults ~constraints:
-				{ static_min  = get Names.memory_static_min
-				; dynamic_min = get Names.memory_dynamic_min
-				; target      = get Names.memory_target
-				; dynamic_max = get Names.memory_dynamic_max
-				; static_max  = get Names.memory_static_max
-				} in
-				debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
-					(Row.find Names.uuid vm_row)
-					(Row.find Names.name_label vm_row)
-					safe_constraints.static_max;
-			((set Names.memory_static_min  (safe_constraints.static_min ))
-				++ (set Names.memory_dynamic_min (safe_constraints.dynamic_min))
-				++ (set Names.memory_target      (safe_constraints.target))
-				++ (set Names.memory_dynamic_max (safe_constraints.dynamic_max))
-				++ (set Names.memory_static_max  (safe_constraints.static_max )))
-				vm_row
-		end in
-	let vm_table = Table.fold (fun r row acc -> Table.add r (update_row row) acc) vm_table Table.empty in
-	set_table Names.vm vm_table db
-
 
 (* GEORGE OEM -> BODIE/MNR *)	
 let upgrade_bios_strings db =
@@ -192,9 +128,6 @@ let upgrade_rules =
   [ { description = "Updating snapshot parent references";
       version = george;
       fn = update_snapshots };
-    { description = "Upgrading VM memory fields for DMC";
-      version = george;
-      fn = upgrade_vm_records };
     { description = "Upgrading VM BIOS strings";
       version = george;
       fn = upgrade_bios_strings } ]
@@ -226,24 +159,3 @@ let generic_database_upgrade db =
 		  Table.fold add_fields_to_row tbl db
 	  ) db schema_table_names
 
-(* Maybe upgrade most recent db *)
-let maybe_upgrade db =
-  let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Manifest.schema (Database.manifest db) in
-  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
-  let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
-  let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
-  debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;
-  if previous_vsn > latest_vsn then begin
-	  warn "Database schema version %s is more recent than binary %s: downgrade is unsupported." previous_string previous_string;
-	  db
-  end else begin
-      if previous_vsn < latest_vsn then begin
-		  let db = apply_upgrade_rules upgrade_rules previous_vsn db in
-		  debug "Upgrade rules applied, bumping schema version to %d.%d" latest_major_vsn latest_minor_vsn;
-		  (Database.update_manifest ++ Manifest.update_schema)
-			  (fun _ -> Some (latest_major_vsn, latest_minor_vsn)) db
-	  end else begin
-		  debug "Database schemas match, no upgrade required";
-		  db
-	  end
-  end
