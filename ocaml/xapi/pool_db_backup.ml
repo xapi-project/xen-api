@@ -29,7 +29,7 @@ let octet_stream = "Content-Type: application/octet-stream"
 
 (* CA-18377: The smallest database that is compatible with the Miami database schema. *)
 let minimally_compliant_miami_database =
-	"<database><manifest><pair key=\"pool_token\" value=\"0495123c-aea2-be65-5885-c82ef39c630e/b56675f7-9f11-6b89-aebe-a82396a3bf0f/0141aea4-2858-4414-fbb7-a25dc95daa58\"/><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"product_version\" value=\"4.1.0\"/><pair key=\"product_brand\" value=\"XenServer\"/><pair key=\"build_number\" value=\"7843c\"/><pair key=\"xapi_major_vsn\" value=\"1\"/><pair key=\"xapi_minor_vsn\" value=\"1\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
+	"<database><manifest><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"product_version\" value=\"4.1.0\"/><pair key=\"product_brand\" value=\"XenServer\"/><pair key=\"build_number\" value=\"7843c\"/><pair key=\"xapi_major_vsn\" value=\"1\"/><pair key=\"xapi_minor_vsn\" value=\"1\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
 
 (** Write the database dump out to a file/socket *)
 let write_database (s: Unix.file_descr) ~__context = 
@@ -155,10 +155,8 @@ let restore_from_xml __context dry_run (xml_filename: string) =
   then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));
   
   (* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
-  if not(dry_run) then begin
-    Unixext.write_string_to_file Xapi_globs.pool_secret_path manifest.Db_cache_types.pool_token;
-    Db_xml.To.file Xapi_globs.db_temporary_restore_path (manifest, unmarshalled_db)
-  end
+  if not(dry_run) 
+  then Db_xml.To.file Xapi_globs.db_temporary_restore_path (manifest, unmarshalled_db)
 
   
 (** Called when a CLI user downloads a backup of the database *)
