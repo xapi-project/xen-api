@@ -40,124 +40,127 @@ let write_database (s: Unix.file_descr) ~__context =
 		let len = String.length minimally_compliant_miami_database in
 		ignore (Unix.write s minimally_compliant_miami_database 0 len)
 	else
-		Db_cache_impl.dump_db_cache s
+		Db_xml.To.fd s (Db_backend.get_database ())
 
 (** Make sure the backup database version is compatible *)
-let version_check manifest =
-  if manifest.Db_cache_types.schema_major_vsn <> Datamodel.schema_major_vsn ||
-    manifest.Db_cache_types.schema_minor_vsn <> Datamodel.schema_minor_vsn then
-      begin
-	error "Pool backup file was created with incompatable product version";
-	raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
-      end 
+let version_check db =
+	let major, minor = Manifest.schema (Database.manifest db) in
+	if major <> Datamodel.schema_major_vsn || minor <> Datamodel.schema_minor_vsn then begin
+		error "Pool backup file was created with incompatable product version";
+		raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
+    end 
 
 (** Restore all of our state from an XML backup. This includes the pool config, token etc *)
 let restore_from_xml __context dry_run (xml_filename: string) = 
-  debug "attempting to restore database from %s" xml_filename;
-  let manifest, unmarshalled_db = Db_xml.From.file xml_filename in
+	debug "attempting to restore database from %s" xml_filename;
+	let db = Db_xml.From.file (Schema.of_datamodel ()) xml_filename in
 
-  (* Do not write the pool_conf: it contains only the master/slave configuration which is
-     managed separately *)
-  version_check manifest;
-  (* To prevent duplicate installation_uuids or duplicate IP address confusing the
-     "no other masters" check we remove all hosts from the backup except the master. *)
-  let hosts = lookup_table_in_cache unmarshalled_db "host" in
-  let uuid_to_ref = fold_over_rows
-    (fun _ref r acc -> (lookup_field_in_row r "uuid", _ref)::acc) hosts [] in
+	(* Do not write the pool_conf: it contains only the master/slave configuration which is
+       managed separately *)
+	version_check db;
+	(* To prevent duplicate installation_uuids or duplicate IP address confusing the
+       "no other masters" check we remove all hosts from the backup except the master. *)
+	let ts = Database.tableset db in
+	let hosts = TableSet.find Db_names.host ts in
+	let uuid_to_ref = Table.fold
+		(fun _ref r acc -> (Row.find "uuid" r, _ref)::acc) hosts [] in
 
-  (* Look up the pool master: *)
-  let pools = lookup_table_in_cache unmarshalled_db Datamodel._pool in
-  let master = fold_over_rows (fun _ref r acc -> lookup_field_in_row r "master") pools "" in
+	(* Look up the pool master: *)
+	let pools = TableSet.find Db_names.pool ts in
+	let master = Table.fold
+		(fun _ref r acc -> Row.find Db_names.master r) pools "" in
 
-  (* Remove all slaves from the database *)
-  let hosts' = create_empty_table () in
-  iter_over_rows (fun _ref r -> if _ref = master then set_row_in_table hosts' master r) hosts;
-  set_table_in_cache unmarshalled_db "host" hosts';
-  debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
-  debug "Previous master: %s" master;
+	(* Remove all slaves from the database *)
+	let master_row = Table.find master hosts in
+	let hosts' = Table.add master master_row Table.empty in
+
+	let db = set_table Db_names.host hosts' db in
+
+	debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
+	debug "Previous master: %s" master;
   
-  (* Rewrite this host's PIFs' MAC addresses based on device name. *)
-  
-  (* First inspect the current machine's configuration and build up a table of 
-     device name -> PIF reference. *)
-  let localhost = Helpers.get_localhost ~__context in  
-  let all_pifs = Db.Host.get_PIFs ~__context ~self:localhost in
-    
-  let device_to_ref = 
-    let physical = List.filter (fun self -> Db.PIF.get_physical ~__context ~self) all_pifs in
-    List.map (fun self -> Db.PIF.get_device ~__context ~self, self) physical in
-  
-  (* Since it's difficult for us to change the /etc/xensource-inventory and the ifcfg-
-     files, we /preserve/ the current management PIF across the restore. NB this interface
-     might be a bond or a vlan. *)
-  let mgmt_dev = 
-    match List.filter (fun self -> Db.PIF.get_management ~__context ~self) all_pifs with
-    | [ dev ] -> Some (Db.PIF.get_device ~__context ~self:dev)
-    | _ -> None (* no management interface configured *) in
+	(* Rewrite this host's PIFs' MAC addresses based on device name. *)
 	
-  (* The PIFs of the master host in the backup need their MAC addresses adjusting
-     to match the current machine. For safety the new machine needs to have at least
-     the same number and same device names as the backup being restored. (Note that
-     any excess interfaces will be forgotten and need to be manually reintroduced)
-     
-     Additionally we require the currently configured management interface device name
-     is found in the backup so we can re-use the existing ifcfg- files in /etc/.
-     We need this because the interface-reconfigure --force-up relies on the existing
-     config files. Ideally a master startup (such as that in the restore db code) would
-     actively regenerate the config files but this is too invasive a change for CA-15164.
-     
-     PIFs whose device name are not recognised or those belonging to (now dead) 
-     slaves are forgotten. *)
-  let pifs = lookup_table_in_cache unmarshalled_db "PIF" in
-  let pifs' = create_empty_table () in
-  let found_mgmt_if = ref false in
-  let ifs_in_backup = ref [] in
-  iter_over_rows 
-    (fun _ref r ->
-       if lookup_field_in_row r "host" = master then begin
-	 let device = lookup_field_in_row r "device" in
-	 ifs_in_backup := device :: !ifs_in_backup;
-
-	 let uuid = lookup_field_in_row r "uuid" in
-	 let physical = bool_of_string (lookup_field_in_row r "physical") in
-
-	 let pif = create_empty_row () in
-	 iter_over_fields (fun k v -> set_field_in_row pif k v) r;
-
-	 let is_mgmt = Some device = mgmt_dev in
-	 set_field_in_row pif "management" (string_of_bool is_mgmt);
-	 if is_mgmt then found_mgmt_if := true;
-
-	 (* We only need to rewrite the MAC addresses of physical PIFs *)
-	 if physical then begin
-	   (* If this is a physical PIF but we can't find the device name 
-	      on the restore target, bail out. *)
-	   if not(List.mem_assoc device device_to_ref)
-	   then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
-	   (* Otherwise rewrite the MAC address to match the current machine
-	      and set the management flag accordingly *)
-	   let existing_pif = List.assoc device device_to_ref in
-	   set_field_in_row pif "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif);
-	 end;
-	 
-	 debug "Rewriting PIF uuid %s device %s (management %s -> %s) MAC %s -> %s"
-	   uuid device (lookup_field_in_row r "management") (lookup_field_in_row pif "management")
-	   (lookup_field_in_row r "MAC") (lookup_field_in_row pif "MAC");
-	 set_row_in_table pifs' _ref pif
-       end else begin
-	 (* don't bother copying forgotten slave PIFs *)
-	 debug "Forgetting slave PIF uuid %s" (lookup_field_in_row r "uuid")
-       end
-    ) pifs;
-  set_table_in_cache unmarshalled_db "PIF" pifs';
-  (* Check that management interface was synced up *)
-  if not(!found_mgmt_if) && mgmt_dev <> None
-  then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));
+	(* First inspect the current machine's configuration and build up a table of 
+       device name -> PIF reference. *)
+	let localhost = Helpers.get_localhost ~__context in  
+	let all_pifs = Db.Host.get_PIFs ~__context ~self:localhost in
+    
+	let device_to_ref = 
+		let physical = List.filter (fun self -> Db.PIF.get_physical ~__context ~self) all_pifs in
+		List.map (fun self -> Db.PIF.get_device ~__context ~self, self) physical in
   
-  (* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
-  if not(dry_run) 
-  then Db_xml.To.file Xapi_globs.db_temporary_restore_path (manifest, unmarshalled_db)
+	(* Since it's difficult for us to change the /etc/xensource-inventory and the ifcfg-
+       files, we /preserve/ the current management PIF across the restore. NB this interface
+       might be a bond or a vlan. *)
+	let mgmt_dev = 
+		match List.filter (fun self -> Db.PIF.get_management ~__context ~self) all_pifs with
+			| [ dev ] -> Some (Db.PIF.get_device ~__context ~self:dev)
+			| _ -> None (* no management interface configured *) in
+	
+	(* The PIFs of the master host in the backup need their MAC addresses adjusting
+       to match the current machine. For safety the new machine needs to have at least
+       the same number and same device names as the backup being restored. (Note that
+       any excess interfaces will be forgotten and need to be manually reintroduced)
+       
+       Additionally we require the currently configured management interface device name
+       is found in the backup so we can re-use the existing ifcfg- files in /etc/.
+       We need this because the interface-reconfigure --force-up relies on the existing
+       config files. Ideally a master startup (such as that in the restore db code) would
+       actively regenerate the config files but this is too invasive a change for CA-15164.
+       
+       PIFs whose device name are not recognised or those belonging to (now dead) 
+       slaves are forgotten. *)
+	let pifs = TableSet.find "PIF" ts in
+	
+	let pifs' = ref Table.empty in
+	let found_mgmt_if = ref false in
+	let ifs_in_backup = ref [] in
+	Table.iter
+		(fun _ref r ->
+			if Row.find "host" r = master then begin
+				let device = Row.find "device" r in
+				ifs_in_backup := device :: !ifs_in_backup;
 
+				let uuid = Row.find "uuid" r in
+				let physical = bool_of_string (Row.find "physical" r) in
+
+				let is_mgmt = Some device = mgmt_dev in
+				let pif = Row.add "management" (string_of_bool is_mgmt) r in
+				if is_mgmt then found_mgmt_if := true;
+
+				(* We only need to rewrite the MAC addresses of physical PIFs *)
+				let pif = 
+					if not physical then pif
+					else begin
+						(* If this is a physical PIF but we can't find the device name 
+						   on the restore target, bail out. *)
+						if not(List.mem_assoc device device_to_ref)
+						then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
+						(* Otherwise rewrite the MAC address to match the current machine
+						   and set the management flag accordingly *)
+						let existing_pif = List.assoc device device_to_ref in
+						Row.add "MAC" (Db.PIF.get_MAC ~__context ~self:existing_pif) pif
+					end in
+	 
+				debug "Rewriting PIF uuid %s device %s (management %s -> %s) MAC %s -> %s"
+					uuid device (Row.find "management" r) (Row.find "management" pif)
+					(Row.find "MAC" r) (Row.find "MAC" pif);
+				pifs' := Table.add _ref pif !pifs'
+			end else begin
+				(* don't bother copying forgotten slave PIFs *)
+				debug "Forgetting slave PIF uuid %s" (Row.find "uuid" r)
+			end
+		) pifs;
+	let db = set_table "PIF" !pifs' db in
+
+	(* Check that management interface was synced up *)
+	if not(!found_mgmt_if) && mgmt_dev <> None
+	then raise (Api_errors.Server_error(Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup));
+	
+	(* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)
+	if not(dry_run) 
+	then Db_xml.To.file Xapi_globs.db_temporary_restore_path db
   
 (** Called when a CLI user downloads a backup of the database *)
 let pull_database_backup_handler (req: Http.request) s =
@@ -217,9 +220,9 @@ let http_fetch_db ~master_address ~pool_secret =
       (* no content length since it's streaming *)
       let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
       let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
-      let manifest, unmarshalled_db = Db_xml.From.channel inchan in
-      version_check manifest;
-      (manifest,unmarshalled_db)
+      let db = Db_xml.From.channel (Schema.of_datamodel ()) inchan in
+      version_check db;
+	  db
     )
     (fun () -> Stunnel.disconnect st_proc)  
     
@@ -236,13 +239,13 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
   (* if there's nothing to do then we don't even bother requesting backup *)
   if connections<>[] then
     begin
-      let (manifest,unmarshalled_db) = http_fetch_db ~master_address ~pool_secret in
+      let db = http_fetch_db ~master_address ~pool_secret in
       (* flush backup to each of our database connections *)
       List.iter
 	(fun dbconn ->
 	   Threadext.Mutex.execute slave_backup_m
 	     (fun () ->
-		Db_connections.force_flush_specified_cache dbconn unmarshalled_db;
+		Db_connections.flush dbconn db;
 		Slave_backup.notify_write dbconn (* update writes_this_period for this connection *)
 	     )
 	)
@@ -260,7 +263,7 @@ let pool_db_backup_thread () =
       begin
 	let hosts = Db.Host.get_all ~__context in
 	let hosts = List.filter (fun hostref -> hostref <> !Xapi_globs.localhost_ref) hosts in
-	let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
+	let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
 	let dohost host =
 	  try
 	    Thread.delay pool_db_sync_timer;

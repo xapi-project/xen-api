@@ -46,33 +46,32 @@ let parse_operation s =
 let initialise_db_connections() =
   let dbs = Parse_db_conf.parse_db_conf 
     (if !config="" then Xapi_globs.db_conf_path else !config) in
-  Db_conn_store.initialise_db_connections dbs
+  Db_conn_store.initialise_db_connections dbs;
+  dbs
 
 let read_in_database() =
   (* Make sure we're running in master mode: we cannot be a slave
      and then access the dbcache *)
   Db_cache.set_master true;
-  initialise_db_connections();
-  Db_dirty.make_blank_dirty_records();  
+  let connections = initialise_db_connections() in
   (* Initialiase in-memory database cache *)
-  Db_cache_impl.initialise_db_cache_nosync()
+  Db_cache_impl.make connections Schema.empty
 
 let write_out_databases() =
-  List.iter 
-    (fun (_,db)-> Db_connections.force_flush_all db)
-    (Db_connections.get_dbs_and_gen_counts())
+	Db_cache_impl.sync (Db_conn_store.read_db_connections ()) (Db_backend.get_database ())
 
 (* should never be thrown due to checking argument at start *)
 exception UnknownFormat
   
 let write_out_database filename =
   print_string ("Dumping database to: "^filename^"\n");
-  Db_connections.force_flush_all
-    {Parse_db_conf.dummy_conf with
-       Parse_db_conf.path=filename;
-       Parse_db_conf.mode=Parse_db_conf.No_limit;
-       Parse_db_conf.compress=(!compress)
-    }
+  Db_cache_impl.sync
+    [ {
+		Parse_db_conf.dummy_conf with
+			Parse_db_conf.path=filename;
+			Parse_db_conf.mode=Parse_db_conf.No_limit;
+			Parse_db_conf.compress=(!compress)
+    } ] (Db_backend.get_database ())
 
 let help_pad = "      "
 let operation_list =
@@ -94,7 +93,7 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-		Db_cache_impl.dump_db_cache (Unix.descr_of_out_channel stdout)
+		Db_xml.To.fd (Unix.descr_of_out_channel stdout) (Db_backend.get_database ())
     else
       write_out_database !filename
   end
@@ -102,49 +101,47 @@ let do_write_database() =
 let find_my_host_row() =
   Xapi_inventory.read_inventory ();
   let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
-  let host_table = lookup_table_in_cache Db_backend.cache "host" in
-  let host_rows  = get_rowlist host_table in
-  List.find 
-    (fun row -> let row_uuid = lookup_field_in_row row "uuid" in
-     localhost_uuid=row_uuid) host_rows
+  let db = Db_backend.get_database () in
+  let tbl = TableSet.find Db_names.host (Database.tableset db) in
+  Table.fold (fun r row acc -> if Row.find Db_names.uuid row = localhost_uuid then (Some (r, row)) else acc) tbl None
 
 let _iscsi_iqn = "iscsi_iqn"
 let _other_config = "other_config"
 
 let do_read_hostiqn() =
   read_in_database();
-  let localhost_row = find_my_host_row() in
-  let other_config_sexpr = lookup_field_in_row localhost_row _other_config in
-  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
-  Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
+  match find_my_host_row() with
+	  | None -> failwith "No row for localhost"
+	  | Some (_, row) ->
+		  let other_config_sexpr = Row.find Db_names.other_config row in
+		  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
+		  Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
 let do_write_hostiqn() =
   if !iqn = "" then
     fatal_error "Must specify '-hostiqn <value>'";
   let new_iqn = !iqn in
   read_in_database();
-  let localhost_row = find_my_host_row() in
-  (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
-  let other_config_sexpr = lookup_field_in_row localhost_row _other_config in
-  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
-  let other_config =
-    if List.mem_assoc _iscsi_iqn other_config then
-      (* replace if key already exists *)
-      List.map (fun (k,v) ->k, if k=_iscsi_iqn then new_iqn else v) other_config
-    else
-      (* ... otherwise add new key/value pair *)
-      (_iscsi_iqn,new_iqn)::other_config in
-  let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
-  set_field_in_row localhost_row _other_config other_config;
-  write_out_databases()
+  match find_my_host_row() with
+	  | None -> failwith "No row for localhost"
+	  | Some (r, row) ->
+		  (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
+		  let other_config_sexpr = Row.find Db_names.other_config row in
+		  let other_config = String_unmarshall_helper.map (fun x->x) (fun x->x) other_config_sexpr in
+		  let other_config =
+			  if List.mem_assoc _iscsi_iqn other_config then
+				  (* replace if key already exists *)
+				  List.map (fun (k,v) ->k, if k=_iscsi_iqn then new_iqn else v) other_config
+			  else
+				  (* ... otherwise add new key/value pair *)
+				  (_iscsi_iqn,new_iqn)::other_config in
+		  let other_config = String_marshall_helper.map (fun x->x) (fun x->x) other_config in
+		  Db_backend.update_database (set_field_in_row Db_names.host r Db_names.other_config other_config);
+		  write_out_databases()
 
 let do_am_i_in_the_database () = 
-  read_in_database();
-  try
-    let (_: Db_cache_types.row) = find_my_host_row() in
-    Printf.printf "true"
-  with _ ->
-    Printf.printf "false"
+	read_in_database();
+    Printf.printf "%b" (find_my_host_row () <> None)
 
 let _ =
   init_logs();

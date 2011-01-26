@@ -13,72 +13,11 @@
  *)
 open Db_exn
 open Db_lock
-open Db_action_helper
 open Db_cache_types
+open Pervasiveext
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
-
-(* delete a db file and its generation count, best effort *)
-let try_and_delete_db_file file =
-  (try Unix.unlink file with _ -> ());
-  (try Unix.unlink (file^".generation") with _ -> ())
-
-(* --------------------- Useful datamodel constructions: *)
-
-(* Return a list of all the SQL table names *)
-(* ---- NOTE THIS DEPENDENCY ACTUALLY LINKS IDL DATAMODEL INTO BINARY ---- *)
-let api_objs = Dm_api.objects_of_api Datamodel.all_api
-let api_relations = Dm_api.relations_of_api Datamodel.all_api
-let db_table_names = 
-  List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) api_objs
-
-(* Build a table that maps table names onto their persistency options *)
-let table_persist_options = Hashtbl.create 20
-let _ =
-  begin
-    let objs = Dm_api.objects_of_api Datamodel.all_api in
-    List.iter (fun x->Hashtbl.replace table_persist_options (Escaping.escape_obj x).Datamodel_types.name x.Datamodel_types.persist) objs
-  end
-
-let this_table_persists tblname = (Hashtbl.find table_persist_options tblname)=Datamodel_types.PersistEverything
-
-(* Flatten fields in heirarchical namespace (as they are in IDL) into a flat list *)
-let rec flatten_fields fs acc =
-  match fs with
-    [] -> acc
-  | (Datamodel_types.Field f)::fs -> flatten_fields fs (f::acc)
-  | (Datamodel_types.Namespace (_,internal_fs))::fs -> flatten_fields fs (flatten_fields internal_fs acc)
-      
-(* Build a table that maps table/field names onto field persistency options *)
-let field_persist_options : (string (* table name *) * string (* field name *), bool) Hashtbl.t = Hashtbl.create 20
-let _ =
-  begin
-    let objs = Dm_api.objects_of_api Datamodel.all_api in
-    List.iter
-      (fun obj->
-	 let fields = flatten_fields obj.Datamodel_types.contents [] in
-	 List.iter (fun f->Hashtbl.replace field_persist_options
-		      ((Escaping.escape_obj obj).Datamodel_types.name (* table name *),
-		       (Escaping.escape_id f.Datamodel_types.full_name) (* field name *))
-		      f.Datamodel_types.field_persist) fields
-      )
-      objs
-  end
-
-let persist_field_changes tblname fldname =
-  Hashtbl.find field_persist_options (tblname,fldname)
-
-(* --------------------- Some field-name constants *)
-    
-(** Table column name which contains the reference *)
-let reference_fname = Escaping.reference
-
-(** Table column name which contains the name_label *)
-let name_label_fname = Escaping.escape_id ["name";"label"]
-
-(** Table column name which contains the uuid *)
-let uuid_fname = "uuid"
 
 (* --------------------- Constants/data-structures for storing db contents *)
 
@@ -86,86 +25,15 @@ let db_FLUSH_TIMER=2.0 (* flush db write buffer every db_FLUSH_TIMER seconds *)
 let display_sql_writelog_val = ref true (* compute/write sql-writelog debug string *)
 
 (* The cache itself: *)
-let cache : Db_cache_types.cache = create_empty_cache ()
-
-(* Keep track of all references, and which class a reference belongs to: *)
-let ref_table_map : (string,string) Hashtbl.t = Hashtbl.create 100
+let database : Db_cache_types.Database.t ref = ref (Db_cache_types.Database.make (Schema.of_datamodel ()))
 
 (* --------------------- Util functions on db datastructures *)
 
-(* These fns are called internally, and always in locked context, so don't need to take lock again *)
-let add_ref_to_table_map objref tblname =
-  Hashtbl.replace ref_table_map objref tblname
-let remove_ref_from_table_map objref =
-  Hashtbl.remove ref_table_map objref
+let update_database f = 
+	database := f (!database)
 
-(* Given a (possibly partial) new row to write, check if any db
-   constraints are violated *)
-let check_unique_table_constraints tblname newrow =
-  let check_unique_constraint tblname fname opt_value =
-    match opt_value with
-      None -> ()
-    | Some v ->
-	if List.mem v (get_column cache tblname fname) then begin
-	  error "Uniqueness constraint violation: table %s field %s value %s" tblname fname v;
-	  (* Note: it's very important that the Uniqueness_constraint_violation exception is thrown here, since
-	     this is what is caught/marshalled over the wire in the remote case.. Do not be tempted to make this
-	     an API exception! :) *)
-	  raise (Uniqueness_constraint_violation ( tblname, fname, v )) 
-	end in
-  let new_uuid = try Some (lookup_field_in_row newrow uuid_fname) with _ -> None in
-  let new_ref = try Some (lookup_field_in_row newrow reference_fname) with _ -> None in
-  check_unique_constraint tblname uuid_fname new_uuid;
-  check_unique_constraint tblname reference_fname new_ref
+let get_database () = !database
 
-
-(* --------------------- Util functions to support incremental index generation *)
-
-(* Incrementally build and cache indexes *)
-type index = (string, string list) Hashtbl.t
-    (* index takes a tbl-name, where-field, return-fld and returns an index
-       mapping where-val onto a return-val list *)
-let indexes : (string*string*string, index) Hashtbl.t = Hashtbl.create 50
-let invalidate_indexes tbl =
-  Hashtbl.iter (fun (index_tbl,w,r) _ ->
-		  if tbl=index_tbl then Hashtbl.remove indexes (index_tbl,w,r)) indexes
-
-let invalidate_indexes_for_specific_field tbl fldname =
-  Hashtbl.iter (fun (index_tbl,where,r) _ ->
-		  if tbl=index_tbl && where=fldname then 
-		    Hashtbl.remove indexes (index_tbl,where,r)) indexes
-
-let add_to_index i (k,v) =
-  let existing_results_in_index = try Hashtbl.find i k with _ -> [] in 
-  Hashtbl.replace i k (v::existing_results_in_index)
-
-(* -------------------- Version upgrade support utils *)
-
-(* This function (which adds default values that are not already present to table rows) is used in both the create_row
-   call (where we fill in missing fields not supplied by an older vsn of the db protocol during pool-rolling-upgrade);
-   and in the state.db schema upgrade process (see db_upgrade.ml) *)
-
-(* check default values, filling in if they're not present: [for handling older vsns of the db protocol] *)
-(* it's not the most efficient soln to just search in the association list, looking up default fields from datamodel
-   each time; but creates are rare and fields are few, so it's fine... *)
-let add_default_kvs kvs tblname =
-
-  (* given a default value from IDL, turn it into a string for db insertion. !!! This should be merged up with other
-     marshalling code at some point (although this requires some major refactoring cos that's all autogenerated and
-     not "dynamically typed".. *)
-  let gen_db_string_value f =
-    match f.Datamodel_types.default_value with
-      Some v -> Datamodel_values.to_db_string v
-    | None -> "" (* !!! Should never happen *) in
-  
-  let this_obj = List.find (fun obj-> (Escaping.escape_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
-  let default_fields = List.filter (fun f -> f.Datamodel_types.default_value <> None) (flatten_fields this_obj.Datamodel_types.contents []) in
-  let default_values = List.map gen_db_string_value default_fields in
-  let default_field_names = List.map (fun f -> Escaping.escape_id f.Datamodel_types.full_name) default_fields in
-  let all_default_kvs = List.combine default_field_names default_values in
-  (* only add kv pairs for keys that have not already been supplied to create_row call (in kvs argument) *)
-  let keys_supplied = List.map fst kvs in
-  kvs @ (List.filter (fun (k,_) -> not (List.mem k keys_supplied)) all_default_kvs)  
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we
    don't waste writes storing non-persistent field values on disk.. At the moment there's not much to worry about, since there are
@@ -173,56 +41,68 @@ let add_default_kvs kvs tblname =
 
 (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
    if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *)
-let blow_away_non_persistent_fields() =
-  (* for each table, go through and blow away any non-persistent fields *)
-  let remove_non_persistent_field_values_from_tbl tblname =
-    let tbl = lookup_table_in_cache cache tblname in
-    let rows = get_rowlist tbl in
-    let this_obj = List.find (fun obj-> (Escaping.escape_obj obj.Datamodel_types.name) = tblname) (Dm_api.objects_of_api Datamodel.all_api) in
-    let non_persist_fields = List.filter (fun f -> not f.Datamodel_types.field_persist) (flatten_fields this_obj.Datamodel_types.contents []) in
-    let non_persist_fields_and_types = List.map (fun f -> f.Datamodel_types.ty, f) non_persist_fields in
-    (* if this table doesn't have any non persistent fields then there's nothing to do... *)
-    if non_persist_fields <> [] then
-      begin
-	let process_row r =
-	  List.iter
-	    (fun (ftype,f) ->
-	      set_field_in_row r (Escaping.escape_id f.Datamodel_types.full_name) (Datamodel_values.gen_empty_db_val ftype))
-	    non_persist_fields_and_types in
-	List.iter process_row rows
-      end in
-  List.iter remove_non_persistent_field_values_from_tbl (List.map (fun x->Escaping.escape_obj x.Datamodel_types.name) api_objs)
+let blow_away_non_persistent_fields (schema: Schema.t) db =
+	Printf.printf "blow_away\n%!";
+	(* Generate a new row given a table schema *)
+	let row schema row : Row.t =
+		Row.fold 
+			(fun name v acc ->
+				try
+					let col = Schema.Table.find name schema in
+					let v' = if col.Schema.Column.persistent then v else col.Schema.Column.empty in
+					Row.add name v' acc
+				with Not_found ->
+					Printf.printf "Skipping unknown column: %s\n%!" name;
+					acc) row Row.empty in
+	(* Generate a new table *)
+	let table tblname tbl : Table.t =
+		let schema = Schema.Database.find tblname schema.Schema.database in
+		Table.fold
+			(fun objref r acc ->
+				let r = row schema r in
+				Table.add objref r acc) tbl Table.empty in
+	Database.update
+		(fun ts -> 
+			TableSet.fold 
+				(fun tblname tbl acc ->
+					let tbl' = table tblname tbl in
+					TableSet.add tblname tbl' acc) ts TableSet.empty)
+		db
   
 (* after restoring from backup, we take the master's host record and make it reflect us *)
-let post_restore_hook manifest =
+let post_restore_hook db =
   debug "Executing post_restore_hook";
   let my_installation_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
   let my_control_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 
   let not_found = "" in
+
   (* Look up the pool master: *)
-  let pools = lookup_table_in_cache cache Db_names.pool in
-  let master = fold_over_rows (fun _ref r acc -> lookup_field_in_row r Db_names.master) pools not_found in
-  if master = not_found
-  then debug "No master record to update"
-  else begin
+  let pools = TableSet.find Db_names.pool (Database.tableset db) in
+  let master = Table.fold (fun _ref r acc -> Row.find Db_names.master r) pools not_found in
 
-	  let mhr = find_row cache Db_names.host master in
-	  set_field_in_row mhr uuid_fname my_installation_uuid;
-	  let _ref = lookup_field_in_row mhr reference_fname in
-	  Ref_index.update_uuid _ref my_installation_uuid
-  end;
+  let update_master_host db : Database.t = 
+	  if master = not_found then begin
+		  debug "No master record to update";
+		  db
+	  end else begin
+		  set_field_in_row Db_names.host master Db_names.uuid my_installation_uuid db
+	  end in
 
-  (* Look up the pool master's control domain: *)
-  let vms = lookup_table_in_cache cache Db_names.vm in
-  let master_dom0 = fold_over_rows (fun _ref r acc -> if lookup_field_in_row r Db_names.resident_on = master && (lookup_field_in_row r Db_names.is_control_domain = "true") then _ref else acc) vms not_found in  
-  if master_dom0 = not_found
-  then debug "No master control domain record to update"
-  else begin
+  let update_master_dom0 db : Database.t = 
+	  (* Look up the pool master's control domain: *)
+	  let vms = TableSet.find Db_names.vm (Database.tableset db) in
+	  let master_dom0 = Table.fold (fun _ref r acc -> 
+		  if
+			  Row.find Db_names.resident_on r = master && 
+			  (Row.find Db_names.is_control_domain r = "true") 
+		  then _ref else acc) vms not_found in  
+	  if master_dom0 = not_found then begin
+		  debug "No master control domain record to update";
+		  db
+	  end else begin
+		  set_field_in_row Db_names.vm master_dom0 Db_names.uuid my_control_uuid db
+	  end in
 
-	  let mdr = find_row cache Db_names.vm master_dom0 in
-	  set_field_in_row mdr uuid_fname my_control_uuid;
-	  let _ref = lookup_field_in_row mdr reference_fname in
-	  Ref_index.update_uuid _ref my_control_uuid
-  end;
-  debug "post_restore_hook executed"
+  (update_master_host ++ update_master_dom0) db
+

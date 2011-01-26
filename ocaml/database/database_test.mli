@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2010 Citrix Systems Inc.
+ * Copyright (C) 2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,10 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type indexrec = {
-	name_label: string option; 
-	uuid: string; 
-	_ref: string
-}
-val string_of : indexrec -> string
-val lookup : string (* ref or uuid *) -> indexrec option
+
+module Tests : functor (Client: Db_interface.DB_ACCESS) -> sig
+	val main: bool -> unit
+end

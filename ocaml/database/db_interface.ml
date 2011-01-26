@@ -60,7 +60,7 @@ module type DB_ACCESS = sig
     val db_get_by_name_label : string -> string -> string list
 		
 	(** [read_set_ref {tbl,return,where_field,where_value}] is identical
-		to [read_field_where ...] except it builds and consults an index *)
+		to [read_field_where ...]. *)
     val read_set_ref : Db_cache_types.where_record -> string list
 		
 	(** [create_row tbl kvpairs ref] create a new row in [tbl] with
@@ -96,3 +96,5 @@ module type DB_ACCESS = sig
         string * string ->
         string -> string -> string -> Db_cache_types.structured_op_t -> unit
 end
+
+

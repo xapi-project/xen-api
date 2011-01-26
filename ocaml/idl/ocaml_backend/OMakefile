@@ -70,6 +70,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/db_rpc_common_v2 \
 	$(AUTOGEN_HELPER_DIR)/db_rpc_client_v2 \
 	$(AUTOGEN_HELPER_DIR)/db_cache_types \
+	$(AUTOGEN_HELPER_DIR)/schema \
 	$(AUTOGEN_HELPER_DIR)/db_filter \
 	$(AUTOGEN_HELPER_DIR)/db_filter_types \
 	$(AUTOGEN_HELPER_DIR)/db_filter_parse \
@@ -81,7 +82,6 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/db_exn \
 	$(AUTOGEN_HELPER_DIR)/ref_index \
 	$(AUTOGEN_HELPER_DIR)/db_backend \
-	$(AUTOGEN_HELPER_DIR)/db_dirty \
 	$(AUTOGEN_HELPER_DIR)/backend_xml \
 	$(AUTOGEN_HELPER_DIR)/generation \
 	$(AUTOGEN_HELPER_DIR)/db_connections \

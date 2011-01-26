@@ -86,3 +86,9 @@ val apply : (Generation.t -> Unix.file_descr -> int -> float -> unit) -> (Genera
 val empty : unit -> unit
 (** Invalidate the block device. This means that subsequent attempts to read from the block device will not find anything.
     This function is best-effort only and does not raise any exceptions in the case of error. *)
+
+val flush_db_to_redo_log: Db_cache_types.Database.t -> unit
+(** Immediately write the given database to the redo log *)
+
+val database_callback: Db_cache_types.update -> Db_cache_types.Database.t -> unit
+(** Given a database update, add it to the redo log *)

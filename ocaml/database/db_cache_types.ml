@@ -1,152 +1,364 @@
-(*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation; version 2.1 only. with the special
- * exception on linking described in file LICENSE.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *)
 open Db_exn
 
-type row = (string, string) Hashtbl.t 
-type table = (string, row) Hashtbl.t
-type cache = {
-	cache: (string, table) Hashtbl.t;
-	schema: (int * int) option ref;
-	generation: Generation.t ref;
-}
+(** Database tables, columns and rows are all indexed by string, each
+	using a specialised StringMap *)
+module StringMap = struct
+	include Map.Make(struct
+		type t = string
+		let compare = Pervasives.compare
+	end)
+	let update key default f t = 
+		let v = try find key t with Not_found -> default in
+		add key (f v) t
+end		
 
-type where_record = {table:string; return:string; where_field:string; where_value:string} with rpc
-type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap with rpc
+module type VAL = sig
+	type v
+end
+(** A specialised StringMap whose range type is V.v *)
+module Map2 = functor(V: VAL) -> struct
+	type t = V.v StringMap.t
+	let empty = StringMap.empty
+	let fold = StringMap.fold
+	let add = StringMap.add
+	let find = StringMap.find
+	let mem = StringMap.mem
+	let iter = StringMap.iter
+	let remove = StringMap.remove
+	let update = StringMap.update
+end
 
-let string_of_structured_op op = match op with
-  | AddSet -> "add_set"
-  | RemoveSet -> "remove_set"
-  | AddMap -> "add_map"
-  | RemoveMap -> "remove_map"
+module StringStringMap = Map2(struct type v = string end)
 
-type db_dump_manifest =
-    {
-      schema_major_vsn : int;
-      schema_minor_vsn : int;
-      generation_count : Generation.t
-    }
+module type ROW = sig
+	type t
+	val add: string -> string -> t -> t
+	val add_defaults: Schema.Table.t -> t -> t
+    val empty : t
+    val fold : (string -> string -> 'b -> 'b) -> t -> 'b -> 'b
+    val find : string -> t -> string
+	val mem : string -> t -> bool
+    val iter : (string -> string -> unit) -> t -> unit
+    val remove : string -> t -> t
+	val update : string -> string -> (string -> string) -> t -> t
+end
 
-let make_manifest schema_major_vsn schema_minor_vsn gen_count =
-  {
-    schema_major_vsn = schema_major_vsn;
-    schema_minor_vsn = schema_minor_vsn;
-    generation_count = gen_count
-  }
+module Row : ROW = struct
+	include StringStringMap
+	let find key t = 
+		try find key t
+		with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
+	let add_defaults (schema: Schema.Table.t) t = 
+		List.fold_left (fun t c -> 
+			if not(mem c.Schema.Column.name t)
+			then match c.Schema.Column.default with
+				| Some default -> add c.Schema.Column.name default t
+				| None -> raise (DBCache_NotFound ("missing field", c.Schema.Column.name, ""))
+			else t) t schema.Schema.Table.columns
+end
 
-let schema_of_cache cache = match !(cache.schema) with
-| None -> (0, 0)
-| Some (major, minor) -> major, minor
+module StringRowMap = Map2(struct type v = Row.t end)
 
-let manifest_of_cache cache = 
-	let major, minor = schema_of_cache cache in
-	make_manifest major minor !(cache.generation)
+module type TABLE = sig
+	type t
+	val add: string -> Row.t -> t -> t
+    val empty : t
+    val fold : (string -> Row.t -> 'b -> 'b) -> t -> 'b -> 'b
+	val find_exn : string -> string -> t -> Row.t
+    val find : string -> t -> Row.t
+	val mem : string -> t -> bool
+    val iter : (string -> Row.t -> unit) -> t -> unit
+    val remove : string -> t -> t
+	val update : string -> Row.t -> (Row.t -> Row.t) -> t -> t
+		
+	val rows : t -> Row.t list
+end
 
-let set_schema_vsn cache (major, minor) = cache.schema := Some (major, minor)
+module Table : TABLE = struct
+	include StringRowMap
+	let find_exn tbl key t = 
+		try find key t
+		with Not_found -> raise (DBCache_NotFound ("missing row", tbl, key))
+	let rows t = 
+		fold (fun _ r rs -> r :: rs) t []
+end
 
-let increment cache = cache.generation := Int64.add !(cache.generation) 1L
+module StringTableMap = Map2(struct type v = Table.t end)
 
-let generation_of_cache cache = !(cache.generation)
+module type TABLESET = sig
+	type t
+	val add: string -> Table.t -> t -> t
+    val empty : t
+    val fold : (string -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
+    val find : string -> t -> Table.t
+	val mem : string -> t -> bool
+    val iter : (string -> Table.t -> unit) -> t -> unit
+    val remove : string -> t -> t
+	val update : string -> Table.t -> (Table.t -> Table.t) -> t -> t
+end
 
-let set_generation cache generation = cache.generation := generation
+module TableSet : TABLESET = struct
+	include StringTableMap
+	let find key t = 
+		try find key t
+		with Not_found -> raise (DBCache_NotFound ("missing table", key, ""))
+end
 
-(* Our versions of hashtbl.find *)
-let lookup_field_in_row row fld =
-  try
-    Hashtbl.find row fld
-  with Not_found -> raise (DBCache_NotFound ("missing field",fld,""))
-    
-let lookup_table_in_cache cache tbl =
-  try
-    Hashtbl.find cache.cache tbl
-  with Not_found -> raise (DBCache_NotFound ("missing table",tbl,""))
+type common_key = 
+	| Ref of string
+	| Uuid of string
+let string_of_common_key = function
+	| Ref x -> x
+	| Uuid x -> x
 
-let lookup_row_in_table tbl tblname objref =
-  try
-    Hashtbl.find tbl objref
-  with Not_found ->  raise (DBCache_NotFound ("missing row",tblname,objref))
+module KeyMap = struct 
+	include Map.Make(struct
+		type t = common_key
+		let compare = Pervasives.compare
+	end)
+	let add_unique tblname fldname k v t = 
+		if mem k t 
+		then raise (Uniqueness_constraint_violation ( tblname, fldname, string_of_common_key k ))
+		else add k v t
+end
 
-let iter_over_rows func table =
-  Hashtbl.iter func table
 
-let iter_over_tables func cache =
-  Hashtbl.iter func cache.cache
+module Manifest = struct
+	type t = {
+		schema : (int * int) option;
+		generation_count : Generation.t
+	}
 
-let iter_over_fields func row =
-  Hashtbl.iter func row
-  
-let set_field_in_row row fldname newval =
-  Hashtbl.replace row fldname newval
+	let empty = { 
+		schema = None; generation_count = Generation.null_generation 
+	}
 
-let set_row_in_table table objref newval =
-  Hashtbl.replace table objref newval
+	let make schema_major_vsn schema_minor_vsn gen_count = {
+		schema = Some (schema_major_vsn, schema_minor_vsn);
+		generation_count = gen_count
+	}
 
-let set_table_in_cache cache tblname newtbl =
-  Hashtbl.replace cache.cache tblname newtbl
+	let generation x = x.generation_count
 
-let create_empty_row () = Hashtbl.create 20
+	let update_generation f x = { 
+		x with generation_count = f x.generation_count 
+	}
 
-let create_empty_table () = Hashtbl.create 20
+	let next = update_generation (Int64.add 1L)
 
-let create_empty_cache () = { cache = Hashtbl.create 20; schema = ref None; generation = ref Generation.null_generation }
+	let schema x = match x.schema with
+		| None -> 0, 0
+		| Some (x, y) -> x, y
 
-let fold_over_fields func row acc = Hashtbl.fold func row acc
+	let update_schema f x = {
+		x with schema = f x.schema
+	}
+end
 
-let fold_over_rows func table acc = Hashtbl.fold func table acc
+(** The core database updates (PreDelete is more of an 'event') *)
+type update = 
+	| WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * string (* oldval *) * string (* newval *)
+	| PreDelete of string (* tblname *) * string (* objref *)
+	| Delete of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
+	| Create of string (* tblname *) * string (* objref *) * (string * string) list (* values *)
 
-let fold_over_tables func cache acc = Hashtbl.fold func cache.cache acc
+module Database = struct
+	type t = {
+		tables:    TableSet.t;
+		manifest : Manifest.t;
+		schema:    Schema.t;
+		keymap:    (string * string) KeyMap.t;
+		callbacks: (string * (update -> t -> unit)) list
+	}
+	let update_manifest f x = 
+		{ x with manifest = f x.manifest }
 
-let remove_row_from_table tbl objref = Hashtbl.remove tbl objref
+	let manifest x = x.manifest
 
-let get_rowlist tbl =
-  fold_over_rows (fun k d env -> d::env) tbl []
+	let increment = update_manifest Manifest.next
 
-let get_reflist tbl =
-  fold_over_rows (fun k d env -> k::env) tbl []
+	let tableset x = x.tables
 
-(* Find row with specified reference in specified table *)
-let find_row cache (tblname:string) (objref:string) : row =
-  let tbl = lookup_table_in_cache cache tblname in
-  lookup_row_in_table tbl tblname objref
+	let schema x = x.schema 
 
-(* Read column, fname, from database rows: *)
-let get_column cache tblname fname =
-  let rec f rows col_so_far =
-    match rows with
-      [] -> col_so_far
-    | (r::rs) ->
-	let value = try Some (lookup_field_in_row r fname) with _ -> None in
-	match value with
-	  None -> f rs col_so_far
-	| (Some u) -> f rs (u::col_so_far) in
-  f (get_rowlist (lookup_table_in_cache cache tblname)) []
+	let update f x = 
+		{ x with tables = f x.tables }
 
-(** Return a snapshot of the database cache suitable for slow marshalling across the network *)
-let snapshot cache : cache = 
-  Db_lock.with_lock 
-    (fun () ->
-       let row table rf vals = 
-	 let newrow = create_empty_row () in
-	 iter_over_fields (set_field_in_row newrow) vals;
-	 set_row_in_table table rf newrow in
-       
-       let table cache name tbl = 
-	 let newtable = create_empty_table () in
-	 iter_over_rows (row newtable) tbl;
-	 set_table_in_cache cache name newtable in
-       
-       let newcache = create_empty_cache () in  
-       iter_over_tables (table newcache) cache;
+	let set_generation g = 
+		update_manifest (Manifest.update_generation (fun _ -> g))
 
-	   set_generation newcache (generation_of_cache cache);
-       newcache)
+	let update_tableset f x = 
+		{ x with tables = f x.tables }
+
+	let update_keymap f x = 
+		{ x with keymap = f x.keymap }
+
+	let register_callback name f x = 
+		{ x with callbacks = (name, f) :: x.callbacks }
+
+	let unregister_callback name x = 
+		{ x with callbacks = List.filter (fun (x, _) -> x <> name) x.callbacks }
+
+	let notify e db = 
+		List.iter (fun (name, f) ->
+			try
+				f e db
+			with e ->
+				Printf.printf "Caught %s from database callback '%s'\n%!" (Printexc.to_string e) name;
+				()
+		) db.callbacks
+
+	let reindex x = 
+		(* Recompute the keymap *)
+		let keymap = 
+			TableSet.fold
+				(fun tblname tbl acc ->
+					Table.fold
+						(fun rf row acc -> 
+							let acc = KeyMap.add_unique tblname Db_names.ref (Ref rf) (tblname, rf) acc in
+							if Row.mem Db_names.uuid row
+							then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid row)) (tblname, rf) acc
+							else acc
+						) 
+						tbl acc)
+				x.tables KeyMap.empty in
+		
+		{ x with keymap = keymap }
+
+
+	let table_of_ref rf db = fst (KeyMap.find (Ref rf) db.keymap)
+	let lookup_key key db = 
+		if KeyMap.mem (Ref key) db.keymap
+		then Some (KeyMap.find (Ref key) db.keymap)
+		else
+			if KeyMap.mem (Uuid key) db.keymap
+			then Some (KeyMap.find (Uuid key) db.keymap)
+			else None
+
+	let make schema = {
+		tables    = TableSet.empty;
+		manifest  = Manifest.empty;
+		schema    = schema;
+		keymap    = KeyMap.empty;
+		callbacks = [];
+	}
+end
+
+(* Helper functions to deal with Sets and Maps *)
+let add_to_set key t = 
+	let existing = Db_action_helper.parse_sexpr t in
+	let processed = Db_action_helper.add_key_to_set key existing in
+	SExpr.string_of (SExpr.Node processed)
+
+let remove_from_set key t = 
+	let existing = Db_action_helper.parse_sexpr t in
+	let processed = List.filter (function SExpr.String x -> x <> key | _ -> true) existing in
+	SExpr.string_of (SExpr.Node processed)
+
+exception Duplicate
+let add_to_map key value t = 
+	let existing = Db_action_helper.parse_sexpr t in
+	let kv = SExpr.Node [ SExpr.String key; SExpr.String value ] in
+	let duplicate = List.fold_left (||) false 
+			(List.map (function SExpr.Node (SExpr.String k :: _) when k = key -> true
+				| _ -> false) existing) in
+	if duplicate then raise Duplicate;
+	let processed = kv::existing in
+	SExpr.string_of (SExpr.Node processed)
+
+let remove_from_map key t = 
+	let existing = Db_action_helper.parse_sexpr t in
+	let processed = List.filter (function SExpr.Node [ SExpr.String x; _ ] -> x <> key
+		| _ -> true) existing in
+	SExpr.string_of (SExpr.Node processed)
+
+
+let (++) f g x = f (g x)
+let id x = x
+
+let set_table tblname newval =
+	(Database.update ++ (TableSet.update tblname Table.empty)) 
+		(fun _ -> newval)
+
+let get_field tblname objref fldname db =
+	Row.find fldname (Table.find objref (TableSet.find tblname (Database.tableset db)))
+let set_field tblname objref fldname newval = 
+	((Database.update 
+	++ (TableSet.update tblname Table.empty) 
+	++ (Table.update objref Row.empty)
+	++ (Row.update fldname ""))
+		(fun _ -> newval))
+
+let update_one_to_many tblname objref f db = 
+	List.fold_left (fun db (one_fld, many_tbl, many_fld) ->
+		(* the value one_fld_val is the Ref _ *)
+		let one_fld_val = get_field tblname objref one_fld db in
+		let valid = try ignore(Database.table_of_ref one_fld_val db); true with _ -> false in
+		if valid
+		then set_field many_tbl one_fld_val many_fld (f objref (get_field many_tbl one_fld_val many_fld db)) db
+		else db
+	) db (Schema.one_to_many tblname (Database.schema db))
+
+let set_row_in_table tblname objref newval =
+	id
+		(* For any field in a one-to-many, add objref to the foreign Set(Ref_) fields *)
+		(* NB this requires the new row to exist already *)
+	++ (update_one_to_many tblname objref add_to_set)
+	++ ((Database.update ++ (TableSet.update tblname Table.empty) ++ (Table.update objref Row.empty))
+		(fun _ -> newval))
+
+	++ (Database.update_keymap (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref)))
+	++ (Database.update_keymap (fun m -> 
+		if Row.mem Db_names.uuid newval
+		then KeyMap.add_unique tblname Db_names.uuid (Uuid (Row.find Db_names.uuid newval)) (tblname, objref) m
+		else m))
+
+
+
+let remove_row tblname objref uuid = 
+	id
+	++ ((Database.update ++ (TableSet.update tblname Table.empty))
+		(Table.remove objref))
+		(* For any field in a one-to-many, remove objref from the foreign Set(Ref_) fields *)
+		(* NB this requires the original row to still exist *)
+	++ (update_one_to_many tblname objref remove_from_set)
+
+	++ (Database.update_keymap (KeyMap.remove (Ref objref)))
+	++ (Database.update_keymap (fun m ->
+		match uuid with
+			| Some u -> KeyMap.remove (Uuid u) m
+			| None -> m))
+		
+let set_field_in_row tblname objref fldname newval db =
+	if fldname = Db_names.ref
+	then failwith (Printf.sprintf "Cannot safely update field: %s" fldname);
+
+	let oldrow = Table.find objref (TableSet.find tblname (Database.tableset db)) in
+	let newrow = Row.add fldname newval oldrow in
+	let olduuid = try Some(Row.find Db_names.uuid oldrow) with _ -> None in
+
+	((set_row_in_table tblname objref newrow)
+	++ (remove_row tblname objref olduuid)) db
+
+let remove_row_from_table tblname objref db =
+	let uuid = 
+		try 
+			Some (Row.find Db_names.uuid (Table.find objref (TableSet.find tblname (Database.tableset db))))
+		with _ -> None in
+	remove_row tblname objref uuid db
+
+
+type where_record = {
+	table: string;       (** table from which ... *)
+	return: string;      (** we'd like to return this field... *)
+	where_field: string; (** where this other field... *)
+	where_value: string; (** contains this value *)
+} with rpc
+
+type structured_op_t = 
+	| AddSet
+	| RemoveSet
+	| AddMap
+	| RemoveMap
+with rpc
+

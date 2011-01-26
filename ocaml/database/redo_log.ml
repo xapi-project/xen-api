@@ -276,8 +276,9 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
       R.debug "Found record with generation count %Ld. Expected a record with generation count %Ld so skipping this record." gen_count expected_gen_count;
       (* Now skip over all the remaining data that the process is trying to send, discarding it all *)
       read_delta (fun _ _ -> ()) gen_count sock latest_response_time;
-      read_read_response sock (fun _ _ _ _ -> ()) (fun _ _ -> ()) expected_gen_count latest_response_time datasockpath
+      read_read_response sock fn_db fn_delta expected_gen_count latest_response_time datasockpath
     end else begin
+		R.debug "Found record with generation count %Ld as expected" gen_count;
       read_delta fn_delta gen_count sock latest_response_time;
       read_read_response sock fn_db fn_delta (Generation.add_int gen_count 1) latest_response_time datasockpath
     end
@@ -674,3 +675,38 @@ let empty () =
   if is_enabled() then
     connect_and_perform_action (action_empty) "invalidate the redo log"
 
+(* Write the given database to the redo-log *)
+let flush_db_to_redo_log db =
+	if is_enabled () then begin
+		R.debug "Flushing database to redo-log";
+		let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
+		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd
+	end
+
+let database_callback event db =
+	let to_write = 
+		if is_enabled () 
+		then match event with
+			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
+				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
+				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname 
+				then Some (WriteField(tblname, objref, fldname, newval))
+				else None
+			| Db_cache_types.PreDelete (tblname, objref) ->
+				None
+			| Db_cache_types.Delete (tblname, objref, _) ->
+				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname 
+				then Some (DeleteRow(tblname, objref))
+				else None
+			| Db_cache_types.Create (tblname, objref, kvs) ->
+				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
+				then Some (CreateRow(tblname, objref, kvs))
+				else None 
+		else None in
+
+	Opt.iter (fun entry ->
+		write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
+			(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
+				flush_db_to_redo_log db
+			)
+	) to_write

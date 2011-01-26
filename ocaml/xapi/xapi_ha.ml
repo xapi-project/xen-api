@@ -1369,6 +1369,8 @@ let disable __context =
 	then raise (Api_errors.Server_error(Api_errors.ha_not_enabled, []));
 	disable_internal __context
 
+open Db_cache_types (* for the Manifest. Database. functions below *)
+
 let enable __context heartbeat_srs configuration =
 	debug "Enabling HA on the Pool.";
 	let pool = Helpers.get_pool ~__context in
@@ -1524,7 +1526,7 @@ let enable __context heartbeat_srs configuration =
 
 				(* ... *)
 				(* Make sure everyone's got a fresh database *)
-				let generation = Db_lock.with_lock (fun () -> Db_cache_types.generation_of_cache Db_backend.cache) in
+				let generation = Db_lock.with_lock (fun () -> Manifest.generation (Database.manifest (Db_backend.get_database ()))) in
 				let errors = thread_iter_all_exns
 					(fun host ->
 						debug "Synchronising database with host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);

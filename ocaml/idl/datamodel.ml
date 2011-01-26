@@ -4827,7 +4827,7 @@ let vbd =
 	 "unpluggable" "true if this VBD will support hot-unplug";
        field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if a storage level lock was acquired";
        field ~qualifier:StaticRO ~ty:Bool "empty" "if true this represents an empty drive";
-       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved" "true if the VBD is reserved pending a reboot/migrate";
+       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "reserved" "true if the VBD is reserved pending a reboot/migrate";
        field ~ty:(Map(String, String)) "other_config" "additional configuration";
  ]
      @ device_status_fields @

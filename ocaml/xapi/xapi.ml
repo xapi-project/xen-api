@@ -65,20 +65,22 @@ let database_ready_for_clients_c = Condition.create ()
 let database_ready_for_clients_m = Mutex.create ()
 let database_ready_for_clients = ref false (* while this is false, client calls will be blocked *)
 
+open Db_cache_types
+
 (** Starts the main database engine: this should be done only on the master node. 
     The db connections must have been parsed from db.conf file and initialised before this fn is called.
     Also this function depends on being able to call API functions through the external interface.
 *)
 let start_database_engine () =
-  Db_dirty.make_blank_dirty_records();
+	let schema = Schema.of_datamodel () in
+	
+	let connections = Db_conn_store.read_db_connections () in
+	Db_cache_impl.make connections schema;
+	Db_cache_impl.sync connections (Db_backend.get_database ());
 
-  (* Check if db files exist, if not make them *)
-  let major, minor = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
-  List.iter (Db_connections.maybe_create_new_db (major,minor)) (Db_conn_store.read_db_connections());
+	Db_backend.update_database (Database.register_callback "redo_log" Redo_log.database_callback);
+	Db_backend.update_database (Database.register_callback "events" Eventgen.database_callback);
 
-  (* Initialise in-memory database cache *)
-  debug "Populating db cache";
-  Db_cache_impl.initialise ();
   debug "Performing initial DB GC";
   Db_gc.single_pass ();
 
