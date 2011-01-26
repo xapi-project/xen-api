@@ -57,6 +57,12 @@ let detach_existing ~__context =
   let vdis = list_existing() in
   List.iter (fun x -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:x.Static_vdis.uuid) vdis
 
+(** Added for CA-48539 *)
+let deactivate_and_detach_existing ~__context =
+	let vdi_uuids = List.map (fun vdi -> vdi.Static_vdis.uuid) (list_existing ()) in
+	List.iter (fun vdi_uuid -> Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid:vdi_uuid) vdi_uuids ;
+	List.iter (fun vdi_uuid -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:vdi_uuid) vdi_uuids
+
 open Pervasiveext
 
 (** Attempt to flush the database to the metadata VDI *)
