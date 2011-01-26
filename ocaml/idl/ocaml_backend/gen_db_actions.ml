@@ -167,10 +167,13 @@ let look_up_related_table_and_field obj other full_name =
 let read_set_ref obj other full_name =
   (* Set(Ref t) is actually stored in the table t *)
   let obj', fld' = look_up_related_table_and_field obj other full_name in
-  Printf.sprintf "ignore (DB.read_field (*__context*) \"%s\" \"%s\" %s); List.map %s.%s (DB.read_set_ref {table=\"%s\"; return=Db_action_helper.reference; where_field=\"%s\"; where_value=%s})"
-    (Escaping.escape_obj obj.DT.name) "uuid" Client._self
-    _string_to_dm (OU.alias_of_ty (DT.Ref other))
-    (Escaping.escape_obj obj') fld' Client._self
+  String.concat "\n" [
+	  Printf.sprintf "if not(DB.is_valid_ref %s)" Client._self;
+	  Printf.sprintf "then raise (Api_errors.Server_error(Api_errors.handle_invalid, [ %s ]))" Client._self;
+	  Printf.sprintf "else List.map %s.%s (DB.read_set_ref " _string_to_dm (OU.alias_of_ty (DT.Ref other));
+	  Printf.sprintf "    { table = \"%s\"; return=Db_action_helper.reference; " (Escaping.escape_obj obj');
+	  Printf.sprintf "      where_field = \"%s\"; where_value = %s })" fld' Client._self
+  ]
 
 let get_record (obj: obj) aux_fn_name =
   let body =
