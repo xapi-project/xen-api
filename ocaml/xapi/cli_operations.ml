@@ -1716,48 +1716,36 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
 		printer rpc session_id op params ?(multiple=true) ignore_params =
 	let msg_prio = try Int64.of_string (List.assoc "message-priority" params) with _ -> 1L in
 	let op = wrap_op printer msg_prio rpc session_id op in
-	if get_bool_param params "compat_mode"
-	then
-		(* Geneva compatability mode *)
-		let vm = select_vm_geneva rpc session_id params in
-		[op vm]
-	else
-		(* Rio standard mode *)
-		try
-			let vms = select_vms ~include_control_vms ~include_template_vms rpc session_id params ignore_params in
-			match List.length vms with
-				| 0 -> failwith "No matching VMs found"
-				| 1 -> [ op (List.hd vms) ]
-				| _ ->
-					if multiple && get_bool_param params "multiple" then
-						do_multiple op vms
-					else
-						failwith
-							(if not multiple
-							then "Multiple matches VMs found. Operation can only be performed on one VM at a time"
-							else "Multiple matches VMs found. --multiple required to complete the operation")
-		with
-			| Records.CLI_failed_to_find_param name ->
-				failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
-
-let do_host_op rpc session_id op params ?(multiple=true) ignore_params =
-	if get_bool_param params "compat_mode"
-	then
-		let host = host_record rpc session_id (get_host_from_session rpc session_id) in
-		[op 1 host]
-	else
-		let hosts = select_hosts rpc session_id params ignore_params in
-		match List.length hosts with
-			| 0 -> failwith "No matching hosts found"
-			| 1 -> [ op 1 (List.hd hosts) ]
+	try
+		let vms = select_vms ~include_control_vms ~include_template_vms rpc session_id params ignore_params in
+		match List.length vms with
+			| 0 -> failwith "No matching VMs found"
+			| 1 -> [ op (List.hd vms) ]
 			| _ ->
 				if multiple && get_bool_param params "multiple" then
-					do_multiple (op (List.length hosts)) hosts
+					do_multiple op vms
 				else
 					failwith
 						(if not multiple
-						then "Multiple matching hosts found. Operation can only be performed on one host at a time"
-						else "Multiple matching hosts found. --multiple required to complete the operation")
+						then "Multiple matches VMs found. Operation can only be performed on one VM at a time"
+						else "Multiple matches VMs found. --multiple required to complete the operation")
+	with
+		| Records.CLI_failed_to_find_param name ->
+			failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
+
+let do_host_op rpc session_id op params ?(multiple=true) ignore_params =
+	let hosts = select_hosts rpc session_id params ignore_params in
+	match List.length hosts with
+		| 0 -> failwith "No matching hosts found"
+		| 1 -> [ op 1 (List.hd hosts) ]
+		| _ ->
+			if multiple && get_bool_param params "multiple" then
+				do_multiple (op (List.length hosts)) hosts
+			else
+				failwith
+					(if not multiple
+					then "Multiple matching hosts found. Operation can only be performed on one host at a time"
+					else "Multiple matching hosts found. --multiple required to complete the operation")
 
 (* Execute f; if we get a no_hosts_available error then print a vm diagnostic table and reraise exception *)
 let hook_no_hosts_available printer rpc session_id vm f =
@@ -2124,7 +2112,6 @@ let vm_install printer rpc session_id params =
 let vm_uninstall_common fd printer rpc session_id params vms =
 	let toremove = ref [] in
 	let toprint = ref [] in
-	let compat = get_bool_param params "compat_mode" in
 	(* Destroy the disks too *)
 	let choose_objects_to_delete vm =
 		let vbds=Client.VM.get_VBDs rpc session_id vm in
@@ -2169,8 +2156,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
 	List.iter choose_objects_to_delete vms;
 	marshal fd (Command (Print "The following items are about to be destroyed"));
 	List.iter (fun s -> marshal fd (Command (Print s))) !toprint;
-	let force = compat || (get_bool_param params "force") in
-	if force then
+	if get_bool_param params "force" then
 		(List.iter (fun f -> f ()) !toremove; marshal fd (Command (Print "All objects destroyed")))
 	else
 		begin
@@ -2189,19 +2175,12 @@ let template_uninstall fd printer rpc session_id params =
 	vm_uninstall_common fd printer rpc session_id params [ vm ]
 
 let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session_id params =
-	let compat = get_bool_param params "compat_mode" in
-	let new_name =
-		if compat then
-			List.assoc "new-name" params
-		else
-			List.assoc "new-name-label" params in
+	let new_name = List.assoc "new-name-label" params in
 	let desc = try Some (List.assoc "new-name-description" params) with _ -> None in
-	let new_vms = do_vm_op printer ~multiple:false ~include_template_vms rpc session_id (fun vm -> clone_op ~rpc ~session_id ~vm: (vm.getref()) ~new_name) params ["new-name-label"; "new-name-description"] in
+	let new_vms = do_vm_op printer ~multiple:false ~include_template_vms rpc session_id
+		(fun vm -> clone_op ~rpc ~session_id ~vm: (vm.getref()) ~new_name) params ["new-name-label"; "new-name-description"] in
 	ignore (may (fun desc -> Client.VM.set_name_description rpc session_id (List.hd new_vms) desc) desc);
-	if compat then
-		printer (Cli_printer.PList (List.map (fun vm -> cloned_string^" VM uuid : "^Client.VM.get_uuid rpc session_id vm) new_vms))
-	else
-		printer (Cli_printer.PList (List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) new_vms))
+	printer (Cli_printer.PList (List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) new_vms))
 
 let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true
 let vm_snapshot printer = vm_clone_aux Client.VM.snapshot "Snapshotted " printer false
@@ -2367,18 +2346,8 @@ let vm_crashdump_list printer rpc session_id params =
  * can be optionally specified. A VBD is then creased with the device name as specified *)
 let vm_disk_add printer rpc session_id params =
 	(* Required params *)
-	let compat = get_bool_param params "compat_mode" in
-	let vdi_size =
-		if not compat then
-			Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params)
-		else
-			try Int64.shift_left (Int64.of_string (List.assoc "disk-size" params)) 20
-			with _ -> (failwith "Failed to parse parameter 'disk-size': expecting an integer") in
-	let vbd_device =
-		if not compat then
-			List.assoc "device" params
-		else
-			List.assoc "disk-name" params in
+	let vdi_size = Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params) in
+	let vbd_device = List.assoc "device" params in
 	let sr =
 		if List.mem_assoc "sr-uuid" params then
 			let sr_uuid = List.assoc "sr-uuid" params in
@@ -2408,13 +2377,7 @@ let vm_disk_add printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id op params ["sr-uuid";"device";"disk-size"])
 
 let vm_disk_remove printer rpc session_id params =
-	let compat = get_bool_param params "compat_mode" in
-	let device =
-		if not compat then
-			List.assoc "device" params
-		else
-			List.assoc "disk-name" params
-	in
+	let device = List.assoc "device" params in
 	let op vm =
 		let vm=vm.getref() in
 		let vm_record = Client.VM.get_record rpc session_id vm in
@@ -2439,19 +2402,8 @@ let vm_disk_detach printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id op params ["device"])
 
 let vm_disk_resize printer rpc session_id params =
-	let compat = get_bool_param params "compat_mode" in
-	let device =
-		if not compat then
-			List.assoc "device" params
-		else
-			List.assoc "disk-name" params
-	in
-	let new_size =
-		if not compat then
-			Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params)
-		else
-			try Int64.shift_left (Int64.of_string (List.assoc "disk-size" params)) 20
-			with _ -> (failwith "Failed to parse parameter 'disk-size': expecting an integer") in
+	let device = List.assoc "device" params in
+	let new_size = Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params) in
 	let op vm =
 		let vm_record = vm.record () in
 		let vbd_to_resize = List.filter (fun x -> device = Client.VBD.get_userdevice rpc session_id x) vm_record.API.vM_VBDs in
@@ -2481,23 +2433,16 @@ let vm_cd_remove printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id op params ["cd-name"])
 
 let vm_cd_add printer rpc session_id params =
-	let compat = get_bool_param params "compat_mode" in
 	let cd_name = List.assoc "cd-name" params in
 	let vdis = Client.VDI.get_by_name_label rpc session_id cd_name in
 	let vdis = List.filter (fun vdi -> let sr = Client.VDI.get_SR rpc session_id vdi in "iso"=Client.SR.get_content_type rpc session_id sr) vdis in
 	(if List.length vdis = 0 then (failwith ("CD "^cd_name^" not found!")));
 	let vdi = List.nth vdis 0 in
-	let op vm =
-		let vm_record = vm.record () in
-		let device_name =
-			if compat then
-				(* Geneva always adds cd drives to hdd if HVM and sdd if not *)
-				(if vm_record.API.vM_HVM_boot_policy = "BIOS order" then "hdd" else "sdd")
-			else
-				List.assoc "device" params in
-		create_vbd_and_plug rpc session_id (vm.getref()) vdi device_name false `RO `CD true "" []
+	let op vm = create_vbd_and_plug
+		rpc session_id (vm.getref()) vdi (List.assoc "device" params) false `RO `CD true "" []
 	in
-	ignore(do_vm_op printer rpc session_id op params ["cd-name";"device";"cd-location"]) (* cd-location was a geneva-style param *)
+	ignore(do_vm_op printer rpc session_id op params ["cd-name";"device";"cd-location"])
+		(* cd-location was a geneva-style param *)
 
 let vm_cd_eject printer rpc session_id params =
 	let op vm =
