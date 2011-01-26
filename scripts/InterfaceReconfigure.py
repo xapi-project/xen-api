@@ -277,7 +277,7 @@ _TUNNEL_XML_TAG = "tunnel"
 _BOND_XML_TAG = "bond"
 _NETWORK_XML_TAG = "network"
 
-_ETHTOOL_OTHERCONFIG_ATTRS = ['ethtool-%s' % x for x in 'autoneg', 'speed', 'duplex', 'rx', 'tx', 'sg', 'tso', 'ufo', 'gso' ]
+_ETHTOOL_OTHERCONFIG_ATTRS = ['ethtool-%s' % x for x in 'autoneg', 'speed', 'duplex', 'rx', 'tx', 'sg', 'tso', 'ufo', 'gso', 'gro', 'lro' ]
 
 _PIF_OTHERCONFIG_ATTRS = [ 'domain', 'peerdns', 'defaultroute', 'mtu', 'static-routes' ] + \
                         [ 'bond-%s' % x for x in 'mode', 'miimon', 'downdelay', 'updelay', 'use_carrier' ] + \
@@ -621,8 +621,9 @@ class DatabaseCache(object):
 #
 #
 #
+PIF_OTHERCONFIG_DEFAULTS = {'gro': 'off', 'lro': 'off'}
 
-def ethtool_settings(oc):
+def ethtool_settings(oc, defaults = {}):
     settings = []
     if oc.has_key('ethtool-speed'):
         val = oc['ethtool-speed']
@@ -645,7 +646,7 @@ def ethtool_settings(oc):
         else:
             log("Invalid value for ethtool-autoneg = %s. Must be on|true|off|false." % val)
     offload = []
-    for opt in ("rx", "tx", "sg", "tso", "ufo", "gso"):
+    for opt in ("rx", "tx", "sg", "tso", "ufo", "gso", "gro", "lro"):
         if oc.has_key("ethtool-" + opt):
             val = oc["ethtool-" + opt]
             if val in ["true", "on"]:
@@ -654,6 +655,8 @@ def ethtool_settings(oc):
                 offload += [opt, 'off']
             else:
                 log("Invalid value for ethtool-%s = %s. Must be on|true|off|false." % (opt, val))
+        elif opt in defaults:
+            offload += [opt, defaults[opt]]
     return settings,offload
 
 # By default the MTU is taken from the Network.MTU setting for VIF,
