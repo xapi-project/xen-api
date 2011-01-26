@@ -2571,6 +2571,7 @@ let host_apply_edition printer rpc session_id params =
 			Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
 		else
 			get_host_from_session rpc session_id in
+	let current_license_server = Client.Host.get_license_server rpc session_id host in
 	let edition = List.assoc "edition" params in
 	if List.mem_assoc "license-server-address" params then begin
 		let address = List.assoc "license-server-address" params in
@@ -2592,6 +2593,8 @@ let host_apply_edition printer rpc session_id params =
 		Client.Host.apply_edition rpc session_id host edition
 	with
 		| Api_errors.Server_error (name, args) when name = Api_errors.license_checkout_error ->
+			(* Put back original license server details *)
+			Client.Host.set_license_server rpc session_id host current_license_server;
 			let alerts = Client.Message.get_since rpc session_id (Date.of_float now) in
 			let print_if_checkout_error (ref, msg) =
 				if msg.API.message_name = "LICENSE_NOT_AVAILABLE" || msg.API.message_name = "LICENSE_SERVER_UNREACHABLE" then
