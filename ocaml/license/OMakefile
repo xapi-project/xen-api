@@ -9,28 +9,25 @@ V6FILES = \
 	v6rpc \
 	v6errors \
 	v6daemon \
-	edition
+	edition \
+	v6testd
 
 # Name of daemon to install in dom0:
-V6D = v6testd
+V6D = v6d
 
-OCamlProgram(v6testd, $(V6FILES) v6testd)
+OCamlProgram($(V6D), $(V6FILES))
+OCamlDocProgram($(V6D), $(V6FILES))
+
 OCamlProgram(v6d-reopen-logs, v6d_reopen_logs)
-
-OCamlDocProgram(v6d, $(V6FILES) v6testd)
 
 .PHONY: install
 install: $(V6D)
 	mkdir -p $(LIBEXEC)
-	$(IPROG) $(V6D) $(LIBEXEC)/v6d
+	$(IPROG) $(V6D) $(LIBEXEC)
 	mkdir -p $(DESTDIR)/opt/xensource/bin
 	$(IPROG) v6d-reopen-logs $(DESTDIR)/opt/xensource/bin
 
-.PHONY: sdk-install
-sdk-install: install
-
 .PHONY: clean
-
 clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o v6d v6testd v6d-reopen-logs
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o *.rej *.orig *.spit *.spot *.omc v6d v6d-reopen-logs
 
