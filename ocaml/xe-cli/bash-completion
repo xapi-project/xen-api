@@ -210,6 +210,12 @@ _xe()
                                 COMPREPLY=( $(compgen -W "monday,tuesday,wednesday,thursday,friday,saturday,sunday " -- ${LAST_VALUE}) )
                                 return 0
                                 ;;
+			role-name)
+				IFS=$'\n,'
+				LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+				COMPREPLY=( $(compgen -W "vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin" -- ${LAST_VALUE}) )
+				return 0
+				;;
             edition) # for host-apply-edition (licensing)
                 IFS=$'\n,'
                 COMPREPLY=( $(compgen -W "free ,enterprise ,platinum ,enterprise-xd " -- ${value}) )
