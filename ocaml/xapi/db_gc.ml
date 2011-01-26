@@ -411,7 +411,9 @@ let update_vm_cooperativeness ~__context =
     try
       let vm = Db.VM.get_by_uuid ~__context ~uuid in
       Helpers.set_vm_uncooperative ~__context ~self:vm ~value;
+(*
       if value then ignore(Xapi_message.create ~__context ~name:Api_messages.vm_uncooperative ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:"")
+*)
     with _ -> () in
   StringSet.iter (set_uncooperative_flag true) uncooperative_domains;
   StringSet.iter (set_uncooperative_flag false) cooperative_domains;
