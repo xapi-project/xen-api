@@ -21,14 +21,33 @@ open D
 
 (* A comparision function suitable for passing to List.sort and Array.sort. 
    Sorts into oldest first *)
-let compare_vsn (a_maj, a_min, a_micro, a_build) (b_maj, b_min, b_micro, b_build) =
-  0 + 
-    8 * (compare a_maj b_maj) +
-    4 * (compare a_min b_min) +
-    2 * (compare a_micro b_micro) +
-    1 * (compare a_build b_build)
+let compare_vsn =
+	List.fold_left2 (fun r x y -> if r <> 0 then r else compare x y) 0
 
-let string_of_vsn (maj, min, micro, build) = Printf.sprintf "%d.%d.%d-%d" maj min micro build
+let compare_vsn4 (x_maj, x_min, x_mic, x_bd) (y_maj, y_min, y_mic, y_bd) =
+	compare_vsn [x_maj; x_min; x_mic; x_bd] [y_maj; y_min; y_mic; y_bd]
+
+let compare_vsn3 (x_maj, x_min, x_mic) (y_maj, y_min, y_mic) =
+	compare_vsn [x_maj; x_min; x_mic] [y_maj; y_min; y_mic]
+
+let compare_vsn2 (x_maj, x_min) (y_maj, y_min) =
+	compare_vsn [x_maj; x_min] [y_maj; y_min]
+
+let string_of_vsn vsn =
+	let seps = ["."; "."; "-"] in
+	let maj = List.hd vsn and rest = List.tl vsn in
+	let rec postfix accu = function
+		| [], _ -> accu
+		| num :: nums , sep :: seps ->
+			  postfix (accu ^ sep ^ (string_of_int num)) (nums, seps)
+		| _, _ -> assert false in
+	postfix (string_of_int maj) (rest, seps)
+
+let string_of_vsn4 (maj, min, mic, bd) = string_of_vsn [maj; min; mic; bd]
+
+let string_of_vsn3 (maj, min, mic) = string_of_vsn [maj; min; mic]
+
+let string_of_vsn2 (maj, min) = string_of_vsn [maj; min]
 
 (* Find the most recent xs tools version from the local filesystem -- avoids having to synchronise
    with the master's SR scanning thread. Called from the startup code only *)
@@ -58,9 +77,9 @@ let get_latest_tools_vsn () =
       (* just in case *)
       debug "Caught error discovering latest tools ISO: %s" (ExnHelper.string_of_exn e);
       none in
-  let sorted = List.sort compare_vsn (List.map vsn_of_filename (Array.to_list all)) in
+  let sorted = List.sort compare_vsn4 (List.map vsn_of_filename (Array.to_list all)) in
   let latest = if sorted = [] then none else List.hd (List.rev sorted) in
-  debug "Latest xs-tools version: %s" (string_of_vsn latest);
+  debug "Latest xs-tools version: %s" (string_of_vsn4 latest);
   Xapi_globs.tools_version := latest;
 
 (** Represents the detected PV driver version *)
@@ -80,7 +99,7 @@ let string_of = function
  ** @return +1: if the given version is newer;
  ** @raise Assert_failure: if this host does not have a valid product version.
  **)
-let compare_vsn_with_product_vsn (pv_maj, pv_min, pv_mic) =
+let compare_vsn_with_product_vsn ?(relaxed=false) (pv_maj, pv_min, pv_mic) =
 	let (prod_maj, prod_min, prod_mic) =
 		match (Stringext.String.split '.' Version.product_version) with
 			| [maj; min; mic] ->
@@ -88,37 +107,48 @@ let compare_vsn_with_product_vsn (pv_maj, pv_min, pv_mic) =
 			| _ ->
 				warn "xapi product version is wrong format: %s"
 					Version.product_version; assert false;
-		in
-	if pv_mic = -1 then -1 (* out of date if micro version not specified -- reqd since Miami Beta1 was shipped without micro versions! *)
-	else if pv_maj<prod_maj || (pv_maj=prod_maj && pv_min<prod_min) || (pv_maj=prod_maj && pv_min=prod_min && pv_mic<prod_mic) then -1
-	else if pv_maj=prod_maj && pv_min=prod_min && pv_mic=prod_mic then 0
-	else 1
+	in
+	(* out of date if micro version not specified -- reqd since Miami Beta1 was
+	   shipped withoutmicro versions! *)
+	if pv_mic = -1 then -1
+	else if relaxed then compare_vsn2 (pv_maj, pv_min) (prod_maj, prod_min)
+	else compare_vsn3 (pv_maj, pv_min, pv_mic) (prod_maj, prod_min, prod_mic)
 
 (* Returns -1 if PV drivers are out-of-date wrt tools version on this host;
    returns 0 if the PV drivers match the tools version on this host;
    returns 1 if the PV drivers are a newer verrsion than the tools version on this host *)
-let compare_vsn_with_tools_iso pv_vsn = 
-  (* XXX: consolidate with create_templates code and the function above *)
-  compare_vsn pv_vsn !Xapi_globs.tools_version
+let compare_vsn_with_tools_iso ?(relaxed=false) pv_vsn =
+	(* XXX: consolidate with create_templates code and the function above *)
+	if relaxed then
+		let pv_maj, pv_min, _, _ = pv_vsn in
+		let tools_maj, tools_min, _, _  = !Xapi_globs.tools_version in
+		compare_vsn2 (pv_maj, pv_min) (tools_maj, tools_min)
+	else
+		compare_vsn4 pv_vsn !Xapi_globs.tools_version
 
 let has_pv_drivers x = x <> Unknown
-     
+
 (** Returns true if the PV drivers are up to date *)
 let is_up_to_date = function
     (* XXX: linux guest agent doesn't report build number (-1) while all windows ones do *)
-  | Linux (maj,min,mic,build)   -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (build=(-1) || (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0))
-  | Windows (maj,min,mic,build) -> (compare_vsn_with_product_vsn (maj,min,mic)>=0) && (compare_vsn_with_tools_iso (maj, min, mic, build) >= 0)
-  | _ -> false
+	| Linux (maj, min, mic, bd)   ->
+		  compare_vsn_with_product_vsn ~relaxed:true (maj, min, mic) >= 0
+		  && (bd = -1 || compare_vsn_with_tools_iso ~relaxed:true (maj, min, mic, bd) >= 0)
+	| Windows (maj, min, mic, bd) ->
+		  compare_vsn_with_product_vsn (maj, min, mic) >= 0
+		  && compare_vsn_with_tools_iso (maj, min, mic, bd) >= 0
+	| Unknown ->
+		  (* Avoid catch all '_', it's bad practice except for false assertion *)
+		  false
 
 (** Returns true if the PV drivers are OK for migrate; in Miami we allow migration
     as long as the major vs of the PV drivers are 4. This allows us to migrate VMs
     with PV drivers from the previous release during rolling upgrade.
 *)
 let is_ok_for_migrate = function
-  | Linux(major, _, _, _)   when major >= 4 -> true
-  | Windows(major, _, _, _) when major >= 4 -> true (* bumped in CA-6891 *)
-  | _ -> false
-
+	| Linux(major, _, _, _)  ->  major >= 4
+	| Windows(major, _, _, _) -> major >= 4 (* bumped in CA-6891 *)
+	| Unknown -> false
 
 let of_drivers_version drivers_version = 
   try
