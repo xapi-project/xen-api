@@ -119,9 +119,11 @@ let param_error t s =
   exit exit_error)
 
 let main() =
-(*  try*)
-    let cmd = Cli_frontend.parse_commandline (Array.to_list Sys.argv) in
-    exec_command cmd
+	(* try*)
+	let parse_commandline arg_array =
+		parse (tokens_of_argv arg_array) in
+	let cmd = parse_commandline (Array.to_list Sys.argv) in
+	exec_command cmd
 (*  with
       Cli_frontend.ParseError s ->
 	param_error "Syntax error" s;

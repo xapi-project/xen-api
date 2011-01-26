@@ -204,7 +204,7 @@ let do_handle (req:Http.request) str (s:Unix.file_descr) =
 			then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
 			else (None,args)
 		with _ -> (None,args) in
-	let cmd = parse_commandline_2 ("xe"::args) in
+	let cmd = parse_commandline ("xe"::args) in
 	ignore(exec_command req cmd s session args)
 
 let exception_handler s e =
