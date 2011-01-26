@@ -12,34 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Xapi_test_common
 open Xapi_db_upgrade
-
-(** Make a simple in-memory database containing a single host and dom0 VM record. *)
-let make_test_database () = 
-	let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Schema.of_datamodel ())) in
-	let db_ref = Db_ref.in_memory (ref (ref db)) in
-	let __context = Context.make ~database:db_ref "upgrade_vm_memory_for_dmc" in
-
-	(* Db_xml.To.file "/tmp/new3.db" (Db_ref.get_database (Context.database_of __context)); *)
-
-	let host_info = {
-		Create_misc.name_label = "test host";
-		xen_verstring = "unknown";
-		linux_verstring = "something";
-		hostname = "localhost";
-		uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid;
-		dom0_uuid = "dom0-uuid";
-		oem_manufacturer = None;
-		oem_model = None;
-		oem_build_number = None;
-		machine_serial_number = None;
-		machine_serial_name = None;
-		total_memory_mib = 1024L;
-		dom0_static_max = Memory.bytes_of_mib 512L;
-	} in
-	Dbsync_slave.create_localhost ~__context host_info;
-	Create_misc.ensure_domain_zero_records ~__context host_info;
-	__context
 
 let upgrade_vm_memory_for_dmc () = 
 	let __context = make_test_database () in
@@ -95,28 +69,6 @@ let upgrade_bios () =
 	Unixext.unlink_safe "/var/tmp/.previousInventory";
 	Printf.printf "upgrade_bios: OK\n"
 
-
-let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
-		?(user_version=1L) ?(is_a_template=false) ?(affinity=Ref.null)
-		?(memory_target=500L) ?(memory_static_max=1000L) ?(memory_dynamic_max=500L)
-		?(memory_dynamic_min=500L) ?(memory_static_min=0L) ?(vCPUs_params=[])
-		?(vCPUs_max=1L) ?(vCPUs_at_startup=1L) ?(actions_after_shutdown=`destroy)
-		?(actions_after_reboot=`restart) ?(actions_after_crash=`destroy)
-		?(pV_bootloader="") ?(pV_kernel="") ?(pV_ramdisk="") ?(pV_args="") 
-		?(pV_bootloader_args="") ?(pV_legacy_args="") ?(hVM_boot_policy="BIOS order")
-		?(hVM_boot_params=[]) ?(hVM_shadow_multiplier=1.) ?(platform=[]) ?(pCI_bus="")
-		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
-		?(ha_restart_priority="1") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
-		?(is_snapshot_from_vmpp=false) () = 
-	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template 
-		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
-        ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
-		~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk 
-		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
-		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
-		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
-		~is_snapshot_from_vmpp
-
 let update_snapshots () = 
 	let __context = make_test_database () in
 	let a = make_vm ~__context ~name_label:"a" () in
@@ -148,9 +100,7 @@ let update_snapshots () =
 
 	Printf.printf "update_snapshots: OK\n"
 
-let _ = 
+let all () = 
 	upgrade_vm_memory_for_dmc ();
 	upgrade_bios ();
 	update_snapshots ()
-	
-
