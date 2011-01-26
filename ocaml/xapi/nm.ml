@@ -23,14 +23,24 @@ let with_local_lock f = Mutex.execute local_m f
 
 let interface_reconfigure_script = "/opt/xensource/libexec/interface-reconfigure"
 
+(* A "dom0 interface" is an IP-enabled interface on _dom0_ which might be
+   being used (via some route in the routing table) for access to storage
+   which we need to be able to see on startup before xapi has initialised *)
+let is_dom0_interface pif_r = pif_r.API.pIF_ip_configuration_mode <> `None
+		
 (* Make sure inventory file has all current interfaces on the local host, so
  * they will all be brought up again at start up. *)
 let update_inventory ~__context =
-  let pifs = List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif && 
-    Db.PIF.get_host ~__context ~self:pif = Helpers.get_localhost ~__context) (Db.PIF.get_all ~__context) in
-  let get_netw pif = Db.PIF.get_network ~__context ~self:pif in
-  let bridges = List.map (fun pif -> Db.Network.get_bridge ~__context ~self:(get_netw pif)) pifs in
-  Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
+	let localhost = Helpers.get_localhost ~__context in
+	let pifs = List.filter 
+		(fun (pif, pif_r) -> 
+			true &&
+				pif_r.API.pIF_host = localhost &&
+				is_dom0_interface pif_r &&
+				pif_r.API.pIF_currently_attached)
+		(Db.PIF.get_all_records ~__context) in
+	let bridges = List.map (fun (_, pif_r) -> Db.Network.get_bridge ~__context ~self:pif_r.API.pIF_network) pifs in
+	Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
 
 (* Call the interface reconfigure script. For development ignore the exn if it doesn't exist *)
 let reconfigure_pif ~__context (pif: API.ref_PIF) args = 
