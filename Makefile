@@ -1,14 +1,6 @@
-# Set this to some other value on systems with no Xen libs to
-# build only the client stuff and the fakeserver.
-COMPILE_XENSTUFF=yes
-export COMPILE_XENSTUFF
-
-PRODUCT_VERSION?=unknown
-PRODUCT_BRAND?=Rio
-BUILD_NUMBER?=6666
 COMPILE_NATIVE=yes
 COMPILE_BYTE=no # bytecode version does not build
-export PRODUCT_VERSION PRODUCT_BRAND BUILD_NUMBER COMPILE_NATIVE COMPILE_BYTE
+export COMPILE_NATIVE COMPILE_BYTE
 
 .PHONY: all
 all: version
