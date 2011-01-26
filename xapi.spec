@@ -259,6 +259,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude   /usr/lib/python2.4/site-packages/xen/lowlevel/*
 /var/xapi/udhcpd.skel
 /opt/xensource/debug/rbac_static.csv
+/etc/xapi.d/host-post-declare-dead/10resetvdis
 
 %files xe
 %defattr(-,root,root,-)
