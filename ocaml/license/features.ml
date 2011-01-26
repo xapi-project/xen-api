@@ -17,9 +17,27 @@ open D
 
 (* Features and restrictions *)
 
-type feature = VLAN | QoS | Shared_storage | Netapp | Equalogic | Pooling
-	| HA | Marathon | Email | Performance | WLB | RBAC | DMC | Checkpoint
-	| Vswitch_controller | CPU_masking | Connection | No_platform_filter | No_nag_dialog | VMPR
+type feature =
+	| VLAN
+	| QoS
+	| Shared_storage
+	| Netapp
+	| Equalogic
+	| Pooling
+	| HA
+	| Marathon
+	| Email
+	| Performance
+	| WLB
+	| RBAC
+	| DMC
+	| Checkpoint
+	| Vswitch_controller
+	| CPU_masking
+	| Connection
+	| No_platform_filter
+	| No_nag_dialog
+	| VMPR
 
 type orientation = Positive | Negative
 
