@@ -38,43 +38,41 @@ let write s string =
   let towrite = string ^ "\r\n" in
   ignore(Unix.write s towrite 0 (String.length towrite))
 
-let forward args s session is_compat =
-  (* Reject forwarding cli commands if the request came in from a tcp socket *)
-  if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
-  let host = Pool_role.get_master_address () in
-  let port = !Xapi_globs.https_port in
-  let st_proc = Xmlrpcclient.get_reusable_stunnel
-    ~write_to_log:Xmlrpcclient.write_to_log host port in
-  finally
-    (fun () ->
-       let ms = st_proc.Stunnel.fd in
-       (* Headers *)
-       let body = String.concat "\r\n" args in
-       let body = 
-	 if is_compat then "compat\r\n"^body else body in
-       let body = 
-	 match session with None -> body | Some s -> ("session_id="^(Ref.string_of s)^"\r\n")^body in
-       List.iter (write ms)
-	 ["POST /cli HTTP/1.1";"Content-Length: "^(string_of_int (String.length body)); ""];
-       ignore_int (Unix.write ms body 0 (String.length body));
-       let (_ : int * int) = unmarshal_protocol ms in  
-       marshal_protocol ms;
-       Unixext.proxy (Unix.dup s) (Unix.dup ms)
-    )
-    (fun () ->
-       if Xmlrpcclient.check_reusable st_proc.Stunnel.fd then begin
-	 Stunnel_cache.add st_proc
-       end else begin
-	 debug "Disconnecting CLI because it is not reusable";
-	 Stunnel.disconnect st_proc
-       end
-    )
+let forward args s session =
+	(* Reject forwarding cli commands if the request came in from a tcp socket *)
+	if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
+	let host = Pool_role.get_master_address () in
+	let port = !Xapi_globs.https_port in
+	let st_proc = Xmlrpcclient.get_reusable_stunnel
+		~write_to_log:Xmlrpcclient.write_to_log host port in
+	finally
+		(fun () ->
+			let ms = st_proc.Stunnel.fd in
+			(* Headers *)
+			let body = String.concat "\r\n" args in
+			let body =
+				match session with None -> body | Some s -> ("session_id="^(Ref.string_of s)^"\r\n")^body in
+			List.iter (write ms)
+				["POST /cli HTTP/1.1";"Content-Length: "^(string_of_int (String.length body)); ""];
+			ignore_int (Unix.write ms body 0 (String.length body));
+			let (_ : int * int) = unmarshal_protocol ms in
+			marshal_protocol ms;
+			Unixext.proxy (Unix.dup s) (Unix.dup ms)
+		)
+		(fun () ->
+			if Xmlrpcclient.check_reusable st_proc.Stunnel.fd then begin
+				Stunnel_cache.add st_proc
+			end else begin
+				debug "Disconnecting CLI because it is not reusable";
+				Stunnel.disconnect st_proc
+			end
+		)
 
 
 (* Check that keys are all present in cmd *)
 let check_required_keys cmd keylist =
   let (_: (string * string) list) = get_params cmd in
-  List.map (get_reqd_param cmd) keylist
+	List.map (get_reqd_param cmd) keylist
 
 let with_session ~local rpc u p session f =  
   let session, logout = 
@@ -94,11 +92,11 @@ let with_session ~local rpc u p session f =
     (fun () -> f session)
     (fun () -> do_logout ())
 
-let do_rpcs req s username password minimal is_compat cmd session args =
+let do_rpcs req s username password minimal cmd session args =
   let cmdname = get_cmdname cmd in
   let cspec =
     try
-      Hashtbl.find (if is_compat then cmdtable_geneva else cmdtable) cmdname
+      Hashtbl.find cmdtable cmdname
     with
 	Not_found -> raise (Unknown_command cmdname) in
   (* Forward if we're not the master, and if the cspec doesn't contain the key 'neverforward' *)
@@ -110,10 +108,10 @@ let do_rpcs req s username password minimal is_compat cmd session args =
     let generic_rpc = Helpers.get_rpc () in
     let rpc = generic_rpc req s in
     if do_forward
-    then with_session ~local:false rpc username password session (fun sess -> forward args s (Some sess) is_compat)
+    then with_session ~local:false rpc username password session (fun sess -> forward args s (Some sess))
     else
       begin
-	let (printer,flush) = Cli_printer.make_printer is_compat s minimal in
+	let (printer,flush) = Cli_printer.make_printer s minimal in
 	let flush_and_marshall() = flush (); marshal s (Command(Exit 0)) in
 	begin
 	  match cspec.implementation with
@@ -138,13 +136,13 @@ let do_rpcs req s username password minimal is_compat cmd session args =
 	warn "Uncaught exception: Unix_error '%s' '%s' '%s'" (Unix.error_message a) b c;
 	raise e
 
-let do_help is_compat cmd minimal s =
-  let (printer,flush)=Cli_printer.make_printer is_compat s minimal in
-  cmd_help printer minimal is_compat cmd;
+let do_help cmd minimal s =
+  let (printer,flush)=Cli_printer.make_printer s minimal in
+  cmd_help printer minimal cmd;
   flush ();
   marshal s (Command (Exit 0))
 
-let exec_command req is_compat cmd s session args =
+let exec_command req cmd s session args =
 	let params = get_params cmd in
 	let minimal =
 		if (List.mem_assoc "minimal" params)
@@ -163,8 +161,8 @@ let exec_command req is_compat cmd s session args =
 	else
 		debug "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
 	if cmd_name = "help"
-	then do_help is_compat cmd minimal s
-	else do_rpcs req s u p minimal is_compat cmd session args
+	then do_help cmd minimal s
+	else do_rpcs req s u p minimal cmd session args
 
 
 let get_line str i =
@@ -190,36 +188,25 @@ let multiple_error errs sock =
     marshal sock (Command (Print msg))) errs;
   marshal sock (Command (Exit 1))
 
-(* If compatability mode is requested, then 'compat' is the first line sent
- * by the thin cli. If we find this, set is_compat true and strip the line
- * from the arguments *)
 let do_handle (req:Http.request) str (s:Unix.file_descr) =
-  let rec get_args n cur =
-    let (next,arg) = get_line str n in
-    let arg = zap_cr arg in
-    match next with 
-	Some i -> get_args i (arg::cur)
-      | None -> (arg::cur)
-  in
-  let args = List.rev (get_args 0 []) in
-  let (session,args) = 
-    try 
-      let line = List.hd args in
-      if String.startswith "session_id=" line
-      then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
-      else (None,args)
-    with _ -> (None,args) in
-  let (is_compat,args) = 
-    try 
-      let is_compat = List.hd args = "compat" in
-      (is_compat, if is_compat then List.tl args else args) 
-    with _ -> (false,args) in
-  let cmd = 
-    if is_compat 
-    then parse_commandline ("xe"::args) 
-    else parse_commandline_2 ("xe"::args) in
-  ignore(exec_command req is_compat cmd s session args)
-    
+	let rec get_args n cur =
+		let (next,arg) = get_line str n in
+		let arg = zap_cr arg in
+		match next with
+				Some i -> get_args i (arg::cur)
+			| None -> (arg::cur)
+	in
+	let args = List.rev (get_args 0 []) in
+	let (session,args) =
+		try
+			let line = List.hd args in
+			if String.startswith "session_id=" line
+			then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
+			else (None,args)
+		with _ -> (None,args) in
+	let cmd = parse_commandline_2 ("xe"::args) in
+	ignore(exec_command req cmd s session args)
+
 let exception_handler s e =
   debug "Xapi_cli.exception_handler: Got exception %s" (ExnHelper.string_of_exn e);
   log_backtrace ();
