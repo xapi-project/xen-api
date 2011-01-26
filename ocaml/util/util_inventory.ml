@@ -26,6 +26,7 @@ let inventory_filename = Util_globs_inventory.inventory_filename
 let _installation_uuid		= "INSTALLATION_UUID"
 let _control_domain_uuid	= "CONTROL_DOMAIN_UUID"
 let _management_interface	= "MANAGEMENT_INTERFACE"
+let _build_number           = "BUILD_NUMBER"
 
 (* Optional keys: *)
 let _current_interfaces		= "CURRENT_INTERFACES"
@@ -45,7 +46,8 @@ let minimum_default_entries () =
   let dom0_uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
   [ _installation_uuid, host_uuid;
     _control_domain_uuid, dom0_uuid;
-    _management_interface, "" ]
+    _management_interface, "";
+    _build_number, "0" ]
 
 (* trim any quotes off the ends *)
 let strip_quotes v =
