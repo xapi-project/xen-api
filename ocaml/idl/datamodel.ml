@@ -6509,7 +6509,11 @@ let secret =
 	let introduce = call
 		~name:"introduce"
 		~in_product_since:rel_midnight_ride
-		~params:[String, "uuid", ""; String, "value", ""; (Map (String,String)), "other_config", ""]
+		~versioned_params:[
+			{param_type=String; param_name="uuid"; param_doc=""; param_release=midnight_ride_release; param_default=None};
+			{param_type=String; param_name="value"; param_doc=""; param_release=midnight_ride_release; param_default=None};
+			{param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=boston_release; param_default=Some (VMap [])}
+		]
 		~flags:[`Session]
 		~result:(Ref _secret, "")
 		~secret:true
