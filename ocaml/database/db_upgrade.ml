@@ -59,44 +59,6 @@ let apply_upgrade_rules rules previous_version db =
     ) db required_rules
   
 
-(* GEORGE OEM -> BODIE/MNR *)	
-let upgrade_bios_strings db =
-	let oem_manufacturer =
-		try
-			let ic = open_in "/var/tmp/.previousInventory" in
-			let rec find_oem_manufacturer () =
-				let line = input_line ic in
-				match Xapi_inventory.parse_inventory_entry line with
-				| Some (k, v) when k = "OEM_MANUFACTURER" -> Some v
-				| Some _ -> find_oem_manufacturer () 
-				| None -> None
-			in
-			Pervasiveext.finally (find_oem_manufacturer) (fun () -> close_in ic)
-		with _ -> None
-	in
-	let update_vms bios_strings =
-		let ts = Database.tableset db in
-		let vm_table = TableSet.find Names.vm ts in
-		let bios_strings_kvs = String_marshall_helper.map (fun x->x) (fun x->x) bios_strings in
-		let update_row row = 
-			Row.add Names.bios_strings bios_strings_kvs row in
-		let vm_table = Table.fold (fun r row tbl -> Table.add r (update_row row) tbl) vm_table Table.empty in
-		set_table Names.vm vm_table
-	in
-	match oem_manufacturer with
-	| Some oem ->
-		info "Upgrade from OEM edition (%s)." oem;
-		if String.has_substr oem "HP" then begin
-			debug "Using old HP BIOS strings";
-			update_vms Xapi_globs.old_hp_bios_strings db
-		end else if String.has_substr oem "Dell" then begin
-			debug "Using old Dell BIOS strings";
-			update_vms Xapi_globs.old_dell_bios_strings db
-		end	else db
-	| None ->
-		info "Upgrade from retail edition.";
-		debug "Using generic BIOS strings";
-		update_vms Xapi_globs.generic_bios_strings db
 
 let update_snapshots db = 
 	(* GEORGE -> MIDNIGHT RIDE *)
@@ -127,10 +89,7 @@ let upgrade_rules =
   let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn in
   [ { description = "Updating snapshot parent references";
       version = george;
-      fn = update_snapshots };
-    { description = "Upgrading VM BIOS strings";
-      version = george;
-      fn = upgrade_bios_strings } ]
+      fn = update_snapshots } ]
 
 (** {Generic database upgrade handling} *)
 
