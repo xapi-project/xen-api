@@ -14,7 +14,8 @@
 
 open Xapi_db_upgrade
 
-let upgrade_vm_memory_for_dmc () = 
+(** Make a simple in-memory database containing a single host and dom0 VM record. *)
+let make_test_database () = 
 	let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Schema.of_datamodel ())) in
 	let db_ref = Db_ref.in_memory (ref (ref db)) in
 	let __context = Context.make ~database:db_ref "upgrade_vm_memory_for_dmc" in
@@ -38,6 +39,10 @@ let upgrade_vm_memory_for_dmc () =
 	} in
 	Dbsync_slave.create_localhost ~__context host_info;
 	Create_misc.ensure_domain_zero_records ~__context host_info;
+	__context
+
+let upgrade_vm_memory_for_dmc () = 
+	let __context = make_test_database () in
 
 	let self = List.hd (Db.VM.get_all ~__context) in
 
@@ -73,6 +78,25 @@ let upgrade_vm_memory_for_dmc () =
 	then failwith "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max";
 	Printf.printf "upgrade_vm_memory_for_dmc: OK\n"
 
-let _ = 
-	upgrade_vm_memory_for_dmc ()
+let upgrade_bios () = 
+
+	let check inventory bios_strings = 
+		Unixext.mkdir_safe "/var/tmp" 0o755;
+		Unixext.write_string_to_file "/var/tmp/.previousInventory" inventory;
+		let __context = make_test_database () in
+		upgrade_bios_strings.fn ~__context; 
+		let _, vm_r = List.hd (Db.VM.get_all_records ~__context) in
+		if vm_r.API.vM_bios_strings <> bios_strings
+		then failwith "bios strings upgrade" in
 	
+	check "OEM_MANUFACTURER=Dell" Xapi_globs.old_dell_bios_strings;
+	check "OEM_MANUFACTURER=HP" Xapi_globs.old_hp_bios_strings;
+	check "" Xapi_globs.generic_bios_strings;
+	Unixext.unlink_safe "/var/tmp/.previousInventory";
+	Printf.printf "upgrade_bios: OK\n"
+
+let _ = 
+	upgrade_vm_memory_for_dmc ();
+	upgrade_bios ()
+	
+

@@ -67,21 +67,9 @@ let get_management_ip_addr () =
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
 
-let localhost_ref_m = Mutex.create ()
-let localhost_ref = ref Ref.null
-  
 let get_localhost ~__context : API.ref_host  =
-  Mutex.execute localhost_ref_m (fun () -> 
-    if !localhost_ref <> Ref.null then
-      !localhost_ref
-    else
-      let me = get_localhost_uuid () in
-      let my_ref = Db.Host.get_internal_records_where ~__context ~expr:(Eq (Field "uuid", Literal me)) in
-      if List.length my_ref <> 1 then
-	failwith (sprintf "Found %d hosts which claim to be localhost" (List.length my_ref));
-      let my_ref = fst (List.hd my_ref) in
-      localhost_ref := my_ref;
-      my_ref)
+    let uuid = get_localhost_uuid () in
+	Db.Host.get_by_uuid ~__context ~uuid
 
 let make_rpc ~__context xml = 
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
