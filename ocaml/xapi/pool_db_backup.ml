@@ -151,7 +151,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 (** Restore all of our state from an XML backup. This includes the pool config, token etc *)
 let restore_from_xml __context dry_run (xml_filename: string) = 
 	debug "attempting to restore database from %s" xml_filename;
-	let db = Db_upgrade.generic_database_upgrade (Db_xml.From.file (Schema.of_datamodel ()) xml_filename) in
+	let db = Db_upgrade.generic_database_upgrade (Db_xml.From.file (Datamodel_schema.of_datamodel ()) xml_filename) in
 	version_check db;
 
 	let db_ref = Db_ref.in_memory (ref (ref db)) in
@@ -220,7 +220,7 @@ let http_fetch_db ~master_address ~pool_secret =
       (* no content length since it's streaming *)
       let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
       let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
-      let db = Db_xml.From.channel (Schema.of_datamodel ()) inchan in
+      let db = Db_xml.From.channel (Datamodel_schema.of_datamodel ()) inchan in
       version_check db;
 	  db
     )

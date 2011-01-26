@@ -20,67 +20,11 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		
 	let make_vm r uuid = 
 		[ 
-(*			"ref", r; *)
 			"uuid", uuid;
-			"memory__static_max", "0";
-			"memory__overhead", "0";
-			"PV__ramdisk", ""; 
-			"is_control_domain", "false";
-			"actions__after_crash", "restart";
-			"resident_on", "OpaqueRef:NULL";
-			"snapshot_info",  "()";
-			"PCI_bus", "";
-			"PV__args", "";
-			"last_boot_CPU_flags", "()";
-			"memory__target", "536870912";
-			"is_a_template", "true";
-			"user_version", "1";
-			"HVM__shadow_multiplier", "1";
-			"affinity", "OpaqueRef:NULL";
 			"name__description", "";
-			"PV__legacy_args", "";
-			"parent", "OpaqueRef:NULL";
-			"snapshot_metadata", "";
-			"memory__dynamic_max", "0";
-			"ha_always_run", "false";
 			"other_config", "()";
-			"PV__bootloader_args" ,"";
-			"VCPUs__at_startup", "1";
-			"bios_strings", "()";
-			"actions__after_shutdown", "destroy";
-			"blocked_operations", "()";
 			"tags", "()";
-			"PV__kernel", "";
 			"name__label", name;
-			"is_a_snapshot", "false";
-			"VCPUs__params", "()";
-			"VCPUs__max", "1";
-			"allowed_operations", "()";
-(*			"protection_policy", "OpaqueRef:NULL"; *) (* test of default *)
-			"memory__static_min", "268435456";
-			"domid", "-1";
-			"power_state", "Halted";
-			"HVM__boot_policy", "";
-			"ha_restart_priority", "";
-			"suspend_VDI", "OpaqueRef:NULL";
-			"HVM__boot_params", "()";
-			"PV__bootloader", "eliloader";
-			"transportable_snapshot_id", "";
-			"snapshot_of", "OpaqueRef:NULL";
-			"guest_metrics", "OpaqueRef:NULL";
-			"platform", "()";
-			"scheduled_to_be_resident_on", "OpaqueRef:NULL";
-			"is_snapshot_from_vmpp", "false";
-			"current_operations", "()";
-			"recommendations", "";
-			"last_booted_record", "";
-			"blobs", "()";
-			"domarch", "";
-			"memory__dynamic_min", "0";
-			"metrics", "OpaqueRef:NULL";
-			"actions__after_reboot", "restart";
-			"xenstore_data", "()";
-			"snapshot_time", "19700101T00:00:00Z"
 		]
 			
 	let make_vbd vm r uuid = [

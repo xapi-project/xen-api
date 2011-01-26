@@ -14,7 +14,7 @@
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database () = 
-	let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Schema.of_datamodel ())) in
+	let db = Db_upgrade.generic_database_upgrade (Db_cache_types.Database.make (Datamodel_schema.of_datamodel ())) in
 	let db_ref = Db_ref.in_memory (ref (ref db)) in
 	let __context = Context.make ~database:db_ref "upgrade_vm_memory_for_dmc" in
 
