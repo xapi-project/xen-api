@@ -6,19 +6,23 @@ MAGIC_DQUOTE="JSUFBTGHEJHW"
 
 _xe()
 {
-        local IFS=$'\n,'
+	local IFS=$'\n,'
 
 	local cur prev opts xe IFS
 	COMPREPLY=()
+	# The following if statement is a fix for CA-28853. "cur=`_get_cword`" is used in newer scripts, but it somehow does not work.
+	if [[ $COMP_CWORD < 1 ]] ; then
+			COMP_CWORD=$(( ${#COMP_WORDS[@]} + 1))
+	fi
 	cur="${COMP_WORDS[COMP_CWORD]}"
 	prev="${COMP_WORDS[COMP_CWORD-1]}"
 	xe=xe
-	
+
 	if [[ $COMP_CWORD == 1 ]] ; then
-	        opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'` && COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+		opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'` && COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 		return 0
 	fi
-	
+
 # parameters are passed as param=value
 
 	if echo ${COMP_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
@@ -28,7 +32,7 @@ _xe()
 		value=`echo ${COMP_WORDS[COMP_CWORD]} | cut -d= -f2`
 
 		local vms args
-		
+
 		case "$param" in
 			filename|file-name|license-file)
 				IFS=$'\n,'
@@ -44,38 +48,38 @@ _xe()
 				return 0
 				;;
 
-		        uuid)   
+			uuid)
 				case "${COMP_WORDS[1]}" in
 					diagnostic-vm-status) cmd=vm-list;;
 					diagnostic-vdi-status) cmd=vdi-list;;
 					*) cmd=`echo ${COMP_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ { print $1 "-" $2 }$0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ { print $1 }'`-list;;
 				esac
-                                IFS=$'\n,'
+				IFS=$'\n,'
 				COMPREPLY=( $(compgen_names "$cmd" uuid "$value") )
 				return 1
 				;;
 			vm)
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen_names vm-list name-label "$value") )
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen_names vm-list name-label "$value") )
 				return 0
 				;;
 
 			host)
-                                IFS=$'\n,'
+				IFS=$'\n,'
 				COMPREPLY=( $(compgen_names host-list name-label "$value") )
 				return 0
 				;;
 			params)
-                                val=$(final_comma_separated_param "$value")
+				val=$(final_comma_separated_param "$value")
 				class=`echo ${COMP_WORDS[1]} | cut -d- -f1`
 				params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
-                                IFS=$'\n,'
+				IFS=$'\n,'
 				COMPREPLY=( $(compgen -W "$params,all" -- "$val" ) )
 				return 0
 				;;
 			template)
-                                IFS=$'\n,'
-                                COMPREPLY=( $(compgen_names template-list name-label "$value") )
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen_names template-list name-label "$value") )
 				return 0
 				;;
 
@@ -263,37 +267,37 @@ _xe()
 		elif [ "${isvcpusparams}" ]; then
 			extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
 		elif [ "${vmselectors}" ]; then
-		   if [ "${param}" ] ; then
-		      extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
-		   else
-		      extraargs=",vm="
-		   fi
+			if [ "${param}" ] ; then
+				extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
+			else
+				extraargs=",vm="
+			fi
 		elif [ "${hostselectors}" ]; then
-		   if [ "${param}" ] ; then
-		      extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
-		   else
-		      extraargs=",host="
-		   fi
+			if [ "${param}" ] ; then
+				extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
+			else
+				extraargs=",host="
+			fi
 		elif [ "${isvmppbackupschedule}" ]; then
-		   pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
-		   COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
-                   return 0
-                elif [ "${isvmpparchiveschedule}" ]; then
-		   pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
-                   COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
-                   return 0
-                elif [ "${isvmpparchivetargetconfig}" ]; then
-		   pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
-                   COMPREPLY=( $(compgen -W "${pfx}:location=,${pfx}:username=,${pfx}:password=" -- ${param}) )
-                   return 0
-                elif [ "${isvmppalarmconfig}" ]; then
-		   pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
-                   COMPREPLY=( $(compgen -W "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" -- ${param}) )
-                   return 0
+			pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
+			COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
+			return 0
+		elif [ "${isvmpparchiveschedule}" ]; then
+			pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
+			COMPREPLY=( $(compgen -W "${pfx}:min=,${pfx}:hour=,${pfx}:days=" -- ${param}) )
+			return 0
+		elif [ "${isvmpparchivetargetconfig}" ]; then
+			pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
+			COMPREPLY=( $(compgen -W "${pfx}:location=,${pfx}:username=,${pfx}:password=" -- ${param}) )
+			return 0
+		elif [ "${isvmppalarmconfig}" ]; then
+			pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
+			COMPREPLY=( $(compgen -W "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" -- ${param}) )
+			return 0
 		else
-   		   extraargs=""
+			extraargs=""
 		fi
-                IFS=$'\n,'
+		IFS=$'\n,'
 		COMPREPLY=( $(compgen_params "${COMP_WORDS[1]}" "$extraargs" "$param") )
 		return 0
 	fi
@@ -304,40 +308,40 @@ _xe()
 #
 final_comma_separated_param()
 {
-  if expr "$1" : ".*," >/dev/null
-  then
-      old_ifs="$IFS"
-      bits=$(echo "$1" | sed -e 's#^\(.*\),\([^,]*\)$#\1%\2#g')
-      IFS=%
-      bits=($bits)
-      echo "${bits[1]}"
-      IFS="$old_ifs"
-  else
-      echo "$1"
-  fi
+	if expr "$1" : ".*," >/dev/null
+	then
+		old_ifs="$IFS"
+		bits=$(echo "$1" | sed -e 's#^\(.*\),\([^,]*\)$#\1%\2#g')
+		IFS=%
+		bits=($bits)
+		echo "${bits[1]}"
+		IFS="$old_ifs"
+	else
+		echo "$1"
+	fi
 }
 
 compgen_names()
 {
-  local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
-  compgen_escape "$vals" "$3"
+	local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
+	compgen_escape "$vals" "$3"
 }
 
 compgen_escape()
 {
-  local v=$(echo "$2" | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
-  compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e 's,|,\\|,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
+	local v=$(echo "$2" | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g")
+	compgen -W "$1" -- "$v" | sed -e 's, ,\\ ,g' -e 's,(,\\(,g' -e 's,),\\),g' -e 's,$, ,g' -e 's,|,\\|,g' -e "s,$MAGIC_SQUOTE,\\\',g" -e "s,$MAGIC_DQUOTE,\\\\\",g"
 }
 
 params()
 {
-    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+	"$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
 }
 
 compgen_params()
 {
-  local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
-  compgen -o nospace -W "$v$2" -- "$3"
+	local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
+	compgen -o nospace -W "$v$2" -- "$3"
 }
 
 complete -F _xe -o nospace xe
