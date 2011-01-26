@@ -24,7 +24,6 @@ let make_tag n attrs : Xmlm.tag = (name n), List.map (fun (k, v) -> name k, v) a
 
 let _schema_major_vsn = "schema_major_vsn"
 let _schema_minor_vsn = "schema_minor_vsn"
-let _product_version = "product_version"
 let _product_brand = "product_brand"
 let _build_number = "build_number"
 let _xapi_major_vsn = "xapi_major_vsn"
@@ -64,7 +63,6 @@ module To = struct
     Xmlm.output output (`El_start (make_tag "manifest" []));
     int    output _schema_major_vsn manifest.schema_major_vsn;
     int    output _schema_minor_vsn manifest.schema_minor_vsn;
-    string output _product_version manifest.product_version;
     string output _product_brand manifest.product_brand;
     string output _build_number manifest.build_number;
     int    output _xapi_major_vsn manifest.xapi_major_vsn;
@@ -138,7 +136,6 @@ module From = struct
     let manifest = { 
       schema_major_vsn = int_of_string (List.assoc _schema_major_vsn manifest);
       schema_minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest);
-      product_version = List.assoc _product_version manifest;
       product_brand = List.assoc _product_brand manifest;
       build_number = List.assoc _build_number manifest;
       xapi_major_vsn = int_of_string (List.assoc _xapi_major_vsn manifest);
