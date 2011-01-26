@@ -59,7 +59,7 @@ let error_of_exn e =
 
 	| Api_errors.Server_error (e,l) ->
 		e,l
-	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) as e ->
+	| Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) ->
 		internal_error, [ Printf.sprintf "Subprocess exitted with unexpected code %d; stdout = [ %s ]; stderr = [ %s ]" n stdout stderr ]
 	| Invalid_argument x ->
 		internal_error, [ Printf.sprintf "Invalid argument: %s" x ]

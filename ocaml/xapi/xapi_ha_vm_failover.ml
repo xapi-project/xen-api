@@ -560,7 +560,7 @@ let restart_auto_run_vms ~__context live_set n =
 						match Random.int 3 with
 							| 0 -> raise (Api_errors.Server_error(Api_errors.ha_operation_would_break_failover_plan, []))
 							| 1 -> raise (Api_errors.Server_error("FIST: unexpected exception", []))
-							| 2 -> () 
+							| _ -> ()
 					end;
 
 					(* If we tried before and failed, don't retry again within 2 minutes *)
@@ -582,7 +582,7 @@ let restart_auto_run_vms ~__context live_set n =
 					| Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
 						(* This should never happen since the planning code would always allow the restart of a protected VM... *)
 						error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
-						mark_pool_as_overcommitted ~__context;
+						ignore_bool(mark_pool_as_overcommitted ~__context);
 						begin
 							try
 								go ();

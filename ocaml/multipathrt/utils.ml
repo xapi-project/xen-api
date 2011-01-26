@@ -16,6 +16,10 @@ open Pervasiveext
 open Listext
 open Client
 
+(* ----------- Ignore functions ----------- *)
+
+let ignore_VBD v = let (_ : API.ref_VBD) = v in ()
+
 (* --------------- Debugging --------------- *)
 
 let stdout_m = Mutex.create () 
