@@ -2423,9 +2423,6 @@ let parse tokens =
 	 params = (parse_params ts) }
     | _ -> raise (ParseError ("No arguments given"))
 
-let parse_commandline arg_array =
-  parse (tokens_of_argv arg_array)
-
 let rec parse_params_2 xs =
   match xs with
       p::ps ->
@@ -2448,7 +2445,7 @@ let rec parse_params_2 xs =
 	  end
     | [] -> []
 
-let parse_commandline_2 arg_list =
+let parse_commandline arg_list =
   try
     let argv0 = List.hd arg_list in
     let cmdname = List.hd (List.tl arg_list) in
