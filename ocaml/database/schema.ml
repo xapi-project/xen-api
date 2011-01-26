@@ -40,6 +40,7 @@ type t = {
 	database: Database.t;
 	(** indexed by table name, a list of (this field, foreign table, foreign field) *)
 	one_to_many: ((string * string * string) list) StringMap.t;
+	many_to_many: ((string * string * string) list) StringMap.t;
 }
 
 let database x = x.database
@@ -56,6 +57,7 @@ let empty = {
 	minor_vsn = 0;
 	database = { Database.tables = [] };
 	one_to_many = StringMap.empty;
+	many_to_many = StringMap.empty;
 }
 
 let is_table_persistent schema tblname = 
@@ -77,6 +79,12 @@ let one_to_many tblname schema =
 		StringMap.find tblname schema.one_to_many
 	with Not_found -> []
 
+let many_to_many tblname schema = 
+	(* If there is no entry in the map it means that the table has no many-to-many relationships *)
+	try
+		StringMap.find tblname schema.many_to_many
+	with Not_found -> []
+
 (* This code could live higher up the stack *)
 let of_datamodel () = 
 	let rec flatten_fields fs acc =
@@ -84,14 +92,19 @@ let of_datamodel () =
 				[] -> acc
 			| (Datamodel_types.Field f)::fs -> flatten_fields fs (f::acc)
 			| (Datamodel_types.Namespace (_,internal_fs))::fs -> flatten_fields fs (flatten_fields internal_fs acc) in
-	let column f = 
+	let column obj f = 
 		let issetref = match f.Datamodel_types.ty with
 			| Datamodel_types.Set (Datamodel_types.Ref _) -> true
 			| _ -> false in 
+		let is_many_to_many f =
+			let api = Datamodel.all_api in
+			let this = obj.Datamodel_types.name, f.Datamodel_types.field_name in
+			Datamodel_utils.Relations.is_in_relation api this && 
+				(Datamodel_utils.Relations.classify api (this,(Datamodel_utils.Relations.other_end_of api this)) = (`Many, `Many)) in
 		{
 			Column.name = Escaping.escape_id f.Datamodel_types.full_name;
-			(* NB we always regenerate Set(Ref _) fields *)
-			persistent = f.Datamodel_types.field_persist && not issetref;
+			(* NB we always regenerate one-to-many Set(Ref _) fields *)
+			persistent = f.Datamodel_types.field_persist && (is_many_to_many f || not issetref);
 			empty = Datamodel_values.gen_empty_db_val f.Datamodel_types.ty;
 			(* NB Set(Ref _) fields aren't allowed to have a default value specified so we hardcode one here *)
 			default = 
@@ -112,13 +125,22 @@ let of_datamodel () =
 
 	let table obj = {
 		Table.name = Escaping.escape_obj obj.Datamodel_types.name;
-		columns = _ref :: (List.map column (flatten_fields obj.Datamodel_types.contents []));
+		columns = _ref :: (List.map (column obj) (flatten_fields obj.Datamodel_types.contents []));
 		persistent = obj.Datamodel_types.persist = Datamodel_types.PersistEverything;
 	} in
-	let one_to_many t ((one_tbl, one_fld), (many_tbl, many_fld)) =
-		let key = (one_fld, many_tbl, many_fld) in
+	let is_one_to_many x = 
+		match Datamodel_utils.Relations.classify Datamodel.all_api x with
+			| `One, `Many | `Many, `One -> true
+			| _ -> false in
+	let is_many_to_many x = 
+		match Datamodel_utils.Relations.classify Datamodel.all_api x with
+			| `Many, `Many -> true
+			| _ -> false in
+	let add_relation p t (((one_tbl, one_fld), (many_tbl, many_fld)) as r) =
 		let l = if StringMap.mem one_tbl t then StringMap.find one_tbl t else [] in
-		StringMap.add one_tbl ((one_fld, many_tbl, many_fld) :: l) t in
+		if p r 
+		then StringMap.add one_tbl ((one_fld, many_tbl, many_fld) :: l) t
+		else t in
 
 	let database api = {
 		Database.tables = List.map table (Dm_api.objects_of_api api)
@@ -127,5 +149,6 @@ let of_datamodel () =
 		major_vsn = Datamodel.schema_major_vsn;
 		minor_vsn = Datamodel.schema_minor_vsn;
 		database = database Datamodel.all_api;
-		one_to_many = List.fold_left one_to_many StringMap.empty (Dm_api.relations_of_api Datamodel.all_api);
+		one_to_many = List.fold_left (add_relation is_one_to_many) StringMap.empty (Dm_api.relations_of_api Datamodel.all_api);
+		many_to_many = List.fold_left (add_relation is_many_to_many) StringMap.empty (Dm_api.relations_of_api Datamodel.all_api);
 	}

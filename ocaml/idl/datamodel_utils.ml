@@ -109,6 +109,10 @@ module Relations = struct
     | [ other_end ] -> other_end
     | [] -> failwith (Printf.sprintf "Couldn't find other end of relation (%s,%s)" a b)
     | _ -> failwith ("Found multiple other ends of relation?!")
+
+  let is_in_relation api x = 
+	  let rels = relations_of_api api in
+	  List.mem_assoc x rels || (List.mem_assoc x (List.map (fun (k, v) -> v, k) rels))
   
 end
 
@@ -246,9 +250,16 @@ let new_messages_of_field x order fld =
 	                        (String.concat "/" fld.full_name) x.name);
 		   msg_allowed_roles = fld.field_setter_roles;
 		   msg_tag = FromField(Setter, fld) } in
-  match (fld.ty, fld.field_ignore_foreign_key) with
-  | Set(Ref _), false -> if order = 0 then [getter] else []
-  | Set(t), _ -> 
+  (* Set(Ref _) fields in a many-to-many generate symmetrical add_to, remove_from etc *)
+  let is_many_to_many =
+	  let api = Datamodel.all_api in
+	  let this = x.name, fld.field_name in
+	  Relations.is_in_relation api this && 
+		  (Relations.classify api (this,(Relations.other_end_of api this)) = (`Many, `Many)) in
+
+  match (fld.ty, fld.field_ignore_foreign_key, is_many_to_many) with
+  | Set(Ref _), false, false -> if order = 0 then [getter] else []
+  | Set(t), _, _ -> 
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -272,7 +283,7 @@ let new_messages_of_field x order fld =
 	    msg_allowed_roles = fld.field_setter_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
-  | Map(k, v), _ -> 
+  | Map(k, v), _, _ -> 
       if order = 0 then [getter] else [
 	setter; (* only makes sense to the database *)
 	{ common with
@@ -299,7 +310,7 @@ let new_messages_of_field x order fld =
 	    msg_map_keys_roles = List.map (fun (k,(w))->(k,w)) fld.field_map_keys_roles;
 	    msg_tag = FromField(Remove, fld) };
       ]
-  | t, _ -> [
+  | t, _, _ -> [
       if order = 0 then getter else setter
     ] 
 
