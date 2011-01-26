@@ -91,7 +91,7 @@ let read_from_redo_log staging_path =
         raise NoGeneration
       | Some generation ->
         (* Write the in-memory cache to the file *)
-        let manifest = Db_cache_types.gen_manifest generation in
+        let manifest = Db_cache_types.manifest_of_cache Db_backend.cache generation in
         Db_xml.To.file staging_path (manifest, Db_backend.cache);
         Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
     end

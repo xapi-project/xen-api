@@ -15,7 +15,10 @@ open Db_exn
 
 type row = (string, string) Hashtbl.t 
 type table = (string, row) Hashtbl.t
-type cache = (string, table) Hashtbl.t
+type cache = {
+	cache: (string, table) Hashtbl.t;
+	schema: (int * int) option ref;
+}
 
 type where_record = {table:string; return:string; where_field:string; where_value:string}
 type structured_op_t = AddSet | RemoveSet | AddMap | RemoveMap
@@ -33,12 +36,22 @@ type db_dump_manifest =
       generation_count : Generation.t
     }
 
-let gen_manifest gen_count =
+let make_manifest schema_major_vsn schema_minor_vsn gen_count =
   {
-    schema_major_vsn = Datamodel.schema_major_vsn;
-    schema_minor_vsn = Datamodel.schema_minor_vsn;
+    schema_major_vsn = schema_major_vsn;
+    schema_minor_vsn = schema_minor_vsn;
     generation_count = gen_count
   }
+
+let schema_of_cache cache = match !(cache.schema) with
+| None -> (0, 0)
+| Some (major, minor) -> major, minor
+
+let manifest_of_cache cache gen_count = 
+	let major, minor = schema_of_cache cache in
+	make_manifest major minor gen_count
+
+let set_schema_vsn cache (major, minor) = cache.schema := Some (major, minor)
 
 (* Our versions of hashtbl.find *)
 let lookup_field_in_row row fld =
@@ -48,7 +61,7 @@ let lookup_field_in_row row fld =
     
 let lookup_table_in_cache cache tbl =
   try
-    Hashtbl.find cache tbl
+    Hashtbl.find cache.cache tbl
   with Not_found -> raise (DBCache_NotFound ("missing table",tbl,""))
 
 let lookup_row_in_table tbl tblname objref =
@@ -60,7 +73,7 @@ let iter_over_rows func table =
   Hashtbl.iter func table
 
 let iter_over_tables func cache =
-  Hashtbl.iter func cache
+  Hashtbl.iter func cache.cache
 
 let iter_over_fields func row =
   Hashtbl.iter func row
@@ -72,19 +85,19 @@ let set_row_in_table table objref newval =
   Hashtbl.replace table objref newval
 
 let set_table_in_cache cache tblname newtbl =
-  Hashtbl.replace cache tblname newtbl
+  Hashtbl.replace cache.cache tblname newtbl
 
 let create_empty_row () = Hashtbl.create 20
 
 let create_empty_table () = Hashtbl.create 20
 
-let create_empty_cache () = Hashtbl.create 20
+let create_empty_cache () = { cache = Hashtbl.create 20; schema = ref None }
 
 let fold_over_fields func row acc = Hashtbl.fold func row acc
 
 let fold_over_rows func table acc = Hashtbl.fold func table acc
 
-let fold_over_tables func cache acc = Hashtbl.fold func cache acc
+let fold_over_tables func cache acc = Hashtbl.fold func cache.cache acc
 
 let remove_row_from_table tbl objref = Hashtbl.remove tbl objref
 

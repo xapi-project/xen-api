@@ -73,7 +73,8 @@ let start_database_engine () =
   Db_dirty.make_blank_dirty_records();
 
   (* Check if db files exist, if not make them *)
-  List.iter Db_connections.maybe_create_new_db (Db_conn_store.read_db_connections());
+  let major, minor = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
+  List.iter (Db_connections.maybe_create_new_db (major,minor)) (Db_conn_store.read_db_connections());
 
   (* Initialise in-memory database cache *)
   debug "Populating db cache";

@@ -94,7 +94,7 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-      Db_cache.DBCache.dump_db_cache (Db_cache_types.gen_manifest (Generation.read_generation())) (Unix.descr_of_out_channel stdout)
+		Db_cache.DBCache.dump_db_cache (Generation.read_generation()) (Unix.descr_of_out_channel stdout)
     else
       write_out_database !filename
   end
