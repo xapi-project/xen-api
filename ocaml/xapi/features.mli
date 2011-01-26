@@ -31,7 +31,6 @@ type feature =
 	| RBAC                         (** Enable Role-Based Access Control (RBAC) *)
 	| DMC                          (** Enable Dynamic Memory Control (DMC) *)
 	| Checkpoint                   (** Enable Checkpoint functionality *)
-	| Vswitch_controller           (** Enable use of a Distributed VSwitch (DVS) Controller *)
 	| CPU_masking                  (** Enable masking of CPU features *)
 	| Connection                   (** Used by XenCenter *)
 	| No_platform_filter           (** Filter platform data *)
