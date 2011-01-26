@@ -161,11 +161,42 @@ let check api emergency_calls =
   let (_: obj list) = map_field (function { ty = Ref _; field_has_effect = true } ->
 				   failwith "Can't have a Ref field with a side-effect: it makes the destructors too complicated"
 				 | x -> x) system in
-  (* Sanity check 3: all Set(Ref _) fields should be DynamicRO *)
-  let (_: obj list) = map_field (function { ty = Set(Ref _); qualifier = q; field_ignore_foreign_key=false } as x-> 
-				   if q <> DynamicRO
-				   then failwith (Printf.sprintf "Can't have a Set(Ref _) field which isn't DynamicRO: %s" (String.concat "/" x.full_name)) else x
-				 | x -> x) system in
+  (* Sanity check: all Set(Ref _) fields should be one of:
+	 1. one-to-many: the many end should be DynamicRO
+	 2. many-to-many: the many end should be DynamicRO or RW
+	 3. something else with field_ignore_foreign_key
+  *)
+  let rec flatten_fields fs acc =
+	  match fs with
+			  [] -> acc
+		  | (Field f)::fs -> flatten_fields fs (f::acc)
+		  | (Namespace (_,internal_fs))::fs -> flatten_fields fs (flatten_fields internal_fs acc) in
+  let _ = 
+	  let field objname = function
+		  { ty = Set(Ref y); qualifier = q; field_ignore_foreign_key = false } as x ->
+			  let relations = relations @ (List.map (fun (x, y) -> y, x) relations) in
+			  if not(List.mem_assoc (objname, x.field_name) relations)
+			  then failwith (Printf.sprintf "Set(Ref _) field is not in relations table: %s.%s" objname x.field_name);
+			  let other_obj, other_fld = List.assoc (objname, x.field_name) relations in
+			  let other_f = get_field_by_name api ~objname:other_obj ~fieldname:other_fld in
+			  begin match other_f.ty with
+				  | Set(Ref _) ->
+					  if q <> DynamicRO && q <> RW
+					  then failwith (Printf.sprintf "many-to-many Set(Ref _) is not RW or DynamicRO: %s.%s" objname x.field_name);
+					  if not x.field_persist
+					  then failwith (Printf.sprintf "many-to-many Set(Ref _) is not persistent: %s.%s" objname x.field_name);
+					  if not other_f.field_persist
+					  then failwith (Printf.sprintf "many-to-many Set(Ref _) is not persistent: %s.%s" other_obj other_fld);
+				  | Ref _ ->
+					  if q <> DynamicRO
+					  then failwith (Printf.sprintf "many-to-many Set(Ref _) is not DynamicRO: %s.%s" objname x.field_name)
+				  | ty ->
+					  failwith (Printf.sprintf "field in relationship has bad type (Ref or Set(Ref) only): %s.%s" other_obj other_fld)
+			  end
+		  | _ -> () in
+	  let obj o = List.iter (field o.name) (flatten_fields o.contents []) in
+	  List.iter obj (objects_of_api api) in
+		  
 
   (* Sanity check 4: all fields not in rel_rio and not dynamic_RO must have default values *)
   let (_: obj list) = map_field (function { qualifier=q; release={internal=ir}; default_value=None } as x ->

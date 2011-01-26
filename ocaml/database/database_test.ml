@@ -174,6 +174,73 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 			then failwith (Printf.sprintf "check_ref_index %s key %s: ref_index name_label = %s; db has %s" tblname key (Opt.default "None" name_label) (Opt.default "None" real_name_label))
 					
 
+	open Pervasiveext
+	open Db_cache_types
+
+	let check_many_to_many () = 
+		let bar_column = { Schema.Column.name = "bars";
+		persistent = false;
+		empty = "()";
+		default = None;
+		issetref = false;
+		} in
+		let foo_column = { bar_column with Schema.Column.name = "foos" } in
+		let foo_table = { Schema.Table.name = "foo"; columns = [ bar_column ]; persistent = true } in
+		let bar_table = { Schema.Table.name = "bar"; columns = [ foo_column ]; persistent = true } in
+
+		let database = { Schema.Database.tables = [ foo_table; bar_table ] } in
+		let many_to_many = 
+			Schema.StringMap.add "foo" [ "bars", "bar", "foos" ]
+				(Schema.StringMap.add "bar" [ "foos", "foo", "bars" ]
+					Schema.StringMap.empty) in
+		let schema = { Schema.empty with
+			Schema.database = database;
+			many_to_many = many_to_many 
+		} in
+		let db = 
+			((fun x -> x)
+			++ (Db_backend.blow_away_non_persistent_fields schema)
+			++ (Db_upgrade.maybe_upgrade)
+			++ (Db_upgrade.generic_database_upgrade))
+			(Database.make schema) in
+		(* make a foo with bars = [] *)
+		(* make a bar with foos = [] *)
+		(* add 'bar' to foo.bars *)
+		let db = 
+			((fun x -> x)
+			++ (set_field_in_row "foo" "foo:1" "bars" (add_to_set "bar:1" "()"))
+			++ (set_row_in_table "foo" "foo:1" (Row.add Db_names.ref "foo:1" (Row.add "bars" "()" Row.empty)))
+			++ (set_row_in_table "bar" "bar:1" (Row.add Db_names.ref "bar:1" (Row.add "foos" "()" Row.empty)))) db in
+		(* check that 'bar.foos' includes 'foo' *)
+		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
+		let bar_foos = Row.find "foos" bar_1 in
+		if bar_foos <> "('foo:1')"
+		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s" bar_foos);
+		
+		(* set foo.bars to [] *)
+		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in
+		let db = set_field_in_row "foo" "foo:1" "bars" "()" db in
+		(* check that 'bar.foos' is empty *)
+		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
+		let bar_foos = Row.find "foos" bar_1 in
+		if bar_foos <> "()"
+		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected () got %s" bar_foos);		
+		(* add 'bar' to foo.bars *)
+		let db = set_field_in_row "foo" "foo:1" "bars" "('bar:1')" db in
+		(* check that 'bar.foos' includes 'foo' *)
+		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
+		let bar_foos = Row.find "foos" bar_1 in
+		if bar_foos <> "('foo:1')"
+		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2" bar_foos);
+		(* delete 'bar' *)
+		let db = remove_row_from_table "bar" "bar:1" db in
+		(* check that 'foo.bars' is empty *)
+		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in		
+		let foo_bars = Row.find "bars" foo_1 in
+		if foo_bars <> "()"
+		then failwith (Printf.sprintf "check_many_to_many: foo(foo:1).foos expected () got %s" foo_bars);				
+		()
+
 	let main in_process = 	
 		(* reference which we create *)
 		let valid_ref = "ref1" in
@@ -183,6 +250,8 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		
 	let vbd_ref = "waz" in
 		let vbd_uuid = "whatever" in
+
+		check_many_to_many ();
 		
 		(* Before we begin, clear out any old state: *)
 		expect_missing_row "VM" valid_ref

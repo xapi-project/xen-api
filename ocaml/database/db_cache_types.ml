@@ -294,6 +294,13 @@ let remove_from_set key t =
 	let processed = List.filter (function SExpr.String x -> x <> key | _ -> true) existing in
 	SExpr.string_of (SExpr.Node processed)
 
+let set_of_string t = 
+	List.map 
+		(function SExpr.String x -> x
+			| x -> failwith (Printf.sprintf "Unexpected sexpr: %s" t))
+		(Db_action_helper.parse_sexpr t)
+let string_of_set t = SExpr.string_of (SExpr.Node (List.map (fun x -> SExpr.String x) t))
+
 exception Duplicate
 let add_to_map key value t = 
 	let existing = Db_action_helper.parse_sexpr t in
@@ -338,10 +345,26 @@ let update_one_to_many tblname objref f db =
 		else db
 	) db (Schema.one_to_many tblname (Database.schema db))
 
+let update_many_to_many tblname objref f db = 
+	List.fold_left (fun db (this_fld, other_tbl, other_fld) ->
+		let this_fld_val = get_field tblname objref this_fld db in
+		let this_fld_refs = set_of_string this_fld_val in
+		(* for each of this_fld_refs, apply f *)
+		List.fold_left (fun db other_ref ->
+			let valid = try ignore(Database.table_of_ref other_ref db); true with _ -> false in
+			if valid
+			then 
+				let other_field = get_field other_tbl other_ref other_fld db in
+				set_field other_tbl other_ref other_fld (f objref other_field) db
+			else db)
+			db this_fld_refs
+	) db (Schema.many_to_many tblname (Database.schema db))
+
 let set_row_in_table tblname objref newval =
 	id
-		(* For any field in a one-to-many, add objref to the foreign Set(Ref_) fields *)
+		(* Update foreign Set(Ref _) fields *)
 		(* NB this requires the new row to exist already *)
+	++ (update_many_to_many tblname objref add_to_set)
 	++ (update_one_to_many tblname objref add_to_set)
 	++ ((Database.update ++ (TableSet.update tblname Table.empty) ++ (Table.update objref Row.empty))
 		(fun _ -> newval))
@@ -358,10 +381,10 @@ let remove_row tblname objref uuid =
 	id
 	++ ((Database.update ++ (TableSet.update tblname Table.empty))
 		(Table.remove objref))
-		(* For any field in a one-to-many, remove objref from the foreign Set(Ref_) fields *)
+		(* Update foreign (Set(Ref _)) fields *)
 		(* NB this requires the original row to still exist *)
 	++ (update_one_to_many tblname objref remove_from_set)
-
+	++ (update_many_to_many tblname objref remove_from_set)
 	++ (Database.update_keymap (KeyMap.remove (Ref objref)))
 	++ (Database.update_keymap (fun m ->
 		match uuid with
