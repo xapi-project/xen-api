@@ -52,7 +52,7 @@ exception Too_many_values of   (*class*) string * (*ref*) string * (*uuid*) stri
 module type DB_CACHE =
 sig
 
-  val dump_db_cache : Db_cache_types.db_dump_manifest -> Unix.file_descr -> unit
+  val dump_db_cache : Int64.t -> Unix.file_descr -> unit
 
   val stats : unit -> (string * int) list
 
@@ -660,7 +660,8 @@ struct
 	   let processed_str = SExpr.string_of (SExpr.Node processed) in
 	   write_field context tbl objref fld processed_str)
 	    
-    let dump_db_cache db_cache_manifest fd =
+    let dump_db_cache generation fd =
+		let db_cache_manifest = Db_cache_types.manifest_of_cache Db_backend.cache generation in
       let time = Unix.gettimeofday() in
       (* Snapshot the cache (uses the lock) and then slowly serialise the copy *)
       Db_xml.To.fd fd (db_cache_manifest, snapshot cache);

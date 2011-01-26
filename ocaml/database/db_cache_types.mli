@@ -27,7 +27,12 @@ type db_dump_manifest = {
   schema_minor_vsn : int;
   generation_count : Int64.t;
 }
-val gen_manifest : Int64.t -> db_dump_manifest
+
+val make_manifest : int -> int -> Int64.t -> db_dump_manifest
+val manifest_of_cache: cache -> Int64.t -> db_dump_manifest
+
+val schema_of_cache: cache -> int * int
+val set_schema_vsn: cache -> int * int -> unit
 
 val lookup_field_in_row : row -> string -> string
 val lookup_table_in_cache : cache -> string -> table

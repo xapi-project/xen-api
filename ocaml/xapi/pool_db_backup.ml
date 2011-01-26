@@ -40,7 +40,7 @@ let write_database (s: Unix.file_descr) ~__context =
 		let len = String.length minimally_compliant_miami_database in
 		ignore (Unix.write s minimally_compliant_miami_database 0 len)
 	else
-		Db_cache.DBCache.dump_db_cache (Db_cache_types.gen_manifest (Generation.read_generation())) s
+		Db_cache.DBCache.dump_db_cache (Generation.read_generation()) s
 
 (** Make sure the backup database version is compatible *)
 let version_check manifest =

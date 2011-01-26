@@ -111,16 +111,16 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
        end;
        was_anything_flushed
     )
-
-let create_empty_db dbconn =
+(*
+let create_empty_db (major, minor) dbconn =
   Generation.create_fresh dbconn;
-  Backend_xml.create_empty_db dbconn
-  
-let maybe_create_new_db dbconn =
+  Backend_xml.create_empty_db (major, minor) dbconn
+  *)
+let maybe_create_new_db (major,minor) dbconn =
   if not (Sys.file_exists dbconn.Parse_db_conf.path) then
     begin
       Generation.create_fresh dbconn;
-      Backend_xml.create_empty_db dbconn
+      Backend_xml.create_empty_db (major,minor) dbconn
     end
 
 let force_flush_all dbconn =
