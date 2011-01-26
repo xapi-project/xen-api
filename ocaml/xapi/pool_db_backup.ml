@@ -29,7 +29,7 @@ let octet_stream = "Content-Type: application/octet-stream"
 
 (* CA-18377: The smallest database that is compatible with the Miami database schema. *)
 let minimally_compliant_miami_database =
-	"<database><manifest><pair key=\"installation_uuid\" value=\"d16fa814-95ac-48d5-bfc9-83c3dbcdea53\"/><pair key=\"control_domain_uuid\" value=\"422f53c6-be3b-439c-b8ea-d47c659752d2\"/><pair key=\"pool_conf\" value=\"master\"/><pair key=\"pool_token\" value=\"0495123c-aea2-be65-5885-c82ef39c630e/b56675f7-9f11-6b89-aebe-a82396a3bf0f/0141aea4-2858-4414-fbb7-a25dc95daa58\"/><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"product_version\" value=\"4.1.0\"/><pair key=\"product_brand\" value=\"XenServer\"/><pair key=\"build_number\" value=\"7843c\"/><pair key=\"xapi_major_vsn\" value=\"1\"/><pair key=\"xapi_minor_vsn\" value=\"1\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
+	"<database><manifest><pair key=\"control_domain_uuid\" value=\"422f53c6-be3b-439c-b8ea-d47c659752d2\"/><pair key=\"pool_conf\" value=\"master\"/><pair key=\"pool_token\" value=\"0495123c-aea2-be65-5885-c82ef39c630e/b56675f7-9f11-6b89-aebe-a82396a3bf0f/0141aea4-2858-4414-fbb7-a25dc95daa58\"/><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"product_version\" value=\"4.1.0\"/><pair key=\"product_brand\" value=\"XenServer\"/><pair key=\"build_number\" value=\"7843c\"/><pair key=\"xapi_major_vsn\" value=\"1\"/><pair key=\"xapi_minor_vsn\" value=\"1\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
 
 (** Write the database dump out to a file/socket *)
 let write_database (s: Unix.file_descr) ~__context = 
@@ -64,16 +64,17 @@ let restore_from_xml __context dry_run (xml_filename: string) =
   let hosts = lookup_table_in_cache unmarshalled_db "host" in
   let uuid_to_ref = fold_over_rows
     (fun _ref r acc -> (lookup_field_in_row r "uuid", _ref)::acc) hosts [] in
-  (* This should never happen by construction: *)
-  if not(List.mem_assoc manifest.Db_cache_types.installation_uuid uuid_to_ref)
-  then failwith "Master host's UUID not present in the backup file";
-  let master = List.assoc manifest.Db_cache_types.installation_uuid uuid_to_ref in
+
+  (* Look up the pool master: *)
+  let pools = lookup_table_in_cache unmarshalled_db Datamodel._pool in
+  let master = fold_over_rows (fun _ref r acc -> lookup_field_in_row r "master") pools "" in
+
   (* Remove all slaves from the database *)
   let hosts' = create_empty_table () in
   iter_over_rows (fun _ref r -> if _ref = master then set_row_in_table hosts' master r) hosts;
   set_table_in_cache unmarshalled_db "host" hosts';
   debug "All hosts: [ %s ]" (String.concat "; " (List.map fst uuid_to_ref));
-  debug "Previous master: %s" manifest.Db_cache_types.installation_uuid;
+  debug "Previous master: %s" master;
   
   (* Rewrite this host's PIFs' MAC addresses based on device name. *)
   
