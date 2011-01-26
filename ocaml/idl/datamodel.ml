@@ -4690,8 +4690,10 @@ let vdi_generate_config = call
    ~allowed_roles:_R_VM_ADMIN
    ()
 
-let on_boot = Enum ("on_boot", [ "reset", "The VDI will be reset to the state it was in at the last clone";
-"persist", "The VDIs contents are persistent" ])
+let on_boot = Enum ("on_boot", [
+   "reset", "When a VM containing this VDI is started, the contents of the VDI are reset to the state they were in when this flag was last set.";
+   "persist", "Standard behaviour.";
+   ])
 
 let vdi_set_on_boot = call
 	 ~name:"set_on_boot"
@@ -4699,8 +4701,7 @@ let vdi_set_on_boot = call
 	 ~in_product_since:rel_cowley
 	 ~params:[Ref _vdi, "self", "The VDI to modify";
 	          on_boot, "value", "The value to set"]
-	 ~doc:"Set the value of the on_boot parameter"
-	 ~hide_from_docs:true
+	 ~doc:"Set the value of the on_boot parameter. This value can only be changed when the VDI is not attached to a running VM."
 	 ~allowed_roles:_R_VM_ADMIN
 	 ()
 
@@ -4709,9 +4710,8 @@ let vdi_set_allow_caching = call
 	~in_oss_since:None
 	~in_product_since:rel_cowley
 	~params:[Ref _vdi, "self", "The VDI to modify";
-	Bool, "value", "The value to set"]
-	~doc:"Set the value of the allow_caching parameter"
-	~hide_from_docs:true
+	         Bool, "value", "The value to set"]
+	~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
 	~allowed_roles:_R_VM_ADMIN
 	()
 			  
