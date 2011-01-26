@@ -415,7 +415,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 
 	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
-	Xc.domain_setmaxmem xc domid (Memory.kib_of_mib xen_max_mib);
 	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
 	Xc.shadow_allocation_set xc domid shadow_mib;
 	create_channels ~xc domid
