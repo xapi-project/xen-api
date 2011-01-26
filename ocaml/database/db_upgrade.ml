@@ -285,7 +285,8 @@ let maybe_upgrade most_recent_db =
   if previous_vsn > latest_vsn
   then warn "Database schema version %s is more recent than binary %s: downgrade is unsupported." previous_string previous_string
   else 
-    if previous_vsn < latest_vsn 
-    then apply_upgrade_rules upgrade_rules previous_vsn
-    else
-      debug "Database schemas match, no upgrade required"
+    if previous_vsn < latest_vsn then begin
+		apply_upgrade_rules upgrade_rules previous_vsn;
+		debug "Upgrade rules applied, bumping schema version to %d.%d" latest_major_vsn latest_minor_vsn;
+		Db_cache_types.set_schema_vsn Db_backend.cache latest_vsn
+	end else debug "Database schemas match, no upgrade required"

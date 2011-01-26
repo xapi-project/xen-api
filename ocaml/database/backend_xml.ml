@@ -55,7 +55,7 @@ let unmarshall dbconn =
 let populate_and_read_manifest dbconn =
   Printf.printf "attempting to restore database from %s\n" dbconn.Parse_db_conf.path;
   let manifest, unmarshalled_db = unmarshall dbconn in
-  debug "finished parsing xml";
+  debug "database unmarshalled, schema version = %d.%d" manifest.Db_cache_types.schema_major_vsn manifest.Db_cache_types.schema_minor_vsn;
   (* version_check manifest; *) 
   update_index unmarshalled_db;
   iter_over_tables (fun name table -> set_table_in_cache cache name table) unmarshalled_db;
