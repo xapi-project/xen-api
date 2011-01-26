@@ -1,6 +1,6 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../util/
-OCAMLPACKS    = xml-light2 stdext uuid stunnel http-svr
+OCAML_LIBS    = 
+OCAMLINCLUDES = 
+OCAMLPACKS    = stdext stunnel
 COMPILE_NATIVE=no
 section
 	OCAMLFLAGS+=-linkall
