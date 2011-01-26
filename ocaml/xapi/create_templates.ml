@@ -292,11 +292,12 @@ let technical_string_of_architecture = function
 	| X64 -> "x86_64"
 	| X64_debianlike -> "amd64"
 
-let make_long_name name architecture =
-	Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture)
+let make_long_name name architecture is_experimental =
+	let long_name =  Printf.sprintf "%s %s" name (friendly_string_of_architecture architecture) in
+	if is_experimental then long_name ^ " (experimental)" else long_name
 
 let hvm_template
-		name architecture
+		name architecture ?(is_experimental=false)
 		minimum_supported_memory_mib
 		root_disk_size_gib
 		flags = 
@@ -315,7 +316,7 @@ let hvm_template
 	let xen_app = List.mem XenApp flags in
 	let name = Printf.sprintf "%s%s"
 		(if xen_app then "Citrix XenApp on " else "")
-		(make_long_name name architecture) in
+		(make_long_name name architecture is_experimental) in
 	{
 		base with
 		vM_name_label = name;
@@ -343,8 +344,8 @@ let hvm_template
 		vM_recommendations = (recommendations ~memory:maximum_supported_memory_mib ());
 	}
 
-let rhel4x_template name architecture flags =
-	let name = make_long_name name architecture in
+let rhel4x_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let s_s_p_f =
 		if List.mem Suppress_spurious_page_faults flags
 		then [("suppress-spurious-page-faults", "true")]
@@ -359,8 +360,8 @@ let rhel4x_template name architecture flags =
 		vM_recommendations = recommendations ~memory:16 ~vifs:3 ();
 	}
 
-let rhel5x_template name architecture flags =
-	let name = make_long_name name architecture in
+let rhel5x_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
@@ -371,8 +372,8 @@ let rhel5x_template name architecture flags =
 		vM_recommendations = recommendations ~memory:16 ();
 	}
 
-let rhel6x_template name architecture flags =
-	let name = make_long_name name architecture in
+let rhel6x_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
@@ -383,8 +384,8 @@ let rhel6x_template name architecture flags =
 		vM_recommendations = recommendations ~memory:16 ();
 	}
 
-let sles_9_template name architecture flags =
-	let name = make_long_name name architecture in
+let sles_9_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with 
@@ -392,8 +393,8 @@ let sles_9_template name architecture flags =
 		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
 	}
 
-let sles10sp1_template name architecture flags =
-	let name = make_long_name name architecture in
+let sles10sp1_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with
@@ -401,8 +402,8 @@ let sles10sp1_template name architecture flags =
 		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
 	}
 
-let sles10_template name architecture flags =
-	let name = make_long_name name architecture in
+let sles10_template name architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with
@@ -412,8 +413,8 @@ let sles10_template name architecture flags =
 
 let sles11_template = sles10_template
 
-let debian_template name release architecture flags =
-	let name = make_long_name name architecture in
+let debian_template name release architecture ?(is_experimental=false) flags =
+	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in
 	{ bt with 
@@ -444,7 +445,7 @@ let create_all_templates rpc session_id =
 		rhel5x_template "CentOS 5" X64 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5" X32 [    ];
 		rhel5x_template "Oracle Enterprise Linux 5" X64 [    ];
-		rhel6x_template "Red Hat Enterprise Linux 6"   X32 [    ];
+		rhel6x_template "Red Hat Enterprise Linux 6"   X32 ~is_experimental:true [    ];
 
 		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
@@ -459,9 +460,9 @@ let create_all_templates rpc session_id =
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
-		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike [    ];
+		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike ~is_experimental:true [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32  [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike  [    ];
 
 		sdk_install_template
 	] in
@@ -486,7 +487,7 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2008"        X64  512 24 [n;x;v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;  v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;x;v;];
-		hvm_template "Red Hat Enterprise Linux 6" X64  512 8  [n;    ];
+		hvm_template "Red Hat Enterprise Linux 6" X64  ~is_experimental:true 512 8  [n;    ];
 	] in
 
 	(* put default_template key in static_templates other_config of static_templates: *)
