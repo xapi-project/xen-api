@@ -51,10 +51,8 @@ let hashtbl_of_domaininfo (x: Xc.domaininfo) : (string, string) Hashtbl.t =
   Hashtbl.add table "uuid" (Uuid.to_string (Uuid.uuid_of_int_array x.Xc.handle));
   (* Ask for shadow allocation separately *)
   let shadow_mib =
-      if x.Xc.hvm_guest
-      then try Some (Int64.of_int (Xc.shadow_allocation_get xc_handle x.Xc.domid))
-           with _ -> None
-      else None in
+    try Some (Int64.of_int (Xc.shadow_allocation_get xc_handle x.Xc.domid))
+    with _ -> None in
   let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
   let shadow_pages = may Memory.pages_of_mib shadow_mib in
   Hashtbl.add table "shadow bytes" (Opt.default "N/A" (may Int64.to_string shadow_bytes));

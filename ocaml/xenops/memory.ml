@@ -126,17 +126,32 @@ let get_total_memory_bytes ~xc =
 
 (* === Domain memory breakdown: HVM guests ================================== *)
 
-module HVM = struct
+module type MEMORY_MODEL_DATA = sig
+	val video_mib : int64
+	val extra_internal_mib : int64
+	val extra_external_mib : int64
+end
 
+module HVM_memory_model_data : MEMORY_MODEL_DATA = struct
 	let video_mib = 4L
-
 	let extra_internal_mib = 1L
 	let extra_external_mib = 1L
+end
 
-	let build_max_mib static_max_mib = static_max_mib --- video_mib
-	let build_start_mib target_mib = target_mib --- video_mib
+module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
+	let video_mib = 0L
+	let extra_internal_mib = 0L
+	let extra_external_mib = 1L
+end
 
-	let xen_max_offset_mib = extra_internal_mib
+module Memory_model (D : MEMORY_MODEL_DATA) = struct
+
+	let build_max_mib static_max_mib = static_max_mib --- D.video_mib
+
+	let build_start_mib target_mib = target_mib --- D.video_mib
+
+	let xen_max_offset_mib = D.extra_internal_mib
+
 	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
 
 	let shadow_mib static_max_mib vcpu_count multiplier =
@@ -150,8 +165,8 @@ module HVM = struct
 		max 1L total_mib_multiplied
 
 	let overhead_mib static_max_mib vcpu_count multiplier =
-		extra_internal_mib +++
-		extra_external_mib +++
+		D.extra_internal_mib +++
+		D.extra_external_mib +++
 		(shadow_mib static_max_mib vcpu_count multiplier)
 
 	let footprint_mib target_mib static_max_mib vcpu_count multiplier =
@@ -182,29 +197,12 @@ module HVM = struct
 			else requested_multiplier
 		)
 
-end
-
-(* === Domain memory breakdown: Linux guests ================================ *)
-
-module Linux = struct
-
-	let video_mib = 0L
-
-	let extra_internal_mib = 0L
-	let extra_external_mib = 1L
-
-	let build_max_mib static_max_mib = static_max_mib
-	let build_start_mib target_mib = target_mib
-
-	let xen_max_offset_mib = 0L
-	let xen_max_mib target_mib = target_mib
-
-	let shadow_mib = 0L
-
-	let overhead_mib = extra_external_mib
-	let footprint_mib target_mib = extra_external_mib +++ target_mib
+	let shadow_multiplier_default = 1.0
 
 end
+
+module HVM = Memory_model (HVM_memory_model_data)
+module Linux = Memory_model (Linux_memory_model_data)
 
 (* === Miscellaneous functions ============================================== *)
 
@@ -212,9 +210,10 @@ end
 let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
 	let max_mib = mib_of_kib_used mem_kib in
 	let target_mib = mib_of_kib_used mem_target_kib in
-	if hvm
-	then HVM.footprint_mib target_mib max_mib vcpus shadow_multiplier
-	else Linux.footprint_mib target_mib
+	(if hvm
+		then HVM.footprint_mib 
+		else Linux.footprint_mib)
+			target_mib max_mib vcpus shadow_multiplier
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib =
 	let rec wait accumulated_wait_time_seconds =
