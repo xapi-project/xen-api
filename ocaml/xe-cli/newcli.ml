@@ -22,7 +22,6 @@ open Cli_protocol
 let xapiserver = ref "127.0.0.1"
 let xapiuname = ref "root"
 let xapipword = ref "null"
-let xapicompatmode = ref false
 let xapipasswordfile = ref ""
 let xapicompathost = ref "127.0.0.1"
 let xapiport = ref None
@@ -50,18 +49,8 @@ let debug fmt =
 exception Usage
 
 let usage () =
-  if !xapicompatmode
-  then
-    begin
-      error "COMPATABILITY MODE\n";
-      error "Usage: %s <cmd> [-h server] [-p port] ([-u username] [-pw password] or [-pwf <password file>]) <other arguments>\n" Sys.argv.(0);
-      error "\nA full list of commands can be obtained by running \n\t%s help -h <server> -p <port>\n" Sys.argv.(0)
-    end
-  else
-    begin
-      error "Usage: %s <cmd> [-s server] [-p port] ([-u username] [-pw password] or [-pwf <password file>]) <other arguments>\n" Sys.argv.(0);
-      error "\nA full list of commands can be obtained by running \n\t%s help -s <server> -p <port>\n" Sys.argv.(0)
-    end
+    error "Usage: %s <cmd> [-s server] [-p port] ([-u username] [-pw password] or [-pwf <password file>]) <other arguments>\n" Sys.argv.(0);
+    error "\nA full list of commands can be obtained by running \n\t%s help -s <server> -p <port>\n" Sys.argv.(0)
 
 let is_localhost ip = ip = "127.0.0.1"
 
@@ -153,9 +142,6 @@ let parse_args =
        | "password" -> xapipword := v
        | "passwordfile" -> xapipasswordfile := v
        | "nossl"   -> xeusessl := not(bool_of_string v)
-       | "compat" ->
-           xapicompatmode := (try (bool_of_string v) with _ -> false);
-           reserve_args := (k ^ "=" ^ v) :: !reserve_args
        | "debug" -> xedebug := (try bool_of_string v with _ -> false)
        | "debugonfail" -> xedebugonfail := (try bool_of_string v with _ -> false)
        | _ -> raise Not_found);
@@ -170,7 +156,6 @@ let parse_args =
     | "-pw" :: pw :: xs -> Some("password", pw, xs)
     | "-pwf" :: pwf :: xs -> Some("passwordfile", pwf, xs)
     | "--nossl" :: xs -> Some("nossl", "true", xs)
-    | "--compat" :: xs -> Some("compat", "true", xs)
     | "--debug" :: xs -> Some("debug", "true", xs)
     | "--debug-on-fail" :: xs -> Some("debugonfail", "true", xs)
     | "-h" :: h :: xs -> Some("server", h, xs)
@@ -475,7 +460,6 @@ let main () =
         let ic, oc = open_channels () in
         Printf.fprintf oc "POST /cli HTTP/1.0\r\n";
         let args = args @ [("username="^ !xapiuname);("password="^ !xapipword)] in
-        let args = if !xapicompatmode then "compat"::args else args in
         let args = String.concat "\n" args in
         Printf.fprintf oc "User-agent: xe-cli/Unix/%d.%d\r\n" major minor;
         Printf.fprintf oc "content-length: %d\r\n\r\n" (String.length args);

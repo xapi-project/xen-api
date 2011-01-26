@@ -2592,10 +2592,8 @@ let geneva_help printer minimal cmd =
       printer (Cli_printer.PList (make_list vm_cmds))
     end
   
-let cmd_help printer minimal is_compat cmd =
-  if is_compat 
-  then geneva_help printer minimal cmd
-  else rio_help printer minimal cmd
+let cmd_help printer minimal cmd =
+	rio_help printer minimal cmd
 
 
 
