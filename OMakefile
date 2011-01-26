@@ -119,7 +119,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xsrpc/xsrpc \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
-	ocaml/license/v6testd \
+	ocaml/license/v6d \
 	ocaml/license/v6d-reopen-logs
 
 OCAML_PHASE3_NOXEN = \
