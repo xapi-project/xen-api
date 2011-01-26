@@ -91,9 +91,12 @@ OCamlDoc(name, modules, type) =
 
 OCamlDocProgram(name, modules) =
 	OCamlDoc($(name), $(modules), "program")
-	
+
 OCamlDocLibrary(name, modules) =
 	OCamlDoc($(name), $(modules), "library")
+
+OCamlDocPackage(name, modules) =
+	OCamlDoc($(name), $(modules), "package")
 
 #
 # Use Camlp4
