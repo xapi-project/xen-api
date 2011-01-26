@@ -31,6 +31,8 @@ syntax: glob
 .*.swp
 *.dat
 *.gp
+*.spot
+*.spit
 TAGS
 dist
 mk/.*
