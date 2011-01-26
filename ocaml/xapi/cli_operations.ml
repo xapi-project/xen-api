@@ -1965,51 +1965,82 @@ let vm_unpause printer rpc session_id params =
 	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.unpause rpc session_id (vm.getref ())) params [])
 
 let vm_install_real printer rpc session_id template name description params =
+
+	let sr_ref =
+		if Client.VM.get_is_a_snapshot rpc session_id template then
+			if (List.mem_assoc "sr-name-label" params
+			    || List.mem_assoc "sr-uuid" params) then
+				failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks."
+			else Some Ref.null
+		else None in
+
 	(* Rewrite the provisioning XML to refer to the sr-name-label, sr-uuid or the pool default_SR *)
-	let sr_name_label =
-		if List.mem_assoc "sr-name-label" params
-		then match Client.SR.get_by_name_label rpc session_id (List.assoc "sr-name-label" params) with
-			| [ sr ] -> Some (Client.SR.get_uuid rpc session_id sr)
+
+	let sr_ref = match sr_ref with
+		| Some _ -> sr_ref
+		| None -> 
+			if List.mem_assoc "sr-uuid" params then
+				let uuid = List.assoc "sr-uuid" params in
+				Some (Client.SR.get_by_uuid rpc session_id uuid)
+			else None in
+
+	let sr_ref =
+		if List.mem_assoc "sr-name-label" params then
+			let name = List.assoc "sr-name-label" params in
+			match Client.SR.get_by_name_label rpc session_id name with
 			| [] -> failwith "No SR with that name-label found"
-			| _ -> failwith "Multiple SRs with that name-label found"
-		else None in
-	let sr_uuid =
-		if List.mem_assoc "sr-uuid" params
-		then (let uuid = List.assoc "sr-uuid" params in
-		ignore (Client.SR.get_by_uuid rpc session_id uuid); (* throws an exception if not found *)
-		Some uuid)
-		else None in
-	let pool_default = get_default_sr_uuid rpc session_id in
+			| sr_list -> match sr_ref with
+				| Some sr ->
+					if List.mem sr sr_list then sr_ref
+					else failwith "SR specified via sr-uuid doesn't have the name specified via sr-name-label"
+				| None ->
+					if List.length sr_list > 1 then
+						failwith "Multiple SRs with that name-label found"
+					else Some (List.hd sr_list)
+		else sr_ref in
 
-	let sr_uuid = match sr_name_label, sr_uuid, pool_default with
-		| Some x, _, _ -> x
-		| _, Some x, _ -> x
-		| _, _, Some x -> x
-		| None, None, None ->
-			let vbds = Client.VM.get_VBDs rpc session_id template in
-			let disks = List.filter (fun vbd -> not (Client.VBD.get_type rpc session_id vbd = `CD && Client.VBD.get_empty rpc session_id vbd)) vbds in
-			let has_provisioned_disks =
+	let sr_ref = match sr_ref with
+		| Some _ -> sr_ref
+		| None ->
+			let all_empty_cd_driver = 
+				let vbds = Client.VM.get_VBDs rpc session_id template in
+				let is_empty_cd_drive vbd =
+					Client.VBD.get_type rpc session_id vbd = `CD
+					&& Client.VBD.get_empty rpc session_id vbd in
+				List.for_all is_empty_cd_drive vbds in
+			let no_provision_disk = 
 				let other_config = Client.VM.get_other_config rpc session_id template in
-				if List.mem_assoc "disks" other_config && List.assoc "disks" other_config <> ""
-				then match Xml.parse_string (List.assoc "disks" other_config) with
-					| Xml.Element("provision",[],[]) -> false
-					| _ -> true
-				else false
-			in
-			if disks = [] && not has_provisioned_disks
-			then Ref.string_of Ref.null
-			else failwith "Failed to find a valid default SR for the Pool. Please provide an sr-name-label or sr-uuid parameter."
-	in
+				not (List.mem_assoc "disks" other_config)
+				|| List.assoc "disks" other_config = ""
+				|| (Xml.parse_string (List.assoc "disks" other_config)
+				    = Xml.Element("provision", [], [])) in
+			if all_empty_cd_driver && no_provision_disk then Some Ref.null
+			else None in
 
-	if Client.VM.get_is_a_snapshot rpc session_id template && (List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params) then
-		failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks.";
+	let sr_ref = match sr_ref with
+		| Some _ -> sr_ref
+		| None -> 
+			let pool = List.hd (Client.Pool.get_all rpc session_id) in
+			let sr = Client.Pool.get_default_SR rpc session_id pool in
+			Some sr in
 
-	(* We should now have an sr-uuid *)
+	(* We should now have an sr *)
+	let sr_ref = match sr_ref with
+		| Some sr -> sr
+		| None ->
+			failwith "Failed to find a valid default SR for the Pool. Please provide an sr-name-label or sr-uuid parameter." in
+
+	let sr_uuid =
+		if sr_ref = Ref.null then
+			Ref.string_of sr_ref
+		else
+			Client.SR.get_uuid rpc session_id sr_ref in
+
 	let new_vm =
-		if List.mem_assoc "sr-name-label" params || List.mem_assoc "sr-uuid" params
-		then Client.VM.copy rpc session_id template name (Client.SR.get_by_uuid rpc session_id sr_uuid)
-		else Client.VM.clone rpc session_id template name
-	in
+		if sr_ref <> Ref.null
+		then Client.VM.copy rpc session_id template name sr_ref
+		else Client.VM.clone rpc session_id template name in
+
 	try
 		Client.VM.set_name_description rpc session_id new_vm description;
 		rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
@@ -2021,15 +2052,12 @@ let vm_install_real printer rpc session_id template name description params =
 			let host = Client.Host.get_by_uuid rpc session_id (List.assoc "copy-bios-strings-from" params) in
 			Client.VM.copy_bios_strings rpc session_id new_vm host
 		end;
-		debug "hello";
 		let vm_uuid = Client.VM.get_uuid rpc session_id new_vm in
 		printer (Cli_printer.PList [vm_uuid])
-	with
-			e ->
-				begin
-					(try Client.VM.destroy rpc session_id new_vm with _ -> ());
-					raise e
-				end
+	with e ->
+		(try Client.VM.destroy rpc session_id new_vm with _ -> ());
+		raise e
+
 
 (* The process of finding the VM in this case is special-cased since we want to call the
  * params 'template-name', like a foreign key, sort of *)
