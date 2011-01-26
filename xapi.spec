@@ -52,6 +52,14 @@ Group: System/Hypervisor
 %description squeezed
 This package contains the Xen virtual firmware (hvmloader)
 
+%package v6d
+Summary: The editions and features daemon
+Group: System/Hypervisor
+
+%description v6d
+This package contains daemon that defines and controls XCP editions and
+associated features
+
 %package xenops
 Summary: Low-level debugging tools
 Group: System/Hypervisor
@@ -105,11 +113,13 @@ rm -rf $RPM_BUILD_ROOT
 [ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi-domains
 [ ! -x /sbin/chkconfig ] || chkconfig --add perfmon
-[ ! -x /sbin/chkconfig ] || chkconfig --add v6d
 [ ! -x /sbin/chkconfig ] || chkconfig --add genptoken
 
 %post squeezed
 [ ! -x /sbin/chkconfig ] || chkconfig squeezed on
+
+%post v6d
+[ ! -x /sbin/chkconfig ] || chkconfig --add v6d
 
 %files core
 %defattr(-,root,root,-)
@@ -120,7 +130,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/pam.d/xapi
 /etc/rc.d/init.d/management-interface
 /etc/rc.d/init.d/perfmon
-/etc/rc.d/init.d/v6d
 /etc/rc.d/init.d/xapi
 /etc/rc.d/init.d/xapi-domains
 /etc/rc.d/init.d/xapissl
@@ -237,7 +246,6 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/libexec/sparse_dd
 /opt/xensource/libexec/update-mh-info
 /opt/xensource/libexec/upload-wrapper
-/opt/xensource/libexec/v6d
 /opt/xensource/libexec/vncterm-wrapper
 /opt/xensource/libexec/xapi-health-check
 /opt/xensource/libexec/xapi-rolling-upgrade
@@ -274,6 +282,10 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/squeezed
 /opt/xensource/bin/squeezed_client
 
+%files v6d
+%defattr(-,root,root,-)
+/opt/xensource/libexec/v6d
+/etc/rc.d/init.d/v6d
 
 %files xenops
 %defattr(-,root,root,-)
