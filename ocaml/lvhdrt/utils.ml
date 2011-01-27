@@ -227,7 +227,7 @@ let with_sacrificial_vm rpc session f =
 	Client.VM.set_PV_args rpc session_id vm "noninteractive"; 
 	vm
     in
-    let vm' = vm_install session "Debian Etch 4.0" "lvhdrt sacrificial VM" sr in
+    let vm' = vm_install session "Demo Linux VM" "lvhdrt sacrificial VM" sr in
 
     Pervasiveext.finally 
       (fun () -> f vm')

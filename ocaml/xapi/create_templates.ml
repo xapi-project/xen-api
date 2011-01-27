@@ -267,6 +267,39 @@ let sdk_install_template =
         ];
   }
 
+(* Demonstration templates ---------------------------------------------------*)
+
+let demo_xgt_dir   = "/opt/xensource/packages/xgt/"
+let post_install_dir = "/opt/xensource/packages/post-install-scripts/"
+
+let demo_xgt_template rpc session_id name_label short_name_label demo_xgt_name post_install_script =
+	let script = post_install_dir ^ post_install_script in
+	let xgt = demo_xgt_dir ^ demo_xgt_name in
+	let xgt_installed = try Unix.access xgt [ Unix.F_OK ]; true with _ -> false in
+	if not(xgt_installed) then
+		debug "Skipping %s template because post install script is missing" name_label
+	else begin
+		let root = { device = "0"; size = (4L ** gib); sr = preferred_sr; bootable = true; _type = `system } 
+		and swap = { device = "1"; size = (512L ** mib); sr = preferred_sr; bootable = false; _type = `system } in
+		let (_: API.ref_VM) =
+			find_or_create_template 
+			{ (blank_template (default_memory_parameters 128L)) with
+				vM_name_label = name_label;
+				vM_name_description = Printf.sprintf "Clones of this template will automatically provision their storage when first booted and install Debian %s. The disk configuration is stored in the other_config field.
+" short_name_label;
+				vM_other_config =
+				[
+					disks_key, Xml.to_string (xml_of_disks [ root; swap ]);
+					post_install_key, script;
+					default_template;
+					linux_template;
+					install_methods_otherconfig_key, ""
+				]
+			} rpc session_id in
+			()
+	end
+
+
     (* PV Linux and HVM templates -----------------------------------------------*)
 
 type linux_template_flags =
@@ -428,6 +461,8 @@ let debian_template name release architecture ?(supports_cd=true) ?(is_experimen
 			| _         -> "")
 	}
 
+(* Main entry point ----------------------------------------------------------*)
+
 let create_all_templates rpc session_id =
 
 	let linux_static_templates =
@@ -508,3 +543,7 @@ let create_all_templates rpc session_id =
 	(* NB we now create the 'static' linux templates whether or not the 'linux pack' is 
 	   installed because these only depend on eliloader, which is always installed *)
 	List.iter (fun x -> ignore(find_or_create_template x rpc session_id)) linux_static_templates;
+
+	(* The remaining template-creation functions determine whether they have the 
+	necessary resources (ISOs, networks) or not: *)
+	demo_xgt_template rpc session_id "Demo Linux VM" "demo" "debian-etch.xgt" "debian-etch"
