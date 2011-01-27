@@ -164,7 +164,7 @@ let get_pool session_id =
   if List.length pool <> 1 then (failwith "Number of pools isn't zero!");
   List.hd pool
 
-let vm_template = "Debian Etch"
+let vm_template = "Demo Linux VM"
 let other = "Other install media"
 
 exception Unable_to_find_suitable_vm_template
