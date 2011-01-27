@@ -15,19 +15,16 @@
 type t = { size: int; mutable current: int; data: (float,Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t ; }
 
 let make size init =
-	let ring = 
+	let ring =
 		{ size = size; current = size - 1; data = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout size; }
 	in
-	for i = 0 to Bigarray.Array1.dim ring.data - 1 do
-		Bigarray.Array1.set ring.data i init
-	done;
+	Bigarray.Array1.fill ring.data init;
 	ring
 
-let copy x = 
+let copy x =
 	let y = make x.size 0. in
-	for i = 0 to Bigarray.Array1.dim x.data - 1 do
-		Bigarray.Array1.set y.data i (Bigarray.Array1.get x.data i)
-	done;
+	Bigarray.Array1.blit x.data y.data;
+	y.current <- x.current;
 	y
 
 let length ring = ring.size
