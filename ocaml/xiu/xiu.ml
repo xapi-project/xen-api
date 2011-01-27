@@ -349,6 +349,12 @@ let thread_domain0 () =
 				xs.Xs.unwatch (sprintf "/local/domain/%d/device" dom) "frontend";
 				xs.Xs.unwatch (sprintf "/local/domain/0/device-model/%d" dom) "devicemodel"
 				in
+			let write_vnc_port dom =
+				let port = sprintf "%d" (5900 + dom) in
+				xs.Xs.write (sprintf "/local/domain/%d/serial/0/vnc-port" dom) port; (* PV *)
+				xs.Xs.write (sprintf "/local/domain/%d/console/vnc-port" dom) port (* HVM *)
+                        in
+
 			(* diff old list and new list *)
 			let currents = Hashtbl.fold (fun k v acc -> k :: acc) domains [] in
 			
@@ -359,6 +365,7 @@ let thread_domain0 () =
 			
 			List.iter (fun old -> remove_watch_for_olddomain old) disappeared;
 			List.iter (fun n -> add_watch_for_newdomain n) news;
+			List.iter write_vnc_port news;
 			olds := currents;
 			()
 			in
