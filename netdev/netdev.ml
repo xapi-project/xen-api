@@ -354,7 +354,28 @@ let list () =
 
 let getpath dev attr = Printf.sprintf "/sys/class/net/%s/%s" dev attr
 
-let get_address name = Internal.read_one_line (getpath name "address")
+let get_address name =
+	try
+		let master_path = Unix.readlink (getpath name "master") in
+		let master = List.hd (List.rev (String.split '/' master_path)) in
+		let proc ac line =
+			try
+				let a = String.index line ':' in
+				let k = String.sub line 0 a in
+				let v = String.sub_to_end line (a + 2) in
+				if k = "Slave Interface" && v = name then
+					Some ""
+				else if ac = Some "" && k = "Permanent HW addr" then
+					Some v
+				else
+					ac
+			with _ -> ac
+		in
+		match Unixext.file_lines_fold proc None ("/proc/net/bonding/" ^ master) with
+		| None -> raise Not_found
+		| Some address -> address
+	with _ -> 
+		Internal.read_one_line (getpath name "address")
 
 let get_mtu name = Internal.read_one_line (getpath name "mtu")
 let set_mtu name mtu =
