@@ -149,7 +149,8 @@ let run state comms_sock fd_sock fd_sock_path =
 		let cmdline = String.concat " " args in
 		let limit = 80 - 3 in
 		let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
-		Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
+		if code=0 && (List.hd args) = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
+			Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
 
       let pr = match status with
 		| Unix.WEXITED 0 -> Fe.WEXITED 0
