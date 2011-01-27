@@ -120,10 +120,11 @@ type domctl = Domctl_create | Domctl_destroy | Domctl_pause | Domctl_unpause
 
 type sysctl = Sysctl_getdomaininfolist | Sysctl_physinfo | Sysctl_getcpuinfo | Sysctl_unknown of int
 
-type hypcall = Hypcall_domain_shutdown
+type hypcall = Hypcall_domain_shutdown | Hypcall_unknown
 
 let hypcall_of_int = function
   | 1 -> Hypcall_domain_shutdown
+  | _ -> Hypcall_unknown
 
 let domctl_of_int = function
 	| 1  -> Domctl_create | 2 -> Domctl_destroy
@@ -199,8 +200,8 @@ let max_dummy_vifs = 1000
 
 (** Perform the module (re)loading *)
 let initialise_dummy_devices () = 
-  Unix.system("/sbin/rmmod dummy");
-  Unix.system(sprintf "/sbin/modprobe dummy numdummies=%d" max_dummy_vifs)
+  ignore(Unix.system("/sbin/rmmod dummy"));
+  ignore(Unix.system(sprintf "/sbin/modprobe dummy numdummies=%d" max_dummy_vifs))
 
 (** Free list of dummy<N> devices, used to simulate guest VIF backends *)
 let vif_free_list = ref (List.map (fun x -> sprintf "dummy%d" x) (Range.to_list (Range.make 0 max_dummy_vifs)))
@@ -273,7 +274,6 @@ let thread_domain0 () =
 			| Xenbus.InitWait -> ()
 			| Xenbus.Closing ->
 				xs.Xs.write w (Xenbus.string_of Xenbus.Closed);
-				let hotplugpath = sprintf "/xapi/%s/hotplug/%s/%s/hotplug" domid ty id in
 				if ty = "vif" then (
 					let device_path = sprintf "/xapi/%s/hotplug/vif/%s/vif" domid id in
 					let device = xs.Xs.read device_path in
