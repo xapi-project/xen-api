@@ -152,8 +152,8 @@ let run state comms_sock fd_sock fd_sock_path =
 		if code=0 && (List.hd args) = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
 			Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
 
+	  (* We choose to log even exit 0s to help people understand the logs *)
       let pr = match status with
-		| Unix.WEXITED 0 -> Fe.WEXITED 0
 		| Unix.WEXITED n -> 
 			  log_failure "exitted with code" n;
 			  Fe.WEXITED n
@@ -165,7 +165,14 @@ let run state comms_sock fd_sock fd_sock_path =
 			  Fe.WSTOPPED n
       in
       let result = Fe.Finished (pr) in
-      Fecomms.write_raw_rpc comms_sock result;
+	  (* If the controlling process has called Forkhelpers.dontwaitpid
+		 then the comms_sock will be closed. We don't need to write our full debug
+		 logs in syslog if this happens: *)
+	  begin
+		  try
+			  Fecomms.write_raw_rpc comms_sock result
+		  with Unix.Unix_error(Unix.EPIPE, _, _) -> ()
+	  end;
       Unix.close comms_sock;
       exit 0;
     end
