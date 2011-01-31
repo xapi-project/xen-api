@@ -5,7 +5,7 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 OCAMLFLAGS = -I ../stdext
 
@@ -17,7 +17,7 @@ OBJS = netdev
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = netdev.cma netdev.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

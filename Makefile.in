@@ -221,7 +221,8 @@ $(RPM_SPECSDIR)/xapi-libs.spec: xapi.spec.in
 	    > $(RPM_SPECSDIR)/xapi-libs.spec
 
 $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2:
-	hg archive -p xapi-0 -t tbz2 $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2
+	while ! [ -d .git ]; do cd ..; done; \
+	git archive --prefix=xapi-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2  # xen-api-libs/Makefile.in
 
 .PHONY: rpm
 rpm: $(RPM_SPECSDIR)/xapi-libs.spec $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2

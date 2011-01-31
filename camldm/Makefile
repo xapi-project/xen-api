@@ -7,7 +7,7 @@ FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_con
 
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 OCAMLABI := $(shell ocamlc -version)
@@ -18,7 +18,7 @@ OBJS = camldm
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = camldm.cma camldm.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 OCAMLFLAGS = -pp '${FEPP}' -I ../rpc-light
 

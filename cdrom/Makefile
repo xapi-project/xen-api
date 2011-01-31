@@ -1,6 +1,6 @@
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 OCAMLABI := $(shell ocamlc -version)
@@ -16,7 +16,7 @@ OBJS = cdrom
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = cdrom.cma cdrom.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

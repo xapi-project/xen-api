@@ -17,7 +17,7 @@ import os
 import sys
 import string
 
-xenapi_docdir = '/myrepos/xen-api.hg/ocaml/doc'
+xenapi_docdir = '/myrepos/xen-api/ocaml/doc'
 
 docdir = sys.argv[1]
 name = sys.argv[2]
@@ -45,7 +45,7 @@ if len(packs) > 0:
 else:
 	packages = ""
 
-doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' ' + pp
+doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api/ocaml/doc/odoc_json.cma -d ' + dest + ' ' + pp
 
 files = []
 for m in modules:
@@ -109,14 +109,14 @@ def update_components(compdir):
 update_components(docdir)
 update_components(xenapi_docdir)
 
-# add symlink to xen-api.hg
+# add symlink to xen-api
 try:
 	try:
 		os.makedirs(xenapi_docdir + '/content')
 	except:
 		pass
 	os.chdir(xenapi_docdir + '/content')
-	os.symlink('../../../../xen-api-libs.hg/doc/content/' + name, name)
+	os.symlink('../../../../xen-api-libs/doc/content/' + name, name)
 except:
 	pass
 

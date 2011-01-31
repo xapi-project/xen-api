@@ -20,7 +20,8 @@ build: srpm $(MY_SOURCES)/MANIFEST
 .PHONY: srpm
 srpm:
 	mkdir -p $(RPM_SRPMSDIR) $(RPM_SPECSDIR) $(RPM_SOURCESDIR) $(RPM_RPMSDIR)
-	hg archive -p xapi-libs-0 -t tbz2 $(RPM_SOURCESDIR)/xapi-libs-0.tar.bz2
+	while ! [ -d .git ]; do cd ..; done; \
+	git archive --prefix=xapi-libs-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-libs-0.tar.bz2  # xen-api-libs/mk/Makefile
 	install ../xapi-libs.spec $(RPM_SPECSDIR)
 	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bs $(RPM_SPECSDIR)/xapi-libs.spec
 

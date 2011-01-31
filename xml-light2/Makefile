@@ -13,7 +13,7 @@ OCAMLOPT = $(OCAMLFIND) ocamlopt $(OCAMLFINDFLAGS)
 LDFLAGS = -cclib -L./
 
 LIBEXEC  = "/opt/xensource/libexec"
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 OCAMLABI := $(shell ocamlc -version)
@@ -25,7 +25,7 @@ INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
 PROGRAMS = xmlpp
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS)
 
@@ -80,7 +80,7 @@ binuninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "xml-light2" "package" "$(OBJS)" "." "stdext,xmlm" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 

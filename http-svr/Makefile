@@ -5,7 +5,7 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
@@ -18,7 +18,7 @@ OBJS = server_io buf_io http http_svr http_client
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS)
 

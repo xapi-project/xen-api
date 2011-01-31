@@ -19,7 +19,7 @@ OBJS = vhd
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = vhd.cma vhd.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

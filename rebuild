@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export REPO=/myrepos/xen-api-libs.hg
+export REPO=/myrepos/xen-api-libs
 
 set -e 
 make clean; make cleanxen;

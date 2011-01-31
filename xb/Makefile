@@ -6,7 +6,7 @@ OCAMLOPTFLAGS = -g -dtypes -I ../mmap
 
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
@@ -19,7 +19,7 @@ OBJS = op partial packet xs_ring xb
 INTF = op.cmi packet.cmi xb.cmi
 LIBS = xb.cma xb.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -71,7 +71,7 @@ uninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "xb" "package" "$(OBJS)" "." "mmap" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
 

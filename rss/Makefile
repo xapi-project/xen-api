@@ -5,7 +5,7 @@ OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
-VERSION := $(shell hg parents --template "{rev}" 2>/dev/null || echo 0.0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 OCAMLABI := $(shell ocamlc -version)
@@ -16,7 +16,7 @@ OBJS = rss
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = rss.cma rss.cmxa
 
-DOCDIR = /myrepos/xen-api-libs.hg/doc
+DOCDIR = /myrepos/xen-api-libs/doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
@@ -58,6 +58,6 @@ uninstall:
 .PHONY: doc
 doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "rss" "package" "$(OBJS)" "." "xml-light2" ""
-	
+
 clean:
 	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
