@@ -39,7 +39,7 @@ if len(packs) > 0:
 else:
 	packages = ""
 
-doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api.hg/ocaml/doc/odoc_json.cma -d ' + dest + ' '
+doc_command = 'ocamlfind ocamldoc -v ' + packages + ' -I +threads -sort -g /myrepos/xen-api/ocaml/doc/odoc_json.cma -d ' + dest + ' '
 
 files = []
 for m in modules:
