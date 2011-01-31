@@ -82,7 +82,7 @@ The following command are supported:
 It's possible to run with xen-unstable directly, but you need the
 qemu-dm-wrapper script and xenguest binary in /opt/xensource/bin/.
 They are available in ocaml/xenguest/xenguest and scripts/qemu-dm-wrapper
-in the api.hg repository. For people that can't build ocaml tools,
+in the api repository. For people that can't build ocaml tools,
 you can get the binary/script on some testings machines, but be careful about
 architecture, and out-of-date-ness.
 

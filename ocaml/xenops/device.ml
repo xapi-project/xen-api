@@ -37,7 +37,7 @@ open D
 let qemu_dm_ready_timeout = 60. *. 20. (* seconds *)
 let qemu_dm_shutdown_timeout = 60. *. 20. (* seconds *)
 
-(* keys read by vif udev script (keep in sync with api.hg:scripts/vif) *)
+(* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
 (****************************************************************************************)

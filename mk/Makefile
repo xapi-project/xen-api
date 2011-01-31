@@ -45,7 +45,10 @@ $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XAPI_SRC)
 	echo api gpl file $(JQUERY_TV_DIST) >> $@
 
 $(OUTPUT_XAPI_SRC):
-	cd $(REPO) && hg archive -t tbz2 $(HG_EXCLUDE) $@
+	if cd $(REPO); then \
+		while ! [ -d .git ]; do cd ..; done; \
+		git archive --format=tar HEAD | bzip2 -z > $@; \
+	fi;
 
 $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	$(MAKE) clean
