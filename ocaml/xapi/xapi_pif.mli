@@ -196,18 +196,6 @@ val forget_internal :
 val update_management_flags :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-(** Set up a VLAN. Called via the VLAN.create API call.
- *  Should be moved to Xapi_vlan.ml after removing [create_VLAN] and [destroy]. *)
-val vLAN_create :
-  __context:Context.t ->
-  tagged_PIF:[ `PIF ] Ref.t ->
-  tag:int64 -> network:[ `network ] Ref.t -> [ `VLAN ] Ref.t
-
-(** External facing call to destroy a VLAN mux/demuxer.
- *  Called via the VLAN.destroy API call. 
- *  Should be moved to Xapi_vlan.ml after removing [create_VLAN] and [destroy]. *)
-val vLAN_destroy : __context:Context.t -> self:[ `VLAN ] Ref.t -> unit
-
 (** Returns the set of PIF references + records which we want to be plugged in by the end of the
     start of day code. These are the PIFs on the localhost that are not bond slaves.
     For PIFs that have [disallow_unplug] set to true, and the management interface, will
