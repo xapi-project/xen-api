@@ -8,7 +8,7 @@ LDFLAGS = -cclib -L./
 
 LIBEXEC  = /opt/xensource/libexec
 INIT_D   = /etc/rc.d/init.d
-VERSION := $(shell git show-ref --head | grep -E " HEAD$" | cut -f 1 -d " " || echo 0)
+VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
 OCAMLOPTFLAGS = -g -dtypes
 
 OCAMLABI := $(shell ocamlc -version)
