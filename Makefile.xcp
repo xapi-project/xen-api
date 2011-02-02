@@ -1,6 +1,6 @@
 ifdef B_BASE
 include $(B_BASE)/common.mk
-REPO=$(call hg_loc,xen-api-libs)
+REPO=$(call gitloc,xen-api-libs)
 else
 MY_OUTPUT_DIR ?= $(CURDIR)/output
 MY_OBJ_DIR ?= $(CURDIR)/obj
@@ -15,7 +15,6 @@ endif
 
 .PHONY: srpm
 srpm:
-	#Ugly!
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-libs-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2  # xen-api-libs/Makefile.xcp
 	rpmbuild --define "XEN_RELEASE $(XEN_RELEASE)" -bs --nodeps xapi-libs.spec

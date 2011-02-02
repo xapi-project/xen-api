@@ -1,7 +1,7 @@
 ifdef B_BASE
 include $(B_BASE)/common.mk
 include $(B_BASE)/rpmbuild.mk
-REPO = $(call hg_loc,xen-api-libs)
+REPO = $(call gitloc,xen-api-libs)
 else
 REPO ?= $(CURDIR)
 %/.dirstamp:
