@@ -47,7 +47,7 @@ $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XAPI_SRC)
 $(OUTPUT_XAPI_SRC):
 	if cd $(REPO); then \
 		while ! [ -d .git ]; do cd ..; done; \
-		git archive --format=tar HEAD | bzip2 -z > $@; \
+		git archive --prefix=$$(echo $@ | sed -r "s/([^/]*\/)*([^./]*)(.[^./]*)*/\2\//") --format=tar HEAD | bzip2 -z > $@; \
 	fi; # git archive in xen-api/mk/Makefile
 
 $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
