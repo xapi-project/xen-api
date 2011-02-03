@@ -507,6 +507,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Task = Local.Task
   module Event = Local.Event
   module VMPP = Local.VMPP
+	module VM_appliance = Local.VM_appliance
   (* module Alert = Local.Alert *)
 
   module Pool = struct

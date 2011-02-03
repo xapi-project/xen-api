@@ -847,6 +847,7 @@ let create ~__context
 		~blocked_operations
 		~protection_policy
 		~is_snapshot_from_vmpp
+		~appliance
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -891,6 +892,7 @@ let create ~__context
 		~blocked_operations
 		~protection_policy
 		~is_snapshot_from_vmpp
+		~appliance
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
