@@ -209,9 +209,12 @@ let blank_template memory = {
 	vM_tags = [];
 	
 	vM_bios_strings = [];
-  vM_protection_policy = Ref.null;
-  vM_is_snapshot_from_vmpp = false;
+	vM_protection_policy = Ref.null;
+	vM_is_snapshot_from_vmpp = false;
 	vM_appliance = Ref.null;
+	vM_start_delay = 0L;
+	vM_shutdown_delay = 0L;
+	vM_order = 0L;
 }
 
 let other_install_media_template memory = 
