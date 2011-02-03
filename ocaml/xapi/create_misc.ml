@@ -186,6 +186,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~guest_metrics:Ref.null ~metrics
 		~bios_strings:[] ~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
+		~appliance:Ref.null
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 

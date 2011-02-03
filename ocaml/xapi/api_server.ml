@@ -35,6 +35,7 @@ module Actions = struct
 	module VM_metrics = struct end
 	module VM_guest_metrics = struct end
 	module VMPP = Xapi_vmpp
+	module VM_appliance = Xapi_vm_appliance
 
 	module Host = Xapi_host
 	module Host_crashdump = Xapi_host_crashdump

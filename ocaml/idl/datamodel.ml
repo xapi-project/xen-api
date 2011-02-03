@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 61
+let schema_minor_vsn = 62
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -63,6 +63,7 @@ let _sm = "SM"
 let _vm = "VM"
 let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
+let _vm_appliance = "VM_appliance"
 let _vmpp = "VMPP"
 let _network = "network"
 let _vif = "VIF"
@@ -5896,6 +5897,7 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
   field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
   field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
       ])
 	()
 
@@ -6306,6 +6308,45 @@ let vmpp =
     ]
     ()
 
+(* VM appliance *)
+let vm_appliance =
+	let vm_appliance_start = call
+		~name:"start"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~doc:"Start all VMs in the appliance"
+		~allowed_roles:_R_POOL_OP
+		() in
+	let vm_appliance_clean_shutdown = call
+		~name:"clean_shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~doc:"Perform a clean shutdown of all the VMs in the appliance"
+		~allowed_roles:_R_POOL_OP
+		() in
+	let vm_appliance_hard_shutdown = call
+		~name:"hard_shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~doc:"Perform a hard shutdown of all the VMs in the appliance"
+		~allowed_roles:_R_POOL_OP
+		() in
+	create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
+		~gen_events:true
+		~doccomments:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~messages:[
+			vm_appliance_start;
+			vm_appliance_clean_shutdown;
+			vm_appliance_hard_shutdown
+		]
+		~contents:[
+			uid _vm_appliance;
+			namespace ~name:"name" ~contents:(names None RW) ();
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
+		]
+		()
+ 
 (** events handling: *)
 
 let event_operation = Enum ("event_operation",
@@ -6585,6 +6626,7 @@ let all_system =
 		vm_metrics;
 		vm_guest_metrics;
 		vmpp;
+		vm_appliance;
 		host;
 		host_crashdump;
 		host_patch;
@@ -6673,6 +6715,7 @@ let all_relations =
     (_role, "subroles"), (_role, "subroles");
 
     (_vm, "protection_policy"), (_vmpp, "VMs");
+		(_vm, "appliance"), (_vm_appliance, "VMs");
   ]
 
 (** the full api specified here *)
@@ -6748,6 +6791,7 @@ let expose_get_all_messages_for = [
 	_secret;
 	_tunnel;
 	_vmpp;
+	_vm_appliance
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
