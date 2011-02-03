@@ -893,6 +893,7 @@ let server_init() =
       (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
+	  "Starting host internal management network", [ Startup.NoExnRaising ], Xapi_network_real.on_server_start;
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
