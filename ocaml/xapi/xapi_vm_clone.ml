@@ -316,6 +316,9 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~protection_policy:Ref.null
 		~is_snapshot_from_vmpp
 		~appliance:Ref.null
+		~start_delay:0L
+		~shutdown_delay:0L
+		~order:0L
 	;
 
 	ref, uuid

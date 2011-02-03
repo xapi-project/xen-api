@@ -118,6 +118,9 @@ let create ~__context ~name_label ~name_description
 	   ~blocked_operations ~protection_policy
      ~is_snapshot_from_vmpp
 		 ~appliance
+		 ~start_delay
+		 ~shutdown_delay
+		 ~order
 	   : API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -178,10 +181,13 @@ let create ~__context ~name_label ~name_description
 		~ha_restart_priority
 		~ha_always_run ~tags
 		~bios_strings:[]
-    ~protection_policy:Ref.null
-    ~is_snapshot_from_vmpp:false 
+		~protection_policy:Ref.null
+		~is_snapshot_from_vmpp:false 
 		~appliance
-    ;
+		~start_delay
+		~shutdown_delay
+		~order
+		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
 	update_memory_overhead ~__context ~vm:vm_ref;
