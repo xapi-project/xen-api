@@ -74,6 +74,13 @@ let error_path_of_device ~xs (x: device) =
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
+(** Location of the frontend node where carrier status is inflicted *)
+let disconnect_path_of_device ~xs (x: device) = 
+	sprintf "%s/device/%s/%d/disconnect"
+		(xs.Xs.getdomainpath x.frontend.domid)
+		(string_of_kind x.frontend.kind)
+		x.frontend.devid
+
 (** Location of the backend error path *)
 let backend_error_path_of_device ~xs (x : device) =
   sprintf "%s/error/backend/%s/%d"
