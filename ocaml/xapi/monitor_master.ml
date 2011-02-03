@@ -210,7 +210,8 @@ let update_pifs ~__context host pifs =
 			List.concat (List.map bridge_of_tunnel tunnels) in
 
 		(* 1. Update corresponding VIF carrier flags *)
-		begin
+		if !Monitor_rrds.pass_through_pif_carrier
+		then begin
 			try
 				let pif_stats=List.find (fun p -> p.pif_name = physical_device_name) pifs in
 				(* go from physical interface -> bridge -> vif devices *)

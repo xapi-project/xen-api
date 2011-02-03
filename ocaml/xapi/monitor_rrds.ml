@@ -113,14 +113,24 @@ let rrd_of_gzip path =
 
 let use_min_max = ref false 
 
-let update_use_min_max () =
-  Server_helpers.exec_with_new_task "rrd_update_min_max" (fun __context -> 
+let pass_through_pif_carrier = ref false
+
+let update_configuration_from_master () =
+  Server_helpers.exec_with_new_task "update_configuration_from_master" (fun __context -> 
     let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
     let new_use_min_max =  (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) && 
       (List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true")
     in
-    debug "Updating use_min_max: New value=%b" new_use_min_max;
-    use_min_max := new_use_min_max)
+	if !use_min_max <> new_use_min_max
+    then debug "Updating use_min_max: New value=%b" new_use_min_max;
+    use_min_max := new_use_min_max;
+
+    let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier oc) && 
+      (List.assoc Xapi_globs.pass_through_pif_carrier oc = "true") in
+	if !pass_through_pif_carrier <> carrier
+	then debug "Updating pass_through_pif_carrier: New value=%b" carrier;
+	pass_through_pif_carrier := carrier
+  )
 
     
 
