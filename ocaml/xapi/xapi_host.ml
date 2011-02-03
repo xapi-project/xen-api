@@ -668,7 +668,7 @@ let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
 let request_backup ~__context ~host ~generation ~force = 
   if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
-  let master_address = Helpers.get_main_ip_address __context in
+  let master_address = Helpers.get_main_ip_address () in
   Pool_db_backup.fetch_database_backup ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
     ~force:(if force then None else (Some generation))
 
@@ -676,7 +676,7 @@ let request_backup ~__context ~host ~generation ~force =
    (currently only /etc/passwd) *)
 let request_config_file_sync ~__context ~host ~hash =
   debug "Received notification of dom0 config file change";
-  let master_address = Helpers.get_main_ip_address __context in
+  let master_address = Helpers.get_main_ip_address () in
   Config_file_sync.maybe_fetch_config_files ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret ~hash
 
 let syslog_config_write host host_only enable_remote =
