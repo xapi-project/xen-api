@@ -62,6 +62,7 @@ let make __context rpc session_id srid (vms, vdis) =
 			      let vm_ref = Client.VM.create ~rpc ~session_id ~name_label:(vm.vm_name ^ " import")
 				~blocked_operations:[]
 				~name_description:vm.description ~user_version ~is_a_template:false
+				~suspend_SR:Ref.null
 				~affinity:Ref.null
 				~memory_static_max:memory_b
 				~memory_dynamic_max:memory_b

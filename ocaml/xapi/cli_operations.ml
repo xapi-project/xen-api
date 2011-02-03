@@ -1432,6 +1432,7 @@ let vm_create printer rpc session_id params =
 	let memory_max = 256L ** mib in
 	let memory_min = 128L ** mib in
 	let vm = Client.VM.create ~rpc ~session_id ~name_label ~name_description ~user_version:0L ~is_a_template:false
+		~suspend_SR:Ref.null
 		~blocked_operations:[]
 		~affinity:Ref.null
 		~memory_target:memory_max
@@ -2028,6 +2029,18 @@ let vm_install_real printer rpc session_id template name description params =
 			if all_empty_cd_driver && no_provision_disk then Some Ref.null
 			else None in
 
+	let suspend_sr_ref = match sr_ref with
+		| Some sr ->
+			if sr = Ref.null then
+				(* Template is a snapshot - copy the suspend_SR from the template *)
+				Client.VM.get_suspend_SR rpc session_id template
+			else
+				(* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
+				sr
+		| None ->
+			(* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
+			Client.VM.get_suspend_SR rpc session_id template in
+
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
 		| None ->
@@ -2054,6 +2067,7 @@ let vm_install_real printer rpc session_id template name description params =
 
 	try
 		Client.VM.set_name_description rpc session_id new_vm description;
+		Client.VM.set_suspend_SR rpc session_id new_vm suspend_sr_ref;
 		rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
 		Client.VM.provision rpc session_id new_vm;
 		(* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *)
