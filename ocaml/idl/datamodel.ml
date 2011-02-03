@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 62
+let schema_minor_vsn = 63
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -5898,6 +5898,9 @@ let vm =
   field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
   field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
       ])
 	()
 
