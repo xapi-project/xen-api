@@ -809,7 +809,9 @@ let create ~__context
 		~name_label
 		~name_description
 		~user_version
-		~is_a_template ~affinity
+		~is_a_template
+		~suspend_SR
+		~affinity
 		~memory_target
 		~memory_static_max
 		~memory_dynamic_max
@@ -857,6 +859,7 @@ let create ~__context
 		~name_description
 		~user_version
 		~is_a_template
+		~suspend_SR
 		~affinity
 		~memory_target
 		~memory_static_max
@@ -1231,3 +1234,6 @@ let set_protection_policy ~__context ~self ~value =
     (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
     Db.VM.set_protection_policy ~__context ~self ~value
   )
+
+let set_suspend_SR ~__context ~vm ~sr =
+	Db.VM.set_suspend_SR ~__context ~self:vm ~value:sr

@@ -148,6 +148,7 @@ val create :
   name_description:string ->
   user_version:int64 ->
   is_a_template:bool ->
+  suspend_SR:[ `SR ] Ref.t ->
   affinity:[ `host ] Ref.t ->
   memory_target:int64 ->
   memory_static_max:int64 ->
@@ -265,3 +266,4 @@ val copy_bios_strings :
  *  had already been set. *)
 
 val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
+val set_suspend_SR : __context:Context.t -> vm:API.ref_VM -> sr:API.ref_SR -> unit
