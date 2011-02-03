@@ -261,7 +261,10 @@ let start ~__context ~vm ~start_paused:paused ~force =
 							  Monitor_master.update_all ~__context (Monitor.read_all_dom0_stats ());
 							*)
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Running
-						)
+						);
+						
+						let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
+						Thread.delay (Int64.to_float start_delay)
 					) ()))
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
@@ -636,7 +639,9 @@ let hard_shutdown ~__context ~vm =
 		let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
 		record_shutdown_details ~__context ~vm Xal.Halted "external" action;
 		let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
-		retry_on_conflict args (of_action action)
+		retry_on_conflict args (of_action action);
+		let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+		Thread.delay (Int64.to_float shutdown_delay)
 	with
 		| Api_errors.Server_error(code, _)
 				when code = Api_errors.vm_bad_power_state ->
@@ -660,7 +665,9 @@ let clean_shutdown ~__context ~vm =
   let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
   record_shutdown_details ~__context ~vm Xal.Halted "external" action;
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_shutdown"; clean=true } in
-  retry_on_conflict args (of_action action)
+	retry_on_conflict args (of_action action);
+	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float shutdown_delay)
 
 (***************************************************************************************)
 
