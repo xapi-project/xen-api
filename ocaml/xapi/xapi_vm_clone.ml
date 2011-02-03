@@ -315,6 +315,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~bios_strings:all.Db_actions.vM_bios_strings
 		~protection_policy:Ref.null
 		~is_snapshot_from_vmpp
+		~appliance:Ref.null
 	;
 
 	ref, uuid

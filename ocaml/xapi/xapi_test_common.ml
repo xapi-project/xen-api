@@ -51,7 +51,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(hVM_boot_params=[]) ?(hVM_shadow_multiplier=1.) ?(platform=[]) ?(pCI_bus="")
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="1") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
-		?(is_snapshot_from_vmpp=false) () = 
+		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) () = 
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template 
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
         ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
@@ -59,7 +59,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
-		~is_snapshot_from_vmpp
+		~is_snapshot_from_vmpp ~appliance
 
 let make_host ~__context ?(uuid=Uuid.string_of_uuid (Uuid.make_uuid ())) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
