@@ -192,11 +192,53 @@ let set_pif_metrics ~__context ~self ~vendor ~device
 let update_pifs ~__context host pifs =
 	let pifdevs = Db.Host.get_PIFs ~__context ~self:host in
 	List.iter (fun pifdev ->
-		let dev = Db.PIF.get_device ~__context ~self:pifdev in
-		let vlan = Db.PIF.get_VLAN ~__context ~self:pifdev in
-		let real_device_name = Helpers.get_dom0_network_device_name dev vlan in
+		(* Compute the name of the physical interface in dom0 *)
+		let physical_device_name = 
+			let dev = Db.PIF.get_device ~__context ~self:pifdev in
+			let vlan = Db.PIF.get_VLAN ~__context ~self:pifdev in
+			Helpers.get_dom0_network_device_name dev vlan in
+		
+		(* The names of bridges which have tunnels via this physical device *)
+		let tunnel_bridges = 
+			let tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pifdev in
+			let bridge_of_tunnel tunnel = 
+				try
+					let access_pif = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+					let network = Db.PIF.get_network ~__context ~self:access_pif in
+					[ Db.Network.get_bridge ~__context ~self:network ] 
+				with _ -> [] in
+			List.concat (List.map bridge_of_tunnel tunnels) in
+
+		(* 1. Update corresponding VIF carrier flags *)
+		begin
+			try
+				let pif_stats=List.find (fun p -> p.pif_name = physical_device_name) pifs in
+				(* go from physical interface -> bridge -> vif devices *)
+				let n = Netdev.network in
+				let physical_bridge = n.Netdev.get_bridge physical_device_name in
+				let ifs = List.concat (List.map n.Netdev.intf_list (physical_bridge :: tunnel_bridges)) in
+
+				let set_carrier xs vif = 
+					if vif.Monitor.pv
+					then
+						let device = 
+							let frontend = { Device_common.domid = vif.Monitor.domid; kind = Device_common.Vif; devid = vif.Monitor.devid } in
+							let backend = { Device_common.domid = 0; kind = Device_common.Vif; devid = vif.Monitor.devid } in
+							{ Device_common.backend = backend; frontend = frontend } in
+						Device.Vif.set_carrier ~xs device pif_stats.pif_carrier in
+
+				Vmopshelpers.with_xs
+					(fun xs ->
+						List.iter (set_carrier xs) (List.filter_map Monitor.vif_device_of_string ifs)
+					)
+							
+			with e ->
+				debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
+		end;
+		(* 2. Update database *)
+		begin
 		try
-		        let pif_stats=List.find (fun p -> p.pif_name = real_device_name) pifs in
+		        let pif_stats=List.find (fun p -> p.pif_name = physical_device_name) pifs in
 			let metrics = Db.PIF.get_metrics ~__context ~self:pifdev in
 			(* if PIF metrics don't exist then create one: *)
 			if not (Db.is_valid_ref __context metrics) then
@@ -222,7 +264,9 @@ let update_pifs ~__context host pifs =
 			  ~speed:speed_db ~duplex:duplex_db
 			  ~pcibuspath:pif_stats.pif_pci_bus_path ~io_write:pif_stats.pif_tx ~io_read:pif_stats.pif_rx pmr;
 			  
-		with Not_found -> ()) pifdevs
+		with Not_found -> ()
+		end
+) pifdevs
 
 let update_all ~__context host_stats =
 	(* update monitor events for specified domain  *)

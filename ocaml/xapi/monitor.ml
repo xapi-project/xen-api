@@ -180,6 +180,23 @@ type ethstats = {
 	mutable rx_errors: int64; (* error received *)
 }
 
+type vif_device = {
+	pv: bool;
+	domid: int;
+	devid: int;
+}
+let vif_device_of_string x = 
+	try
+		let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
+		let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
+		match ty with
+		| "vif" -> Some { pv = true; domid = domid; devid = devid }
+		| "tap" -> Some { pv = false; domid = domid; devid = devid }
+		| _ -> failwith "bad device"
+	with _ -> None 
+let string_of_vif_device x = 
+	Printf.sprintf "%s%d.%d" (if x.pv then "vif" else "tap") x.domid x.devid
+
 let update_netdev doms =
   let devs = ref [] in
 
