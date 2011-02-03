@@ -432,14 +432,18 @@ let domid_of_vm ~__context ~self =
   then List.assoc uuid uuid_to_domid
   else -1 (* for backwards compat with old behaviour *)
 
-let get_guest_installer_network ~__context =
+
+let get_special_network other_config_key ~__context =
   let nets = Db.Network.get_all ~__context in
   let findfn net =
     let other_config = Db.Network.get_other_config ~__context ~self:net in
-    try bool_of_string (List.assoc is_guest_installer_network other_config) with _ -> false
+    try bool_of_string (List.assoc other_config_key other_config) with _ -> false
   in
   (* Assume there's only one of these! *)
   List.find findfn nets
+
+let get_guest_installer_network = get_special_network is_guest_installer_network
+let get_host_internal_management_network = get_special_network is_host_internal_management_network
 
 (* -------------------------------------------------------------------------------------------------
     Storage related helpers
