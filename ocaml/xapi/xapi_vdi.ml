@@ -195,10 +195,19 @@ let create ~__context ~name_label ~name_description
                   ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
 	Sm.assert_pbd_is_plugged ~__context ~sr:sR;
 
+	let vdi_type = match _type with
+	| `crashdump -> "crashdump"
+	| `ephemeral -> "ephemeral"
+	| `ha_statefile -> "ha_statefile"
+	| `metadata -> "metadata"
+	| `redo_log -> "redo_log"
+	| `suspend -> "suspend"
+	| `system -> "system"
+	| `user -> "user" in
 	let vdi_info = 
 	    Sm.call_sm_functions ~__context ~sR
 	      (fun device_config sr_type ->
-		Sm.vdi_create device_config sr_type sR sm_config virtual_size name_label)
+		Sm.vdi_create device_config sr_type sR sm_config vdi_type virtual_size name_label)
  	in
 	let uuid = require_uuid vdi_info in
 	let ref = Db.VDI.get_by_uuid ~__context ~uuid in
