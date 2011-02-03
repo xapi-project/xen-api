@@ -359,10 +359,12 @@ module Reboot = struct
 							~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
 							~__context ~self:vm domid Domain.Reboot) with
 		| Domain.Reboot | Domain.Unknown _ -> () (* good *)
+		| Domain.S3Suspend
 		| Domain.Suspend ->
 			  error "VM: %s suspended when asked to reboot" (Ref.string_of vm)
 		| Domain.Crash ->
 			  error "VM: %s crashed when asked to reboot" (Ref.string_of vm)
+		| Domain.PowerOff
 		| Domain.Halt ->
 			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
       end else begin
@@ -498,6 +500,7 @@ module Shutdown = struct
 		| Domain.PowerOff
 		| Domain.Unknown _
 		| Domain.Halt -> () (* good *)
+		| Domain.S3Suspend
 		| Domain.Suspend ->
 			  (* Log the failure but continue *)
 			  error "VM: %s suspended when asked to shutdown" (Ref.string_of vm)
