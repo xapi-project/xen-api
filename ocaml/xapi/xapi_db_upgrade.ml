@@ -191,12 +191,32 @@ let update_snapshots = {
 		List.iter update_snapshots all_vms
 }
 
+(* Upgrade the old guest installer network *)
+let upgrade_guest_installer_network = {
+	description = "Upgrading the existing guest installer network";
+	version = (fun _ -> true);
+	fn = fun ~__context ->
+		List.iter
+			(fun self ->
+				let oc = Db.Network.get_other_config ~__context ~self in
+				let is_true key = List.mem_assoc key oc && (try bool_of_string (List.assoc key oc) with _ -> false) in
+				if is_true Xapi_globs.is_guest_installer_network && not(is_true Xapi_globs.is_host_internal_management_network) then begin
+					debug "Upgrading guest installer network uuid: %s" (Db.Network.get_uuid ~__context ~self);
+					Db.Network.set_name_label ~__context ~self ~value:Create_networks.internal_management_network_name;
+					Db.Network.set_name_description ~__context ~self ~value:Create_networks.internal_management_network_desc;
+					Db.Network.set_other_config ~__context ~self ~value:Create_networks.internal_management_network_oc;
+				end
+			) (Db.Network.get_all ~__context)
+
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
 	update_snapshots;
+	upgrade_guest_installer_network;
 ]
 
 (* Maybe upgrade most recent db *)
