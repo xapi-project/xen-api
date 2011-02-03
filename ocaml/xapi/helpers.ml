@@ -71,6 +71,8 @@ let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
 	Db.Host.get_by_uuid ~__context ~uuid
 
+let get_localhost_ref = Db.Host.get_by_uuid ~uuid:(get_localhost_uuid ())
+
 let make_rpc ~__context xml = 
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
     if Pool_role.is_master () then
@@ -115,7 +117,7 @@ let call_api_functions ~__context f =
       else
           let session_id = Context.get_session_id __context in
           (* read any attr to test if session is still valid *)
-          Db.Session.get_pool ~__context ~self:session_id;
+				ignore (Db.Session.get_pool ~__context ~self:session_id) ;
           session_id
       with _ -> 
       do_master_login ()
@@ -221,9 +223,7 @@ type boot_method =
 let string_of_option opt = match opt with None -> "(none)" | Some s -> s
 
 let string_of_boot_method = function
-  | HVM x -> 
-      let bool = function true -> "enabled" | false -> "disabled" in
-      "HVM"
+	| HVM _ -> "HVM"
   | DirectPV x ->
       Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
     x.kernel x.kernel_args (string_of_option x.ramdisk)
@@ -243,6 +243,52 @@ let rolling_upgrade_in_progress ~__context =
 		List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool)
 	with _ ->
 		false
+
+(** PR-1007 - block operations during rolling upgrade *)
+
+(* Host version compare helpers *)
+let compare_int_lists : int list -> int list -> int =
+	fun a b ->
+		let first_non_zero is = List.fold_left (fun a b -> if (a<>0) then a else b) 0 is in
+		first_non_zero (List.map2 compare a b)
+
+let version_of : __context:Context.t -> API.ref_host -> int list =
+	fun ~__context host ->
+		let vs = List.assoc Xapi_globs._product_version (Db.Host.get_software_version ~__context ~self:host) in
+		List.map int_of_string (String.split '.' vs)
+
+(* Compares host versions, analogous to Pervasives.compare. *)
+let compare_host_product_versions : __context:Context.t -> API.ref_host -> API.ref_host -> int =
+	fun ~__context host_a host_b ->
+		let version_of = version_of ~__context in
+		compare_int_lists (version_of host_a) (version_of host_b)
+
+let max_version_in_pool : __context:Context.t -> int list =
+	fun ~__context ->
+		let max_version a b = if a = [] then b else if (compare_int_lists a b) > 0 then a else b
+		and versions = List.map (version_of ~__context) (Db.Host.get_all ~__context) in
+		List.fold_left max_version [] versions
+
+(* Assertion functions which raise an exception if certain invariants
+   are broken during an upgrade. *)
+let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
+	fun ~__context ->
+		if rolling_upgrade_in_progress ~__context then
+			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
+let assert_host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host -> unit =
+	fun ~__context ~host ->
+		let host_version = version_of ~__context host
+		and max_version = max_version_in_pool ~__context in
+		if (compare_int_lists host_version max_version) < 0 then
+			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
+let assert_host_versions_not_decreasing :  __context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> unit =
+	fun ~__context ~host_from ~host_to ->
+		let from_version = version_of ~__context host_from
+		and to_version = version_of ~__context host_to in
+		if (compare_int_lists from_version to_version) > 0 then
+			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 (** Fetch the configuration the VM was booted with *)
 let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
