@@ -5921,6 +5921,7 @@ let vm =
 	field ~ty:Int "user_version" "a user version number for this machine";
 	field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
 	field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
 
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host the VM is currently resident on";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host) "scheduled_to_be_resident_on" "the host on which the VM is due to be started/resumed/migrated. This acts as a memory reservation indicator";

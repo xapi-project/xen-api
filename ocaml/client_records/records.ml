@@ -757,6 +757,9 @@ let vm_record rpc session_id vm =
 				~set:(fun x -> Client.VM.set_memory_static_min rpc session_id vm (Record_util.bytes_of_string "memory-static-min" x)) ();
 			make_field ~name:"suspend-VDI-uuid"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
+			make_field ~name:"suspend-SR-uuid"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_SR) ()
+				~set:(fun x -> Client.VM.set_suspend_SR rpc session_id vm (Client.SR.get_by_uuid rpc session_id x));
 			make_field ~name:"VCPUs-params"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
 				~add_to_map:(fun k v -> match k with

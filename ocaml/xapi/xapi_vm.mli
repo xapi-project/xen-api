@@ -148,6 +148,7 @@ val create :
   name_description:string ->
   user_version:int64 ->
   is_a_template:bool ->
+  suspend_SR:[ `SR ] Ref.t ->
   affinity:[ `host ] Ref.t ->
   memory_target:int64 ->
   memory_static_max:int64 ->
