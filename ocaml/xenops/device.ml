@@ -797,6 +797,11 @@ let hard_shutdown ~xs (x: device) =
 	debug "Device.Vif.hard_shutdown about to blow away backend and error paths";
 	Generic.rm_device_state ~xs x
 
+let set_carrier ~xs (x: device) carrier = 
+	debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier;
+	let disconnect_path = disconnect_path_of_device ~xs x in
+	xs.Xs.write disconnect_path (if carrier then "0" else "1")
+
 let release ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
 	Hotplug.release ~xs x

@@ -95,6 +95,7 @@ sig
 	        -> mac:string -> ?mtu:int -> ?rate:(int64 * int64) option
 	        -> ?protocol:protocol -> device
 	        -> device
+	val set_carrier : xs:Xs.xsh -> device -> bool -> unit
 	val release : xs:Xs.xsh -> device -> unit
 end
 
