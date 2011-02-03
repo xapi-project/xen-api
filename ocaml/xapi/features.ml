@@ -38,6 +38,7 @@ type feature =
 	| VMPR
 	| IntelliCache
 	| GPU
+	| DR
 	with rpc
 
 type orientation = Positive | Negative
@@ -65,6 +66,7 @@ let keys_of_features =
 		VMPR, ("restrict_vmpr", Negative, "VMPR");
 		IntelliCache, ("restrict_intellicache", Negative, "IntelliCache");
 		GPU, ("restrict_gpu", Negative, "GPU");
+		DR, ("restrict_dr", Negative, "DR");
 	]
 
 let string_of_feature f =

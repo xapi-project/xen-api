@@ -38,6 +38,7 @@ type feature =
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
 	| IntelliCache                 (** Enable use of IntelliCache feature *)
 	| GPU                          (** Enable use of GPU passthrough *)
+	| DR                           (** Enable disaster recovery *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
