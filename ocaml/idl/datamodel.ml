@@ -4741,6 +4741,28 @@ let vdi_set_physical_utilisation = call
   ~allowed_roles:_R_VM_ADMIN
    ()
 
+let vdi_set_is_a_snapshot = call
+	~name:"set_is_a_snapshot"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		Bool, "value", "The new value indicating whether this VDI is a snapshot"]
+	~flags:[`Session]
+	~doc:"Sets whether this VDI is a snapshot"
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_set_snapshot_of = call
+	~name:"set_snapshot_of"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		Ref _vdi, "value", "The VDI of which this VDI is a snapshot"]
+	~flags:[`Session]
+	~doc:"Sets the VDI of which this VDI is a snapshot"
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (** An API call for debugging and testing only *)
 let vdi_generate_config = call
    ~name:"generate_config"
@@ -4798,6 +4820,8 @@ let vdi =
 		 vdi_set_missing;
 		 vdi_set_virtual_size;
 		 vdi_set_physical_utilisation;
+		 vdi_set_is_a_snapshot;
+		 vdi_set_snapshot_of;
 		 vdi_generate_config;
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;

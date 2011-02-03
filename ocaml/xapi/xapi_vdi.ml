@@ -536,6 +536,12 @@ let set_virtual_size ~__context ~self ~value =
 let set_physical_utilisation ~__context ~self ~value = 
   Db.VDI.set_physical_utilisation ~__context ~self ~value
 
+let set_is_a_snapshot ~__context ~self ~value =
+	Db.VDI.set_is_a_snapshot ~__context ~self ~value
+
+let set_snapshot_of ~__context ~self ~value =
+	Db.VDI.set_snapshot_of ~__context ~self ~value
+
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let ty = Db.SR.get_type ~__context ~self:sr in
