@@ -870,7 +870,7 @@ let server_init() =
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
       "Synchronising bonds/VLANs on slave with master", [], Sync_networking.sync_slave_with_master ~__context;
-      "Initialise Monitor_rrds.use_min_max", [], Monitor_rrds.update_use_min_max;
+      "Initialise monitor configuration", [], Monitor_rrds.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
       "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);
