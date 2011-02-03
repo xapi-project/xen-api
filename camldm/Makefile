@@ -1,10 +1,5 @@
 include ../config.mk
 
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
-
 FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
 
 LDFLAGS = -cclib -L./
@@ -15,6 +10,11 @@ OCAMLOPTFLAGS = -g -dtypes
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+
+CC = gcc
+CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
+OCAMLC = ocamlc -g
+OCAMLOPT = ocamlopt
 
 OBJS = camldm
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
