@@ -1,8 +1,3 @@
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
-
 LDFLAGS = -cclib -L./
 
 VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
@@ -11,6 +6,11 @@ OCAMLOPTFLAGS = -g -dtypes
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+
+CC = gcc
+CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
+OCAMLC = ocamlc -g
+OCAMLOPT = ocamlopt
 
 OBJS = mmap
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)

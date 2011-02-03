@@ -1,9 +1,3 @@
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include -I../mmap -I./
-OCAMLC = ocamlc -g -I ../mmap -I ../uuid
-OCAMLOPT = ocamlopt
-OCAMLOPTFLAGS = -g -dtypes -I ../mmap -I ../uuid
-
 LDFLAGS = -cclib -L./
 
 VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
@@ -11,6 +5,12 @@ VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
 OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+
+CC = gcc
+CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR) -I$(XEN_ROOT)/usr/include -I../mmap -I./
+OCAMLC = ocamlc -g -I ../mmap -I ../uuid
+OCAMLOPT = ocamlopt
+OCAMLOPTFLAGS = -g -dtypes -I ../mmap -I ../uuid
 
 OBJS = xc
 INTF = xc.cmi
