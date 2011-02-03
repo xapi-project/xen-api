@@ -136,13 +136,15 @@ let migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self domid r
      the migration *)
     if (ack = `ACKED) then begin
       match Vmops.clean_shutdown_with_reason ~xal ~__context ~self ~rel_timeout:0.25 domid Domain.Suspend with
-	  | Domain.Suspend -> () (* good *)
+	  | Domain.Suspend
+	  | Domain.S3Suspend -> () (* good *)
 	  | Domain.Crash ->
 		  raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of self ]))
 	  | Domain.Reboot ->
 		  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of self ]))
-	  | Domain.Unknown _
-	  | Domain.Halt ->
+	  | Domain.Halt
+	  | Domain.PowerOff
+	  | Domain.Unknown _ ->
 		  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of self ]))
      end else
        vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
