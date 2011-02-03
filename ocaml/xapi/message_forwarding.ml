@@ -2817,6 +2817,16 @@ end
       Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_physical_utilisation ~__context ~self ~value
 
+		let set_is_a_snapshot ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_is_a_snapshot ~__context ~self ~value
+
+		let set_snapshot_of ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_snapshot_of ~__context ~self ~value
+
 	let ensure_vdi_not_on_running_vm ~__context ~self =
 		let vbds = Db.VDI.get_VBDs ~__context ~self in
 		List.iter (fun vbd ->
