@@ -84,6 +84,9 @@ let make __context rpc session_id srid (vms, vdis) =
 				~ha_always_run:false ~ha_restart_priority:"" ~tags:[]
 				~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
 				~appliance:Ref.null
+				~start_delay:0L
+				~shutdown_delay:0L
+				~order:0L
 			      in
 
                  TaskHelper.operate_on_db_task ~__context
