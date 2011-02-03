@@ -822,7 +822,9 @@ let create ~__context
 		~name_label
 		~name_description
 		~user_version
-		~is_a_template ~affinity
+		~is_a_template
+		~suspend_SR
+		~affinity
 		~memory_target
 		~memory_static_max
 		~memory_dynamic_max
@@ -870,6 +872,7 @@ let create ~__context
 		~name_description
 		~user_version
 		~is_a_template
+		~suspend_SR
 		~affinity
 		~memory_target
 		~memory_static_max
