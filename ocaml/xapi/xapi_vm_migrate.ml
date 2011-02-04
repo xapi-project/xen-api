@@ -136,13 +136,15 @@ let migration_suspend_cb ~xal ~xc ~xs ~__context vm_migrate_failed ~self domid r
      the migration *)
     if (ack = `ACKED) then begin
       match Vmops.clean_shutdown_with_reason ~xal ~__context ~self ~rel_timeout:0.25 domid Domain.Suspend with
-	  | Domain.Suspend -> () (* good *)
+	  | Domain.Suspend
+	  | Domain.S3Suspend -> () (* good *)
 	  | Domain.Crash ->
 		  raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of self ]))
 	  | Domain.Reboot ->
 		  raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of self ]))
-	  | Domain.Unknown _
-	  | Domain.Halt ->
+	  | Domain.Halt
+	  | Domain.PowerOff
+	  | Domain.Unknown _ ->
 		  raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of self ]))
      end else
        vm_migrate_failed "Failed to receive suspend acknowledgement within timeout period or an abort was requested."
@@ -707,14 +709,16 @@ let with_no_vbds_paused ~__context ~vm f =
     )
 	 
 let pool_migrate ~__context ~vm ~host ~options =
+	(* Migration is only allowed to a host of equal or greater versions. *)
+	if Helpers.rolling_upgrade_in_progress ~__context then
+		Helpers.assert_host_versions_not_decreasing ~__context
+			~host_from:(Helpers.get_localhost_ref ~__context)
+			~host_to:host ;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
-
-	     
   with_no_vbds_paused ~__context ~vm
     (fun token () ->
-
       (* MTC: Initialize the migration event notification system.  If it raises an
          exception, then let it be handled by our caller. *)
       Mtc.event_notify_init ~__context ~vm;

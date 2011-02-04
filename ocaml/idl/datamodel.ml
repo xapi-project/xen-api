@@ -594,7 +594,7 @@ let _ =
     ~doc:"This host can not be forgotten because there are some user VMs still running" ();
 
   error Api_errors.not_supported_during_upgrade []
-    ~doc:"This operation is not supported during an upgrade" ();
+    ~doc:"This operation is not supported during an upgrade." ();
 
   error Api_errors.interface_has_no_ip [ "interface" ]
     ~doc:"The specified interface cannot be used because it has no IP address" ();
