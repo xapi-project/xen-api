@@ -22,7 +22,7 @@ LIBS = sexpr.cma sexpr.cmxa
 
 PROGRAMS = sexprpp
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS)
 

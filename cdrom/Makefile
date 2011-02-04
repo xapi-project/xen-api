@@ -16,7 +16,7 @@ OBJS = cdrom
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = cdrom.cma cdrom.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

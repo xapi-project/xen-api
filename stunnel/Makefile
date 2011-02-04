@@ -16,7 +16,7 @@ OBJS = stunnel stunnel_cache
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = stunnel.cma stunnel.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

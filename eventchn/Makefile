@@ -16,7 +16,7 @@ OBJS = eventchn
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = eventchn.cma eventchn.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

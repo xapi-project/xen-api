@@ -25,7 +25,7 @@ INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
 PROGRAMS = xmlpp
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS)
 

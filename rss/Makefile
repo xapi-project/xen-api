@@ -16,7 +16,7 @@ OBJS = rss
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = rss.cma rss.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

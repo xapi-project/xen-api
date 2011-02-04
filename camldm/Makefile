@@ -18,7 +18,7 @@ OBJS = camldm
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = camldm.cma camldm.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 OCAMLFLAGS = -pp '${FEPP}' -I ../rpc-light
 

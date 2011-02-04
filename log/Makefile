@@ -19,7 +19,7 @@ OBJS = syslog log logs debug
 INTF = log.cmi logs.cmi syslog.cmi debug.cmi
 LIBS = log.cma log.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

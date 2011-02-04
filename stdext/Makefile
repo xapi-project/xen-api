@@ -63,7 +63,7 @@ LIBS = stdext.cma stdext.cmxa
 
 PROGRAMS = base64pp fe_cli fe_test extentlistset_test
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS)
 

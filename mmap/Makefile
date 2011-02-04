@@ -16,7 +16,7 @@ OBJS = mmap
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = mmap.cma mmap.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

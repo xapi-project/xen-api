@@ -19,7 +19,7 @@ OBJS = op partial packet xs_ring xb
 INTF = op.cmi packet.cmi xb.cmi
 LIBS = xb.cma xb.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 

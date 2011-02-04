@@ -22,7 +22,7 @@ LIBS =
 
 PROGRAMS = fe
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

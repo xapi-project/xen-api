@@ -16,7 +16,7 @@ OBJS = xc
 INTF = xc.cmi
 LIBS = xc.cma xc.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

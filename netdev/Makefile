@@ -17,7 +17,7 @@ OBJS = netdev
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = netdev.cma netdev.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

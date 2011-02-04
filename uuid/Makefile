@@ -16,7 +16,7 @@ OBJS = uuid
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = uuid.cma uuid.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

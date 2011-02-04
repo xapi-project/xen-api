@@ -18,7 +18,7 @@ OBJS = pciutil
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = pciutil.cma pciutil.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 PROGRAMS = pciutil
 

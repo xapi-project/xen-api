@@ -19,7 +19,7 @@ OBJS = queueop xsraw xst xs
 INTF = xsraw.cmi xst.cmi xs.cmi
 LIBS = xs.cma xs.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(PREINTF) $(PRELIBS) $(INTF) $(LIBS) $(PROGRAMS)
 
