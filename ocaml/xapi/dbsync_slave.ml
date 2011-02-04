@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(**
- * @group Main Loop and Start-up
+(** Code to bring the database up-to-date when a host starts up.
+ *  @group Main Loop and Start-up
  *)
  
 open Stringext
@@ -96,6 +96,7 @@ let get_start_time () =
         debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e);
         Date.never
 
+(** Update the information in the Host structure *)
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
@@ -132,8 +133,16 @@ let refresh_localhost_info ~__context info =
     end else
       Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
 
+let fix_bonds ~__context =
+	let pifs = Db.PIF.get_all_records ~__context in
+	let host = !Xapi_globs.localhost_ref in
+	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> [] && pifr.API.pIF_host = host) pifs in
+	let local_bonds = List.map (fun (_, pifr) -> List.hd pifr.API.pIF_bond_master_of) local_bond_masters in
+	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) local_bonds
+
 (*************** update database tools ******************)
 
+(** Update the list of VMs *)
 let update_vms ~xal ~__context =
   debug "Updating the list of VMs";
   let xs = Xal.xs_of_ctx xal in
@@ -350,7 +359,7 @@ let update_vms ~xal ~__context =
     List.iter managed_domain_running my_active_managed_domains;
     List.iter managed_domain_shutdown my_shutdown_managed_domains
 
-(* record host memory properties in database *)
+(** Record host memory properties in database *)
 let record_host_memory_properties ~__context =
 	let self = !Xapi_globs.localhost_ref in
 	let total_memory_bytes =
@@ -505,7 +514,7 @@ let resynchronise_pif_params ~__context =
 				debug "could not update MTU field on PIF %s" (Db.PIF.get_uuid ~__context ~self:pif)
 		) pifs       
 
-(* Update the database to reflect current state. Called for both start of day and after
+(** Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context sync_keys =
   (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
@@ -628,5 +637,10 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_gpus (fun () ->
     Xapi_pgpu.update_gpus ~__context ~host:localhost;
+  );
+
+  switched_sync Xapi_globs.sync_fix_bonds (fun () ->
+    debug "fix bonds";
+    fix_bonds ~__context
   );
 
