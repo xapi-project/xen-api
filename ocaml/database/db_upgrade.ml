@@ -37,10 +37,10 @@ let generic_database_upgrade db =
 		  let tbl = TableSet.find tblname (Database.tableset db) in
 		  let schema = Schema.table tblname (Database.schema db) in
 		  let rows = Table.rows tbl in
-		  let add_fields_to_row objref r db : Database.t =
+		  let add_fields_to_row objref r tbl : Table.t =
 			  let row = Row.add_defaults schema r in
-			  let tbl = Table.add objref row tbl in
-			  set_table tblname tbl db in
-		  Table.fold add_fields_to_row tbl db
+			  Table.add objref row tbl in
+			let tbl = Table.fold add_fields_to_row tbl Table.empty in
+			set_table tblname tbl db
 	  ) db schema_table_names
 
