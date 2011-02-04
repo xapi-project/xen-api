@@ -44,6 +44,7 @@ let apply_upgrade_rules ~__context rules previous_version =
     ) required_rules
 
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
+let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -208,7 +209,20 @@ let upgrade_guest_installer_network = {
 					Db.Network.set_bridge ~__context ~self ~value:Create_networks.internal_management_bridge;
 				end
 			) (Db.Network.get_all ~__context)
+}
 
+(* COWLEY -> BOSTON *)
+let upgrade_vdi_types = {
+	description = "Upgrading VDIs with type 'metadata' to type 'redo_log'";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vdis = Db.VDI.get_all ~__context in
+		let update_vdi vdi =
+			let vdi_type = Db.VDI.get_type ~__context ~self:vdi in
+			if vdi_type = `metadata then
+				Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log
+		in
+		List.iter update_vdi all_vdis
 }
 
 let rules = [
@@ -218,6 +232,7 @@ let rules = [
 	upgrade_bios_strings;
 	update_snapshots;
 	upgrade_guest_installer_network;
+	upgrade_vdi_types;
 ]
 
 (* Maybe upgrade most recent db *)
