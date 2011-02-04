@@ -430,6 +430,10 @@ let set_physical_utilisation ~__context ~self ~value =
 let assert_can_host_ha_statefile ~__context ~sr = 
   Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
 
+let enable_database_replication ~__context ~sr = ()
+
+let disable_database_replication ~__context ~sr = ()
+
 let create_new_blob ~__context ~sr ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
   Db.SR.add_to_blobs ~__context ~self:sr ~key:name ~value:blob;
