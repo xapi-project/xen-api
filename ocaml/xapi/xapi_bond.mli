@@ -38,3 +38,8 @@ val create :
  *  is the management interface, or used as VLAN master. *)
 val destroy : __context:Context.t -> self:[ `Bond ] Ref.t -> unit
 
+(** If the given bond has VIFs or VLANs on its slaves, move these to the master. *)
+val fix_bond :
+  __context:Context.t ->
+  bond:[ `Bond ] Ref.t ->
+  unit

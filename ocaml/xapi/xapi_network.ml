@@ -162,6 +162,7 @@ let destroy ~__context ~self =
 	Db.Network.destroy ~__context ~self
 
 let create_new_blob ~__context ~network ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
-  Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
-  blob
+	let blob = Xapi_blob.create ~__context ~mime_type in
+	Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
+	blob
+
