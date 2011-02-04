@@ -54,6 +54,13 @@ val destroy : __context:Context.t -> self:[ `VIF ] Ref.t -> unit
 
 (** {2 Helper Functions} *)
 
+(** Move a VIF to another Network. *)
+val move :
+	__context:Context.t ->
+	network:[ `network ] Ref.t ->
+	[ `VIF ] Ref.t ->
+	unit
+	
 (** Throw error if the given operation is not in the list of allowed operations.
  *  Implemented by {!Xapi_vif_helpers.assert_operation_valid} *)
 val assert_operation_valid :

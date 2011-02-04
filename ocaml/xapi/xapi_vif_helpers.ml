@@ -280,4 +280,4 @@ let copy ~__context ~vm ~preserve_mac_address vif =
 		~other_config:all.API.vIF_other_config
 		~qos_algorithm_type:all.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:all.API.vIF_qos_algorithm_params
-		
+
