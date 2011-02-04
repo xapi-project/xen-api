@@ -1348,6 +1348,14 @@ let sr_update printer rpc session_id params =
 	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	Client.SR.update rpc session_id sr
 
+let sr_enable_database_replication printer rpc session_id params =
+	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	Client.SR.enable_database_replication rpc session_id sr
+
+let sr_disable_database_replication printer rpc session_id params =
+	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	Client.SR.disable_database_replication rpc session_id sr
+
 (* PIF destroy* list param-list param-get param-set param-add param-remove *)
 
 let pbd_create printer rpc session_id params =

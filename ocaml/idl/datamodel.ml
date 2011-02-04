@@ -4488,6 +4488,22 @@ let sr_assert_can_host_ha_statefile = call
    ~allowed_roles:_R_POOL_OP
    ()
 
+let sr_enable_database_replication = call
+	~name:"enable_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to which metadata should be replicated"]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let sr_disable_database_replication = call
+	~name:"disable_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to which metadata should be no longer replicated"]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A storage repository. Note we overide default create/destroy methods with our own here... *)
 let storage_repository =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
@@ -4500,6 +4516,9 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
+			sr_enable_database_replication;
+			sr_disable_database_replication;
+
 		]
       ~contents:
       ([ uid _sr;

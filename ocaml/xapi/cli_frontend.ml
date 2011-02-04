@@ -1620,6 +1620,22 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.sr_update;
       flags=[];
     };
+   "sr-enable-database-replication",
+   {
+     reqd=["uuid"];
+     optn=[];
+     help="Enable database replication to the SR.";
+     implementation=No_fd Cli_operations.sr_enable_database_replication;
+     flags=[];
+   };
+   "sr-disable-database-replication",
+   {
+     reqd=["uuid"];
+     optn=[];
+     help="Disable database replication to the SR.";
+     implementation=No_fd Cli_operations.sr_disable_database_replication;
+     flags=[];
+   };
    "vdi-create",
     {
       reqd=["sr-uuid";"name-label";"type";"virtual-size"];
