@@ -177,3 +177,9 @@ ocaml/xstest/xscheckperms
 
 */libs
 
+js
+ocaml/idl/META
+ocaml/idl/ocaml_backend/META
+ocaml/xapi/rrddump
+ocaml/xapi/sparse_dd
+ocaml/xapi/xapi_unit_test
