@@ -351,6 +351,7 @@ let sync_bios_strings = "sync_bios_strings"
 let sync_chipset_info = "sync_chipset_info"
 let sync_pci_devices = "sync_pci_devices"
 let sync_gpus = "sync_gpus"
+let sync_fix_bonds = "sync_fix_bonds"
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
