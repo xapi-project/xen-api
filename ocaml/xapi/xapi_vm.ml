@@ -213,6 +213,9 @@ let unpause  ~__context ~vm =
 *)
 
 let start ~__context ~vm ~start_paused:paused ~force =
+	if Helpers.rolling_upgrade_in_progress ~__context then
+		Helpers.assert_host_has_highest_version_in_pool ~__context
+			~host:(Helpers.get_localhost_ref ~__context) ;
 	License_check.with_vm_license_check ~__context vm (fun () ->
 		Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
 			(Printf.sprintf "VM.start %s" (Context.string_of_task __context))
@@ -273,6 +276,10 @@ let assert_host_is_localhost ~__context ~host =
 	  raise (Api_errors.Server_error (Api_errors.internal_error, [ msg ]))
 
 let start_on  ~__context ~vm ~host ~start_paused ~force = 
+	(* If we modify this to support start_on other-than-localhost,
+	   insert a precheck to insure that we're starting on an
+	   appropriately versioned host during an upgrade, as per
+	   PR-1007. See the first lines of resume above *)
 	assert_host_is_localhost ~__context ~host;
 	start ~__context ~vm ~start_paused ~force
 
@@ -352,10 +359,12 @@ module Reboot = struct
 							~at:(fun x -> TaskHelper.set_progress ~__context (x /. 2.))
 							~__context ~self:vm domid Domain.Reboot) with
 		| Domain.Reboot | Domain.Unknown _ -> () (* good *)
+		| Domain.S3Suspend
 		| Domain.Suspend ->
 			  error "VM: %s suspended when asked to reboot" (Ref.string_of vm)
 		| Domain.Crash ->
 			  error "VM: %s crashed when asked to reboot" (Ref.string_of vm)
+		| Domain.PowerOff
 		| Domain.Halt ->
 			  error "VM: %s halted when asked to reboot" (Ref.string_of vm)
       end else begin
@@ -491,6 +500,7 @@ module Shutdown = struct
 		| Domain.PowerOff
 		| Domain.Unknown _
 		| Domain.Halt -> () (* good *)
+		| Domain.S3Suspend
 		| Domain.Suspend ->
 			  (* Log the failure but continue *)
 			  error "VM: %s suspended when asked to shutdown" (Ref.string_of vm)
@@ -751,8 +761,10 @@ let suspend  ~__context ~vm =
 		) ()
  	)
 
-
 let resume ~__context ~vm ~start_paused ~force = 
+	if Helpers.rolling_upgrade_in_progress ~__context then
+		Helpers.assert_host_has_highest_version_in_pool ~__context
+			~host:(Helpers.get_localhost_ref ~__context) ;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
 	(fun () ->
@@ -767,7 +779,6 @@ let resume ~__context ~vm ~start_paused ~force =
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
 						assert_ha_always_run_is_true ~__context ~vm;
-
 
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
@@ -795,6 +806,10 @@ let resume ~__context ~vm ~start_paused ~force =
 
 
 let resume_on  ~__context ~vm ~host ~start_paused ~force =
+	(* If we modify this to support resume_on other-than-localhost,
+	   insert a precheck to insure that we're starting on an
+	   appropriately versioned host during an upgrade, as per
+	   PR-1007. See the first lines of resume above *)
 	assert_host_is_localhost ~__context ~host;
 	resume ~__context ~vm ~start_paused ~force
 
