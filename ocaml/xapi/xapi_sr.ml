@@ -266,6 +266,7 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 (* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
 		~_type ~content_type ~shared ~sm_config =
+	Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
 	debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
 	let _type = String.lowercase _type in
 	if not(List.mem _type (Sm.supported_drivers ()))
