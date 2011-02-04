@@ -44,6 +44,7 @@ let apply_upgrade_rules ~__context rules previous_version =
     ) required_rules
 
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
+let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -191,12 +192,27 @@ let update_snapshots = {
 		List.iter update_snapshots all_vms
 }
 
+(* COWLEY -> BOSTON *)
+let update_vdi_types = {
+	description = "Updating VDIs with type 'metadata' to type 'redo_log'";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vdis = Db.VDI.get_all ~__context in
+		let update_vdi vdi =
+			let vdi_type = Db.VDI.get_type ~__context ~self:vdi in
+			if vdi_type = `metadata then
+				Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log
+		in
+		List.iter update_vdi all_vdis
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
 	upgrade_vm_memory_for_dmc;
 	upgrade_bios_strings;
 	update_snapshots;
+	update_vdi_types;
 ]
 
 (* Maybe upgrade most recent db *)
