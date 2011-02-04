@@ -83,7 +83,7 @@ let create ~__context ~network ~members ~mAC =
 	 ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null 
 	 ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false in
        
-       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:pif ~other_config:[];
+       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:pif ~other_config:[] ~primary_slave:(List.hd members);
        
        List.iter (fun slave -> Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:bond) members
     );

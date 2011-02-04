@@ -4190,7 +4190,7 @@ let bond_create = call
   ~doc:"Create an interface bond"
   ~params:[ Ref _network, "network", "Network to add the bonded PIF to";
 	    Set (Ref _pif), "members", "PIFs to add to this bond";
-	    String, "MAC", "The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the first of the specified 'members'"
+	    String, "MAC", "The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."
 	  ]
   ~result:(Ref _bond, "The reference of the created Bond object")
   ~in_product_since:rel_miami
@@ -4214,6 +4214,7 @@ let bond =
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef "")) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
     ]
     ()
 
