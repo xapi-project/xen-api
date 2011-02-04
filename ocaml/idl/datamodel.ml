@@ -4855,7 +4855,8 @@ let vdi =
 	field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
-	
+	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
+	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
       ])
 	()
 
@@ -5548,6 +5549,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
+			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			]
 		()
 
@@ -6939,6 +6941,8 @@ let all_relations =
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
+
+    (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
   ]
 
 (** the full api specified here *)

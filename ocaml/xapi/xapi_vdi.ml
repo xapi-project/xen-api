@@ -251,7 +251,8 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~sharable ~read_only
     ~xenstore_data ~sm_config
     ~other_config ~storage_lock:false ~location ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
-	  ~on_boot:`persist ~allow_caching:false;
+    ~on_boot:`persist ~allow_caching:false
+    ~metadata_of_pool:Ref.null ~metadata_latest:false;
   ref
 
 let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
