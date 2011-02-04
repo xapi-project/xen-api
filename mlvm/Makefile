@@ -23,7 +23,7 @@ COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm -pp '${
 
 LIBS = lvm.cma lvm.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 default : $(LIBS)
 

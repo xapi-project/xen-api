@@ -18,7 +18,7 @@ OBJS = xsrpc
 INTF = xsrpc.cmi
 LIBS = xsrpc.cma xsrpc.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

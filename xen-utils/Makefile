@@ -19,7 +19,7 @@ OBJS = xen_cmdline
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = xen-utils.cma xen-utils.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

@@ -20,7 +20,7 @@ OBJS = server_io buf_io http http_svr http_client
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS)
 

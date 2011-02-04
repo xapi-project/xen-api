@@ -20,7 +20,7 @@ OBJS = tapctl
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = tapctl.cma tapctl.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 OCAMLFLAGS = -pp '${FEPP}' -I ../rpc-light -I ../stdext
 

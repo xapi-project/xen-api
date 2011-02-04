@@ -19,7 +19,7 @@ OBJS = cpuid
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = cpuid.cma cpuid.cmxa
 
-DOCDIR = /myrepos/xen-api-libs/doc
+DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
