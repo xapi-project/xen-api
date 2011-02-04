@@ -117,7 +117,7 @@ let call_api_functions ~__context f =
       else
           let session_id = Context.get_session_id __context in
           (* read any attr to test if session is still valid *)
-          Db.Session.get_pool ~__context ~self:session_id;
+				ignore (Db.Session.get_pool ~__context ~self:session_id) ;
           session_id
       with _ -> 
       do_master_login ()
@@ -223,9 +223,7 @@ type boot_method =
 let string_of_option opt = match opt with None -> "(none)" | Some s -> s
 
 let string_of_boot_method = function
-  | HVM x -> 
-      let bool = function true -> "enabled" | false -> "disabled" in
-      "HVM"
+	| HVM _ -> "HVM"
   | DirectPV x ->
       Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
     x.kernel x.kernel_args (string_of_option x.ramdisk)
