@@ -48,6 +48,9 @@ let make path = { dummy_conf with path = path }
 
 let generation_filename dbconn = dbconn.path ^ Generation.suffix
 
+(** Return the generation of a given database 'connection'. Note we normally
+	expect the database file and the generation file to be present together;
+	however after upgrade only the database file will be present. *)
 let generation_read dbconn =
   let gencount_fname = generation_filename dbconn in
   try Generation.of_string (Unixext.string_of_file gencount_fname) with _ -> 0L

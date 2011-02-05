@@ -18,10 +18,12 @@ open D
 let get_dbs_and_gen_counts() =
   List.map (fun conn->(Parse_db_conf.generation_read conn, conn)) (Db_conn_store.read_db_connections())
 
-(** Returns true if the supplied connection actually exists, false otherwise *)
+(** Returns true if the supplied connection actually exists, false otherwise.
+	Note that, although the two files should be present (or absent) together,
+	after upgrade we only have a database. In this case the generation
+	defaults back to 0L *)
 let exists connection = 
-	Sys.file_exists (Parse_db_conf.generation_filename connection)
-	&& (Sys.file_exists connection.Parse_db_conf.path)
+	Sys.file_exists connection.Parse_db_conf.path
     
 (* This returns the most recent of the db connections to populate from. It also initialises the in-memory
    generation count to the largest of the db connections' generation counts *)
