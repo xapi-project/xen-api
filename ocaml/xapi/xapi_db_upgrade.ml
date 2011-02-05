@@ -225,6 +225,27 @@ let upgrade_vdi_types = {
 		List.iter update_vdi all_vdis
 }
 
+let upgrade_ha_restart_priority = {
+	description = "Upgrading ha_restart_priority";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vms = Db.VM.get_all ~__context in
+		let update_vm vm =
+			let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+			let (new_priority, new_order) = match priority with
+			| "0" -> ("restart", 0L)
+			| "1" -> ("restart", 1L)
+			| "2" -> ("restart", 2L)
+			| "3" -> ("restart", 3L)
+			| "best-effort" -> ("best_effort", 0L)
+			| _ -> ("", 0L)
+			in
+			Db.VM.set_ha_restart_priority ~__context ~self:vm ~value:new_priority;
+			Db.VM.set_order ~__context ~self:vm ~value:new_order
+		in
+		List.iter update_vm all_vms
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
@@ -233,6 +254,7 @@ let rules = [
 	update_snapshots;
 	upgrade_guest_installer_network;
 	upgrade_vdi_types;
+	upgrade_ha_restart_priority;
 ]
 
 (* Maybe upgrade most recent db *)
