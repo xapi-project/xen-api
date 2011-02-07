@@ -3,7 +3,7 @@ val create :
 val destroy :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 val start :
-	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
+	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> paused:bool -> unit
 val clean_shutdown :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 val hard_shutdown :
