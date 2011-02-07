@@ -189,6 +189,7 @@ let vdi_io_error = "VDI_IO_ERROR"
 let vdi_on_boot_mode_incompatable_with_operation = "VDI_ON_BOOT_MODE_INCOMPATABLE_WITH_OPERATION"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
+let operation_partially_failed = "OPERATION_PARTIALLY_FAILED"
 
 let sr_uuid_exists = "SR_UUID_EXISTS"
 let sr_no_pbds = "SR_HAS_NO_PBDS"

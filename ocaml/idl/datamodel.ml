@@ -553,6 +553,10 @@ let _ =
   error Api_errors.vm_checkpoint_resume_failed [ "vm" ]
     ~doc:"An error occured while restoring the memory image of the specified virtual machine" ();
 
+	(* VM appliance errors *)
+	error Api_errors.operation_partially_failed [ "operation" ]
+		~doc:"Some VMs belonging to the appliance threw an exception while carrying out the specified operation" ();
+
   (* Host errors *)
   error Api_errors.host_offline [ "host" ]
     ~doc:"You attempted an operation which involves a host which could not be contacted." ();
@@ -6312,11 +6316,23 @@ let vmpp =
     ()
 
 (* VM appliance *)
+let vm_appliance_operations = Enum ("vm_appliance_operation",
+	[
+		"start", "Start";
+		"clean_shutdown", "Clean shutdown";
+		"hard_shutdown", "Hard shutdown";
+	])
+
+
 let vm_appliance =
 	let vm_appliance_start = call
 		~name:"start"
 		~in_product_since:rel_boston
-		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~params:[
+			Ref _vm_appliance, "self", "The VM appliance";
+			Bool, "paused", "Instantiate all VMs belonging to this appliance in paused state if set to true."
+		]
+		~errs:[Api_errors.operation_partially_failed]
 		~doc:"Start all VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
@@ -6324,6 +6340,7 @@ let vm_appliance =
 		~name:"clean_shutdown"
 		~in_product_since:rel_boston
 		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
 		~doc:"Perform a clean shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
@@ -6331,6 +6348,7 @@ let vm_appliance =
 		~name:"hard_shutdown"
 		~in_product_since:rel_boston
 		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
@@ -6343,11 +6361,12 @@ let vm_appliance =
 			vm_appliance_clean_shutdown;
 			vm_appliance_hard_shutdown
 		]
-		~contents:[
+		~contents:([
 			uid _vm_appliance;
 			namespace ~name:"name" ~contents:(names None RW) ();
+			] @ (allowed_and_current_operations vm_appliance_operations) @ [
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
-		]
+		])
 		()
  
 (** events handling: *)
