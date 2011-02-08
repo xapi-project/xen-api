@@ -348,6 +348,7 @@ let sync_pif_params = "sync_pif_params"
 let sync_patch_update_db = "sync_patch_update_db"
 let sync_pbd_reset = "sync_pbd_reset"
 let sync_bios_strings = "sync_bios_strings"
+let sync_chipset_info = "sync_chipset_info"
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"

@@ -240,7 +240,11 @@ XAPI_MODULES = $(COMMON) \
 	xapi_config \
 	features \
 	pool_features \
-	../license/license_init
+	../license/license_init \
+	xapi_pci \
+	xapi_pgpu \
+	xapi_gpu_group \
+	xapi_vgpu
 
 OCamlProgram(xapi, xapi $(XAPI_MODULES))
 OCamlDocProgram(xapi, xapi $(XAPI_MODULES))
