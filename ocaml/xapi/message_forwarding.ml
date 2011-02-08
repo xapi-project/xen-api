@@ -393,6 +393,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of vm
 		with _ -> "invalid"
 
+	let vm_appliance_uuid ~__context vm_appliance =
+		try if Pool_role.is_master () then
+			let name = Db.VM_appliance.get_name_label __context vm_appliance in
+			Printf.sprintf "%s%s" (Db.VM_appliance.get_uuid __context vm_appliance) (add_brackets name)
+		else
+			Ref.string_of vm_appliance
+		with _ -> "invalid"
+
 	let sr_uuid ~__context sr =
 		try if Pool_role.is_master () then
 			let name = Db.SR.get_name_label __context sr in
@@ -507,7 +515,46 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Task = Local.Task
   module Event = Local.Event
   module VMPP = Local.VMPP
-	module VM_appliance = Local.VM_appliance
+	module VM_appliance = struct
+		include Local.VM_appliance
+		(* Add to the VM_appliance's current operations, call a function and then remove from the *)
+		(* current operations. Ensure the allowed_operations are kept up to date. *)
+		let with_vm_appliance_operation ~__context ~self ~doc ~op f =
+			let task_id = Ref.string_of (Context.get_task_id __context) in
+			retry_with_global_lock ~__context ~doc
+				(fun () ->
+					Xapi_vm_appliance.assert_operation_valid ~__context ~self ~op;
+					Db.VM_appliance.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
+					Xapi_vm_appliance.update_allowed_operations ~__context ~self);
+			(* Then do the action with the lock released *)
+			finally f
+				(* Make sure to clean up at the end *)
+				(fun () ->
+					try
+						Db.VM_appliance.remove_from_current_operations ~__context ~self ~key:task_id;
+						Xapi_vm_appliance.update_allowed_operations ~__context ~self;
+						Early_wakeup.broadcast (Datamodel._vm_appliance, Ref.string_of self);
+					with
+						_ -> ())
+
+		let start ~__context ~self ~paused =
+			info "VM_appliance.start: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.start" ~op:`start
+				(fun () ->
+					Local.VM_appliance.start ~__context ~self ~paused)
+
+		let clean_shutdown ~__context ~self =
+			info "VM_appliance.clean_shutdown: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.clean_shutdown" ~op:`clean_shutdown
+				(fun () ->
+					Local.VM_appliance.clean_shutdown ~__context ~self)
+
+		let hard_shutdown ~__context ~self =
+			info "VM_appliance.hard_shutdown: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.hard_shutdown" ~op:`hard_shutdown
+				(fun () ->
+					Local.VM_appliance.hard_shutdown ~__context ~self)
+	end
   (* module Alert = Local.Alert *)
 
   module Pool = struct
