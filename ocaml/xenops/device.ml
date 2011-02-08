@@ -678,8 +678,8 @@ let plug ~xs ~netty ~mac ?(mtu=0) ?rate ?protocol (x: device) =
 	x
 
 
-let add ~xs ~devid ~netty ~mac ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
-	debug "Device.Vif.add domid=%d devid=%d mac=%s rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac
+let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
+	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
 	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
 	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys));
@@ -731,6 +731,7 @@ let add ~xs ~devid ~netty ~mac ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(b
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 		"handle", string_of_int devid;
 		"mac", mac;
+		"disconnect", if carrier then "0" else "1";
 	] @ front_options in
 
 	let extra_private_keys = List.map (fun (k, v) -> "other-config/" ^ k, v) other_config @ extra_private_keys in
@@ -796,6 +797,11 @@ let hard_shutdown ~xs (x: device) =
 	(* blow away the backend and error paths *)
 	debug "Device.Vif.hard_shutdown about to blow away backend and error paths";
 	Generic.rm_device_state ~xs x
+
+let set_carrier ~xs (x: device) carrier = 
+	debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier;
+	let disconnect_path = disconnect_path_of_device ~xs x in
+	xs.Xs.write disconnect_path (if carrier then "0" else "1")
 
 let release ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);

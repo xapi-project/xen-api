@@ -99,5 +99,5 @@ let register () =
   Xapi_periodic_scheduler.add_to_queue "Logrotate" (Xapi_periodic_scheduler.Periodic logrotate_timer) 120.0 logrotate_func;
   Xapi_periodic_scheduler.add_to_queue "Network bridge GC" (Xapi_periodic_scheduler.Periodic networkgc_timer) networkgc_timer networkgc_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
-  Xapi_periodic_scheduler.add_to_queue "Query use_min_max for RRDs" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_use_min_max
+  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_configuration_from_master
 

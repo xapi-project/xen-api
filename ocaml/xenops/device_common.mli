@@ -35,6 +35,7 @@ exception Hotplug_script_expecting_field of device * string
 val backend_path : xs:Xs.xsh -> endpoint -> Xc.domid -> string
 val backend_path_of_device : xs:Xs.xsh -> device -> string
 val frontend_path_of_device : xs:Xs.xsh -> device -> string
+val disconnect_path_of_device : xs:Xs.xsh -> device -> string
 val error_path_of_device : xs:Xs.xsh -> device -> string
 val backend_error_path_of_device : xs:Xs.xsh -> device -> string
 
