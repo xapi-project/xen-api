@@ -426,11 +426,14 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (try
      if not delay_device_create_until_after_activate then
        begin
-	 debug "Receiver 5. Calling Vmops._restore_devices (domid = %d)" domid;
-	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs
+	 debug "Receiver 5. Calling Vmops._restore_devices (domid = %d) for CD and non-CD devices" domid;
+	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs true
        end
      else
-       debug "Note: receiver _not_ calling _restore_devices yet, because at least one SR has activate capability -- we will call _restore_devices after activate instead";
+       begin
+     debug "Receiver 5. Calling Vmops._restore_CD_devices (domid = %d). We will restore non-CD devices after calling activate." domid;
+	 Vmops._restore_CD_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs
+       end;
      if want_failure __context vm 4 then begin
        debug "Simulating failure just before restore";
        failwith "Simulating failure just before restore (eg out of memory, couldn't attach disk)";
@@ -485,8 +488,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      
      if delay_device_create_until_after_activate then
        begin
-	 debug "Receiver 7a1. Calling Vmops._restore_devices (domid = %d) [doing this now because we call after activate]" domid;
-	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs
+	 debug "Receiver 7a1. Calling Vmops._restore_devices (domid = %d) for non-CD devices [doing this now because we call after activate]" domid;
+	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs false
        end;
    with e ->
      error "Caught exception during activate: %s" (ExnHelper.string_of_exn e);
