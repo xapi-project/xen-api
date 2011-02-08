@@ -92,8 +92,20 @@ let add_vif ~__context ~xs vif_device =
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
        let netty = Netman.netty_of_bridge vif_device.Vm_config.bridge in
+	   (* If there are any non-virtual interfaces on the bridge with a valid
+		  carrier then reflect the status *)
+	   let ifs = 
+		   let all = Netdev.network.Netdev.intf_list vif_device.Vm_config.bridge in
+		   List.filter (fun x -> not(String.startswith "vif" x) && not(String.startswith "tap" x)) all in
+	   let carrier = 
+		   let all = List.map (fun x -> try Netdev.get_carrier x with _ -> false) ifs in
+		   (all = []) (* internal network *)
+		   || 
+		   (List.fold_left (||) false all) (* any interface on external network *)
+	   in
+
        let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty 
-	 ~mac:vif_device.Vm_config.mac ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
+	 ~mac:vif_device.Vm_config.mac ~carrier:(not(!Monitor_rrds.pass_through_pif_carrier) || carrier) ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
 	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys
 	 vif_device.Vm_config.domid in
        ()

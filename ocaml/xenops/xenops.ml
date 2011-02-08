@@ -240,7 +240,7 @@ let del_vbd ~xs ~domid ~backend_domid ~virtpath ~phystype =
 	Device.clean_shutdown ~xs device
 
 let add_vif ~xs ~domid ~netty ~devid ~mac ~backend_domid =
-	ignore(Device.Vif.add ~xs ~devid ~netty ~mac ~backend_domid domid)
+	ignore(Device.Vif.add ~xs ~devid ~netty ~mac ~carrier:true ~backend_domid domid)
 
 let del_vif ~xs ~domid ~backend_domid ~devid =
 	let frontend = { domid = domid; kind = Vif; devid = devid } in
