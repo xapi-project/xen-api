@@ -74,6 +74,10 @@ module Actions = struct
 	module Message = Xapi_message
 	module Secret = Xapi_secret
 	module Tunnel = Xapi_tunnel
+	module PCI = Xapi_pci
+	module PGPU = Xapi_pgpu
+	module GPU_group = Xapi_gpu_group
+	module VGPU = Xapi_vgpu
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)

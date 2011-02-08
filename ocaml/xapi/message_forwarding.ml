@@ -508,6 +508,34 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			Ref.string_of patch
 		with _ -> "invalid"
 
+	let pci_uuid ~__context pci =
+		try if Pool_role.is_master () then
+			Db.PCI.get_uuid __context pci
+		else
+			Ref.string_of pci
+		with _ -> "invalid"
+
+	let pgpu_uuid ~__context pgpu =
+		try if Pool_role.is_master () then
+			Db.PGPU.get_uuid __context pgpu
+		else
+			Ref.string_of pgpu
+		with _ -> "invalid"
+
+	let gpu_group_uuid ~__context gpu_group =
+		try if Pool_role.is_master () then
+			Db.GPU_group.get_uuid __context gpu_group
+		else
+			Ref.string_of gpu_group
+		with _ -> "invalid"
+
+	let vgpu_uuid ~__context vgpu =
+		try if Pool_role.is_master () then
+			Db.VGPU.get_uuid __context vgpu
+		else
+			Ref.string_of vgpu
+		with _ -> "invalid"
+
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
@@ -3178,4 +3206,32 @@ end
   module Data_source = struct end
 
 	module Secret = Local.Secret
+
+	module PCI = struct end
+
+	module PGPU = struct end
+
+	module GPU_group = struct
+		(* Don't forward. These are just db operations. *)
+		let create ~__context ~name_label ~name_description ~other_config =
+			info "GPU_group.create: name_label = '%s'" name_label;
+			Local.GPU_group.create ~__context ~name_label ~name_description ~other_config
+
+		let destroy ~__context ~self =
+			info "GPU_group.destroy: gpu_group = '%s'" (gpu_group_uuid ~__context self);
+			(* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
+			with_global_lock (fun () ->
+				Local.GPU_group.destroy ~__context ~self)
+	end
+
+	module VGPU = struct
+		let create ~__context ~vM ~gPU_group ~device ~other_config =
+			info "VGPU.create: VM = '%s'; GPU_group = '%s'" (vm_uuid ~__context vM) (gpu_group_uuid ~__context gPU_group);
+			Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config
+
+		let destroy ~__context ~self =
+			info "VGPU.destroy: VIF = '%s'" (vgpu_uuid ~__context self);
+			Local.VGPU.destroy ~__context ~self
+	end
 end
+

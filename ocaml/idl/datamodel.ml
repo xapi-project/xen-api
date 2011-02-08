@@ -91,7 +91,10 @@ let _subject = "subject"
 let _role = "role"
 let _secret = "secret"
 let _tunnel = "tunnel"
-
+let _pci = "PCI"
+let _pgpu = "PGPU"
+let _gpu_group = "GPU_group"
+let _vgpu = "VGPU"
 
 (** All the various static role names *)
 
@@ -451,6 +454,10 @@ let _ =
     ~doc:"The network contains active VIFs and cannot be deleted." ();
   error Api_errors.network_contains_pif ["pifs"] 
     ~doc:"The network contains active PIFs and cannot be deleted." ();
+  error Api_errors.gpu_group_contains_vgpu ["vgpus"] 
+    ~doc:"The GPU group contains active VGPUs and cannot be deleted." ();
+  error Api_errors.gpu_group_contains_pgpu ["pgpus"] 
+    ~doc:"The GPU group contains active PGPUs and cannot be deleted." ();
   error Api_errors.device_attach_timeout [ "type"; "ref" ]
     ~doc:"A timeout happened while attempting to attach a device to a VM." ();
   error Api_errors.device_detach_timeout [ "type"; "ref" ]
@@ -2789,6 +2796,16 @@ let namespace ?(get_field_writer_roles=fun x->x) ?(get_field_reader_roles=fun x-
        } in
   Namespace(name, List.map prefix contents)
 
+(** Many of the objects have a set of names of various lengths: *)
+let names ?(writer_roles=None) ?(reader_roles=None) ?lifecycle in_oss_since qual =
+	let field x y =
+		field x y ~in_oss_since ~qualifier:qual ~writer_roles ~reader_roles
+			~default_value:(Some (VString "")) ?lifecycle in
+	[
+		field "label" "a human-readable name";
+		field "description" "a notes field containg human-readable description"
+	]
+
 let default_field_reader_roles = _R_ALL (* by default, all can read fields *)
 let default_field_writer_roles = _R_POOL_ADMIN (* by default, only root can write to them *)
 
@@ -3022,12 +3039,6 @@ let session =
 		  field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _session) "parent" "references the parent session that created this session"; 
 		]
 	()
-
-(** Many of the objects have a set of names of various lengths: *)
-let names ?(writer_roles=None) ?(reader_roles=None) in_oss_since qual =
-  let field x y = field x y ~in_oss_since ~qualifier:qual ~writer_roles ~reader_roles in
-    [ field "label" "a human-readable name";
-      field "description" "a notes field containg human-readable description" ]
 
 
 (** Tasks *)
@@ -3823,6 +3834,10 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
 	field ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
+	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Map (String, String)) ~default_value:(Some (VMap []))
+		"chipset_info" "Information about chipset features";
+	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
+	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
  ])
 	()
 
@@ -5868,7 +5883,10 @@ let vm =
 	namespace ~name:"HVM" ~contents:hvm ();
 	field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
 
-	field "PCI_bus" "PCI bus path for pass-through devices";
+	field ~lifecycle:[
+		Published, rel_rio, "PCI bus path for pass-through devices";
+		Deprecated, rel_boston, "Field was never used"]
+		"PCI_bus" "PCI bus path for pass-through devices";
 	field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
 	field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
 	field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
@@ -5900,12 +5918,14 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride                                 ~ty:(Set (Ref _vm)) "children"     "List pointing to all the children of this VM";
 
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
-  field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
-  field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
+	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
+	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vgpu)) "VGPUs" "Virtual GPUs";
+	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
       ])
 	()
 
@@ -6629,6 +6649,117 @@ let alert =
     ()
 *)
 
+(** PCI devices *)
+
+let pci =
+	create_obj
+		~name:_pci
+		~descr:"A PCI device"
+		~doccomments:[]
+		~gen_constructor_destructor:false
+		~gen_events:true
+		~in_db:true
+		~lifecycle:[]
+		~messages:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~implicit_messages_allowed_roles:_R_POOL_OP
+		~persist:PersistEverything
+		~in_oss_since:None
+		~contents:[
+			uid _pci ~lifecycle:[];
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_id" "PCI class ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_name" "PCI class name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "vendor_id" "Vendor ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "vendor_name" "Vendor name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "device_id" "Device ID" ~default_value:(Some (VString "")) ~internal_only:true;
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "device_name" "Device name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle:[] "host" "Physical machine that owns the PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "pci_id" "PCI ID of the physical device" ~default_value:(Some (VString ""));
+			field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[] ~default_value:(Some (VInt 1L)) "functions" "Number of physical + virtual PCI functions" ~internal_only:true;
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~lifecycle:[] "attached_VMs"
+				"VMs that currently have a function of this PCI device passed-through to them" ~internal_only:true;
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			]
+		()
+
+(** Physical GPUs (pGPU) *)
+
+let pgpu =
+	create_obj
+		~name:_pgpu
+		~descr:"A physical GPU (pGPU)"
+		~doccomments:[]
+		~gen_constructor_destructor:false
+		~gen_events:true
+		~in_db:true
+		~lifecycle:[]
+		~messages:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~implicit_messages_allowed_roles:_R_POOL_OP
+		~persist:PersistEverything
+		~in_oss_since:None
+		~contents:[
+			uid _pgpu ~lifecycle:[];
+			field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[] "host" "Host that own the GPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			]
+		()
+
+(** Groups of GPUs *)
+
+let gpu_group =
+	create_obj
+		~name:_gpu_group
+		~descr:"A group of compatible GPUs across the resource pool"
+		~doccomments:[]
+		~gen_constructor_destructor:true
+		~gen_events:true
+		~in_db:true
+		~lifecycle:[]
+		~messages:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~implicit_messages_allowed_roles:_R_POOL_OP
+		~persist:PersistEverything
+		~in_oss_since:None
+		~contents:[
+			uid _gpu_group ~lifecycle:[];
+			namespace ~name:"name" ~contents:(names None RW ~lifecycle:[]) ();
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[] "PGPUs" "List of pGPUs in the group";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[] "VGPUs" "List of vGPUs using the group";
+			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			]
+		()
+
+(** Virtual GPUs (vGPU) *)
+
+let vgpu =
+	create_obj
+		~name:_vgpu
+		~descr:"A virtual GPU (vGPU)"
+		~doccomments:[]
+		~gen_constructor_destructor:true
+		~gen_events:true
+		~in_db:true
+		~lifecycle:[]
+		~messages:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~implicit_messages_allowed_roles:_R_POOL_OP
+		~persist:PersistEverything
+		~in_oss_since:None
+		~contents:[
+			uid _vgpu ~lifecycle:[];
+			field ~qualifier:StaticRO ~ty:(Ref _vm) ~lifecycle:[] "VM" "VM that owns the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[] "GPU_group" "GPU group used by the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] ~default_value:(Some (VString "")) "device" "Order in which the devices are plugged into the VM";
+			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the vitual devce device is currently connected to a physical device";
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			]
+		()
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -6680,6 +6811,10 @@ let all_system =
 		message;
 		secret;
 		tunnel;
+		pci;
+		pgpu;
+		gpu_group;
+		vgpu;
 	]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -6738,7 +6873,14 @@ let all_relations =
     (_role, "subroles"), (_role, "subroles");
 
     (_vm, "protection_policy"), (_vmpp, "VMs");
-		(_vm, "appliance"), (_vm_appliance, "VMs");
+    (_vm, "appliance"), (_vm_appliance, "VMs");
+
+    (_pgpu, "GPU_group"), (_gpu_group, "PGPUs");
+    (_vgpu, "GPU_group"), (_gpu_group, "VGPUs");
+    (_vgpu, "VM"), (_vm, "VGPUs");
+    (_pci, "host"), (_host, "PCIs");
+    (_pgpu, "host"), (_host, "PGPUs");
+    (_pci, "attached_VMs"), (_vm, "attached_PCIs");
   ]
 
 (** the full api specified here *)
@@ -6780,6 +6922,7 @@ let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_sourc
 (** List of classes to generate 'get_all' messages for. Currently we don't
  ** allow a user to enumerate all the VBDs or VDIs directly: that must be
  ** through a VM or SR. *)
+(* Note on the above: it looks like we _do_ have {VBD,VDI}.get_all! *)
 let expose_get_all_messages_for = [
 	_task;
 	(* _alert; *)
@@ -6799,7 +6942,7 @@ let expose_get_all_messages_for = [
 	_vdi;
 	_vbd;
 	_vbd_metrics;
-	_console; 
+	_console;
 	_crashdump;
 	_host_crashdump;
 	_host_patch;
@@ -6814,7 +6957,11 @@ let expose_get_all_messages_for = [
 	_secret;
 	_tunnel;
 	_vmpp;
-	_vm_appliance
+	_vm_appliance;
+	_pci;
+	_pgpu;
+	_gpu_group;
+	_vgpu;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

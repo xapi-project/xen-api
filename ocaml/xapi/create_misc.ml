@@ -490,3 +490,10 @@ let create_host_cpu ~__context =
 			~features:"" ~other_config:[])
 	done
 
+let create_chipset_info ~__context =
+	let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc) in
+	let host = Helpers.get_localhost ~__context in
+	let iommu = string_of_bool (String.has_substr xen_dmesg "I/O virtualisation enabled") in
+	let info = ["iommu", iommu] in
+	Db.Host.set_chipset_info ~__context ~self:host ~value:info
+

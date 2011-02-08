@@ -613,4 +613,9 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
 	  refresh_local_vdi_activations ~__context;
+  );
+
+  switched_sync Xapi_globs.sync_chipset_info (fun () ->
+    Create_misc.create_chipset_info ~__context;
   )
+
