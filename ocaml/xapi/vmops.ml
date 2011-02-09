@@ -136,16 +136,14 @@ let create_vifs ~__context ~xs vifs =
 	 raise (Api_errors.Server_error (Api_errors.cannot_plug_vif, [ Ref.string_of vif.Vm_config.vif_ref ]))
     ) vifs
 
+(* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
+   xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
+   multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
 let sort_pcidevs devs =
-	let ids = ref [] in
-	List.iter (fun (id, _) ->
-		if not (List.mem id !ids) then
-			ids := id :: !ids
-	) devs;
-	
+	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
 	List.map (fun id ->
 				  id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
-			 ) !ids 
+			 ) ids 
 
 let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
   Helpers.log_exn_continue "attach_pcis"
