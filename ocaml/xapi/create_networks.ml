@@ -25,6 +25,8 @@ let internal_management_network_oc =
 		"ip_end", "169.254.255.254";
 		"netmask", "255.255.0.0"
 	]
+(* We use a well-known name for the internal management interface *)
+let internal_management_bridge = "xenapi"
 
 let create_guest_installer_network ~__context =
 	if try ignore(Helpers.get_host_internal_management_network ~__context); false with _ -> true then begin
@@ -32,6 +34,7 @@ let create_guest_installer_network ~__context =
 		let h' = Xapi_network.create ~__context ~name_label:internal_management_network_name
 			~name_description:internal_management_network_desc ~mTU:1500L
 			~other_config:internal_management_network_oc ~tags:[] in
+		Db.Network.set_bridge ~__context ~self:h' ~value:internal_management_bridge;
 		debug "Created new host internal management network: %s" (Ref.string_of h');
 	end
 			
