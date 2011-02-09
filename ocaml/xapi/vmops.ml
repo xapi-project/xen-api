@@ -670,10 +670,23 @@ let create_vfb_vkbd ~xc ~xs protocol domid =
   Device.Vfb.add ~xc ~xs ~hvm:false ~protocol domid;
   Device.Vkbd.add ~xc ~xs ~hvm:false ~protocol domid
 
+(* get CD VBDs required to resume *)
+let get_required_CD_VBDs ~__context ~vm =
+  List.filter (fun self -> (Db.VBD.get_currently_attached ~__context ~self) 
+      && (Db.VBD.get_type ~__context ~self = `CD))
+    (Db.VM.get_VBDs ~__context ~self:vm)
+   
+(* get non-CD VBDs required to resume *)
+let get_required_nonCD_VBDs ~__context ~vm =
+  List.filter (fun self -> (Db.VBD.get_currently_attached ~__context ~self) 
+      && (Db.VBD.get_type ~__context ~self <> `CD))
+    (Db.VM.get_VBDs ~__context ~self:vm)
+   
 (* get VBDs required to resume *)
 let get_VBDs_required_on_resume ~__context ~vm =
   List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
     (Db.VM.get_VBDs ~__context ~self:vm)
+  
 (* get real VDIs required to resume -- i.e. the things we have to attach and maybe activate *)
 let get_VDIs_required_on_resume ~__context ~vm =
   let needed_vbds = get_VBDs_required_on_resume ~__context ~vm in
@@ -682,10 +695,24 @@ let get_VDIs_required_on_resume ~__context ~vm =
       (List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) needed_vbds) in
   needed_vdis
 
+(* restore CD drives. This needs to happen earlier in the restore sequence. 
+ * See CA-17925
+ *)
+let _restore_CD_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
+  	let hvm = Helpers.will_boot_hvm ~__context ~self in
+	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
+    let needed_vbds = get_required_CD_VBDs ~__context ~vm:self in
+	let string_of_vbd_list vbds = String.concat "; " 
+	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
+    debug "CD VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
+
+  	(* If any VBDs cannot be attached, let the exn propagate *)
+	List.iter (fun self -> create_vbd ~__context ~xs ~hvm ~protocol domid self) needed_vbds
+  
 (* restore the devices, but not the domain; the vdis must all be attached/activated by the
    time this function is executed
 *)
-let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
+let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs includeCDs =
 	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	(* CA-25297: domarch is r/o and not currently stored in the LBR *)
 	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
@@ -694,7 +721,9 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
 
 	(* We /must/ be able to re-attach all the VBDs the guest had when it suspended. *)
-	let needed_vbds = get_VBDs_required_on_resume ~__context ~vm:self in
+	let needed_vbds = 
+      if includeCDs then get_VBDs_required_on_resume ~__context ~vm:self 
+      else get_required_nonCD_VBDs ~__context ~vm:self in
 	debug "To restore this domain we need VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
@@ -800,7 +829,7 @@ let restore ~__context ~xc ~xs ~self start_paused =
 		     (fun () ->
 			try
 			  let vifs = Vm_config.vifs_of_vm ~__context ~vm:self domid in
-			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs;
+			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs true;
 			  _restore_domain ~__context ~xc ~xs ~self snapshot fd ?vnc_statefile domid vifs;
 
 			with exn ->
