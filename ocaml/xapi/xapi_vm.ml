@@ -417,6 +417,7 @@ module Reboot = struct
 	 Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_reboot else Xapi_hooks.reason__hard_reboot) ~vm;
 	 debug "Destroying domain...";
          with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm ~clear_currently_attached:false domid `Running);
+         Xapi_hooks.vm_post_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_reboot else Xapi_hooks.reason__hard_reboot) ~vm;
 	 
 	 (* At this point the domain has been destroyed but the VM is still marked as Running.
 	    If any error occurs then we must remember to clean everything up... *)
@@ -540,6 +541,8 @@ module Shutdown = struct
 			   Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
 			   debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
  		       Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+		       Xapi_hooks.vm_post_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
+
 		       (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
 		       Monitor.do_monitor __context xc
 		  )
@@ -755,7 +758,8 @@ let suspend  ~__context ~vm =
 						debug "suspend phase 4/4: destroying the domain";
 						Vmops.destroy ~clear_currently_attached:false
 							~__context ~xc ~xs ~self:vm domid `Suspended;
-
+						Xapi_hooks.vm_post_destroy ~__context
+		                                        ~reason:Xapi_hooks.reason__suspend ~vm;
 				)
 			)
 		) ()
