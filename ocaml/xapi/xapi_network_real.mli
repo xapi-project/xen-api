@@ -15,9 +15,11 @@
  * @group Networking
  *)
 
-(** Set-up a guest installer network [bridge]. *)
-val setup_guest_installer_network :
-  __context:Context.t -> string -> (string * string) list -> unit
+(** Set-up a host internal management network *)
+val maybe_start : string -> (string * string) list -> unit
 
-(** Try to shut down the guest installer network [bridge]. *)
-val maybe_shutdown_guest_installer_network : string -> unit
+(** Shutdown a host internal management network *)
+val maybe_stop : string -> unit
+
+(** On server start we may need to restart the proxy *)
+val on_server_start : unit -> unit

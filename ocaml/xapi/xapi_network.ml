@@ -46,7 +46,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
   let other_config = Db.Network.get_other_config ~__context ~self in
   if (List.mem_assoc Xapi_globs.is_guest_installer_network other_config)
     && (List.assoc Xapi_globs.is_guest_installer_network other_config = "true")
-  then Xapi_network_real.setup_guest_installer_network ~__context bridge other_config;
+  then Xapi_network_real.maybe_start bridge other_config;
 
   (* Mark shafted PIFs as not currently_attached *)
   List.iter
@@ -67,7 +67,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
     ) local_pifs
 
 let detach bridge_name = 
-  Xapi_network_real.maybe_shutdown_guest_installer_network bridge_name;
+  Xapi_network_real.maybe_stop bridge_name;
   if Netdev.network.Netdev.exists bridge_name then begin
     List.iter (fun iface ->
 		 D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
