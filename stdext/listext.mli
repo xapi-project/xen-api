@@ -195,4 +195,8 @@ sig
 	    from [keys] to previous values for [keys] in [al]. If a key is not found
 	    in [al], the [default] is used. *)
 	val restrict_with_default : 'v -> 'k list -> ('k * 'v) list -> ('k * 'v) list
+
+	(** range lower upper = [lower; lower + 1; ...; upper - 1]
+	    Returns the empty list if lower >= upper. *)
+	val range : int -> int -> int list
 end

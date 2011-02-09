@@ -209,4 +209,11 @@ let filter_map f list =
 let restrict_with_default default keys al =
 	make_assoc (fun k -> assoc_default k al default) keys
 
+let range lower =
+	let rec aux accu upper =
+		if lower >= upper
+		then accu
+		else aux (upper-1::accu) (upper-1) in
+	aux []
+
 end
