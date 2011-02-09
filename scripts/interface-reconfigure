@@ -269,6 +269,7 @@ def ipdev_open_ifcfg(pif):
     f.write("XEMANAGED=yes\n")
     f.write("DEVICE=%s\n" % ipdev)
     f.write("ONBOOT=no\n")
+    f.write("NOZEROCONF=yes\n")
 
     return f
 

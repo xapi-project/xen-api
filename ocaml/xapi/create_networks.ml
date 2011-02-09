@@ -15,13 +15,26 @@
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
-let create_guest_installer_network ~__context =
-  let exists = try ignore(Helpers.get_guest_installer_network ~__context); true with e -> (log_backtrace(); false) in
-  if not exists then
-    ignore(Xapi_network.create ~__context ~name_label:"Guest installer network"
-      ~name_description:"Network on which guests will get assigned a private local IP address" ~mTU:1500L
-      ~other_config:[Xapi_globs.is_guest_installer_network,"true";"ip_begin","192.168.128.1";"ip_end","192.168.128.254";"netmask","255.255.255.0"] ~tags:[])
+let internal_management_network_name = "Host internal management network"
+let internal_management_network_desc = "Network on which guests will be assigned a private link-local IP address which can be used to talk XenAPI"
+let internal_management_network_oc = 
+	[
+		Xapi_globs.is_guest_installer_network, "true"; (* for backward compat *)
+		Xapi_globs.is_host_internal_management_network, "true";
+		"ip_begin", "169.254.0.1";
+		"ip_end", "169.254.255.254";
+		"netmask", "255.255.0.0"
+	]
 
+let create_guest_installer_network ~__context =
+	if try ignore(Helpers.get_host_internal_management_network ~__context); false with _ -> true then begin
+		(* The new "host internal management network" is created with both other_config keys *)
+		let h' = Xapi_network.create ~__context ~name_label:internal_management_network_name
+			~name_description:internal_management_network_desc ~mTU:1500L
+			~other_config:internal_management_network_oc ~tags:[] in
+		debug "Created new host internal management network: %s" (Ref.string_of h');
+	end
+			
 let create_networks_localhost () = 
   Server_helpers.exec_with_new_task "creating networks"
     (fun __context->
