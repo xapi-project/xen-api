@@ -23,7 +23,7 @@ bring_up_mgmt_if() {
 bring_up_current_ifs(){
     [ -n "${CURRENT_INTERFACES}" ] || return 0
     for INTF in ${CURRENT_INTERFACES}; do
-        [ ${INTF} != ${MANAGEMENT_INTERFACE} ] || continue
+        [ ${INTF} != "${MANAGEMENT_INTERFACE}" ] || continue
 	action $"Bringing up additional interface ${INTF}: " \
 	    ${INTERFACE_RECONFIGURE} --force-interface ${INTF} up
     done
