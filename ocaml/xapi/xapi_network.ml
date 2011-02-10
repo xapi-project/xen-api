@@ -149,6 +149,12 @@ let destroy ~__context ~self =
 	let pifs = Db.Network.get_PIFs ~__context ~self in
 	if pifs <> [] 
 	then (raise (Api_errors.Server_error (Api_errors.network_contains_pif,List.map Ref.string_of pifs)));
+	(* CA-43250: don't let people remove the internal management network *)
+	let oc = Db.Network.get_other_config ~__context ~self in
+	if List.mem_assoc Xapi_globs.is_host_internal_management_network oc
+		&& (try bool_of_string (List.assoc Xapi_globs.is_host_internal_management_network oc) with _ -> false)
+	then raise (Api_errors.Server_error (Api_errors.cannot_destroy_system_network, [ Ref.string_of self ]));
+
 	(* destroy all the VIFs now rather than wait for the GC thread. *)
 	List.iter (fun vif ->
 		     Helpers.log_exn_continue (Printf.sprintf "destroying VIF: %s" (Ref.string_of vif))
