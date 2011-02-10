@@ -24,5 +24,8 @@ val internal_management_network_desc : string
 (** The other_config of the internal management network *)
 val internal_management_network_oc : (string * string) list
 
+(** The well-known bridge name *)
+val internal_management_bridge : string
+
 (** Create a host internal management network (if it does not exist yet). *)
 val create_networks_localhost : unit -> unit
