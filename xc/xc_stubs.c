@@ -567,7 +567,7 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 		}
 	}
 
-	physinfo = caml_alloc_tuple(10);
+	physinfo = caml_alloc_tuple(11);
 	Store_field(physinfo, 0, Val_int(COMPAT_FIELD_physinfo_get_nr_cpus(c_physinfo)));
 	Store_field(physinfo, 1, Val_int(c_physinfo.threads_per_core));
 	Store_field(physinfo, 2, Val_int(c_physinfo.cores_per_socket));
@@ -578,6 +578,7 @@ CAMLprim value stub_xc_physinfo(value xc_handle)
 	Store_field(physinfo, 7, caml_copy_nativeint(c_physinfo.free_pages));
 	Store_field(physinfo, 8, caml_copy_nativeint(c_physinfo.scrub_pages));
 	Store_field(physinfo, 9, cap_list);
+	Store_field(physinfo, 10, Val_int(c_physinfo.max_cpu_id + 1));
 
 	CAMLreturn(physinfo);
 }
