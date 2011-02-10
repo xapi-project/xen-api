@@ -81,6 +81,7 @@ type physinfo =
 	scrub_pages      : nativeint;
 	(* XXX hw_cap *)
 	capabilities     : physinfo_cap_flag list;
+	max_nr_cpus      : int;
 }
 
 type version =
