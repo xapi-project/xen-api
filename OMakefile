@@ -1,5 +1,5 @@
-IPROG=install -m 755 -o root -g root
-IDATA=install -m 644 -o root -g root
+IPROG=install -m 755
+IDATA=install -m 644
 
 XEN_COMPILE_ARCH = $(shell uname -m | sed -e"s/i.86/x86_32/g")
 

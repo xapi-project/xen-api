@@ -4,6 +4,9 @@ WWWBASH_DIR=$(SDKWWW)/client-examples/bash-cli
 EXAMPLES=install-debian suspend-resume clone-vms move-management-to-bond
 EXAMPLES_HTML=$(addsuffix .html, $(EXAMPLES))
 
+README : index.html
+	lynx -dump index.html > README
+
 .PHONY: sdk-install
 sdk-install:
 	# copy in the bash examples
@@ -12,7 +15,7 @@ sdk-install:
 	$(IDATA) $(EXAMPLES_HTML) $(BASH_DIR)
 
 	$(IDATA) index.html $(BASH_DIR)	
-	lynx -dump index.html > $(BASH_DIR)/README
+	$(IDATA) README $(BASH_DIR)
 
 	mkdir -p $(WWWBASH_DIR)
 	$(IDATA) $(EXAMPLES) $(WWWBASH_DIR)
