@@ -10,9 +10,11 @@ Group:   System/Hypervisor
 License: LGPL+linking exception
 URL:  http://www.xen.org
 Source0: xapi-%{version}.tar.bz2
+Source1: jquery-1.1.3.1.pack.js
+Source2: jquery.treeview.zip
 Patch0: xapi-version.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-root
-BuildRequires: pam-devel tetex xapi-libs-devel ocaml omake ocaml-findlib ocaml-xmlm
+BuildRequires: pam-devel tetex-latex xapi-libs-devel ocaml omake ocaml-findlib ocaml-xmlm ocaml-type-conv ocaml-xmlm-devel xen-devel zlib-devel
 
 %description
 XCP toolstack.
@@ -92,6 +94,7 @@ This package contains Xen-API documentation and examples in several programming 
 
 %prep 
 %setup -q
+cp $RPM_SOURCE_DIR/jquery* $RPM_BUILD_DIR/xapi-0.2/ocaml/idl
 %patch0 -p0 -b xapi-version.patch
 
 %build

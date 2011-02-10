@@ -26,13 +26,15 @@ sdk-install:
 	$(IDATA) $(PYTHON_LIB) $(DIR)
 	$(IDATA) $(PYTHON_HTML) $(DIR)
 	$(IDATA) index.html $(DIR)	
-	lynx -dump index.html > $(SDK)/README
+	cp README $(SDK)
 
 	mkdir -p $(DIRWWW)
 	$(IDATA) $(PYTHON_SRC) $(DIRWWW)
 	$(IDATA) $(PYTHON_HTML) $(DIRWWW)
 	$(IDATA) index.html $(DIRWWW)
 
+README : index.html
+	lynx -dump index.html > README
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)/opt/xensource/libexec
