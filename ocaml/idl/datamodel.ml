@@ -64,6 +64,7 @@ let _vm = "VM"
 let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
 let _vm_appliance = "VM_appliance"
+let _dr_task = "DR_task"
 let _vmpp = "VMPP"
 let _network = "network"
 let _vif = "VIF"
@@ -4538,6 +4539,7 @@ let storage_repository =
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
+	field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "introduced_by" "The disaster recovery task which introduced this SR";
       ])
 	()
 
@@ -6468,7 +6470,50 @@ let vm_appliance =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
 		])
 		()
- 
+
+(* DR_task *)
+let dr_task =
+	let create = call
+		~name:"create"
+		~in_product_since:rel_boston
+		~params:[
+			String, "type", "The SR driver type of the SRs to introduce";
+			Map(String, String), "device_config", "The device configuration of the SRs to introduce";
+			Set(String), "whitelist", "The devices to use for disaster recovery"
+		]
+		~result:(Ref _dr_task, "The reference to the created task")
+		~doc:"Create a disaster recovery task which will query the supplied list of devices"
+		~allowed_roles:_R_POOL_OP
+		() in
+	let destroy = call
+		~name:"destroy"
+		~in_product_since:rel_boston
+		~params:[
+			Ref _dr_task, "self", "The disaster recovery task to destroy"
+		]
+		~doc:"Destroy the disaster recovery task, detaching and forgetting any SRs introduced which are no longer required"
+		~allowed_roles:_R_POOL_OP
+		() in
+	create_obj
+		~in_db:true
+		~in_product_since:rel_boston
+		~in_oss_since:None
+		~internal_deprecated_since:None
+		~persist:PersistEverything
+		~gen_constructor_destructor:false
+		~name:_dr_task
+		~descr:"DR task"
+		~gen_events:true
+		~doccomments:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~messages:[create; destroy]
+		~contents:[
+			uid _dr_task;
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) "introduced_SRs" "All SRs introduced by this appliance";
+		]
+		()
+
+
 (** events handling: *)
 
 let event_operation = Enum ("event_operation",
@@ -6860,6 +6905,7 @@ let all_system =
 		vm_guest_metrics;
 		vmpp;
 		vm_appliance;
+		dr_task;
 		host;
 		host_crashdump;
 		host_patch;
@@ -6962,6 +7008,7 @@ let all_relations =
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
 
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
+    (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
   ]
 
 (** the full api specified here *)
@@ -7043,6 +7090,7 @@ let expose_get_all_messages_for = [
 	_pgpu;
 	_gpu_group;
 	_vgpu;
+	_dr_task;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
