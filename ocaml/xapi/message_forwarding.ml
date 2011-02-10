@@ -555,6 +555,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
 	end
+	module DR_task = Local.DR_task
   (* module Alert = Local.Alert *)
 
   module Pool = struct
