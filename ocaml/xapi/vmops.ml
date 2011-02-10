@@ -318,12 +318,15 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
 
+  let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
+  debug "xen reports max %d pCPUs" pcpus;
+
   (* vcpu <-> pcpu affinity settings are stored here: *)
   let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
   (* convert the mask into a bitmap, one bit per pCPU *)
   let bitmap string = 
     let cpus = List.map int_of_string (String.split ',' string) in
-    let cpus = List.filter (fun x -> x >= 0 && x <= 63) cpus in
+    let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
     let bits = List.map (Int64.shift_left 1L) cpus in
     List.fold_left Int64.logor 0L bits in
   let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
