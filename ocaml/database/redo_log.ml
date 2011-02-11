@@ -41,6 +41,38 @@ let minimum_vdi_size =
 
 let redo_log_sm_config = [ "type", "raw" ]
 
+(* ------------------------------------------------------ *)
+(* Functions for handling creation of redo log instances. *)
+
+(* Encapsulate the state of a single redo_log instance. *)
+type redo_log = {
+	marker: string;
+	enabled: bool ref;
+	vdi: Static_vdis_list.vdi option ref;
+	currently_accessible: bool ref;
+	currently_accessible_m: Mutex.t;
+	currently_accessible_condition: Condition.t;
+	sock: Unix.file_descr option ref;
+	pid: (Forkhelpers.pidty * string * string) option ref;
+	dying_processes_mutex: Mutex.t;
+	num_dying_processes: int ref;
+}
+
+let create () =
+	let instance = {
+		marker = Uuid.to_string (Uuid.make_uuid ());
+		enabled = ref false;
+		vdi = ref None;
+		currently_accessible = ref true;
+		currently_accessible_m = Mutex.create ();
+		currently_accessible_condition = Condition.create ();
+		sock = ref None;
+		pid = ref None;
+		dying_processes_mutex = Mutex.create ();
+		num_dying_processes = ref 0;
+	} in
+	instance
+
 (* ------------------------------------------------------------------------ *)
 (* Functions relating to whether writing to the log is enabled or disabled. *)
 
