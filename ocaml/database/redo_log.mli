@@ -22,6 +22,22 @@ val minimum_vdi_size : int64
 val redo_log_sm_config : (string * string) list
 (** SM config for redo log VDI *)
 
+(** {redo_log data type} *)
+type redo_log = {
+	marker: string;
+	enabled: bool ref;
+	vdi: Static_vdis_list.vdi option ref;
+	currently_accessible: bool ref;
+	currently_accessible_m: Threadext.Mutex.t;
+	currently_accessible_condition: Condition.t;
+	sock: Unix.file_descr option ref;
+	pid: (Forkhelpers.pidty * string * string) option ref;
+	dying_processes_mutex: Threadext.Mutex.t;
+	num_dying_processes: int ref;
+}
+
+val create: unit -> redo_log
+
 (** {2 Enabling and disabling writing} *)
 
 val is_enabled : unit -> bool

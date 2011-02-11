@@ -502,6 +502,9 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {3 Settings related to the connection to the block device I/O process} *)
 
+(** The maximum allowed number of redo_log instances. *)
+let redo_log_max_instances = 8
+
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
 let redo_log_max_block_time_empty = 2.
 
