@@ -38,8 +38,6 @@ type redo_log = {
 	num_dying_processes: int ref;
 }
 
-val create: unit -> redo_log
-
 (** {2 Enabling and disabling writing} *)
 
 val is_enabled : redo_log -> bool
@@ -57,6 +55,20 @@ val shutdown : redo_log -> unit
 (** Stop the I/O process. Will do nothing if it's not already started. *)
 val switch : redo_log -> string -> unit
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
+
+(** {Keeping track of existing redo_log instances} *)
+val create: unit -> redo_log
+(* Create a redo log instance and add it to the set. *)
+
+val delete: redo_log -> unit
+(* Shutdown a redo_log instance and remove it from the set. *)
+
+(** {Finding active redo_log instances} *)
+val active_redo_logs_exist : unit -> bool
+(* Return true if any redo_logs are active. *)
+
+val with_active_redo_logs : (redo_log -> unit) -> unit
+(* Apply the supplied function to all active redo_logs. *)
 
 (** {2 Interacting with the block device} *)
 
@@ -96,8 +108,9 @@ val empty : redo_log -> unit
 (** Invalidate the block device. This means that subsequent attempts to read from the block device will not find anything.
     This function is best-effort only and does not raise any exceptions in the case of error. *)
 
-val flush_db_to_redo_log: Db_cache_types.Database.t -> redo_log -> unit
-(** Immediately write the given database to the redo log *)
+val flush_db_to_redo_log: Db_cache_types.Database.t -> unit
+(** Immediately write the given database to all active redo logs *)
 
-val database_callback: Db_cache_types.update -> Db_cache_types.Database.t -> redo_log -> unit
-(** Given a database update, add it to the redo log *)
+val database_callback: Db_cache_types.update -> Db_cache_types.Database.t -> unit
+(** Given a database update, add it to all active redo logs *)
+
