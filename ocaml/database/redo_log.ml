@@ -41,10 +41,9 @@ let minimum_vdi_size =
 
 let redo_log_sm_config = [ "type", "raw" ]
 
-(* ------------------------------------------------------ *)
-(* Functions for handling creation of redo log instances. *)
-
+(* ---------------------------------------------------- *)
 (* Encapsulate the state of a single redo_log instance. *)
+
 type redo_log = {
 	marker: string;
 	enabled: bool ref;
@@ -60,22 +59,15 @@ type redo_log = {
 	num_dying_processes: int ref;
 }
 
-let create () =
-	let instance = {
-		marker = Uuid.to_string (Uuid.make_uuid ());
-		enabled = ref false;
-		vdi = ref None;
-		currently_accessible = ref true;
-		currently_accessible_mutex = Mutex.create ();
-		currently_accessible_condition = Condition.create ();
-		time_of_last_failure = ref 0.;
-		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
-		sock = ref None;
-		pid = ref None;
-		dying_processes_mutex = Mutex.create ();
-		num_dying_processes = ref 0;
-	} in
-	instance
+module RedoLogSet = Set.Make(
+	struct
+		type t = redo_log
+		let compare = fun log1 log2 -> compare log1.marker log2.marker
+	end
+)
+
+(* Keep a store of all redo_logs - this will make it easy to write to all the active ones. *)
+let all_redo_logs = ref (RedoLogSet.empty)
 
 (* ------------------------------------------------------------------------ *)
 (* Functions relating to whether writing to the log is enabled or disabled. *)
@@ -93,7 +85,6 @@ let disable log =
   R.info "Disabling use of redo log";
   log.vdi := None;
   log.enabled := false
-
 
 (* ------------------------------------------------------------------------------------------------ *)
 (* Functions relating to whether the latest attempt to read/write the redo-log succeeded or failed. *)
@@ -656,6 +647,47 @@ let connect_and_do f log =
 let connect_and_perform_action f desc log =
   connect_and_do (perform_action f desc) log
 
+(* ------------------------------------------------------------------- *)
+(* Functions for handling creation and deletion of redo log instances. *)
+
+let redo_log_creation_mutex = Mutex.create ()
+
+let create () =
+	let instance = {
+		marker = Uuid.to_string (Uuid.make_uuid ());
+		enabled = ref false;
+		vdi = ref None;
+		currently_accessible = ref true;
+		currently_accessible_mutex = Mutex.create ();
+		currently_accessible_condition = Condition.create ();
+		time_of_last_failure = ref 0.;
+		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
+		sock = ref None;
+		pid = ref None;
+		dying_processes_mutex = Mutex.create ();
+		num_dying_processes = ref 0;
+	} in
+	Mutex.execute redo_log_creation_mutex
+		(fun () -> all_redo_logs := RedoLogSet.add instance !all_redo_logs);
+	instance
+
+let delete log =
+	shutdown log;
+	disable log;
+	Mutex.execute redo_log_creation_mutex
+		(fun () -> all_redo_logs := RedoLogSet.remove log !all_redo_logs)
+
+(* -------------------------------------------------------- *)
+(* Helper functions for interacting with multiple redo_logs *)
+let active_redo_logs_exist () =
+	RedoLogSet.exists (fun log -> is_enabled log) !(all_redo_logs)
+
+let get_active_redo_logs () =
+	RedoLogSet.filter (fun log -> is_enabled log) !(all_redo_logs)
+
+let with_active_redo_logs f =
+	let active_redo_logs = get_active_redo_logs () in
+	RedoLogSet.iter f active_redo_logs
 
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
@@ -701,17 +733,20 @@ let empty log =
   if is_enabled log then
     connect_and_perform_action (action_empty) "invalidate the redo log" log
 
-(* Write the given database to the redo-log *)
-let flush_db_to_redo_log db log =
-	if is_enabled log then begin
+(** ------------------------------------------------ *)
+(** Functions which operate on all active redo_logs. *)
+
+(* Write the given database to all active redo_logs *)
+let flush_db_to_redo_log db =
+	with_active_redo_logs (fun log ->
 		R.debug "Flushing database to redo-log";
 		let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
-		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log
-	end
+		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log)
 
-let database_callback event db log =
+(* Write a delta to all active redo_logs *)
+let database_callback event db =
 	let to_write = 
-		if is_enabled log 
+		if active_redo_logs_exist ()
 		then match event with
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
 				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
@@ -731,8 +766,10 @@ let database_callback event db log =
 		else None in
 
 	Opt.iter (fun entry ->
-		write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
-			(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
-				flush_db_to_redo_log db log
-			) log
+		with_active_redo_logs (fun log ->
+			write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
+				(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
+					flush_db_to_redo_log db
+				) log
+		)
 	) to_write
