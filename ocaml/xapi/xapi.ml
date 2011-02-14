@@ -443,11 +443,11 @@ let start_redo_log () =
     begin
       debug "Redo log was enabled when shutting down, so restarting it";
       (* enable the use of the redo log *)
-      Redo_log.enable Xapi_globs.gen_metadata_vdi_reason;
+      Redo_log.enable Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason;
       debug "Attempting to extract a database from a metadata VDI";
       (* read from redo log and store results in a staging file for use in the
        * next step; best effort only: does not raise any exceptions *)
-      Redo_log_usage.read_from_redo_log Xapi_globs.gen_metadata_db
+      Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_db
     end
   with e ->
     debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
@@ -805,7 +805,7 @@ let server_init() =
      running etc.) -- see CA-11087 *)
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
-    "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], Redo_log_alert.loop;
+    "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop Xapi_ha.ha_redo_log);
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
