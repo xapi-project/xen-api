@@ -19,11 +19,11 @@ exception NoGeneration
 exception DeltaTooOld
 exception DatabaseWrongSize of int * int
 
-let read_from_redo_log staging_path =
+let read_from_redo_log log staging_path =
   try
     (* 1. Start the process with which we communicate to access the redo log *)
     R.debug "Starting redo log";
-    Redo_log.startup ();
+    Redo_log.startup log;
 
     (* 2. Read the database and any deltas from it into the in-memory cache, applying the deltas to the database *)
     let latest_generation = ref None in
@@ -73,7 +73,7 @@ let read_from_redo_log staging_path =
     in
 
     R.debug "Reading from redo log";
-    Redo_log.apply read_db read_delta; 
+    Redo_log.apply read_db read_delta log;
 
     (* 3. Write the database and generation to a file 
      * Note: if there were no deltas applied then this is semantically 
@@ -102,9 +102,9 @@ let read_from_redo_log staging_path =
     end
   with _ -> () (* it's just a best effort. if we can't read from the log, then don't worry. *)
 
-let stop_using_redo_log () =
+let stop_using_redo_log log =
   R.debug "Stopping using redo log";
   try
-    Redo_log.shutdown()
+    Redo_log.shutdown log
   with _ -> () (* best effort only *)
 
