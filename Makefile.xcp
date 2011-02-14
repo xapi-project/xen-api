@@ -19,3 +19,6 @@ srpm:
 	git archive --prefix=xapi-libs-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2  # xen-api-libs/Makefile.xcp
 	rpmbuild --define "XEN_RELEASE $(XEN_RELEASE)" -bs --nodeps xapi-libs.spec
 
+.PHONY: rpm
+rpm: srpm
+	rpmbuild -bb xapi-libs.spec
