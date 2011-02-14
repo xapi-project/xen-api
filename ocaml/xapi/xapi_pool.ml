@@ -1474,7 +1474,7 @@ let enable_redo_log ~__context ~sr =
 	(* enable the new redo log, unless HA is enabled (which means a redo log
 	 * is already in use) *)
 	if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
-		Redo_log.enable Xapi_globs.gen_metadata_vdi_reason;
+		Redo_log.enable Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason;
 		Localdb.put Constants.redo_log_enabled "true"
 	end;
 	info "The redo log is now enabled"
@@ -1486,8 +1486,8 @@ let disable_redo_log ~__context =
 	let pool = Helpers.get_pool ~__context in
 	Db.Pool.set_redo_log_enabled ~__context ~self:pool ~value:false;
 	if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin		
-		Redo_log_usage.stop_using_redo_log ();
-		Redo_log.disable ();
+		Redo_log_usage.stop_using_redo_log Xapi_ha.ha_redo_log;
+		Redo_log.disable Xapi_ha.ha_redo_log;
 		
 		(* disable static-ness of the VDI and clear local-DB flags *)
 		let vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
