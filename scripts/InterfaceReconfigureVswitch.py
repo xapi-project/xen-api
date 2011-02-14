@@ -171,6 +171,28 @@ def datapath_configure_bond(pif,slaves):
                 argv += ['bond_%s=%d' % (name, value)]
             except ValueError:
                 log("bridge %s has invalid %s '%s'" % (bridge, name, value))
+        elif name in ['miimon', 'use_carrier']:
+            try:
+                value = int(val)
+                if value < 0:
+                    raise ValueError
+
+                if name == 'use_carrier':
+                    if value:
+                        value = "carrier"
+                    else:
+                        value = "miimon"
+                    argv += ["other-config:bond-detect-mode=%s" % value]
+                else:
+                    argv += ["other-config:bond-miimon-interval=%d" % value]
+            except ValueError:
+                log("bridge %s has invalid %s '%s'" % (bridge, name, value))
+        elif name == "mode":
+
+            if val in ['balance-slb', 'active-backup']:
+                argv += ['bond_%s=%s' % (name, val)]
+            else:
+                log("bridge %s has invalid %s '%s'" % (bridge, name, val))
         else:
             # Pass other bond options into other_config.
             argv += ["other-config:%s=%s" % (vsctl_escape("bond-%s" % name),
@@ -342,7 +364,12 @@ def set_br_external_ids(pif):
         #    log("Network PIF %s not currently attached (%s)" % (rec['uuid'],pifrec['uuid']))
         #    continue
         nwrec = db().get_network_record(rec['network'])
-        xs_network_uuids += [nwrec['uuid']]
+
+        uuid = nwrec['uuid']
+        if pif_is_vlan(nwpif):
+            xs_network_uuids.append(uuid)
+        else:
+            xs_network_uuids.insert(0, uuid)
 
     vsctl_argv = []
     vsctl_argv += ['# configure xs-network-uuids']
@@ -431,16 +458,24 @@ class DatapathVswitch(Datapath):
     def bring_down_existing(self):
         # interface-reconfigure is never explicitly called to down a
         # bond master.  However, when we are called to up a slave it
-        # is implicit that we are destroying the master.
+        # is implicit that we are destroying the master.  Conversely,
+        # when we are called to up a bond is is implicit that we are
+        # taking down the slaves.
         #
-        # This is (only) important in the case where the bond master
-        # uses DHCP.  We need to kill the dhclient process, otherwise
-        # bringing the bond master back up later will fail because
-        # ifup will refuse to start a duplicate dhclient.
+        # This is (only) important in the case where the device being
+        # implicitly taken down uses DHCP.  We need to kill the
+        # dhclient process, otherwise performing the inverse operation
+        # later later will fail because ifup will refuse to start a
+        # duplicate dhclient.
         bond_masters = pif_get_bond_masters(self._pif)
         for master in bond_masters:
             log("action_up: bring down bond master %s" % (pif_netdev_name(master)))
             run_command(["/sbin/ifdown", pif_bridge_name(master)])
+
+        bond_slaves = pif_get_bond_slaves(self._pif)
+        for slave in bond_slaves:
+            log("action_up: bring down bond slave %s" % (pif_netdev_name(slave)))
+            run_command(["/sbin/ifdown", pif_bridge_name(slave)])
 
     def configure(self):
         # Bring up physical devices. ovs-vswitchd initially enables or
