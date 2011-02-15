@@ -84,14 +84,14 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	    if is_tools_sr
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else
-	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	      then Some (Api_errors.ha_is_enabled, [])
 	      else
 		if not (List.mem Smint.Vdi_delete (Sm.capabilities_of_driver srtype))
 		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 		else None
       | `resize ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
 	    if not (List.mem Smint.Vdi_resize (Sm.capabilities_of_driver srtype)) 
@@ -102,7 +102,7 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None
       | `resize_online ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
 	    if not (List.mem Smint.Vdi_resize_online (Sm.capabilities_of_driver srtype)) 
