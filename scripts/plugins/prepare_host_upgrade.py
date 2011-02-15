@@ -191,12 +191,13 @@ def testUrl(session, args):
     try:
         url = args['url']
     except KeyError:
-        return "Missing argument 'url'"
+        raise XenAPI.Failure(["MISSING_URL", "Missing argument 'url'"])
 
-    if test_repo(url):
-        return "true"
-    else:
+    if not test_repo(url):
+        raise XenAPI.Failure(["INVALID_URL", "%s is not a valid repo " % url])
         return "false"
+    else:
+        return "true"
     
 # plugin entry point
 def main(session, args):
@@ -206,21 +207,23 @@ def main(session, args):
         url = args['url']
     except KeyError:
         xelogging.log("Missing argument 'url'")
-        return "Missing argument 'url'"
+        raise XenAPI.Failure(["MISSING_URL", "Missing argument 'url'"])
 
     xelogging.log("Verifying repo...")
     succeeded = False
     if not test_repo(url):
         xelogging.log("%s is not a valid repo" % url)
-        return "%s is not a valid repo " % url
+        raise XenAPI.Failure(["INVALID_URL", "%s is not a valid repo " % url])
     else:
         xelogging.log("Repo ok, preparing for upgrade.")
         succeeded = prepare_host_upgrade(url)
 
     if succeeded:
-        return "Host ready for upgrade."
+        xelogging.log("Preparation succeeded, ready for upgrade.")
+        return "true"
     else:
-        return "Preparation failed."
+        raise XenAPI.Failure(["ERROR_PREPARING_HOST",
+                              "There was an error in preparing the host for upgrade."])
 
 if __name__ == '__main__':
     XenAPIPlugin.dispatch({"main": main,
