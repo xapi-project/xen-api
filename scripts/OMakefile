@@ -101,6 +101,7 @@ install:
 	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xapi.d/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead/
+	$(IPROG) pci-info $(LIBEXEC)
 
 .PHONY: sdk-install
 sdk-install: install
