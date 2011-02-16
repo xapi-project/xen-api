@@ -255,6 +255,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/libexec/xenguest
 /opt/xensource/libexec/xha-lc
 /opt/xensource/libexec/xiu
+/opt/xensource/libexec/pci-info
 /opt/xensource/packages/post-install-scripts/debian-etch
 /opt/xensource/packages/post-install-scripts/debug
 /usr/lib/python2.4/site-packages/XenAPI.py
