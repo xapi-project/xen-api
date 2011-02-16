@@ -30,6 +30,8 @@ let master_database = ref (Db_cache_types.Database.make Schema.empty)
 
 let make () = Db_ref.in_memory (ref master_database)
 
+let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
+
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we
    don't waste writes storing non-persistent field values on disk.. At the moment there's not much to worry about, since there are
