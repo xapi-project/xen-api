@@ -4821,7 +4821,17 @@ let vdi_set_allow_caching = call
 	~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
 	~allowed_roles:_R_VM_ADMIN
 	()
-			  
+  
+let vdi_open_database = call
+	~name:"open_database"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
+	~result:(Ref _session, "A session which can be used to query the database")
+	~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A virtual disk *)
 let vdi =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -4846,6 +4856,7 @@ let vdi =
 		 vdi_generate_config;
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;
+		 vdi_open_database;
 		]
       ~contents:
       ([ uid _vdi;

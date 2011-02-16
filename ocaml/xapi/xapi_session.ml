@@ -713,3 +713,12 @@ let get_top ~__context ~self =
   match ancestry with
   | [] -> Ref.null
   | ancestry -> List.nth ancestry ((List.length ancestry)-1)
+
+let create_readonly_session ~__context =
+	let permissions = Rbac_static.get_refs [Rbac_static.role_read_only] in
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	login_no_password ~__context ~uname:None ~host:master ~pool:true
+		~is_local_superuser:false ~subject:(Ref.null) ~auth_user_sid:""
+		~auth_user_name:(Ref.string_of master)
+		~rbac_permissions:(List.map Ref.string_of permissions)

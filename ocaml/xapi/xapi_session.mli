@@ -35,3 +35,4 @@ val get_group_subject_identifier_from_session: __context:Context.t -> session:[ 
 val get_all_subject_identifiers: __context:Context.t -> string list
 val logout_subject_identifier: __context:Context.t -> subject_identifier:string -> unit
 val get_top: __context:Context.t -> self:API.ref_session -> API.ref_session
+val create_readonly_session: __context:Context.t -> API.ref_session
