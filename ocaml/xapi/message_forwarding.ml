@@ -2854,6 +2854,9 @@ end
 		ensure_vdi_not_on_running_vm ~__context ~self;
 		Local.VDI.set_allow_caching ~__context ~self ~value
 
+	let open_database ~__context ~self =
+		Local.VDI.open_database ~__context ~self
+
     (* know sr so just use SR forwarding policy direct here *)
     let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
       info "VDI.create: SR = '%s'; name label = '%s'" (sr_uuid ~__context sR) name_label;

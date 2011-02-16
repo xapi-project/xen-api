@@ -561,5 +561,37 @@ let set_on_boot ~__context ~self ~value =
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
 
-	
-		
+(* Functions for opening foreign databases on VDIs *)
+let open_database ~__context ~self =
+	(* Should only try to open VDIs of type metadata *)
+	let vdi_type = Db.VDI.get_type ~__context ~self in
+	if vdi_type <> `metadata then
+		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
+			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
+	let attach_vdi_to_master vdi reason =
+		let pool = List.hd (Db.Pool.get_all ~__context) in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.Host.attach_static_vdis rpc session_id master [vdi, reason])
+	in
+	(* Open the database contained in the VDI *)
+	let db_of_attached_vdi reason =
+		(* Read db to temporary file *)
+		let log = Redo_log.create () in
+		Redo_log.enable log reason;
+		let temp_db_file = "/var/xapi/foreign.db" in
+		Redo_log_usage.read_from_redo_log log temp_db_file;
+		Redo_log.delete log;
+		(* Create database connection and populate a database *)
+		let connection = Parse_db_conf.make temp_db_file in
+		let schema = Datamodel_schema.of_datamodel () in
+		Backend_xml.populate schema connection
+	in
+	(* Create a new session to query the database *)
+	let reason = Printf.sprintf "Opening database on VDI %s" (Ref.string_of self) in
+	attach_vdi_to_master self reason;
+	let db = db_of_attached_vdi reason in
+	let db_ref = Db_ref.in_memory (ref (ref db)) in
+	let read_only_session = Xapi_session.create_readonly_session ~__context in
+	Hashtbl.add Db_backend.foreign_databases read_only_session db_ref;
+	read_only_session
