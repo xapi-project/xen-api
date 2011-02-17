@@ -212,6 +212,9 @@ let ha_metadata_db = "/var/xapi/ha_metadata.db"
 (* temporary path for the general metadata database *)
 let gen_metadata_db = "/var/xapi/gen_metadata.db"
 
+(* temporary path for opening a foreign metadata database *)
+let foreign_metadata_db = "/var/xapi/foreign.db"
+
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
 (* A comma-separated list of extra xenstore paths to watch in the migration code during
@@ -536,6 +539,9 @@ let ha_metadata_vdi_reason = "HA metadata VDI"
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later (generic) *)
 let gen_metadata_vdi_reason = "general metadata VDI"
+
+(** Reason associated with the static VDI attach, to help identify the metadata VDI later (opening foreign databases) *)
+let foreign_metadata_vdi_reason = "foreign metadata VDI"
 
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
