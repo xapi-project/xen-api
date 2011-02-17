@@ -124,6 +124,7 @@ let __string_of_task : (string -> API.ref_task -> string) ref =
 let string_of_task __context = 
     !__string_of_task __context.task_name __context.task_id
 
+let switch_database ~__context ~database = {__context with database = database}
 
 (** destructors *)
 let destroy __context =
