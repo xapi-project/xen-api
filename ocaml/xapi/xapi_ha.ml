@@ -723,7 +723,8 @@ let redo_log_ha_enabled_at_startup () =
 		debug "HA is enabled, so enabling writing to redo-log";
 		Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason; (* enable the use of the redo log *)
 		debug "This node is a master; attempting to extract a database from a metadata VDI";
-		Redo_log_usage.read_from_redo_log ha_redo_log Xapi_globs.ha_metadata_db (* best effort only: does not raise any exceptions *)
+		let db_ref = Db_backend.make () in 
+		Redo_log_usage.read_from_redo_log ha_redo_log Xapi_globs.ha_metadata_db db_ref (* best effort only: does not raise any exceptions *)
 	end
 
 (* ----------------------------- *)
