@@ -1032,7 +1032,14 @@ let _ =
 	
   error Api_errors.cpu_feature_masking_not_supported ["details"]
 	~doc:"The CPU does not support masking of features." ();
-	
+
+	(* Disaster recovery errors *)
+	error Api_errors.vdi_contains_metadata_of_this_pool ["vdi"; "pool"]
+		~doc:"The VDI could not be opened for metadata recovery as it contains the current pool's metadata." ();
+
+	error Api_errors.no_more_redo_logs_allowed []
+		~doc:"The upper limit of active redo log instances was reached." ();
+
   ()
 
 

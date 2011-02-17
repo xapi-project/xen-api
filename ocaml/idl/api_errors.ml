@@ -413,3 +413,6 @@ let vm_bios_strings_already_set = "VM_BIOS_STRINGS_ALREADY_SET"
 let invalid_feature_string = "INVALID_FEATURE_STRING"
 let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
 
+(* Disaster recovery *)
+let vdi_contains_metadata_of_this_pool = "VDI_CONTAINS_METADATA_OF_THIS_POOL"
+let no_more_redo_logs_allowed = "NO_MORE_REDO_LOGS_ALLOWED"
