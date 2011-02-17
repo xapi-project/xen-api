@@ -1055,6 +1055,13 @@ let _ =
   error Api_errors.feature_requires_hvm ["details"]
     ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ()
 
+	(* Disaster recovery errors *)
+	error Api_errors.vdi_contains_metadata_of_this_pool ["vdi"; "pool"]
+		~doc:"The VDI could not be opened for metadata recovery as it contains the current pool's metadata." ();
+
+	error Api_errors.no_more_redo_logs_allowed []
+		~doc:"The upper limit of active redo log instances was reached." ();
+
 
 let _ =
   message Api_messages.ha_pool_overcommitted ~doc:"Pool has become overcommitted: it can nolonger guarantee to restart protected VMs if the configured number of hosts fail." ();
