@@ -563,35 +563,41 @@ let set_allow_caching ~__context ~self ~value =
 
 (* Functions for opening foreign databases on VDIs *)
 let open_database ~__context ~self =
-	(* Should only try to open VDIs of type metadata *)
+	(* Should only try to open VDIs of type metadata, *)
+	(* but allow VDIs of type redo_log for now *)
 	let vdi_type = Db.VDI.get_type ~__context ~self in
-	if vdi_type <> `metadata then
+	if not(List.mem vdi_type [`redo_log; `metadata]) then
 		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
 			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
-	let attach_vdi_to_master vdi reason =
-		let pool = List.hd (Db.Pool.get_all ~__context) in
-		let master = Db.Pool.get_master ~__context ~self:pool in
-		Helpers.call_api_functions ~__context (fun rpc session_id ->
-			Client.Host.attach_static_vdis rpc session_id master [vdi, reason])
+	let attach vdi reason =
+		debug "%s" "Attaching VDI for metadata import";
+		Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason
 	in
 	(* Open the database contained in the VDI *)
-	let db_of_attached_vdi reason =
+	let db_ref_of_attached_vdi reason =
 		(* Read db to temporary file *)
 		let log = Redo_log.create () in
+		debug "Enabling redo_log with vdi_attach reason [%s]" reason;
 		Redo_log.enable log reason;
-		let temp_db_file = "/var/xapi/foreign.db" in
-		Redo_log_usage.read_from_redo_log log temp_db_file;
+		let db = Db_cache_types.Database.make Schema.empty in
+		let db_ref = Db_ref.in_memory (ref (ref db)) in
+		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
 		Redo_log.delete log;
-		(* Create database connection and populate a database *)
-		let connection = Parse_db_conf.make temp_db_file in
-		let schema = Datamodel_schema.of_datamodel () in
-		Backend_xml.populate schema connection
+		db_ref
 	in
-	(* Create a new session to query the database *)
-	let reason = Printf.sprintf "Opening database on VDI %s" (Ref.string_of self) in
-	attach_vdi_to_master self reason;
-	let db = db_of_attached_vdi reason in
-	let db_ref = Db_ref.in_memory (ref (ref db)) in
+	let detach vdi =
+		debug "%s" "Detaching VDI after metadata import";
+		Static_vdis.permanent_vdi_detach ~__context ~vdi
+	in
+	debug "Attaching database VDI to master with reason [%s]" reason;
+	let reason = Xapi_globs.foreign_metadata_vdi_reason in
+	attach self reason;
+	debug "%s" "Attempting to read database";
+	let db_ref = db_ref_of_attached_vdi reason in
+	debug "%s" "Detaching metadata VDI";
+	detach self;
+	(* Create a new session to query the database, and associate it with the db ref *)
+	debug "%s" "Creating readonly session";
 	let read_only_session = Xapi_session.create_readonly_session ~__context in
 	Hashtbl.add Db_backend.foreign_databases read_only_session db_ref;
 	read_only_session
