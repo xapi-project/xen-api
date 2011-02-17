@@ -589,8 +589,8 @@ let open_database ~__context ~self =
 		debug "%s" "Detaching VDI after metadata import";
 		Static_vdis.permanent_vdi_detach ~__context ~vdi
 	in
-	debug "Attaching database VDI to master with reason [%s]" reason;
 	let reason = Xapi_globs.foreign_metadata_vdi_reason in
+	debug "Attaching database VDI to master with reason [%s]" reason;
 	attach self reason;
 	debug "%s" "Attempting to read database";
 	let db_ref = db_ref_of_attached_vdi reason in
