@@ -15,7 +15,11 @@
 
 (** {2 VDI related} *)
 
-val get_device : string -> Static_vdis_list.vdi option
+type block_device =
+	| Static_attached of Static_vdis_list.vdi
+	| Block_attached of string
+
+val get_static_device : string -> block_device option
 (** Finds an attached metadata VDI with a given reason *)
 val minimum_vdi_size : int64 
 (** Minimum size for redo log VDI *)
@@ -26,7 +30,7 @@ val redo_log_sm_config : (string * string) list
 type redo_log = {
 	marker: string;
 	enabled: bool ref;
-	vdi: Static_vdis_list.vdi option ref;
+	device: block_device option ref;
 	currently_accessible: bool ref;
 	currently_accessible_mutex: Threadext.Mutex.t;
 	currently_accessible_condition: Condition.t;
@@ -44,6 +48,8 @@ val is_enabled : redo_log -> bool
 (** Returns [true] iff writing deltas to the block device is enabled. *)
 val enable : redo_log -> string -> unit
 (** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a static-VDI reason as argument to select the device to use. *)
+val enable_block : redo_log -> string -> unit
+(** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a path as argument to select the device to use. *)
 val disable : redo_log -> unit
 (** Disables writing deltas to the block device. Subsequent modifications to the database will not be persisted to the block device. *)
 

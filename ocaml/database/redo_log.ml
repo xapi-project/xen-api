@@ -20,7 +20,11 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)
 
-let get_device reason =
+type block_device =
+	| Static_attached of Static_vdis_list.vdi
+	| Block_attached of string
+
+let get_static_device reason =
   (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
 	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
   let vdis = List.filter
@@ -31,7 +35,7 @@ let get_device reason =
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
   match vdis with
   | [] -> None
-  | hd :: _ -> Some hd
+  | hd :: _ -> Some (Static_attached hd)
 
 (* Make sure we have plenty of room for the database *)
 let minimum_vdi_size =
@@ -47,7 +51,7 @@ let redo_log_sm_config = [ "type", "raw" ]
 type redo_log = {
 	marker: string;
 	enabled: bool ref;
-	vdi: Static_vdis_list.vdi option ref;
+	device: block_device option ref;
 	currently_accessible: bool ref;
 	currently_accessible_mutex: Mutex.t;
 	currently_accessible_condition: Condition.t;
@@ -78,12 +82,17 @@ let is_enabled log = !(log.enabled)
 
 let enable log vdi_reason =
   R.info "Enabling use of redo log";
-  log.vdi := get_device vdi_reason;
+  log.device := get_static_device vdi_reason;
+  log.enabled := true
+
+let enable_block log path =
+  R.info "Enabling use of redo log";
+  log.device := Some (Block_attached path);
   log.enabled := true
 
 let disable log =
   R.info "Disabling use of redo log";
-  log.vdi := None;
+  log.device := None;
   log.enabled := false
 
 (* ------------------------------------------------------------------------------------------------ *)
@@ -519,6 +528,12 @@ let healthy log =
 
 exception TooManyProcesses
 
+let get_device_path = function
+| Static_attached vdi ->
+	vdi.Static_vdis_list.path
+| Block_attached path ->
+	Some path
+
 let startup log =
   if is_enabled log then
     try
@@ -531,11 +546,11 @@ let startup log =
             Mutex.execute log.dying_processes_mutex
               (fun () -> if !(log.num_dying_processes) >= Xapi_globs.redo_log_max_dying_processes then raise TooManyProcesses);
 
-            match !(log.vdi) with
+            match !(log.device) with
             | None ->
               R.info "Could not find block device"
-            | Some vdi ->
-			  match vdi.Static_vdis_list.path with
+            | Some device ->
+			  match (get_device_path device) with
 			  | None ->
 		        R.info "Could not find block device"
 		      | Some block_dev -> begin
@@ -602,7 +617,7 @@ let startup log =
 
 let switch log vdi_reason =
   shutdown log;
-  log.vdi := get_device vdi_reason;
+  log.device := get_static_device vdi_reason;
   startup log
 
 (* Given a socket, execute a function and catch exceptions. *)
@@ -656,7 +671,7 @@ let create () =
 	let instance = {
 		marker = Uuid.to_string (Uuid.make_uuid ());
 		enabled = ref false;
-		vdi = ref None;
+		device = ref None;
 		currently_accessible = ref true;
 		currently_accessible_mutex = Mutex.create ();
 		currently_accessible_condition = Condition.create ();
