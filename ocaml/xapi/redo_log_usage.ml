@@ -37,17 +37,17 @@ let read_from_redo_log log staging_path =
           (* ideally, the reading would also respect the latest_response_time *)
           let total_read = Unixext.read_data_in_chunks (fun str length -> Unixext.time_limited_write outfd length str latest_response_time) fd in
           R.debug "Reading database from fd into file %s" temp_file;
-    
+
           (* Check that we read the expected amount of data *)
           R.debug "We read %d bytes and were told to expect %d bytes" total_read expected_length;
           if total_read <> expected_length then raise (DatabaseWrongSize (expected_length, total_read));
-    
+
           (* Read from the file into the cache *)
-		  let conn = Parse_db_conf.make temp_file in
+          let conn = Parse_db_conf.make temp_file in
           (* ideally, the reading from the file would also respect the latest_response_time *)
-		  let db = Backend_xml.populate (Datamodel_schema.of_datamodel ()) conn in
-		  let t = Db_backend.make () in
-		  Db_ref.update_database t (fun _ -> db);
+          let db = Backend_xml.populate (Datamodel_schema.of_datamodel ()) conn in
+          let t = Db_backend.make () in
+          Db_ref.update_database t (fun _ -> db);
 
           R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
 
@@ -61,15 +61,15 @@ let read_from_redo_log log staging_path =
     in
 
     let read_delta gen_count delta =
-		(* Apply the delta *)
-		Db_cache.apply_delta_to_cache delta;
-		(* Update the generation count *)
-		match !latest_generation with
-			| None -> raise NoGeneration (* we should have already read in a database with a generation count *)
-			| Some g ->
-				if gen_count > g 
-				then latest_generation := Some gen_count
-				else raise DeltaTooOld (* the delta should be at least as new as the database to which it applies *)
+      (* Apply the delta *)
+      Db_cache.apply_delta_to_cache delta;
+      (* Update the generation count *)
+      match !latest_generation with
+      | None -> raise NoGeneration (* we should have already read in a database with a generation count *)
+      | Some g ->
+        if gen_count > g 
+        then latest_generation := Some gen_count
+        else raise DeltaTooOld (* the delta should be at least as new as the database to which it applies *)
     in
 
     R.debug "Reading from redo log";
@@ -78,10 +78,10 @@ let read_from_redo_log log staging_path =
     (* 3. Write the database and generation to a file 
      * Note: if there were no deltas applied then this is semantically 
      *   equivalent to copying the temp_file used above in read_db rather than 
-	 *   deleting it. 
+     *   deleting it. 
      * Note: we don't do this using the DB lock since this is only executed at 
-	 *   startup, before the database engine has been started, so there's no 
-	 *   danger of conflicting writes. *)
+     *   startup, before the database engine has been started, so there's no 
+     *   danger of conflicting writes. *)
     R.debug "Staging redo log to file %s" staging_path;
     (* Remove any existing file *)
     Unixext.unlink_safe staging_path;
@@ -91,14 +91,14 @@ let read_from_redo_log log staging_path =
         R.debug "No database was read, so no staging is necessary";
         raise NoGeneration
       | Some generation ->
-		  R.debug "Database from redo log has generation %Ld" generation;
+        R.debug "Database from redo log has generation %Ld" generation;
         (* Write the in-memory cache to the file *)
-		  (* Make sure the generation count is right -- is this necessary? *)
-		  let t = Db_backend.make () in
-		  Db_ref.update_database t (Db_cache_types.Database.set_generation generation);
-		  let db = Db_ref.get_database t in
-		  Db_xml.To.file staging_path db;
-          Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
+        (* Make sure the generation count is right -- is this necessary? *)
+        let t = Db_backend.make () in
+        Db_ref.update_database t (Db_cache_types.Database.set_generation generation);
+        let db = Db_ref.get_database t in
+        Db_xml.To.file staging_path db;
+        Unixext.write_string_to_file (staging_path ^ ".generation") (Generation.to_string generation)
     end
   with _ -> () (* it's just a best effort. if we can't read from the log, then don't worry. *)
 
