@@ -237,10 +237,11 @@ Attempt to retrieve error code: (%s)"
 			(if enable_log
 			then response
 			else "Logging output disabled for this call.") in
-	let message =
-		try data_from_leaf (descend_and_match ["ErrorMessage"] xml_data)
-		with | Xml_parse_failure msg -> "" in
-	raise_internal_error [code; message]
+	if (code != 0) then
+		let message =
+			try data_from_leaf (descend_and_match ["ErrorMessage"] xml_data)
+			with | Xml_parse_failure msg -> "" in
+		raise_internal_error [code; message]
 
 let retrieve_inner_xml meth response enable_log=
   try
