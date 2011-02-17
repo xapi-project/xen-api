@@ -61,7 +61,7 @@ let read_from_redo_log log staging_path db_ref =
 
     let read_delta gen_count delta =
       (* Apply the delta *)
-      Db_cache.apply_delta_to_cache delta;
+      Db_cache.apply_delta_to_cache delta db_ref;
       (* Update the generation count *)
       match !latest_generation with
       | None -> raise NoGeneration (* we should have already read in a database with a generation count *)
