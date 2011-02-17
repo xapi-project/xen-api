@@ -447,7 +447,8 @@ let start_redo_log () =
       debug "Attempting to extract a database from a metadata VDI";
       (* read from redo log and store results in a staging file for use in the
        * next step; best effort only: does not raise any exceptions *)
-      Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_db
+      let db_ref = Db_backend.make () in 
+      Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_db db_ref
     end
   with e ->
     debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
