@@ -416,3 +416,4 @@ let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
 (* Disaster recovery *)
 let vdi_contains_metadata_of_this_pool = "VDI_CONTAINS_METADATA_OF_THIS_POOL"
 let no_more_redo_logs_allowed = "NO_MORE_REDO_LOGS_ALLOWED"
+let could_not_import_database = "COULD_NOT_IMPORT_DATABASE"
