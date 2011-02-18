@@ -15,6 +15,7 @@ open Db_exn
 open Db_lock
 open Db_cache_types
 open Pervasiveext
+open Threadext
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D
@@ -29,9 +30,6 @@ let display_sql_writelog_val = ref true (* compute/write sql-writelog debug stri
 let master_database = ref (Db_cache_types.Database.make Schema.empty)
 
 let make () = Db_ref.in_memory (ref master_database)
-
-let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
-
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we
    don't waste writes storing non-persistent field values on disk.. At the moment there's not much to worry about, since there are
@@ -65,4 +63,15 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 					let tbl' = table tblname tbl in
 					TableSet.add tblname tbl' acc) ts TableSet.empty)
 		db
-  
+
+let db_registration_mutex = Mutex.create ()
+let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
+
+let register_session_with_database session db_ref =
+	Mutex.execute db_registration_mutex (fun () ->
+		Hashtbl.replace foreign_databases session db_ref)
+
+let unregister_session session =
+	Mutex.execute db_registration_mutex (fun () ->
+		Hashtbl.remove foreign_databases session)
+
