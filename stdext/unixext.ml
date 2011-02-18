@@ -255,13 +255,46 @@ let open_connection_unix_fd filename =
 	  s
 	with e -> Unix.close s; raise e
 
-type endpoint = { fd: Unix.file_descr; mutable buffer: string; mutable buffer_len: int }
+module CBuf = struct
+	(** A circular buffer constructed from a string *)
+	type t = {
+		mutable buffer: string; 
+		mutable len: int;       (** bytes of valid data in [buffer] *)
+		mutable start: int;     (** index of first valid byte in [buffer] *)
+	}
 
-let make_endpoint fd = {
-	fd = fd;
-	buffer = String.make 4096 '\000';
-	buffer_len = 0
-}
+	let empty length = {
+		buffer = String.create length;
+		len = 0;
+		start = 0;
+	}
+
+	let drop (x: t) n =
+		if n > x.len then failwith (Printf.sprintf "drop %d > %d" n x.len);
+		x.start <- (x.start + n) mod (String.length x.buffer);
+		x.len <- x.len - n
+
+	let can_read (x: t) =
+		x.len < (String.length x.buffer - 1)
+	let can_write (x: t) =
+		x.len > 0
+
+	let write (x: t) fd =
+		(* Offset of the character after the substring *)
+		let next = min (String.length x.buffer) (x.start + x.len) in
+		let len = next - x.start in
+		let written = Unix.single_write fd x.buffer x.start len in
+		drop x len
+
+	let read (x: t) fd =
+		(* Offset of the next empty character *)
+		let next = (x.start + x.len) mod (String.length x.buffer) in
+		let len = min (String.length x.buffer - next) (String.length x.buffer - x.len) in
+		let read = Unix.read fd x.buffer next len in
+		if read = 0 then raise End_of_file;
+		x.len <- x.len + read
+	
+end
 
 exception Process_still_alive
 
@@ -302,32 +335,20 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout=10.) pid =
 	)
 
 let proxy (a: Unix.file_descr) (b: Unix.file_descr) =
-	let a' = make_endpoint a and b' = make_endpoint b in
+	let size = 64 * 1024 in
+	let a' = CBuf.empty size and b' = CBuf.empty size in
 	Unix.set_nonblock a;
 	Unix.set_nonblock b;
 
-	let can_read x =
-		x.buffer_len < (String.length x.buffer - 1) in
-	let can_write x =
-		x.buffer_len > 0 in
-	let write_from x fd =
-		let written = Unix.single_write fd x.buffer 0 x.buffer_len in
-		String.blit x.buffer written x.buffer 0 (x.buffer_len - written);
-		x.buffer_len <- x.buffer_len - written in
-	let read_into x =
-		let read = Unix.read x.fd x.buffer x.buffer_len (String.length x.buffer - x.buffer_len) in
-		if read = 0 then raise End_of_file;
-		x.buffer_len <- x.buffer_len + read in
-
 	try
 	while true do
-		let r = (if can_read a' then [ a ] else []) @ (if can_read b' then [ b ] else []) in
-		let w = (if can_write a' then [ b ] else []) @ (if can_write b' then [ a ] else []) in
+		let r = (if CBuf.can_read a' then [ a ] else []) @ (if CBuf.can_read b' then [ b ] else []) in
+		let w = (if CBuf.can_write a' then [ b ] else []) @ (if CBuf.can_write b' then [ a ] else []) in
 
 		let r, w, _ = Unix.select r w [] (-1.0) in
 		(* Do the writing before the reading *)
-		List.iter (fun fd -> if a = fd then write_from b' a else write_from a' b) w;
-		List.iter (fun fd -> if a = fd then read_into a' else read_into b') r
+		List.iter (fun fd -> if a = fd then CBuf.write b' a else CBuf.write a' b) w;
+		List.iter (fun fd -> if a = fd then CBuf.read a' a else CBuf.read b' b) r
 	done
 	with _ ->
 		(try Unix.clear_nonblock a with _ -> ());
