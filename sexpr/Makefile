@@ -91,4 +91,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "sexpr" "package" "$(OBJS)" "." "stdext" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)

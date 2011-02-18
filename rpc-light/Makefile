@@ -46,4 +46,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "rpc-light" "package" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
 
 clean:
-	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.o *.cmi *.a
+	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.sp?t *.o *.cmi *.a
