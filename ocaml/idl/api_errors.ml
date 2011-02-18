@@ -426,3 +426,4 @@ let feature_requires_hvm = "FEATURE_REQUIRES_HVM"
 (* Disaster recovery *)
 let vdi_contains_metadata_of_this_pool = "VDI_CONTAINS_METADATA_OF_THIS_POOL"
 let no_more_redo_logs_allowed = "NO_MORE_REDO_LOGS_ALLOWED"
+let could_not_import_database = "COULD_NOT_IMPORT_DATABASE"
