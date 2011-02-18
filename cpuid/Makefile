@@ -57,7 +57,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore cpuid META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(path) -ldconf ignore cpuid META $(INTF) $(LIBS) *.a *.so *.cmx *.sp?t
 
 .PHONY: uninstall
 uninstall:
