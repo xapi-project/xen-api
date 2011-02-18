@@ -564,11 +564,11 @@ let set_allow_caching ~__context ~self ~value =
 (* Functions for opening foreign databases on VDIs *)
 let open_database ~__context ~self =
 	(* Should only try to open VDIs of type metadata, *)
-	(* but allow VDIs of type redo_log for now *)
-	let vdi_type = Db.VDI.get_type ~__context ~self in
+	(* but allow all VDIs for now *)
+	(*let vdi_type = Db.VDI.get_type ~__context ~self in
 	if not(List.mem vdi_type [`redo_log; `metadata]) then
 		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
-			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
+			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));*)
 	let attach vdi reason =
 		debug "%s" "Attaching VDI for metadata import";
 		Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason
