@@ -589,15 +589,18 @@ let open_database ~__context ~self =
 		debug "%s" "Detaching VDI after metadata import";
 		Static_vdis.permanent_vdi_detach ~__context ~vdi
 	in
-	let reason = Xapi_globs.foreign_metadata_vdi_reason in
-	debug "Attaching database VDI to master with reason [%s]" reason;
-	attach self reason;
-	debug "%s" "Attempting to read database";
-	let db_ref = db_ref_of_attached_vdi reason in
-	debug "%s" "Detaching metadata VDI";
-	detach self;
-	(* Create a new session to query the database, and associate it with the db ref *)
-	debug "%s" "Creating readonly session";
-	let read_only_session = Xapi_session.create_readonly_session ~__context in
-	Hashtbl.add Db_backend.foreign_databases read_only_session db_ref;
-	read_only_session
+	try
+		let reason = Xapi_globs.foreign_metadata_vdi_reason in
+		debug "Attaching database VDI to master with reason [%s]" reason;
+		attach self reason;
+		debug "%s" "Attempting to read database";
+		let db_ref = db_ref_of_attached_vdi reason in
+		debug "%s" "Detaching metadata VDI";
+		detach self;
+		(* Create a new session to query the database, and associate it with the db ref *)
+		debug "%s" "Creating readonly session";
+		let read_only_session = Xapi_session.create_readonly_session ~__context in
+		Hashtbl.add Db_backend.foreign_databases read_only_session db_ref;
+		read_only_session
+	with _ ->
+		raise (Api_errors.Server_error(Api_errors.could_not_import_database, []))
