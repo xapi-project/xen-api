@@ -1062,6 +1062,9 @@ let _ =
 	error Api_errors.no_more_redo_logs_allowed []
 		~doc:"The upper limit of active redo log instances was reached." ();
 
+	error Api_errors.could_not_import_database []
+		~doc:"An error occurred while attempting to import a database from a metadata VDI" ();
+
 
 let _ =
   message Api_messages.ha_pool_overcommitted ~doc:"Pool has become overcommitted: it can nolonger guarantee to restart protected VMs if the configured number of hosts fail." ();
