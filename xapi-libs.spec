@@ -288,6 +288,7 @@ rm -rf $RPM_BUILD_ROOT
 %exclude /usr/lib/ocaml/stdext/fe_cli.cmx
 %exclude /usr/lib/ocaml/stdext/fe_test.cmx
 %exclude /usr/lib/ocaml/xml-light2/xmlpp.cmx
+%exclude /usr/lib/ocaml/*/*.sp?t
 
    /usr/lib/ocaml/cpuid/META
    /usr/lib/ocaml/cpuid/cpuid.a
