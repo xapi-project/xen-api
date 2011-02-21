@@ -329,13 +329,13 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 			let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
 			let my_crashdump_sr_rec = Db.SR.get_record ~__context ~self:my_crashdump_sr in
 			let crashdump_sr = create_or_get_sr_on_master __context rpc session_id (my_crashdump_sr, my_crashdump_sr_rec) in
-			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
+			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
 
 			(* Copy the suspend image SR *)
 			let my_suspend_image_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
 			let my_suspend_image_sr_rec = Db.SR.get_record ~__context ~self:my_suspend_image_sr in
-			let syspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
-			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:my_suspend_image_sr) ();
+			let suspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
+			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:suspend_image_sr) ();
 
 			ref in
 
