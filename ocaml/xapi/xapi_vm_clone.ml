@@ -320,6 +320,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
+		~version:0L
 	;
 
 	ref, uuid

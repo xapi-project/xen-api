@@ -217,6 +217,7 @@ let blank_template memory = {
 	vM_order = 0L;
 	vM_VGPUs = [];
 	vM_attached_PCIs = [];
+	vM_version = 0L;
 }
 
 let other_install_media_template memory = 

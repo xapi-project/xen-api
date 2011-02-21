@@ -88,6 +88,7 @@ let make __context rpc session_id srid (vms, vdis) =
 				~start_delay:0L
 				~shutdown_delay:0L
 				~order:0L
+				~version:0L
 			      in
 
                  TaskHelper.operate_on_db_task ~__context
