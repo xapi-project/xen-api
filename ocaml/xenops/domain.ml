@@ -843,12 +843,12 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
 	Xc.vcpu_affinity_set xc domid vcpu !bitmap
 
 let vcpu_affinity_get ~xc domid vcpu =
+	let pcpus = (Xc.physinfo xc).Xc.max_nr_cpus in
+	(* NB we ignore bits corresponding to pCPUs which we don't have *)
 	let bitmap = Xc.vcpu_affinity_get xc domid vcpu in
-	let cpumap = Array.make 64 false in
 	let bit_isset bitmap n =
 		(Int64.logand bitmap (Int64.shift_left 1L n)) > 0L in
-	(* set bit in the array that are set in the bitmap *)
-	for i = 0 to 63 do cpumap.(i) <- bit_isset bitmap i done;
+	let cpumap = Array.of_list (List.map (bit_isset bitmap) (List.range 0 pcpus)) in
 	cpumap
 
 let get_uuid ~xc domid =

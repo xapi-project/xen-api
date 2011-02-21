@@ -57,6 +57,7 @@ let _ =
 				) [] contents
 			in
 			let fields = flatten_contents obj.contents in
+			let fields = List.filter (fun f -> not f.internal_only) fields in
 			let field_changes : changes_t = List.fold_left (fun l f -> l @ (changes_for_field f)) [] fields in
 			
 			"{'cls': '" ^ obj.name ^ "', 'obj_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t obj_changes) ^ ", 'field_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t field_changes) ^ ", 'msg_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t msg_changes) ^ "}"

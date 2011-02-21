@@ -205,6 +205,7 @@ let upgrade_guest_installer_network = {
 					Db.Network.set_name_label ~__context ~self ~value:Create_networks.internal_management_network_name;
 					Db.Network.set_name_description ~__context ~self ~value:Create_networks.internal_management_network_desc;
 					Db.Network.set_other_config ~__context ~self ~value:Create_networks.internal_management_network_oc;
+					Db.Network.set_bridge ~__context ~self ~value:Create_networks.internal_management_bridge;
 				end
 			) (Db.Network.get_all ~__context)
 

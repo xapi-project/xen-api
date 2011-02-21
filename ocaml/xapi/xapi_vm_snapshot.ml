@@ -359,7 +359,14 @@ let do_not_copy = [
 	Db_names.resident_on;
 	Db_names.domid;
 	Db_names.protection_policy;
-	Db_names.scheduled_to_be_resident_on ]
+	Db_names.scheduled_to_be_resident_on;
+	(* Global persistent fields should keep *)
+	"snapshots"; "tags"; "affinity";
+	(* Current fields should remain to get destoied during revert process *)
+	"consoles"; "VBDs"; "VIFs";
+	(* Stateful fields that will be reset anyway *)
+	"power_state";
+]
 
 let default_values = [ 
 	Db_names.ha_always_run, "false";
@@ -371,7 +378,8 @@ let extended_do_not_copy = [
 	Db_names.is_a_template;
 	Db_names.snapshot_of;
 	Db_names.snapshot_time;
-	Db_names.transportable_snapshot_id
+	Db_names.transportable_snapshot_id;
+	"children";
 ] @ do_not_copy
 
 (* This function has to be done on the master *)

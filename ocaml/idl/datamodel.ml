@@ -401,6 +401,8 @@ let _ =
   (* PIF/VIF/Network errors *)
   error Api_errors.network_already_connected ["network"; "connected PIF"]
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
+  error Api_errors.cannot_destroy_system_network [ "network" ]
+	  ~doc:"You tried to destroy a system network: these cannot be destroyed." ();
   error Api_errors.pif_is_physical ["PIF"]
     ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
   error Api_errors.pif_is_vlan ["PIF"]
@@ -3370,6 +3372,7 @@ let host_create_params =
     {param_type=Map(String,String); param_name="license_params"; param_doc="State of the current license"; param_release=midnight_ride_release; param_default=Some(VMap [])};
     {param_type=String; param_name="edition"; param_doc="XenServer edition"; param_release=midnight_ride_release; param_default=Some(VString "")};
     {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
+    {param_type=Ref _sr; param_name="local_cache_sr"; param_doc="The SR that is used as a local cache"; param_release=cowley_release; param_default=(Some (VRef (Ref.string_of Ref.null)))};
   ]
 
 let host_create = call
@@ -3812,7 +3815,7 @@ let host =
     field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
-	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
+	field ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
  ])
 	()
 

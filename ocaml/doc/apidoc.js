@@ -219,6 +219,7 @@ function class_doc()
 		}, [], contents);
 	fields = map(function(f){return f[1];}, fields);
 	
+	fields = filter(function(f){return f.internal_only == false;}, fields);
 	fields.sort(function(a, b){return compare(a.full_name.join('_').toLowerCase(), b.full_name.join('_').toLowerCase());});
 	messages = clsdoc.messages;
 	messages = filter(function(m){return m.msg_hide_from_docs == false;}, messages);
