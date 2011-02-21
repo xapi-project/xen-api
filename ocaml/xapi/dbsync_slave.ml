@@ -75,6 +75,7 @@ let create_localhost ~__context info =
 	~hostname:info.hostname ~address:ip 
 	~external_auth_type:"" ~external_auth_service_name:"" ~external_auth_configuration:[] 
 	~license_params:[] ~edition:"free" ~license_server:["address", "localhost"; "port", "27000"]
+	~local_cache_sr:Ref.null
     in ()		
 
 (* TODO cat /proc/stat for btime ? *)
