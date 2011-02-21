@@ -19,6 +19,7 @@ open Xapi_vm_helpers
 open Client
 open Threadext
 open Xmlrpc_sexpr
+open Listext
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -247,6 +248,22 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						let localhost = Helpers.get_localhost ~__context in
 						Helpers.call_api_functions ~__context
 							(fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
+
+						(* Populate last_boot_CPU_flags with the vendor and feature set of the host CPU. *)
+						let add_or_replace (key, value) values =
+							if List.mem_assoc key values then
+								List.replace_assoc key value values
+							else
+								(key, value) :: values
+						in
+						let host = Db.VM.get_resident_on ~__context ~self:vm in
+						let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+						let flags = ref (Db.VM.get_last_boot_CPU_flags ~__context ~self:vm) in
+						if List.mem_assoc "vendor" cpu_info then
+							flags := add_or_replace ("vendor", List.assoc "vendor" cpu_info) !flags;
+						if List.mem_assoc "features" cpu_info then
+							flags := add_or_replace ("features", List.assoc "features" cpu_info) !flags;
+						Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:!flags;
 
 						if paused then
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Paused
