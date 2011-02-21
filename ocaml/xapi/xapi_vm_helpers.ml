@@ -122,6 +122,7 @@ let create ~__context ~name_label ~name_description
 		 ~start_delay
 		 ~shutdown_delay
 		 ~order
+		 ~version
 	   : API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -189,6 +190,7 @@ let create ~__context ~name_label ~name_description
 		~start_delay
 		~shutdown_delay
 		~order
+		~version
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;

@@ -188,7 +188,8 @@ val create :
   appliance:API.ref_VM_appliance ->
   start_delay:int64 ->
   shutdown_delay:int64 ->
-  order:int64
+  order:int64 ->
+  version:int64
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
