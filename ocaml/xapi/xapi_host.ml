@@ -553,7 +553,7 @@ let is_host_alive ~__context ~host =
     false
   end
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
+let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr =
 
   let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
   let make_new_metrics_object ref =
@@ -593,7 +593,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~bios_strings:[]
     ~power_on_mode:""
     ~power_on_config:[]
-	  ~local_cache_sr:Ref.null
+    ~local_cache_sr
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
