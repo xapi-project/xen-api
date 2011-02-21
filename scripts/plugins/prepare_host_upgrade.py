@@ -191,10 +191,10 @@ def testUrl(session, args):
     try:
         url = args['url']
     except KeyError:
-        raise Exception("MISSING_URL")
+        raise Exception('MISSING_URL')
 
     if not test_repo(url):
-        raise Exception("INVALID_URL")
+        raise Exception('INVALID_URL')
     else:
         return "true"
     
@@ -206,13 +206,13 @@ def main(session, args):
         url = args['url']
     except KeyError:
         xelogging.log("Missing argument 'url'")
-        raise Exception("MISSING_URL")
+        raise Exception('MISSING_URL')
 
     xelogging.log("Verifying repo...")
     succeeded = False
     if not test_repo(url):
         xelogging.log("%s is not a valid repo" % url)
-        raise Exception("INVALID_URL")
+        raise Exception('INVALID_URL')
     else:
         xelogging.log("Repo ok, preparing for upgrade.")
         succeeded = prepare_host_upgrade(url)
