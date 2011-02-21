@@ -860,6 +860,7 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~version
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -909,6 +910,7 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~version
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in

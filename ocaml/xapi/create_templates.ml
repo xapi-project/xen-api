@@ -216,6 +216,7 @@ let blank_template memory = {
 	vM_start_delay = 0L;
 	vM_shutdown_delay = 0L;
 	vM_order = 0L;
+	vM_version = 0L;
 }
 
 let other_install_media_template memory = 

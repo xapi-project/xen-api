@@ -5972,6 +5972,7 @@ let vm =
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
+	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
       ])
 	()
 
