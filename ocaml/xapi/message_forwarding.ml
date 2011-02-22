@@ -1071,6 +1071,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let start_on ~__context ~vm ~host ~start_paused ~force =
 		info "VM.start_on: VM = '%s'; host '%s'"
 			(vm_uuid ~__context vm) (host_uuid ~__context host);
+		if Helpers.rolling_upgrade_in_progress ~__context then
+				Helpers.assert_host_has_highest_version_in_pool ~__context ~host:host ;
 		let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
 		with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
 			(fun () ->
@@ -1361,31 +1363,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		     ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
       Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
 
-    let resume_on ~__context ~vm ~host ~start_paused ~force =
-      info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
-      let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
-      with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
-	(fun () ->
-	    with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
-	      (fun vbds ->
-		 let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-		 reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
-		   (fun () ->
-		      do_op_on ~local_fn ~__context ~host
-			(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force))));
-      update_vbd_operations ~__context ~vm;
-      update_vif_operations ~__context ~vm;
-      let uuid = Db.VM.get_uuid ~__context ~self:vm in
-      let message_body = 
-	Printf.sprintf "VM '%s' resumed on host: %s (uuid: %s)" 
-	  (Db.VM.get_name_label ~__context ~self:vm)
-	  (Db.Host.get_name_label ~__context ~self:host) 
-	  (Db.Host.get_uuid ~__context ~self:host)
-      in
-      (try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
-		     ~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
-      Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
-    
+	let resume_on ~__context ~vm ~host ~start_paused ~force =
+		info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
+		if Helpers.rolling_upgrade_in_progress ~__context then
+			Helpers.assert_host_has_highest_version_in_pool ~__context ~host:host ;
+		let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
+		with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
+			(fun () ->
+				with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
+					(fun vbds ->
+						let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+						reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
+							(fun () ->
+								do_op_on ~local_fn ~__context ~host
+									(fun session_id rpc -> Client.VM.resume_on rpc session_id vm host start_paused force))));
+		update_vbd_operations ~__context ~vm;
+		update_vif_operations ~__context ~vm;
+		let uuid = Db.VM.get_uuid ~__context ~self:vm in
+		let message_body =
+			Printf.sprintf "VM '%s' resumed on host: %s (uuid: %s)"
+				(Db.VM.get_name_label ~__context ~self:vm)
+				(Db.Host.get_name_label ~__context ~self:host)
+				(Db.Host.get_uuid ~__context ~self:host)
+		in
+		(try ignore(Xapi_message.create ~__context ~name:Api_messages.vm_resumed
+			~priority:1L ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ());
+		Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
+
     let pool_migrate ~__context ~vm ~host ~options =
       info "VM.pool_migrate: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
       let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
