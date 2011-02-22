@@ -252,10 +252,15 @@ let compare_int_lists : int list -> int list -> int =
 		let first_non_zero is = List.fold_left (fun a b -> if (a<>0) then a else b) 0 is in
 		first_non_zero (List.map2 compare a b)
 
+let version_string_of : __context:Context.t -> API.ref_host -> string =
+	fun ~__context host ->
+		List.assoc Xapi_globs._product_version
+			(Db.Host.get_software_version ~__context ~self:host)
+
 let version_of : __context:Context.t -> API.ref_host -> int list =
 	fun ~__context host ->
-		let vs = List.assoc Xapi_globs._product_version (Db.Host.get_software_version ~__context ~self:host) in
-		List.map int_of_string (String.split '.' vs)
+		let vs = version_string_of ~__context host
+		in List.map int_of_string (String.split '.' vs)
 
 (* Compares host versions, analogous to Pervasives.compare. *)
 let compare_host_product_versions : __context:Context.t -> API.ref_host -> API.ref_host -> int =
@@ -269,6 +274,19 @@ let max_version_in_pool : __context:Context.t -> int list =
 		and versions = List.map (version_of ~__context) (Db.Host.get_all ~__context) in
 		List.fold_left max_version [] versions
 
+let rec string_of_int_list : int list -> string = function
+		[]    -> ""
+	| (x::xs) ->
+			if xs == []
+			then string_of_int x
+			else string_of_int x ^ "." ^ string_of_int_list xs
+
+let host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host -> bool =
+	fun ~__context ~host ->
+		let host_version = version_of ~__context host
+		and max_version = max_version_in_pool ~__context in
+		(compare_int_lists host_version max_version) >= 0
+
 (* Assertion functions which raise an exception if certain invariants
    are broken during an upgrade. *)
 let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
@@ -278,12 +296,11 @@ let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
 
 let assert_host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host -> unit =
 	fun ~__context ~host ->
-		let host_version = version_of ~__context host
-		and max_version = max_version_in_pool ~__context in
-		if (compare_int_lists host_version max_version) < 0 then
+		if not (host_has_highest_version_in_pool ~__context ~host:host) then
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
-let assert_host_versions_not_decreasing :  __context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> unit =
+let assert_host_versions_not_decreasing :
+		__context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> unit =
 	fun ~__context ~host_from ~host_to ->
 		let from_version = version_of ~__context host_from
 		and to_version = version_of ~__context host_to in
