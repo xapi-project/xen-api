@@ -158,6 +158,9 @@ exception Too_many_headers
 exception Generic_error of string
 
 let handle_connection _ ss =
+    (* Try to keep the connection open for a while to prevent spurious End_of_file type 
+	   problems under load *)
+	let initial_timeout = 5. *. 60. in
   
   let ic = Buf_io.of_fd ss in
   let finished = ref false in
@@ -177,9 +180,7 @@ let handle_connection _ ss =
     cookie := "";
 
     try
-      (* Try to keep the connection open for a while to prevent spurious End_of_file type 
-	 problems under load *)
-      let request_line = Buf_io.input_line ~timeout:(5. *. 60.) ic in
+      let request_line = Buf_io.input_line ~timeout:initial_timeout ic in
       let req = request_of_string request_line in
 
 (*      let _ = myprint "read request line" in
@@ -292,7 +293,7 @@ let handle_connection _ ss =
 	finished := true;
 	write_error ic "Error reading HTTP headers: too many headers"
     | Buf_io.Timeout ->
-	DCritical.debug "Connection timed out";
+	DCritical.debug "Idle connection closed after %.0f seconds" initial_timeout; (* NB infinite timeout used when headers are being read *)
 	finished := true
     | Buf_io.Eof ->
 	DCritical.debug "Connection terminated";
