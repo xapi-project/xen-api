@@ -43,13 +43,13 @@ let choose_network_name_for_pif device =
 let rpc_fun : (Http.request -> Unix.file_descr -> Xml.xml -> Xml.xml) option ref = ref None
 
 let get_rpc () =
-  match !rpc_fun with 
+  match !rpc_fun with
       None -> failwith "No rpc set!"
     | Some f -> f
 
 (* Given a device-name and a VLAN, figure out what the dom0 device name is that corresponds to this: *)
 let get_dom0_network_device_name dev vlan =
-  if vlan = -1L then dev else Printf.sprintf "%s.%Ld" dev vlan 
+  if vlan = -1L then dev else Printf.sprintf "%s.%Ld" dev vlan
 
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)
@@ -62,7 +62,7 @@ let get_management_ip_addr () =
     let addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
     let (addr,netmask) = List.hd addrs in
       Some (Unix.string_of_inet_addr addr)
-  with e -> None 
+  with e -> None
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -71,22 +71,20 @@ let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
 	Db.Host.get_by_uuid ~__context ~uuid
 
-let get_localhost_ref = Db.Host.get_by_uuid ~uuid:(get_localhost_uuid ())
-
-let make_rpc ~__context xml = 
+let make_rpc ~__context xml =
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
     if Pool_role.is_master () then
       (* Master goes via domain socket *)
       (* !!! FIXME - maybe could make this go direct !!! *)
-      Xmlrpcclient.do_xml_rpc_unix ~subtask_of ~version:"1.0" 
+      Xmlrpcclient.do_xml_rpc_unix ~subtask_of ~version:"1.0"
 	~filename:Xapi_globs.unix_domain_socket ~path:"/" xml
     else
       (* Slave has to go back to master via network *)
-      Xmlrpcclient.do_secure_xml_rpc 
+      Xmlrpcclient.do_secure_xml_rpc
 	~subtask_of
   ~use_stunnel_cache:true
     ~version:"1.1" ~host:(Pool_role.get_master_address ())
-    ~port:!Xapi_globs.https_port ~path:"/" xml 
+    ~port:!Xapi_globs.https_port ~path:"/" xml
     (* No auth needed over unix domain socket *)
 
 (** Log into pool master using the client code, call a function
@@ -103,34 +101,34 @@ let call_api_functions ~__context f =
   let do_master_login () =
     let session = Client.Client.Session.slave_login rpc (get_localhost ~__context) !Xapi_globs.pool_secret in
       require_explicit_logout := true;
-      session 
+      session
   in
   let session_id =
       try
-        if Pool_role.is_master() then 
+        if Pool_role.is_master() then
       begin
         let session_id = Context.get_session_id __context in
-          if Db.Session.get_pool ~__context ~self:session_id 
+          if Db.Session.get_pool ~__context ~self:session_id
           then session_id
           else do_master_login ()
-      end 
+      end
       else
           let session_id = Context.get_session_id __context in
           (* read any attr to test if session is still valid *)
 				ignore (Db.Session.get_pool ~__context ~self:session_id) ;
           session_id
-      with _ -> 
+      with _ ->
       do_master_login ()
   in
   (* let () = debug "login done" in *)
-  finally 
-    (fun () -> f rpc session_id) 
+  finally
+    (fun () -> f rpc session_id)
     (fun () ->
        (* debug "remote client call finished; logging out"; *)
-       if !require_explicit_logout 
+       if !require_explicit_logout
       then Client.Client.Session.logout rpc session_id)
 
-let call_emergency_mode_functions hostname f = 
+let call_emergency_mode_functions hostname f =
   let rpc xml = Xmlrpcclient.do_secure_xml_rpc ~version:"1.0" ~host:hostname
     ~port:!Xapi_globs.https_port ~path:"/" xml in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
@@ -206,7 +204,7 @@ type direct_pv_boot_t = { kernel: string; kernel_args: string; ramdisk: string o
 
 (** An 'indirect' PV boot (one that defers to a bootloader) has the following
     options: *)
-type indirect_pv_boot_t = 
+type indirect_pv_boot_t =
     { bootloader: string;     (** bootloader to use (eg "pygrub") *)
       extra_args: string;     (** extra commandline arguments to pass bootloader for the kernel *)
       legacy_args: string;    (** "legacy" args to cope with Zurich/Geneva guests *)
@@ -215,7 +213,7 @@ type indirect_pv_boot_t =
     }
 
 (** A type which represents the boot method a guest is configured to use *)
-type boot_method = 
+type boot_method =
     | HVM of hvm_boot_t
     | DirectPV of direct_pv_boot_t
     | IndirectPV of indirect_pv_boot_t
@@ -228,7 +226,7 @@ let string_of_boot_method = function
       Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
     x.kernel x.kernel_args (string_of_option x.ramdisk)
   | IndirectPV x ->
-      Printf.sprintf "Indirect PV boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]" 
+      Printf.sprintf "Indirect PV boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
     x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
     (String.concat "; " (List.map Ref.string_of  x.vdis))
 
@@ -317,20 +315,20 @@ let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
       end
     with
       (* xapi import/upgrade fallback: if sexpr parsing fails, try parsing using legacy xmlrpc format*)
-      Api_errors.Server_error (code,_) when code=Api_errors.field_type_error -> 
+      Api_errors.Server_error (code,_) when code=Api_errors.field_type_error ->
         begin
           API.From.vM_t "ret_val" (Xml.parse_string lbr)
         end
-  with e -> 
+  with e ->
     warn "Warning: exception '%s' parsing last booted record - returning current record instead" (ExnHelper.string_of_exn e);
       Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
 
-let get_boot_record ~__context ~self = 
-  let r = Db.VM.get_record_internal ~__context ~self in  
+let get_boot_record ~__context ~self =
+  let r = Db.VM.get_record_internal ~__context ~self in
   let lbr = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
   (* CA-31903: we now use an unhealthy mix of fields from the boot_records and the live VM.
      In particular the VM is currently using dynamic_min and max from the live VM -- not the boot-time settings. *)
-  { lbr with 
+  { lbr with
       API.vM_memory_target = 0L;
       API.vM_memory_dynamic_min = r.Db_actions.vM_memory_dynamic_min;
       API.vM_memory_dynamic_max = r.Db_actions.vM_memory_dynamic_max;
@@ -339,10 +337,10 @@ let get_boot_record ~__context ~self =
 
 let set_boot_record ~__context ~self newbootrec =
   (* blank last_booted_record field in newbootrec, so we don't just keep encapsulating
-     old last_boot_records in new snapshots! *) 
+     old last_boot_records in new snapshots! *)
   let newbootrec = {newbootrec with API.vM_last_booted_record=""; API.vM_bios_strings=[]} in
-  if rolling_upgrade_in_progress ~__context then 
-    begin 
+  if rolling_upgrade_in_progress ~__context then
+    begin
     (* during a rolling upgrade, there might be slaves in the pool
        who have not yet been upgraded to understand sexprs, so
        let's still talk using the legacy xmlrpc format.
@@ -353,7 +351,7 @@ let set_boot_record ~__context ~self newbootrec =
   else
   begin
     (* if it's not a rolling upgrade, then we know everyone
-       else in the pool will understand s-expressions. 
+       else in the pool will understand s-expressions.
     *)
     let sexpr = Xmlrpc_sexpr.xmlrpc_to_sexpr_str (API.To.vM_t newbootrec) in
     Db.VM.set_last_booted_record ~__context ~self ~value:sexpr
@@ -361,7 +359,7 @@ let set_boot_record ~__context ~self newbootrec =
   ()
 
 (** Inspect the current configuration of a VM and return a boot_method type *)
-let boot_method_of_vm ~__context ~vm = 
+let boot_method_of_vm ~__context ~vm =
     if vm.API.vM_HVM_boot_policy <> "" then begin
         (* hvm_boot describes the HVM boot order. How? as a qemu-dm -boot param? *)
 	let timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
@@ -375,20 +373,20 @@ let boot_method_of_vm ~__context ~vm =
             DirectPV { kernel = kern; kernel_args = args; ramdisk = ramdisk }
         end else begin
             (* Extract the default kernel from the boot disk via bootloader *)
-            (* NB We allow multiple bootable VDIs, in which case the 
-               bootloader gets to choose. Note that a VM may have no 
+            (* NB We allow multiple bootable VDIs, in which case the
+               bootloader gets to choose. Note that a VM may have no
                bootable VDIs; this might happen for example if the
                bootloader intends to PXE boot *)
-            let bootable = List.filter 
-              (fun self -> Db.VBD.get_bootable ~__context ~self) 
+            let bootable = List.filter
+              (fun self -> Db.VBD.get_bootable ~__context ~self)
               vm.API.vM_VBDs in
 	    let non_empty = List.filter
 	      (fun self -> not (Db.VBD.get_empty ~__context ~self))
 	      bootable in
-            let boot_vdis = 
-              List.map 
+            let boot_vdis =
+              List.map
                 (fun self -> Db.VBD.get_VDI ~__context ~self) non_empty in
-            IndirectPV 
+            IndirectPV
               { bootloader = vm.API.vM_PV_bootloader;
                 extra_args = vm.API.vM_PV_args;
                 legacy_args = vm.API.vM_PV_legacy_args;
@@ -415,7 +413,7 @@ let has_booted_hvm_of_record ~__context r =
   &&
     let boot_record = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
     boot_record.API.vM_HVM_boot_policy <> ""
-   
+
 let device_protocol_of_string domarch =
     match Domain.domarch_of_string domarch with
     | Domain.Arch_HVM | Domain.Arch_native -> Device_common.Protocol_Native
@@ -424,19 +422,19 @@ let device_protocol_of_string domarch =
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 
-let devid_of_vif ~__context ~self = 
+let devid_of_vif ~__context ~self =
     int_of_string (Db.VIF.get_device ~__context ~self)
 
 exception Device_has_no_VIF
 
-let vif_of_devid ~__context ~vm devid = 
+let vif_of_devid ~__context ~vm devid =
     let vifs = Db.VM.get_VIFs ~__context ~self:vm in
     let devs = List.map (fun self -> devid_of_vif ~__context ~self) vifs in
     let table = List.combine devs vifs in
     let has_vif = List.mem_assoc devid table in
     if not(has_vif)
     then raise Device_has_no_VIF
-    else List.assoc devid table 
+    else List.assoc devid table
 
 (** Return the domid on the *local host* associated with a specific VM.
 	Note that if this is called without the VM lock then the result is undefined: the
@@ -479,9 +477,10 @@ let is_sr_shared ~__context ~self = List.length (Db.SR.get_PBDs ~__context ~self
 let get_shared_srs ~__context =
   let srs = Db.SR.get_all ~__context in
   List.filter (fun self -> is_sr_shared ~__context ~self) srs
-    
-let get_pool ~__context = List.hd (Db.Pool.get_all ~__context) 
-let get_main_ip_address () =
+
+let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
+
+let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
 
 let is_pool_master ~__context ~host =
@@ -494,17 +493,17 @@ let is_pool_master ~__context ~host =
 (** Indicates whether ballooning is enabled for the given virtual machine. *)
 let ballooning_enabled_for_vm ~__context vm_record = true
 
-let get_vm_metrics ~__context ~self = 
+let get_vm_metrics ~__context ~self =
     let metrics = Db.VM.get_metrics ~__context ~self in
     if metrics = Ref.null
     then failwith "Could not locate VM_metrics object for VM: internal error"
     else metrics
-let get_vbd_metrics ~__context ~self = 
+let get_vbd_metrics ~__context ~self =
     let metrics = Db.VBD.get_metrics ~__context ~self in
     if metrics = Ref.null
     then failwith "Could not locate VBD_metrics object for VBD: internal error"
     else metrics
-let get_vif_metrics ~__context ~self = 
+let get_vif_metrics ~__context ~self =
     let metrics = Db.VIF.get_metrics ~__context ~self in
     if metrics = Ref.null
     then failwith "Could not locate VIF_metrics object for VIF: internal error"
@@ -531,11 +530,11 @@ let get_pool_secret () =
     end
 
 (* Checks if an SR exists, returning an SR ref option (None if it is missing) *)
-let check_sr_exists ~__context ~self = 
+let check_sr_exists ~__context ~self =
     try ignore(Db.SR.get_uuid ~__context ~self); Some self with _ -> None
 
 (* Returns an SR suitable for suspending this VM *)
-let choose_suspend_sr ~__context ~vm = 
+let choose_suspend_sr ~__context ~vm =
     (* If the Pool.suspend_image_SR exists, use that. Otherwise try the Host.suspend_image_SR *)
     let pool = get_pool ~__context in
     let pool_sr = Db.Pool.get_suspend_image_SR ~__context ~self:pool in
@@ -545,11 +544,11 @@ let choose_suspend_sr ~__context ~vm =
     match check_sr_exists ~__context ~self:pool_sr, check_sr_exists ~__context ~self:host_sr with
     | Some x, _ -> x
     | _, Some x -> x
-    | None, None -> 
+    | None, None ->
         raise (Api_errors.Server_error (Api_errors.vm_no_suspend_sr, [Ref.string_of vm]))
 
 (* Returns an SR suitable for receiving crashdumps of this VM *)
-let choose_crashdump_sr ~__context ~vm = 
+let choose_crashdump_sr ~__context ~vm =
     (* If the Pool.crashdump_SR exists, use that. Otherwise try the Host.crashdump_SR *)
     let pool = get_pool ~__context in
     let pool_sr = Db.Pool.get_crash_dump_SR ~__context ~self:pool in
@@ -558,7 +557,7 @@ let choose_crashdump_sr ~__context ~vm =
     match check_sr_exists ~__context ~self:pool_sr, check_sr_exists ~__context ~self:host_sr with
     | Some x, _ -> x
     | _, Some x -> x
-    | None, None -> 
+    | None, None ->
         raise (Api_errors.Server_error (Api_errors.vm_no_crashdump_sr, [Ref.string_of vm]))
 
 (* return the operations filtered for cancels functions *)
@@ -566,7 +565,7 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
   let cancel_splitset_taskid set1 taskids =
     let su1 = ref [] and c = ref false in
     let into (e, _) l = List.mem e l in
-    (* If it's a task we want to explicitly cancel or a task which doesn't exist in the 
+    (* If it's a task we want to explicitly cancel or a task which doesn't exist in the
        database at all then we should cancel it. *)
     List.iter (fun s1 -> if into s1 taskids || not(List.mem (Ref.of_string (fst s1)) all_tasks_in_db) then c := true else su1 := s1 :: !su1) set1;
     !su1, !c
@@ -575,15 +574,15 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~t
   if got_common then
     set unique_ops
 
-(** Returns true if the media is removable. 
+(** Returns true if the media is removable.
     Currently this just means "CD" but might change in future? *)
 let is_removable ~__context ~vbd = Db.VBD.get_type ~__context ~self:vbd = `CD
 
 (** Returns true if this SR is the XenSource Tools SR *)
-let is_tools_sr ~__context ~sr = 
+let is_tools_sr ~__context ~sr =
   let other_config = Db.SR.get_other_config ~__context ~self:sr in
   (* Miami GA *)
-  List.mem_assoc Xapi_globs.tools_sr_tag other_config 
+  List.mem_assoc Xapi_globs.tools_sr_tag other_config
     (* Miami beta2 and earlier: *)
   || (List.mem_assoc Xapi_globs.xensource_internal other_config)
 
@@ -594,28 +593,28 @@ let is_valid_MAC mac =
     List.length l = 6 && (List.fold_left (fun acc s -> acc && String.length s = 2 && validchar s.[0] && validchar s.[1]) true l)
 
 (** Returns true if the supplied IP address looks like one of mine *)
-let this_is_my_address address = 
+let this_is_my_address address =
   let inet_addrs = Netdev.Addr.get (Xapi_inventory.lookup Xapi_inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 
 (** Returns the list of hosts thought to be live *)
-let get_live_hosts ~__context = 
+let get_live_hosts ~__context =
   let hosts = Db.Host.get_all ~__context in
   List.filter (fun self ->
          let metrics = Db.Host.get_metrics ~__context ~self in
          try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false) hosts
 
 (** Return the first IPv4 address we find for a hostname *)
-let gethostbyname host = 
+let gethostbyname host =
   let throw_resolve_error() = failwith (Printf.sprintf "Couldn't resolve hostname: %s" host) in
   let he = try Unix.gethostbyname host with _ -> throw_resolve_error() in
   if Array.length he.Unix.h_addr_list = 0
   then throw_resolve_error();
-  Unix.string_of_inet_addr he.Unix.h_addr_list.(0) 
+  Unix.string_of_inet_addr he.Unix.h_addr_list.(0)
 
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
-let clone_suspended_vm_enabled ~__context = 
+let clone_suspended_vm_enabled ~__context =
   try
     let pool = get_pool ~__context in
     let other_config = Db.Pool.get_other_config ~__context ~self:pool in
@@ -638,17 +637,17 @@ let find_secondary_partition () =
   try
     let other_partition,_ = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/find-partition" ["-p"; "alternate"] in
       (* Sanity check: does it exist? *)
-    let () = 
+    let () =
       if not (Sys.file_exists other_partition)
       then raise (File_doesnt_exist other_partition)
     in
       other_partition
   with e ->
     debug "Cannot find secondary system image partition: %s" (Printexc.to_string e);
-    raise (Api_errors.Server_error(Api_errors.cannot_find_oem_backup_partition, 
+    raise (Api_errors.Server_error(Api_errors.cannot_find_oem_backup_partition,
                                    [Printexc.to_string e]))
 
-let call_script ?(log_successful_output=true) script args = 
+let call_script ?(log_successful_output=true) script args =
   try
     Unix.access script [ Unix.X_OK ];
 	(* Use the same $PATH as xapi *)
@@ -656,7 +655,7 @@ let call_script ?(log_successful_output=true) script args =
     let output, _ = Forkhelpers.execute_command_get_output ~env script args in
     if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
     output
-  with 
+  with
   | Unix.Unix_error _ as e ->
       debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
       raise e
@@ -665,12 +664,12 @@ let call_script ?(log_successful_output=true) script args =
       raise e
 
 (* Repeatedly bisect a range to find the maximum value for which the monotonic function returns true *)
-let rec bisect f lower upper = 
+let rec bisect f lower upper =
   let ( /* ) = Int64.div and ( -* ) = Int64.sub and ( +* ) = Int64.add in
   assert (lower <= upper);
-  if upper -* lower < 2L 
+  if upper -* lower < 2L
   then (if f upper then upper else lower)
-  else 
+  else
     (* there must be a distinct midpoint integer *)
     let mid = (upper +* lower) /* 2L in
     assert ((lower < mid) && (mid < upper));
@@ -679,21 +678,21 @@ let rec bisect f lower upper =
     else bisect f lower mid
 
 (* All non best-effort VMs with always_run set should be kept running at all costs *)
-let vm_should_always_run always_run restart_priority = 
+let vm_should_always_run always_run restart_priority =
   always_run && (restart_priority <> Constants.ha_restart_best_effort)
 
 (* Returns true if the specified VM is "protected" (non best-effort) by xHA *)
-let is_xha_protected ~__context ~self = 
+let is_xha_protected ~__context ~self =
   vm_should_always_run (Db.VM.get_ha_always_run ~__context ~self) (Db.VM.get_ha_restart_priority ~__context ~self)
 let is_xha_protected_r record = vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority
 
 open Listext
 
-let subset a b = List.fold_left (fun acc x -> acc && (List.mem x b)) true a 
+let subset a b = List.fold_left (fun acc x -> acc && (List.mem x b)) true a
 
 (* Only returns true if the SR is marked as shared, all hosts have PBDs and all PBDs are currently_attached.
    Is used to prevent a non-shared disk being added to a protected VM *)
-let is_sr_properly_shared ~__context ~self = 
+let is_sr_properly_shared ~__context ~self =
   let shared = Db.SR.get_shared ~__context ~self in
   if not shared then begin
     false
@@ -713,9 +712,9 @@ let get_pif_underneath_vlan ~__context vlan_pif_ref =
   let vlan_rec = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif_ref in
   Db.VLAN.get_tagged_PIF ~__context ~self:vlan_rec
 
-(* Only returns true if the network is shared properly; it must either be fully virtual (no PIFs) or 
+(* Only returns true if the network is shared properly; it must either be fully virtual (no PIFs) or
    every host must have a currently_attached PIF *)
-let is_network_properly_shared ~__context ~self = 
+let is_network_properly_shared ~__context ~self =
   let pifs = Db.Network.get_PIFs ~__context ~self in
   let plugged_pifs = List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif) pifs in
   let plugged_hosts = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) plugged_pifs) in
@@ -727,7 +726,7 @@ let is_network_properly_shared ~__context ~self =
   (* || pifs = [] *) (* It's NOT ok to be fully virtual: see CA-20703. Change this in sync with assert_can_boot_here *)
   || not missing_pifs
 
-let vm_assert_agile ~__context ~self = 
+let vm_assert_agile ~__context ~self =
   (* All referenced VDIs should be in shared SRs *)
   List.iter (fun vbd ->
 	       if not(Db.VBD.get_empty ~__context ~self:vbd) then begin
@@ -745,7 +744,7 @@ let vm_assert_agile ~__context ~self =
     (Db.VM.get_VIFs ~__context ~self)
 
 (* Select an item from a list with a probability proportional to the items weight / total weight of all items *)
-let weighted_random_choice weighted_items (* list of (item, integer) weight *) = 
+let weighted_random_choice weighted_items (* list of (item, integer) weight *) =
   let total_weight, acc' = List.fold_left (fun (total, acc) (x, weight) -> (total + weight), (x, total + weight) :: acc) (0, []) weighted_items in
   let cumulative = List.rev acc' in
 
@@ -764,7 +763,7 @@ let loadavg () =
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
-let consider_enabling_host_nolock ~__context = 
+let consider_enabling_host_nolock ~__context =
   debug "Helpers.consider_enabling_host_nolock called";
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
      Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
@@ -774,7 +773,7 @@ let consider_enabling_host_nolock ~__context =
   let localhost = get_localhost ~__context in
   let pbds = Db.Host.get_PBDs ~__context ~self:localhost in
   Xapi_local_pbd_state.resynchronise ~__context ~pbds;
-  let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in 
+  let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in
 
   if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) then begin
     (* If we were in the middle of a shutdown or reboot with HA enabled but somehow we failed
@@ -806,7 +805,7 @@ let consider_enabling_host_nolock ~__context =
   end
 
 (** Attempt to minimise the number of times we call consider_enabling_host_nolock *)
-let consider_enabling_host = 
+let consider_enabling_host =
   At_least_once_more.make "consider_enabling_host"
     (fun () ->
        Server_helpers.exec_with_new_task "consider_enabling_host"
@@ -815,13 +814,13 @@ let consider_enabling_host =
 
 let consider_enabling_host_request ~__context = At_least_once_more.again consider_enabling_host
 
-let consider_enabling_host ~__context = 
+let consider_enabling_host ~__context =
   debug "Helpers.consider_enabling_host called";
   consider_enabling_host_request ~__context
 
-let local_storage_exists () = 
+let local_storage_exists () =
   (try ignore(Unix.stat (Xapi_globs.xapi_blob_location)); true
-    with _ -> false) 
+    with _ -> false)
 
 let touch_file fname =
   try
@@ -832,7 +831,7 @@ let touch_file fname =
   with
   | e -> (warn "Unable to touch ready file '%s': %s" fname (Printexc.to_string e))
 
-let vm_to_string __context vm = 
+let vm_to_string __context vm =
 	let str = Ref.string_of vm in
 
 	if not (Db.is_valid_ref __context vm)
@@ -853,7 +852,7 @@ let vm_string_to_assoc vm_string =
 	| SExpr.Node l -> List.map assoc_of_node l
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value ,["Invalid vm_string"]))
 
-let i_am_srmaster ~__context ~sr = 
+let i_am_srmaster ~__context ~sr =
   (* Assuming there is a plugged in PBD on this host then
      we are an 'srmaster' IFF: we are a pool master and this is a shared SR
                                OR this is a non-shared SR *)
@@ -874,7 +873,7 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 		~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
 
 (** Remove all entries in this table except the valid_keys *)
-let remove_other_keys table valid_keys = 
+let remove_other_keys table valid_keys =
   let keys = Hashtbl.fold (fun k v acc -> k :: acc) table [] in
   List.iter (fun k -> if not (List.mem k valid_keys) then Hashtbl.remove table k) keys
 
@@ -889,8 +888,8 @@ let update_vswitch_controller ~__context ~host =
 			(Printexc.to_string e)
 			(Db.Host.get_name_label ~__context ~self:host)
 
-let set_vm_uncooperative ~__context ~self ~value = 
-  let current_value = 
+let set_vm_uncooperative ~__context ~self ~value =
+  let current_value =
 	let oc = Db.VM.get_other_config ~__context ~self in
 	List.mem_assoc "uncooperative" oc && (bool_of_string (List.assoc "uncooperative" oc)) in
   if value <> current_value then begin
