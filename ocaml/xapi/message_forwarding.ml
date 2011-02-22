@@ -1748,10 +1748,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
 		Local.VM.set_protection_policy ~__context ~self ~value
 
-	let set_suspend_SR ~__context ~vm ~sr =
-		info "VM.set_suspend_SR: VM = '%s'; SR ='%s'" (vm_uuid ~__context vm) (sr_uuid ~__context sr);
-		Local.VM.set_suspend_SR ~__context ~vm ~sr
-
   end
 
   module VM_metrics = struct

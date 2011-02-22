@@ -1955,16 +1955,6 @@ let vm_set_protection_policy = call
   ~allowed_roles:_R_POOL_OP
   ()
 
-let vm_set_suspend_SR = call
-  ~name:"set_suspend_SR"
-  ~in_oss_since:None
-  ~in_product_since:rel_boston
-  ~doc:"Set the SR to use when suspending this VM"
-  ~params:[Ref _vm, "vm", "The VM to modify";
-    Ref _sr, "sr", "The SR to use when suspending this VM"]
-  ~allowed_roles:_R_POOL_OP
-  ()
-
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -5889,7 +5879,6 @@ let vm =
 		vm_retrieve_wlb_recommendations;
 		vm_copy_bios_strings;
     vm_set_protection_policy;
-		vm_set_suspend_SR;
 		]
       ~contents:
       ([ uid _vm;

@@ -266,4 +266,3 @@ val copy_bios_strings :
  *  had already been set. *)
 
 val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
-val set_suspend_SR : __context:Context.t -> vm:API.ref_VM -> sr:API.ref_SR -> unit

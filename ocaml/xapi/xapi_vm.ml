@@ -1234,6 +1234,3 @@ let set_protection_policy ~__context ~self ~value =
     (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
     Db.VM.set_protection_policy ~__context ~self ~value
   )
-
-let set_suspend_SR ~__context ~vm ~sr =
-	Db.VM.set_suspend_SR ~__context ~self:vm ~value:sr
