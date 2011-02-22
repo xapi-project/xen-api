@@ -52,7 +52,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xs META $(INTF) xs.mli xst.mli xsraw.mli $(LIBS) *.a *.cmx
+	ocamlfind install -destdir $(path) -ldconf ignore xs META $(INTF) xs.mli xst.mli xsraw.mli $(LIBS) *.a *.cmx *.sp?t
 
 .PHONY: uninstall
 uninstall:
@@ -63,5 +63,5 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "xs" "package" "$(OBJS)" "." "xb" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)
 

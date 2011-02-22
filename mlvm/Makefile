@@ -46,14 +46,14 @@ META: META.in
 
 .PHONY: install
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore lvm META lvm.cmi lvm.cmxa lvm.cma lvm.a
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore lvm META lvm.cmi lvm.cmxa lvm.cma lvm.a *.sp?t
 
 .PHONY: uninstall
 uninstall:
 	ocamlfind remove lvm
 
 clean : 
-	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot lvmconfiglex.ml \
+	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot *.sp?t lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
 	rm -f test_allocator
 

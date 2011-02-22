@@ -35,7 +35,7 @@ p4_rpc.cmo: p4_rpc.ml rpc.cmo
 .PHONY: install
 install: INSTALL_PATH = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: all
-	ocamlfind install -destdir $(INSTALL_PATH) rpc-light META $(TARGETS)
+	ocamlfind install -destdir $(INSTALL_PATH) rpc-light META $(TARGETS) *.sp?t
 
 .PHONY: uninstall
 uninstall:
@@ -46,4 +46,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "rpc-light" "package" "jsonrpc pa_rpc rpc xmlrpc" "." "xmlm" ""
 
 clean:
-	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.o *.cmi *.a
+	rm -f *.cmo *.cmx *.cma *.cmxa *.annot *.sp?t *.o *.cmi *.a

@@ -162,7 +162,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore stdext META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(path) -ldconf ignore stdext META $(INTF) $(LIBS) *.a *.so *.cmx *.sp?t
 
 .PHONY: bininstall
 bininstall: path = $(DESTDIR)$(LIBEXEC)
@@ -183,7 +183,7 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "stdext" "package" "$(STDEXT_OBJS)" "." "threads,uuid,unix" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)
 
 #dependency:
 

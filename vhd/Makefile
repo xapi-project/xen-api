@@ -57,7 +57,7 @@ META: META.in
 
 .PHONY: install
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore vhd META $(INTF) $(LIBS) *.a *.so *.cmx
+	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore vhd META $(INTF) $(LIBS) *.a *.so *.cmx *.sp?t
 
 .PHONY: uninstall
 uninstall:
@@ -68,4 +68,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "vhd" "package" "$(OBJS)" "." "" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)

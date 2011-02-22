@@ -18,4 +18,5 @@ doc/*
 *~
 *.rej
 *.orig
-
+*.spit
+*.spot
