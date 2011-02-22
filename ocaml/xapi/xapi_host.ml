@@ -553,7 +553,7 @@ let is_host_alive ~__context ~host =
     false
   end
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server =
+let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr =
 
   let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
   let make_new_metrics_object ref =
@@ -593,7 +593,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~bios_strings:[]
     ~power_on_mode:""
     ~power_on_config:[]
-	  ~local_cache_sr:Ref.null
+    ~local_cache_sr
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -668,7 +668,7 @@ let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
 let request_backup ~__context ~host ~generation ~force = 
   if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
-  let master_address = Helpers.get_main_ip_address __context in
+  let master_address = Helpers.get_main_ip_address () in
   Pool_db_backup.fetch_database_backup ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret
     ~force:(if force then None else (Some generation))
 
@@ -676,7 +676,7 @@ let request_backup ~__context ~host ~generation ~force =
    (currently only /etc/passwd) *)
 let request_config_file_sync ~__context ~host ~hash =
   debug "Received notification of dom0 config file change";
-  let master_address = Helpers.get_main_ip_address __context in
+  let master_address = Helpers.get_main_ip_address () in
   Config_file_sync.maybe_fetch_config_files ~master_address:master_address ~pool_secret:!Xapi_globs.pool_secret ~hash
 
 let syslog_config_write host host_only enable_remote =

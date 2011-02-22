@@ -92,8 +92,20 @@ let add_vif ~__context ~xs vif_device =
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
        let netty = Netman.netty_of_bridge vif_device.Vm_config.bridge in
+	   (* If there are any non-virtual interfaces on the bridge with a valid
+		  carrier then reflect the status *)
+	   let ifs = 
+		   let all = Netdev.network.Netdev.intf_list vif_device.Vm_config.bridge in
+		   List.filter (fun x -> not(String.startswith "vif" x) && not(String.startswith "tap" x)) all in
+	   let carrier = 
+		   let all = List.map (fun x -> try Netdev.get_carrier x with _ -> false) ifs in
+		   (all = []) (* internal network *)
+		   || 
+		   (List.fold_left (||) false all) (* any interface on external network *)
+	   in
+
        let (_: Device_common.device) = Device.Vif.add ~xs ~devid:vif_device.Vm_config.devid ~netty 
-	 ~mac:vif_device.Vm_config.mac ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
+	 ~mac:vif_device.Vm_config.mac ~carrier:(not(!Monitor_rrds.pass_through_pif_carrier) || carrier) ~mtu:vif_device.Vm_config.mtu ~rate:vif_device.Vm_config.rate ~protocol:vif_device.Vm_config.protocol 
 	 ~other_config:vif_device.Vm_config.other_config ~extra_private_keys
 	 vif_device.Vm_config.domid in
        ()
@@ -124,16 +136,14 @@ let create_vifs ~__context ~xs vifs =
 	 raise (Api_errors.Server_error (Api_errors.cannot_plug_vif, [ Ref.string_of vif.Vm_config.vif_ref ]))
     ) vifs
 
+(* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
+   xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
+   multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
 let sort_pcidevs devs =
-	let ids = ref [] in
-	List.iter (fun (id, _) ->
-		if not (List.mem id !ids) then
-			ids := id :: !ids
-	) devs;
-	
+	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
 	List.map (fun id ->
 				  id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
-			 ) !ids 
+			 ) ids 
 
 let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
   Helpers.log_exn_continue "attach_pcis"
@@ -308,12 +318,15 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
 
+  let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
+  debug "xen reports max %d pCPUs" pcpus;
+
   (* vcpu <-> pcpu affinity settings are stored here: *)
   let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
   (* convert the mask into a bitmap, one bit per pCPU *)
   let bitmap string = 
     let cpus = List.map int_of_string (String.split ',' string) in
-    let cpus = List.filter (fun x -> x >= 0 && x <= 63) cpus in
+    let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
     let bits = List.map (Int64.shift_left 1L) cpus in
     List.fold_left Int64.logor 0L bits in
   let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
@@ -658,10 +671,23 @@ let create_vfb_vkbd ~xc ~xs protocol domid =
   Device.Vfb.add ~xc ~xs ~hvm:false ~protocol domid;
   Device.Vkbd.add ~xc ~xs ~hvm:false ~protocol domid
 
+(* get CD VBDs required to resume *)
+let get_required_CD_VBDs ~__context ~vm =
+  List.filter (fun self -> (Db.VBD.get_currently_attached ~__context ~self) 
+      && (Db.VBD.get_type ~__context ~self = `CD))
+    (Db.VM.get_VBDs ~__context ~self:vm)
+   
+(* get non-CD VBDs required to resume *)
+let get_required_nonCD_VBDs ~__context ~vm =
+  List.filter (fun self -> (Db.VBD.get_currently_attached ~__context ~self) 
+      && (Db.VBD.get_type ~__context ~self <> `CD))
+    (Db.VM.get_VBDs ~__context ~self:vm)
+   
 (* get VBDs required to resume *)
 let get_VBDs_required_on_resume ~__context ~vm =
   List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
     (Db.VM.get_VBDs ~__context ~self:vm)
+  
 (* get real VDIs required to resume -- i.e. the things we have to attach and maybe activate *)
 let get_VDIs_required_on_resume ~__context ~vm =
   let needed_vbds = get_VBDs_required_on_resume ~__context ~vm in
@@ -670,10 +696,24 @@ let get_VDIs_required_on_resume ~__context ~vm =
       (List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) needed_vbds) in
   needed_vdis
 
+(* restore CD drives. This needs to happen earlier in the restore sequence. 
+ * See CA-17925
+ *)
+let _restore_CD_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
+  	let hvm = Helpers.will_boot_hvm ~__context ~self in
+	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
+    let needed_vbds = get_required_CD_VBDs ~__context ~vm:self in
+	let string_of_vbd_list vbds = String.concat "; " 
+	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
+    debug "CD VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
+
+  	(* If any VBDs cannot be attached, let the exn propagate *)
+	List.iter (fun self -> create_vbd ~__context ~xs ~hvm ~protocol domid self) needed_vbds
+  
 (* restore the devices, but not the domain; the vdis must all be attached/activated by the
    time this function is executed
 *)
-let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
+let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs includeCDs =
 	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	(* CA-25297: domarch is r/o and not currently stored in the LBR *)
 	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
@@ -682,7 +722,9 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
 	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
 
 	(* We /must/ be able to re-attach all the VBDs the guest had when it suspended. *)
-	let needed_vbds = get_VBDs_required_on_resume ~__context ~vm:self in
+	let needed_vbds = 
+      if includeCDs then get_VBDs_required_on_resume ~__context ~vm:self 
+      else get_required_nonCD_VBDs ~__context ~vm:self in
 	debug "To restore this domain we need VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
@@ -788,7 +830,7 @@ let restore ~__context ~xc ~xs ~self start_paused =
 		     (fun () ->
 			try
 			  let vifs = Vm_config.vifs_of_vm ~__context ~vm:self domid in
-			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs;
+			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs true;
 			  _restore_domain ~__context ~xc ~xs ~self snapshot fd ?vnc_statefile domid vifs;
 
 			with exn ->

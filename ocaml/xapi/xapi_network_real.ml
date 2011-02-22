@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2010 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -20,80 +20,100 @@ open Forkhelpers
 open Threadext
 open Pervasiveext
 
-let repeater_server = ref None
-let repeater_m = Mutex.create ()
+let server = ref None
+let m = Mutex.create ()
 
-(* This repeater forwards requests coming in from the guest installer network to the master *)    
-let make_repeater bridge master_ip ip =
-  debug "make_repeater";
-  let addr = Unix.inet_addr_of_string ip in
-  let sockaddr = Unix.ADDR_INET (addr,!Xapi_globs.https_port) in
-  let handler _ fromfd =
-    (* NB 'fromfd' is accepted within the server_io module and it expects us to 
-       close it *)
-    debug "repeater forwarding connection";
-    let tofd = Unixext.open_connection_fd (master_ip) (!Xapi_globs.https_port) in
-    Unixext.proxy fromfd tofd
-  in
-  try
-    Mutex.execute repeater_m
-      (fun () ->
-	 (* shutdown any server which currently exists *)
-	 maybe (fun server -> server.Server_io.shutdown ()) !repeater_server;
-       (* Make sure we don't try to double-close the server *)
-	 repeater_server := None;
-	 let handler = { Server_io.name = "repeater";
-			 body = handler } in
-	 let sock = Xapi_http.svr_bind sockaddr in
-	 let server = Server_io.server handler sock in
-	 repeater_server := Some server
-      )
-  with e ->
-    error "Caught exception setting up guest installer network: %s" (ExnHelper.string_of_exn e);
-    raise e
-  
-let setup_guest_installer_network ~__context bridge other_config =
-  (* Set the ip address of the bridge *)
-  debug "setup_guest_installer_network";
-  let ip=List.assoc "ip_begin" other_config in
-  begin
-    match with_logfile_fd "ifconfig"
-      (fun out ->
-	let pid = safe_close_and_exec None (Some out) (Some out) [] "/sbin/ifconfig" [bridge;ip;"up"] in
-	waitpid pid)
-    with
-      | Success(log,_) -> ()
-      | Failure(log,_) -> error "ifconfig failure: %s" log
-  end;
-  begin
-    match with_logfile_fd "fix_firewall"
-      (fun out ->
-	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash" [Constants.fix_firewall_script;bridge;"start"] in
-	waitpid pid)
-    with
-      | Success(log,_) -> ()
-      | Failure(log,_) -> error "ifconfig failure: %s" log
-  end;
-  (* Find the ip of the master in order to forward *)
-  let pool = List.hd (Db.Pool.get_all ~__context) in
-  let master = Db.Pool.get_master ~__context ~self:pool in
-  let address = Db.Host.get_address ~__context ~self:master in
-  ignore(Thread.create (fun () -> make_repeater bridge address ip) ())
-  
-let maybe_shutdown_guest_installer_network bridge =
-  debug "maybe_shutdown_guest_installer_network";
-  Mutex.execute repeater_m
-    (fun () -> 
-       maybe (fun server -> server.Server_io.shutdown ()) !repeater_server;
-       repeater_server := None
-    );
-  begin
-    match with_logfile_fd "fix_firewall"
-      (fun out ->
-	let pid = safe_close_and_exec None (Some out) (Some out) [] "/bin/bash" [Constants.fix_firewall_script;bridge] in
-	waitpid pid)
-    with
-      | Success(log,_) -> ()
-      | Failure(log,_) -> error "ifconfig failure: %s" log
-  end
+let port_to_forward = !Xapi_globs.http_port
+let forward_via_https = true (** encrypt forwarded traffic to other hosts *)
 
+(* Only use HTTPs if we're (a) forwarding; and (b) we want to *)
+let use_https master_ip = 
+	forward_via_https && master_ip <> "127.0.0.1" 
+
+(* Proxy data from the guest to the master's management IP *)
+let make_proxy bridge master_ip ip =
+	let addr = Unix.inet_addr_of_string ip in
+	let sockaddr = Unix.ADDR_INET (addr, port_to_forward) in
+	
+	let handler _ fromfd =
+		(* NB 'fromfd' is accepted within the server_io module and it expects us to 
+		   close it *)
+
+		let use_https = use_https master_ip in
+
+  		let dest_port = if use_https then !Xapi_globs.https_port else !Xapi_globs.http_port in
+		
+		if use_https then begin
+			debug "Forwarding connection to %s over SSL" master_ip;
+			let stunnel = Stunnel.connect master_ip dest_port in
+			finally
+				(fun () -> Unixext.proxy fromfd stunnel.Stunnel.fd)
+				(fun () -> Stunnel.disconnect stunnel)
+		end else begin
+			debug "Forwarding connection to %s plaintext" master_ip;
+			let tofd = Unixext.open_connection_fd master_ip dest_port in
+			finally
+				(fun () -> Unixext.proxy fromfd tofd)
+				(fun () -> Unix.close tofd)
+		end;
+		(* XXX: do we close fromfd?? *)
+		debug "Connection forwarding to %s finished" master_ip
+	in
+	try
+		Mutex.execute m
+			(fun () ->
+				(* shutdown any server which currently exists *)
+				maybe (fun server -> server.Server_io.shutdown ()) !server;
+				(* Make sure we don't try to double-close the server *)
+				server := None;
+				let handler = { Server_io.name = "repeater"; body = handler } in
+				let sock = Xapi_http.svr_bind sockaddr in
+				let s = Server_io.server handler sock in
+				server := Some s
+			)
+	with e ->
+		error "Caught exception setting up proxy from internal network: %s" (ExnHelper.string_of_exn e);
+		raise e
+			
+let maybe_start bridge other_config =
+	if not(List.mem_assoc "ip_begin" other_config)
+	then error "Cannot setup host internal management network: no other-config:i_begin"
+	else begin
+		let ip = List.assoc "ip_begin" other_config in
+		let address = Helpers.get_main_ip_address () in
+		debug "Setting up repeater from %s:%d -> %s %s" ip port_to_forward address (if use_https address then "over SSL" else "plaintext");
+		(* Set the ip address of the bridge *)
+		ignore(Forkhelpers.execute_command_get_output "/sbin/ifconfig" [ bridge; ip; "up" ]);
+		ignore(Thread.create (fun () -> make_proxy bridge address ip) ())
+	end
+
+let maybe_stop bridge =
+	debug "maybe_stop %s" bridge;
+	Mutex.execute m
+		(fun () -> 
+			maybe (fun server -> server.Server_io.shutdown ()) !server;
+			server := None
+		)
+
+(* If a bridge exists in dom0 which corresponds to a host management internal
+   then restart the proxy on xapi start *)
+let on_server_start () = 
+  Server_helpers.exec_with_new_task "Starting host internal management network"
+      (fun __context ->
+		  let nets = Db.Network.get_all_records ~__context in
+		  let mnets = List.filter (fun (_, n) ->
+			  let oc = n.API.network_other_config in
+			  (List.mem_assoc Xapi_globs.is_guest_installer_network oc)
+			  && (List.assoc Xapi_globs.is_guest_installer_network oc = "true"))
+			  nets in
+		  let br_to_oc = List.map (fun (r, n) -> 
+			  n.API.network_bridge, n.API.network_other_config) 
+			  mnets in
+		  
+		  let brs = Netdev.network.Netdev.list () in
+		  List.iter
+			  (fun brname ->
+				  if List.mem_assoc brname br_to_oc 
+				  then maybe_start brname (List.assoc brname br_to_oc))
+			  brs
+	  )

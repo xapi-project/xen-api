@@ -145,7 +145,10 @@ let eliloader_path = "/usr/bin/eliloader"
 let supported_bootloaders = [ "pygrub", pygrub_path;
 			      "eliloader", eliloader_path ]
 
+(* Deprecated: *)
 let is_guest_installer_network = "is_guest_installer_network"
+
+let is_host_internal_management_network = "is_host_internal_management_network"
 
 let auto_scan = "auto-scan" (* if set in SR.other_config, scan the SR in the background *)
 let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config *)
@@ -470,6 +473,9 @@ let host_no_local_storage = "no_local_storage"
 
 (* Pool.other_config key to enable creation of min/max rras in new VM rrds *)
 let create_min_max_in_new_VM_RRDs = "create_min_max_in_new_VM_RRDs"
+
+(* Pool.other_config key to enable pass-through of PIF carrier *)
+let pass_through_pif_carrier = "pass_through_pif_carrier"
 
 let dev_zero = "/dev/zero"
 

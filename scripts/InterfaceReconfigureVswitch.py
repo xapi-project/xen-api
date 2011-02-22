@@ -1,5 +1,5 @@
 # Copyright (c) 2008,2009 Citrix Systems, Inc.
-# Copyright (c) 2009,2010 Nicira Networks.
+# Copyright (c) 2009,2010,2011 Nicira Networks.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published
@@ -147,6 +147,7 @@ def datapath_configure_bond(pif,slaves):
         "downdelay": "200",
         "updelay": "31000",
         "use_carrier": "1",
+        "hashing-algorithm": "src_mac",
         }
     # override defaults with values from other-config whose keys
     # being with "bond-"
@@ -155,6 +156,8 @@ def datapath_configure_bond(pif,slaves):
                            key.startswith("bond-"), oc.items())
     overrides = map(lambda (key,val): (key[5:], val), overrides)
     bond_options.update(overrides)
+    mode = None
+    halgo = None
 
     argv += ['--', 'set', 'Port', interface]
     if pifrec['MAC'] != "":
@@ -171,10 +174,47 @@ def datapath_configure_bond(pif,slaves):
                 argv += ['bond_%s=%d' % (name, value)]
             except ValueError:
                 log("bridge %s has invalid %s '%s'" % (bridge, name, value))
+        elif name in ['miimon', 'use_carrier']:
+            try:
+                value = int(val)
+                if value < 0:
+                    raise ValueError
+
+                if name == 'use_carrier':
+                    if value:
+                        value = "carrier"
+                    else:
+                        value = "miimon"
+                    argv += ["other-config:bond-detect-mode=%s" % value]
+                else:
+                    argv += ["other-config:bond-miimon-interval=%d" % value]
+            except ValueError:
+                log("bridge %s has invalid %s '%s'" % (bridge, name, value))
+        elif name == "mode":
+            mode = val
+        elif name == "hashing-algorithm":
+            halgo = val
         else:
             # Pass other bond options into other_config.
             argv += ["other-config:%s=%s" % (vsctl_escape("bond-%s" % name),
                                              vsctl_escape(val))]
+
+    if mode == 'lacp':
+        argv += ['lacp=active']
+
+        if halgo == 'src_mac':
+            argv += ['bond_mode=balance-slb']
+        elif halgo == "tcpudp_ports":
+            argv += ['bond_mode=balance-tcp']
+        else:
+            log("bridge %s has invalid bond-hashing-algorithm '%s'" % (bridge, halgo))
+            argv += ['bond_mode=balance-slb']
+    elif mode in ['balance-slb', 'active-backup']:
+        argv += ['lacp=off', 'bond_mode=%s' % mode]
+    else:
+        log("bridge %s has invalid bond-mode '%s'" % (bridge, mode))
+        argv += ['lacp=off', 'bond_mode=balance-slb']
+
     return argv
 
 def datapath_deconfigure_bond(netdev):
@@ -309,6 +349,23 @@ def configure_datapath(pif):
     vsctl_argv += ['--', 'set', 'Bridge', bridge,
                    'other-config:hwaddr=%s' % vsctl_escape(db().get_pif_record(pif)['MAC'])]
 
+    pool = db().get_pool_record()
+    network = db().get_network_by_bridge(bridge)
+    fail_mode = None
+    valid_fail_modes = ['standalone', 'secure']
+
+    if network:
+        network_rec = db().get_network_record(network)
+        fail_mode = network_rec['other_config'].get('vswitch-controller-fail-mode')
+
+    if (fail_mode not in valid_fail_modes) and pool:
+        fail_mode = pool['other_config'].get('vswitch-controller-fail-mode')
+
+    if fail_mode not in valid_fail_modes:
+        fail_mode = 'standalone'
+
+    vsctl_argv += ['--', 'set', 'Bridge', bridge, 'fail_mode=%s' % fail_mode]
+
     vsctl_argv += set_br_external_ids(pif)
     vsctl_argv += ['## done configuring datapath %s' % bridge]
 
@@ -342,7 +399,12 @@ def set_br_external_ids(pif):
         #    log("Network PIF %s not currently attached (%s)" % (rec['uuid'],pifrec['uuid']))
         #    continue
         nwrec = db().get_network_record(rec['network'])
-        xs_network_uuids += [nwrec['uuid']]
+
+        uuid = nwrec['uuid']
+        if pif_is_vlan(nwpif):
+            xs_network_uuids.append(uuid)
+        else:
+            xs_network_uuids.insert(0, uuid)
 
     vsctl_argv = []
     vsctl_argv += ['# configure xs-network-uuids']
@@ -403,10 +465,6 @@ class DatapathVswitch(Datapath):
         dpname = pif_bridge_name(self._dp)
         
         if pif_is_vlan(self._pif):
-            # XXX this is only needed on XS5.5, because XAPI misguidedly
-            # creates the fake bridge (via bridge ioctl) before it calls us.
-            vsctl_argv += ['--', '--if-exists', 'del-br', bridge]
-
             # configure_datapath() set up the underlying datapath bridge.
             # Stack a VLAN bridge on top of it.
             vsctl_argv += ['--', '--may-exist', 'add-br',
@@ -431,16 +489,24 @@ class DatapathVswitch(Datapath):
     def bring_down_existing(self):
         # interface-reconfigure is never explicitly called to down a
         # bond master.  However, when we are called to up a slave it
-        # is implicit that we are destroying the master.
+        # is implicit that we are destroying the master.  Conversely,
+        # when we are called to up a bond is is implicit that we are
+        # taking down the slaves.
         #
-        # This is (only) important in the case where the bond master
-        # uses DHCP.  We need to kill the dhclient process, otherwise
-        # bringing the bond master back up later will fail because
-        # ifup will refuse to start a duplicate dhclient.
+        # This is (only) important in the case where the device being
+        # implicitly taken down uses DHCP.  We need to kill the
+        # dhclient process, otherwise performing the inverse operation
+        # later later will fail because ifup will refuse to start a
+        # duplicate dhclient.
         bond_masters = pif_get_bond_masters(self._pif)
         for master in bond_masters:
             log("action_up: bring down bond master %s" % (pif_netdev_name(master)))
             run_command(["/sbin/ifdown", pif_bridge_name(master)])
+
+        bond_slaves = pif_get_bond_slaves(self._pif)
+        for slave in bond_slaves:
+            log("action_up: bring down bond slave %s" % (pif_netdev_name(slave)))
+            run_command(["/sbin/ifdown", pif_bridge_name(slave)])
 
     def configure(self):
         # Bring up physical devices. ovs-vswitchd initially enables or
@@ -479,11 +545,6 @@ class DatapathVswitch(Datapath):
         ipdev = self._ipdev
         
         bridge = pif_bridge_name(dp)
-
-        #nw = db().get_pif_record(self._pif)['network']
-        #nwrec = db().get_network_record(nw)
-        #vsctl_argv += ['# deconfigure network-uuids']
-        #vsctl_argv += ['--del-entry=bridge.%s.network-uuids=%s' % (bridge,nwrec['uuid'])]
 
         log("deconfigure ipdev %s on %s" % (ipdev,bridge))
         vsctl_argv += ["# deconfigure ipdev %s" % ipdev]

@@ -297,6 +297,11 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 	let new_host_ref = 
 		try Client.Host.get_by_uuid rpc session_id my_uuid
 		with _ ->
+			(* CA-51925: Copy the local cache SR *)
+			let my_local_cache_sr = Db.Host.get_local_cache_sr ~__context ~self:host_ref in
+			let my_local_cache_sr_rec = Db.SR.get_record ~__context ~self:my_local_cache_sr in
+			let local_cache_sr = create_or_get_sr_on_master __context rpc session_id (my_local_cache_sr, my_local_cache_sr_rec) in
+
 			debug "Found no host with uuid = '%s' on the master, so creating one." my_uuid;
 			let ref = Client.Host.create ~rpc ~session_id
 				~uuid:my_uuid
@@ -309,7 +314,13 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 				~external_auth_configuration:host.API.host_external_auth_configuration
 				~license_params:host.API.host_license_params
 				~edition:host.API.host_edition
-				~license_server:host.API.host_license_server in
+				~license_server:host.API.host_license_server 
+				(* CA-51925: local_cache_sr can only be written by Host.enable_local_caching_sr but this API
+				 * call is forwarded to the host in question. Since, during a pool-join, the host is offline,
+				 * we need an alternative way of preserving the value of the local_cache_sr field, so it's
+				 * been added to the constructor. *)
+				~local_cache_sr
+			in
 
 			(* Copy other-config into newly created host record: *)
 			no_exn (fun () -> Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:host.API.host_other_config) ();
@@ -318,13 +329,13 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 			let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
 			let my_crashdump_sr_rec = Db.SR.get_record ~__context ~self:my_crashdump_sr in
 			let crashdump_sr = create_or_get_sr_on_master __context rpc session_id (my_crashdump_sr, my_crashdump_sr_rec) in
-			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
+			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
 
 			(* Copy the suspend image SR *)
 			let my_suspend_image_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
 			let my_suspend_image_sr_rec = Db.SR.get_record ~__context ~self:my_suspend_image_sr in
-			let syspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
-			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:my_suspend_image_sr) ();
+			let suspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
+			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:suspend_image_sr) ();
 
 			ref in
 
