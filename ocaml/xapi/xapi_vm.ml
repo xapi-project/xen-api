@@ -215,7 +215,7 @@ let unpause  ~__context ~vm =
 let start ~__context ~vm ~start_paused:paused ~force =
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_host_has_highest_version_in_pool ~__context
-			~host:(Helpers.get_localhost_ref ~__context) ;
+			~host:(Helpers.get_localhost ~__context) ;
 	License_check.with_vm_license_check ~__context vm (fun () ->
 		Local_work_queue.wait_in_line Local_work_queue.normal_vm_queue
 			(Printf.sprintf "VM.start %s" (Context.string_of_task __context))
@@ -765,10 +765,10 @@ let suspend  ~__context ~vm =
 		) ()
  	)
 
-let resume ~__context ~vm ~start_paused ~force = 
+let resume ~__context ~vm ~start_paused ~force =
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_host_has_highest_version_in_pool ~__context
-			~host:(Helpers.get_localhost_ref ~__context) ;
+			~host:(Helpers.get_localhost ~__context) ;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 	  (Printf.sprintf "VM.resume %s" (Context.string_of_task __context))
 	(fun () ->
