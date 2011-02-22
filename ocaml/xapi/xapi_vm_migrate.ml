@@ -715,7 +715,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 	(* Migration is only allowed to a host of equal or greater versions. *)
 	if Helpers.rolling_upgrade_in_progress ~__context then
 		Helpers.assert_host_versions_not_decreasing ~__context
-			~host_from:(Helpers.get_localhost_ref ~__context)
+			~host_from:(Helpers.get_localhost ~__context)
 			~host_to:host ;
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
