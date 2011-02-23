@@ -515,11 +515,13 @@ let choose_host_uses_wlb ~__context =
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
-let choose_host_for_vm ~__context ~vm ~snapshot = 
-	if choose_host_uses_wlb ~__context then
+let choose_host_for_vm ~__context ~vm ~snapshot =
+	if (choose_host_uses_wlb ~__context)
+		&& not (Helpers.rolling_upgrade_in_progress ~__context)
+	then
 		try
 			let rec filter_and_convert recs =
-				match recs with 
+				match recs with
 				| (h, recom) :: tl ->
 					begin
 						debug "\n%s\n" (String.concat ";" recom);
@@ -533,7 +535,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
 					end
 				| [] -> []
 			in
-			begin 
+			begin
 				let all_hosts =
 					(List.sort
 						(fun (h, s, r) (h', s', r') ->
@@ -572,7 +574,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
 					choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
 			end
 		with
-		| Api_errors.Server_error(error_type, error_detail) -> 
+		| Api_errors.Server_error(error_type, error_detail) ->
 			debug "Encountered error when using wlb for choosing host \
 				\"%s: %s\". Using original algorithm"
 				error_type
@@ -593,7 +595,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
 				with _ -> ()
 			end;
 			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-		| Failure "float_of_string" -> 
+		| Failure "float_of_string" ->
 			debug "Star ratings from wlb could not be parsed to floats. \
 				Using original algorithm";
 			choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
