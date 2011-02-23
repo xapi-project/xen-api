@@ -266,7 +266,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	if not empty then begin
 	  let sr = Db.VDI.get_SR ~__context ~self:vDI in
 	  let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
-	  if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump ])
+	  if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata])
 	  then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))
 	end;
 	
