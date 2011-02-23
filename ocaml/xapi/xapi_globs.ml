@@ -610,7 +610,7 @@ let old_hp_bios_strings =
 	 "hp-rombios", "COMPAQ"]
 
 
-let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)
+let permanent_master_failure_retry_timeout = 1. *. 60. (* 1 minute *)
 
 (** {2 CPUID feature masking} *)
 
