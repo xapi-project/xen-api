@@ -297,12 +297,18 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 	let new_host_ref = 
 		try Client.Host.get_by_uuid rpc session_id my_uuid
 		with _ ->
+			debug "Found no host with uuid = '%s' on the master, so creating one." my_uuid;
+
 			(* CA-51925: Copy the local cache SR *)
 			let my_local_cache_sr = Db.Host.get_local_cache_sr ~__context ~self:host_ref in
-			let my_local_cache_sr_rec = Db.SR.get_record ~__context ~self:my_local_cache_sr in
-			let local_cache_sr = create_or_get_sr_on_master __context rpc session_id (my_local_cache_sr, my_local_cache_sr_rec) in
+			let local_cache_sr = if my_local_cache_sr = Ref.null then Ref.null else
+				begin
+					let my_local_cache_sr_rec = Db.SR.get_record ~__context ~self:my_local_cache_sr in
+					debug "Copying the local cache SR (uuid=%s)" my_local_cache_sr_rec.API.sR_uuid;
+					create_or_get_sr_on_master __context rpc session_id (my_local_cache_sr, my_local_cache_sr_rec)
+				end in
 
-			debug "Found no host with uuid = '%s' on the master, so creating one." my_uuid;
+			debug "Creating host object on master";
 			let ref = Client.Host.create ~rpc ~session_id
 				~uuid:my_uuid
 				~name_label:host.API.host_name_label
@@ -327,15 +333,21 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 
 			(* Copy the crashdump SR *)
 			let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
-			let my_crashdump_sr_rec = Db.SR.get_record ~__context ~self:my_crashdump_sr in
-			let crashdump_sr = create_or_get_sr_on_master __context rpc session_id (my_crashdump_sr, my_crashdump_sr_rec) in
-			no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ();
+			if my_crashdump_sr <> Ref.null then begin
+				let my_crashdump_sr_rec = Db.SR.get_record ~__context ~self:my_crashdump_sr in
+                        	debug "Copying the crashdump SR (uuid=%s)" my_crashdump_sr_rec.API.sR_uuid;
+				let crashdump_sr = create_or_get_sr_on_master __context rpc session_id (my_crashdump_sr, my_crashdump_sr_rec) in
+				no_exn (fun () -> Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref ~value:crashdump_sr) ()
+			end;
 
 			(* Copy the suspend image SR *)
 			let my_suspend_image_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
-			let my_suspend_image_sr_rec = Db.SR.get_record ~__context ~self:my_suspend_image_sr in
-			let suspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
-			no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:suspend_image_sr) ();
+			if my_suspend_image_sr <> Ref.null then begin
+				let my_suspend_image_sr_rec = Db.SR.get_record ~__context ~self:my_suspend_image_sr in
+                        	debug "Copying the suspend-image SR (uuid=%s)" my_suspend_image_sr_rec.API.sR_uuid;
+				let suspend_image_sr = create_or_get_sr_on_master __context rpc session_id (my_suspend_image_sr, my_suspend_image_sr_rec) in
+				no_exn (fun () -> Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref ~value:suspend_image_sr) ()
+			end;
 
 			ref in
 
@@ -507,7 +519,10 @@ let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret)
 
 let protect_exn f x =
 	try Some (f x)
-	with _ -> None
+	with e ->
+		log_backtrace ();
+		debug "Ignoring exception: %s" (Printexc.to_string e);
+		None
 
 (* Remark: the order in which we create the object in the distant database is not very important, as we have *)
 (* an unique way to identify each object and thus we know if we need to create them or if it is already done *)
