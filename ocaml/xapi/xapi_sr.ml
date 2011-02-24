@@ -431,9 +431,106 @@ let set_physical_utilisation ~__context ~self ~value =
 let assert_can_host_ha_statefile ~__context ~sr = 
   Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
 
-let enable_database_replication ~__context ~sr = ()
+(* Metadata replication to SRs *)
+let redo_log_lifecycle_mutex = Mutex.create ()
+let metadata_replication : ((API.ref_SR, (API.ref_VBD * Redo_log.redo_log)) Hashtbl.t) =
+	Hashtbl.create Xapi_globs.redo_log_max_instances
 
-let disable_database_replication ~__context ~sr = ()
+let find_or_create_metadata_vdi ~__context ~sr =
+	let pool = Helpers.get_pool ~__context in
+	let vdi_can_be_used vdi =
+		Db.VDI.get_type ~__context ~self:vdi = `metadata &&
+		Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool &&
+		Db.VDI.get_virtual_size ~__context ~self:vdi >= Redo_log.minimum_vdi_size
+	in
+	match (List.filter vdi_can_be_used (Db.SR.get_VDIs ~__context ~self:sr)) with
+	| vdi :: _ ->
+		(* Found a suitable VDI - try to use it *)
+		debug "Using VDI [%s:%s] for metadata replication"
+			(Db.VDI.get_name_label ~__context ~self:vdi) (Db.VDI.get_uuid ~__context ~self:vdi);
+		vdi
+	| [] ->
+		(* Did not find a suitable VDI *)
+		debug "Creating a new VDI for metadata replication.";
+		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.VDI.create ~rpc ~session_id ~name_label:"Metadata for DR"
+				~name_description:"Used for disaster recovery"
+				~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata ~sharable:false
+				~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
+		in
+		Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false;
+		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
+		vdi
+
+let get_master_dom0 ~__context =
+	let pool = Helpers.get_pool ~__context in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	let vms = Db.Host.get_resident_VMs ~__context ~self:master in
+	List.hd (List.filter (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) vms)
+
+let provision_metadata_vdi_and_start_redo_log ~__context ~sr =
+	let vdi = find_or_create_metadata_vdi ~__context ~sr in
+	let log = Redo_log.create () in
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	let dom0 = get_master_dom0 ~__context in
+	(* Create and plug vbd *)
+	let vbd = Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
+			~userdevice:"autodetect" ~bootable:false ~mode:`RW ~_type:`Disk
+			~unpluggable:true ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+			~other_config:[]
+		in
+		Client.VBD.plug ~rpc ~session_id ~self:vbd;
+		vbd)
+	in
+	(* Enable redo_log and point it at the new device *)
+	let device = Db.VBD.get_device ~__context ~self:vbd in
+	try
+		Redo_log.enable_block log ("/dev/" ^ device);
+		Redo_log.startup log;
+		Hashtbl.add metadata_replication sr (vbd, log);
+		debug "Redo log started on SR %s" sr_uuid
+	with e ->
+		Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.VBD.unplug ~rpc ~session_id ~self:vbd);
+		raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log,
+			[Printexc.to_string e]))
+
+let enable_database_replication ~__context ~sr =
+	Mutex.execute redo_log_lifecycle_mutex (fun () ->
+		debug "Attempting to enable metadata replication on SR [%s:%s]"
+			(Db.SR.get_name_label ~__context ~self:sr) (Db.SR.get_uuid ~__context ~self:sr);
+		if Hashtbl.mem metadata_replication sr then
+			debug "Metadata is already being replicated to this SR."
+		else begin
+			(* Check that the number of metadata redo_logs isn't already at the limit. *)
+			(* There should never actually be more redo_logs than the limit! *)
+			if Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances then
+				raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []))
+			else
+				provision_metadata_vdi_and_start_redo_log ~__context ~sr
+		end
+	)
+
+let disable_database_replication ~__context ~sr =
+	Mutex.execute redo_log_lifecycle_mutex (fun () ->
+		debug "Attempting to disable metadata replication on SR [%s:%s]."
+			(Db.SR.get_name_label ~__context ~self:sr) (Db.SR.get_uuid ~__context ~self:sr);
+		if not(Hashtbl.mem metadata_replication sr) then
+			debug "Metadata is not being replicated to this SR."
+		else begin
+			let (vbd, log) = Hashtbl.find metadata_replication sr in
+			Redo_log.shutdown log;
+			Redo_log.disable log;
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				Client.VBD.unplug ~rpc ~session_id ~self:vbd);
+			Hashtbl.remove metadata_replication sr;
+			Redo_log.delete log;
+			let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+				Client.VDI.destroy ~rpc ~session_id ~self:vdi)
+		end
+	)
 
 let create_new_blob ~__context ~sr ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in
