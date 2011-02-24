@@ -1071,8 +1071,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let start_on ~__context ~vm ~host ~start_paused ~force =
 		info "VM.start_on: VM = '%s'; host '%s'"
 			(vm_uuid ~__context vm) (host_uuid ~__context host);
-		if Helpers.rolling_upgrade_in_progress ~__context then
-				Helpers.assert_host_has_highest_version_in_pool ~__context ~host:host ;
 		let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
 		with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
 			(fun () ->
@@ -1365,8 +1363,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 	let resume_on ~__context ~vm ~host ~start_paused ~force =
 		info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
-		if Helpers.rolling_upgrade_in_progress ~__context then
-			Helpers.assert_host_has_highest_version_in_pool ~__context ~host:host ;
 		let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
 		with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
 			(fun () ->
