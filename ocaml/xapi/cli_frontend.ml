@@ -2301,7 +2301,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.vm_appliance_shutdown;
 			flags=[];
 		};
-    
+	"vgpu-create",
+	{
+		reqd=["vm-uuid";"gpu-group-uuid"];
+		optn=[]; (* "device" should be added here once we allow >1 vGPU/VM *)
+		help="Create a vGPU.";
+		implementation=No_fd Cli_operations.vgpu_create;
+		flags=[];
+	};
+	"vgpu-destroy",
+	{
+		reqd=["uuid"];
+		optn=[];
+		help="Destroy a vGPU.";
+		implementation=No_fd Cli_operations.vgpu_destroy;
+		flags=[];
+	};
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

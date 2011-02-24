@@ -1059,6 +1059,7 @@ let host_record rpc session_id host =
 				~remove_from_map:(fun k -> Client.Host.remove_from_other_config rpc session_id host k)
 				~get_map:(fun () -> (x ()).API.host_other_config) ();
 			make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_cpu_info) ~get_map:(fun () -> (x ()).API.host_cpu_info) ();
+			make_field ~name:"chipset-info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_chipset_info) ~get_map:(fun () -> (x ()).API.host_chipset_info) ();
 			make_field ~name:"hostname" ~get:(fun () -> (x ()).API.host_hostname) ();
 			make_field ~name:"address" ~get:(fun () -> (x ()).API.host_address) ();
 			make_field ~name:"supported-bootloaders" ~get:(fun () -> String.concat "; " (x ()).API.host_supported_bootloaders)
@@ -1449,3 +1450,86 @@ let vm_appliance_record rpc session_id vm_appliance =
   in
   try let (n,r) = List.find findfn all in (n,r ref) with _ -> ("Unknown",[])
 	*)
+
+let pgpu_record rpc session_id pgpu =
+	let _ref = ref pgpu in
+	let empty_record = ToGet (fun () -> Client.PGPU.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	let pci_record p = ref (ToGet (fun () -> Client.PCI.get_record rpc session_id p)) in
+	let xp0 p = lzy_get (pci_record p) in
+	let xp () = xp0 (x ()).API.pGPU_PCI in
+	{
+		setref = (fun r -> _ref := r; record := empty_record );
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pGPU_uuid) ();
+			make_field ~name:"vendor-name" ~get:(fun () -> try (xp ()).API.pCI_vendor_name with _ -> nid) ();
+			make_field ~name:"device-name" ~get:(fun () -> try (xp ()).API.pCI_device_name with _ -> nid) ();
+			make_field ~name:"gpu-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"gpu-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"host-uuid"    ~get:(fun () -> try get_uuid_from_ref (x ()).API.pGPU_host with _ -> nid) ();
+			make_field ~name:"host-name-label"    ~get:(fun () -> try get_name_from_ref (x ()).API.pGPU_host with _ -> nid) ();
+			make_field ~name:"pci-id" ~get:(fun () -> try (xp ()).API.pCI_pci_id with _ -> nid) ();
+			make_field ~name:"dependencies" ~get:(fun () -> String.concat "; " (List.map (fun pci -> (xp0 pci).API.pCI_pci_id) (xp ()).API.pCI_dependencies))
+				~get_set:(fun () -> (List.map (fun pci -> (xp0 pci).API.pCI_pci_id) (xp ()).API.pCI_dependencies)) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pGPU_other_config)
+				~add_to_map:(fun k v -> Client.PGPU.add_to_other_config rpc session_id pgpu k v)
+				~remove_from_map:(fun k -> Client.PGPU.remove_from_other_config rpc session_id pgpu k)
+				~get_map:(fun () -> (x ()).API.pGPU_other_config) ();
+			]
+	}
+
+let gpu_group_record rpc session_id gpu_group =
+	let _ref = ref gpu_group in
+	let empty_record = ToGet (fun () -> Client.GPU_group.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record );
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.gPU_group_uuid) ();
+			make_field ~name:"name-label" ~get:(fun () -> (x ()).API.gPU_group_name_label)
+				~set:(fun x -> Client.GPU_group.set_name_label rpc session_id gpu_group x) ();
+			make_field ~name:"name-description" ~get:(fun () -> (x ()).API.gPU_group_name_description)
+				~set:(fun x -> Client.GPU_group.set_name_description rpc session_id gpu_group x) ();
+			make_field ~name:"VGPU-uuids" ~get:(fun () -> String.concat "; " (List.map (fun vgpu -> get_uuid_from_ref vgpu) (x ()).API.gPU_group_VGPUs))
+				~get_set:(fun () -> (List.map (fun vgpu -> get_uuid_from_ref vgpu) (x ()).API.gPU_group_VGPUs)) ();
+			make_field ~name:"PGPU-uuids" ~get:(fun () -> String.concat "; " (List.map (fun pgpu -> get_uuid_from_ref pgpu) (x ()).API.gPU_group_PGPUs))
+				~get_set:(fun () -> (List.map (fun pgpu -> get_uuid_from_ref pgpu) (x ()).API.gPU_group_PGPUs)) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.gPU_group_other_config)
+				~add_to_map:(fun k v -> Client.GPU_group.add_to_other_config rpc session_id gpu_group k v)
+				~remove_from_map:(fun k -> Client.GPU_group.remove_from_other_config rpc session_id gpu_group k)
+				~get_map:(fun () -> (x ()).API.gPU_group_other_config) ();
+			]
+	}
+
+let vgpu_record rpc session_id vgpu =
+	let _ref = ref vgpu in
+	let empty_record = ToGet (fun () -> Client.VGPU.get_record rpc session_id !_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record );
+		setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields = [
+			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vGPU_uuid) ();
+			make_field ~name:"vm-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_VM) ();
+			make_field ~name:"vm-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.vGPU_VM) ();
+			make_field ~name:"device" ~get:(fun () -> (x ()).API.vGPU_device) ();
+			make_field ~name:"gpu-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"gpu-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.vGPU_GPU_group with _ -> nid) ();
+			make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool (x ()).API.vGPU_currently_attached) ();
+			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vGPU_other_config)
+				~add_to_map:(fun k v -> Client.VGPU.add_to_other_config rpc session_id vgpu k v)
+				~remove_from_map:(fun k -> Client.VGPU.remove_from_other_config rpc session_id vgpu k)
+				~get_map:(fun () -> (x ()).API.vGPU_other_config) ();
+			]
+	}
