@@ -703,7 +703,6 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"; "is-snapshot-from-vmpp"] rpc session_id) @
 		(make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
 		(make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
-
 		(make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
 		(make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
 		(make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
@@ -721,7 +720,10 @@ let gen_cmds rpc session_id =
 		 *)
 		(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id) @
 		(make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id) @
-		(make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id)
+		(make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id) @
+		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
+		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
+		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
@@ -3982,3 +3984,19 @@ let vm_appliance_shutdown printer rpc session_id params =
 		Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
 	else
 		Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
+
+let vgpu_create printer rpc session_id params =
+	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
+	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
+	let vm_uuid=List.assoc "vm-uuid" params in
+	let vM=Client.VM.get_by_uuid rpc session_id vm_uuid in
+	let gPU_group=Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
+	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] in
+	let uuid = Client.VGPU.get_uuid rpc session_id vgpu in
+	printer (Cli_printer.PList [uuid])
+
+let vgpu_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let vgpu = Client.VGPU.get_by_uuid rpc session_id uuid in
+	Client.VGPU.destroy rpc session_id vgpu
+
