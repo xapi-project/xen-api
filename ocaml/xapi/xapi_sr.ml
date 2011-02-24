@@ -497,6 +497,8 @@ let provision_metadata_vdi_and_start_redo_log ~__context ~sr =
 			[Printexc.to_string e]))
 
 let enable_database_replication ~__context ~sr =
+	if (not (Pool_features.is_enabled ~__context Features.DR)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 	Mutex.execute redo_log_lifecycle_mutex (fun () ->
 		debug "Attempting to enable metadata replication on SR [%s:%s]"
 			(Db.SR.get_name_label ~__context ~self:sr) (Db.SR.get_uuid ~__context ~self:sr);
