@@ -486,12 +486,7 @@ let vm_can_run_on_host __context vm snapshot host =
 	let host_can_run_vm () =
 		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
 		true in
-	let host_has_good_version () =
-		if Helpers.rolling_upgrade_in_progress ~__context
-		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
-		else true in
-	try host_enabled () && host_live () &&
-		host_can_run_vm () && host_has_good_version ()
+	try host_enabled () && host_live () && host_can_run_vm ()
 	with _ -> false
 
 (** Selects a single host from the set of all hosts on which the given [vm]
@@ -516,8 +511,7 @@ let choose_host_uses_wlb ~__context =
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
-	if (choose_host_uses_wlb ~__context)
-		&& not (Helpers.rolling_upgrade_in_progress ~__context)
+	if choose_host_uses_wlb ~__context
 	then
 		try
 			let rec filter_and_convert recs =
