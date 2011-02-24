@@ -1041,141 +1041,180 @@ let resume ~__context ~xc ~xs ~vm =
 		Domain.resume ~xs ~xc ~hvm ~cooperative:true domid;
 		Domain.unpause ~xc domid) 
 
-
 (** Starts up a VM, leaving it in the paused state *)
 let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot =
 	check_vm_parameters ~__context ~self:vm ~snapshot;
 	(* Take the subset of locked VBDs *)
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
 	let vbds = Vbdops.vbds_to_attach ~__context ~vm in
-
 	let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
 	(* NB the database value isn't authoritative because (eg) over upgrade it will be 0L *)
 	Db.VM.set_memory_overhead ~__context ~self:vm ~value:overhead_bytes;
-	with_xc_and_xs (fun xc xs ->
-		let target_plus_overhead_kib, reservation_id =
-			Memory_control.reserve_memory_range ~__context ~xc ~xs
-				~min:(Memory.kib_of_bytes_used (snapshot.API.vM_memory_dynamic_min +++ overhead_bytes))
-				~max:(Memory.kib_of_bytes_used (snapshot.API.vM_memory_dynamic_max +++ overhead_bytes)) in
-		let target_plus_overhead_bytes = Memory.bytes_of_kib target_plus_overhead_kib in
-		let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
-		(* NB due to rounding up on the bytes to kib conversion we might end up with more memory free than 
-		   we need: this is ok; we don't have to use it all. *)
-		let target_bytes = min snapshot.API.vM_memory_dynamic_max target_bytes in
+	with_xc_and_xs
+		(fun xc xs ->
+			let target_plus_overhead_kib, reservation_id =
+				Memory_control.reserve_memory_range
+					~__context ~xc ~xs
+					~min:(Memory.kib_of_bytes_used
+						(snapshot.API.vM_memory_dynamic_min +++ overhead_bytes))
+					~max:(Memory.kib_of_bytes_used
+						(snapshot.API.vM_memory_dynamic_max +++ overhead_bytes)) in
+			let target_plus_overhead_bytes =
+				Memory.bytes_of_kib target_plus_overhead_kib in
+			let target_bytes =
+				target_plus_overhead_bytes --- overhead_bytes in
+			(* NB due to rounding up on the bytes to kib conversion
+			   we might end up with more memory free than we need:
+			   this is ok; we don't have to use it all. *)
+			let target_bytes = min snapshot.API.vM_memory_dynamic_max target_bytes in
+			if target_bytes < snapshot.API.vM_memory_dynamic_min then begin
+				error
+					"target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld"
+					target_bytes
+					snapshot.API.vM_memory_dynamic_min
+					overhead_bytes
+					target_plus_overhead_bytes;
+			end;
+			assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
+			assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
+			let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
+			let (domid: Domain.domid) =
+				create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
+			begin
+				try
+					Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
+					progress_cb 0.25;
+					clear_all_device_status_fields ~__context ~self:vm;
+					progress_cb 0.30;
+					debug "Verifying VDI records exist";
+					List.iter (fun vbd -> check_vdi_exists ~__context ~vbd) vbds;
+					let width =
+						try Some (int_of_string (List.assoc "machine-address-size" other_config))
+						with _ -> None in
+					Domain.set_machine_address_size ~xc domid width;
+					(* This might involve a block-attach for bootloader:
+					   do this early before locking the VDIs *)
+					debug "creating kernel";
+					create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
+					progress_cb 0.35;
+					let hvm = Helpers.is_hvm snapshot in
+					if Xapi_globs.xenclient_enabled then
+						Domain.cpuid_apply ~xc ~hvm domid;
+					(* XXX: PCI passthrough needs a lot of work *)
+					let pcidevs =
+						(match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
+					(* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
+					let vbds =
+						if hvm then
+							vbds
+						else
+							List.filter
+								(fun self -> not(Db.VBD.get_empty ~__context ~self))
+								vbds in
+					(* If any VDIs cannot be attached, let the exn propagate *)
+					let vdis =
+						List.map
+							(fun vbd ->
+								Db.VBD.get_VDI ~__context ~self:vbd,
+								Db.VBD.get_mode ~__context ~self:vbd)
+							(List.filter
+								(fun self -> not (Db.VBD.get_empty ~__context ~self))
+								vbds) in
+					(* Attach and activate reqd vdis: if exn occurs then we do best
+					   effort cleanup -- that is detach and deactivate -- and then
+					   propogate original exception. We need an exn handler around
+					   the whole thing as with_careful_attach_and_activate may throw
+					   an exn whilst trying to attach/activate the vdis; in this case
+					   the inner-fn won't have been able to install its exn handler,
+					   so we have to catch the exn externally and destroy the domain.
+					*)
+					Storage_access.with_careful_attach_and_activate
+						~__context ~vdis ~leave_activated:true
+						(fun () ->
+							try
+								debug "creating VCPU devices and attaching to domain";
+								create_cpus ~xs snapshot domid;
+								progress_cb 0.40;
+								debug "creating VBD devices and attaching to domain";
+								(* CA-25297: domarch is r/o and not currently stored in the LBR *)
+								let protocol =
+									Helpers.device_protocol_of_string
+										(Db.VM.get_domarch ~__context ~self:vm) in
+								(* If any VBDs cannot be attached, let the exn propagate *)
+								List.iter
+									(fun self ->
+										create_vbd ~__context ~xs ~hvm ~protocol domid self)
+									vbds;
+								progress_cb 0.60;
+								debug "creating VIF devices and attaching to domain";
+								let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
+								create_vifs ~__context ~xs vifs;
+								progress_cb 0.70;
+								if not hvm
+									then attach_pcis ~__context ~xc ~xs ~hvm domid pcidevs;
+								if (Xapi_globs.xenclient_enabled)
+									&& (not hvm)
+									&& (has_platform_flag snapshot.API.vM_platform "pv_qemu")
+								then progress_cb 0.75;
+								debug "adjusting CPU number against startup-number";
+								set_cpus_number ~__context ~xs ~self:vm domid snapshot;
+								progress_cb 0.80;
+								debug "creating device emulator";
+								let vncport =
+									create_device_emulator
+										~__context ~xc ~xs ~self:vm domid vifs snapshot in
+								if hvm then plug_pcidevs_noexn ~__context ~vm domid pcidevs;
+								create_console ~__context ~vM:vm ~vncport ();
+								debug "writing memory policy";
+								write_memory_policy ~xs snapshot domid;
+								Db.VM_metrics.set_start_time
+									~__context
+									~self:snapshot.API.vM_metrics
+									~value:(Date.of_float (Unix.gettimeofday ()));
+							with exn ->
+								(* [Comment copied from similar pattern in "restore" fn above]:
+								   Destroy domain in inner-exn handler because otherwise the
+								   storage_access handler won't be able to detach/deactivate
+								   the devices -- the backends will still be accessing them.
+								   *** If you ever read this in future and think that this
+								   inner exn handler makes the outer one redundant (or vice-
+								   versa) then you're wrong. The double domain destroy that
+								   you'll get (since the outer handler will also call destroy)
+								   is harmless since domids are not re-used until we loop
+								   round the whole range.
+								*)
+								begin
+									debug
+										"Vmops.start_paused (inner-handler) caught: %s: calling domain_destroy"
+											(ExnHelper.string_of_exn exn);
+									destroy
+										~__context ~xc ~xs ~self:vm
+										~detach_devices:false
+										~deactivate_devices:false
+										domid `Halted;
+									raise exn (* re-raise *)
+								end)
+				with exn ->
+					debug
+						"Vmops.start_paused caught: %s: calling domain_destroy"
+						(ExnHelper.string_of_exn exn);
+					error
+						"Memory F %Ld KiB S %Ld KiB T %Ld MiB"
+						(Memory.get_free_memory_kib xc)
+						(Memory.get_scrub_memory_kib xc)
+						(Memory.get_total_memory_mib xc);
+					(* We do not detach/deactivate here because -- either devices were
+					   attached (in which case the storage_access handler has already
+					   detached them by this point); or devices were _never_ attached
+					   because exn was thrown before storage_access handler
+					*)
+					destroy
+						~__context ~xc ~xs ~self:vm
+						~detach_devices:false
+						~deactivate_devices:false
+						domid `Halted;
+					(* Return a nice exception if we can *)
+					raise (Xapi_xenops_errors.to_api_error exn)
+			end;
+			Helpers.set_boot_record ~__context ~self:vm snapshot)
 
-		if target_bytes < snapshot.API.vM_memory_dynamic_min then begin
-		  error "target = %Ld; dynamic_min = %Ld; overhead = %Ld; target+overhead = %Ld" target_bytes snapshot.API.vM_memory_dynamic_min overhead_bytes target_plus_overhead_bytes;
-		end;
-		assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
-		assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
-		let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
-		let (domid: Domain.domid) = create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
-
-		    begin try
-		      Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
-
-		      progress_cb 0.25;
-
-		      clear_all_device_status_fields ~__context ~self:vm;
-		      progress_cb 0.30;
-
-		      debug "Verifying VDI records exist";
-		      List.iter (fun vbd -> check_vdi_exists ~__context ~vbd) vbds;
-
-		      let width = try Some (int_of_string (List.assoc "machine-address-size" other_config))
-		                  with _ -> None in
-		      Domain.set_machine_address_size ~xc domid width;
-
-		      (* This might involve a block-attach for bootloader: do this early before
-			 locking the VDIs *)
-		      debug "creating kernel";
-		      create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
-		      progress_cb 0.35;
-
-		      let hvm = Helpers.is_hvm snapshot in			
-
-		      if Xapi_globs.xenclient_enabled then 
-			Domain.cpuid_apply ~xc ~hvm domid;
-
-			  (* XXX: PCI passthrough needs a lot of work *)
-			  let pcidevs = (match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
-
-		      (* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
-		      let vbds = 
-			if hvm then vbds
-			else List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds in
-		      (* If any VDIs cannot be attached, let the exn propagate *)
-		      let vdis =
-			List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd, Db.VBD.get_mode ~__context ~self:vbd)
-			  (List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) vbds) in
-		      
-		      (* Attach and activate reqd vdis: if exn occurs then we do best effort cleanup
-			 -- that is detach and deactivate -- and then propogate original exception.
-			 We need an exn handler around the whole thing as with_careful_attach_and_activate may throw an exn
-			 whilst trying to attach/activate the
-			 vdis; in this case the inner-fn won't have been able to install its exn handler, so we have to catch
-			 the exn externally and destroy the domain.
-		      *)
-		      Storage_access.with_careful_attach_and_activate ~__context ~vdis ~leave_activated:true
-			(fun () ->
-			   try
-			     debug "creating VCPU devices and attaching to domain";
-			     create_cpus ~xs snapshot domid;
-			     progress_cb 0.40;
-			     debug "creating VBD devices and attaching to domain";
-			     (* CA-25297: domarch is r/o and not currently stored in the LBR *)
-			     let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self:vm) in
-			     (* If any VBDs cannot be attached, let the exn propagate *)
-			     List.iter (fun self -> create_vbd ~__context ~xs ~hvm ~protocol domid self) vbds;
-			     progress_cb 0.60;
-			     debug "creating VIF devices and attaching to domain";
-			     let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
-			     create_vifs ~__context ~xs vifs;
-			     progress_cb 0.70;
-			     if not hvm 
-			     then attach_pcis ~__context ~xc ~xs ~hvm domid pcidevs;
-
-			     if (Xapi_globs.xenclient_enabled) && (not hvm) && (has_platform_flag snapshot.API.vM_platform "pv_qemu") then
-
-			     progress_cb 0.75;
-			     debug "adjusting CPU number against startup-number";
-			     set_cpus_number ~__context ~xs ~self:vm domid snapshot;
-			     progress_cb 0.80;
-			     debug "creating device emulator";
-			     let vncport = create_device_emulator ~__context ~xc ~xs ~self:vm domid vifs snapshot in
-				 if hvm then plug_pcidevs_noexn ~__context ~vm domid pcidevs;
-			     create_console ~__context ~vM:vm ~vncport ();
-			     debug "writing memory policy";
-			     write_memory_policy ~xs snapshot domid;
-
-			     Db.VM_metrics.set_start_time ~__context ~self:snapshot.API.vM_metrics ~value:(Date.of_float (Unix.gettimeofday ()));
-			   with exn ->
-			     (* [Comment copied from similar pattern in "restore" fn above]:
-
-				Destroy domain in inner-exn handler because otherwise the storage_access handler won't be able to detach/deactivate the
-				devices -- the backends will still be accessing them. *** If you ever read this in future and think that this inner exn handler makes
-				the outer one redundant (or vice-versa) then you're wrong.
-				
-				The double domain destroy that you'll get (since the outer handler will also call destroy) is harmless since domids are
-				not re-used until we loop round the whole range.
-			     *)
-			     begin
-			       debug "Vmops.start_paused (inner-handler) caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
-			       destroy ~__context ~xc ~xs ~self:vm ~detach_devices:false ~deactivate_devices:false domid `Halted;
-			       raise exn (* re-raise *)
-			     end
-			)
-		    with exn ->
-		      debug "Vmops.start_paused caught: %s: calling domain_destroy"
-			(ExnHelper.string_of_exn exn);
-		      error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc);
-
-		      (* We do not detach/deactivate here because -- either devices were attached (in which case the storage_access
-			 handler has already detached them by this point); or devices were _never_ attached because exn was thrown
-			 before storage_access handler *)
-		      destroy ~__context ~xc ~xs ~self:vm ~detach_devices:false ~deactivate_devices:false domid `Halted;
-		      (* Return a nice exception if we can *)
-		      raise (Xapi_xenops_errors.to_api_error exn)
-		    end;
-		    Helpers.set_boot_record ~__context ~self:vm snapshot
-		 )
