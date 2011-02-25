@@ -14,6 +14,9 @@ RPMBUILD?=rpmbuild
 XEN_RELEASE?=unknown
 endif
 
+JQUERY=$(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
+JQUERY_TREEVIEW=$(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
+
 COMPILE_NATIVE=yes
 COMPILE_BYTE=no # bytecode version does not build
 export COMPILE_NATIVE COMPILE_BYTE
@@ -108,6 +111,7 @@ srpm:
 	mkdir -p $(RPM_SOURCESDIR) $(RPM_SPECSDIR) $(RPM_SRPMSDIR)
 	while ! [ -d .git ]; do cd ..; done; \
 	git archive --prefix=xapi-0.2/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-0.2.tar.bz2 # xen-api/Makefile
+	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
