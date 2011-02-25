@@ -21,6 +21,8 @@ open Pervasiveext
 open Vmopshelpers
 open Client
 open Vbdops
+open Listext
+open Fun
 
 let ( +++ ) = Int64.add
 let ( --- ) = Int64.sub
@@ -1092,17 +1094,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 						try Some (int_of_string (List.assoc "machine-address-size" other_config))
 						with _ -> None in
 					Domain.set_machine_address_size ~xc domid width;
-					(* This might involve a block-attach for bootloader:
-					   do this early before locking the VDIs *)
-					debug "creating kernel";
-					create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
-					progress_cb 0.35;
 					let hvm = Helpers.is_hvm snapshot in
-					if Xapi_globs.xenclient_enabled then
-						Domain.cpuid_apply ~xc ~hvm domid;
-					(* XXX: PCI passthrough needs a lot of work *)
-					let pcidevs =
-						(match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
 					(* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
 					let vbds =
 						if hvm then
@@ -1120,6 +1112,43 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 							(List.filter
 								(fun self -> not (Db.VBD.get_empty ~__context ~self))
 								vbds) in
+					let vdis_with_timeoffset_to_be_reset_on_boot =
+						vdis
+							|> List.map (fst)
+							|> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
+							|> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
+							|> List.filter_map (fun (reference, record) ->
+								Opt.of_exception (fun () ->
+									reference,
+									List.assoc "timeoffset"
+										record.API.vDI_other_config)) in
+					let snapshot = match vdis_with_timeoffset_to_be_reset_on_boot with
+						| [] ->
+							snapshot
+						| [(reference, timeoffset)] ->
+							{snapshot with
+								API.vM_platform =
+									("timeoffset", timeoffset) ::
+										(List.filter
+											(fun (key, _) -> key <> "timeoffset")
+											(snapshot.API.vM_platform))}
+						| reference_timeoffset_pairs ->
+							raise (Api_errors.Server_error (
+								(Api_errors.vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot),
+									(Ref.string_of vm) ::
+										(reference_timeoffset_pairs
+											|> List.map fst
+											|> List.map Ref.string_of))) in
+					(* This might involve a block-attach for bootloader:
+					   do this early before locking the VDIs *)
+					debug "creating kernel";
+					create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
+					progress_cb 0.35;
+					if Xapi_globs.xenclient_enabled then
+						Domain.cpuid_apply ~xc ~hvm domid;
+					(* XXX: PCI passthrough needs a lot of work *)
+					let pcidevs =
+						(match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
 					(* Attach and activate reqd vdis: if exn occurs then we do best
 					   effort cleanup -- that is detach and deactivate -- and then
 					   propogate original exception. We need an exn handler around
@@ -1193,7 +1222,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 										~deactivate_devices:false
 										domid `Halted;
 									raise exn (* re-raise *)
-								end)
+								end);
+					Helpers.set_boot_record ~__context ~self:vm snapshot
 				with exn ->
 					debug
 						"Vmops.start_paused caught: %s: calling domain_destroy"
@@ -1215,6 +1245,4 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 						domid `Halted;
 					(* Return a nice exception if we can *)
 					raise (Xapi_xenops_errors.to_api_error exn)
-			end;
-			Helpers.set_boot_record ~__context ~self:vm snapshot)
-
+			end)
