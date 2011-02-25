@@ -2,7 +2,7 @@ Xen API (or xapi) is a management stack that configures and controls
 Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool.  Xapi exposes the Xen API interface for many
 languages and is a component of the Xen Cloud Platform (XCP) project.
-Xen API is written mostly in [Ocaml](http://caml.inria.fr/ocaml/).
+Xen API is written mostly in [Ocaml](http://caml.inria.fr/ocaml/) 3.12.
 
 Xen Cloud Platform (XCP) is an open source enterprise-ready server
 virtualization and cloud computing platform.  XCP builds on the Xen
