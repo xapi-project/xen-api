@@ -15,6 +15,7 @@ clean:
 install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) lvhdrt $(DEBUGDIST)
+	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
 	$(IEXE) lvhdrt-helper $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-helper
 	$(IEXE) lvhdrt-trash-vdi $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-trash-vdi 
 
