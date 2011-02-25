@@ -1,7 +1,9 @@
 .SUBDIRS: ocaml_backend lua js_backend
 
-JQUERY = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
-JQUERYTREEVIEWZIP = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
+JQUERY=jquery-1.1.3.1.pack.js
+JQUERY_DISTFILE = $(CARBON_DISTFILES)/javascript/jquery/$(JQUERY)
+JQUERYTREEVIEWZIP = jquery.treeview.zip
+JQUERYTREEVIEWZIP_DISTFILE = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
 
 PSTOPDF = $(shell bash -c "which pstopdf || which ps2pdf || which ps2pdf14 || echo false")
 
@@ -43,6 +45,12 @@ api-html-doc: xenapi-html-doc xenenterpriseapi-html-doc
 
 # XXX replace xenapi-html-doc and xenenterpriseapi-html-doc with implicit
 # targets instead of hardcoding
+
+#$(JQUERY) : 
+#	cp $(JQUERY_DISTFILE) .
+#
+#$(JQUERYTREEVIEWZIP) :
+#	cp $(JQUERYTREEVIEWZIP_DISTFILE) .
 
 sdk-classes: sdk-classes.dot
 	dot -Tps2 -Kneato -Goverlap=false sdk-classes.dot > sdk-classes.ps
@@ -110,8 +118,11 @@ clean:
 	rm -rf /tmp/docs
 	rm -rf $(SDKWWW)/docs/html
 
+sdk-README.txt : sdk-README.html
+	lynx -dump sdk-README.html > sdk-README.txt
+
 .PHONY: sdk-install
-sdk-install: datamodel html_build xenenterpriseapi.pdf
+sdk-install: datamodel html_build xenenterpriseapi.pdf $(JQUERY) $(JQUERYTREEVIEWZIP)
 	mkdir -p $(SDK)/docs/html
 	cp xenenterpriseapi-datamodel-graph.map $(SDK)/docs/html
 	cp xenenterpriseapi-datamodel-graph.gif $(SDK)/docs/html
@@ -131,12 +142,11 @@ sdk-install: datamodel html_build xenenterpriseapi.pdf
 	cp $(JQUERY) $(SDK)/docs/html
 	mkdir -p $(SDK)/docs/html/images
 	unzip -o -j -d $(SDK)/docs/html/images $(JQUERYTREEVIEWZIP) images/*
-	unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) *.js images/*
+	unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) '*.js' images/*
 	#./datamodel -closed -html $(SDK)/docs/html
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
-	cp sdk-README.html $(SDK)/README.html
-	lynx -dump sdk-README.html > $(SDK)/README.txt
+	cp sdk-README.txt $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
 
 .PHONY: doc

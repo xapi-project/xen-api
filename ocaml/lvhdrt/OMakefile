@@ -2,7 +2,7 @@ OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend
 OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
-IEXE=install -m 755 -o root -g root
+IEXE=install -m 755
 
 OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 tc_8699 tc_8700 tc_8707 tc_8766 tc_8775)
 
