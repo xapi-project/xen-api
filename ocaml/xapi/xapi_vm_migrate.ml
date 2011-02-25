@@ -210,7 +210,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
       raise (Vmops.Domain_shutdown_for_wrong_reason Xal.Crashed)
     end;
 
-	  Vmops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list ~xc ~xs domid);
+	  Pciops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list ~xc ~xs domid);
 
     (* MTC: We want to be notified when libxc's xc_domain_save suspends the domain
      *      to go from background to foreground mode.  Therefore, we provide the
@@ -501,7 +501,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   debug "Receiver 7b. unpausing domain";
   Domain.unpause ~xc domid;
 
-  Vmops.plug_pcidevs_noexn ~__context ~vm domid (Vmops.pcidevs_of_vm ~__context ~vm);
+  Pciops.plug_pcidevs_noexn ~__context ~vm domid (Pciops.pcidevs_of_vm ~__context ~vm);
 
   Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
   Helpers.call_api_functions ~__context
