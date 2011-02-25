@@ -1068,6 +1068,9 @@ let _ =
 	error Api_errors.vm_incompatible_with_this_host []
 		~doc:"The VM is incompatible with the CPU features of this host." ();
 
+	error Api_errors.cannot_destroy_disaster_recovery_task ["reason"]
+		~doc:"The disaster recovery task could not be cleanly destroyed." ();
+
 
 let _ =
   message Api_messages.ha_pool_overcommitted ~doc:"Pool has become overcommitted: it can nolonger guarantee to restart protected VMs if the configured number of hosts fail." ();
