@@ -117,6 +117,8 @@ def set_boot_config(installer_dir):
         default = config.menu[config.default]
         if 'upgrade' in config.menu_order:
             config.remove('upgrade')
+        else:
+            config.commit(os.path.join(installer_dir, os.path.basename(config.src_file)))
 
         pif = get_mgmt_config()
 
