@@ -139,6 +139,8 @@ XAPI_MODULES = $(COMMON) \
 	vmopshelpers \
 	vm_config \
 	vmops \
+	pciops \
+	vgpuops \
 	memory_control \
 	vbdops \
 	attach_helpers \
