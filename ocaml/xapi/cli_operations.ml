@@ -193,8 +193,8 @@ let diagnostic_license_status printer rpc session_id params =
 	let hosts = List.map (fun h -> [ h.hostname;
 		String.sub h.uuid 0 8;
 		Features.to_compact_string h.rstr;
-		h.edition_short; 
-		string_of_bool (h.edition = "free");				
+		h.edition_short;
+		string_of_bool (h.edition = "free");
 		Date.to_string (Date.of_float h.expiry);
 		Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
 	]) host_licenses in
@@ -1971,8 +1971,9 @@ let vm_install_real printer rpc session_id template name description params =
 
 	let sr_ref =
 		if Client.VM.get_is_a_snapshot rpc session_id template then
-			if (List.mem_assoc "sr-name-label" params
-			    || List.mem_assoc "sr-uuid" params) then
+			if true
+				|| (List.mem_assoc "sr-name-label" params
+				|| List.mem_assoc "sr-uuid" params) then
 				failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks."
 			else Some Ref.null
 		else None in
@@ -1981,7 +1982,7 @@ let vm_install_real printer rpc session_id template name description params =
 
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
-		| None -> 
+		| None ->
 			if List.mem_assoc "sr-uuid" params then
 				let uuid = List.assoc "sr-uuid" params in
 				Some (Client.SR.get_by_uuid rpc session_id uuid)
@@ -2005,24 +2006,24 @@ let vm_install_real printer rpc session_id template name description params =
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
 		| None ->
-			let all_empty_cd_driver = 
+			let all_empty_cd_driver =
 				let vbds = Client.VM.get_VBDs rpc session_id template in
 				let is_empty_cd_drive vbd =
 					Client.VBD.get_type rpc session_id vbd = `CD
 					&& Client.VBD.get_empty rpc session_id vbd in
 				List.for_all is_empty_cd_drive vbds in
-			let no_provision_disk = 
+			let no_provision_disk =
 				let other_config = Client.VM.get_other_config rpc session_id template in
 				not (List.mem_assoc "disks" other_config)
 				|| List.assoc "disks" other_config = ""
 				|| (Xml.parse_string (List.assoc "disks" other_config)
-				    = Xml.Element("provision", [], [])) in
+				= Xml.Element("provision", [], [])) in
 			if all_empty_cd_driver && no_provision_disk then Some Ref.null
 			else None in
 
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
-		| None -> 
+		| None ->
 			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			let sr = Client.Pool.get_default_SR rpc session_id pool in
 			Some sr in
@@ -3894,7 +3895,7 @@ let session_subject_identifier_logout_all printer rpc session_id params =
 
 let secret_create printer rpc session_id params =
 	let value = List.assoc "value" params in
-        let other_config = read_map_params "other-config" params in
+	let other_config = read_map_params "other-config" params in
 	let ref = Client.Secret.create ~rpc ~session_id ~value ~other_config in
 	let uuid = Client.Secret.get_uuid ~rpc ~session_id ~self:ref in
 	printer (Cli_printer.PList [uuid])
