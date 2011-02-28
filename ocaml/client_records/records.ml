@@ -912,6 +912,18 @@ let vm_record rpc session_id vm =
 				~get_set:(fun () -> (x ()).API.vM_tags)
 				~add_to_set:(fun tag -> Client.VM.add_tags rpc session_id vm tag)
 				~remove_from_set:(fun tag -> Client.VM.remove_tags rpc session_id vm tag) ();
+			make_field ~name:"appliance"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_appliance)
+				~set:(fun x -> if x="" then Client.VM.set_appliance rpc session_id vm Ref.null else Client.VM.set_appliance rpc session_id vm (Client.VM_appliance.get_by_uuid rpc session_id x)) ();
+			make_field ~name:"start-delay"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_start_delay)
+				~set:(fun x -> Client.VM.set_start_delay rpc session_id vm (safe_i64_of_string "start-delay" x)) ();
+			make_field ~name:"shutdown-delay"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
+				~set:(fun x -> Client.VM.set_shutdown_delay rpc session_id vm (safe_i64_of_string "shutdown-delay" x)) ();
+			make_field ~name:"order"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
+				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
