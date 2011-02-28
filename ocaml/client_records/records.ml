@@ -1396,6 +1396,36 @@ let secret_record rpc session_id secret =
 		]
 	}
 
+let vm_appliance_record rpc session_id vm_appliance =
+	let _ref = ref vm_appliance in
+	let empty_record = ToGet (fun () ->
+		Client.VM_appliance.get_record ~rpc ~session_id ~self:!_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record);
+		setrefrec = (fun (a, b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields =
+			[
+				make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_appliance_uuid) ();
+				make_field ~name:"name_label" ~get:(fun () -> (x ()).API.vM_appliance_name_label)
+					~set:(fun x -> Client.VM_appliance.set_name_label rpc session_id !_ref x) ();
+				make_field ~name:"name_description" ~get:(fun () -> (x ()).API.vM_appliance_name_description)
+					~set:(fun x -> Client.VM_appliance.set_name_description rpc session_id !_ref x) ();
+				make_field ~name:"VMs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs))
+					~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs) ();
+				make_field ~name:"allowed-operations"
+					~get:(fun () -> String.concat "; " (List.map Record_util.vm_appliance_operation_to_string (x ()).API.vM_appliance_allowed_operations)) 
+					~get_set:(fun () -> List.map Record_util.vm_appliance_operation_to_string (x ()).API.vM_appliance_allowed_operations) ();
+				make_field ~name:"current-operations"
+					~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vm_appliance_operation_to_string b) (x ()).API.vM_appliance_current_operations)) 
+					~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vm_appliance_operation_to_string b) (x ()).API.vM_appliance_current_operations) ();
+			]
+	}
+
+
 (*let record_from_ref rpc session_id ref =
   let all = [
     "PBD",(fun ref -> snd (pbd_record rpc session_id (Ref.of_string ref))); 

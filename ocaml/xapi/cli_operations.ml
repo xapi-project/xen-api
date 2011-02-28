@@ -719,8 +719,9 @@ let gen_cmds rpc session_id =
 		(*
 		  (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 		 *)
-		(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
-	@ (make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id)
+		(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id) @
+		(make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id) @
+		(make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
