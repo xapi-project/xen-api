@@ -1749,6 +1749,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
 		Local.VM.set_protection_policy ~__context ~self ~value
 
+	let set_start_delay ~__context ~self ~value =
+		info "VM.set_start_delay: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_start_delay ~__context ~self ~value
+
+	let set_shutdown_delay ~__context ~self ~value =
+		info "VM.set_shutdown_delay: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_shutdown_delay ~__context ~self ~value
+
+	let set_order ~__context ~self ~value =
+		info "VM.set_order: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_order ~__context ~self ~value
+
   end
 
   module VM_metrics = struct
