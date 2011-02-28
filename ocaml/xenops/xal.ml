@@ -39,6 +39,7 @@ type dev_event =
 	| Message of string * string * int64 * string
 	| HotplugChanged of string * string option * string option
 	| ChangeUncooperative of bool
+	| PciChanged of string
 
 type xs_dev_state =
 	| Connecting
@@ -56,6 +57,7 @@ type internal_dev_event =
 	| IntMessage of string * string * int64 * string (* uuid, name, priority, body *)
 	| HotplugBackend of string option
 	| Uncooperative of bool
+	| PciBackend of xs_dev_state * string
 
 let string_of_dev_state = function
 	| Connecting -> "Connecting"
@@ -82,6 +84,8 @@ let string_of_dev_event ev =
 		        (string_of_string_opt n)
 	| ChangeUncooperative b ->
 		sprintf "ChangeUncooperative %b" b
+	| PciChanged s ->
+		sprintf "PciChanged %s" s
 
 type died_reason =
 	| Crashed
@@ -437,6 +441,14 @@ let other_watch xs w v =
 		with _ ->
 			None
 		end
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: "pci" :: domid :: [] ->
+		debug "pci devices for domain %s have disappeared" domid;
+		Some (int_of_string domid, PciBackend (Closed, ""), "", "")
+	| "" :: "local" :: "domain" :: "0" :: "backend" :: "pci" :: domid :: "0" :: [dev] ->
+		let pciid = xs.Xs.read w in
+		let devid = String.sub_to_end dev 4 in
+		debug "pci device %s/%s passed through to domain %s" devid pciid domid;
+		Some (int_of_string domid, PciBackend (Connected, devid), "", "")
 	| "" :: "local" :: "domain" :: domid :: "device" :: ty :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
@@ -584,6 +596,8 @@ let domain_device_event ctx w v =
 			devstate.hotplug <- extra;
 			ctx.callback_devices ctx domid
 			               (HotplugChanged (devid, old, extra))
+		| PciBackend (state, devid) ->
+			ctx.callback_devices ctx domid (PciChanged devid)
 	)
 
 (** Internal helper function which wraps the Xs.read_watchevent with

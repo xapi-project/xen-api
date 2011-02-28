@@ -14,6 +14,8 @@
 module D=Debug.Debugger(struct let name="vgpuops" end)
 open D
 
+open Listext
+
 type vgpu = {
 	domid: int; (** current domain id of the VM *)
 	vgpu_ref: API.ref_VGPU;
@@ -35,3 +37,38 @@ let vgpu_of_vgpu ~__context vm_r domid vgpu =
 let vgpus_of_vm ~__context ~vm domid =
 	let vm_r = Db.VM.get_record ~__context ~self:vm in
 	List.map (vgpu_of_vgpu ~__context vm_r domid) vm_r.API.vM_VGPUs
+
+let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
+	debug "Create vGPUs";
+	let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
+	let pgpus = List.intersect compatible_pgpus available_pgpus in
+	let free_pgpus = List.filter_map (fun pgpu ->
+		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+		if Pciops.get_free_functions ~__context pci <= 0
+		then None
+		else Some (pgpu, pci)
+	) pgpus in
+	match free_pgpus with
+	| [] ->
+		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+			Ref.string_of vm;
+			Ref.string_of vgpu.gpu_group_ref
+		]))
+	| (pgpu, pci) :: _ ->
+		List.filter (fun g -> g <> pgpu) available_pgpus,
+		pci :: pcis
+
+let create_vgpus ~__context ~vm domid =
+	let vgpus = vgpus_of_vm ~__context ~vm domid in
+	let host = Helpers.get_localhost ~__context in
+	let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
+	let _, pcis =
+		List.fold_left (fun (pgpus, pcis) vgpu -> create_vgpu ~__context ~vm vgpu pgpus pcis)
+			(pgpus, []) vgpus
+	in
+	pcis
+
+let clear_vgpus ~__context ~vm =
+	let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+	List.iter (fun self -> Db.VGPU.set_currently_attached ~__context ~self ~value:false) vgpus
+

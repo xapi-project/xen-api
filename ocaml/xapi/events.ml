@@ -15,6 +15,7 @@ open Printf
 open Vmopshelpers
 open Pervasiveext
 open Threadext
+open Listext
 
 module D = Debug.Debugger(struct let name = "event" end)
 open D
@@ -305,6 +306,48 @@ module Resync = struct
 	 end
       )
 
+	(** For a given VM, check all associated PCI devices to see whether they are still "plugged" in xenstore and
+	 *  synchronise the database with it. *)
+	let pci ~__context token vm = 
+		(* By the time we get here the domid might have changed *)
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		debug "VM %s (domid: %d) Resync.pci" (Ref.string_of vm) domid;
+		assert_not_on_xal_thread ();
+		Locking_helpers.assert_locked vm token;
+
+		(* This is what the DB thinks: *)
+		let pcis_db = Db.VM.get_attached_PCIs ~__context ~self:vm in
+		(* This is what the backend thinks: *)
+		let pcis_back = Pciops.currently_attached_pcis ~__context domid in
+
+		let gpu_class_id = Xapi_pci.find_class_id (Xapi_pci.Display_controller) in
+
+		(* Attached devices that are not yet attached in the DB *)
+		List.iter (fun pci ->
+			Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
+			(* Assumption: a VM can have only one vGPU *)
+			if Db.PCI.get_class_id ~__context ~self:pci = gpu_class_id then begin
+				let vgpu = List.hd (Db.VM.get_VGPUs ~__context ~self:vm) in
+				Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true;
+				debug "VGPU %s is currently attached" (Ref.string_of vgpu)
+			end
+		)
+		(List.set_difference pcis_back pcis_db);
+
+		(* Non-attached devices that are listed as attached in the DB *)
+		(* If VM is suspended, leave as-is so we can resume properly *)
+		if not (Db.VM.get_power_state ~__context ~self:vm = `Suspended) then
+			List.iter (fun pci ->
+				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm;
+				(* Assumption: a VM can have only one vGPU *)
+				if Db.PCI.get_class_id ~__context ~self:pci = gpu_class_id then begin
+					let vgpu = List.hd (Db.VM.get_VGPUs ~__context ~self:vm) in
+					Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
+					debug "VGPU %s is currently NOT attached" (Ref.string_of vgpu)
+				end
+			)
+			(List.set_difference pcis_db pcis_back)
+
   (** For a given VM look to see whether the domain has shutdown (for reboot/halt/crash/whatever) 
       and take whatever remedial actions are necessary. Return true if some action was taken, 
       false otherwise. This function is called with the VM locally locked and resident_on this host. *)
@@ -497,8 +540,15 @@ let callback_devices ctx domid dev_event =
 		       then Hashtbl.replace Monitor.uncooperative_domains domid ()
 		       else Hashtbl.remove Monitor.uncooperative_domains domid
 		    )
+			| Xal.PciChanged devid ->
+				let vm = vm_of_domid ~__context domid in
+				let xs = Xal.xs_of_ctx ctx in
+				let work_item ~__context token = Resync.pci ~__context token vm in
+				debug "Adding Resync.pci to queue";
+				let description = Printf.sprintf "PciChanged(%s) domid: %d" devid domid in
+				push vm Local_work_queue.normal_vm_queue description work_item
 	      (*unused case, consider removing: | x -> debug "no handler for this event"*)
-		  
+
 	    with Vm_corresponding_to_domid_not_in_db domid ->
 	      error "device_event could not be processed because VM record not in database"
 	 )
