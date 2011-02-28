@@ -3958,12 +3958,11 @@ let vm_appliance_start printer rpc session_id params =
 	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.VM_appliance.start ~rpc ~session_id ~self:ref ~paused
 
-let vm_appliance_clean_shutdown printer rpc session_id params =
+let vm_appliance_shutdown printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
+	let force = get_bool_param params "force" in
 	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
-	Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
-
-let vm_appliance_hard_shutdown printer rpc session_id params =
-	let uuid = List.assoc "uuid" params in
-	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
-	Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
+	if force then
+		Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
+	else
+		Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
