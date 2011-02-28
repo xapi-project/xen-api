@@ -1259,3 +1259,21 @@ let set_protection_policy ~__context ~self ~value =
     (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
     Db.VM.set_protection_policy ~__context ~self ~value
   )
+
+let set_start_delay ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"start_delay must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_start_delay ~__context ~self ~value
+
+let set_shutdown_delay ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"shutdown_delay must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_shutdown_delay ~__context ~self ~value
+
+let set_order ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"order must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_order ~__context ~self ~value

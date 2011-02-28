@@ -1994,6 +1994,33 @@ let vm_set_protection_policy = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let vm_set_start_delay = call
+  ~name:"set_start_delay"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's start delay in seconds"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's start delay in seconds"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_shutdown_delay = call
+  ~name:"set_shutdown_delay"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's shutdown delay in seconds"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's shutdown delay in seconds"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_order = call
+  ~name:"set_order"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's boot order"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's boot order"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -5961,6 +5988,9 @@ let vm =
 		vm_retrieve_wlb_recommendations;
 		vm_copy_bios_strings;
     vm_set_protection_policy;
+		vm_set_start_delay;
+		vm_set_shutdown_delay;
+		vm_set_order;
 		]
       ~contents:
       ([ uid _vm;
@@ -6029,9 +6059,9 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _vgpu)) "VGPUs" "Virtual GPUs";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
 	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
