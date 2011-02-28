@@ -241,7 +241,10 @@ let update_vms ~xal ~__context =
 			if Db.is_valid_ref __context vif
 			then Events.Resync.vif ~__context token vmref vif
 	      with e ->
-		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs
+		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs;
+		try Events.Resync.pci ~__context token vmref
+		with e ->
+			warn "Caught error resynchronising PCIs: %s" (ExnHelper.string_of_exn e);
       ) () in
 
   (* We call a domain "managed" if we have some kind of vm record for

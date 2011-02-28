@@ -44,6 +44,7 @@ type dev_event =
 	| Message of string * string * int64 * string
 	| HotplugChanged of string * string option * string option
 	| ChangeUncooperative of bool
+	| PciChanged of string
 
 (* type dev_state = Connecting | Connected | Closing | Closed *)
 
