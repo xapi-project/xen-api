@@ -176,7 +176,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~memory_static_min:memory.static_min ~memory_dynamic_min:memory.dynamic_min ~memory_target:memory.target
 		~memory_static_max:memory.static_max ~memory_dynamic_max:memory.dynamic_max
 		~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost ~suspend_VDI:Ref.null
-		~suspend_SR:Ref.null ~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch
+		~is_control_domain:true ~is_a_template:false ~domid:0L ~domarch
 		~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null ~transportable_snapshot_id:""
 		~snapshot_info:[] ~snapshot_metadata:""
 		~parent:Ref.null
@@ -190,6 +190,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
+		~suspend_SR:Ref.null 
 		~version:0L
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref

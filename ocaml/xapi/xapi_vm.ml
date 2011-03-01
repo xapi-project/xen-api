@@ -827,7 +827,6 @@ let create ~__context
 		~name_description
 		~user_version
 		~is_a_template
-		~suspend_SR
 		~affinity
 		~memory_target
 		~memory_static_max
@@ -864,6 +863,7 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
 		~version
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
@@ -877,7 +877,6 @@ let create ~__context
 		~name_description
 		~user_version
 		~is_a_template
-		~suspend_SR
 		~affinity
 		~memory_target
 		~memory_static_max
@@ -914,6 +913,7 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
 		~version
 
 let destroy  ~__context ~self =

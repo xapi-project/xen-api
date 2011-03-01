@@ -1438,7 +1438,6 @@ let vm_create printer rpc session_id params =
 	let memory_max = 256L ** mib in
 	let memory_min = 128L ** mib in
 	let vm = Client.VM.create ~rpc ~session_id ~name_label ~name_description ~user_version:0L ~is_a_template:false
-		~suspend_SR:Ref.null
 		~blocked_operations:[]
 		~affinity:Ref.null
 		~memory_target:memory_max
@@ -1454,7 +1453,9 @@ let vm_create printer rpc session_id params =
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L
-		~order:0L ~version:0L in
+		~order:0L
+		~suspend_SR:Ref.null
+		~version:0L in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
