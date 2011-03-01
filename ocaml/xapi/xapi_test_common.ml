@@ -41,7 +41,7 @@ let make_test_database () =
 	__context
 
 let make_vm ~__context ?(name_label="name_label") ?(name_description="description")
-		?(user_version=1L) ?(is_a_template=false) ?(suspend_SR=Ref.null) ?(affinity=Ref.null)
+		?(user_version=1L) ?(is_a_template=false) ?(affinity=Ref.null)
 		?(memory_target=500L) ?(memory_static_max=1000L) ?(memory_dynamic_max=500L)
 		?(memory_dynamic_min=500L) ?(memory_static_min=0L) ?(vCPUs_params=[])
 		?(vCPUs_max=1L) ?(vCPUs_at_startup=1L) ?(actions_after_shutdown=`destroy)
@@ -52,15 +52,15 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
 		?(ha_restart_priority="1") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
-		?(shutdown_delay=0L) ?(order=0L) ?(version=0L) () = 
-	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~suspend_SR
+		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) () = 
+	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
 		~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
         ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown 
 		~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk 
 		~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params 
 		~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
 		~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
-		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~version
+		~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version
 
 let make_host ~__context ?(uuid=Uuid.string_of_uuid (Uuid.make_uuid ())) ?(name_label="host")
 		?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")

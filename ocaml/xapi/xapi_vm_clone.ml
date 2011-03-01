@@ -290,7 +290,6 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~hVM_boot_params:all.Db_actions.vM_HVM_boot_params
 		~hVM_shadow_multiplier:all.Db_actions.vM_HVM_shadow_multiplier
 		~suspend_VDI:Ref.null
-		~suspend_SR:Ref.null
 		~platform:all.Db_actions.vM_platform
 		~pV_kernel:all.Db_actions.vM_PV_kernel
 		~pV_ramdisk:all.Db_actions.vM_PV_ramdisk
@@ -320,6 +319,7 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
+		~suspend_SR:Ref.null
 		~version:0L
 	;
 

@@ -101,7 +101,7 @@ let set_is_a_template ~__context ~self ~value =
 
 let create ~__context ~name_label ~name_description
            ~user_version ~is_a_template
-           ~suspend_SR ~affinity
+           ~affinity
            ~memory_target
            ~memory_static_max
            ~memory_dynamic_max
@@ -123,6 +123,7 @@ let create ~__context ~name_label ~name_description
 		 ~start_delay
 		 ~shutdown_delay
 		 ~order
+		 ~suspend_SR 
 		 ~version
 	   : API.ref_VM =
 
@@ -172,7 +173,6 @@ let create ~__context ~name_label ~name_description
 		~actions_after_crash
 		~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
 		~suspend_VDI:Ref.null
-		~suspend_SR
 		~platform
 		~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
 		~pV_legacy_args
@@ -191,6 +191,7 @@ let create ~__context ~name_label ~name_description
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
 		~version
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
