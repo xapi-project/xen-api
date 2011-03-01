@@ -139,7 +139,7 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
 	| _ ->
 		debug "Operation %s on appliance with uuid %s partially failed" operation.name appliance_uuid;
 		raise (Api_errors.Server_error(Api_errors.operation_partially_failed,
-			operation.name::(List.map (fun vm -> Db.VM.get_uuid ~__context ~self:vm) failed_vms)))
+			operation.name::(List.map Ref.string_of failed_vms)))
 
 let start ~__context ~self ~paused =
 	let operation = {
