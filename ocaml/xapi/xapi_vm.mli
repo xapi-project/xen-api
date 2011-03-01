@@ -148,7 +148,6 @@ val create :
   name_description:string ->
   user_version:int64 ->
   is_a_template:bool ->
-  suspend_SR:[ `SR ] Ref.t ->
   affinity:[ `host ] Ref.t ->
   memory_target:int64 ->
   memory_static_max:int64 ->
@@ -189,6 +188,7 @@ val create :
   start_delay:int64 ->
   shutdown_delay:int64 ->
   order:int64 ->
+  suspend_SR:[ `SR ] Ref.t ->
   version:int64
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
