@@ -1,5 +1,5 @@
 Xen API Libs is a set of libraries and utilities in
-[Ocaml](http://caml.inria.fr/ocaml/) that are used by
+[OCaml](http://caml.inria.fr/ocaml/) that are used by
 [xapi](https://github.com/xen-org/xen-api). The libraries are a
 component of the Xen Cloud Platform (XCP) project.
 
