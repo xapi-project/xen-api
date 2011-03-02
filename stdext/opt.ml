@@ -54,6 +54,6 @@ let fold_right f opt accu =
 	| None -> accu
 
 let join = function
-    | Some (Some a) -> Some a
-    | _ -> None
+	| Some (Some a) -> Some a
+	| _ -> None
 
