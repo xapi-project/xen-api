@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+module Monad : sig include Monad.M1.MONAD with type 'a m = 'a option end
 val iter : ('a -> unit) -> 'a option -> unit
 val map : ('a -> 'b) -> 'a option -> 'b option
 val default : 'a -> 'a option -> 'a
