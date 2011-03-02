@@ -6,6 +6,8 @@
  *)
 
 type ('a,'b) t = Left of 'a | Right of 'b
+module Monad : sig include Monad.M2.MONAD with type ('a, 'b) m = ('b, 'a) t end
+
 val left : 'a -> ('a, 'b) t
 val right: 'b -> ('a, 'b) t
 val is_left: ('a, 'b) t -> bool
