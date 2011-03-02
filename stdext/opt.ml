@@ -57,3 +57,7 @@ let join = function
 	| Some (Some a) -> Some a
 	| _ -> None
 
+let of_exception f =
+	try Some (f ())
+	with _ -> None
+

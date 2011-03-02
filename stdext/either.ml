@@ -23,3 +23,7 @@ let join = function
 let swap = function
 	| Right x -> Left x
 	| Left x -> Right x
+
+let of_exception f =
+	try Right (f ())
+	with e -> Left e

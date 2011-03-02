@@ -16,3 +16,4 @@ val cat_right: ('a, 'b) t list -> 'b list
 val join: ('a, ('b, 'c) t) t -> (('a, 'b) t, 'c) t
 
 val swap : ('a, 'b) t -> ('b, 'a) t
+val of_exception : (unit -> 'a) -> (exn, 'a) t
