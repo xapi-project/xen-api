@@ -211,6 +211,8 @@ rm -rf $RPM_BUILD_ROOT
    /usr/lib/ocaml/stdext/listext.cmx
    /usr/lib/ocaml/stdext/mapext.cmi
    /usr/lib/ocaml/stdext/mapext.cmx
+   /usr/lib/ocaml/stdext/monad.cmi
+   /usr/lib/ocaml/stdext/monad.cmx
    /usr/lib/ocaml/stdext/opt.cmi
    /usr/lib/ocaml/stdext/opt.cmx
    /usr/lib/ocaml/stdext/pervasiveext.cmi
