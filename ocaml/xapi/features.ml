@@ -36,6 +36,7 @@ type feature =
 	| No_platform_filter
 	| No_nag_dialog
 	| VMPR
+	| IntelliCache
 	with rpc
 
 type orientation = Positive | Negative
@@ -61,6 +62,7 @@ let keys_of_features =
 		No_platform_filter, ("platform_filter", Negative, "Plat");
 		No_nag_dialog, ("regular_nag_dialog", Negative, "nonag");
 		VMPR, ("restrict_vmpr", Negative, "VMPR");
+		IntelliCache, ("restrict_intellicache", Negative, "IntelliCache");
 	]
 
 let string_of_feature f =
