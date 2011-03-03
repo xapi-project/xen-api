@@ -3952,6 +3952,22 @@ let vmpp_destroy printer rpc session_id params =
 	let ref = Client.VMPP.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.VMPP.destroy ~rpc ~session_id ~self:ref
 
+let vm_appliance_create printer rpc session_id params =
+	let name_label = List.assoc "name_label" params in
+	let name_description =
+		if List.mem_assoc "name_description" params then
+			List.assoc "name_description" params
+		else ""
+	in
+	let ref = Client.VM_appliance.create ~rpc ~session_id ~name_label ~name_description in
+	let uuid = Client.VM_appliance.get_uuid ~rpc ~session_id ~self:ref in
+	printer (Cli_printer.PList [uuid])
+
+let vm_appliance_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.VM_appliance.destroy ~rpc ~session_id ~self:ref
+
 let vm_appliance_start printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let paused = get_bool_param params "paused" in
