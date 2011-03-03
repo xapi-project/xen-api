@@ -2269,6 +2269,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vmpp_destroy;
       flags=[];
     };
+		"appliance-create",
+		{
+			reqd=["name_label"];
+			optn=["name_description"];
+			help="Create a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_create;
+			flags=[];
+		};
+		"appliance-destroy",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Destroy a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_destroy;
+			flags=[];
+		};
 		"appliance-start",
 		{
 			reqd=["uuid"];
