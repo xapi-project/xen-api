@@ -197,16 +197,13 @@ open Db_actions
 
 (* look up the list generated in xapi_session.get_permissions *)
 let is_access_allowed ~__context ~session_id ~permission =
-	(* Always use the master database *)
-	let context_with_master_db = Context.switch_database __context (Db_backend.make ()) in
-
 	(* always allow local system access *)
-	if Session_check.is_local_session context_with_master_db session_id
+	if Session_check.is_local_session __context session_id
 	then true
 
 	(* normal user session *)
 	else 
-	let session = DB_Action.Session.get_record ~__context:context_with_master_db ~self:session_id in
+	let session = DB_Action.Session.get_record ~__context ~self:session_id in
 	(* the root user can always execute anything *)
 	if session.API.session_is_local_superuser
 	then true

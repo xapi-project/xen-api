@@ -98,7 +98,7 @@ val preauth : __context:t -> bool
 val trackid_of_session: ?with_brackets:bool -> ?prefix:string -> API.ref_session option -> string
 val trackid : ?with_brackets:bool -> ?prefix:string -> t -> string
 
-val switch_database : __context:t -> database:Db_ref.t -> t
+val check_for_foreign_database : __context:t -> t
 
 (** {6 Functions which help resolving cyclic dependencies} *)
 
