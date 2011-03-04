@@ -313,18 +313,6 @@ let db_action api : O.Module.t =
 	    (Escaping.escape_obj obj.DT.name)
 	    Client._self
 	    (Escaping.escape_id fld.DT.full_name)
-      | FromField(Getter, { DT.ty = DT.Set(DT.Ref other);
-			    full_name = full_name; DT.field_ignore_foreign_key = false }) ->
-	  read_set_ref obj other full_name
-(*
-	  (* Set(Ref t) is actually stored in the table t *)
-	  let this_end = obj.DT.name, List.hd (full_name) in
-	  (* XXX: relationships should store full names *)
-	  let obj', fld' = DU.Relations.other_end_of DM.all_api this_end in
-	  Printf.sprintf "List.map %s.%s (sql_read_set_ref \"%s\" \"%s\" %s)"
-	    _string_to_dm (OU.alias_of_ty (DT.Ref other))
-	    (Escaping.escape_obj obj') fld' Client._self
-*)
       | FromField(Getter, { DT.ty = ty; full_name = full_name }) ->
 	  Printf.sprintf "%s.%s (DB.read_field __t \"%s\" \"%s\" %s)"
 	    _string_to_dm (OU.alias_of_ty ty)
