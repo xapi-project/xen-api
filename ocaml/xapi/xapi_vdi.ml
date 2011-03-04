@@ -561,6 +561,8 @@ let set_on_boot ~__context ~self ~value =
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
 
+open Db_cache_types
+
 (* Functions for opening foreign databases on VDIs *)
 let open_database ~__context ~self =
 	(* Should only try to open VDIs of type metadata, *)
@@ -583,6 +585,8 @@ let open_database ~__context ~self =
 		let db_ref = Db_ref.in_memory (ref (ref db)) in
 		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
 		Redo_log.delete log;
+		(* Reindex database to make sure is_valid_ref works. *)
+		Db_ref.update_database db_ref (fun db -> Database.reindex db);
 		db_ref
 	in
 	let detach vdi =
