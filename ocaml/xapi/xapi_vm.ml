@@ -1306,7 +1306,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	(* Try to look up the SRs by uuid in the local database. *)
 	try
 		Server_helpers.exec_with_new_task ~session_id:session_to
-			"Lookking for required SRs"
+			"Looking for required SRs"
 			(fun __context -> List.iter
 				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_uuid))
 				required_SR_uuids)
