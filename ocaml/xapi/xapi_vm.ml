@@ -742,7 +742,10 @@ let suspend  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-		   assert_ha_always_run_is_false ~__context ~vm;
+			assert_ha_always_run_is_false ~__context ~vm;
+			(* We don't support suspend/resume while PCI devices have been passed through (yet). *)
+			if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
+				raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
 			Stats.time_this "VM suspend"
 			(fun () ->
 				let domid = Helpers.domid_of_vm ~__context ~self:vm in
