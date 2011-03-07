@@ -37,6 +37,7 @@ type feature =
 	| No_nag_dialog
 	| VMPR
 	| IntelliCache
+	| GPU
 	with rpc
 
 type orientation = Positive | Negative
@@ -63,6 +64,7 @@ let keys_of_features =
 		No_nag_dialog, ("regular_nag_dialog", Negative, "nonag");
 		VMPR, ("restrict_vmpr", Negative, "VMPR");
 		IntelliCache, ("restrict_intellicache", Negative, "IntelliCache");
+		GPU, ("restrict_gpu", Negative, "GPU");
 	]
 
 let string_of_feature f =
