@@ -1415,9 +1415,9 @@ let vm_appliance_record rpc session_id vm_appliance =
 		fields =
 			[
 				make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_appliance_uuid) ();
-				make_field ~name:"name_label" ~get:(fun () -> (x ()).API.vM_appliance_name_label)
+				make_field ~name:"name-label" ~get:(fun () -> (x ()).API.vM_appliance_name_label)
 					~set:(fun x -> Client.VM_appliance.set_name_label rpc session_id !_ref x) ();
-				make_field ~name:"name_description" ~get:(fun () -> (x ()).API.vM_appliance_name_description)
+				make_field ~name:"name-description" ~get:(fun () -> (x ()).API.vM_appliance_name_description)
 					~set:(fun x -> Client.VM_appliance.set_name_description rpc session_id !_ref x) ();
 				make_field ~name:"VMs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs))
 					~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs) ();
