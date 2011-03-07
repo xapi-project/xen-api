@@ -271,3 +271,5 @@ val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.
 val set_start_delay : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
 val set_shutdown_delay : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
 val set_order : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
+
+val assert_can_be_recovered : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session -> unit
