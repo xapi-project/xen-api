@@ -418,3 +418,4 @@ let vm_bios_strings_already_set = "VM_BIOS_STRINGS_ALREADY_SET"
 let invalid_feature_string = "INVALID_FEATURE_STRING"
 let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
 
+let feature_requires_hvm = "FEATURE_REQUIRES_HVM"
