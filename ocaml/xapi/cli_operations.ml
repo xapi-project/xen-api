@@ -3985,10 +3985,10 @@ let vmpp_destroy printer rpc session_id params =
 	Client.VMPP.destroy ~rpc ~session_id ~self:ref
 
 let vm_appliance_create printer rpc session_id params =
-	let name_label = List.assoc "name_label" params in
+	let name_label = List.assoc "name-label" params in
 	let name_description =
-		if List.mem_assoc "name_description" params then
-			List.assoc "name_description" params
+		if List.mem_assoc "name-description" params then
+			List.assoc "name-description" params
 		else ""
 	in
 	let ref = Client.VM_appliance.create ~rpc ~session_id ~name_label ~name_description in

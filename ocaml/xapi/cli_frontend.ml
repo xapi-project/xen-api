@@ -2296,8 +2296,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 		"appliance-create",
 		{
-			reqd=["name_label"];
-			optn=["name_description"];
+			reqd=["name-label"];
+			optn=["name-description"];
 			help="Create a VM appliance.";
 			implementation=No_fd Cli_operations.vm_appliance_create;
 			flags=[];
