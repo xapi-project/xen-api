@@ -138,132 +138,132 @@ let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
 
 (** Create a new VM record, add the reference to the table *)
 let handle_vm __context config rpc session_id (state: state) (x: obj) : unit = 
-  let task_id = Ref.string_of (Context.get_task_id __context) in
-  let vm_record = API.From.vM_t "" x.snapshot in
-  (* Do not create a VM which already exists if we do a full restore *)
+	let task_id = Ref.string_of (Context.get_task_id __context) in
+	let vm_record = API.From.vM_t "" x.snapshot in
+	(* Do not create a VM which already exists if we do a full restore *)
 
-  let get_vm_uuid () = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in
-  let get_vm_name () = try List.hd (Client.VM.get_by_name_label rpc session_id vm_record.API.vM_name_label) with _ -> Ref.null in
-  let vm_uuid_exists () = try ignore (get_vm_uuid ()); true with _ -> false in
+	let get_vm_uuid () = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in
+	let get_vm_name () = try List.hd (Client.VM.get_by_name_label rpc session_id vm_record.API.vM_name_label) with _ -> Ref.null in
+	let vm_uuid_exists () = try ignore (get_vm_uuid ()); true with _ -> false in
 
-  if config.full_restore && vm_uuid_exists () then begin
-	let vm = get_vm_uuid () in
-	state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
-	state.table <- (x.cls, Ref.string_of vm, Ref.string_of vm) :: state.table
-  end else
+	if config.full_restore && vm_uuid_exists () then begin
+		let vm = get_vm_uuid () in
+		state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
+		state.table <- (x.cls, Ref.string_of vm, Ref.string_of vm) :: state.table
+	end else
 
-  (* if the VM is a default template, then pick-up the one with the same name *)
-  if vm_record.API.vM_is_a_template
-	&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
-	&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
-  then begin
-	let template = get_vm_name () in
-	state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
-  end else begin
-
-  (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
-  let other_config = List.filter 
-    (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
-  (* If not performing a full restore then generate a fresh MAC seed *)
-  let other_config = 
-    if config.full_restore 
-    then other_config
-    else 
-      (Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.make_uuid ())) ::
-	(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
-  let vm_record = { vm_record with API.vM_other_config = other_config } in
-
-	let vm_record =
-		if vm_exported_pre_dmc x
+		(* if the VM is a default template, then pick-up the one with the same name *)
+		if vm_record.API.vM_is_a_template
+			&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
+			&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
 		then begin
-			let safe_constraints = Vm_memory_constraints.reset_to_safe_defaults
-				~constraints:(Vm_memory_constraints.extract ~vm_record) in
-			debug "VM %s was exported pre-DMC; dynamic_{min,max},target <- %Ld"
-				vm_record.API.vM_name_label safe_constraints.static_max;
-			{vm_record with API.
-				vM_memory_static_min  = safe_constraints.static_min;
-				vM_memory_dynamic_min = safe_constraints.dynamic_min;
-				vM_memory_target      = safe_constraints.target;
-				vM_memory_dynamic_max = safe_constraints.dynamic_max;
-				vM_memory_static_max  = safe_constraints.static_max;
-			}
-		end else vm_record
-	in
-	let vm_record = {vm_record with API.
-		vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
-	} in
-	let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
+			let template = get_vm_name () in
+			state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
+		end else begin
 
-  let vm = log_reraise
-    ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
-    (fun value ->
-      let vm = Client.VM.create_from_record rpc session_id value in
-      if config.full_restore then Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid;
-      vm)
-    vm_record in
-  state.cleanup <- (fun __context rpc session_id -> 
-		      (* Need to get rid of the import task or we cannot destroy the VM *)
-		      Helpers.log_exn_continue 
-			(Printf.sprintf "Attempting to remove import from current_operations of VM: %s" (Ref.string_of vm))
-			(fun () -> Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id) ();
- 		      Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
-		      Client.VM.destroy rpc session_id vm) :: state.cleanup;
-  (* Restore the last_booted_record too (critical if suspended but might as well do it all the time) *)
-  Db.VM.set_last_booted_record ~__context ~self:vm ~value:(vm_record.API.vM_last_booted_record);
+			(* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
+			let other_config = List.filter
+				(fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
+			(* If not performing a full restore then generate a fresh MAC seed *)
+			let other_config =
+				if config.full_restore
+				then other_config
+				else
+					(Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.make_uuid ())) ::
+						(List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config) in
+			let vm_record = { vm_record with API.vM_other_config = other_config } in
 
-  TaskHelper.operate_on_db_task ~__context (fun t -> 
-    (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.import_task with _ -> ());
-    Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.import_task ~value:(Ref.string_of t));
-  (* Set the power_state and suspend_VDI if the VM is suspended.
-   * If anything goes wrong, still continue if forced. *)
-  if vm_record.API.vM_power_state = `Suspended then begin
-	try
-      let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
-      Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
-      Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
-    with e -> if not config.force then begin
-      let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in
-      error "Import failed: %s" msg;
-      raise e
-    end
-  end else
-    Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
+			let vm_record =
+				if vm_exported_pre_dmc x
+				then begin
+					let safe_constraints = Vm_memory_constraints.reset_to_safe_defaults
+						~constraints:(Vm_memory_constraints.extract ~vm_record) in
+					debug "VM %s was exported pre-DMC; dynamic_{min,max},target <- %Ld"
+						vm_record.API.vM_name_label safe_constraints.static_max;
+					{vm_record with API.
+						vM_memory_static_min  = safe_constraints.static_min;
+						vM_memory_dynamic_min = safe_constraints.dynamic_min;
+						vM_memory_target      = safe_constraints.target;
+						vM_memory_dynamic_max = safe_constraints.dynamic_max;
+						vM_memory_static_max  = safe_constraints.static_max;
+					}
+				end else vm_record
+			in
+			let vm_record = {vm_record with API.
+				vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
+			} in
+			let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
 
-  (* We might want to import a control domain *)
-  Db.VM.set_is_control_domain~__context  ~self:vm ~value:vm_record.API.vM_is_control_domain;
-  Db.VM.set_resident_on ~__context ~self:vm ~value:(try lookup vm_record.API.vM_resident_on state.table with _ -> Ref.null);
-  Db.VM.set_affinity ~__context ~self:vm ~value:(try lookup vm_record.API.vM_affinity state.table with _ -> Ref.null);
+			let vm = log_reraise
+				("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
+				(fun value ->
+					let vm = Client.VM.create_from_record rpc session_id value in
+					if config.full_restore then Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid;
+					vm)
+				vm_record in
+			state.cleanup <- (fun __context rpc session_id ->
+				(* Need to get rid of the import task or we cannot destroy the VM *)
+				Helpers.log_exn_continue
+					(Printf.sprintf "Attempting to remove import from current_operations of VM: %s" (Ref.string_of vm))
+					(fun () -> Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id) ();
+				Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
+				Client.VM.destroy rpc session_id vm) :: state.cleanup;
+			(* Restore the last_booted_record too (critical if suspended but might as well do it all the time) *)
+			Db.VM.set_last_booted_record ~__context ~self:vm ~value:(vm_record.API.vM_last_booted_record);
 
-  (* Update the snapshot metadata. At this points, the snapshot_of field is not relevant as
-	 it use the export ref. However, as the corresponding VM object may have not been created
-	 yet, this fiels contains some useful information to update it later. *)
-  Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:vm_record.API.vM_is_a_snapshot;
-  Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
-  Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
-  Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
+			TaskHelper.operate_on_db_task ~__context (fun t ->
+				(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.import_task with _ -> ());
+				Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.import_task ~value:(Ref.string_of t));
+			(* Set the power_state and suspend_VDI if the VM is suspended.
+			 * If anything goes wrong, still continue if forced. *)
+			if vm_record.API.vM_power_state = `Suspended then begin
+				try
+					let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
+					Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
+					Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+				with e -> if not config.force then begin
+					let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in
+					error "Import failed: %s" msg;
+					raise e
+				end
+			end else
+				Db.VM.set_power_state ~__context ~self:vm ~value:`Halted;
 
-  Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent;
-  
-  begin try
-	  let gm = lookup vm_record.API.vM_guest_metrics state.table in
-	  Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
-  with _ -> () end;
-  
-  Db.VM.set_bios_strings ~__context ~self:vm ~value:vm_record.API.vM_bios_strings;
+			(* We might want to import a control domain *)
+			Db.VM.set_is_control_domain~__context  ~self:vm ~value:vm_record.API.vM_is_control_domain;
+			Db.VM.set_resident_on ~__context ~self:vm ~value:(try lookup vm_record.API.vM_resident_on state.table with _ -> Ref.null);
+			Db.VM.set_affinity ~__context ~self:vm ~value:(try lookup vm_record.API.vM_affinity state.table with _ -> Ref.null);
 
-  debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id;
+			(* Update the snapshot metadata. At this points, the snapshot_of field is not relevant as
+				 it use the export ref. However, as the corresponding VM object may have not been created
+				 yet, this fiels contains some useful information to update it later. *)
+			Db.VM.set_is_a_snapshot ~__context ~self:vm ~value:vm_record.API.vM_is_a_snapshot;
+			Db.VM.set_snapshot_of ~__context ~self:vm ~value:vm_record.API.vM_snapshot_of;
+			Db.VM.set_snapshot_time ~__context ~self:vm ~value:vm_record.API.vM_snapshot_time;
+			Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
 
-  (* Although someone could sneak in here and attempt to power on the VM, it
-     doesn't really matter since no VBDs have been created yet.
-     We don't bother doing this if --force is set otherwise on error the VM 
-     remains locked. *)
-  if not config.force then
-  Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:`import;
-  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
+			Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent;
 
-  state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
-  state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms;
-  end
+			begin try
+				let gm = lookup vm_record.API.vM_guest_metrics state.table in
+				Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
+			with _ -> () end;
+
+			Db.VM.set_bios_strings ~__context ~self:vm ~value:vm_record.API.vM_bios_strings;
+
+			debug "Created VM: %s (was %s)" (Ref.string_of vm) x.id;
+
+			(* Although someone could sneak in here and attempt to power on the VM, it
+				 doesn't really matter since no VBDs have been created yet.
+				 We don't bother doing this if --force is set otherwise on error the VM
+				 remains locked. *)
+			if not config.force then
+				Db.VM.add_to_current_operations ~__context ~self:vm ~key:task_id ~value:`import;
+				Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
+
+				state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
+				state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms;
+		end
 
 (** Create the guest metrics *)
 let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
