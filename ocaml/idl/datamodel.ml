@@ -1046,8 +1046,9 @@ let _ =
 	
   error Api_errors.cpu_feature_masking_not_supported ["details"]
 	~doc:"The CPU does not support masking of features." ();
-	
-  ()
+
+  error Api_errors.feature_requires_hvm ["details"]
+    ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ()
 
 
 let _ =

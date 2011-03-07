@@ -24,8 +24,10 @@ let valid_device device =
 let create ~__context  ~vM ~gPU_group ~device ~other_config =
 	let vgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	if not(valid_device device)
-		then raise (Api_errors.Server_error (Api_errors.invalid_device,[device]));
+	if not (Pool_features.is_enabled ~__context Features.GPU) then
+		raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
+	if not(valid_device device) then
+		raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
 	Threadext.Mutex.execute m (fun () ->
 		(* Check to make sure the device is unique *)
 		let all = Db.VM.get_VGPUs ~__context ~self:vM in
@@ -39,5 +41,9 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config =
 	vgpu
 
 let destroy ~__context ~self =
+	let vm = Db.VGPU.get_VM ~__context ~self in
+	if Helpers.is_running ~__context ~self:vm &&
+		Db.VGPU.get_currently_attached ~__context ~self = true then
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["vGPU currently attached to a running VM"]));
 	Db.VGPU.destroy ~__context ~self
 

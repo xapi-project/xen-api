@@ -37,6 +37,7 @@ type feature =
 	| No_nag_dialog                (** Used by XenCenter *)
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
 	| IntelliCache                 (** Enable use of IntelliCache feature *)
+	| GPU                          (** Enable use of GPU passthrough *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
