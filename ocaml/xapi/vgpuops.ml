@@ -58,7 +58,9 @@ let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
 		List.filter (fun g -> g <> pgpu) available_pgpus,
 		pci :: pcis
 
-let create_vgpus ~__context ~vm domid =
+let create_vgpus ~__context ~vm domid hvm =
+	if not hvm then
+		raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["GPU passthrough needs HVM"]));
 	let vgpus = vgpus_of_vm ~__context ~vm domid in
 	let host = Helpers.get_localhost ~__context in
 	let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
