@@ -19,6 +19,7 @@ open Xapi_vm_helpers
 open Client
 open Threadext
 open Xmlrpc_sexpr
+open Listext
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -1277,3 +1278,40 @@ let set_order ~__context ~self ~value =
 		"order must be non-negative"
 		(Int64.to_string value);
 	Db.VM.set_order ~__context ~self ~value
+
+(* Find the SRs of all VDIs which have VBDs attached to the VM. *)
+let list_required_SRs ~__context ~self =
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let attached_vbds =
+		List.filter (fun vbd -> Db.VBD.get_currently_attached ~__context ~self:vbd) vbds
+	in
+	let vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) attached_vbds in
+	let srs = List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) vdis in
+	List.setify srs
+
+(* Check if the database referenced by session_to *)
+(* contains the SRs required to recover the VM. *)
+let assert_can_be_recovered ~__context ~self ~session_to =
+	(* If a VM is part of an appliance, the appliance *)
+	(* should be recovered using VM_appliance.recover *)
+	let appliance = Db.VM.get_appliance ~__context ~self in
+	if appliance <> Ref.null then
+		raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
+			[Ref.string_of self; Ref.string_of appliance]));
+	(* Get the required SR uuids from the foreign database. *)
+	let required_SRs = list_required_SRs ~__context ~self in
+	let required_SR_uuids = List.map (fun sr -> Db.SR.get_uuid ~__context ~self:sr)
+		required_SRs
+	in
+	(* Try to look up the SRs by uuid in the local database. *)
+	try
+		Server_helpers.exec_with_new_task ~session_id:session_to
+			"Lookking for required SRs"
+			(fun __context -> List.iter
+				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_uuid))
+				required_SR_uuids)
+	with Db_exn.Read_missing_uuid(_, _, sr_uuid) ->
+		(* Throw exception containing the uuid of the first SR which wasn't found. *)
+		let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
+			[Ref.string_of self; Ref.string_of sr_ref]))

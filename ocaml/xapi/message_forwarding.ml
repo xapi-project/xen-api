@@ -1789,6 +1789,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		info "VM.set_order: self = '%s';" (vm_uuid ~__context self);
 		Local.VM.set_order ~__context ~self ~value
 
+	let assert_can_be_recovered ~__context ~self ~session_to =
+		info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.assert_can_be_recovered ~__context ~self ~session_to
+
   end
 
   module VM_metrics = struct
