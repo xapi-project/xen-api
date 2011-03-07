@@ -502,7 +502,7 @@ let create_all_templates rpc session_id =
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
-		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike ~is_experimental:true [    ];
+		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false [    ];
 
