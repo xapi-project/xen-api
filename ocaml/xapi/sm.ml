@@ -126,9 +126,9 @@ let sr_update dconf driver sr =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_update" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
-let vdi_create dconf driver sr sm_config vdi_type size name_label =
+let vdi_create dconf driver sr sm_config vdi_type size name_label name_description =
   debug "vdi_create" driver (sprintf "sr=%s sm_config=[%s] type=[%s] size=%Ld" (Ref.string_of sr) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config)) vdi_type size);
-  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf "vdi_create" [ sprintf "%Lu" size; name_label ] in
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf "vdi_create" [ sprintf "%Lu" size; name_label ; name_description ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 let vdi_update dconf driver sr vdi = 
