@@ -1049,6 +1049,9 @@ let _ =
 	error Api_errors.cannot_destroy_disaster_recovery_task ["reason"]
 		~doc:"The disaster recovery task could not be cleanly destroyed." ();
 
+	error Api_errors.vm_is_part_of_an_appliance ["vm"; "appliance"]
+		~doc:"The VM cannot be recovered on its own as it is part of a VM appliance." ();
+
   ()
 
 
@@ -1999,6 +2002,16 @@ let vm_set_order = call
   ~params:[Ref _vm, "self", "The VM";
     Int, "value", "This VM's boot order"]
   ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_assert_can_be_recovered = call
+  ~name:"assert_can_be_recovered"
+  ~in_product_since:rel_boston
+  ~doc:"Assert whether all SRs required to recover this VM are available."
+  ~params:[Ref _vm, "self", "The VM to recover";
+    Ref _session, "session_to", "The session to which the VM is to be recovered."]
+  ~errs:[Api_errors.vm_is_part_of_an_appliance; Api_errors.vm_requires_sr]
+  ~allowed_roles:_R_READ_ONLY
   ()
 
 (* ------------------------------------------------------------------------------------------------------------
@@ -5940,6 +5953,7 @@ let vm =
 		vm_set_start_delay;
 		vm_set_shutdown_delay;
 		vm_set_order;
+		vm_assert_can_be_recovered;
 		]
       ~contents:
       ([ uid _vm;
