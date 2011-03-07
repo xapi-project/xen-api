@@ -207,7 +207,7 @@ let create ~__context ~name_label ~name_description
 	let vdi_info = 
 	    Sm.call_sm_functions ~__context ~sR
 	      (fun device_config sr_type ->
-		Sm.vdi_create device_config sr_type sR sm_config vdi_type virtual_size name_label)
+		Sm.vdi_create device_config sr_type sR sm_config vdi_type virtual_size name_label name_description)
  	in
 	let uuid = require_uuid vdi_info in
 	let ref = Db.VDI.get_by_uuid ~__context ~uuid in
