@@ -342,6 +342,13 @@ let verify_memory_is_guaranteed_free host kib =
   if host.free_mem_kib -* total < kib
   then failwith (Printf.sprintf "Memory not guaranteed free: free_mem = %Ld; total guests could take = %Ld; required free = %Ld" host.free_mem_kib total kib)
 
+let files_created_by_scenario scenario = 
+	[
+		Printf.sprintf "%s.dat" scenario.name;
+		Printf.sprintf "%s.out" scenario.name;
+		Printf.sprintf "%s.gp" scenario.name;
+	]
+
 (** Run a full simulation of the given scenario *)
 let simulate scenario = 
   let host_free_mem_kib = ref scenario.host_free_mem_kib in
@@ -375,8 +382,11 @@ let simulate scenario =
       !all_domains
   in
 
-  let dat_oc = open_out (Printf.sprintf "%s.dat" scenario.name) in
-  let out_oc = open_out (Printf.sprintf "%s.out" scenario.name) in
+  let dat_filename = Printf.sprintf "%s.dat" scenario.name in
+  let out_filename = Printf.sprintf "%s.out" scenario.name in
+
+  let dat_oc = open_out dat_filename in
+  let out_oc = open_out out_filename in
   debug_oc := out_oc;
 
   let cols = [ Gnuplot.Memory_actual; Gnuplot.Target ] in
@@ -439,6 +449,7 @@ let scenario_error_table = ref []
 let run_test scenario = 
 	try
 		simulate scenario;
+		List.iter Unixext.unlink_safe (files_created_by_scenario scenario);
 		if not scenario.should_succeed then begin
 			failed_scenarios := scenario :: !failed_scenarios;
 			scenario_error_table :=
@@ -455,6 +466,8 @@ let run_test scenario =
 						(Printexc.to_string e)
 				)
 				:: !scenario_error_table
+		end else begin
+			List.iter Unixext.unlink_safe (files_created_by_scenario scenario);
 		end
 
 let go () = 
