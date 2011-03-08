@@ -3,6 +3,19 @@ open Listext
 
 type ('a,'b) t = Left of 'a | Right of 'b
 
+module Monad = Monad.M2.Make (struct
+
+	type ('a, 'b) m = ('b, 'a) t
+
+	let bind value f =
+		match value with
+			| Left value -> Left value
+			| Right value -> f value
+
+	let return value = Right value
+
+end)
+
 let left x = Left x
 let right x = Right x
 let is_left = function
@@ -23,3 +36,7 @@ let join = function
 let swap = function
 	| Right x -> Left x
 	| Left x -> Right x
+
+let of_exception f =
+	try Right (f ())
+	with e -> Left e

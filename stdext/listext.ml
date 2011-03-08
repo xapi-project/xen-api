@@ -14,6 +14,21 @@
 open Fun
 module List = struct include List
 
+module Monad = Monad.M1.Make (struct
+
+	type 'a m = 'a list
+
+	let bind list f =
+		let rec inner result = function
+			| x :: xs -> inner (List.rev_append (f x) result) xs
+			| [] -> List.rev result
+		in
+		inner [] list
+
+	let return x = [x]
+
+end)
+
 (** Turn a list into a set *)
 let rec setify = function
 	| [] -> []

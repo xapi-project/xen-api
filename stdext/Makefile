@@ -21,6 +21,7 @@ OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
 STDEXT_OBJS = \
+	monad \
 	fun \
 	opt \
 	listext \

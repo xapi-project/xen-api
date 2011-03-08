@@ -20,6 +20,19 @@
 
 open Pervasiveext
 
+module Monad = Monad.M1.Make (struct
+
+	type 'a m = 'a option
+
+	let bind option f =
+		match option with
+			| None -> None
+			| Some result -> f result
+
+	let return x = Some x
+
+end)
+
 let iter f = function
 	| Some x -> f x
 	| None -> ()
@@ -54,6 +67,10 @@ let fold_right f opt accu =
 	| None -> accu
 
 let join = function
-    | Some (Some a) -> Some a
-    | _ -> None
+	| Some (Some a) -> Some a
+	| _ -> None
+
+let of_exception f =
+	try Some (f ())
+	with _ -> None
 
