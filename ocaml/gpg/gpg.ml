@@ -27,7 +27,7 @@ let gpg_homedir = "/opt/xensource/gpg/"
 let gpg_pub_keyring = gpg_homedir^"pubring.gpg"
 let allowed_gpg_checksum =
 	[ "be00ee82bffad791edfba477508d5d84"; (* centos52 version *)
-	  "08690c3d1a43d920a1b278cb57ed97ba"; (* centos53/54 version *)
+	  "a267af68c53f5d998b982235bbccb01e"; (* centos53/54 version *)
 	  "f52886b87126c06d419f408e32268b4e"; (* 64 bit product version *)
 	  "aa27ac0b0ebfd1278bf2386c343053db"; (* debian developer version *)
 	  "044d1327ea42400ac590195e0ec1e7e6"; ]
