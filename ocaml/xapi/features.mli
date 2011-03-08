@@ -36,6 +36,7 @@ type feature =
 	| No_platform_filter           (** Filter platform data *)
 	| No_nag_dialog                (** Used by XenCenter *)
 	| VMPR                         (** Enable use of VM Protection and Recovery *)
+	| IntelliCache                 (** Enable use of IntelliCache feature *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
