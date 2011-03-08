@@ -747,6 +747,8 @@ let _ =
     ~doc:"The bootloader returned an error" ();
   error Api_errors.unknown_bootloader [ "vm"; "bootloader" ]
     ~doc:"The requested bootloader is unknown" ();
+	error Api_errors.vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot [ "vm" ]
+		~doc:"You attempted to start a VM that's attached to more than one VDI with a timeoffset marked as reset-on-boot." ();
   error Api_errors.vms_failed_to_cooperate [ ]
     ~doc:"The given VMs failed to release memory when instructed to do so" ();
 
