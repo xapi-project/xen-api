@@ -47,3 +47,15 @@ let destroy ~__context ~self =
 		raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["vGPU currently attached to a running VM"]));
 	Db.VGPU.destroy ~__context ~self
 
+let copy ~__context ~vm vgpu =
+	let all = Db.VGPU.get_record ~__context ~self:vgpu in
+	let vgpu = create ~__context
+		~device:all.API.vGPU_device
+		~gPU_group:all.API.vGPU_GPU_group
+		~vM:vm
+		~other_config:all.API.vGPU_other_config
+	in
+	if all.API.vGPU_currently_attached then
+		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true;
+	vgpu
+
