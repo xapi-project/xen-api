@@ -1307,6 +1307,13 @@ let recover ~__context ~self ~session_to ~force =
 	let objects = create_import_objects ~__context ~self in
 	Server_helpers.exec_with_new_task ~session_id:session_to "Importing VM"
 		(fun __context_to ->
+			(* Check that session_to has at least pool admin permissions. *)
+			let permission = Rbac_static.role_pool_admin in
+			if not(Rbac.has_permission ~__context:__context_to ~permission) then begin
+				let permission_name = permission.Db_actions.role_name_label in
+				raise (Api_errors.Server_error(Api_errors.rbac_permission_denied,
+					[permission_name; "The supplied session does not have the required permissions for VM recovery."]))
+			end;
 			let rpc = Helpers.make_rpc ~__context:__context_to in
 			let state = Import.handle_all __context_to
 				config rpc session_to objects
