@@ -993,4 +993,39 @@ let populate_cpu_flags ~__context ~vm ~host =
 		flags := add_or_replace ("vendor", List.assoc "vendor" cpu_info) !flags;
 	if List.mem_assoc "features" cpu_info then
 		flags := add_or_replace ("features", List.assoc "features" cpu_info) !flags;
-	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:!flags;
+	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:!flags
+
+let list_required_vdis ~__context ~self =
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let attached_vbds =
+		List.filter (fun vbd -> Db.VBD.get_currently_attached ~__context ~self:vbd) vbds
+	in
+	List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) attached_vbds
+
+(* Find the SRs of all VDIs which have VBDs attached to the VM. *)
+let list_required_SRs ~__context ~self =
+	let vdis = list_required_vdis ~__context ~self in
+	let srs = List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) vdis in
+	let srs = List.filter (fun sr -> Db.SR.get_content_type ~__context ~self:sr <> "iso") srs in
+	List.setify srs
+
+(* Check if the database referenced by session_to *)
+(* contains the SRs required to recover the VM. *)
+let assert_can_be_recovered ~__context ~self ~session_to =
+	(* Get the required SR uuids from the foreign database. *)
+	let required_SRs = list_required_SRs ~__context ~self in
+	let required_SR_uuids = List.map (fun sr -> Db.SR.get_uuid ~__context ~self:sr)
+		required_SRs
+	in
+	(* Try to look up the SRs by uuid in the local database. *)
+	try
+		Server_helpers.exec_with_new_task ~session_id:session_to
+			"Looking for required SRs"
+			(fun __context -> List.iter
+				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_uuid))
+				required_SR_uuids)
+	with Db_exn.Read_missing_uuid(_, _, sr_uuid) ->
+		(* Throw exception containing the uuid of the first SR which wasn't found. *)
+		let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
+			[Ref.string_of self; Ref.string_of sr_ref]))
