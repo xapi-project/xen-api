@@ -6537,6 +6537,15 @@ let vm_appliance =
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
+	let vm_appliance_assert_can_be_recovered = call
+		~name:"assert_can_be_recovered"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
+			Ref _session, "session_to", "The session to which the VM appliance is to be recovered."]
+		~errs:[Api_errors.vm_requires_sr]
+		~doc:"Assert whether all SRs required to recover this VM appliance are available."
+		~allowed_roles:_R_READ_ONLY
+		() in
 	create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
 		~gen_events:true
 		~doccomments:[]
@@ -6544,7 +6553,8 @@ let vm_appliance =
 		~messages:[
 			vm_appliance_start;
 			vm_appliance_clean_shutdown;
-			vm_appliance_hard_shutdown
+			vm_appliance_hard_shutdown;
+			vm_appliance_assert_can_be_recovered;
 		]
 		~contents:([
 			uid _vm_appliance;

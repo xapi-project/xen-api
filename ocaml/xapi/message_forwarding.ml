@@ -582,6 +582,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
+
+		let assert_can_be_recovered ~__context ~self ~session_to =
+			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
 	end
 	module DR_task = Local.DR_task
   (* module Alert = Local.Alert *)
