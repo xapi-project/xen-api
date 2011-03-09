@@ -2014,6 +2014,16 @@ let vm_assert_can_be_recovered = call
   ~allowed_roles:_R_READ_ONLY
   ()
 
+let vm_recover = call
+  ~name:"recover"
+  ~in_product_since:rel_boston
+  ~doc:"Recover the VM"
+  ~params:[Ref _vm, "self", "The VM to recover";
+    Ref _session, "session_to", "The session to which the VM is to be recovered.";
+    Bool, "force", "Whether the VM should replace newer versions of itself."]
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -5954,6 +5964,7 @@ let vm =
 		vm_set_shutdown_delay;
 		vm_set_order;
 		vm_assert_can_be_recovered;
+		vm_recover;
 		]
       ~contents:
       ([ uid _vm;
