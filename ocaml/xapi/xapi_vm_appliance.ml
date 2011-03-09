@@ -1,5 +1,6 @@
 open Client
 open Pervasiveext
+open Listext
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -171,8 +172,6 @@ let hard_shutdown ~__context ~self =
 (* Check that VDI SRs are present for each VM in the appliance. *)
 let assert_can_be_recovered ~__context ~self ~session_to =
 	let vms = Db.VM_appliance.get_VMs ~__context ~self in
-	Helpers.call_api_functions ~__context
-		(fun rpc session_id ->
-			List.iter
-				(fun vm -> Client.VM.assert_can_be_recovered ~rpc ~session_id ~self:vm ~session_to)
-				vms)
+	List.iter
+		(fun vm -> Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
+		vms
