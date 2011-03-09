@@ -717,6 +717,9 @@ let pool_migrate ~__context ~vm ~host ~options =
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.get_localhost ~__context)
 			~host_to:host ;
+	(* We don't support VM migration while PCI devices have been passed through (yet). *)
+	if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
+		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
