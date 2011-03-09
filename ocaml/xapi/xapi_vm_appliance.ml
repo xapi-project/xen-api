@@ -167,3 +167,12 @@ let hard_shutdown ~__context ~self =
 		required_state = `Halted;
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:false
+
+(* Check that VDI SRs are present for each VM in the appliance. *)
+let assert_can_be_recovered ~__context ~self ~session_to =
+	let vms = Db.VM_appliance.get_VMs ~__context ~self in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			List.iter
+				(fun vm -> Client.VM.assert_can_be_recovered ~rpc ~session_id ~self:vm ~session_to)
+				vms)
