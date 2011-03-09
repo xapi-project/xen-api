@@ -1285,7 +1285,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 (* Create the export objects so they can be reimported into the main database. *)
 let create_import_objects ~__context ~self =
 	let table = Export.create_table () in
-	List.iter (Export.update_table ~__context ~include_snapshots:false ~preserve_power_state:false ~include_vhd_parents:false ~table) [self];
+	Export.update_table ~__context ~include_snapshots:false ~preserve_power_state:false ~include_vhd_parents:false ~table self;
   Export.make_all ~with_snapshot_metadata:false ~preserve_power_state:false table __context
 
 let recover ~__context ~self ~session_to ~force =
