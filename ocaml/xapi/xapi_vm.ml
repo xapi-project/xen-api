@@ -1279,25 +1279,22 @@ let set_order ~__context ~self ~value =
 		(Int64.to_string value);
 	Db.VM.set_order ~__context ~self ~value
 
-(* Find the SRs of all VDIs which have VBDs attached to the VM. *)
-let list_required_SRs ~__context ~self =
+let list_required_vdis ~__context ~self =
 	let vbds = Db.VM.get_VBDs ~__context ~self in
 	let attached_vbds =
 		List.filter (fun vbd -> Db.VBD.get_currently_attached ~__context ~self:vbd) vbds
 	in
-	let vdis = List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) attached_vbds in
+	List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) attached_vbds
+
+(* Find the SRs of all VDIs which have VBDs attached to the VM. *)
+let list_required_SRs ~__context ~self =
+	let vdis = list_required_vdis ~__context ~self in
 	let srs = List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) vdis in
 	List.setify srs
 
 (* Check if the database referenced by session_to *)
 (* contains the SRs required to recover the VM. *)
 let assert_can_be_recovered ~__context ~self ~session_to =
-	(* If a VM is part of an appliance, the appliance *)
-	(* should be recovered using VM_appliance.recover *)
-	let appliance = Db.VM.get_appliance ~__context ~self in
-	if appliance <> Ref.null then
-		raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
-			[Ref.string_of self; Ref.string_of appliance]));
 	(* Get the required SR uuids from the foreign database. *)
 	let required_SRs = list_required_SRs ~__context ~self in
 	let required_SR_uuids = List.map (fun sr -> Db.SR.get_uuid ~__context ~self:sr)
@@ -1315,3 +1312,72 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
 			[Ref.string_of self; Ref.string_of sr_ref]))
+
+let create_vm_object ~__context ~self =
+	let record = Db.VM.get_record ~__context ~self in
+	let snapshot = API.To.vM_t record in
+	{
+		Importexport.cls = Datamodel._vm;
+		Importexport.id = Ref.string_of self;
+		Importexport.snapshot = snapshot;
+	}
+
+let create_vif_objects ~__context ~self =
+	let vifs = Db.VM.get_VIFs ~__context ~self in
+	let objectify vif =
+		let record = Db.VIF.get_record ~__context ~self:vif in
+		let snapshot = API.To.vIF_t record in
+		{
+			Importexport.cls = Datamodel._vif;
+			Importexport.id = Ref.string_of vif;
+			Importexport.snapshot = snapshot;
+		}
+	in
+	List.map objectify vifs
+
+let create_vbd_objects ~__context ~self =
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let objectify vbd =
+		let record = Db.VBD.get_record ~__context ~self:vbd in
+		let snapshot = API.To.vBD_t record in
+		{
+			Importexport.cls = Datamodel._vbd;
+			Importexport.id = Ref.string_of vbd;
+			Importexport.snapshot = snapshot;
+		}
+	in
+	List.map objectify vbds
+
+let recover ~__context ~self ~session_to ~force =
+	(* If a VM is part of an appliance, the appliance *)
+	(* should be recovered using VM_appliance.recover *)
+	let appliance = Db.VM.get_appliance ~__context ~self in
+	if appliance <> Ref.null then
+		raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
+			[Ref.string_of self; Ref.string_of appliance]));
+	(* Check the VM SRs are available. *)
+	assert_can_be_recovered ~__context ~self ~session_to;
+	(* Recover the VM, VBDs and VIFs *)
+	let config = {
+		Import.sr = Ref.null;
+		Import.full_restore = true;
+		Import.vm_metadata_only = true;
+		Import.force = force;
+	} in
+	let vm_object = create_vm_object ~__context ~self in
+	let vif_objects = create_vif_objects ~__context ~self in
+	let vbd_objects = create_vbd_objects ~__context ~self in
+	Server_helpers.exec_with_new_task ~session_id:session_to "Importing VM"
+		(fun __context_to ->
+			let rpc = Helpers.make_rpc ~__context:__context_to in
+			let state = Import.handle_all __context_to
+				config rpc session_to [vm_object]
+			in
+			let vmrefs = List.setify
+				(List.map (fun (cls, id, r) -> Ref.of_string r)
+					state.Import.created_vms)
+			in
+			try
+				Import.complete_import ~__context:__context_to vmrefs;
+			with e ->
+				Importexport.cleanup state.Import.cleanup)
