@@ -966,6 +966,9 @@ let revert ~__context ~snapshot =
 let checkpoint ~__context ~vm ~new_name =
 	if not (Pool_features.is_enabled ~__context Features.Checkpoint) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	(* We don't support VM migration while PCI devices have been passed through (yet). *)
+	else if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
+		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]))
 	else begin
 		Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
