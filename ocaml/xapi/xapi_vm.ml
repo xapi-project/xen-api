@@ -1282,40 +1282,11 @@ let set_order ~__context ~self ~value =
 let assert_can_be_recovered ~__context ~self ~session_to =
 	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
 
-let create_vm_object ~__context ~self =
-	let record = Db.VM.get_record ~__context ~self in
-	let snapshot = API.To.vM_t record in
-	{
-		Importexport.cls = Datamodel._vm;
-		Importexport.id = Ref.string_of self;
-		Importexport.snapshot = snapshot;
-	}
-
-let create_vif_objects ~__context ~self =
-	let vifs = Db.VM.get_VIFs ~__context ~self in
-	let objectify vif =
-		let record = Db.VIF.get_record ~__context ~self:vif in
-		let snapshot = API.To.vIF_t record in
-		{
-			Importexport.cls = Datamodel._vif;
-			Importexport.id = Ref.string_of vif;
-			Importexport.snapshot = snapshot;
-		}
-	in
-	List.map objectify vifs
-
-let create_vbd_objects ~__context ~self =
-	let vbds = Db.VM.get_VBDs ~__context ~self in
-	let objectify vbd =
-		let record = Db.VBD.get_record ~__context ~self:vbd in
-		let snapshot = API.To.vBD_t record in
-		{
-			Importexport.cls = Datamodel._vbd;
-			Importexport.id = Ref.string_of vbd;
-			Importexport.snapshot = snapshot;
-		}
-	in
-	List.map objectify vbds
+(* Create the export objects so they can be reimported into the main database. *)
+let create_import_objects ~__context ~self =
+	let table = Export.create_table () in
+	List.iter (Export.update_table ~__context ~include_snapshots:false ~preserve_power_state:false ~include_vhd_parents:false ~table) [self];
+  Export.make_all ~with_snapshot_metadata:false ~preserve_power_state:false table __context
 
 let recover ~__context ~self ~session_to ~force =
 	(* If a VM is part of an appliance, the appliance *)
@@ -1326,27 +1297,32 @@ let recover ~__context ~self ~session_to ~force =
 			[Ref.string_of self; Ref.string_of appliance]));
 	(* Check the VM SRs are available. *)
 	assert_can_be_recovered ~__context ~self ~session_to;
-	(* Recover the VM, VBDs and VIFs *)
+	(* Attempt to recover the VM. *)
 	let config = {
 		Import.sr = Ref.null;
 		Import.full_restore = true;
 		Import.vm_metadata_only = true;
 		Import.force = force;
 	} in
-	let vm_object = create_vm_object ~__context ~self in
-	let vif_objects = create_vif_objects ~__context ~self in
-	let vbd_objects = create_vbd_objects ~__context ~self in
+	let objects = create_import_objects ~__context ~self in
 	Server_helpers.exec_with_new_task ~session_id:session_to "Importing VM"
 		(fun __context_to ->
 			let rpc = Helpers.make_rpc ~__context:__context_to in
 			let state = Import.handle_all __context_to
-				config rpc session_to [vm_object]
+				config rpc session_to objects
 			in
 			let vmrefs = List.setify
-				(List.map (fun (cls, id, r) -> Ref.of_string r)
+				(List.map
+					(fun (cls, id, r) -> Ref.of_string r)
 					state.Import.created_vms)
 			in
 			try
 				Import.complete_import ~__context:__context_to vmrefs;
 			with e ->
-				Importexport.cleanup state.Import.cleanup)
+				if force then
+					debug "%s" "VM recovery failed - not cleaning up as action was forced."
+				else begin
+					debug "%s" "VM recovery failed - cleaning up.";
+					Importexport.cleanup state.Import.cleanup
+				end;
+				raise e)
