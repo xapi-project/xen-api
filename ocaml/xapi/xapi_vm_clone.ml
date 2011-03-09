@@ -333,6 +333,7 @@ let clone disk_op ~__context ~vm ~new_name =
 		let task_id = Ref.string_of (Context.get_task_id __context) in
 		let vbds = Db.VM.get_VBDs ~__context ~self:vm in
 		let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+		let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
 		let power_state = Db.VM.get_power_state ~__context ~self:vm in
 		
 		(* if we do a snaphshot on a VM, then the new VM must remain halted. *)
@@ -368,6 +369,9 @@ let clone disk_op ~__context ~vm ~new_name =
 				(* copy VIFs *)
 				let new_vifs : [`VIF] Ref.t list =
 					List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm:ref ~preserve_mac_address:is_a_snapshot vif) vifs in
+				(* copy VGPUs *)
+				let new_vgpus : [`VGPU] Ref.t list =
+					List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus in
 				
 				(* copy the suspended VDI if needed *)
 				let suspend_VDI =
