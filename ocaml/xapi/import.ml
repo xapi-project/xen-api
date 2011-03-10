@@ -154,8 +154,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 		state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
 	end else begin
 		(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
-		let need_to_replace_vm = vm_uuid_exists () in
-		if config.full_restore && need_to_replace_vm then begin
+		if config.full_restore && vm_uuid_exists () then begin
 			let vm = get_vm_uuid () in
 			(* The existing VM cannot be replaced if it is running. *)
 			let power_state = Db.VM.get_power_state ~__context ~self:vm in
@@ -220,10 +219,8 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 		(* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
 		(* to keep track of how many times this VM has been restored. If not a full restore, then we don't need to keep track. *)
 		let vm_record =
-			if need_to_replace_vm then
+			if config.full_restore then
 				{vm_record with API.vM_version = Int64.add vm_record.API.vM_version 1L}
-			else if config.full_restore then
-				vm_record
 			else
 				{vm_record with API.vM_version = 0L}
 		in
