@@ -85,11 +85,15 @@ let update_pcis ~__context ~host =
 		| pci :: remaining_pcis ->
 			let obj =
 				try
-					List.find (fun (rf, rc) ->
+					let (rf, rc) = List.find (fun (rf, rc) ->
 						rc.Db_actions.pCI_pci_id = pci.id &&
 						rc.Db_actions.pCI_vendor_id = pci.vendor_id &&
 						rc.Db_actions.pCI_device_id = pci.device_id)
-						existing
+						existing in
+					let attached_VMs = List.filter (Db.is_valid_ref __context) rc.Db_actions.pCI_attached_VMs in
+					if attached_VMs <> rc.Db_actions.pCI_attached_VMs then
+						Db.PCI.set_attached_VMs ~__context ~self:rf ~value:attached_VMs;
+					rf, rc
 				with Not_found ->
 					let self = create ~__context ~class_id:pci.class_id ~class_name:pci.class_name
 						~vendor_id:pci.vendor_id ~vendor_name:pci.vendor_name ~device_id:pci.device_id

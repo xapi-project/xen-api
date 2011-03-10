@@ -390,6 +390,14 @@ let force_state_reset ~__context ~self ~value:state =
 				 Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
 				 Db.VIF.set_reserved ~__context ~self:vif ~value:false)
 			(Db.VM.get_VIFs ~__context ~self);
+		List.iter 
+			(fun vgpu ->
+				 Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false)
+			(Db.VM.get_VGPUs ~__context ~self);
+		List.iter
+			(fun pci ->
+				Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
+			(Db.VM.get_attached_PCIs ~__context ~self);
 		Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
 		(* make sure we aren't reserving any memory for this VM *)
 		Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
