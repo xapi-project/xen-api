@@ -217,6 +217,10 @@ let destroy  ~__context ~self =
 		    let metrics = Db.VIF.get_metrics ~__context ~self:vif in
 		    Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ());
 		 (try Db.VIF.destroy ~__context ~self:vif with _ -> ())) vifs;
+  let vgpus = Db.VM.get_VGPUs ~__context ~self in
+  List.iter (fun vgpu -> try Db.VGPU.destroy ~__context ~self:vgpu with _ -> ()) vgpus;
+  let pcis = Db.VM.get_attached_PCIs ~__context ~self in
+  List.iter (fun pci -> try Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self with _ -> ()) pcis;
    let vm_metrics = Db.VM.get_metrics ~__context ~self in
      (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ());
    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
