@@ -997,10 +997,10 @@ let populate_cpu_flags ~__context ~vm ~host =
 
 let list_required_vdis ~__context ~self =
 	let vbds = Db.VM.get_VBDs ~__context ~self in
-	let attached_vbds =
-		List.filter (fun vbd -> Db.VBD.get_currently_attached ~__context ~self:vbd) vbds
+	let vbds_excluding_cd =
+		List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) vbds
 	in
-	List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) attached_vbds
+	List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_excluding_cd
 
 (* Find the SRs of all VDIs which have VBDs attached to the VM. *)
 let list_required_SRs ~__context ~self =
