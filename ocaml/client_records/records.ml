@@ -928,6 +928,8 @@ let vm_record rpc session_id vm =
 			make_field ~name:"order"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
 				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
+			make_field ~name:"version"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
