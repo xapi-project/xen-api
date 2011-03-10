@@ -175,3 +175,27 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	List.iter
 		(fun vm -> Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
 		vms
+
+let recover ~__context ~self ~session_to ~force =
+	assert_can_be_recovered ~__context ~self ~session_to;
+	let vms = Db.VM_appliance.get_VMs ~__context ~self in
+	let recovered_vms = Xapi_dr.recover_vms ~__context ~vms ~session_to ~force in
+	(* Recreate the VM appliance object. *)
+	let old_appliance = Db.VM_appliance.get_record ~__context ~self in
+	Server_helpers.exec_with_new_task ~session_id:session_to "Recreating VM appliance object"
+		(fun __context_to ->
+			let new_appliance = create ~__context:__context_to
+				~name_label:old_appliance.API.vM_appliance_name_label
+				~name_description:old_appliance.API.vM_appliance_name_description in
+			List.iter
+				(fun vm -> Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:new_appliance)
+				recovered_vms;
+			try
+				Db.VM_appliance.set_uuid ~__context:__context_to
+					~self:new_appliance
+					~value:old_appliance.API.vM_appliance_uuid
+			with Db_exn.Uniqueness_constraint_violation(_, _, _) ->
+				(* Fail silently if the appliance's uuid already exists. *)
+				debug
+					"Could not give VM appliance the uuid %s as a VM appliance with this uuid already exists."
+					old_appliance.API.vM_appliance_uuid)
