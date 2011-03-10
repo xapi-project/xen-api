@@ -38,6 +38,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
 			in
 			try
 				Import.complete_import ~__context:__context_to vmrefs;
+				vmrefs
 			with e ->
 				if force then
 					debug "%s" "VM recovery failed - not cleaning up as action was forced."

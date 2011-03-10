@@ -6546,6 +6546,16 @@ let vm_appliance =
 		~doc:"Assert whether all SRs required to recover this VM appliance are available."
 		~allowed_roles:_R_READ_ONLY
 		() in
+	let vm_appliance_recover = call
+		~name:"recover"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
+			Ref _session, "session_to", "The session to which the VM appliance is to be recovered.";
+			Bool, "force", "Whether the VMs should replace newer versions of themselves."]
+		~errs:[Api_errors.vm_requires_sr]
+		~doc:"Recover the VM appliance"
+		~allowed_roles:_R_READ_ONLY
+		() in
 	create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
 		~gen_events:true
 		~doccomments:[]
@@ -6555,6 +6565,7 @@ let vm_appliance =
 			vm_appliance_clean_shutdown;
 			vm_appliance_hard_shutdown;
 			vm_appliance_assert_can_be_recovered;
+			vm_appliance_recover;
 		]
 		~contents:([
 			uid _vm_appliance;

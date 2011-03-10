@@ -17,3 +17,5 @@ val hard_shutdown :
 
 val assert_can_be_recovered :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> session_to:[ `session ] Ref.t -> unit
+val recover :
+	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> session_to:[ `session ] Ref.t -> force:bool -> unit
