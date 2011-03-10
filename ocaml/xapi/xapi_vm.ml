@@ -1292,4 +1292,4 @@ let recover ~__context ~self ~session_to ~force =
 	(* Check the VM SRs are available. *)
 	assert_can_be_recovered ~__context ~self ~session_to;
 	(* Attempt to recover the VM. *)
-	Xapi_dr.recover_vms ~__context ~vms:[self] ~session_to ~force
+	ignore (Xapi_dr.recover_vms ~__context ~vms:[self] ~session_to ~force)
