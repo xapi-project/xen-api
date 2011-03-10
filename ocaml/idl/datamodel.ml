@@ -1074,6 +1074,9 @@ let _ =
 	error Api_errors.vm_is_part_of_an_appliance ["vm"; "appliance"]
 		~doc:"The VM cannot be recovered on its own as it is part of a VM appliance." ();
 
+	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
+		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ();
+
 
 let _ =
   message Api_messages.ha_pool_overcommitted ~doc:"Pool has become overcommitted: it can nolonger guarantee to restart protected VMs if the configured number of hosts fail." ();
