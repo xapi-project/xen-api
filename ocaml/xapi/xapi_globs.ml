@@ -33,7 +33,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 
 (* api version *)
 let api_version_major = 1L
-let api_version_minor = 8L
+let api_version_minor = 9L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -43,8 +43,8 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.8"
-let xencenter_max_verstring = "1.8"
+let xencenter_min_verstring = "1.9"
+let xencenter_max_verstring = "1.9"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
