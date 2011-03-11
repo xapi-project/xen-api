@@ -50,6 +50,7 @@ import syslog
 import traceback
 import re
 import random
+import syslog
 
 management_pif = None
 
@@ -197,7 +198,11 @@ def ifup(netdev):
     """Bring up a network interface"""
     if not os.path.exists(root_prefix() + "/etc/sysconfig/network-scripts/ifcfg-%s" % netdev):
         raise Error("ifup: device %s exists but ifcfg-%s does not" % (netdev,netdev))
+    d = os.getenv("DHCLIENTARGS","")
+    if os.path.exists("/etc/firstboot.d/data/firstboot_in_progress"):
+        os.putenv("DHCLIENTARGS", d + " -T 240 " )
     run_command(["/sbin/ifup", netdev])
+    os.putenv("DHCLIENTARGS", d )
 
 #
 #
