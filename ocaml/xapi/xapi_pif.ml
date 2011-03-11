@@ -209,8 +209,11 @@ let make_tables ~__context ~host =
 	let bios_names = List.map Netdev.get_bios_name physical in
 	let mac_to_biosname_table = List.combine physical_macs bios_names in
 	{
+		(* One entry for each currently-active PIF. *)
 		mac_to_pif_table = mac_to_pif_table;
+		(* One entry for each currently-active kernel device. *)
 		mac_to_phy_table = mac_to_phy_table;
+		(* One entry for each currently-active kernel device. *)
 		mac_to_biosname_table = mac_to_biosname_table;
 	}
 
