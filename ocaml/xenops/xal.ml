@@ -26,6 +26,10 @@ exception Domain_not_dead of domid
 exception Device_not_monitored
 exception Timeout
 
+type console_type =
+	| Text
+	| VNC
+
 type dev_event =
 	(* devices : backend / type / devid *)
 	| DevEject of string
@@ -40,6 +44,7 @@ type dev_event =
 	| HotplugChanged of string * string option * string option
 	| ChangeUncooperative of bool
 	| PciChanged of string
+	| Console of console_type * int
 
 type xs_dev_state =
 	| Connecting
@@ -58,6 +63,7 @@ type internal_dev_event =
 	| HotplugBackend of string option
 	| Uncooperative of bool
 	| PciBackend of xs_dev_state * string
+	| ConsolePort of console_type * int
 
 let string_of_dev_state = function
 	| Connecting -> "Connecting"
@@ -86,6 +92,10 @@ let string_of_dev_event ev =
 		sprintf "ChangeUncooperative %b" b
 	| PciChanged s ->
 		sprintf "PciChanged %s" s
+	| Console (VNC, port) ->
+		sprintf "Console(VNC, %d)" port
+	| Console (Text, port) ->
+		sprintf "Console(Text, %d)" port
 
 type died_reason =
 	| Crashed
@@ -315,6 +325,7 @@ let domain_update ctx =
 		  sprintf "/local/domain/%d/messages" domid; (* messages *)
 		  sprintf "/local/domain/%d/memory/target" domid;
 		  sprintf "/local/domain/%d/memory/uncooperative" domid;
+		  sprintf "/local/domain/%d/console" domid;
 		] @
 		if ctx.monitor_devices then [
 			sprintf "/local/domain/%d/device" domid;
@@ -407,6 +418,7 @@ let domain_update ctx =
  * /xapi /<domid>/frontend/<type> /<devid>/
  * /vm   /<uuid> /rtc     / timeoffset
  * /local/domain /<domid> /messages/<uid> /name   /prio   /body
+ * /local/domain /<domid> /console/
  *)
 let other_watch xs w v =
 	let read_state path =
@@ -456,6 +468,12 @@ let other_watch xs w v =
 	| "" :: "local" :: "domain" :: domid :: "device" :: ty :: devid :: [ "state" ] ->
 		let xsds = read_state w in
 		Some (int_of_string domid, Frontend xsds, ty, devid)
+	| "" :: "local" :: "domain" :: domid :: "console" :: [ "vnc-port" ] ->
+		let port = int_of_string (xs.Xs.read w) in
+		Some (int_of_string domid, ConsolePort(VNC, port), "", "")
+	| "" :: "local" :: "domain" :: domid :: "console" :: [ "tc-port" ] ->
+		let port = int_of_string (xs.Xs.read w) in
+		Some (int_of_string domid, ConsolePort(Text, port), "", "")
 	| "" :: "xapi" :: domid :: "hotplug" :: "vif" :: devid :: [ "hotplug" ] ->
 		let extra = try Some (xs.Xs.read w) with _ -> None in
 		Some (int_of_string domid, (HotplugBackend extra), "", devid)
@@ -601,6 +619,8 @@ let domain_device_event ctx w v =
 			               (HotplugChanged (devid, old, extra))
 		| PciBackend (state, devid) ->
 			ctx.callback_devices ctx domid (PciChanged devid)
+		| ConsolePort (ty, port) ->
+			ctx.callback_devices ctx domid (Console(ty, port))
 	)
 
 (** Internal helper function which wraps the Xs.read_watchevent with

@@ -449,6 +449,9 @@ let callback_devices ctx domid dev_event =
 	 (fun __context -> 
 	    try
 	      match dev_event with
+			  | Xal.Console(ty, port) ->
+				  let vm = vm_of_domid ~__context domid in
+				  Vmops.update_console ~__context ty port vm
 	      | Xal.HotplugChanged (devid, oldextra, newextra) ->  
 		  begin 
 	            let vm = vm_of_domid ~__context domid in

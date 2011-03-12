@@ -248,7 +248,7 @@ let open_channels () =
     open_tcp !xapiserver
 
 let http_response_code x = match String.split ' ' x with
-  | [ _; code; _ ] -> int_of_string code
+  | _ :: code :: _ -> int_of_string code
   | _ -> failwith "Bad response from HTTP server"
 
 exception Http_failure
@@ -280,10 +280,9 @@ let main_loop ifd ofd =
 	  try unmarshal_protocol ifd with
 	  | Unmarshal_failure (_, "") -> raise Connect_failure
 	  | e -> handle_unmarshal_failure e ifd in
-  (* Be very conservative for the time-being *)
   let msg = Printf.sprintf "Server has protocol version %d.%d. Client has %d.%d" major' minor' major minor in
   debug "%s\n%!" msg;
-  if major' <> major || minor' <> minor
+  if major' <> major
   then raise (Protocol_version_mismatch msg);
   marshal_protocol ofd;
 
@@ -335,6 +334,69 @@ let main_loop ifd ofd =
           with
           | e -> marshal ofd (Response Failed)
         end
+	| Command (HttpConnect(url)) ->
+		let server, path = parse_url url in
+        let ic, oc = open_tcp server in
+        let fd = Unix.descr_of_out_channel oc in
+		Printf.fprintf oc "CONNECT %s HTTP/1.0\r\ncontent-length: 0\r\n\r\n" path;
+		flush oc;
+        let resultline = input_line ic in
+        let _ = read_rest_of_headers ic in
+        (* Get the result header immediately *)
+        begin match http_response_code resultline with
+            | 200 ->
+				(* Remember the current terminal state so we can restore it *)
+				let tc = Unix.tcgetattr Unix.stdin in
+				(* Switch into a raw mode, passing through stuff like Control + C *)
+				let tc' = {
+					tc with
+						Unix.c_ignbrk = false;
+						Unix.c_brkint = false;
+						Unix.c_parmrk = false;
+						Unix.c_istrip = false;
+						Unix.c_inlcr = false;
+						Unix.c_igncr = false;
+						Unix.c_icrnl = false;
+						Unix.c_ixon = false;
+						Unix.c_opost = false;
+						Unix.c_echo = false;
+						Unix.c_echonl = false;
+						Unix.c_icanon = false;
+						Unix.c_isig = false;
+						(* IEXTEN? *)
+						Unix.c_csize = 8;
+						Unix.c_parenb = false;
+						Unix.c_vmin = 0;
+						Unix.c_vtime = 0;
+				} in
+				Pervasiveext.finally
+					(fun () ->
+						Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
+						let finished = ref false in
+						while not !finished do
+							let r, _, _ = Unix.select [ Unix.stdin; fd ] [] [] 0. in
+							if List.mem Unix.stdin r then begin
+								let b = Unixext.really_read_string Unix.stdin 1 in
+								if Char.code b.[0] = 0x1d (* Control + ] *)
+								then finished := true
+								else Unixext.really_write_string fd b
+							end;
+							if List.mem fd r then begin
+								let b = Unixext.really_read_string fd 1 in
+								Unixext.really_write_string Unix.stdout b
+							end
+						done
+					)
+					(fun () ->
+						Unix.tcsetattr Unix.stdin Unix.TCSANOW tc
+					);
+				marshal ofd (Response OK)
+			| 404 ->
+				Printf.fprintf stderr "Server replied with HTTP 404: the console is not available\n";
+				marshal ofd (Response Failed)
+			| x ->
+				raise (ClientSideError (Printf.sprintf "Server said: %s" resultline))
+		end
     | Command (HttpPut(filename, url)) ->
         begin
           try
