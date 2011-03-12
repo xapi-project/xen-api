@@ -18,6 +18,7 @@
 (** Used to ensure that we actually are talking to a thin CLI server *)
 let major = 0
 let minor = 1
+
 (** A prefix string which should be unique, used to detect that we're talking to
     a totally different kind of server (eg a standard HTTP server) *)
 let prefix = "XenSource thin CLI protocol"
@@ -31,6 +32,7 @@ type command =
     | Load of string                      (* filename *)
     | HttpGet of string * string          (* filename * path *)
     | HttpPut of string * string          (* filename * path *)
+	| HttpConnect of string               (* path *)
     | Prompt                              (* request the user enter some text *) 
     | Exit of int                         (* exit with a success or failure code *)
     | Error of string * string list       (* code params *)
@@ -63,6 +65,7 @@ let string_of_command = function
   | Load x                   -> "Load " ^ x
   | HttpGet (filename, path) -> "HttpGet " ^ path ^ " -> " ^ filename
   | HttpPut (filename, path) -> "HttpPut " ^ path ^ " -> " ^ filename
+  | HttpConnect path         -> "HttpConnect " ^ path
   | Prompt                   -> "Prompt"
   | Exit x                   -> "Exit " ^ (string_of_int x)
   | Error (code, params)     -> "Error " ^ code ^ " [ " ^ (String.concat "; " params) ^ "]"
@@ -137,7 +140,7 @@ let unmarshal_list pos f =
 (*****************************************************************************)
 (* Marshal/Unmarshal higher-level messages                                   *)
 
-(* Highest command id: 15 *)
+(* Highest command id: 17 *)
 
 let marshal_command = function
   | Print x -> marshal_int 0 ^ (marshal_string x)
@@ -145,6 +148,7 @@ let marshal_command = function
   | Load x  -> marshal_int 1 ^ (marshal_string x)
   | HttpGet (a, b) -> marshal_int 12 ^ (marshal_string a) ^ (marshal_string b)
   | HttpPut (a, b) -> marshal_int 13 ^ (marshal_string a) ^ (marshal_string b)
+  | HttpConnect a -> marshal_int 17 ^ (marshal_string a)
   | Prompt  -> marshal_int 3
   | Exit x  -> marshal_int 4 ^ (marshal_int x)
   | Error (x, xs) -> marshal_int 14 ^ (marshal_string x) ^ (marshal_list marshal_string xs)
@@ -167,6 +171,9 @@ let unmarshal_command pos =
 	HttpPut(a, b), pos
     | 3 -> Prompt, pos
     | 4 -> let body, pos = unmarshal_int pos in Exit body, pos
+	| 17 ->
+	let a, pos = unmarshal_string pos in
+	HttpConnect(a), pos
     | 14 ->
 	let code, pos = unmarshal_string pos in
 	let params, pos = unmarshal_list pos unmarshal_string in

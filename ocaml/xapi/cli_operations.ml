@@ -2179,6 +2179,36 @@ let vm_install printer rpc session_id params =
 	let new_description = "Installed via xe CLI" in (* Client.VM.get_name_description rpc session_id template in *)
 	vm_install_real printer rpc session_id template new_name new_description params
 
+let console fd printer rpc session_id params =
+	let c = match select_vms ~include_control_vms:true rpc session_id params [] with
+		| [ vm_r ] ->
+			let vm = vm_r.getref () in
+			let cs = Client.VM.get_consoles rpc session_id vm in
+			begin
+				try
+					List.find (fun c -> Client.Console.get_protocol rpc session_id c = `vt100) cs
+				with Not_found ->
+					marshal fd (Command (PrintStderr "No text console available"));
+					raise (ExitWithError 1)
+			end
+		| [] ->
+			marshal fd (Command (PrintStderr "No VM found"));
+			raise (ExitWithError 1)
+		| _ :: _ ->
+			marshal fd (Command (PrintStderr "Multiple VMs found: please narrow your request to one VM."));
+			raise (ExitWithError 1)
+	in
+	let vm = Client.Console.get_VM rpc session_id c in
+	let vm_name_label = Client.VM.get_name_label rpc session_id vm in
+	marshal fd (Command (Print (Printf.sprintf "Connecting to console on VM %s. Press Ctrl + ']' to quit." vm_name_label)));
+	let l = Client.Console.get_location rpc session_id c in
+	let uri = Printf.sprintf "%s&session_id=%s" l (Ref.string_of session_id) in
+	marshal fd (Command (HttpConnect uri));
+	match unmarshal fd with
+		| Response OK -> ()
+		| _ ->
+			failwith "Failure"
+
 
 let vm_uninstall_common fd printer rpc session_id params vms =
 	let toremove = ref [] in

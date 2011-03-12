@@ -174,17 +174,22 @@ let write_memory_policy ~xs snapshot domid =
 		~max:(Int64.to_int (Int64.div snapshot.API.vM_memory_dynamic_max 1024L))
 		domid
 
-(* Called on both VM.start and VM.resume to create and attach a single console using RFB to a VM *)
-let create_console ?(vncport=(-1)) ~__context ~vM () =
-	let port = Int64.of_int vncport in
+let update_console ~__context ty port vm =
+	let protocol = match ty with
+		| Xal.VNC -> `rfb
+		| Xal.Text -> `vt100 in
+	(* Delete and re-create the console record *)
+	List.iter
+		(fun self ->
+			if Db.Console.get_protocol ~__context ~self = protocol
+			then Db.Console.destroy ~__context ~self)
+		(Db.VM.get_consoles ~__context ~self:vm);
 	let localhost = Helpers.get_localhost ~__context in
 	let address = Db.Host.get_address ~__context ~self:localhost in
-	let location = Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri (Ref.string_of vM) in
-	(* Ensure we have at most one console with the correct port *)
-	List.iter (fun self -> Db.Console.destroy ~__context ~self) (Db.VM.get_consoles ~__context ~self:vM);
-	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let ref = Ref.make () in
-	Db.Console.create ~__context ~ref ~uuid ~protocol:`rfb ~location ~vM ~other_config:[] ~port
+	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	let location = Printf.sprintf "https://%s%s?uuid=%s" address Constants.console_uri uuid in
+	Db.Console.create ~__context ~ref ~uuid ~protocol ~location ~vM:vm ~other_config:[] ~port:(Int64.of_int port)
 
 (* Detach all consoles from a guest, used when shutting down/pausing *)
 let destroy_consoles ~__context ~vM =
@@ -502,13 +507,13 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	let hvm = Helpers.is_hvm snapshot in
 
 	let platform = snapshot.API.vM_platform in
-	let pv_qemu = Xapi_globs.xenclient_enabled && (has_platform_flag platform "pv_qemu") in
+	let pvfb = has_platform_flag platform "pvfb" in
 	
 	(* Examine the boot method if the guest is HVM and do something about it *)
-	if hvm || pv_qemu then begin
-	        let policy = snapshot.API.vM_HVM_boot_policy in
+	if hvm || pvfb then begin
+		let policy = snapshot.API.vM_HVM_boot_policy in
 
-		if (policy <> Constants.hvm_boot_policy_bios_order) && (not pv_qemu) then
+		if (policy <> Constants.hvm_boot_policy_bios_order) && (not pvfb) then
 			failwith (sprintf "Unknown HVM boot policy: %s" policy);
 
 		let params = snapshot.API.vM_HVM_boot_params in
@@ -591,12 +596,12 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	        (* if we have a "disable_pv_vnc" entry in other_config we disable
 		   VNC for PV *)
 		let disable_pv_vnc = List.mem_assoc "disable_pv_vnc" other_config in
-		if not disable_pv_vnc then Device.PV_Vnc.start ~xs domid ?statefile:vnc_statefile else 0
+		if not disable_pv_vnc then Device.PV_Vnc.start ~xs domid ?statefile:vnc_statefile
 	end
 
-let create_vfb_vkbd ~xc ~xs protocol domid =
-  Device.Vfb.add ~xc ~xs ~hvm:false ~protocol domid;
-  Device.Vkbd.add ~xc ~xs ~hvm:false ~protocol domid
+let create_vfb_vkbd ~xc ~xs ?protocol domid =
+  Device.Vfb.add ~xc ~xs ~hvm:false ?protocol domid;
+  Device.Vkbd.add ~xc ~xs ~hvm:false ?protocol domid
 
 (* get CD VBDs required to resume *)
 let get_required_CD_VBDs ~__context ~vm =
@@ -679,14 +684,13 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 	) else (
 		Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	);
-	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile
-		domid vifs at_boot_time in
+	create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile
+		domid vifs at_boot_time;
 	(* write in the current policy info *)
 	write_memory_policy ~xs { at_boot_time with API.
 		vM_memory_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self;
 		vM_memory_dynamic_max = Db.VM.get_memory_dynamic_max ~__context ~self;
-	} domid;
-	create_console ~__context ~vM:self ~vncport ()
+	} domid
 
 (** In Rio suspend images had filenames of the form: 
       suspend-image-<VM UUID>
@@ -725,6 +729,9 @@ let restore ~__context ~xc ~xs ~self start_paused =
   let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
   let domid = create ~__context ~xc ~xs ~self ~reservation_id snapshot () in
   let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context ~vm:self in
+
+  (* Ensure no old consoles survive *)
+  destroy_consoles ~__context ~vM:self;
 
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
@@ -936,6 +943,9 @@ let resume ~__context ~xc ~xs ~vm =
 
 (** Starts up a VM, leaving it in the paused state *)
 let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot =
+	(* Ensure no old consoles survive *)
+	destroy_consoles ~__context ~vM:vm;
+
 	check_vm_parameters ~__context ~self:vm ~snapshot;
 	(* Take the subset of locked VBDs *)
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
@@ -1066,20 +1076,19 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								let pci_passthrough = pcis <> [] || other_pcidevs <> [] in
 								if not hvm then
 									Pciops.attach_pcis ~__context ~xc ~xs ~hvm domid other_pcidevs;
-								if (Xapi_globs.xenclient_enabled)
+								if true
 									&& (not hvm)
-									&& (has_platform_flag snapshot.API.vM_platform "pv_qemu")
-								then progress_cb 0.75;
+									&& (has_platform_flag snapshot.API.vM_platform "pvfb")
+								then create_vfb_vkbd ~xc ~xs domid; 
+								progress_cb 0.75;
 								debug "adjusting CPU number against startup-number";
 								set_cpus_number ~__context ~xs ~self:vm domid snapshot;
 								progress_cb 0.80;
 								debug "creating device emulator";
-								let vncport =
-									create_device_emulator
-										~__context ~xc ~xs ~self:vm ~pci_passthrough domid vifs snapshot in
+								create_device_emulator ~__context ~xc ~xs ~self:vm
+									~pci_passthrough domid vifs snapshot;
 								if hvm then
 									Pciops.plug_pcis ~__context ~vm domid pcis other_pcidevs;
-								create_console ~__context ~vM:vm ~vncport ();
 								debug "writing memory policy";
 								write_memory_policy ~xs snapshot domid;
 								Db.VM_metrics.set_start_time

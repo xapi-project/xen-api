@@ -783,8 +783,7 @@ let _ = try
 	| "add_dm" ->
 		assert_domid ();
 		with_xs (fun xs ->
-			let vnc_port = add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot in
-			Printf.printf "%d\n" vnc_port
+			add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot
 		)
 	| "balloon" ->
 		assert_domid ();

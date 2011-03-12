@@ -25,18 +25,22 @@ open D
 
 exception Failure
 
-let real_proxy __context console s = 
-  let vm = Db.Console.get_VM __context console in
-  let domid = Helpers.domid_of_vm __context vm in
-  let vnc_port = 
-	try 
-	  int_of_string (with_xc_and_xs (fun xc xs -> xs.Xs.read (Device.vnc_port_path xc xs domid))) 
-	with Xb.Noent ->
-		error "Failed to read vnc-port from xenstore";
-		raise Failure in
+(** [port_of_proxy __context console] returns [Some port] or [None], if a suitable
+    proxy could not be found. *)
+let port_of_proxy __context console =
+	let vm = Db.Console.get_VM __context console in
+	let domid = Helpers.domid_of_vm __context vm in
+	let vnc_port_option = 
+		with_xs
+			(fun xs -> match Db.Console.get_protocol __context console with
+				| `rfb -> Device.get_vnc_port xs domid
+				| `vt100 -> Device.get_tc_port xs domid
+				| `rdp -> raise Failure) in
+	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_int x)) vnc_port_option));
+	vnc_port_option
 
-  debug "VM %s has console on port %d" (Ref.string_of vm) vnc_port;
-  begin try
+let real_proxy __context vnc_port s = 
+	try
     let vnc_sock = Unixext.open_connection_fd "127.0.0.1" vnc_port in
     (* Unixext.proxy closes fds itself so we must dup here *)
     let s' = Unix.dup s in
@@ -46,7 +50,6 @@ let real_proxy __context console s =
     debug "Proxy exited"
   with
     exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
-  end
 		
 
 let fake_proxy __context console s = 
@@ -130,6 +133,10 @@ let handler proxy_fn (req: Request.t) s =
 	  (* Check VM is actually running locally *)
 	  check_vm_is_running_here __context console;
 
-      Http_svr.headers s (Http.http_200_ok ());
-      
-      proxy_fn __context console s)
+	  match port_of_proxy __context console with
+		  | Some vnc_port ->
+			  Http_svr.headers s (Http.http_200_ok ());
+			  proxy_fn __context vnc_port s
+		  | None ->
+			  Http_svr.headers s (Http.http_404_missing ())
+	)

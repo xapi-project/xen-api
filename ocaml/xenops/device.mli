@@ -114,9 +114,11 @@ sig
 	exception Failed_to_start
 	val save : xs:Xs.xsh -> Xc.domid -> unit
 	val get_statefile : xs:Xs.xsh -> Xc.domid -> string option
-	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> int
+	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> unit
+	val stop : xs:Xs.xsh -> Xc.domid -> unit
 
-	val vnc_port_path : Xc.domid -> string
+	val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+	val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
 end
 
 module PCI :
@@ -197,16 +199,18 @@ sig
 	val write_logfile_to_log : int -> unit
 	val unlink_logfile : int -> unit
 
-	val vnc_port_path : Xc.domid -> string
+	val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+	val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
 
 	val signal : xs:Xs.xsh -> domid:Xc.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
-	val start : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
-	val restore : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> int
+	val start : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> unit
+	val restore : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> unit
 	val suspend : xs:Xs.xsh -> Xc.domid -> unit
 	val resume : xs:Xs.xsh -> Xc.domid -> unit
 	val stop : xs:Xs.xsh -> Xc.domid -> unit
 end
 
-val vnc_port_path: xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> string
+val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option

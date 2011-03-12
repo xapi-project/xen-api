@@ -36,6 +36,10 @@ exception Domain_not_dead of domid
 exception Device_not_monitored
 exception Timeout
 
+type console_type =
+	| Text
+	| VNC
+
 type dev_event =
 	| DevEject of string
 	| DevThread of string * int
@@ -45,6 +49,7 @@ type dev_event =
 	| HotplugChanged of string * string option * string option
 	| ChangeUncooperative of bool
 	| PciChanged of string
+	| Console of console_type * int
 
 (* type dev_state = Connecting | Connected | Closing | Closed *)
 
