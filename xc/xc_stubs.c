@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2007 XenSource Ltd.
+ * Copyright (C) 2008      Citrix Ltd.
+ * Author Vincent Hanquez <vincent.hanquez@eu.citrix.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -97,7 +99,7 @@ CAMLprim value stub_marshall_core_header(value header)
 	CAMLreturn(s);
 }
 
-CAMLprim value stub_xc_interface_open()
+CAMLprim value stub_xc_interface_open(void)
 {
         int handle;
         handle = xc_interface_open();
@@ -107,12 +109,12 @@ CAMLprim value stub_xc_interface_open()
 }
 
 
-CAMLprim value stub_xc_interface_open_fake()
+CAMLprim value stub_xc_interface_open_fake(void)
 {
 	return Val_int(-1);
 }
 
-CAMLprim value stub_xc_using_injection()
+CAMLprim value stub_xc_using_injection(void)
 {
 	if (xc_using_injection ()){
 		return Val_int(1);
@@ -310,7 +312,9 @@ CAMLprim value stub_xc_domain_getinfolist(value xc_handle, value first_domain, v
 	CAMLparam3(xc_handle, first_domain, nb);
 	CAMLlocal2(result, temp);
 	xc_domaininfo_t * info;
-	int i, ret, toalloc;
+	int i, ret, toalloc, c_xc_handle, retval;
+	unsigned int c_max_domains;
+	uint32_t c_first_domain;
 
 	/* get the minimum number of allocate byte we need and bump it up to page boundary */
 	toalloc = (sizeof(xc_domaininfo_t) * Int_val(nb)) | 0xfff;
@@ -320,12 +324,12 @@ CAMLprim value stub_xc_domain_getinfolist(value xc_handle, value first_domain, v
 
 	result = temp = Val_emptylist;
 
-	int c_xc_handle = _H(xc_handle);
-	uint32_t c_first_domain = _D(first_domain);
-	unsigned int c_max_domains = Int_val(nb);
+	c_xc_handle = _H(xc_handle);
+	c_first_domain = _D(first_domain);
+	c_max_domains = Int_val(nb);
 	// caml_enter_blocking_section();
-	int retval = xc_domain_getinfolist(c_xc_handle, c_first_domain,
-					   c_max_domains, info);
+	retval = xc_domain_getinfolist(c_xc_handle, c_first_domain,
+				       c_max_domains, info);
 	// caml_leave_blocking_section();
 
 	if (retval < 0) {
@@ -387,53 +391,18 @@ CAMLprim value stub_xc_vcpu_getinfo(value xc_handle, value domid, value vcpu)
 	CAMLreturn(result);
 }
 
-CAMLprim value stub_xc_get_runstate_info(value xc_handle, value domid) 
-{
-	CAMLparam2(xc_handle, domid);
-	CAMLlocal1(result);
-	xc_runstate_info_t info;
-	int retval;
-	
-	int c_xc_handle = _H(xc_handle);
-	uint32_t c_domid = _D(domid);
-	retval = xc_get_runstate_info(c_xc_handle, c_domid, &info);
-	if (retval < 0)
-		failwith_xc();
-
-	/* Store 
-	   0 : state (int32)
-	   1 : missed_changes (int32)
-	   2 : state_entry_time (int64)
-	   3-8 : times (int64s)
-	*/
-	result = caml_alloc_tuple(9);
-	Store_field(result, 0, caml_copy_int32(info.state));
-	Store_field(result, 1, caml_copy_int32(info.missed_changes));
-	Store_field(result, 2, caml_copy_int64(info.state_entry_time));
-	Store_field(result, 3, caml_copy_int64(info.time[0]));
-	Store_field(result, 4, caml_copy_int64(info.time[1]));
-	Store_field(result, 5, caml_copy_int64(info.time[2]));
-	Store_field(result, 6, caml_copy_int64(info.time[3]));
-	Store_field(result, 7, caml_copy_int64(info.time[4]));
-	Store_field(result, 8, caml_copy_int64(info.time[5]));
-
-	CAMLreturn(result);
-}
-
-
-
 CAMLprim value stub_xc_vcpu_context_get(value xc_handle, value domid,
                                         value cpu)
 {
 	CAMLparam3(xc_handle, domid, cpu);
 	CAMLlocal1(context);
 	int ret;
-	struct vcpu_guest_context ctxt;
+	vcpu_guest_context_any_t ctxt;
 
 	ret = xc_vcpu_getcontext(_H(xc_handle), _D(domid), Int_val(cpu), &ctxt);
 
-	context = caml_alloc_string(sizeof(ctxt));
-	memcpy(String_val(context), (char *) &ctxt, sizeof(ctxt));
+	context = caml_alloc_string(sizeof(ctxt.c));
+	memcpy(String_val(context), (char *) &ctxt.c, sizeof(ctxt.c));
 
 	CAMLreturn(context);
 }
@@ -587,13 +556,13 @@ CAMLprim value stub_xc_pcpu_info(value xc_handle, value nr_cpus)
 {
 	CAMLparam2(xc_handle, nr_cpus);
 	CAMLlocal2(pcpus, v);
-	uint64_t *info;
+	xen_sysctl_cpuinfo_t *info;
 	int r, size;
 
 	if (Int_val(nr_cpus) < 1)
 		caml_invalid_argument("nr_cpus");
 	
-	info = calloc(Int_val(nr_cpus) + 1, sizeof(uint64_t));
+	info = calloc(Int_val(nr_cpus) + 1, sizeof(*info));
 	if (!info)
 		caml_raise_out_of_memory();
 
@@ -610,7 +579,7 @@ CAMLprim value stub_xc_pcpu_info(value xc_handle, value nr_cpus)
 		int i;
 		pcpus = caml_alloc(size, 0);
 		for (i = 0; i < size; i++) {
-			v = caml_copy_int64(info[i]);
+			v = caml_copy_int64(info[i].idletime);
 			caml_modify(&Field(pcpus, i), v);
 		}
 	} else
@@ -696,19 +665,6 @@ CAMLprim value stub_xc_domain_get_machine_address_size(value xc_handle,
 	if (retval < 0)
 		failwith_xc();
 	CAMLreturn(Val_int(retval));
-}
-
-CAMLprim value stub_xc_domain_suppress_spurious_page_faults(value xc_handle,
-						       value domid)
-{
-	CAMLparam2(xc_handle, domid);
-	int c_xc_handle = _H(xc_handle);
-	uint32_t c_domid = _D(domid);
-
-	int retval = xc_domain_suppress_spurious_page_faults(c_xc_handle, c_domid);
-	if (retval)
-		failwith_xc();
-	CAMLreturn(Val_unit);
 }
 
 CAMLprim value stub_xc_domain_cpuid_set(value xc_handle, value domid,
@@ -897,15 +853,18 @@ CAMLprim value stub_map_foreign_range(value xc_handle, value dom,
 	CAMLparam4(xc_handle, dom, size, mfn);
 	CAMLlocal1(result);
 	struct mmap_interface *intf;
+	int c_xc_handle;
+	uint32_t c_dom;
+	unsigned long c_mfn;
 
 	result = caml_alloc(sizeof(struct mmap_interface), Abstract_tag);
 	intf = (struct mmap_interface *) result;
 
 	intf->len = Int_val(size);
 
-	int c_xc_handle = _H(xc_handle);
-	uint32_t c_dom = _D(dom);
-	unsigned long c_mfn = Nativeint_val(mfn);
+	c_xc_handle = _H(xc_handle);
+	c_dom = _D(dom);
+	c_mfn = Nativeint_val(mfn);
 	// caml_enter_blocking_section();
 	intf->addr = xc_map_foreign_range(c_xc_handle, c_dom,
 	                                  intf->len, PROT_READ|PROT_WRITE,
@@ -995,11 +954,11 @@ CAMLprim value stub_xc_domain_get_pfn_list(value xc_handle, value domid,
 	CAMLlocal2(array, v);
 	unsigned long c_nr_pfns;
 	long ret, i;
-	xen_pfn_t *c_array;
+	uint64_t *c_array;
 
 	c_nr_pfns = Nativeint_val(nr_pfns);
 
-	c_array = malloc(sizeof(xen_pfn_t) * c_nr_pfns);
+	c_array = malloc(sizeof(uint64_t) * c_nr_pfns);
 	if (!c_array)
 		caml_raise_out_of_memory();
 
@@ -1144,39 +1103,6 @@ CAMLprim value stub_xc_domain_deassign_device(value xc_handle, value domid, valu
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xc_watchdog(value handle, value domid, value timeout)
-{
-	CAMLparam3(handle, domid, timeout);
-	int ret;
-	unsigned int c_timeout = Int32_val(timeout);
-
-	ret = xc_domain_watchdog(_H(handle), _D(domid), c_timeout);
-	if (ret < 0)
-		failwith_xc();
-
-	CAMLreturn(Val_int(ret));
-}
-
-CAMLprim value stub_xc_domain_get_acpi_s_state(value handle, value domid)
-{
-	CAMLparam2(handle, domid);
-	int ret;
-
-	ret = xc_domain_get_acpi_s_state(_H(handle), _D(domid));
-	if (ret < 0)
-		failwith_xc();
-
-	CAMLreturn(Val_int(ret));
-}
-
-CAMLprim value stub_xc_domain_send_s3resume(value handle, value domid)
-{
-	CAMLparam2(handle, domid);
-	xc_domain_send_s3resume(_H(handle), _D(domid));
-	CAMLreturn(Val_unit);
-}
-
-
 CAMLprim value stub_xc_domain_set_timer_mode(value handle, value id, value mode)
 {
 	CAMLparam3(handle, id, mode);
@@ -1206,6 +1132,51 @@ CAMLprim value stub_xc_domain_set_vpt_align(value handle, value id, value mode)
 
 	ret = xc_domain_set_vpt_align(_H(handle), _D(id), Int_val(mode));
 	if (ret < 0)
+		failwith_xc();
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xc_watchdog(value handle, value domid, value timeout)
+{
+	CAMLparam3(handle, domid, timeout);
+	int ret;
+	unsigned int c_timeout = Int32_val(timeout);
+
+	ret = xc_domain_watchdog(_H(handle), _D(domid), c_timeout);
+	if (ret < 0)
+		failwith_xc();
+
+	CAMLreturn(Val_int(ret));
+}
+
+CAMLprim value stub_xc_domain_send_s3resume(value handle, value domid)
+{
+	CAMLparam2(handle, domid);
+	xc_domain_send_s3resume(_H(handle), _D(domid));
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xc_domain_get_acpi_s_state(value handle, value domid)
+{
+	CAMLparam2(handle, domid);
+	int ret;
+
+	ret = xc_domain_get_acpi_s_state(_H(handle), _D(domid));
+	if (ret < 0)
+		failwith_xc();
+
+	CAMLreturn(Val_int(ret));
+}
+
+CAMLprim value stub_xc_domain_suppress_spurious_page_faults(value xc_handle,
+						       value domid)
+{
+	CAMLparam2(xc_handle, domid);
+	int c_xc_handle = _H(xc_handle);
+	uint32_t c_domid = _D(domid);
+
+	int retval = xc_domain_suppress_spurious_page_faults(c_xc_handle, c_domid);
+	if (retval)
 		failwith_xc();
 	CAMLreturn(Val_unit);
 }
@@ -1246,6 +1217,39 @@ CAMLprim value stub_xc_get_boot_cpufeatures(value handle)
 	Store_field(v, 7, caml_copy_int32(h));
 
 	CAMLreturn(v);
+}
+
+CAMLprim value stub_xc_get_runstate_info(value xc_handle, value domid) 
+{
+	CAMLparam2(xc_handle, domid);
+	CAMLlocal1(result);
+	xc_runstate_info_t info;
+	int retval;
+	
+	int c_xc_handle = _H(xc_handle);
+	uint32_t c_domid = _D(domid);
+	retval = xc_get_runstate_info(c_xc_handle, c_domid, &info);
+	if (retval < 0)
+		failwith_xc();
+
+	/* Store 
+	   0 : state (int32)
+	   1 : missed_changes (int32)
+	   2 : state_entry_time (int64)
+	   3-8 : times (int64s)
+	*/
+	result = caml_alloc_tuple(9);
+	Store_field(result, 0, caml_copy_int32(info.state));
+	Store_field(result, 1, caml_copy_int32(info.missed_changes));
+	Store_field(result, 2, caml_copy_int64(info.state_entry_time));
+	Store_field(result, 3, caml_copy_int64(info.time[0]));
+	Store_field(result, 4, caml_copy_int64(info.time[1]));
+	Store_field(result, 5, caml_copy_int64(info.time[2]));
+	Store_field(result, 6, caml_copy_int64(info.time[3]));
+	Store_field(result, 7, caml_copy_int64(info.time[4]));
+	Store_field(result, 8, caml_copy_int64(info.time[5]));
+
+	CAMLreturn(result);
 }
 
 /*

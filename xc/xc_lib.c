@@ -509,15 +509,47 @@ int xc_domain_shutdown(int handle, int domid, int reason)
 	return ret;
 }
 
+static void bitmap_64_to_byte(uint8_t *bp, const uint64_t *lp, int nbits)
+{
+    uint64_t l;
+    int i, j, b;
+
+    for (i = 0, b = 0; nbits > 0; i++, b += sizeof(l)) {
+        l = lp[i];
+        for (j = 0; (j < sizeof(l)) && (nbits > 0); j++) {
+            bp[b+j] = l;
+            l >>= 8;
+            nbits -= 8;
+        }
+    }
+}
+
+static void bitmap_byte_to_64(uint64_t *lp, const uint8_t *bp, int nbits)
+{
+    uint64_t l;
+    int i, j, b;
+
+    for (i = 0, b = 0; nbits > 0; i++, b += sizeof(l)) {
+        l = 0;
+        for (j = 0; (j < sizeof(l)) && (nbits > 0); j++) {
+            l |= (uint64_t)bp[b+j] << (j*8);
+            nbits -= 8;
+        }
+        lp[i] = l;
+    }
+}
+
 int xc_vcpu_setaffinity(int handle, unsigned int domid, int vcpu,
                         uint64_t cpumap)
 {
 	int ret;
+	uint8_t local[sizeof(cpumap)];
 	DECLARE_DOMCTL(XEN_DOMCTL_setvcpuaffinity, domid);
 	domctl.u.vcpuaffinity.vcpu = vcpu;
 	domctl.u.vcpuaffinity.cpumap.nr_cpus = sizeof(cpumap) * 8;
 
-	set_xen_guest_handle(domctl.u.vcpuaffinity.cpumap.bitmap, (uint8_t *) &cpumap);
+	bitmap_64_to_byte(local, &cpumap, sizeof(cpumap)*8);
+	set_xen_guest_handle(domctl.u.vcpuaffinity.cpumap.bitmap, local);
 
 	if (mlock(&cpumap, sizeof(cpumap)) != 0) {
 		xc_error_set("mlock failed: %s", strerror(errno));
@@ -536,11 +568,12 @@ int xc_vcpu_getaffinity(int handle, unsigned int domid, int vcpu,
                         uint64_t *cpumap)
 {
 	int ret;
+	uint8_t local[sizeof(*cpumap)];
 	DECLARE_DOMCTL(XEN_DOMCTL_getvcpuaffinity, domid);
 	domctl.u.vcpuaffinity.vcpu = vcpu;
 	domctl.u.vcpuaffinity.cpumap.nr_cpus = sizeof(*cpumap) * 8;
 
-	set_xen_guest_handle(domctl.u.vcpuaffinity.cpumap.bitmap, cpumap);
+	set_xen_guest_handle(domctl.u.vcpuaffinity.cpumap.bitmap, local);
 
 	if (mlock(cpumap, sizeof(*cpumap)) != 0) {
 		xc_error_set("mlock failed: %s", strerror(errno));
@@ -552,6 +585,7 @@ int xc_vcpu_getaffinity(int handle, unsigned int domid, int vcpu,
 	if (ret < 0)
 		xc_error_dom_set(domid, "vcpu %d get affinity", vcpu);
 	munlock(cpumap, sizeof(*cpumap));
+	bitmap_byte_to_64(cpumap, local, sizeof(*cpumap) * 8);
 	return ret;
 }
 
@@ -859,7 +893,7 @@ int xc_vcpu_getcontext(int handle, unsigned int domid,
 	int ret;
 	DECLARE_DOMCTL(XEN_DOMCTL_getvcpucontext, domid);
 	domctl.u.vcpucontext.vcpu = vcpu;
-	set_xen_guest_handle(domctl.u.vcpucontext.ctxt, ctxt);
+	set_xen_guest_handle(domctl.u.vcpucontext.ctxt, &ctxt->c);
 
 	if (mlock(ctxt, sizeof(*ctxt)) != 0) {
 		xc_error_set("mlock failed: %s", strerror(errno));
@@ -879,7 +913,7 @@ int xc_vcpu_setcontext(int handle, unsigned int domid,
 	int ret;
 	DECLARE_DOMCTL(XEN_DOMCTL_setvcpucontext, domid);
 	domctl.u.vcpucontext.vcpu = vcpu;
-	set_xen_guest_handle(domctl.u.vcpucontext.ctxt, ctxt);
+	set_xen_guest_handle(domctl.u.vcpucontext.ctxt, &ctxt->c);
 
 	if (mlock(ctxt, sizeof(*ctxt)) != 0) {
 		xc_error_set("mlock failed: %s", strerror(errno));
