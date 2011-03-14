@@ -23,9 +23,6 @@ case "$1" in
     start)
         # Need this to be present so that we get run on shutdown.
         touch /var/lock/subsys/xapi-domains
-        # Fork background thread to wait for xapi to complete initialisation
-        # and then try and start vms with auto_poweron=true in other-config
-	/opt/xensource/bin/xapi-autostart-vms &
         ;;
     stop)
         action $"Shutting down Virtual Machines: " \
