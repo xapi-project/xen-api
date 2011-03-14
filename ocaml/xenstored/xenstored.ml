@@ -249,7 +249,7 @@ let _ =
 
 	if cf.restart then (
 		DB.from_file store domains cons "/var/run/xenstored/db";
-		Event.bind_virq eventchn
+		Event.bind_dom_exc_virq eventchn
 	) else (
 		if !Disk.enable then (
 			info "reading store from disk";
@@ -261,9 +261,9 @@ let _ =
 			Store.mkdir store (Perms.Connection.create 0) localpath;
 
 		if cf.domain_init then (
-			let usingxiu = Xc.using_injection () in
+			let usingxiu = Xc.is_fake () in
 			Connections.add_domain cons (Domains.create0 usingxiu domains);
-			Event.bind_virq eventchn
+			Event.bind_dom_exc_virq eventchn
 		);
 	);
 
@@ -275,7 +275,7 @@ let _ =
 	Logging.init cf.activate_access_log (fun () -> DB.to_file store cons "/var/run/xenstored/db");
 
 	let spec_fds = [ rw_sock; ro_sock ] @
-		       (if cf.domain_init then [ eventchn.Event.fd ] else []) in
+		       (if cf.domain_init then [ Event.fd eventchn ] else []) in
 
 	let xc = Xc.interface_open () in
 
@@ -285,7 +285,7 @@ let _ =
 			debug "new connection through socket";
 			Connections.add_anonymous cons cfd can_write
 		and handle_eventchn fd =
-			let port = Event.read_port eventchn in
+			let port = Event.pending eventchn in
 			finally (fun () ->
 				if port = eventchn.Event.virq_port then (
 					let (notify, deaddom) = Domains.cleanup xc domains in
@@ -293,14 +293,14 @@ let _ =
 					if deaddom <> [] || notify then
 						Connections.fire_spec_watches cons "@releaseDomain"
 				)
-			) (fun () -> Event.write_port eventchn port);
+			) (fun () -> Event.unmask eventchn port);
 		and do_if_set fd set fct =
 			if List.mem fd set then
 				fct fd in
 
 		do_if_set rw_sock rset (accept_connection true);
 		do_if_set ro_sock rset (accept_connection false);
-		do_if_set eventchn.Event.fd rset (handle_eventchn)
+		do_if_set (Event.fd eventchn) rset (handle_eventchn)
 		in
 
 	let last_stat_time = ref 0. in

@@ -829,6 +829,7 @@ let trigger_power ~xc domid = Xc.domain_trigger_power xc domid
 let trigger_sleep ~xc domid = Xc.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
+	(*
 	let bitmap = ref Int64.zero in
 	if Array.length cpumap > 64 then
 		invalid_arg "affinity_set";
@@ -838,9 +839,13 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
 	Array.iteri (fun i has_affinity ->
 		if has_affinity then bitmap := bit_set !bitmap i
 		) cpumap;
-	Xc.vcpu_affinity_set xc domid vcpu !bitmap
+	(*Xc.vcpu_affinity_set xc domid vcpu !bitmap*)
+	*)
+	Xc.vcpu_affinity_set xc domid vcpu cpumap
+
 
 let vcpu_affinity_get ~xc domid vcpu =
+	(*
 	let pcpus = (Xc.physinfo xc).Xc.max_nr_cpus in
 	(* NB we ignore bits corresponding to pCPUs which we don't have *)
 	let bitmap = Xc.vcpu_affinity_get xc domid vcpu in
@@ -848,6 +853,8 @@ let vcpu_affinity_get ~xc domid vcpu =
 		(Int64.logand bitmap (Int64.shift_left 1L n)) > 0L in
 	let cpumap = Array.of_list (List.map (bit_isset bitmap) (List.range 0 pcpus)) in
 	cpumap
+	*)
+	Xc.vcpu_affinity_get xc domid vcpu
 
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xc.domain_getinfo xc domid).Xc.handle
@@ -962,19 +969,20 @@ let cpuid_set ~xc ~hvm domid cfg =
 	let tmp = Array.create 4 None in
 	let cfgout = List.map (fun (node, constr) ->
 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
-		let ret = Xc.domain_cpuid_set xc domid hvm node tmp in
+		let ret = Xc.domain_cpuid_set xc domid (*hvm*) node tmp in
 		let ret = cpuid_cfg_of_xc_cpuid_cfg ret in
 		(node, ret)
 	) cfg in
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	Xc.domain_cpuid_apply xc domid hvm
+	(*Xc.domain_cpuid_apply xc domid hvm*)
+	Xc.domain_cpuid_apply_policy xc domid
 
-let cpuid_check cfg =
+let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in
 	List.map (fun (node, constr) ->
 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
-		let (success, cfgout) = Xc.cpuid_check node tmp in
+		let (success, cfgout) = Xc.cpuid_check xc node tmp in
 		(success, (node, (cpuid_cfg_of_xc_cpuid_cfg cfgout)))
 	) cfg
