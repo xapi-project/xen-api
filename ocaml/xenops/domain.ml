@@ -400,7 +400,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
 	let has_platform_flag flag = try bool_of_string (read_platform flag) with _ -> false in
 	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
-	let use_vmxassist = has_platform_flag "vmxassist" in
 	let timer_mode = int_platform_flag "timer_mode" in
 	let hpet = int_platform_flag "hpet" in
 	let vpt_align = int_platform_flag "vpt_align" in
@@ -413,7 +412,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
         maybe_exn_ign "hpet" (fun hpet -> Xc.domain_set_hpet xc domid hpet) hpet;
         maybe_exn_ign "vpt align" (fun vpt_align -> Xc.domain_set_vpt_align xc domid vpt_align) vpt_align;
 
-	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
 	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
 	Xc.shadow_allocation_set xc domid shadow_mib;
