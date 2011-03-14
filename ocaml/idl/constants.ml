@@ -65,8 +65,9 @@ let fix_firewall_script = "/opt/xensource/bin/fix_firewall.sh"
 (* Keys in the local config database *)
 let ha_armed = "ha.armed"
 let ha_disable_failover_decisions = "ha.disable_failover_decisions"
+let ha_restart = "restart"
 let ha_restart_best_effort = "best-effort"
-let ha_valid_restart_priorities = [ "0"; "1"; "2"; "3"; ha_restart_best_effort ]
+let ha_valid_restart_priorities = [ ha_restart; ha_restart_best_effort; "" ]
 let ha_base_t = "ha_base_t"
 let ballooning_enabled = "ballooning.enabled"
 let redo_log_enabled = "redo_log.enabled"

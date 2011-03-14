@@ -862,7 +862,7 @@ let vm_record rpc session_id vm =
 				~add_to_map:(fun k v -> Client.VM.add_to_xenstore_data rpc session_id vm k v)
 				~remove_from_map:(fun k -> Client.VM.remove_from_xenstore_data rpc session_id vm k) 
 				~get_map:(fun () -> (x ()).API.vM_xenstore_data) ();
-			make_field ~name:"ha-always-run"
+			make_field ~name:"ha-always-run" ~deprecated:true
 				~get:(fun () -> string_of_bool ((x ()).API.vM_ha_always_run))
 				~set:(fun x -> Client.VM.set_ha_always_run rpc session_id vm (bool_of_string x)) ();
 			make_field ~name:"ha-restart-priority"
