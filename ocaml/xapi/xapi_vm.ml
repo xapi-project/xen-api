@@ -76,26 +76,31 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
 	set_is_a_template ~__context ~self ~value
 
-let validate_restart_priority include_empty_string x =
-  if not(List.mem x (Constants.ha_valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
-  then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; x ]))
+let validate_restart_priority priority =
+	if not(List.mem priority Constants.ha_valid_restart_priorities) then
+		raise (Api_errors.Server_error(Api_errors.invalid_value, ["ha_restart_priority"; priority]))
 
+let set_ha_restart_priority ~__context ~self ~value =
+	validate_restart_priority value;
+	let current = Db.VM.get_ha_restart_priority ~__context ~self in
+	if true
+		&& current <> Constants.ha_restart
+		&& value = Constants.ha_restart then begin
+			Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
+			let pool = Helpers.get_pool ~__context in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool then
+				let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
+		end;
+
+	if current <> value then
+		Db.VM.set_ha_restart_priority ~__context ~self ~value
+
+(* Field deprecated since Boston - attempt to degrade gracefully if anything sets it. *)
 let set_ha_always_run ~__context ~self ~value =
-  let current = Db.VM.get_ha_always_run ~__context ~self in
-  let prio = Db.VM.get_ha_restart_priority ~__context ~self in
-  debug "set_ha_always_run current=%b value=%b" current value;
-  if not current && value then begin
-    if prio <> Constants.ha_restart_best_effort
-    then Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
-    validate_restart_priority false prio
-  end;
-
-  if current <> value then begin
-    Db.VM.set_ha_always_run ~__context ~self ~value:value;
-    let pool = Helpers.get_pool ~__context in
-    if Db.Pool.get_ha_enabled ~__context ~self:pool
-    then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
-  end
+	if value then
+		set_ha_restart_priority ~__context ~self ~value:Constants.ha_restart
+	else
+		set_ha_restart_priority ~__context ~self ~value:""
 
 (* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
 let assert_ha_always_run_is_true ~__context ~vm =
@@ -105,24 +110,6 @@ let assert_ha_always_run_is_true ~__context ~vm =
 (* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
 let assert_ha_always_run_is_false ~__context ~vm =
 	set_ha_always_run ~__context ~self:vm ~value:false
-
-let set_ha_restart_priority ~__context ~self ~value =
-  let ha_always_run = Db.VM.get_ha_always_run ~__context ~self in
-  validate_restart_priority (not ha_always_run) value;
-
-  let current = Db.VM.get_ha_restart_priority ~__context ~self in
-  if true
-    && ha_always_run
-    && current = Constants.ha_restart_best_effort
-    && value <> Constants.ha_restart_best_effort then begin
-      Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
-      let pool = Helpers.get_pool ~__context in
-      if Db.Pool.get_ha_enabled ~__context ~self:pool
-      then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
-    end;
-
-  if current <> value
-  then Db.VM.set_ha_restart_priority ~__context ~self ~value
 
 let compute_memory_overhead = compute_memory_overhead
 
