@@ -102,15 +102,6 @@ let set_ha_always_run ~__context ~self ~value =
 	else
 		set_ha_restart_priority ~__context ~self ~value:""
 
-(* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
-let assert_ha_always_run_is_true ~__context ~vm =
-	let rp = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-	if (List.mem rp (Constants.ha_valid_restart_priorities))
-	then set_ha_always_run ~__context ~self:vm ~value:true
-(* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
-let assert_ha_always_run_is_false ~__context ~vm =
-	set_ha_always_run ~__context ~self:vm ~value:false
-
 let compute_memory_overhead = compute_memory_overhead
 
 open Xapi_vm_memory_constraints
@@ -218,7 +209,6 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						(* Xapi_vm_helpers.assert_can_boot_here not required *)
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
-						assert_ha_always_run_is_true ~__context ~vm;
 
 						(* check BIOS strings: set to generic values if empty *)
 						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
@@ -476,7 +466,6 @@ module Shutdown = struct
 
   (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
   let in_guest { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
-    assert_ha_always_run_is_false ~__context ~vm;
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	TwoPhase.simulate_internal_shutdown domid;
 
@@ -734,7 +723,6 @@ let suspend  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-			assert_ha_always_run_is_false ~__context ~vm;
 			(* We don't support suspend/resume while PCI devices have been passed through (yet). *)
 			if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
 				raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
@@ -778,7 +766,6 @@ let resume ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						assert_ha_always_run_is_true ~__context ~vm;
 
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
