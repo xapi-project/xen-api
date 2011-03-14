@@ -1074,8 +1074,9 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 					debug "creating kernel";
 					create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
 					progress_cb 0.35;
-					if Xapi_globs.xenclient_enabled then
-						Domain.cpuid_apply ~xc ~hvm domid;
+
+					Domain.cpuid_apply ~xc ~hvm domid;
+
 					(* Attach and activate reqd vdis: if exn occurs then we do best
 					   effort cleanup -- that is detach and deactivate -- and then
 					   propogate original exception. We need an exn handler around
