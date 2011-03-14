@@ -108,7 +108,7 @@ if SQUASH_VNC:
     except ValueError, IndexError:
         pass
 else:
-    qemu_args.append("-vnclisten")
+    qemu_args.append("-vnc")
     qemu_args.append("127.0.0.1:1")
 
 def vm_uuid_from_dom_id(domid):
