@@ -50,7 +50,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
 		?(pV_bootloader_args="") ?(pV_legacy_args="") ?(hVM_boot_policy="BIOS order")
 		?(hVM_boot_params=[]) ?(hVM_shadow_multiplier=1.) ?(platform=[]) ?(pCI_bus="")
 		?(other_config=[]) ?(xenstore_data=[]) ?(recommendations="") ?(ha_always_run=false)
-		?(ha_restart_priority="1") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
+		?(ha_restart_priority="") ?(tags=[]) ?(blocked_operations=[]) ?(protection_policy=Ref.null)
 		?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
 		?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L) () = 
 	Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
