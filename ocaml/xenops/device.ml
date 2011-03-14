@@ -846,11 +846,11 @@ module PV_Vnc = struct
 
 let vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 
-let vnc_port_path domid = sprintf "/local/domain/%d/serial/0/vnc-port" domid
+let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 
 let pid ~xs domid =
 	try
-		let pid = xs.Xs.read (sprintf "/local/domain/%d/serial/0/vncterm-pid" domid) in
+		let pid = xs.Xs.read (sprintf "/local/domain/%d/console/vncterm-pid" domid) in
 		Some (int_of_string pid)
 	with _ ->
 		None
@@ -897,7 +897,7 @@ let save ~xs domid =
 let start ?statefile ~xs domid =
 	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
 		  (* everything else goes straight through to vncterm-wrapper: *)
-		  "-x"; sprintf "/local/domain/%d/serial/0" domid;
+		  "-x"; sprintf "/local/domain/%d/console" domid;
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in
