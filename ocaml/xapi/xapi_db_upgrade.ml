@@ -262,6 +262,29 @@ let upgrade_cpu_flags = {
 			vms_to_update
 }
 
+(* To deal with the removal of the "Auto-start on server boot" feature in Boston, *)
+(* all VMs with the other_config flag "auto_poweron" set to true will have *)
+(* ha_restart_priority set to "best-effort". *)
+let upgrade_auto_poweron = {
+	description = "Upgrading all VMs with auto_poweron=true";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vms = Db.VM.get_all ~__context in
+		let update_vm vm =
+			let other_config = Db.VM.get_other_config ~__context ~self:vm in
+			let auto_poweron =
+				if List.mem_assoc "auto_poweron" other_config then
+					List.assoc "auto_poweron" other_config = "true"
+				else
+					false
+			in
+			let restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+			if auto_poweron && restart_priority = "" then
+				Db.VM.set_ha_restart_priority ~__context ~self:vm ~value:Constants.ha_restart_best_effort
+		in
+		List.iter update_vm all_vms
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
@@ -272,6 +295,7 @@ let rules = [
 	upgrade_vdi_types;
 	upgrade_ha_restart_priority;
 	upgrade_cpu_flags;
+	upgrade_auto_poweron;
 ]
 
 (* Maybe upgrade most recent db *)
