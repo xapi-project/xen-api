@@ -1,12 +1,14 @@
+include ../config.mk
+
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-OCAMLC = ocamlc -g -I ../xb/ -I ../xs/
+OCAMLC = ocamlc -g $(OCAML_XB_INC) $(OCAML_XS_INC)
 OCAMLOPT = ocamlopt
 
 LDFLAGS = -cclib -L./
 
 VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes -I ../xb/ -I ../xs/
+OCAMLOPTFLAGS = -g -dtypes $(OCAML_XB_INC) $(OCAML_XS_INC)
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)

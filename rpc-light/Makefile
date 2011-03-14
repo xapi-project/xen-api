@@ -1,3 +1,5 @@
+include ../config.mk
+
 OCAMLC = ocamlfind ocamlc
 OCAMLOPT = ocamlfind ocamlopt
 OCAMLFLAGS = -annot -g

@@ -1,3 +1,5 @@
+include ../config.mk
+
 IPROG=install -m 755 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
@@ -29,7 +31,7 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 closeandexec: closeandexec.cmxa closeandexec_main.cmx all
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -I ../stdext -I ../uuid uuid.cmxa unix.cmxa threads.cmxa stdext.cmxa closeandexec.cmxa closeandexec_main.cmx -o $@ 
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -I ../stdext $(OCAML_UUID_INC) uuid.cmxa unix.cmxa threads.cmxa stdext.cmxa closeandexec.cmxa closeandexec_main.cmx -o $@
 
 closeandexec.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)

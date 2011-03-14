@@ -1,3 +1,5 @@
+include ../config.mk
+
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include
 OCAMLC = ocamlc -g

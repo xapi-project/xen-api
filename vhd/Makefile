@@ -1,3 +1,4 @@
+include ../config.mk
 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_GNU_SOURCE -fno-strict-aliasing -D_FILE_OFFSET_BITS=64

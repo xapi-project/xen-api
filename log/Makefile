@@ -1,3 +1,5 @@
+include ../config.mk
+
 CC = gcc
 OCAMLLOC := $(shell ocamlc -where)
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(OCAMLLOC)

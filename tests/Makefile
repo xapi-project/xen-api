@@ -1,3 +1,5 @@
+include ../config.mk
+
 OCAMLC = ocamlfind ocamlc -g -package "unix,stdext,xc,xb,xs,mmap"
 OCAMLOPT = ocamlfind ocamlopt -package "unix,stdext,xc,xb,xs,mmap"
 

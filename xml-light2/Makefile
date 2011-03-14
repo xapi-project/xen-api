@@ -1,3 +1,5 @@
+include ../config.mk
+
 IPROG=install -m 755
 OCAMLPACKS = xmlm
 

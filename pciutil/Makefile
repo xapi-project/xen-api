@@ -1,3 +1,5 @@
+include ../config.mk
+
 IPROG=install -m 755
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
@@ -29,7 +31,7 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 pciutil: pciutil_main.cmx
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ./ -I ../stdext -I ../uuid unix.cmxa uuid.cmxa stdext.cmxa pciutil.cmx -o $@ $^
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ./ -I ../stdext $(OCAML_UUID_INC) unix.cmxa uuid.cmxa stdext.cmxa pciutil.cmx -o $@ $^
 
 pciutil.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)

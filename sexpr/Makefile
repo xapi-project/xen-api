@@ -1,3 +1,5 @@
+include ../config.mk
+
 IPROG=install -m 755
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml

@@ -1,8 +1,10 @@
+include ../config.mk
+
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml -I$(XEN_ROOT)/usr/include -I../mmap -I./
-OCAMLC = ocamlc -g -I ../mmap -I ../uuid
+OCAMLC = ocamlc -g -I ../mmap $(OCAML_UUID_INC)
 OCAMLOPT = ocamlopt
-OCAMLOPTFLAGS = -g -dtypes -I ../mmap -I ../uuid
+OCAMLOPTFLAGS = -g -dtypes -I ../mmap $(OCAML_UUID_INC)
 
 LDFLAGS = -cclib -L./
 

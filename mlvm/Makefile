@@ -1,3 +1,4 @@
+include ../config.mk
 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
@@ -18,7 +19,7 @@ INTF = $(foreach obj, $(LIBOBJS),$(obj).cmi)
 CMDOBJS = messages.cmx mlvm.cmx
 OCAMLC = ocamlfind ocamlc -g
 OCAMLOPT = ocamlfind ocamlopt 
-COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm -pp '${PP}' -I ../rpc-light
+COMPFLAG = -dtypes -g -I ../stdext -I ../camldm $(OCAML_UUID_INC) -for-pack Lvm -pp '${PP}' -I ../rpc-light
 
 LIBS = lvm.cma lvm.cmxa
 
@@ -27,7 +28,7 @@ DOCDIR = /myrepos/xen-api-libs/doc
 default : $(LIBS)
 
 test_allocator: default
-	$(OCAMLOPT) -package kaputt -linkpkg -dtypes -g  -I ../stdext -I ../camldm -I ../uuid -I +kaputt unix.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx ../camldm/camldm.cmxa ../uuid/uuid.cmxa ../stdext/stdext.cmxa ./lvm.cmxa test_allocator.ml -o $@
+	$(OCAMLOPT) -package kaputt -linkpkg -dtypes -g  -I ../stdext -I ../camldm $(OCAML_UUID_INC) -I +kaputt unix.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx ../camldm/camldm.cmxa $(OCAML_UUID_DIR)/uuid.cmxa ../stdext/stdext.cmxa ./lvm.cmxa test_allocator.ml -o $@
 
 lvm.cmx: $(foreach obj,$(LIBOBJS),$(obj).cmx)
 	$(OCAMLOPT) -pack -g -o $@ $(foreach obj,$(LIBOBJS),$(obj).cmx)

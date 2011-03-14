@@ -5,9 +5,13 @@ HAVE_LINUX_CDROM = @LINUX_CDROM@
 HAVE_XMLM = @OCAML_PKG_xmlm@
 HAVE_TYPECONV = @OCAML_PKG_type_conv@
 
+include config.mk
+
 .PHONY: all
 all:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid
+endif
 ifeq ($(HAVE_TYPECONV),type-conv)
 	$(MAKE) -C rpc-light
 endif
@@ -36,20 +40,28 @@ endif
 .PHONY: allxen
 allxen:
 ifeq ($(HAVE_XEN),1)
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap
+endif
 	$(MAKE) -C netdev
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C xc
 	$(MAKE) -C xb
 	$(MAKE) -C xs
+endif
 	$(MAKE) -C xsrpc
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C eventchn
+endif
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
 	$(MAKE) -C tapctl
 endif
 
 install:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid install
+endif
 	$(MAKE) -C stdext install
 	$(MAKE) -C log install
 	$(MAKE) -C stunnel install
@@ -76,20 +88,28 @@ endif
 
 installxen:
 ifeq ($(HAVE_XEN),1)
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap install
+endif
 	$(MAKE) -C netdev install
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C xc install
 	$(MAKE) -C xb install
 	$(MAKE) -C xs install
+endif
 	$(MAKE) -C xsrpc install
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C eventchn install
+endif
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
 	$(MAKE) -C tapctl install
 endif
 
 uninstall:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid uninstall
+endif
 	$(MAKE) -C stdext uninstall
 	$(MAKE) -C log uninstall
 	$(MAKE) -C stunnel uninstall
@@ -116,13 +136,19 @@ endif
 
 uninstallxen:
 ifeq ($(HAVE_XEN),1)
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C eventchn uninstall
+endif
 	$(MAKE) -C xsrpc uninstall
 	$(MAKE) -C netdev uninstall
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C xs uninstall
 	$(MAKE) -C xb uninstall
 	$(MAKE) -C xc uninstall
+endif
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap uninstall
+endif
 	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C vhd uninstall
 	$(MAKE) -C tapctl uninstall
@@ -153,24 +179,32 @@ binuninstall:
 
 .PHONY: doc
 doc:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid doc
+endif
 	$(MAKE) -C stdext doc
 	$(MAKE) -C sexpr doc
 	$(MAKE) -C log doc
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C xb doc
 	$(MAKE) -C xc doc
 	$(MAKE) -C xs doc
+endif
 	$(MAKE) -C xml-light2 doc
 	$(MAKE) -C rpc-light doc
 	$(MAKE) -C http-svr doc
 	$(MAKE) -C camldm doc
 	$(MAKE) -C cdrom doc
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C eventchn doc
+endif
 	$(MAKE) -C pciutil doc
 	$(MAKE) -C rss doc
 	$(MAKE) -C stunnel doc
 	$(MAKE) -C xsrpc doc
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap doc
+endif
 	$(MAKE) -C netdev doc
 	$(MAKE) -C forking_executioner doc
 	$(MAKE) -C mlvm doc
@@ -181,7 +215,9 @@ doc:
 
 .PHONY: clean
 clean:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid clean
+endif
 	$(MAKE) -C camldm clean
 	$(MAKE) -C stdext clean
 	$(MAKE) -C log clean
@@ -203,13 +239,19 @@ clean:
 	$(MAKE) -C xen-utils clean
 
 cleanxen:
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap clean
+endif
 	$(MAKE) -C netdev clean
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C xc clean
 	$(MAKE) -C xb clean
 	$(MAKE) -C xs clean
+endif
 	$(MAKE) -C xsrpc clean
+ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C eventchn clean
+endif
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
