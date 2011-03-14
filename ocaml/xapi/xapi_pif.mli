@@ -76,8 +76,8 @@ val introduce :
 (** Destroy the PIF record from the database, but only if the interface is no longer used. *)
 val forget : __context:Context.t -> self:API.ref_PIF -> unit
 
-(** Scan for physical interfaces on this host and ensure PIF records, and
- *  corresponding networks are present and up-to-date. Uses {!introduce_internal}. *)
+(** Scan for physical interfaces on this host and ensure PIF records
+  * and corresponding networks are present and up-to-date. *)
 val scan : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
 val scan_bios : __context:Context.t -> host:[ `host ] Ref.t -> [ `PIF ] Ref.t list
@@ -170,26 +170,6 @@ val pool_introduce :
  *  to sync it with the current dom0 networking config. *)
 val mark_pif_as_dirty : Rrd_shared.StringSet.elt -> int64 -> unit
 
-(** Create a new PIF record with the given details. Also create a network for the
- *  new PIF, or reuses an existing one if the name matches the convention prescribed
- *  by the function {!bridge_naming_convention}. Also check whether the new PIF
- *  is to be the management PIF (according to {!is_my_management_pif}) and set the
- *  flags accordingly. *)
-val introduce_internal :
-  ?network:[ `network ] Ref.t ->
-  ?physical:bool ->
-  t:tables ->
-  __context:Context.t ->
-  host:[ `host ] Ref.t ->
-  mAC:Rrd_shared.StringSet.elt ->
-  mTU:int64 ->
-  device:Rrd_shared.StringSet.elt ->
-  vLAN:int64 -> vLAN_master_of:[ `VLAN ] Ref.t -> unit -> [ `PIF ] Ref.t
-  
-(** Brings down the network interface and removes the PIF object. *)
-val forget_internal :
-  t:tables -> __context:Context.t -> self:API.ref_PIF -> unit
-  
 (** Look over all this host's PIFs and reset the management flag.
  *  The management interface is ultimately defined by the inventory file,
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
