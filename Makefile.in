@@ -56,6 +56,7 @@ endif
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
 	$(MAKE) -C tapctl
+	$(MAKE) -C fake
 endif
 
 install:
@@ -104,6 +105,7 @@ endif
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
 	$(MAKE) -C tapctl install
+	$(MAKE) -C fake install
 endif
 
 uninstall:
@@ -152,6 +154,7 @@ endif
 	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C vhd uninstall
 	$(MAKE) -C tapctl uninstall
+	$(MAKE) -C fake uninstall
 endif
 
 bins:
@@ -211,6 +214,7 @@ endif
 	$(MAKE) -C cpuid doc
 	$(MAKE) -C vhd doc
 	$(MAKE) -C tapctl doc
+	$(MAKE) -C fake doc
 	$(MAKE) -C xen-utils doc
 
 .PHONY: clean
@@ -239,6 +243,7 @@ endif
 	$(MAKE) -C xen-utils clean
 
 cleanxen:
+	$(MAKE) -C fake clean
 ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C mmap clean
 endif
