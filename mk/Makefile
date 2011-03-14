@@ -13,7 +13,8 @@ RPM_BINDIR=$(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)
 
 .PHONY: build
 build: srpm $(MY_SOURCES)/MANIFEST
-	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb $(RPM_SPECSDIR)/xapi-libs.spec
+	$(shell  cd .. ; ./autogen.sh)
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb  ../xapi-libs.spec
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
 
