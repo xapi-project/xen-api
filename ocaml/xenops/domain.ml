@@ -508,8 +508,9 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
 	] in
+	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff [];
+		domid store_mfn store_port local_stuff vm_stuff;
 	match protocol with
 	| "x86_32-abi" -> Arch_X32
 	| "x86_64-abi" -> Arch_X64
@@ -547,6 +548,7 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
+	    "-console_port"; string_of_int console_port;
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
@@ -571,15 +573,29 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	end;
 
 	debug "Read [%s]" line;
+	let store_mfn, console_mfn =
+		match String.split ' ' line with
+		| [ store_mfn; console_mfn] ->
+			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
+		| _ ->
+			raise Domain_build_failed in
+
+	let local_stuff = [
+		"serial/0/limit",    string_of_int 65536;
+		"console/port",      string_of_int console_port;
+		"console/ring-ref",  sprintf "%nu" console_mfn;
+	] in
+(*
 	let store_mfn =
 		try Nativeint.of_string line
 		with _ -> raise Domain_build_failed in
+*)
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
 
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff;
+		domid store_mfn store_port local_stuff vm_stuff;
 
 	Arch_HVM
 
@@ -679,8 +695,9 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
 	] in
+	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff []
+		domid store_mfn store_port local_stuff vm_stuff
 
 let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
 
@@ -705,12 +722,17 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:true
 	                                            ~store_port ~console_port
 	                                            ~vcpus ~extras:[] domid fd in
+	let local_stuff = [
+		"serial/0/limit",    string_of_int 65536;
+		"console/port",     string_of_int console_port;
+		"console/ring-ref", sprintf "%nu" console_mfn;
+	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
 	(* and finish domain's building *)
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff
+		domid store_mfn store_port local_stuff vm_stuff
 
 let restore ~xc ~xs info domid fd =
 	let restore_fct = match info.priv with
