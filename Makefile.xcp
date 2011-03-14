@@ -6,9 +6,9 @@ MY_OUTPUT_DIR ?= $(CURDIR)/output
 MY_OBJ_DIR ?= $(CURDIR)/obj
 REPO ?= $(CURDIR)
 
-RPM_SPECSDIR?=/usr/src/redhat/SPECS
-RPM_SRPMSDIR?=/usr/src/redhat/SRPMS
-RPM_SOURCEDIR?=/usr/src/redhat/SOURCES
+RPM_SPECSDIR?=$(shell rpm --eval='%_specdir')
+RPM_SRPMSDIR?=$(shell rpm --eval='%_srcrpmdir')
+RPM_SOURCEDIR?=$(shell rpm --eval='%_sourcedir')
 XEN_RELEASE?=unknown
 endif
 

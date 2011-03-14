@@ -211,8 +211,8 @@ cleanxen:
 	$(MAKE) -C xsrpc clean
 	$(MAKE) -C eventchn clean
 
-RPM_SPECSDIR=/usr/src/redhat/SPECS
-RPM_SOURCEDIR=/usr/src/redhat/SOURCES
+RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
+RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
 XEN_RELEASE=xcp0.2
 
 $(RPM_SPECSDIR)/xapi-libs.spec: xapi.spec.in
