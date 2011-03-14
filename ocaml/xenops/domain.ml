@@ -115,7 +115,7 @@ let make ~xc ~xs info uuid =
            ) else
               default_flags
         ) else [] in
-	let domid = Xc.domain_create xc info.ssidref flags uuid in
+	let domid = Xc.domain_create xc info.ssidref flags (Uuid.to_string uuid) in
 	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
@@ -370,7 +370,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
 	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  warn "Domain stuck in dying state after 30s; resetting UUID to %s" s;
-	  Xc.domain_sethandle xc domid (Uuid.of_string s);
+	  Xc.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 

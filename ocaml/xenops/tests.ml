@@ -179,7 +179,7 @@ let test_xal2 () =
 
 let test_domain_creation xc =
 	assert_nodomain xc;
-	let uuid = Uuid.make_uuid () in
+	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	let domid = Xc.domain_create xc 0l false uuid in
 	Xc.domain_destroy xc domid;
 	assert_nodomain xc
