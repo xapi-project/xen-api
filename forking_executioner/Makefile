@@ -33,19 +33,19 @@ bins: $(PROGRAMS)
 libs: $(LIBS)
 
 test_forker: test_forker.cmx
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light $(OCAML_UUID_INC) -I ../stdext uuid.cmxa rpc.cmx jsonrpc.cmx -I ../log unix.cmxa stdext.cmxa  test_forker.cmx -o $@
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../uuid -I ../stdext uuid.cmxa rpc.cmx jsonrpc.cmx -I ../log unix.cmxa stdext.cmxa  test_forker.cmx -o $@
 
 fe: fe_debug.cmx child.cmx fe_main.cmx
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../stdext $(OCAML_UUID_INC) -I ../log log.cmxa uuid.cmxa unix.cmxa rpc.cmx jsonrpc.cmx stdext.cmxa fe_debug.cmx child.cmx fe_main.cmx -o $@
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../rpc-light -I ../stdext -I ../uuid  -I ../log log.cmxa uuid.cmxa unix.cmxa rpc.cmx jsonrpc.cmx stdext.cmxa fe_debug.cmx child.cmx fe_main.cmx -o $@
 
 %.cmo: %.ml
-	$(OCAMLC) -c -I ../log $(OCAML_UUID_INC) -I ../stdext -thread -o $@  $<
+	$(OCAMLC) -c -I ../log -I ../uuid -I ../stdext -thread -o $@  $<
 
 %.cmi: %.mli
-	$(OCAMLC) -c -I ../log $(OCAML_UUID_INC) -I ../stdext -o $@  $<
+	$(OCAMLC) -c -I ../log -I ../uuid -I ../stdext -o $@  $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../log $(OCAML_UUID_INC) -c -I ../stdext -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../log -I ../uuid -c -I ../stdext -o $@ $<
 
 META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@

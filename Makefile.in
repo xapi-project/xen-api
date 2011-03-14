@@ -9,12 +9,10 @@ include config.mk
 
 .PHONY: all
 all:
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C uuid
-endif
 ifeq ($(HAVE_TYPECONV),type-conv)
 	$(MAKE) -C rpc-light
 endif
+	$(MAKE) -C uuid
 	$(MAKE) -C stdext
 	$(MAKE) -C log
 	$(MAKE) -C stunnel
@@ -60,9 +58,7 @@ endif
 endif
 
 install:
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid install
-endif
 	$(MAKE) -C stdext install
 	$(MAKE) -C log install
 	$(MAKE) -C stunnel install
@@ -109,9 +105,7 @@ endif
 endif
 
 uninstall:
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid uninstall
-endif
 	$(MAKE) -C stdext uninstall
 	$(MAKE) -C log uninstall
 	$(MAKE) -C stunnel uninstall
@@ -182,9 +176,7 @@ binuninstall:
 
 .PHONY: doc
 doc:
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid doc
-endif
 	$(MAKE) -C stdext doc
 	$(MAKE) -C sexpr doc
 	$(MAKE) -C log doc
@@ -219,9 +211,7 @@ endif
 
 .PHONY: clean
 clean:
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
 	$(MAKE) -C uuid clean
-endif
 	$(MAKE) -C camldm clean
 	$(MAKE) -C stdext clean
 	$(MAKE) -C log clean

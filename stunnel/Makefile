@@ -33,13 +33,13 @@ stunnel.cma: $(foreach obj,$(OBJS),$(obj).cmo)
 	$(OCAMLC) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 %.cmo: %.ml
-	$(OCAMLC) -c -I ../stdext $(OCAML_UUID_INC) -I ../log -o $@ $<
+	$(OCAMLC) -c -I ../stdext -I ../uuid -I ../log -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) -c -I ../stdext $(OCAML_UUID_INC) -o $@ $<
+	$(OCAMLC) -c -I ../stdext -I ../uuid -o $@ $<
 
 %.cmx: %.ml
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -I ../stdext $(OCAML_UUID_INC) -I ../log -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -I ../stdext -I ../uuid -I ../log -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

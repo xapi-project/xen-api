@@ -19,9 +19,6 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
 FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
 
-OCAML_UUID_INC = -I $(OCAML_UUID_DIR)
-OCAML_UUID_LIB = $(OCAML_UUID_DIR)/uuid.cmxa
-
 OCAML_TEST_INC = -I $(shell ocamlfind query oUnit)
 OCAML_TEST_LIB = $(shell ocamlfind query oUnit)/oUnit.cmxa
 
@@ -81,10 +78,10 @@ base64pp: base64_main.ml all libstdext_stubs.a
 	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
 
 fe_cli: fe_cli.ml all libstdext_stubs.a
-	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa $(OCAML_UUID_LIB) ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa ../uuid/uuid.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
 
 fe_test: fe_test.ml all libstdext_stubs.a
-	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa $(OCAML_UUID_LIB) ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg $(OCAML_UUID_INC) -o $@ $< -ccopt -L.
+	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa ../uuid/uuid.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx stdext.cmxa -linkpkg -I ../uuid -o $@ $< -ccopt -L.
 
 extentlistset_test: extentlistset_test.ml all libstdext_stubs.a
 	ocamlfind $(OCAMLOPT) $(OCAMLOPTFLAGS) unix.cmxa stdext.cmxa -linkpkg -o $@ $< -ccopt -L.
@@ -117,10 +114,10 @@ fe.cmo: fe.ml
 	$(OCAMLC) -pp '$(FEPP)' -I ../jsonrpc -I ../rpc-light -c -o $@ $<
 
 forkhelpers.cmo: forkhelpers.ml forkhelpers.cmi
-	$(OCAMLC) -thread $(OCAML_UUID_INC) -c -o $@ $<
+	$(OCAMLC) -thread -I ../uuid -c -o $@ $<
 
 filenameext.cmo: filenameext.ml filenameext.cmi
-	$(OCAMLC) -c $(OCAML_UUID_INC) -o $@ $<
+	$(OCAMLC) -c -I ../uuid -o $@ $<
 
 %.cmo: %.ml %.cmi
 	$(OCAMLC) -c -o $@ $<
@@ -132,7 +129,7 @@ forkhelpers.cmi: forkhelpers.mli
 	$(OCAMLC) -thread -c -o $@ $<
 
 filenameext.cmi: filenameext.mli
-	$(OCAMLC) -c $(OCAML_UUID_INC) -o $@ $<
+	$(OCAMLC) -c -I ../uuid -o $@ $<
 
 fe.cmi: fe.cmo
 	$(OCAMLC) -pp '$(FEPP)' -c -o $@ $<
@@ -150,13 +147,13 @@ fecomms.cmx : fecomms.ml
 	$(OCAMLOPT) -I ../rpc-light -c -o $@ $<
 
 forkhelpers.cmx: forkhelpers.ml forkhelpers.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAML_UUID_INC) -thread -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../uuid -thread -c -o $@ $<
 
 filenameext.cmx: filenameext.ml filenameext.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c $(OCAML_UUID_INC) -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -thread -c -I ../uuid -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(OCAML_UUID_INC) -c -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) -I ../uuid -c -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
