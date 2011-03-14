@@ -649,7 +649,7 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 		let limit = Int64.of_int (Io.read_int fd) in
 		debug "qemu-dm state file size: %Ld" limit;
 
-		let file = sprintf "/tmp/xen.qemu-dm.%d" domid in
+		let file = sprintf qemu_restore_path domid in
 		let fd2 = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640 in
 		finally (fun () ->
 			if Unixext.copy_file ~limit fd fd2 <> limit then
@@ -829,7 +829,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 	(* hvm domain need to also save qemu-dm data *)
 	if hvm then (
 		Io.write fd qemu_save_signature;
-		let file = sprintf "/tmp/xen.qemu-dm.%d" domid in
+		let file = sprintf qemu_save_path domid in
 		let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
 		let size = (Unix.stat file).Unix.st_size in
 		debug "qemu-dm state file size: %d" size;

@@ -1,4 +1,4 @@
-OCAMLPACKS    = stdext xs netdev
+OCAMLPACKS    = stdext xs netdev log
 OCAML_LIBS    += ../xenops/xenops 
 OCAMLINCLUDES += ../xenops 
 OCamlProgram(xiu, xiu)
