@@ -5,9 +5,9 @@ OCAML_CLIBS = xenguest_stubs
 OCAML_LINK_FLAGS += $(XEN_OCAML_LINK_FLAGS) -cclib -L$(XEN_ROOT)/usr/$(LIBDIR) -cclib -lz -cclib -lxenguest -cclib -lxenctrl -cclib -lxenstore
 OCAMLPACKS = unix
 
-XENGUEST_SRC_FILES = dumpcore.ml xenguest.ml xenguest_main.ml xenguest_stubs.c save_helpers.c
+XENGUEST_SRC_FILES = dumpcore.ml xenguest.ml xenguest_main.ml xenguest_stubs.c
 
-StaticCLibrary(xenguest_stubs, save_helpers xenguest_stubs)
+StaticCLibrary(xenguest_stubs, xenguest_stubs)
 OCamlLibraryClib(xenguest, xenguest, xenguest_stubs)
 
 section

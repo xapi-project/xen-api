@@ -1445,14 +1445,18 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	let nics = take nics max_emulated_nics in
 	
 	(* qemu need a different id for every vlan, or things get very bad *)
+	let nics' =
+		if List.length nics > 0 then
 	let vlan_id = ref 0 in
-	let nics' = List.map (fun (mac, bridge, devid) ->
+			List.map (fun (mac, bridge, devid) ->
 		let r = [
 		"-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" !vlan_id mac;
 		"-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid devid)] in
 		incr vlan_id;
 		r
-	) nics in
+			) nics
+		else [["-net"; "none"]] in
+
 	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in
@@ -1503,7 +1507,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		  "-boot"; info.boot;
 		  "-serial"; info.serial;
 		  "-vcpus"; string_of_int info.vcpus; ]
-	   @ disp_options @ usb' @ (List.concat nics')
+		@ disp_options @ usb' @ List.concat nics'
 	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
 	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
