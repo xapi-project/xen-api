@@ -152,9 +152,10 @@ static void failwith_oss_xc(char *fct)
 	caml_failwith(buf);
 }
 
-static int dispatch_suspend(int domid)
+static int dispatch_suspend(void *arg)
 {
 	value * __suspend_closure;
+	int domid = (int) arg;
 	int ret;
 
 	__suspend_closure = caml_named_value("suspend_callback");
@@ -194,7 +195,7 @@ static void configure_vcpus(int handle, int domid, struct flags f){
   int i, r;
   if (f.vcpu_affinity != 0L){ /* 0L means unset */
     for (i=0; i<f.vcpus; i++){
-      r = xc_vcpu_setaffinity(handle, domid, i, f.vcpu_affinity);
+        r = xc_vcpu_setaffinity(handle, domid, i, &f.vcpu_affinity, sizeof f.vcpu_affinity);
       if (r)
 	failwith_oss_xc("xc_vcpu_setaffinity");
     }
@@ -367,7 +368,12 @@ CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 }
 
 extern void qemu_flip_buffer(int domid, int next_active);
-extern void * init_qemu_maps(int domid, unsigned int bitmap_size);
+
+static struct save_callbacks save_callbacks = {
+	.suspend = dispatch_suspend,
+        .postcopy = NULL,
+        .checkpoint = NULL,
+};
 
 CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
                                    value max_iters, value max_factors,
@@ -375,12 +381,10 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
 {
 	CAMLparam5(handle, fd, domid, max_iters, max_factors);
 	CAMLxparam2(flags, hvm);
-	void *(*init_maps)(int, unsigned);
 	void (*flip_buffer)(int, int);
 	uint32_t c_flags;
 	int r;
 
-	init_maps = (Bool_val(hvm)) ? init_qemu_maps : NULL;
 	flip_buffer = (Bool_val(hvm)) ? qemu_flip_buffer : NULL;
 
 	c_flags = caml_convert_flag_list(flags, suspend_flag_list);
@@ -388,8 +392,8 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
 	caml_enter_blocking_section();
 	r = xc_domain_save(_H(handle), Int_val(fd), _D(domid),
 	                   Int_val(max_iters), Int_val(max_factors),
-	                   c_flags, dispatch_suspend,
-	                   Bool_val(hvm), init_maps, flip_buffer);
+	                   c_flags, &save_callbacks,
+	                   Bool_val(hvm), flip_buffer);
 	caml_leave_blocking_section();
 	if (r)
 		failwith_oss_xc("xc_domain_save");
@@ -444,7 +448,7 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	r = xc_domain_restore(_H(handle), Int_val(fd), _D(domid),
 	                      c_store_evtchn, &store_mfn,
 	                      c_console_evtchn, &console_mfn,
-			      Bool_val(hvm), f.pae);
+			      Bool_val(hvm), f.pae, Bool_val(hvm));
 	caml_leave_blocking_section();
 	if (r)
 		failwith_oss_xc("xc_domain_restore");
