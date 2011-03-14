@@ -1460,7 +1460,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in
-	let restorefile = sprintf "/tmp/xen.qemu-dm.%d" domid in
+	let restorefile = sprintf qemu_restore_path domid in
 	let vga_type_opts x = 
 	  match x with
 	    | Std_vga -> ["-std-vga"]
