@@ -25,6 +25,7 @@ SUBSYS_FILE="/var/lock/subsys/squeezed"
 . /etc/init.d/functions
 
 if [ -e /var/xapi/xiu-xc ]; then
+	export XENCTRL_OSDEP=/opt/xensource/lib/xenctrl/osdep_xiu.so
 	export XIU=/var/xapi/xiu
 fi
 
