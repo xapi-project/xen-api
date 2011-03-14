@@ -635,7 +635,6 @@ let restart_auto_run_vms ~__context live_set n =
 				(fun vm ->
 					try
 						if Db.VM.get_power_state ~__context ~self:vm = `Halted
-							&& Db.VM.get_ha_always_run ~__context ~self:vm
 							&& Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart_best_effort  
 						then Client.Client.VM.start rpc session_id vm false true
 					with e ->
