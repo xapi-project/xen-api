@@ -16,6 +16,7 @@ open D
 
 module L = Debug.Debugger (struct let name="license" end)
 
+open Listext
 open Stringext
 
 let bridge_naming_convention (device: string) =
@@ -184,8 +185,6 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
 			~name_description:"" ~mTU:1500L
 			~bridge ~other_config:[] ~blobs:[] ~tags:[] in
 		net_ref
-
-let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
 type tables = {
 	mac_to_pif_table: (string * API.ref_PIF) list;
@@ -427,7 +426,7 @@ let scan ~__context ~host =
 					~t ~__context ~host ~mAC:mac ~mTU ~vLAN:(-1L)
 					~vLAN_master_of:Ref.null ~device () in
 			())
-		(set_difference physical_macs existing_macs);
+		(List.set_difference physical_macs existing_macs);
 
 	(* Make sure the right PIF(s) are marked as management PIFs *)
 	update_management_flags ~__context ~host
@@ -448,7 +447,7 @@ let scan_bios ~__context ~host =
 				introduce_internal
 					~t ~__context ~host ~mAC:mac ~mTU ~vLAN:(-1L)
 					~vLAN_master_of:Ref.null ~device:device' ())
-			(set_difference physical_macs existing_macs) in
+			(List.set_difference physical_macs existing_macs) in
 	new_pifs
 
 (* DEPRECATED! Rewritten to use VLAN.create. *)
