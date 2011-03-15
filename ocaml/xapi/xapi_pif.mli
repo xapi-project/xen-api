@@ -126,9 +126,6 @@ val read_bridges_from_inventory : unit -> string list
 val find_or_create_network :
   string -> string -> __context:Context.t -> [ `network ] Ref.t
 
-(** Compute the set difference a - b *)
-val set_difference : 'a list -> 'a list -> 'a list
-
 (** Convenient lookup tables for scanning etc *)
 type tables = {
   mac_to_pif_table : (string * API.ref_PIF) list;	(** MAC address to PIF reference (all PIFs) *)
