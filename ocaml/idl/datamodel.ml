@@ -739,6 +739,12 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have access to an SR needed by the VM. The VM has at least one VBD attached to a VDI in the SR." ();
   error Api_errors.vm_requires_net [ "vm"; "network" ]
     ~doc:"You attempted to run a VM on a host which doesn't have a PIF on a Network needed by the VM. The VM has at least one VIF attached to the Network." ();
+  error Api_errors.vm_requires_gpu ["vm"; "GPU_group"]
+    ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
+  error Api_errors.vm_requires_iommu ["host"]
+    ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualisation (IOMMU/VT-d) enabled, which is needed by the VM." ();
+  error Api_errors.vm_has_pci_attached ["vm"]
+    ~doc:"This operation could not be performed, because the VM has one or more PCI devices passed through." ();
   error Api_errors.host_cannot_attach_network [ "host"; "network" ]
     ~doc:"Host cannot attach network (in the case of NIC bonding, this may be because attaching the network on this host would require other networks [that are currently active] to be taken down)." ();
   error Api_errors.vm_requires_vdi [ "vm"; "vdi" ]
