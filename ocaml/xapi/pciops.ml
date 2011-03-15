@@ -42,7 +42,6 @@ let sort_pcidevs devs =
 
 let other_pcidevs_of_vm ~__context ~vm =
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
-	let host = Helpers.get_localhost ~__context in
 	let devs =
 		try
 			let oc = List.assoc "pci" other_config in
@@ -68,7 +67,6 @@ let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
 		) (sort_pcidevs pcis)
 	) ()
 
-(** Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
 let plug_pcidevs ~__context ~vm domid pcidevs =
 	if List.length pcidevs > 0 then begin
 		(* XXX: PCI passthrough needs a lot of work *)
@@ -99,9 +97,7 @@ let plug_pcis ~__context ~vm domid managed_pcis other_pcidevs =
 		plug_pcidevs ~__context ~vm domid other_pcidevs
 	) ()
 
-(** Hot unplug the PCI devices from the domain. Note this is done serially due to a limitation of the
-   xenstore protocol. *)
-let unplug_pcidevs_noexn ~__context ~vm domid pcidevs = 
+let unplug_pcidevs_noexn ~__context ~vm domid pcidevs =
 	Helpers.log_exn_continue "unplug_pcidevs" (fun () ->
 		Vmopshelpers.with_xc_and_xs (fun xc xs ->
 			if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
