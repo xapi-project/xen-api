@@ -16,10 +16,11 @@ open D
 
 open Listext
 
-let create ~__context ~pCI ~host =
+let create ~__context ~pCI ~gPU_group ~host ~other_config =
 	let pgpu = Ref.make () in
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group:(Ref.null) ~host ~other_config:[];
+	Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI ~gPU_group ~host ~other_config;
+	debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
 	pgpu
 
 let update_gpus ~__context ~host =
@@ -36,7 +37,9 @@ let update_gpus ~__context ~host =
 				try
 					List.find (fun (rf, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
 				with Not_found ->
-					let self = create ~__context ~pCI:pci ~host in
+					let self = create ~__context ~pCI:pci ~gPU_group:(Ref.null) ~host ~other_config:[] in
+					let group = Xapi_gpu_group.find_or_create ~__context self in
+					Db.PGPU.set_GPU_group ~__context ~self ~value:group;
 					self, Db.PGPU.get_record ~__context ~self
 			in
 			find_or_create (pgpu :: cur) remaining_pcis
