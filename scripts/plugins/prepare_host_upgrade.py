@@ -153,7 +153,7 @@ def set_boot_config(installer_dir):
 def test_repo(url):
     try:
         a = accessor.createAccessor(url)
-    except AssertionError:
+    except:
         return False
     if not get_boot_files(a, None):
         return False
