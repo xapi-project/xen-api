@@ -14,4 +14,7 @@
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
+let find_or_create ~__context pgpu =
+	let pci = Db.PCI.get_record_internal ~__context ~self:(Db.PGPU.get_PCI ~__context ~self:pgpu) in
+	()
 
