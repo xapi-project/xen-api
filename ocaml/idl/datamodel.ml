@@ -3841,10 +3841,10 @@ let host =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String "power_on_mode" "The power on mode";  
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "power_on_config" "The power on config";
 	field ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "local_cache_sr" "The SR that is used as a local cache";
-	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Map (String, String)) ~default_value:(Some (VMap []))
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Map (String, String)) ~default_value:(Some (VMap []))
 		"chipset_info" "Information about chipset features";
-	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
-	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
  ])
 	()
 
@@ -5931,8 +5931,8 @@ let vm =
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
-	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vgpu)) "VGPUs" "Virtual GPUs";
-	field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _vgpu)) "VGPUs" "Virtual GPUs";
+	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
       ])
 	()
 
@@ -6666,27 +6666,27 @@ let pci =
 		~gen_constructor_destructor:false
 		~gen_events:true
 		~in_db:true
-		~lifecycle:[]
+		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
-			uid _pci ~lifecycle:[];
+			uid _pci ~lifecycle:[Published, rel_boston, ""];
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_id" "PCI class ID" ~default_value:(Some (VString "")) ~internal_only:true;
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_name" "PCI class name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] "class_name" "PCI class name" ~default_value:(Some (VString ""));
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "vendor_id" "Vendor ID" ~default_value:(Some (VString "")) ~internal_only:true;
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "vendor_name" "Vendor name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] "vendor_name" "Vendor name" ~default_value:(Some (VString ""));
 			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "device_id" "Device ID" ~default_value:(Some (VString "")) ~internal_only:true;
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "device_name" "Device name" ~default_value:(Some (VString ""));
-			field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle:[] "host" "Physical machine that owns the PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "pci_id" "PCI ID of the physical device" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] "device_name" "Device name" ~default_value:(Some (VString ""));
+			field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Physical machine that owns the PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] "pci_id" "PCI ID of the physical device" ~default_value:(Some (VString ""));
 			field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[] ~default_value:(Some (VInt 1L)) "functions" "Number of physical + virtual PCI functions" ~internal_only:true;
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~lifecycle:[] "attached_VMs"
 				"VMs that currently have a function of this PCI device passed-through to them" ~internal_only:true;
-			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
-			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_boston, ""] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			]
 		()
 
@@ -6700,18 +6700,18 @@ let pgpu =
 		~gen_constructor_destructor:false
 		~gen_events:true
 		~in_db:true
-		~lifecycle:[]
+		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
-			uid _pgpu ~lifecycle:[];
-			field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[] "host" "Host that own the GPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			uid _pgpu ~lifecycle:[Published, rel_boston, ""];
+			field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_boston, ""] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that own the GPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			]
 		()
 
@@ -6725,19 +6725,19 @@ let gpu_group =
 		~gen_constructor_destructor:true
 		~gen_events:true
 		~in_db:true
-		~lifecycle:[]
+		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
-			uid _gpu_group ~lifecycle:[];
-			namespace ~name:"name" ~contents:(names None RW ~lifecycle:[]) ();
-			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[] "PGPUs" "List of pGPUs in the group";
-			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[] "VGPUs" "List of vGPUs using the group";
-			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
-			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			uid _gpu_group ~lifecycle:[Published, rel_boston, ""];
+			namespace ~name:"name" ~contents:(names None RW ~lifecycle:[Published, rel_boston, ""]) ();
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_boston, ""] "PGPUs" "List of pGPUs in the group";
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_boston, ""] "VGPUs" "List of vGPUs using the group";
+			field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			]
 		()
 
@@ -6751,19 +6751,19 @@ let vgpu =
 		~gen_constructor_destructor:true
 		~gen_events:true
 		~in_db:true
-		~lifecycle:[]
+		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
-			uid _vgpu ~lifecycle:[];
-			field ~qualifier:StaticRO ~ty:(Ref _vm) ~lifecycle:[] "VM" "VM that owns the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[] "GPU_group" "GPU group used by the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[] ~default_value:(Some (VString "")) "device" "Order in which the devices are plugged into the VM";
-			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the vitual devce device is currently connected to a physical device";
-			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+			uid _vgpu ~lifecycle:[Published, rel_boston, ""];
+			field ~qualifier:StaticRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
+			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "")) "device" "Order in which the devices are plugged into the VM";
+			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the vitual devce device is currently connected to a physical device";
+			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			]
 		()
 
