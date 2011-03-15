@@ -293,6 +293,48 @@ let assert_host_is_live ~__context ~host =
 	if not host_is_live then
 		raise (Api_errors.Server_error (Api_errors.host_not_live, []))
 
+(* Currently, this check assumes that IOMMU (VT-d) is required iff the host
+ * has a vGPU. This will likely need to be modified in future. *)
+let vm_needs_iommu ~__context ~self =
+	Db.VM.get_VGPUs ~__context ~self <> []
+
+let assert_host_has_iommu ~__context ~host =
+	let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
+	if List.assoc "iommu" chipset_info <> "true" then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_iommu, [Ref.string_of host]))
+
+let assert_gpus_available ~__context ~self ~host =
+	let vgpus = Db.VM.get_VGPUs ~__context ~self in
+	let reqd_groups =
+		List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
+	let is_pgpu_available pgpu =
+		let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+		let attached = List.length (Db.PCI.get_attached_VMs ~__context ~self:pci) in
+		let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
+		attached < functions
+	in
+	let is_group_available_on host group =
+		let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
+		let avail_pgpus = List.filter is_pgpu_available pgpus in
+		let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
+		List.mem host hosts
+	in
+	let avail_groups = List.filter (is_group_available_on host) reqd_groups in
+	let not_available = set_difference reqd_groups avail_groups in
+
+	List.iter
+		(fun group -> warn "Host %s does not have a pGPU from group %s available"
+			(Helpers.checknull
+				(fun () -> Db.Host.get_name_label ~__context ~self:host))
+			(Helpers.checknull
+				(fun () -> Db.GPU_group.get_name_label ~__context ~self:group)))
+		not_available;
+	if not_available <> [] then
+		raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+			Ref.string_of self;
+			Ref.string_of (List.hd not_available)
+		]))
+
 (* We only check if a VM can boot here w.r.t. the configuration snapshot. If
  * the database is modified in parallel then this check will be inaccurate.
  * We must use the snapshot to boot the VM.
@@ -401,6 +443,11 @@ let assert_can_boot_here_common
 						Ref.string_of host; Ref.string_of network ]))
 		)
 		avail_nets;
+
+	if vm_needs_iommu ~__context ~self then
+		assert_host_has_iommu ~__context ~host;
+
+	assert_gpus_available ~__context ~self ~host;
 
 	(* Check if the VM would boot HVM and the target machine is HVM-capable *)
 	let hvm = Helpers.will_boot_hvm ~__context ~self in
