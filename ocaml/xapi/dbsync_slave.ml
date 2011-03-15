@@ -617,5 +617,13 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
     Create_misc.create_chipset_info ~__context;
-  )
+  );
+
+  switched_sync Xapi_globs.sync_pci_devices (fun () ->
+    Xapi_pci.update_pcis ~__context ~host:localhost;
+  );
+
+  switched_sync Xapi_globs.sync_gpus (fun () ->
+    Xapi_pgpu.update_gpus ~__context ~host:localhost;
+  );
 
