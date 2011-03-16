@@ -2040,12 +2040,16 @@ let vm_install_real printer rpc session_id template name description params =
 
 	let suspend_sr_ref = match sr_ref with
 		| Some sr ->
-			if sr = Ref.null then
-				(* Template is a snapshot - copy the suspend_SR from the template *)
-				Client.VM.get_suspend_SR rpc session_id template
-			else
+			let ref_is_valid = Server_helpers.exec_with_new_task
+				~session_id "Checking suspend_SR validity"
+				(fun __context -> Db.is_valid_ref __context sr)
+			in
+			if ref_is_valid then
 				(* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
 				sr
+			else
+				(* Template is a snapshot - copy the suspend_SR from the template *)
+				Client.VM.get_suspend_SR rpc session_id template
 		| None ->
 			(* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
 			Client.VM.get_suspend_SR rpc session_id template in
