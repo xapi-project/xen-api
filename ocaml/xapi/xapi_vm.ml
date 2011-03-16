@@ -966,7 +966,7 @@ let revert ~__context ~snapshot =
 let checkpoint ~__context ~vm ~new_name =
 	if not (Pool_features.is_enabled ~__context Features.Checkpoint) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	(* We don't support VM migration while PCI devices have been passed through (yet). *)
+	(* We don't support VM checkpointing while PCI devices have been passed through (yet). *)
 	else if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
 		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]))
 	else begin
