@@ -1806,7 +1806,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		(* If a VM is part of an appliance, the appliance *)
 		(* should be recovered using VM_appliance.recover *)
 		let appliance = Db.VM.get_appliance ~__context ~self in
-		if appliance <> Ref.null then
+		if Db.is_valid_ref __context appliance then
 			raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
 				[Ref.string_of self; Ref.string_of appliance]));
 		Local.VM.recover ~__context ~self ~session_to ~force
