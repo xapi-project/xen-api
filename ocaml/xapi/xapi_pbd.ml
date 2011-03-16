@@ -80,38 +80,38 @@ let abort_if_storage_attached_to_protected_vms ~__context ~self =
   end
 
 let plug ~__context ~self =
-  let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
-    if not currently_attached then
-      begin
-	let sr = Db.PBD.get_SR ~__context ~self in
-	  Storage_access.SR.attach ~__context ~self:sr;
-      end
+	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
+		if not currently_attached then
+			begin
+				let sr = Db.PBD.get_SR ~__context ~self in
+				Storage_access.SR.attach ~__context ~self:sr;
+			end
 
 let unplug ~__context ~self =
-  let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
-    if currently_attached then
-      begin
-	let host = Db.PBD.get_host ~__context ~self in
-	let sr = Db.PBD.get_SR ~__context ~self in
+	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
+	if currently_attached then
+		begin
+			let host = Db.PBD.get_host ~__context ~self in
+			let sr = Db.PBD.get_SR ~__context ~self in
 
-	if Db.Host.get_enabled ~__context ~self:host
-	then abort_if_storage_attached_to_protected_vms ~__context ~self;
+			if Db.Host.get_enabled ~__context ~self:host
+			then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
-	(* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
-	let pool = List.hd (Db.Pool.get_all ~__context) in
-	if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
-	  let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
-	  let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in
-	  if List.mem sr statefile_srs
-	  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
-	end;
+			(* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
+			let pool = List.hd (Db.Pool.get_all ~__context) in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
+				let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
+				let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in
+				if List.mem sr statefile_srs
+				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
+			end;
 
-	let vdis = get_active_vdis_by_pbd ~__context ~self in
-	if List.length vdis > 0 
-	then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of vdis));
+			let vdis = get_active_vdis_by_pbd ~__context ~self in
+			if List.length vdis > 0 
+			then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of vdis));
 
-	Storage_access.SR.detach ~__context ~self:sr
-      end
+			Storage_access.SR.detach ~__context ~self:sr
+		end
 
 let destroy ~__context ~self =
 	if Db.PBD.get_currently_attached ~__context ~self
