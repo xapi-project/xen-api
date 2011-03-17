@@ -594,7 +594,10 @@ let open_database ~__context ~self =
 		Static_vdis.permanent_vdi_detach ~__context ~vdi
 	in
 	try
-		let reason = Xapi_globs.foreign_metadata_vdi_reason in
+		let reason = Printf.sprintf "%s %s"
+			Xapi_globs.foreign_metadata_vdi_reason
+			(Db.VDI.get_uuid ~__context ~self)
+		in
 		debug "Attaching database VDI to master with reason [%s]" reason;
 		attach self reason;
 		debug "%s" "Attempting to read database";
