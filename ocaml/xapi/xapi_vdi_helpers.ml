@@ -47,12 +47,25 @@ let get_master_dom0 ~__context =
 	let vms = Db.Host.get_resident_VMs ~__context ~self:master in
 	List.hd (List.filter (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) vms)
 
+(* Unplug and destroy any existing VBDs owned by the VDI. *)
+let destroy_all_vbds ~__context ~vdi =
+	let existing_vbds = Db.VDI.get_VBDs ~__context ~self:vdi in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> List.iter
+			(fun vbd ->
+				try
+					Client.VBD.unplug ~rpc ~session_id ~self:vbd;
+					Client.VBD.destroy ~rpc ~session_id ~self:vbd
+				with Api_errors.Server_error(code, _) when code = Api_errors.device_already_detached ->
+					Client.VBD.destroy ~rpc ~session_id ~self:vbd)
+			existing_vbds)
+
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)
 let enable_database_replication ~__context ~vdi =
 	Mutex.execute redo_log_lifecycle_mutex (fun () ->
 		let name_label = Db.VDI.get_name_label ~__context ~self:vdi in
 		let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-		debug "Attempting to disable metadata replication on VDI [%s:%s]." name_label uuid;
+		debug "Attempting to enable metadata replication on VDI [%s:%s]." name_label uuid;
 		if Hashtbl.mem metadata_replication vdi then
 			debug "Metadata is already being replicated to VDI [%s:%s]." name_label uuid
 		else begin
@@ -62,6 +75,8 @@ let enable_database_replication ~__context ~vdi =
 				raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []));
 			let log = Redo_log.create () in
 			let dom0 = get_master_dom0 ~__context in
+			(* We've established that metadata is not being replicated to this VDI, so it should be safe to do this. *)
+			destroy_all_vbds ~__context ~vdi;
 			(* Create and plug vbd *)
 			let vbd = Helpers.call_api_functions ~__context (fun rpc session_id ->
 				let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
@@ -77,6 +92,7 @@ let enable_database_replication ~__context ~vdi =
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
 				Redo_log.startup log;
+				Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ()));
 				Hashtbl.add metadata_replication vdi (vbd, log);
 				let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
 				debug "Redo log started on VBD %s" vbd_uuid
