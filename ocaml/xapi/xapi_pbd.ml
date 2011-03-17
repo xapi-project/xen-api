@@ -15,6 +15,7 @@
  * @group XenAPI functions
  *)
 
+open Client
 open Db_filter
 open Db_filter_types
 
@@ -79,12 +80,31 @@ let abort_if_storage_attached_to_protected_vms ~__context ~self =
       ) protected_vms
   end
 
+let find_metadata_vdis ~__context ~sr =
+	let pool = Helpers.get_pool ~__context in
+	List.filter
+		(fun vdi ->
+			Db.VDI.get_type ~__context ~self:vdi = `metadata &&
+			Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
+		(Db.SR.get_VDIs ~__context ~self:sr)
+
 let plug ~__context ~self =
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
 		if not currently_attached then
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				Storage_access.SR.attach ~__context ~self:sr;
+				(* Try to re-enable metadata replication to all suitable VDIs. *)
+				try
+					List.iter
+						(fun vdi ->
+							debug "Automatically re-enabling database replication to VDI %s" (Ref.string_of vdi);
+							Xapi_vdi_helpers.enable_database_replication ~__context ~vdi)
+						(find_metadata_vdis ~__context ~sr)
+				with Api_errors.Server_error(code, _) when code = Api_errors.no_more_redo_logs_allowed ->
+					(* The redo log limit was reached - don't throw an exception since automatic *)
+					(* re-enabling of database replication is best-effort. *)
+					debug "Metadata is being replicated to the maximum allowed number of VDIs."
 			end
 
 let unplug ~__context ~self =
@@ -105,6 +125,13 @@ let unplug ~__context ~self =
 				if List.mem sr statefile_srs
 				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 			end;
+
+			(* Disable metadata replication to VDIs in the SR. *)
+			List.iter
+				(fun vdi ->
+					debug "Automatically disabling database replication to VDI %s" (Ref.string_of vdi);
+					Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
+				(find_metadata_vdis ~__context ~sr);
 
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
 			if List.length vdis > 0 

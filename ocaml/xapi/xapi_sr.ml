@@ -479,7 +479,14 @@ let disable_database_replication ~__context ~sr =
 		(Db.SR.get_VDIs ~__context ~self:sr)
 	in
 	List.iter
-		(fun vdi -> Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
+		(fun vdi ->
+			Xapi_vdi_helpers.disable_database_replication ~__context ~vdi;
+			(* The VDI may have VBDs hanging around other than those created by the database replication code. *)
+			(* They must be destroyed before the VDI can be destroyed. *)
+			Xapi_vdi_helpers.destroy_all_vbds ~__context ~vdi;
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+			 	Client.VDI.destroy ~rpc ~session_id ~self:vdi)
+		)
 		metadata_vdis
 
 let create_new_blob ~__context ~sr ~name ~mime_type =
