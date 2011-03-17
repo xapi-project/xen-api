@@ -59,16 +59,19 @@ let create_vgpu ~__context ~vm vgpu available_pgpus pcis =
 		pci :: pcis
 
 let create_vgpus ~__context ~vm domid hvm =
-	if not hvm then
-		raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["GPU passthrough needs HVM"]));
 	let vgpus = vgpus_of_vm ~__context ~vm domid in
-	let host = Helpers.get_localhost ~__context in
-	let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
-	let _, pcis =
-		List.fold_left (fun (pgpus, pcis) vgpu -> create_vgpu ~__context ~vm vgpu pgpus pcis)
-			(pgpus, []) vgpus
-	in
-	pcis
+	if vgpus <> [] then begin
+		if not hvm then
+			raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["GPU passthrough needs HVM"]));
+		let host = Helpers.get_localhost ~__context in
+		let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
+		let _, pcis =
+			List.fold_left (fun (pgpus, pcis) vgpu -> create_vgpu ~__context ~vm vgpu pgpus pcis)
+				(pgpus, []) vgpus
+		in
+		pcis
+	end else
+		[]
 
 let clear_vgpus ~__context ~vm =
 	let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
