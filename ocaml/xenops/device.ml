@@ -1523,36 +1523,41 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] dmpath l in
-	Forkhelpers.dontwaitpid pid;
 
 	debug "qemu-dm: should be running in the background (stdout and stderr redirected to %s)" log;
 
-	(* We know qemu is ready (and the domain may be unpaused) when
-	   device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
-        let dm_ready = xs.Xs.getdomainpath domid ^ "/device-misc/dm-ready" in
-	begin
-	  try
-	    ignore(Watch.wait_for ~xs ~timeout (Watch.value_to_appear dm_ready))
-	  with Watch.Timeout _ ->
-	    debug "qemu-dm: timeout waiting for %s" dm_ready;
-	    raise (Ioemu_failed ("Timeout waiting for " ^ dm_ready))
-	end;
+	(* There are two common-cases:
+	   1. (in development) the qemu process may crash
+	   2. (in production) We know qemu is ready (and the domain may be unpaused) when
+	      device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
 
-	(* If the wrapper script didn't write its pid to the store then fail *)
-	let qemu_pid = ref 0 in
+    let dm_ready = xs.Xs.getdomainpath domid ^ "/device-misc/dm-ready" in
+	let qemu_pid = Forkhelpers.getpid pid in
+	debug "qemu-dm: pid = %d. Waiting for device-misc/dm-ready" qemu_pid;
+	(* We can't block for both a xenstore key and a process disappearing so we
+	   block for 5s at a time *)
 	begin
-	  try
-	    qemu_pid := int_of_string (xs.Xs.read qemu_pid_path);
-	  with _ ->
-	    debug "qemu-dm: Failed to read qemu pid from xenstore (normally written by qemu-dm-wrapper)";
-	    raise (Ioemu_failed "Failed to read qemu-dm pid from xenstore")
+		let finished = ref false in
+		let start = Unix.gettimeofday () in
+		while Unix.gettimeofday () -. start < timeout && not !finished do
+			try
+				ignore(Watch.wait_for ~xs ~timeout:5. (Watch.value_to_appear dm_ready));
+				finished := true
+			with Watch.Timeout _ ->
+				begin match Forkhelpers.waitpid_nohang pid with
+					| 0, Unix.WEXITED 0 -> () (* still running *)
+					| _, Unix.WEXITED n ->
+						error "qemu-dm: unexpected exit with code: %d" n;
+						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+					| _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+						error "qemu-dm: unexpected signal: %d" n;
+						raise (Ioemu_failed "qemu-dm exitted unexpectedly")
+				end
+		done
 	end;
-	debug "qemu-dm: pid = %d" !qemu_pid;
-
-	(* Verify that qemu still exists at this point (of course it might die anytime) *)
-	let qemu_alive = try Unix.kill !qemu_pid 0; true with _ -> false in
-	if not qemu_alive then
-		raise (Ioemu_failed (Printf.sprintf "The qemu-dm process (pid %d) has vanished" !qemu_pid));
+		
+	(* At this point we expect qemu to outlive us; we will never call waitpid *)	
+	Forkhelpers.dontwaitpid pid;
 
 	(* Block waiting for it to write the VNC port into the store *)
 	if wait_for_port then (
@@ -1562,7 +1567,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 			int_of_string port
 		with Watch.Timeout _ ->
 			warn "qemu-dm: Timed out waiting for qemu's VNC server to start";
-			raise (Ioemu_failed (Printf.sprintf "The qemu-dm process (pid %d) failed to write a vnc port" !qemu_pid)) 
+			raise (Ioemu_failed (Printf.sprintf "The qemu-dm process (pid %d) failed to write a vnc port" qemu_pid)) 
 	) else
 		(-1)	
 
