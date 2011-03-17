@@ -575,6 +575,10 @@ let open_database ~__context ~self =
 		debug "%s" "Attaching VDI for metadata import";
 		Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason
 	in
+	let detach vdi =
+		debug "%s" "Detaching VDI after metadata import";
+		Static_vdis.permanent_vdi_detach ~__context ~vdi
+	in
 	(* Open the database contained in the VDI *)
 	let db_ref_of_attached_vdi reason =
 		(* Read db to temporary file *)
@@ -589,25 +593,22 @@ let open_database ~__context ~self =
 		Db_ref.update_database db_ref (fun db -> Database.reindex db);
 		db_ref
 	in
-	let detach vdi =
-		debug "%s" "Detaching VDI after metadata import";
-		Static_vdis.permanent_vdi_detach ~__context ~vdi
+	let reason = Printf.sprintf "%s %s"
+		Xapi_globs.foreign_metadata_vdi_reason
+		(Db.VDI.get_uuid ~__context ~self)
 	in
 	try
-		let reason = Printf.sprintf "%s %s"
-			Xapi_globs.foreign_metadata_vdi_reason
-			(Db.VDI.get_uuid ~__context ~self)
-		in
-		debug "Attaching database VDI to master with reason [%s]" reason;
 		attach self reason;
-		debug "%s" "Attempting to read database";
 		let db_ref = db_ref_of_attached_vdi reason in
-		debug "%s" "Detaching metadata VDI";
 		detach self;
 		(* Create a new session to query the database, and associate it with the db ref *)
 		debug "%s" "Creating readonly session";
 		let read_only_session = Xapi_session.create_readonly_session ~__context in
 		Db_backend.register_session_with_database read_only_session db_ref;
 		read_only_session
-	with _ ->
-		raise (Api_errors.Server_error(Api_errors.could_not_import_database, []))
+	with e ->
+		(* Make sure to detach if either the attach or database read fail. *)
+		detach self;
+		let error = Printexc.to_string e in
+		debug "Caught %s while trying to open database" error;
+		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [error]))
