@@ -1520,6 +1520,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ (if info.pci_passthrough then ["-priv"] else [])
 	   @ xenclient_specific_options
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
+	   @ [ "-monitor"; "pty"; "-vnc"; "127.0.0.1:1" ]
 		in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] dmpath l in
