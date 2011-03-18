@@ -714,13 +714,13 @@ let get_top ~__context ~self =
   | [] -> Ref.null
   | ancestry -> List.nth ancestry ((List.length ancestry)-1)
 
-let create_readonly_session ~__context =
-	debug "%s" "Creating readonly session.";
-	let permissions = Rbac_static.get_refs Rbac_static.permissions_of_role_read_only in
-	debug "Session has %d permissions" (List.length permissions);
+(* This function should only be called from inside XAPI. *)
+let create_readonly_session ~__context ~uname =
+	debug "Creating readonly session.";
+	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
+	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	let master = Db.Pool.get_master ~__context ~self:pool in
-	login_no_password ~__context ~uname:None ~host:master ~pool:true
-		~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:""
-		~auth_user_name:(Ref.string_of master)
-		~rbac_permissions:(List.map Ref.string_of permissions)
+	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
+		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
+		~auth_user_name:uname ~rbac_permissions
