@@ -2269,7 +2269,54 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vmpp_destroy;
       flags=[];
     };
-    
+		"appliance-create",
+		{
+			reqd=["name_label"];
+			optn=["name_description"];
+			help="Create a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_create;
+			flags=[];
+		};
+		"appliance-destroy",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Destroy a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_destroy;
+			flags=[];
+		};
+		"appliance-start",
+		{
+			reqd=["uuid"];
+			optn=["paused"];
+			help="Start a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_start;
+			flags=[];
+		};
+		"appliance-shutdown",
+		{
+			reqd=["uuid"];
+			optn=["force"];
+			help="Shut down all VMs in a VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_shutdown;
+			flags=[];
+		};
+	"vgpu-create",
+	{
+		reqd=["vm-uuid";"gpu-group-uuid"];
+		optn=[]; (* "device" should be added here once we allow >1 vGPU/VM *)
+		help="Create a vGPU.";
+		implementation=No_fd Cli_operations.vgpu_create;
+		flags=[];
+	};
+	"vgpu-destroy",
+	{
+		reqd=["uuid"];
+		optn=[];
+		help="Destroy a vGPU.";
+		implementation=No_fd Cli_operations.vgpu_destroy;
+		flags=[];
+	};
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

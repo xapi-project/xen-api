@@ -183,7 +183,11 @@ val create :
   ha_restart_priority:string ->
   tags:string list -> blocked_operations:'a ->
   protection_policy:[ `VMPP ] Ref.t ->
-  is_snapshot_from_vmpp:bool
+  is_snapshot_from_vmpp:bool ->
+  appliance:API.ref_VM_appliance ->
+  start_delay:int64 ->
+  shutdown_delay:int64 ->
+  order:int64
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :

@@ -51,7 +51,9 @@ let clear_all_device_status_fields ~__context ~self =
 		Db.VIF.set_currently_attached ~__context ~self ~value:false;
 		Db.VIF.set_status_code ~__context ~self ~value:0L;
 		Db.VIF.set_status_detail ~__context ~self ~value:""
-	) (Db.VM.get_VIFs ~__context ~self)
+	) (Db.VM.get_VIFs ~__context ~self);
+	Pciops.unassign_all_for_vm ~__context self;
+	Vgpuops.clear_vgpus ~__context ~vm:self
 
 (* Called on VM.start codepath only to validate current VM parameters *)
 let check_vm_parameters ~__context ~self ~snapshot =
@@ -137,24 +139,6 @@ let create_vifs ~__context ~xs vifs =
 	   vif.Vm_config.devid vif.Vm_config.domid (ExnHelper.string_of_exn e) Api_errors.cannot_plug_vif;
 	 raise (Api_errors.Server_error (Api_errors.cannot_plug_vif, [ Ref.string_of vif.Vm_config.vif_ref ]))
     ) vifs
-
-(* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
-   xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
-   multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
-let sort_pcidevs devs =
-	let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
-	List.map (fun id ->
-				  id, (List.map snd (List.filter (fun (x, _) -> x = id) devs))
-			 ) ids 
-
-let attach_pcis ~__context ~xc ~xs ~hvm domid pcis =
-  Helpers.log_exn_continue "attach_pcis"
-	  (fun () ->
-		   List.iter (fun (devid, devs) ->
-						  Device.PCI.bind devs;
-						  Device.PCI.add ~xc ~xs ~hvm ~msitranslate:0 ~pci_power_mgmt:0 devs domid devid
-					 ) (sort_pcidevs pcis)
-	  ) ()
 
 (* Called on both VM.start and VM.resume codepaths to create vcpus in xenstore *)
 let create_cpus ~xs snapshot domid =
@@ -505,71 +489,13 @@ let destroy ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate
 	if clear_currently_attached
 	then clear_all_device_status_fields ~__context ~self
 
-let pcidevs_of_vm ~__context ~vm =
-	let other_config = Db.VM.get_other_config ~__context ~self:vm in
-	let devs = try String.split ',' (List.assoc "pci" other_config) with Not_found -> [] in
-	let devs = List.fold_left (fun acc dev ->
-		try
-			Scanf.sscanf dev "%d/%04x:%02x:%02x.%01x"
-			             (fun id a b c d -> (id, (a, b, c, d))) :: acc
-		with _ -> acc
-	) [] devs in
-	(* Preserve the configured order *)
-	let devs = List.rev devs in
-	if devs <> [] 
-	then Rbac.assert_permission ~__context ~permission:Rbac_static.permission_internal_vm_plug_pcidevs;
-	devs
-
-(* Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
-let plug_pcidevs_noexn ~__context ~vm domid pcidevs =
-  Helpers.log_exn_continue "plug_pcidevs"
-    (fun () ->
-       if List.length pcidevs > 0 then begin
-	 (* XXX: PCI passthrough needs a lot of work *)
-	 Vmopshelpers.with_xc_and_xs
-	   (fun xc xs ->
-	      if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
-			List.iter 
-				(fun (_, devices) ->
-					 Device.PCI.bind devices;
-					 List.iter
-						 (fun ((a, b, c, d) as device) ->
-							  debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
-							  Device.PCI.plug ~xc ~xs device domid
-						 ) devices
-				) (sort_pcidevs pcidevs)
-	      end
-	   )
-       end;
-    ) ()
-
-(* Hot unplug the PCI devices from the domain. Note this is done serially due to a limitation of the
-   xenstore protocol. *)
-let unplug_pcidevs_noexn ~__context ~vm domid pcidevs = 
-  Helpers.log_exn_continue "unplug_pcidevs"
-	  (fun () ->
-		   Vmopshelpers.with_xc_and_xs
-			   (fun xc xs ->
-					if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
-					  List.iter
-						  (fun (devid, devices) ->
-							  List.iter
-								  (fun device ->
-									   debug "requesting hotunplug of PCI device %s" (Device.PCI.to_string device);
-									   Device.PCI.unplug ~xc ~xs device domid;
-								  ) devices
-						  ) (sort_pcidevs pcidevs)
-					end
-			   )
-	  ) ()
-
 let has_platform_flag platform feature =
   try bool_of_string (List.assoc feature platform) with _ -> false
 
 (* Create the qemu-dm device emulator process. Has to be done after the
    disks and vifs have already been added.
    Returns the port number of the default VNC console. *)
-let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statefile domid vifs snapshot =
+let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statefile ?pci_passthrough domid vifs snapshot =
 	let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max
 	and mem_max_kib = Int64.div snapshot.API.vM_memory_static_max 1024L in
 	let other_config = snapshot.API.vM_other_config in
@@ -638,7 +564,10 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		      default_disp_usb
 		  end else default_disp_usb		    
 		in
-
+		let pci_passthrough = match pci_passthrough with
+			| None -> List.mem_assoc "pci" other_config
+			| Some p -> p
+		in
 		let info = {
 			Device.Dm.memory = mem_max_kib;
 			Device.Dm.boot = boot;
@@ -649,8 +578,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			Device.Dm.usb = usb;
 			Device.Dm.acpi = acpi;
 			Device.Dm.disp = disp;
-			Device.Dm.pci_passthrough = List.mem_assoc "pci" other_config;
-
+			Device.Dm.pci_passthrough = pci_passthrough;
 			Device.Dm.xenclient_enabled=Xapi_globs.xenclient_enabled;
 			Device.Dm.hvm=hvm;
 			Device.Dm.sound=None;
@@ -767,7 +695,8 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 	) else (
 		Domain.pv_restore ~xc ~xs domid ~static_max_kib ~target_kib ~vcpus fd;
 	);
-	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile domid vifs at_boot_time in
+	let vncport = create_device_emulator ~__context ~xc ~xs ~self ~restore:true ?vnc_statefile
+		domid vifs at_boot_time in
 	(* write in the current policy info *)
 	write_memory_policy ~xs { at_boot_time with API.
 		vM_memory_dynamic_min = Db.VM.get_memory_dynamic_min ~__context ~self;
@@ -811,6 +740,7 @@ let restore ~__context ~xc ~xs ~self start_paused =
 
   let reservation_id = Memory_control.reserve_memory ~__context ~xc ~xs ~kib:memory_required_kib in
   let domid = create ~__context ~xc ~xs ~self ~reservation_id snapshot () in
+  let other_pcidevs = Pciops.other_pcidevs_of_vm ~__context ~vm:self in
 
   Xapi_xenops_errors.handle_xenops_error
     (fun () ->
@@ -877,7 +807,7 @@ let restore ~__context ~xc ~xs ~self start_paused =
 
 	   debug "Vmops.restore: %s unpausing domain" (if start_paused then "not" else "");
 	   if not start_paused then Domain.unpause ~xc domid;
-	   plug_pcidevs_noexn ~__context ~vm:self domid (pcidevs_of_vm ~__context ~vm:self);
+	   Pciops.plug_pcis ~__context ~vm:self domid [] other_pcidevs;
     )
 
 
@@ -985,7 +915,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		Memory_control.balance_memory ~__context ~xc ~xs;
 		debug "suspend phase 1/4: hot-unplugging any PCI devices";
 		let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
-		if hvm then unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
+		if hvm then Pciops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
 		Sm_fs_ops.with_new_fs_vdi __context
 			~name_label:"Suspend image" ~name_description:"Suspend image"
 			~sR:suspend_SR ~_type:`suspend ~required_space
@@ -1146,9 +1076,6 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 					progress_cb 0.35;
 					if Xapi_globs.xenclient_enabled then
 						Domain.cpuid_apply ~xc ~hvm domid;
-					(* XXX: PCI passthrough needs a lot of work *)
-					let pcidevs =
-						(match pcidevs with Some x -> x | None -> pcidevs_of_vm ~__context ~vm) in
 					(* Attach and activate reqd vdis: if exn occurs then we do best
 					   effort cleanup -- that is detach and deactivate -- and then
 					   propogate original exception. We need an exn handler around
@@ -1179,8 +1106,12 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								let vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 								create_vifs ~__context ~xs vifs;
 								progress_cb 0.70;
-								if not hvm
-									then attach_pcis ~__context ~xc ~xs ~hvm domid pcidevs;
+								let pcis = Vgpuops.create_vgpus ~__context ~vm domid hvm in
+								let other_pcidevs =
+									match pcidevs with Some x -> x | None -> Pciops.other_pcidevs_of_vm ~__context ~vm in
+								let pci_passthrough = pcis <> [] || other_pcidevs <> [] in
+								if not hvm then
+									Pciops.attach_pcis ~__context ~xc ~xs ~hvm domid other_pcidevs;
 								if (Xapi_globs.xenclient_enabled)
 									&& (not hvm)
 									&& (has_platform_flag snapshot.API.vM_platform "pv_qemu")
@@ -1191,8 +1122,9 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								debug "creating device emulator";
 								let vncport =
 									create_device_emulator
-										~__context ~xc ~xs ~self:vm domid vifs snapshot in
-								if hvm then plug_pcidevs_noexn ~__context ~vm domid pcidevs;
+										~__context ~xc ~xs ~self:vm ~pci_passthrough domid vifs snapshot in
+								if hvm then
+									Pciops.plug_pcis ~__context ~vm domid pcis other_pcidevs;
 								create_console ~__context ~vM:vm ~vncport ();
 								debug "writing memory policy";
 								write_memory_policy ~xs snapshot domid;
@@ -1246,3 +1178,4 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 					(* Return a nice exception if we can *)
 					raise (Xapi_xenops_errors.to_api_error exn)
 			end)
+

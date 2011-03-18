@@ -261,7 +261,10 @@ let start ~__context ~vm ~start_paused:paused ~force =
 							  Monitor_master.update_all ~__context (Monitor.read_all_dom0_stats ());
 							*)
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Running
-						)
+						);
+						
+						let start_delay = Db.VM.get_start_delay ~__context ~self:vm in
+						Thread.delay (Int64.to_float start_delay)
 					) ()))
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
@@ -636,7 +639,9 @@ let hard_shutdown ~__context ~vm =
 		let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
 		record_shutdown_details ~__context ~vm Xal.Halted "external" action;
 		let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_shutdown"; clean=false } in
-		retry_on_conflict args (of_action action)
+		retry_on_conflict args (of_action action);
+		let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+		Thread.delay (Int64.to_float shutdown_delay)
 	with
 		| Api_errors.Server_error(code, _)
 				when code = Api_errors.vm_bad_power_state ->
@@ -660,7 +665,9 @@ let clean_shutdown ~__context ~vm =
   let action = Db.VM.get_actions_after_shutdown ~__context ~self:vm in
   record_shutdown_details ~__context ~vm Xal.Halted "external" action;
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_shutdown"; clean=true } in
-  retry_on_conflict args (of_action action)
+	retry_on_conflict args (of_action action);
+	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
+	Thread.delay (Int64.to_float shutdown_delay)
 
 (***************************************************************************************)
 
@@ -735,7 +742,10 @@ let suspend  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-		   assert_ha_always_run_is_false ~__context ~vm;
+			assert_ha_always_run_is_false ~__context ~vm;
+			(* We don't support suspend/resume while PCI devices have been passed through (yet). *)
+			if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
+				raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
 			Stats.time_this "VM suspend"
 			(fun () ->
 				let domid = Helpers.domid_of_vm ~__context ~self:vm in
@@ -847,6 +857,10 @@ let create ~__context
 		~blocked_operations
 		~protection_policy
 		~is_snapshot_from_vmpp
+		~appliance
+		~start_delay
+		~shutdown_delay
+		~order
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -891,6 +905,10 @@ let create ~__context
 		~blocked_operations
 		~protection_policy
 		~is_snapshot_from_vmpp
+		~appliance
+		~start_delay
+		~shutdown_delay
+		~order
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -948,6 +966,9 @@ let revert ~__context ~snapshot =
 let checkpoint ~__context ~vm ~new_name =
 	if not (Pool_features.is_enabled ~__context Features.Checkpoint) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+	(* We don't support VM checkpointing while PCI devices have been passed through (yet). *)
+	else if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
+		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]))
 	else begin
 		Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))

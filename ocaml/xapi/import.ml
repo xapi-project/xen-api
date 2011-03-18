@@ -419,6 +419,46 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
   in
     state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
 
+(** Lookup the GPU group by GPU_types only. Currently, the GPU_types field contains the prototype
+ *  of just a single pGPU. We would probably have to extend this function once we support GPU groups
+ *  for multiple compatible GPU types. *)
+let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : unit = 
+	let gpu_group_record = API.From.gPU_group_t "" x.snapshot in
+	let group =
+		let groups = Client.GPU_group.get_all_records rpc session_id in
+		try
+			let group, _ =
+				List.find (fun (_, groupr) ->
+					groupr.API.gPU_group_GPU_types = gpu_group_record.API.gPU_group_GPU_types) groups
+			in
+			group
+		with Not_found ->
+			if config.vm_metadata_only then
+				(* In vm_metadata_only mode the GPU group must exist *)
+				let msg =
+					Printf.sprintf "Unable to find GPU group with matching GPU_types = '[%s]'"
+						(String.concat "," gpu_group_record.API.gPU_group_GPU_types)
+				in
+				error "%s" msg;
+				raise (Failure msg)
+			else
+				(* In normal mode we attempt to create any missing GPU groups *)
+				let group =
+					log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
+						(String.concat "," gpu_group_record.API.gPU_group_GPU_types))
+						(fun value -> Client.GPU_group.create_from_record rpc session_id value) gpu_group_record
+				in
+				(* Only add task flag to GPU groups which get created in this import *)
+				TaskHelper.operate_on_db_task ~__context (fun t ->
+					(try Db.GPU_group.remove_from_other_config ~__context ~self:group ~key:Xapi_globs.import_task
+					with _ -> ());
+				Db.GPU_group.add_to_other_config ~__context ~self:group ~key:Xapi_globs.import_task
+					~value:(Ref.string_of t));
+				state.cleanup <- (fun __context rpc session_id -> Client.GPU_group.destroy rpc session_id group) :: state.cleanup;
+				group
+	in
+	state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
+
 (** Create a new VBD record, add the reference to the table. 
     The VM and VDI must already have been handled first.
     If the VDI doesn't exist and the VBD is a CDROM then eject it.
@@ -514,6 +554,41 @@ let handle_vif __context config rpc session_id (state: state) (x: obj) : unit =
 
   state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table
 
+(** Create a new VGPU record, add the reference to the table.
+    The VM and GPU_group must have already been handled first. *)
+let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
+	let vgpu_record = API.From.vGPU_t "" x.snapshot in
+
+	let get_vgpu () = Client.VGPU.get_by_uuid rpc session_id vgpu_record.API.vGPU_uuid in
+	let vgpu_exists () = try ignore (get_vgpu ()); true with _ -> false in
+
+	if config.full_restore && vgpu_exists () then begin
+		let vgpu = get_vgpu () in
+		state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table;
+		state.table <- (x.cls, Ref.string_of vgpu, Ref.string_of vgpu) :: state.table
+	end else
+
+	let vm = log_reraise 
+		("Failed to find VGPU's VM: " ^ (Ref.string_of vgpu_record.API.vGPU_VM))
+		(lookup vgpu_record.API.vGPU_VM) state.table in
+	let group = log_reraise
+		("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
+		(lookup vgpu_record.API.vGPU_GPU_group) state.table in
+	let vgpu_record = { vgpu_record with
+		API.vGPU_VM = vm;
+		API.vGPU_GPU_group = group
+	} in
+	let vgpu = log_reraise "failed to create VGPU" (fun value ->
+		let vgpu = Client.VGPU.create_from_record rpc session_id value in
+		if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
+		vgpu) vgpu_record
+	in
+	state.cleanup <- (fun __context rpc session_id -> Client.VGPU.destroy rpc session_id vgpu) :: state.cleanup;
+	(* Now that we can import/export suspended VMs we need to preserve the currently_attached flag *)
+	if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
+		Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:vgpu_record.API.vGPU_currently_attached;
+	state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table
+
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers = 
   [
@@ -523,8 +598,10 @@ let handlers =
     Datamodel._vm_guest_metrics, handle_gm;
     Datamodel._vm, handle_vm;
     Datamodel._network, handle_net;
+    Datamodel._gpu_group, handle_gpu_group;
     Datamodel._vbd, handle_vbd;
-    Datamodel._vif, handle_vif
+    Datamodel._vif, handle_vif;
+	Datamodel._vgpu, handle_vgpu;
   ]
 
 let update_snapshot_and_parent_links ~__context state =
