@@ -21,6 +21,9 @@ let create ~__context ~tagged_PIF ~tag ~network =
   let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
   
+  if Db.PIF.get_bond_slave_of ~__context ~self:tagged_PIF <> Ref.null then
+    raise (Api_errors.Server_error (Api_errors.cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]));
+  
   (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
   let origtag = Db.PIF.get_VLAN ~__context ~self:tagged_PIF in
   if origtag >= 0L && not (Xapi_fist.allow_vlan_on_vlan()) then raise (Api_errors.Server_error (Api_errors.pif_is_vlan, [Ref.string_of tagged_PIF]));
