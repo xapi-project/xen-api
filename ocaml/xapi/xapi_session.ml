@@ -145,7 +145,8 @@ let destroy_db_session ~__context ~self =
 let revalidate_external_session ~__context ~session =
 	try
 	(* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
-	if not (Db.Session.get_is_local_superuser ~__context ~self:session) then
+	(* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
+	if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered session) then
 
 	(* 1. is the external authentication disabled in the pool? *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
