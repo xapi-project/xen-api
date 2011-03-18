@@ -134,6 +134,11 @@ let vif_operation_to_string = function
   | `plug -> "plug"
   | `unplug -> "unplug"
 
+let vm_appliance_operation_to_string = function
+  | `start -> "start"
+  | `clean_shutdown -> "clean_shutdown"
+  | `hard_shutdown -> "hard_shutdown"
+
 let cpu_feature_to_string f =
   match f with
     `FPU -> "FPU"

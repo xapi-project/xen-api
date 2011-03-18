@@ -100,6 +100,10 @@ let gc_VIFs ~__context =
        let metrics = Db.VIF.get_metrics ~__context ~self in
        (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ());
        Db.VIF.destroy ~__context ~self)
+let gc_VGPUs ~__context =
+  gc_connector ~__context Db.VGPU.get_all Db.VGPU.get_record (fun x->valid_ref __context x.vGPU_VM) (fun x->valid_ref __context x.vGPU_GPU_group)
+    (fun ~__context ~self ->
+       Db.VGPU.destroy ~__context ~self)
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
 let gc_Host_patches ~__context =
@@ -435,6 +439,7 @@ let single_pass () =
 					gc_crashdumps ~__context;
 					gc_VIFs ~__context;
 					gc_PBDs ~__context;
+					gc_VGPUs ~__context;
 					gc_Host_patches ~__context;
 					gc_host_cpus ~__context;
 					timeout_sessions ~__context;
