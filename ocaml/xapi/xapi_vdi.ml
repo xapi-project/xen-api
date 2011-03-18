@@ -585,12 +585,12 @@ let open_database ~__context ~self =
 		let log = Redo_log.create () in
 		debug "Enabling redo_log with vdi_attach reason [%s]" reason;
 		Redo_log.enable log reason;
-		let db = Db_cache_types.Database.make Schema.empty in
+		let db = Db_cache_types.Database.make (Datamodel_schema.of_datamodel ()) in
 		let db_ref = Db_ref.in_memory (ref (ref db)) in
 		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
 		Redo_log.delete log;
 		(* Reindex database to make sure is_valid_ref works. *)
-		Db_ref.update_database db_ref (fun db -> Database.reindex db);
+		Db_ref.update_database (db_ref) (Database.reindex ++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
 		db_ref
 	in
 	let reason = Printf.sprintf "%s %s"
