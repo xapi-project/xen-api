@@ -418,10 +418,8 @@ let assert_can_boot_here_common
 			Ref.string_of (List.hd not_available)
 		]));
 
-	(* Also, for each of the available networks, we need to ensure that host  *)
-	(* can bring it up on the specified host; i.e. it doesn't shaft a network *)
-	(* on that host (i.e. one that's attached to an enslaved PIF) that we     *)
-	(* currently require. *)
+	(* Also, for each of the available networks, we need to ensure that we can bring it
+	 * up on the specified host; i.e. it doesn't need an enslaved PIF. *)
 	List.iter
 		(fun network->
 			try
@@ -429,8 +427,7 @@ let assert_can_boot_here_common
 					(Xapi_network_attach_helpers.assert_can_attach_network_on_host
 						~__context
 						~self:network
-						~host
-						~overide_management_if_check:false)
+						~host)
 					(* throw exception more appropriate to this context: *)
 			with exn ->
 				debug

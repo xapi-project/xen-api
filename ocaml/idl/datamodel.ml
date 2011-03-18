@@ -432,6 +432,10 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_has_no_network_configuration [ ]
     ~doc:"PIF has no IP configuration (mode curently set to 'none')" ();
+  error Api_errors.cannot_plug_bond_slave ["PIF"]
+    ~doc:"This PIF is a bond slave and cannot be plugged." ();
+  error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
+    ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
   error Api_errors.slave_requires_management_iface []
     ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]
