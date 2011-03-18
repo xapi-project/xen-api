@@ -75,3 +75,5 @@ let unregister_session session =
 	Mutex.execute db_registration_mutex (fun () ->
 		Hashtbl.remove foreign_databases session)
 
+let is_session_registered session =
+	Hashtbl.mem foreign_databases session
