@@ -603,7 +603,7 @@ let open_database ~__context ~self =
 		detach self;
 		(* Create a new session to query the database, and associate it with the db ref *)
 		debug "%s" "Creating readonly session";
-		let read_only_session = Xapi_session.create_readonly_session ~__context in
+		let read_only_session = Xapi_session.create_readonly_session ~__context ~uname:"disaster-recovery" in
 		Db_backend.register_session_with_database read_only_session db_ref;
 		read_only_session
 	with e ->
