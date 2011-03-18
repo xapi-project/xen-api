@@ -452,7 +452,7 @@ let find_or_create_metadata_vdi ~__context ~sr =
 			Client.VDI.create ~rpc ~session_id ~name_label:"Metadata for DR"
 				~name_description:"Used for disaster recovery"
 				~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata ~sharable:false
-				~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[])
+				~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[])
 		in
 		Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false;
 		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
