@@ -80,8 +80,6 @@ val forget : __context:Context.t -> self:API.ref_PIF -> unit
  *  corresponding networks are present and up-to-date. Uses {!introduce_internal}. *)
 val scan : __context:Context.t -> host:[ `host ] Ref.t -> unit
 
-val scan_bios : __context:Context.t -> host:[ `host ] Ref.t -> [ `PIF ] Ref.t list
-
 (** External facing call to create a new VLAN interface
  * @deprecated since Miami; use [VLAN.create] instead *)
 val create_VLAN :

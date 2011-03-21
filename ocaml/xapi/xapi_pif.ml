@@ -426,25 +426,6 @@ let scan ~__context ~host =
 	(* Make sure the right PIF(s) are marked as management PIFs *)
 	update_management_flags ~__context ~host
 
-let scan_bios ~__context ~host =
-	let t = make_tables ~__context ~host in
-
-	let existing_macs = List.map fst t.mac_to_pif_table in
-	let physical_macs = List.map fst t.mac_to_biosname_table in
-
-	(* Create PIF records for the new interfaces *)
-	let new_pifs =
-		List.map
-			(fun mac ->
-				let device = List.assoc mac t.mac_to_phy_table in
-				let device' = List.assoc mac t.mac_to_biosname_table in
-				let mTU = Int64.of_string (Netdev.get_mtu device) in
-				introduce_internal
-					~t ~__context ~host ~mAC:mac ~mTU ~vLAN:(-1L)
-					~vLAN_master_of:Ref.null ~device:device' ())
-			(List.set_difference physical_macs existing_macs) in
-	new_pifs
-
 (* DEPRECATED! Rewritten to use VLAN.create. *)
 let create_VLAN ~__context ~device ~network ~host ~vLAN =
 	(* Find the "tagged PIF" (same device, no VLAN tag) *)
