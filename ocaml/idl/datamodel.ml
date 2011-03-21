@@ -4218,10 +4218,21 @@ let bond_destroy = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let bond_set_mode = call
+	~name:"set_mode"
+	~doc:"Change the bond mode"
+	~params:[
+		Ref _bond, "self", "The bond";
+		bond_mode, "value", "The new bond mode";
+	]
+	~lifecycle:[Published, rel_boston, ""]
+	~allowed_roles:_R_POOL_OP
+	()
+
 let bond = 
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ bond_create; bond_destroy ] 
+    ~messages:[ bond_create; bond_destroy; bond_set_mode ] 
     ~contents:
     [ uid _bond;
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));

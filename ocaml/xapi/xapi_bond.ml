@@ -180,7 +180,11 @@ let fix_bond ~__context ~bond =
 		move_management ~__context management_pif master
 	| [] -> ()
 	end
-	
+
+let string_of_mode = function
+	| `balanceslb -> "balance-slb"
+	| `activebackup -> "active-backup"
+
 let create ~__context ~network ~members ~mAC ~mode =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
@@ -352,4 +356,17 @@ let destroy ~__context ~self =
 	(* Destroy the Bond and master PIF *)
 	Db.Bond.destroy ~__context ~self;
 	Db.PIF.destroy ~__context ~self:master
+
+let set_mode ~__context ~self ~value =
+	Db.Bond.set_mode ~__context ~self ~value;
+	let master = Db.Bond.get_master ~__context ~self in
+
+	(* Temporary measure for compatibility with current interface-reconfigure.
+	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
+	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode value);
+
+	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
+	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
+	Nm.bring_pif_up ~__context master
 
