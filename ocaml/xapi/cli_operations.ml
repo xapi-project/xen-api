@@ -3297,6 +3297,12 @@ let bond_destroy printer rpc session_id params =
 	let bond = Client.Bond.get_by_uuid rpc session_id uuid in
 	Client.Bond.destroy rpc session_id bond
 
+let bond_set_mode printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let bond = Client.Bond.get_by_uuid rpc session_id uuid in
+	let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+	Client.Bond.set_mode rpc session_id bond mode
+
 let host_disable printer rpc session_id params =
 	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.disable rpc session_id (host.getref ())) params [])
 
