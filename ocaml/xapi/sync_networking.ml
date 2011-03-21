@@ -42,6 +42,8 @@ let copy_bonds_from_master ~__context =
 			 * slaves. If it is then we will use this to ensure that we inherit the MAC address from the _same_
 			 * slave when we re-create on the slave *)
 			let master_bond_mac = Db.PIF.get_MAC ~__context ~self:bond.API.bond_master in
+			(* The bond mode used on the master. We will use the same mode on the slave, when creating a new bond. *)
+			let bond_mode = bond.API.bond_mode in
 			let master_slaves_with_same_mac_as_bond (* expecting a list of at most 1 here *) =
 				List.filter (fun (pifref,mac,device) -> mac=master_bond_mac) slaves_to_mac_and_device_map in
 			(* This tells us the device that the master used to inherit the bond's MAC address
@@ -91,7 +93,7 @@ let copy_bonds_from_master ~__context =
 				warn "Cannot create bond %s at all: no PIFs exist on slave" bond.API.bond_uuid
 			| [], _ ->
 				(* No bond currently exists but some slave interfaces do -> create a (partial?) bond *)
-				let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" in ()
+				let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" bond_mode in ()
 			| [ _, { API.pIF_bond_master_of = [ slave_bond ] } ], _ ->
 				(* Some bond exists, check whether the existing set of slaves is the same as the potential set *)
 				let current_slave_pifs = Db.Bond.get_slaves ~__context ~self:slave_bond in
@@ -99,7 +101,7 @@ let copy_bonds_from_master ~__context =
 				begin
 					debug "Partial bond exists; recreating";
 					Client.Bond.destroy rpc session_id slave_bond;
-					let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" in ()
+					let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" bond_mode in ()
 				end
 			| [ _, { API.pIF_uuid = uuid } ], _ ->
 				warn "Couldn't create bond on slave because PIF %s already on network %s"
