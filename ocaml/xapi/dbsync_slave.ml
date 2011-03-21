@@ -502,17 +502,10 @@ let resynchronise_pif_params ~__context =
 			if pif_r.API.pIF_management <> management then begin
 				Db.PIF.set_management ~__context ~self:pif ~value:management;
 				debug "PIF %s management <- %b" (Ref.string_of pif) management;
-			end;
-			(* sync MTU *)
-			try
-				let mtu = Int64.of_string (Netdev.get_mtu pif_r.API.pIF_device) in
-				if pif_r.API.pIF_MTU <> mtu then begin
-					Db.PIF.set_MTU ~__context ~self:pif ~value:mtu;
-					debug "PIF %s MTU <- %Ld" (Ref.string_of pif) mtu;
-				end;
-			with _ ->
-				debug "could not update MTU field on PIF %s" (Db.PIF.get_uuid ~__context ~self:pif)
-		) pifs       
+			end
+		) pifs;
+		(* sync MACs and MTUs *)
+		Xapi_pif.refresh_all ~__context ~host:(Helpers.get_localhost ~__context)
 
 (** Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
