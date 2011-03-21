@@ -17,7 +17,53 @@ open D
 module L = Debug.Debugger (struct let name="license" end)
 
 open Listext
+open Pervasiveext
 open Stringext
+open Fun
+
+let refresh_internal ~__context ~self =
+
+	let device = Db.PIF.get_device ~__context ~self in
+
+	(* Update the specified PIF field in the database, if
+	 * and only if a corresponding value can be read from
+	 * the underlying network device and if that value is
+	 * different from the current field value.
+	 *)
+	let maybe_update_database
+			field_name get_field set_field get_value print_value =
+		Opt.iter
+			(fun value ->
+				if value <> (get_field ~__context ~self)
+				then begin
+					debug "PIF %s %s <- %s"
+						(Ref.string_of self)
+						(field_name)
+						(print_value value);
+					set_field ~__context ~self ~value
+				end)
+			(Opt.of_exception (fun () -> get_value device)) in
+
+	maybe_update_database "MAC"
+		(Db.PIF.get_MAC)
+		(Db.PIF.set_MAC)
+		(Netdev.get_address)
+		(id);
+	maybe_update_database "MTU"
+		(Db.PIF.get_MTU)
+		(Db.PIF.set_MTU)
+		(Int64.of_string ++ Netdev.get_mtu)
+		(Int64.to_string)
+
+let refresh ~__context ~host ~self =
+	assert (host = Helpers.get_localhost ~__context);
+	refresh_internal ~__context ~self
+
+let refresh_all ~__context ~host =
+	assert (host = Helpers.get_localhost ~__context);
+	List.iter
+		(fun (self, _) -> refresh_internal ~__context ~self)
+		(Helpers.get_my_pifs ~__context)
 
 let bridge_naming_convention (device: string) =
 	if String.startswith "eth" device

@@ -42,7 +42,13 @@ A {i PIF} object in the datamodel represents a network interface and contains re
 *)
 
 (** {2 API functions} *)
-  
+
+(** Refresh the metadata of an existing PIF on the current host. *)
+val refresh : __context:Context.t -> host:[`host] Ref.t -> self:[`PIF] Ref.t -> unit
+
+(** Refresh the metadata of all existing PIFs on the current host. *)
+val refresh_all : __context:Context.t -> host:[`host] Ref.t -> unit
+
 (** Create a new PIF record in the database only *)
 val db_introduce :
   __context:Context.t ->
