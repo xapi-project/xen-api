@@ -181,7 +181,7 @@ let fix_bond ~__context ~bond =
 	| [] -> ()
 	end
 	
-let create ~__context ~network ~members ~mAC =
+let create ~__context ~network ~members ~mAC ~mode =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 
@@ -257,7 +257,7 @@ let create ~__context ~network ~members ~mAC =
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave;
+			~primary_slave ~mode;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
@@ -265,6 +265,10 @@ let create ~__context ~network ~members ~mAC =
 
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
+
+		(* Temporary measure for compatibility with current interface-reconfigure.
+		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
 
 		(* Move VLANs, with their VIFs, from members to master *)
 		debug "Moving VLANs, with their VIFs, from slaves to master";
