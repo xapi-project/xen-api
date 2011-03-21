@@ -490,20 +490,23 @@ let forget ~__context ~self =
 let scan ~__context ~host =
 	let t = make_tables ~__context ~host in
 
-	let existing_macs = List.map fst t.mac_to_pif_table in
-	let physical_macs = List.map fst t.mac_to_phy_table in
+	refresh_all ~__context ~host;
+	let devices_not_yet_represented_by_pifs =
+		List.set_difference
+			(List.map fst t.device_to_mac_table)
+			(List.map snd t.pif_to_device_table) in
 
 	(* Create PIF records for the new interfaces *)
 	List.iter
-		(fun mac ->
-			let device = List.assoc mac t.mac_to_phy_table in
+		(fun device ->
+			let mAC = List.assoc device t.device_to_mac_table in
 			let mTU = Int64.of_string (Netdev.get_mtu device) in
 			let (_: API.ref_PIF) =
 				introduce_internal
-					~t ~__context ~host ~mAC:mac ~mTU ~vLAN:(-1L)
+					~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
 					~vLAN_master_of:Ref.null ~device () in
 			())
-		(List.set_difference physical_macs existing_macs);
+		(devices_not_yet_represented_by_pifs);
 
 	(* Make sure the right PIF(s) are marked as management PIFs *)
 	update_management_flags ~__context ~host
