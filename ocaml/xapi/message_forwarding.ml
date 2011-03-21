@@ -2570,11 +2570,6 @@ end
       info "PIF.scan: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.PIF.scan ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan rpc session_id host)
-	
-    let scan_bios ~__context ~host = 
-      info "PIF.scan_bios: host = '%s'" (host_uuid ~__context host);
-      let local_fn = Local.PIF.scan_bios ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.scan_bios rpc session_id host)
 
     let introduce ~__context ~host ~mAC ~device = 
       info "PIF.introduce: host = '%s'; MAC adress = '%s'; device = '%s'" (host_uuid ~__context host) mAC device;
