@@ -568,7 +568,8 @@ let check_network_reset () =
 					);
 				
 				(* Introduce PIFs for remaining interfaces *)
-				let pifs = Xapi_pif.scan_bios ~__context ~host in
+				Xapi_pif.scan ~__context ~host;
+				let pifs = Db.PIF.get_all ~__context in
 				
 				(* Introduce and configure the management PIF *)
 				let pif = List.find (fun p -> Db.PIF.get_MAC ~__context ~self:p = mAC) pifs in
