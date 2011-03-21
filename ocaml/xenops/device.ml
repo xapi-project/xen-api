@@ -527,6 +527,12 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
 
+	if hvm && dev_type = CDROM then
+	  (* CA-50383: Don't place physical-device in the HVM CDROM
+ 	     case, to prevent blkback from pinning the device node. A
+ 	     Vbd.media_eject will only make qemu close it again. *)
+	  Hashtbl.remove back_tbl "physical-device";
+
 	let back = Hashtbl.to_list back_tbl in
 	let front = Hashtbl.to_list front_tbl in
 

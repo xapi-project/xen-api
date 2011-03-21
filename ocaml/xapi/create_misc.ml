@@ -186,6 +186,10 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~guest_metrics:Ref.null ~metrics
 		~bios_strings:[] ~protection_policy:Ref.null
 		~is_snapshot_from_vmpp:false
+		~appliance:Ref.null
+		~start_delay:0L
+		~shutdown_delay:0L
+		~order:0L
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
@@ -485,4 +489,11 @@ let create_host_cpu ~__context =
 			~utilisation:0. ~flags ~stepping ~model ~family
 			~features:"" ~other_config:[])
 	done
+
+let create_chipset_info ~__context =
+	let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc) in
+	let host = Helpers.get_localhost ~__context in
+	let iommu = string_of_bool (String.has_substr xen_dmesg "I/O virtualisation enabled") in
+	let info = ["iommu", iommu] in
+	Db.Host.set_chipset_info ~__context ~self:host ~value:info
 

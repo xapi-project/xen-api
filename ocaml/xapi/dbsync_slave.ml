@@ -241,7 +241,10 @@ let update_vms ~xal ~__context =
 			if Db.is_valid_ref __context vif
 			then Events.Resync.vif ~__context token vmref vif
 	      with e ->
-		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs
+		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs;
+		try Events.Resync.pci ~__context token vmref
+		with e ->
+			warn "Caught error resynchronising PCIs: %s" (ExnHelper.string_of_exn e);
       ) () in
 
   (* We call a domain "managed" if we have some kind of vm record for
@@ -613,4 +616,17 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
 	  refresh_local_vdi_activations ~__context;
-  )
+  );
+
+  switched_sync Xapi_globs.sync_chipset_info (fun () ->
+    Create_misc.create_chipset_info ~__context;
+  );
+
+  switched_sync Xapi_globs.sync_pci_devices (fun () ->
+    Xapi_pci.update_pcis ~__context ~host:localhost;
+  );
+
+  switched_sync Xapi_globs.sync_gpus (fun () ->
+    Xapi_pgpu.update_gpus ~__context ~host:localhost;
+  );
+

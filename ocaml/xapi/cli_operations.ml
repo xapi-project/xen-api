@@ -193,8 +193,8 @@ let diagnostic_license_status printer rpc session_id params =
 	let hosts = List.map (fun h -> [ h.hostname;
 		String.sub h.uuid 0 8;
 		Features.to_compact_string h.rstr;
-		h.edition_short; 
-		string_of_bool (h.edition = "free");				
+		h.edition_short;
+		string_of_bool (h.edition = "free");
 		Date.to_string (Date.of_float h.expiry);
 		Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
 	]) host_licenses in
@@ -703,7 +703,6 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.VM.get_all) (Client.VM.get_all_records_where) (Client.VM.get_by_uuid) (vm_record) "snapshot" [("is-a-snapshot","true")] ["name-label";"name-description";"uuid";"snapshot_of"; "snapshot_time"; "is-snapshot-from-vmpp"] rpc session_id) @
 		(make_param_funs (Client.Host.get_all) (Client.Host.get_all_records_where) (Client.Host.get_by_uuid) (host_record) "host" [] ["uuid";"name-label";"name-description"] rpc session_id) @
 		(make_param_funs (Client.Host_cpu.get_all) (Client.Host_cpu.get_all_records_where) (Client.Host_cpu.get_by_uuid) (host_cpu_record) "host-cpu" [] ["uuid";"number";"vendor";"speed";"utilisation"] rpc session_id) @
-
 		(make_param_funs (Client.Host_crashdump.get_all) (Client.Host_crashdump.get_all_records_where) (Client.Host_crashdump.get_by_uuid) (host_crashdump_record) "host-crashdump" [] ["uuid";"host";"timestamp";"size"] rpc session_id) @
 		(make_param_funs (Client.Pool_patch.get_all) (Client.Pool_patch.get_all_records_where) (Client.Pool_patch.get_by_uuid) (pool_patch_record) "patch" [] ["uuid"; "name-label"; "name-description"; "size"; "hosts"; "after-apply-guidance"] rpc session_id) @
 		(make_param_funs (Client.VDI.get_all) (Client.VDI.get_all_records_where) (Client.VDI.get_by_uuid) (vdi_record) "vdi" [] ["uuid";"name-label";"name-description";"virtual-size";"read-only";"sharable";"sr-uuid"] rpc session_id) @
@@ -719,8 +718,12 @@ let gen_cmds rpc session_id =
 		(*
 		  (make_param_funs (Client.Blob.get_all) (Client.Blob.get_all_records_where) (Client.Blob.get_by_uuid) (blob_record) "blob" [] ["uuid";"mime-type"] rpc session_id) @
 		 *)
-		(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id)
-	@ (make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id)
+		(make_param_funs (Client.Message.get_all) (Client.Message.get_all_records_where) (Client.Message.get_by_uuid) (message_record) "message" [] [] rpc session_id) @
+		(make_param_funs (Client.Secret.get_all) (Client.Secret.get_all_records_where) (Client.Secret.get_by_uuid) (secret_record) "secret" [] [] rpc session_id) @
+		(make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id) @
+		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
+		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
+		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
@@ -1440,7 +1443,11 @@ let vm_create printer rpc session_id params =
 		~actions_after_shutdown:`destroy ~actions_after_reboot:`restart ~actions_after_crash:`destroy ~pV_bootloader:""
 		~pV_kernel:"" ~pV_ramdisk:"" ~pV_args:"" ~pV_bootloader_args:"" ~pV_legacy_args:"" ~hVM_boot_policy:""
 		~hVM_boot_params:[] ~hVM_shadow_multiplier:1. ~platform:[] ~pCI_bus:"" ~other_config:[] ~xenstore_data:[] ~recommendations:"" ~ha_always_run:false ~ha_restart_priority:""
-		~tags:[] ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false in
+		~tags:[] ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
+		~appliance:Ref.null
+		~start_delay:0L
+		~shutdown_delay:0L
+		~order:0L in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
@@ -1971,8 +1978,9 @@ let vm_install_real printer rpc session_id template name description params =
 
 	let sr_ref =
 		if Client.VM.get_is_a_snapshot rpc session_id template then
-			if (List.mem_assoc "sr-name-label" params
-			    || List.mem_assoc "sr-uuid" params) then
+			if false
+				|| (List.mem_assoc "sr-name-label" params
+				|| List.mem_assoc "sr-uuid" params) then
 				failwith "Do not use the sr-name-label or sr-uuid argument when installing from a snapshot. By default, it will install each new disk on the same SR as the corresponding snapshot disks."
 			else Some Ref.null
 		else None in
@@ -1981,7 +1989,7 @@ let vm_install_real printer rpc session_id template name description params =
 
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
-		| None -> 
+		| None ->
 			if List.mem_assoc "sr-uuid" params then
 				let uuid = List.assoc "sr-uuid" params in
 				Some (Client.SR.get_by_uuid rpc session_id uuid)
@@ -2005,24 +2013,24 @@ let vm_install_real printer rpc session_id template name description params =
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
 		| None ->
-			let all_empty_cd_driver = 
+			let all_empty_cd_driver =
 				let vbds = Client.VM.get_VBDs rpc session_id template in
 				let is_empty_cd_drive vbd =
 					Client.VBD.get_type rpc session_id vbd = `CD
 					&& Client.VBD.get_empty rpc session_id vbd in
 				List.for_all is_empty_cd_drive vbds in
-			let no_provision_disk = 
+			let no_provision_disk =
 				let other_config = Client.VM.get_other_config rpc session_id template in
 				not (List.mem_assoc "disks" other_config)
 				|| List.assoc "disks" other_config = ""
 				|| (Xml.parse_string (List.assoc "disks" other_config)
-				    = Xml.Element("provision", [], [])) in
+				= Xml.Element("provision", [], [])) in
 			if all_empty_cd_driver && no_provision_disk then Some Ref.null
 			else None in
 
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
-		| None -> 
+		| None ->
 			let pool = List.hd (Client.Pool.get_all rpc session_id) in
 			let sr = Client.Pool.get_default_SR rpc session_id pool in
 			Some sr in
@@ -2289,7 +2297,7 @@ let vm_migrate printer rpc session_id params =
 	if not (List.mem_assoc "host" params) then failwith "No destination host specified";
 	let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
 	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["live"; "encrypt"] params) in
-	ignore(do_vm_op printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
 		params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
 
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
@@ -3894,7 +3902,7 @@ let session_subject_identifier_logout_all printer rpc session_id params =
 
 let secret_create printer rpc session_id params =
 	let value = List.assoc "value" params in
-        let other_config = read_map_params "other-config" params in
+	let other_config = read_map_params "other-config" params in
 	let ref = Client.Secret.create ~rpc ~session_id ~value ~other_config in
 	let uuid = Client.Secret.get_uuid ~rpc ~session_id ~self:ref in
 	printer (Cli_printer.PList [uuid])
@@ -3945,3 +3953,50 @@ let vmpp_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let ref = Client.VMPP.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.VMPP.destroy ~rpc ~session_id ~self:ref
+
+let vm_appliance_create printer rpc session_id params =
+	let name_label = List.assoc "name_label" params in
+	let name_description =
+		if List.mem_assoc "name_description" params then
+			List.assoc "name_description" params
+		else ""
+	in
+	let ref = Client.VM_appliance.create ~rpc ~session_id ~name_label ~name_description in
+	let uuid = Client.VM_appliance.get_uuid ~rpc ~session_id ~self:ref in
+	printer (Cli_printer.PList [uuid])
+
+let vm_appliance_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.VM_appliance.destroy ~rpc ~session_id ~self:ref
+
+let vm_appliance_start printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let paused = get_bool_param params "paused" in
+	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.VM_appliance.start ~rpc ~session_id ~self:ref ~paused
+
+let vm_appliance_shutdown printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let force = get_bool_param params "force" in
+	let ref = Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid in
+	if force then
+		Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
+	else
+		Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
+
+let vgpu_create printer rpc session_id params =
+	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
+	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
+	let vm_uuid=List.assoc "vm-uuid" params in
+	let vM=Client.VM.get_by_uuid rpc session_id vm_uuid in
+	let gPU_group=Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid in
+	let vgpu = Client.VGPU.create ~rpc ~session_id ~device ~gPU_group ~vM ~other_config:[] in
+	let uuid = Client.VGPU.get_uuid rpc session_id vgpu in
+	printer (Cli_printer.PList [uuid])
+
+let vgpu_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let vgpu = Client.VGPU.get_by_uuid rpc session_id uuid in
+	Client.VGPU.destroy rpc session_id vgpu
+

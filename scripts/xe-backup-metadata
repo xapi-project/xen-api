@@ -148,6 +148,7 @@ if [ -z "${vdi_uuid}" ]; then
   ${XE} vdi-param-set uuid=${vdi_uuid} other-config:ctxs-pool-backup=true
 else
   ${debug} echo "Using existing backup VDI: ${vdi_uuid}"
+  fs_uninitialised=0
 fi
 
 if [ ${just_find_vdi} -gt 0 ]; then

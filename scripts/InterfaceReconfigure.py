@@ -283,6 +283,7 @@ _ETHTOOL_OTHERCONFIG_ATTRS = ['ethtool-%s' % x for x in 'autoneg', 'speed', 'dup
 
 _PIF_OTHERCONFIG_ATTRS = [ 'domain', 'peerdns', 'defaultroute', 'mtu', 'static-routes' ] + \
                         [ 'bond-%s' % x for x in 'mode', 'miimon', 'downdelay', 'updelay', 'use_carrier' ] + \
+			[ 'vlan-bug-workaround' ] + \
                         _ETHTOOL_OTHERCONFIG_ATTRS
 
 _PIF_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
@@ -331,7 +332,11 @@ _BOND_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                           lambda n: _strlist_from_xml(n, 'slaves', 'slave')),
               }
 
-_NETWORK_OTHERCONFIG_ATTRS = [ 'mtu', 'static-routes', 'vswitch-controller-fail-mode' ] + _ETHTOOL_OTHERCONFIG_ATTRS
+_NETWORK_OTHERCONFIG_ATTRS = [ 'mtu',
+                               'static-routes',
+                               'vswitch-controller-fail-mode',
+                               'vswitch-disable-in-band' ] \
+                               + _ETHTOOL_OTHERCONFIG_ATTRS
 
 _NETWORK_ATTRS = { 'uuid': (_str_to_xml,_str_from_xml),
                    'bridge': (_str_to_xml,_str_from_xml),

@@ -348,6 +348,9 @@ let sync_pif_params = "sync_pif_params"
 let sync_patch_update_db = "sync_patch_update_db"
 let sync_pbd_reset = "sync_pbd_reset"
 let sync_bios_strings = "sync_bios_strings"
+let sync_chipset_info = "sync_chipset_info"
+let sync_pci_devices = "sync_pci_devices"
+let sync_gpus = "sync_gpus"
 
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
@@ -610,7 +613,7 @@ let old_hp_bios_strings =
 	 "hp-rombios", "COMPAQ"]
 
 
-let permanent_master_failure_retry_timeout = 5. *. 60. (* 5 minutes *)
+let permanent_master_failure_retry_timeout = 1. *. 60. (* 1 minute *)
 
 (** {2 CPUID feature masking} *)
 

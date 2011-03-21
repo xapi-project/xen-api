@@ -579,6 +579,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
     ~cpu_info:[]
+	~chipset_info:[]
     ~memory_overhead:0L
     ~sched_policy:"credit"  (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)

@@ -22,7 +22,7 @@ if [ $? -eq 0 ]; then
 
     # if the last command succeeds AND returns true, then we're in upgrade mode
     if [ $? -eq 0 ] && [ ${upgrade_mode} = "true" ]; then
-        echo "This command is not supported while the pool is in rolling upgrade mode. Aborting autostart VMs."
+        logger "$0 is not supported while the pool is in rolling upgrade mode."
         exit 1
     fi
 

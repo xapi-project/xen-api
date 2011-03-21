@@ -197,7 +197,7 @@ let blank_template memory = {
 	vM_VIFs = [];
 	vM_VBDs = [];
 	vM_crash_dumps = [];
-	vM_VTPMs = []; 
+	vM_VTPMs = [];
 	vM_domid = (-1L);
 	vM_domarch = "";
 	vM_last_boot_CPU_flags = [];
@@ -207,10 +207,15 @@ let blank_template memory = {
 	vM_recommendations = (recommendations ());
 	vM_blobs = [];
 	vM_tags = [];
-	
 	vM_bios_strings = [];
-  vM_protection_policy = Ref.null;
-  vM_is_snapshot_from_vmpp = false;
+	vM_protection_policy = Ref.null;
+	vM_is_snapshot_from_vmpp = false;
+	vM_appliance = Ref.null;
+	vM_start_delay = 0L;
+	vM_shutdown_delay = 0L;
+	vM_order = 0L;
+	vM_VGPUs = [];
+	vM_attached_PCIs = [];
 }
 
 let other_install_media_template memory = 
@@ -502,7 +507,7 @@ let create_all_templates rpc session_id =
 
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
-		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike ~is_experimental:true [    ];
+		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false [    ];
 
