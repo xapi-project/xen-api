@@ -470,6 +470,11 @@ let get_my_pbds __context =
   let localhost = Ref.string_of localhost in
     Db.PBD.get_records_where ~__context ~expr:(Eq(Field "host", Literal localhost))
 
+let get_my_pifs ~__context : ([`PIF] Ref.t * API.pIF_t) list =
+	let localhost = get_localhost __context in
+	let localhost = Ref.string_of localhost in
+	Db.PIF.get_records_where ~__context ~expr:(Eq (Field "host", Literal localhost))
+
 (* Return the PBD for specified SR on a specific host *)
 (* Just say an SR is shared if it has more than one PBD *)
 let is_sr_shared ~__context ~self = List.length (Db.SR.get_PBDs ~__context ~self) > 1
