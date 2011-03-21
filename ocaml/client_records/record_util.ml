@@ -326,6 +326,10 @@ let ip_configuration_mode_of_string m =
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'dhcp','none' or 'static', got "^s))
 
+let bond_mode_to_string = function
+	| `balanceslb -> "balance-slb"
+	| `activebackup -> "active-backup"
+
 let bond_mode_of_string m =
 	match String.lowercase m with
 	| "balance-slb" | "" -> `balanceslb
