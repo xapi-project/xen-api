@@ -2471,21 +2471,26 @@ end
 	end
 
   module Bond = struct
-    let create ~__context ~network ~members ~mAC ~mode = 
+    let create ~__context ~network ~members ~mAC ~mode =
       info "Bond.create: network = '%s'; members = [ %s ]"
-	(network_uuid ~__context network) (String.concat "; " (List.map (pif_uuid ~__context) members));
+        (network_uuid ~__context network) (String.concat "; " (List.map (pif_uuid ~__context) members));
       if List.length members = 0
       then raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []));
       let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
       let local_fn = Local.Bond.create ~network ~members ~mAC ~mode in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode)
-  
-    let destroy ~__context ~self = 
+
+    let destroy ~__context ~self =
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
       let local_fn = Local.Bond.destroy ~self in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self)
-							
+
+    let set_mode ~__context ~self ~value =
+      info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
+      let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
+      let local_fn = Local.Bond.set_mode ~self ~value in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_mode rpc session_id self value)
   end
 
   module PIF = struct
