@@ -3287,7 +3287,8 @@ let bond_create printer rpc session_id params =
 	let pifs = List.assoc "pif-uuids" params in
 	let uuids = String.split ',' pifs in
 	let pifs = List.map (fun uuid -> Client.PIF.get_by_uuid rpc session_id uuid) uuids in
-	let bond = Client.Bond.create rpc session_id network pifs mac in
+	let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+	let bond = Client.Bond.create rpc session_id network pifs mac mode in
 	let uuid = Client.Bond.get_uuid rpc session_id bond in
 	printer (Cli_printer.PList [ uuid])
 
