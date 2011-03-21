@@ -4189,13 +4189,22 @@ let pif_metrics =
       ]
 	()
 
+
+let bond_mode =
+	Enum ("bond_mode", [
+		"balance-slb", "Source-level balancing";
+		"active-backup", "Active/passive bonding: only one NIC is carrying traffic";
+	])
+
 let bond_create = call
   ~name:"create"
   ~doc:"Create an interface bond"
-  ~params:[ Ref _network, "network", "Network to add the bonded PIF to";
-	    Set (Ref _pif), "members", "PIFs to add to this bond";
-	    String, "MAC", "The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."
-	  ]
+  ~versioned_params:[
+    {param_type=Ref _network; param_name="network"; param_doc="Network to add the bonded PIF to"; param_release=miami_release; param_default=None};
+    {param_type=Set (Ref _pif); param_name="members"; param_doc="PIFs to add to this bond"; param_release=miami_release; param_default=None};
+    {param_type=String; param_name="MAC"; param_doc="The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."; param_release=miami_release; param_default=None};
+    {param_type=bond_mode; param_name="mode"; param_doc="Bonding mode to use for the new bond"; param_release=boston_release; param_default=Some (VEnum "balance-slb")};
+  ]
   ~result:(Ref _bond, "The reference of the created Bond object")
   ~in_product_since:rel_miami
   ~allowed_roles:_R_POOL_OP
@@ -4219,6 +4228,7 @@ let bond =
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef "")) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
+      field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:bond_mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
     ]
     ()
 
