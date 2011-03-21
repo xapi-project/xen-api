@@ -1446,8 +1446,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "pif-introduce",
     { 
-      reqd=["host-uuid"; "mac"; "device"];
-      optn=[];
+      reqd=["host-uuid"; "device"];
+      optn=["mac"];
       help="Create a new PIF object representing a physical interface on a host.";
       implementation=No_fd Cli_operations.pif_introduce;
       flags=[];
