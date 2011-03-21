@@ -379,28 +379,20 @@ let introduce ~__context ~host ~mAC ~device =
 				(Api_errors.duplicate_pif_device_name, [device])))
 		(existing_pifs);
 
-	(* Make sure the MAC exists *)
-	let devices = Netdev.get_by_address mAC in
-	match List.filter Netdev.is_physical devices with
-		| [] ->
-			raise (Api_errors.Server_error
-				(Api_errors.mac_does_not_exist, [ mAC ]))
-		| [ device' ] ->
-			if List.mem_assoc mAC t.mac_to_pif_table
-			then List.assoc mAC t.mac_to_pif_table
-			else begin
-				info
-					"Introducing PIF MAC = %s; current device = %s; requested device = %s"
-					mAC device' device;
-				let mTU = Int64.of_string (Netdev.get_mtu device') in
-				introduce_internal
-					~t ~__context ~host ~mAC ~device ~mTU
-					~vLAN:(-1L) ~vLAN_master_of:Ref.null ()
-			end
-		| _ ->
-			failwith
-				(Printf.sprintf
-					"Multiple physical NICs with MAC %s found" mAC)
+	(* Assert that a network interface exists with *
+	 * the specified device name and MAC address.  *)
+	if not (List.mem (mAC, device) t.mac_to_phy_table)
+	then raise (Api_errors.Server_error (Api_errors
+		.could_not_find_network_interface_with_specified_device_name_and_mac_address,
+		[device; mAC]));
+
+	info
+		"Introducing PIF: device = %s; MAC = %s"
+		device mAC;
+	let mTU = Int64.of_string (Netdev.get_mtu device) in
+	introduce_internal
+		~t ~__context ~host ~mAC ~device ~mTU
+		~vLAN:(-1L) ~vLAN_master_of:Ref.null ()
 
 let forget ~__context ~self =
 	assert_not_in_bond ~__context ~self;

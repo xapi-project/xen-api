@@ -108,6 +108,7 @@ let mac_still_exists = "MAC_STILL_EXISTS"
 let mac_does_not_exist = "MAC_DOES_NOT_EXIST"
 let mac_invalid = "MAC_INVALID"
 let duplicate_pif_device_name = "DUPLICATE_PIF_DEVICE_NAME"
+let could_not_find_network_interface_with_specified_device_name_and_mac_address = "COULD_NOT_FIND_NETWORK_INTERFACE_WITH_SPECIFIED_DEVICE_NAME_AND_MAC_ADDRESS"
 
 let openvswitch_not_active = "OPENVSWITCH_NOT_ACTIVE"
 let transport_pif_not_configured = "TRANSPORT_PIF_NOT_CONFIGURED"
