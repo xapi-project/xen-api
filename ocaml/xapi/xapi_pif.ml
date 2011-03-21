@@ -363,6 +363,17 @@ let update_management_flags ~__context ~host =
 		(my_pifs)
 
 let introduce ~__context ~host ~mAC ~device =
+
+	(* Allow callers to omit the MAC address. Ideally, we should
+	 * use an option type (instead of treating the empty string
+	 * as a special value). However we must preserve the existing
+	 * function signature as it appears in the published API.
+	 *)
+	let mAC =
+		if mAC = ""
+		then try Netdev.get_address device with _ -> ""
+		else mAC in
+
 	if not (Helpers.is_valid_MAC mAC)
 	then raise (Api_errors.Server_error
 		(Api_errors.mac_invalid, [mAC]));
