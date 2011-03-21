@@ -451,6 +451,8 @@ let _ =
     ~doc:"The MAC address specified is not valid." ();
   error Api_errors.duplicate_pif_device_name [ "device" ]
     ~doc:"A PIF with this specified device name already exists." ();
+  error Api_errors.could_not_find_network_interface_with_specified_device_name_and_mac_address [ "device"; "mac" ]
+    ~doc:"Could not find a network interface with the specified device name and MAC address." ();
 
   error Api_errors.vlan_tag_invalid ["VLAN"]
     ~doc:"You tried to create a VLAN, but the tag you gave was invalid -- it must be between 0 and 4094.  The parameter echoes the VLAN tag you gave." ();
