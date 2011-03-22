@@ -1432,6 +1432,24 @@ let vm_appliance_record rpc session_id vm_appliance =
 			]
 	}
 
+let dr_task_record rpc session_id dr_task =
+	let _ref = ref dr_task in
+	let empty_record = ToGet (fun () ->
+		Client.DR_task.get_record ~rpc ~session_id ~self:!_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record);
+		setrefrec = (fun (a, b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields =
+			[
+				make_field ~name:"uuid" ~get:(fun () -> (x ()).API.dR_task_uuid) ();
+				make_field ~name:"introduced-SRs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.dR_task_introduced_SRs)) ();
+			]
+	}
+
 
 (*let record_from_ref rpc session_id ref =
   let all = [

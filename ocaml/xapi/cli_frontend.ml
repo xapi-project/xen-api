@@ -2342,6 +2342,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 		implementation=No_fd Cli_operations.vgpu_destroy;
 		flags=[];
 	};
+		"drtask-create",
+		{
+			reqd=["type"; "device-config"; "sr-whitelist"];
+			optn=[];
+			help="Create a disaster recovery task.";
+			implementation=No_fd Cli_operations.dr_task_create;
+			flags=[]
+		};
+		"drtask-destroy",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Destroy a disaster recovery task.";
+			implementation=No_fd Cli_operations.dr_task_destroy;
+			flags=[]
+		};
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =
