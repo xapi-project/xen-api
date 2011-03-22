@@ -737,6 +737,10 @@ let management_reconfigure ~__context ~pif =
   if Db.Pool.get_ha_enabled ~__context ~self:pool 
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
+  (* Plugging a bond slave is not allowed *)
+  if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
+    raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]));
+    
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
 

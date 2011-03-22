@@ -20,10 +20,6 @@ open D
 
 open Db_filter
 
-(* REMOVE: unused function that does not return anything useful anyway
-let get_allowed_messages ~__context ~self = []
-*)
-
 let create_internal_bridge ~bridge ~uuid =
   debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
   let current = Netdev.network.Netdev.list () in
@@ -32,10 +28,14 @@ let create_internal_bridge ~bridge ~uuid =
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost ~__context in
-  let shafted_pifs, local_pifs = 
-    Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host ~overide_management_if_check:management_interface in
+  let local_pifs =
+    Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host in
 
+  let pifs = Db.Network.get_PIFs ~__context ~self in
+  (* There really should be only one local PIF by construction *)
+  let local_pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) pifs in
   let bridge = Db.Network.get_bridge ~__context ~self in
+
   let uuid = Db.Network.get_uuid ~__context ~self in
 
   (* Ensure internal bridge exists and is up. external bridges will be
@@ -48,14 +48,6 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
     && (List.assoc Xapi_globs.is_guest_installer_network other_config = "true")
   then Xapi_network_real.maybe_start bridge other_config;
 
-  (* Mark shafted PIFs as not currently_attached *)
-  List.iter
-    (fun pif ->
-       let uuid = Db.PIF.get_uuid ~__context ~self:pif in
-       debug "Marking PIF as detached: %s" uuid;
-       Db.PIF.set_currently_attached ~__context ~self:pif ~value:false)
-    shafted_pifs;
-  
   (* Create the new PIF.
      NB if we're doing this as part of a management-interface-reconfigure then
      we might be just about to loose our current management interface... *)
@@ -162,6 +154,7 @@ let destroy ~__context ~self =
 	Db.Network.destroy ~__context ~self
 
 let create_new_blob ~__context ~network ~name ~mime_type =
-  let blob = Xapi_blob.create ~__context ~mime_type in
-  Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
-  blob
+	let blob = Xapi_blob.create ~__context ~mime_type in
+	Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
+	blob
+

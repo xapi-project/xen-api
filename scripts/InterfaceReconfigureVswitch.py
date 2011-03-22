@@ -1,4 +1,4 @@
-# Copyright (c) 2008,2009 Citrix Systems, Inc.
+# Copyright (c) 2008,2009,2011 Citrix Systems, Inc.
 # Copyright (c) 2009,2010,2011 Nicira Networks.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -37,6 +37,49 @@ def netdev_up(netdev, mtu=None):
         mtu = []
 
     run_command(["/sbin/ifconfig", netdev, 'up'] + mtu)
+
+# This is a list of drivers that do support VLAN tx or rx acceleration, but
+# to which the VLAN bug workaround should not be applied.  This could be
+# because these are known-good drivers (that is, they do not have any of
+# the bugs that the workaround avoids) or because the VLAN bug workaround
+# will not work for them and may cause other problems.
+#
+# This is a very short list because few drivers have been tested.
+NO_VLAN_WORKAROUND_DRIVERS = (
+    "bonding",
+)
+def netdev_get_driver_name(netdev):
+    """Returns the name of the driver for network device 'netdev'"""
+    symlink = '%s/sys/class/net/%s/device/driver' % (root_prefix(), netdev)
+    try:
+        target = os.readlink(symlink)
+    except OSError, e:
+        log("%s: could not read netdev's driver name (%s)" % (netdev, e))
+        return None
+
+    slash = target.rfind('/')
+    if slash < 0:
+        log("target %s of symbolic link %s does not contain slash"
+            % (target, symlink))
+        return None
+
+    return target[slash + 1:]
+
+def netdev_get_features(netdev):
+    """Returns the features bitmap for the driver for 'netdev'.
+    The features bitmap is a set of NETIF_F_ flags supported by its driver."""
+    try:
+        features = open("%s/sys/class/net/%s/features" % (root_prefix(), netdev)).read().strip()
+        return int(features, 0)
+    except:
+        return 0 # interface prolly doesn't exist
+
+def netdev_has_vlan_accel(netdev):
+    """Returns True if 'netdev' supports VLAN acceleration, False otherwise."""
+    NETIF_F_HW_VLAN_TX = 128
+    NETIF_F_HW_VLAN_RX = 256
+    NETIF_F_VLAN = NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX
+    return (netdev_get_features(netdev) & NETIF_F_VLAN) != 0
 
 #
 # PIF miscellanea
@@ -351,6 +394,7 @@ def configure_datapath(pif):
 
     pool = db().get_pool_record()
     network = db().get_network_by_bridge(bridge)
+    network_rec = None
     fail_mode = None
     valid_fail_modes = ['standalone', 'secure']
 
@@ -365,6 +409,15 @@ def configure_datapath(pif):
         fail_mode = 'standalone'
 
     vsctl_argv += ['--', 'set', 'Bridge', bridge, 'fail_mode=%s' % fail_mode]
+
+    if network_rec:
+        dib = network_rec['other_config'].get('vswitch-disable-in-band')
+        if not dib:
+            vsctl_argv += ['--', 'remove', 'Bridge', bridge, 'other_config', 'disable-in-band']
+        elif dib in ['true', 'false']:
+            vsctl_argv += ['--', 'set', 'Bridge', bridge, 'other_config:disable-in-band=' + dib]
+        else:
+            log('"' + dib + '"' "isn't a valid setting for other_config:disable-in-band on " + bridge)
 
     vsctl_argv += set_br_external_ids(pif)
     vsctl_argv += ['## done configuring datapath %s' % bridge]
@@ -465,6 +518,10 @@ class DatapathVswitch(Datapath):
         dpname = pif_bridge_name(self._dp)
         
         if pif_is_vlan(self._pif):
+            # In some cases XAPI may misguidedly leave an instance of
+            # 'bridge' which should be deleted.
+            vsctl_argv += ['--', '--if-exists', 'del-br', bridge]
+
             # configure_datapath() set up the underlying datapath bridge.
             # Stack a VLAN bridge on top of it.
             vsctl_argv += ['--', '--may-exist', 'add-br',
@@ -530,6 +587,20 @@ class DatapathVswitch(Datapath):
                 run_command(['/sbin/ethtool', '-s', dev] + settings)
             if len(offload):
                 run_command(['/sbin/ethtool', '-K', dev] + offload)
+
+            driver = netdev_get_driver_name(dev)
+            if 'vlan-bug-workaround' in oc:
+                vlan_bug_workaround = oc['vlan-bug-workaround'] == 'true'
+            elif driver in NO_VLAN_WORKAROUND_DRIVERS:
+                vlan_bug_workaround = False
+            else:
+                vlan_bug_workaround = netdev_has_vlan_accel(dev)
+
+            if vlan_bug_workaround:
+                setting = 'on'
+            else:
+                setting = 'off'
+            run_command(['/usr/sbin/ovs-vlan-bug-workaround', dev, setting])
 
         datapath_modify_config(self._vsctl_argv)
 
