@@ -815,7 +815,15 @@ let eject ~__context ~host =
 			(fun () ->
 				Unix.rename 
 				Xapi_globs.remote_db_conf_fragment_path
-				(Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ()
+				(Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ();
+			(* Reset the domain 0 network interface naming configuration
+			 * back to a fresh-install state for the currently-installed
+			 * hardware.
+			 *)
+			ignore
+				(Forkhelpers.execute_command_get_output
+					"/etc/sysconfig/network-scripts/interface-rename.py"
+					["--reset-to-install"]);
 		)
 		(fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject());
 		Xapi_hooks.pool_eject_hook ~__context
