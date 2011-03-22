@@ -23,21 +23,10 @@ val assert_network_has_no_vifs_in_use_on_me :
 (** Raises an exception when the [disallow_unplug] flag is set *)
 val assert_pif_disallow_unplug_not_set :
   __context:Context.t -> [ `PIF ] Ref.t -> unit
-  
-(** Raises an exception if the network cannot be attached.
- *  Returns a list of {i shafted} PIFs and a list of {i local} PIFs.
- 
- * Cannot attach this network if it has a PIF AND this PIF 'shafts'
- * some other PIF which is attached to a network which is 'in-use'.
- * Bringing a bond master up, or a VLAN on a bond, shafts the bond slaves;
- * similarly, bringing a bond slave up shafts its master + that master's VLANs;
- * but sibling slaves don't shaft each other.
- *
- * There should be only one local PIF by construction.
- *)
+
+(** Raises an exception if the network cannot be attached. *)
 val assert_can_attach_network_on_host :
   __context:Context.t ->
   self:[ `network ] Ref.t ->
   host:[ `host ] Ref.t ->
-  overide_management_if_check:bool ->
-  [ `PIF ] Ref.t list * [ `PIF ] Ref.t list
+  [ `PIF ] Ref.t list

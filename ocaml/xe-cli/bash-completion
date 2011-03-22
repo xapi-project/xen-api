@@ -44,6 +44,9 @@ _xe()
 				if [ "${COMP_WORDS[1]}" == "pif-reconfigure-ip" ]; then
 					IFS=$'\n,'
 					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
+				elif [ "${COMP_WORDS[1]}" == "bond-set-mode" ] || [ "${COMP_WORDS[1]}" == "bond-create" ]; then
+					IFS=$'\n,'
+					COMPREPLY=( $(compgen -W "balance-slb ,active-backup" -- ${value}) )
 				fi
 				return 0
 				;;

@@ -328,98 +328,31 @@ let scan_bios ~__context ~host =
 	in
 	new_pifs
 
-(* Dummy MAC used by the VLAN *)
-let vlan_mac = "fe:ff:ff:ff:ff:ff"
-
-(* should be moved to Xapi_vlan.ml after removing create_VLAN and destroy *)
-(* Used both externally and by PIF.create_VLAN *)
-let vLAN_create ~__context ~tagged_PIF ~tag ~network = 
-  let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
-  assert_no_other_local_pifs ~__context ~host ~network;
-  
-  (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
-  let origtag = Db.PIF.get_VLAN ~__context ~self:tagged_PIF in
-  if origtag >= 0L && not (Xapi_fist.allow_vlan_on_vlan()) then raise (Api_errors.Server_error (Api_errors.pif_is_vlan, [Ref.string_of tagged_PIF]));
- 
-  (* Check the VLAN tag is sensible;  4095 is reserved for implementation use (802.1Q) *)
-  if tag<0L || tag>4094L 
-  then raise (Api_errors.Server_error (Api_errors.vlan_tag_invalid, [Int64.to_string tag]));
-
-  let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
-  let other_keys = List.map (fun self -> 
-			       Db.PIF.get_device ~__context ~self,
-			       Db.PIF.get_VLAN ~__context ~self) other_pifs in
-  let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
-  if List.mem (device, tag) other_keys
-  then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
-
-  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
-    raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of tagged_PIF]));
-		
-  (* Copy the MTU from the base PIF *)
-  let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
-
-  let t = make_tables ~__context ~host in
-  let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-
-  (* NB we attach the untagged PIF to the supplied network *)
-  let untagged_PIF = introduce_internal ~physical:false ~t ~__context ~host ~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network () in
-  let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
-  vlan
-
-(* DEPRECATED! *)
+(* DEPRECATED! Rewritten to use VLAN.create. *)
 let create_VLAN ~__context ~device ~network ~host ~vLAN =
-  (* Find the "base PIF" (same device, no VLAN tag) *)
-  let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
-  let base_pifs = List.filter (fun self -> 
-				 Db.PIF.get_device ~__context ~self = device
-			       && (Db.PIF.get_VLAN ~__context ~self = (-1L))) other_pifs in
-  if List.length base_pifs = 0
-  then raise (Api_errors.Server_error (Api_errors.invalid_value, [ "device"; device ]));
-  let base_pif = List.hd base_pifs in
+	(* Find the "tagged PIF" (same device, no VLAN tag) *)
+	let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
+	let base_pifs = List.filter (fun self -> 
+		Db.PIF.get_device ~__context ~self = device
+		&& (Db.PIF.get_VLAN ~__context ~self = (-1L))) other_pifs in
+	if List.length base_pifs = 0
+	then raise (Api_errors.Server_error (Api_errors.invalid_value, [ "device"; device ]));
+	let tagged_PIF = List.hd base_pifs in
+	let vlan = Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			Client.Client.VLAN.create rpc session_id tagged_PIF vLAN network
+		) in
+	Db.VLAN.get_untagged_PIF ~__context ~self:vlan
 
-  let vlan = vLAN_create ~__context ~tagged_PIF:base_pif ~tag:vLAN ~network in
-  Db.VLAN.get_untagged_PIF ~__context ~self:vlan
-
-(* DEPRECATED! But called by vLAN_destroy!! *)
+(* DEPRECATED! Rewritten to use VLAN.destroy. *)
 let destroy ~__context ~self =
-  debug "PIF.destroy uuid = %s" (Db.PIF.get_uuid ~__context ~self);
-  assert_not_in_bond ~__context ~self;
-  assert_not_slave_management_pif ~__context ~self; 
-  assert_no_protection_enabled ~__context ~self;
-
-  if Db.PIF.get_VLAN ~__context ~self < 0L 
-  then raise (Api_errors.Server_error (Api_errors.pif_is_physical, []));
-  (* Because of the precondition in create_VLAN, this will always be the only PIF
-     connecting this host to the network. Therefore it is safe to detach the network. *)
-  let network = Db.PIF.get_network ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-
-  Nm.bring_pif_down ~__context self;
-
-  Xapi_network.detach bridge;
-
-  (try
-     let metrics = Db.PIF.get_metrics ~__context ~self in
-     Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
-  (try
-     let vlan = Db.PIF.get_VLAN_master_of ~__context ~self in
-     Db.VLAN.destroy ~__context ~self:vlan with _ -> ());
-  Db.PIF.destroy ~__context ~self
-
-(* should be moved to Xapi_vlan.ml after removing create_VLAN and destroy *)
-let vLAN_destroy ~__context ~self =
-  debug "VLAN.destroy uuid = %s" (Db.VLAN.get_uuid ~__context ~self);
-  let untagged_PIF = Db.VLAN.get_untagged_PIF ~__context ~self in
-  (* Check if the untagged_PIF exists, if not we must be an orphaned record *)
-  if try ignore(Db.PIF.get_uuid ~__context ~self:untagged_PIF); false with _ -> true then begin
-    warn "VLAN's untagged PIF doesn't exist -- orphaned record?";
-    Db.VLAN.destroy ~__context ~self
-  end else begin    
-    debug "untagged PIF uuid = %s" (Db.PIF.get_uuid ~__context ~self:untagged_PIF);
-    (* Side-effect of this is to destroy any VLAN object *)
-    destroy ~__context ~self:untagged_PIF
-  end
+	if Db.PIF.get_VLAN ~__context ~self < 0L 
+	then raise (Api_errors.Server_error (Api_errors.pif_is_physical, []));
+	let vlan = Db.PIF.get_VLAN_master_of ~__context ~self in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			Client.Client.VLAN.destroy rpc session_id vlan
+		)
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   assert_no_protection_enabled ~__context ~self;

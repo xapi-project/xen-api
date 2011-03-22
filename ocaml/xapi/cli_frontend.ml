@@ -1474,7 +1474,7 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
    "bond-create",
     {
       reqd=["network-uuid"; "pif-uuids"];
-      optn=["mac"];
+      optn=["mac"; "mode"];
       help="Create a bonded interface from a list of existing PIF objects.";
       implementation=No_fd Cli_operations.bond_create;
       flags=[];
@@ -1486,6 +1486,15 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       optn=[];
       help="Destroy a bonded interface.";
       implementation=No_fd Cli_operations.bond_destroy;
+      flags=[];
+    };
+
+   "bond-set-mode",
+    {
+      reqd=["uuid"; "mode"];
+      optn=[];
+      help="Change the bond mode.";
+      implementation=No_fd Cli_operations.bond_set_mode;
       flags=[];
     };
 

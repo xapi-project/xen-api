@@ -3287,7 +3287,8 @@ let bond_create printer rpc session_id params =
 	let pifs = List.assoc "pif-uuids" params in
 	let uuids = String.split ',' pifs in
 	let pifs = List.map (fun uuid -> Client.PIF.get_by_uuid rpc session_id uuid) uuids in
-	let bond = Client.Bond.create rpc session_id network pifs mac in
+	let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+	let bond = Client.Bond.create rpc session_id network pifs mac mode in
 	let uuid = Client.Bond.get_uuid rpc session_id bond in
 	printer (Cli_printer.PList [ uuid])
 
@@ -3295,6 +3296,12 @@ let bond_destroy printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let bond = Client.Bond.get_by_uuid rpc session_id uuid in
 	Client.Bond.destroy rpc session_id bond
+
+let bond_set_mode printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let bond = Client.Bond.get_by_uuid rpc session_id uuid in
+	let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+	Client.Bond.set_mode rpc session_id bond mode
 
 let host_disable printer rpc session_id params =
 	ignore(do_host_op rpc session_id (fun _ host -> Client.Host.disable rpc session_id (host.getref ())) params [])
