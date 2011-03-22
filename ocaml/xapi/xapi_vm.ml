@@ -1257,12 +1257,6 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
 
 let recover ~__context ~self ~session_to ~force =
-	(* If a VM is part of an appliance, the appliance *)
-	(* should be recovered using VM_appliance.recover *)
-	let appliance = Db.VM.get_appliance ~__context ~self in
-	if appliance <> Ref.null then
-		raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
-			[Ref.string_of self; Ref.string_of appliance]));
 	(* Check the VM SRs are available. *)
 	assert_can_be_recovered ~__context ~self ~session_to;
 	(* Attempt to recover the VM. *)
