@@ -236,9 +236,7 @@ type tables = {
 	device_to_mac_table: (string * string) list;
 	device_to_biosname_table: (string * string) list;
 	pif_to_device_table: (API.ref_PIF * string) list;
-	mac_to_pif_table: (string * API.ref_PIF) list;
-	mac_to_phy_table: (string * string) list;
-	mac_to_biosname_table: (string * string) list}
+}
 
 let make_tables ~__context ~host =
 	let devices =
@@ -249,22 +247,6 @@ let make_tables ~__context ~host =
 		List.filter
 			(fun pif -> Db.PIF.get_physical ~__context ~self:pif)
 			(Db.Host.get_PIFs ~__context ~self:host) in
-	(* Enumerate known MAC addresses *)
-	let existing =
-		List.filter
-			(fun self -> Db.PIF.get_physical ~__context ~self)
-			(Db.Host.get_PIFs ~__context ~self:host) in
-	let existing_macs =
-		List.map
-			(fun self -> Db.PIF.get_MAC ~__context ~self)
-			(existing) in
-	let mac_to_pif_table = List.combine existing_macs existing in
-	(* Enumerate the MAC addresses which really exist in hardware *)
-	let physical = List.filter Netdev.is_physical (Netdev.list ()) in
-	let physical_macs = List.map Netdev.get_address physical in
-	let mac_to_phy_table = List.combine physical_macs physical in
-	let bios_names = List.map Netdev.get_bios_name physical in
-	let mac_to_biosname_table = List.combine physical_macs bios_names in
 	{
 		device_to_mac_table =
 			List.combine
@@ -280,12 +262,6 @@ let make_tables ~__context ~host =
 				(List.map
 					(fun pif -> Db.PIF.get_device ~__context ~self:pif)
 					(pifs));
-		(* One entry for each currently-active PIF. *)
-		mac_to_pif_table = mac_to_pif_table;
-		(* One entry for each currently-active kernel device. *)
-		mac_to_phy_table = mac_to_phy_table;
-		(* One entry for each currently-active kernel device. *)
-		mac_to_biosname_table = mac_to_biosname_table;
 	}
 
 let is_my_management_pif ~__context ~self =

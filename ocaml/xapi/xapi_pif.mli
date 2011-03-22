@@ -135,9 +135,6 @@ type tables = {
 	device_to_mac_table : (string * string) list;
 	device_to_biosname_table : (string * string) list;
 	pif_to_device_table : (API.ref_PIF * string) list;
-  mac_to_pif_table : (string * API.ref_PIF) list;	(** MAC address to PIF reference (all PIFs) *)
-  mac_to_phy_table : (string * string) list;		(** MAC address to kernel device name (all physical interfaces) *)
-  mac_to_biosname_table: (string * string) list;	(** MAC address to BIOS device name (all physical interfaces) *)
 }
 
 (** Construct and return lookup {!tables} with information about the network interfaces *)
