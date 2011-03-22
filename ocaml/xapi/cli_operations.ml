@@ -724,6 +724,7 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
 		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
 		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
+		(make_param_funs (Client.DR_task.get_all) (Client.DR_task.get_all_records_where) (Client.DR_task.get_by_uuid) (dr_task_record) "drtask" [] [] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
@@ -4034,3 +4035,15 @@ let vgpu_destroy printer rpc session_id params =
 	let vgpu = Client.VGPU.get_by_uuid rpc session_id uuid in
 	Client.VGPU.destroy rpc session_id vgpu
 
+let dr_task_create printer rpc session_id params =
+	let _type = List.assoc "type" params in
+	let device_config = parse_device_config params in
+	let whitelist = if List.mem_assoc "sr-whitelist" params then String.split ',' (List.assoc "sr-whitelist" params) else [] in
+	let dr_task = Client.DR_task.create ~rpc ~session_id ~_type ~device_config ~whitelist in
+	let uuid = Client.DR_task.get_uuid ~rpc ~session_id ~self:dr_task in
+	printer (Cli_printer.PList [uuid])
+
+let dr_task_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.DR_task.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.DR_task.destroy ~rpc ~session_id ~self:ref
