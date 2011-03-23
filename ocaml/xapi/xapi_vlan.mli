@@ -33,8 +33,18 @@ Note: Plugging a VLAN master PIF on top of a VLAN slave that is unplugged, does 
 val create :
   __context:Context.t ->
   tagged_PIF:[ `PIF ] Ref.t ->
-  tag:int64 -> network:[ `network ] Ref.t -> [ `VLAN ] Ref.t
-  
+  tag:int64 -> network:[ `network ] Ref.t ->
+  [ `VLAN ] Ref.t
+
+(** Internal version of [create] without checks/exceptions *)
+val create_internal :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  tagged_PIF:[ `PIF ] Ref.t ->
+  tag:int64 -> network:[ `network ] Ref.t ->
+  device:string ->
+  [ `VLAN ] Ref.t * [ `PIF ] Ref.t
+
 (** Destroy a VLAN. Removes the VLAN object as well as the VLAN master PIF. *)
 val destroy : __context:Context.t -> self:[ `VLAN ] Ref.t -> unit
 

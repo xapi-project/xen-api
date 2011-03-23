@@ -58,7 +58,8 @@ let get_local_vms ~__context host =
 
 let move_vlan ~__context new_slave old_vlan vifs =
 	let old_master = Db.VLAN.get_untagged_PIF ~__context ~self:old_vlan in
-	let vlan_tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
+	let tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
+	let old_network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
 	if plugged then
 		Nm.bring_pif_down ~__context old_master;
@@ -66,7 +67,7 @@ let move_vlan ~__context new_slave old_vlan vifs =
 	(* Only create new objects if the tag does not yet exist *)
 	let new_vlan, new_master =
 		let existing_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:new_slave in
-		let same_tag = List.filter (fun v -> Db.VLAN.get_tag ~__context ~self:v = vlan_tag) existing_vlans in
+		let same_tag = List.filter (fun v -> Db.VLAN.get_tag ~__context ~self:v = tag) existing_vlans in
 		match same_tag with
 		| new_vlan :: _ ->
 			(* VLAN with this tag already on bond *)
@@ -75,7 +76,7 @@ let move_vlan ~__context new_slave old_vlan vifs =
 			new_vlan, new_master
 		| [] ->
 			(* VLAN with this tag not yet on bond *)
-			debug "Creating new VLAN %d on bond" (Int64.to_int vlan_tag);
+			debug "Creating new VLAN %d on bond" (Int64.to_int tag);
 			(* Copy the fields from the existing VLAN master PIF *)
 			let mTU = Db.PIF.get_MTU ~__context ~self:old_master in
 			let host = Db.PIF.get_host ~__context ~self:old_master in
@@ -83,24 +84,19 @@ let move_vlan ~__context new_slave old_vlan vifs =
 			let device = Db.PIF.get_device ~__context ~self:new_slave in
 
 			(* Find or create new Network for new VLAN *)
-			let name_label = "VLAN " ^ (Int64.to_string vlan_tag) ^ " on " ^ device in
+			let name_label = "VLAN " ^ (Int64.to_string tag) ^ " on " ^ device in
 			let network = match Db.Network.get_by_name_label ~__context ~label:name_label with
 			| [] -> Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU ~other_config:[] ~tags:[]
 			| network :: _ -> network
 			in
 
 			(* Create new VLAN master PIF and VLAN objects *)
-			let t = Xapi_pif.make_tables ~__context ~host in
-			let new_vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-			let new_master = Xapi_pif.introduce_internal ~physical:false ~t ~__context ~host ~network
-				~mAC:Xapi_vlan.vlan_mac ~device ~vLAN:vlan_tag ~mTU ~vLAN_master_of:new_vlan () in
-			Db.VLAN.create ~__context ~ref:new_vlan ~uuid:vlan_uuid ~tagged_PIF:new_slave ~untagged_PIF:new_master ~tag:vlan_tag ~other_config:[];
-			new_vlan, new_master
+			Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:new_slave ~tag ~network ~device
 	in
 	let new_network = Db.PIF.get_network ~__context ~self:new_master in
 
 	(* Destroy old VLAN and VLAN-master objects *)
-	debug "Destroying old VLAN %d" (Int64.to_int vlan_tag);
+	debug "Destroying old VLAN %d" (Int64.to_int tag);
 	Db.VLAN.destroy ~__context ~self:old_vlan;
 	Db.PIF.destroy ~__context ~self:old_master;
 

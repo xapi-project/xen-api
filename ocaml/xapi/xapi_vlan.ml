@@ -17,6 +17,16 @@ open D
 (* Dummy MAC used by the VLAN *)
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
+let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
+	let t = Xapi_pif.make_tables ~__context ~host in
+	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+	(* Copy the MTU from the base PIF *)
+	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
+	let untagged_PIF = Xapi_pif.introduce_internal ~physical:false ~t ~__context ~host
+		~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network () in
+	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
+	vlan, untagged_PIF
+
 let create ~__context ~tagged_PIF ~tag ~network =
 	let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
@@ -44,15 +54,7 @@ let create ~__context ~tagged_PIF ~tag ~network =
 	if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
 		raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of tagged_PIF]));
 
-	(* Copy the MTU from the base PIF *)
-	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
-
-	let t = Xapi_pif.make_tables ~__context ~host in
-	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-
-	(* NB we attach the untagged PIF to the supplied network *)
-	let untagged_PIF = Xapi_pif.introduce_internal ~physical:false ~t ~__context ~host ~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network () in
-	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
+	let vlan, _ = create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device in
 	vlan
 
 let destroy ~__context ~self =
