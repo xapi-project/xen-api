@@ -15,11 +15,20 @@
  * @group Networking
  *)
 
-(** Create a tunnel with... *)
+(** Create a tunnel for a given transport PIF and network *)
 val create :
   __context:Context.t ->
   transport_PIF:[ `PIF ] Ref.t ->
-  network:[ `network ] Ref.t -> [ `tunnel ] Ref.t
-  
+  network:[ `network ] Ref.t ->
+  [ `tunnel ] Ref.t
+
+(** Internal version of [create] without checks/exceptions and auto-plugging *)
+val create_internal :
+  __context:Context.t ->
+  transport_PIF:[ `PIF ] Ref.t ->
+  network:[ `network ] Ref.t ->
+  host:[ `host ] Ref.t ->
+  [ `tunnel ] Ref.t * [ `PIF ] Ref.t
+
 (** Destroy a tunnel. Removes the tunnel object as well as the tunnel access PIF. *)
 val destroy : __context:Context.t -> self:[ `tunnel ] Ref.t -> unit
