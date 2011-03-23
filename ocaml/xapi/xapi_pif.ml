@@ -345,12 +345,13 @@ let introduce_internal
 
 	let is_vlan = vLAN >= 0L in
 
-	(* Assert that an interface with the given MAC
-	 * address exists (ALSO DONE IN [introduce]!) *)
-	if not(List.mem_assoc mAC t.mac_to_phy_table)
-		&& not(is_vlan)
-	then raise (Api_errors.Server_error
-		(Api_errors.mac_does_not_exist, [ mAC ]));
+	(* Assert that a network interface exists with *
+	 * the specified device name and MAC address.  *)
+	if not (List.mem (device, mAC) t.device_to_mac_table) && not (is_vlan)
+	then raise (Api_errors.Server_error (Api_errors
+		.could_not_find_network_interface_with_specified_device_name_and_mac_address,
+		[device; mAC]));
+
 	let bridge = bridge_naming_convention device in
 
 	(* If we are not told which network to use,
@@ -405,9 +406,9 @@ let introduce_internal
 let forget_internal ~t ~__context ~self =
 	Nm.bring_pif_down ~__context self;
 	(* NB we are allowed to forget an interface which still exists *)
-	let mac = Db.PIF.get_MAC ~__context ~self in
-	if List.mem_assoc mac t.mac_to_phy_table
-	then warn "Forgetting PIF record even though MAC %s still exists" mac;
+	let device = Db.PIF.get_device ~__context ~self in
+	if List.mem_assoc device t.device_to_mac_table
+	then warn "Forgetting PIF record even though device %s still exists" device;
 	(try
 		let metrics = Db.PIF.get_metrics ~__context ~self in
 		Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
@@ -453,17 +454,13 @@ let introduce ~__context ~host ~mAC ~device =
 	let t = make_tables ~__context ~host in
 
 	(* Assert that a local PIF with the given device name does not already exist *)
-	let existing_pifs = List.map snd t.mac_to_pif_table in
-	List.iter
-		(fun pif ->
-			if Db.PIF.get_device ~__context ~self:pif = device
-			then raise (Api_errors.Server_error
-				(Api_errors.duplicate_pif_device_name, [device])))
-		(existing_pifs);
+	if List.mem device (List.map snd t.pif_to_device_table)
+	then raise (Api_errors.Server_error
+		(Api_errors.duplicate_pif_device_name, [device]));
 
 	(* Assert that a network interface exists with *
 	 * the specified device name and MAC address.  *)
-	if not (List.mem (mAC, device) t.mac_to_phy_table)
+	if not (List.mem (device, mAC) t.device_to_mac_table)
 	then raise (Api_errors.Server_error (Api_errors
 		.could_not_find_network_interface_with_specified_device_name_and_mac_address,
 		[device; mAC]));
