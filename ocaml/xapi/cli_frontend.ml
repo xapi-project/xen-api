@@ -2344,8 +2344,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 	};
 		"drtask-create",
 		{
-			reqd=["type"; "device-config"; "sr-whitelist"];
-			optn=[];
+			reqd=["type"];
+			optn=["device-config:"; "sr-whitelist"];
 			help="Create a disaster recovery task.";
 			implementation=No_fd Cli_operations.dr_task_create;
 			flags=[]
