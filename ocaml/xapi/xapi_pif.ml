@@ -345,13 +345,6 @@ let introduce_internal
 
 	let is_vlan = vLAN >= 0L in
 
-	(* Assert that a network interface exists with *
-	 * the specified device name and MAC address.  *)
-	if not (List.mem (device, mAC) t.device_to_mac_table) && not (is_vlan)
-	then raise (Api_errors.Server_error (Api_errors
-		.could_not_find_network_interface_with_specified_device_name_and_mac_address,
-		[device; mAC]));
-
 	let bridge = bridge_naming_convention device in
 
 	(* If we are not told which network to use,
@@ -436,6 +429,9 @@ let update_management_flags ~__context ~host =
 
 let introduce ~__context ~host ~mAC ~device =
 
+	let mAC = String.lowercase mAC in (* just a convention *)
+	let t = make_tables ~__context ~host in
+
 	(* Allow callers to omit the MAC address. Ideally, we should
 	 * use an option type (instead of treating the empty string
 	 * as a special value). However we must preserve the existing
@@ -443,15 +439,12 @@ let introduce ~__context ~host ~mAC ~device =
 	 *)
 	let mAC =
 		if mAC = ""
-		then try Netdev.get_address device with _ -> ""
+		then List.assoc_default device t.device_to_mac_table ""
 		else mAC in
 
 	if not (Helpers.is_valid_MAC mAC)
 	then raise (Api_errors.Server_error
 		(Api_errors.mac_invalid, [mAC]));
-
-	let mAC = String.lowercase mAC in (* just a convention *)
-	let t = make_tables ~__context ~host in
 
 	(* Assert that a local PIF with the given device name does not already exist *)
 	if List.mem device (List.map snd t.pif_to_device_table)
