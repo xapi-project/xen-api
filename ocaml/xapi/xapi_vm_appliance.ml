@@ -187,8 +187,11 @@ let recover ~__context ~self ~session_to ~force =
 			let new_appliance = create ~__context:__context_to
 				~name_label:old_appliance.API.vM_appliance_name_label
 				~name_description:old_appliance.API.vM_appliance_name_description in
+			(* Add all the non-template VMs to the appliance. *)
 			List.iter
-				(fun vm -> Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:new_appliance)
+				(fun vm ->
+					if not (Db.VM.get_is_a_template ~__context:__context_to ~self:vm) then
+						Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:new_appliance)
 				recovered_vms;
 			try
 				Db.VM_appliance.set_uuid ~__context:__context_to
