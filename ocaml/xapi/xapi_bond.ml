@@ -131,7 +131,7 @@ let stuff_to_move_up ~__context members host =
 	let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
 	let local_vms = get_local_vms ~__context host in
 	let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
-	let slave_vifs_to_move = List.filter (fun vif -> List.mem (Db.VIF.get_network ~__context ~self:vif) member_networks) local_vifs in			
+	let slave_vifs_to_move = List.filter (fun vif -> List.mem (Db.VIF.get_network ~__context ~self:vif) member_networks) local_vifs in
 	(* VLANS *)
 	let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
 	let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
