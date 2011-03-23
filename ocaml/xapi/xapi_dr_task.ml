@@ -1,6 +1,9 @@
 open Client
 open Stringext
 
+module D = Debug.Debugger(struct let name="xapi" end)
+open D
+
 let make_task ~__context =
 	let uuid = Uuid.make_uuid () in
 	let ref = Ref.make () in
@@ -61,18 +64,29 @@ let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
-	let dr_task = make_task ~__context in
 	(* Probe the specified device for SRs. *)
+	let pool = Helpers.get_pool ~__context in
+	let master = Db.Pool.get_master ~__context ~self:pool in
 	let probe_result = Helpers.call_api_functions ~__context
 		(fun rpc session_id ->
 			Client.SR.probe ~rpc ~session_id
-				~host:Ref.null ~device_config
-				~_type ~sm_config:[])
+				~host:master ~device_config
+				~_type ~sm_config:["metadata", "true"])
 	in
 	(* Parse the probe result. *)
 	let sr_records = match _type with
-	| "lvmoiscsi" -> parse_sr_probe_iscsi probe_result
-	| "lvmohba" -> parse_sr_probe_hba probe_result
+	| "lvmoiscsi" ->
+		(try
+			parse_sr_probe_iscsi probe_result
+		with _ ->
+			raise (Api_errors.Server_error(Api_errors.internal_error,
+				["iSCSI SR probe response was malformed."])))
+	| "lvmohba" ->
+		(try
+			parse_sr_probe_hba probe_result
+		with _ ->
+			raise (Api_errors.Server_error(Api_errors.internal_error,
+				["HBA SR probe response was malformed."])))
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value,
 		["type"; _type]))
 	in
@@ -84,6 +98,8 @@ let create ~__context ~_type ~device_config ~whitelist =
 			| Some uuid -> List.mem uuid whitelist)
 		sr_records
 	in
+	(* SR probe went ok, so create the DR task. *)
+	let dr_task = make_task ~__context in
 	(* Create the SR records and attach each SR to each host. *)
 	let hosts = Db.Host.get_all ~__context in
 	List.iter (fun sr_record ->
@@ -94,6 +110,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 				| None -> ""
 				in
 				(* Create the SR record. *)
+				debug "Introducing SR %s" sr_record.name_label;
 				let sr = Client.SR.introduce ~rpc ~session_id
 					~uuid:sr_uuid ~name_label:sr_record.name_label
 					~name_description:sr_record.name_description
@@ -103,6 +120,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
 				(* Create and plug PBDs. *)
 				List.iter (fun host ->
+					debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
 					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
 					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts)) sr_records;
 	dr_task
@@ -113,10 +131,12 @@ let destroy ~__context ~self =
 		let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 		(* Unplug all PBDs associated with this SR. *)
 		List.iter (fun pbd ->
+			debug "Unplugging PBD %s" (Db.PBD.get_uuid ~__context ~self:pbd);
 			Helpers.call_api_functions ~__context
 				(fun rpc session_id -> Client.PBD.unplug ~rpc ~session_id ~self:pbd)
 		) pbds;
 		(* Forget the SR. *)
+		debug "Forgetting SR %s (%s)" (Db.SR.get_uuid ~__context ~self:sr) (Db.SR.get_name_label ~__context ~self:sr);
 		Helpers.call_api_functions ~__context
 			(fun rpc session_id -> Client.SR.forget ~rpc ~session_id ~sr)
 	) introduced_SRs;
