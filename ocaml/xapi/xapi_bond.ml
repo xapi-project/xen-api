@@ -210,8 +210,9 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Validation constraints: *)
 		(* 1. Members must not be in a bond already *)
 		(* 2. Members must not have a VLAN tag set *)
-		(* 3. Referenced PIFs must be on the same host *)
-		(* 4. There must be more than one member for the bond ( ** disabled for now) *)
+		(* 3. Members must not be tunnel access PIFs *)
+		(* 4. Referenced PIFs must be on the same host *)
+		(* 5. There must be more than one member for the bond ( ** disabled for now) *)
 		List.iter (fun self ->
 			let bond = Db.PIF.get_bond_slave_of ~__context ~self in
 			let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -219,6 +220,8 @@ let create ~__context ~network ~members ~mAC ~mode =
 			then raise (Api_errors.Server_error (Api_errors.pif_already_bonded, [ Ref.string_of self ]));
 			if Db.PIF.get_VLAN ~__context ~self <> -1L
 			then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [ Db.PIF.get_device_name ~__context ~self] ));
+			if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
+			then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
 		) members;
 		let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
 		if List.length (List.setify hosts) <> 1
