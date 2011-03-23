@@ -1053,7 +1053,7 @@ let _ =
 	~doc:"The CPU does not support masking of features." ();
 
   error Api_errors.feature_requires_hvm ["details"]
-    ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ()
+    ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ();
 
 	(* Disaster recovery errors *)
 	error Api_errors.vdi_contains_metadata_of_this_pool ["vdi"; "pool"]
@@ -1075,7 +1075,7 @@ let _ =
 		~doc:"The VM cannot be recovered on its own as it is part of a VM appliance." ();
 
 	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
-		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ();
+		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ()
 
 
 let _ =
