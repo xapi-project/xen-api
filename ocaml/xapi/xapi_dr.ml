@@ -7,8 +7,8 @@ open D
 (* create the objects required to reimport a list of VMs *)
 let create_import_objects ~__context ~vms =
 	let table = Export.create_table () in
-	List.iter (Export.update_table ~__context ~include_snapshots:false ~preserve_power_state:false ~include_vhd_parents:false ~table) vms;
-	Export.make_all ~with_snapshot_metadata:false ~preserve_power_state:false table __context
+	List.iter (Export.update_table ~__context ~include_snapshots:true ~preserve_power_state:false ~include_vhd_parents:false ~table) vms;
+	Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:false table __context
 
 let recover_vms ~__context ~vms ~session_to ~force =
 	let config = {
