@@ -456,6 +456,9 @@ let find_or_create_metadata_vdi ~__context ~sr =
 		in
 		Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false;
 		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
+		(* Call vdi_update to make sure the value of metadata_of_pool is persisted. *)
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.VDI.update ~rpc ~session_id ~vdi);
 		vdi
 
 let enable_database_replication ~__context ~sr =
