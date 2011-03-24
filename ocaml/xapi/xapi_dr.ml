@@ -46,7 +46,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
 				Import.complete_import ~__context:__context_to vmrefs;
 				(* Remove the introduced_by field from any SRs required for VMs. *)
 				List.iter
-					(fun vm -> clear_sr_introduced_by ~__context ~vm)
+					(fun vm -> clear_sr_introduced_by ~__context:__context_to ~vm)
 					vmrefs;
 				vmrefs
 			with e ->
