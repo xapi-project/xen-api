@@ -1202,11 +1202,14 @@ let plug ~xc ~xs (domain, bus, dev, func) domid =
 	let pci = to_string (domain, bus, dev, func) in
 	signal_device_model ~xc ~xs domid "pci-ins" pci;
 
-	match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model ~xc ~xs domid with
 	| "pci-inserted" -> 
 		  (* success *)
 		  xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
-	| x -> failwith (Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x)
+	| x ->
+		failwith
+			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
+	Xc.domain_assign_device xc domid (domain, bus, dev, func)
 
 let unplug ~xc ~xs (domain, bus, dev, func) domid = 
     let current = list ~xc ~xs domid in
@@ -1215,11 +1218,14 @@ let unplug ~xc ~xs (domain, bus, dev, func) domid =
 	let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
 	signal_device_model ~xc ~xs domid "pci-rem" pci;
 
-	match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model ~xc ~xs domid with
 	| "pci-removed" -> 
 		  (* success *)
 		  xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-	| x -> failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+	| x ->
+		failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+	in
+	Xc.domain_deassign_device xc domid (domain, bus, dev, func)
 
 end
 
