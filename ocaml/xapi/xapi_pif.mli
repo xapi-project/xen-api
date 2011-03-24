@@ -133,7 +133,6 @@ val find_or_create_network :
 (** Convenient lookup tables for scanning etc *)
 type tables = {
 	device_to_mac_table : (string * string) list;
-	device_to_biosname_table : (string * string) list;
 	pif_to_device_table : (API.ref_PIF * string) list;
 }
 

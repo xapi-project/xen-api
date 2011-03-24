@@ -234,7 +234,6 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
 
 type tables = {
 	device_to_mac_table: (string * string) list;
-	device_to_biosname_table: (string * string) list;
 	pif_to_device_table: (API.ref_PIF * string) list;
 }
 
@@ -252,10 +251,6 @@ let make_tables ~__context ~host =
 			List.combine
 				(devices)
 				(List.map Netdev.get_address devices);
-		device_to_biosname_table =
-			List.combine
-				(devices)
-				(List.map Netdev.get_bios_name devices);
 		pif_to_device_table =
 			List.combine
 				(pifs)
