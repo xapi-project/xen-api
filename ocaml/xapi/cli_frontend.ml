@@ -1845,6 +1845,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vm_destroy;
       flags=[];
     };
+		"vm-recover",
+		{
+			reqd=["uuid"];
+			optn=["database:";"force"];
+			help="Recover a VM from the database contained in the supplied VDI.";
+			implementation=No_fd Cli_operations.vm_recover;
+			flags=[];
+		};
+		"vm-assert-can-be-recovered",
+		{
+			reqd=["uuid"];
+			optn=["database:"];
+			help="Test whether storage is available to recover this VM.";
+			implementation=No_fd Cli_operations.vm_assert_can_be_recovered;
+			flags=[];
+		};
    "diagnostic-vm-status",
     {
       reqd=["uuid"];
@@ -2324,6 +2340,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			optn=["force"];
 			help="Shut down all VMs in a VM appliance.";
 			implementation=No_fd Cli_operations.vm_appliance_shutdown;
+			flags=[];
+		};
+		"appliance-recover",
+		{
+			reqd=["uuid"];
+			optn=["database:";"force"];
+			help="Recover a VM appliance from the database contained in the supplied VDI.";
+			implementation=No_fd Cli_operations.vm_appliance_recover;
+			flags=[];
+		};
+		"appliance-assert-can-be-recovered",
+		{
+			reqd=["uuid"];
+			optn=["database:"];
+			help="Test whether storage is available to recover this VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_assert_can_be_recovered;
 			flags=[];
 		};
 	"vgpu-create",

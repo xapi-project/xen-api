@@ -3199,6 +3199,29 @@ let vm_vif_list printer rpc session_id params =
 	in
 	ignore(do_vm_op printer rpc session_id op (("multiple","true")::params) ["params"]) (* always list multiple vms *)
 
+let with_database_vdi rpc session_id params f =
+	let database_params = read_map_params "database" params in
+	let database_uuid = List.assoc "vdi-uuid" database_params in
+	let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_uuid in
+	let database_session = Client.VDI.open_database ~rpc ~session_id ~self:database_vdi in
+	f database_session;
+	Client.Session.logout ~rpc ~session_id:database_session
+
+let vm_recover printer rpc session_id params =
+	let force = get_bool_param params "force" in
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let vm = Client.VM.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM.recover ~rpc ~session_id:database_session ~self:vm ~session_to:session_id ~force)
+
+let vm_assert_can_be_recovered printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let vm = Client.VM.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM.assert_can_be_recovered ~rpc ~session_id:database_session ~self:vm  ~session_to:session_id)
+
 let cd_list printer rpc session_id params =
 	let srs = Client.SR.get_all_records_where rpc session_id "true" in
 	let cd_srs = List.filter (fun (sr,sr_record) -> sr_record.API.sR_content_type = "iso") srs in
@@ -4019,6 +4042,21 @@ let vm_appliance_shutdown printer rpc session_id params =
 		Client.VM_appliance.hard_shutdown ~rpc ~session_id ~self:ref
 	else
 		Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
+
+let vm_appliance_recover printer rpc session_id params =
+	let force = get_bool_param params "force" in
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM_appliance.recover ~rpc ~session_id:database_session ~self:appliance ~session_to:session_id ~force)
+
+let vm_appliance_assert_can_be_recovered printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM_appliance.assert_can_be_recovered ~rpc ~session_id:database_session ~self:appliance  ~session_to:session_id)
 
 let vgpu_create printer rpc session_id params =
 	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
