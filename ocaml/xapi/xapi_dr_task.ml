@@ -12,7 +12,7 @@ let make_task ~__context =
 
 (* A type to represent an SR record parsed from an sr_probe result. *)
 type sr_probe_sr = {
-	uuid: string option;
+	uuid: string;
 	name_label: string;
 	name_description: string;
 	metadata_detected: bool;
@@ -32,7 +32,7 @@ let parse_sr_probe_iscsi xml =
 		| Xml.Element("SR", _, children) ->
 			let all = List.map parse_kv children in
 			{
-				uuid = Some(List.assoc "UUID" all);
+				uuid = List.assoc "UUID" all;
 				name_label = List.assoc "name_label" all;
 				name_description = List.assoc "name_description" all;
 				metadata_detected = (List.assoc "pool_metadata_detected" all = "true");
@@ -49,7 +49,7 @@ let parse_sr_probe_hba xml =
 		| Xml.Element("BlockDevice", _, children) ->
 			let all = List.map parse_kv children in
 			{
-				uuid = None;
+				uuid = List.assoc "UUID" all;
 				name_label = List.assoc "name_label" all;
 				name_description = List.assoc "name_description" all;
 				metadata_detected = (List.assoc "pool_metadata_detected" all = "true");
@@ -93,9 +93,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 	(* If the SR record has a UUID, make sure it's in the whitelist. *)
 	let sr_records = List.filter
 		(fun sr_record ->
-			match sr_record.uuid with
-			| None -> true
-			| Some uuid -> List.mem uuid whitelist)
+			List.mem sr_record.uuid whitelist)
 		sr_records
 	in
 	(* SR probe went ok, so create the DR task. *)
@@ -105,14 +103,10 @@ let create ~__context ~_type ~device_config ~whitelist =
 	List.iter (fun sr_record ->
 		Helpers.call_api_functions ~__context
 			(fun rpc session_id ->
-				let sr_uuid = match sr_record.uuid with
-				| Some uuid -> uuid
-				| None -> ""
-				in
 				(* Create the SR record. *)
 				debug "Introducing SR %s" sr_record.name_label;
 				let sr = Client.SR.introduce ~rpc ~session_id
-					~uuid:sr_uuid ~name_label:sr_record.name_label
+					~uuid:sr_record.uuid ~name_label:sr_record.name_label
 					~name_description:sr_record.name_description
 					~_type ~content_type:"" ~shared:true
 					~sm_config:[]
