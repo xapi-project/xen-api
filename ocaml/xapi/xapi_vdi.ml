@@ -569,44 +569,14 @@ let open_database ~__context ~self =
 	if not(List.mem vdi_type [`redo_log; `metadata]) then
 		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
 			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
-	let attach vdi reason =
-		debug "%s" "Attaching VDI for metadata import";
-		Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason
-	in
-	let detach vdi =
-		debug "%s" "Detaching VDI after metadata import";
-		Static_vdis.permanent_vdi_detach ~__context ~vdi
-	in
-	(* Open the database contained in the VDI *)
-	let db_ref_of_attached_vdi reason =
-		(* Read db to temporary file *)
-		let log = Redo_log.create () in
-		debug "Enabling redo_log with vdi_attach reason [%s]" reason;
-		Redo_log.enable log reason;
-		let db = Db_cache_types.Database.make (Datamodel_schema.of_datamodel ()) in
-		let db_ref = Db_ref.in_memory (ref (ref db)) in
-		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
-		Redo_log.delete log;
-		(* Reindex database to make sure is_valid_ref works. *)
-		Db_ref.update_database (db_ref) (Database.reindex ++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
-		db_ref
-	in
-	let reason = Printf.sprintf "%s %s"
-		Xapi_globs.foreign_metadata_vdi_reason
-		(Db.VDI.get_uuid ~__context ~self)
-	in
 	try
-		attach self reason;
-		let db_ref = db_ref_of_attached_vdi reason in
-		detach self;
+		let db_ref = Xapi_vdi_helpers.database_ref_of_vdi ~__context ~vdi:self in
 		(* Create a new session to query the database, and associate it with the db ref *)
 		debug "%s" "Creating readonly session";
 		let read_only_session = Xapi_session.create_readonly_session ~__context ~uname:"disaster-recovery" in
 		Db_backend.register_session_with_database read_only_session db_ref;
 		read_only_session
 	with e ->
-		(* Make sure to detach if either the attach or database read fail. *)
-		detach self;
 		let error = Printexc.to_string e in
 		debug "Caught %s while trying to open database" error;
 		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [error]))
