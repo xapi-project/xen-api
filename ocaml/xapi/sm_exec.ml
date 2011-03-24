@@ -75,8 +75,8 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
     (fun __context ->
       (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
       Opt.iter (fun sr ->
-        if Db.SR.get_introduced_by ~__context ~self:sr <> Ref.null then
-          if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"]) then
+        if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
+          if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
             raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
               [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
       ) sr_ref;
