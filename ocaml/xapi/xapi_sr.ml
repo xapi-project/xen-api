@@ -458,12 +458,6 @@ let find_or_create_metadata_vdi ~__context ~sr =
 		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
 		vdi
 
-let get_master_dom0 ~__context =
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let vms = Db.Host.get_resident_VMs ~__context ~self:master in
-	List.hd (List.filter (fun vm -> Db.VM.get_is_control_domain ~__context ~self:vm) vms)
-
 let enable_database_replication ~__context ~sr =
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
