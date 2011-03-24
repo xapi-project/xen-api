@@ -56,10 +56,10 @@ let get_local_vms ~__context host =
 	debug "Found these local VMs: %s" (String.concat ", " (List.map (fun v -> Db.VM.get_uuid ~__context ~self:v) local_vms));
 	local_vms
 
-let move_vlan ~__context new_slave old_vlan vifs =
+let move_vlan ~__context host new_slave old_vlan vifs =
 	let old_master = Db.VLAN.get_untagged_PIF ~__context ~self:old_vlan in
 	let tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
-	let old_network = Db.PIF.get_network ~__context ~self:old_master in
+	let network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
 	if plugged then
 		Nm.bring_pif_down ~__context old_master;
@@ -73,27 +73,18 @@ let move_vlan ~__context new_slave old_vlan vifs =
 			(* VLAN with this tag already on bond *)
 			debug "VLAN already present";
 			let new_master = Db.VLAN.get_untagged_PIF ~__context ~self:new_vlan in
+			let new_network = Db.PIF.get_network ~__context ~self:new_master in
+			(* Move VIFs to other VLAN's network *)
+			ignore (List.map (Xapi_vif.move ~__context ~network:new_network) vifs);
 			new_vlan, new_master
 		| [] ->
 			(* VLAN with this tag not yet on bond *)
 			debug "Creating new VLAN %d on bond" (Int64.to_int tag);
-			(* Copy the fields from the existing VLAN master PIF *)
-			let mTU = Db.PIF.get_MTU ~__context ~self:old_master in
-			let host = Db.PIF.get_host ~__context ~self:old_master in
-			(* Update device name *)
+			(* Keep the device name *)
 			let device = Db.PIF.get_device ~__context ~self:new_slave in
-
-			(* Find or create new Network for new VLAN *)
-			let name_label = "VLAN " ^ (Int64.to_string tag) ^ " on " ^ device in
-			let network = match Db.Network.get_by_name_label ~__context ~label:name_label with
-			| [] -> Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU ~other_config:[] ~tags:[]
-			| network :: _ -> network
-			in
-
 			(* Create new VLAN master PIF and VLAN objects *)
 			Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:new_slave ~tag ~network ~device
 	in
-	let new_network = Db.PIF.get_network ~__context ~self:new_master in
 
 	(* Destroy old VLAN and VLAN-master objects *)
 	debug "Destroying old VLAN %d" (Int64.to_int tag);
@@ -104,10 +95,7 @@ let move_vlan ~__context new_slave old_vlan vifs =
 	if plugged then begin
 		debug "Plugging new VLAN";
 		Nm.bring_pif_up ~__context new_master
-	end;
-
-	(* Move VIFs to new VLAN *)
-	ignore (List.map (Xapi_vif.move ~__context ~network:new_network) vifs)
+	end
 
 let move_tunnel ~__context host new_transport_PIF old_tunnel =
 	let old_access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:old_tunnel in
@@ -186,7 +174,7 @@ let fix_bond ~__context ~bond =
 
 		(* Move VLANs, with their VIFs, from members to master *)
 		debug "Moving VLANs, with their VIFs, from slaves to master";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context master vlan vifs) vlans_with_vifs;
+		List.iter (fun (vlan, vifs) -> move_vlan ~__context host master vlan vifs) vlans_with_vifs;
 
 		(* Move tunnels from members to master *)
 		debug "Moving tunnels from slaves to master";
@@ -312,7 +300,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 
 		(* Move VLANs, with their VIFs, from members to master *)
 		debug "Moving VLANs, with their VIFs, from slaves to master";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context master vlan vifs) vlans_with_vifs;
+		List.iter (fun (vlan, vifs) -> move_vlan ~__context host master vlan vifs) vlans_with_vifs;
 
 		(* Move tunnels from members to master *)
 		debug "Moving tunnels from slaves to master";
@@ -383,7 +371,7 @@ let destroy ~__context ~self =
 
 		(* Move VLANs down *)
 		debug "Moving VLANs from master to slaves";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context primary_slave vlan vifs) vlans_with_vifs;
+		List.iter (fun (vlan, vifs) -> move_vlan ~__context host primary_slave vlan vifs) vlans_with_vifs;
 
 		(* Move tunnels down *)
 		debug "Moving tunnels from master to slaves";
