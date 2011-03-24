@@ -10,6 +10,12 @@ let create_import_objects ~__context ~vms =
 	List.iter (Export.update_table ~__context ~include_snapshots:true ~preserve_power_state:false ~include_vhd_parents:false ~table) vms;
 	Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:false table __context
 
+let clear_sr_introduced_by ~__context ~vm =
+	let srs = Xapi_vm_helpers.list_required_SRs ~__context ~self:vm in
+	List.iter
+		(fun sr -> Db.SR.set_introduced_by ~__context ~self:sr ~value:Ref.null)
+		srs
+
 let recover_vms ~__context ~vms ~session_to ~force =
 	let config = {
 		Import.sr = Ref.null;
@@ -38,6 +44,10 @@ let recover_vms ~__context ~vms ~session_to ~force =
 			in
 			try
 				Import.complete_import ~__context:__context_to vmrefs;
+				(* Remove the introduced_by field from any SRs required for VMs. *)
+				List.iter
+					(fun vm -> clear_sr_introduced_by ~__context ~vm)
+					vmrefs;
 				vmrefs
 			with e ->
 				if force then
