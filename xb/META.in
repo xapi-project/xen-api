@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "XenBus Interface"
-requires = "unix,mmap"
-archive(byte) = "xb.cma"
-archive(native) = "xb.cmxa"

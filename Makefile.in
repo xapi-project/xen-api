@@ -38,19 +38,8 @@ endif
 .PHONY: allxen
 allxen:
 ifeq ($(HAVE_XEN),1)
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C mmap
-endif
 	$(MAKE) -C netdev
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C xc
-	$(MAKE) -C xb
-	$(MAKE) -C xs
-endif
 	$(MAKE) -C xsrpc
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C eventchn
-endif
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
 	$(MAKE) -C tapctl
@@ -85,19 +74,8 @@ endif
 
 installxen:
 ifeq ($(HAVE_XEN),1)
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C mmap install
-endif
 	$(MAKE) -C netdev install
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C xc install
-	$(MAKE) -C xb install
-	$(MAKE) -C xs install
-endif
 	$(MAKE) -C xsrpc install
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C eventchn install
-endif
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
 	$(MAKE) -C tapctl install
@@ -132,19 +110,8 @@ endif
 
 uninstallxen:
 ifeq ($(HAVE_XEN),1)
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C eventchn uninstall
-endif
 	$(MAKE) -C xsrpc uninstall
 	$(MAKE) -C netdev uninstall
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C xs uninstall
-	$(MAKE) -C xb uninstall
-	$(MAKE) -C xc uninstall
-endif
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C mmap uninstall
-endif
 	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C vhd uninstall
 	$(MAKE) -C tapctl uninstall
@@ -180,26 +147,15 @@ doc:
 	$(MAKE) -C stdext doc
 	$(MAKE) -C sexpr doc
 	$(MAKE) -C log doc
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C xb doc
-	$(MAKE) -C xc doc
-	$(MAKE) -C xs doc
-endif
 	$(MAKE) -C xml-light2 doc
 	$(MAKE) -C rpc-light doc
 	$(MAKE) -C http-svr doc
 	$(MAKE) -C camldm doc
 	$(MAKE) -C cdrom doc
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C eventchn doc
-endif
 	$(MAKE) -C pciutil doc
 	$(MAKE) -C rss doc
 	$(MAKE) -C stunnel doc
 	$(MAKE) -C xsrpc doc
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C mmap doc
-endif
 	$(MAKE) -C netdev doc
 	$(MAKE) -C forking_executioner doc
 	$(MAKE) -C mlvm doc
@@ -227,26 +183,15 @@ clean:
 	$(MAKE) -C doc clean
 	$(MAKE) -C forking_executioner clean
 	$(MAKE) -C mlvm clean
-	$(MAKE) -C cpuid clean
-	$(MAKE) -C vhd clean
-	$(MAKE) -C tapctl clean
 	$(MAKE) -C xen-utils clean
 
 cleanxen:
-	$(MAKE) -C fake clean
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C mmap clean
-endif
-	$(MAKE) -C netdev clean
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C xc clean
-	$(MAKE) -C xb clean
-	$(MAKE) -C xs clean
-endif
-	$(MAKE) -C xsrpc clean
-ifeq ($(WITH_XEN_SYSTEM_BINDINGS),0)
-	$(MAKE) -C eventchn clean
-endif
+	$(MAKE) -C netdev install
+	$(MAKE) -C xsrpc install
+	$(MAKE) -C cpuid install
+	$(MAKE) -C vhd install
+	$(MAKE) -C tapctl install
+	$(MAKE) -C fake install
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')

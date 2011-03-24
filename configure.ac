@@ -30,11 +30,6 @@ AC_CHECK_HEADERS([xen/xen.h],[XEN=1],[XEN=0])
 AC_CHECK_HEADERS([libdevmapper.h], [DEVICE_MAPPER=1], [DEVICE_MAPPER=0])
 AC_CHECK_HEADERS([linux/cdrom.h], [LINUX_CDROM=1], [LINUX_CDROM=0])
 
-HAVE_XEN_SYSTEM_BINDINGS=$XEN # could do more intelligent detection here...
-AC_ARG_WITH(xen-system-bindings, AS_HELP_STRING([--without-xen-system-bindings],[do not use the system installed xen bindings]),
-	[if test "x$withval" = "xno"; then WITH_XEN_SYSTEM_BINDINGS=0; else WITH_XEN_SYSTEM_BINDINGS=1; fi],
-	[WITH_XEN_SYSTEM_BINDINGS=$HAVE_XEN_SYSTEM_BINDINGS])
-
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_DECLS([XS_RESTRICT],[],[],[
 [
@@ -61,7 +56,6 @@ AC_CHECK_OCAML_PKG([type-conv])
 
 AC_CONFIG_FILES([Makefile config.mk])
 AC_SUBST([XEN])
-AC_SUBST([WITH_XEN_SYSTEM_BINDINGS])
 AC_SUBST([DEVICE_MAPPER])
 AC_SUBST([LINUX_CDROM])
 AC_SUBST([OCAML_PKG_xmlm])
