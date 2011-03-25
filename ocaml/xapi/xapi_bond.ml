@@ -242,11 +242,15 @@ let create ~__context ~network ~members ~mAC ~mode =
 			| [] -> None
 		in
 		let primary_slave =
-			(* The primary slave is the management PIF, or the first member with IP configuration *)
+			(* The primary slave is the management PIF, or the first member with IP configuration,
+			 * or otherwise simply the first member in the list. *)
 			match management_pif with
 			| Some management_pif -> management_pif
 			| None ->
-				List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
+				try
+					List.hd (List.filter (fun pif -> Db.PIF.get_ip_configuration_mode ~__context ~self:pif <> `None) members)
+				with _ ->
+					List.hd members
 		in
 		let mAC =
 			if mAC <> "" then
