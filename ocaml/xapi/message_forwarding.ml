@@ -583,6 +583,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
 
+		let shutdown ~__context ~self =
+			info "VM_appliance.shutdown: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.shutdown" ~op:`shutdown
+				(fun () ->
+					Local.VM_appliance.shutdown ~__context ~self)
+
 		let assert_can_be_recovered ~__context ~self ~session_to =
 			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
 			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
