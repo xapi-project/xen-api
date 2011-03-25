@@ -100,23 +100,31 @@ let create ~__context ~_type ~device_config ~whitelist =
 	let dr_task = make_task ~__context in
 	(* Create the SR records and attach each SR to each host. *)
 	let hosts = Db.Host.get_all ~__context in
-	List.iter (fun sr_record ->
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id ->
-				(* Create the SR record. *)
-				debug "Introducing SR %s" sr_record.name_label;
-				let sr = Client.SR.introduce ~rpc ~session_id
-					~uuid:sr_record.uuid ~name_label:sr_record.name_label
-					~name_description:sr_record.name_description
-					~_type ~content_type:"" ~shared:true
-					~sm_config:[]
-				in
-				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
-				(* Create and plug PBDs. *)
-				List.iter (fun host ->
-					debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
-					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts)) sr_records;
+	List.iter
+		(fun sr_record ->
+			try
+				ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_record.uuid);
+				(* If an SR with this UUID has already been introduced, don't mess with it. *)
+				(* It may have been manually introduced, or introduced by another DR_task. *)
+				debug "SR %s has already been introduced, so not adding it to this disaster recovery task." sr_record.uuid;
+			with Db_exn.Read_missing_uuid(_, _, _) ->
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						(* Create the SR record. *)
+						debug "Introducing SR %s" sr_record.uuid;
+						let sr = Client.SR.introduce ~rpc ~session_id
+							~uuid:sr_record.uuid ~name_label:sr_record.name_label
+							~name_description:sr_record.name_description
+							~_type ~content_type:"" ~shared:true
+							~sm_config:[]
+						in
+						Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
+						(* Create and plug PBDs. *)
+						List.iter (fun host ->
+							debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
+							let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+							Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts))
+		sr_records;
 	dr_task
 
 let destroy ~__context ~self =
