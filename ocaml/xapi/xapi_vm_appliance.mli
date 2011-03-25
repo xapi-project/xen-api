@@ -4,7 +4,7 @@ val destroy :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 
 val assert_operation_valid :
-	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> op:[`start | `clean_shutdown | `hard_shutdown ] -> unit
+	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> op:[`start | `clean_shutdown | `hard_shutdown | `shutdown ] -> unit
 val update_allowed_operations :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 
@@ -13,6 +13,8 @@ val start :
 val clean_shutdown :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 val hard_shutdown :
+	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
+val shutdown :
 	__context:Context.t -> self:[ `VM_appliance ] Ref.t -> unit
 
 val assert_can_be_recovered :

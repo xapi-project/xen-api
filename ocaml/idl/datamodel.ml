@@ -6510,6 +6510,7 @@ let vm_appliance_operations = Enum ("vm_appliance_operation",
 		"start", "Start";
 		"clean_shutdown", "Clean shutdown";
 		"hard_shutdown", "Hard shutdown";
+		"shutdown", "Shutdown";
 	])
 
 
@@ -6541,6 +6542,14 @@ let vm_appliance =
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
+	let vm_appliance_shutdown = call
+		~name:"shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
+		~doc:"For each VM in the appliance, try to shut it down cleanly. If this fails, perform a hard shutdown of the VM."
+		~allowed_roles:_R_POOL_OP
+		() in
 	let vm_appliance_assert_can_be_recovered = call
 		~name:"assert_can_be_recovered"
 		~in_product_since:rel_boston
@@ -6568,6 +6577,7 @@ let vm_appliance =
 			vm_appliance_start;
 			vm_appliance_clean_shutdown;
 			vm_appliance_hard_shutdown;
+			vm_appliance_shutdown;
 			vm_appliance_assert_can_be_recovered;
 			vm_appliance_recover;
 		]
