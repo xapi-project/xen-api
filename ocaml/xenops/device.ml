@@ -745,8 +745,8 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 	let extra_private_keys = extra_private_keys @
 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
 	  (match netty with
-	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xc.using_injection ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
-	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xc.using_injection ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
 	     | Netman.DriverDomain -> []
 	     | Netman.Nat -> []) @
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
@@ -846,11 +846,11 @@ module PV_Vnc = struct
 
 let vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
 
-let vnc_port_path domid = sprintf "/local/domain/%d/serial/0/vnc-port" domid
+let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 
 let pid ~xs domid =
 	try
-		let pid = xs.Xs.read (sprintf "/local/domain/%d/serial/0/vncterm-pid" domid) in
+		let pid = xs.Xs.read (sprintf "/local/domain/%d/console/vncterm-pid" domid) in
 		Some (int_of_string pid)
 	with _ ->
 		None
@@ -897,7 +897,7 @@ let save ~xs domid =
 let start ?statefile ~xs domid =
 	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
 		  (* everything else goes straight through to vncterm-wrapper: *)
-		  "-x"; sprintf "/local/domain/%d/serial/0" domid;
+		  "-x"; sprintf "/local/domain/%d/console" domid;
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in
@@ -1202,11 +1202,14 @@ let plug ~xc ~xs (domain, bus, dev, func) domid =
 	let pci = to_string (domain, bus, dev, func) in
 	signal_device_model ~xc ~xs domid "pci-ins" pci;
 
-	match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model ~xc ~xs domid with
 	| "pci-inserted" -> 
 		  (* success *)
 		  xs.Xs.write (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int next_idx)) pci;
-	| x -> failwith (Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x)
+	| x ->
+		failwith
+			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
+	Xc.domain_assign_device xc domid (domain, bus, dev, func)
 
 let unplug ~xc ~xs (domain, bus, dev, func) domid = 
     let current = list ~xc ~xs domid in
@@ -1215,11 +1218,14 @@ let unplug ~xc ~xs (domain, bus, dev, func) domid =
 	let idx = fst (List.find (fun x -> snd x = (domain, bus, dev, func)) current) in
 	signal_device_model ~xc ~xs domid "pci-rem" pci;
 
-	match wait_device_model ~xc ~xs domid with
+	let () = match wait_device_model ~xc ~xs domid with
 	| "pci-removed" -> 
 		  (* success *)
 		  xs.Xs.rm (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ (string_of_int idx))
-	| x -> failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+	| x ->
+		failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
+	in
+	Xc.domain_deassign_device xc domid (domain, bus, dev, func)
 
 end
 
@@ -1445,18 +1451,22 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	let nics = take nics max_emulated_nics in
 	
 	(* qemu need a different id for every vlan, or things get very bad *)
+	let nics' =
+		if List.length nics > 0 then
 	let vlan_id = ref 0 in
-	let nics' = List.map (fun (mac, bridge, devid) ->
+			List.map (fun (mac, bridge, devid) ->
 		let r = [
 		"-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" !vlan_id mac;
 		"-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid devid)] in
 		incr vlan_id;
 		r
-	) nics in
+			) nics
+		else [["-net"; "none"]] in
+
 	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in
-	let restorefile = sprintf "/tmp/xen.qemu-dm.%d" domid in
+	let restorefile = sprintf qemu_restore_path domid in
 	let vga_type_opts x = 
 	  match x with
 	    | Std_vga -> ["-std-vga"]
@@ -1503,7 +1513,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		  "-boot"; info.boot;
 		  "-serial"; info.serial;
 		  "-vcpus"; string_of_int info.vcpus; ]
-	   @ disp_options @ usb' @ (List.concat nics')
+		@ disp_options @ usb' @ List.concat nics'
 	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
 	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))

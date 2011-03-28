@@ -124,6 +124,16 @@ let __string_of_task : (string -> API.ref_task -> string) ref =
 let string_of_task __context = 
     !__string_of_task __context.task_name __context.task_id
 
+let check_for_foreign_database ~__context =
+	match __context.session_id with
+	| Some sid ->
+		(try
+			let database = Hashtbl.find Db_backend.foreign_databases sid in
+			{__context with database = database}
+		with Not_found ->
+			__context)
+	| None ->
+		__context
 
 (** destructors *)
 let destroy __context =

@@ -307,7 +307,7 @@ let thread_domain0 () =
                 | "" :: "local" :: "domain" :: "0" :: "device-model" :: domid :: [ "command" ] -> (
 	                let device_model_transaction = xs.Xs.read (sprintf "/local/domain/0/device-model/%s/command" domid) in
                         match device_model_transaction with
-			| "save"     -> let file = sprintf "/tmp/xen.qemu-dm.%s" domid in
+			| "save"     -> let file = sprintf Device_common.qemu_save_path (int_of_string domid) in
 					let fd = Unix.openfile file (Unix.O_RDWR :: [ Unix.O_CREAT ]) 0o640 in
 					  Unix.close fd;
 					  xs.Xs.write (sprintf "/local/domain/0/device-model/%s/state" domid) "paused"

@@ -20,7 +20,11 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)
 
-let get_device reason =
+type block_device =
+	| Static_attached of Static_vdis_list.vdi
+	| Block_attached of string
+
+let get_static_device reason =
   (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
 	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
   let vdis = List.filter
@@ -31,7 +35,7 @@ let get_device reason =
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
   match vdis with
   | [] -> None
-  | hd :: _ -> Some hd
+  | hd :: _ -> Some (Static_attached hd)
 
 (* Make sure we have plenty of room for the database *)
 let minimum_vdi_size =
@@ -41,40 +45,68 @@ let minimum_vdi_size =
 
 let redo_log_sm_config = [ "type", "raw" ]
 
+(* ---------------------------------------------------- *)
+(* Encapsulate the state of a single redo_log instance. *)
+
+type redo_log = {
+	marker: string;
+	enabled: bool ref;
+	device: block_device option ref;
+	currently_accessible: bool ref;
+	currently_accessible_mutex: Mutex.t;
+	currently_accessible_condition: Condition.t;
+	time_of_last_failure: float ref;
+	backoff_delay: int ref;
+	sock: Unix.file_descr option ref;
+	pid: (Forkhelpers.pidty * string * string) option ref;
+	dying_processes_mutex: Mutex.t;
+	num_dying_processes: int ref;
+}
+
+module RedoLogSet = Set.Make(
+	struct
+		type t = redo_log
+		let compare = fun log1 log2 -> compare log1.marker log2.marker
+	end
+)
+
+(* Keep a store of all redo_logs - this will make it easy to write to all the active ones. *)
+let all_redo_logs = ref (RedoLogSet.empty)
+
 (* ------------------------------------------------------------------------ *)
 (* Functions relating to whether writing to the log is enabled or disabled. *)
 
-let enabled = ref false (* Controls whether we use or ignore the redo log. Coincides precisely with whether HA is enabled. *)
 let ready_to_write = ref true (* Controls whether DB writes are also copied to the redo log. *)
-let redo_log_vdi : Static_vdis_list.vdi option ref = ref None
 
-let is_enabled () = !enabled
+let is_enabled log = !(log.enabled)
 
-let enable vdi_reason =
+let enable log vdi_reason =
   R.info "Enabling use of redo log";
-  redo_log_vdi := get_device vdi_reason;
-  enabled := true
+  log.device := get_static_device vdi_reason;
+  log.enabled := true
 
-let disable () =
+let enable_block log path =
+  R.info "Enabling use of redo log";
+  log.device := Some (Block_attached path);
+  log.enabled := true
+
+let disable log =
   R.info "Disabling use of redo log";
-  redo_log_vdi := None;
-  enabled := false
-
+  log.device := None;
+  log.enabled := false
 
 (* ------------------------------------------------------------------------------------------------ *)
 (* Functions relating to whether the latest attempt to read/write the redo-log succeeded or failed. *)
 
-let currently_accessible_m = Mutex.create()
-let currently_accessible_condition = Condition.create()
-let currently_accessible = ref true (* the current state *)
-
-let cannot_connect_fn () =
+let cannot_connect_fn log =
   R.debug "Signalling unable to access redo log";
-  Mutex.execute currently_accessible_m (fun () -> currently_accessible := false; Condition.signal currently_accessible_condition)
+  Mutex.execute log.currently_accessible_mutex
+    (fun () -> log.currently_accessible := false; Condition.signal log.currently_accessible_condition)
 
-let can_connect_fn () =
+let can_connect_fn log =
   R.debug "Signalling redo log is healthy";
-  Mutex.execute currently_accessible_m (fun () -> currently_accessible := true; Condition.signal currently_accessible_condition)
+  Mutex.execute log.currently_accessible_mutex
+    (fun () -> log.currently_accessible := true; Condition.signal log.currently_accessible_condition)
 
 (* ----------------------------------------------------------- *)
 (* Functions relating to the serialisation of redo log entries *)
@@ -407,31 +439,30 @@ let action_write_delta marker generation_count data flush_db_fn sock datasockpat
 (* ----------------------------------------------------------------------------------------------- *)
 (* Functions relating to the exponential back-off of repeated attempts to reconnect after failure. *)
 
-let time_of_last_failure = ref 0. (* seconds since epoch. value 0 indicates "too long ago". *)
-let backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay (* seconds *)
+let initialise_backoff_delay log =
+  log.backoff_delay := Xapi_globs.redo_log_initial_backoff_delay
 
-let initialise_backoff_delay () =
-  backoff_delay := Xapi_globs.redo_log_initial_backoff_delay
+let increase_backoff_delay log =
+  if !(log.backoff_delay) = 0 then initialise_backoff_delay log
+  else log.backoff_delay := !(log.backoff_delay) * Xapi_globs.redo_log_exponentiation_base;
+  if !(log.backoff_delay) > Xapi_globs.redo_log_maximum_backoff_delay then
+    log.backoff_delay := Xapi_globs.redo_log_maximum_backoff_delay;
+  R.debug "Bumped backoff delay to %d seconds" !(log.backoff_delay)
 
-let increase_backoff_delay () =
-  if !backoff_delay = 0 then initialise_backoff_delay()
-  else backoff_delay := !backoff_delay * Xapi_globs.redo_log_exponentiation_base;
-  if !backoff_delay > Xapi_globs.redo_log_maximum_backoff_delay then backoff_delay := Xapi_globs.redo_log_maximum_backoff_delay;
-  R.debug "Bumped backoff delay to %d seconds" !backoff_delay
-
-let set_time_of_last_failure () =
+let set_time_of_last_failure log =
   let now = Unix.gettimeofday() in
-  time_of_last_failure := now;
-  increase_backoff_delay()
+  log.time_of_last_failure := now;
+  increase_backoff_delay log
 
-let reset_time_of_last_failure () =
-  time_of_last_failure := 0. ;
-  initialise_backoff_delay()
+let reset_time_of_last_failure log =
+  log.time_of_last_failure := 0. ;
+  initialise_backoff_delay log
 
-let maybe_retry f =
+let maybe_retry f log =
   let now = Unix.gettimeofday() in
-  R.debug "Considering whether to attempt to flush the DB... (backoff %d secs, time since last failure %.1f secs)" !backoff_delay (now -. !time_of_last_failure);
-  if now -. !time_of_last_failure >= float_of_int !backoff_delay then begin
+  R.debug "Considering whether to attempt to flush the DB... (backoff %d secs, time since last failure %.1f secs)"
+    !(log.backoff_delay) (now -. !(log.time_of_last_failure));
+  if now -. !(log.time_of_last_failure) >= float_of_int !(log.backoff_delay) then begin
     R.debug "It's time for an attempt to reconnect and flush the DB.";
     f()
   end else
@@ -441,31 +472,23 @@ let maybe_retry f =
 (* -------------------------------------------------------------------- *)
 (* Functions relating to the lifecycle of the block device I/O process. *)
 
-let marker = Uuid.to_string (Uuid.make_uuid ())
-
-let sock = ref None
-let pid : (Forkhelpers.pidty * string * string) option ref = ref None (* pid, filename of control socket, filename of data socket *)
-
-let dying_processes_mutex = Mutex.create ()
-let num_dying_processes = ref 0
-
 (* Close any existing socket and kill the corresponding process. *)
-let shutdown () =
-  if is_enabled() then begin
+let shutdown log =
+  if is_enabled log then begin
     R.debug "Shutting down connection to I/O process";
     try
       begin
-        match !pid with
+        match !(log.pid) with
         | None -> ()
         | Some (p, ctrlsockpath, datasockpath) ->
           (* If there's an existing socket, close it. *)
           begin
-            match !sock with
+            match !(log.sock) with
             | None -> ()
             | Some s ->
               ignore_exn (fun () -> Unix.close s);
               (* Now we can forget about the communication channel to the process *)
-              sock := None;
+              log.sock := None;
           end;
   
           (* Terminate the child process *)
@@ -475,13 +498,15 @@ let shutdown () =
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore (Thread.create (fun () ->
             R.debug "Waiting for I/O process with pid %d to die..." ipid;
-            Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes + 1);
+            Mutex.execute log.dying_processes_mutex
+              (fun () -> log.num_dying_processes := !(log.num_dying_processes) + 1);
             ignore(Forkhelpers.waitpid p);
             R.debug "Finished waiting for process %d" ipid;
-            Mutex.execute dying_processes_mutex (fun () -> num_dying_processes := !num_dying_processes - 1)
+            Mutex.execute log.dying_processes_mutex
+              (fun () -> log.num_dying_processes := !(log.num_dying_processes) - 1)
           ) ());
           (* Forget about that process *)
-          pid := None;
+          log.pid := None;
   
           (* Attempt to remove the sockets *)
           List.iter (fun sockpath ->
@@ -492,33 +517,40 @@ let shutdown () =
     with _ -> () (* ignore any errors *)
   end
 
-let broken () =
-  set_time_of_last_failure();
-  shutdown();
-  cannot_connect_fn()
+let broken log =
+  set_time_of_last_failure log;
+  shutdown log;
+  cannot_connect_fn log
 
-let healthy () =
-  reset_time_of_last_failure();
-  can_connect_fn()
+let healthy log =
+  reset_time_of_last_failure log;
+  can_connect_fn log
 
 exception TooManyProcesses
 
-let startup () =
-  if is_enabled() then
+let get_device_path = function
+| Static_attached vdi ->
+	vdi.Static_vdis_list.path
+| Block_attached path ->
+	Some path
+
+let startup log =
+  if is_enabled log then
     try
       begin
-        match !pid with
+        match !(log.pid) with
         | Some _ -> () (* We're already started *)
         | None ->
           begin
             (* Don't start if there are already some processes hanging around *)
-            Mutex.execute dying_processes_mutex (fun () -> if !num_dying_processes >= Xapi_globs.redo_log_max_dying_processes then raise TooManyProcesses);
+            Mutex.execute log.dying_processes_mutex
+              (fun () -> if !(log.num_dying_processes) >= Xapi_globs.redo_log_max_dying_processes then raise TooManyProcesses);
 
-            match !redo_log_vdi with
+            match !(log.device) with
             | None ->
               R.info "Could not find block device"
-            | Some vdi ->
-			  match vdi.Static_vdis_list.path with
+            | Some device ->
+			  match (get_device_path device) with
 			  | None ->
 		        R.info "Could not find block device"
 		      | Some block_dev -> begin
@@ -533,15 +565,15 @@ let startup () =
 		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
 		        let p = start_io_process block_dev ctrlsockpath datasockpath in
 		          
-		        pid := Some (p, ctrlsockpath, datasockpath);
+		        log.pid := Some (p, ctrlsockpath, datasockpath);
 		        R.info "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
 		      end
           end
       end;
-      match !pid with
+      match !(log.pid) with
       | Some (_, ctrlsockpath, _) -> 
         begin
-          match !sock with
+          match !(log.sock) with
           | Some _ -> () (* We're already connected *)
           | None ->
             let latest_connect_time = get_latest_response_time Xapi_globs.redo_log_max_startup_time in
@@ -559,21 +591,21 @@ let startup () =
                     | "connect|ack_" ->
                       R.info "Connect was successful";
                       (* Save the socket. This defers the responsibility for closing it to shutdown(). *)
-                      sock := Some s
+                      log.sock := Some s
                     | "connect|nack" ->
                       (* Read the error message *)
                       let error = read_length_and_string s latest_connect_time in
                       R.warn "Connect was unsuccessful: [%s]" error;
-                      broken();
+                      broken log;
                     | e ->
                       R.warn "Received unexpected connect response: [%s]" e;
-                      broken()
+                      broken log
                   end
-               with Unixext.Timeout -> R.warn "Timed out waiting to connect"; broken()
+               with Unixext.Timeout -> R.warn "Timed out waiting to connect"; broken log
              )
              (fun () ->
                (* If the socket s has been opened, but sock hasn't been set then close it here. *)
-               match !sock with
+               match !(log.sock) with
                | Some _ -> ()
                | None -> ignore_exn (fun () -> Unix.close s)
              )
@@ -581,77 +613,118 @@ let startup () =
       | None -> () (* don't attempt to connect *)
     with TooManyProcesses ->
       R.info "Too many dying I/O processes. Not starting another one.";
-      cannot_connect_fn()
+      cannot_connect_fn log
 
-let switch vdi_reason =
-  shutdown ();
-  redo_log_vdi := get_device vdi_reason;
-  startup ()
+let switch log vdi_reason =
+  shutdown log;
+  log.device := get_static_device vdi_reason;
+  startup log
 
 (* Given a socket, execute a function and catch exceptions. *)
-let perform_action f desc sock =
+let perform_action f desc sock log =
   try
-    match !pid with 
+    match !(log.pid) with 
     | None -> ()
     | Some (_, _, datasockpath) ->
       R.debug "About to perform action %s" desc;
       f sock datasockpath;
       R.debug "Action '%s' completed successfully" desc;
-      healthy () (* no exceptions: we can be confident that the redo log is working healthily *)
+      healthy log (* no exceptions: we can be confident that the redo log is working healthily *)
   with
   | Unixext.Timeout ->
     (* Timeout: try to close the connection to the redo log. it will be re-opened when we next attempt another access *)
     R.warn "Could not %s: Timeout." desc;
-    broken()
+    broken log
   | Unix.Unix_error(a,b,c) ->
     (* problem with process I/O *)
     R.warn "Could not %s: Unix error on %s: %s" desc b (Unix.error_message a);
-    broken()
+    broken log
   | RedoLogFailure e ->
     (* error received from block_device_io *)
     R.warn "Could not %s: received error %s" desc e;
-    broken()
+    broken log
   | CommunicationsProblem str ->
     (* unexpected response received from block_device_io *)
     R.warn "Could not %s: communications problem: %s" desc str;
-    broken()
+    broken log
   | e ->
     (* other exception *)
     R.warn "Could not %s: unexpected exception %s" desc (Printexc.to_string e);
-    broken()
+    broken log
 
 (* Attempt to connect to the block device I/O process. If successful, execute the function. *)
-let connect_and_do f =
-  if !pid = None then startup (); (* try to connect if not already connected *)
-  match !sock with
+let connect_and_do f log =
+  if !(log.pid) = None then startup log; (* try to connect if not already connected *)
+  match !(log.sock) with
   | None -> () (* do nothing *)
-  | Some sock -> f sock (* execute the function, passing the socket *)
+  | Some sock -> f sock log (* execute the function, passing the socket and the redo_log state *)
 
-let connect_and_perform_action f desc =
-  connect_and_do (perform_action f desc)
+let connect_and_perform_action f desc log =
+  connect_and_do (perform_action f desc) log
 
+(* ------------------------------------------------------------------- *)
+(* Functions for handling creation and deletion of redo log instances. *)
+
+let redo_log_creation_mutex = Mutex.create ()
+
+let create () =
+	let instance = {
+		marker = Uuid.to_string (Uuid.make_uuid ());
+		enabled = ref false;
+		device = ref None;
+		currently_accessible = ref true;
+		currently_accessible_mutex = Mutex.create ();
+		currently_accessible_condition = Condition.create ();
+		time_of_last_failure = ref 0.;
+		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
+		sock = ref None;
+		pid = ref None;
+		dying_processes_mutex = Mutex.create ();
+		num_dying_processes = ref 0;
+	} in
+	Mutex.execute redo_log_creation_mutex
+		(fun () -> all_redo_logs := RedoLogSet.add instance !all_redo_logs);
+	instance
+
+let delete log =
+	shutdown log;
+	disable log;
+	Mutex.execute redo_log_creation_mutex
+		(fun () -> all_redo_logs := RedoLogSet.remove log !all_redo_logs)
+
+(* -------------------------------------------------------- *)
+(* Helper functions for interacting with multiple redo_logs *)
+let active_redo_logs_exist () =
+	RedoLogSet.exists (fun log -> is_enabled log) !(all_redo_logs)
+
+let get_active_redo_logs () =
+	RedoLogSet.filter (fun log -> is_enabled log) !(all_redo_logs)
+
+let with_active_redo_logs f =
+	let active_redo_logs = get_active_redo_logs () in
+	RedoLogSet.iter f active_redo_logs
 
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
 
-let write_db generation_count write_fn =
-  if is_enabled() then
-    let f () = connect_and_perform_action (action_write_db marker generation_count write_fn) "write database to redo log" in
+let write_db generation_count write_fn log =
+  if is_enabled log then
+    let f () = connect_and_perform_action (action_write_db log.marker generation_count write_fn) "write database to redo log" log in
 
-    if !sock = None then begin
+    if !(log.sock) = None then begin
       (* We're not currently connected. See if it's time to attempt to reconnect *)
       R.debug "We're not currently connected to the block device I/O process.";
-      maybe_retry f
+      maybe_retry f log
     end else begin
       (* it looks like everything's healthy *)
       R.debug "We believe that we are currently connected to a healthy block device. Attempting to write DB...";
       f ()
     end
 
-let write_delta generation_count t flush_db_fn =
-  if is_enabled() && !ready_to_write then begin
+let write_delta generation_count t flush_db_fn log =
+  if (is_enabled log) && !ready_to_write then begin
     (* If we're not currently connected, then try to re-connect (by calling flush_db_fn) at increasing time intervals. *)
-    match !sock with
+    match !(log.sock) with
     | None ->
       (* Instead of writing a delta, try to write the whole DB *)
       R.debug "write_delta: Not currently connected, so trying to re-connect and flush DB instead of writing the delta";
@@ -659,33 +732,36 @@ let write_delta generation_count t flush_db_fn =
     | Some sock ->
       (* It looks like we're probably connected, so try to write the delta *)
       let str = redo_log_entry_to_string t in
-      perform_action (action_write_delta marker generation_count str flush_db_fn) "write delta to redo log" sock
+      perform_action (action_write_delta log.marker generation_count str flush_db_fn) "write delta to redo log" sock log
   end
 
-let apply fn_db fn_delta =
-  if is_enabled() then begin
+let apply fn_db fn_delta log =
+  if is_enabled log then begin
     (* Turn off writing to the database while we are applying deltas. *)
     ready_to_write := false;
     finally
-      (fun () -> connect_and_perform_action (action_read fn_db fn_delta) "read from redo log")
+      (fun () -> connect_and_perform_action (action_read fn_db fn_delta) "read from redo log" log)
       (fun () -> ready_to_write := true)
   end
 
-let empty () =
-  if is_enabled() then
-    connect_and_perform_action (action_empty) "invalidate the redo log"
+let empty log =
+  if is_enabled log then
+    connect_and_perform_action (action_empty) "invalidate the redo log" log
 
-(* Write the given database to the redo-log *)
+(** ------------------------------------------------ *)
+(** Functions which operate on all active redo_logs. *)
+
+(* Write the given database to all active redo_logs *)
 let flush_db_to_redo_log db =
-	if is_enabled () then begin
+	with_active_redo_logs (fun log ->
 		R.debug "Flushing database to redo-log";
 		let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
-		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd
-	end
+		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log)
 
+(* Write a delta to all active redo_logs *)
 let database_callback event db =
 	let to_write = 
-		if is_enabled () 
+		if active_redo_logs_exist ()
 		then match event with
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
 				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
@@ -705,8 +781,10 @@ let database_callback event db =
 		else None in
 
 	Opt.iter (fun entry ->
-		write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
-			(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
-				flush_db_to_redo_log db
-			)
+		with_active_redo_logs (fun log ->
+			write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
+				(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
+					flush_db_to_redo_log db
+				) log
+		)
 	) to_write

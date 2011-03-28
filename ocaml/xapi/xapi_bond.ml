@@ -15,6 +15,7 @@ module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Listext
+open Threadext
 
 (* Returns the name of a new bond device, which is the string "bond" followed
  * by the smallest integer > 0 that does not yet appear in a bond name on this host. *)
@@ -185,6 +186,11 @@ let string_of_mode = function
 	| `balanceslb -> "balance-slb"
 	| `activebackup -> "active-backup"
 
+
+(* Protect a bunch of local operations with a mutex *)
+let local_m = Mutex.create ()
+let with_local_lock f = Mutex.execute local_m f
+
 let create ~__context ~network ~members ~mAC ~mode =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
@@ -200,7 +206,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 	let master = Ref.make () in
 	let bond = Ref.make () in
 
-	Nm.with_local_lock (fun () ->
+	with_local_lock (fun () ->
 		(* Validation constraints: *)
 		(* 1. Members must not be in a bond already *)
 		(* 2. Members must not have a VLAN tag set *)
@@ -308,54 +314,56 @@ let create ~__context ~network ~members ~mAC ~mode =
 	bond
 
 let destroy ~__context ~self =
-	let master = Db.Bond.get_master ~__context ~self in
-	let members = Db.Bond.get_slaves ~__context ~self in
-	let plugged = Db.PIF.get_currently_attached ~__context ~self:master in
-	let master_network = Db.PIF.get_network ~__context ~self:master in
-	let host = Db.PIF.get_host ~__context ~self:master in
-	let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
-	let primary_slave_network = Db.PIF.get_network ~__context ~self:primary_slave in
+	with_local_lock (fun () ->
+		let master = Db.Bond.get_master ~__context ~self in
+		let members = Db.Bond.get_slaves ~__context ~self in
+		let plugged = Db.PIF.get_currently_attached ~__context ~self:master in
+		let master_network = Db.PIF.get_network ~__context ~self:master in
+		let host = Db.PIF.get_host ~__context ~self:master in
+		let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
+		let primary_slave_network = Db.PIF.get_network ~__context ~self:primary_slave in
 
-	(* Try unplugging any plugged VIFs of running VMs that would need to be moved *)
-	let local_vms = get_local_vms ~__context host in
-	let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
-	let local_vifs_on_master_network =
-		List.filter (fun vif -> Db.VIF.get_network ~__context ~self:vif = master_network) local_vifs in
-	debug "Found these local VIFs: %s" (String.concat ", " (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs));
+		(* Try unplugging any plugged VIFs of running VMs that would need to be moved *)
+		let local_vms = get_local_vms ~__context host in
+		let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
+		let local_vifs_on_master_network =
+			List.filter (fun vif -> Db.VIF.get_network ~__context ~self:vif = master_network) local_vifs in
+		debug "Found these local VIFs: %s" (String.concat ", " (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs));
 
-	let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
-	let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
+		let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
+		let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
 
-	ignore (unplug_vifs ~__context [] (local_vifs_on_master_network @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))));
+		ignore (unplug_vifs ~__context [] (local_vifs_on_master_network @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))));
 
-	(* Copy IP configuration from master to primary member *)
-	copy_configuration ~__context master primary_slave;
+		(* Copy IP configuration from master to primary member *)
+		copy_configuration ~__context master primary_slave;
 
-	(* Move VIFs from master to slaves *)
-	debug "Moving VIFs from master to slaves";
-	List.map (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
+		(* Move VIFs from master to slaves *)
+		debug "Moving VIFs from master to slaves";
+		List.map (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
 
-	(* Move VLANs down *)
-	debug "Moving VLANs from master to slaves";
-	List.iter (fun (vlan, vifs) -> move_vlan ~__context primary_slave vlan vifs) vlans_with_vifs;
+		(* Move VLANs down *)
+		debug "Moving VLANs from master to slaves";
+		List.iter (fun (vlan, vifs) -> move_vlan ~__context primary_slave vlan vifs) vlans_with_vifs;
 
-	if Db.PIF.get_management ~__context ~self:master = true then begin
-		(* The master is the management interface: move management to first slave *)
-		debug "Moving management from master to slaves";
-		move_management ~__context master primary_slave;
-		List.iter (fun pif -> if pif <> primary_slave then Nm.bring_pif_up ~__context pif) members
-	end else begin
-		(* Plug all slaves if the master was plugged *)
-		if plugged then
-			List.iter (Nm.bring_pif_up ~__context) members
-	end;
+		if Db.PIF.get_management ~__context ~self:master = true then begin
+			(* The master is the management interface: move management to first slave *)
+			debug "Moving management from master to slaves";
+			move_management ~__context master primary_slave;
+			List.iter (fun pif -> if pif <> primary_slave then Nm.bring_pif_up ~__context pif) members
+		end else begin
+			(* Plug all slaves if the master was plugged *)
+			if plugged then
+				List.iter (Nm.bring_pif_up ~__context) members
+		end;
 
-	if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
-		Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true;
+		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
+			Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true;
 
-	(* Destroy the Bond and master PIF *)
-	Db.Bond.destroy ~__context ~self;
-	Db.PIF.destroy ~__context ~self:master
+		(* Destroy the Bond and master PIF *)
+		Db.Bond.destroy ~__context ~self;
+		Db.PIF.destroy ~__context ~self:master
+	)
 
 let set_mode ~__context ~self ~value =
 	Db.Bond.set_mode ~__context ~self ~value;

@@ -115,7 +115,7 @@ let make ~xc ~xs info uuid =
            ) else
               default_flags
         ) else [] in
-	let domid = Xc.domain_create xc info.ssidref flags uuid in
+	let domid = Xc.domain_create xc info.ssidref flags (Uuid.to_string uuid) in
 	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
@@ -370,7 +370,7 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
 	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
 	  warn "Domain stuck in dying state after 30s; resetting UUID to %s" s;
-	  Xc.domain_sethandle xc domid (Uuid.of_string s);
+	  Xc.domain_sethandle xc domid s;
 	  raise (Domain_stuck_in_dying_state domid)
 	end
 
@@ -400,7 +400,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
 	let has_platform_flag flag = try bool_of_string (read_platform flag) with _ -> false in
 	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
-	let use_vmxassist = has_platform_flag "vmxassist" in
 	let timer_mode = int_platform_flag "timer_mode" in
 	let hpet = int_platform_flag "hpet" in
 	let vpt_align = int_platform_flag "vpt_align" in
@@ -413,7 +412,6 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
         maybe_exn_ign "hpet" (fun hpet -> Xc.domain_set_hpet xc domid hpet) hpet;
         maybe_exn_ign "vpt align" (fun vpt_align -> Xc.domain_set_vpt_align xc domid vpt_align) vpt_align;
 
-	Xc.domain_setvmxassist xc domid use_vmxassist;
 	Xc.domain_max_vcpus xc domid vcpus;
 	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
 	Xc.shadow_allocation_set xc domid shadow_mib;
@@ -510,8 +508,9 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
 	] in
+	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff [];
+		domid store_mfn store_port local_stuff vm_stuff;
 	match protocol with
 	| "x86_32-abi" -> Arch_X32
 	| "x86_64-abi" -> Arch_X64
@@ -549,6 +548,7 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	    "-mode"; "hvm_build";
 	    "-domid"; string_of_int domid;
 	    "-store_port"; string_of_int store_port;
+	    "-console_port"; string_of_int console_port;
 	    "-image"; kernel;
 	    "-mem_max_mib"; Int64.to_string build_max_mib;
 	    "-mem_start_mib"; Int64.to_string build_start_mib;
@@ -573,15 +573,29 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 	end;
 
 	debug "Read [%s]" line;
+	let store_mfn, console_mfn =
+		match String.split ' ' line with
+		| [ store_mfn; console_mfn] ->
+			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
+		| _ ->
+			raise Domain_build_failed in
+
+	let local_stuff = [
+		"serial/0/limit",    string_of_int 65536;
+		"console/port",      string_of_int console_port;
+		"console/ring-ref",  sprintf "%nu" console_mfn;
+	] in
+(*
 	let store_mfn =
 		try Nativeint.of_string line
 		with _ -> raise Domain_build_failed in
+*)
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
 
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff;
+		domid store_mfn store_port local_stuff vm_stuff;
 
 	Arch_HVM
 
@@ -635,7 +649,7 @@ let restore_common ~xc ~xs ~hvm ~store_port ~console_port ~vcpus ~extras domid f
 		let limit = Int64.of_int (Io.read_int fd) in
 		debug "qemu-dm state file size: %Ld" limit;
 
-		let file = sprintf "/tmp/xen.qemu-dm.%d" domid in
+		let file = sprintf qemu_restore_path domid in
 		let fd2 = Unix.openfile file [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640 in
 		finally (fun () ->
 			if Unixext.copy_file ~limit fd fd2 <> limit then
@@ -681,8 +695,9 @@ let pv_restore ~xc ~xs ~static_max_kib ~target_kib ~vcpus domid fd =
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
 	] in
+	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port local_stuff []
+		domid store_mfn store_port local_stuff vm_stuff
 
 let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~timeoffset domid fd =
 
@@ -707,12 +722,17 @@ let hvm_restore ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus  ~
 	let store_mfn, console_mfn = restore_common ~xc ~xs ~hvm:true
 	                                            ~store_port ~console_port
 	                                            ~vcpus ~extras:[] domid fd in
+	let local_stuff = [
+		"serial/0/limit",    string_of_int 65536;
+		"console/port",     string_of_int console_port;
+		"console/ring-ref", sprintf "%nu" console_mfn;
+	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
 	] in
 	(* and finish domain's building *)
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-		domid store_mfn store_port [] vm_stuff
+		domid store_mfn store_port local_stuff vm_stuff
 
 let restore ~xc ~xs info domid fd =
 	let restore_fct = match info.priv with
@@ -809,7 +829,7 @@ let suspend ~xc ~xs ~hvm domid fd flags ?(progress_callback = fun _ -> ()) do_su
 	(* hvm domain need to also save qemu-dm data *)
 	if hvm then (
 		Io.write fd qemu_save_signature;
-		let file = sprintf "/tmp/xen.qemu-dm.%d" domid in
+		let file = sprintf qemu_save_path domid in
 		let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
 		let size = (Unix.stat file).Unix.st_size in
 		debug "qemu-dm state file size: %d" size;
@@ -831,6 +851,7 @@ let trigger_power ~xc domid = Xc.domain_trigger_power xc domid
 let trigger_sleep ~xc domid = Xc.domain_trigger_sleep xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
+	(*
 	let bitmap = ref Int64.zero in
 	if Array.length cpumap > 64 then
 		invalid_arg "affinity_set";
@@ -840,9 +861,13 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
 	Array.iteri (fun i has_affinity ->
 		if has_affinity then bitmap := bit_set !bitmap i
 		) cpumap;
-	Xc.vcpu_affinity_set xc domid vcpu !bitmap
+	(*Xc.vcpu_affinity_set xc domid vcpu !bitmap*)
+	*)
+	Xc.vcpu_affinity_set xc domid vcpu cpumap
+
 
 let vcpu_affinity_get ~xc domid vcpu =
+	(*
 	let pcpus = (Xc.physinfo xc).Xc.max_nr_cpus in
 	(* NB we ignore bits corresponding to pCPUs which we don't have *)
 	let bitmap = Xc.vcpu_affinity_get xc domid vcpu in
@@ -850,6 +875,8 @@ let vcpu_affinity_get ~xc domid vcpu =
 		(Int64.logand bitmap (Int64.shift_left 1L n)) > 0L in
 	let cpumap = Array.of_list (List.map (bit_isset bitmap) (List.range 0 pcpus)) in
 	cpumap
+	*)
+	Xc.vcpu_affinity_get xc domid vcpu
 
 let get_uuid ~xc domid =
 	Uuid.uuid_of_int_array (Xc.domain_getinfo xc domid).Xc.handle
@@ -964,19 +991,20 @@ let cpuid_set ~xc ~hvm domid cfg =
 	let tmp = Array.create 4 None in
 	let cfgout = List.map (fun (node, constr) ->
 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
-		let ret = Xc.domain_cpuid_set xc domid hvm node tmp in
+		let ret = Xc.domain_cpuid_set xc domid (*hvm*) node tmp in
 		let ret = cpuid_cfg_of_xc_cpuid_cfg ret in
 		(node, ret)
 	) cfg in
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	Xc.domain_cpuid_apply xc domid hvm
+	(*Xc.domain_cpuid_apply xc domid hvm*)
+	Xc.domain_cpuid_apply_policy xc domid
 
-let cpuid_check cfg =
+let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in
 	List.map (fun (node, constr) ->
 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
-		let (success, cfgout) = Xc.cpuid_check node tmp in
+		let (success, cfgout) = Xc.cpuid_check xc node tmp in
 		(success, (node, (cpuid_cfg_of_xc_cpuid_cfg cfgout)))
 	) cfg

@@ -188,6 +188,7 @@ let blank_template memory = {
 	vM_uuid = "Invalid";
 	vM_power_state = `Running;
 	vM_suspend_VDI = Ref.null;
+	vM_suspend_SR = Ref.null;
 	vM_resident_on = Ref.null;
 	vM_affinity = Ref.null;
 	vM_allowed_operations = [];
@@ -216,6 +217,7 @@ let blank_template memory = {
 	vM_order = 0L;
 	vM_VGPUs = [];
 	vM_attached_PCIs = [];
+	vM_version = 0L;
 }
 
 let other_install_media_template memory = 

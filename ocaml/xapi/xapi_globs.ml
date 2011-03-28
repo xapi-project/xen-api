@@ -33,7 +33,7 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
 
 (* api version *)
 let api_version_major = 1L
-let api_version_minor = 8L
+let api_version_minor = 9L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -43,8 +43,8 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.8"
-let xencenter_max_verstring = "1.8"
+let xencenter_min_verstring = "1.9"
+let xencenter_max_verstring = "1.9"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -211,6 +211,9 @@ let ha_metadata_db = "/var/xapi/ha_metadata.db"
 
 (* temporary path for the general metadata database *)
 let gen_metadata_db = "/var/xapi/gen_metadata.db"
+
+(* temporary path for opening a foreign metadata database *)
+let foreign_metadata_db = "/var/xapi/foreign.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
@@ -502,6 +505,9 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 
 (** {3 Settings related to the connection to the block device I/O process} *)
 
+(** The maximum allowed number of redo_log instances. *)
+let redo_log_max_instances = 8
+
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
 let redo_log_max_block_time_empty = 2.
 
@@ -533,6 +539,9 @@ let ha_metadata_vdi_reason = "HA metadata VDI"
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later (generic) *)
 let gen_metadata_vdi_reason = "general metadata VDI"
+
+(** Reason associated with the static VDI attach, to help identify the metadata VDI later (opening foreign databases) *)
+let foreign_metadata_vdi_reason = "foreign metadata VDI"
 
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024

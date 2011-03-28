@@ -50,6 +50,7 @@ type call = {
 
   (* Create and introduce supply an initial sm_config from the user *)
   vdi_sm_config: (string * string) list option;
+  vdi_type: string option;
   (* Introduce supplies a UUID to use *)
   new_uuid: string option;
 
@@ -69,9 +70,16 @@ type call = {
   args: string list;
 }
 
-let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of,device_config) cmd args =
+let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of,device_config) cmd args =
   Server_helpers.exec_with_new_task "sm_exec"
     (fun __context ->
+      (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
+      Opt.iter (fun sr ->
+        if Db.SR.get_introduced_by ~__context ~self:sr <> Ref.null then
+          if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"]) then
+            raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+              [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
+      ) sr_ref;
        let vdi_location = 
 	 if vdi_location <> None 
 	 then vdi_location
@@ -90,6 +98,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_location ?new_uui
 	 driver_params = driver_params;
 	 sr_sm_config = sr_sm_config;
 	 vdi_sm_config = vdi_sm_config;
+	 vdi_type = vdi_type;
 	 vdi_ref = vdi_ref;
 	 vdi_location = vdi_location;
 	 vdi_uuid = vdi_uuid;
@@ -116,6 +125,7 @@ let xmlrpc_of_call (call: call) =
   let sr_sm_config = default [] (may (fun x -> [ "sr_sm_config", kvpairs x ]) call.sr_sm_config) in
   let sr_ref = default [] (may (fun x -> [ "sr_ref", XMLRPC.To.string (Ref.string_of x) ]) call.sr_ref) in
   let sr_uuid = default [] (may (fun x -> [ "sr_uuid", XMLRPC.To.string x ]) call.sr_uuid) in
+  let vdi_type = default [] (may  (fun x -> [ "vdi_type", XMLRPC.To.string x ]) call.vdi_type) in
   let vdi_ref = default [] (may (fun x -> [ "vdi_ref", XMLRPC.To.string (Ref.string_of x) ]) call.vdi_ref) in
   let vdi_location = default [] (may (fun x -> [ "vdi_location", XMLRPC.To.string x ]) call.vdi_location) in
   let vdi_uuid = default [] (may (fun x -> [ "vdi_uuid", XMLRPC.To.string x ]) call.vdi_uuid) in
@@ -127,7 +137,7 @@ let xmlrpc_of_call (call: call) =
   let vdi_sm_config = default [] (may (fun x -> [ "vdi_sm_config", kvpairs x ]) call.vdi_sm_config) in
   let subtask_of = default [] (may (fun x -> [ "subtask_of", XMLRPC.To.string (Ref.string_of x) ]) call.subtask_of) in
   let local_cache_sr = default [] (may (fun x -> ["local_cache_sr", XMLRPC.To.string x]) call.local_cache_sr) in
-  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of @ vdi_on_boot @ vdi_allow_caching @ local_cache_sr in
+  let all = common @ dc @ session_ref @ sr_sm_config @ sr_ref @ vdi_type @ sr_uuid @ vdi_ref @ vdi_location @ vdi_uuid @ driver_params @ vdi_sm_config @ new_uuid @ subtask_of @ vdi_on_boot @ vdi_allow_caching @ local_cache_sr in
   XMLRPC.To.methodCall call.cmd [ XMLRPC.To.structure all ]
 
 let methodResponse xml =

@@ -29,6 +29,9 @@ open Forkhelpers
 open Client
 open Threadext
 
+(* Create a redo_log instance to use for HA. *)
+let ha_redo_log = Redo_log.create ()
+
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
@@ -687,10 +690,10 @@ let redo_log_ha_enabled_during_runtime __context =
 	let pool = Helpers.get_pool ~__context in
 	if Db.Pool.get_redo_log_enabled ~__context ~self:pool then begin
 		info "A redo log is already in use; switch to the dedicated HA VDI.";
-		Redo_log.switch Xapi_globs.ha_metadata_vdi_reason
+		Redo_log.switch ha_redo_log Xapi_globs.ha_metadata_vdi_reason
 	end else begin
 		info "Switching on HA redo log.";
-		Redo_log.enable Xapi_globs.ha_metadata_vdi_reason
+		Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason
 			(* upon the first attempt to write a delta, it will realise that a DB flush
 			 * is necessary as the I/O process will not be running *)
 	end
@@ -704,11 +707,11 @@ let redo_log_ha_disabled_during_runtime __context =
 	if Db.Pool.get_redo_log_enabled ~__context ~self:pool then begin
 		(* switch to the other VDI *)
 		info "A general redo-log is in available, independent from HA; using it now";
-		Redo_log.switch Xapi_globs.gen_metadata_vdi_reason
+		Redo_log.switch ha_redo_log Xapi_globs.gen_metadata_vdi_reason
 	end
 	else begin
-		Redo_log_usage.stop_using_redo_log();
-		Redo_log.disable()
+		Redo_log_usage.stop_using_redo_log ha_redo_log;
+		Redo_log.disable ha_redo_log
 	end
 
 (* This function is called when HA is found to be enabled at startup, before
@@ -718,9 +721,10 @@ let redo_log_ha_enabled_at_startup () =
 	(* If we are still the master, extract any HA metadata database so we can consider population from it *)
 	if Pool_role.is_master () then begin
 		debug "HA is enabled, so enabling writing to redo-log";
-		Redo_log.enable Xapi_globs.ha_metadata_vdi_reason; (* enable the use of the redo log *)
+		Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason; (* enable the use of the redo log *)
 		debug "This node is a master; attempting to extract a database from a metadata VDI";
-		Redo_log_usage.read_from_redo_log Xapi_globs.ha_metadata_db (* best effort only: does not raise any exceptions *)
+		let db_ref = Db_backend.make () in 
+		Redo_log_usage.read_from_redo_log ha_redo_log Xapi_globs.ha_metadata_db db_ref (* best effort only: does not raise any exceptions *)
 	end
 
 (* ----------------------------- *)
