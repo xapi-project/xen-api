@@ -22,7 +22,10 @@ type sr_probe_sr = {
 let parse_kv = function 
 	| Xml.Element(key, _, [ Xml.PCData v ]) -> 
 		key, String.strip String.isspace v (* remove whitespace at both ends *)
-	| _ -> failwith "Malformed key/value pair"
+	| Xml.Element(key, _, []) ->
+		key, ""
+	| _ ->
+		failwith "Malformed key/value pair"
 
 (* Parse a list of SRs from an iscsi probe result. *)
 let parse_sr_probe_iscsi xml = 
@@ -78,9 +81,9 @@ let create ~__context ~_type ~device_config ~whitelist =
 	| "lvmoiscsi" ->
 		(try
 			parse_sr_probe_iscsi probe_result
-		with _ ->
+		with Failure code ->
 			raise (Api_errors.Server_error(Api_errors.internal_error,
-				["iSCSI SR probe response was malformed."])))
+				[Printf.sprintf "iSCSI SR probe response was malformed: %s" code])))
 	| "lvmohba" ->
 		(try
 			parse_sr_probe_hba probe_result
