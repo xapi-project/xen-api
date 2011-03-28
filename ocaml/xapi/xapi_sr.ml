@@ -418,7 +418,15 @@ let set_shared ~__context ~sr ~value =
 	raise (Api_errors.Server_error (Api_errors.sr_has_multiple_pbds,List.map (fun pbd -> Ref.string_of pbd) pbds));
       Db.SR.set_shared ~__context ~self:sr ~value
     end
-  
+
+let set_name_label ~__context ~sr ~value =
+	Db.SR.set_name_label ~__context ~self:sr ~value;
+	update ~__context ~sr
+
+let set_name_description ~__context ~sr ~value =
+	Db.SR.set_name_description ~__context ~self:sr ~value;
+	update ~__context ~sr
+
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
 
