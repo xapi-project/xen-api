@@ -355,6 +355,7 @@ let snapshot ~__context ~vdi ~driver_params =
   Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
   update_allowed_operations ~__context ~self:newvdi;
+  update ~__context ~vdi:newvdi;
   newvdi
 
 let destroy ~__context ~self =
@@ -560,6 +561,15 @@ let set_on_boot ~__context ~self ~value =
 
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
+
+let set_name_label ~__context ~self ~value =
+	Db.VDI.set_name_label ~__context ~self ~value;
+	update ~__context ~vdi:self
+
+let set_name_description ~__context ~self ~value =
+	Db.VDI.set_name_description ~__context ~self ~value;
+	update ~__context ~vdi:self
+
 
 open Db_cache_types
 
