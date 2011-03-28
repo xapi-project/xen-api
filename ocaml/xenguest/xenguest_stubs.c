@@ -257,7 +257,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 	struct flags f;
 	get_flags(&f,c_domid);
 
-	xc_dom_loginit();
+	xc_dom_loginit(xch);
 	dom = xc_dom_allocate(xch, String_val(cmdline), String_val(features));
 	if (!dom)
 		failwith_oss_xc(xch, "xc_dom_allocate");
