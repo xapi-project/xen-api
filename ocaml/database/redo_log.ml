@@ -695,14 +695,16 @@ let delete log =
 (* -------------------------------------------------------- *)
 (* Helper functions for interacting with multiple redo_logs *)
 let active_redo_logs_exist () =
-	RedoLogSet.exists (fun log -> is_enabled log) !(all_redo_logs)
-
-let get_active_redo_logs () =
-	RedoLogSet.filter (fun log -> is_enabled log) !(all_redo_logs)
+	Mutex.execute redo_log_creation_mutex
+		(fun () -> RedoLogSet.exists (fun log -> is_enabled log) !(all_redo_logs))
 
 let with_active_redo_logs f =
-	let active_redo_logs = get_active_redo_logs () in
-	RedoLogSet.iter f active_redo_logs
+	Mutex.execute redo_log_creation_mutex
+		(fun () ->
+			let active_redo_logs =
+				RedoLogSet.filter (fun log -> is_enabled log) !(all_redo_logs)
+			in
+			RedoLogSet.iter f active_redo_logs)
 
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
