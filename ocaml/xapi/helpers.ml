@@ -535,16 +535,23 @@ let check_sr_exists ~__context ~self =
 
 (* Returns an SR suitable for suspending this VM *)
 let choose_suspend_sr ~__context ~vm =
-    (* If the Pool.suspend_image_SR exists, use that. Otherwise try the Host.suspend_image_SR *)
+    (* If the VM.suspend_SR exists, use that. If it fails, try the Pool.suspend_image_SR. *)
+    (* If that fails, try the Host.suspend_image_SR. *)
+    let vm_sr = Db.VM.get_suspend_SR ~__context ~self:vm in
     let pool = get_pool ~__context in
     let pool_sr = Db.Pool.get_suspend_image_SR ~__context ~self:pool in
     let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
     let host_sr = Db.Host.get_suspend_image_sr ~__context ~self:resident_on in
 
-    match check_sr_exists ~__context ~self:pool_sr, check_sr_exists ~__context ~self:host_sr with
-    | Some x, _ -> x
-    | _, Some x -> x
-    | None, None ->
+    match
+      check_sr_exists ~__context ~self:vm_sr,
+      check_sr_exists ~__context ~self:pool_sr,
+      check_sr_exists ~__context ~self:host_sr
+    with
+    | Some x, _, _ -> x
+    | _, Some x, _ -> x
+    | _, _, Some x -> x
+    | None, None, None ->
         raise (Api_errors.Server_error (Api_errors.vm_no_suspend_sr, [Ref.string_of vm]))
 
 (* Returns an SR suitable for receiving crashdumps of this VM *)
@@ -677,14 +684,14 @@ let rec bisect f lower upper =
     then bisect f mid upper
     else bisect f lower mid
 
-(* All non best-effort VMs with always_run set should be kept running at all costs *)
-let vm_should_always_run always_run restart_priority =
-  always_run && (restart_priority <> Constants.ha_restart_best_effort)
+(* All non best-effort VMs which are running should be kept running at all costs *)
+let vm_should_always_run power_state restart_priority =
+  power_state = `Running && restart_priority = Constants.ha_restart
 
 (* Returns true if the specified VM is "protected" (non best-effort) by xHA *)
 let is_xha_protected ~__context ~self =
-  vm_should_always_run (Db.VM.get_ha_always_run ~__context ~self) (Db.VM.get_ha_restart_priority ~__context ~self)
-let is_xha_protected_r record = vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority
+  vm_should_always_run (Db.VM.get_power_state ~__context ~self) (Db.VM.get_ha_restart_priority ~__context ~self)
+let is_xha_protected_r record = vm_should_always_run record.API.vM_power_state record.API.vM_ha_restart_priority
 
 open Listext
 

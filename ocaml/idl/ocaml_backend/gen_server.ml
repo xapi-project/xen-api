@@ -131,7 +131,7 @@ let operation (obj: obj) (x: message) =
       Printf.sprintf "%s.%s %s %s"
 	(OU.ocaml_of_obj_name obj.DT.name)
 	x.msg_name
-	("~__context:" ^ Gen_common.context)
+	("~__context:" ^ Gen_common.context_with_correct_database)
 	(String.concat "" (List.map (fun arg -> " ~" ^ (O.string_of_param arg)) args_without_session)) in
         
   let has_async = Client.has_async x in

@@ -145,7 +145,8 @@ let destroy_db_session ~__context ~self =
 let revalidate_external_session ~__context ~session =
 	try
 	(* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
-	if not (Db.Session.get_is_local_superuser ~__context ~self:session) then
+	(* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
+	if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered session) then
 
 	(* 1. is the external authentication disabled in the pool? *)
 	let pool = List.hd (Db.Pool.get_all ~__context) in
@@ -713,3 +714,14 @@ let get_top ~__context ~self =
   match ancestry with
   | [] -> Ref.null
   | ancestry -> List.nth ancestry ((List.length ancestry)-1)
+
+(* This function should only be called from inside XAPI. *)
+let create_readonly_session ~__context ~uname =
+	debug "Creating readonly session.";
+	let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
+	let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
+	let pool = List.hd (Db.Pool.get_all ~__context) in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	login_no_password ~__context ~uname:(Some uname) ~host:master ~pool:false
+		~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
+		~auth_user_name:uname ~rbac_permissions

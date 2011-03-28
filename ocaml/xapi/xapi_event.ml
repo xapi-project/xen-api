@@ -194,6 +194,8 @@ let unregister ~__context ~classes =
 (** Is called by the session timeout code *)
 let on_session_deleted session_id = Mutex.execute event_lock 
 	(fun () -> 
+	   (* Unregister this session if is associated with in imported DB. *)
+	   Db_backend.unregister_session session_id;
 	   if Hashtbl.mem subscriptions session_id then begin 
 	     let sub = Hashtbl.find subscriptions session_id in
 	     (* Mark the subscription as invalid and wake everyone up *)

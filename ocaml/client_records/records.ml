@@ -757,6 +757,9 @@ let vm_record rpc session_id vm =
 				~set:(fun x -> Client.VM.set_memory_static_min rpc session_id vm (Record_util.bytes_of_string "memory-static-min" x)) ();
 			make_field ~name:"suspend-VDI-uuid"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
+			make_field ~name:"suspend-SR-uuid"
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_SR) ()
+				~set:(fun x -> Client.VM.set_suspend_SR rpc session_id vm (Client.SR.get_by_uuid rpc session_id x));
 			make_field ~name:"VCPUs-params"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
 				~add_to_map:(fun k v -> match k with
@@ -859,7 +862,7 @@ let vm_record rpc session_id vm =
 				~add_to_map:(fun k v -> Client.VM.add_to_xenstore_data rpc session_id vm k v)
 				~remove_from_map:(fun k -> Client.VM.remove_from_xenstore_data rpc session_id vm k) 
 				~get_map:(fun () -> (x ()).API.vM_xenstore_data) ();
-			make_field ~name:"ha-always-run"
+			make_field ~name:"ha-always-run" ~deprecated:true
 				~get:(fun () -> string_of_bool ((x ()).API.vM_ha_always_run))
 				~set:(fun x -> Client.VM.set_ha_always_run rpc session_id vm (bool_of_string x)) ();
 			make_field ~name:"ha-restart-priority"
@@ -925,6 +928,8 @@ let vm_record rpc session_id vm =
 			make_field ~name:"order"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
 				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
+			make_field ~name:"version"
+				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
 		]}
 
 let host_crashdump_record rpc session_id host = 
@@ -1412,9 +1417,9 @@ let vm_appliance_record rpc session_id vm_appliance =
 		fields =
 			[
 				make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_appliance_uuid) ();
-				make_field ~name:"name_label" ~get:(fun () -> (x ()).API.vM_appliance_name_label)
+				make_field ~name:"name-label" ~get:(fun () -> (x ()).API.vM_appliance_name_label)
 					~set:(fun x -> Client.VM_appliance.set_name_label rpc session_id !_ref x) ();
-				make_field ~name:"name_description" ~get:(fun () -> (x ()).API.vM_appliance_name_description)
+				make_field ~name:"name-description" ~get:(fun () -> (x ()).API.vM_appliance_name_description)
 					~set:(fun x -> Client.VM_appliance.set_name_description rpc session_id !_ref x) ();
 				make_field ~name:"VMs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs))
 					~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs) ();
@@ -1424,6 +1429,24 @@ let vm_appliance_record rpc session_id vm_appliance =
 				make_field ~name:"current-operations"
 					~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vm_appliance_operation_to_string b) (x ()).API.vM_appliance_current_operations)) 
 					~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vm_appliance_operation_to_string b) (x ()).API.vM_appliance_current_operations) ();
+			]
+	}
+
+let dr_task_record rpc session_id dr_task =
+	let _ref = ref dr_task in
+	let empty_record = ToGet (fun () ->
+		Client.DR_task.get_record ~rpc ~session_id ~self:!_ref) in
+	let record = ref empty_record in
+	let x () = lzy_get record in
+	{
+		setref = (fun r -> _ref := r; record := empty_record);
+		setrefrec = (fun (a, b) -> _ref := a; record := Got b);
+		record = x;
+		getref = (fun () -> !_ref);
+		fields =
+			[
+				make_field ~name:"uuid" ~get:(fun () -> (x ()).API.dR_task_uuid) ();
+				make_field ~name:"introduced-SRs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.dR_task_introduced_SRs)) ();
 			]
 	}
 

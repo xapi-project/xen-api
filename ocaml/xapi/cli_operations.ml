@@ -723,7 +723,8 @@ let gen_cmds rpc session_id =
 		(make_param_funs (Client.VM_appliance.get_all) (Client.VM_appliance.get_all_records_where) (Client.VM_appliance.get_by_uuid) (vm_appliance_record) "appliance" [] [] rpc session_id) @
 		(make_param_funs (Client.PGPU.get_all) (Client.PGPU.get_all_records_where) (Client.PGPU.get_by_uuid) (pgpu_record) "pgpu" [] ["uuid";"vendor-name";"device-name";"gpu-group-uuid"] rpc session_id) @
 		(make_param_funs (Client.GPU_group.get_all) (Client.GPU_group.get_all_records_where) (Client.GPU_group.get_by_uuid) (gpu_group_record) "gpu-group" [] ["uuid";"name-label";"name-description"] rpc session_id) @
-		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
+		(make_param_funs (Client.VGPU.get_all) (Client.VGPU.get_all_records_where) (Client.VGPU.get_by_uuid) (vgpu_record) "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id) @
+		(make_param_funs (Client.DR_task.get_all) (Client.DR_task.get_all_records_where) (Client.DR_task.get_by_uuid) (dr_task_record) "drtask" [] [] rpc session_id)
 		(*
 		  @ (make_param_funs (Client.Alert.get_all) (Client.Alert.get_all_records_where) (Client.Alert.get_by_uuid) (alert_record) "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
 		 *)
@@ -1348,6 +1349,14 @@ let sr_update printer rpc session_id params =
 	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	Client.SR.update rpc session_id sr
 
+let sr_enable_database_replication printer rpc session_id params =
+	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	Client.SR.enable_database_replication rpc session_id sr
+
+let sr_disable_database_replication printer rpc session_id params =
+	let sr = Client.SR.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+	Client.SR.disable_database_replication rpc session_id sr
+
 (* PIF destroy* list param-list param-get param-set param-add param-remove *)
 
 let pbd_create printer rpc session_id params =
@@ -1447,7 +1456,9 @@ let vm_create printer rpc session_id params =
 		~appliance:Ref.null
 		~start_delay:0L
 		~shutdown_delay:0L
-		~order:0L in
+		~order:0L
+		~suspend_SR:Ref.null
+		~version:0L in
 	let uuid=Client.VM.get_uuid rpc session_id vm in
 	printer (Cli_printer.PList [uuid])
 
@@ -2028,6 +2039,22 @@ let vm_install_real printer rpc session_id template name description params =
 			if all_empty_cd_driver && no_provision_disk then Some Ref.null
 			else None in
 
+	let suspend_sr_ref = match sr_ref with
+		| Some sr ->
+			let ref_is_valid = Server_helpers.exec_with_new_task
+				~session_id "Checking suspend_SR validity"
+				(fun __context -> Db.is_valid_ref __context sr)
+			in
+			if ref_is_valid then
+				(* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
+				sr
+			else
+				(* Template is a snapshot - copy the suspend_SR from the template *)
+				Client.VM.get_suspend_SR rpc session_id template
+		| None ->
+			(* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
+			Client.VM.get_suspend_SR rpc session_id template in
+
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
 		| None ->
@@ -2054,6 +2081,7 @@ let vm_install_real printer rpc session_id template name description params =
 
 	try
 		Client.VM.set_name_description rpc session_id new_vm description;
+		Client.VM.set_suspend_SR rpc session_id new_vm suspend_sr_ref;
 		rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
 		Client.VM.provision rpc session_id new_vm;
 		(* Client.VM.start rpc session_id new_vm false true; *)  (* stop install starting VMs *)
@@ -3171,6 +3199,29 @@ let vm_vif_list printer rpc session_id params =
 	in
 	ignore(do_vm_op printer rpc session_id op (("multiple","true")::params) ["params"]) (* always list multiple vms *)
 
+let with_database_vdi rpc session_id params f =
+	let database_params = read_map_params "database" params in
+	let database_uuid = List.assoc "vdi-uuid" database_params in
+	let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_uuid in
+	let database_session = Client.VDI.open_database ~rpc ~session_id ~self:database_vdi in
+	f database_session;
+	Client.Session.logout ~rpc ~session_id:database_session
+
+let vm_recover printer rpc session_id params =
+	let force = get_bool_param params "force" in
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let vm = Client.VM.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM.recover ~rpc ~session_id:database_session ~self:vm ~session_to:session_id ~force)
+
+let vm_assert_can_be_recovered printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let vm = Client.VM.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM.assert_can_be_recovered ~rpc ~session_id:database_session ~self:vm  ~session_to:session_id)
+
 let cd_list printer rpc session_id params =
 	let srs = Client.SR.get_all_records_where rpc session_id "true" in
 	let cd_srs = List.filter (fun (sr,sr_record) -> sr_record.API.sR_content_type = "iso") srs in
@@ -3962,10 +4013,10 @@ let vmpp_destroy printer rpc session_id params =
 	Client.VMPP.destroy ~rpc ~session_id ~self:ref
 
 let vm_appliance_create printer rpc session_id params =
-	let name_label = List.assoc "name_label" params in
+	let name_label = List.assoc "name-label" params in
 	let name_description =
-		if List.mem_assoc "name_description" params then
-			List.assoc "name_description" params
+		if List.mem_assoc "name-description" params then
+			List.assoc "name-description" params
 		else ""
 	in
 	let ref = Client.VM_appliance.create ~rpc ~session_id ~name_label ~name_description in
@@ -3992,6 +4043,21 @@ let vm_appliance_shutdown printer rpc session_id params =
 	else
 		Client.VM_appliance.clean_shutdown ~rpc ~session_id ~self:ref
 
+let vm_appliance_recover printer rpc session_id params =
+	let force = get_bool_param params "force" in
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM_appliance.recover ~rpc ~session_id:database_session ~self:appliance ~session_to:session_id ~force)
+
+let vm_appliance_assert_can_be_recovered printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	with_database_vdi rpc session_id params
+		(fun database_session ->
+			let appliance = Client.VM_appliance.get_by_uuid ~rpc ~session_id:database_session ~uuid in
+			Client.VM_appliance.assert_can_be_recovered ~rpc ~session_id:database_session ~self:appliance  ~session_to:session_id)
+
 let vgpu_create printer rpc session_id params =
 	let device = if List.mem_assoc "device" params then List.assoc "device" params else "0" in
 	let gpu_group_uuid = List.assoc "gpu-group-uuid" params in
@@ -4007,3 +4073,15 @@ let vgpu_destroy printer rpc session_id params =
 	let vgpu = Client.VGPU.get_by_uuid rpc session_id uuid in
 	Client.VGPU.destroy rpc session_id vgpu
 
+let dr_task_create printer rpc session_id params =
+	let _type = List.assoc "type" params in
+	let device_config = parse_device_config params in
+	let whitelist = if List.mem_assoc "sr-whitelist" params then String.split ',' (List.assoc "sr-whitelist" params) else [] in
+	let dr_task = Client.DR_task.create ~rpc ~session_id ~_type ~device_config ~whitelist in
+	let uuid = Client.DR_task.get_uuid ~rpc ~session_id ~self:dr_task in
+	printer (Cli_printer.PList [uuid])
+
+let dr_task_destroy printer rpc session_id params =
+	let uuid = List.assoc "uuid" params in
+	let ref = Client.DR_task.get_by_uuid ~rpc ~session_id ~uuid in
+	Client.DR_task.destroy ~rpc ~session_id ~self:ref

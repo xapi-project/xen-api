@@ -41,7 +41,7 @@ let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
-	let using_xiu = Xc.using_injection () in
+	let using_xiu = Xc.is_fake () in
 
 	let last_log_file = "/tmp/xenguest.log" in
 	(try Unix.unlink last_log_file with _ -> ());

@@ -582,7 +582,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.hard_shutdown" ~op:`hard_shutdown
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
+
+		let assert_can_be_recovered ~__context ~self ~session_to =
+			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
+
+		let recover ~__context ~self ~session_to ~force =
+			info "VM_appliance.recover: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			Local.VM_appliance.recover ~__context ~self ~session_to ~force
 	end
+	module DR_task = Local.DR_task
   (* module Alert = Local.Alert *)
 
   module Pool = struct
@@ -928,9 +937,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     (* don't forward create. this just makes a db record *)
-    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy =
+    let create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version =
       info "VM.create: name_label = '%s' name_description = '%s'" name_label name_description;
-      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
+      Local.VM.create ~__context ~name_label ~name_description ~user_version ~is_a_template ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config  ~recommendations ~xenstore_data  ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR ~version
 
     (* don't forward destroy. this just deletes db record *)
     let destroy ~__context ~self =
@@ -1775,6 +1784,32 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let set_protection_policy ~__context ~self ~value =
 		info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
 		Local.VM.set_protection_policy ~__context ~self ~value
+
+	let set_start_delay ~__context ~self ~value =
+		info "VM.set_start_delay: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_start_delay ~__context ~self ~value
+
+	let set_shutdown_delay ~__context ~self ~value =
+		info "VM.set_shutdown_delay: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_shutdown_delay ~__context ~self ~value
+
+	let set_order ~__context ~self ~value =
+		info "VM.set_order: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_order ~__context ~self ~value
+
+	let assert_can_be_recovered ~__context ~self ~session_to =
+		info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.assert_can_be_recovered ~__context ~self ~session_to
+
+	let recover ~__context ~self ~session_to ~force =
+		info "VM.recover: self = '%s'; force = %b;" (vm_uuid ~__context self) force;
+		(* If a VM is part of an appliance, the appliance *)
+		(* should be recovered using VM_appliance.recover *)
+		let appliance = Db.VM.get_appliance ~__context ~self in
+		if Db.is_valid_ref __context appliance then
+			raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
+				[Ref.string_of self; Ref.string_of appliance]));
+		Local.VM.recover ~__context ~self ~session_to ~force
 
   end
 
@@ -2729,6 +2764,14 @@ end
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
       Local.SR.assert_can_host_ha_statefile ~__context ~sr
 
+		let enable_database_replication ~__context ~sr =
+			info "SR.enable_database_replication: SR = '%s'" (sr_uuid ~__context sr);
+			Local.SR.enable_database_replication ~__context ~sr
+
+		let disable_database_replication ~__context ~sr =
+			info "SR.disable_database_replication: SR = '%s'" (sr_uuid ~__context sr);
+			Local.SR.disable_database_replication ~__context ~sr
+
     let create_new_blob ~__context ~sr ~name ~mime_type =
       info "SR.create_new_blob: SR = '%s'" (sr_uuid ~__context sr);
       Local.SR.create_new_blob ~__context ~sr ~name ~mime_type
@@ -2817,6 +2860,16 @@ end
       Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_physical_utilisation ~__context ~self ~value
 
+		let set_is_a_snapshot ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_is_a_snapshot ~__context ~self ~value
+
+		let set_snapshot_of ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_snapshot_of ~__context ~self ~value
+
 	let ensure_vdi_not_on_running_vm ~__context ~self =
 		let vbds = Db.VDI.get_VBDs ~__context ~self in
 		List.iter (fun vbd ->
@@ -2834,6 +2887,9 @@ end
 	let set_allow_caching ~__context ~self ~value =
 		ensure_vdi_not_on_running_vm ~__context ~self;
 		Local.VDI.set_allow_caching ~__context ~self ~value
+
+	let open_database ~__context ~self =
+		Local.VDI.open_database ~__context ~self
 
     (* know sr so just use SR forwarding policy direct here *)
     let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =

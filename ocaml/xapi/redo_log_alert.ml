@@ -34,21 +34,22 @@ let raise_system_alert news =
 	end else debug "Not raising alert because Pool.other_config:%s <> true" Xapi_globs.redo_log_alert_key;
   ) ())
 
-let loop () =
+(* Calling this function will create a liveness monitor for the supplied redo_log instance. *)
+let loop log =
   Debug.name_thread "HA metadata VDI monitor";
-  Mutex.execute Redo_log.currently_accessible_m (fun () ->
+  Mutex.execute log.Redo_log.currently_accessible_mutex (fun () ->
     while true do
       (* Wait until we are signalled that a state change has occurred *)
-      Condition.wait Redo_log.currently_accessible_condition Redo_log.currently_accessible_m;
+      Condition.wait log.Redo_log.currently_accessible_condition log.Redo_log.currently_accessible_mutex;
 
       (* The variable Redo_log.currently_accessible has been updated -- send the alert if there was a change *)
       begin
-        match !previously_accessible, !Redo_log.currently_accessible with
+        match !previously_accessible, !(log.Redo_log.currently_accessible) with
         | false, false -> ()
         | true, true -> ()
         | false, true -> debug "Raising system alert that all is now well"; raise_system_alert Api_messages.redo_log_healthy
         | true, false -> debug "Raising system alert to say that we can't access the redo log"; raise_system_alert Api_messages.redo_log_broken
       end;
-      previously_accessible := !Redo_log.currently_accessible
+      previously_accessible := !(log.Redo_log.currently_accessible)
     done
   )

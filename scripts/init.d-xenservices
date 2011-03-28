@@ -36,6 +36,7 @@ start() {
 	    failure $"xiu"
 	    exit 1
 	fi
+	export XENCTRL_OSDEP=/opt/xensource/lib/xenctrl/osdep_xiu.so
 	export XIU=/var/xapi/xiu
     fi
 	echo -n $"Starting xenstored: "	

@@ -197,7 +197,6 @@ open Db_actions
 
 (* look up the list generated in xapi_session.get_permissions *)
 let is_access_allowed ~__context ~session_id ~permission =
-
 	(* always allow local system access *)
 	if Session_check.is_local_session __context session_id
 	then true
