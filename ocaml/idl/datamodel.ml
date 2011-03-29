@@ -1831,8 +1831,8 @@ let vm_resume = call
   ~doc:"Awaken the specified VM and resume it.  This can only be called when the specified VM is in the Suspended state."
   ~params:[Ref _vm, "vm", "The VM to resume";
            Bool, "start_paused", "Resume VM in paused state if set to true.";
-	   Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
-]
+           Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
+          ]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed; Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
   ()
@@ -2028,6 +2028,15 @@ let vm_set_order = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let vm_set_suspend_VDI = call
+	~name:"set_suspend_VDI"
+	~in_product_since:rel_boston
+	~doc:"Set this VM's suspend VDI, which must be indentical to its current one"
+	~params:[Ref _vm, "self", "The VM";
+	         Ref _vdi, "value", "The suspend VDI uuid"]
+	~allowed_roles:_R_POOL_OP
+	()
+	
 let vm_assert_can_be_recovered = call
   ~name:"assert_can_be_recovered"
   ~in_product_since:rel_boston
@@ -2091,7 +2100,6 @@ let host_ha_release_resources = call
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
-
 
 let host_local_assert_healthy = call ~flags:[`Session]
   ~in_product_since:rel_miami
@@ -4941,6 +4949,20 @@ let vdi_open_database = call
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
+let vdi_checksum = call
+	~name:"checksum"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to checksum"]
+	~result:(String, "The md5sum of the vdi")
+	~doc:"Internal function to calculate VDI checksum and return a string"
+	~hide_from_docs:true
+	~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
+	                              this way only to follow the previous
+	                              convention. It is supposed to fix by future
+	                              version of RBAC *)
+  ()
+
 (** A virtual disk *)
 let vdi =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -4968,6 +4990,7 @@ let vdi =
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;
 		 vdi_open_database;
+		 vdi_checksum;
 		]
       ~contents:
       ([ uid _vdi;
@@ -6059,6 +6082,7 @@ let vm =
 		vm_set_start_delay;
 		vm_set_shutdown_delay;
 		vm_set_order;
+		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
 		vm_recover;
 		]
