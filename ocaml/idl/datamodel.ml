@@ -3061,6 +3061,24 @@ let sr_set_shared = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let sr_set_name_label = call
+	~name:"set_name_label"
+	~in_product_since:rel_rio
+	~doc:"Set the name label of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name label for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let sr_set_name_description = call
+	~name:"set_name_description"
+	~in_product_since:rel_rio
+	~doc:"Set the name description of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name description for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
+
 let sr_create_new_blob = call
   ~name: "create_new_blob"
   ~in_product_since:rel_orlando
@@ -4584,6 +4602,7 @@ let storage_repository =
       ~messages:[ sr_create; sr_introduce; sr_make; sr_destroy; sr_forget;
 		  sr_update;
 		  sr_get_supported_types; sr_scan; sr_probe; sr_set_shared;
+		  sr_set_name_label; sr_set_name_description;
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
@@ -4593,7 +4612,7 @@ let storage_repository =
 		]
       ~contents:
       ([ uid _sr;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW;) ()
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations storage_operations) @ [
 	field ~ty:(Set(Ref _vdi)) ~qualifier:DynamicRO "VDIs" "all virtual disks known to this storage repository";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "describes how particular hosts can see this storage repository";
@@ -4891,7 +4910,27 @@ let vdi_set_allow_caching = call
 	~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
 	~allowed_roles:_R_VM_ADMIN
 	()
-  
+
+let vdi_set_name_label = call
+	~name:"set_name_label"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name lable for the VDI"]
+	~doc:"Set the name label of the VDI. This can only happen when then its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_set_name_description = call
+	~name:"set_name_description"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name description for the VDI"]
+	~doc:"Set the name description of the VDI. This can only happen when its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 let vdi_open_database = call
 	~name:"open_database"
 	~in_oss_since:None
@@ -4923,6 +4962,8 @@ let vdi =
 		 vdi_set_physical_utilisation;
 		 vdi_set_is_a_snapshot;
 		 vdi_set_snapshot_of;
+		 vdi_set_name_label;
+		 vdi_set_name_description;
 		 vdi_generate_config;
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;
@@ -4930,7 +4971,7 @@ let vdi =
 		]
       ~contents:
       ([ uid _vdi;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations vdi_operations) @ [
 	field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "storage repository in which the VDI resides";
   field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "list of vbds that refer to this disk";
@@ -6510,6 +6551,7 @@ let vm_appliance_operations = Enum ("vm_appliance_operation",
 		"start", "Start";
 		"clean_shutdown", "Clean shutdown";
 		"hard_shutdown", "Hard shutdown";
+		"shutdown", "Shutdown";
 	])
 
 
@@ -6541,6 +6583,14 @@ let vm_appliance =
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
+	let vm_appliance_shutdown = call
+		~name:"shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
+		~doc:"For each VM in the appliance, try to shut it down cleanly. If this fails, perform a hard shutdown of the VM."
+		~allowed_roles:_R_POOL_OP
+		() in
 	let vm_appliance_assert_can_be_recovered = call
 		~name:"assert_can_be_recovered"
 		~in_product_since:rel_boston
@@ -6568,6 +6618,7 @@ let vm_appliance =
 			vm_appliance_start;
 			vm_appliance_clean_shutdown;
 			vm_appliance_hard_shutdown;
+			vm_appliance_shutdown;
 			vm_appliance_assert_can_be_recovered;
 			vm_appliance_recover;
 		]
