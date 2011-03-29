@@ -127,11 +127,9 @@ let string_of_task __context =
 let check_for_foreign_database ~__context =
 	match __context.session_id with
 	| Some sid ->
-		(try
-			let database = Hashtbl.find Db_backend.foreign_databases sid in
-			{__context with database = database}
-		with Not_found ->
-			__context)
+		(match Db_backend.get_registered_database sid with
+		| Some database -> {__context with database = database}
+		| None -> __context)
 	| None ->
 		__context
 
