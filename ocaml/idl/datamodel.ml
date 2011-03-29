@@ -4963,6 +4963,16 @@ let vdi_checksum = call
 	                              version of RBAC *)
   ()
 
+let vdi_read_database_pool_uuid = call
+	~name:"read_database_pool_uuid"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
+	~result:(String, "The cached pool UUID of the database on the VDI.")
+	~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A virtual disk *)
 let vdi =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -4991,6 +5001,7 @@ let vdi =
 		 vdi_set_allow_caching;
 		 vdi_open_database;
 		 vdi_checksum;
+		 vdi_read_database_pool_uuid;
 		]
       ~contents:
       ([ uid _vdi;

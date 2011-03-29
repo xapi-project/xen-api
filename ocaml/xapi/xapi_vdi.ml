@@ -594,3 +594,8 @@ let open_database ~__context ~self =
 		let error = Printexc.to_string e in
 		debug "Caught %s while trying to open database" error;
 		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [error]))
+
+let read_database_pool_uuid ~__context ~self =
+	match Xapi_dr.read_vdi_cache_record ~vdi:self with
+	| Some (_, uuid) -> uuid
+	| None -> ""
