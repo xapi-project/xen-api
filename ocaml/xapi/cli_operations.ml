@@ -2324,7 +2324,7 @@ let vm_migrate printer rpc session_id params =
 	let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
 	if not (List.mem_assoc "host" params) then failwith "No destination host specified";
 	let host = (get_host_by_name_or_id rpc session_id (List.assoc "host" params)).getref () in
-	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["live"; "encrypt"] params) in
+	let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "encrypt"] params) in
 	ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
 		params ["host"; "host-uuid"; "host-name"; "live"; "encrypt"])
 

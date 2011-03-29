@@ -717,6 +717,10 @@ let pool_migrate ~__context ~vm ~host ~options =
 		Helpers.assert_host_versions_not_decreasing ~__context
 			~host_from:(Helpers.get_localhost ~__context)
 			~host_to:host ;
+	(* Check that the VM is compatible with the host it is being migrated to. *)
+	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
+	if not force then
+		Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host;
 	(* We don't support VM migration while PCI devices have been passed through (yet). *)
 	if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
 		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
@@ -748,6 +752,8 @@ let pool_migrate ~__context ~vm ~host ~options =
 
          (* Provide a quick indication that the task completed successfully *)
          Mtc.event_notify_task_status ~__context ~vm ~status:`success 1.;
+         (* Populate the VM with the new host's CPU flags. *)
+         Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
       with
         | Api_errors.Server_error (a,b) as e ->
             (if a=Api_errors.task_cancelled
