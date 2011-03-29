@@ -35,8 +35,8 @@ module W=Debug.Debugger(struct let name="watchdog" end)
 
 let check_control_domain () =
   let domuuid = with_xc (fun xc -> Domain.get_uuid ~xc 0) in
+	let domuuid = Uuid.to_string domuuid in
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-  let uuid = Uuid.of_string uuid in
   if domuuid <> uuid then (
     info "dom0 uuid mismatch with inventory -- setting it the proper value";
     with_xc (fun xc -> Xc.domain_sethandle xc 0 uuid)
