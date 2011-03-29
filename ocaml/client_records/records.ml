@@ -1153,6 +1153,7 @@ let vdi_record rpc session_id vdi =
 				~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (Record_util.string_to_vdi_onboot onboot)) ();
 			make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching)
 				~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
+			make_field ~name:"metadata-latest" ~get:(fun () -> string_of_bool (x ()).API.vDI_metadata_latest) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
 				~get_set:(fun () -> (x ()).API.vDI_tags)

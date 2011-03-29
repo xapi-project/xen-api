@@ -16,6 +16,7 @@
  *)
 
 open Client
+open Db_cache_types
 open Pervasiveext
 open Threadext
 
@@ -123,3 +124,24 @@ let disable_database_replication ~__context ~vdi =
 			Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
 		end
 	)
+
+let database_open_mutex = Mutex.create ()
+
+(* Extract a database from a VDI. *)
+let database_ref_of_vdi ~__context ~vdi =
+	let database_ref_of_device device =
+		let log = Redo_log.create () in
+		debug "Enabling redo_log with device reason [%s]" device;
+		Redo_log.enable_block log device;
+		let db = Database.make (Datamodel_schema.of_datamodel ()) in
+		let db_ref = Db_ref.in_memory (ref (ref db)) in
+		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
+		Redo_log.delete log;
+		(* Reindex database to make sure is_valid_ref works. *)
+		Db_ref.update_database db_ref (Database.reindex ++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
+		db_ref
+	in
+	Mutex.execute database_open_mutex
+		(fun () -> Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Sm_fs_ops.with_block_attached_device  __context rpc session_id vdi `RW database_ref_of_device))
+
