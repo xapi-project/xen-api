@@ -538,7 +538,10 @@ let handle_vbd __context config rpc session_id (state: state) (x: obj) : unit =
   
   match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
   | `CD, false ->
-      create_vbd { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
+			if Db.VM.get_power_state ~__context ~self:vm = `Halted then
+				create_vbd { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
+			else
+				create_vbd vbd_record
   | `Disk, false -> 
       (* omit: cannot have empty disks *)
       warn "Cannot import VM's disk: was it an .iso attached as a disk rather than CD?"
