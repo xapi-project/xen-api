@@ -406,7 +406,10 @@ let destroy ~__context ~self =
 
 		(* Destroy the Bond and master PIF *)
 		Db.Bond.destroy ~__context ~self;
-		Db.PIF.destroy ~__context ~self:master
+		Db.PIF.destroy ~__context ~self:master;
+
+		(* Clear the PIF.bond_slave_of fields of the members. *)
+		List.iter (fun slave -> Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:(Ref.null)) members
 	)
 
 let set_mode ~__context ~self ~value =
