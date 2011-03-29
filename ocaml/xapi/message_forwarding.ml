@@ -583,6 +583,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
 
+		let shutdown ~__context ~self =
+			info "VM_appliance.shutdown: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.shutdown" ~op:`shutdown
+				(fun () ->
+					Local.VM_appliance.shutdown ~__context ~self)
+
 		let assert_can_be_recovered ~__context ~self ~session_to =
 			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
 			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
@@ -2758,7 +2764,22 @@ end
 	(fun session_id rpc -> Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type ~sm_config)
 
     let set_shared ~__context ~sr ~value =
-      Local.SR.set_shared ~__context ~sr ~value
+	    Local.SR.set_shared ~__context ~sr ~value
+
+    let set_name_label ~__context ~sr ~value =
+	    info "SR.set_name_label: SR = '%s' name-label = '%s'"
+		    (sr_uuid ~__context sr) value;
+	    let local_fn = Local.SR.set_name_label ~sr ~value in
+	    forward_sr_op ~local_fn ~__context ~self:sr
+		    (fun session_id rpc -> Client.SR.set_name_label ~rpc ~session_id ~sr ~value)
+
+    let set_name_description ~__context ~sr ~value =
+	    info "SR.set_name_description: SR = '%s' name-description = '%s'"
+		    (sr_uuid ~__context sr) value;
+	    let local_fn = Local.SR.set_name_description ~sr ~value in
+	    forward_sr_op ~local_fn ~__context ~self:sr
+		    (fun session_id rpc ->
+			    Client.SR.set_name_description ~rpc ~session_id ~sr ~value)
 
     let assert_can_host_ha_statefile ~__context ~sr = 
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
@@ -2869,6 +2890,21 @@ end
 			let sr = Db.VDI.get_SR ~__context ~self in
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.set_snapshot_of ~__context ~self ~value
+
+    let set_name_label ~__context ~self ~value =
+	    info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
+		    (vdi_uuid ~__context self) value;
+	    let local_fn = Local.VDI.set_name_label ~self ~value in
+	    forward_vdi_op ~local_fn ~__context ~self
+		    (fun session_id rpc -> Client.VDI.set_name_label ~rpc ~session_id ~self ~value)
+
+    let set_name_description ~__context ~self ~value =
+	    info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
+		    (vdi_uuid ~__context self) value;
+	    let local_fn = Local.VDI.set_name_description ~self ~value in
+	    forward_vdi_op ~local_fn ~__context ~self
+		    (fun session_id rpc ->
+			    Client.VDI.set_name_description ~rpc ~session_id ~self ~value)
 
 	let ensure_vdi_not_on_running_vm ~__context ~self =
 		let vbds = Db.VDI.get_VBDs ~__context ~self in
