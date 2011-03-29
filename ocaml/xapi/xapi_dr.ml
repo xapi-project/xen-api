@@ -108,8 +108,8 @@ let read_vdi_cache_record ~vdi =
 (* create the objects required to reimport a list of VMs *)
 let create_import_objects ~__context ~vms =
 	let table = Export.create_table () in
-	List.iter (Export.update_table ~__context ~include_snapshots:true ~preserve_power_state:false ~include_vhd_parents:false ~table) vms;
-	Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:false table __context
+	List.iter (Export.update_table ~__context ~include_snapshots:true ~preserve_power_state:true ~include_vhd_parents:false ~table) vms;
+	Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:true table __context
 
 let clear_sr_introduced_by ~__context ~vm =
 	let srs = Xapi_vm_helpers.list_required_SRs ~__context ~self:vm in
