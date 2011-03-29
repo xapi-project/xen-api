@@ -134,10 +134,10 @@ val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
 val suspend : __context:Context.t -> vm:API.ref_VM -> unit
 val resume :
   __context:Context.t ->
-  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> start_paused:bool -> force:bool -> unit
 val resume_on :
   __context:Context.t ->
-  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:bool -> unit
 val create :
   __context:Context.t ->
   name_label:string ->

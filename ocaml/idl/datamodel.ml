@@ -1065,7 +1065,7 @@ let _ =
 	error Api_errors.could_not_import_database ["reason"]
 		~doc:"An error occurred while attempting to import a database from a metadata VDI" ();
 
-	error Api_errors.vm_incompatible_with_this_host []
+	error Api_errors.vm_incompatible_with_this_host ["vm"; "host"; "reason"]
 		~doc:"The VM is incompatible with the CPU features of this host." ();
 
 	error Api_errors.cannot_destroy_disaster_recovery_task ["reason"]

@@ -766,6 +766,11 @@ let resume ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
+						let localhost = Helpers.get_localhost ~__context in
+						if not force then begin
+							debug "resume: checking the VM is compatible with this host";
+							Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host:localhost
+						end;
 
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
@@ -773,13 +778,13 @@ let resume ~__context ~vm ~start_paused ~force =
 							(* the domain is destroyed.                        *)
 							Vmops.restore ~__context ~xc ~xs ~self:vm start_paused;
 
-							(* VM is now resident here *)
-							let localhost = Helpers.get_localhost ~__context in
+							(* VM is now resident on localhost *)
 							Helpers.call_api_functions ~__context
 							(fun rpc session_id ->
 								Client.VM.atomic_set_resident_on rpc session_id vm
 								localhost
 							);
+							Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host:localhost;
 							Db.VM.set_power_state ~__context ~self:vm
 								~value:(if start_paused then `Paused else `Running);
 (*
