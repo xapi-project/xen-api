@@ -5,8 +5,10 @@ open Threadext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-(* Keep track of foreign metadata VDIs and their database generations. *)
-let db_vdi_cache : (API.ref_VDI, Generation.t) Hashtbl.t = Hashtbl.create 10
+(* Keep track of foreign metadata VDIs and their database generations and pool UUIDs. *)
+(* The generation count is used to keep track of metadata_latest of all foreign database VDIs. *)
+(* The pool uuid is cached so that "xe pool-param-get param-name=metadata-of-pool" can be called without opening the database. *)
+let db_vdi_cache : (API.ref_VDI, (Generation.t * string)) Hashtbl.t = Hashtbl.create 10
 let db_vdi_cache_mutex = Mutex.create ()
 
 (* This doesn't grab the mutex, so should only be called from add_vdis_to_cache or remove_vdis_from_cache. *)
@@ -15,7 +17,7 @@ let update_metadata_latest ~__context =
 	let module PoolMap = Map.Make(struct type t = API.ref_pool let compare = compare end) in
 	(* First, create a map of type Pool -> (VDI, generation count) list *)
 	let vdis_grouped_by_pool = Hashtbl.fold
-		(fun vdi generation map ->
+		(fun vdi (generation, _) map ->
 			(* Add this VDI to the map. *)
 			let pool = Db.VDI.get_metadata_of_pool ~__context ~self:vdi in
 			let new_list = try
@@ -66,11 +68,15 @@ let add_vdis_to_cache ~__context ~vdis =
 		(fun () ->
 			List.iter
 				(fun vdi ->
+					let vdi_uuid = (Db.VDI.get_uuid ~__context ~self:vdi) in
 					try
 						let db_ref = Xapi_vdi_helpers.database_ref_of_vdi ~__context ~vdi in
 						let generation = read_database_generation ~db_ref in
-						debug "Adding VDI %s to metadata VDI cache." (Db.VDI.get_uuid ~__context ~self:vdi);
-						Hashtbl.replace db_vdi_cache vdi generation
+						let __foreign_database_context = Context.make ~database:db_ref "Querying foreign database." in
+						let pool = Helpers.get_pool ~__context:__foreign_database_context in
+						let pool_uuid = Db.Pool.get_uuid ~__context:__foreign_database_context ~self:pool in
+						debug "Adding VDI %s to metadata VDI cache." vdi_uuid;
+						Hashtbl.replace db_vdi_cache vdi (generation, pool_uuid)
 					with e ->
 						(* If we can't open the database then it doesn't really matter that the VDI is not added to the cache. *)
 						debug "Could not open database from VDI %s - caught %s"
@@ -89,6 +95,14 @@ let remove_vdis_from_cache ~__context ~vdis =
 					Hashtbl.remove db_vdi_cache vdi)
 				vdis;
 			update_metadata_latest ~__context)
+
+let read_vdi_cache_record ~vdi =
+	Mutex.execute db_vdi_cache_mutex
+		(fun () ->
+			if Hashtbl.mem db_vdi_cache vdi then
+				Some (Hashtbl.find db_vdi_cache vdi)
+			else
+				None)
 
 (* This function uses the VM export functionality to *)
 (* create the objects required to reimport a list of VMs *)
