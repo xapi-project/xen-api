@@ -145,10 +145,11 @@ def netdev_remap_name(pif, already_renamed=[]):
         return None
 
     def rename_netdev(old_name, new_name):
-        log("Changing the name of %s to %s" % (old_name, new_name))
-        run_command(['/sbin/ifconfig', old_name, 'down'])
-        if not run_command(['/sbin/ip', 'link', 'set', old_name, 'name', new_name]):
-            raise Error("Could not rename %s to %s" % (old_name, new_name))
+        raise Error("Trying to rename %s to %s - This functionality has been removed" % (old_name, new_name))
+        # log("Changing the name of %s to %s" % (old_name, new_name))
+        # run_command(['/sbin/ifconfig', old_name, 'down'])
+        # if not run_command(['/sbin/ip', 'link', 'set', old_name, 'name', new_name]):
+        #     raise Error("Could not rename %s to %s" % (old_name, new_name))
 
     pifrec = db().get_pif_record(pif)
     device = pifrec['device']
