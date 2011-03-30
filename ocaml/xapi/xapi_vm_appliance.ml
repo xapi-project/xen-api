@@ -14,21 +14,12 @@ type appliance_operation = {
 	required_state : [ `Halted | `Paused | `Running | `Suspended ];
 }
 
-let create ~__context ~name_label ~name_description =
-	let uuid = Uuid.make_uuid () in
-	let ref = Ref.make() in
-	Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label ~name_description ~allowed_operations:[] ~current_operations:[];
-	ref
-
-let destroy ~__context ~self =
-	Db.VM_appliance.destroy ~__context ~self
-
 (* Checks to see if an operation is valid in this state. Returns Some exception *)
 (* if not and None if everything is ok. *)
 let check_operation_error ~__context record _ref' op =
 	let _ref = Ref.string_of _ref' in
 	let current_ops = record.Db_actions.vM_appliance_current_operations in
-	(* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown ] at a time. *)
+	(* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown | `shutdown ] at a time. *)
 	if List.length current_ops > 0 then
 		Some (Api_errors.other_operation_in_progress, ["VM_appliance"; _ref])
 	else
@@ -46,6 +37,16 @@ let update_allowed_operations ~__context ~self =
 		let allowed x = match check_operation_error ~__context all self x with None -> true | _ -> false in
 		List.filter allowed [`start; `clean_shutdown; `hard_shutdown] in
 	Db.VM_appliance.set_allowed_operations ~__context ~self ~value:allowed_ops
+
+let create ~__context ~name_label ~name_description =
+	let uuid = Uuid.make_uuid () in
+	let ref = Ref.make() in
+	Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label ~name_description ~allowed_operations:[] ~current_operations:[];
+	update_allowed_operations ~__context ~self:ref;
+	ref
+
+let destroy ~__context ~self =
+	Db.VM_appliance.destroy ~__context ~self
 
 (* Takes a list of VMs and returns a map binding each boot order *)
 (* found in the list to a list of VMs with that boot order. *)
