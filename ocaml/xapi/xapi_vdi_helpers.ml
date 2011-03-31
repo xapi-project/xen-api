@@ -42,25 +42,6 @@ let redo_log_lifecycle_mutex = Mutex.create ()
 let metadata_replication : ((API.ref_VDI, (API.ref_VBD * Redo_log.redo_log)) Hashtbl.t) =
 	Hashtbl.create Xapi_globs.redo_log_max_instances
 
-let metadata_replication_monitor ~__context =
-	while true do
-		Mutex.execute redo_log_lifecycle_mutex
-			(fun () ->
-				(* Set each VDI's metadata_latest according to whether its redo_log is currently accessible. *)
-				Hashtbl.iter
-					(fun vdi (_, log) ->
-						let accessible = Mutex.execute log.Redo_log.currently_accessible_mutex
-							(fun () -> !(log.Redo_log.currently_accessible))
-						in
-						try
-							Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:accessible
-						with e -> () (* Should only get here if the VDI ref stored in the hashtbl is invalid. *)
-					)
-					metadata_replication
-			);
-		Thread.delay 60.0
-	done
-
 let get_master_dom0 ~__context =
 	let pool = Helpers.get_pool ~__context in
 	let master = Db.Pool.get_master ~__context ~self:pool in
