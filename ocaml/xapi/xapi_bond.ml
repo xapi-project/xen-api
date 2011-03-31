@@ -394,11 +394,10 @@ let destroy ~__context ~self =
 			(* The master is the management interface: move management to first slave *)
 			debug "Moving management from master to slaves";
 			move_management ~__context master primary_slave;
-			List.iter (fun pif -> if pif <> primary_slave then Nm.bring_pif_up ~__context pif) members
 		end else begin
-			(* Plug all slaves if the master was plugged *)
+			(* Plug the primary slave if the master was plugged *)
 			if plugged then
-				List.iter (Nm.bring_pif_up ~__context) members
+				Nm.bring_pif_up ~__context primary_slave
 		end;
 
 		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
