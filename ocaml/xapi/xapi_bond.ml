@@ -288,6 +288,9 @@ let create ~__context ~network ~members ~mAC ~mode =
 			else
 				Db.PIF.get_MAC ~__context ~self:primary_slave
 		in
+		let disallow_unplug =
+			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
+		in
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
@@ -337,6 +340,10 @@ let create ~__context ~network ~members ~mAC ~mode =
 				Nm.bring_pif_up ~__context master
 			end
 		end;
+
+		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
+		if disallow_unplug then
+			Db.PIF.set_disallow_unplug ~__context ~self:master ~value:true;
 
 		(* Reset IP configuration and disallow_unplug of members *)
 		debug "Resetting IP config and disallow_unplug on slaves";
