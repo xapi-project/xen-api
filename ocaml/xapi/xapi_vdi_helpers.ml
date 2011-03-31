@@ -16,6 +16,7 @@
  *)
 
 open Client
+open Db_cache_types
 open Pervasiveext
 open Threadext
 
@@ -40,6 +41,26 @@ let redo_log_lifecycle_mutex = Mutex.create ()
 
 let metadata_replication : ((API.ref_VDI, (API.ref_VBD * Redo_log.redo_log)) Hashtbl.t) =
 	Hashtbl.create Xapi_globs.redo_log_max_instances
+
+let metadata_replication_monitor ~__context =
+	while true do
+		Mutex.execute redo_log_lifecycle_mutex
+			(fun () ->
+				(* Set each VDI's metadata_latest according to whether its redo_log is currently accessible. *)
+				Hashtbl.iter
+					(fun vdi (_, log) ->
+						Mutex.execute log.Redo_log.currently_accessible_mutex
+							(fun () ->
+								let accessible = !(log.Redo_log.currently_accessible) in
+								try
+									Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:accessible
+								with e -> () (* Should only get here if the VDI ref stored in the hashtbl is invalid. *)
+							)
+					)
+					metadata_replication
+			);
+		Thread.delay 60.0
+	done
 
 let get_master_dom0 ~__context =
 	let pool = Helpers.get_pool ~__context in
@@ -95,6 +116,7 @@ let enable_database_replication ~__context ~vdi =
 				Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ()));
 				Hashtbl.add metadata_replication vdi (vbd, log);
 				let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
+				Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:true;
 				debug "Redo log started on VBD %s" vbd_uuid
 			with e ->
 				Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -123,3 +145,24 @@ let disable_database_replication ~__context ~vdi =
 			Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
 		end
 	)
+
+let database_open_mutex = Mutex.create ()
+
+(* Extract a database from a VDI. *)
+let database_ref_of_vdi ~__context ~vdi =
+	let database_ref_of_device device =
+		let log = Redo_log.create () in
+		debug "Enabling redo_log with device reason [%s]" device;
+		Redo_log.enable_block log device;
+		let db = Database.make (Datamodel_schema.of_datamodel ()) in
+		let db_ref = Db_ref.in_memory (ref (ref db)) in
+		Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref;
+		Redo_log.delete log;
+		(* Reindex database to make sure is_valid_ref works. *)
+		Db_ref.update_database db_ref (Database.reindex ++ (Db_backend.blow_away_non_persistent_fields (Datamodel_schema.of_datamodel ())));
+		db_ref
+	in
+	Mutex.execute database_open_mutex
+		(fun () -> Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Sm_fs_ops.with_block_attached_device  __context rpc session_id vdi `RW database_ref_of_device))
+

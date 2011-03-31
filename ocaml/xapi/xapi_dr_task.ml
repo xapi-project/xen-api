@@ -12,7 +12,7 @@ let make_task ~__context =
 
 (* A type to represent an SR record parsed from an sr_probe result. *)
 type sr_probe_sr = {
-	uuid: string option;
+	uuid: string;
 	name_label: string;
 	name_description: string;
 	metadata_detected: bool;
@@ -22,7 +22,10 @@ type sr_probe_sr = {
 let parse_kv = function 
 	| Xml.Element(key, _, [ Xml.PCData v ]) -> 
 		key, String.strip String.isspace v (* remove whitespace at both ends *)
-	| _ -> failwith "Malformed key/value pair"
+	| Xml.Element(key, _, []) ->
+		key, ""
+	| _ ->
+		failwith "Malformed key/value pair"
 
 (* Parse a list of SRs from an iscsi probe result. *)
 let parse_sr_probe_iscsi xml = 
@@ -32,7 +35,7 @@ let parse_sr_probe_iscsi xml =
 		| Xml.Element("SR", _, children) ->
 			let all = List.map parse_kv children in
 			{
-				uuid = Some(List.assoc "UUID" all);
+				uuid = List.assoc "UUID" all;
 				name_label = List.assoc "name_label" all;
 				name_description = List.assoc "name_description" all;
 				metadata_detected = (List.assoc "pool_metadata_detected" all = "true");
@@ -49,7 +52,7 @@ let parse_sr_probe_hba xml =
 		| Xml.Element("BlockDevice", _, children) ->
 			let all = List.map parse_kv children in
 			{
-				uuid = None;
+				uuid = List.assoc "UUID" all;
 				name_label = List.assoc "name_label" all;
 				name_description = List.assoc "name_description" all;
 				metadata_detected = (List.assoc "pool_metadata_detected" all = "true");
@@ -78,9 +81,9 @@ let create ~__context ~_type ~device_config ~whitelist =
 	| "lvmoiscsi" ->
 		(try
 			parse_sr_probe_iscsi probe_result
-		with _ ->
+		with Failure code ->
 			raise (Api_errors.Server_error(Api_errors.internal_error,
-				["iSCSI SR probe response was malformed."])))
+				[Printf.sprintf "iSCSI SR probe response was malformed: %s" code])))
 	| "lvmohba" ->
 		(try
 			parse_sr_probe_hba probe_result
@@ -93,36 +96,38 @@ let create ~__context ~_type ~device_config ~whitelist =
 	(* If the SR record has a UUID, make sure it's in the whitelist. *)
 	let sr_records = List.filter
 		(fun sr_record ->
-			match sr_record.uuid with
-			| None -> true
-			| Some uuid -> List.mem uuid whitelist)
+			List.mem sr_record.uuid whitelist)
 		sr_records
 	in
 	(* SR probe went ok, so create the DR task. *)
 	let dr_task = make_task ~__context in
 	(* Create the SR records and attach each SR to each host. *)
 	let hosts = Db.Host.get_all ~__context in
-	List.iter (fun sr_record ->
-		Helpers.call_api_functions ~__context
-			(fun rpc session_id ->
-				let sr_uuid = match sr_record.uuid with
-				| Some uuid -> uuid
-				| None -> ""
-				in
-				(* Create the SR record. *)
-				debug "Introducing SR %s" sr_record.name_label;
-				let sr = Client.SR.introduce ~rpc ~session_id
-					~uuid:sr_uuid ~name_label:sr_record.name_label
-					~name_description:sr_record.name_description
-					~_type ~content_type:"" ~shared:true
-					~sm_config:[]
-				in
-				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
-				(* Create and plug PBDs. *)
-				List.iter (fun host ->
-					debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
-					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts)) sr_records;
+	List.iter
+		(fun sr_record ->
+			try
+				ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_record.uuid);
+				(* If an SR with this UUID has already been introduced, don't mess with it. *)
+				(* It may have been manually introduced, or introduced by another DR_task. *)
+				debug "SR %s has already been introduced, so not adding it to this disaster recovery task." sr_record.uuid;
+			with Db_exn.Read_missing_uuid(_, _, _) ->
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						(* Create the SR record. *)
+						debug "Introducing SR %s" sr_record.uuid;
+						let sr = Client.SR.introduce ~rpc ~session_id
+							~uuid:sr_record.uuid ~name_label:sr_record.name_label
+							~name_description:sr_record.name_description
+							~_type ~content_type:"" ~shared:true
+							~sm_config:[]
+						in
+						Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
+						(* Create and plug PBDs. *)
+						List.iter (fun host ->
+							debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
+							let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+							Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts))
+		sr_records;
 	dr_task
 
 let destroy ~__context ~self =

@@ -418,7 +418,15 @@ let set_shared ~__context ~sr ~value =
 	raise (Api_errors.Server_error (Api_errors.sr_has_multiple_pbds,List.map (fun pbd -> Ref.string_of pbd) pbds));
       Db.SR.set_shared ~__context ~self:sr ~value
     end
-  
+
+let set_name_label ~__context ~sr ~value =
+	Db.SR.set_name_label ~__context ~self:sr ~value;
+	update ~__context ~sr
+
+let set_name_description ~__context ~sr ~value =
+	Db.SR.set_name_description ~__context ~self:sr ~value;
+	update ~__context ~sr
+
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
 
@@ -456,6 +464,9 @@ let find_or_create_metadata_vdi ~__context ~sr =
 		in
 		Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false;
 		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
+		(* Call vdi_update to make sure the value of metadata_of_pool is persisted. *)
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.VDI.update ~rpc ~session_id ~vdi);
 		vdi
 
 let enable_database_replication ~__context ~sr =

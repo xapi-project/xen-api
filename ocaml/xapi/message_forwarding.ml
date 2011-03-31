@@ -583,6 +583,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					Local.VM_appliance.hard_shutdown ~__context ~self)
 
+		let shutdown ~__context ~self =
+			info "VM_appliance.shutdown: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
+			with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.shutdown" ~op:`shutdown
+				(fun () ->
+					Local.VM_appliance.shutdown ~__context ~self)
+
 		let assert_can_be_recovered ~__context ~self ~session_to =
 			info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'" (vm_appliance_uuid ~__context self);
 			Local.VM_appliance.assert_can_be_recovered ~__context ~self ~session_to
@@ -922,17 +928,26 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			end;
 			raise exn
 
-    let forward_to_access_srs ~local_fn ~__context ~vm op =
-      let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) () in
-	do_op_on ~local_fn ~__context ~host:suitable_host op
+	let forward_to_access_srs ~local_fn ~__context ~vm op =
+		let suitable_host =
+			Xapi_vm_helpers.choose_host ~__context ~vm
+				~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) () in
+		do_op_on ~local_fn ~__context ~host:suitable_host op
 
     (* Used for the VM.copy when an SR is specified *)
-    let forward_to_access_srs_and ~local_fn ~__context ~vm ~extra_sr op = 
-      let choose_fn ~host = 
-	Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
-	Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[extra_sr] ~host in
-      let suitable_host = Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn () in
-      do_op_on ~local_fn ~__context ~host:suitable_host op
+	let forward_to_access_srs_and ~local_fn ~__context ?vm ?extra_sr op = 
+		let choose_fn ~host =
+			begin match vm with
+			| Some vm ->
+				Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host
+			| _ -> () end;
+			begin match extra_sr with
+			| Some extra_sr ->
+				Xapi_vm_helpers.assert_can_see_specified_SRs ~__context
+					~reqd_srs:[extra_sr] ~host
+			| _ -> () end in
+		let suitable_host = Xapi_vm_helpers.choose_host ~__context ?vm ~choose_fn () in
+		do_op_on ~local_fn ~__context ~host:suitable_host op
 
     (* -------------------------------------------------------------------------- *)
 
@@ -1796,6 +1811,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let set_order ~__context ~self ~value =
 		info "VM.set_order: self = '%s';" (vm_uuid ~__context self);
 		Local.VM.set_order ~__context ~self ~value
+
+	let set_suspend_VDI ~__context ~self ~value =
+		info "VM.set_suspend_VDI: self = '%s';" (vm_uuid ~__context self);
+		Local.VM.set_suspend_VDI ~__context ~self ~value
 
 	let assert_can_be_recovered ~__context ~self ~session_to =
 		info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self);
@@ -2758,7 +2777,22 @@ end
 	(fun session_id rpc -> Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type ~sm_config)
 
     let set_shared ~__context ~sr ~value =
-      Local.SR.set_shared ~__context ~sr ~value
+	    Local.SR.set_shared ~__context ~sr ~value
+
+    let set_name_label ~__context ~sr ~value =
+	    info "SR.set_name_label: SR = '%s' name-label = '%s'"
+		    (sr_uuid ~__context sr) value;
+	    let local_fn = Local.SR.set_name_label ~sr ~value in
+	    forward_sr_op ~local_fn ~__context ~self:sr
+		    (fun session_id rpc -> Client.SR.set_name_label ~rpc ~session_id ~sr ~value)
+
+    let set_name_description ~__context ~sr ~value =
+	    info "SR.set_name_description: SR = '%s' name-description = '%s'"
+		    (sr_uuid ~__context sr) value;
+	    let local_fn = Local.SR.set_name_description ~sr ~value in
+	    forward_sr_op ~local_fn ~__context ~self:sr
+		    (fun session_id rpc ->
+			    Client.SR.set_name_description ~rpc ~session_id ~sr ~value)
 
     let assert_can_host_ha_statefile ~__context ~sr = 
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
@@ -2870,6 +2904,21 @@ end
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.set_snapshot_of ~__context ~self ~value
 
+    let set_name_label ~__context ~self ~value =
+	    info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
+		    (vdi_uuid ~__context self) value;
+	    let local_fn = Local.VDI.set_name_label ~self ~value in
+	    forward_vdi_op ~local_fn ~__context ~self
+		    (fun session_id rpc -> Client.VDI.set_name_label ~rpc ~session_id ~self ~value)
+
+    let set_name_description ~__context ~self ~value =
+	    info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
+		    (vdi_uuid ~__context self) value;
+	    let local_fn = Local.VDI.set_name_description ~self ~value in
+	    forward_vdi_op ~local_fn ~__context ~self
+		    (fun session_id rpc ->
+			    Client.VDI.set_name_description ~rpc ~session_id ~self ~value)
+
 	let ensure_vdi_not_on_running_vm ~__context ~self =
 		let vbds = Db.VDI.get_VBDs ~__context ~self in
 		List.iter (fun vbd ->
@@ -2890,6 +2939,9 @@ end
 
 	let open_database ~__context ~self =
 		Local.VDI.open_database ~__context ~self
+
+	let read_database_pool_uuid ~__context ~self =
+		Local.VDI.read_database_pool_uuid ~__context ~self
 
     (* know sr so just use SR forwarding policy direct here *)
     let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
@@ -3009,7 +3061,12 @@ end
       with_sr_andor_vdi ~__context ~vdi:(vdi, `force_unlock) ~doc:"VDI.force_unlock"
 	(fun () ->
 	   forward_vdi_op ~local_fn ~__context ~self:vdi
-	     (fun session_id rpc -> Client.VDI.force_unlock rpc session_id vdi))
+		   (fun session_id rpc -> Client.VDI.force_unlock rpc session_id vdi))
+
+    let checksum ~__context ~self =
+			VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self) ~__context
+				~extra_sr:(Db.VDI.get_SR ~__context ~self)
+				(fun session_id rpc -> Client.VDI.checksum rpc session_id self)
 
   end
   module VBD = struct
@@ -3033,7 +3090,7 @@ end
 			Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
 			Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
 		end)
-	vbd      
+	vbd
 
     let mark_vbd ~__context ~vbd ~doc ~op = 
       let task_id = Ref.string_of (Context.get_task_id __context) in      

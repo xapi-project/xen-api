@@ -35,7 +35,7 @@ let default_template = (Xapi_globs.default_template_key, "true")
 let linux_template = (Xapi_globs.linux_template_key, "true")
 
 (* template restrictions (added to recommendations field for UI) *)
-let recommendations ?(memory=32) ?(vcpus=8) ?(vbds=7) ?(vifs=7) () =
+let recommendations ?(memory=128) ?(vcpus=16) ?(vbds=7) ?(vifs=7) () =
   let ( ** ) = Int64.mul in
     "<restrictions>"
     ^"<restriction field=\"memory-static-max\" max=\""^(Int64.to_string ((Int64.of_int memory) ** 1024L ** 1024L ** 1024L))^"\" />"
@@ -350,9 +350,9 @@ let hvm_template
 		bootable = false;
 		_type = `system
 	} in
-	let maximum_supported_memory_mib = match architecture with
-		| X32 -> 4
-		| X64 | X64_sol| X64_debianlike -> 32 in
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 | X64_sol -> 128 in
 	let base = other_install_media_template
 		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
 	let xen_app = List.mem XenApp flags in
@@ -383,7 +383,7 @@ let hvm_template
 				else no_nx_flag :: base_platform_flags;
 		vM_HVM_shadow_multiplier =
 			(if xen_app then 4.0 else base.vM_HVM_shadow_multiplier);
-		vM_recommendations = (recommendations ~memory:maximum_supported_memory_mib ());
+		vM_recommendations = (recommendations ~memory:maximum_supported_memory_gib ());
 	}
 
 let rhel4x_template name architecture ?(is_experimental=false) flags =
@@ -399,10 +399,13 @@ let rhel4x_template name architecture ?(is_experimental=false) flags =
 	let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
 	{ bt with
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: m_a_s @ s_s_p_f @ bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:16 ~vifs:3 ();
+		vM_recommendations = recommendations ~memory:64 ~vifs:3 ();
 	}
 
 let rhel5x_template name architecture ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
@@ -411,10 +414,13 @@ let rhel5x_template name architecture ?(is_experimental=false) flags =
 		else [] in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: m_a_s @ bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:16 ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ();
 	}
 
 let rhel6x_template name architecture ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
@@ -423,45 +429,58 @@ let rhel6x_template name architecture ?(is_experimental=false) flags =
 		else [] in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel6","true") :: m_a_s @ bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:16 ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ();
 	}
 
 let sles_9_template name architecture ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ~vifs:3 ();
 	}
 
 let sles10sp1_template name architecture ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:32 ~vifs:3 ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ~vifs:3 ();
 	}
 
 let sles10_template name architecture ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64 -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
 	{ bt with
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("install-arch",install_arch) :: bt.vM_other_config;
-		vM_recommendations = recommendations ~memory:32 ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ();
 	}
 
 let sles11_template = sles10_template
 
 let debian_template name release architecture ?(supports_cd=true) ?(is_experimental=false) flags =
+	let maximum_supported_memory_gib = match architecture with
+		| X32 -> 64
+		| X64_debianlike -> 128 in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in
 	let methods = if supports_cd then "cdrom,http,ftp" else "http,ftp" in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, methods) :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ();
 		vM_name_description = bt.vM_name_description ^ (match release with
 			| "lenny"   -> "\nOfficial Debian Lenny CD/DVD images do not support XenServer. To find ISO images that do, please refer to: http://community.citrix.com/display/xs/Debian+Lenny"
 			| "squeeze" -> "\nIn order to install Debian Squeeze from CD/DVD the multi-arch ISO image is required."
