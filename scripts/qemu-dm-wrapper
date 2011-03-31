@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #
 # Copyright (c) Citrix Systems 2007-2011
+# Author: Gianni Tedesco and Dave Scott
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published
@@ -12,33 +13,104 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
+from syslog import syslog
+from syslog import LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING
+from syslog import LOG_NOTICE, LOG_INFO, LOG_DEBUG
+from xen.lowlevel import xs
 
-import sys, os, time, resource, os.path
+def do_cloexec(fd):
+	from fcntl import fcntl, F_GETFD, F_SETFD, FD_CLOEXEC
 
-DOMID=int(sys.argv[1])
-LOGFILE=sys.argv[2]
+	ret = fcntl(fd, F_GETFD, FD_CLOEXEC)
+	if ret < 0:
+		return
+	fcntl(fd, F_SETFD, ret|FD_CLOEXEC)
 
-os.system("xenstore-write /local/domain/%d/qemu-pid %d\n" % (DOMID, os.getpid()))
+def write_dm_pid(domid, pid):
+	store = xs.xs()
+	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%pid)
 
-IS_SDK = (int(os.popen("xenstore-read domid").read()) != 0)
+def is_sdk():
+	try:
+		store = xs.xs()
+		i = int(store.read('', 'domid'))
+	except:
+		return False
+	return i != 0
 
-if IS_SDK:
-    time.sleep(2)
-    os.system("xenstore-write -s /local/domain/%d/device-misc/dm-ready 1" % DOMID)
-    os.system("xenstore-write -s /local/domain/%d/console/vnc-port %d\n" % (DOMID, 6900+DOMID))
-    while True:
-        time.sleep(1)
+def fake_dm(domid):
+	from time import sleep
+	from os import getpid
 
-log = open(LOGFILE, "wa")
-log.write("qemu-dm-wrapper in python:\n")
-log.write("Using domid: %d\n" % DOMID)
-log.write("Arguments: %s\n" % " ".join(sys.argv[2:]))
-log.flush()
+	store = xs.xs()
 
-# redirect stdout to append to logfile
-os.dup2(log.fileno(), 1)
+	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%getpid())
+	store.write('', '/local/domain/%d/device-misc/dm-ready', '1')
+	store.write('', '/local/domain/%d/console/vnc-port'%domid, '%d'%(domid))
 
-# redirect stderr to stdout (which now goes to the log)
-os.dup2(1, 2)
+	while True:
+		sleep(600)
 
-os.execve("/usr/lib/xen/bin/qemu-dm", sys.argv[2:], os.environ)
+	return 0
+
+def main(argv):
+	from os import environ, fdopen, pipe
+	from subprocess import Popen
+	from syslog import openlog, LOG_NDELAY, LOG_NOWAIT, LOG_DAEMON
+
+	qemu_env = environ
+	qemu_dm = '/usr/lib/xen/bin/qemu-dm'
+	domid = int(argv[1])
+	logfile = argv[2]
+	qemu_args = ['qemu-dm-%d'%domid] + argv[3:]
+
+	if is_sdk() is True:
+		return fake_dm(domid)
+
+	openlog('qemu-dm-%d'%domid, LOG_NDELAY|LOG_NOWAIT, LOG_DAEMON)
+
+	syslog(LOG_INFO, "qemu-dm-wrapper in python:")
+	syslog(LOG_INFO, "Using domid: %d" % domid)
+	syslog(LOG_INFO, "Arguments: %s" % " ".join(argv[2:]))
+	syslog(LOG_INFO, "everything else is from qemu-dm:")
+
+	# TODO: squash-vnc, sdl, is this required?
+
+	(r,w) = pipe()
+	do_cloexec(r)
+	outpipe = fdopen(w, 'w')
+	inpipe = fdopen(r, 'r')
+
+	p = Popen(qemu_args,
+		executable = qemu_dm,
+		stdin=open('/dev/null', 'r'),
+		stdout=outpipe, stderr=outpipe,
+		shell=False, close_fds=True)
+
+	del outpipe
+
+	write_dm_pid(domid, p.pid)
+
+	while True:
+		l = inpipe.readline()
+		if l == '':
+			break
+		l = l[:-1]
+		syslog(LOG_NOTICE, l)
+
+	if p.returncode is None:
+		p.wait()
+
+	if p.returncode < 0:
+		syslog(LOG_ERR, 'Terminated with signal %d'%-p.returncode)
+	else:
+		syslog(LOG_NOTICE, 'Exited with code %d'%p.returncode)
+		if p.returncode == 0:
+			return 0
+
+	# TODO: Graceful exit/cleanup logic
+	return 1
+
+if __name__ == '__main__':
+	from sys import argv
+	raise SystemExit, main(argv)
