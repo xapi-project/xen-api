@@ -1065,7 +1065,7 @@ let _ =
 	error Api_errors.could_not_import_database ["reason"]
 		~doc:"An error occurred while attempting to import a database from a metadata VDI" ();
 
-	error Api_errors.vm_incompatible_with_this_host []
+	error Api_errors.vm_incompatible_with_this_host ["vm"; "host"; "reason"]
 		~doc:"The VM is incompatible with the CPU features of this host." ();
 
 	error Api_errors.cannot_destroy_disaster_recovery_task ["reason"]
@@ -1831,8 +1831,8 @@ let vm_resume = call
   ~doc:"Awaken the specified VM and resume it.  This can only be called when the specified VM is in the Suspended state."
   ~params:[Ref _vm, "vm", "The VM to resume";
            Bool, "start_paused", "Resume VM in paused state if set to true.";
-	   Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
-]
+           Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
+          ]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed; Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
   ()
@@ -2028,6 +2028,15 @@ let vm_set_order = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let vm_set_suspend_VDI = call
+	~name:"set_suspend_VDI"
+	~in_product_since:rel_boston
+	~doc:"Set this VM's suspend VDI, which must be indentical to its current one"
+	~params:[Ref _vm, "self", "The VM";
+	         Ref _vdi, "value", "The suspend VDI uuid"]
+	~allowed_roles:_R_POOL_OP
+	()
+	
 let vm_assert_can_be_recovered = call
   ~name:"assert_can_be_recovered"
   ~in_product_since:rel_boston
@@ -2091,7 +2100,6 @@ let host_ha_release_resources = call
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
-
 
 let host_local_assert_healthy = call ~flags:[`Session]
   ~in_product_since:rel_miami
@@ -3060,6 +3068,24 @@ let sr_set_shared = call
 	   Bool, "value", "True if the SR is shared"]
   ~allowed_roles:_R_POOL_OP
   ()
+
+let sr_set_name_label = call
+	~name:"set_name_label"
+	~in_product_since:rel_rio
+	~doc:"Set the name label of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name label for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let sr_set_name_description = call
+	~name:"set_name_description"
+	~in_product_since:rel_rio
+	~doc:"Set the name description of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name description for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
 
 let sr_create_new_blob = call
   ~name: "create_new_blob"
@@ -4584,6 +4610,7 @@ let storage_repository =
       ~messages:[ sr_create; sr_introduce; sr_make; sr_destroy; sr_forget;
 		  sr_update;
 		  sr_get_supported_types; sr_scan; sr_probe; sr_set_shared;
+		  sr_set_name_label; sr_set_name_description;
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
@@ -4593,7 +4620,7 @@ let storage_repository =
 		]
       ~contents:
       ([ uid _sr;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW;) ()
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations storage_operations) @ [
 	field ~ty:(Set(Ref _vdi)) ~qualifier:DynamicRO "VDIs" "all virtual disks known to this storage repository";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "describes how particular hosts can see this storage repository";
@@ -4891,7 +4918,27 @@ let vdi_set_allow_caching = call
 	~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
 	~allowed_roles:_R_VM_ADMIN
 	()
-  
+
+let vdi_set_name_label = call
+	~name:"set_name_label"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name lable for the VDI"]
+	~doc:"Set the name label of the VDI. This can only happen when then its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_set_name_description = call
+	~name:"set_name_description"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name description for the VDI"]
+	~doc:"Set the name description of the VDI. This can only happen when its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 let vdi_open_database = call
 	~name:"open_database"
 	~in_oss_since:None
@@ -4899,6 +4946,30 @@ let vdi_open_database = call
 	~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
 	~result:(Ref _session, "A session which can be used to query the database")
 	~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let vdi_checksum = call
+	~name:"checksum"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to checksum"]
+	~result:(String, "The md5sum of the vdi")
+	~doc:"Internal function to calculate VDI checksum and return a string"
+	~hide_from_docs:true
+	~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
+	                              this way only to follow the previous
+	                              convention. It is supposed to fix by future
+	                              version of RBAC *)
+  ()
+
+let vdi_read_database_pool_uuid = call
+	~name:"read_database_pool_uuid"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
+	~result:(String, "The cached pool UUID of the database on the VDI.")
+	~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
 	~allowed_roles:_R_POOL_ADMIN
 	()
 
@@ -4923,14 +4994,18 @@ let vdi =
 		 vdi_set_physical_utilisation;
 		 vdi_set_is_a_snapshot;
 		 vdi_set_snapshot_of;
+		 vdi_set_name_label;
+		 vdi_set_name_description;
 		 vdi_generate_config;
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;
 		 vdi_open_database;
+		 vdi_checksum;
+		 vdi_read_database_pool_uuid;
 		]
       ~contents:
       ([ uid _vdi;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations vdi_operations) @ [
 	field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "storage repository in which the VDI resides";
   field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "list of vbds that refer to this disk";
@@ -6018,6 +6093,7 @@ let vm =
 		vm_set_start_delay;
 		vm_set_shutdown_delay;
 		vm_set_order;
+		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
 		vm_recover;
 		]
@@ -6510,6 +6586,7 @@ let vm_appliance_operations = Enum ("vm_appliance_operation",
 		"start", "Start";
 		"clean_shutdown", "Clean shutdown";
 		"hard_shutdown", "Hard shutdown";
+		"shutdown", "Shutdown";
 	])
 
 
@@ -6541,6 +6618,14 @@ let vm_appliance =
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
+	let vm_appliance_shutdown = call
+		~name:"shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
+		~doc:"For each VM in the appliance, try to shut it down cleanly. If this fails, perform a hard shutdown of the VM."
+		~allowed_roles:_R_POOL_OP
+		() in
 	let vm_appliance_assert_can_be_recovered = call
 		~name:"assert_can_be_recovered"
 		~in_product_since:rel_boston
@@ -6568,6 +6653,7 @@ let vm_appliance =
 			vm_appliance_start;
 			vm_appliance_clean_shutdown;
 			vm_appliance_hard_shutdown;
+			vm_appliance_shutdown;
 			vm_appliance_assert_can_be_recovered;
 			vm_appliance_recover;
 		]

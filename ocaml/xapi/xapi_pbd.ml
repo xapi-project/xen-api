@@ -80,13 +80,16 @@ let abort_if_storage_attached_to_protected_vms ~__context ~self =
       ) protected_vms
   end
 
-let find_metadata_vdis ~__context ~sr =
+(* Split all metadata VDIs in an SR into two lists - metadata VDIs of this pool, and metadata VDIs of a foreign pool. *)
+let partition_metadata_vdis_by_pool ~__context ~sr =
 	let pool = Helpers.get_pool ~__context in
-	List.filter
-		(fun vdi ->
-			Db.VDI.get_type ~__context ~self:vdi = `metadata &&
-			Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
+	let metadata_vdis = List.filter
+		(fun vdi -> Db.VDI.get_type ~__context ~self:vdi = `metadata)
 		(Db.SR.get_VDIs ~__context ~self:sr)
+	in
+	List.partition
+		(fun vdi -> Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
+		metadata_vdis
 
 let plug ~__context ~self =
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
@@ -94,17 +97,26 @@ let plug ~__context ~self =
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
 				Storage_access.SR.attach ~__context ~self:sr;
-				(* Try to re-enable metadata replication to all suitable VDIs. *)
-				try
+
+				if Helpers.i_am_srmaster ~__context ~sr then begin
+					let (metadata_vdis_of_this_pool, metadata_vdis_of_foreign_pool) =
+						partition_metadata_vdis_by_pool ~__context ~sr
+					in
+					(* Add all foreign metadata VDIs to the cache so that their metadata_latest will be up to date. *)
+					Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis_of_foreign_pool;
+					(* Try to re-enable metadata replication to all suitable VDIs. *)
 					List.iter
 						(fun vdi ->
-							debug "Automatically re-enabling database replication to VDI %s" (Ref.string_of vdi);
-							Xapi_vdi_helpers.enable_database_replication ~__context ~vdi)
-						(find_metadata_vdis ~__context ~sr)
-				with Api_errors.Server_error(code, _) when code = Api_errors.no_more_redo_logs_allowed ->
-					(* The redo log limit was reached - don't throw an exception since automatic *)
-					(* re-enabling of database replication is best-effort. *)
-					debug "Metadata is being replicated to the maximum allowed number of VDIs."
+							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+							try
+								debug "Automatically re-enabling database replication to VDI %s." vdi_uuid;
+								Xapi_vdi_helpers.enable_database_replication ~__context ~vdi
+							with e ->
+								(* This should only be best-effort - it should never cause PBD.plug to fail. *)
+								debug "Could not re-enable database replication to VDI %s - caught %s."
+									vdi_uuid (Printexc.to_string e))
+						metadata_vdis_of_this_pool
+				end
 			end
 
 let unplug ~__context ~self =
@@ -126,16 +138,29 @@ let unplug ~__context ~self =
 				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 			end;
 
-			(* Disable metadata replication to VDIs in the SR. *)
-			List.iter
-				(fun vdi ->
-					debug "Automatically disabling database replication to VDI %s" (Ref.string_of vdi);
-					Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
-				(find_metadata_vdis ~__context ~sr);
-
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
-			if List.length vdis > 0 
-			then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of vdis));
+			let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
+			if List.length non_metadata_vdis > 0 
+			then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of non_metadata_vdis));
+
+			if Helpers.i_am_srmaster ~__context ~sr then begin
+				let (metadata_vdis_of_this_pool, metadata_vdis_of_foreign_pool) =
+					partition_metadata_vdis_by_pool ~__context ~sr
+				in
+				(* Remove all foreign metadata VDIs from the cache so that the metadata_latest of remaining VDIs can be updated. *)
+				Xapi_dr.remove_vdis_from_cache ~__context ~vdis:metadata_vdis_of_foreign_pool;
+				(* Set all the removed metadata VDIs of foreign pools to have metadata_latest = false. *)
+				(* This enables the metadata_latest flag to indicate whether we can recover VMs from a VDI. *)
+				List.iter
+					(fun vdi -> Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false)
+					metadata_vdis_of_foreign_pool;
+				(* Disable metadata replication to VDIs in the SR. *)
+				List.iter
+					(fun vdi ->
+						debug "Automatically disabling database replication to VDI %s" (Ref.string_of vdi);
+						Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
+					metadata_vdis_of_this_pool
+			end;
 
 			Storage_access.SR.detach ~__context ~self:sr
 		end

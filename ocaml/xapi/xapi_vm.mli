@@ -134,10 +134,10 @@ val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
 val suspend : __context:Context.t -> vm:API.ref_VM -> unit
 val resume :
   __context:Context.t ->
-  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> start_paused:bool -> force:bool -> unit
 val resume_on :
   __context:Context.t ->
-  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:bool -> unit
 val create :
   __context:Context.t ->
   name_label:string ->
@@ -269,4 +269,7 @@ val set_shutdown_delay : __context:Context.t -> self:API.ref_VM -> value:int64 -
 val set_order : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
 
 val assert_can_be_recovered : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session -> unit
-val recover : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session -> force:bool -> unit
+val recover : __context:Context.t -> self:API.ref_VM ->
+	session_to:API.ref_session -> force:bool -> unit
+val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
+	value:API.ref_VDI -> unit

@@ -40,6 +40,9 @@ let create ~__context ~tagged_PIF ~tag ~network =
   if List.mem (device, tag) other_keys
   then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
 
+  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
+    raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of tagged_PIF]));
+
   (* Copy the MTU from the base PIF *)
   let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
 

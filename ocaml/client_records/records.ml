@@ -756,10 +756,11 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_min)
 				~set:(fun x -> Client.VM.set_memory_static_min rpc session_id vm (Record_util.bytes_of_string "memory-static-min" x)) ();
 			make_field ~name:"suspend-VDI-uuid"
-				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI) ();
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI)
+				~set:(fun x -> Client.VM.set_suspend_VDI rpc session_id vm (Client.VDI.get_by_uuid rpc session_id x)) ();
 			make_field ~name:"suspend-SR-uuid"
-				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_SR) ()
-				~set:(fun x -> Client.VM.set_suspend_SR rpc session_id vm (Client.SR.get_by_uuid rpc session_id x));
+				~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_SR)
+				~set:(fun x -> Client.VM.set_suspend_SR rpc session_id vm (Client.SR.get_by_uuid rpc session_id x)) ();
 			make_field ~name:"VCPUs-params"
 				~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params)
 				~add_to_map:(fun k v -> match k with
@@ -1153,6 +1154,12 @@ let vdi_record rpc session_id vdi =
 				~set:(fun onboot -> Client.VDI.set_on_boot rpc session_id vdi (Record_util.string_to_vdi_onboot onboot)) ();
 			make_field ~name:"allow-caching" ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching)
 				~set:(fun b -> Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)) ();
+			make_field ~name:"metadata-latest" ~get:(fun () -> string_of_bool (x ()).API.vDI_metadata_latest) ();
+			make_field ~name:"metadata-of-pool"
+				~get:(fun () ->
+					match Client.VDI.read_database_pool_uuid ~rpc ~session_id ~self:vdi with
+					| "" -> nid
+					| pool_uuid -> pool_uuid) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
 				~get_set:(fun () -> (x ()).API.vDI_tags)

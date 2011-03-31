@@ -68,12 +68,21 @@ let db_registration_mutex = Mutex.create ()
 let foreign_databases: ((API.ref_session, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
 
 let register_session_with_database session db_ref =
-	Mutex.execute db_registration_mutex (fun () ->
-		Hashtbl.replace foreign_databases session db_ref)
+	Mutex.execute db_registration_mutex
+		(fun () -> Hashtbl.replace foreign_databases session db_ref)
 
 let unregister_session session =
-	Mutex.execute db_registration_mutex (fun () ->
-		Hashtbl.remove foreign_databases session)
+	Mutex.execute db_registration_mutex
+		(fun () -> Hashtbl.remove foreign_databases session)
 
 let is_session_registered session =
-	Hashtbl.mem foreign_databases session
+	Mutex.execute db_registration_mutex
+		(fun () -> Hashtbl.mem foreign_databases session)
+
+let get_registered_database session =
+	Mutex.execute db_registration_mutex
+		(fun () ->
+			if Hashtbl.mem foreign_databases session then
+				Some (Hashtbl.find foreign_databases session)
+			else
+				None)
