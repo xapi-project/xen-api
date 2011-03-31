@@ -721,9 +721,6 @@ let pool_migrate ~__context ~vm ~host ~options =
 	let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 	if not force then
 		Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host;
-	(* We don't support VM migration while PCI devices have been passed through (yet). *)
-	if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
-		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
