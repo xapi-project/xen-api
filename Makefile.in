@@ -186,12 +186,12 @@ clean:
 	$(MAKE) -C xen-utils clean
 
 cleanxen:
-	$(MAKE) -C netdev install
-	$(MAKE) -C xsrpc install
-	$(MAKE) -C cpuid install
-	$(MAKE) -C vhd install
-	$(MAKE) -C tapctl install
-	$(MAKE) -C fake install
+	$(MAKE) -C netdev clean
+	$(MAKE) -C xsrpc clean
+	$(MAKE) -C cpuid clean
+	$(MAKE) -C vhd clean
+	$(MAKE) -C tapctl clean
+	$(MAKE) -C fake clean
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
