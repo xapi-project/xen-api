@@ -841,7 +841,6 @@ let server_init() =
     "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
     "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop Xapi_ha.ha_redo_log);
-    "DR metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Xapi_vdi_helpers.metadata_replication_monitor ~__context);
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
