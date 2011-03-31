@@ -540,6 +540,10 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 given [guest] can run on the given [host]. Returns true if and only if the
 guest can run on the host. *)
 let vm_can_run_on_host __context vm snapshot host =
+	let host_has_proper_version () =
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
+		else true in
 	let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
 	let host_live () =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
@@ -547,7 +551,7 @@ let vm_can_run_on_host __context vm snapshot host =
 	let host_can_run_vm () =
 		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
 		true in
-	try host_enabled () && host_live () && host_can_run_vm ()
+	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm ()
 	with _ -> false
 
 (** Selects a single host from the set of all hosts on which the given [vm]
