@@ -1169,6 +1169,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		Monitor_rrds.push_rrd __context uuid
 
 	let start_on ~__context ~vm ~host ~start_paused ~force =
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then Helpers.assert_host_has_highest_version_in_pool
+			~__context ~host ;
 		info "VM.start_on: VM = '%s'; host '%s'"
 			(vm_uuid ~__context vm) (host_uuid ~__context host);
 		let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
@@ -1462,6 +1465,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
 
     let resume_on ~__context ~vm ~host ~start_paused ~force =
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then Helpers.assert_host_has_highest_version_in_pool
+			~__context ~host ;
       info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
       let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
       with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
