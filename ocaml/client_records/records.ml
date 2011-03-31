@@ -143,6 +143,7 @@ let bond_record rpc session_id bond =
         make_field ~name:"master"       ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_master) ();
         make_field ~name:"slaves"       ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.bond_slaves)) ();
         make_field ~name:"mode" ~get:(fun () -> Record_util.bond_mode_to_string (x ()).API.bond_mode) ();
+        make_field ~name:"primary-slave" ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_primary_slave) ();
       ]
   }
 
