@@ -342,6 +342,10 @@ let create ~__context ~network ~members ~mAC ~mode =
 			end
 		end;
 
+		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
+		if disallow_unplug then
+			Db.PIF.set_disallow_unplug ~__context ~self:master ~value:true;
+
 		(* Reset IP configuration and disallow_unplug of members *)
 		debug "Resetting IP config and disallow_unplug on slaves";
 		List.iter (fun pif ->
