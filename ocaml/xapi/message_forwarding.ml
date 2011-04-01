@@ -1493,19 +1493,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Monitor_rrds.push_rrd __context (Db.VM.get_uuid ~__context ~self:vm)
     
     let pool_migrate ~__context ~vm ~host ~options =
-      info "VM.pool_migrate: VM = '%s'; host = '%s'" (vm_uuid ~__context vm) (host_uuid ~__context host);
+		info "VM.pool_migrate: VM = '%s'; host = '%s'"
+			(vm_uuid ~__context vm) (host_uuid ~__context host);
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then
+			let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+			Helpers.assert_host_versions_not_decreasing
+				~__context ~host_from:source_host ~host_to:host ;
       let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
       Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
       with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
 	(fun () ->
-	   (* Compare local and remote version numbers; Rio -> Miami works but
-	      Miami -> Rio and Rio -> Rio (in a Miami pool) do not. So we can only 
-	      migrate forwards in host version numbers *)
-	   let remote_host = Db.Host.get_record ~__context ~self:host in
-	   if false
-	     || remote_host.API.host_API_version_major < Xapi_globs.api_version_major
-	     || remote_host.API.host_API_version_minor < Xapi_globs.api_version_minor
-	   then raise (Api_errors.Server_error(Api_errors.not_supported_during_upgrade, []));
 	   (* Make sure the target has enough memory to receive the VM *)
 	   let snapshot = Helpers.get_boot_record ~__context ~self:vm in
 	   (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
