@@ -347,11 +347,6 @@ let assert_gpus_available ~__context ~self ~host =
  *)
 let assert_can_boot_here_common
 		~__context ~self ~host ~snapshot do_memory_check =
-
-	(* First check to see if this is valid during upgrade *)
-	if Helpers.rolling_upgrade_in_progress ~__context
-		then Helpers.assert_host_has_highest_version_in_pool
-			~__context ~host ;
 	(* Check to see if the VM is obviously malformed *)
 	validate_basic_parameters ~__context ~self ~snapshot;
 	(* Check host is live *)
