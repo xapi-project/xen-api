@@ -285,6 +285,13 @@ let host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host 
 		and max_version = max_version_in_pool ~__context in
 		(compare_int_lists host_version max_version) >= 0
 
+let host_versions_not_decreasing :
+		__context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> bool =
+	fun ~__context ~host_from ~host_to ->
+		let from_version = version_of ~__context host_from
+		and to_version = version_of ~__context host_to in
+		(compare_int_lists from_version to_version) > 0
+
 (* Assertion functions which raise an exception if certain invariants
    are broken during an upgrade. *)
 let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
@@ -300,9 +307,7 @@ let assert_host_has_highest_version_in_pool : __context:Context.t -> host:API.re
 let assert_host_versions_not_decreasing :
 		__context:Context.t -> host_from:API.ref_host -> host_to:API.ref_host -> unit =
 	fun ~__context ~host_from ~host_to ->
-		let from_version = version_of ~__context host_from
-		and to_version = version_of ~__context host_to in
-		if (compare_int_lists from_version to_version) > 0 then
+		if host_versions_not_decreasing ~__context ~host_from ~host_to then
 			raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 (** Fetch the configuration the VM was booted with *)
