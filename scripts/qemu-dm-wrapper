@@ -65,6 +65,14 @@ def cleanup(domid):
 		# we could have raced with another domain shutdown
 		pass
 
+def enable_core_dumps():
+	from resource import getrlimit, RLIMIT_CORE, setrlimit
+
+	limit = 64 * 1024 * 1024
+	oldlimits = getrlimit(RLIMIT_CORE)
+	setrlimit(RLIMIT_CORE, (limit, oldlimits[1]))
+	return limit
+
 def main(argv):
 	from os import environ, fdopen, pipe
 	from subprocess import Popen
@@ -86,7 +94,8 @@ def main(argv):
 	syslog(LOG_INFO, "Arguments: %s" % " ".join(argv[2:]))
 	syslog(LOG_INFO, "everything else is from qemu-dm:")
 
-	# TODO: squash-vnc, sdl, is this required?
+	core_dump_limit = enable_core_dumps()
+	syslog(LOG_INFO, "core dump limit: %d" % core_dump_limit)
 
 	(r,w) = pipe()
 	do_cloexec(r)
