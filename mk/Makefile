@@ -37,6 +37,10 @@ export PRODUCT_VERSION_TEXT_SHORT
 build: $(OUTPUT_CLI_RT) $(OUTPUT_SDK) $(MY_SOURCES)/MANIFEST
 	$(call mkdir_clean,$(MY_MAIN_CDFILES)/client_install)
 	install -m 755 $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_MAIN_CDFILES)/client_install/xe-cli-$(PRODUCT_VERSION)-$(BUILD_NUMBER).$(DOMAIN0_ARCH_OPTIMIZED).rpm
+	# Delete this as soon as xenrt has been updated to fetch the file from
+	# the new place:
+	$(call mkdir_clean,$(MY_LINUX_CDFILES)/client_install)
+	install -m 755 $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-xe-*.rpm $(MY_LINUX_CDFILES)/client_install/xe-cli-$(PRODUCT_VERSION)-$(BUILD_NUMBER).$(DOMAIN0_ARCH_OPTIMIZED).rpm
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP) $(OUTPUT_XAPI_SRC)
 	rm -f $@
