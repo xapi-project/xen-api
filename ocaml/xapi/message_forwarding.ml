@@ -1496,10 +1496,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		info "VM.pool_migrate: VM = '%s'; host = '%s'"
 			(vm_uuid ~__context vm) (host_uuid ~__context host);
 		if Helpers.rolling_upgrade_in_progress ~__context
-		then
+		then begin
 			let source_host = Db.VM.get_resident_on ~__context ~self:vm in
 			Helpers.assert_host_versions_not_decreasing
 				~__context ~host_from:source_host ~host_to:host ;
+		end;
       let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
       Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm ~host;
       with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate
