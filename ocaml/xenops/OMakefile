@@ -24,6 +24,8 @@ OCamlProgram(squeezed, squeezed)
 OCamlDocProgram(squeezed, squeezed)
 OCamlProgram(squeezed_client, squeezed_client)
 
+OCamlProgram(device_number_test, device_number_test device_number)
+
 # legacy
 OCamlProgram(create_domain, table xenops)
 OCamlProgram(destroy_domain, table xenops)
