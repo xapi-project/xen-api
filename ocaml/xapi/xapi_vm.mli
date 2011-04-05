@@ -47,13 +47,9 @@ val set_actions_after_crash :
   unit
 val set_is_a_template :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
-val validate_restart_priority : bool -> string -> unit
+val validate_restart_priority : string -> unit
 val set_ha_always_run :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
-val assert_ha_always_run_is_true :
-  __context:Context.t -> vm:API.ref_VM -> unit
-val assert_ha_always_run_is_false :
-  __context:Context.t -> vm:API.ref_VM -> unit
 val set_ha_restart_priority :
   __context:Context.t -> self:API.ref_VM -> value:string -> unit
 val compute_memory_overhead :
@@ -138,10 +134,10 @@ val power_state_reset : __context:Context.t -> vm:API.ref_VM -> unit
 val suspend : __context:Context.t -> vm:API.ref_VM -> unit
 val resume :
   __context:Context.t ->
-  vm:API.ref_VM -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> start_paused:bool -> force:bool -> unit
 val resume_on :
   __context:Context.t ->
-  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:'a -> unit
+  vm:API.ref_VM -> host:API.ref_host -> start_paused:bool -> force:bool -> unit
 val create :
   __context:Context.t ->
   name_label:string ->
@@ -187,7 +183,9 @@ val create :
   appliance:API.ref_VM_appliance ->
   start_delay:int64 ->
   shutdown_delay:int64 ->
-  order:int64
+  order:int64 ->
+  suspend_SR:[ `SR ] Ref.t ->
+  version:int64
 -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
@@ -265,3 +263,13 @@ val copy_bios_strings :
  *  had already been set. *)
 
 val set_protection_policy : __context:Context.t -> self:API.ref_VM -> value:API.ref_VMPP -> unit
+
+val set_start_delay : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
+val set_shutdown_delay : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
+val set_order : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
+
+val assert_can_be_recovered : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session -> unit
+val recover : __context:Context.t -> self:API.ref_VM ->
+	session_to:API.ref_session -> force:bool -> unit
+val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
+	value:API.ref_VDI -> unit

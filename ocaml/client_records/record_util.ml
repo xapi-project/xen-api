@@ -138,6 +138,7 @@ let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"
   | `hard_shutdown -> "hard_shutdown"
+  | `shutdown -> "shutdown"
 
 let cpu_feature_to_string f =
   match f with

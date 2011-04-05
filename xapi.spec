@@ -175,14 +175,12 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/scripts/vif
 /etc/xensource/xapi-ssl.conf
 /etc/xensource/xapi.conf
-/etc/xensource/xenstored.conf
 /opt/xensource/bin/fix_firewall.sh
 /opt/xensource/bin/list_domains
 /opt/xensource/bin/mpathalert
 /opt/xensource/bin/perfmon
 /opt/xensource/bin/static-vdis
 /opt/xensource/bin/v6d-reopen-logs
-/opt/xensource/bin/xapi-autostart-vms
 /opt/xensource/bin/xapi-db-process
 /opt/xensource/bin/xapi-wait-init-complete
 /opt/xensource/bin/xe-backup-metadata
@@ -194,7 +192,6 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/bin/xe-set-iscsi-iqn
 /opt/xensource/bin/xe-toolstack-restart
 /opt/xensource/bin/xe-xentrace
-/opt/xensource/bin/xenstored
 /opt/xensource/bin/xsh
 /opt/xensource/libexec/fakeguestagent
 /opt/xensource/libexec/InterfaceReconfigure.py

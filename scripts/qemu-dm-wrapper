@@ -1,143 +1,137 @@
 #!/usr/bin/python
 #
-# Copyright (c) Citrix Systems 2007-2008. All rights reserved.
+# Copyright (c) Citrix Systems 2007-2011
+# Author: Gianni Tedesco and Dave Scott
 #
-# Xen, the Xen logo, XenCenter, XenMotion are trademarks or registered
-# trademarks of Citrix Systems, Inc., in the United States and other
-# countries.
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation; version 2.1 only. with the special
+# exception on linking described in file LICENSE.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
 
-import sys, os, time, resource, os.path
+from syslog import syslog
+from syslog import LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING
+from syslog import LOG_NOTICE, LOG_INFO, LOG_DEBUG
+from xen.lowlevel import xs
 
-DOMID=int(sys.argv[1])
-LOGFILE=sys.argv[2]
+def do_cloexec(fd):
+	from fcntl import fcntl, F_GETFD, F_SETFD, FD_CLOEXEC
 
-SQUASH_VNC=False
-SDL_ENABLED=True
-SDL_ZOOM_ENABLED=True
+	ret = fcntl(fd, F_GETFD, FD_CLOEXEC)
+	if ret < 0:
+		return
+	fcntl(fd, F_SETFD, ret|FD_CLOEXEC)
 
-IS_SDK = (int(os.popen("xenstore-read domid").read()) != 0)
+def write_dm_pid(domid, pid):
+	store = xs.xs()
+	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%pid)
 
-if IS_SDK:
-    time.sleep(2)
-    os.system("xenstore-write -s /local/domain/%d/qemu-pid %d\n" % (DOMID, os.getpid()))
-    os.system("xenstore-write -s /local/domain/%d/device-misc/dm-ready 1" % DOMID)
-    os.system("xenstore-write -s /local/domain/%d/console/vnc-port %d\n" % (DOMID, 6900+DOMID))
-    while True:
-        time.sleep(1)
+def is_sdk():
+	try:
+		store = xs.xs()
+		i = int(store.read('', 'domid'))
+	except:
+		return False
+	return i != 0
 
+def fake_dm(domid):
+	from time import sleep
+	from os import getpid
 
-# enabling core dumps if /var/xen/qemu is not a ramdisk, disabling otherwise
-try :
-    newlimits = None
-    oldlimits = resource.getrlimit(resource.RLIMIT_CORE)
-    f = open("/etc/mtab", "r")
-    for line in f:
-        if line.find("/var/xen/qemu") is not -1:
-            if line.find("tmpfs") is not -1 or line.find("ramfs") is not -1 :
-                newlimits = (0, oldlimits[1])
-            break
-    if newlimits is None:
-        newlimits = (64 * 1024 * 1024, oldlimits[1])
-    resource.setrlimit(resource.RLIMIT_CORE, newlimits)
-    f.close()
-except:
-    pass
+	store = xs.xs()
 
-# Check to see if the SDL windows have been disabled:
-GRAPHICAL_CONF="/etc/xensource/graphical.conf"
-if os.path.isfile(GRAPHICAL_CONF):
-    try:
-        h = open(GRAPHICAL_CONF, 'r')
-        for line in h:
-            for v in ("SDL_ENABLED", "SDL_ZOOM_ENABLED"):
-                if line.startswith(v + "="):
-                    setting = line.strip().split("=",1)[1]
-                    if setting.lower() == "false" or setting == "0":
-                        locals()[v]=False
-                    else:
-                        locals()[v]=True
-        h.close()
-    except:
-        pass
+	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%getpid())
+	store.write('', '/local/domain/%d/device-misc/dm-ready', '1')
+	store.write('', '/local/domain/%d/console/vnc-port'%domid, '%d'%(domid))
 
-# Check X is running -- disable SDL if it isn't:
-h = os.popen("/bin/ps aux | /bin/fgrep 'X :0' | /bin/fgrep -v fgrep | /usr/bin/wc -l")
-x_is_running = int(h.read())
-h.close()
-if not x_is_running:
-    SDL_ENABLED=False
-    SDL_ZOOM_ENABLED=False
+	while True:
+		sleep(600)
 
-log = open(LOGFILE, "wa")
-log.write("qemu-dm-wrapper in python:\n")
-log.write("Using domid: %d\n" % DOMID)
-log.write("Core dumps size limit: %d\n" % newlimits[0])
-log.write("Arguments: %s\n" % " ".join(sys.argv[2:]))
-os.system("xenstore-write /local/domain/%d/qemu-pid %d\n" % (DOMID, os.getpid()))
-if SQUASH_VNC:
-    os.system("xenstore-write /local/domain/%d/console/vnc-port %d\n" % (DOMID, 6900+DOMID))
+	return 0
 
-qemu_args = sys.argv[2:]
-qemu_args.append("-monitor")
-qemu_args.append("pty")
+def cleanup(domid):
+	from xen.lowlevel import xc
+	hcall = xc.xc()
 
-if SDL_ENABLED:
-    qemu_args.append("-nograb")
-    qemu_args.append("-sdl")
+	syslog(LOG_ERR, 'Unexpected termination, cleaning up...')
 
-if SDL_ENABLED and SDL_ZOOM_ENABLED:
-    h = os.popen("/usr/bin/xenstore-read /local/host/display/vm-geometry", "r")
-    geom = h.read().strip()
-    h.close()
+	try:
+		hcall.domain_destroy(domid)
+	except xc.Error:
+		# we could have raced with another domain shutdown
+		pass
 
-    if geom != "":
-        qemu_args.append("-geometry")
-        qemu_args.append(geom)
+def enable_core_dumps():
+	from resource import getrlimit, RLIMIT_CORE, setrlimit
 
-# suppress the vnc args to qemu-dm
-if SQUASH_VNC:
-    try:
-        vnc_idx = qemu_args.index("-vnc")
-        del qemu_args[vnc_idx: vnc_idx+2]
-    except ValueError, IndexError:
-        pass
+	limit = 64 * 1024 * 1024
+	oldlimits = getrlimit(RLIMIT_CORE)
+	setrlimit(RLIMIT_CORE, (limit, oldlimits[1]))
+	return limit
 
-    try:
-        vnc_idx = qemu_args.index("-vncunused")
-        del qemu_args[vnc_idx: vnc_idx+1]
-    except ValueError, IndexError:
-        pass
-else:
-    qemu_args.append("-vnclisten")
-    qemu_args.append("127.0.0.1:1")
+def main(argv):
+	from os import environ, fdopen, pipe
+	from subprocess import Popen
+	from syslog import openlog, LOG_NDELAY, LOG_NOWAIT, LOG_DAEMON
 
-def vm_uuid_from_dom_id(domid):
-        # domid --> uuid
-        h = os.popen("/opt/xensource/bin/list_domains | cut -f0-2 -d'|' | egrep '(^ *%d *\|)' | cut -f 2 -d'|'" % domid, "r")
-        uuid = h.read().strip()
-        h.close()
-        return uuid
+	qemu_env = environ
+	qemu_dm = '/usr/lib/xen/bin/qemu-dm'
+	domid = int(argv[1])
+	logfile = argv[2]
+	qemu_args = ['qemu-dm-%d'%domid] + argv[3:]
 
-qemu_env = os.environ
-if SDL_ENABLED:
-    # define qemu_env, add DISPLAY
-    qemu_env["DISPLAY"] = ":0.0"
-    # add the SDL env to set the qemu-dm window WM_CLASS, so that Ion can place the
-    # window in the correct workspace.
-    vm_uuid = vm_uuid_from_dom_id(DOMID)
-    qemu_env["SDL_VIDEO_X11_WMCLASS"] = "HVMXEN-" + vm_uuid
-    qemu_env["XAUTHORITY"] = "/root/.Xauthority"
-    qemu_env["HOME"] = "/root"
-    qemu_env["SDL_DISABLE_WAITMAPPED"] = "True"
+	if is_sdk() is True:
+		return fake_dm(domid)
 
-log.write("Arguments adjusted to: %s\n" % " ".join(qemu_args))
-log.write("everything else is from qemu-dm:\n")
-log.flush()
+	openlog('qemu-dm-%d'%domid, LOG_NDELAY|LOG_NOWAIT, LOG_DAEMON)
 
-# redirect stdout to append to logfile
-os.dup2(log.fileno(), 1)
+	syslog(LOG_INFO, "qemu-dm-wrapper in python:")
+	syslog(LOG_INFO, "Using domid: %d" % domid)
+	syslog(LOG_INFO, "Arguments: %s" % " ".join(argv[2:]))
+	syslog(LOG_INFO, "everything else is from qemu-dm:")
 
-# redirect stderr to stdout (which now goes to the log)
-os.dup2(1, 2)
+	core_dump_limit = enable_core_dumps()
+	syslog(LOG_INFO, "core dump limit: %d" % core_dump_limit)
 
-os.execve("/usr/lib/xen/bin/qemu-dm", qemu_args, qemu_env)
+	(r,w) = pipe()
+	do_cloexec(r)
+	outpipe = fdopen(w, 'w')
+	inpipe = fdopen(r, 'r')
+
+	p = Popen(qemu_args,
+		executable = qemu_dm,
+		stdin=open('/dev/null', 'r'),
+		stdout=outpipe, stderr=outpipe,
+		shell=False, close_fds=True)
+
+	del outpipe
+
+	write_dm_pid(domid, p.pid)
+
+	while True:
+		l = inpipe.readline()
+		if l == '':
+			break
+		l = l[:-1]
+		syslog(LOG_NOTICE, l)
+
+	if p.returncode is None:
+		p.wait()
+
+	if p.returncode < 0:
+		syslog(LOG_ERR, 'Terminated with signal %d'%-p.returncode)
+	else:
+		syslog(LOG_NOTICE, 'Exited with code %d'%p.returncode)
+		if p.returncode == 0:
+			return 0
+
+	cleanup(domid)
+	return 1
+
+if __name__ == '__main__':
+	from sys import argv
+	raise SystemExit, main(argv)

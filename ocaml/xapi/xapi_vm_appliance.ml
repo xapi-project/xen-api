@@ -1,5 +1,6 @@
 open Client
 open Pervasiveext
+open Listext
 
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
@@ -13,21 +14,12 @@ type appliance_operation = {
 	required_state : [ `Halted | `Paused | `Running | `Suspended ];
 }
 
-let create ~__context ~name_label ~name_description =
-	let uuid = Uuid.make_uuid () in
-	let ref = Ref.make() in
-	Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label ~name_description ~allowed_operations:[] ~current_operations:[];
-	ref
-
-let destroy ~__context ~self =
-	Db.VM_appliance.destroy ~__context ~self
-
 (* Checks to see if an operation is valid in this state. Returns Some exception *)
 (* if not and None if everything is ok. *)
 let check_operation_error ~__context record _ref' op =
 	let _ref = Ref.string_of _ref' in
 	let current_ops = record.Db_actions.vM_appliance_current_operations in
-	(* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown ] at a time. *)
+	(* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown | `shutdown ] at a time. *)
 	if List.length current_ops > 0 then
 		Some (Api_errors.other_operation_in_progress, ["VM_appliance"; _ref])
 	else
@@ -45,6 +37,16 @@ let update_allowed_operations ~__context ~self =
 		let allowed x = match check_operation_error ~__context all self x with None -> true | _ -> false in
 		List.filter allowed [`start; `clean_shutdown; `hard_shutdown] in
 	Db.VM_appliance.set_allowed_operations ~__context ~self ~value:allowed_ops
+
+let create ~__context ~name_label ~name_description =
+	let uuid = Uuid.make_uuid () in
+	let ref = Ref.make() in
+	Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label ~name_description ~allowed_operations:[] ~current_operations:[];
+	update_allowed_operations ~__context ~self:ref;
+	ref
+
+let destroy ~__context ~self =
+	Db.VM_appliance.destroy ~__context ~self
 
 (* Takes a list of VMs and returns a map binding each boot order *)
 (* found in the list to a list of VMs with that boot order. *)
@@ -167,3 +169,39 @@ let hard_shutdown ~__context ~self =
 		required_state = `Halted;
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:false
+
+let shutdown ~__context ~self = hard_shutdown ~__context ~self
+
+(* Check that VDI SRs are present for each VM in the appliance. *)
+let assert_can_be_recovered ~__context ~self ~session_to =
+	let vms = Db.VM_appliance.get_VMs ~__context ~self in
+	List.iter
+		(fun vm -> Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
+		vms
+
+let recover ~__context ~self ~session_to ~force =
+	assert_can_be_recovered ~__context ~self ~session_to;
+	let vms = Db.VM_appliance.get_VMs ~__context ~self in
+	let recovered_vms = Xapi_dr.recover_vms ~__context ~vms ~session_to ~force in
+	(* Recreate the VM appliance object. *)
+	let old_appliance = Db.VM_appliance.get_record ~__context ~self in
+	Server_helpers.exec_with_new_task ~session_id:session_to "Recreating VM appliance object"
+		(fun __context_to ->
+			let new_appliance = create ~__context:__context_to
+				~name_label:old_appliance.API.vM_appliance_name_label
+				~name_description:old_appliance.API.vM_appliance_name_description in
+			(* Add all the non-template VMs to the appliance. *)
+			List.iter
+				(fun vm ->
+					if not (Db.VM.get_is_a_template ~__context:__context_to ~self:vm) then
+						Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:new_appliance)
+				recovered_vms;
+			try
+				Db.VM_appliance.set_uuid ~__context:__context_to
+					~self:new_appliance
+					~value:old_appliance.API.vM_appliance_uuid
+			with Db_exn.Uniqueness_constraint_violation(_, _, _) ->
+				(* Fail silently if the appliance's uuid already exists. *)
+				debug
+					"Could not give VM appliance the uuid %s as a VM appliance with this uuid already exists."
+					old_appliance.API.vM_appliance_uuid)

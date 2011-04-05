@@ -44,6 +44,7 @@ let apply_upgrade_rules ~__context rules previous_version =
     ) required_rules
 
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
+let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -208,7 +209,80 @@ let upgrade_guest_installer_network = {
 					Db.Network.set_bridge ~__context ~self ~value:Create_networks.internal_management_bridge;
 				end
 			) (Db.Network.get_all ~__context)
+}
 
+(* COWLEY -> BOSTON *)
+let upgrade_vdi_types = {
+	description = "Upgrading VDIs with type 'metadata' to type 'redo_log'";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vdis = Db.VDI.get_all ~__context in
+		let update_vdi vdi =
+			let vdi_type = Db.VDI.get_type ~__context ~self:vdi in
+			if vdi_type = `metadata then
+				Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log
+		in
+		List.iter update_vdi all_vdis
+}
+
+let upgrade_ha_restart_priority = {
+	description = "Upgrading ha_restart_priority";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vms = Db.VM.get_all ~__context in
+		let update_vm vm =
+			let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+			let (new_priority, new_order) = match priority with
+			| "0" -> ("restart", 0L)
+			| "1" -> ("restart", 1L)
+			| "2" -> ("restart", 2L)
+			| "3" -> ("restart", 3L)
+			| "best-effort" -> ("best-effort", 0L)
+			| _ -> ("", 0L)
+			in
+			Db.VM.set_ha_restart_priority ~__context ~self:vm ~value:new_priority;
+			Db.VM.set_order ~__context ~self:vm ~value:new_order
+		in
+		List.iter update_vm all_vms
+}
+
+let upgrade_cpu_flags = {
+	description = "Upgrading last_boot_CPU flags for all running VMs";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let should_update_vm vm =
+			let power_state = Db.VM.get_power_state ~__context ~self:vm in
+			List.mem power_state [`Running; `Suspended]
+		in
+		let all_vms = Db.VM.get_all ~__context in
+		let vms_to_update = List.filter should_update_vm all_vms in
+		let pool = Helpers.get_pool ~__context in
+		let master = Db.Pool.get_master ~__context ~self:pool in
+		List.iter (fun vm -> Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host:master)
+			vms_to_update
+}
+
+(* To deal with the removal of the "Auto-start on server boot" feature in Boston, *)
+(* all VMs with the other_config flag "auto_poweron" set to true will have *)
+(* ha_restart_priority set to "best-effort". *)
+let upgrade_auto_poweron = {
+	description = "Upgrading all VMs with auto_poweron=true";
+	version = (fun x -> x <= cowley);
+	fn = fun ~__context ->
+		let all_vms = Db.VM.get_all ~__context in
+		let update_vm vm =
+			let other_config = Db.VM.get_other_config ~__context ~self:vm in
+			let auto_poweron =
+				if List.mem_assoc "auto_poweron" other_config then
+					List.assoc "auto_poweron" other_config = "true"
+				else
+					false
+			in
+			let restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
+			if auto_poweron && restart_priority = "" then
+				Db.VM.set_ha_restart_priority ~__context ~self:vm ~value:Constants.ha_restart_best_effort
+		in
+		List.iter update_vm all_vms
 }
 
 let rules = [
@@ -218,6 +292,10 @@ let rules = [
 	upgrade_bios_strings;
 	update_snapshots;
 	upgrade_guest_installer_network;
+	upgrade_vdi_types;
+	upgrade_ha_restart_priority;
+	upgrade_cpu_flags;
+	upgrade_auto_poweron;
 ]
 
 (* Maybe upgrade most recent db *)

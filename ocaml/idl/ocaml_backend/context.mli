@@ -98,6 +98,8 @@ val preauth : __context:t -> bool
 val trackid_of_session: ?with_brackets:bool -> ?prefix:string -> API.ref_session option -> string
 val trackid : ?with_brackets:bool -> ?prefix:string -> t -> string
 
+val check_for_foreign_database : __context:t -> t
+
 (** {6 Functions which help resolving cyclic dependencies} *)
 
 val __get_task_name : (__context:t -> API.ref_task -> string) ref

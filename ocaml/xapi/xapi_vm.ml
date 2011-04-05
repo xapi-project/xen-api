@@ -19,6 +19,7 @@ open Xapi_vm_helpers
 open Client
 open Threadext
 open Xmlrpc_sexpr
+open Listext
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -75,53 +76,31 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
 	set_is_a_template ~__context ~self ~value
 
-let validate_restart_priority include_empty_string x =
-  if not(List.mem x (Constants.ha_valid_restart_priorities @ (if include_empty_string then [ "" ] else [])))
-  then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; x ]))
-
-let set_ha_always_run ~__context ~self ~value =
-  let current = Db.VM.get_ha_always_run ~__context ~self in
-  let prio = Db.VM.get_ha_restart_priority ~__context ~self in
-  debug "set_ha_always_run current=%b value=%b" current value;
-  if not current && value then begin
-    if prio <> Constants.ha_restart_best_effort
-    then Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
-    validate_restart_priority false prio
-  end;
-
-  if current <> value then begin
-    Db.VM.set_ha_always_run ~__context ~self ~value:value;
-    let pool = Helpers.get_pool ~__context in
-    if Db.Pool.get_ha_enabled ~__context ~self:pool
-    then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
-  end
-
-(* GUI not calling this anymore, now used internally in vm.start and vm.resume *)
-let assert_ha_always_run_is_true ~__context ~vm =
-	let rp = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-	if (List.mem rp (Constants.ha_valid_restart_priorities))
-	then set_ha_always_run ~__context ~self:vm ~value:true
-(* GUI not calling this anymore, now used internally in vm.shutdown and vm.suspend *)
-let assert_ha_always_run_is_false ~__context ~vm =
-	set_ha_always_run ~__context ~self:vm ~value:false
+let validate_restart_priority priority =
+	if not(List.mem priority Constants.ha_valid_restart_priorities) then
+		raise (Api_errors.Server_error(Api_errors.invalid_value, ["ha_restart_priority"; priority]))
 
 let set_ha_restart_priority ~__context ~self ~value =
-  let ha_always_run = Db.VM.get_ha_always_run ~__context ~self in
-  validate_restart_priority (not ha_always_run) value;
+	validate_restart_priority value;
+	let current = Db.VM.get_ha_restart_priority ~__context ~self in
+	if true
+		&& current <> Constants.ha_restart
+		&& value = Constants.ha_restart then begin
+			Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
+			let pool = Helpers.get_pool ~__context in
+			if Db.Pool.get_ha_enabled ~__context ~self:pool then
+				let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
+		end;
 
-  let current = Db.VM.get_ha_restart_priority ~__context ~self in
-  if true
-    && ha_always_run
-    && current = Constants.ha_restart_best_effort
-    && value <> Constants.ha_restart_best_effort then begin
-      Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self;
-      let pool = Helpers.get_pool ~__context in
-      if Db.Pool.get_ha_enabled ~__context ~self:pool
-      then let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
-    end;
+	if current <> value then
+		Db.VM.set_ha_restart_priority ~__context ~self ~value
 
-  if current <> value
-  then Db.VM.set_ha_restart_priority ~__context ~self ~value
+(* Field deprecated since Boston - attempt to degrade gracefully if anything sets it. *)
+let set_ha_always_run ~__context ~self ~value =
+	if value then
+		set_ha_restart_priority ~__context ~self ~value:Constants.ha_restart
+	else
+		set_ha_restart_priority ~__context ~self ~value:""
 
 let compute_memory_overhead = compute_memory_overhead
 
@@ -184,9 +163,9 @@ let assert_power_state_is ~__context ~vm ~expected =
 (* If HA is enabled on the Pool and the VM is marked as always_run then block the action *)
 let assert_not_ha_protected ~__context ~vm =
   let pool = Helpers.get_pool ~__context in
-  let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
+  let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run power_state priority)
   then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
 
 let pause_already_locked  ~__context ~vm =
@@ -230,7 +209,6 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						(* Xapi_vm_helpers.assert_can_boot_here not required *)
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
-						assert_ha_always_run_is_true ~__context ~vm;
 
 						(* check BIOS strings: set to generic values if empty *)
 						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
@@ -247,6 +225,10 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						let localhost = Helpers.get_localhost ~__context in
 						Helpers.call_api_functions ~__context
 							(fun rpc session_id -> Client.VM.atomic_set_resident_on rpc session_id vm localhost);
+
+						(* Populate last_boot_CPU_flags with the vendor and feature set of the host CPU. *)
+						let host = Db.VM.get_resident_on ~__context ~self:vm in
+						Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host;
 
 						if paused then
 							Db.VM.set_power_state ~__context ~self:vm ~value:`Paused
@@ -484,7 +466,6 @@ module Shutdown = struct
 
   (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
   let in_guest { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
-    assert_ha_always_run_is_false ~__context ~vm;
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	TwoPhase.simulate_internal_shutdown domid;
 
@@ -742,10 +723,6 @@ let suspend  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
-			assert_ha_always_run_is_false ~__context ~vm;
-			(* We don't support suspend/resume while PCI devices have been passed through (yet). *)
-			if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
-				raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]));
 			Stats.time_this "VM suspend"
 			(fun () ->
 				let domid = Helpers.domid_of_vm ~__context ~self:vm in
@@ -786,7 +763,11 @@ let resume ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						assert_ha_always_run_is_true ~__context ~vm;
+						let localhost = Helpers.get_localhost ~__context in
+						if not force then begin
+							debug "resume: checking the VM is compatible with this host";
+							Xapi_vm_helpers.assert_vm_is_compatible ~__context ~vm ~host:localhost
+						end;
 
 							(* vmops.restore guarantees that, if an exn occurs *)
 							(* during execution, any disks that were attached/ *)
@@ -794,13 +775,13 @@ let resume ~__context ~vm ~start_paused ~force =
 							(* the domain is destroyed.                        *)
 							Vmops.restore ~__context ~xc ~xs ~self:vm start_paused;
 
-							(* VM is now resident here *)
-							let localhost = Helpers.get_localhost ~__context in
+							(* VM is now resident on localhost *)
 							Helpers.call_api_functions ~__context
 							(fun rpc session_id ->
 								Client.VM.atomic_set_resident_on rpc session_id vm
 								localhost
 							);
+							Xapi_vm_helpers.populate_cpu_flags ~__context ~vm ~host:localhost;
 							Db.VM.set_power_state ~__context ~self:vm
 								~value:(if start_paused then `Paused else `Running);
 (*
@@ -825,7 +806,8 @@ let create ~__context
 		~name_label
 		~name_description
 		~user_version
-		~is_a_template ~affinity
+		~is_a_template
+		~affinity
 		~memory_target
 		~memory_static_max
 		~memory_dynamic_max
@@ -861,6 +843,8 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
+		~version
 		: API.ref_VM =
 	let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Add random mac_seed if there isn't one specified already *)
@@ -909,6 +893,8 @@ let create ~__context
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
+		~version
 
 let destroy  ~__context ~self =
 	let parent = Db.VM.get_parent ~__context ~self in
@@ -966,9 +952,6 @@ let revert ~__context ~snapshot =
 let checkpoint ~__context ~vm ~new_name =
 	if not (Pool_features.is_enabled ~__context Features.Checkpoint) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
-	(* We don't support VM checkpointing while PCI devices have been passed through (yet). *)
-	else if Db.VM.get_attached_PCIs ~__context ~self:vm <> [] then
-		raise (Api_errors.Server_error(Api_errors.vm_has_pci_attached, [Ref.string_of vm]))
 	else begin
 		Local_work_queue.wait_in_line Local_work_queue.long_running_queue
 			(Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
@@ -1250,3 +1233,83 @@ let set_protection_policy ~__context ~self ~value =
     (if (value <> Ref.null) then Xapi_vmpp.assert_licensed ~__context);
     Db.VM.set_protection_policy ~__context ~self ~value
   )
+
+let set_start_delay ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"start_delay must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_start_delay ~__context ~self ~value
+
+let set_shutdown_delay ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"shutdown_delay must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_shutdown_delay ~__context ~self ~value
+
+let set_order ~__context ~self ~value =
+	if value < 0L then invalid_value
+		"order must be non-negative"
+		(Int64.to_string value);
+	Db.VM.set_order ~__context ~self ~value
+
+let assert_can_be_recovered ~__context ~self ~session_to =
+	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
+
+let recover ~__context ~self ~session_to ~force =
+	(* Check the VM SRs are available. *)
+	assert_can_be_recovered ~__context ~self ~session_to;
+	(* Attempt to recover the VM. *)
+	ignore (Xapi_dr.recover_vms ~__context ~vms:[self] ~session_to ~force)
+
+let set_suspend_VDI ~__context ~self ~value =
+	let vm_state =  Db.VM.get_power_state ~__context ~self in
+	if vm_state <> `Suspended then
+		raise (Api_errors.Server_error(Api_errors.vm_bad_power_state,
+		                               [Ref.string_of self; "suspended";
+		                                Record_util.power_to_string vm_state]));
+	let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
+	let dst_vdi = value in
+	if src_vdi <> dst_vdi then
+	(*
+	 * We don't care if the future host can see current suspend VDI or not, but
+	 * we want to make sure there's at least a host can see all the VDIs of the
+	 * VM + the new suspend VDI. We raise an exception if there's no suitable
+	 * host.
+	 *)
+		let vbds = Db.VM.get_VBDs ~__context ~self in
+		let vbds = List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) vbds in
+		let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
+		let vdis = value :: vdis in
+		let reqd_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self) vdis in
+		let choose_fn = Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs in
+		let _ = Xapi_vm_helpers.choose_host ~__context ~choose_fn () in
+		let do_checksum vdi result =
+			try
+				let r = Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						Client.VDI.checksum ~rpc ~session_id ~self:vdi) in
+				result := `Succ r
+			with e ->
+				result := `Fail e in
+		let src_result = ref `Pending in
+		let src_thread = Thread.create (do_checksum src_vdi) src_result in
+		let dst_result = ref `Pending in
+		let dst_thread = Thread.create (do_checksum dst_vdi) dst_result in
+		let get_result t r =
+			Thread.join(t);
+			match !r with
+			| `Succ cs -> cs
+			| `Fail e -> raise e
+			| `Pending -> assert false in
+		let src_checksum = get_result src_thread src_result in
+		let dst_checksum = get_result dst_thread dst_result in
+		debug "source suspend_VDI checksum: %s" src_checksum;
+		debug "destination suspend VDI checksum: %s" dst_checksum;
+		if src_checksum = dst_checksum then
+			Db.VM.set_suspend_VDI ~__context ~self ~value
+		else
+			raise
+				(Api_errors.Server_error
+					 (Api_errors.suspend_vdi_replacement_is_not_identical,
+					  [(Db.VDI.get_uuid ~__context ~self:src_vdi ^ " : " ^ src_checksum);
+					   (Db.VDI.get_uuid ~__context ~self:dst_vdi ^ " : " ^ dst_checksum)]))

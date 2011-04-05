@@ -16,6 +16,7 @@ if [ -f /etc/sysconfig/xapi ]; then
 fi
 
 if [ -e /var/xapi/xiu-xc ]; then
+	export XENCTRL_OSDEP=/opt/xensource/lib/xenctrl/osdep_xiu.so
 	export XIU=/var/xapi/xiu
 fi
 

@@ -423,3 +423,13 @@ let invalid_feature_string = "INVALID_FEATURE_STRING"
 let cpu_feature_masking_not_supported = "CPU_FEATURE_MASKING_NOT_SUPPORTED"
 
 let feature_requires_hvm = "FEATURE_REQUIRES_HVM"
+
+(* Disaster recovery *)
+let vdi_contains_metadata_of_this_pool = "VDI_CONTAINS_METADATA_OF_THIS_POOL"
+let no_more_redo_logs_allowed = "NO_MORE_REDO_LOGS_ALLOWED"
+let could_not_import_database = "COULD_NOT_IMPORT_DATABASE"
+let vm_incompatible_with_this_host = "VM_INCOMPATIBLE_WITH_THIS_HOST"
+let cannot_destroy_disaster_recovery_task = "CANNOT_DESTROY_DISASTER_RECOVERY_TASK"
+let vm_is_part_of_an_appliance = "VM_IS_PART_OF_AN_APPLIANCE"
+let vm_to_import_is_not_newer_version = "VM_TO_IMPORT_IS_NOT_NEWER_VERSION"
+let suspend_vdi_replacement_is_not_identical = "SUSPEND_VDI_REPLACEMENT_IS_NOT_IDENTICAL"

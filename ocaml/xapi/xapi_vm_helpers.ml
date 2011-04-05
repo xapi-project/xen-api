@@ -18,6 +18,7 @@
 open Stringext
 open Printf
 open Xapi_vm_memory_constraints
+open Listext
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -99,7 +100,8 @@ let set_is_a_template ~__context ~self ~value =
 	Db.VM.set_is_a_template ~__context ~self ~value
 
 let create ~__context ~name_label ~name_description
-           ~user_version ~is_a_template ~affinity
+           ~user_version ~is_a_template
+           ~affinity
            ~memory_target
            ~memory_static_max
            ~memory_dynamic_max
@@ -121,6 +123,8 @@ let create ~__context ~name_label ~name_description
 		 ~start_delay
 		 ~shutdown_delay
 		 ~order
+		 ~suspend_SR 
+		 ~version
 	   : API.ref_VM =
 
 	(* NB parameter validation is delayed until VM.start *)
@@ -187,6 +191,8 @@ let create ~__context ~name_label ~name_description
 		~start_delay
 		~shutdown_delay
 		~order
+		~suspend_SR
+		~version
 		;
 	Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
 	Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -341,11 +347,6 @@ let assert_gpus_available ~__context ~self ~host =
  *)
 let assert_can_boot_here_common
 		~__context ~self ~host ~snapshot do_memory_check =
-
-	(* First check to see if this is valid during upgrade *)
-	if Helpers.rolling_upgrade_in_progress ~__context
-		then Helpers.assert_host_has_highest_version_in_pool
-			~__context ~host ;
 	(* Check to see if the VM is obviously malformed *)
 	validate_basic_parameters ~__context ~self ~snapshot;
 	(* Check host is live *)
@@ -539,6 +540,10 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
 given [guest] can run on the given [host]. Returns true if and only if the
 guest can run on the host. *)
 let vm_can_run_on_host __context vm snapshot host =
+	let host_has_proper_version () =
+		if Helpers.rolling_upgrade_in_progress ~__context
+		then Helpers.host_has_highest_version_in_pool ~__context ~host:host
+		else true in
 	let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
 	let host_live () =
 		let host_metrics = Db.Host.get_metrics ~__context ~self:host in
@@ -546,7 +551,7 @@ let vm_can_run_on_host __context vm snapshot host =
 	let host_can_run_vm () =
 		assert_can_boot_here_no_memcheck ~__context ~self:vm ~host ~snapshot;
 		true in
-	try host_enabled () && host_live () && host_can_run_vm ()
+	try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm ()
 	with _ -> false
 
 (** Selects a single host from the set of all hosts on which the given [vm]
@@ -972,3 +977,72 @@ let copy_guest_metrics ~__context ~vm =
 		ref
 	with _ ->
 		Ref.null
+
+(* Populate last_boot_CPU_flags with the vendor and feature set of the given host's CPU. *)
+let populate_cpu_flags ~__context ~vm ~host =
+	let add_or_replace (key, value) values =
+		if List.mem_assoc key values then
+			List.replace_assoc key value values
+		else
+			(key, value) :: values
+	in
+	let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+	let flags = ref (Db.VM.get_last_boot_CPU_flags ~__context ~self:vm) in
+	if List.mem_assoc "vendor" cpu_info then
+		flags := add_or_replace ("vendor", List.assoc "vendor" cpu_info) !flags;
+	if List.mem_assoc "features" cpu_info then
+		flags := add_or_replace ("features", List.assoc "features" cpu_info) !flags;
+	Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:!flags
+
+let assert_vm_is_compatible ~__context ~vm ~host =
+	let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+	let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
+	if List.mem_assoc "vendor" vm_cpu_info then begin
+		(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
+		if (List.assoc "vendor" vm_cpu_info) <> (List.assoc "vendor" host_cpu_info) then
+			raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
+				[Ref.string_of vm; Ref.string_of host; "VM was last booted on a host which had a CPU from a different vendor."]))
+	end;
+	if List.mem_assoc "features" vm_cpu_info then begin
+		(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
+		let host_cpu_features = Cpuid.string_to_features (List.assoc "features" host_cpu_info) in
+		let vm_cpu_features = Cpuid.string_to_features (List.assoc "features" vm_cpu_info) in
+		if not((Cpuid.mask_features host_cpu_features vm_cpu_features) = vm_cpu_features) then
+			raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
+				[Ref.string_of vm; Ref.string_of host; "VM was last booted on a CPU with features this host's CPU does not have."]))
+	end
+
+let list_required_vdis ~__context ~self =
+	let vbds = Db.VM.get_VBDs ~__context ~self in
+	let vbds_excluding_cd =
+		List.filter (fun vbd -> Db.VBD.get_type ~__context ~self:vbd <> `CD) vbds
+	in
+	List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vbds_excluding_cd
+
+(* Find the SRs of all VDIs which have VBDs attached to the VM. *)
+let list_required_SRs ~__context ~self =
+	let vdis = list_required_vdis ~__context ~self in
+	let srs = List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) vdis in
+	let srs = List.filter (fun sr -> Db.SR.get_content_type ~__context ~self:sr <> "iso") srs in
+	List.setify srs
+
+(* Check if the database referenced by session_to *)
+(* contains the SRs required to recover the VM. *)
+let assert_can_be_recovered ~__context ~self ~session_to =
+	(* Get the required SR uuids from the foreign database. *)
+	let required_SRs = list_required_SRs ~__context ~self in
+	let required_SR_uuids = List.map (fun sr -> Db.SR.get_uuid ~__context ~self:sr)
+		required_SRs
+	in
+	(* Try to look up the SRs by uuid in the local database. *)
+	try
+		Server_helpers.exec_with_new_task ~session_id:session_to
+			"Looking for required SRs"
+			(fun __context -> List.iter
+				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_uuid))
+				required_SR_uuids)
+	with Db_exn.Read_missing_uuid(_, _, sr_uuid) ->
+		(* Throw exception containing the uuid of the first SR which wasn't found. *)
+		let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
+			[Ref.string_of self; Ref.string_of sr_ref]))

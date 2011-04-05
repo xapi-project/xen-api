@@ -84,14 +84,14 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	    if is_tools_sr
 	    then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	    else
-	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	      if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	      then Some (Api_errors.ha_is_enabled, [])
 	      else
 		if not (List.mem Smint.Vdi_delete (Sm.capabilities_of_driver srtype))
 		then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 		else None
       | `resize ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
 	    if not (List.mem Smint.Vdi_resize (Sm.capabilities_of_driver srtype)) 
@@ -102,7 +102,7 @@ let check_operation_error ~__context ha_enabled record _ref' op =
 	    Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 	  else None
       | `resize_online ->
-	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `metadata ]
+	  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
 	  then Some (Api_errors.ha_is_enabled, [])
 	  else 
 	    if not (List.mem Smint.Vdi_resize_online (Sm.capabilities_of_driver srtype)) 
@@ -195,10 +195,19 @@ let create ~__context ~name_label ~name_description
                   ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
 	Sm.assert_pbd_is_plugged ~__context ~sr:sR;
 
+	let vdi_type = match _type with
+	| `crashdump -> "crashdump"
+	| `ephemeral -> "ephemeral"
+	| `ha_statefile -> "ha_statefile"
+	| `metadata -> "metadata"
+	| `redo_log -> "redo_log"
+	| `suspend -> "suspend"
+	| `system -> "system"
+	| `user -> "user" in
 	let vdi_info = 
 	    Sm.call_sm_functions ~__context ~sR
 	      (fun device_config sr_type ->
-		Sm.vdi_create device_config sr_type sR sm_config virtual_size name_label)
+		Sm.vdi_create device_config sr_type sR sm_config vdi_type virtual_size name_label name_description)
  	in
 	let uuid = require_uuid vdi_info in
 	let ref = Db.VDI.get_by_uuid ~__context ~uuid in
@@ -242,7 +251,8 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~sharable ~read_only
     ~xenstore_data ~sm_config
     ~other_config ~storage_lock:false ~location ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
-	  ~on_boot:`persist ~allow_caching:false;
+    ~on_boot:`persist ~allow_caching:false
+    ~metadata_of_pool:Ref.null ~metadata_latest:false;
   ref
 
 let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
@@ -345,6 +355,7 @@ let snapshot ~__context ~vdi ~driver_params =
   Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
   update_allowed_operations ~__context ~self:newvdi;
+  update ~__context ~vdi:newvdi;
   newvdi
 
 let destroy ~__context ~self =
@@ -527,6 +538,12 @@ let set_virtual_size ~__context ~self ~value =
 let set_physical_utilisation ~__context ~self ~value = 
   Db.VDI.set_physical_utilisation ~__context ~self ~value
 
+let set_is_a_snapshot ~__context ~self ~value =
+	Db.VDI.set_is_a_snapshot ~__context ~self ~value
+
+let set_snapshot_of ~__context ~self ~value =
+	Db.VDI.set_snapshot_of ~__context ~self ~value
+
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let ty = Db.SR.get_type ~__context ~self:sr in
@@ -545,5 +562,40 @@ let set_on_boot ~__context ~self ~value =
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
 
-	
-		
+let set_name_label ~__context ~self ~value =
+	Db.VDI.set_name_label ~__context ~self ~value;
+	update ~__context ~vdi:self
+
+let set_name_description ~__context ~self ~value =
+	Db.VDI.set_name_description ~__context ~self ~value;
+	update ~__context ~vdi:self
+
+let checksum ~__context ~self =
+	let do_checksum f = Digest.to_hex (Digest.file f) in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id -> Sm_fs_ops.with_block_attached_device __context rpc session_id self `RO do_checksum)
+
+open Db_cache_types
+
+(* Functions for opening foreign databases on VDIs *)
+let open_database ~__context ~self =
+	let vdi_type = Db.VDI.get_type ~__context ~self in
+	if vdi_type <> `metadata then
+		raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type,
+			[Ref.string_of self; Record_util.vdi_type_to_string vdi_type]));
+	try
+		let db_ref = Xapi_vdi_helpers.database_ref_of_vdi ~__context ~vdi:self in
+		(* Create a new session to query the database, and associate it with the db ref *)
+		debug "%s" "Creating readonly session";
+		let read_only_session = Xapi_session.create_readonly_session ~__context ~uname:"disaster-recovery" in
+		Db_backend.register_session_with_database read_only_session db_ref;
+		read_only_session
+	with e ->
+		let error = Printexc.to_string e in
+		debug "Caught %s while trying to open database" error;
+		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [error]))
+
+let read_database_pool_uuid ~__context ~self =
+	match Xapi_dr.read_vdi_cache_record ~vdi:self with
+	| Some (_, uuid) -> uuid
+	| None -> ""

@@ -60,3 +60,6 @@ val device_of_backend : endpoint -> Xc.domid -> device
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
 val string_of_protocol : protocol -> string
 val protocol_of_string : string -> protocol
+
+val qemu_save_path: (int -> 'a, 'b, 'a) format
+val qemu_restore_path: (int -> 'a, 'b, 'a) format
