@@ -126,7 +126,9 @@ let create ~__context ~_type ~device_config ~whitelist =
 						List.iter (fun host ->
 							debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
 							let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-							Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts))
+							Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
+						(* Ensure the VDI records are in the database. *)
+						Client.SR.scan ~rpc ~session_id ~sr))
 		sr_records;
 	dr_task
 
