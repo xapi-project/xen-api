@@ -61,6 +61,36 @@ let parse_sr_probe_hba xml =
 		List.map parse_sr children
 	| _ -> failwith "Missing <Devlist> element"
 
+(* Make a best-effort attempt to create an SR and associate it with the DR_task. *)
+(* If anything goes wrong, unplug all PBDs which were created, and forget the SR. *)
+let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_record =
+	let hosts = Db.Host.get_all ~__context in
+	Helpers.call_api_functions ~__context
+		(fun rpc session_id ->
+			(* Create the SR record. *)
+			debug "Introducing SR %s" sr_record.uuid;
+			let sr = Client.SR.introduce ~rpc ~session_id
+				~uuid:sr_record.uuid ~name_label:sr_record.name_label
+				~name_description:sr_record.name_description
+				~_type ~content_type:"" ~shared:true
+				~sm_config:[]
+			in
+			try
+				(* Create and plug PBDs. *)
+				List.iter (fun host ->
+					debug "Attaching SR %s to host %s" sr_record.uuid (Db.Host.get_name_label ~__context ~self:host);
+					let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
+					Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
+				(* Ensure the VDI records are in the database. *)
+				Client.SR.scan ~rpc ~session_id ~sr;
+				Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task
+			with e ->
+				(* Clean up if anything goes wrong. *)
+				warn "Could not successfully attach SR %s - caught %s" sr_record.uuid (Printexc.to_string e);
+				let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+				List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds;
+				Client.SR.forget ~rpc ~session_id ~sr)
+
 (* Add SR records to the database. *)
 (* The SR records will have their introduced_by field set to the DR_task. *)
 let create ~__context ~_type ~device_config ~whitelist =
@@ -102,7 +132,6 @@ let create ~__context ~_type ~device_config ~whitelist =
 	(* SR probe went ok, so create the DR task. *)
 	let dr_task = make_task ~__context in
 	(* Create the SR records and attach each SR to each host. *)
-	let hosts = Db.Host.get_all ~__context in
 	List.iter
 		(fun sr_record ->
 			try
@@ -111,24 +140,7 @@ let create ~__context ~_type ~device_config ~whitelist =
 				(* It may have been manually introduced, or introduced by another DR_task. *)
 				debug "SR %s has already been introduced, so not adding it to this disaster recovery task." sr_record.uuid;
 			with Db_exn.Read_missing_uuid(_, _, _) ->
-				Helpers.call_api_functions ~__context
-					(fun rpc session_id ->
-						(* Create the SR record. *)
-						debug "Introducing SR %s" sr_record.uuid;
-						let sr = Client.SR.introduce ~rpc ~session_id
-							~uuid:sr_record.uuid ~name_label:sr_record.name_label
-							~name_description:sr_record.name_description
-							~_type ~content_type:"" ~shared:true
-							~sm_config:[]
-						in
-						Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task;
-						(* Create and plug PBDs. *)
-						List.iter (fun host ->
-							debug "Attaching SR to host %s" (Db.Host.get_name_label ~__context ~self:host);
-							let pbd = Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config ~other_config:[] in
-							Client.PBD.plug ~rpc ~session_id ~self:pbd) hosts;
-						(* Ensure the VDI records are in the database. *)
-						Client.SR.scan ~rpc ~session_id ~sr))
+				try_create_sr_from_record ~__context ~_type ~device_config ~dr_task ~sr_record)
 		sr_records;
 	dr_task
 
