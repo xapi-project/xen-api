@@ -1,0 +1,106 @@
+type spec = 
+	| Xen of int * int
+	| Scsi of int * int
+	| Ide of int * int
+
+type interface = spec
+
+let (<<) = (lsl)
+
+let make (x: spec) : interface = 
+	let max_xen = ((1 << 20) - 1), 15 in
+	let max_scsi = 15, 15 in
+	let max_ide = 3, 63 in
+	let assert_in_range description (disk_limit, partition_limit) (disk, partition) = 
+		if disk < 0 || (disk > disk_limit) 
+		then failwith (Printf.sprintf "%s disk number out of range 0 <= %d <= %d" description disk disk_limit);
+		if partition < 0 || partition > partition_limit 
+		then failwith (Printf.sprintf "%s partition number out of range 0 <= %d <= %d" description partition partition_limit) in
+	begin match x with
+		| Xen(disk, partition) -> assert_in_range "xen" max_xen (disk, partition)
+		| Scsi(disk, partition) -> assert_in_range "scsi" max_scsi (disk, partition)
+		| Ide(disk, partition) -> assert_in_range "ide" max_ide (disk, partition)
+	end;
+	x
+
+let (||) = (lor)
+
+let int_of_interface = function
+	| Xen (disk, partition) when disk < 16 -> (202 << 8) || (disk << 4)       || partition
+	| Xen (disk, partition)                -> (1 << 28)  || (disk << 8)       || partition
+	| Scsi (disk, partition)               -> (8 << 8)   || (disk << 4)       || partition
+	| Ide (disk, partition) when disk < 2  -> (3 << 8)   || (disk << 6)       || partition
+	| Ide (disk, partition)                -> (22 << 8)  || ((disk - 2) << 6) || partition
+
+let interface_of_int x =
+	let (&&) = (land) in
+	let (>>) = (lsr) in
+
+	if (x && (1 << 28)) <> 0
+	then Xen( (x >> 8) && ((1 << 20) - 1), x && ((1 << 8) - 1))
+	else match x >> 8 with
+		| 202 -> Xen ( (x >> 4) && ((1 << 4) - 1), x >> 4)
+		| 8   -> Scsi ( (x >> 4) && ((1 << 4) - 1), x >> 4)
+		| 3   -> Ide ( (x >> 6) && ((1 << 2) - 1), x >> 6)
+		| 22  -> Ide ( ((x >> 6) && ((1 << 2) - 1)) - 2, x >> 6)
+		| _   -> failwith (Printf.sprintf "Unknown device number: %d" x)
+
+(** Return an integer in base 26 *)
+let base_26_of_int x = 
+	let high, low = x / 26, x mod 26 in
+	let high' = if high = 0 then "" else string_of_int high in
+	let low' = String.make 1 (char_of_int (low + (int_of_char 'a'))) in
+	high' ^ low'
+
+open Stringext
+
+(** Convert a base 26 string back into an integer *)
+let int_of_base_26 x = 
+	let ints = List.map (fun c -> int_of_char c - (int_of_char 'a')) (String.explode x) in
+	List.fold_left (fun acc x -> acc * 26 + x) 0 ints
+
+let string_of_interface = 
+	let p x = if x = 0 then "" else string_of_int x in 
+	function
+		| Xen  (disk, part) -> Printf.sprintf "xvd%s%s" (base_26_of_int disk) (p part)
+		| Scsi (disk, part) -> Printf.sprintf "sd%s%s"  (base_26_of_int disk) (p part)
+		| Ide  (disk, part) -> Printf.sprintf "hd%s%s"  (base_26_of_int disk) (p part)
+
+let interface_of_string x =
+	let letter c = 'a' <= c && (c <= 'z') in
+	let digit c = '0' <= c && (c <= '9') in
+	let take f x = 
+		let rec inner f acc = function
+			| x :: xs -> if f x then inner f (x :: acc) xs else List.rev acc, xs
+			| [] -> List.rev acc, [] in
+		inner f x [] in
+	(* Parse a string "abc123" into x, y where x is "abc" interpreted as base-26
+	   and y is 123 *)
+	let parse_b26_int x = 
+		let d, p = take letter x in
+		int_of_base_26 (String.implode d), int_of_string (String.implode p) in
+	(* Parse a string "123p456" into x, y where x = 123 and y = 456 *)
+	let parse_int_p_int x = 
+		let d, rest = take digit x in
+		match rest with
+			| 'p' :: rest ->
+				let p, _ = take digit rest in
+				int_of_string (String.implode d), int_of_string (String.implode p)
+			| _ -> 
+				failwith 
+					(Printf.sprintf "expected digit+ p digit+ got: %s" (String.implode x)) in
+	match String.explode x with
+		| 'x' :: 'v' :: 'd' :: rest ->
+			let disk, partition = parse_b26_int rest in
+			Xen(disk, partition)
+		| 's' :: 'd' :: rest ->
+			let disk, partition = parse_b26_int rest in
+			Scsi(disk, partition)
+		| 'h' :: 'd' :: rest ->
+			let disk, partition = parse_b26_int rest in
+			Ide(disk, partition)
+		| 'd' :: rest ->
+			let disk, partition = parse_int_p_int rest in
+			Xen(disk, partition)
+		| _ -> failwith (Printf.sprintf "Failed to parse device name: %s" x)
+	
