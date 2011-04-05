@@ -1130,7 +1130,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
    "vm-migrate",
     {
       reqd=[];
-      optn=["live"; "host"; "host-uuid"; "encrypt"];
+      optn=["live"; "host"; "host-uuid"; "encrypt"; "force"];
       help="Migrate the selected VM(s). The parameter '--live' will migrate the VM without shutting it down. The 'host' parameter matches can be either the name or the uuid of the host. The parameter '--encrypt' will encrypt the memory image transfer.";
       implementation= No_fd Cli_operations.vm_migrate;
       flags=[Standard; Vm_selectors];
@@ -1620,6 +1620,22 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
       implementation=No_fd Cli_operations.sr_update;
       flags=[];
     };
+   "sr-enable-database-replication",
+   {
+     reqd=["uuid"];
+     optn=[];
+     help="Enable database replication to the SR.";
+     implementation=No_fd Cli_operations.sr_enable_database_replication;
+     flags=[];
+   };
+   "sr-disable-database-replication",
+   {
+     reqd=["uuid"];
+     optn=[];
+     help="Disable database replication to the SR.";
+     implementation=No_fd Cli_operations.sr_disable_database_replication;
+     flags=[];
+   };
    "vdi-create",
     {
       reqd=["sr-uuid";"name-label";"type";"virtual-size"];
@@ -1829,6 +1845,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.vm_destroy;
       flags=[];
     };
+		"vm-recover",
+		{
+			reqd=["uuid"];
+			optn=["database:";"force"];
+			help="Recover a VM from the database contained in the supplied VDI.";
+			implementation=No_fd Cli_operations.vm_recover;
+			flags=[];
+		};
+		"vm-assert-can-be-recovered",
+		{
+			reqd=["uuid"];
+			optn=["database:"];
+			help="Test whether storage is available to recover this VM.";
+			implementation=No_fd Cli_operations.vm_assert_can_be_recovered;
+			flags=[];
+		};
    "diagnostic-vm-status",
     {
       reqd=["uuid"];
@@ -2280,8 +2312,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 		"appliance-create",
 		{
-			reqd=["name_label"];
-			optn=["name_description"];
+			reqd=["name-label"];
+			optn=["name-description"];
 			help="Create a VM appliance.";
 			implementation=No_fd Cli_operations.vm_appliance_create;
 			flags=[];
@@ -2310,6 +2342,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 			implementation=No_fd Cli_operations.vm_appliance_shutdown;
 			flags=[];
 		};
+		"appliance-recover",
+		{
+			reqd=["uuid"];
+			optn=["database:";"force"];
+			help="Recover a VM appliance from the database contained in the supplied VDI.";
+			implementation=No_fd Cli_operations.vm_appliance_recover;
+			flags=[];
+		};
+		"appliance-assert-can-be-recovered",
+		{
+			reqd=["uuid"];
+			optn=["database:"];
+			help="Test whether storage is available to recover this VM appliance.";
+			implementation=No_fd Cli_operations.vm_appliance_assert_can_be_recovered;
+			flags=[];
+		};
 	"vgpu-create",
 	{
 		reqd=["vm-uuid";"gpu-group-uuid"];
@@ -2326,6 +2374,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 		implementation=No_fd Cli_operations.vgpu_destroy;
 		flags=[];
 	};
+		"drtask-create",
+		{
+			reqd=["type"];
+			optn=["device-config:"; "sr-whitelist"];
+			help="Create a disaster recovery task.";
+			implementation=No_fd Cli_operations.dr_task_create;
+			flags=[]
+		};
+		"drtask-destroy",
+		{
+			reqd=["uuid"];
+			optn=[];
+			help="Destroy a disaster recovery task.";
+			implementation=No_fd Cli_operations.dr_task_destroy;
+			flags=[]
+		};
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

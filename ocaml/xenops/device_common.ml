@@ -184,3 +184,7 @@ let protocol_of_string = function
   | "x86_32-abi" -> Protocol_X86_32
   | "x86_64-abi" -> Protocol_X86_64
   | s            -> raise (Unknown_device_protocol s)
+
+
+let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
+let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"

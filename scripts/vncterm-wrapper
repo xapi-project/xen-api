@@ -39,9 +39,9 @@ else
 fi
 
 echo vncterm-wrapper:
-xenstore-write -s /local/domain/$DOMID/serial/0/vncterm-pid $$
+xenstore-write -s /local/domain/$DOMID/console/vncterm-pid $$
 if [ -z "${XIU}" ]; then
 	exec /usr/lib/xen/bin/vncterm $VNCTERM_LISTEN $VNCVIEWER $* > /dev/null 2>&1
 else
-	exec xenstore-write -s /local/domain/$DOMID/serial/0/vnc-port 0
+	exec xenstore-write -s /local/domain/$DOMID/console/vnc-port 0
 fi

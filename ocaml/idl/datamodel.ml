@@ -64,6 +64,7 @@ let _vm = "VM"
 let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
 let _vm_appliance = "VM_appliance"
+let _dr_task = "DR_task"
 let _vmpp = "VMPP"
 let _network = "network"
 let _vif = "VIF"
@@ -1054,7 +1055,29 @@ let _ =
 	~doc:"The CPU does not support masking of features." ();
 
   error Api_errors.feature_requires_hvm ["details"]
-    ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ()
+    ~doc:"The VM is set up to use a feature that requires it to boot as HVM." ();
+
+	(* Disaster recovery errors *)
+	error Api_errors.vdi_contains_metadata_of_this_pool ["vdi"; "pool"]
+		~doc:"The VDI could not be opened for metadata recovery as it contains the current pool's metadata." ();
+
+	error Api_errors.no_more_redo_logs_allowed []
+		~doc:"The upper limit of active redo log instances was reached." ();
+
+	error Api_errors.could_not_import_database ["reason"]
+		~doc:"An error occurred while attempting to import a database from a metadata VDI" ();
+
+	error Api_errors.vm_incompatible_with_this_host ["vm"; "host"; "reason"]
+		~doc:"The VM is incompatible with the CPU features of this host." ();
+
+	error Api_errors.cannot_destroy_disaster_recovery_task ["reason"]
+		~doc:"The disaster recovery task could not be cleanly destroyed." ();
+
+	error Api_errors.vm_is_part_of_an_appliance ["vm"; "appliance"]
+		~doc:"The VM cannot be recovered on its own as it is part of a VM appliance." ();
+
+	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
+		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ()
 
 
 let _ =
@@ -1282,6 +1305,7 @@ let vm_set_ha_always_run = call
 	   Bool, "value", "The value"]
   ~flags:[`Session]
   ~allowed_roles:_R_POOL_OP
+  ~internal_deprecated_since:rel_boston
   ()
 
 let vm_set_ha_restart_priority = call
@@ -1809,8 +1833,8 @@ let vm_resume = call
   ~doc:"Awaken the specified VM and resume it.  This can only be called when the specified VM is in the Suspended state."
   ~params:[Ref _vm, "vm", "The VM to resume";
            Bool, "start_paused", "Resume VM in paused state if set to true.";
-	   Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
-]
+           Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
+          ]
   ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed; Api_errors.vm_is_template]
   ~allowed_roles:_R_VM_OP
   ()
@@ -1979,6 +2003,62 @@ let vm_set_protection_policy = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let vm_set_start_delay = call
+  ~name:"set_start_delay"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's start delay in seconds"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's start delay in seconds"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_shutdown_delay = call
+  ~name:"set_shutdown_delay"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's shutdown delay in seconds"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's shutdown delay in seconds"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_order = call
+  ~name:"set_order"
+  ~in_product_since:rel_boston
+  ~doc:"Set this VM's boot order"
+  ~params:[Ref _vm, "self", "The VM";
+    Int, "value", "This VM's boot order"]
+  ~allowed_roles:_R_POOL_OP
+  ()
+
+let vm_set_suspend_VDI = call
+	~name:"set_suspend_VDI"
+	~in_product_since:rel_boston
+	~doc:"Set this VM's suspend VDI, which must be indentical to its current one"
+	~params:[Ref _vm, "self", "The VM";
+	         Ref _vdi, "value", "The suspend VDI uuid"]
+	~allowed_roles:_R_POOL_OP
+	()
+	
+let vm_assert_can_be_recovered = call
+  ~name:"assert_can_be_recovered"
+  ~in_product_since:rel_boston
+  ~doc:"Assert whether all SRs required to recover this VM are available."
+  ~params:[Ref _vm, "self", "The VM to recover";
+    Ref _session, "session_to", "The session to which the VM is to be recovered."]
+  ~errs:[Api_errors.vm_is_part_of_an_appliance; Api_errors.vm_requires_sr]
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
+let vm_recover = call
+  ~name:"recover"
+  ~in_product_since:rel_boston
+  ~doc:"Recover the VM"
+  ~params:[Ref _vm, "self", "The VM to recover";
+    Ref _session, "session_to", "The session to which the VM is to be recovered.";
+    Bool, "force", "Whether the VM should replace newer versions of itself."]
+  ~allowed_roles:_R_READ_ONLY
+  ()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -2022,7 +2102,6 @@ let host_ha_release_resources = call
   ~hide_from_docs:true
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
-
 
 let host_local_assert_healthy = call ~flags:[`Session]
   ~in_product_since:rel_miami
@@ -2991,6 +3070,24 @@ let sr_set_shared = call
 	   Bool, "value", "True if the SR is shared"]
   ~allowed_roles:_R_POOL_OP
   ()
+
+let sr_set_name_label = call
+	~name:"set_name_label"
+	~in_product_since:rel_rio
+	~doc:"Set the name label of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name label for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let sr_set_name_description = call
+	~name:"set_name_description"
+	~in_product_since:rel_rio
+	~doc:"Set the name description of the SR"
+	~params:[Ref _sr, "sr", "The SR";
+	         String, "value", "The name description for the SR"]
+	~allowed_roles:_R_POOL_OP
+	()
 
 let sr_create_new_blob = call
   ~name: "create_new_blob"
@@ -4481,6 +4578,22 @@ let sr_assert_can_host_ha_statefile = call
    ~allowed_roles:_R_POOL_OP
    ()
 
+let sr_enable_database_replication = call
+	~name:"enable_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to which metadata should be replicated"]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let sr_disable_database_replication = call
+	~name:"disable_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to which metadata should be no longer replicated"]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A storage repository. Note we overide default create/destroy methods with our own here... *)
 let storage_repository =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
@@ -4490,13 +4603,17 @@ let storage_repository =
       ~messages:[ sr_create; sr_introduce; sr_make; sr_destroy; sr_forget;
 		  sr_update;
 		  sr_get_supported_types; sr_scan; sr_probe; sr_set_shared;
+		  sr_set_name_label; sr_set_name_description;
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
+			sr_enable_database_replication;
+			sr_disable_database_replication;
+
 		]
       ~contents:
       ([ uid _sr;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW;) ()
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations storage_operations) @ [
 	field ~ty:(Set(Ref _vdi)) ~qualifier:DynamicRO "VDIs" "all virtual disks known to this storage repository";
 	field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "describes how particular hosts can see this storage repository";
@@ -4512,6 +4629,7 @@ let storage_repository =
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
 	field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
 	field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
+	field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "introduced_by" "The disaster recovery task which introduced this SR";
       ])
 	()
 
@@ -4734,6 +4852,28 @@ let vdi_set_physical_utilisation = call
   ~allowed_roles:_R_VM_ADMIN
    ()
 
+let vdi_set_is_a_snapshot = call
+	~name:"set_is_a_snapshot"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		Bool, "value", "The new value indicating whether this VDI is a snapshot"]
+	~flags:[`Session]
+	~doc:"Sets whether this VDI is a snapshot"
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_set_snapshot_of = call
+	~name:"set_snapshot_of"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		Ref _vdi, "value", "The VDI of which this VDI is a snapshot"]
+	~flags:[`Session]
+	~doc:"Sets the VDI of which this VDI is a snapshot"
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (** An API call for debugging and testing only *)
 let vdi_generate_config = call
    ~name:"generate_config"
@@ -4771,7 +4911,61 @@ let vdi_set_allow_caching = call
 	~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
 	~allowed_roles:_R_VM_ADMIN
 	()
-			  
+
+let vdi_set_name_label = call
+	~name:"set_name_label"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name lable for the VDI"]
+	~doc:"Set the name label of the VDI. This can only happen when then its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_set_name_description = call
+	~name:"set_name_description"
+	~in_oss_since:None
+	~in_product_since:rel_rio
+	~params:[Ref _vdi, "self", "The VDI to modify";
+	         String, "value", "The name description for the VDI"]
+	~doc:"Set the name description of the VDI. This can only happen when its SR is currently attached."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
+let vdi_open_database = call
+	~name:"open_database"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
+	~result:(Ref _session, "A session which can be used to query the database")
+	~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
+let vdi_checksum = call
+	~name:"checksum"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to checksum"]
+	~result:(String, "The md5sum of the vdi")
+	~doc:"Internal function to calculate VDI checksum and return a string"
+	~hide_from_docs:true
+	~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
+	                              this way only to follow the previous
+	                              convention. It is supposed to fix by future
+	                              version of RBAC *)
+  ()
+
+let vdi_read_database_pool_uuid = call
+	~name:"read_database_pool_uuid"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
+	~result:(String, "The cached pool UUID of the database on the VDI.")
+	~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
+	~allowed_roles:_R_POOL_ADMIN
+	()
+
 (** A virtual disk *)
 let vdi =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -4791,13 +4985,20 @@ let vdi =
 		 vdi_set_missing;
 		 vdi_set_virtual_size;
 		 vdi_set_physical_utilisation;
+		 vdi_set_is_a_snapshot;
+		 vdi_set_snapshot_of;
+		 vdi_set_name_label;
+		 vdi_set_name_description;
 		 vdi_generate_config;
 		 vdi_set_on_boot;
 		 vdi_set_allow_caching;
+		 vdi_open_database;
+		 vdi_checksum;
+		 vdi_read_database_pool_uuid;
 		]
       ~contents:
       ([ uid _vdi;
-	namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
+	namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
       ] @ (allowed_and_current_operations vdi_operations) @ [
 	field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "storage repository in which the VDI resides";
   field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "list of vbds that refer to this disk";
@@ -4824,7 +5025,8 @@ let vdi =
 	field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
 	field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
-	
+	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
+	field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
       ])
 	()
 
@@ -5517,6 +5719,7 @@ let pool =
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
 			; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
+			; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
 			]
 		()
 
@@ -5880,6 +6083,12 @@ let vm =
 		vm_retrieve_wlb_recommendations;
 		vm_copy_bios_strings;
     vm_set_protection_policy;
+		vm_set_start_delay;
+		vm_set_shutdown_delay;
+		vm_set_order;
+		vm_set_suspend_VDI;
+		vm_assert_can_be_recovered;
+		vm_recover;
 		]
       ~contents:
       ([ uid _vm;
@@ -5926,8 +6135,8 @@ let vm =
 	field ~in_oss_since:None ~internal_only:false ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:String "last_booted_record" "marshalled value containing VM record at time of last boot, updated dynamically to reflect the runtime state of the domain" ~default_value:(Some (VString ""));
 	field ~in_oss_since:None ~ty:String "recommendations" "An XML specification of recommended values and ranges for properties of this VM";
 	field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
-	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:Bool ~in_product_since:rel_orlando ~qualifier:StaticRO "ha_always_run" "if true then the system will attempt to keep the VM running as much as possible." ~default_value:(Some (VBool false));
-	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:String ~in_product_since:rel_orlando ~qualifier:StaticRO "ha_restart_priority" "Only defined if ha_always_run is set possible values: \"best-effort\" meaning \"try to restart this VM if possible but don't consider the Pool to be overcommitted if this is not possible\"; and a numerical restart priority (e.g. 1, 2, 3,...)" ~default_value:(Some (VString ""));
+	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:Bool ~in_product_since:rel_orlando ~internal_deprecated_since:rel_boston ~qualifier:StaticRO "ha_always_run" "if true then the system will attempt to keep the VM running as much as possible." ~default_value:(Some (VBool false));
+	field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:String ~in_product_since:rel_orlando ~qualifier:StaticRO "ha_restart_priority" "has possible values: \"best-effort\" meaning \"try to restart this VM if possible but don't consider the Pool to be overcommitted if this is not possible\"; \"restart\" meaning \"this VM should be restarted\"; \"\" meaning \"do not try to restart this VM\"" ~default_value:(Some (VString ""));
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~ty:Bool            "is_a_snapshot" "true if this is a snapshot. Snapshotted VMs can never be started, they are used only for cloning other VMs";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef ""))              ~ty:(Ref _vm)       "snapshot_of" "Ref pointing to the VM this snapshot is of.";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando                                              ~ty:(Set (Ref _vm)) "snapshots" "List pointing to all the VM snapshots.";
@@ -5947,11 +6156,13 @@ let vm =
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
 	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _vgpu)) "VGPUs" "Virtual GPUs";
 	field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "attached_PCIs" "Currently passed-through PCI devices";
+	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_boston ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _sr) "suspend_SR" "The SR on which a suspend image is stored";
+	field ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "version" "The number of times this VM has been recovered";
       ])
 	()
 
@@ -6368,6 +6579,7 @@ let vm_appliance_operations = Enum ("vm_appliance_operation",
 		"start", "Start";
 		"clean_shutdown", "Clean shutdown";
 		"hard_shutdown", "Hard shutdown";
+		"shutdown", "Shutdown";
 	])
 
 
@@ -6399,6 +6611,33 @@ let vm_appliance =
 		~doc:"Perform a hard shutdown of all the VMs in the appliance"
 		~allowed_roles:_R_POOL_OP
 		() in
+	let vm_appliance_shutdown = call
+		~name:"shutdown"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance"]
+		~errs:[Api_errors.operation_partially_failed]
+		~doc:"For each VM in the appliance, try to shut it down cleanly. If this fails, perform a hard shutdown of the VM."
+		~allowed_roles:_R_POOL_OP
+		() in
+	let vm_appliance_assert_can_be_recovered = call
+		~name:"assert_can_be_recovered"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
+			Ref _session, "session_to", "The session to which the VM appliance is to be recovered."]
+		~errs:[Api_errors.vm_requires_sr]
+		~doc:"Assert whether all SRs required to recover this VM appliance are available."
+		~allowed_roles:_R_READ_ONLY
+		() in
+	let vm_appliance_recover = call
+		~name:"recover"
+		~in_product_since:rel_boston
+		~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
+			Ref _session, "session_to", "The session to which the VM appliance is to be recovered.";
+			Bool, "force", "Whether the VMs should replace newer versions of themselves."]
+		~errs:[Api_errors.vm_requires_sr]
+		~doc:"Recover the VM appliance"
+		~allowed_roles:_R_READ_ONLY
+		() in
 	create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
 		~gen_events:true
 		~doccomments:[]
@@ -6406,7 +6645,10 @@ let vm_appliance =
 		~messages:[
 			vm_appliance_start;
 			vm_appliance_clean_shutdown;
-			vm_appliance_hard_shutdown
+			vm_appliance_hard_shutdown;
+			vm_appliance_shutdown;
+			vm_appliance_assert_can_be_recovered;
+			vm_appliance_recover;
 		]
 		~contents:([
 			uid _vm_appliance;
@@ -6415,7 +6657,50 @@ let vm_appliance =
 			field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
 		])
 		()
- 
+
+(* DR_task *)
+let dr_task =
+	let create = call
+		~name:"create"
+		~in_product_since:rel_boston
+		~params:[
+			String, "type", "The SR driver type of the SRs to introduce";
+			Map(String, String), "device_config", "The device configuration of the SRs to introduce";
+			Set(String), "whitelist", "The devices to use for disaster recovery"
+		]
+		~result:(Ref _dr_task, "The reference to the created task")
+		~doc:"Create a disaster recovery task which will query the supplied list of devices"
+		~allowed_roles:_R_POOL_OP
+		() in
+	let destroy = call
+		~name:"destroy"
+		~in_product_since:rel_boston
+		~params:[
+			Ref _dr_task, "self", "The disaster recovery task to destroy"
+		]
+		~doc:"Destroy the disaster recovery task, detaching and forgetting any SRs introduced which are no longer required"
+		~allowed_roles:_R_POOL_OP
+		() in
+	create_obj
+		~in_db:true
+		~in_product_since:rel_boston
+		~in_oss_since:None
+		~internal_deprecated_since:None
+		~persist:PersistEverything
+		~gen_constructor_destructor:false
+		~name:_dr_task
+		~descr:"DR task"
+		~gen_events:true
+		~doccomments:[]
+		~messages_default_allowed_roles:_R_POOL_OP
+		~messages:[create; destroy]
+		~contents:[
+			uid _dr_task;
+			field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) "introduced_SRs" "All SRs introduced by this appliance";
+		]
+		()
+
+
 (** events handling: *)
 
 let event_operation = Enum ("event_operation",
@@ -6688,7 +6973,6 @@ let pci =
 		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
-		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
@@ -6722,7 +7006,6 @@ let pgpu =
 		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
-		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
@@ -6747,7 +7030,6 @@ let gpu_group =
 		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
-		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
@@ -6773,7 +7055,6 @@ let vgpu =
 		~lifecycle:[Published, rel_boston, ""]
 		~messages:[]
 		~messages_default_allowed_roles:_R_POOL_OP
-		~implicit_messages_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
@@ -6807,6 +7088,7 @@ let all_system =
 		vm_guest_metrics;
 		vmpp;
 		vm_appliance;
+		dr_task;
 		host;
 		host_crashdump;
 		host_patch;
@@ -6907,6 +7189,9 @@ let all_relations =
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
+
+    (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
+    (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
   ]
 
 (** the full api specified here *)
@@ -6988,6 +7273,7 @@ let expose_get_all_messages_for = [
 	_pgpu;
 	_gpu_group;
 	_vgpu;
+	_dr_task;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

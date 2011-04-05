@@ -232,7 +232,8 @@ let introduce  ~__context ~uuid ~name_label
       ~physical_size: (-1L)
       ~content_type
       ~_type ~shared ~other_config:[] ~default_vdi_visibility:true
-      ~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false in
+      ~sm_config ~blobs:[] ~tags:[] ~local_cache_enabled:false
+      ~introduced_by:Ref.null in
 
     update_allowed_operations ~__context ~self:sr_ref;
     (* Return ref of newly created sr *)
@@ -417,7 +418,15 @@ let set_shared ~__context ~sr ~value =
 	raise (Api_errors.Server_error (Api_errors.sr_has_multiple_pbds,List.map (fun pbd -> Ref.string_of pbd) pbds));
       Db.SR.set_shared ~__context ~self:sr ~value
     end
-  
+
+let set_name_label ~__context ~sr ~value =
+	Db.SR.set_name_label ~__context ~self:sr ~value;
+	update ~__context ~sr
+
+let set_name_description ~__context ~sr ~value =
+	Db.SR.set_name_description ~__context ~self:sr ~value;
+	update ~__context ~sr
+
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
 
@@ -429,6 +438,61 @@ let set_physical_utilisation ~__context ~self ~value =
 
 let assert_can_host_ha_statefile ~__context ~sr = 
   Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
+
+(* Metadata replication to SRs *)
+let find_or_create_metadata_vdi ~__context ~sr =
+	let pool = Helpers.get_pool ~__context in
+	let vdi_can_be_used vdi =
+		Db.VDI.get_type ~__context ~self:vdi = `metadata &&
+		Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool &&
+		Db.VDI.get_virtual_size ~__context ~self:vdi >= Redo_log.minimum_vdi_size
+	in
+	match (List.filter vdi_can_be_used (Db.SR.get_VDIs ~__context ~self:sr)) with
+	| vdi :: _ ->
+		(* Found a suitable VDI - try to use it *)
+		debug "Using VDI [%s:%s] for metadata replication"
+			(Db.VDI.get_name_label ~__context ~self:vdi) (Db.VDI.get_uuid ~__context ~self:vdi);
+		vdi
+	| [] ->
+		(* Did not find a suitable VDI *)
+		debug "Creating a new VDI for metadata replication.";
+		let vdi = Helpers.call_api_functions ~__context (fun rpc session_id ->
+			Client.VDI.create ~rpc ~session_id ~name_label:"Metadata for DR"
+				~name_description:"Used for disaster recovery"
+				~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata ~sharable:false
+				~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[])
+		in
+		Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false;
+		Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool;
+		(* Call vdi_update to make sure the value of metadata_of_pool is persisted. *)
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.VDI.update ~rpc ~session_id ~vdi);
+		vdi
+
+let enable_database_replication ~__context ~sr =
+	if (not (Pool_features.is_enabled ~__context Features.DR)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	let metadata_vdi = find_or_create_metadata_vdi ~__context ~sr in
+	Xapi_vdi_helpers.enable_database_replication ~__context ~vdi:metadata_vdi
+
+(* Disable metadata replication to all metadata VDIs in this SR. *)
+let disable_database_replication ~__context ~sr =
+	let metadata_vdis = List.filter
+		(fun vdi ->
+			Db.VDI.get_type ~__context ~self:vdi = `metadata &&
+			(Db.VDI.get_metadata_of_pool ~__context ~self:vdi = Helpers.get_pool ~__context))
+		(Db.SR.get_VDIs ~__context ~self:sr)
+	in
+	List.iter
+		(fun vdi ->
+			Xapi_vdi_helpers.disable_database_replication ~__context ~vdi;
+			(* The VDI may have VBDs hanging around other than those created by the database replication code. *)
+			(* They must be destroyed before the VDI can be destroyed. *)
+			Xapi_vdi_helpers.destroy_all_vbds ~__context ~vdi;
+			Helpers.call_api_functions ~__context (fun rpc session_id ->
+			 	Client.VDI.destroy ~rpc ~session_id ~self:vdi)
+		)
+		metadata_vdis
 
 let create_new_blob ~__context ~sr ~name ~mime_type =
   let blob = Xapi_blob.create ~__context ~mime_type in

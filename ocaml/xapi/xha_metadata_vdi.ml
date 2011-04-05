@@ -28,7 +28,7 @@ let create ~__context ~sr =
        Client.VDI.create ~rpc ~session_id
 	 ~name_label:"Metadata for HA" 
 	 ~name_description:"Used for master failover"
-         ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata
+         ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log
          ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
     )
 
@@ -38,7 +38,7 @@ let find_or_create ~__context ~sr =
   match
   List.filter 
     (fun self -> true
-       && (Db.VDI.get_type ~__context ~self = `metadata)
+       && (Db.VDI.get_type ~__context ~self = `redo_log)
        && (Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size))
     (Db.SR.get_VDIs ~__context ~self:sr) with
     | x :: _ ->

@@ -19,23 +19,14 @@ open D
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
 let all_protected_vms ~__context = 
    let vms = Db.VM.get_all_records ~__context in
-   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
+   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_power_state vm_rec.API.vM_ha_restart_priority) vms 
 
-(* Comparison function which can be used to sort a list of VM ref, record by restart_priority *)
-let by_restart_priority (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
-  (* For VMs which "should_always_run" (above), return the restart priority in integer
-     form. NB we have filtered out "" and "best-effort" before here *)
-  let int_of_restart_priority vm_rec = 
-    let priority = vm_rec.API.vM_ha_restart_priority in
-    try
-      int_of_string priority
-    with _ ->
-      warn "Unrecognised ha_restart_priority [%s] of VM: %s (%s)" priority vm_rec.API.vM_uuid vm_rec.API.vM_name_label;
-      max_int in
-  let negative_high x = if x<0 then max_int else x in
-  let vm1_priority = negative_high (int_of_restart_priority vm_rec1) in
-  let vm2_priority = negative_high (int_of_restart_priority vm_rec2) in
-  compare vm1_priority vm2_priority
+(* Comparison function which can be used to sort a list of VM ref, record by order *)
+let by_order (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
+  let negative_high x = if x<0L then Int64.max_int else x in
+  let vm1_order = negative_high (vm_rec1.API.vM_order) in
+  let vm2_order = negative_high (vm_rec2.API.vM_order) in
+  compare vm1_order vm2_order
 
 
 (*****************************************************************************************************)
@@ -601,12 +592,12 @@ let restart_auto_run_vms ~__context live_set n =
 					(* If the Pool is overcommitted the restart priority will make the difference between a VM restart or not,
 					   while if we're undercommitted the restart priority only affects the timing slightly. *)
 					let all = List.filter (fun (_, r) -> r.API.vM_power_state = `Halted) all_protected_vms in
-					let all = List.sort by_restart_priority all in
+					let all = List.sort by_order all in
 					warn "Failed to find plan to restart all protected VMs: falling back to simple VM.start in priority order";
 					List.map (fun (vm, _) -> vm, restart_vm vm ()) all
 				end else begin
 					(* Walk over the VMs in priority order, starting each on the planned host *)
-					let all = List.sort by_restart_priority (List.map (fun (vm, _) -> vm, Db.VM.get_record ~__context ~self:vm) plan) in
+					let all = List.sort by_order (List.map (fun (vm, _) -> vm, Db.VM.get_record ~__context ~self:vm) plan) in
 					List.map (fun (vm, _) -> 
 						vm, (if List.mem_assoc vm plan
 						then restart_vm vm ~host:(List.assoc vm plan) ()
@@ -635,7 +626,6 @@ let restart_auto_run_vms ~__context live_set n =
 				(fun vm ->
 					try
 						if Db.VM.get_power_state ~__context ~self:vm = `Halted
-							&& Db.VM.get_ha_always_run ~__context ~self:vm
 							&& Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart_best_effort  
 						then Client.Client.VM.start rpc session_id vm false true
 					with e ->

@@ -206,4 +206,4 @@ val cpuid_rtype_of_char : char -> cpuid_rtype
 
 val cpuid_set : xc: Xc.handle -> hvm: bool -> domid -> cpuid_config -> cpuid_config
 val cpuid_apply : xc: Xc.handle -> hvm: bool -> domid -> unit
-val cpuid_check : cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
+val cpuid_check : xc: Xc.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
