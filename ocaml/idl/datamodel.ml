@@ -498,6 +498,8 @@ let _ =
     ~doc:"The specified VM has too little memory to be started." ();
   error Api_errors.vm_duplicate_vbd_device [ "vm"; "vbd"; "device" ]
     ~doc:"The specified VM has a duplicate VBD device and cannot be started." ();
+  error Api_errors.illegal_vbd_device [ "vbd"; "device" ]
+	  ~doc:"The specified VBD device is not recognised: please use a non-negative integer" ();
   error Api_errors.vm_not_resident_here [ "vm"; "host" ]
     ~doc:"The specified VM is not currently resident on the specified host." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]

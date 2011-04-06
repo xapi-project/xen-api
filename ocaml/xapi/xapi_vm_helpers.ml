@@ -870,9 +870,9 @@ let range_inclusive a b =
 
 let allowed_VBD_devices_HVM    = range_inclusive 0 3
 
-let allowed_VBD_devices_HVM_PP = range_inclusive 0 15
+let allowed_VBD_devices_HVM_PP = range_inclusive 0 256
 
-let allowed_VBD_devices_PV     = range_inclusive 0 15
+let allowed_VBD_devices_PV     = range_inclusive 0 256
 
 let allowed_VIF_devices_HVM    = range_inclusive 0 3
 

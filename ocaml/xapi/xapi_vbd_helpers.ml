@@ -304,15 +304,16 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	     (* Check that the device is definitely unique. If the requested device is numerical
 		(eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
 		all possible clashes. *)
-	     let possible_devices = Listext.List.setify [ userdevice; Vbdops.translate_vbd_device userdevice false; Vbdops.translate_vbd_device userdevice true ] in
-
 	     let all = Db.VM.get_VBDs ~__context ~self:vM in
-	     
-	     let all_devices = List.map (fun self -> Db.VBD.get_device ~__context ~self) all in
-	     let all_devices2 = List.map (fun self -> Db.VBD.get_userdevice ~__context ~self) all in
-	     
-	     (* Fail if the device is already in use by another vbd (NB 'autodetect' was resolved above) *)
-	     if Listext.List.intersect possible_devices (all_devices @ all_devices2) <> []
+
+	     let existing_devices = 
+			 let all_devices = List.map (fun self -> Db.VBD.get_device ~__context ~self) all in
+			 let all_devices2 = List.map (fun self -> Db.VBD.get_userdevice ~__context ~self) all in
+			 all_devices @ all_devices2 in
+
+		 let expand s = [ Device_number.of_string true s; Device_number.of_string false s ] in
+		 
+		 if Listext.List.intersect (expand userdevice) (List.concat (List.map expand existing_devices)) <> []
 	     then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
 
 	     (* Make people aware that non-shared disks make VMs not agile *)
