@@ -4874,6 +4874,17 @@ let vdi_set_snapshot_of = call
 	~allowed_roles:_R_VM_ADMIN
 	()
 
+let vdi_set_snapshot_time = call
+	~name:"set_snapshot_time"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		DateTime, "value", "The snapshot time of this VDI."]
+	~flags:[`Session]
+	~doc:"Sets the snapshot time of this VDI."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (** An API call for debugging and testing only *)
 let vdi_generate_config = call
    ~name:"generate_config"
@@ -4987,6 +4998,7 @@ let vdi =
 		 vdi_set_physical_utilisation;
 		 vdi_set_is_a_snapshot;
 		 vdi_set_snapshot_of;
+		 vdi_set_snapshot_time;
 		 vdi_set_name_label;
 		 vdi_set_name_description;
 		 vdi_generate_config;
