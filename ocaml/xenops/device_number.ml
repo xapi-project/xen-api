@@ -3,9 +3,9 @@ type spec =
 	| Scsi of int * int
 	| Ide of int * int
 
-type interface = spec
+type t = spec
 
-let debug_string_of_interface = function
+let to_debug_string = function
 	| Xen(disk, partition)  -> Printf.sprintf "Xen(%d, %d)"  disk partition
 	| Scsi(disk, partition) -> Printf.sprintf "Scsi(%d, %d)" disk partition
 	| Ide(disk, partition)  -> Printf.sprintf "Ide(%d, %d)"  disk partition
@@ -14,7 +14,7 @@ let (<<) = (lsl)
 
 let int_of_string x = try int_of_string x with _ -> failwith (Printf.sprintf "int_of_string [%s]" x)
 
-let make (x: spec) : interface = 
+let make (x: spec) : t = 
 	let max_xen = ((1 << 20) - 1), 15 in
 	let max_scsi = 15, 15 in
 	let max_ide = 3, 63 in
@@ -32,14 +32,14 @@ let make (x: spec) : interface =
 
 let (||) = (lor)
 
-let xenstore_int_of_interface = function
+let to_xenstore_int = function
 	| Xen (disk, partition) when disk < 16 -> (202 << 8) || (disk << 4)       || partition
 	| Xen (disk, partition)                -> (1 << 28)  || (disk << 8)       || partition
 	| Scsi (disk, partition)               -> (8 << 8)   || (disk << 4)       || partition
 	| Ide (disk, partition) when disk < 2  -> (3 << 8)   || (disk << 6)       || partition
 	| Ide (disk, partition)                -> (22 << 8)  || ((disk - 2) << 6) || partition
 
-let interface_of_xenstore_int x =
+let of_xenstore_int x =
 	let (&&) = (land) in
 	let (>>) = (lsr) in
 
@@ -52,10 +52,10 @@ let interface_of_xenstore_int x =
 		| 22  -> Ide ( ((x >> 6) && ((1 << 2) - 1)) + 2, x && ((1 << 6) - 1))
 		| _   -> failwith (Printf.sprintf "Unknown device number: %d" x)
 
-type xenstore_key = string
+type xenstore_key = int
 
-let xenstore_key_of_interface x = string_of_int (xenstore_int_of_interface x)
-let interface_of_xenstore_key x = interface_of_xenstore_int (int_of_string x)
+let to_xenstore_key x = to_xenstore_int x
+let of_xenstore_key x = of_xenstore_int x
 
 (** Return an integer in base 26 *)
 let rec base_26_of_int x = 
@@ -71,14 +71,14 @@ let int_of_base_26 x =
 	let ints = List.map (fun c -> int_of_char c - (int_of_char 'a')) (String.explode x) in
 	List.fold_left (fun acc x -> acc * 26 + x) 0 ints
 
-let linux_device_of_interface = 
+let to_linux_device = 
 	let p x = if x = 0 then "" else string_of_int x in 
 	function
 		| Xen  (disk, part) -> Printf.sprintf "xvd%s%s" (base_26_of_int disk) (p part)
 		| Scsi (disk, part) -> Printf.sprintf "sd%s%s"  (base_26_of_int disk) (p part)
 		| Ide  (disk, part) -> Printf.sprintf "hd%s%s"  (base_26_of_int disk) (p part)
 
-let interface_of_linux_device x =
+let of_linux_device x =
 	let letter c = 'a' <= c && (c <= 'z') in
 	let digit c = '0' <= c && (c <= '9') in
 	let take f x = 
@@ -123,18 +123,18 @@ let interface_of_linux_device x =
 	
 type disk_number = int
 
-let disk_number_of_interface = function
+let to_disk_number = function
 	| Xen(disk, _) -> disk
 	| Scsi(disk, _) -> disk
 	| Ide(disk, _) -> disk
 
-let interface_of_disk_number hvm n = 
+let of_disk_number hvm n = 
 	if hvm && (n < 4)
 	then Ide(n, 0)
 	else Xen(n, 0)
 
-let interface_of_string hvm name = 
+let of_string hvm name = 
 	try
-		interface_of_disk_number hvm (int_of_string name)
+		of_disk_number hvm (int_of_string name)
 	with _ ->
-		interface_of_linux_device name
+		of_linux_device name
