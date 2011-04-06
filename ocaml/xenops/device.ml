@@ -216,17 +216,6 @@ let major_minor_to_device (major, minor) =
 	      let plus_one, minor = if minor >= 64 then 1, minor - 64 else 0, minor in
 	      Printf.sprintf "hd%c%s" (char_of_int (n * 2 + plus_one + a)) (number minor)
 
-(* Try 'int_of_string' *)
-
-let device_number name =
-	begin try
-		let major, minor = device_major_minor name in
-		256 * major + minor
-	with _ ->
-		try int_of_string name
-		with _ -> raise (Device_unrecognized name)
-	end
-
 let device_name number =
 	let major, minor = number / 256, number mod 256 in
 	major_minor_to_device (major, minor)
@@ -477,17 +466,17 @@ let is_paused ~xs (x: device) =
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
+let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
         ?(protocol=Protocol_Native) ?extra_backend_keys ?(extra_private_keys=[]) ?(backend_domid=0) domid  =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
-	let devid = device_number virtpath in
+	let devid = Device_number.to_xenstore_key device_number in
 	let device = 
 	  let backend = { domid = backend_domid; kind = Vbd; devid = devid } 
 	  in  device_of_backend backend domid
 	in
 
-	debug "Device.Vbd.add (virtpath=%s | physpath=%s | phystype=%s)"
-	  virtpath physpath (string_of_physty phystype);
+	debug "Device.Vbd.add (device_number=%s | physpath=%s | phystype=%s)"
+	  (Device_number.to_debug_string device_number) physpath (string_of_physty phystype);
 	(* Notes:
 	   1. qemu accesses devices images itself and so needs the path of the original
               file (in params)
@@ -518,7 +507,7 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 		"removable", if unpluggable then "1" else "0";
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 		(* HACK qemu wants a /dev/ in the dev field to find the device *)
-		"dev", (if domid = 0 && virtpath.[0] = 'x' then "/dev/" else "") ^ virtpath;
+		"dev", "/dev/" ^ (Device_number.to_linux_device device_number);
 		"type", backendty_of_physty phystype;
 		"mode", string_of_mode mode;
 		"params", physpath;
@@ -573,8 +562,8 @@ let add ~xs ~hvm ~mode ~virtpath ~phystype ~physpath ~dev_type ~unpluggable
 	end;
 	device
 
-let qemu_media_change ~xs ~virtpath domid _type params =
-	let devid = device_number virtpath in
+let qemu_media_change ~xs ~device_number domid _type params =
+	let devid = Device_number.to_xenstore_key device_number in
 	let back_dom_path = xs.Xs.getdomainpath 0 in
 	let backend  = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
 	let back_delta = [
@@ -584,8 +573,8 @@ let qemu_media_change ~xs ~virtpath domid _type params =
 	Xs.transaction xs (fun t -> t.Xst.writev backend back_delta);
 	debug "Media changed"
 
-let media_tray_is_locked ~xs ~virtpath domid =
-  let devid = device_number virtpath in
+let media_tray_is_locked ~xs ~device_number domid =
+	let devid = Device_number.to_xenstore_key device_number in
   let backend = { domid = 0; kind = Vbd; devid = devid } in
   let path = sprintf "%s/locked" (backend_path ~xs backend domid) in
     try
@@ -593,16 +582,16 @@ let media_tray_is_locked ~xs ~virtpath domid =
     with _ ->
       false
 
-let media_eject ~xs ~virtpath domid =
-	qemu_media_change ~xs ~virtpath domid "" ""
+let media_eject ~xs ~device_number domid =
+	qemu_media_change ~xs ~device_number domid "" ""
 
-let media_insert ~xs ~virtpath ~physpath ~phystype domid =
+let media_insert ~xs ~device_number ~physpath ~phystype domid =
 	let _type = backendty_of_physty phystype
 	and params = physpath in
-	qemu_media_change ~xs ~virtpath domid _type params
+	qemu_media_change ~xs ~device_number domid _type params
 
-let media_refresh ~xs ~virtpath ~physpath domid =
-	let devid = device_number virtpath in
+let media_refresh ~xs ~device_number ~physpath domid =
+	let devid = Device_number.to_xenstore_key device_number in
 	let back_dom_path = xs.Xs.getdomainpath 0 in
 	let backend = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
 	let path = backend ^ "/params" in
@@ -618,8 +607,8 @@ let media_refresh ~xs ~virtpath ~physpath domid =
 	xs.Xs.write path pathtowrite;
 	()
 
-let media_is_ejected ~xs ~virtpath domid =
-	let devid = device_number virtpath in
+let media_is_ejected ~xs ~device_number domid =
+	let devid = Device_number.to_xenstore_key device_number in
 	let back_dom_path = xs.Xs.getdomainpath 0 in
 	let backend = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
 	let path = backend ^ "/params" in
