@@ -7,7 +7,7 @@ CFLAGS          += $(XEN_CFLAGS)
 OCAMLPACKS     = threads xc xs stdext log cdrom netdev
 OCAMLFLAGS    += -thread
 
-LIBFILES = xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc
+LIBFILES = xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
