@@ -1089,7 +1089,7 @@ let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configurat
 	       if not(List.mem pri Constants.ha_valid_restart_priorities)
 	       then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; pri ]))) configuration;
 
-  let protected_vms = List.map fst (List.filter (fun (vm, priority) -> Helpers.vm_should_always_run `Running priority) configuration) in
+  let protected_vms = List.map fst (List.filter (fun (vm, priority) -> Helpers.vm_should_always_run true priority) configuration) in
   let protected_vms = List.map (fun vm -> vm, Db.VM.get_record ~__context ~self:vm) protected_vms in
   Xapi_ha_vm_failover.compute_max_host_failures_to_tolerate ~__context ~protected_vms ()
 

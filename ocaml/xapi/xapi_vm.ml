@@ -163,9 +163,9 @@ let assert_power_state_is ~__context ~vm ~expected =
 (* If HA is enabled on the Pool and the VM is marked as always_run then block the action *)
 let assert_not_ha_protected ~__context ~vm =
   let pool = Helpers.get_pool ~__context in
-  let power_state = Db.VM.get_power_state ~__context ~self:vm in
+  let always_run = Db.VM.get_ha_always_run ~__context ~self:vm in
   let priority = Db.VM.get_ha_restart_priority ~__context ~self:vm in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run power_state priority)
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && (Helpers.vm_should_always_run always_run priority)
   then raise (Api_errors.Server_error(Api_errors.vm_is_protected, [ Ref.string_of vm ]))
 
 let pause_already_locked  ~__context ~vm =
@@ -209,6 +209,7 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						(* Xapi_vm_helpers.assert_can_boot_here not required *)
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
+						Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 						(* check BIOS strings: set to generic values if empty *)
 						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
@@ -466,6 +467,7 @@ module Shutdown = struct
 
   (** Run without the per-VM lock to request the guest shuts itself down (if clean) *)
   let in_guest { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
+    Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
     let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	TwoPhase.simulate_internal_shutdown domid;
 
@@ -723,6 +725,7 @@ let suspend  ~__context ~vm =
 	(fun () ->
 		Locking_helpers.with_lock vm
 		(fun token () ->
+			Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
 			Stats.time_this "VM suspend"
 			(fun () ->
 				let domid = Helpers.domid_of_vm ~__context ~self:vm in
@@ -763,6 +766,7 @@ let resume ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
+						Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 						let localhost = Helpers.get_localhost ~__context in
 						if not force then begin
 							debug "resume: checking the VM is compatible with this host";
