@@ -58,22 +58,7 @@ let clear_all_device_status_fields ~__context ~self =
 
 (* Called on VM.start codepath only to validate current VM parameters *)
 let check_vm_parameters ~__context ~self ~snapshot =
-	let hvm = Helpers.is_hvm snapshot in
 	let refself = Ref.string_of self in
-	let check_vm_vbds () =
-		let vbds = Db.VM.get_VBDs ~__context ~self in
-		let h = Hashtbl.create (List.length vbds) in
-		let hashtbl_exists h e = try ignore (Hashtbl.find h e); true with Not_found -> false in
-		List.iter (fun vbd ->
-			let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
-			let realdevice = translate_vbd_device userdevice hvm in
-			if hashtbl_exists h realdevice then
-				raise (Api_errors.Server_error(Api_errors.vm_duplicate_vbd_device,
-				                               [ refself; Ref.string_of vbd; realdevice ]))
-			else
-				Hashtbl.add h realdevice 0
-		) vbds
-		in
 	let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
 	let mem = snapshot.API.vM_memory_static_max in
 	if vcpus <= 0 then
@@ -82,7 +67,6 @@ let check_vm_parameters ~__context ~self ~snapshot =
 		raise (Api_errors.Server_error (Api_errors.vm_toomany_vcpus, [ refself ]));
 	if mem < Xapi_globs.vm_minimum_memory then
 		raise (Api_errors.Server_error (Api_errors.vm_memory_size_too_low, [ refself ]));
-	check_vm_vbds ();
 	()
 
 let add_vif ~__context ~xs vif_device = 

@@ -69,7 +69,7 @@ let sd (p: Normal_population.t) =
 let string_of (p: Normal_population.t) = 
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
 
-let sample (name: string) (x: float) = 
+let sample (name: string) (x: float) : unit = 
   (* Use the lognormal distribution: *)
   let x' = log x in
   Mutex.execute timings_m
@@ -81,7 +81,7 @@ let sample (name: string) (x: float) =
        let p' = Normal_population.sample p x' in
        Hashtbl.replace timings name p';
 (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
-       ) 
+       )
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)
