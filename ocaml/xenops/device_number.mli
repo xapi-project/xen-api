@@ -3,39 +3,39 @@ type spec =
 	| Scsi of int * int
 	| Ide of int * int
 
-type interface
+type t
 
-val make: spec -> interface
+val make: spec -> t
 
-(** [interface_of_string hvm name] returns the interface which best matches the [name]
+(** [of_string hvm name] returns the interface which best matches the [name]
     by applying the policy: first check if it is a disk_number, else fall back to
 	a linux_device for backwards compatability *)
-val interface_of_string: bool -> string -> interface
+val of_string: bool -> string -> t
 
-(** [debug_string_of_interface i] returns a pretty-printed interface *)
-val debug_string_of_interface: interface -> string
+(** [to_debug_string i] returns a pretty-printed interface *)
+val to_debug_string: t -> string
 
-(** [linux_device_of_interface i] returns a possible linux string representation of interface [i] *)
-val linux_device_of_interface: interface -> string
+(** [to_linux_device i] returns a possible linux string representation of interface [i] *)
+val to_linux_device: t -> string
 
-(** [interface_of_linux_device x] returns the interface corresponding to string [x] *)
-val interface_of_linux_device: string -> interface
+(** [of_linux_device x] returns the interface corresponding to string [x] *)
+val of_linux_device: string -> t
 
-type xenstore_key = string
+type xenstore_key = int
 
-(** [xenstore_key_of_interface i] returns the xenstore key from interface [i] *)
-val xenstore_key_of_interface: interface -> xenstore_key
+(** [to_xenstore_key i] returns the xenstore key from interface [i] *)
+val to_xenstore_key: t -> xenstore_key
 
-(** [interface_of_xenstore_key key] returns an interface from a xenstore key *)
-val interface_of_xenstore_key: xenstore_key -> interface
+(** [of_xenstore_key key] returns an interface from a xenstore key *)
+val of_xenstore_key: xenstore_key -> t
 
 type disk_number = int
 
-(** [disk_number_of_interface i] returns the corresponding non-negative disk number *)
-val disk_number_of_interface: interface -> disk_number
+(** [to_disk_number i] returns the corresponding non-negative disk number *)
+val to_disk_number: t -> disk_number
 
-(** [interface_of_disk_number hvm n] returns the interface corresponding to disk 
+(** [of_disk_number hvm n] returns the interface corresponding to disk 
 	number [n] which depends on whether the guest is [hvm] or not. *)
-val interface_of_disk_number: bool -> disk_number -> interface
+val of_disk_number: bool -> disk_number -> t
 
 
