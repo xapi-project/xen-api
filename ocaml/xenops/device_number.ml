@@ -132,3 +132,9 @@ let interface_of_disk_number hvm n =
 	if hvm && (n < 4)
 	then Ide(n, 0)
 	else Xen(n, 0)
+
+let interface_of_string hvm name = 
+	try
+		interface_of_disk_number hvm (int_of_string name)
+	with _ ->
+		interface_of_linux_device name

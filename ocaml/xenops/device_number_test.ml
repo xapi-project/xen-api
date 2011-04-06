@@ -14,6 +14,9 @@ let examples = [
 
 let equivalent = [
 	"d0", "xvda";
+	"d0", "0";
+	"d5", "5";
+	"xvdf", "5";
 	"d0p0", "xvda";
 (*	"d536p37", "xvdtq37" *) (* XXX: we're not parsing xvdtq correctly *)
 ]
@@ -31,8 +34,8 @@ let _ =
 		) examples;
 	List.iter
 		(fun (x, y) ->
-			let x' = interface_of_linux_device x in
-			let y' = interface_of_linux_device y in
+			let x' = interface_of_string false x in
+			let y' = interface_of_string false y in
 			if x' <> y'
 			then failwith (Printf.sprintf "equivalent x' (%s) <> y' (%s)" (debug_string_of_interface x') (debug_string_of_interface y'))
 		) equivalent;				
