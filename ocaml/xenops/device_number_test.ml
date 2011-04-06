@@ -22,7 +22,7 @@ let _ =
 	List.iter
 		(fun (spec, linux, xenstore) ->
 			let i = make spec in
-			let j = interface_of_string linux in
+			let j = interface_of_linux_device linux in
 			let k = interface_of_xenstore_key xenstore in
 			if i <> j
 			then failwith (Printf.sprintf "examples %s i (%s) <> j (%s)" linux (debug_string_of_interface i) (debug_string_of_interface j));
@@ -31,8 +31,8 @@ let _ =
 		) examples;
 	List.iter
 		(fun (x, y) ->
-			let x' = interface_of_string x in
-			let y' = interface_of_string y in
+			let x' = interface_of_linux_device x in
+			let y' = interface_of_linux_device y in
 			if x' <> y'
 			then failwith (Printf.sprintf "equivalent x' (%s) <> y' (%s)" (debug_string_of_interface x') (debug_string_of_interface y'))
 		) equivalent;				
@@ -41,7 +41,7 @@ let _ =
 			(fun hvm ->
 				let i = interface_of_disk_number hvm x in
 				let j = interface_of_xenstore_key (xenstore_key_of_interface i) in
-				let k = interface_of_string (string_of_interface i) in
+				let k = interface_of_linux_device (linux_device_of_interface i) in
 				if i <> j
 				then failwith (Printf.sprintf "i (%s) <> j (%s)" (debug_string_of_interface i) (debug_string_of_interface j));
 				if i <> k
