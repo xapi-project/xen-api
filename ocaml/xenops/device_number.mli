@@ -10,11 +10,11 @@ val make: spec -> interface
 (** [debug_string_of_interface i] returns a pretty-printed interface *)
 val debug_string_of_interface: interface -> string
 
-(** [string_of_interface i] returns a possible string representation of interface [i] *)
-val string_of_interface: interface -> string
+(** [linux_device_of_interface i] returns a possible linux string representation of interface [i] *)
+val linux_device_of_interface: interface -> string
 
-(** [interface_of_string x] returns the interface corresponding to string [x] *)
-val interface_of_string: string -> interface
+(** [interface_of_linux_device x] returns the interface corresponding to string [x] *)
+val interface_of_linux_device: string -> interface
 
 type xenstore_key = string
 

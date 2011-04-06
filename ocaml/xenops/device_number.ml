@@ -71,14 +71,14 @@ let int_of_base_26 x =
 	let ints = List.map (fun c -> int_of_char c - (int_of_char 'a')) (String.explode x) in
 	List.fold_left (fun acc x -> acc * 26 + x) 0 ints
 
-let string_of_interface = 
+let linux_device_of_interface = 
 	let p x = if x = 0 then "" else string_of_int x in 
 	function
 		| Xen  (disk, part) -> Printf.sprintf "xvd%s%s" (base_26_of_int disk) (p part)
 		| Scsi (disk, part) -> Printf.sprintf "sd%s%s"  (base_26_of_int disk) (p part)
 		| Ide  (disk, part) -> Printf.sprintf "hd%s%s"  (base_26_of_int disk) (p part)
 
-let interface_of_string x =
+let interface_of_linux_device x =
 	let letter c = 'a' <= c && (c <= 'z') in
 	let digit c = '0' <= c && (c <= '9') in
 	let take f x = 
