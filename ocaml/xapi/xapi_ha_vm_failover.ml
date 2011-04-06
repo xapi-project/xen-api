@@ -19,7 +19,7 @@ open D
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
 let all_protected_vms ~__context = 
    let vms = Db.VM.get_all_records ~__context in
-   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_power_state vm_rec.API.vM_ha_restart_priority) vms 
+   List.filter (fun (_, vm_rec) -> Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run vm_rec.API.vM_ha_restart_priority) vms 
 
 (* Comparison function which can be used to sort a list of VM ref, record by order *)
 let by_order (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =

@@ -245,7 +245,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   let pool = Helpers.get_pool ~__context in
   let protected_vms, unprotected_vms = 
     if Db.Pool.get_ha_enabled ~__context ~self:pool
-    then List.partition (fun (vm, record) -> Helpers.vm_should_always_run record.API.vM_power_state record.API.vM_ha_restart_priority) all_user_vms
+    then List.partition (fun (vm, record) -> Helpers.vm_should_always_run record.API.vM_ha_always_run record.API.vM_ha_restart_priority) all_user_vms
     else all_user_vms, [] in
   List.iter (fun (vm, _) -> Hashtbl.replace plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) unprotected_vms;
   let migratable_vms, unmigratable_vms = List.partition (fun (vm, record) ->
