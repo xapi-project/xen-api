@@ -227,7 +227,7 @@ let update_cooperative_flags cnx =
 let make_host ~verbose ~xc ~xs =
 	(* Wait for any scrubbing so that we don't end up with no immediately usable pages --
 	   this might cause something else to fail (eg domain builder?) *)
-	while Memory.get_scrub_memory_kib ~xc <> 0L do Unix.select [] [] [] 0.25 done;
+	while Memory.get_scrub_memory_kib ~xc <> 0L do ignore(Unix.select [] [] [] 0.25) done;
 
 	(* Some VMs are considered by us (but not by xen) to have an "initial-reservation". For VMs which have never 
 	   run (eg which are still being built or restored) we take the difference between memory_actual_kib and the
@@ -385,7 +385,7 @@ let execute_action ~xc ~xs action =
 		let domid = action.Squeeze.action_domid in
 		let target_kib = action.Squeeze.new_target_kib in
 		if target_kib < 0L
-		then failwith "Proposed target is negative (domid %d): %Ld" domid target_kib;
+		then failwith (Printf.sprintf "Proposed target is negative (domid %d): %Ld" domid target_kib);
 		let cnx = (xc, xs) in
 		let memory_max_kib = Domain.get_maxmem cnx domid in
 		(* We only set the target of a domain if it has exposed feature-balloon: otherwise
