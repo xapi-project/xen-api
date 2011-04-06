@@ -7,6 +7,11 @@ type interface
 
 val make: spec -> interface
 
+(** [interface_of_string hvm name] returns the interface which best matches the [name]
+    by applying the policy: first check if it is a disk_number, else fall back to
+	a linux_device for backwards compatability *)
+val interface_of_string: bool -> string -> interface
+
 (** [debug_string_of_interface i] returns a pretty-printed interface *)
 val debug_string_of_interface: interface -> string
 
@@ -32,4 +37,5 @@ val disk_number_of_interface: interface -> disk_number
 (** [interface_of_disk_number hvm n] returns the interface corresponding to disk 
 	number [n] which depends on whether the guest is [hvm] or not. *)
 val interface_of_disk_number: bool -> disk_number -> interface
+
 
