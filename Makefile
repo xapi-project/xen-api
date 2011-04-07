@@ -25,8 +25,6 @@ export COMPILE_NATIVE COMPILE_BYTE
 all: version
 	omake phase1
 	omake phase2
-	omake lib-uninstall
-	omake lib-install
 	omake phase3
 
 .PHONY: phase3
@@ -37,10 +35,6 @@ phase3:
 xapimon:
 	omake ocaml/xapimon/xapimon
 
-.PHONY: stresstest
-stresstest:
-	omake ocaml/xapi/stresstest
-
 .PHONY: cvm
 cvm:
 	omake ocaml/cvm/cvm
@@ -48,6 +42,8 @@ cvm:
 .PHONY: install
 install:
 	omake install
+	omake lib-uninstall
+	omake lib-install
 
 .PHONY: lib-install
 lib-install:
