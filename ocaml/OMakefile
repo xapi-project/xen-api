@@ -24,7 +24,6 @@ OCAMLPACKS    = stdext log
 	console \
 	auth \
 	events \
-	in_guest_install \
 	graph \
 	license \
 	rfb \
