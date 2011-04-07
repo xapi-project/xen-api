@@ -1,8 +1,0 @@
-OCamlGeneratedFiles(templateLexer.ml templateParser.mli)
-OCamlProgram(test, template templateLexer templateParser test)
-OCamlLibrary(template, template templateLexer templateParser)
-
-.PHONY: clean
-clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot
-	rm -f templateLexer.ml templateParser.ml templateParser.mli
