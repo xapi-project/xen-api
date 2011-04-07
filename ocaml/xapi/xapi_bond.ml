@@ -168,9 +168,11 @@ let fix_bond ~__context ~bond =
 	let local_vifs_to_move, vlans_with_vifs, local_tunnels = stuff_to_move_up ~__context members host in
 
 	if local_vifs_to_move <> [] || vlans_with_vifs <> [] then begin
+		(* Do not do the following for now, as it created problems 
 		let vifs_to_unplug = List.filter (fun vif -> Db.VIF.get_currently_attached ~__context ~self:vif = true)
 			(local_vifs_to_move @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))) in
 		ignore (unplug_vifs ~__context [] vifs_to_unplug);
+		*)
 
 		(* Move VLANs, with their VIFs, from members to master *)
 		debug "Moving VLANs, with their VIFs, from slaves to master";
@@ -244,10 +246,12 @@ let create ~__context ~network ~members ~mAC ~mode =
 
 		let local_vifs_to_move, vlans_with_vifs, local_tunnels = stuff_to_move_up ~__context members host in
 
+		(* Do not do the following for now, as it created problems 
 		(* Try unplugging any plugged VIFs that would need to be moved *)
 		let vifs_to_unplug = List.filter (fun vif -> Db.VIF.get_currently_attached ~__context ~self:vif = true)
 			(local_vifs_to_move @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))) in
 		ignore (unplug_vifs ~__context [] vifs_to_unplug);
+		*)
 
 		(* Collect information *)
 		let management_pif =
@@ -349,7 +353,6 @@ let destroy ~__context ~self =
 		let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
 		let primary_slave_network = Db.PIF.get_network ~__context ~self:primary_slave in
 
-		(* Try unplugging any plugged VIFs of running VMs that would need to be moved *)
 		let local_vms = get_local_vms ~__context host in
 		let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
 		let local_vifs_on_master_network =
@@ -360,7 +363,10 @@ let destroy ~__context ~self =
 		let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
 		let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
 
+		(* Do not do the following for now, as it created problems
+		(* Try unplugging any plugged VIFs of running VMs that would need to be moved *)
 		ignore (unplug_vifs ~__context [] (local_vifs_on_master_network @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))));
+		*)
 
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;

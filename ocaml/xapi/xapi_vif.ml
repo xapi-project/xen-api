@@ -77,12 +77,17 @@ let create  ~__context ~device ~network ~vM
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
+(* Moving is currently done by unplug -> destroy -> create -> plug.
+ * It would be great if we could simply move the interface from one bridge to
+ * to the other, without involving the guest, so it would also work on guests that
+ * do not support hot(un)plug of VIFs. *)
 let move ~__context ~network vif =
 	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
 		(Db.Network.get_uuid ~__context ~self:network);
 	let vif_rec = Db.VIF.get_record ~__context ~self:vif in
 	let attached = vif_rec.API.vIF_currently_attached in
-	if attached = true then	unplug ~__context ~self:vif;
+	if attached = true then
+		unplug ~__context ~self:vif;
 	destroy ~__context ~self:vif;
 	let new_vif = create ~__context
 		~network
@@ -94,5 +99,6 @@ let move ~__context ~network vif =
 		~qos_algorithm_type:vif_rec.API.vIF_qos_algorithm_type
 		~qos_algorithm_params:vif_rec.API.vIF_qos_algorithm_params
 	in
-	if attached then plug ~__context ~self:new_vif
-	
+	if attached then
+		plug ~__context ~self:new_vif
+
