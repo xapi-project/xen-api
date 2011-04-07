@@ -31,10 +31,6 @@ all: version
 phase3:
 	omake phase3
 
-.PHONY: xapimon
-xapimon:
-	omake ocaml/xapimon/xapimon
-
 .PHONY: install
 install:
 	omake install
@@ -52,10 +48,6 @@ lib-uninstall:
 .PHONY: sdk-install
 sdk-install:
 	omake sdk-install
-
-.PHONY:patch
-patch:
-	omake patch
 
 .PHONY: clean
 clean:
