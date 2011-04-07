@@ -102,7 +102,6 @@ COMPILE_JAVA=no %{__make}
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
-DESTDIR=$RPM_BUILD_ROOT %{__make} lib-install
 DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 
 %clean
