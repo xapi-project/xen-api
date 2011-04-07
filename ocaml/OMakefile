@@ -14,7 +14,6 @@ OCAMLPACKS    = stdext log
 	idl \
 	util \
 	xapi \
-	templates \
 	xenguest \
 	xenops \
 	xenops-ts \
