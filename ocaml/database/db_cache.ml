@@ -36,7 +36,6 @@ let get = function
 
 let apply_delta_to_cache entry db_ref =
 	let module DB = (Local_db : DB_ACCESS) in
-    let context = Context.make "redo_log" in
     match entry with 
 		| Redo_log.CreateRow(tblname, objref, kvs) ->
 			debug "Redoing create_row %s (%s)" tblname objref;

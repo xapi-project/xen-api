@@ -61,7 +61,6 @@ let get_active_vdis_by_pbd ~__context ~self =
 let abort_if_storage_attached_to_protected_vms ~__context ~self =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool && not(Db.Pool.get_ha_allow_overcommit ~__context ~self:pool) then begin
-    let host = Db.PBD.get_host ~__context ~self in
     let sr = Db.PBD.get_SR ~__context ~self in
     let vdis = Db.SR.get_VDIs ~__context ~self:sr in
     let vms = Db.VM.get_all_records ~__context in

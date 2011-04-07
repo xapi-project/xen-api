@@ -78,7 +78,7 @@ let maybe_create_pbd rpc session_id sr device_config me =
 
 let create_storage (me: API.ref_host) rpc session_id __context : unit =
   let create_pbds_for_shared_srs () =
-    let [pool] = Client.Pool.get_all rpc session_id in
+    let pool = List.hd (Client.Pool.get_all rpc session_id) in
     let master = Client.Pool.get_master rpc session_id pool in
     let srs = Client.SR.get_all_records_where rpc session_id "true" in
     let pbds = Client.PBD.get_all_records_where rpc session_id "true" in
@@ -94,7 +94,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
 
   let other_config = 
     try
-      let [pool] = Db.Pool.get_all ~__context in
+      let pool = List.hd (Db.Pool.get_all ~__context) in
       Db.Pool.get_other_config ~__context ~self:pool 
     with _ -> []
   in

@@ -110,7 +110,7 @@ let wait_for_alert rpc session ?(delay=180.0) check_message f =
   let finished = ref false in
 
   (* Create a thread to kill the session if we timeout *)
-  let t = Thread.create (fun () ->
+  let (_: Thread.t) = Thread.create (fun () ->
     Thread.delay delay;
     debug "Timer has expired (%.0f seconds); logging out session" delay;
     Client.Session.logout rpc session2) ()

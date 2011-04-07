@@ -139,7 +139,6 @@ let make __context rpc session_id srid (vms, vdis) =
     the relevant records and then stream in and uncompress the disk fragments. *)
 let from_xml refresh_session s __context rpc session_id srid xml = 
   let vms, vdis = of_xml xml in
-  let total_size = total_size_of_disks vdis in
 	      
   let (vms,vdis,clean_up_stack) = make __context rpc session_id srid (vms, vdis) in
   try

@@ -37,7 +37,6 @@ let run_iscsi rpc session =
   let master = get_master rpc session in
   if not(is_multipathing_enabled rpc session master) then enable_multipathing rpc session master;
 
-  let num_paths = iscsi_luns in
   let iscsi_vm = setup_iscsi_vm rpc session iscsi_luns iscsi_vifs sr_disk_size in
   finally
     (fun () ->

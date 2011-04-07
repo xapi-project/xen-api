@@ -139,7 +139,6 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 		   let last_chunk = this_chunk = remaining in
 	       let this_chunk = Int64.to_int this_chunk in
 	       let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
-	       let hdr = Tar.Header.make filename (Int64.of_int this_chunk) in
 
 		   let now = Unix.gettimeofday () in
 		   let time_since_transmission = now -. !last_transmission_time in

@@ -314,8 +314,6 @@ let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
 		~mAC ~mTU ~device ~vLAN ~vLAN_master_of () =
 
-	let is_vlan = vLAN >= 0L in
-
 	let bridge = bridge_naming_convention device in
 
 	(* If we are not told which network to use,
@@ -564,7 +562,6 @@ let rec unplug ~__context ~self =
 	if Db.Host.get_enabled ~__context ~self:host
 	then abort_if_network_attached_to_protected_vms ~__context ~self;
 
-	let network = Db.PIF.get_network ~__context ~self in
 	let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
 	if tunnel <> []
 	then begin

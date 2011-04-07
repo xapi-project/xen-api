@@ -164,5 +164,5 @@ let _ =
       do_write_hostiqn()
   | Am_i_in_the_database ->
       do_am_i_in_the_database()
-  | Unknown s ->
-      error "unknown operation %s" s
+  | _ ->
+      error "unknown operation %s" !operation

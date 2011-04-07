@@ -24,7 +24,6 @@ let generic_database_upgrade db =
   let existing_table_names = TableSet.fold (fun name _ acc -> name :: acc) (Database.tableset db) [] in
   let schema_table_names = Schema.table_names (Database.schema db) in
   let created_table_names = Listext.List.set_difference schema_table_names existing_table_names in
-  let deleted_table_names = Listext.List.set_difference existing_table_names schema_table_names in
   let db = Database.update
 	  (fun ts ->
 		  List.fold_left (fun ts tblname ->
@@ -36,7 +35,6 @@ let generic_database_upgrade db =
       (fun db tblname ->
 		  let tbl = TableSet.find tblname (Database.tableset db) in
 		  let schema = Schema.table tblname (Database.schema db) in
-		  let rows = Table.rows tbl in
 		  let add_fields_to_row objref r tbl : Table.t =
 			  let row = Row.add_defaults schema r in
 			  Table.add objref row tbl in

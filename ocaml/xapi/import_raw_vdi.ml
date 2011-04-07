@@ -49,10 +49,10 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
 	 try
 	match req.transfer_encoding with
-	| Some "chunked" ->
+	| Some x ->
 	    error "Chunked encoding not yet implemented in the import code";
 	    Http_svr.headers s http_403_forbidden;
-	    raise (Failure "import code cannot handle chunked encoding")
+	    raise (Failure (Printf.sprintf "import code cannot handle encoding: %s" x))
 	| None ->
 	    let headers = Http.http_200_ok ~keep_alive:false () @
 	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);

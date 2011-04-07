@@ -94,11 +94,6 @@ let exec ?marshaller ?f_forward ~__context f =
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
 (*  FIXME: This function should not be used for external call : we should add a proper .mli file to hide it. *) 
 let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) f =
-  let debug = 
-  if Context.task_in_database __context 
-  then Real.debug
-  else Dummy.debug
-  in
   Debug.with_thread_associated 
     (Context.string_of_task __context)  
     (fun () -> 

@@ -313,12 +313,6 @@ let gen_permissions_of_static_roles highapi =
 	let api_roles_permissions = 
 		(get_roles_permissions_of_objs ([],all_objs)) (*api*)
 	in
-	let http_roles_permissions = 
-		(gen_roles_of_permissions get_http_permissions_roles) (*http*)
-	in
-	let extra_roles_permisions = (* extra, not associated to api or http calls *)
-		(gen_roles_of_permissions get_extra_permissions_roles)
-	in
 	let roles_permissions = (*api+http+extra*)
 		List.rev
 			(List.fold_left

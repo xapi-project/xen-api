@@ -37,7 +37,7 @@ let compute_object_references_to_follow (obj_name:string) =
     List.concat 
       (List.map 
 	 (function { Datamodel_types.ty = Datamodel_types.Ref x;
-		     Datamodel_types.field_name = field_name } as f -> 
+		     Datamodel_types.field_name = field_name } -> 
 	    let this_end = obj.Datamodel_types.name, field_name in
 	      if List.mem_assoc this_end set
 	      then begin

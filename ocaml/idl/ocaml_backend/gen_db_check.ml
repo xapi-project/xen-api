@@ -75,13 +75,16 @@ let db_check api : O.Module.t =
 	(OU.ocaml_of_obj_name obj.name) 
 	Gen_common.context
 	Client._self in
-    let check { ty = Ref x; full_name = full_name } = 
+    let check = function
+		| { ty = Ref x; full_name = full_name } ->
       Printf.sprintf "(fun () -> %s._%s ~%s ~%s:_r.%s)" 
       _db_exists
       (OU.ocaml_of_obj_name x) 
       Gen_common.context
       Client._self
-      (OU.ocaml_of_record_field obj.name full_name) in
+      (OU.ocaml_of_record_field obj.name full_name)
+		  | _ -> assert false
+ in
     let wrapper f = 
       Printf.sprintf "(runcheck \"%s\" %s \"%s\" %s)"
 	obj.name Client._self (String.concat "/" f.full_name) (check f) in

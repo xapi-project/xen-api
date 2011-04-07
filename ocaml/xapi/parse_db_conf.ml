@@ -88,6 +88,7 @@ let to_mode s =
   match s with
     "write_limit" -> Write_limit
   | "no_limit" -> No_limit
+  | _ -> failwith (Printf.sprintf "unknown mode: %s" s)
 
 exception Cannot_parse_database_config_file
 exception Cannot_have_multiple_dbs_in_sr
@@ -110,7 +111,10 @@ let parse_db_conf s =
       let key_values = ref [] in
       while (!lines<>[] && (List.hd !lines)<>"") do
 	let line = List.hd !lines in
-	key_values := (match (String.split ':' line) with k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs)))::!key_values;
+	key_values := (match (String.split ':' line) with 
+			k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs))
+		| _ -> failwith (Printf.sprintf "Failed to parse: %s" line)
+	)::!key_values;
 	consume_line();
       done;
 

@@ -35,7 +35,7 @@ let tc1 rpc session =
 
   let vdi = Client.VDI.create ~rpc ~session_id:session ~name_label:"LVHD test" ~name_description:"Test for cloning purposes" ~sR:sr ~virtual_size:Globs.four_megs ~_type:`ephemeral (*!*)
     ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
-  let clone = Client.VDI.clone ~rpc ~session_id:session ~vdi ~driver_params:[] in
+  let (_: API.ref_VDI) = Client.VDI.clone ~rpc ~session_id:session ~vdi ~driver_params:[] in
 
   let after_sr_vdis = Utils.get_my_vdis rpc session sr in
 

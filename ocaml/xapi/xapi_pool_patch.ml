@@ -76,7 +76,8 @@ let extract_patch path =
 	      | None ->
 		  debug "No fingerprint!";
 		  raise Gpg.InvalidSignature);
-            Unixext.copy_file fd' fd
+            let (_: int64) = Unixext.copy_file fd' fd in
+			()
           )
       );
     run_path
@@ -167,10 +168,10 @@ let read_in_and_check_patch length s path =
       match length with
         | None  -> 
             Unixext.with_file path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o440
-	      (fun fd -> Unixext.copy_file s fd)
+	      (fun fd -> let (_: int64) = Unixext.copy_file s fd in ())
         | Some i ->
             Unixext.with_file path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o440
-	      (fun fd -> Unixext.copy_file ~limit:i s fd)
+	      (fun fd -> let (_: int64) = Unixext.copy_file ~limit:i s fd in ())
     end;
 
     debug "Streaming complete; executing gpg";
@@ -312,7 +313,7 @@ let oem_patch_stream_handler (req: request) s =
             (* Copy the signature off the front of the fd *)
             Unixext.with_file signature_file [ Unix.O_WRONLY ] 0o600
               (fun fd ->
-               Unixext.copy_file ~limit:signature_length s fd
+               let (_: int64) = Unixext.copy_file ~limit:signature_length s fd in ()
               );
             Int64.add signature_length (Int64.of_int patch_header_length)
         end 
@@ -391,7 +392,7 @@ let oem_patch_stream_handler (req: request) s =
                 Unixext.with_file Xapi_globs.dev_zero [ Unix.O_RDONLY ] 0o0
                   (fun fd ->
                     let megabyte = Int64.of_int (1024 * 1024) in
-                    Unixext.copy_file ~limit:megabyte fd fd'
+                    let (_: int64) = Unixext.copy_file ~limit:megabyte fd fd' in ()
                   )
               );
             debug "Zeroing complete.  Syncing";
@@ -499,7 +500,7 @@ let write_patch_applied ~__context ~self =
             let uuid = Db.Pool_patch.get_uuid ~__context ~self in
             let path = patch_applied_dir ^ "/" ^ uuid in
               Unixext.with_file path [ Unix.O_WRONLY; Unix.O_CREAT ] 0o440
-                (fun fd -> Unix.write fd output 0 (String.length output))
+                (fun fd -> let (_: int) = Unix.write fd output 0 (String.length output) in ())
           end
       | Failure(log, exn) ->
           debug "error from patch application: %s" log;
@@ -686,7 +687,7 @@ let apply ~__context ~self ~host =
   
   let path = Db.Pool_patch.get_filename ~__context ~self in
     (* 3rd, run prechecks *)
-    run_precheck ~__context ~self ~host;
+    let (_: string) = run_precheck ~__context ~self ~host in
  
     (* 4th, apply the patch *)
     begin
@@ -716,7 +717,7 @@ let pool_apply ~__context ~self =
       (fun x->not (patch_is_applied_to ~__context ~patch:self ~host:x or is_oem ~__context ~host:x)) 
       (Db.Host.get_all ~__context) 
   in
-  let (result: string list) = 
+  let (_: string list) = 
     List.map 
       (fun host ->
          Helpers.call_api_functions ~__context

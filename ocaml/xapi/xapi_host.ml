@@ -555,12 +555,10 @@ let is_host_alive ~__context ~host =
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr =
 
-  let existing_host = try Some (Db.Host.get_by_uuid __context uuid) with _ -> None in
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
       ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
       ~memory_total:0L ~memory_free:0L ~last_updated:Date.never ~other_config:[] in
-  let xapi_verstring = get_xapi_verstring() in
   let name_description = "Default install of XenServer"
   and host = Ref.make () in
   
@@ -1102,7 +1100,7 @@ let disable_external_auth_common ?during_pool_eject:(during_pool_eject=false) ~_
 			(Ext_auth.d()).on_disable config;
 			None (* OK, on_disable succeeded *)
 		with 
-		| Auth_signature.Auth_service_error (errtag,msg) as e ->
+		| Auth_signature.Auth_service_error (errtag,msg) ->
 			begin
 				debug "Failed while calling on_disable event of external authentication plugin in host %s: %s" host_name_label msg;
 				Some (Api_errors.Server_error(Api_errors.auth_disable_failed^(Auth_signature.suffix_of_tag errtag), [msg]))

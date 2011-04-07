@@ -78,7 +78,7 @@ let create_alert ~__context ~vmpp ~name ~priority ~body ~data =
     add_to_recent_alerts ~__context ~vmpp ~value;
     let cls = `VMPP in
     let obj_uuid = Db.VMPP.get_uuid ~__context ~self:vmpp in
-    Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body:msg;
+    let (_: API.ref_message) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body:msg in
     ()
   )
 
@@ -91,7 +91,7 @@ let unzip b64zdata = (* todo: remove i/o, make this more efficient *)
     (fun ()->
       let fd = Unix.openfile tmp_path [ Unix.O_RDWR] 0o600 in
       Pervasiveext.finally
-        (fun ()->Unix.write fd zdata 0 (String.length zdata);)
+        (fun ()->let (_: int) = Unix.write fd zdata 0 (String.length zdata) in ())
         (fun ()->Unix.close fd;)
       ;
       Unixext.with_file tmp_path [ Unix.O_RDONLY ] 0o0
@@ -122,7 +122,7 @@ let get_alerts ~__context ~vmpp ~hours_from_now =
   let fd = Unix.openfile tmp_filename [Unix.O_RDWR] 0o600 in
   let now = (Unix.time ()) in
   let since = Date.to_string (Date.of_float (now -. ( (Int64.to_float hours_from_now) *. 3600.0))) in
-  let messages=Audit_log.transfer_all_audit_files fd ~filter since in
+  let ()=Audit_log.transfer_all_audit_files fd ~filter since in
   let cout = Unix.out_channel_of_descr fd in
   flush cout;
   let cin = Unix.in_channel_of_descr fd in
@@ -218,9 +218,21 @@ let archive_target_config_type_cifs_keys = archive_target_config_field,[archive_
 let archive_target_config_type_nfs_keys = archive_target_config_field,[archive_target_type_nfs,[Datamodel.vmpp_archive_target_config_location, ((String), "")]]
 
 (* look-up structures, contain allowed map keys in a specific map type *)
-let backup_schedule_keys = backup_schedule_field,(List.map (fun (f,[k])->k) [backup_schedule_frequency_hourly_keys;backup_schedule_frequency_daily_keys;backup_schedule_frequency_weekly_keys])
-let archive_target_config_keys = archive_target_config_field,(List.map (fun (f,[k])->k) [archive_target_config_type_cifs_keys;archive_target_config_type_nfs_keys])
-let archive_schedule_keys = archive_schedule_field,(List.map (fun (f,[k])->k) [archive_schedule_frequency_daily_keys;archive_schedule_frequency_weekly_keys])
+let backup_schedule_keys = backup_schedule_field, (List.map 
+	(function (f,[k])->k
+		| _ -> assert false
+	) 
+	[backup_schedule_frequency_hourly_keys;backup_schedule_frequency_daily_keys;backup_schedule_frequency_weekly_keys])
+let archive_target_config_keys = archive_target_config_field,(List.map 
+	(function (f,[k])->k
+		| _ -> assert false
+	) 
+	[archive_target_config_type_cifs_keys;archive_target_config_type_nfs_keys])
+let archive_schedule_keys = archive_schedule_field,(List.map 
+	(function (f,[k])->k
+		| _ -> assert false
+	) 
+[archive_schedule_frequency_daily_keys;archive_schedule_frequency_weekly_keys])
 let alarm_config_keys = alarm_config_field,[is_alarm_enabled_true,["email_address", ((String), "");"smtp_server", ((String), "");"smtp_port", ((IntRange(1,65535)), "25")]]
 
 (* look-up structures, contain allowed map keys in all map types *)
@@ -522,14 +534,14 @@ let add_to_backup_schedule ~__context ~self ~key ~value =
 let set_archive_target_config ~__context ~self ~value =
   assert_licensed ~__context;
   let config = (Db.VMPP.get_archive_target_config ~__context ~self) in
-  assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value ~db:config;
+  let (_: (string*string) list) = assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value ~db:config in
 	let value = map_any_passwords_to_secrets ~__context ~value ~db:config in
   Db.VMPP.set_archive_target_config ~__context ~self ~value
 
 let add_to_archive_target_config ~__context ~self ~key ~value =
   assert_licensed ~__context;
   let config = (Db.VMPP.get_archive_target_config ~__context ~self) in
-  assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value:[(key,value)] ~db:config;
+  let (_: (string*string) list) = assert_keys ~ty:"" ~ks:archive_target_config_all_keys ~value:[(key,value)] ~db:config in
   let value =
     if key=Datamodel.vmpp_archive_target_config_password
 		then (map_password_to_secret ~__context ~db:config ~new_password:value)
@@ -549,12 +561,12 @@ let add_to_archive_schedule ~__context ~self ~key ~value =
 
 let set_alarm_config ~__context ~self ~value =
   assert_licensed ~__context;
-  assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value ~db:(Db.VMPP.get_alarm_config ~__context ~self);
+  let (_: (string*string) list) = assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value ~db:(Db.VMPP.get_alarm_config ~__context ~self) in
   Db.VMPP.set_alarm_config ~__context ~self ~value
 
 let add_to_alarm_config ~__context ~self ~key ~value =
   assert_licensed ~__context;
-  assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value:[(key,value)] ~db:(Db.VMPP.get_alarm_config ~__context ~self);
+  let (_: (string*string) list) = assert_keys ~ty:"" ~ks:alarm_config_all_keys ~value:[(key,value)] ~db:(Db.VMPP.get_alarm_config ~__context ~self) in
   Db.VMPP.add_to_alarm_config ~__context ~self ~key ~value
 
 (* 3/3: the CLI requires any key in any map to be removed at will *)
@@ -604,10 +616,10 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
 
   assert_licensed ~__context;
   (* assert all provided field values, key names and key values are valid *)
-  assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency)) ~ks:backup_schedule_keys ~value:backup_schedule ~db:[];
-  assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency)) ~ks:archive_schedule_keys ~value:archive_schedule ~db:[];
-  assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_target_type archive_target_type)) ~ks:archive_target_config_keys ~value:archive_target_config ~db:[];
-  assert_keys ~ty:(btype is_alarm_enabled) ~ks:alarm_config_keys ~value:alarm_config ~db:[];
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_backup_frequency backup_frequency)) ~ks:backup_schedule_keys ~value:backup_schedule ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_frequency archive_frequency)) ~ks:archive_schedule_keys ~value:archive_schedule ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(XMLRPC.From.string (API.To.vmpp_archive_target_type archive_target_type)) ~ks:archive_target_config_keys ~value:archive_target_config ~db:[] in
+  let (_: (string*string) list) = assert_keys ~ty:(btype is_alarm_enabled) ~ks:alarm_config_keys ~value:alarm_config ~db:[] in
 
   (* assert inter-field constraints and fix values if possible *)
   let backup_schedule = assert_set_backup_frequency ~backup_frequency ~backup_schedule in
