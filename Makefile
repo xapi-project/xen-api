@@ -35,10 +35,6 @@ phase3:
 xapimon:
 	omake ocaml/xapimon/xapimon
 
-.PHONY: cvm
-cvm:
-	omake ocaml/cvm/cvm
-
 .PHONY: install
 install:
 	omake install
