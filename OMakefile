@@ -108,16 +108,12 @@ OCAML_PHASE3_XEN = \
 	ocaml/xstest/xsbench \
 	ocaml/xstest/xscheckperms \
 	allxenops \
-	ocaml/xenops-ts/runtest \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
 	ocaml/xiu/xiu \
 	ocaml/xapi/fakeguestagent \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
-	ocaml/xsrpc/xsrpc \
-	ocaml/xsrpc/xsrpcd-util \
-	ocaml/guest/agent \
 	ocaml/license/v6d \
 	ocaml/license/v6d-reopen-logs
 
