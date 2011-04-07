@@ -141,10 +141,10 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
 
 	(* If manual, periodicly access to the database to check whether the old master has restarted. *)
 	if manual then
-		let (t : Thread.t) = Thread.create (fun () ->
+		let (_ : Thread.t) = Thread.create (fun () ->
 			try while true do
 				(* Access to a random value in the database *)
-				let (pool : API.ref_pool list) = Db.Pool.get_all ~__context in
+				let (_ : API.ref_pool list) = Db.Pool.get_all ~__context in
 				let n = 3. in
 				debug "The old master has not restarted yet. Sleep for %.0f seconds" n;
 				Thread.delay n;

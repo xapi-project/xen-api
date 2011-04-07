@@ -29,7 +29,6 @@ open Printf
 let check_operation_error ~__context ha_enabled record _ref' op = 
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
-  let vdi_is_sharable = record.Db_actions.vDI_sharable in
 
   let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
 
@@ -313,9 +312,7 @@ open Client
 let snapshot ~__context ~vdi ~driver_params =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-  let task_id = Ref.string_of (Context.get_task_id __context) in
   let a = Db.VDI.get_record_internal ~__context ~self:vdi in
-  let sr = Db.VDI.get_SR ~__context ~self:vdi in
 
   let call_snapshot () = 
     Sm.call_sm_vdi_functions ~__context ~vdi
@@ -363,7 +360,6 @@ let destroy ~__context ~self =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
-  let sr = Db.VDI.get_SR ~__context ~self in
   let attached_vbds = List.filter 
     (fun vbd->
        let r = Db.VBD.get_record_internal ~__context ~self:vbd in

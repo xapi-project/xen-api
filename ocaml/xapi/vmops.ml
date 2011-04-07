@@ -560,6 +560,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			    (Device.Dm.Intel (Device.Dm.Std_vga,dom0_input),[])
 			| "none" -> 
 			    (Device.Dm.NONE,[])
+			| _ -> failwith "Unknown vga_mode"
 		    with _ -> 
 		      warn "Failed to parse 'vga_mode' parameter - expecting 'passthrough' or 'intel'. Defaulting to VNC mode";
 		      default_disp_usb
@@ -689,7 +690,6 @@ let _restore_domain ~__context ~xc ~xs ~self at_boot_time fd ?vnc_statefile domi
 	  else static_max_kib in 
 
 	if hvm then (
-		let platform = at_boot_time.API.vM_platform in
 		let shadow_multiplier = at_boot_time.API.vM_HVM_shadow_multiplier in
 		Domain.hvm_restore ~xc ~xs domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 		                   ~timeoffset fd;
@@ -899,7 +899,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 			raise (Api_errors.Server_error(Api_errors.vm_crashed, [ Ref.string_of vm ]))
 		| Domain.Reboot ->
 			raise (Api_errors.Server_error(Api_errors.vm_rebooted, [ Ref.string_of vm ]))
-		| Domain.Halt | Domain.Unknown _ ->
+		| Domain.Halt | Domain.PowerOff | Domain.S3Suspend | Domain.Unknown _ ->
 			raise (Api_errors.Server_error(Api_errors.vm_halted, [ Ref.string_of vm ]))
 	in
 	let suspend_domain ~fd ~hvm () = with_xal (fun xal ->

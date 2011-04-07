@@ -259,7 +259,7 @@ let rec next ~__context =
 	let rec grab_nonempty_range () = 
 		let last_id, end_id = grab_range () in
 		if last_id = end_id then begin
-			wait subscription end_id; 
+			let (_: int64) = wait subscription end_id in
 			grab_nonempty_range ()
 		end else last_id, end_id in
 

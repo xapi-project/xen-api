@@ -49,8 +49,10 @@ let wait_for_clone ?progress_minmax ~__context task =
 		| `success -> finished := true
 		| `cancelled -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
 		| `failure -> 
-			let (code::params) = task_rec.API.task_error_info in
-			raise (Api_errors.Server_error (code,params))
+			begin match task_rec.API.task_error_info with
+					| code :: params -> raise (Api_errors.Server_error(code, params))
+					| _ -> failwith "xapi_vm_clone: task_info has no error_info"
+			end
 		| _ -> ()
 	in
 
@@ -366,13 +368,13 @@ let clone disk_op ~__context ~vm ~new_name =
 			begin try
 				
 				(* copy VBDs *)
-				let new_vbds : [`VBD] Ref.t list =
+				let (_ : [`VBD] Ref.t list) =
 					List.map (fun (vbd, newvdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in				
 				(* copy VIFs *)
-				let new_vifs : [`VIF] Ref.t list =
+				let (_ : [`VIF] Ref.t list) =
 					List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm:ref ~preserve_mac_address:is_a_snapshot vif) vifs in
 				(* copy VGPUs *)
-				let new_vgpus : [`VGPU] Ref.t list =
+				let (_ : [`VGPU] Ref.t list) =
 					List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus in
 				
 				(* copy the suspended VDI if needed *)

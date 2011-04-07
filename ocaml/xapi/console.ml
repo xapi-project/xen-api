@@ -115,7 +115,6 @@ let check_vm_is_running_here __context console =
 	raise Failure
   end
 
-  ()
 (* GET /console_uri?ref=.....
    Cookie: <session id> *)
 let handler proxy_fn (req: request) s =

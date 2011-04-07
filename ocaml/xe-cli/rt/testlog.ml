@@ -126,8 +126,6 @@ let zip logone logtwo =
       Pervasives.compare time1 time2
     with _ -> 0
   in
-  let l1 = List.sort compare logone in
-  let l2 = List.sort compare logtwo in
   List.merge compare logone logtwo
 
 let get_combined_log t xapi_log =
@@ -314,7 +312,7 @@ let register_test name test_type class_name description xapi_log pic =
   let pic = 
     (match pic with 
 	None -> None
-      | Some x -> Sys.command (Printf.sprintf "mv %s %s" x picurl); Some picurl) in
+      | Some x -> let (_: int) = Sys.command (Printf.sprintf "mv %s %s" x picurl) in Some picurl) in
   let test_info = {
     test_result= !test_status_flag;
     test_ts=timestamp;

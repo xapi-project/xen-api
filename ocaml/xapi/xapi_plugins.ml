@@ -46,7 +46,8 @@ let call_plugin session_id plugin_name fn_name args =
   try
     match XMLRPC.From.methodResponse (Xml.parse_string output) with
     | XMLRPC.Fault(code, reason) -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "fault"; Int32.to_string code; reason ]))
-    | XMLRPC.Success [ result ] -> XMLRPC.From.string result 
+    | XMLRPC.Success [ result ] -> XMLRPC.From.string result
     | XMLRPC.Failure(code, params) -> raise (Api_errors.Server_error(code, params))
+	| _ -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "unexpected XMLRPC result"; output ]))
   with Xml.Error e ->
     raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ "parse failure"; Xml.error e ]))

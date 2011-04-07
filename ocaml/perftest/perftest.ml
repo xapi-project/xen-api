@@ -97,7 +97,7 @@ let _ =
     | _ ->
 
 	let session = Client.Session.login_with_password rpc "root" "xenroot" "1.2" in
-	let metadata = get_metadata rpc session in
+	let (_: API.string_to_string_map) = get_metadata rpc session in
 	finally
 	  (fun () ->
 	     let pool = Scenario.get !scenario in
@@ -116,6 +116,7 @@ let _ =
 		 finally
 		   (fun () -> marshall pool (get_metadata newrpc session) (Tests.run newrpc session !key !run_all !iter))
 		   (fun () -> if pool.Scenario.sdk then Client.Session.logout newrpc session)
+		 | _ -> failwith (Printf.sprintf "unknown mode: %s" !mode)
 	  ) (fun () -> Client.Session.logout rpc session)
   with Api_errors.Server_error(code, params) ->
     debug ~out:stderr "Caught API error: %s [ %s ]" code (String.concat "; " params)

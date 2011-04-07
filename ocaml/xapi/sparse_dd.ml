@@ -113,13 +113,13 @@ end
 module File_reader = struct
 	type t = Unix.file_descr
 	let op stream stream_offset { buf = buf; offset = offset; len = len } = 
-		Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET; 
+		let (_: int64) = Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET in
 		Unixext.really_read stream buf offset len 
 end
 module File_writer = struct
 	type t = Unix.file_descr
 	let op stream stream_offset { buf = buf; offset = offset; len = len } = 
-		let newoff = Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET in
+		let (_: int64) = Unix.LargeFile.lseek stream stream_offset Unix.SEEK_SET in
 		(* Printf.printf "Unix.write buf len %d; offset %d; len %d\n" (String.length buf) offset len; *)
 		let n = Unix.write stream buf offset len in
 		if n < len
@@ -246,9 +246,9 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 	 	(* Make sure the output file has the right size *)
-		Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET;
-		Unix.write ofd "\000" 0 1;
-		Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET;
+		let (_: int64) = Unix.LargeFile.lseek ofd (size -* 1L) Unix.SEEK_SET in
+		let (_: int) = Unix.write ofd "\000" 0 1 in
+		let (_: int64) = Unix.LargeFile.lseek ofd 0L Unix.SEEK_SET in
 		Printf.printf "Copying\n";
 		File_copy.copy progress_cb bat prezeroed ifd ofd blocksize size
 	end 

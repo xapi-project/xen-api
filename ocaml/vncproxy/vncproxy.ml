@@ -83,7 +83,7 @@ let _ =
        let headers = Xmlrpcclient.connect_headers 
 	 ~session_id:(Ref.string_of session_id) address 
 	 (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm)) in
-       let content_length, task_id = Xmlrpcclient.http_rpc_fd x.Stunnel.fd headers "" in
+       let _, _ = Xmlrpcclient.http_rpc_fd x.Stunnel.fd headers "" in
        (* Connected *)
        Unixext.proxy s x.Stunnel.fd
     ) (fun () -> Client.Session.logout rpc session_id)

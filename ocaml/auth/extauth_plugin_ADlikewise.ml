@@ -111,7 +111,7 @@ let likewise_common ?stdin_string:(stdin_string="") params_list likewise_cmd =
 		(* or in the debug log via debug_cmd *)
 		try
 			let stdin_string = stdin_string ^ "\n" in (*HACK:without \n, the likewise scripts don't return!*)
-			Unix.write in_writeme stdin_string 0 (String.length stdin_string);
+			let (_: int) = Unix.write in_writeme stdin_string 0 (String.length stdin_string) in
 			close_fd in_writeme; (* we need to close stdin, otherwise the unix cmd waits forever *)
 		with e -> begin
 			(* in_string is usually the password or other sensitive param, so never write it to debug or exn *)
@@ -337,7 +337,7 @@ let authenticate_username_password _username password =
 	
 	(* first, we try to authenticated user against our external user database *)
 	(* likewise_common will raise an Auth_failure if external authentication fails *)
-	likewise_common ~stdin_string:password [username] "/opt/likewise/bin/lw-auth-user"; (* no --minimal *)
+	let (_: (string * string) list) = likewise_common ~stdin_string:password [username] "/opt/likewise/bin/lw-auth-user" in (* no --minimal *)
 	(* no exception raised, then authentication succeeded, *)
 	(* now we return the authenticated user's id *)
 	get_subject_identifier username
@@ -458,7 +458,7 @@ let is_likewise_server_available max =
 				(* even though the AD domain is offline (error 32888), usually because /etc/resolv.conf is not *)
 				(* pointing to the AD server. This test should catch if the domain is offline by calling lw-find-by-sid *)
 				(* using a domain SID. We must use a _domain_ SID. A universal SID like S-1-1-0 doesn't work for this test. *)
-				query_subject_information sid; (* use KRBTGT's domain SID *)
+				let (_: (string*string) list) = query_subject_information sid in (* use KRBTGT's domain SID *)
 				debug "Request %i/%i to external authentication server successful: sid %s was found" i max sid;
 				
 				true
@@ -573,8 +573,8 @@ let on_enable config_params =
 	
 	(* execute the likewise domain join cmd *)
 	try
-		likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
-			"/usr/bin/domainjoin-cli";
+		let (_: (string*string) list) = likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
+			"/usr/bin/domainjoin-cli" in
 
 		let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
 		if not (is_likewise_server_available max_tries) then
@@ -643,7 +643,8 @@ let on_disable config_params =
 		begin (* no windows admin+pass have been provided: leave the likewise host in the AD database *)
 			(* execute the likewise domain-leave cmd *)
 			(* this function will raise an exception if something goes wrong *)
-			likewise_common ["--minimal";"leave";"--ignore-pam";"--ignore-ssh"] "/usr/bin/domainjoin-cli";
+			let (_: (string*string) list) = likewise_common ["--minimal";"leave";"--ignore-pam";"--ignore-ssh"] "/usr/bin/domainjoin-cli" in
+			()
 		end
 		else 
 		begin (* windows admin+pass have been provided: ask likewise to remove host from AD database *)
@@ -653,8 +654,9 @@ let on_disable config_params =
 			let user = convert_nt_to_upn_username (get_full_subject_name ~use_nt_format:false _user) in
 			(* execute the likewise domain-leave cmd *)
 			(* this function will raise an exception if something goes wrong *)
-			likewise_common ~stdin_string:pass ["--minimal";"leave";"--ignore-pam";"--ignore-ssh";user] 
-				"/usr/bin/domainjoin-cli";
+			let (_: (string*string) list) = likewise_common ~stdin_string:pass ["--minimal";"leave";"--ignore-pam";"--ignore-ssh";user]
+				"/usr/bin/domainjoin-cli" in
+			()
 		end;
 		None (* no failure observed in likewise *)
 

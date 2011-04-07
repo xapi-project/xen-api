@@ -37,7 +37,7 @@ let to_features = function
 	| Free -> all_features
 
 let to_int = function
-	| Free | _ -> 0
+	| _ -> 0
 
 let equal e0 e1 =
 	to_int e0 = to_int e1

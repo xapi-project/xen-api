@@ -185,7 +185,6 @@ let create_row_locked t tblname kvs' new_objref =
 	let row = Row.add_defaults schema row in
 	
 	W.debug "create_row %s (%s) [%s]" tblname new_objref (String.concat "," (List.map (fun (k,v)->"("^k^","^"v"^")") kvs'));
-	let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
 	update_database t (set_row_in_table tblname new_objref row);
 	
 	Database.notify (Create(tblname, new_objref, Row.fold (fun k v acc -> (k, v) :: acc) row [])) (get_database t);
@@ -320,7 +319,6 @@ let spawn_db_flush_threads() =
 					let period_start = ref (Unix.gettimeofday()) in
 					
 					(* we set a coallesce period of min(5 mins, write_limit_period / write_limit_write_cycles) *)
-					let min (x,y) = if x<=y then x else y in
 					(* if we're not write limiting then set the coallesce period to 5 minutes; otherwise set coallesce period to divide the
 					   number of write cycles across the ... 
 					*)

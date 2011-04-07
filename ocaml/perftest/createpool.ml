@@ -69,7 +69,7 @@ let initialise session_id template pool =
   let newdisk = Client.VDI.create ~rpc ~session_id ~name_label:"SDK storage" ~name_description:"" ~sR:defaultsr 
     ~virtual_size:sr_disk_size ~_type:`user ~sharable:false ~read_only:false ~xenstore_data:[] ~other_config:[oc_key,pool.key]
     ~sm_config:[] ~tags:[] in
-  let newvbd = Client.VBD.create ~rpc ~session_id ~vM:template ~vDI:newdisk ~userdevice:sr_disk_device ~bootable:false
+  let (_: API.ref_VBD) = Client.VBD.create ~rpc ~session_id ~vM:template ~vDI:newdisk ~userdevice:sr_disk_device ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[oc_key,pool.key]
   in
 

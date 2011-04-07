@@ -239,7 +239,9 @@ let eli_install_template memory name distro nfs pv_args =
   let distro_text = match distro with
   | "rhlike" -> "EL"
   | "sleslike" -> "SLES"
-  | "debianlike" -> "Debian" in
+  | "debianlike" -> "Debian"
+  | x -> error "Unknown distro: %s" x; "UNKNOWN"
+  in
   let text = if nfs then " or nfs:server:/<path>"
                     else ""
   in
@@ -352,7 +354,9 @@ let hvm_template
 	} in
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 | X64_sol -> 128 in
+		| X64 | X64_sol -> 128 
+		| X64_debianlike -> assert false
+	in
 	let base = other_install_media_template
 		(default_memory_parameters (Int64.of_int minimum_supported_memory_mib)) in
 	let xen_app = List.mem XenApp flags in
@@ -405,7 +409,9 @@ let rhel4x_template name architecture ?(is_experimental=false) flags =
 let rhel5x_template name architecture ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 -> 128 in
+		| X64 -> 128
+		| X64_sol | X64_debianlike -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
@@ -420,7 +426,9 @@ let rhel5x_template name architecture ?(is_experimental=false) flags =
 let rhel6x_template name architecture ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 -> 128 in
+		| X64 -> 128
+		| X64_sol | X64_debianlike -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
@@ -435,7 +443,9 @@ let rhel6x_template name architecture ?(is_experimental=false) flags =
 let sles_9_template name architecture ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 -> 128 in
+		| X64 -> 128
+		| X64_sol | X64_debianlike -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 256L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
@@ -447,7 +457,9 @@ let sles_9_template name architecture ?(is_experimental=false) flags =
 let sles10sp1_template name architecture ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 -> 128 in
+		| X64 -> 128 
+		| X64_sol | X64_debianlike -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
@@ -459,7 +471,9 @@ let sles10sp1_template name architecture ?(is_experimental=false) flags =
 let sles10_template name architecture ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64 -> 128 in
+		| X64 -> 128 
+		| X64_sol | X64_debianlike -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 512L) name "sleslike" true "console=ttyS0 xencons=ttyS" in
@@ -473,7 +487,9 @@ let sles11_template = sles10_template
 let debian_template name release architecture ?(supports_cd=true) ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 64
-		| X64_debianlike -> 128 in
+		| X64_debianlike -> 128
+		| X64_sol | X64 -> assert false
+	in
 	let name = make_long_name name architecture is_experimental in
 	let install_arch = technical_string_of_architecture architecture in
 	let bt = eli_install_template (default_memory_parameters 128L) name "debianlike" false "-- quiet console=hvc0" in

@@ -66,6 +66,7 @@ let unmarshall_stringopt xml =
 	match (XMLRPC.From.array (fun x->x) xml) with
 			[] -> None
 		| [xml] -> Some (XMLRPC.From.string xml)
+		| _ -> raise DB_remote_marshall_error
 			
 let marshall_expr x =
 	Db_filter.xml_of_expr x
@@ -86,6 +87,7 @@ let unmarshall_structured_op xml =
 		| "removeset" -> RemoveSet
 		| "addmap" -> AddMap
 		| "removemap" -> RemoveMap
+		| _ -> raise DB_remote_marshall_error
 			
 let marshall_where_rec r =
 	XMLRPC.To.array [XMLRPC.To.string r.table;
@@ -200,7 +202,7 @@ let marshall_write_field_args (s1,s2,s3,s4) =
 		(List.map XMLRPC.To.string [s1;s2;s3;s4])
 let unmarshall_write_field_args xml =
 	match (XMLRPC.From.array (fun x->x) xml) with
-			([s1x;s2x;s3x;s4x] as l) ->
+			[s1x;s2x;s3x;s4x] ->
 				(XMLRPC.From.string s1x, XMLRPC.From.string s2x,
 				XMLRPC.From.string s3x, XMLRPC.From.string s4x)
 		| _ -> raise DB_remote_marshall_error
@@ -215,7 +217,7 @@ let marshall_read_field_args (s1,s2,s3) =
 		(List.map XMLRPC.To.string [s1;s2;s3])
 let unmarshall_read_field_args xml =
 	match (XMLRPC.From.array (fun x->x) xml) with
-			([s1x;s2x;s3x] as l) ->
+			[s1x;s2x;s3x] ->
 				(XMLRPC.From.string s1x, XMLRPC.From.string s2x,
 				XMLRPC.From.string s3x)
 		| _ -> raise DB_remote_marshall_error
@@ -231,6 +233,7 @@ let marshall_find_refs_with_filter_args (s,e) =
 let unmarshall_find_refs_with_filter_args xml =
 	match (XMLRPC.From.array (fun x->x) xml) with
 			[s;e] -> (XMLRPC.From.string s, unmarshall_expr e)
+		| _ -> raise DB_remote_marshall_error
 let marshall_find_refs_with_filter_response sl =
 	marshall_stringlist sl
 let unmarshall_find_refs_with_filter_response xml =

@@ -467,7 +467,12 @@ let read_cache_stats timestamp =
 	let do_read cache_sr =
 		let (cache_stats_out,err) = Forkhelpers.execute_command_get_output "/opt/xensource/bin/tapdisk-cache-stats" [cache_sr] in
 		let assoc_list = 
-			List.filter_map (fun line -> try let hd::tl = String.split '=' line in Some (hd,String.concat "=" tl) with _ -> None) 
+			List.filter_map (fun line -> try 
+				begin match String.split '=' line with
+					| hd :: tl -> Some (hd,String.concat "=" tl)
+					| _ -> None
+				end
+			with _ -> None) 
 				(String.split '\n' cache_stats_out) 
 		in
 		(*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
