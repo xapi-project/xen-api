@@ -9,7 +9,6 @@ OCAMLPACKS    = stdext log
 	autogen \
 	xe-cli \
 	xapimon \
-	cvm \
 	guest_installer \
 	client_records \
 	idl \
