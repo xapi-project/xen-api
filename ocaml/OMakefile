@@ -17,7 +17,6 @@ OCAMLPACKS    = stdext log
 	xenops \
 	xenops-ts \
 	xva \
-	guest \
 	console \
 	auth \
 	events \
