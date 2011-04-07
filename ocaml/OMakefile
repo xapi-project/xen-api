@@ -16,7 +16,6 @@ OCAMLPACKS    = stdext log
 	xenguest \
 	xenops \
 	xenops-ts \
-	xsrpc \
 	xva \
 	guest \
 	console \
