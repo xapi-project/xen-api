@@ -972,6 +972,7 @@ let resume ~__context ~xc ~xs ~vm =
 	Xapi_xenops_errors.handle_xenops_error (fun () ->
 		(* TTT: check if the domain is really cooperative *)
 		Domain.resume ~xs ~xc ~hvm ~cooperative:true domid;
+		Domain.cpuid_apply ~xc ~hvm domid;
 		Domain.unpause ~xc domid) 
 
 (** Starts up a VM, leaving it in the paused state *)
