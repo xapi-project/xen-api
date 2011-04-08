@@ -9,6 +9,7 @@ let add_fake_ds uuid ds_name ds_type value =
 		| "absolute" -> Rrd.Absolute
 		| "gauge" -> Rrd.Gauge
 		| "derive" -> Rrd.Derive
+		| _ -> failwith "Unknown ds type"
 	in
 	Unixext.mkdir_rec fake_dir 0o755;
 	let fname = Printf.sprintf "%s/%s.fakestats" fake_dir uuid in
