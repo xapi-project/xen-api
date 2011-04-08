@@ -1127,6 +1127,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				(fun () ->
 					with_vbds_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
 						(fun vbds ->
+							Xapi_vbd_helpers.assert_no_duplicate_vdis ~__context ~vm ~vbds;
+
 							with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
 								(fun vifs ->
 									(* The start operation makes use of the cached memory overhead *)

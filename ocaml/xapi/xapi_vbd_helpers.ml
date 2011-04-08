@@ -396,3 +396,22 @@ let copy ~__context ?vdi ~vm vbd =
 		~runtime_properties:[]
 		~metrics:metrics;
 	new_vbd
+
+module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
+
+let assert_no_duplicate_vdis ~__context ~vm ~vbds = 
+	(* Make a table of VDI to list of VBDs *)
+	let vdis = List.fold_left (fun vdis vbd ->
+		let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+		let existing = if VDIMap.mem vdi vdis then VDIMap.find vdi vdis else [] in
+		VDIMap.add vdi (vbd :: existing) vdis) VDIMap.empty vbds in
+	(* If any VDI is associated with more than one VBD then throw an error *)
+	VDIMap.iter
+		(fun vdi vbds -> match vbds with
+			| [] -> assert false (* by construction *)
+			| [ vbd ] -> () 
+			| vbd :: _ ->
+				raise (Api_errors.Server_error 
+					(Api_errors.vm_duplicate_vdi, [ Ref.string_of vm; Ref.string_of vbd; Ref.string_of vdi]))
+		) vdis
+
