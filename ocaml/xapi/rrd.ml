@@ -32,13 +32,13 @@ open Pervasiveext
 
 
 (** Data source types - see ds datatype *)									   
-type ds_type = Absolute | Gauge | Derive 
+type ds_type = Absolute | Gauge | Derive with rpc
 
 (** Consolidation function - see RRA datatype *)
 type cf_type = CF_Average | CF_Min | CF_Max | CF_Last
 
 (** Container so that we can handle different typed inputs *)
-type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown
+type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown with rpc
 
 (* utility *)
 let isnan x = match classify_float x with | FP_nan -> true | _ -> false
@@ -76,6 +76,28 @@ type cdp_prep = {
   mutable cdp_unknown_pdps: int;         (** How may PDPs have been unknown so far *)
 }
 
+(** DS - a data source
+    This defines how we deal with incoming data. Type is one of:
+    
+    - Absolute: meaning that the incoming data is an absolute rate
+    - Derive:   meaning that the rate must come from the difference between the 
+                incoming data and the previous value
+    - Gauge:    meaning that the value isn't a rate at all (e.g. temperature, load avg)
+
+    Optionally, there is a maximum time greater than which we mark the PDPs
+    as unknown. *)
+
+type ds = {
+  ds_name : string;                  (** Name *)
+  ds_ty : ds_type;                   (** Type (as above) *)
+  ds_min : float;             
+  ds_max : float;
+  ds_mrhb : float;                   (** Maximum time between updates *)
+  mutable ds_last : ds_value_type;   (** Last value *)
+  mutable ds_value: float;           (** The accumulator for the PDP value *)
+  mutable ds_unknown_sec: float;     (** Number of seconds that are unknown in the current PDP *)
+} with rpc 
+
 (** RRA - RRD archive
     This is an archive that holds consolidated data points (CDPs). It 
     defines the type of consolidation that happens (average, max, min or last),
@@ -94,29 +116,8 @@ type rra = {
   mutable rra_updatehook : (rrd -> int -> unit) option; (** Hook that gets called when an update happens *)
 }
 
-(** DS - a data source
-    This defines how we deal with incoming data. Type is one of:
-    
-    - Absolute: meaning that the incoming data is an absolute rate
-    - Derive:   meaning that the rate must come from the difference between the 
-                incoming data and the previous value
-    - Gauge:    meaning that the value isn't a rate at all (e.g. temperature, load avg)
-
-    Optionally, there is a maximum time greater than which we mark the PDPs
-    as unknown. *)
-
-and ds = {
-  ds_name : string;                  (** Name *)
-  ds_ty : ds_type;                   (** Type (as above) *)
-  ds_min : float;             
-  ds_max : float;
-  ds_mrhb : float;                   (** Maximum time between updates *)
-  mutable ds_last : ds_value_type;   (** Last value *)
-  mutable ds_value: float;           (** The accumulator for the PDP value *)
-  mutable ds_unknown_sec: float;     (** Number of seconds that are unknown in the current PDP *)
-} 
-
 (** The container for the DSs. Also specifies the period between pdps *)
+
 and rrd = {
   mutable last_updated: float;           (** Last updated time in seconds *)
   timestep: int64;                       (** Period between PDPs *)
