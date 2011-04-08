@@ -22,7 +22,7 @@ SPECNAME=xapi-libs.spec
 build: srpm $(MY_SOURCES)/MANIFEST
 	mkdir -p $(RPM_RPMSDIR)
 	$(shell  cd .. ; ./autogen.sh)
-	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb  ../xapi-libs.spec
+	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb  $(RPM_SPECSDIR)/$(SPECNAME)
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
 
