@@ -218,7 +218,6 @@ let start_io_process block_dev ctrlsockpath datasockpath =
   Unix.access prog [Unix.F_OK; Unix.X_OK]; (* raises Unix.Unix_error if the file does not exist or is not executable *)
   (* Execute the process *)
   let args = ["-device"; block_dev; "-ctrlsock"; ctrlsockpath; "-datasock"; datasockpath] in
-  let fds_needed = [ Unix.stdin; Unix.stdout; Unix.stderr ] in
   Forkhelpers.safe_close_and_exec None None None [] prog args
 
 let connect sockpath latest_response_time =
@@ -561,7 +560,9 @@ let startup log =
 		        (* will throw Unix.Unix_error if not readable *)
 		          
 		        (* Start the I/O process *)
-		        let [ctrlsockpath; datasockpath] = List.map (fun suffix -> Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix) ["ctrl"; "data"] in
+		        let ctrlsockpath, datasockpath = 
+					let f suffix = Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix in
+					f "ctrl", f "data" in
 		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
 		        let p = start_io_process block_dev ctrlsockpath datasockpath in
 		          

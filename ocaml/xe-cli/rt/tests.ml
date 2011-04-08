@@ -199,7 +199,7 @@ let clone_test (cli : Util.t_cli) vmid =
   ensure_vm_down cli vmid 0;
   let runclone () =
     log Info "Cloning VM";
-    clone cli vmid "clone";
+    let (_: string list) = clone cli vmid "clone" in
     let newvmid = get_uuid cli "clone" in
     log Info "Starting VM";
     begin
@@ -367,13 +367,13 @@ let importexport (cli : Util.t_cli) vmid =
   ensure_vm_down cli vmid 0;
   let test () =
     log Info "Exporting VM";
-    Sys.command "rm -f /mnt/export";
-    export cli vmid "/mnt/export";
+    let (_: int) = Sys.command "rm -f /mnt/export" in
+    let (_: string list) = export cli vmid "/mnt/export" in
     log Info "Renaming current VM";
     try
-      set_param cli vmid "name-label" "tmp";
+      let (_: string list) = set_param cli vmid "name-label" "tmp" in
       log Info "Importing VM";
-      import cli "/mnt/export";
+      let (_: string list) = import cli "/mnt/export" in
       let newname=domainname in
       let newvmid=get_uuid cli newname in
       change_vm_state cli newvmid Start;
@@ -398,7 +398,7 @@ let importexport (cli : Util.t_cli) vmid =
       ignore(uninstall cli newvmid);
       ignore(set_param cli vmid "name-label" domainname);
     with e ->
-      set_param cli vmid "name-label" domainname;
+      let (_: string list) = set_param cli vmid "name-label" domainname in
       raise e
   in
   
@@ -571,7 +571,7 @@ let vif (cli : Util.t_cli) vmid =
       (if mac' <> mac || network' <> network then raise (Failure (Printf.sprintf "VIF test: expected (%s,%s) got (%s,%s)" network mac network' mac')));
       log Info "VIF added correctly. Removing";
       ignore(remove_nic cli vifuuid);
-      (try get_nic_params cli vifuuid; raise (Failure ("VIF "^name^" still present!")) with Failure x -> raise (Failure x));
+      (try let (_: string * string * string) = get_nic_params cli vifuuid in raise (Failure ("VIF "^name^" still present!")) with Failure x -> raise (Failure x));
     in
     List.iter testfunc vifs
   in 
@@ -648,9 +648,9 @@ let param (cli : Util.t_cli) vmid =
     log Info "Testing setting/resetting parameters on stopped VM";
     let testfunc (param,value) = 
       let before = get_param cli vmid param in
-      set_param cli vmid param value;
+      let (_: string list) = set_param cli vmid param value in
       let after = get_param cli vmid param in
-      set_param cli vmid param before;
+      let (_: string list) = set_param cli vmid param before in
       let before2 = get_param cli vmid param in
       (if after <> value then raise (Failure ("setting "^param^" to '"^value^"' failed - got '"^after^"'")));
       log Info "Param: %s - before='%s' after='%s' reset to '%s'" param before after before2

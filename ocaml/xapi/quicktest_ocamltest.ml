@@ -64,4 +64,4 @@ let run_from_within_quicktest (test : test) =
 		end;
 		result
 
-	in run test 0; ()
+	in let (_: int*int) = run test 0 in ()

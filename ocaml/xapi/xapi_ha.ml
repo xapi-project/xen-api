@@ -338,7 +338,7 @@ module Monitor = struct
 							raise e in
 				debug "Liveset: %s" (Xha_interface.LiveSetInformation.to_summary_string liveset);
 				(* All hosts: Feed the current latency values into the per-host RRDs (if available) *)
-				Opt.map
+				Opt.iter
 					(fun local ->
 						Mutex.execute Xapi_ha_stats.m
 							(fun () ->
@@ -356,7 +356,7 @@ module Monitor = struct
 
 				(* All hosts: create alerts from per-host warnings (if available) *)
 				debug "Processing warnings";
-				Opt.map
+				Opt.iter
 					(fun warning ->
 						warning_statefile_lost warning.Xha_interface.LiveSetInformation.Warning.statefile_lost;
 						warning_heartbeat_approaching_timeout warning.Xha_interface.LiveSetInformation.Warning.heartbeat_approaching_timeout;
@@ -443,7 +443,6 @@ module Monitor = struct
 
 				(* Find hosts whose license expiry is in the past and forcibly disable them if necessary. *)
 				let license_has_expired host =
-				let params = Db.Host.get_license_params ~__context ~self:host in
 				try
 					License_check.check_expiry ~__context ~host;
 					false
@@ -1461,7 +1460,7 @@ let enable __context heartbeat_srs configuration =
 		(* Update the Pool's planning configuration (ha_overcommitted, ha_plan_exists_for) *)
 		(* Start by assuming there is no ha_plan_for: this can be revised upwards later *)
 		Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L;
-		Xapi_ha_vm_failover.update_pool_status ~__context;
+		let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in
 
 		let generation = Uuid.string_of_uuid (Uuid.make_uuid ()) in
 
@@ -1470,7 +1469,7 @@ let enable __context heartbeat_srs configuration =
 		(* This code always runs on the master *)
 		let statefiles = attach_statefiles ~__context (!statefile_vdis) in
 		write_config_file ~__context statefiles generation;
-		call_script ha_set_pool_state [ "init" ];
+		let (_: string) = call_script ha_set_pool_state [ "init" ] in
 
 		(* It's unnecessary to remember the path since this can be queried dynamically *)
 		ignore(attach_metadata_vdi ~__context database_vdi);

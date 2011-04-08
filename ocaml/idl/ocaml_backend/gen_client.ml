@@ -181,6 +181,7 @@ let gen_module api : O.Module.t =
     "  | Success [x] -> x";
     "  | Success _ -> invalid_arg \"more than one result from an RPC\"";
     "  | Failure(code, strings) -> server_failure code strings";
+	"  | _ -> invalid_arg \"unexpected result from an RPC\"";
   ]
   in
   let async =

@@ -29,7 +29,6 @@ open Printf
 let check_operation_error ~__context ha_enabled record _ref' op = 
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
-  let vdi_is_sharable = record.Db_actions.vDI_sharable in
 
   let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
 
@@ -313,9 +312,7 @@ open Client
 let snapshot ~__context ~vdi ~driver_params =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-  let task_id = Ref.string_of (Context.get_task_id __context) in
   let a = Db.VDI.get_record_internal ~__context ~self:vdi in
-  let sr = Db.VDI.get_SR ~__context ~self:vdi in
 
   let call_snapshot () = 
     Sm.call_sm_vdi_functions ~__context ~vdi
@@ -363,7 +360,6 @@ let destroy ~__context ~self =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
-  let sr = Db.VDI.get_SR ~__context ~self in
   let attached_vbds = List.filter 
     (fun vbd->
        let r = Db.VBD.get_record_internal ~__context ~self:vbd in
@@ -565,13 +561,22 @@ let set_on_boot ~__context ~self ~value =
 let set_allow_caching ~__context ~self ~value =
 	Db.VDI.set_allow_caching ~__context ~self ~value
 
+(* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
+(* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
+let try_update_vdi ~__context ~self =
+	try
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.VDI.update ~rpc ~session_id ~vdi:self)
+	with e ->
+		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
+
 let set_name_label ~__context ~self ~value =
 	Db.VDI.set_name_label ~__context ~self ~value;
-	update ~__context ~vdi:self
+	try_update_vdi ~__context ~self
 
 let set_name_description ~__context ~self ~value =
 	Db.VDI.set_name_description ~__context ~self ~value;
-	update ~__context ~vdi:self
+	try_update_vdi ~__context ~self
 
 let checksum ~__context ~self =
 	let do_checksum f = Digest.to_hex (Digest.file f) in

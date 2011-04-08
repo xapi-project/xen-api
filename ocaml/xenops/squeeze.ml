@@ -369,11 +369,9 @@ module Squeezer = struct
 		let all p xs = List.fold_left (&&) true (List.map p xs) in
 		let hit_target domain = has_hit_target domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
 		let all_targets_reached = all hit_target active_domains in
-		let min_target domain = domain.target_kib = domain.dynamic_min_kib in
 		let max_target domain = domain.target_kib = domain.dynamic_max_kib in
 
 		let cant_allocate_any_more = all max_target active_domains in
-		let cant_free_any_more = all min_target active_domains in
 
 		(* Note the asymmetry between:
 		   1. increasing free memory: if we think we can't free enough then we give up
@@ -604,7 +602,6 @@ let is_host_memory_unbalanced ?fistpoints io =
   let debug_string, host = io.make_host () in
   let domains = List.map (fun d -> d.domid, d) host.domains in
 
-  let t = io.gettimeofday () in
   let _, _, _, result = Squeezer.one_iteration ?fistpoints false
     (is_balanced io) (Squeezer.make ()) host 
     io.target_host_free_mem_kib (io.gettimeofday ()) in

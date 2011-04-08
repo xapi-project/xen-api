@@ -482,7 +482,9 @@ let reboot_wait cli vmid =
     true
   with
       _ -> false
-	
+
+type run_command_output = string list * Unix.process_status	
+
 (** Shutdown hard *)
 let shutdown_phase3 cli vmid =
   try
@@ -492,7 +494,7 @@ let shutdown_phase3 cli vmid =
     CliOpFailed ls ->
       log Log.Warn "shutdown_phase3: Shutdown failed - cli reported:";
       List.iter (fun l -> log Log.Error "%s" l) ls;
-      run_command !Commands.list_domains;
+      let (_: run_command_output) = run_command !Commands.list_domains in
       raise (OpFailed "Shutdown failed!")
   | e ->
       log Log.Warn "shutdown_phase2: Exception caught: %s" (Printexc.to_string e);
@@ -515,7 +517,7 @@ let shutdown_phase2 cli vmid =
     CliOpFailed ls ->
       log Log.Warn "shutdown_phase2: Shutdown failed - cli reported:";
       List.iter (fun l -> log Log.Error "%s" l) ls;
-      run_command !Commands.list_domains;
+      let (_: run_command_output) = run_command !Commands.list_domains in
       next ()
   | (OpFailed x) as e ->
       raise e
@@ -543,7 +545,7 @@ let shutdown_phase1 cli vmid =
       end	
   with 
     (OpFailed x) as e ->
-      run_command !Commands.list_domains;
+      let (_: run_command_output) = run_command !Commands.list_domains in
       raise e
   | e ->
       log Log.Warn "shutdown_phase1: Exception caught: %s" (Printexc.to_string e);
@@ -561,7 +563,7 @@ let reboot_phase2 cli vmid =
     CliOpFailed ls ->
       log Log.Error "reboot_phase2: Reboot failed: cli reported:";
       List.iter (fun l -> log Log.Error "%s" l) ls;
-      run_command !Commands.list_domains;
+      let (_: run_command_output) = run_command !Commands.list_domains in
       raise (OpFailed "Failed to reboot")
   | e ->
       log Log.Error "reboot_phase2: Reboot failed: exception caught: %s" (Printexc.to_string e);
@@ -577,7 +579,7 @@ let reboot_phase1 cli vmid =
       begin
 	ignore(run_ga_command (List.assoc vmid !ipmap) "reboot 10");
 	(* Guest powerstate nolonger glitches to Halted in the middle of a reboot *)
-	reboot_wait cli vmid;
+	let (_: bool) = reboot_wait cli vmid in
 	wait_for_up cli vmid;
       end	
     else
@@ -587,7 +589,7 @@ let reboot_phase1 cli vmid =
       end
   with 
     | (OpFailed x) as e -> (* next might have raise this, in which case, pass it through *)
-	run_command !Commands.list_domains;
+	let (_: run_command_output) = run_command !Commands.list_domains in
 	raise e
     | CliOpFailed ls ->
 	log Log.Warn "reboot_phase1: Cli op failed: %s" (String.concat "; " ls);
@@ -604,7 +606,7 @@ let change_vm_state cli vmid st =
       Start -> 
 	begin
 	  try
-	    expect_success (fun () -> cli "vm-start" params);
+	    let (_: string list) = expect_success (fun () -> cli "vm-start" params) in
 	    let domid = get_client_domid vmid in
 	    log Log.Info "New domid: %d" domid;
 	    log Log.Info "Waiting for VM to start...";
@@ -626,7 +628,7 @@ let change_vm_state cli vmid st =
 	    CliOpFailed ls ->
 	      log Log.Error "change_vm_state: VM suspend failed: cli reported:";
 	      List.iter (fun l -> log Log.Error "%s" l) ls;
-	      run_command !Commands.list_domains;
+	      let (_: run_command_output) = run_command !Commands.list_domains in
 	      raise (OpFailed "Failed to suspend VM")
 	end
     | Reboot -> 
@@ -689,7 +691,7 @@ let rec ensure_vm_down cli vmid count =
       ensure_vm_down cli vmid (count+1)
   | "migrating" ->
       raise (OpFailed "Host is corrently migrating!")
-  | "unknown" ->
+  | _ ->
       raise (OpFailed "Host is in an unknown state!")
 
 

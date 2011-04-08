@@ -3,7 +3,7 @@ OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
 OCAMLPACKS    =  xml-light2 uuid sexpr log stunnel http-svr
 
 OCamlProgram(xapi-db-upgrade-4.2, xapi-db-upgrade-4.2)
-OCamlProgram(xapi-db-process, xapi-db-process)
+OCamlProgram(xapi-db-process, xapi_db_process)
 
 .PHONY: install
 install:

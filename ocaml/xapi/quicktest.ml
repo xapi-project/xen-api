@@ -383,8 +383,6 @@ let test_vhd_locking_hook session_id vm =
 	start test;
 	Client.VM.start !rpc session_id vm false false;
 	(* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
-	let vbds = Client.VM.get_VBDs !rpc session_id vm in
-	let vdis = List.map (fun vbd -> Client.VBD.get_VDI !rpc session_id vbd) vbds in
 
 	let pool = get_pool session_id in
 	let default_SR = Client.Pool.get_default_SR !rpc session_id pool in

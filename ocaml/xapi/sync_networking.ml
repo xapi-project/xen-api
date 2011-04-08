@@ -106,6 +106,7 @@ let copy_bonds_from_master ~__context =
 			| [ _, { API.pIF_uuid = uuid } ], _ ->
 				warn "Couldn't create bond on slave because PIF %s already on network %s"
 					uuid (Db.Network.get_uuid ~__context ~self:network)
+			| _ -> warn "Unexpected bond configuration"
 		in
 		let master_bonds =
 			List.filter (fun (_, b) -> List.mem b.API.bond_master (List.map fst all_master_pifs)) all_bonds in
@@ -192,10 +193,11 @@ let copy_tunnels_from_master ~__context =
 		let master_tunnel_pifs = List.filter (fun (_,prec) -> prec.API.pIF_tunnel_access_PIF_of <> []) all_master_pifs in
 		let my_tunnel_pifs = List.filter (fun (_,prec) -> prec.API.pIF_tunnel_access_PIF_of <> []) my_pifs in
 
-		let get_network_of_transport_pif access_pif =
-			let [tunnel] = Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif in
-			let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
-			Db.PIF.get_network ~__context ~self:transport_pif
+		let get_network_of_transport_pif access_pif = match Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif with
+			| [tunnel] ->
+				let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+				Db.PIF.get_network ~__context ~self:transport_pif
+			| _ -> failwith (Printf.sprintf "PIF %s has no tunnel_access_PIF_of" (Ref.string_of access_pif))
 		in
 		
 		let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =

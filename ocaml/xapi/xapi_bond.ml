@@ -59,7 +59,6 @@ let get_local_vms ~__context host =
 let move_vlan ~__context new_slave old_vlan vifs =
 	let old_master = Db.VLAN.get_untagged_PIF ~__context ~self:old_vlan in
 	let vlan_tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
-	let old_network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
 	if plugged then
 		Nm.bring_pif_down ~__context old_master;
@@ -289,9 +288,6 @@ let create ~__context ~network ~members ~mAC ~mode =
 			else
 				Db.PIF.get_MAC ~__context ~self:primary_slave
 		in
-		let disallow_unplug =
-			List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
-		in
 
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
@@ -380,7 +376,7 @@ let destroy ~__context ~self =
 
 		(* Move VIFs from master to slaves *)
 		debug "Moving VIFs from master to slaves";
-		List.map (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
+		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
 
 		(* Move VLANs down *)
 		debug "Moving VLANs from master to slaves";

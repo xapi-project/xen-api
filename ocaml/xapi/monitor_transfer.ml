@@ -43,7 +43,9 @@ let unmarshall_vifs xml =
 	    vif_raw_tx=0L;
 	    vif_raw_rx=0L;
 	    vif_raw_tx_err=0L;
-	    vif_raw_rx_err=0L}) in
+	    vif_raw_rx_err=0L})
+		| _ -> failwith (Printf.sprintf "unmarshall_vifs unexpected XML: %s" (Xml.to_string xml))
+ in
     List.map f (XMLRPC.From.array (fun x->x) xml)
 
 let marshall_vbds l =
@@ -68,7 +70,9 @@ let unmarshall_vbds xml =
 	    vbd_io_read=float_of_string (XMLRPC.From.string i64_1);
 	    vbd_io_write=float_of_string (XMLRPC.From.string i64_2);
 	    vbd_raw_io_read=0L;
-	    vbd_raw_io_write=0L;}) in
+	    vbd_raw_io_write=0L;})
+		| _ -> failwith (Printf.sprintf "unmarshall_vbds unexpected XML: %s" (Xml.to_string xml))
+ in
     List.map f (XMLRPC.From.array (fun x->x) xml)
 
 let marshall_float_array (a : float array) =
@@ -84,6 +88,7 @@ let marshall_pcpus pcpus =
 let unmarshall_pcpus xml =
     match XMLRPC.From.array (fun x->x) xml with
 	[ia] -> {pcpus_usage=unmarshall_float_array ia}
+ 		| _ -> failwith (Printf.sprintf "unmarshall_pcpus unexpected XML: %s" (Xml.to_string xml))
 
 
 let marshall_vcpus l =
@@ -107,7 +112,9 @@ let unmarshall_vcpus xml =
 	    vcpu_vcpus=unmarshall_float_array ia;
 	    vcpu_rawvcpus=[| |];
 	    vcpu_cputime=0L;
-	   }) in
+	   })
+		| _ -> failwith (Printf.sprintf "unmarshall_vcpus unexpected XML: %s" (Xml.to_string xml))
+ in
     List.map f (XMLRPC.From.array (fun x->x) xml)
 
 let marshall_memory l =
@@ -126,7 +133,9 @@ let unmarshall_memory xml =
     match XMLRPC.From.array (fun x->x) xml with
 	[uuid;i64] ->
 	  (XMLRPC.From.string uuid,
-	   {memory_mem=Int64.of_string (XMLRPC.From.string i64)}) in
+	   {memory_mem=Int64.of_string (XMLRPC.From.string i64)})
+		| _ -> failwith (Printf.sprintf "unmarshall_memory unexpected XML: %s" (Xml.to_string xml))
+ in
     List.map f (XMLRPC.From.array (fun x->x) xml)
 
 let marshall_pifs pifs =
@@ -158,7 +167,9 @@ let unmarshall_pifs xml =
 		 pif_duplex=Netdev.Link.duplex_of_string (XMLRPC.From.string duplex);
 		 pif_pci_bus_path=XMLRPC.From.string pcibuspath;
 		 pif_vendor_id=XMLRPC.From.string vendor;
-		 pif_device_id=XMLRPC.From.string device} in
+		 pif_device_id=XMLRPC.From.string device}
+		| _ -> failwith (Printf.sprintf "unmarshall_pifs unexpected XML: %s" (Xml.to_string xml))
+ in
 	List.map f (XMLRPC.From.array (fun x -> x) xml)
 
 let marshall_uuids uuids =
@@ -212,7 +223,9 @@ let unmarshall_host_stats xml =
 					 vcpus=unmarshall_vcpus vcpus;
 					 mem=unmarshall_memory mem;
 					 registered=unmarshall_uuids uuids}
+				| _ -> failwith (Printf.sprintf "unmarshall_host_stats unexpected XML: %s" (Xml.to_string xml))
 		end
+		| _ -> failwith (Printf.sprintf "unmarshall_host_stats unexpected XML: %s" (Xml.to_string xml))
 
 let marshall hs = 
   marshall_host_stats hs

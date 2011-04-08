@@ -1,7 +1,0 @@
-OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
-OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS)
-CFLAGS          += $(XEN_CFLAGS)
-OCAMLPACKS	    += xsrpc
-
-OCamlProgram(xsrpc, xsrpc_client)
-OCamlProgram(xsrpcd-util, xsrpcd-util)

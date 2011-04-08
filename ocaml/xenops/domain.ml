@@ -392,13 +392,12 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
 		domid xen_max_mib shadow_mib required_host_free_mib;
 
 	(* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-	Memory.wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib);
+	let (_: bool) = Memory.wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib) in
 
 	let shadow_mib = Int64.to_int shadow_mib in
 
 	let dom_path = xs.Xs.getdomainpath domid in
 	let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
-	let has_platform_flag flag = try bool_of_string (read_platform flag) with _ -> false in
 	let int_platform_flag flag = try Some (int_of_string (read_platform flag)) with _ -> None in
 	let timer_mode = int_platform_flag "timer_mode" in
 	let hpet = int_platform_flag "hpet" in

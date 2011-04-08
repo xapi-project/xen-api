@@ -41,8 +41,8 @@ let map f x = { x with evaluate = fun ~xs -> result_map f (x.evaluate ~xs) }
 let wait_for ~xs ?(timeout=60. *. 20.) (x: 'a t) =
   let result = ref None in
 
-  let start_time = Unix.gettimeofday () in
-  (* let time_taken () = Unix.gettimeofday () -. start_time in *)
+  (*let start_time = Unix.gettimeofday () in
+  let time_taken () = Unix.gettimeofday () -. start_time in *)
 
   let callback (path, _) = 
     match x.evaluate ~xs with

@@ -57,7 +57,7 @@ let get_all ~__context =
 	Db.Role.get_all ~__context*)
 
 let is_valid_role ~__context ~role =
-	try find_role_by_ref role; true with Not_found -> false
+	Hashtbl.mem static_role_by_ref_tbl role
 
 let get_common ~__context ~self ~static_fn ~db_fn =
 	try (* first look up across the static roles *)

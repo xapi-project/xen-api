@@ -9,8 +9,8 @@ OCAMLPACKS = xml-light2 uuid
 AUTOGEN_DIR = ../../autogen
 
 # only gen_api requires datamodel library:
-OCAMLINCLUDES += .. ../.. ../../templates
-OCAML_LIBS += ../../templates/template ../datamodel
+OCAMLINCLUDES += .. 
+OCAML_LIBS += ../datamodel
 
 OCamlProgram(main, main)
 

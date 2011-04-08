@@ -141,7 +141,6 @@ let xmlrpc_of_call (call: call) =
   XMLRPC.To.methodCall call.cmd [ XMLRPC.To.structure all ]
 
 let methodResponse xml =
-  let rtte name xml = raise (XMLRPC.RunTimeTypeError(name, xml)) in
   match xml with
   | Xml.Element("methodResponse", _, [ Xml.Element("params", _, [ Xml.Element("param", _, [ param ]) ]) ]) ->
       XMLRPC.Success [ param ]
@@ -222,7 +221,10 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
 	let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
 	raise (Api_errors.Server_error(xenapi_code, [ ""; reason; stderr ]))
 	  
-    | XMLRPC.Success [ result ] -> result in
+    | XMLRPC.Success [ result ] -> result
+	| _ ->
+		raise (Api_errors.Server_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
+ in
   if needs_session
   then with_session call.sr_ref (fun session_id -> do_call { call with session_ref = Some session_id })
   else do_call call

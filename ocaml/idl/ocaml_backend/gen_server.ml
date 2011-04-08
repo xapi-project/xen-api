@@ -75,16 +75,14 @@ let operation (obj: obj) (x: message) =
   let msg_params_with_default_values = List.filter (fun p -> p.DT.param_default<>None) msg_params in
   let msg_params_without_default_values = List.filter (fun p -> p.DT.param_default=None) msg_params in
 
-  let msg_with_default_values = {x with DT.msg_params=msg_params_with_default_values} in
   let msg_without_default_values = {x with DT.msg_params=msg_params_without_default_values} in
   
   let all_args = Client.args_of_message obj x in
-  let args_with_default_values = Client.args_of_message obj msg_with_default_values in
+
   let args_without_default_values = Client.args_of_message obj msg_without_default_values in
   
   (* Constructors use a <struct> on the wire *)
   let is_ctor = x.msg_tag = FromObject(Make) && Client.use_structure_in_ctor in    
-  let task = DT.Ref Datamodel._task in
     
   (* Result marshaller converts the result to a string for the Task table *)
   let result_marshaller = match x.msg_custom_marshaller, x.msg_result with
@@ -144,7 +142,6 @@ let operation (obj: obj) (x: message) =
 			       then [ "(* has asynchronous mode *)" ]
 			       else [ "(* has no asynchronous mode *)" ]
 			     ] in
-  let set_intra_pool_only = [ "let intra_pool_only = "^(string_of_bool x.msg_pool_internal)^" in" ] in
 
   (* Generate the unmarshalling code *)
   let rec add_counts i l =
@@ -201,7 +198,7 @@ let operation (obj: obj) (x: message) =
     
 		let session_check_exp =
 			if x.msg_session
-				then [ "Session_check.check intra_pool_only session_id;" ]
+				then [ "Session_check.check " ^ (string_of_bool x.msg_pool_internal) ^ " session_id;" ]
 				else []
 			in
 
@@ -209,7 +206,6 @@ let operation (obj: obj) (x: message) =
 		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
 		let type_xml = XMLRPC.TypeToXML.marshal ret in
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
-		let cls = OU.ocaml_of_obj_name obj.DT.name in
 		let common_let_decs =
 			[
 				"let marshaller = "^result_marshaller^" in";
@@ -240,7 +236,7 @@ let operation (obj: obj) (x: message) =
 		common_let_decs @ side_effect_let_decs @ body_exp in
 
   let all = String.concat "\n        "
-    (comments @ set_intra_pool_only @ unmarshall_code @ session_check_exp @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
+    (comments @ unmarshall_code @ session_check_exp @ rbac_check_begin @ (gen_body()) @ rbac_check_end) in
     
     ("    " ^ name_pattern_match ^ "\n" ^
     ("begin\n"
@@ -290,10 +286,6 @@ let gen_module api : O.Module.t =
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
 	      "let __call = if __async then Server_helpers.remove_async_prefix __call else __call in";
-              "let noasync () = ";
-	      "  " ^ (debug "No async mode for this operation" []);
-	      "  Fault(0l, \"No async mode for this operation (rpc: \"^__call^\")\") in" ] @
-	      [
 	      "let subtask_of = if http_req.Http.task <> None then http_req.Http.task else http_req.Http.subtask_of in";
 	      "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ?subtask_of:(Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
 (*

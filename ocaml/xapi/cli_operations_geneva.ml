@@ -59,7 +59,6 @@ let powerstate vm_r =
       | `Paused -> "PAUSED"
       | `Running -> "UP"
       | `Suspended -> "SUSPENDED"
-      | _ -> "UNKNOWN" 
 
 (* Functions to get objects from the database in convenient ways *)
 

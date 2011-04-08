@@ -46,7 +46,6 @@ let fetch_config_files ~master_address ~pool_secret =
 		 let fd = st_proc.Stunnel.fd in
 		 (* no content length since it's streaming *)
 		 let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
-		 let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
 		 let config_files = Unixext.string_of_fd fd in
 		 config_files
 	      )

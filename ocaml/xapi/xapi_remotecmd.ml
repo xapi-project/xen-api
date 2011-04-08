@@ -22,8 +22,6 @@ open Forkhelpers
 
 
 let do_cmd s cmd args =
-  let cmdline = String.concat " " (cmd :: args) in
-
   match with_logfile_fd "execute_command_get_output"
     (fun log_fd ->
       (* Capture stderr output for logging *)

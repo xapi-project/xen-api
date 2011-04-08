@@ -87,7 +87,7 @@ module Chunk = struct
 	let really_write fd offset buf off len = 
 		let n = Unix.write fd buf off len in
 		if n < len 
-		then failwith "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n
+		then failwith (Printf.sprintf "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n)
 
 	(** Writes a single block of data to the output device *)
 	let write fd x = 

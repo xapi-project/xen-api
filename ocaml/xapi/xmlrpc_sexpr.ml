@@ -143,10 +143,6 @@ let sexpr_to_xmlrpc (root:SExpr.t) =
 			let xml_noemptytags = List.filter (is_not_empty_tag) xmlvalues in 
 				(Element (tag, [], xml_noemptytags))
 
-		(* sexpr representing any other tag with no children *)
-		| h, _, (SExpr.Node (SExpr.String tag::[])) -> 
-			(Element (tag, [], []))
-
 		(* sexpr representing a pcdata *)
 		| h, _, (SExpr.String s) -> 
 			(PCData s)

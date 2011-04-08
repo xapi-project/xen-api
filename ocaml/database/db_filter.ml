@@ -66,7 +66,9 @@ let rec expr_of_xml xml =
 	      "and" -> And(expr_of_xml y, expr_of_xml z)
 	    | "or" -> Or(expr_of_xml y, expr_of_xml z)
 	    | "eq" -> Eq(val_of_xml y, val_of_xml z)
+		| _ -> raise XML_unmarshall_error
 	end
+	| _ -> raise XML_unmarshall_error
 
 let xml_of_val v =
   match v with

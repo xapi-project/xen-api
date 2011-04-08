@@ -116,7 +116,7 @@ let manage_concurrent_tests () =
 
 (* Remotely create fistpoint *)
 let with_fistpoint rpc session host name f x =
-  let check = Client.Host.call_plugin ~rpc ~session_id:session ~host ~plugin:Globs.helper_plugin ~fn:"mkfistpoint" 
+  let (_: string) = Client.Host.call_plugin ~rpc ~session_id:session ~host ~plugin:Globs.helper_plugin ~fn:"mkfistpoint" 
        ~args:[("fist_point",name)] in
   Pervasiveext.finally 
     (fun () -> f x) 
@@ -145,7 +145,7 @@ let safe_unplug rpc session_id self =
       debug "Timeout waiting for dom0 device to be unplugged";
       raise e
     end
-  | Api_errors.Server_error(error, _) as e when error = Api_errors.device_already_detached ->
+  | Api_errors.Server_error(error, _) when error = Api_errors.device_already_detached ->
       debug "safe_unplug caught device_already_detached: ignoring"
 
 (* Attach a vdi to dom0 and call the function f with the device name *)
@@ -153,8 +153,6 @@ let with_attached_vdi ?dom0 ?(mode=`RW) rpc session vdi f =
   let dom0 = match dom0 with
      | None -> fst (get_control_domain rpc session)
      | Some d -> d in
-
-  let host = Client.VM.get_resident_on ~rpc ~session_id:session ~self:dom0 in
 
   let rec getvbd n =
     let devices = Client.VM.get_allowed_VBD_devices ~rpc ~session_id:session ~vm:dom0 in
@@ -343,7 +341,7 @@ let wait_for_fist rpc session sr ?(delay=90.0) fist =
   let finished = ref false in
   let aborted = ref false in
 
-  let t = Thread.create (fun () -> 
+  let (_: Thread.t) = Thread.create (fun () -> 
     Thread.delay delay;
     debug "Timer has expired (%.0f seconds); logging out session" delay;
     Client.Session.logout rpc session2) ()
@@ -383,7 +381,7 @@ let wait_for_vdi_deletion rpc session sr ?(delay=90.0) vdis =
   let finished = ref (List.length vdis = 0) in
   let aborted = ref false in
 
-  let t = Thread.create (fun () -> 
+  let (_: Thread.t) = Thread.create (fun () -> 
     Thread.delay delay;
     debug "Timer has expired (%.0f seconds); logging out session" delay;
     Client.Session.logout rpc session2) ()
@@ -400,7 +398,7 @@ let wait_for_vdi_deletion rpc session sr ?(delay=90.0) vdis =
 	match Event_helper.record_of_event ev with
 	  | Event_helper.VDI (r,x) ->
               if ev.Event_types.op = Event_types.Del then begin
-                (match Event_helper.record_of_event ev with Event_helper.VDI(vdi,vdi_rec) -> debug "Received a VDI deletion event concerning VDI with uuid %s" vdi_rec.API.vDI_uuid);
+                (match Event_helper.record_of_event ev with Event_helper.VDI(vdi,vdi_rec) -> debug "Received a VDI deletion event concerning VDI with uuid %s" vdi_rec.API.vDI_uuid | _ -> assert false);
                 (* Remove it from the list of VDIs we are waiting to be deleted *)
                 vdis_remaining := List.filter (fun (vdi_ref,vdi_rec) -> vdi_ref <> r) !vdis_remaining;
                 debug "We are still waiting for VDIs %s" (vdis_to_uuids !vdis_remaining);

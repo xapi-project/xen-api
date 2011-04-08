@@ -33,7 +33,7 @@ let find_iscsi_iso rpc session_id =
 
 let assert_sr_exists rpc session_id sr name =
   if sr = Ref.null then raise (Multipathrt_exceptions.Test_error (Printf.sprintf "%s is null" name));
-  try Client.SR.get_record rpc session_id sr; () with _ -> raise (Multipathrt_exceptions.Test_error (Printf.sprintf "%s does not exist" name))
+  try let (_: API.sR_t) = Client.SR.get_record rpc session_id sr in () with _ -> raise (Multipathrt_exceptions.Test_error (Printf.sprintf "%s does not exist" name))
 
 let make_iscsi rpc session_id iscsi_luns num_vifs sr_disk_size key network =
 	let iscsi_iso = match find_iscsi_iso rpc session_id with
@@ -166,7 +166,7 @@ let wait_for_vm_to_run rpc session ?(delay=60.0) vm =
   let finished = ref false in
 
   (* Create a thread to kill the session if we timeout *)
-  let t = Thread.create (fun () ->
+  let (_: Thread.t) = Thread.create (fun () ->
     Thread.delay delay;
     debug "Timer has expired (%.0f seconds); logging out session" delay;
     Client.Session.logout rpc session2) ()
