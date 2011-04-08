@@ -419,13 +419,22 @@ let set_shared ~__context ~sr ~value =
       Db.SR.set_shared ~__context ~self:sr ~value
     end
 
+(* set_name_label and set_name_description attempt to persist the change to the storage backend. *)
+(* If the SR is detached this will fail, but this is OK since the SR will persist metadata on sr_attach. *)
+let try_update_sr ~__context ~sr =
+	try
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id -> Client.SR.update ~rpc ~session_id ~sr)
+	with e ->
+		debug "Could not persist change to SR - caught %s" (Printexc.to_string e)
+
 let set_name_label ~__context ~sr ~value =
 	Db.SR.set_name_label ~__context ~self:sr ~value;
-	update ~__context ~sr
+	try_update_sr ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
 	Db.SR.set_name_description ~__context ~self:sr ~value;
-	update ~__context ~sr
+	try_update_sr ~__context ~sr
 
 let set_virtual_allocation ~__context ~self ~value = 
   Db.SR.set_virtual_allocation ~__context ~self ~value
