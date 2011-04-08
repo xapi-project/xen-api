@@ -206,32 +206,27 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	(* Only consider migrating to other enabled hosts (not this one obviously) *)
 	let target_hosts = List.filter (fun self -> self <> host) enabled_hosts in
 
-	(* CA-24672: During a rolling upgrade, after the master has been upgraded, we
-	 * are not permitted to migrate to a slave which still uses the old version.
-	 * Hence only hosts with the same version as the master can be considered as
-	 * potential targets. *)
-	let master_version = Version.product_version in
-	debug "master version: %s" master_version;
+	(* PR-1007: During a rolling pool upgrade, we are only allowed to
+	   migrate VMs to hosts that have the same or higher version as
+	   the source host. So as long as host versions aren't decreasing,
+	   we're allowed to migrate VMs between hosts. *)
+	debug "evacuating host version: %s" (Helpers.version_string_of ~__context host) ;
 	let target_hosts = List.filter
-		(fun h ->
-			let host_software_version_map = Db.Host.get_software_version ~__context ~self:h in
-			let host_product_version = List.assoc "product_version" host_software_version_map in
-			debug "host %s version: %s" (Db.Host.get_hostname ~__context ~self:h) host_product_version;
-			(* We merely check for string equality since inequality
-			   implies that the host must be older, since the master is
-			   guaranteed to be at least as new as all other nodes in the
-			   pool. *)
-			master_version = host_product_version)
+		(fun target ->
+			debug "host %s version: %s"
+				(Db.Host.get_hostname ~__context ~self:target)
+				(Helpers.version_string_of ~__context target) ;
+			Helpers.host_versions_not_decreasing ~__context ~host_from:host ~host_to:target)
 		target_hosts
 	in
-	debug "target hosts are [%s]" (String.concat "; " (List.map (fun h -> Db.Host.get_hostname ~__context ~self:h) target_hosts));
+	debug "evacuation target hosts are [%s]"
+		(String.concat "; " (List.map (fun h -> Db.Host.get_hostname ~__context ~self:h) target_hosts)) ;
 
 	let all_vms = Db.Host.get_resident_VMs ~__context ~self:host in
 	let all_vms = List.map (fun self -> self, Db.VM.get_record ~__context ~self) all_vms in
 	let all_user_vms = List.filter (fun (_, record) -> not record.API.vM_is_control_domain) all_vms in
 
 	let plans = Hashtbl.create 10 in
-
 
 	if target_hosts = []
 	then
