@@ -1,19 +1,31 @@
 OCAMLPACKS    = stdext xs netdev log
 OCAML_LIBS    += ../xenops/xenops 
 OCAMLINCLUDES += ../xenops 
+
+CFLAGS += -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-strict-aliasing -std=gnu99
+CFLAGS += -mno-tls-direct-seg-refs
+CFLAGS += -Wall -Wstrict-prototypes -Wno-unused-value -Wdeclaration-after-statement -Werror -Wmissing-prototypes
+CFLAGS += -D__XEN_TOOLS__ -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_GNU_SOURCE
+
 OCamlProgram(xiu, xiu)
 OCamlDocProgram(xiu, xiu)
+DynamicCLibrary(libxenctrl_xiu, xenctrl_xiu)
 
 .PHONY: clean
 clean:
-	rm -rf $(CLEAN_OBJS) xiu
+	rm -rf $(CLEAN_OBJS) xiu libxenctrl_xiu.so
 
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)/opt/xensource/libexec
 	$(IPROG) xiu $(DESTDIR)/opt/xensource/libexec/
+	mkdir -p $(DESTDIR)/opt/xensource/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)/opt/xensource/lib
 
 .PHONY: sdk-install
 sdk-install:
 	mkdir -p $(DESTDIR)/opt/xensource/libexec
 	$(IPROG) xiu $(DESTDIR)/opt/xensource/libexec/
+	mkdir -p $(DESTDIR)/opt/xensource/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)/opt/xensource/lib
+	
