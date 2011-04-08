@@ -444,13 +444,15 @@ static struct xc_osdep_ops xiu_privcmd_ops =
 {
     .open      = &xiu_privcmd_open,
     .close     = &xiu_privcmd_close,
-    .u.privcmd   = {
- 	.hypercall = &xiu_privcmd_hypercall,
-
- 	.map_foreign_batch = &xiu_privcmd_map_foreign_batch,
- 	.map_foreign_bulk = &xiu_privcmd_map_foreign_bulk,
- 	.map_foreign_range = &xiu_privcmd_map_foreign_range,
- 	.map_foreign_ranges = &xiu_privcmd_map_foreign_ranges,
+    .u.privcmd = 
+    {
+        .hypercall = &xiu_privcmd_hypercall,
+        .map_foreign_batch = &xiu_privcmd_map_foreign_batch,
+        .map_foreign_bulk = &xiu_privcmd_map_foreign_bulk,
+        .map_foreign_range = &xiu_privcmd_map_foreign_range,
+        .map_foreign_ranges = &xiu_privcmd_map_foreign_ranges,
+        .arch_ioctl = NULL,
+        .restrict_to = NULL,
     }
 };
 
