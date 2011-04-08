@@ -110,6 +110,7 @@ OCAML_PHASE3_XEN = \
 	allxenops \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
+	ocaml/xiu/libxenctrl_xiu.so \
 	ocaml/xiu/xiu \
 	ocaml/xapi/fakeguestagent \
 	ocaml/xapi/quicktestbin \
