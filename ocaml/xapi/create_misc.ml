@@ -190,6 +190,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
 		~start_delay:0L
 		~shutdown_delay:0L
 		~order:0L
+		~suspend_SR:Ref.null 
+		~version:0L
 	;
 	Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 

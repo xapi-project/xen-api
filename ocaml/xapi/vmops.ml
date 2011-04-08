@@ -303,7 +303,7 @@ let general_domain_create_check ~__context ~vm ~snapshot =
     key/value pairs representing the VM's vCPU configuration. *)
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
-
+  let vcpus_current = Int64.to_int snapshot.API.vM_VCPUs_at_startup in
   let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
   debug "xen reports max %d pCPUs" pcpus;
 
@@ -326,7 +326,8 @@ let vcpu_configuration snapshot =
   let weight = Opt.map (fun x -> [ "vcpu/weight", string_of_int x ]) weight in
   let cap = Opt.map (fun x -> [ "vcpu/cap", string_of_int x ]) cap in
 
-  [ "vcpu/number", string_of_int vcpus ]
+  [ "vcpu/number", string_of_int vcpus;
+    "vcpu/current", string_of_int vcpus_current ]
   @ (Opt.default [] affinity)
   @ (Opt.default [] weight)
   @ (Opt.default [] cap)
@@ -971,6 +972,7 @@ let resume ~__context ~xc ~xs ~vm =
 	Xapi_xenops_errors.handle_xenops_error (fun () ->
 		(* TTT: check if the domain is really cooperative *)
 		Domain.resume ~xs ~xc ~hvm ~cooperative:true domid;
+		Domain.cpuid_apply ~xc ~hvm domid;
 		Domain.unpause ~xc domid) 
 
 (** Starts up a VM, leaving it in the paused state *)
@@ -1074,8 +1076,9 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 					debug "creating kernel";
 					create_kernel ~__context ~xc ~xs ~self:vm domid snapshot;
 					progress_cb 0.35;
-					if Xapi_globs.xenclient_enabled then
-						Domain.cpuid_apply ~xc ~hvm domid;
+
+					Domain.cpuid_apply ~xc ~hvm domid;
+
 					(* Attach and activate reqd vdis: if exn occurs then we do best
 					   effort cleanup -- that is detach and deactivate -- and then
 					   propogate original exception. We need an exn handler around

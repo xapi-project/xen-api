@@ -34,17 +34,16 @@ let get = function
 	| Db_ref.In_memory _ -> (module Local_db  : DB_ACCESS)
 	| Db_ref.Remote      -> (module Remote_db : DB_ACCESS)
 
-let apply_delta_to_cache entry =
+let apply_delta_to_cache entry db_ref =
 	let module DB = (Local_db : DB_ACCESS) in
-	let t = Db_backend.make () in
     let context = Context.make "redo_log" in
     match entry with 
 		| Redo_log.CreateRow(tblname, objref, kvs) ->
 			debug "Redoing create_row %s (%s)" tblname objref;
-			DB.create_row t tblname kvs objref
+			DB.create_row db_ref tblname kvs objref
 		| Redo_log.DeleteRow(tblname, objref) ->
 			debug "Redoing delete_row %s (%s)" tblname objref;
-			DB.delete_row t tblname objref
+			DB.delete_row db_ref tblname objref
 		| Redo_log.WriteField(tblname, objref, fldname, newval) ->
 			debug "Redoing write_field %s (%s) [%s -> %s]" tblname objref fldname newval;
-			DB.write_field t tblname objref fldname newval
+			DB.write_field db_ref tblname objref fldname newval

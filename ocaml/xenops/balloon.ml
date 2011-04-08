@@ -26,7 +26,7 @@ let _low_mem_balloon = "Low-mem balloon"
 let _high_mem_balloon = "High-mem balloon"
 
 (** Indicates whether or not we're running with XIU (Xen-In Userspace) *)
-let on_xiu () = Xc.using_injection ()
+let on_xiu () = Xc.is_fake ()
 
 (** Reads /proc/xen/balloon into a string * int64 option association list *)
 let parse_proc_xen_balloon () =

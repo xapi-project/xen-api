@@ -5,7 +5,7 @@ OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
 OCAMLPACKS    = stdext log
 
 .SUBDIRS: \
-    ptoken \
+	ptoken \
 	autogen \
 	xe-cli \
 	xapimon \
@@ -31,7 +31,6 @@ OCAMLPACKS    = stdext log
 	rfb \
 	database \
 	toplevel \
-	xenstored \
 	xstest \
 	xiu \
 	cdrommon \

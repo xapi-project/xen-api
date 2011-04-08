@@ -34,7 +34,7 @@
 #include <caml/signals.h>
 #include <caml/fail.h>
 
-#define _H(__h) (Int_val(__h))
+#define _H(__h) ((xc_interface *)(__h))
 #define _D(__d) ((uint32_t)Int_val(__d))
 
 #define None_val (Val_int(0))
@@ -54,6 +54,7 @@
    is considered true is the string 'true' */
 struct flags {
   int vcpus;
+  int vcpus_current;
   uint64_t vcpu_affinity; /* 0 means unset */
   uint16_t vcpu_weight;   /* 0 means unset (0 is an illegal weight) */
   uint16_t vcpu_cap;      /* 0 is default (no cap) */
@@ -118,6 +119,7 @@ static void
 get_flags(struct flags *f, int domid) 
 {
   f->vcpus    = xenstore_get("vcpu/number",domid);
+  f->vcpus_current = xenstore_get("vcpu/current",domid);
   f->vcpu_affinity = xenstore_get("vcpu/affinity",domid);
   f->vcpu_weight = xenstore_get("vcpu/weight", domid);
   f->vcpu_cap = xenstore_get("vcpu/cap", domid);
@@ -138,23 +140,24 @@ get_flags(struct flags *f, int domid)
 }
 
 
-static void failwith_oss_xc(char *fct)
+static void failwith_oss_xc(xc_interface *xch, char *fct)
 {
 	char buf[80];
 	const xc_error *error;
 
-	error = xc_get_last_error();
+	error = xc_get_last_error(xch);
 	if (error->code == XC_ERROR_NONE)
 		snprintf(buf, 80, "%s: [%d] %s", fct, errno, strerror(errno));
 	else
 		snprintf(buf, 80, "%s: [%d] %s", fct, error->code, error->message);
-	xc_clear_last_error();
+	xc_clear_last_error(xch);
 	caml_failwith(buf);
 }
 
-static int dispatch_suspend(int domid)
+static int dispatch_suspend(void *arg)
 {
 	value * __suspend_closure;
+	int domid = (int) arg;
 	int ret;
 
 	__suspend_closure = caml_named_value("suspend_callback");
@@ -172,41 +175,55 @@ static int suspend_flag_list[] = {
 
 CAMLprim value stub_xenguest_init()
 {
-	int handle;
+	xc_interface *xch;
 
-	handle = xc_interface_open();
-	if (handle == -1)
-		failwith_oss_xc("xc_interface_open");
-	return Val_int(handle);
+	xch = xc_interface_open(NULL, NULL, 0);
+	if (xch == NULL)
+		failwith_oss_xc(NULL, "xc_interface_open");
+	return (value)xch;
 }
 
 CAMLprim value stub_xenguest_close(value xenguest_handle)
 {
 	CAMLparam1(xenguest_handle);
-	xc_interface_close(Int_val(xenguest_handle));
+	xc_interface_close(_H(xenguest_handle));
 	CAMLreturn(Val_unit);
 }
 
-extern struct xc_dom_image *xc_dom_allocate(const char *cmdline, const char *features);
+extern struct xc_dom_image *xc_dom_allocate(xc_interface *xch, const char *cmdline, const char *features);
 
-static void configure_vcpus(int handle, int domid, struct flags f){
+static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
   struct xen_domctl_sched_credit sdom;
   int i, r;
   if (f.vcpu_affinity != 0L){ /* 0L means unset */
-    for (i=0; i<f.vcpus; i++){
-      r = xc_vcpu_setaffinity(handle, domid, i, f.vcpu_affinity);
-      if (r)
-	failwith_oss_xc("xc_vcpu_setaffinity");
+    xc_cpumap_t cpumap = xc_cpumap_alloc(xch);
+    if (cpumap == NULL)
+      failwith_oss_xc(xch, "xc_cpumap_alloc");
+
+    for (i=0; i<64; i++) {
+      if (f.vcpu_affinity & 1<<i)
+        cpumap[i/8] |= 1 << (i&7);
     }
-  };
-  r = xc_sched_credit_domain_get(handle, domid, &sdom);
-  if (r)
-    failwith_oss_xc("xc_sched_credit_domain_get");
+
+    for (i=0; i<f.vcpus; i++){
+        r = xc_vcpu_setaffinity(xch, domid, i, cpumap);
+      if (r) {
+        free(cpumap);
+	failwith_oss_xc(xch, "xc_vcpu_setaffinity");
+      }
+    }
+
+    free(cpumap);
+  }
+
+  r = xc_sched_credit_domain_get(xch, domid, &sdom);
+      if (r)
+    failwith_oss_xc(xch, "xc_sched_credit_domain_get");
   if (f.vcpu_weight != 0L) sdom.weight = f.vcpu_weight;
   if (f.vcpu_cap != 0L) sdom.cap = f.vcpu_cap;
-  r = xc_sched_credit_domain_set(handle, domid, &sdom);
+  r = xc_sched_credit_domain_set(xch, domid, &sdom);
   if (r)
-    failwith_oss_xc("xc_sched_credit_domain_set");
+    failwith_oss_xc(xch, "xc_sched_credit_domain_set");
 }
 
 CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
@@ -228,7 +245,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 	char c_protocol[64];
 
 	/* Copy the ocaml values into c-land before dropping the mutex */
-	int c_xc_handle = _H(xc_handle);
+	xc_interface *xch = _H(xc_handle);
 	unsigned int c_mem_start_mib = Int_val(mem_start_mib);
 	uint32_t c_domid = _D(domid);
 	char *c_image_name = strdup(String_val(image_name));
@@ -240,15 +257,15 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 	struct flags f;
 	get_flags(&f,c_domid);
 
-	xc_dom_loginit();
-	dom = xc_dom_allocate(String_val(cmdline), String_val(features));
+	xc_dom_loginit(xch);
+	dom = xc_dom_allocate(xch, String_val(cmdline), String_val(features));
 	if (!dom)
-		failwith_oss_xc("xc_dom_allocate");
+		failwith_oss_xc(xch, "xc_dom_allocate");
 
-	configure_vcpus(c_xc_handle, c_domid, f);
+	configure_vcpus(xch, c_domid, f);
 
 	caml_enter_blocking_section();
-	r = xc_dom_linux_build(c_xc_handle, dom, c_domid, c_mem_start_mib,
+	r = xc_dom_linux_build(xch, dom, c_domid, c_mem_start_mib,
 	                       c_image_name, c_ramdisk_name, c_flags,
 	                       c_store_evtchn, &store_mfn,
 	                       c_console_evtchn, &console_mfn);
@@ -264,7 +281,7 @@ CAMLprim value stub_xc_linux_build_native(value xc_handle, value domid,
 	xc_dom_release(dom);
 
 	if (r != 0)
-		failwith_oss_xc("xc_dom_linux_build");
+		failwith_oss_xc(xch, "xc_dom_linux_build");
 
 	result = caml_alloc_tuple(3);
 	Store_field(result, 0, caml_copy_nativeint(store_mfn));
@@ -282,15 +299,16 @@ CAMLprim value stub_xc_linux_build_bytecode(value * argv, int argn)
 	                                  argv[8], argv[9], argv[10]);
 }
 
-static int hvm_build_set_params(int handle, int domid,
+static int hvm_build_set_params(xc_interface *xch, int domid,
                                 int store_evtchn, unsigned long *store_mfn,
+                                int console_evtchn, unsigned long *console_mfn,
 				struct flags f)
 {
 	struct hvm_info_table *va_hvm;
 	uint8_t *va_map, sum;
 	int i;
 
-	va_map = xc_map_foreign_range(handle, domid,
+	va_map = xc_map_foreign_range(xch, domid,
 			    XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
 			    HVM_INFO_PFN);
 	if (va_map == NULL)
@@ -300,46 +318,55 @@ static int hvm_build_set_params(int handle, int domid,
 	va_hvm->acpi_enabled = f.acpi;
 	va_hvm->apic_mode = f.apic;
 	va_hvm->nr_vcpus = f.vcpus;
+	memset(va_hvm->vcpu_online, 0, sizeof(va_hvm->vcpu_online));
+	for (i = 0; i < f.vcpus_current; i++)
+		va_hvm->vcpu_online[i/8] |= 1 << (i % 8);
+#if 0
         va_hvm->s4_enabled = f.acpi_s4;
         va_hvm->s3_enabled = f.acpi_s3;
+#endif
 	va_hvm->checksum = 0;
 	for (i = 0, sum = 0; i < va_hvm->length; i++)
 		sum += ((uint8_t *) va_hvm)[i];
 	va_hvm->checksum = -sum;
 	munmap(va_map, XC_PAGE_SIZE);
 
-	xc_get_hvm_param(handle, domid, HVM_PARAM_STORE_PFN, store_mfn);
-	xc_set_hvm_param(handle, domid, HVM_PARAM_PAE_ENABLED, f.pae);
+	xc_get_hvm_param(xch, domid, HVM_PARAM_STORE_PFN, store_mfn);
+	xc_set_hvm_param(xch, domid, HVM_PARAM_PAE_ENABLED, f.pae);
 #ifdef HVM_PARAM_VIRIDIAN
-	xc_set_hvm_param(handle, domid, HVM_PARAM_VIRIDIAN, f.viridian);
+	xc_set_hvm_param(xch, domid, HVM_PARAM_VIRIDIAN, f.viridian);
 #endif
-	xc_set_hvm_param(handle, domid, HVM_PARAM_STORE_EVTCHN, store_evtchn);
+	xc_set_hvm_param(xch, domid, HVM_PARAM_STORE_EVTCHN, store_evtchn);
 #ifndef XEN_UNSTABLE
-	xc_set_hvm_param(handle, domid, HVM_PARAM_NX_ENABLED, f.nx);
+	xc_set_hvm_param(xch, domid, HVM_PARAM_NX_ENABLED, f.nx);
+  xc_get_hvm_param(xch, domid, HVM_PARAM_CONSOLE_PFN, console_mfn);
+  xc_set_hvm_param(xch, domid, HVM_PARAM_CONSOLE_EVTCHN, console_evtchn);
 #endif
 	return 0;
 }
 
 CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
-                                        value mem_max_mib, value mem_start_mib,
-                                        value image_name,
-					value store_evtchn)
+    value mem_max_mib, value mem_start_mib, value image_name, value store_evtchn, value console_evtchn)
 {
 	CAMLparam5(xc_handle, domid, mem_max_mib, mem_start_mib, image_name);
-	CAMLxparam1(store_evtchn);
-	CAMLlocal1(ret);
+	CAMLxparam2(store_evtchn, console_evtchn);
+	CAMLlocal1(result);
+
 	char *image_name_c = strdup(String_val(image_name));
 	char *error[256];
+	xc_interface *xch;
 
 	unsigned long store_mfn=0;
+  unsigned long console_mfn=0;
 	int r;
 	struct flags f;
 	get_flags(&f, _D(domid));
 
-	configure_vcpus(_H(xc_handle), _D(domid), f);
+	xch = _H(xc_handle);
+	configure_vcpus(xch, _D(domid), f);
 
 	caml_enter_blocking_section ();
-	r = xc_hvm_build_target_mem(_H(xc_handle), _D(domid),
+	r = xc_hvm_build_target_mem(xch, _D(domid),
 	                            Int_val(mem_max_mib),
 	                            Int_val(mem_start_mib),
 	                            image_name_c);
@@ -348,26 +375,56 @@ CAMLprim value stub_xc_hvm_build_native(value xc_handle, value domid,
 	free(image_name_c);
 
 	if (r)
-		failwith_oss_xc("hvm_build");
+		failwith_oss_xc(xch, "hvm_build");
 
 
-	r = hvm_build_set_params(_H(xc_handle), _D(domid),
-				 Int_val(store_evtchn), &store_mfn, f);
+	r = hvm_build_set_params(xch, _D(domid), Int_val(store_evtchn), &store_mfn, 
+                           Int_val(console_evtchn), &console_mfn, f);
 	if (r)
-		failwith_oss_xc("hvm_build_params");
+		failwith_oss_xc(xch, "hvm_build_params");
 
-	ret = caml_copy_nativeint(store_mfn);
-	CAMLreturn(ret);
+  result = caml_alloc_tuple(2);
+  Store_field(result, 0, caml_copy_nativeint(store_mfn));
+  Store_field(result, 1, caml_copy_nativeint(console_mfn));
+
+	CAMLreturn(result);
 }
 
 CAMLprim value stub_xc_hvm_build_bytecode(value * argv, int argn)
 {
 	return stub_xc_hvm_build_native(argv[0], argv[1], argv[2], argv[3],
-	                                argv[4], argv[5]);
+                                  argv[4], argv[5], argv[6]);
 }
 
-extern void qemu_flip_buffer(int domid, int next_active);
-extern void * init_qemu_maps(int domid, unsigned int bitmap_size);
+
+int switch_qemu_logdirty(int domid, unsigned enable, void *data)
+{
+  char *path = NULL;
+  struct xs_handle *xsh = NULL;
+  bool rc;
+
+  pasprintf(&path, "/local/domain/0/device-model/%u/logdirty/cmd", domid);
+
+  xsh = xs_daemon_open();
+  if (xsh == NULL)
+    errx(1, "Couldn't contact xenstore");
+
+  if (enable)
+    rc = xs_write(xsh, XBT_NULL, path, "enable", strlen("enable"));
+  else
+    rc = xs_write(xsh, XBT_NULL, path, "disable", strlen("disable"));
+
+  xs_daemon_close(xsh);
+  free(path);
+  return rc ? 0 : 1;
+
+}
+
+static struct save_callbacks save_callbacks = {
+	.suspend = dispatch_suspend,
+  .postcopy = switch_qemu_logdirty,
+        .checkpoint = NULL,
+};
 
 CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
                                    value max_iters, value max_factors,
@@ -375,24 +432,27 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
 {
 	CAMLparam5(handle, fd, domid, max_iters, max_factors);
 	CAMLxparam2(flags, hvm);
-	void *(*init_maps)(int, unsigned);
-	void (*flip_buffer)(int, int);
+	struct save_callbacks callbacks;
+
 	uint32_t c_flags;
+  uint32_t c_domid;
 	int r;
 
-	init_maps = (Bool_val(hvm)) ? init_qemu_maps : NULL;
-	flip_buffer = (Bool_val(hvm)) ? qemu_flip_buffer : NULL;
-
 	c_flags = caml_convert_flag_list(flags, suspend_flag_list);
+  c_domid = _D(domid);
+
+	memset(&callbacks, 0, sizeof(callbacks));
+  callbacks.data = c_domid;
+	callbacks.suspend = dispatch_suspend;
+	callbacks.switch_qemu_logdirty = switch_qemu_logdirty;
 
 	caml_enter_blocking_section();
-	r = xc_domain_save(_H(handle), Int_val(fd), _D(domid),
+	r = xc_domain_save(_H(handle), Int_val(fd), c_domid,
 	                   Int_val(max_iters), Int_val(max_factors),
-	                   c_flags, dispatch_suspend,
-	                   Bool_val(hvm), init_maps, flip_buffer);
+	                   c_flags, &callbacks, Bool_val(hvm));
 	caml_leave_blocking_section();
 	if (r)
-		failwith_oss_xc("xc_domain_save");
+		failwith_oss_xc(_H(handle), "xc_domain_save");
 
 	CAMLreturn(Val_unit);
 }
@@ -413,7 +473,7 @@ CAMLprim value stub_xc_domain_resume_slow(value handle, value domid)
 	/* hard code fast to 0, we only want to expose the slow version here */
 	r = xc_domain_resume(_H(handle), _D(domid), 0);
 	if (r)
-		failwith_oss_xc("xc_domain_resume");
+		failwith_oss_xc(_H(handle), "xc_domain_resume");
 	CAMLreturn(Val_unit);
 }
 
@@ -444,10 +504,10 @@ CAMLprim value stub_xc_domain_restore(value handle, value fd, value domid,
 	r = xc_domain_restore(_H(handle), Int_val(fd), _D(domid),
 	                      c_store_evtchn, &store_mfn,
 	                      c_console_evtchn, &console_mfn,
-			      Bool_val(hvm), f.pae);
+			      Bool_val(hvm), f.pae, 0 /*superpages*/);
 	caml_leave_blocking_section();
 	if (r)
-		failwith_oss_xc("xc_domain_restore");
+		failwith_oss_xc(_H(handle), "xc_domain_restore");
 
 	result = caml_alloc_tuple(2);
 	Store_field(result, 0, caml_copy_nativeint(store_mfn));
@@ -469,6 +529,6 @@ CAMLprim value stub_xc_domain_dumpcore(value handle, value domid, value file)
 
 	r = xc_domain_dumpcore(_H(handle), _D(domid), String_val(file));
 	if (r)
-		failwith_oss_xc("xc_domain_dumpcore");
+		failwith_oss_xc(_H(handle), "xc_domain_dumpcore");
 	CAMLreturn(Val_unit);
 }

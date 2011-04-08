@@ -255,15 +255,26 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	true
       with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params)); false
     end) protected_vms in
-  (* Check the PV drivers versions are up to date (so migration is possible). Note that we are more strict
-     than necessary by demanding the most recent PV drivers are installed and not just 'migration capable' ones.
-     This simplifies the test matrix. *)
-  List.iter (fun (vm, record) ->
-	       let vm_gm = record.API.vM_guest_metrics in
-	       let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in  
-	       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm vm_gm with
-	       | Some (code, params) -> Hashtbl.replace plans vm (Error (code, params))
-	       | None -> ()) all_user_vms;
+
+	(* Check for the presence of PV drivers that support migration. *)
+	List.iter
+		(fun (vm, vm_record) ->
+			let pv_driver_version =
+				Xapi_pv_driver_version.of_guest_metrics
+					(Opt.of_exception (fun () ->
+						Db.VM_guest_metrics.get_record_internal
+							~__context ~self:vm_record.API.vM_guest_metrics)) in
+			let pv_drivers_present = Xapi_pv_driver_version.has_pv_drivers pv_driver_version in
+			let pv_drivers_correct = Xapi_pv_driver_version.is_ok_for_migrate pv_driver_version in
+			let pv_drivers_error =
+				match (pv_drivers_present, pv_drivers_correct) with
+					| (false, _) -> Some Api_errors.vm_missing_pv_drivers
+					| (_, false) -> Some Api_errors.vm_old_pv_drivers
+					| (_,  true) -> None in
+			Opt.iter
+				(fun e -> Hashtbl.replace plans vm (Error (e, [Ref.string_of vm])))
+				(pv_drivers_error))
+		(all_user_vms);
 
   (* Compute the binpack which takes only memory size into account. We will check afterwards for storage
      and network availability. *)
@@ -737,6 +748,10 @@ let management_reconfigure ~__context ~pif =
   if Db.Pool.get_ha_enabled ~__context ~self:pool 
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
 
+  (* Plugging a bond slave is not allowed *)
+  if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
+    raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]));
+    
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
 

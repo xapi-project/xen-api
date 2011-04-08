@@ -32,9 +32,20 @@ A host can have multiple network interfaces. These can be used to physically sep
 val create :
   __context:Context.t ->
   network:[ `network ] Ref.t ->
-  members:[ `PIF ] Ref.t list -> mAC:string -> [ `Bond ] Ref.t
+  members:[ `PIF ] Ref.t list ->
+  mAC:string ->
+  mode:API.bond_mode ->
+  [ `Bond ] Ref.t
 
 (** Destroy the bond master (PIF) and the Bond objects, unless the bond master
  *  is the management interface, or used as VLAN master. *)
 val destroy : __context:Context.t -> self:[ `Bond ] Ref.t -> unit
 
+(** Change the bond mode. *)
+val set_mode : __context:Context.t -> self:[ `Bond ] Ref.t -> value:API.bond_mode -> unit
+
+(** If the given bond has VIFs or VLANs on its slaves, move these to the master. *)
+val fix_bond :
+  __context:Context.t ->
+  bond:[ `Bond ] Ref.t ->
+  unit

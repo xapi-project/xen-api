@@ -29,8 +29,8 @@ external linux_build : handle -> domid -> int -> int -> string ->
 	= "stub_xc_linux_build_bytecode" "stub_xc_linux_build_native"
 
 (** build a hvm domain *)
-external hvm_build : handle -> domid -> int -> int -> string ->
-                     int -> nativeint
+external hvm_build : handle -> domid -> int -> int -> string -> int -> int ->
+	(nativeint * nativeint)
 	= "stub_xc_hvm_build_bytecode" "stub_xc_hvm_build_native"
 
 (** resume an uncooperative domain *)

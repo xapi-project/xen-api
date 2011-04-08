@@ -42,7 +42,13 @@ A {i PIF} object in the datamodel represents a network interface and contains re
 *)
 
 (** {2 API functions} *)
-  
+
+(** Refresh the metadata of an existing PIF on the current host. *)
+val refresh : __context:Context.t -> host:[`host] Ref.t -> self:[`PIF] Ref.t -> unit
+
+(** Refresh the metadata of all existing PIFs on the current host. *)
+val refresh_all : __context:Context.t -> host:[`host] Ref.t -> unit
+
 (** Create a new PIF record in the database only *)
 val db_introduce :
   __context:Context.t ->
@@ -79,8 +85,6 @@ val forget : __context:Context.t -> self:API.ref_PIF -> unit
 (** Scan for physical interfaces on this host and ensure PIF records, and
  *  corresponding networks are present and up-to-date. Uses {!introduce_internal}. *)
 val scan : __context:Context.t -> host:[ `host ] Ref.t -> unit
-
-val scan_bios : __context:Context.t -> host:[ `host ] Ref.t -> [ `PIF ] Ref.t list
 
 (** External facing call to create a new VLAN interface
  * @deprecated since Miami; use [VLAN.create] instead *)
@@ -126,14 +130,10 @@ val read_bridges_from_inventory : unit -> string list
 val find_or_create_network :
   string -> string -> __context:Context.t -> [ `network ] Ref.t
 
-(** Compute the set difference a - b *)
-val set_difference : 'a list -> 'a list -> 'a list
-
 (** Convenient lookup tables for scanning etc *)
 type tables = {
-  mac_to_pif_table : (string * API.ref_PIF) list;	(** MAC address to PIF reference (all PIFs) *)
-  mac_to_phy_table : (string * string) list;		(** MAC address to kernel device name (all physical interfaces) *)
-  mac_to_biosname_table: (string * string) list;	(** MAC address to BIOS device name (all physical interfaces) *)
+	device_to_mac_table : (string * string) list;
+	pif_to_device_table : (API.ref_PIF * string) list;
 }
 
 (** Construct and return lookup {!tables} with information about the network interfaces *)
@@ -195,18 +195,6 @@ val forget_internal :
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
 val update_management_flags :
   __context:Context.t -> host:[ `host ] Ref.t -> unit
-
-(** Set up a VLAN. Called via the VLAN.create API call.
- *  Should be moved to Xapi_vlan.ml after removing [create_VLAN] and [destroy]. *)
-val vLAN_create :
-  __context:Context.t ->
-  tagged_PIF:[ `PIF ] Ref.t ->
-  tag:int64 -> network:[ `network ] Ref.t -> [ `VLAN ] Ref.t
-
-(** External facing call to destroy a VLAN mux/demuxer.
- *  Called via the VLAN.destroy API call. 
- *  Should be moved to Xapi_vlan.ml after removing [create_VLAN] and [destroy]. *)
-val vLAN_destroy : __context:Context.t -> self:[ `VLAN ] Ref.t -> unit
 
 (** Returns the set of PIF references + records which we want to be plugged in by the end of the
     start of day code. These are the PIFs on the localhost that are not bond slaves.
