@@ -2774,20 +2774,15 @@ end
     let set_shared ~__context ~sr ~value =
 	    Local.SR.set_shared ~__context ~sr ~value
 
-    let set_name_label ~__context ~sr ~value =
-	    info "SR.set_name_label: SR = '%s' name-label = '%s'"
-		    (sr_uuid ~__context sr) value;
-	    let local_fn = Local.SR.set_name_label ~sr ~value in
-	    forward_sr_op ~local_fn ~__context ~self:sr
-		    (fun session_id rpc -> Client.SR.set_name_label ~rpc ~session_id ~sr ~value)
+		let set_name_label ~__context ~sr ~value =
+			info "SR.set_name_label: SR = '%s' name-label = '%s'"
+				(sr_uuid ~__context sr) value;
+			Local.SR.set_name_label ~__context ~sr ~value
 
-    let set_name_description ~__context ~sr ~value =
-	    info "SR.set_name_description: SR = '%s' name-description = '%s'"
-		    (sr_uuid ~__context sr) value;
-	    let local_fn = Local.SR.set_name_description ~sr ~value in
-	    forward_sr_op ~local_fn ~__context ~self:sr
-		    (fun session_id rpc ->
-			    Client.SR.set_name_description ~rpc ~session_id ~sr ~value)
+		let set_name_description ~__context ~sr ~value =
+			info "SR.set_name_description: SR = '%s' name-description = '%s'"
+				(sr_uuid ~__context sr) value;
+			Local.SR.set_name_description ~__context ~sr ~value
 
     let assert_can_host_ha_statefile ~__context ~sr = 
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
@@ -2904,20 +2899,15 @@ end
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.set_snapshot_time ~__context ~self ~value
 
-    let set_name_label ~__context ~self ~value =
-	    info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
-		    (vdi_uuid ~__context self) value;
-	    let local_fn = Local.VDI.set_name_label ~self ~value in
-	    forward_vdi_op ~local_fn ~__context ~self
-		    (fun session_id rpc -> Client.VDI.set_name_label ~rpc ~session_id ~self ~value)
+		let set_name_label ~__context ~self ~value =
+			info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
+				(vdi_uuid ~__context self) value;
+			Local.VDI.set_name_label ~__context ~self ~value
 
-    let set_name_description ~__context ~self ~value =
-	    info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
-		    (vdi_uuid ~__context self) value;
-	    let local_fn = Local.VDI.set_name_description ~self ~value in
-	    forward_vdi_op ~local_fn ~__context ~self
-		    (fun session_id rpc ->
-			    Client.VDI.set_name_description ~rpc ~session_id ~self ~value)
+		let set_name_description ~__context ~self ~value =
+			info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
+				(vdi_uuid ~__context self) value;
+			Local.VDI.set_name_description ~__context ~self ~value
 
 	let ensure_vdi_not_on_running_vm ~__context ~self =
 		let vbds = Db.VDI.get_VBDs ~__context ~self in
