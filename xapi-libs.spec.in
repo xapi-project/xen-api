@@ -71,7 +71,6 @@ rm -rf $RPM_BUILD_ROOT
    /opt/xensource/libexec/sexprpp
    /opt/xensource/libexec/xmlpp
    /opt/xensource/libexec/extentlistset_test
-   /opt/xensource/lib/xenctrl/osdep_xiu.so
 
 %files devel
 %defattr(-,root,root,-)

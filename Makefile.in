@@ -43,7 +43,6 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
 	$(MAKE) -C tapctl
-	$(MAKE) -C fake
 endif
 
 install:
@@ -79,7 +78,6 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
 	$(MAKE) -C tapctl install
-	$(MAKE) -C fake install
 endif
 
 uninstall:
@@ -115,7 +113,6 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C cpuid uninstall
 	$(MAKE) -C vhd uninstall
 	$(MAKE) -C tapctl uninstall
-	$(MAKE) -C fake uninstall
 endif
 
 bins:
@@ -162,7 +159,6 @@ doc:
 	$(MAKE) -C cpuid doc
 	$(MAKE) -C vhd doc
 	$(MAKE) -C tapctl doc
-	$(MAKE) -C fake doc
 	$(MAKE) -C xen-utils doc
 
 .PHONY: clean
@@ -191,7 +187,6 @@ cleanxen:
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
 	$(MAKE) -C tapctl clean
-	$(MAKE) -C fake clean
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
