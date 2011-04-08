@@ -371,6 +371,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/debug/quicktestbin
 /opt/xensource/debug/watch_test
 /cli-rt/*
+/etc/xapi.d/plugins/monitor_fake_plugin
 
 %files client-devel
 %defattr(-,root,root,-)

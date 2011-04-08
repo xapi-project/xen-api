@@ -115,6 +115,7 @@ OCAML_PHASE3_XEN = \
 	ocaml/xapi/fakeguestagent \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
+	ocaml/xapi/monitor_fake_plugin \
 	ocaml/xsrpc/xsrpc \
 	ocaml/xsrpc/xsrpcd-util \
 	ocaml/guest/agent \
