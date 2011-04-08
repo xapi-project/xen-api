@@ -100,8 +100,7 @@ let rrd_of_fd fd =
 (** Helper function - path is the path to the file _without the extension .gz_ *)
 let rrd_of_gzip path =
   let gz_path = path ^ ".gz" in
-  let gz_exists = try Unix.stat gz_path; true with _ -> false in
-  let result = ref "" in
+  let gz_exists = try let (_: Unix.stats) = Unix.stat gz_path in true with _ -> false in
   if gz_exists then begin
     Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
       (fun fd -> Gzip.decompress_passive fd rrd_of_fd)
@@ -205,7 +204,7 @@ let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid rrd =
       (* Stash away the rrd onto disk *)
       let exists =
 	try 
-	  Unix.stat Xapi_globs.xapi_blob_location;
+	  let (_: Unix.stats) = Unix.stat Xapi_globs.xapi_blob_location in
 	  true
 	with _ -> false
       in
@@ -638,7 +637,6 @@ let update_rrds ~__context timestamp dss uuids pifs rebooting_vms paused_vms =
 
 	let registered = Hashtbl.fold (fun k _ acc -> k::acc) vm_rrds [] in
 	let my_vms = uuids in
-	let new_vms = List.filter (fun vm -> not (List.mem vm registered)) my_vms in
 	let gone_vms = List.filter (fun vm -> not (List.mem vm my_vms)) registered in
 	let to_send_back = List.map (fun uuid -> 
 	  let elt = (uuid,Hashtbl.find vm_rrds uuid) in
@@ -805,7 +803,6 @@ let add_vm_ds uuid ds_name =
 let query_vm_dss uuid ds_name =
   Mutex.execute mutex (fun () ->
     let rrdi = Hashtbl.find vm_rrds uuid in
-    let rrd=rrdi.rrd in
     Rrd.query_named_ds rrdi.rrd ds_name Rrd.CF_Average)
 
 let forget_vm_ds uuid ds_name =

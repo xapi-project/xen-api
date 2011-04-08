@@ -133,11 +133,8 @@ let create ~__context ~name_label ~name_description
 	let vm_ref = Ref.make () in
 	let resident_on = Ref.null in
 	let scheduled_to_be_resident_on = Ref.null in
-	let tools_version = [ (sprintf "%d" Xapi_globs.version_major),
-	                      (sprintf "%d" Xapi_globs.version_minor); ] in
 
 	let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let vCPUs_number = vCPUs_at_startup in
 	let vCPUs_utilisation = [(0L, 0.)] in
 	Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
 		~memory_actual:0L ~vCPUs_number:0L

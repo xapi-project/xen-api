@@ -220,8 +220,8 @@ let checkpoint ~__context ~vm ~new_name =
 					Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.destroy rpc session_id suspend_VDI);
 				end;
 			with _ ->
-				Pervasiveext.may (fun snap -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted) snap;
-				Pervasiveext.may (fun snap -> Db.VM.destroy ~__context ~self:snap) snap;
+				Opt.iter (fun snap -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted) snap;
+				Opt.iter (fun snap -> Db.VM.destroy ~__context ~self:snap) snap;
 				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm])) in
 		  let slow_resume () = 
 			debug "Performing a slow resume";

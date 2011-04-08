@@ -65,8 +65,9 @@ let wait_for_fist rpc session sr fist_num =
 let fist rpc session host create i = 
   let name = fist_name_of_int i in
   let fn = if create then "mkfistpoint" else "rmfistpoint" in
-  Client.Host.call_plugin ~rpc ~session_id:session ~host ~plugin:Globs.helper_plugin ~fn
-    ~args:[("fist_point",name)]
+  let (_: string) = Client.Host.call_plugin ~rpc ~session_id:session ~host ~plugin:Globs.helper_plugin ~fn
+    ~args:[("fist_point",name)] in
+  ()
     
 let remove_fist_keys rpc session sr =
   for i=0 to 5 do
@@ -184,7 +185,7 @@ let do_check_1 rpc session sr fist_num op =
   Client.VDI.destroy ~rpc ~session_id:session ~self:vdi2;
 
   Utils.debug "Waiting for fist point to fire";
-  wait_for_fist rpc session sr fist_num;
+  let (_: bool) = wait_for_fist rpc session sr fist_num in
   Utils.debug "Got it!";
 
   let success = do_op rpc session vdi vdi3 master op in
@@ -288,9 +289,6 @@ let run rpc session =
   Pervasiveext.finally (fun () -> 
     Utils.debug "Found LVHD SR";
     Utils.debug "Creating first VDI";
-    
-    let failearly=true in
-    let anyfailures=ref false in
     
     List.iter (fun (fist,ops) ->
       List.iter (fun op -> 

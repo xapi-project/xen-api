@@ -295,7 +295,6 @@ let vdi_snapshot_destroy caps session_id sr vdi =
     start test;
     vdi_create_clone_snapshot test session_id sr
       (fun () -> 
-	 let read_only = Client.VDI.get_read_only !rpc session_id vdi in
 	 let vdi' = Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
 	 (* Check these look like clones *)
 	 let a = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi in
@@ -341,7 +340,7 @@ let vdi_generate_config_test caps session_id sr vdi =
     let pbd = choose_active_pbd session_id sr in
     let host = Client.PBD.get_host !rpc session_id pbd in
     start test;
-    Client.VDI.generate_config !rpc session_id host vdi;
+    let (_: string) = Client.VDI.generate_config !rpc session_id host vdi in
     success test
   end
 
@@ -519,10 +518,10 @@ let sm_caps_of_sr session_id sr =
   let ty = Client.SR.get_type !rpc session_id sr in
   let sm = Client.SM.get_all_records !rpc session_id in
   match List.filter (fun (_, r) -> r.API.sM_type = ty) sm with
-  | [] ->
-      failwith "Failed to query SM plugin"
   | [ _, plugin ] ->
       plugin.API.sM_capabilities 
+  | _ ->
+      failwith "Failed to query SM plugin"
 
 (* Even though the SM backend may expose a VDI_CREATE capability attempts
    to actually create a VDI will fail in (eg) the tools SR and any that

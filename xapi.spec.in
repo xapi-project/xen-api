@@ -1,11 +1,9 @@
 # -*- rpm-spec -*-
 
-%define XEN_RELEASE %(test -z "${XEN_RELEASE}" && echo unknown || echo $XEN_RELEASE)
-
 Summary: xapi - xen toolstack for XCP
 Name:    xapi
 Version: 0.2
-Release: %{XEN_RELEASE}
+Release: @RPM_RELEASE@
 Group:   System/Hypervisor
 License: LGPL+linking exception
 URL:  http://www.xen.org
@@ -104,7 +102,6 @@ COMPILE_JAVA=no %{__make}
 rm -rf %{buildroot}
 
 DESTDIR=$RPM_BUILD_ROOT %{__make} install
-DESTDIR=$RPM_BUILD_ROOT %{__make} lib-install
 DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 
 %clean

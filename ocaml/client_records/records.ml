@@ -306,8 +306,6 @@ let vif_record rpc session_id vif =
   let empty_record = ToGet (fun () -> Client.VIF.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
-  let metrics = ref (ToGet (fun () -> try Some (Client.VIF_metrics.get_record rpc session_id (x ()).API.vIF_metrics) with _ -> None)) in
-  let xm () = lzy_get metrics in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;
@@ -1172,8 +1170,6 @@ let vbd_record rpc session_id vbd =
   let empty_record = ToGet (fun () -> Client.VBD.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
-  let metrics = ref (ToGet (fun () -> try Some (Client.VBD_metrics.get_record rpc session_id (x ()).API.vBD_metrics) with _ -> None)) in
-  let rec xm () = lzy_get metrics in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;

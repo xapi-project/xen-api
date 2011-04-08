@@ -25,7 +25,7 @@ OCAMLDEP_MODULES_ENABLED = false
 
 USE_OCAMLFIND = true
 
-OCAMLFLAGS = -g -dtypes -thread -warn-error F
+OCAMLFLAGS = -g -dtypes -thread -warn-error +a-4-6-9-27-28-29
 
 # c compiling stuff
 OCAMLCFLAGS += -g
@@ -65,7 +65,7 @@ export CLEAN_OBJS
 
 COMPILE_OCAML=$(getenv COMPILE_OCAML, yes)
 COMPILE_JS=$(getenv COMPILE_JS, yes)
-COMPILE_JAVA=$(getenv COMPILE_JAVA, yes)
+COMPILE_JAVA=$(getenv COMPILE_JAVA, no)
 
 PRODUCT_VERSION=$(getenv PRODUCT_VERSION, unknown)
 PRODUCT_BRAND=$(getenv PRODUCT_BRAND, unknown)
@@ -108,16 +108,12 @@ OCAML_PHASE3_XEN = \
 	ocaml/xstest/xsbench \
 	ocaml/xstest/xscheckperms \
 	allxenops \
-	ocaml/xenops-ts/runtest \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
 	ocaml/xiu/xiu \
 	ocaml/xapi/fakeguestagent \
 	ocaml/xapi/quicktestbin \
 	ocaml/xapi/sparse_dd \
-	ocaml/xsrpc/xsrpc \
-	ocaml/xsrpc/xsrpcd-util \
-	ocaml/guest/agent \
 	ocaml/license/v6d \
 	ocaml/license/v6d-reopen-logs
 
@@ -140,7 +136,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/database/block_device_io \
 	ocaml/toplevel \
 	ocaml/cdrommon/cdrommon \
-	ocaml/xapi/stresstest \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
 	ocaml/idl/html_build \

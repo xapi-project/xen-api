@@ -481,7 +481,7 @@ let send_one_heartbeat ~__context rpc session_id =
     [ _time, string_of_float time;
       _uncooperative_domains, String.concat "," uncooperative_domains ] in
       
-  let response = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
+  let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
   ()
   (* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
     

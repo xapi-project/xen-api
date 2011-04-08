@@ -582,12 +582,10 @@ let domain_device_event ctx w v =
 		let devstate = get_devstate ctx domid ty devid in
 
 		match ev with
-		| Rtc _ | IntMessage _ | BackThread _ | BackEject -> assert false
+		| Rtc _ | IntMessage _ | BackThread _ | BackEject | Uncooperative _ -> assert false
 		| Backend state  ->
-			let oldstate = devstate.backstate in
 			devstate.backstate <- state;
 		| Frontend state ->
-			let oldstate = devstate.frontstate in
 			devstate.frontstate <- state;
 		| BackShutdown ->
 			ctx.callback_devices ctx domid (DevShutdownDone (ty, devid))

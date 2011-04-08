@@ -56,7 +56,7 @@ let handler (req: Http.request) s =
 	    with _ -> raise Unknown_blob
 	  in
 	  let blob_path = Xapi_globs.xapi_blob_location in
-	  (try Unix.stat blob_path with _ -> raise No_storage);
+	  (try let (_: Unix.stats) = Unix.stat blob_path in () with _ -> raise No_storage);
 	  let path = Xapi_globs.xapi_blob_location ^ "/" ^ blob_uuid in
 
 	  match req.Http.m with
@@ -87,6 +87,7 @@ let handler (req: Http.request) s =
 		in
 		Db.Blob.set_size ~__context ~self ~value:size;
 		Db.Blob.set_last_updated ~__context ~self ~value:(Date.of_float (Unix.gettimeofday ()))
+		| _ -> failwith "Unsupported method for BLOB"
 	with
 	  | Unknown_blob -> 
 	      Http_svr.response_missing s "Unknown reference\n"

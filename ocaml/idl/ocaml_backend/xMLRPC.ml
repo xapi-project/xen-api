@@ -112,7 +112,9 @@ module To = struct
 	   box "fault" [structure ["faultCode", int n;
 				   "faultString", string s]]
        | Raw [param] ->
-	   box "params" [ box "param" [param]]]
+	   box "params" [ box "param" [param]]
+	   | _ -> failwith "To.methodResponse"
+	  ]
 end
 
 module From = struct
@@ -142,6 +144,7 @@ module From = struct
      | [ ] -> 
 	 debug "encountered <name/> within a <structure>";
 	 f ""
+	 | x -> rtte "From.name: should contain PCData" xml
     ) xml
 
   let check expected xml got =
@@ -299,7 +302,9 @@ module Value = struct
 	  | DT.Enum (name, _) -> Enum (From.string x)
 	  | DT.Set t'         -> Set (set (f t') x)
 	  | DT.Map (a, b)     -> Map (map (f a) (f b) x)
-	  | DT.Ref _          -> Ref (From.string x) in
+	  | DT.Ref _          -> Ref (From.string x) 
+	  | DT.Record _       -> rtte "Value.interpret Record not supported" x
+in
 	begin match dm_type with
 	| Some t -> OK (Some (f t x))
 	| None -> OK None
@@ -308,7 +313,7 @@ module Value = struct
 	OK None
     | Failure (code, params) -> Error (code, params)
     | Fault x -> Bad x
-    | Raw x -> failwith "Can't cope with this!"
+    | _ -> failwith "Can't cope with this!"
 
   let interpret (ty: string) (v: string) : result option = 
     let parse x : Xml.xml option = try Some(Xml.parse_string x) with _ -> 

@@ -103,8 +103,8 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
 
-  let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
-  (* debug "Number of entries in hashtbl: %d" num; *)
+  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
+  debug "Number of entries in hashtbl: %d" num; *)
 
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
      to -1 if it's not present in xenstore *)

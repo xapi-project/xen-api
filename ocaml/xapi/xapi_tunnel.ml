@@ -40,7 +40,6 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 	tunnel, access_PIF
 
 let create ~__context ~transport_PIF ~network =
-	let pool = Helpers.get_pool ~__context in
 	let host = Db.PIF.get_host ~__context ~self:transport_PIF in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 	let hosts = Db.Host.get_all ~__context in

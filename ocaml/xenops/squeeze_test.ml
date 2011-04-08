@@ -391,7 +391,6 @@ let simulate scenario =
 
   let cols = [ Gnuplot.Memory_actual; Gnuplot.Target ] in
   Gnuplot.write_header dat_oc cols;
-  let acc = ref (Squeezer.make ()) in
   let i = ref 0 in
 
   let gettimeofday () = float_of_int !i /. 10. in

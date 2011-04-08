@@ -75,7 +75,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 	  - the rationale is that we're not sure which db connections will be available on next restart *)
        if !exit_on_next_flush then
 	 begin
-	   Backend_xml.flush_dirty dbconn;
+	   let (_: bool) = Backend_xml.flush_dirty dbconn in
 	   let refcount = dec_and_read_db_flush_thread_refcount() in
 	   (* last flushing thread close the door on the way out.. *)
 	   if refcount = 0 then

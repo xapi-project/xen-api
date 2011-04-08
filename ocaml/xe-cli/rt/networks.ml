@@ -74,9 +74,9 @@ let network_create_destroy cli vmid =
     (newnet,newvif) in
       
   let remove_network cli (netuuid,vifuuid) =
-    Cliops.unplug_nic cli vifuuid;
-    Cliops.remove_nic cli vifuuid;
-    Cliops.remove_network cli netuuid;
+    let (_: string list) = Cliops.unplug_nic cli vifuuid in
+    let (_: string list) = Cliops.remove_nic cli vifuuid in
+    let (_: string list) = Cliops.remove_network cli netuuid in
     "" in
       
   (** Add a new network (with hopefully a fresh name) and return the name.
@@ -125,7 +125,7 @@ let vlan_create_destroy cli =
     then failwith (Printf.sprintf "Failed to find interface: %s" expected_iface);
     
     log Info "Deleting PIF with vlan tag %s" tag;
-    Cliops.remove_pif cli pif_uuid;
+    let (_: string list) = Cliops.remove_pif cli pif_uuid in
     
     let ifaces = List.filter Netdev.Link.is_up (Netdev.list ()) in
     if List.mem expected_iface ifaces

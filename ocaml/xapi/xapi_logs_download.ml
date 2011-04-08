@@ -27,6 +27,5 @@ let logs_download_handler (req: request) s =
       Http_svr.headers s (Http.http_200_ok ());
       
       debug "send the http headers";
-      let fd = string_of_int (Unixext.int_of_file_descr Unix.stdout) in
       let pid = safe_close_and_exec None (Some s) None [] logs_download [] in
       waitpid_fail_if_bad_exit pid)

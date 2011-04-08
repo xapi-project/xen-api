@@ -272,7 +272,6 @@ let update_pifs ~__context host pifs =
 let update_all ~__context host_stats =
 	(* update monitor events for specified domain  *)
 	let hostref = host_stats.host_ref in
-	let hostuuid = Db.Host.get_uuid ~__context ~self:hostref in
 
 	update_host_metrics ~__context host_stats;
 	update_pifs ~__context hostref host_stats.pifs;

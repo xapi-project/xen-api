@@ -423,7 +423,6 @@ let pause ~xs (x: device) =
   
 let unpause ~xs (x: device) (token: string) = 
 	debug "Device.Vbd.unpause %s token=%s" (string_of_device x) token;
-	let backend_stub = backend_path_of_device ~xs x in
 
 	let request_path = backend_pause_request_path_of_device ~xs x in
 	let token_path = backend_pause_token_path_of_device ~xs x in
@@ -1462,8 +1461,6 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		r
 			) nics
 		else [["-net"; "none"]] in
-
-	let qemu_pid_path = xs.Xs.getdomainpath domid ^ "/qemu-pid" in
 
 	let log = logfile domid in
 	let restorefile = sprintf qemu_restore_path domid in
