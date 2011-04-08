@@ -28,7 +28,7 @@ let create_internal_bridge ~bridge ~uuid =
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost ~__context in
-  let local_pifs =
+  let (_: API.ref_PIF list) =
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host in
 
   let pifs = Db.Network.get_PIFs ~__context ~self in
@@ -89,7 +89,7 @@ let network_gc_func() =
     (fun __context ->
       let other_config = 
 	try
-	  let [pool] = Db.Pool.get_all ~__context in
+	  let pool = List.hd (Db.Pool.get_all ~__context) in
 	  Db.Pool.get_other_config ~__context ~self:pool
 	with _ -> []
       in

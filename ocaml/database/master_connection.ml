@@ -91,7 +91,6 @@ let on_database_connection_established = ref (fun () -> ())
 let open_secure_connection () =
   let host = Pool_role.get_master_address () in
   let port = !Xapi_globs.https_port in
-  let write_to_log x = Xmlrpcclient.write_to_log ("master_connection: " ^ x) in
   let st_proc = Stunnel.connect
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
   my_connection := Some st_proc;

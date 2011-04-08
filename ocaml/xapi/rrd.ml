@@ -49,6 +49,7 @@ let cf_type_of_string s =
     | "MIN" -> CF_Min 
     | "MAX" -> CF_Max 
     | "LAST" -> CF_Last
+	| x -> failwith (Printf.sprintf "Unknown cf_type: %s" x)
 
 let cf_type_to_string cf =
   match cf with 
@@ -901,8 +902,6 @@ let text_export rrd grouping =
     
     (* Get the last and first times of the CDPs to be returned *)
     let (last_cdp_time,age) = get_times rrd.last_updated rra_timestep in
-    let (first_cdp_time_minus_one,age) = get_times start rra_timestep in
-    let first_cdp_time = Int64.add first_cdp_time_minus_one rra_timestep in    
 
     let time i = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
 

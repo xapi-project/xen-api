@@ -238,8 +238,6 @@ let db_action api : O.Module.t =
 	       "List.map Ref.of_string refs " ] () in
 
     let get_record_aux_fn_body ?(m="API.") (obj: obj) (all_fields: field list) =
-      let fields = List.filter field_in_this_table all_fields in
-      let sql_fields = List.map (fun f -> Escaping.escape_id f.full_name) fields in
 	
       let of_field = function
 	| { DT.ty = DT.Set(DT.Ref other); full_name = full_name; DT.field_ignore_foreign_key = false } ->
@@ -274,8 +272,6 @@ let db_action api : O.Module.t =
 	  ~body: [ get_record_aux_fn_body ~m:"" obj record_fields ] () in
       
     let get_records_where (obj: obj) name conversion_fn = 
-      let record_name = OU.ocaml_of_record_name obj.DT.name in
-      let ref_name = OU.alias_of_ty (Ref obj.DT.name) in
 	O.Let.make
 	  ~name: name
 	  ~params: [ Gen_common.context_arg; expr_arg ]
@@ -305,7 +301,6 @@ let db_action api : O.Module.t =
       let converter = O.type_of_param arg in
       Printf.sprintf "let %s = %s.%s %s in" binding _dm_to_string converter binding in
 
-    let snapshot self = snapshot obj.DT.name self in
 
     let body = match tag with
       | FromField(Setter, fld) ->
@@ -409,6 +404,7 @@ let db_action api : O.Module.t =
 	  | _ -> failwith "Copy needs a single parameter"
 	  end
 	    *)
+	  | _ -> assert false
  in
     O.Let.make
       ~name: x.msg_name

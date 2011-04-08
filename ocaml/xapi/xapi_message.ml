@@ -216,7 +216,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) name (message_to_string (_ref,message));
+      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in
       (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
 
       (* Return a null reference *)
@@ -252,7 +252,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
-      (!queue_push) name (message_to_string (_ref,message));
+      let (_: bool) = (!queue_push) name (message_to_string (_ref,message)) in 
 
       let oc = Unix.out_channel_of_descr f in
       let output = Xmlm.make_output (`Channel oc) in
@@ -344,7 +344,6 @@ let get_real dir filter since =
 
 let get ~__context ~cls ~obj_uuid ~since =
   (* Read in all the messages for a particular object *)
-  let since_f = Date.to_float since in
   let class_symlink = class_symlink cls obj_uuid in
   (if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then raise (Api_errors.Server_error (Api_errors.uuid_invalid, [])));
   get_real class_symlink (fun _ -> true) since
@@ -356,7 +355,7 @@ let get_by_uuid ~__context ~uuid =
   try
     let message_filename = (uuid_symlink ()) ^ "/" ^ uuid in
     let ic = open_in message_filename in
-    let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
+    let (_ref,_) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in
     _ref
   with
       _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ uuid ]))

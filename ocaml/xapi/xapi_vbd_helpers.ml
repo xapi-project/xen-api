@@ -165,7 +165,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 	       self.Db_actions.vBD_reserved || (* happens during reboots *)
 	       (any conflicting self.Db_actions.vBD_current_operations))) vbd_records in
 	let someones_got_rw_access = 
-	  try List.find (fun vbd -> vbd.Db_actions.vBD_mode = `RW) vbds_to_check; true with _ -> false
+	  try let (_: Db_actions.vBD_t) = List.find (fun vbd -> vbd.Db_actions.vBD_mode = `RW) vbds_to_check in true with _ -> false
 	in
 	let need_write = record.Db_actions.vBD_mode = `RW in
 	(* Read-only access doesn't require VDI to be marked sharable *)
@@ -264,7 +264,6 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
            ~qos_algorithm_type ~qos_algorithm_params ~other_config : API.ref_VBD =
 
 	if not empty then begin
-	  let sr = Db.VDI.get_SR ~__context ~self:vDI in
 	  let vdi_type = Db.VDI.get_type ~__context ~self:vDI in
 	  if not(List.mem vdi_type [ `system; `user; `ephemeral; `suspend; `crashdump; `metadata])
 	  then raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type ]))

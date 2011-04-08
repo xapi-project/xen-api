@@ -1,9 +1,0 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/
-OCAMLPACKS    = stdext
-
-OCamlProgram(cvm, cvm)
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS)

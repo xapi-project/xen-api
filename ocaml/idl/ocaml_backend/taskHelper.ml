@@ -88,7 +88,6 @@ let assert_can_destroy ?(ok_if_no_session_in_context=false) ~__context task_id =
   assert_permission_task_destroy_any ()
 
 let destroy ~__context task_id =
-  let debug = if Ref.is_dummy task_id then Dummy.debug else D.debug in
   if not (Ref.is_dummy task_id)  
   then (
     assert_can_destroy ~ok_if_no_session_in_context:true ~__context task_id;

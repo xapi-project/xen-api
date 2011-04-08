@@ -30,4 +30,5 @@ let compute_hash() =
   hash_fn config_files
 let transmit_config_files s =
   let config_files = read_config_files() in
-  Unix.write s config_files 0 (String.length config_files)
+  let (_: int) = Unix.write s config_files 0 (String.length config_files) in
+  ()

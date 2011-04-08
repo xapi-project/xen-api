@@ -883,7 +883,7 @@ let is_slave ~__context ~host =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)" (if is_slave then "slave" else "master");
   debug "About to kick the database connection to make sure it's still working...";
-  Db.is_valid_ref __context (Ref.of_string "Pool.is_slave checking to see if the database connection is up");
+  let (_: bool) = Db.is_valid_ref __context (Ref.of_string "Pool.is_slave checking to see if the database connection is up") in
   is_slave
 
 let hello ~__context ~host_uuid ~host_address =
@@ -930,7 +930,7 @@ let hello ~__context ~host_uuid ~host_address =
 
 	(* Update the heartbeat timestamp for this host so we don't mark it as 
 	   offline in the next db_gc *)
-	Db_gc.tickle_heartbeat ~__context host_ref [];
+	let (_: (string * string) list) = Db_gc.tickle_heartbeat ~__context host_ref [] in
 	`ok
       with e ->
 	debug "Caught exception: %s" (ExnHelper.string_of_exn e);
@@ -1341,7 +1341,7 @@ let disable_external_auth ~__context ~pool ~config =
 				(* no failed host to add to the filtered list, just visit next host *)
 				(host,"","")
 			with 
-			| Api_errors.Server_error (err,[host_msg]) as e -> begin
+			| Api_errors.Server_error (err,[host_msg]) -> begin
 				let msg = (Printf.sprintf "%s: %s" 
 					(Db.Host.get_name_label ~__context ~self:host) host_msg) in
 				debug "Failed to disable the external authentication of pool in host %s" msg;
@@ -1512,7 +1512,7 @@ let disable_redo_log ~__context =
 
 let assert_is_valid_ip ip_addr =
  	if ip_addr <> "" then
-	try Unix.inet_addr_of_string ip_addr; ()
+	try let (_: Unix.inet_addr) = Unix.inet_addr_of_string ip_addr in ()
 	with _ -> raise (Api_errors.Server_error (Api_errors.invalid_ip_address_specified, [ "address" ]))
 
 let set_vswitch_controller ~__context ~address =
@@ -1535,7 +1535,7 @@ let audit_log_append ~__context ~line =
 	(* this is necessary here because the slave doesn't have access to these names *)
 	let line = Rbac_audit.populate_audit_record_with_obj_names_of_refs line in
 	(* copy audit record from slave exactly as it is, without any new prefixes *)
-	Rbac_audit.append_line ~raw:true "%s" line;
+	let (_: string) = Rbac_audit.append_line ~raw:true "%s" line in
 	()
 
 let test_archive_target ~__context ~self ~config =

@@ -76,7 +76,7 @@ let columns () =
 	else
 		common @ (
 			match !memory, !bytes, !pages with
-			| _   , true, true -> failwith (Printf.sprintf "Too many units specified."); []
+			| _   , true, true -> failwith "Too many units specified."
 			| true, _   , true -> mem_pages
 			| true, true, _    -> mem_bytes
 			| true, _   , _    -> mem_mib

@@ -72,7 +72,7 @@ let string_of (p: Normal_population.t) =
 let sample (name: string) (x: float) = 
   (* Use the lognormal distribution: *)
   let x' = log x in
-  let p = Mutex.execute timings_m
+  Mutex.execute timings_m
     (fun () ->
        let p = 
 	 if Hashtbl.mem timings name 
@@ -81,8 +81,7 @@ let sample (name: string) (x: float) =
        let p' = Normal_population.sample p x' in
        Hashtbl.replace timings name p';
 (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
-       p') in
-()
+       ) 
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)

@@ -47,8 +47,6 @@ let expected_result = function
   | { parallel_op = Some (Internal_halt | Internal_crash); code_path = Event } -> Some Halted
   | { parallel_op = Some Internal_reboot; code_path = Event } -> Some Rebooted
   
-  | { api = None; parallel_op = Some (Internal_halt (* | Internal_suspend *) | Internal_crash); code_path = (Event|Both) } -> Some Halted
-  | { api = None; parallel_op = Some Internal_reboot; code_path = (Event|Both)  } -> Some Rebooted
   | _ -> None (* invalid test *)
 
 

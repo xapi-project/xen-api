@@ -53,6 +53,7 @@ let dd ~__context prezeroed infile outfile size =
 				match Forkhelpers.waitpid pid with
 				| (_, Unix.WEXITED 0) -> ()
 				| (_, Unix.WEXITED n) -> error "sparse_dd exit: %d" n; failwith "sparse_dd"
+				| _ -> error "sparse_dd exit with WSTOPPED or WSIGNALED"; failwith "sparse_dd"
 			) with
 		| Forkhelpers.Success _ -> ()
 		| Forkhelpers.Failure (log, exn) ->

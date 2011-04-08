@@ -47,7 +47,7 @@ let _ =
 
        List.iter
 	 (fun ((info,points), output_file) ->
-           let result = get_result info in
+           let (_: string) = get_result info in
            let num_points = List.length points in
 
            max_readings := max num_points !max_readings;

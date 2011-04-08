@@ -28,7 +28,7 @@ let _ =
 	if not !hash
 	then Printf.printf "# time host_total host_free domainN_total domainN+1_total...\n";
 
-	let ( +* ) = Int64.add and ( -* ) = Int64.sub and ( /* ) = Int64.div and ( ** ) = Int64.mul in
+	let ( +* ) = Int64.add and ( /* ) = Int64.div and ( ** ) = Int64.mul in
 	let finished = ref false in
 	while not !finished do
 	  finished := !delay < 0.;

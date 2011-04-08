@@ -215,7 +215,7 @@ let required_to_boot hvm vcpus mem_kib mem_target_kib shadow_multiplier =
 		else Linux.footprint_mib)
 			target_mib max_mib vcpus shadow_multiplier
 
-let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib =
+let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
 	let rec wait accumulated_wait_time_seconds =
 		let host_info = Xc.physinfo xc in
 		let free_memory_kib =

@@ -8,24 +8,16 @@ OCAMLPACKS    = stdext log
 	ptoken \
 	autogen \
 	xe-cli \
-	xapimon \
-	cvm \
-	guest_installer \
 	client_records \
 	idl \
 	util \
 	xapi \
-	templates \
 	xenguest \
 	xenops \
-	xenops-ts \
-	xsrpc \
 	xva \
-	guest \
 	console \
 	auth \
 	events \
-	in_guest_install \
 	graph \
 	license \
 	rfb \

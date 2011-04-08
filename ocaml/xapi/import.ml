@@ -713,7 +713,7 @@ let with_open_archive fd f =
     really_read fd buffer 0 Tar.Header.length;
 
     (* we assume the first block is not all zeroes *)
-    let Some hdr = Tar.Header.unmarshal buffer in
+    let hdr = Opt.unbox (Tar.Header.unmarshal buffer) in
     assert_filename_is hdr Xva.xml_filename;
 
     (* successfully opened uncompressed stream *)
@@ -731,7 +731,7 @@ let with_open_archive fd f =
 	 (* Write the initial buffer *)
 	 Unix.set_close_on_exec compressed_in;
 	 debug "Writing initial buffer";
-	 Unix.write compressed_in buffer 0 Tar.Header.length;
+	 let (_: int) = Unix.write compressed_in buffer 0 Tar.Header.length in
 	 let n = Unixext.copy_file fd compressed_in in
 	 debug "Written a total of %d + %Ld bytes" Tar.Header.length n;
       ) in
@@ -883,8 +883,8 @@ let handler (req: request) s =
 		let config = { sr = sr; full_restore = full_restore; vm_metadata_only = false; force = force } in
 		
 		match req.transfer_encoding, req.content_length with
-		| Some "chunked", _ ->
-		    error "Chunked encoding not yet implemented in the import code";
+		| Some x, _ ->
+		    error "Encoding not yet implemented in the import code: %s" x;
 		    Http_svr.headers s http_403_forbidden;
 		    raise (IFailure Cannot_handle_chunked)
 		| None, _ ->

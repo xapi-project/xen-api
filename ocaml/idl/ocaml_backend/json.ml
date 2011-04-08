@@ -43,11 +43,16 @@ let rec xmlrpc_to_json xml =
 	    | Element("member",_,[Element("name",_,[PCData n]);Element("value",_,[])]) ->
 		"\""^n^"\":\"\""
 	    | Element(n,_,_) -> ( Printf.fprintf stderr "%s" ("Bad XMLRPC (expecting member, got "^n^")"); "<bad!>")
+		| _ -> failwith "Bad XMLRPC"
 	in
 	let elts = List.map map_func list in
 	"{"^(String.concat "," elts)^"}"
     | Element("array",_,[Element("data",_,values)]) ->
-	let values = List.map (function Element("value",_,[v]) -> xmlrpc_to_json v | Element("value",_,[]) -> "\"\"") values in
+	let values = List.map (function 
+		|Element("value",_,[v]) -> xmlrpc_to_json v 
+		| Element("value",_,[]) -> "\"\""
+		| _ -> failwith "Bad XMLRPC"
+	) values in
 	"["^(String.concat "," values)^"]"
     | Element(n,_,_) -> (Printf.fprintf stderr "%s" ("Bad XMLRPC (expecting something, got "^n^")"); "<bad2 (got "^n^">")
 	  

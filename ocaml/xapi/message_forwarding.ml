@@ -72,15 +72,15 @@ module Early_wakeup = struct
     Mutex.execute table_m (fun () -> Hashtbl.add table key d);
     finally
       (fun () -> 
-	 let start = Unix.gettimeofday () in
+	 (*let start = Unix.gettimeofday () in
 	 let waited_full_length = Delay.wait d time in
 	 let time_sleeping = Unix.gettimeofday () -. start in
-	 (* debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
+	  debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
 	   (if waited_full_length then "slept" else "woken") a b time_sleeping (time -. time_sleeping)
      *)() )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
       
-  let broadcast ((a, b) as key) = 
+  let broadcast (a, b) = 
     (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
     Mutex.execute table_m 
       (fun () -> 
@@ -1001,7 +1001,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let clone ~__context ~vm ~new_name =
       info "VM.clone: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
-      let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.clone ~vm ~new_name in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 	 uses the API to clone and lock the individual VDIs. We don't give any atomicity
@@ -1020,7 +1019,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 (* almost a copy of the clone function *)
     let snapshot ~__context ~vm ~new_name =
       info "VM.snapshot: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
-      let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.snapshot ~vm ~new_name in
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
@@ -1032,7 +1030,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let snapshot_with_quiesce ~__context ~vm ~new_name =
       info "VM.snapshot_with_quiesce: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
-      let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.snapshot_with_quiesce ~vm ~new_name in
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
@@ -1060,7 +1057,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let copy ~__context ~vm ~new_name ~sr =
       info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'" (vm_uuid ~__context vm) new_name (sr_uuid ~__context sr);
-      let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.copy ~vm ~new_name ~sr in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 	 uses the API to clone and lock the individual VDIs. We don't give any atomicity
@@ -1418,7 +1414,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* same forwarding logic as clone *)
     let csvm ~__context ~vm =
       info "VM.csvm: VM = '%s'" (vm_uuid ~__context vm);
-      let task_id = Ref.string_of (Context.get_task_id __context) in
       let local_fn = Local.VM.csvm ~vm in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
 	 uses the API to clone and lock the individual VDIs. We don't give any atomicity
@@ -2610,8 +2605,8 @@ end
 	     this end to die quickly. To get around this, we spawn a new thread to do the
 	     work and monitor the status of the task, which will be completed on the slave.
 	     We ignore errors at the moment (only on slaves) *)
-	  Thread.create (fun () -> 
-	    Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) ();      
+	  let (_: Thread.t) = Thread.create (fun () -> 
+	    Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) () in
 	  let task_id = Context.get_task_id __context in
 	  let rec poll i =
 	    if i>300 then failwith "Failed to see host on network after timeout expired";
@@ -3053,7 +3048,6 @@ end
     let generate_config ~__context ~host ~vdi =
       info "VDI.generate_config: VDI = '%s'; host = '%s'" (vdi_uuid ~__context vdi) (host_uuid ~__context host);
       let local_fn = Local.VDI.generate_config ~host ~vdi in
-      let sR = Db.VDI.get_SR ~__context ~self:vdi in
       with_sr_andor_vdi ~__context ~vdi:(vdi, `generate_config) ~doc:"VDI.generate_config"
 	(fun () ->
 	   do_op_on ~local_fn ~__context ~host 

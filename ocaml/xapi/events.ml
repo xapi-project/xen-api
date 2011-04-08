@@ -280,7 +280,6 @@ module Resync = struct
 
     with_xs
       (fun xs ->
-	 let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self:vm) in
 	 (* This is what the DB thinks: *)
 	 let is_attached = Db.VIF.get_currently_attached ~__context ~self:vif in
 	 let device = Xen_helpers.device_of_vif ~__context ~self:vif in
@@ -542,7 +541,6 @@ let callback_devices ctx domid dev_event =
 		    )
 			| Xal.PciChanged devid ->
 				let vm = vm_of_domid ~__context domid in
-				let xs = Xal.xs_of_ctx ctx in
 				let work_item ~__context token = Resync.pci ~__context token vm in
 				debug "Adding Resync.pci to queue";
 				let description = Printf.sprintf "PciChanged(%s) domid: %d" devid domid in

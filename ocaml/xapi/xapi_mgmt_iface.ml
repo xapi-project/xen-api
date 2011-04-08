@@ -30,7 +30,7 @@ let script = "/opt/xensource/libexec/rewrite-management-interface"
 
 let rewrite_management_interface interface = 
   (* XXX: probably should decompose this into Xapi_inventory.update <k> <v> and then a special hook script *)
-  Forkhelpers.execute_command_get_output rewrite_management_interface_script [ interface ];
+  let (_: string*string) = Forkhelpers.execute_command_get_output rewrite_management_interface_script [ interface ] in
   Xapi_inventory.reread_inventory ()
 
 let restart_stunnel () = 

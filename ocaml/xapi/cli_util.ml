@@ -184,7 +184,10 @@ let user_says_yes fd =
 	really_read fd (Int32.to_int len)
     | _ -> failwith "Protocol error"
   in
-  let Blob End = unmarshal fd in
+  begin match unmarshal fd with
+	  | Blob End -> ()
+	  | _ -> failwith "Protocol error"
+  end;
   let result = String.lowercase (String.strip String.isspace response)="yes" in
   if not(result)
   then marshal fd (Command (Print ("Aborted (you typed: '"^response^"')")));

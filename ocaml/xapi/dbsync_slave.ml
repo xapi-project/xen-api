@@ -188,9 +188,6 @@ let update_vms ~xal ~__context =
     List.filter (fun (_, vm_r) -> not (Db.is_valid_ref __context vm_r.API.vM_resident_on)) all_scheduled_to_be_resident_on_vms in
   let all_vms_assigned_to_me = Listext.List.setify (all_resident_on_vms @ really_my_scheduled_to_be_resident_on_vms) in
 
-  let all_vbds = Db.VBD.get_records_where ~__context ~expr:Db_filter_types.True in
-  let all_vifs = Db.VIF.get_records_where ~__context ~expr:Db_filter_types.True in
-
   let power_states_where_domain_exists = [ `Running; `Paused ] in
   let my_running_vms_according_to_db =
     List.filter (fun (_,vmrec) -> (List.mem vmrec.API.vM_power_state power_states_where_domain_exists)) all_vms_assigned_to_me in
@@ -333,8 +330,7 @@ let update_vms ~xal ~__context =
     debug "killing umanaged domain: %s" (uuid_from_dinfo dinfo);
     Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *) in
 
-  let all_vm_refs = List.map fst all_vms_assigned_to_me in
-  let have_record_for dinfo = try let vmref,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
+  let have_record_for dinfo = try let _,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
 
   let all_my_managed_domains = List.filter have_record_for all_my_domains in
   let my_active_managed_domains = List.filter have_record_for my_active_domains in
@@ -479,7 +475,6 @@ let resynchronise_pif_params ~__context =
 
 	(* PIF -> bridge option: None means "dangling PIF" *)
 	let pifs_to_bridge =
-		let all_up_bridges = management_bridge @ bridges_already_up in
 		(* Create a list pairing each PIF with the bridge for the network 
 		   that it is on *)
 		List.map (fun (pif, pif_r) ->

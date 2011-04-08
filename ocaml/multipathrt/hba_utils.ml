@@ -57,20 +57,6 @@ let get_hba_state ~rpc ~session ~host =
   wwpns
 
 let modify_fc_paths_manual rpc session host remove =
-  let check_paths state =
-    if remove then
-      List.fold_left (fun acc (wwpn,status) -> acc || (status = `offline)) false state
-    else
-      List.fold_left (fun acc (wwpn,status) -> acc && (status = `online)) true state
-  in
-
-  let assert_initial_state_okay state =
-    if remove then
-      List.iter (fun (wwpn, state) -> if state = `offline then raise (Multipathrt_exceptions.Test_error (Printf.sprintf "The HBA instance with WWPN %s is offline but was expected to be online" wwpn))) state
-    else
-      ()
-  in
-
   let rec request_user_edit () =
     (* Ask the user to remove the path *)
     let verb = if remove then "remove" else "reinstate" in

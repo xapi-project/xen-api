@@ -49,7 +49,7 @@ let write_line line fd ?filter since =
 	let len = String.length line in
 	ignore(Unix.write fd line 0 len)
 
-let transfer_audit_file _path compression fd_out ?filter since =
+let transfer_audit_file _path compression fd_out ?filter since : unit =
 	let path = Unixext.resolve_dot_and_dotdot _path in
 	let in_whitelist = (String.startswith audit_log_whitelist_prefix path) in
 	if in_whitelist then
