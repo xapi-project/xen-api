@@ -559,16 +559,18 @@ static int xiu_evtchn_unmask(xc_evtchn *xce, xc_osdep_handle h, evtchn_port_t po
 static struct xc_osdep_ops xiu_evtchn_ops = {
     .open = &xiu_evtchn_open,
     .close = &xiu_evtchn_close,
-
-    .u.evtchn = {
- 	.fd = &xiu_evtchn_fd,
- 	.notify = &xiu_evtchn_notify,
- 	.bind_unbound_port = &xiu_evtchn_bind_unbound_port,
- 	.bind_interdomain = &xiu_evtchn_bind_interdomain,
- 	.bind_virq = &xiu_evtchn_bind_virq,
- 	.unbind = &xiu_evtchn_unbind,
- 	.pending = &xiu_evtchn_pending,
- 	.unmask = &xiu_evtchn_unmask,
+    
+    .u.evtchn = 
+    {
+        .fd = &xiu_evtchn_fd,
+        .notify = &xiu_evtchn_notify,
+        .bind_unbound_port = &xiu_evtchn_bind_unbound_port,
+        .bind_interdomain = &xiu_evtchn_bind_interdomain,
+        .bind_virq = &xiu_evtchn_bind_virq,
+        .unbind = &xiu_evtchn_unbind,
+        .pending = &xiu_evtchn_pending,
+        .unmask = &xiu_evtchn_unmask,
+        .restrict_to = NULL,
     },
 };
 
