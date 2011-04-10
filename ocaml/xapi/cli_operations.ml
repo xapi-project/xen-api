@@ -522,6 +522,24 @@ type printer = Cli_printer.print_fn
 type rpc = (Xml.xml -> Xml.xml)
 type params = (string * string) list
 
+(* Check the params for "database:vdi-uuid=" - if this parameter is present, *)
+(* open the database on the specified VDI and use the resulting session_id. *)
+(* If the parameter is not present, use the original session_id. *)
+let with_specified_database rpc session_id params f =
+	let database_params = read_map_params "database" params in
+	let use_foreign_database = List.mem_assoc "vdi-uuid" database_params in
+	let session_id =
+		if use_foreign_database then begin
+			let database_vdi_uuid = List.assoc "vdi-uuid" database_params in
+			let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_vdi_uuid in
+			Client.VDI.open_database ~rpc ~session_id ~self:database_vdi
+		end else
+			session_id
+	in
+	finally
+		(fun () -> f session_id)
+		(fun () -> if use_foreign_database then Client.Session.logout ~rpc ~session_id)
+
 let make_param_funs getall getallrecs getbyuuid record class_name def_filters def_list_params rpc session_id =
 	let get_record2 rpc session_id x =
 		let r = record rpc session_id x in
@@ -533,47 +551,58 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 	in
 
 	let list printer rpc session_id params : unit =
-		let all = getallrecs ~rpc ~session_id ~expr:"true" in
-		let all_recs = List.map (fun (r,x) -> let record = record rpc session_id r in record.setrefrec (r,x); record) all in
+		with_specified_database rpc session_id params
+			(fun session_id ->
+				let all = getallrecs ~rpc ~session_id ~expr:"true" in
+				let all_recs = List.map (fun (r,x) -> let record = record rpc session_id r in record.setrefrec (r,x); record) all in
 
-		(* Filter on everything on the cmd line except params=... *)
-		let filter_params = List.filter (fun (p,_) -> not (List.mem p ("params"::stdparams))) params in
-		(* Add in the default filters *)
-		let filter_params = def_filters @ filter_params in
-		(* Filter all the records *)
-		let records = List.fold_left filter_records_on_fields all_recs filter_params in
+				(* Filter on everything on the cmd line except params=... *)
+				let filter_params = List.filter (fun (p,_) -> not (List.mem p ("params"::stdparams))) params in
+				(* Filter out all params beginning with "database:" *)
+				let filter_params = List.filter (fun (p,_) -> not (String.startswith "database:" p)) filter_params in
+				(* Add in the default filters *)
+				let filter_params = def_filters @ filter_params in
+				(* Filter all the records *)
+				let records = List.fold_left filter_records_on_fields all_recs filter_params in
 
-		let print_all = get_bool_param params "all" in
+				let print_all = get_bool_param params "all" in
 
-		let print_params = select_fields params (if print_all then all_recs else records) def_list_params in
-		let print_params = List.map (fun fields -> List.filter (fun field -> not field.hidden) fields) print_params in
-		let print_params = List.map (fun fields -> List.map (fun field -> if field.expensive then makeexpensivefield field else field) fields) print_params in
+				let print_params = select_fields params (if print_all then all_recs else records) def_list_params in
+				let print_params = List.map (fun fields -> List.filter (fun field -> not field.hidden) fields) print_params in
+				let print_params = List.map (fun fields -> List.map (fun field -> if field.expensive then makeexpensivefield field else field) fields) print_params in
 
-		printer (Cli_printer.PTable (List.map (List.map print_field) print_params))
+				printer (Cli_printer.PTable (List.map (List.map print_field) print_params))
+			)
 	in
 
 	let p_list printer rpc session_id params : unit =
-		let record = get_record rpc session_id (List.assoc "uuid" params) in
-		let record = List.filter (fun field -> not field.hidden) record in
-		printer (Cli_printer.PTable [List.map print_field record])
+		with_specified_database rpc session_id params
+			(fun session_id ->
+				let record = get_record rpc session_id (List.assoc "uuid" params) in
+				let record = List.filter (fun field -> not field.hidden) record in
+				printer (Cli_printer.PTable [List.map print_field record])
+			)
 	in
 
 	let p_get printer rpc session_id params : unit =
-		let record = get_record rpc session_id (List.assoc "uuid" params) in
-		let param = List.assoc "param-name" params in
-		let x = field_lookup record param in
-		let std () =
-			printer (Cli_printer.PList [ safe_get_field x])
-		in
-		if List.mem_assoc "param-key" params then
-			let key = List.assoc "param-key" params in
-			match x.get_map with
-					Some f ->
-						let result =
-							try List.assoc key (f ()) with _ -> failwith (Printf.sprintf "Key %s not found in map" key) in
-						printer (Cli_printer.PList [result])
-				| None -> std ()
-		else std ()
+		with_specified_database rpc session_id params
+			(fun session_id ->
+				let record = get_record rpc session_id (List.assoc "uuid" params) in
+				let param = List.assoc "param-name" params in
+				let x = field_lookup record param in
+				let std () =
+					printer (Cli_printer.PList [ safe_get_field x])
+				in
+				if List.mem_assoc "param-key" params then
+					let key = List.assoc "param-key" params in
+					match x.get_map with
+							Some f ->
+								let result =
+									try List.assoc key (f ()) with _ -> failwith (Printf.sprintf "Key %s not found in map" key) in
+								printer (Cli_printer.PList [result])
+						| None -> std ()
+				else std ()
+			)
 	in
 
 	let p_set (printer : printer) rpc session_id params =
@@ -670,9 +699,9 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 			in
 			let cli_name n = class_name^"-"^n in
 			let plural = if class_name="patch" then "patches" else class_name^"s" in
-			let ops = [(cli_name "list",[],"params"::all_optn@sm_param_names, "Lists all the "^plural^", filtering on the optional arguments. To filter on map parameters, use the syntax 'map-param:key=value'",list,(class_name="vm" || class_name="network" || class_name="sr"));
-			(cli_name "param-list",["uuid"],[],"Lists all the parameters of the object specified by the uuid.",p_list,false);
-			(cli_name "param-get",["uuid";"param-name"],["param-key"],"Gets the parameter specified of the object. If the parameter is a map of key=value pairs, use 'param-key=<key>' to get the value associated with a particular key.",p_get,false)] in
+			let ops = [(cli_name "list",[],"params"::"database:"::all_optn@sm_param_names, "Lists all the "^plural^", filtering on the optional arguments. To filter on map parameters, use the syntax 'map-param:key=value'",list,(class_name="vm" || class_name="network" || class_name="sr"));
+			(cli_name "param-list",["uuid"],["database:"],"Lists all the parameters of the object specified by the uuid.",p_list,false);
+			(cli_name "param-get",["uuid";"param-name"],["param-key";"database:"],"Gets the parameter specified of the object. If the parameter is a map of key=value pairs, use 'param-key=<key>' to get the value associated with a particular key.",p_get,false)] in
 			let ops = if List.length settable > 0 then
 				(cli_name "param-set",["uuid";],settable,"Sets the parameter specified. If param-value is not given, the parameter is set to a null value. To set a (key,value) pair in a map parameter, use the syntax 'map-param:key=value'.",p_set,false)::ops
 			else ops in
