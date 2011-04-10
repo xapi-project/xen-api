@@ -3233,8 +3233,9 @@ let with_database_vdi rpc session_id params f =
 	let database_uuid = List.assoc "vdi-uuid" database_params in
 	let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_uuid in
 	let database_session = Client.VDI.open_database ~rpc ~session_id ~self:database_vdi in
-	f database_session;
-	Client.Session.logout ~rpc ~session_id:database_session
+	finally
+		(fun () -> f database_session)
+		(fun () -> Client.Session.logout ~rpc ~session_id:database_session)
 
 let vm_recover printer rpc session_id params =
 	let force = get_bool_param params "force" in
