@@ -997,8 +997,8 @@ let cpuid_set ~xc ~hvm domid cfg =
 	cfgout
 
 let cpuid_apply ~xc ~hvm domid =
-	(*Xc.domain_cpuid_apply xc domid hvm*)
-	Xc.domain_cpuid_apply_policy xc domid
+	if not (Xc.is_fake()) then
+		Xc.domain_cpuid_apply_policy xc domid
 
 let cpuid_check ~xc cfg =
 	let tmp = Array.create 4 None in
