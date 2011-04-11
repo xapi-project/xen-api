@@ -6,7 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg
 
-UseCamlp4(rpc-light.syntax, features)
+UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -34,6 +34,7 @@ OCAMLPACKS = $(XEN_OCAMLPACKS) $(OCAMLPACKS)
 OCamlProgram(http_test, http_test)
 OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
 OCamlProgram(show_bat, show_bat)
+OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
 
 COMMON = \
 	xapi_templates \
@@ -165,6 +166,8 @@ XAPI_MODULES = $(COMMON) \
 	rrd_shared \
 	monitor_dbcalls \
 	monitor_rrds \
+	monitor_fake \
+	monitor_fake_common \
 	monitor \
 	rrd \
 	api_server \
@@ -272,6 +275,8 @@ install:
 	$(IPROG) rrddump $(DEBUGDIST)
 	mkdir -p $(DESTDIR)/opt/xensource/libexec
 	$(IPROG) sparse_dd $(DESTDIR)/opt/xensource/libexec
+	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+	$(IPROG) monitor_fake_plugin $(DESTDIR)/etc/xapi.d/plugins
 
 .PHONY: sdk-install
 sdk-install: install

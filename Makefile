@@ -103,7 +103,7 @@ srpm: xapi.spec
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
 	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
 	cp -f xapi.spec $(RPM_SPECSDIR)/
-	chown root.root $(RPM_SPECSDIR)/xapi.spec
+	chown root.root $(RPM_SPECSDIR)/xapi.spec || true
 	$(RPMBUILD) -bs --nodeps $(RPM_SPECSDIR)/xapi.spec
 
 
