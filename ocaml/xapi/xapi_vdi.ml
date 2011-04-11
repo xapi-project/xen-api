@@ -583,8 +583,6 @@ let checksum ~__context ~self =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> Sm_fs_ops.with_block_attached_device __context rpc session_id self `RO do_checksum)
 
-open Db_cache_types
-
 (* Functions for opening foreign databases on VDIs *)
 let open_database ~__context ~self =
 	let vdi_type = Db.VDI.get_type ~__context ~self in
