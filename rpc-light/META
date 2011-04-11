@@ -32,3 +32,11 @@ package "json" (
   archive(byte) = "jsonrpc.cmo"
   archive(native) = "jsonrpc.cmx"
 )
+
+package "idl" (
+  version = "0.1"
+  description = "Preprocessor to convert an idl definition in ocaml into an implementation of client and server modules"
+  requires = "camlp4"
+  archive(syntax,preprocessor) = "idl.cma"
+  archive(syntax,toploop) = "idl.cma"
+)

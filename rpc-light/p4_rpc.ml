@@ -14,11 +14,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Camlp4
-open PreCast
-open Ast
-open Syntax
 
+module RpcLight = functor (Ast : Camlp4.Sig.Camlp4Ast) ->
+  struct
+    open Ast
+
+    module Token = Camlp4.Struct.Token.Make(Ast.Loc)
+    module Lexer = Camlp4.Struct.Lexer.Make(Token)
+    module Gram = Camlp4.Struct.Grammar.Static.Make(Lexer)
+    module Quotation = Camlp4.Struct.Quotation.Make(Ast)
+    module Syntax = Camlp4.OCamlInitSyntax.Make(Ast)(Gram)(Quotation)
 
 let is_base = function
 	| "int64" | "int32" | "int" | "float" | "string" | "unit" -> true
@@ -455,3 +460,178 @@ let gen tds =
 		value rec $Rpc_of.gen tds$;
 	>>
 
+
+(* Helpers for the client/server code *)
+let call_of n = "call_of_" ^ n
+let of_call n = n ^ "of_call"
+
+let response_of n = "response_of_" ^ n
+let of_response n = n ^ "_of_response"
+
+let argi i    = Printf.sprintf "__x%d__" i
+
+type arg = {
+	kind: [ `Optional of string | `Named of string | `Anonymous ];
+	ctyp: ctyp;
+}
+
+let rec decompose_arrows ctyp =
+	let rec aux = function
+		| <:ctyp< $a$ -> $b$ >> -> aux a @ aux b
+		| ctyp -> [ ctyp ] in
+	List.rev (List.tl (List.rev (aux ctyp)))
+
+let arg_path _loc namespace = 
+  Ast.idAcc_of_list (List.map (fun s -> <:ident< $uid:s$ >>) namespace)
+
+let arg_of_ctyp accu = function
+	| <:ctyp< ? $lid:s$ : $ctyp$ >> -> { kind = `Optional s; ctyp = ctyp } :: accu
+	| <:ctyp< ~ $lid:s$ : $ctyp$ >> -> { kind = `Named s; ctyp = ctyp } :: accu
+	| ctyp                          -> { kind = `Anonymous; ctyp = ctyp } :: accu
+
+let args_of_ctyp args =
+	List.rev (List.fold_left arg_of_ctyp [] args)
+
+let contains_names args =
+	List.exists (fun arg -> arg.kind <> `Anonymous) args
+
+let ctyp_of_arg accu arg =
+	let _loc = loc_of_ctyp arg.ctyp in
+	match arg.kind with
+	| `Optional s -> <:ctyp< $lid:s$ : option $arg.ctyp$ >> :: accu
+	| `Named s    -> <:ctyp< $lid:s$ : $arg.ctyp$ >> :: accu
+	| `Anonymous -> accu
+
+let ctyp_of_args args =
+	let _loc = match args with arg :: _ -> loc_of_ctyp arg.ctyp | _ -> Loc.ghost in
+	<:ctyp< { $tySem_of_list (List.rev (List.fold_left ctyp_of_arg [] args))$ } >>
+
+let rec_binding_of_arg name accu arg =
+	let _loc = loc_of_ctyp arg.ctyp in
+	match arg.kind with
+	| `Optional s
+	| `Named s    -> <:rec_binding< $lid:s$ = $lid:s$ >> :: accu
+	| `Anonymous  -> accu
+
+let rec_binding_of_args name args =
+	let _loc = match args with arg :: _ -> loc_of_ctyp arg.ctyp | _ -> Loc.ghost in
+	<:expr< { $rbSem_of_list (List.fold_left (rec_binding_of_arg name) [] args)$ } >>
+
+let rec return_type ctyp =
+  match ctyp with 
+    | <:ctyp< $x$ -> $y$ >> ->
+      return_type y
+    | t -> t
+
+let decompose_value accu = function
+	| <:sig_item@_loc< value $lid:n$ : $ctyp$ >> -> (_loc, [], n, n, args_of_ctyp (decompose_arrows ctyp), return_type ctyp) :: accu
+	| _ -> accu
+
+let decompose_values mt =
+	match mt with
+	| <:module_type< sig $sg$ end >> ->
+		List.fold_left decompose_value [] (list_of_sig_item sg [])
+	| _ -> failwith "TODO"
+
+module Args = struct
+
+module Call_of = struct
+
+	let create _loc namespace name wire_name args =
+		let n = List.length args in
+		let cap_name = String.capitalize name in
+		let arg_path = arg_path _loc (namespace @ [cap_name]) in
+		let anonymous_exprs = list_foldi
+			(fun accu arg i ->
+				if arg.kind = `Anonymous then <:expr< $lid:rpc_of (argi (n - i))$ $lid:argi (n - i)$ >> :: accu else accu)
+			[] (List.rev args) in
+
+		if contains_names args then
+			<:expr<
+				let arg = $rec_binding_of_args name args$ in
+				Rpc.call $str:wire_name$  [ (rpc_of_request arg) :: $expr_list_of_list _loc anonymous_exprs$ ]
+			>>
+		else
+			<:expr<
+				Rpc.call $str:wire_name$ $expr_list_of_list _loc anonymous_exprs$
+			>>
+
+	let gen_one (_loc, namespace, name, wire_name, args, rtype) =
+		let n = List.length args in
+		<:binding< $lid:call_of name$ =
+				$list_foldi
+					(fun accu arg i ->
+						match arg.kind with
+						  `Optional s -> <:expr< fun ? $lid:s$ -> $accu$ >>
+						| `Named s    -> <:expr< fun ~ $lid:s$ -> $accu$ >>
+						| `Anonymous  -> <:expr< fun $lid:argi (n - i)$ -> $accu$ >>
+					)
+					(create _loc namespace name wire_name args)
+					(List.rev args)$
+		>>
+
+	let gen mt =
+		let _loc = loc_of_module_type mt in
+		let bindings = List.map gen_one (decompose_values mt) in
+		<:str_item<
+			value $biAnd_of_list bindings$;
+		>>
+end
+
+module Of_call = struct
+end
+
+
+	let gen_one (_loc, namespace, name, wire_name, args, rtype) =
+		let n = List.length args in
+		let cap_name = String.capitalize name in
+		let anonymous_rpcs = list_foldi
+			(fun accu arg i -> if arg.kind = `Anonymous then 
+			   (Rpc_of.gen_one (argi (n - i), [], arg.ctyp)) :: 
+			     (Of_rpc.gen_one (argi (n - i), [], arg.ctyp)) :: accu else accu)
+			[] (List.rev args) in
+		let response_and_call = <:str_item<
+	                type response = $rtype$;
+		        value $Rpc_of.gen_one ("response", [], rtype)$;
+			value $Of_rpc.gen_one ("response", [], rtype)$;				
+			value $Call_of.gen_one (_loc, namespace, name, wire_name, args, rtype)$; >> in
+		if contains_names args then 
+			<:str_item<
+				module $uid:cap_name$ = struct
+					type request = $ctyp_of_args args$;
+					value $Rpc_of.gen_one ("request", [], ctyp_of_args args)$;
+					value $Of_rpc.gen_one ("request", [], ctyp_of_args args)$;
+					value $biAnd_of_list anonymous_rpcs$;
+					$response_and_call$;
+				end		
+			>>
+		else
+			<:str_item<
+				module $uid:cap_name$ = struct
+				  value $biAnd_of_list anonymous_rpcs$;
+				  $response_and_call$;
+				end
+			>>
+
+	let gen mt =
+		let _loc = loc_of_module_type mt in
+		let sts = List.map gen_one (decompose_values mt) in
+		<:str_item<
+			module Args = struct
+				$stSem_of_list sts$
+			end
+		>>
+		
+end
+
+
+let gen_module mt =
+	let _loc = loc_of_module_type mt in
+	<:str_item<
+		$Args.gen mt$;
+	>>
+		
+ end
+
+module RpcLightNormal = RpcLight(Camlp4.PreCast.Ast) 
+open RpcLightNormal

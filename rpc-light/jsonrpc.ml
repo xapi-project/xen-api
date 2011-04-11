@@ -431,28 +431,23 @@ module Parser = struct
 		| Done _ -> raise_internal_error s "parse called when parse_state is 'Done'"
 
 	type parse_result =
-		| Json_value of t * (* number of consumed bytes *) int
+		| Json_value of t
 		| Json_parse_incomplete of parse_state
 
-	let parse_substring state str ofs len =
-		let i = ref ofs in
-		let iend = ofs + len in
-		while get_parse_result state = None && !i < iend do
-			parse_char state str.[!i];
-			(* This is here instead of inside parse_char since
-			   parse_char makes (tail-)recursive calls without
-			   consuming a character.
-			*)
-			state.num_chars_parsed <- state.num_chars_parsed + 1;
-
-			incr i
-		done;
-		match get_parse_result state with
-			| Some v -> Json_value (v, !i - ofs)
-			| None -> Json_parse_incomplete state
-
 	let parse state str =
-		parse_substring state str 0 (String.length str)
+		begin try
+			while get_parse_result state = None do
+				parse_char state (str ());
+				(* This is here instead of inside parse_char since
+				   parse_char makes (tail-)recursive calls without
+				   consuming a character.
+				*)
+				state.num_chars_parsed <- state.num_chars_parsed + 1;
+			done;
+		with _ -> () end;
+		match get_parse_result state with
+		| Some v -> Json_value v
+		| None -> Json_parse_incomplete state
 
 	(* This is really only required for numbers, since they are only
 	   terminated by whitespace, but end-of-file or end-of-connection
@@ -462,22 +457,28 @@ module Parser = struct
 	   start of a json value.
 	*)
 	let finish_parse state =
-		match parse state " " with
-		| Json_value (v, _) -> Some v
+		match parse state (fun () -> ' ') with
+		| Json_value v -> Some v
 		| Json_parse_incomplete _ ->
 			if state.cursor = Start then None
 			else raise_unterminated_value state (current_cursor_value state.cursor)
 
 	let num_chars_parsed state = state.num_chars_parsed
 
-	let of_string str =
+	let of_stream str =
 		match parse (init_parse_state ()) str with
-		| Json_value (v, _) -> v
+		| Json_value v -> v
 		| Json_parse_incomplete st ->
 			match finish_parse st with
 			| Some v -> v
 			| None -> raise_unterminated_value st (current_cursor_value st.cursor)
-			
+
+	let of_string str =
+		let i = ref (-1) in
+		let next () =
+			incr i;
+			str.[ !i ] in
+		of_stream next
 end
 
 let of_string = Parser.of_string
@@ -504,17 +505,25 @@ let call_of_string str =
 		call name params
 	| _ -> raise (Malformed_method_request str)
 
-let response_of_string str =
-	match of_string str with
+let response_of_stream str =
+	match Parser.of_stream str with
 	| Dict d ->
 		  let result = get "result" d in
 		  let error = get "error" d in
-		  let (_:int64) = match get "id" d with Int i -> i | _ -> raise (Malformed_method_response str) in
+		  let (_:int64) = match get "id" d with Int i -> i | _ -> raise (Malformed_method_response "id") in
 		  begin match result, error with
-			  | Null, Null -> raise (Malformed_method_response str)
-			  | Null, v    -> failure v
 			  | v, Null    -> success v
-			  | _          -> raise (Malformed_method_response str)
+			  | Null, v    -> failure v
+			  | x,y        -> raise (Malformed_method_response (Printf.sprintf "<result=%s><error=%s>" (Rpc.to_string x) (Rpc.to_string y)))
 		  end
-	| _ -> raise (Malformed_method_response str)
+	| rpc -> raise (Malformed_method_response (Printf.sprintf "<response_of_stream(%s)>" (to_string rpc)))
 
+let response_of_string str =
+	let i = ref (-1) in
+	let next () =
+		incr i;
+		str.[ !i ] in
+	response_of_stream next
+
+let response_of_in_channel channel =
+	response_of_stream (fun () -> input_char channel)

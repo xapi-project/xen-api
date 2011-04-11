@@ -16,9 +16,7 @@ open Camlp4
 open PreCast
 open Ast
 
-open Pa_type_conv
-
 let _ =
-	add_generator "rpc" (fun tds ->
-		let _loc = loc_of_ctyp tds in
-		<:str_item< $P4_rpc.gen tds$ >>)
+	Pa_type_conv.add_generator "rpc" (fun tds -> P4_rpc.RpcLightNormal.gen tds);
+	Pa_module_conv.add_generator "rpc" (fun mt -> P4_rpc.RpcLightNormal.gen_module mt)
+
