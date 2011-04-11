@@ -1551,7 +1551,6 @@ let vgpu_record rpc session_id vgpu =
 			make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vGPU_uuid) ();
 			make_field ~name:"vm-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_VM) ();
 			make_field ~name:"vm-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.vGPU_VM) ();
-			make_field ~name:"device" ~get:(fun () -> (x ()).API.vGPU_device) ();
 			make_field ~name:"gpu-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_GPU_group with _ -> nid) ();
 			make_field ~name:"gpu-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.vGPU_GPU_group with _ -> nid) ();
 			make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool (x ()).API.vGPU_currently_attached) ();
