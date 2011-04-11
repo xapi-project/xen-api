@@ -240,7 +240,8 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 	(* compute the parent VM *)
 	let parent =
 		match disk_op with
-		| Disk_op_clone | Disk_op_copy _-> vm
+		(* CA-52668: clone or copy result in new top-level VMs *)
+		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
 	(* update the VM's parent field in case of snapshot. *)
