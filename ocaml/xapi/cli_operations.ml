@@ -3714,12 +3714,10 @@ let host_reset_cpu_features printer rpc session_id params =
 
 let patch_upload fd printer rpc session_id params =
 	let filename = List.assoc "file-name" params in
-	let pool = Client.Pool.get_all rpc session_id in
-	let pool_master = Client.Pool.get_master rpc session_id (List.hd pool) in
-	let master_address = Client.Host.get_address rpc session_id pool_master in
 	let make_command task_id =
-		let uri = Printf.sprintf "https://%s%s?session_id=%s&task_id=%s"
-			master_address Constants.pool_patch_upload_uri (Ref.string_of session_id) (Ref.string_of task_id) in
+		let prefix = uri_of_someone rpc session_id Master in
+		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s"
+			prefix Constants.pool_patch_upload_uri (Ref.string_of session_id) (Ref.string_of task_id) in
 		let _ = debug "trying to post patch to uri:%s" uri in
 		HttpPut (filename, uri) in
 	let result = track_http_operation fd rpc session_id make_command "host patch upload" in
