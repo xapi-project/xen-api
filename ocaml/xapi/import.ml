@@ -474,10 +474,15 @@ let handle_gpu_group __context config rpc session_id (state: state) (x: obj) : u
 				raise (Failure msg)
 			else
 				(* In normal mode we attempt to create any missing GPU groups *)
-				let group =
-					log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
-						(String.concat "," gpu_group_record.API.gPU_group_GPU_types))
-						(fun value -> Client.GPU_group.create_from_record rpc session_id value) gpu_group_record
+				let group = log_reraise ("Unable to create GPU group with GPU_types = '[%s]'" ^
+					(String.concat "," gpu_group_record.API.gPU_group_GPU_types)) (fun value ->
+						let group = Client.GPU_group.create ~rpc ~session_id
+							~name_label:value.API.gPU_group_name_label
+							~name_description:value.API.gPU_group_name_description
+							~other_config:value.API.gPU_group_other_config in
+						Db.GPU_group.set_GPU_types ~__context ~self:group ~value:value.API.gPU_group_GPU_types;
+						group
+					) gpu_group_record
 				in
 				(* Only add task flag to GPU groups which get created in this import *)
 				TaskHelper.operate_on_db_task ~__context (fun t ->
