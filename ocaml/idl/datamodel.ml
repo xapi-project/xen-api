@@ -7067,24 +7067,46 @@ let gpu_group =
 (** Virtual GPUs (vGPU) *)
 
 let vgpu =
+	let create = call
+		~name:"create"
+		~lifecycle:[Published, rel_boston, ""]
+		~versioned_params:[
+			{param_type=(Ref _vm); param_name="VM"; param_doc=""; param_release=boston_release; param_default=None};
+			{param_type=(Ref _gpu_group); param_name="GPU_group"; param_doc=""; param_release=boston_release; param_default=None};
+			{param_type=String; param_name="device"; param_doc=""; param_release=boston_release; param_default=Some (VString "0")};
+			{param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=boston_release; param_default=Some (VMap [])}
+		]
+		~result:(Ref _vgpu, "")
+		~allowed_roles:_R_POOL_OP
+		()
+	in
+	let destroy = call
+		~name:"destroy"
+		~lifecycle:[Published, rel_boston, ""]
+		~params:[
+			Ref _vgpu, "self", "The vGPU to destroy"
+		]
+		~allowed_roles:_R_POOL_OP
+		()
+	in
 	create_obj
 		~name:_vgpu
 		~descr:"A virtual GPU (vGPU)"
 		~doccomments:[]
-		~gen_constructor_destructor:true
+		~gen_constructor_destructor:false
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[]
+		~messages:[create; destroy]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
 		~contents:[
 			uid _vgpu ~lifecycle:[Published, rel_boston, ""];
-			field ~qualifier:StaticRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU" ~default_value:(Some (VRef (Ref.string_of Ref.null)));
-			field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "")) "device" "Order in which the devices are plugged into the VM";
-			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the vitual devce device is currently connected to a physical device";
+			field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU";
+			field ~qualifier:DynamicRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU";
+			field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "0")) "device" "Order in which the devices are plugged into the VM";
+			field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
 			field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
 			]
 		()

@@ -613,7 +613,8 @@ let handle_vgpu __context config rpc session_id (state: state) (x: obj) : unit =
 		API.vGPU_GPU_group = group
 	} in
 	let vgpu = log_reraise "failed to create VGPU" (fun value ->
-		let vgpu = Client.VGPU.create_from_record rpc session_id value in
+		let vgpu = Client.VGPU.create ~rpc ~session_id ~vM:value.API.vGPU_VM ~gPU_group:value.API.vGPU_GPU_group
+			~device:value.API.vGPU_device ~other_config:value.API.vGPU_other_config in
 		if config.full_restore then Db.VGPU.set_uuid ~__context ~self:vgpu ~value:value.API.vGPU_uuid;
 		vgpu) vgpu_record
 	in
