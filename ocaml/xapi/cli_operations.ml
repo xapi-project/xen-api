@@ -2689,8 +2689,9 @@ let vdi_import fd printer rpc session_id params =
 	let filename = List.assoc "filename" params in
 	let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
 	let make_command task_id =
-		let uri = Printf.sprintf "%s?session_id=%s&task_id=%s&vdi=%s"
-			Constants.import_raw_vdi_uri (Ref.string_of session_id)
+		let prefix = uri_of_someone rpc session_id Master in
+		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&vdi=%s"
+			prefix Constants.import_raw_vdi_uri (Ref.string_of session_id)
 			(Ref.string_of task_id) (Ref.string_of vdi) in
 		debug "requesting HttpPut('%s','%s')" filename uri;
 		HttpPut (filename, uri) in
