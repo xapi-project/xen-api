@@ -193,3 +193,23 @@ let user_says_yes fd =
   then marshal fd (Command (Print ("Aborted (you typed: '"^response^"')")));
   result
 
+type someone = 
+	| Master (** I want to talk to the master *)
+	| SpecificHost of API.ref_host (** I want to talk to [h] (who may be the master *)
+
+(** Return a uri prefix which will cause the CLI to talk to either the 
+	master or to a specific host (which may be the master). This will
+	work even when the management interface is disabled. *)
+let rec uri_of_someone rpc session_id = function
+	| Master -> 
+		(* See ocaml/xe-cli/newcli.ml:parse_url *)
+		""		
+	| SpecificHost h ->
+		let pool = List.hd (Client.Pool.get_all rpc session_id) in
+		let pool_master = Client.Pool.get_master rpc session_id pool in
+		if h = pool_master 
+		then uri_of_someone rpc session_id Master
+		else 
+			let address = Client.Host.get_address rpc session_id h in
+			"https://" ^ address
+
