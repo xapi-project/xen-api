@@ -3500,12 +3500,10 @@ let pool_restore_db fd printer rpc session_id params =
 	if not(List.mem_assoc "force" params) && not(dry_run)
 	then failwith "This operation will restore the database backup to this host, making it the master. All slave hosts are assumed dead and they will be forgotten. This operation must be forced (use --force).";
 	let filename = List.assoc "file-name" params in
-	let pool = List.hd (Client.Pool.get_all rpc session_id) in
-	let pool_master = Client.Pool.get_master rpc session_id pool in
-	let url_prefix = Client.Host.get_address rpc session_id pool_master in
 	let make_command task_id =
-		let uri = Printf.sprintf "https://%s%s?session_id=%s&task_id=%s&dry_run=%b"
-			url_prefix
+		let prefix = uri_of_someone rpc session_id Master in
+		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&dry_run=%b"
+			prefix
 			Constants.pool_xml_db_sync (Ref.string_of session_id) (Ref.string_of task_id)
 			dry_run in
 		debug "%s" uri;
