@@ -374,7 +374,8 @@ let bring_up_management_if ~__context () =
   with e ->
     debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 
-(** When booting as a slave we must have a management IP address in order to talk to the master. *)
+(** Assuming a management interface is defined, return the IP address. Note this
+	call may block for a long time. *)
 let wait_for_management_ip_address () =
 	debug "Attempting to acquire a management IP address";
 	Xapi_host.set_emergency_mode_error Api_errors.host_has_no_management_ip [];
@@ -382,10 +383,13 @@ let wait_for_management_ip_address () =
 	debug "Acquired management IP address: %s" ip;
 	Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [];
 	(* Check whether I am my own slave. *)
-	let masters_ip = Pool_role.get_master_address () in
-	if masters_ip = "127.0.0.1" || masters_ip = ip then begin
-		debug "Realised that I am my own slave!";
-		Xapi_host.set_emergency_mode_error Api_errors.host_its_own_slave [];
+	begin match Pool_role.get_role () with
+		| Pool_role.Slave masters_ip ->
+			if masters_ip = "127.0.0.1" || masters_ip = ip then begin
+				debug "Realised that I am my own slave!";
+				Xapi_host.set_emergency_mode_error Api_errors.host_its_own_slave [];
+			end
+		| Pool_role.Master | Pool_role.Broken -> ()
 	end;
 	ip
 
