@@ -50,7 +50,7 @@ def fake_dm(domid):
 	store = xs.xs()
 
 	store.write('', '/local/domain/%d/qemu-pid'%domid, '%d'%getpid())
-	store.write('', '/local/domain/%d/device-misc/dm-ready', '1')
+	store.write('', '/local/domain/%d/device-misc/dm-ready'%domid, '1')
 	store.write('', '/local/domain/%d/console/vnc-port'%domid, '%d'%(domid))
 
 	while True:
