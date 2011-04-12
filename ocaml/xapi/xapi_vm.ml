@@ -95,8 +95,14 @@ let set_ha_restart_priority ~__context ~self ~value =
 				let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context in ()
 		end;
 
-	if current <> value then
-		Db.VM.set_ha_restart_priority ~__context ~self ~value
+	if current <> value then begin
+		Db.VM.set_ha_restart_priority ~__context ~self ~value;
+		(* If the VM is running then immediately turn on or off "protection"
+		   for the VM by setting ha_always_run *)
+		if Db.VM.get_power_state ~__context ~self = `Running
+		then Db.VM.set_ha_always_run ~__context ~self ~value:(value = Constants.ha_restart)
+	end
+
 
 (* Field deprecated since Boston - attempt to degrade gracefully if anything sets it. *)
 let set_ha_always_run ~__context ~self ~value =
@@ -212,7 +218,8 @@ let start ~__context ~vm ~start_paused:paused ~force =
 						(* Xapi_vm_helpers.assert_can_boot_here not required *)
 						(* since the message_forwarding layer has already    *)
 						(* done it and it's very expensive on a slave.       *)
-						Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+						if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+						then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 
 						(* check BIOS strings: set to generic values if empty *)
 						let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
@@ -769,7 +776,8 @@ let resume ~__context ~vm ~start_paused ~force =
 					(fun xc xs ->
 						debug "resume: making sure the VM really is suspended";
 						assert_power_state_is ~__context ~vm ~expected:`Suspended;
-						Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
+						if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
+						then Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
 						let localhost = Helpers.get_localhost ~__context in
 						if not force then begin
 							debug "resume: checking the VM is compatible with this host";
