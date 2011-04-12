@@ -51,7 +51,6 @@ let daemon_init post_daemonize_hook process =
 	(* TCP socket: only use for testing! *)
 (*	let localhost = Unix.inet_addr_of_string "127.0.0.1" in
 	let localhost_sock = Http_svr.bind (Unix.ADDR_INET(localhost, 4094)) in
-	Unix.setsockopt localhost_sock Unix.SO_REUSEADDR true;
 	ignore(Http_svr.start (localhost_sock, "inet-RPC"));*)
 
 	(* keep daemon alive *)

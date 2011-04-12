@@ -1,9 +1,0 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl
-OCAMLPACKS    = xml-light2 lablgtk2 lablgtk2.glade
-
-OCamlProgram(xapimon, xapimon ../idl/constants)
-
-.PHONY: clean
-clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt

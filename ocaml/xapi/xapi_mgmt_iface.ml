@@ -45,7 +45,6 @@ let change (interface, ip) =
   stop ();
   debug "Starting new server on IP: %s" ip;
   let socket = Xapi_http.svr_bind (Unix.ADDR_INET(Unix.inet_addr_of_string ip, Xapi_globs.http_port)) in
-  Unix.setsockopt socket Unix.SO_REUSEADDR true;
   let server = Http_svr.start (socket, "inet_rpc") in
   management_interface_server := Some server;
   
