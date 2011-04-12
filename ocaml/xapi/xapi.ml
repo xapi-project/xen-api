@@ -670,13 +670,13 @@ let server_init() =
     (* Always listen on the Unix domain socket first *)
     Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
     Unixext.unlink_safe Xapi_globs.unix_domain_socket;
-    let domain_sock = Xapi_http.svr_bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
+    let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
     ignore(Http_svr.start (domain_sock, "unix-RPC"));
     in
   let listen_localhost () =
     (* Always listen on 127.0.0.1 *)
     let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-    let localhost_sock = Xapi_http.svr_bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
+    let localhost_sock = Xapi_http.bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
     ignore(Http_svr.start (localhost_sock, "inet-RPC"));
     in
 
