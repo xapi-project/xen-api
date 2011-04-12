@@ -273,3 +273,4 @@ val recover : __context:Context.t -> self:API.ref_VM ->
 	session_to:API.ref_session -> force:bool -> unit
 val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
 	value:API.ref_VDI -> unit
+val set_appliance : __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
