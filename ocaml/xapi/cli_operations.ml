@@ -3602,38 +3602,18 @@ let host_get_system_status fd printer rpc session_id params =
 	let output = try List.assoc "output" params with _ -> "tar.bz2" in
 	begin match output with "tar.bz2" | "tar" | "zip" -> () | _ ->
 		failwith "Invalid output format. Must be 'tar', 'zip' or 'tar.bz2'" end;
-	let url =
-		Printf.sprintf "%s?session_id=%s&entries=%s&output=%s"
-			Constants.system_status_uri
-			(Ref.string_of session_id)
-			entries
-			output
-	in
+
 	let op n host =
-		let _ (* unused variable 'fname' *) =
-			if n > 1
-			then
-				Printf.sprintf "%s-%s%s%s"
-					filename
-					(safe_get_field (field_lookup host.fields "name-label"))
-					(if output = "" then "" else ".")
-					output
-			else
-				filename
-		in
 		let doit task_id =
-			let url = Printf.sprintf "%s&task_id=%s" url (Ref.string_of task_id) in
-			if not (!Xapi_globs.slave_emergency_mode) then
-				begin
-					if n > 1
-					then raise Not_found
-					else
-						let url = Printf.sprintf "https://%s%s" (safe_get_field (field_lookup host.fields "address")) url in
-						HttpGet (filename, url)
-				end
-			else
-				HttpGet (filename, url)
-		in
+			let uuid = safe_get_field (field_lookup host.fields "uuid") in
+			let someone = try SpecificHost (Client.Host.get_by_uuid rpc session_id uuid) with _ -> Master in
+			let prefix = uri_of_someone rpc session_id someone in
+			
+			let url =
+				Printf.sprintf "%s%s?session_id=%s&entries=%s&output=%s"
+					prefix Constants.system_status_uri
+					(Ref.string_of session_id) entries output in
+			HttpGet (filename, url) in
 		track_http_operation fd rpc session_id doit "system-status download"
 	in
 	ignore (do_host_op rpc session_id op params ["filename"; "entries"; "output"])
