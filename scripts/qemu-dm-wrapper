@@ -32,11 +32,16 @@ def write_dm_pid(domid, pid):
 
 def is_sdk():
 	try:
-		store = xs.xs()
-		i = int(store.read('', 'domid'))
+		store = xs.xs(socket=True)
+		domid_as_dom0 = int(store.read('', 'domid'))
+		store.close()
+		assert domid_as_dom0 == 0
+		store = xs.xs(xenbus=True)
+		domid_on_host = int(store.read('', 'domid'))
+		store.close()
+		return domid_on_host != domid_as_dom0
 	except:
 		return False
-	return i != 0
 
 def fake_dm(domid):
 	from time import sleep
