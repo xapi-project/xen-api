@@ -54,15 +54,14 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 	    Http_svr.headers s http_403_forbidden;
 	    raise (Failure (Printf.sprintf "import code cannot handle encoding: %s" x))
 	| None ->
-	    let headers = Http.http_200_ok ~keep_alive:false () @
-	      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);
-		content_type ] in
-            Http_svr.headers s headers;
-	    
 		Server_helpers.exec_with_new_task "VDI.import" 
 		(fun __context -> 
 		 Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 		   (fun fd ->
+			   let headers = Http.http_200_ok ~keep_alive:false () @
+				   [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);
+				   content_type ] in
+               Http_svr.headers s headers;
 			   try
 			     if chunked
 			     then receive_chunks s fd
