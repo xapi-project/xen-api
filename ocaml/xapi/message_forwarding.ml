@@ -1830,6 +1830,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				[Ref.string_of self; Ref.string_of appliance]));
 		Local.VM.recover ~__context ~self ~session_to ~force
 
+	let set_appliance ~__context ~self ~value =
+		info "VM.set_appliance: self = '%s'; value = '%s';" (vm_uuid ~__context self) (vm_appliance_uuid ~__context value);
+		Local.VM.set_appliance ~__context ~self ~value
   end
 
   module VM_metrics = struct

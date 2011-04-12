@@ -2059,6 +2059,15 @@ let vm_recover = call
   ~allowed_roles:_R_READ_ONLY
   ()
 
+let vm_set_appliance = call
+	~name:"set_appliance"
+	~in_product_since:rel_boston
+	~doc:"Assign this VM to an appliance."
+	~params:[Ref _vm, "self", "The VM to assign to an appliance.";
+		Ref _vm_appliance, "value", "The appliance to which this VM should be assigned."]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (* ------------------------------------------------------------------------------------------------------------
    Host Management
    ------------------------------------------------------------------------------------------------------------ *)
@@ -6101,6 +6110,7 @@ let vm =
 		vm_set_suspend_VDI;
 		vm_assert_can_be_recovered;
 		vm_recover;
+		vm_set_appliance;
 		]
       ~contents:
       ([ uid _vm;
@@ -6167,7 +6177,7 @@ let vm =
 	field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap [])) ~ty:(Map (String,String)) "bios_strings" "BIOS strings";
 	field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _vmpp) "protection_policy" "Ref pointing to a protection policy for this VM";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_cowley ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp" "true if this snapshot was created by the protection policy";
-	field ~writer_roles:_R_POOL_OP ~qualifier:RW ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
+	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef (Ref.string_of Ref.null))) "appliance" "the appliance to which this VM belongs";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "start_delay" "The delay to wait before proceeding to the next order in the startup sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "shutdown_delay" "The delay to wait before proceeding to the next order in the shutdown sequence (seconds)";
 	field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int "order" "The point in the startup or shutdown sequence at which this VM will be started";
