@@ -676,7 +676,7 @@ let server_init() =
   let listen_localhost () =
     (* Always listen on 127.0.0.1 *)
     let localhost = Unix.inet_addr_of_string "127.0.0.1" in
-    let localhost_sock = Xapi_http.svr_bind (Unix.ADDR_INET(localhost, !Xapi_globs.http_port)) in
+    let localhost_sock = Xapi_http.svr_bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
     Unix.setsockopt localhost_sock Unix.SO_REUSEADDR true;
     ignore(Http_svr.start (localhost_sock, "inet-RPC"));
     in

@@ -57,7 +57,7 @@ let default_ssl_port = 443
 
 let ips_to_listen_on = "0.0.0.0"
 
-let http_port = ref default_cleartext_port
+let http_port = default_cleartext_port
 let https_port = ref default_ssl_port
 
 let xapi_gc_debug = ref true

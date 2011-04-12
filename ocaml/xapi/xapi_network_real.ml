@@ -23,7 +23,7 @@ open Pervasiveext
 let server = ref None
 let m = Mutex.create ()
 
-let port_to_forward = !Xapi_globs.http_port
+let port_to_forward = Xapi_globs.http_port
 let forward_via_https = true (** encrypt forwarded traffic to other hosts *)
 
 (* Only use HTTPs if we're (a) forwarding; and (b) we want to *)
@@ -41,7 +41,7 @@ let make_proxy bridge master_ip ip =
 
 		let use_https = use_https master_ip in
 
-  		let dest_port = if use_https then !Xapi_globs.https_port else !Xapi_globs.http_port in
+  		let dest_port = if use_https then !Xapi_globs.https_port else Xapi_globs.http_port in
 		
 		if use_https then begin
 			debug "Forwarding connection to %s over SSL" master_ip;

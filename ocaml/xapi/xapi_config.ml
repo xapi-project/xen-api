@@ -99,7 +99,6 @@ let read_config filename =
 
     let configargs = [
 (*      "license_filename", Config.Set_string License_file.filename; *)
-        "http-port", Config.Set_int http_port;
         "stunnelng", Config.Set_bool Stunnel.use_new_stunnel;
         "log", Config.String set_log;
 	"gc-debug", Config.Set_bool Xapi_globs.xapi_gc_debug;
