@@ -2971,7 +2971,9 @@ let vm_import fd printer rpc session_id params =
 		| Response Failed ->
 			(* possibly a Rio import *)
 			let make_command task_id =
-				let uri = Printf.sprintf "%s?session_id=%s&task_id=%s&restore=%s&force=%s%s"
+				let prefix = uri_of_someone rpc session_id Master in
+				let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s&restore=%s&force=%s%s"
+					prefix
 					(if vm_metadata_only then Constants.import_metadata_uri else Constants.import_uri)
 					(Ref.string_of session_id) (Ref.string_of task_id)
 					(if full_restore then "true" else "false")
