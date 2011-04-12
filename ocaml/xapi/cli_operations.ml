@@ -3543,11 +3543,9 @@ let host_restore fd printer rpc session_id params =
 	let filename = List.assoc "file-name" params in
 	let op _ host =
 		let prefix =
-			let localhost_uuid = Helpers.get_localhost_uuid () in
-			if (safe_get_field (field_lookup host.fields "uuid")) = localhost_uuid
-			then ""
-			else "https://"^(safe_get_field (field_lookup host.fields "address"))
-		in
+			let uuid = safe_get_field (field_lookup host.fields "uuid") in
+			let someone = try SpecificHost (Client.Host.get_by_uuid rpc session_id uuid) with _ -> Master in
+			uri_of_someone rpc session_id someone in
 		let make_command task_id =
 			let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s" prefix
 				Constants.host_restore_uri (Ref.string_of session_id) (Ref.string_of task_id) in
