@@ -49,7 +49,10 @@ let update_allowed_operations ~__context ~self =
             Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
          (Db.VM.get_VIFs ~__context ~self)
     ) ();
-  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
+  let appliance = Db.VM.get_appliance ~__context ~self in
+  if Db.is_valid_ref __context appliance then
+    Xapi_vm_appliance.update_allowed_operations ~__context ~self:appliance
 
 
 let assert_can_boot_here ~__context ~self ~host =
@@ -1317,3 +1320,18 @@ let set_suspend_VDI ~__context ~self ~value =
 					 (Api_errors.suspend_vdi_replacement_is_not_identical,
 					  [(Db.VDI.get_uuid ~__context ~self:src_vdi ^ " : " ^ src_checksum);
 					   (Db.VDI.get_uuid ~__context ~self:dst_vdi ^ " : " ^ dst_checksum)]))
+
+let set_appliance ~__context ~self ~value =
+	if
+		Db.VM.get_is_control_domain ~__context ~self ||
+		Db.VM.get_is_a_template ~__context ~self ||
+		Db.VM.get_is_a_snapshot ~__context ~self
+	then
+		raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Control domains, templates and snapshots cannot be assigned to appliances."]));
+	let previous_value = Db.VM.get_appliance ~__context ~self in
+	Db.VM.set_appliance ~__context ~self ~value;
+	(* Update allowed operations of the old and new appliances, if valid. *)
+	if Db.is_valid_ref __context previous_value then
+		Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value;
+	if Db.is_valid_ref __context value then
+		Xapi_vm_appliance.update_allowed_operations ~__context ~self:value
