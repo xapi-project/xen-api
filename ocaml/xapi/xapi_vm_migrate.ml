@@ -569,7 +569,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 					with _ -> raise offline_ex
 				else None in
 			let fd = match stunnel with Some st -> st.Stunnel.fd | None ->
-				try Unixext.open_connection_fd hostname !Xapi_globs.http_port
+				try Unixext.open_connection_fd hostname Xapi_globs.http_port
 				with _ -> raise offline_ex in
 			finally
 				(fun () ->
