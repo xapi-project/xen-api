@@ -7042,15 +7042,38 @@ let pgpu =
 (** Groups of GPUs *)
 
 let gpu_group =
+	let create = call
+		~name:"create"
+		~lifecycle:[Published, rel_boston, ""]
+		~versioned_params:[
+			{param_type=(String); param_name="name_label"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
+			{param_type=(String); param_name="name_description"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
+			{param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=boston_release; param_default=Some (VMap [])}
+		]
+		~result:(Ref _gpu_group, "")
+		~allowed_roles:_R_POOL_OP
+		~hide_from_docs:true
+		()
+	in
+	let destroy = call
+		~name:"destroy"
+		~lifecycle:[Published, rel_boston, ""]
+		~params:[
+			Ref _gpu_group, "self", "The vGPU to destroy"
+		]
+		~allowed_roles:_R_POOL_OP
+		~hide_from_docs:true
+		()
+	in
 	create_obj
 		~name:_gpu_group
 		~descr:"A group of compatible GPUs across the resource pool"
 		~doccomments:[]
-		~gen_constructor_destructor:true
+		~gen_constructor_destructor:false
 		~gen_events:true
 		~in_db:true
 		~lifecycle:[Published, rel_boston, ""]
-		~messages:[]
+		~messages:[create; destroy]
 		~messages_default_allowed_roles:_R_POOL_OP
 		~persist:PersistEverything
 		~in_oss_since:None
