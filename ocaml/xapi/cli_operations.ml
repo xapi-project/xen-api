@@ -3486,12 +3486,10 @@ let host_backup fd printer rpc session_id params =
 
 let pool_dump_db fd printer rpc session_id params =
 	let filename = List.assoc "file-name" params in
-	let pool = List.hd (Client.Pool.get_all rpc session_id) in
-	let pool_master = Client.Pool.get_master rpc session_id pool in
-	let url_prefix = Client.Host.get_address rpc session_id pool_master in
 	let make_command task_id =
-		let uri = Printf.sprintf "https://%s%s?session_id=%s&task_id=%s"
-			url_prefix
+		let prefix = uri_of_someone rpc session_id Master in
+		let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s"
+			prefix
 			Constants.pool_xml_db_sync (Ref.string_of session_id) (Ref.string_of task_id) in
 		debug "%s" uri;
 		HttpGet (filename, uri) in
