@@ -67,7 +67,7 @@ let make_proxy bridge master_ip ip =
 				(* Make sure we don't try to double-close the server *)
 				server := None;
 				let handler = { Server_io.name = "repeater"; body = handler } in
-				let sock = Xapi_http.svr_bind sockaddr in
+				let sock = Xapi_http.bind sockaddr in
 				let s = Server_io.server handler sock in
 				server := Some s
 			)
