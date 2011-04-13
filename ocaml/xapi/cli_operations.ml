@@ -3610,9 +3610,10 @@ let host_get_system_status fd printer rpc session_id params =
 			let prefix = uri_of_someone rpc session_id someone in
 			
 			let url =
-				Printf.sprintf "%s%s?session_id=%s&entries=%s&output=%s"
+				Printf.sprintf "%s%s?session_id=%s&entries=%s&output=%s&task_id=%s"
 					prefix Constants.system_status_uri
-					(Ref.string_of session_id) entries output in
+					(Ref.string_of session_id) entries output
+					(Ref.string_of task_id) in
 			HttpGet (filename, url) in
 		track_http_operation fd rpc session_id doit "system-status download"
 	in
