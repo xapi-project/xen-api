@@ -85,7 +85,8 @@ let move ~__context ~network vif =
 	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
 		(Db.Network.get_uuid ~__context ~self:network);
 	let vif_rec = Db.VIF.get_record ~__context ~self:vif in
-	let attached = vif_rec.API.vIF_currently_attached in
+	let suspended = Db.VM.get_power_state ~__context ~self:vif_rec.API.vIF_VM = `Suspended in
+	let attached = vif_rec.API.vIF_currently_attached && not suspended in
 	if attached = true then
 		unplug ~__context ~self:vif;
 	destroy ~__context ~self:vif;
