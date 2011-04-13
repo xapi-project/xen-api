@@ -18,6 +18,7 @@ xapi-libs.spec: xapi-libs.spec.in
 
 .PHONY: srpm
 srpm: xapi-libs.spec
+	mkdir -p $(RPM_SOURCESDIR)
 	git archive --prefix=xapi-libs-0.1/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-libs-0.1.tar.bz2  # xen-api-libs/Makefile.xcp
 	cp -f xapi-libs.spec $(RPM_SPECSDIR)/
 	$(RPMBUILD) -bs --nodeps xapi-libs.spec
