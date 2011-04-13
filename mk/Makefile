@@ -19,23 +19,12 @@ RPM_BINDIR=$(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)
 SPECNAME=xapi-libs.spec
 
 .PHONY: build
-build: srpm $(MY_SOURCES)/MANIFEST
+build: $(MY_SOURCES)/MANIFEST
 	mkdir -p $(RPM_RPMSDIR)
-	$(shell  cd .. ; ./autogen.sh)
+	$(MAKE) -C $(REPO) -f Makefile.xcp srpm
 	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb  $(RPM_SPECSDIR)/$(SPECNAME)
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
-
-.PHONY: srpm
-srpm:
-	mkdir -p $(RPM_SRPMSDIR) $(RPM_SPECSDIR) $(RPM_SOURCESDIR) $(RPM_RPMSDIR)
-	while ! [ -d .git ]; do cd ..; done; \
-	git archive --prefix=xapi-libs-0.1/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-libs-0.1.tar.bz2  # xen-api-libs/mk/Makefile
-	cp ../$(SPECNAME).in $(RPM_SPECSDIR)
-	sed -e s\,@XAPI_LIBS_RELEASE@,$(XAPI_LIBS_RELEASE),g  \
-            < $(RPM_SPECSDIR)/$(SPECNAME).in \
-            > $(RPM_SPECSDIR)/$(SPECNAME)
-	$(RPMBUILD) -bs $(RPM_SPECSDIR)/xapi-libs.spec
 
 $(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
 	rm -f $@

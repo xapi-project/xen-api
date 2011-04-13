@@ -1,5 +1,6 @@
 ifdef B_BASE
 include $(B_BASE)/common.mk
+include $(B_BASE)/rpmbuild.mk
 REPO=$(call gitloc,xen-api-libs)
 else
 MY_OUTPUT_DIR ?= $(CURDIR)/output
@@ -8,17 +9,19 @@ REPO ?= $(CURDIR)
 
 RPM_SPECSDIR?=$(shell rpm --eval='%_specdir')
 RPM_SRPMSDIR?=$(shell rpm --eval='%_srcrpmdir')
-RPM_SOURCEDIR?=$(shell rpm --eval='%_sourcedir')
-XEN_RELEASE?=unknown
+RPM_SOURCESDIR?=$(shell rpm --eval='%_sourcedir')
 endif
 
+.PHONY: xapi-libs.spec
+xapi-libs.spec: xapi-libs.spec.in
+	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
 
 .PHONY: srpm
-srpm:
-	while ! [ -d .git ]; do cd ..; done; \
-	git archive --prefix=xapi-libs-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCEDIR)/xapi-libs-0.tar.bz2  # xen-api-libs/Makefile.xcp
-	rpmbuild --define "XEN_RELEASE $(XEN_RELEASE)" -bs --nodeps xapi-libs.spec
+srpm: xapi-libs.spec
+	git archive --prefix=xapi-libs-0.1/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/xapi-libs-0.1.tar.bz2  # xen-api-libs/Makefile.xcp
+	cp -f xapi-libs.spec $(RPM_SPECSDIR)/
+	$(RPMBUILD) -bs --nodeps xapi-libs.spec
 
 .PHONY: rpm
 rpm: srpm
-	rpmbuild -bb xapi-libs.spec
+	$(RPMBUILD) -bb xapi-libs.spec

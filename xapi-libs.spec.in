@@ -1,11 +1,9 @@
 # -*- rpm-spec -*-
 
-%define XEN_RELEASE %(test -z "${XEN_RELEASE}" && echo unknown || echo $XEN_RELEASE)
-
 Summary: xapi-libs - xen toolstack for XCP libraries
 Name:    xapi-libs
 Version: 0.1
-Release: @XAPI_LIBS_RELEASE@
+Release: @RPM_RELEASE@
 Group:   System/Hypervisor
 License: LGPL+linking exception
 URL:  http://www.xen.org
