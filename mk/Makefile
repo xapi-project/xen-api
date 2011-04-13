@@ -22,6 +22,7 @@ SPECNAME=xapi-libs.spec
 build: $(MY_SOURCES)/MANIFEST
 	mkdir -p $(RPM_RPMSDIR)
 	$(MAKE) -C $(REPO) -f Makefile.xcp srpm
+	mkdir -p $(RPM_RPMSDIR)/$(DOMAIN_ZERO_OPTIMIZED)
 	$(RPMBUILD) --target $(DOMAIN0_ARCH_OPTIMIZED) -bb  $(RPM_SPECSDIR)/$(SPECNAME)
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
