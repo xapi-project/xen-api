@@ -228,6 +228,9 @@ let start ~__context ~vm ~start_paused:paused ~force =
 							Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
 						end;
 
+						(* Invoke pre-start hook *)
+						Xapi_hooks.vm_pre_start ~__context ~reason:Xapi_hooks.reason__none ~vm;
+
 						debug "start: bringing up domain in the paused state";
 						Vmops.start_paused
 							~progress_cb:(TaskHelper.set_progress ~__context) ~pcidevs:None ~__context ~vm ~snapshot;
@@ -540,9 +543,6 @@ module Shutdown = struct
 		       Monitor.do_monitor __context xc
 		  )
 	end;
-
-	(* Invoke pre-start hook *)
-	Xapi_hooks.vm_pre_start ~__context ~reason:Xapi_hooks.reason__none ~vm;
 
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
       debug "hard_shutdown: destroying any suspend VDI";
