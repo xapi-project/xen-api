@@ -132,7 +132,7 @@ def set_boot_config(installer_dir):
             if 'gateway' in pif:
                 config_str += ";gateway=" + pif['gateway']
             if 'DNS' in pif:
-                config_str += ";dns=" + ','.join(pif['DNS'])
+                config_str += ";dns=" + pif['DNS']
             kernel_args.extend(['network_device='+pif['MAC'],
                                 'network_config=static;'+config_str])
         else:
