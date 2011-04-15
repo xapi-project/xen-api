@@ -174,8 +174,13 @@ esac
 
 case ${TYPE} in
     vif)
-        DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
-        DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
+        if [ -z ${XENBUS_PATH} ]; then
+            DOMID=$3
+            DEVID=$4
+        else
+            DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
+            DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
+        fi
         dev=vif${DOMID}.${DEVID}
         ;;
     tap)
@@ -229,4 +234,9 @@ remove)
     logger -t scripts-vif "${dev} has been removed"
     remove_from_bridge
     ;;
+
+move)
+    if [ "${TYPE}" = "vif" ] ;then
+        add_to_bridge
+    fi
 esac
