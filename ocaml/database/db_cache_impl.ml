@@ -295,7 +295,7 @@ let load connections default_schema =
 		
 let sync conns db =
     (* Flush the in-memory cache to the redo-log *)
-    Redo_log.flush_db_to_redo_log db;
+    Redo_log.flush_db_to_all_active_redo_logs db;
 	(* and then to the filesystem *)
 	List.iter (fun c -> Db_connections.flush c db) conns
 		

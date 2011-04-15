@@ -113,7 +113,7 @@ let enable_database_replication ~__context ~vdi =
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
 				Redo_log.startup log;
-				Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ()));
+				Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ())) log;
 				Hashtbl.add metadata_replication vdi (vbd, log);
 				let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
 				Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:true;
