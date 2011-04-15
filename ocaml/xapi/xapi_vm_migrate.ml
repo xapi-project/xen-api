@@ -57,29 +57,33 @@ module Handshake = struct
 		| Error x -> "Error: " ^ x
 
 	(** Receive a 'result' from the remote *)
-	let recv (s: Unix.file_descr) : result =
+	let recv ?verbose:(verbose=false) (s: Unix.file_descr) : result =
 		let buf = String.make 2 '\000' in
+		if verbose then debug "Handshake.recv: about to read result code from remote.";
 		(try Unixext.really_read s buf 0 (String.length buf)
 			with _ ->
 				raise (Remote_failed "unmarshalling result code from remote"));
+		if verbose then debug "Handshake.recv: finished reading result code from remote.";
 		let len = int_of_char buf.[0] lsl 8 lor (int_of_char buf.[1]) in
 		if len = 0
 		then Success
 		else begin
 			let msg = String.make len '\000' in
+			if verbose then debug "Handshake.recv: about to read error message from remote.";
 			(try Unixext.really_read s msg 0 len
 				with _ ->
 					raise (Remote_failed "unmarshalling error message from remote"));
+			if verbose then debug "Handshake.recv: finished reading error message from remote.";
 			Error msg
 		end
 
 	(** Expects to receive a success code from the server, throws an exception otherwise *)
-	let recv_success (s: Unix.file_descr) : unit = match recv s with
+	let recv_success ?verbose (s: Unix.file_descr) : unit = match recv ?verbose s with
 		| Success -> ()
 		| Error x -> raise (Remote_failed ("error from remote: " ^ x))
 
 	(** Transmit a 'result' to the remote *)
-	let send (s: Unix.file_descr) (r: result) =
+	let send ?verbose:(verbose=false) (s: Unix.file_descr) (r: result) =
 		let len = match r with
 			| Success -> 0
 			| Error msg -> String.length msg in
@@ -89,8 +93,10 @@ module Handshake = struct
 		(match r with
 			| Success -> ()
 			| Error msg -> String.blit msg 0 buf 2 len);
+		if verbose then debug "Handshake.send: about to write result to remote.";
 		if Unix.write s buf 0 (len + 2) <> len + 2
-		then raise (Remote_failed "writing result to remote")
+		then raise (Remote_failed "writing result to remote");
+		if verbose then debug "Handshake.send: finished writing result to remote.";
 
 end
 
