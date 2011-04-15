@@ -47,43 +47,50 @@ exception Remote_failed of string
     Used rather than the API for signalling between sender and receiver to avoid having to
     go through the master and interact with locking. *)
 module Handshake = struct
-  type result =
-      | Success
-      | Error of string
-  let string_of_result = function
-    | Success -> "Success"
-    | Error x -> "Error: " ^ x
 
-  (** Receive a 'result' from the remote *)
-  let recv (s: Unix.file_descr) : result =
-    let buf = String.make 2 '\000' in
-    (try Unixext.really_read s buf 0 (String.length buf)
-     with _ -> raise (Remote_failed "unmarshalling result code from remote"));
+	type result =
+		| Success
+		| Error of string
 
-    let len = int_of_char buf.[0] lsl 8 lor (int_of_char buf.[1]) in
-    if len = 0
-    then Success
-    else (let msg = String.make len '\000' in
-	  (try Unixext.really_read s msg 0 len
-	   with _ -> raise (Remote_failed "unmarshalling error message from remote"));
-	  Error msg)
+	let string_of_result = function
+		| Success -> "Success"
+		| Error x -> "Error: " ^ x
 
-  (** Expects to receive a success code from the server, throws an exception otherwise *)
-  let recv_success (s: Unix.file_descr) : unit = match recv s with
-    | Success -> ()
-    | Error x -> raise (Remote_failed ("error from remote: " ^ x))
+	(** Receive a 'result' from the remote *)
+	let recv (s: Unix.file_descr) : result =
+		let buf = String.make 2 '\000' in
+		(try Unixext.really_read s buf 0 (String.length buf)
+			with _ ->
+				raise (Remote_failed "unmarshalling result code from remote"));
+		let len = int_of_char buf.[0] lsl 8 lor (int_of_char buf.[1]) in
+		if len = 0
+		then Success
+		else begin
+			let msg = String.make len '\000' in
+			(try Unixext.really_read s msg 0 len
+				with _ ->
+					raise (Remote_failed "unmarshalling error message from remote"));
+			Error msg
+		end
 
-  (** Transmit a 'result' to the remote *)
-  let send (s: Unix.file_descr) (r: result) =
-    let len = match r with
-      | Success -> 0 | Error msg -> String.length msg in
-    let buf = String.make (2 + len) '\000' in
-    buf.[0] <- char_of_int ((len lsr 8) land 0xff);
-    buf.[1] <- char_of_int ((len lsr 0) land 0xff);
-    (match r with
-     | Success -> () | Error msg -> String.blit msg 0 buf 2 len);
-    if Unix.write s buf 0 (len + 2) <> len + 2
-    then raise (Remote_failed "writing result to remote")
+	(** Expects to receive a success code from the server, throws an exception otherwise *)
+	let recv_success (s: Unix.file_descr) : unit = match recv s with
+		| Success -> ()
+		| Error x -> raise (Remote_failed ("error from remote: " ^ x))
+
+	(** Transmit a 'result' to the remote *)
+	let send (s: Unix.file_descr) (r: result) =
+		let len = match r with
+			| Success -> 0
+			| Error msg -> String.length msg in
+		let buf = String.make (2 + len) '\000' in
+		buf.[0] <- char_of_int ((len lsr 8) land 0xff);
+		buf.[1] <- char_of_int ((len lsr 0) land 0xff);
+		(match r with
+			| Success -> ()
+			| Error msg -> String.blit msg 0 buf 2 len);
+		if Unix.write s buf 0 (len + 2) <> len + 2
+		then raise (Remote_failed "writing result to remote")
 
 end
 
