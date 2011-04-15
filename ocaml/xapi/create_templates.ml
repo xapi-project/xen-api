@@ -548,6 +548,9 @@ let create_all_templates rpc session_id =
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false [    ];
 		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false [    ];
 
+		debian_template "Ubuntu Lucid Lynx 10.10" "maverick" X32 ~supports_cd:false ~is_experimental:true [    ];
+		debian_template "Ubuntu Lucid Lynx 10.10" "maverick" X64_debianlike ~supports_cd:false ~is_experimental:true [    ];
+
 		sdk_install_template
 	] in
 
