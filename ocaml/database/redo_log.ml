@@ -754,12 +754,17 @@ let empty log =
 (** ------------------------------------------------ *)
 (** Functions which operate on all active redo_logs. *)
 
+(* Flush the database to the given redo_log instance. *)
+let flush_db_to_redo_log db log =
+	R.info "Flushing database to redo_log %s" log.marker;
+	let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
+	write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log
+
 (* Write the given database to all active redo_logs *)
-let flush_db_to_redo_log db =
+let flush_db_to_all_active_redo_logs db =
+	R.info "Flushing database to all active redo-logs";
 	with_active_redo_logs (fun log ->
-		R.debug "Flushing database to redo-log";
-		let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
-		write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log)
+		flush_db_to_redo_log db log)
 
 (* Write a delta to all active redo_logs *)
 let database_callback event db =
@@ -786,8 +791,9 @@ let database_callback event db =
 	Opt.iter (fun entry ->
 		with_active_redo_logs (fun log ->
 			write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
-				(fun () -> (* the function which will be invoked if a database write is required instead of a delta *)
-					flush_db_to_redo_log db
-				) log
-		)
+				(fun () ->
+					(* the function which will be invoked if a database write is required instead of a delta *)
+					flush_db_to_redo_log db log)
+			 	log
+			)
 	) to_write

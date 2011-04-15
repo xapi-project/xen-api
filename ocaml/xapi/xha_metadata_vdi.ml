@@ -66,8 +66,8 @@ let deactivate_and_detach_existing ~__context =
 open Pervasiveext
 
 (** Attempt to flush the database to the metadata VDI *)
-let flush_database ~__context = 
+let flush_database ~__context log = 
   try
-    Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ()));
+    Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ())) log;
     true
   with _ -> false
