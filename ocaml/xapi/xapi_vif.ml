@@ -77,29 +77,24 @@ let create  ~__context ~device ~network ~vM
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
-(* Moving is currently done by unplug -> destroy -> create -> plug.
- * It would be great if we could simply move the interface from one bridge to
- * to the other, without involving the guest, so it would also work on guests that
- * do not support hot(un)plug of VIFs. *)
+(* This function moves a dom0 vif device from one bridge to another, without involving the guest,
+ * so it also works on guests that do not support hot(un)plug of VIFs. *)
 let move ~__context ~network vif =
 	debug "Moving VIF %s to network %s" (Db.VIF.get_uuid ~__context ~self:vif)
 		(Db.Network.get_uuid ~__context ~self:network);
 	let vif_rec = Db.VIF.get_record ~__context ~self:vif in
 	let suspended = Db.VM.get_power_state ~__context ~self:vif_rec.API.vIF_VM = `Suspended in
 	let attached = vif_rec.API.vIF_currently_attached && not suspended in
-	if attached = true then
-		unplug ~__context ~self:vif;
-	destroy ~__context ~self:vif;
-	let new_vif = create ~__context
-		~network
-		~device:vif_rec.API.vIF_device
-		~vM:vif_rec.API.vIF_VM
-		~mAC:vif_rec.API.vIF_MAC
-		~mTU:vif_rec.API.vIF_MTU
-		~other_config:vif_rec.API.vIF_other_config
-		~qos_algorithm_type:vif_rec.API.vIF_qos_algorithm_type
-		~qos_algorithm_params:vif_rec.API.vIF_qos_algorithm_params
-	in
+	Db.VIF.set_network ~__context ~self:vif ~value:network;
 	if attached then
-		plug ~__context ~self:new_vif
+		let vm_r = Db.VM.get_record ~__context ~self:vif_rec.API.vIF_VM in
+		let protocol = Helpers.device_protocol_of_string vm_r.API.vM_domarch in
+		match Vm_config.vif_of_vif ~__context ~vm:vif_rec.API.vIF_VM vm_r (Int64.to_int vm_r.API.vM_domid) protocol vif with
+		| None -> ()
+		| Some vif_device ->
+			let xs_bridge_path = Hotplug.get_private_data_path_of_device (Vm_config.device_of_vif vif_device) ^ "/bridge" in
+			with_xs (fun xs -> xs.Xs.write xs_bridge_path vif_device.Vm_config.bridge);
+			let domid = string_of_int vif_device.Vm_config.domid in
+			let devid = string_of_int vif_device.Vm_config.devid in
+			ignore(Helpers.call_script "/etc/xensource/scripts/vif" ["move"; "vif"; domid; devid])
 
