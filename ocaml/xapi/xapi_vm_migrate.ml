@@ -286,7 +286,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 
 	   debug "Sender 6. signalling remote to unpause";
 	   (* <-- [3] Synchronisation point *)
-	   Handshake.send fd Handshake.Success;
+	   Handshake.send ~verbose:true fd Handshake.Success;
 	   (* At any time from now on, the remote VM is unpaused and VM.domid, VM.resident_on
 	      both change. We mustn't rely on their values. *)
 
@@ -480,7 +480,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      no going back!) *)
   debug "Receiver 6. waiting for remote to flush disk blocks and to signal us to unpause";
   (try 
-     Handshake.recv_success fd
+     Handshake.recv_success ~verbose:true fd
    with e ->
      (* This should be very very rare. *)
      error "Sending machine failed to flush disk blocks: aborting";
