@@ -298,6 +298,21 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
 
+		begin match management_pif with
+		| Some management_pif ->
+			(* The bond contains the management interface: move management to the master.
+			 * This interface will be plugged automatically. *)
+			debug "Moving management from slave to master";
+			move_management ~__context management_pif master
+		| None ->
+			(* Plug master if one of the slaves was plugged *)
+			let plugged = List.fold_left (fun a m -> Db.PIF.get_currently_attached ~__context ~self:m || a) false members in
+			if plugged then begin
+				debug "Plugging the bond";
+				Nm.bring_pif_up ~__context master
+			end
+		end;
+
 		(* Temporary measure for compatibility with current interface-reconfigure.
 		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
 		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
@@ -313,21 +328,6 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Move VIFs from members to master *)
 		debug "Moving VIFs from slaves to master";
 		List.iter (Xapi_vif.move ~__context ~network) local_vifs_to_move;
-
-		begin match management_pif with
-		| Some management_pif ->
-			(* The bond contains the management interface: move management to the master.
-			 * This interface will be plugged automatically. *)
-			debug "Moving management from slave to master";
-			move_management ~__context management_pif master
-		| None ->
-			(* Plug master if one of the slaves was plugged *)
-			let plugged = List.fold_left (fun a m -> Db.PIF.get_currently_attached ~__context ~self:m || a) false members in
-			if plugged then begin
-				debug "Plugging the bond";
-				Nm.bring_pif_up ~__context master
-			end
-		end;
 
 		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
 		if disallow_unplug then
@@ -371,6 +371,16 @@ let destroy ~__context ~self =
 		(* Copy IP configuration from master to primary member *)
 		copy_configuration ~__context master primary_slave;
 
+		if Db.PIF.get_management ~__context ~self:master = true then begin
+			(* The master is the management interface: move management to first slave *)
+			debug "Moving management from master to slaves";
+			move_management ~__context master primary_slave;
+		end else begin
+			(* Plug the primary slave if the master was plugged *)
+			if plugged then
+				Nm.bring_pif_up ~__context primary_slave
+		end;
+
 		(* Move VIFs from master to slaves *)
 		debug "Moving VIFs from master to slaves";
 		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
@@ -382,16 +392,6 @@ let destroy ~__context ~self =
 		(* Move tunnels down *)
 		debug "Moving tunnels from master to slaves";
 		List.iter (move_tunnel ~__context host primary_slave) local_tunnels;
-
-		if Db.PIF.get_management ~__context ~self:master = true then begin
-			(* The master is the management interface: move management to first slave *)
-			debug "Moving management from master to slaves";
-			move_management ~__context master primary_slave;
-		end else begin
-			(* Plug the primary slave if the master was plugged *)
-			if plugged then
-				Nm.bring_pif_up ~__context primary_slave
-		end;
 
 		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
 			Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true;
