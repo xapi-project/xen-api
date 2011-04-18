@@ -232,8 +232,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 	then
 		begin
 			List.iter (fun (vm, _) ->
-				Hashtbl.add plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ])))
-				all_user_vms;
+				Hashtbl.add plans vm (Error (Api_errors.no_hosts_available, [ Ref.string_of vm ])))
+				all_user_vms ;
 			plans
 		end
 	else
