@@ -143,6 +143,7 @@ ocaml/vncproxy/vncproxy
 ocaml/xapi/binpack
 ocaml/xapi/database_store
 ocaml/xapi/fakeguestagent
+ocaml/xapi/monitor_fake_plugin
 ocaml/xapi/quicktest_encodings_module.ml
 ocaml/xapi/quicktestbin
 ocaml/xapi/stresstest
@@ -167,6 +168,7 @@ ocaml/xenops/xenvm
 ocaml/xenops/xenvm-cmd
 ocaml/xenops/xs
 ocaml/xenstored/xenstored
+ocaml/xiu/libxenctrl_xiu.so
 ocaml/xiu/xiu
 ocaml/xsh/xsh
 ocaml/xsrpc/xsrpc
