@@ -20,10 +20,6 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)
 
-type block_device =
-	| Static_attached of Static_vdis_list.vdi
-	| Block_attached of string
-
 let get_static_device reason =
   (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
 	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
@@ -35,7 +31,7 @@ let get_static_device reason =
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
   match vdis with
   | [] -> None
-  | hd :: _ -> Some (Static_attached hd)
+  | hd :: _ -> hd.Static_vdis_list.path
 
 (* Make sure we have plenty of room for the database *)
 let minimum_vdi_size =
@@ -52,7 +48,7 @@ type redo_log = {
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
-	device: block_device option ref;
+	device: string option ref;
 	currently_accessible: bool ref;
 	currently_accessible_mutex: Mutex.t;
 	currently_accessible_condition: Condition.t;
@@ -88,7 +84,7 @@ let enable log vdi_reason =
 
 let enable_block log path =
   R.info "Enabling use of redo log";
-  log.device := Some (Block_attached path);
+  log.device := Some path;
   log.enabled := true
 
 let disable log =
@@ -524,12 +520,6 @@ let healthy log =
 
 exception TooManyProcesses
 
-let get_device_path = function
-| Static_attached vdi ->
-	vdi.Static_vdis_list.path
-| Block_attached path ->
-	Some path
-
 let startup log =
   if is_enabled log then
     try
@@ -546,27 +536,22 @@ let startup log =
             | None ->
               R.info "Could not find block device"
             | Some device ->
-			  match (get_device_path device) with
-			  | None ->
-		        R.info "Could not find block device"
-		      | Some block_dev -> begin
-		        R.info "Using block device at %s" block_dev;
+							R.info "Using block device at %s" device;
 		          
 		        (* Check that the block device exists *)
-		        Unix.access block_dev [Unix.F_OK; Unix.R_OK];
+		        Unix.access device [Unix.F_OK; Unix.R_OK];
 		        (* will throw Unix.Unix_error if not readable *)
 		          
 		        (* Start the I/O process *)
 		        let ctrlsockpath, datasockpath = 
 					let f suffix = Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix in
 					f "ctrl", f "data" in
-		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
-		        let p = start_io_process block_dev ctrlsockpath datasockpath in
+		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" device ctrlsockpath datasockpath;
+		        let p = start_io_process device ctrlsockpath datasockpath in
 		          
 		        log.pid := Some (p, ctrlsockpath, datasockpath);
 		        R.info "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
 		      end
-          end
       end;
       match !(log.pid) with
       | Some (_, ctrlsockpath, _) -> 

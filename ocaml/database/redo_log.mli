@@ -15,11 +15,7 @@
 
 (** {2 VDI related} *)
 
-type block_device =
-	| Static_attached of Static_vdis_list.vdi
-	| Block_attached of string
-
-val get_static_device : string -> block_device option
+val get_static_device : string -> string option
 (** Finds an attached metadata VDI with a given reason *)
 val minimum_vdi_size : int64 
 (** Minimum size for redo log VDI *)
@@ -31,7 +27,7 @@ type redo_log = {
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
-	device: block_device option ref;
+	device: string option ref;
 	currently_accessible: bool ref;
 	currently_accessible_mutex: Threadext.Mutex.t;
 	currently_accessible_condition: Condition.t;
