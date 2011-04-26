@@ -32,6 +32,7 @@
 *.gp
 *.spot
 *.spit
+*.so
 TAGS
 dist
 mk/.*
@@ -143,6 +144,7 @@ ocaml/vncproxy/vncproxy
 ocaml/xapi/binpack
 ocaml/xapi/database_store
 ocaml/xapi/fakeguestagent
+ocaml/xapi/monitor_fake_plugin
 ocaml/xapi/quicktest_encodings_module.ml
 ocaml/xapi/quicktestbin
 ocaml/xapi/stresstest
