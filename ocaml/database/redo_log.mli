@@ -50,6 +50,10 @@ val enable_block : redo_log -> string -> unit
 val disable : redo_log -> unit
 (** Disables writing deltas to the block device. Subsequent modifications to the database will not be persisted to the block device. *)
 
+(** Communication with other threads. *)
+
+val redo_log_events: ((string option) * bool) Event.channel
+
 (** {2 Lifecycle of I/O process} *)
 
 val startup : redo_log -> unit
