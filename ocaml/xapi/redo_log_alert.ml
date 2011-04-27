@@ -16,9 +16,6 @@ open Threadext
 module R = Debug.Debugger(struct let name = "redo_log" end)
 open R
 
-(* keeps track of the previous value of Redo_log.currently_accessible so we can detect state changes *)
-let previously_accessible = ref true
-
 let raise_system_alert news =
   (* This code may block indefinitely while attempting to look up the pool UUID and send the alert, so do it in a separate thread *)
   ignore (Thread.create (fun () ->
@@ -34,22 +31,20 @@ let raise_system_alert news =
 	end else debug "Not raising alert because Pool.other_config:%s <> true" Xapi_globs.redo_log_alert_key;
   ) ())
 
-(* Calling this function will create a liveness monitor for the supplied redo_log instance. *)
-let loop log =
-  Debug.name_thread "HA metadata VDI monitor";
-  Mutex.execute log.Redo_log.currently_accessible_mutex (fun () ->
-    while true do
-      (* Wait until we are signalled that a state change has occurred *)
-      Condition.wait log.Redo_log.currently_accessible_condition log.Redo_log.currently_accessible_mutex;
-
-      (* The variable Redo_log.currently_accessible has been updated -- send the alert if there was a change *)
-      begin
-        match !previously_accessible, !(log.Redo_log.currently_accessible) with
-        | false, false -> ()
-        | true, true -> ()
-        | false, true -> debug "Raising system alert that all is now well"; raise_system_alert Api_messages.redo_log_healthy
-        | true, false -> debug "Raising system alert to say that we can't access the redo log"; raise_system_alert Api_messages.redo_log_broken
-      end;
-      previously_accessible := !(log.Redo_log.currently_accessible)
-    done
-  )
+(* Listen for redo_log events, and raise alerts when they occur. *)
+let loop () =
+	Debug.name_thread "Metadata VDI monitor";
+	while true do
+		let (device, accessible) = Event.sync (Event.receive Redo_log.redo_log_events) in
+		let device_path = match device with
+		| Some path -> path
+		| None -> "[Unknown device]" (* Should never get here, since the redo_log shouldn't be running without a device. *)
+		in
+		if accessible then begin
+			info "Raising system alert that redo log with device %s is now healthy" device_path;
+			raise_system_alert Api_messages.redo_log_healthy
+		end else begin
+			info "Raising system alert to say that we can't access redo log with device %s" device_path;
+			raise_system_alert Api_messages.redo_log_broken
+		end
+	done

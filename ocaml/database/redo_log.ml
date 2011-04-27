@@ -95,15 +95,21 @@ let disable log =
 (* ------------------------------------------------------------------------------------------------ *)
 (* Functions relating to whether the latest attempt to read/write the redo-log succeeded or failed. *)
 
+let redo_log_events = Event.new_channel ()
+
 let cannot_connect_fn log =
-  R.debug "Signalling unable to access redo log";
-  Mutex.execute log.currently_accessible_mutex
-    (fun () -> log.currently_accessible := false; Condition.signal log.currently_accessible_condition)
+	if !(log.currently_accessible) then begin
+		R.debug "Signalling unable to access redo log";
+		Event.sync (Event.send redo_log_events (!(log.device), false))
+	end;
+	log.currently_accessible := false
 
 let can_connect_fn log =
-  R.debug "Signalling redo log is healthy";
-  Mutex.execute log.currently_accessible_mutex
-    (fun () -> log.currently_accessible := true; Condition.signal log.currently_accessible_condition)
+	if not !(log.currently_accessible) then begin
+		R.debug "Signalling redo log is healthy";
+		Event.sync (Event.send redo_log_events (!(log.device), true))
+	end;
+	log.currently_accessible := true
 
 (* ----------------------------------------------------------- *)
 (* Functions relating to the serialisation of redo log entries *)
