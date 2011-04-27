@@ -50,8 +50,6 @@ type redo_log = {
 	enabled: bool ref;
 	device: string option ref;
 	currently_accessible: bool ref;
-	currently_accessible_mutex: Mutex.t;
-	currently_accessible_condition: Condition.t;
 	time_of_last_failure: float ref;
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
@@ -663,8 +661,6 @@ let create ~read_only =
 		enabled = ref false;
 		device = ref None;
 		currently_accessible = ref true;
-		currently_accessible_mutex = Mutex.create ();
-		currently_accessible_condition = Condition.create ();
 		time_of_last_failure = ref 0.;
 		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
 		sock = ref None;
