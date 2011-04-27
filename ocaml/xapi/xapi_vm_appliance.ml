@@ -10,7 +10,7 @@ module TaskSet = Set.Make(struct type t = API.ref_task let compare = compare end
 
 type appliance_operation = {
 	name : string;
-	vm_operation : (API.ref_VM -> API.ref_task);
+	vm_operation : (API.ref_VM -> (Xml.xml -> Xml.xml) -> API.ref_session -> API.ref_task);
 	required_state : [ `Halted | `Paused | `Running | `Suspended ];
 }
 
@@ -135,17 +135,17 @@ let wait_for_all_tasks ~rpc ~session_id ~tasks =
 (* Run the given operation on all VMs in the list, and record the tasks created. *)
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
 let run_operation_on_vms ~__context operation vms =
-	let (tasks, failed_vms) = List.fold_left (fun (tasks, failed_vms) vm ->
-		try
-			let task = operation vm in
-			(task::tasks, failed_vms)
-		with e ->
-			(tasks, vm::failed_vms)) ([], []) vms in
-	let failed_tasks = Helpers.call_api_functions ~__context (fun rpc session_id ->
-		wait_for_all_tasks ~rpc ~session_id ~tasks) in
+	Helpers.call_api_functions ~__context (fun rpc session_id -> 
+		let (tasks, failed_vms) = List.fold_left (fun (tasks, failed_vms) vm ->
+			try
+				let task = operation vm rpc session_id in
+				(task::tasks, failed_vms)
+			with e ->
+				(tasks, vm::failed_vms)) ([], []) vms in
+		let failed_tasks = wait_for_all_tasks ~rpc ~session_id ~tasks in
 	(* These two values could be used to determine which VMs have failed without having to check at the end. *)
-	ignore (failed_vms, failed_tasks);
-	()
+		ignore (failed_vms, failed_tasks);
+		())
 
 let perform_operation ~__context ~self ~operation ~ascending_priority =
 	let appliance_uuid = (Db.VM_appliance.get_uuid ~__context ~self) in
@@ -167,8 +167,7 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
 let start ~__context ~self ~paused =
 	let operation = {
 		name = "VM_appliance.start";
-		vm_operation = (fun vm -> Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.Async.VM.start ~rpc ~session_id ~vm ~start_paused:paused ~force:false));
+		vm_operation = (fun vm rpc session_id -> Client.Async.VM.start ~rpc ~session_id ~vm ~start_paused:paused ~force:false);
 		required_state = if paused then `Paused else `Running;
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:true
@@ -176,8 +175,7 @@ let start ~__context ~self ~paused =
 let clean_shutdown ~__context ~self =
 	let operation = {
 		name = "VM_appliance.clean_shutdown";
-		vm_operation = (fun vm -> Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm));
+		vm_operation = (fun vm rpc session_id -> Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm);
 		required_state = `Halted;
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:false
@@ -185,8 +183,7 @@ let clean_shutdown ~__context ~self =
 let hard_shutdown ~__context ~self =
 	let operation = {
 		name = "VM_appliance.hard_shutdown";
-		vm_operation = (fun vm -> Helpers.call_api_functions ~__context
-			(fun rpc session_id -> Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm));
+		vm_operation = (fun vm rpc session_id -> Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm);
 		required_state = `Halted;
 	} in
 	perform_operation ~__context ~self ~operation ~ascending_priority:false
