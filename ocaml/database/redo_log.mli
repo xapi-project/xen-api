@@ -29,6 +29,7 @@ type redo_log = {
 	enabled: bool ref;
 	device: string option ref;
 	currently_accessible: bool ref;
+	state_change_callback: (bool -> unit) option;
 	time_of_last_failure: float ref;
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
@@ -62,7 +63,7 @@ val switch : redo_log -> string -> unit
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {Keeping track of existing redo_log instances} *)
-val create: read_only:bool -> redo_log
+val create: state_change_callback:(bool -> unit) option -> read_only:bool -> redo_log
 (* Create a redo log instance and add it to the set. *)
 
 val delete: redo_log -> unit

@@ -50,6 +50,7 @@ type redo_log = {
 	enabled: bool ref;
 	device: string option ref;
 	currently_accessible: bool ref;
+	state_change_callback: (bool -> unit) option;
 	time_of_last_failure: float ref;
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
@@ -98,14 +99,16 @@ let redo_log_events = Event.new_channel ()
 let cannot_connect_fn log =
 	if !(log.currently_accessible) then begin
 		R.debug "Signalling unable to access redo log";
-		Event.sync (Event.send redo_log_events (!(log.device), false))
+		Event.sync (Event.send redo_log_events (!(log.device), false));
+		Opt.iter (fun callback -> callback false) log.state_change_callback
 	end;
 	log.currently_accessible := false
 
 let can_connect_fn log =
 	if not !(log.currently_accessible) then begin
 		R.debug "Signalling redo log is healthy";
-		Event.sync (Event.send redo_log_events (!(log.device), true))
+		Event.sync (Event.send redo_log_events (!(log.device), true));
+		Opt.iter (fun callback -> callback true) log.state_change_callback
 	end;
 	log.currently_accessible := true
 
@@ -654,13 +657,14 @@ let connect_and_perform_action f desc log =
 
 let redo_log_creation_mutex = Mutex.create ()
 
-let create ~read_only =
+let create ~state_change_callback ~read_only =
 	let instance = {
 		marker = Uuid.to_string (Uuid.make_uuid ());
 		read_only = read_only;
 		enabled = ref false;
 		device = ref None;
 		currently_accessible = ref true;
+		state_change_callback = state_change_callback;
 		time_of_last_failure = ref 0.;
 		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
 		sock = ref None;
