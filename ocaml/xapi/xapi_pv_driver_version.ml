@@ -33,6 +33,13 @@ let compare_vsn3 (x_maj, x_min, x_mic) (y_maj, y_min, y_mic) =
 let compare_vsn2 (x_maj, x_min) (y_maj, y_min) =
 	compare_vsn [x_maj; x_min] [y_maj; y_min]
 
+(* temporarily treat anything equal to or newer than 5.6 as up to date pending a proper feature-flag fix CA-55563 (Linux only) *)
+let check_vsn_special v_maj v_min =
+	if v_maj >= 6 then true
+	else if v_maj < 5 then false
+	else if v_min >= 6 then true
+	else false
+
 let string_of_vsn vsn =
 	let seps = ["."; "."; "-"] in
 	let maj = List.hd vsn and rest = List.tl vsn in
@@ -111,6 +118,7 @@ let compare_vsn_with_product_vsn ?(relaxed=false) (pv_maj, pv_min, pv_mic) =
 	(* out of date if micro version not specified -- reqd since Miami Beta1 was
 	   shipped withoutmicro versions! *)
 	if pv_mic = -1 then -1
+	else if relaxed && check_vsn_special pv_maj pv_min then 0
 	else if relaxed then compare_vsn2 (pv_maj, pv_min) (prod_maj, prod_min)
 	else compare_vsn3 (pv_maj, pv_min, pv_mic) (prod_maj, prod_min, prod_mic)
 
@@ -122,7 +130,8 @@ let compare_vsn_with_tools_iso ?(relaxed=false) pv_vsn =
 	if relaxed then
 		let pv_maj, pv_min, _, _ = pv_vsn in
 		let tools_maj, tools_min, _, _  = !Xapi_globs.tools_version in
-		compare_vsn2 (pv_maj, pv_min) (tools_maj, tools_min)
+		if check_vsn_special pv_maj pv_min then 0
+		else compare_vsn2 (pv_maj, pv_min) (tools_maj, tools_min)
 	else
 		compare_vsn4 pv_vsn !Xapi_globs.tools_version
 
