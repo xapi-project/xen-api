@@ -42,6 +42,7 @@ def get_boot_files(accessor, dest_dir):
 
 def gen_answerfile(installer_dir, url):
     root_device = None
+    root_label = None
 
     try:
         # determine root disk
@@ -60,7 +61,21 @@ def gen_answerfile(installer_dir, url):
     if not os.path.exists(root_device):
         return False
 
+    try:
+        # determine root label
+        f = open('/etc/fstab')
+        line = f.readline().strip()
+        f.close
+        if line.startswith('LABEL='):
+            v, _ = line.split(None, 1)
+            root_label = v[6:]
+    except:
+        return False
+    if not root_label:
+        return False
+
     xelogging.log("Root device: "+root_device)
+    xelogging.log("Root label: "+root_label)
     
     in_arc = cpiofile.CpioFile.open(installer_dir+'/install.img', 'r|*')
     out_arc = cpiofile.CpioFile.open(installer_dir+'/upgrade.img', 'w|gz')
@@ -75,12 +90,33 @@ def gen_answerfile(installer_dir, url):
         out_arc.addfile(f, data)
     in_arc.close()
 
+    # create bootloader revert script
+    config = bootloader.Bootloader.loadExisting()
+
+    xelogging.log("Creating revert script")
+    text = '#!/usr/bin/env python\n'
+    text += '\nimport xcp.bootloader as bootloader\n'
+    text += 'import xcp.mount as mount\n'
+    text += '\nrootfs = mount.TempMount(None, "root", fstype = "ext3", label = "%s")\n' % root_label
+    text += 'cfg = bootloader.Bootloader.loadExisting(rootfs.mount_point)\n'
+    text += 'cfg.default = "%s"\n' % config.default
+    text += 'cfg.remove("upgrade")\n'
+    text += 'cfg.commit()\n'
+    text += 'rootfs.unmount()\n'
+
+    contents = StringIO.StringIO(text)
+
+    f = cpiofile.CpioInfo('revert-bootloader.py')
+    f.size = len(contents.getvalue())
+    out_arc.addfile(f, contents)
+
     # create answerfile
     xelogging.log("Creating answerfile")
     text = '<?xml version="1.0"?>\n'
     text += ' <installation mode="upgrade">\n'
     text += '  <existing-installation>%s</existing-installation>\n' % root_device
     text += '  <source type="url">%s</source>\n' % url
+    text += '  <script stage="installation-start" type="url">file:///revert-bootloader.py</script>\n'
     text += ' </installation>\n'
     
     contents = StringIO.StringIO(text)
@@ -128,7 +164,7 @@ def set_boot_config(installer_dir):
         kernel_args.extend(['install', 'answerfile=file:///answerfile'])
 
         if pif['ip_configuration_mode'] == 'Static':
-            config_str = "static;ip=%s;netmask=%s" % (pif['IP'], pif['netmask'])
+            config_str = "static:ip=%s;netmask=%s" % (pif['IP'], pif['netmask'])
             if 'gateway' in pif:
                 config_str += ";gateway=" + pif['gateway']
             if 'DNS' in pif:
