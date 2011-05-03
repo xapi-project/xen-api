@@ -380,7 +380,11 @@ let update_allowed_operations ~__context ~self =
 		then Listext.List.intersect allowed Xapi_globs.vm_operations_miami
 		else allowed
 	in
-	Db.VM.set_allowed_operations ~__context ~self ~value:allowed
+	Db.VM.set_allowed_operations ~__context ~self ~value:allowed;
+	(* Update the parent VM's allowed operations. *)
+	let appliance = Db.VM.get_appliance ~__context ~self in
+	if Db.is_valid_ref __context appliance then
+		Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc *)
