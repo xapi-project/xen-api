@@ -49,11 +49,7 @@ let update_allowed_operations ~__context ~self =
             Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
          (Db.VM.get_VIFs ~__context ~self)
     ) ();
-  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
-  let appliance = Db.VM.get_appliance ~__context ~self in
-  if Db.is_valid_ref __context appliance then
-    Xapi_vm_appliance.update_allowed_operations ~__context ~self:appliance
-
+  Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
 let assert_can_boot_here ~__context ~self ~host =
   let snapshot = Db.VM.get_record ~__context ~self in

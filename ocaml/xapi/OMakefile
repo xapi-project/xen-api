@@ -110,6 +110,7 @@ XAPI_MODULES = $(COMMON) \
 	audit_log \
 	xapi_vmpp \
 	xapi_vm_appliance \
+	xapi_vm_appliance_lifecycle \
 	xapi_vm_lifecycle \
 	xapi_vm_clone \
 	xapi_vm_snapshot \
