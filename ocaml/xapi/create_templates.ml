@@ -532,13 +532,13 @@ let create_all_templates rpc session_id =
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
 		sles10_template    "SUSE Linux Enterprise Server 10 SP2" X32 [    ];
 		sles10_template    "SUSE Linux Enterprise Server 10 SP3" X32 [    ];
-		sles10_template    "SUSE Linux Enterprise Server 10 SP4beta" X32 ~is_experimental:true [    ];
+		sles10_template    "SUSE Linux Enterprise Server 10 SP4" X32 ~is_experimental:true [    ];
 		sles11_template    "SUSE Linux Enterprise Server 11"     X32 [    ];
 		sles11_template    "SUSE Linux Enterprise Server 11 SP1" X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X64 [    ];
 		sles10_template    "SUSE Linux Enterprise Server 10 SP2" X64 [    ];
 		sles10_template    "SUSE Linux Enterprise Server 10 SP3" X64 [    ];
-		sles10_template    "SUSE Linux Enterprise Server 10 SP4beta" X64 ~is_experimental:true [    ];
+		sles10_template    "SUSE Linux Enterprise Server 10 SP4" X64 ~is_experimental:true [    ];
 		sles11_template    "SUSE Linux Enterprise Server 11"     X64 [    ];
 		sles11_template    "SUSE Linux Enterprise Server 11 SP1" X64 [    ];
 
