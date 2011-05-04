@@ -1,3 +1,17 @@
+(*
+ * Copyright (C) 2006-2011 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 open Client
 open Stringext
 
@@ -18,7 +32,7 @@ type sr_probe_sr = {
 	metadata_detected: bool;
 }
 
-(* Attempt to parse a list of key/value pairs from XML. *)
+(* Attempt to parse a key/value pair from XML. *)
 let parse_kv = function 
 	| Xml.Element(key, _, [ Xml.PCData v ]) -> 
 		key, String.strip String.isspace v (* remove whitespace at both ends *)
@@ -27,8 +41,8 @@ let parse_kv = function
 	| _ ->
 		failwith "Malformed key/value pair"
 
-(* Parse a list of SRs from an iscsi probe result. *)
-let parse_sr_probe_iscsi xml = 
+(* Parse a list of SRs from an iscsi/hba SR probe response with sm-config:metadata=true *)
+let parse_sr_probe xml = 
 	match Xml.parse_string xml with
 	| Xml.Element("SRlist", _, children) ->
 		let parse_sr = function
@@ -43,23 +57,6 @@ let parse_sr_probe_iscsi xml =
 		| _ -> failwith "Malformed or missing <SR>" in
 		List.map parse_sr children
 	| _ -> failwith "Missing <SRlist> element"
-
-(* Parse a list of SRs from an hba probe result. *)
-let parse_sr_probe_hba xml =
-	match Xml.parse_string xml with
-	| Xml.Element("Devlist", _, children) ->
-		let parse_sr = function
-		| Xml.Element("BlockDevice", _, children) ->
-			let all = List.map parse_kv children in
-			{
-				uuid = List.assoc "UUID" all;
-				name_label = List.assoc "name_label" all;
-				name_description = List.assoc "name_description" all;
-				metadata_detected = (List.assoc "pool_metadata_detected" all = "true");
-			}
-		| _ -> failwith "Malformed or missing <BlockDevice>" in
-		List.map parse_sr children
-	| _ -> failwith "Missing <Devlist> element"
 
 (* Make a best-effort attempt to create an SR and associate it with the DR_task. *)
 (* If anything goes wrong, unplug all PBDs which were created, and forget the SR. *)
@@ -108,18 +105,12 @@ let create ~__context ~_type ~device_config ~whitelist =
 	in
 	(* Parse the probe result. *)
 	let sr_records = match _type with
-	| "lvmoiscsi" ->
+	| "lvmoiscsi" | "lvmohba" ->
 		(try
-			parse_sr_probe_iscsi probe_result
-		with Failure code ->
+			parse_sr_probe probe_result
+		with Failure msg ->
 			raise (Api_errors.Server_error(Api_errors.internal_error,
-				[Printf.sprintf "iSCSI SR probe response was malformed: %s" code])))
-	| "lvmohba" ->
-		(try
-			parse_sr_probe_hba probe_result
-		with _ ->
-			raise (Api_errors.Server_error(Api_errors.internal_error,
-				["HBA SR probe response was malformed."])))
+				[Printf.sprintf "SR probe response was malformed: %s" msg])))
 	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value,
 		["type"; _type]))
 	in
