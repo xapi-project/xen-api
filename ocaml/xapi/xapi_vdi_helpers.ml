@@ -137,9 +137,17 @@ let disable_database_replication ~__context ~vdi =
 			let (vbd, log) = Hashtbl.find metadata_replication vdi in
 			Redo_log.shutdown log;
 			Redo_log.disable log;
-			Helpers.call_api_functions ~__context (fun rpc session_id ->
-				Client.VBD.unplug ~rpc ~session_id ~self:vbd;
-				Client.VBD.destroy ~rpc ~session_id ~self:vbd);
+			(* Check the recorded VBD still exists before trying to unplug and destroy it. *)
+			if Db.is_valid_ref __context vbd then begin
+				Helpers.call_api_functions ~__context (fun rpc session_id ->
+					begin
+						try
+							Attach_helpers.safe_unplug rpc session_id vbd
+						with e ->
+							debug "Caught %s while trying to unplug VBD %s." (Printexc.to_string e) (Ref.string_of vbd)
+					end;
+					Client.VBD.destroy ~rpc ~session_id ~self:vbd)
+			end;
 			Hashtbl.remove metadata_replication vdi;
 			Redo_log.delete log;
 			Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
