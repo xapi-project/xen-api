@@ -49,13 +49,12 @@ let metadata_replication_monitor ~__context =
 				(* Set each VDI's metadata_latest according to whether its redo_log is currently accessible. *)
 				Hashtbl.iter
 					(fun vdi (_, log) ->
-						Mutex.execute log.Redo_log.currently_accessible_mutex
-							(fun () ->
-								let accessible = !(log.Redo_log.currently_accessible) in
-								try
-									Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:accessible
-								with e -> () (* Should only get here if the VDI ref stored in the hashtbl is invalid. *)
-							)
+						let accessible = Mutex.execute log.Redo_log.currently_accessible_mutex
+							(fun () -> !(log.Redo_log.currently_accessible))
+						in
+						try
+							Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:accessible
+						with e -> () (* Should only get here if the VDI ref stored in the hashtbl is invalid. *)
 					)
 					metadata_replication
 			);
