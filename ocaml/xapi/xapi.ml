@@ -875,7 +875,9 @@ let server_init() =
  
     Startup.run ~__context [
       "Checking emergency network reset", [], check_network_reset;
-      "Synchronising bonds/VLANs on slave with master", [], Sync_networking.sync_slave_with_master ~__context;
+      "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
+      "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
+      "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
       "Initialise monitor configuration", [], Monitor_rrds.update_configuration_from_master;
       "Initialising licensing", [], handle_licensing;
       "control domain memory", [ Startup.OnThread ], control_domain_memory;
