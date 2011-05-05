@@ -1110,6 +1110,24 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 								create_vifs ~__context ~xs vifs;
 								progress_cb 0.70;
 								let pcis = Vgpuops.create_vgpus ~__context ~vm domid hvm in
+								(* WORKAROUND FOR CA-55754: temporarily disable msitranslate when GPU is passed through. *)
+								(* other-config:msitranslate can be used the override the default *)
+								let msitranslate =
+									let oc = Db.VM.get_other_config ~__context ~self:vm in
+									if List.mem_assoc "msitranslate" oc then
+										Some (List.assoc "msitranslate" oc)
+									else
+										if pcis <> [] then Some "0" (* pcis only contains GPUs here *)
+										else None
+								in
+								begin
+									match msitranslate with
+									| Some msitranslate ->
+										debug "Setting msitranslate = %s" msitranslate;
+										let msitranslate_path = "/local/domain/0/backend/pci/" ^ (string_of_int domid) ^ "/0/msitranslate" in
+										Vmopshelpers.with_xs (fun xs -> xs.Xs.write msitranslate_path msitranslate)
+									| None -> ()
+								end;
 								let other_pcidevs =
 									match pcidevs with Some x -> x | None -> Pciops.other_pcidevs_of_vm ~__context ~vm in
 								let pci_passthrough = pcis <> [] || other_pcidevs <> [] in
