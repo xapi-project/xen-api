@@ -19,7 +19,7 @@ module D=Debug.Debugger(struct let name="sync_networking" end)
 open D
 
 (** Copy Bonds from master *)
-let copy_bonds_from_master ~__context =
+let copy_bonds_from_master ~__context () =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		(* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
 		let me = !Xapi_globs.localhost_ref in
@@ -124,7 +124,7 @@ let copy_bonds_from_master ~__context =
    as long as we already have a suitable PIF to base the VLAN off -- if we don't have such a
    PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
 *)
-let copy_vlans_from_master ~__context =
+let copy_vlans_from_master ~__context () =
       Helpers.call_api_functions ~__context
 		  (fun rpc session_id ->
 			  debug "Resynchronising VLANs";
@@ -178,7 +178,7 @@ let copy_vlans_from_master ~__context =
 	)
 
 (** Copy tunnels from master *)
-let copy_tunnels_from_master ~__context =
+let copy_tunnels_from_master ~__context () =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
 		debug "Resynchronising tunnels";
 		
@@ -224,18 +224,3 @@ let copy_tunnels_from_master ~__context =
 		List.iter maybe_create_tunnel_for_me master_tunnel_pifs
 	)
 
-
-let sync_slave_with_master ~__context () =
-	if Pool_role.is_master () then () (* if master do nothing *)
-	else begin
-		debug "resynchronising bonded and vlan pif records with pool master";
-		try
-			(* Sync VLANs after bonds so we can add VLANs on top of bonded interfaces (but not v.v.) *)
-			copy_bonds_from_master ~__context;
-			copy_vlans_from_master ~__context;
-			copy_tunnels_from_master ~__context
-		with e -> (* Errors here are non-data-corrupting hopefully, so we'll just carry on regardless... *)
-			error "Caught exception syncing PIFs from the master: %s" (ExnHelper.string_of_exn e);
-		log_backtrace ()
-	end
-	
