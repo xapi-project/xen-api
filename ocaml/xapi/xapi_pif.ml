@@ -600,7 +600,7 @@ let calculate_pifs_required_at_start_of_day ~__context =
 			true
 			&& pifr.API.pIF_host = localhost
 				(* this host only *)
-			&& Nm.is_dom0_interface pifr
+			(* && Nm.is_dom0_interface pifr *)
 			&& not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)
 				(* not enslaved by a bond *))
 		(Db.PIF.get_all_records ~__context)

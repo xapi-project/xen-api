@@ -33,7 +33,7 @@ let update_inventory ~__context =
 		(fun (pif, pif_r) -> 
 			true &&
 				pif_r.API.pIF_host = localhost &&
-				is_dom0_interface pif_r &&
+				(* is_dom0_interface pif_r && *)
 				pif_r.API.pIF_currently_attached)
 		(Db.PIF.get_all_records ~__context) in
 	let bridges = List.map (fun (_, pif_r) -> Db.Network.get_bridge ~__context ~self:pif_r.API.pIF_network) pifs in
