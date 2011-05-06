@@ -1,7 +1,7 @@
 include ../config.mk
 
 CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/usr/lib/ocaml
+CFLAGS = -Wall -fPIC -O2 -I$(shell ocamlc -where)
 OCAMLC = ocamlc -g
 OCAMLOPT = ocamlopt
 
