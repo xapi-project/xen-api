@@ -1313,6 +1313,8 @@ let sr_record rpc session_id sr =
 			make_field ~name:"shared"
 				~get:(fun () -> string_of_bool ((x ()).API.sR_shared))
 				~set:(fun x -> Client.SR.set_shared rpc session_id sr (safe_bool_of_string "shared" x)) ();
+			make_field ~name:"introduced-by"
+				~get:(fun () -> (get_uuid_from_ref (x ()).API.sR_introduced_by)) ();
 			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_other_config)
 				~add_to_map:(fun k v -> Client.SR.add_to_other_config rpc session_id sr k v)
 				~remove_from_map:(fun k -> Client.SR.remove_from_other_config rpc session_id sr k)
