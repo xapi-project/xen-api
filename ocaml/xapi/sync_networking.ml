@@ -93,15 +93,17 @@ let copy_bonds_from_master ~__context () =
 				warn "Cannot create bond %s at all: no PIFs exist on slave" bond.API.bond_uuid
 			| [], _ ->
 				(* No bond currently exists but some slave interfaces do -> create a (partial?) bond *)
-				let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" bond_mode in ()
+				(* CA-56957: changed the following from Client.Bond.... to Xapi_bond.... *)
+				let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode in ()
 			| [ _, { API.pIF_bond_master_of = [ slave_bond ] } ], _ ->
 				(* Some bond exists, check whether the existing set of slaves is the same as the potential set *)
 				let current_slave_pifs = Db.Bond.get_slaves ~__context ~self:slave_bond in
 				if not (List.set_equiv (List.setify current_slave_pifs) (List.setify my_slave_pif_refs)) then
 				begin
 					debug "Partial bond exists; recreating";
-					Client.Bond.destroy rpc session_id slave_bond;
-					let (_: API.ref_Bond) = Client.Bond.create rpc session_id network my_slave_pif_refs "" bond_mode in ()
+					(* CA-56957: changed the following from Client.Bond.... to Xapi_bond.... *)
+					Xapi_bond.destroy ~__context ~self:slave_bond;
+					let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode in ()
 				end
 			| [ _, { API.pIF_uuid = uuid } ], _ ->
 				warn "Couldn't create bond on slave because PIF %s already on network %s"
