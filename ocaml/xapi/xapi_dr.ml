@@ -128,7 +128,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
 	Server_helpers.exec_with_new_task ~session_id:session_to "Importing VMs"
 		(fun __context_to ->
 			(* Check that session_to has at least pool admin permissions. *)
-			let permission = Rbac_static.role_pool_admin in
+			let permission = Rbac_static.role_pool_operator in
 			if not(Rbac.has_permission ~__context:__context_to ~permission) then begin
 				let permission_name = permission.Db_actions.role_name_label in
 				raise (Api_errors.Server_error(Api_errors.rbac_permission_denied,
