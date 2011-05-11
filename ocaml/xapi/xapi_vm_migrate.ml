@@ -180,16 +180,8 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
   let domid = Helpers.domid_of_vm ~__context ~self:vm in
   let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 
-  (* Enumerate the disk devices in advance. Only pre-shutdown disks marked as RW *)
-  let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-  let vbds = List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self) vbds in
-  let vbds = List.filter (fun self -> Db.VBD.get_mode ~__context ~self = `RW) vbds in
+  let vbds = Vmops.vBDs_to_attach_on_resume ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
   let devices = List.map (fun self -> Xen_helpers.device_of_vbd ~__context ~self) vbds in
-
-  let vdis = 
-    List.map
-      (fun self -> Db.VBD.get_VDI ~__context ~self)
-      (List.filter (fun vbd -> not(Db.VBD.get_empty ~__context ~self:vbd)) vbds) in
 
   let extra_debug_paths = extra_debug_paths __context vm in
 
@@ -251,12 +243,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
     );
 
     Stats.time_this "VM migration downtime" (fun () ->
-    (* Depending on where the exn in the try block happens, we may or may not want to
-       deactivate VDIs in the finally clause. In the case of a non-localhost migration
-       we initialise deactivate_in_finally_clause to true; for localhost migration we never
-       want to do any deactiving so we initialise it to false right away *)
-    let deactivate_in_finally_clause = ref (not is_localhost_migration) in
-    let detach_in_finally_clause = ref true in
+
     finally 
       (fun () ->
 	 try
@@ -271,18 +258,16 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 
 	   (* Deactivate VDIs, allow errors to propogate if deactivate fails - not much we can do here.
 	      Since we don't have a force deactivate or anything like that, then you're back to using
-	      an out-of-band mechanism to deactivate your disks..
-
-	      If doing a localhost migration then we supress this step
-	   *)
-	   (* If we get an exception up to this point then the finally clause will attempt the deactivate *)
-	   deactivate_in_finally_clause := false;
-	   if is_localhost_migration then
-	     debug "Sender 5a. Note: NOT deactiving VDIs because this is a localhost migrate"
-	   else begin
-			debug "Sender 5a. Deactivating VDIs";
-			List.iter (fun vdi -> Storage_access.VDI.deactivate ~__context ~self:vdi) vdis;
-		end;
+	      an out-of-band mechanism to deactivate your disks.. *)
+	   debug "Sender 5a. Deactivating VDIs";
+	   List.iter
+		   (fun vbd ->
+			   Storage_access.on_vdi ~__context ~vbd ~domid
+				   (fun rpc task datapath_id sr vdi ->
+					   Storage_access.expect_unit (fun () -> ())
+						   (Storage_interface.Client.VDI.deactivate rpc task datapath_id sr vdi)
+				   )
+		   ) vbds;
 
 	   debug "Sender 6. signalling remote to unpause";
 	   (* <-- [3] Synchronisation point *)
@@ -290,14 +275,15 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	   (* At any time from now on, the remote VM is unpaused and VM.domid, VM.resident_on
 	      both change. We mustn't rely on their values. *)
 
-		begin
-			debug "Sender 6a. Detaching VDIs";
-			List.iter (fun vdi ->
-				Helpers.log_exn_continue ("failed to detach vdi: " ^ (Ref.string_of vdi))
-					(fun () -> Storage_access.VDI.detach ~__context ~self:vdi) ())
-			vdis;
-			detach_in_finally_clause := false;
-		end;
+	   debug "Sender 6a. Detaching VDIs";
+	   List.iter
+		   (fun vbd ->
+			   Storage_access.on_vdi ~__context ~vbd ~domid
+				   (fun rpc task datapath_id sr vdi ->
+					   Storage_access.expect_unit (fun () -> ())
+						   (Storage_interface.Client.VDI.detach rpc task datapath_id sr vdi)
+				   )
+		   ) vbds;
 
            (* MTC: don't send RRDs since MTC VMs are not really migrated. *)
  	   if not (Mtc.is_this_vm_protected ~__context ~self:vm) then (
@@ -331,14 +317,9 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
  	 if Mtc.is_this_vm_protected ~__context ~self:vm then (
 	    debug "MTC: Sender won't clean up by destroying remains of local domain";
          ) else (
-	 debug "Sender cleaning up by destroying remains of local domain";
-	 if !deactivate_in_finally_clause then
-		List.iter (fun vdi -> Storage_access.VDI.deactivate ~__context ~self:vdi) vdis;
-	 if !detach_in_finally_clause then
-		List.iter (fun vdi -> Storage_access.VDI.detach ~__context ~self:vdi) vdis;
 	 let preserve_xs_vm = (Helpers.get_localhost ~__context = host) in
-	 Vmops.destroy_domain ~preserve_xs_vm ~clear_currently_attached:false ~detach_devices:(not is_localhost_migration)
-	   ~deactivate_devices:(!deactivate_in_finally_clause) ~__context ~xc ~xs ~self:vm domid)
+	 Vmops.destroy_domain ~preserve_xs_vm ~clear_currently_attached:false
+	   ~__context ~xc ~xs ~self:vm domid)
 	)
 ) (* Stats.timethis *)
   with 
@@ -390,26 +371,35 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* NOTE: we do not activate at this stage that comes later in migrate protocol,
      when transmitter tells us that he's flushed the blocks and deactivated.
   *)
-  let needed_vdis = Vmops.get_VDIs_required_on_resume ~__context ~vm in
-  debug "Receiver 4a. Attaching VDIs";
-  let results = List.map
-    (fun (vdi,mode) -> try Storage_access.VDI.attach ~__context ~self:vdi ~mode; None with exn -> Some exn)
-    needed_vdis in
-  (* Check if one VDI.attach fails. If it is the case, detach all the sucessfully attached VBD. *)
-  List.iter 
-    (function Some exn -> debug "Receiver caught exception during VDI attach: %s" (ExnHelper.string_of_exn exn) | None -> ())
-    results;
-  if List.exists (function Some exn -> true | None -> false) results then begin
-		(* The following is ugly. Write/import and use the Option module in ocaml-libs. *)
-		let exn = match List.find (function Some exn -> true | None -> false) results with Some exn -> exn | None -> raise Not_found in
-    Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn exn));
-    List.iter2 (fun (vdi,_) r -> if r = None then Storage_access.VDI.detach ~__context ~self:vdi) needed_vdis results;
-    raise exn;
-  end;
-  let detach_all_vdis () =
-     debug "Detaching all the attached VDIs";
-     List.iter (fun (vdi,_) -> Storage_access.VDI.detach ~__context ~self:vdi) needed_vdis in
+  let vbds_to_attach = Vmops.vBDs_to_attach_on_resume ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
+
+  let on_error_reply f x = try f x with e -> Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn e)); raise e in
+
+  debug "Receiver 4b-pre1. Allocating memory";
+  let reservation_id = on_error_reply (fun () -> Memory_control.reserve_memory ~__context ~xc ~xs ~kib:free_memory_required_kib) () in
+  (* We create the domain using this as a template: *)
+  debug "Receiver 4b. Creating new domain";
+
+  let domid = on_error_reply (fun () -> Vmops.create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id ()) () in
+
   try
+
+  debug "Receiver 4a. Attaching VDIs";
+  begin
+	  try
+		  List.iter
+			  (fun vbd ->
+				  let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
+				  Storage_access.on_vdi ~__context ~vbd ~domid
+					  (fun rpc task datapath_id sr vdi ->
+						  Storage_access.expect_vdi (fun _ -> ())
+						  (Storage_interface.Client.VDI.attach rpc task datapath_id sr vdi read_write)
+					  )
+			  ) vbds_to_attach;
+	  with exn ->
+		  Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn exn));
+		  raise exn
+  end;
 
   (* CA-13785:
      Populating xenstore device trees requires that we lookup the major, minor numbers of the device;
@@ -422,31 +412,12 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      !!! At some point in the future we would like to remove this special casing in favour or something more sensible !!!
 
   *)
-  let delay_device_create_until_after_activate =
-    List.fold_left
-      (fun env (vdi,_) -> env || (Storage_access.VDI.check_enclosing_sr_for_capability __context Smint.Vdi_activate vdi))
-      false needed_vdis in
 
-  let on_error_reply f x = try f x with e -> Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn e)); raise e in
-
-  debug "Receiver 4b-pre1. Allocating memory";
-  let reservation_id = on_error_reply (fun () -> Memory_control.reserve_memory ~__context ~xc ~xs ~kib:free_memory_required_kib) () in
-  (* We create the domain using this as a template: *)
-  debug "Receiver 4b. Creating new domain";
-  let domid = on_error_reply (fun () -> Vmops.create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id ()) () in
   let needed_vifs = Vm_config.vifs_of_vm ~__context ~vm domid in
 
   (try
-     if not delay_device_create_until_after_activate then
-       begin
-	 debug "Receiver 5. Calling Vmops._restore_devices (domid = %d) for CD and non-CD devices" domid;
-	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs true
-       end
-     else
-       begin
      debug "Receiver 5. Calling Vmops._restore_CD_devices (domid = %d). We will restore non-CD devices after calling activate." domid;
-	 Vmops._restore_CD_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs
-       end;
+	 Vmops._restore_CD_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs;
      if want_failure __context vm 4 then begin
        debug "Simulating failure just before restore";
        failwith "Simulating failure just before restore (eg out of memory, couldn't attach disk)";
@@ -454,7 +425,6 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      Handshake.send fd Handshake.Success
    with exn ->
      Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn exn));
-     Vmops.destroy_domain ~__context ~clear_currently_attached:false ~deactivate_devices:false ~detach_devices:(not is_localhost_migration) ~xc ~xs ~self:vm domid;
      raise exn);
   
   (* <-- [1] Synchronisation point *)
@@ -464,8 +434,6 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
      Vmops._restore_domain ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs
    with e ->
        error "Caught exception during domain restore: %s" (ExnHelper.string_of_exn e);
-       (* This domain never got associated with the database record so we destroy it ourselves *)
-       Vmops.destroy_domain ~clear_currently_attached:false ~deactivate_devices:false ~detach_devices:(not is_localhost_migration) ~__context ~xc ~xs ~self:vm domid;
        raise e);
 
   (* <-- [2] Synchronisation point *)  
@@ -484,31 +452,26 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
    with e ->
      (* This should be very very rare. *)
      error "Sending machine failed to flush disk blocks: aborting";
-     Vmops.destroy_domain ~clear_currently_attached:false ~deactivate_devices:false ~detach_devices:(not is_localhost_migration) ~__context ~xc ~xs ~self:vm domid;
      raise e);
   (* <-- [3] Synchronisation point *)
   
   (try
      (* Activate devices, allowing exceptions to propogate since if we cannot activate then the migrate
 	fails  *)
-     if is_localhost_migration then
-       debug "Receiver 7a. Note: NOT activating VDIs (because this is localhost migrate)"
-     else
-       begin
 	 debug "Receiver 7a. Activating VDIs";
-	 List.iter (fun (vdi,mode) -> Storage_access.VDI.activate ~__context ~self:vdi ~mode) needed_vdis
-       end;
+	  List.iter
+		  (fun vbd ->
+			  Storage_access.on_vdi ~__context ~vbd ~domid
+				  (fun rpc task datapath_id sr vdi ->
+					  Storage_access.expect_unit (fun () -> ())
+						   (Storage_interface.Client.VDI.activate rpc task datapath_id sr vdi)
+				  )
+		  ) vbds_to_attach;
      
-     if delay_device_create_until_after_activate then
-       begin
 	 debug "Receiver 7a1. Calling Vmops._restore_devices (domid = %d) for non-CD devices [doing this now because we call after activate]" domid;
 	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs false
-       end;
    with e ->
      error "Caught exception during activate: %s" (ExnHelper.string_of_exn e);
-     if not is_localhost_migration then
-       List.iter (fun (vdi,_) -> Storage_access.VDI.deactivate ~__context ~self:vdi) needed_vdis;
-     Vmops.destroy_domain ~clear_currently_attached:false ~deactivate_devices:false ~detach_devices:(not is_localhost_migration) ~__context ~xc ~xs ~self:vm domid;
      raise e);
 
   debug "Receiver 7b. unpausing domain";
@@ -531,7 +494,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   debug "Receiver 9a Success"
   with e ->
     error "Receiver 9b Failure";
-    detach_all_vdis ();
+     Vmops.destroy_domain ~clear_currently_attached:false  ~__context ~xc ~xs ~self:vm domid;
     raise e
 
 
