@@ -164,8 +164,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi_ha_vm_failover \
 	binpack \
 	xapi_local_session \
-	xapi_local_pbd_state \
-	xapi_local_vdi_state \
 	xha_interface \
 	xha_statefile \
 	xha_metadata_vdi \
