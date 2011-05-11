@@ -306,6 +306,7 @@ let refresh_local_vdi_activations ~__context =
 					| Success (State Detached)             -> unlock_vdi (vdi_ref, vdi_rec)
 					| Success (Vdi _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
+			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs
 
 (* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
