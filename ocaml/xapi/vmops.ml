@@ -432,7 +432,8 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
 	let all_vbds = Db.VM.get_VBDs ~__context ~self in
 	List.iter
 		(fun vbd ->
-			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
+			if not(Db.VBD.get_empty ~__context ~self:vbd)
+			then Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
 				(fun () ->
 					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
 				) ()
