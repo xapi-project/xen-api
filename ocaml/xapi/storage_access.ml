@@ -106,7 +106,9 @@ module Builtin_impl = struct
 		let activate context ~task ~dp ~sr ~vdi =
 			try
 				let read_write = Mutex.execute vdi_read_write_m
-					(fun () -> Hashtbl.find vdi_read_write (sr, vdi)) in
+					(fun () -> 
+						if not (Hashtbl.mem vdi_read_write (sr, vdi)) then error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW" sr vdi;
+						Hashtbl.find vdi_read_write (sr, vdi)) in
 				for_vdi ~task ~sr ~vdi "VDI.activate"
 					(fun device_config _type sr self ->
 						(* If the backend doesn't advertise the capability then do nothing *)
@@ -290,6 +292,10 @@ let refresh_local_vdi_activations ~__context =
 			with e ->
 				error "Failed to lock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
 		end in
+	let remember key ro_rw = 
+		(* The module above contains a hashtable of R/O vs R/W-ness *)
+		Mutex.execute Builtin_impl.VDI.vdi_read_write_m
+			(fun () -> Hashtbl.replace Builtin_impl.VDI.vdi_read_write key (ro_rw = RW)) in
 
 	let task = Ref.string_of (Context.get_task_id __context) in
 	let srs = Client.SR.list rpc task in
@@ -300,10 +306,20 @@ let refresh_local_vdi_activations ~__context =
 			if List.mem sr srs
 			then
 				match Client.VDI.stat rpc ~task ~sr ~vdi () with
-					| Success (State (Activated RO))       -> lock_vdi (vdi_ref, vdi_rec) RO
-					| Success (State (Activated RW))       -> lock_vdi (vdi_ref, vdi_rec) RW
-					| Success (State (Attached (RO | RW)))
-					| Success (State Detached)             -> unlock_vdi (vdi_ref, vdi_rec)
+					| Success (State (Activated RO)) -> 
+						lock_vdi (vdi_ref, vdi_rec) RO;
+						remember (sr, vdi) RO
+					| Success (State (Activated RW)) -> 
+						lock_vdi (vdi_ref, vdi_rec) RW;
+						remember (sr, vdi) RW
+					| Success (State (Attached RO)) ->
+						unlock_vdi (vdi_ref, vdi_rec);
+						remember (sr, vdi) RO
+					| Success (State (Attached RW)) ->
+						unlock_vdi (vdi_ref, vdi_rec);
+						remember (sr, vdi) RW
+					| Success (State Detached) ->
+						unlock_vdi (vdi_ref, vdi_rec)
 					| Success (Vdi _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
