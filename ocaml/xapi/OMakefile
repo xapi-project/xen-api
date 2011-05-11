@@ -6,7 +6,7 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg
 
-UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton)
+UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl)
 UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
@@ -75,6 +75,8 @@ XAPI_MODULES = $(COMMON) \
 	sm \
 	storage_interface \
 	vdi_automaton \
+	storage_impl \
+	storage_locks \
 	console \
 	xen_helpers \
 	importexport \
