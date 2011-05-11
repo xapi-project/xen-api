@@ -41,21 +41,6 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian"]
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
-let vBDs_with_VDIs ~__context vbds = 
-	List.filter (fun self ->
-		true
-		&& Db.VBD.get_currently_attached ~__context ~self
-		&& not(Db.VBD.get_empty ~__context ~self)) vbds
-
-let vBDs_to_attach ~__context vbds =
-	Storage_access.vbd_attach_order ~__context (vBDs_with_VDIs ~__context vbds)
-
-let vBDs_to_detach ~__context vbds =
-	Storage_access.vbd_detach_order ~__context (vBDs_with_VDIs ~__context vbds)
-
-let vBDs_to_detach ~__context vbds = 
-	List.rev (vBDs_to_attach ~__context vbds)
-
 let clear_all_device_status_fields ~__context ~self =
 	List.iter (fun self ->
 		Db.VBD.set_currently_attached ~__context ~self ~value:false;
@@ -451,7 +436,7 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
 				(fun () ->
 					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
 				) ()
-		) (vBDs_to_detach ~__context all_vbds);
+		) (Storage_access.vbd_detach_order ~__context all_vbds);
 
 	if clear_currently_attached
 	then List.iter
@@ -631,7 +616,7 @@ let get_required_nonCD_VBDs ~__context ~vm =
 let _restore_CD_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
   	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
-    let needed_vbds = get_required_CD_VBDs ~__context ~vm:self in
+    let needed_vbds = Storage_access.vbd_attach_order ~__context (get_required_CD_VBDs ~__context ~vm:self) in
 	let string_of_vbd_list vbds = String.concat "; " 
 	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
     debug "CD VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
@@ -652,8 +637,9 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs include
 
 	(* We /must/ be able to re-attach all the VBDs the guest had when it suspended. *)
 	let needed_vbds = 
-      if includeCDs then vBDs_to_attach ~__context (Db.VM.get_VBDs ~__context ~self)
-      else get_required_nonCD_VBDs ~__context ~vm:self in
+      (if includeCDs then get_required_CD_VBDs ~__context ~vm:self else [])
+		@ (get_required_nonCD_VBDs ~__context ~vm:self) in
+	let needed_vbds = Storage_access.vbd_attach_order ~__context needed_vbds in
 	debug "To restore this domain we need VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
@@ -987,12 +973,6 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 			let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
 
 			let hvm = Helpers.is_hvm snapshot in
-			(* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
-			let vbds = if hvm then vbds else
-				List.filter
-					(fun self -> not(Db.VBD.get_empty ~__context ~self))
-					vbds in
-			let vbds_to_attach = vBDs_to_attach ~__context vbds in
 
 			let (domid: Domain.domid) =
 				create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
@@ -1008,7 +988,8 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 						with _ -> None in
 					Domain.set_machine_address_size ~xc domid width;
 
-					let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds_to_attach in
+					let non_empty_vbds = List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds in
+					let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) non_empty_vbds in
 					let vdis_with_timeoffset_to_be_reset_on_boot =
 						vdis
 							|> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))

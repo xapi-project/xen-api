@@ -39,17 +39,11 @@ let dynamic_create ~__context ~vbd token =
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	debug "Attempting to dynamically attach VBD to domid %d" domid;
 	let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
-	(* 'empty' VBDs are represented to PV VMs as nothing since the
-	   PV block protocol doesn't support empty devices *)
-	if not hvm && Db.VBD.get_empty ~__context ~self:vbd then begin
-	  debug "VBD.plug of empty VBD '%s' to VM '%s'" (Db.VBD.get_uuid ~__context ~self:vbd) (Db.VM.get_uuid ~__context ~self:vm);
-	  (* Leave currently_attached as 'false' *)
-	end else begin
-	  let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self:vm) in
+
+	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self:vm) in
 
 	  with_xs (fun xs -> Vbdops.create_vbd ~__context ~xs ~hvm ~protocol domid vbd);
 	  debug "vbd_plug: successfully hotplugged device"
-	end
 
 (* destroy vbd device -- helper fn for dynamic_destroy (below) *)
 (* CA-14872: in general, destroying the vbd without the safety check can cause blue-screens and data corruption;
