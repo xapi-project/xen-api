@@ -245,17 +245,11 @@ module Resync = struct
 	   
 	   (* If it went offline, perform the cleanup action now *)
 	   if not online then (
-	     (* If the device doesn't exist then we'll skip the VDI.detach since it will fail *)
-	     let exists = Device.Generic.exists ~xs device in
-
 	     Device.Vbd.release ~xs device;
 	     (* Also delete xenstore state, otherwise future
 		attempts to add the device will fail *)
 	     Device.Generic.rm_device_state ~xs device;
-	     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-	     if exists
-	     then Storage_access.deactivate_and_detach ~__context ~vdi
-	     else debug "VBD %s: Skipping VDI.detach of %s since device doesn't exist" (Ref.string_of vbd) (Ref.string_of vdi)
+		 Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
 	   );
 	   (* If VM is suspended, leave currently_attached and the VDI lock
 	      as they are so we can resume properly. *)
