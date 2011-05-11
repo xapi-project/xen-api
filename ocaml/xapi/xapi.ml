@@ -301,7 +301,7 @@ let check_no_other_masters() =
     timeout -- we should remove this this *)
 let on_master_restart ~__context =
   debug "master might have just restarted: refreshing non-persistent data in the master's database";
-  Helpers.consider_enabling_host_request ~__context;
+  Xapi_host_helpers.consider_enabling_host_request ~__context;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)";
   Mutex.execute Rrd_shared.mutex 
     (fun () -> 
@@ -341,13 +341,7 @@ let init_local_database () =
   (* Resynchronise the master_scripts flag if this is the first start since system boot *)
   if !Xapi_globs.on_system_boot then Localdb.put Constants.master_scripts "false";
   (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
-  if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false";
-  (* After a reboot we assume all PBDs have currently_attached = false *)
-  if !Xapi_globs.on_system_boot then Xapi_local_pbd_state.clear ();
-
-  (* Ditto for VDIs *)
-  if !Xapi_globs.on_system_boot then Xapi_local_vdi_state.clear ()
-
+  if !Xapi_globs.on_system_boot then Localdb.put Constants.host_disabled_until_reboot "false"
 
 let bring_up_management_if ~__context () = 
   try
@@ -794,6 +788,7 @@ let server_init() =
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
     "Registering SR plugins", [], Sm.register;
+	"Initialising SM state", [], Storage_impl.initialise;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;
