@@ -38,7 +38,6 @@ let dynamic_create ~__context ~vbd token =
 		raise (Api_errors.Server_error (Api_errors.device_already_attached,[Ref.string_of vbd]));
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	debug "Attempting to dynamically attach VBD to domid %d" domid;
-	Storage_access.use_vdi_from_vbd ~__context vbd;
 	let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 	(* 'empty' VBDs are represented to PV VMs as nothing since the
 	   PV block protocol doesn't support empty devices *)
@@ -58,7 +57,6 @@ let dynamic_create ~__context ~vbd token =
 let destroy_vbd ?(do_safety_check=true) ~__context ~xs domid self (force: bool) =
 	let device = Xen_helpers.device_of_vbd ~__context ~self in
 	
-	let vdi = Db.VBD.get_VDI ~__context ~self in
 	try
 	  if do_safety_check && force && not(Device.can_surprise_remove ~xs device) then begin
 	    warn "Cannot surprise-remove VBD since this device connection was not set up to support surprise remove";
@@ -74,7 +72,7 @@ let destroy_vbd ?(do_safety_check=true) ~__context ~xs domid self (force: bool) 
 
 	  Device.Vbd.release ~xs device;
 	  debug "vbd_unplug: setting currently_attached to false";
-	  Storage_access.deactivate_and_detach ~__context ~vdi;
+	  Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid:(device.Device_common.frontend.Device_common.domid);
 	  Db.VBD.set_currently_attached ~__context ~self ~value:false;	  
 
 	with 
@@ -207,22 +205,21 @@ let insert  ~__context ~vbd ~vdi =
 
 	Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
 	Db.VBD.set_empty ~__context ~self:vbd ~value:false;
+
+	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	try
 	  if Helpers.is_running ~__context ~self:vm then begin
 	    if Helpers.has_booted_hvm ~__context ~self:vm then begin
 	      (* ask qemu nicely *)
-	      Sm.call_sm_vdi_functions ~__context ~vdi
-		(fun srconf srtype sr ->
-		   let vdi_uuid = Uuid.uuid_of_string (Db.VDI.get_uuid ~__context ~self:vdi) in
 		   let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
-		   let mode = Db.VBD.get_mode ~__context ~self:vbd in
-		   Storage_access.use_vdi ~__context ~vdi ~mode;
-		   
-		   let physpath = Storage_access.VDI.get_physical_path vdi_uuid in
-		   let virtpath = Db.VBD.get_device ~__context ~self:vbd in
 		   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-		   with_xs (fun xs -> Device.Vbd.media_insert ~xs ~virtpath ~phystype ~physpath domid)
-		)
+		   let virtpath = Db.VBD.get_device ~__context ~self:vbd in
+		   Storage_access.attach_and_activate ~__context ~vbd ~domid
+			   (fun physpath ->
+				   with_xs (fun xs ->
+					   Device.Vbd.media_insert ~xs ~virtpath ~phystype ~physpath domid
+				   )
+			   )
 	    end else begin
 	      (* hot plug *)
 	      dynamic_create ~__context ~vbd token
@@ -258,8 +255,7 @@ let eject  ~__context ~vbd =
 	    with_xs (fun xs ->
                        assert_tray_not_locked xs virtpath domid vbd;
                        Device.Vbd.media_eject ~xs ~virtpath domid);
-	    let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-	    Storage_access.VDI.detach ~__context ~self:vdi
+	    Storage_access.deactivate_and_detach ~__context ~vbd ~domid
 	  end else begin
 	    (* hot unplug *)
 	    dynamic_destroy ~__context ~vbd false token
@@ -274,17 +270,16 @@ let refresh ~__context ~vbd ~vdi =
   Locking_helpers.with_lock vm (fun token () ->
     if Helpers.is_running ~__context ~self:vm
     && Db.VBD.get_currently_attached ~__context ~self:vbd then (
-      Sm.call_sm_vdi_functions ~__context ~vdi (fun srconf srtype sr ->
-        let vdi_uuid = Uuid.uuid_of_string (Db.VDI.get_uuid ~__context ~self:vdi) in
-        let virtpath = Db.VBD.get_device ~__context ~self:vbd in
-        let mode = Db.VBD.get_mode ~__context ~self:vbd in
-        Storage_access.use_vdi ~__context ~vdi ~mode;
-        let physpath = Storage_access.VDI.get_physical_path vdi_uuid in
-        let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-        with_xs (fun xs -> Device.Vbd.media_refresh ~xs ~virtpath ~physpath domid);
-        ()
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		let virtpath = Db.VBD.get_device ~__context ~self:vbd in
+		Storage_access.attach_and_activate ~__context ~vbd ~domid
+			(fun physpath ->
+				with_xs 
+					(fun xs -> 
+						Device.Vbd.media_refresh ~xs ~virtpath ~physpath domid
+					)
+			)
       )
-    )
   ) ()
 
 open Threadext
