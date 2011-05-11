@@ -143,7 +143,7 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				Failure (Backend_error(code, params))
 
-		let stat context ~task ~dp ~sr ~vdi = assert false
+		let stat context ~task ?dp ~sr ~vdi () = assert false
 
 	end
 end
@@ -181,6 +181,8 @@ let unexpected_result expected x = match x with
 		raise (Api_errors.Server_error(code, params))
 	| Failure (Internal_error x) ->
 		failwith (Printf.sprintf "Storage_access failed with: %s" x)
+	| Failure Illegal_transition(a, b) ->
+		failwith (Printf.sprintf "Storage_access failed with %s" (string_of_result x))
 
 let expect_vdi f x = match x with
 	| Success (Vdi v) -> f v
@@ -230,10 +232,18 @@ let deactivate_and_detach ~__context ~vbd ~domid =
 				(Client.DP.destroy rpc task dp false)
 		)
 
+let diagnostics ~__context =
+	Storage_interface.Client.DP.diagnostics rpc ()
+
+let dp_destroy ~__context dp allow_leak =
+	let task = Context.get_task_id __context in
+	expect_unit (fun () -> ())
+		(Client.DP.destroy rpc (Ref.string_of task) dp allow_leak)
+
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
 	let task = Context.get_task_id __context in
-	let srs = Storage_interface.Client.SR.list rpc (Ref.string_of task) in
+	let srs = Client.SR.list rpc (Ref.string_of task) in
 	debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
 	List.iter
 		(fun self ->
@@ -243,10 +253,70 @@ let resynchronise_pbds ~__context ~pbds =
 			Db.PBD.set_currently_attached ~__context ~self ~value
 		) pbds
 
-let diagnostics ~__context =
-	Storage_interface.Client.DP.diagnostics rpc ()
+(* -------------------------------------------------------------------------------- *)
+(* The following functions are symptoms of a broken interface with the SM layer.
+   They should be removed, by enhancing the SM layer. *)
 
-let dp_destroy ~__context dp allow_leak =
-	let task = Context.get_task_id __context in
-	expect_unit (fun () -> ())
-		(Client.DP.destroy rpc (Ref.string_of task) dp allow_leak)
+open Vdi_automaton
+
+(* This is a layering violation. The layers are:
+     xapi: has a pool-wide view
+     storage_impl: has a host-wide view of SRs and VDIs
+     SM: has a SR-wide view
+   Unfortunately the SM is storing some of its critical state (VDI-host locks) in the xapi
+   metadata rather than on the backend storage. The xapi metadata is generally not authoritative
+   and must be synchronised against the state of the world. Therefore we must synchronise the
+   xapi view with the storage_impl view here. *)
+let refresh_local_vdi_activations ~__context =
+	let all_vdi_recs = Db.VDI.get_all_records ~__context in
+	let host_key = Printf.sprintf "host_%s" (Ref.string_of (Helpers.get_localhost ~__context)) in
+
+	(* If this VDI is currently locked to this host, remove the lock *)
+	let unlock_vdi (vdi_ref, vdi_rec) = 
+		(* VDI is already unlocked is the common case: avoid eggregious logspam *)
+		if List.mem_assoc host_key vdi_rec.API.vDI_sm_config then begin
+			info "Unlocking VDI %s" (Ref.string_of vdi_ref);
+			try
+				Db.VDI.remove_from_sm_config ~__context ~self:vdi_ref ~key:host_key
+			with e ->
+				error "Failed to unlock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
+		end in
+	(* Lock this VDI to this host *)
+	let lock_vdi (vdi_ref, vdi_rec) ro_rw = 
+		info "Locking VDI %s" (Ref.string_of vdi_ref);
+		if not(List.mem_assoc host_key vdi_rec.API.vDI_sm_config) then begin
+			try
+				Db.VDI.add_to_sm_config ~__context ~self:vdi_ref ~key:host_key ~value:(string_of_ro_rw ro_rw)
+			with e ->
+				error "Failed to lock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
+		end in
+
+	let task = Ref.string_of (Context.get_task_id __context) in
+	let srs = Client.SR.list rpc task in
+	List.iter 
+		(fun (vdi_ref, vdi_rec) ->
+			let sr = Ref.string_of vdi_rec.API.vDI_SR in
+			let vdi = Ref.string_of vdi_ref in
+			if List.mem sr srs
+			then
+				match Client.VDI.stat rpc ~task ~sr ~vdi () with
+					| Success (State (Activated RO))       -> lock_vdi (vdi_ref, vdi_rec) RO
+					| Success (State (Activated RW))       -> lock_vdi (vdi_ref, vdi_rec) RW
+					| Success (State (Attached (RO | RW)))
+					| Success (State Detached)             -> unlock_vdi (vdi_ref, vdi_rec)
+					| Success (Vdi _ | Unit)
+					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
+		) all_vdi_recs
+
+(* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
+   to upgrade RO -> RW or downgrade RW -> RO on the fly.
+   One possible fix is to always attach RW and enforce read/only-ness at the VBD-level.
+   However we would need to fix the LVHD "attach provisioning mode". *)
+let vbd_attach_order ~__context vbds = 
+	(* return RW devices first since the storage layer can't upgrade a
+	   'RO attach' into a 'RW attach' *)
+	let rw, ro = List.partition (fun self -> Db.VBD.get_mode ~__context ~self = `RW) vbds in
+	rw @ ro
+
+let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
+

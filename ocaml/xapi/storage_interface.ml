@@ -40,6 +40,7 @@ type success_t =
 
 type failure_t =
 	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
+	| Illegal_transition of Vdi_automaton.state * Vdi_automaton.state (** This operation implies an illegal state transition *)
 	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
 	| Internal_error of string		          (** error: some unexpected internal error *)
 
@@ -55,6 +56,7 @@ let string_of_success = function
 
 let string_of_failure = function
 	| Sr_not_attached -> "Sr_not_attached"
+	| Illegal_transition(a, b) -> Printf.sprintf "Illegal VDI transition: %s -> %s" (Vdi_automaton.string_of_state a) (Vdi_automaton.string_of_state b)
 	| Backend_error (code, params) -> Printf.sprintf "Backend_error (%s; [ %s ])" code (String.concat ";" params)
 	| Internal_error x -> "Internal_error " ^ x
 
@@ -110,9 +112,9 @@ module VDI = struct
 		This client must have called [attach] on the [vdi] first. *)
     external activate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 
-	(** [stat task dp sr vdi] returns the state of the given VDI from the point of view of
-		the specified dp *)
-	external stat: task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
+	(** [stat task dp sr vdi ()] returns the state of the given VDI from the point of view of
+		the specified dp, or the superstate if dp is omitted *)
+	external stat: task:task -> ?dp:dp -> sr:sr -> vdi:vdi -> unit -> result = ""
 
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)

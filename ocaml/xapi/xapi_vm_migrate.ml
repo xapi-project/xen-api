@@ -180,7 +180,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
   let domid = Helpers.domid_of_vm ~__context ~self:vm in
   let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 
-  let vbds = Vmops.vBDs_to_attach_on_resume ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
+  let vbds = Vmops.vBDs_to_detach ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
   let devices = List.map (fun self -> Xen_helpers.device_of_vbd ~__context ~self) vbds in
 
   let extra_debug_paths = extra_debug_paths __context vm in
@@ -371,7 +371,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* NOTE: we do not activate at this stage that comes later in migrate protocol,
      when transmitter tells us that he's flushed the blocks and deactivated.
   *)
-  let vbds_to_attach = Vmops.vBDs_to_attach_on_resume ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
+  let vbds_to_attach = Vmops.vBDs_to_attach ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
 
   let on_error_reply f x = try f x with e -> Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn e)); raise e in
 

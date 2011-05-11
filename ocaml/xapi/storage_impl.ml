@@ -318,28 +318,35 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| None -> Failure Sr_not_attached, Vdi.empty ()
 			| Some sr_t ->
 				let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-				(* Compute the overall state ('superstate') of the VDI *)
-				let superstate = Vdi.superstate vdi_t in
-				(* We first assume the operation succeeds and compute the new
-				   datapath+VDI state *)
-				let vdi_t = Vdi.perform (Dp.make dp) this_op vdi_t in
-				(* Compute the new overall state ('superstate') *)
-				let superstate' = Vdi.superstate vdi_t in
-				(* Compute the real operations which would drive the system from
-				   superstate to superstate'. These may fail: if so we revert the
-				   datapath+VDI state to the most appropriate value. *)
-				let ops = Vdi_automaton.(-) superstate superstate' in
-				let result, vdi_t = side_effects context task dp sr sr_t vdi vdi_t ops in
-				(* NB this_op = attach but ops = [] because the disk is already attached *)
-				let result = match result, this_op with
-				| Success _, Vdi_automaton.Attach _ ->
-					Success (Vdi (Opt.unbox vdi_t.Vdi.physical_device))
-				| x, _ -> x in
+				let result, vdi_t = 
+				try
+					(* Compute the overall state ('superstate') of the VDI *)
+					let superstate = Vdi.superstate vdi_t in
+					(* We first assume the operation succeeds and compute the new
+					   datapath+VDI state *)
+					let vdi_t = Vdi.perform (Dp.make dp) this_op vdi_t in
+					(* Compute the new overall state ('superstate') *)
+					let superstate' = Vdi.superstate vdi_t in
+					(* Compute the real operations which would drive the system from
+					   superstate to superstate'. These may fail: if so we revert the
+					   datapath+VDI state to the most appropriate value. *)
+					let ops = Vdi_automaton.(-) superstate superstate' in
+					let result, vdi_t = side_effects context task dp sr sr_t vdi vdi_t ops in
+					(* NB this_op = attach but ops = [] because the disk is already attached *)
+					let result = match result, this_op with
+						| Success _, Vdi_automaton.Attach _ ->
+							Success (Vdi (Opt.unbox vdi_t.Vdi.physical_device))
+						| x, _ -> x in
+					
+					result, vdi_t
+				with Vdi_automaton.No_operation(a, b) ->
+					let result = Failure (Illegal_transition(a, b)) in
+					result, vdi_t in
 
 				if success result
 				then Sr.replace vdi vdi_t sr_t
 				else Errors.add dp sr vdi (string_of_result result);
-
+				
 				(* If the new VDi state is "detached" then we remove it from the table
 				   altogether *)
 				debug "Vdi.superstate = %s" (Vdi_automaton.string_of_state (Vdi.superstate vdi_t));
@@ -421,14 +428,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							fst(perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
-		let stat context ~task ~dp ~sr ~vdi =
+		let stat context ~task ?dp ~sr ~vdi () =
 			with_vdi sr vdi
 				(fun () ->
 					match Host.find sr !Host.host with
 					| None -> Failure Sr_not_attached
 					| Some sr_t ->
 						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-						Success (State (Vdi.get_dp_state dp vdi_t))
+						match dp with
+						| None -> Success (State (Vdi.superstate vdi_t))
+						| Some dp -> Success (State (Vdi.get_dp_state dp vdi_t))
 				)
 
 		let deactivate context ~task ~dp ~sr ~vdi =

@@ -54,6 +54,18 @@ val on_vdi: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> ((Rpc.call ->
     each of [pbd] to match the state of the storage layer. *)
 val resynchronise_pbds: __context:Context.t -> pbds:API.ref_PBD list -> unit
 
+(** [refresh_local_vdi_activations __context] updates the VDI.sm_config fields to 
+    match the state stored within the storage layer. *)
+val refresh_local_vdi_activations: __context:Context.t -> unit
+
+(** [vbd_attach_order __context vbds] returns vbds in the order which xapi should
+	attempt to attach them. *)
+val vbd_attach_order: __context:Context.t -> API.ref_VBD list -> API.ref_VBD list
+
+(** [vbd_detach_order __context vbds] returns vbds in the order which xapi should
+	attempt to detach them. *)
+val vbd_detach_order: __context:Context.t -> API.ref_VBD list -> API.ref_VBD list
+
 (** [diagnostics __context] returns a printable snapshot of SM system state *)
 val diagnostics: __context:Context.t -> string
 

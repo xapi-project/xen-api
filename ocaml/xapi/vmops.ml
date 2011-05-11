@@ -41,6 +41,21 @@ let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian"]
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
+let vBDs_with_VDIs ~__context vbds = 
+	List.filter (fun self ->
+		true
+		&& Db.VBD.get_currently_attached ~__context ~self
+		&& not(Db.VBD.get_empty ~__context ~self)) vbds
+
+let vBDs_to_attach ~__context vbds =
+	Storage_access.vbd_attach_order ~__context (vBDs_with_VDIs ~__context vbds)
+
+let vBDs_to_detach ~__context vbds =
+	Storage_access.vbd_detach_order ~__context (vBDs_with_VDIs ~__context vbds)
+
+let vBDs_to_detach ~__context vbds = 
+	List.rev (vBDs_to_attach ~__context vbds)
+
 let clear_all_device_status_fields ~__context ~self =
 	List.iter (fun self ->
 		Db.VBD.set_currently_attached ~__context ~self ~value:false;
@@ -424,46 +439,43 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
    much as possible.
  *)
 let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
+	Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
+		(fun () -> 
+			Domain.destroy ~preserve_xs_vm ~xc ~xs domid
+		) ();
 
-  Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
-    (fun () -> Domain.destroy ~preserve_xs_vm ~xc ~xs domid) ();
-  
-  Helpers.log_exn_continue "Vmops.destroy_domain: clearing VBD currently_attached fields"
-    (fun () ->
-       (* Finish using any VDIs whose VBDs were possibly still attached. Note we may
-	  attempt to double 'finish' with VDIs -- this must be idempotent *)
-       let vbds = Db.VM.get_VBDs ~__context ~self in
-	    
-       (* clear currently_attached if clear_currently_attached=true. *)
-       List.iter 
-	 (fun vbd ->
-	    (* Best effort destroy of each disk *)
-	    Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: clearing currently_attached field of VBD: %s" (Ref.string_of vbd))
-	      (fun () ->
-		 let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-		 let is_currently_attached = Db.VBD.get_currently_attached ~__context ~self:vbd in
-		 (* if vbd is not empty and the vbd is marked as 'currently attached' then call detach and maybe
-		    deactivate vdi *)
-		 if not(Db.VBD.get_empty ~__context ~self:vbd) && is_currently_attached
-		 then Helpers.log_exn_continue (Printf.sprintf "finishing with VDI %s" (Ref.string_of vdi))
-		   (fun vdi ->
-			   Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
-			   (* if we're releasing devices then go for it: *)
-			   if clear_currently_attached
-			   then Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
-	      ) ();
-	    (* We unpause every VBD which allows any pending VBD.pause thread to unblock, acquire the VM lock in turn and check the state *)
-	    Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: pre-emptively unpausing VBD: %s" (Ref.string_of vbd))
-	      (fun () ->
-		 Xapi_vbd.clean_up_on_domain_destroy vbd (* effect is to unblock threads, not actually unpause *)
-	      ) ();
+	let all_vbds = Db.VM.get_VBDs ~__context ~self in
+	List.iter
+		(fun vbd ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
+				(fun () ->
+					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
+				) ()
+		) (vBDs_to_detach ~__context all_vbds);
+
+	if clear_currently_attached
+	then List.iter
+		(fun vbd ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: clearing currently_attached for VBD %s" (Ref.string_of vbd))
+				(fun () ->
+					Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
+				) ()
+		) all_vbds;
+
+	(* We unpause every VBD which allows any pending VBD.pause thread to unblock, acquire the VM lock in turn and check the state *)
+	List.iter
+		(fun vbd ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: pre-emptively unpausing VBD: %s" (Ref.string_of vbd))
+				(fun () ->
+					Xapi_vbd.clean_up_on_domain_destroy vbd (* effect is to unblock threads, not actually unpause *)
+				) ();
+		) all_vbds;
+
+	(* Remove any static lease we might have *)
+	Helpers.log_exn_continue "Vmops.destroy_domain: attempting to remove DHCP lease"
+		(fun () ->
+			Xapi_udhcpd.maybe_remove_lease ~__context self
 		) ()
-	 ) vbds
-    ) ();
-  (* Remove any static lease we might have *)
-  Helpers.log_exn_continue "Vmops.destroy_domain: attempting to remove DHCP lease"
-    (fun () ->
-       Xapi_udhcpd.maybe_remove_lease ~__context self) ()
 
 (* Destroy a VM's domain and all runtime state (domid etc).
    If release_devices is true, unlock all VDIs and clear device_status_flags.
@@ -613,22 +625,6 @@ let get_required_nonCD_VBDs ~__context ~vm =
       && (Db.VBD.get_type ~__context ~self <> `CD))
     (Db.VM.get_VBDs ~__context ~self:vm)
    
-let vBDs_to_attach_on_start ~__context vbds =
-	let all =
-		List.filter (fun self ->
-			true
-			&& Db.VBD.get_currently_attached ~__context ~self
-			&& not(Db.VBD.get_empty ~__context ~self)) vbds in
-	(* return RW devices first since the storage layer can't upgrade a
-	   'RO attach' into a 'RW attach' *)
-	let rw, ro = List.partition (fun self -> Db.VBD.get_mode ~__context ~self = `RW) all in
-	rw @ ro
-
-let vBDs_to_attach_on_resume ~__context vbds =
-	List.filter
-		(fun self -> Db.VBD.get_currently_attached ~__context ~self)
-		(vBDs_to_attach_on_start ~__context vbds)
-
 (* restore CD drives. This needs to happen earlier in the restore sequence. 
  * See CA-17925
  *)
@@ -656,7 +652,7 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs include
 
 	(* We /must/ be able to re-attach all the VBDs the guest had when it suspended. *)
 	let needed_vbds = 
-      if includeCDs then vBDs_to_attach_on_resume ~__context (Db.VM.get_VBDs ~__context ~self)
+      if includeCDs then vBDs_to_attach ~__context (Db.VM.get_VBDs ~__context ~self)
       else get_required_nonCD_VBDs ~__context ~vm:self in
 	debug "To restore this domain we need VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
 	
@@ -996,7 +992,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 				List.filter
 					(fun self -> not(Db.VBD.get_empty ~__context ~self))
 					vbds in
-			let vbds_to_attach = vBDs_to_attach_on_start ~__context vbds in
+			let vbds_to_attach = vBDs_to_attach ~__context vbds in
 
 			let (domid: Domain.domid) =
 				create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
