@@ -6,7 +6,8 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../xenops ../xva ../util \
 	../auth ../license ../client_records ../rfb ../gpg
 
-UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common)
+UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton)
+UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
@@ -35,6 +36,9 @@ OCamlProgram(http_test, http_test)
 OCamlProgram(sparse_dd, sparse_dd sparse_encoding)
 OCamlProgram(show_bat, show_bat)
 OCamlProgram(monitor_fake_plugin, monitor_fake_plugin monitor_fake_common rrd)
+
+storage_interface.mli: storage_interface.ml vdi_automaton.cmi
+	ocamlfind ocamlc -package rpc-light.idl -syntax camlp4o -i $< > $@
 
 COMMON = \
 	xapi_templates \
@@ -69,6 +73,8 @@ XAPI_MODULES = $(COMMON) \
 	storage_access \
 	sm_exec \
 	sm \
+	storage_interface \
+	vdi_automaton \
 	console \
 	xen_helpers \
 	importexport \
