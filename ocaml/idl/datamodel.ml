@@ -3837,6 +3837,30 @@ let host_disable_local_storage_caching = call ~flags:[`Session]
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_get_sm_diagnostics = call ~flags:[`Session]
+	~name:"get_sm_diagnostics"
+	~in_product_since:rel_boston
+	~doc:"Return live SM diagnostics"
+	~params:[
+		Ref _host, "host", "The host"
+	]
+	~result:(String, "Printable diagnostic data")
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	()
+
+let host_sm_dp_destroy = call ~flags:[`Session]
+	~name:"sm_dp_destroy"
+	~in_product_since:rel_boston
+	~doc:"Attempt to cleanup and destroy a named SM datapath"
+	~params:[
+		Ref _host, "host", "The host";
+		String, "dp", "The datapath";
+		Bool, "allow_leak", "If true, all records of the datapath will be removed even if the datapath could not be destroyed cleanly.";
+	]
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	()
 
 (** Hosts *)
 let host =
@@ -3913,6 +3937,8 @@ let host =
 		 host_reset_networking;
 		 host_enable_local_storage_caching;
 		 host_disable_local_storage_caching;
+		 host_get_sm_diagnostics;
+		 host_sm_dp_destroy;
 		 ]
       ~contents:
         ([ uid _host;
