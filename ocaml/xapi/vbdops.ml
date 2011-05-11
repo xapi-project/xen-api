@@ -83,13 +83,13 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 	Db.VBD.set_device ~__context ~self ~value:realdevice;
 
 	let vdi = Db.VBD.get_VDI ~__context ~self in
-	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 
 	if empty then begin
 	  let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
 	    ~virtpath:realdevice ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
 	  Db.VBD.set_currently_attached ~__context ~self ~value:true;
 	end else begin
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
 			(fun physpath ->
