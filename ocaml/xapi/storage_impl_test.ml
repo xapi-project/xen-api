@@ -47,7 +47,7 @@ module Debug_print_impl = struct
 		let activated = Hashtbl.create 10
 		let key_of sr vdi = Printf.sprintf "%s/%s" sr vdi
 
-		let stat context ~task ~dp ~sr ~vdi = assert false
+		let stat context ~task ?dp ~sr ~vdi () = assert false
 
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
@@ -175,29 +175,29 @@ let test_vdis sr : unit =
 			expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
 				(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RO)) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.detach rpc ~task ~dp ~sr ~vdi);
 			expect "Detached" (function Success (State (Vdi_automaton.Detached)) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.detach rpc ~task ~dp ~sr ~vdi);
 			expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
 				(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RO)) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.activate rpc ~task ~dp ~sr ~vdi);
 			expect "Activated(RO)" (function Success (State (Vdi_automaton.Activated Vdi_automaton.RO)) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.deactivate rpc ~task ~dp ~sr ~vdi);
 			expect "Attached(RO)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RO)) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.detach rpc ~task ~dp ~sr ~vdi);
 			expect "Detached" (function (Success (State (Vdi_automaton.Detached))) -> true | _ -> false)
-				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi);
+				(Client.VDI.stat rpc ~task ~dp ~sr ~vdi ());
 		done in
 	let vdis = Range.to_list (Range.make 0 num_vdis) in
 	let users = Range.to_list (Range.make 0 num_users) in
@@ -255,6 +255,43 @@ let test_sr sr =
 	expect "()" (fun x -> x = Success Unit)
 		(Client.SR.detach rpc ~task ~sr)
 
+(* Check the VDI.stat function works *)
+let test_stat sr vdi = 
+	expect "()" (fun x -> x = Success Unit)
+		(Client.SR.attach rpc ~task ~sr);
+	let dp1 = datapath_of_id "dp1" (* will be r/w *)
+	and dp2 = datapath_of_id "dp2" (* will be r/o *) in
+	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+		(Client.VDI.attach rpc ~task ~dp:dp1 ~sr ~vdi ~read_write:true);
+	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
+	expect "Attached(RW)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RW)) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~dp:dp1 ~sr ~vdi ());
+	expect "Attached(RW)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RW)) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~sr ~vdi ());
+	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+		(Client.VDI.attach rpc ~task ~dp:dp2 ~sr ~vdi ~read_write:false);
+	(* dp1: Attached(RW) dp2: Attached(RO) superstate: Attached(RW) *)
+	expect "Attached(RO)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RO)) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~dp:dp2 ~sr ~vdi ());
+	expect "Attached(RW)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RW)) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~sr ~vdi ());
+	expect "Illegal transition" (fun x -> x = Failure(Illegal_transition(Vdi_automaton.Attached(Vdi_automaton.RW), Vdi_automaton.Attached(Vdi_automaton.RO))))
+		(Client.VDI.detach rpc ~task ~dp:dp1 ~sr ~vdi);
+	expect "()" (fun x -> x = Success Unit)
+		(Client.VDI.detach rpc ~task ~dp:dp2 ~sr ~vdi);
+	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
+	expect "Detached" (function Success (State Vdi_automaton.Detached) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~dp:dp2 ~sr ~vdi ());
+	expect "Attached(RW)" (function Success (State (Vdi_automaton.Attached Vdi_automaton.RW)) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~sr ~vdi ());
+	expect "()" (fun x -> x = Success Unit)
+		(Client.VDI.detach rpc ~task ~dp:dp1 ~sr ~vdi);
+	(* dp1: Detached dp1: Detached superstate: Detached *)
+	expect "Detached" (function Success (State Vdi_automaton.Detached) -> true | _ -> false)
+		(Client.VDI.stat rpc ~task ~sr ~vdi ());
+	expect "()" (fun x -> x = Success Unit)
+		(Client.SR.detach rpc ~task ~sr)
+
 (* Manual cleanup with VDI.detach (fails) and then SR.detach (succeeds) *)
 let test_sr_detach_cleanup_errors_1 sr vdi =
 	Debug_print_impl.VDI.working := false;
@@ -308,6 +345,8 @@ let _ =
 
 	test_sr_detach_cleanup_errors_2 "sr" "error2";
 	test_sr_detach_cleanup_errors_2 "sr" "error";
+
+	test_stat "sr" "vdi";
 
 	if !total_errors = 0 then begin
 		info "OK";
