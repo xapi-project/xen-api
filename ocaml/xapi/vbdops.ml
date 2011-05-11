@@ -28,8 +28,6 @@ open D
 module L = Debug.Debugger(struct let name="license" end)
 
 
-(** Thrown if an empty VBD is attached to a PV guest *)
-exception Empty_VBDs_not_supported_for_PV
 (** Thrown if an empty VBD which isn't a CDROM is attached to an HVM guest *)
 exception Only_CD_VBDs_may_be_empty
 
@@ -63,8 +61,6 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
     (fun () ->
 	(* Don't attempt to attach an empty VBD to a PV guest *)
 	let empty = Db.VBD.get_empty ~__context ~self in
-	if not(hvm) && empty
-	then raise Empty_VBDs_not_supported_for_PV;
 	let dev_type = Db.VBD.get_type ~__context ~self in
 	if empty && dev_type <> `CD
 	then raise Only_CD_VBDs_may_be_empty;
@@ -85,9 +81,11 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 	let vdi = Db.VBD.get_VDI ~__context ~self in
 
 	if empty then begin
-	  let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
-	    ~virtpath:realdevice ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
-	  Db.VBD.set_currently_attached ~__context ~self ~value:true;
+		if hvm then begin
+			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
+				~virtpath:realdevice ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
+		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
 	end else begin
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in

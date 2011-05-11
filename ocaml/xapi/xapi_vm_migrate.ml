@@ -180,7 +180,8 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
   let domid = Helpers.domid_of_vm ~__context ~self:vm in
   let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
 
-  let vbds = Vmops.vBDs_to_detach ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
+  let vbds = List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
+	  (Db.VM.get_VBDs ~__context ~self:vm) in
   let devices = List.map (fun self -> Xen_helpers.device_of_vbd ~__context ~self) vbds in
 
   let extra_debug_paths = extra_debug_paths __context vm in
@@ -283,7 +284,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 					   Storage_access.expect_unit (fun () -> ())
 						   (Storage_interface.Client.VDI.detach rpc task datapath_id sr vdi)
 				   )
-		   ) vbds;
+		   ) (Storage_access.vbd_detach_order ~__context vbds);
 
            (* MTC: don't send RRDs since MTC VMs are not really migrated. *)
  	   if not (Mtc.is_this_vm_protected ~__context ~self:vm) then (
@@ -371,7 +372,8 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* NOTE: we do not activate at this stage that comes later in migrate protocol,
      when transmitter tells us that he's flushed the blocks and deactivated.
   *)
-  let vbds_to_attach = Vmops.vBDs_to_attach ~__context (Db.VM.get_VBDs ~__context ~self:vm) in
+  let vbds = List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
+	  (Db.VM.get_VBDs ~__context ~self:vm) in
 
   let on_error_reply f x = try f x with e -> Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn e)); raise e in
 
@@ -395,7 +397,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
 						  Storage_access.expect_vdi (fun _ -> ())
 						  (Storage_interface.Client.VDI.attach rpc task datapath_id sr vdi read_write)
 					  )
-			  ) vbds_to_attach;
+			  ) (Storage_access.vbd_attach_order ~__context vbds);
 	  with exn ->
 		  Handshake.send fd (Handshake.Error (ExnHelper.string_of_exn exn));
 		  raise exn
@@ -466,7 +468,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
 					  Storage_access.expect_unit (fun () -> ())
 						   (Storage_interface.Client.VDI.activate rpc task datapath_id sr vdi)
 				  )
-		  ) vbds_to_attach;
+		  ) vbds;
      
 	 debug "Receiver 7a1. Calling Vmops._restore_devices (domid = %d) for non-CD devices [doing this now because we call after activate]" domid;
 	 Vmops._restore_devices ~__context ~xc ~xs ~self:vm snapshot fd domid needed_vifs false
