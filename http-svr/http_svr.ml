@@ -280,24 +280,20 @@ let handle_connection _ ss =
         handlerfn req fd
       );
       finished := (req.close)
-    with
-      End_of_file -> 
+    with e ->
+	    best_effort (fun () -> match e with
+	  | End_of_file -> 
 	DCritical.debug "Premature termination of connection!";
-	finished := true
-    | Http.Http_parse_failure ->
+	  | Http.Http_parse_failure ->
+	write_error ic "Error parsing HTTP headers";
 	myprint "Error parsing HTTP headers";
-	finished := true;
-	write_error ic "Error parsing HTTP headers"
     | Too_many_headers ->
 	(* don't log anything, since it could fill the log *)
-	finished := true;
 	write_error ic "Error reading HTTP headers: too many headers"
     | Buf_io.Timeout ->
 	DCritical.debug "Idle connection closed after %.0f seconds" initial_timeout; (* NB infinite timeout used when headers are being read *)
-	finished := true
     | Buf_io.Eof ->
 	DCritical.debug "Connection terminated";
-	finished := true
     | Buf_io.Line x ->
 	begin
 	  match x with
@@ -307,31 +303,24 @@ let handle_connection _ ss =
 	      DCritical.debug "Newline not found!"
 	end;
 	DCritical.debug "Buffer contains: '%s'" (Buf_io.get_data ic);
-	finished := true;
 	write_error ic ""
     | Unix.Unix_error (a,b,c) ->
+	write_error ic (Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c);
 	DCritical.debug "Unhandled unix exception: %s %s %s" (Unix.error_message a) b c;
-	finished := true;
-	write_error ic (Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c)
     | Generic_error s ->
-	finished := true;
 	write_error ic s
     | Http.Unauthorised realm ->
 	let fd = Buf_io.fd_of ic in
 	response_unauthorised realm fd;
-	finished := true;	  
     | Http.Forbidden ->
 	let fd = Buf_io.fd_of ic in
 	response_forbidden fd;
-	finished := true;	  
     | exc ->
-	DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
-	log_backtrace ();
 	write_error ic (escape (Printexc.to_string exc));
+	DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
+	log_backtrace ());
 	finished := true
-
   done;
-  
   best_effort (fun () ->
     debug "Shutting down connection...";
     Unix.close ss
