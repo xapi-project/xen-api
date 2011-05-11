@@ -301,8 +301,8 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Vdi_automaton.Detach ->
 								Impl.VDI.detach context ~task ~dp ~sr ~vdi, vdi_t
 					with e ->
-						error "dp:%s sr:%s vdi:%s op:%s error:%s" dp sr vdi
-							(Vdi_automaton.string_of_op op) (Printexc.to_string e);
+						error "dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s" dp sr vdi
+							(Vdi_automaton.string_of_op op) (Printexc.to_string e) (Printexc.get_backtrace ());
 						Failure (Internal_error (Printexc.to_string e)), vdi_t in
 				(* If the side-effects fail then we drive the dp state back to state_on_fail *)
 				let vdi_t =
