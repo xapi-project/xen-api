@@ -1,3 +1,6 @@
+Warning! This is the Boston Beta branch. Please don't commit to it
+without explicit permission from Jon Ludlam.
+
 Xen API (or xapi) is a management stack that configures and controls
 Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool.  Xapi exposes the Xen API interface for many
