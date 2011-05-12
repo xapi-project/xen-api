@@ -257,8 +257,18 @@ exception Protocol_version_mismatch of string
 exception ClientSideError of string
 exception Stunnel_exit of int * Unix.process_status
 exception Unexpected_msg of message
+exception Server_internal_error
 
 let attr = ref None
+
+let handle_unmarshal_failure ex ifd = match ex with
+	| Unmarshal_failure (e, s) ->
+		let s = s ^ Unixext.try_read_string ifd in
+		debug "Read: %s\n" s;
+		if String.length s >= 4 && String.uppercase (String.sub s 0 4) = "HTTP"
+		then raise Server_internal_error
+		else raise e
+	| e -> raise e
 
 let main_loop ifd ofd =
   (* Save the terminal state to restore it at exit *)
@@ -266,7 +276,10 @@ let main_loop ifd ofd =
   at_exit (fun () ->
              match !attr with Some a -> Unix.tcsetattr Unix.stdin Unix.TCSANOW a | None -> ());
   (* Intially exchange version information *)
-  let major', minor' = try unmarshal_protocol ifd with End_of_file -> raise Connect_failure in
+  let major', minor' =
+	  try unmarshal_protocol ifd with
+	  | Unmarshal_failure (_, "") -> raise Connect_failure
+	  | e -> handle_unmarshal_failure e ifd in
   (* Be very conservative for the time-being *)
   let msg = Printf.sprintf "Server has protocol version %d.%d. Client has %d.%d" major' minor' major minor in
   debug "%s\n%!" msg;
@@ -295,7 +308,9 @@ let main_loop ifd ofd =
                  end
                | _ -> true) do ()
     done;
-    let cmd = unmarshal ifd in
+	  let cmd =
+		  try unmarshal ifd
+		  with e -> handle_unmarshal_failure e ifd in
     debug "Read: %s\n%!" (string_of_message cmd); flush stderr;
     match cmd with
     | Command (Print x) -> print_endline x; flush stdout
@@ -493,7 +508,9 @@ let main () =
   | End_of_file ->
       error "Lost connection to the server.\n"
   | Unexpected_msg m ->
-      error "Unexpected message from server: %s" (string_of_message m)
+	  error "Unexpected message from server: %s" (string_of_message m)
+  | Server_internal_error ->
+	  error "Server internal error.\n"
   | Stunnel_exit (i, e) ->
       error "Stunnel process %d %s.\n" i
         (match e with

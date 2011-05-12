@@ -62,7 +62,7 @@ let get_chunks fd =
 		match unmarshal fd with
 			| Blob (Chunk len) ->
 				debug "Reading a chunk of %ld bytes" len;
-				let data = really_read fd (Int32.to_int len) in
+				let data = Unixext.really_read_string fd (Int32.to_int len) in
 				Buffer.add_string buffer data;
 				f()
 			| Blob End ->
