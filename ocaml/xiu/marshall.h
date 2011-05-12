@@ -31,7 +31,8 @@ static int marshall_command(int handle, const char *fmt, ...)
 
 	if (ret > 255)
 		return -1;
-	write(handle, buf, ret);
+	if(write(handle, buf, ret) < ret)
+		return -1;
 	return 0;
 }
 
