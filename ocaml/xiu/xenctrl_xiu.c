@@ -46,7 +46,7 @@ static xc_osdep_handle xiu_privcmd_open(xc_interface *xch)
  	return XC_OSDEP_OPEN_ERROR;
     }
 
-    snprintf(remote.sun_path, 256, "%s-xc", s);
+    snprintf(remote.sun_path, sizeof(remote.sun_path), "%s-xc", s);
     remote.sun_family = AF_UNIX;
     len = strlen(remote.sun_path) + sizeof(remote.sun_family);
 
@@ -468,7 +468,7 @@ static xc_osdep_handle xiu_evtchn_open(xc_evtchn *xce)
  	ERROR(xce, "XIU not found. Set $XIU");
  	return XC_OSDEP_OPEN_ERROR;
     }
-	snprintf(remote.sun_path, 256, "%s-ev", s);
+	snprintf(remote.sun_path, sizeof(remote.sun_path), "%s-ev", s);
 	remote.sun_family = AF_UNIX;
 	len = strlen(remote.sun_path) + sizeof(remote.sun_family);
 
