@@ -10,6 +10,10 @@ install:
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	mkdir -p $(DESTDIR)/etc/xensource/master.d
 	mkdir -p $(LIBEXEC)
+	$(IPROG) sm_diagnostics $(DESTDIR)/opt/xensource/libexec
+	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xapi
+	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)/etc/xensource/bugtool/
+	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xapi/
 	$(IPROG) fence $(DESTDIR)/opt/xensource/libexec	
 	$(IPROG) xha-lc $(DESTDIR)/opt/xensource/libexec
 	$(IPROG) xapi-health-check $(DESTDIR)/opt/xensource/libexec

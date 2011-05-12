@@ -364,7 +364,10 @@ let destroy  ~__context ~sr =
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
 
 	(* this attaches the PBDs, and they need to stay that way for the call to SM below *)
-	Storage_access.SR.attach ~__context ~self:sr;
+	let rpc = Storage_access.rpc_of_sr ~__context ~sr in
+	let task = Ref.string_of (Context.get_task_id __context) in
+	Storage_access.expect_unit (fun () -> ())
+		(Storage_interface.Client.SR.attach rpc task (Ref.string_of sr));
 
 	begin
 		try
