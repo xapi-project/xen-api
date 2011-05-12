@@ -69,9 +69,7 @@ module Crashdump = struct
     if Helpers.has_booted_hvm ~__context ~self:vm then
       warn "crashdump of HVM domain not supported"
     else
-      Pervasiveext.finally
-	(fun () ->
-	let uuid = Db.VM.get_uuid ~__context ~self:vm in
+  	let uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let mem_max = Db.VM.get_memory_static_max ~__context ~self:vm in
 	let required_space = Int64.of_float ((Int64.to_float mem_max) *. 1.1) in
 	let sR = Helpers.choose_crashdump_sr ~__context ~vm in
@@ -84,11 +82,7 @@ module Crashdump = struct
 	     to_file domid filename;
 	     (* If we succeed, create the crashdump record *)
 	     let uuid = Uuid.to_string (Uuid.make_uuid ()) and ref = Ref.make () in
-	     Db.Crashdump.create ~__context ~ref ~uuid ~vM:vm ~vDI:vdi_ref ~other_config:[]))
-	(fun ()->
-	   with_xc_and_xs (fun xc xs ->
-		  Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-		  Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null))
+	     Db.Crashdump.create ~__context ~ref ~uuid ~vM:vm ~vDI:vdi_ref ~other_config:[])
 end
 
 module Domain_shutdown = struct
@@ -245,17 +239,11 @@ module Resync = struct
 	   
 	   (* If it went offline, perform the cleanup action now *)
 	   if not online then (
-	     (* If the device doesn't exist then we'll skip the VDI.detach since it will fail *)
-	     let exists = Device.Generic.exists ~xs device in
-
 	     Device.Vbd.release ~xs device;
 	     (* Also delete xenstore state, otherwise future
 		attempts to add the device will fail *)
 	     Device.Generic.rm_device_state ~xs device;
-	     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-	     if exists
-	     then Storage_access.deactivate_and_detach ~__context ~vdi
-	     else debug "VBD %s: Skipping VDI.detach of %s since device doesn't exist" (Ref.string_of vbd) (Ref.string_of vdi)
+		 Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
 	   );
 	   (* If VM is suspended, leave currently_attached and the VDI lock
 	      as they are so we can resume properly. *)

@@ -90,12 +90,30 @@ let partition_metadata_vdis_by_pool ~__context ~sr =
 		(fun vdi -> Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
 		metadata_vdis
 
+let check_sharing_constraint ~__context ~self =
+	if not(Db.SR.get_shared ~__context ~self) then begin
+		let pbds = Db.SR.get_PBDs ~__context ~self in
+		(* Filter out the attached PBDs which aren't connected to this host *)
+		let me = Helpers.get_localhost ~__context in
+		let others = List.filter (fun self ->
+			Db.PBD.get_currently_attached ~__context ~self &&
+				Db.PBD.get_host ~__context ~self <> me) pbds in
+		if others <> []
+		then raise (Api_errors.Server_error(Api_errors.sr_not_sharable,
+		[ Ref.string_of self; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
+	end
+
 let plug ~__context ~self =
 	let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
 		if not currently_attached then
 			begin
 				let sr = Db.PBD.get_SR ~__context ~self in
-				Storage_access.SR.attach ~__context ~self:sr;
+				check_sharing_constraint ~__context ~self:sr;
+				let rpc = Storage_access.rpc_of_sr ~__context ~sr in
+				let task = Ref.string_of (Context.get_task_id __context) in
+				Storage_access.expect_unit (fun () -> ())
+					(Storage_interface.Client.SR.attach rpc task (Ref.string_of sr));
+				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
 				if Helpers.i_am_srmaster ~__context ~sr then begin
 					let (metadata_vdis_of_this_pool, metadata_vdis_of_foreign_pool) =
@@ -160,8 +178,11 @@ let unplug ~__context ~self =
 						Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
 					metadata_vdis_of_this_pool
 			end;
-
-			Storage_access.SR.detach ~__context ~self:sr
+			let rpc = Storage_access.rpc_of_sr ~__context ~sr in
+			let task = Ref.string_of (Context.get_task_id __context) in
+			Storage_access.expect_unit (fun () -> ())
+				(Storage_interface.Client.SR.detach rpc task (Ref.string_of sr));
+			Db.PBD.set_currently_attached ~__context ~self ~value:false
 		end
 
 let destroy ~__context ~self =

@@ -1,0 +1,3 @@
+<collect>
+<command label="sm_diagnostics">/opt/xensource/libexec/sm_diagnostics</command>
+</collect>

@@ -630,6 +630,20 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	(fun () ->
 		Client.Session.logout rpc session_id);
 
+	(* Attempt to unplug all our local storage. This is needed because
+	   when we restart as a slave, all the references will be wrong
+	   and these may have been cached by the storage layer. *)
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let me = Helpers.get_localhost ~__context in
+		List.iter
+			(fun self ->
+				Helpers.log_exn_continue (Printf.sprintf "Unplugging PBD %s" (Ref.string_of self))
+					(fun () ->
+						Client.PBD.unplug rpc session_id self
+					) ()
+			) (Db.Host.get_PBDs ~__context ~self:me)
+	);
+
 	(* Rewrite the pool secret on every host of the current pool, and restart all the agent as slave of the distant pool master. *)
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		List.iter

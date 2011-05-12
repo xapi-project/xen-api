@@ -2036,6 +2036,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.diagnostic_db_log;
       flags=[Neverforward];
     };
+   "host-get-sm-diagnostics",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Display per-host SM diagnostic information.";
+      implementation=No_fd Cli_operations.host_get_sm_diagnostics;
+      flags=[];
+    };
+   "host-sm-dp-destroy",
+    {
+      reqd=["uuid"; "dp"];
+      optn=["allow-leak"];
+      help="Attempt to destroy and clean up a storage datapath on a host. If allow-leak=true is provided then it will delete all records of the datapath even if it could not be shutdown cleanly.";
+      implementation=No_fd Cli_operations.host_sm_dp_destroy;
+      flags=[];
+    };
    "task-cancel",
     {
       reqd=["uuid"];
