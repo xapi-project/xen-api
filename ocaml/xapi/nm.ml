@@ -61,6 +61,16 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 				(string_of_bool currently_attached) 
 				(if management_interface then " and this is to be the new management interface" else "");
 			let args = "up" :: (if management_interface then [ "--management" ] else []) in
+
+			(* If the PIF is a bond master, the bond slaves will now go down *)
+			(* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
+			begin match Db.PIF.get_bond_master_of ~__context ~self:pif with
+				| [] -> ()
+				| bond :: _ ->
+					let slaves = Db.Bond.get_slaves ~__context ~self:bond in
+					List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
+			end;
+
 			reconfigure_pif ~__context pif args;
 
 			if management_interface then begin
@@ -74,14 +84,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			if Db.PIF.get_management ~__context ~self:pif then begin
 				debug "PIF %s is an existing management interface: rebinding and restarting server thread" uuid;
 				Xapi_mgmt_iface.rebind ()
-			end;
-
-			(* If the PIF is a bond master, the bond slaves will now be down *)
-			begin match Db.PIF.get_bond_master_of ~__context ~self:pif with
-				| [] -> ()
-				| bond :: _ ->
-					let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-					List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
 			end;
 
 			(* If the PIF is a bond slave, the bond master will now be down *)
