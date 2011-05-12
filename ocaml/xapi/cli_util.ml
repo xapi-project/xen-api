@@ -181,7 +181,7 @@ let user_says_yes fd =
   let response = match unmarshal fd with
     | Blob (Chunk len) ->
 	debug "Reading a chunk of %ld bytes" len;
-	really_read fd (Int32.to_int len)
+	Unixext.really_read_string fd (Int32.to_int len)
     | _ -> failwith "Protocol error"
   in
   begin match unmarshal fd with
