@@ -7,18 +7,21 @@ open Monitor_fake_common
 module D=Debug.Debugger(struct let name="monitor_fake" end)
 open D
 
-let collect_fake_stats uuids =
-  List.filter_map (fun uuid ->
-    try 
-      let fname = Printf.sprintf "%s/%s.fakestats" fake_dir uuid in
-      let file = Unixext.string_of_file fname in
-	  let ds_list = fake_ds_list_of_rpc (Jsonrpc.of_string file) in
-	  debug "Got %d fake data source(s) for VM=%s" (List.length ds_list) uuid;
-      Some (List.map (fun fake_ds ->
-	  	  (VM uuid, ds_make ~name:fake_ds.f_name ~description:"" ~value:(Rrd.VT_Float fake_ds.f_val) ~ty:fake_ds.f_ty ~default:true ()))
-               (fake_ds_list_of_rpc (Jsonrpc.of_string file)))
-    with _ -> None) uuids
+let read_fakestats fname ty =
+	try
+		let file = Unixext.string_of_file fname in
+		let ds_list = fake_ds_list_of_rpc (Jsonrpc.of_string file) in
+		debug "Got %d fake data source(s) from filename %s" (List.length ds_list) fname;
+		List.map (fun fake_ds ->
+	  				  (ty, ds_make ~name:fake_ds.f_name ~description:"" ~value:(Rrd.VT_Float fake_ds.f_val) ~ty:fake_ds.f_ty ~default:true ()))
+			(fake_ds_list_of_rpc (Jsonrpc.of_string file))
+	with _ -> 
+		[]
 
+let collect_fake_stats uuids =
+	let host_stats = read_fakestats (Printf.sprintf "%s/host.fakestats" fake_dir) Host in
+	host_stats :: (List.map (fun uuid -> read_fakestats (Printf.sprintf "%s/%s.fakestats" fake_dir uuid) (VM uuid)) uuids)
+		
 let get_fake_stats uuids =
   let fake_dir_exists = try
       let st = Unix.stat fake_dir in
