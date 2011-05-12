@@ -346,6 +346,21 @@ let really_read_string fd length =
   really_read fd buf 0 length;
   buf
 
+let try_read_string ?limit fd =
+	let buf = Buffer.create 0 in
+	let chunk = match limit with None -> 4096 | Some x -> x in
+	let cache = String.make chunk '\000' in
+	let finished = ref false in
+	while not !finished do
+		let to_read = match limit with
+			| Some x -> min (x - (Buffer.length buf)) chunk
+			| None -> chunk in
+		let read_bytes = Unix.read fd cache 0 to_read in
+		Buffer.add_substring buf cache 0 read_bytes;
+		if read_bytes = 0 then finished := true
+	done;
+	Buffer.contents buf
+
 let really_read_bigbuffer fd bigbuf n =
 	let chunk = 4096 in
 	let s = String.make chunk '\000' in

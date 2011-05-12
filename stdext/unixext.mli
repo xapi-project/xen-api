@@ -96,6 +96,7 @@ val really_read_string : Unix.file_descr -> int -> string
 val really_read_bigbuffer : Unix.file_descr -> Bigbuffer.t -> int64 -> unit
 val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
+val try_read_string : ?limit: int -> Unix.file_descr -> string
 exception Timeout
 val time_limited_write : Unix.file_descr -> int -> string -> float -> unit
 val time_limited_read : Unix.file_descr -> int -> float -> string
