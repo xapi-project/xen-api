@@ -349,7 +349,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				
 				(* If the new VDi state is "detached" then we remove it from the table
 				   altogether *)
-				debug "Vdi.superstate = %s" (Vdi_automaton.string_of_state (Vdi.superstate vdi_t));
+				debug "task:%s dp:%s sr:%s vdi:%s superstate:%s" task dp sr vdi (Vdi_automaton.string_of_state (Vdi.superstate vdi_t));
 				if Vdi.superstate vdi_t = Vdi_automaton.Detached
 				then Sr.remove vdi sr_t;
 
@@ -415,6 +415,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			| f :: fs -> Failure f
 
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
+			info "VDI.attach task:%s dp:%s sr:%s vdi:%s read_write:%b" task dp sr vdi read_write;
 			with_vdi sr vdi
 				(fun () ->
 					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
@@ -422,6 +423,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							fst(perform_nolock context ~task ~dp ~sr ~vdi
 								(Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)))))
 		let activate context ~task ~dp ~sr ~vdi =
+			info "VDI.activate task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
 					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
@@ -429,6 +431,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							fst(perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
 		let stat context ~task ?dp ~sr ~vdi () =
+			info "VDI.stat task:%s dp:%s sr:%s vdi:%s" task (Opt.default "superstate" dp) sr vdi;
 			with_vdi sr vdi
 				(fun () ->
 					match Host.find sr !Host.host with
@@ -441,12 +444,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				)
 
 		let deactivate context ~task ~dp ~sr ~vdi =
+			info "VDI.deactivate task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
 					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
 						(fun () ->
 							fst (perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Deactivate)))
 		let detach context ~task ~dp ~sr ~vdi =
+			info "VDI.detach task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
 					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
@@ -481,7 +486,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 
 		let destroy context ~task ~dp ~allow_leak =
-			info "DP.destroy dp:%s" dp;
+			info "DP.destroy task:%s dp:%s allow_leak:%b" task dp allow_leak;
 			let failures = List.fold_left (fun acc (sr, _) -> acc @ (destroy_sr context ~task ~dp ~sr ~allow_leak false)) [] (Host.list !Host.host) in
 			match failures, allow_leak with
 			| [], _  -> Success Unit
@@ -512,6 +517,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			List.map fst (Host.list !Host.host)
 
 		let attach context ~task ~sr =
+			info "SR.attach task:%s sr:%s" task sr;
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
@@ -534,6 +540,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				)
 
 		let detach context ~task ~sr =
+			info "SR.attach task:%s sr:%s" task sr;
 			let active_dps sr_t =
 				(* Enumerate all active datapaths *)
 				List.concat (List.map (fun (_, vdi_t) -> Vdi.dps vdi_t) (Sr.list sr_t)) in
