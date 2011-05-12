@@ -467,13 +467,13 @@ let disable  ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host then begin
 	info "Host.enabled: setting host %s (%s) to disabled because of user request" (Ref.string_of host) (Db.Host.get_hostname ~__context ~self:host);
 	Db.Host.set_enabled ~__context ~self:host ~value:false;
-	Helpers.user_requested_host_disable := true
+	Xapi_host_helpers.user_requested_host_disable := true
   end
 
 let enable  ~__context ~host =
   if not (Db.Host.get_enabled ~__context ~self:host) then begin
 	assert_safe_to_reenable ~__context ~self:host;
-	Helpers.user_requested_host_disable := false;
+	Xapi_host_helpers.user_requested_host_disable := false;
 	info "Host.enabled: setting host %s (%s) to enabled because of user request" (Ref.string_of host) (Db.Host.get_hostname ~__context ~self:host);
 	Db.Host.set_enabled ~__context ~self:host ~value:true;
 	(* Normally we schedule a plan recomputation when we successfully plug in our storage. In the case
@@ -790,6 +790,10 @@ let get_system_status_capabilities ~__context ~host =
   if Helpers.get_localhost ~__context <> host
   then failwith "Forwarded to the wrong host";
   System_status.get_capabilities()
+
+let get_sm_diagnostics ~__context ~host = Storage_access.diagnostics ~__context
+
+let sm_dp_destroy ~__context ~host ~dp ~allow_leak = Storage_access.dp_destroy ~__context dp allow_leak
 
 let get_diagnostic_timing_stats ~__context ~host = Stats.summarise ()
 

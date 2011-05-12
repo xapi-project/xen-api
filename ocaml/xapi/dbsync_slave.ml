@@ -31,33 +31,6 @@ let ( -- ) = Int64.sub
 let ( ** ) = Int64.mul
 let ( // ) = Int64.div
 
-
-
-let refresh_local_vdi_activations ~__context =
-	let all_vdi_recs = Db.VDI.get_all_records ~__context in
-
-	(* First remove any existing records relating to this host *)
-	let host_key = Printf.sprintf "host_%s" (Ref.string_of (Helpers.get_localhost ~__context)) in
-	let vdis = List.filter (fun (_,r) -> List.mem_assoc host_key r.API.vDI_sm_config) all_vdi_recs in
-	List.iter (fun (vdi,_) -> 
-		debug "Removing key '%s' from sm_config on VDI: %s" host_key (Ref.string_of vdi);
-		Db.VDI.remove_from_sm_config ~__context ~self:vdi ~key:host_key) vdis;
-
-	(* Make a lookup hashtbl *)
-	let hashtbl = Hashtbl.create (List.length all_vdi_recs) in
-	List.iter (fun (vref,vrec) -> Hashtbl.add hashtbl vrec.API.vDI_location vref) all_vdi_recs;
-	
-	(* Now fix it back up *)
-	Xapi_local_vdi_state.iter (fun rw loc -> 
-		let vref_opt = try Some (Hashtbl.find hashtbl loc) with Not_found -> None in
-		match vref_opt with 
-			| Some vref ->
-				debug "Found VDI to add host key to: %s" (Ref.string_of vref);
-				Db.VDI.add_to_sm_config ~__context ~self:vref ~key:host_key ~value:(if rw then "RW" else "RO")
-			| None ->
-				warn "Warning: Local db think's we've activated a VDI that's not in the database. Restarting xapi after a scan might fix this...";
-				())
-
 let get_my_ip_addr() =
   match (Helpers.get_management_ip_addr()) with
       Some ip -> ip
@@ -613,7 +586,7 @@ let update_env __context sync_keys =
   );
 
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
-	  refresh_local_vdi_activations ~__context;
+	  Storage_access.refresh_local_vdi_activations ~__context;
   );
 
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
