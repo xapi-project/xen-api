@@ -44,11 +44,12 @@ let refresh_internal ~__context ~self =
 				end)
 			(Opt.of_exception (fun () -> get_value device)) in
 
-	maybe_update_database "MAC"
-		(Db.PIF.get_MAC)
-		(Db.PIF.set_MAC)
-		(Netdev.get_address)
-		(id);
+	if Db.PIF.get_physical ~__context ~self then
+		maybe_update_database "MAC"
+			(Db.PIF.get_MAC)
+			(Db.PIF.set_MAC)
+			(Netdev.get_address)
+			(id);
 	maybe_update_database "MTU"
 		(Db.PIF.get_MTU)
 		(Db.PIF.set_MTU)
