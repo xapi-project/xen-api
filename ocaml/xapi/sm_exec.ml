@@ -150,17 +150,6 @@ let methodResponse xml =
 (****************************************************************************************)
 (* Functions that actually execute the python backends *)
 
-let spawn_internal cmdarg =
-  try
-    Forkhelpers.execute_command_get_output cmdarg.(0) (List.tl (Array.to_list cmdarg))
-  with 
-  | Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
-      raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task stopped"; output; log ]))
-  | Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
-      raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task signaled"; output; log ]))
-  | Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
-      raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
-      
 let with_session sr f =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
   let create_session () =
@@ -189,17 +178,24 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
 	| Daemon ->
 	    (Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:(daemon_path driver) ~path:(Printf.sprintf "/%s" driver) xml,"")
 	| Executable ->
-	    let args = [| cmd_name driver; Xml.to_string xml |] in
-	    Array.iter (fun txt -> debug "'%s'" txt) args;
-	    let output, stderr = 
-	      match context with
-		| None           -> 
-		    spawn_internal args
-		| Some __context ->
-		    spawn_internal args
-	    in
-	    debug "SM stdout: '%s'; stderr: '%s'" output stderr;
-	    ((Xml.parse_string output),stderr))
+		let exe = cmd_name driver in
+		begin try			
+			let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
+			begin try
+				(Xml.parse_string output), stderr
+			with e ->
+				error "Failed to parse result from %s: stdout:%s stderr:%s exception:%s" exe output stderr (Printexc.to_string e);
+				raise (Api_errors.Server_error(Api_errors.sr_backend_failure, [ Printexc.to_string e; output; stderr ]))
+			end
+		with
+			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task stopped"; output; log ]))
+			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["task signaled"; output; log ]))
+			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
+				raise (Api_errors.Server_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
+		end
+	)
     in
 
     match methodResponse xml with
@@ -272,7 +268,6 @@ let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
 let parse_sr_get_driver_info driver ty (xml: Xml.xml) = 
   let info = XMLRPC.From.structure xml in
-  debug "parsed structure";
   (* Parse the standard strings *)
   let name = XMLRPC.From.string (safe_assoc "name" info) 
   and description = XMLRPC.From.string (safe_assoc "description" info)
@@ -339,38 +334,34 @@ let get_supported add_fn =
       if String.endswith "SR" entry then (
         let driver = String.sub entry 0 (String.length entry - 2) in
         try
-          debug "Checking executable driver: %s" driver;
           Unix.access (cmd_name driver) [ Unix.X_OK ];
-          let info = sr_get_driver_info driver Executable in
-          add_fn driver info;
-          debug "Driver %s supported (executable)" driver
+          let i = sr_get_driver_info driver Executable in
+          add_fn driver i;
+          info "SM plugin %s supported (executable)" driver
         with e ->
-          debug "Got exception while checking driver %s: %s" driver (Printexc.to_string e);
+          error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e);
           log_backtrace ();
-          debug "Rejected plugin: %s" driver
       ) in
 
   let check_daemon entry =
     try
-      debug "Checking daemon driver: %s" entry;
-      let info = sr_get_driver_info entry Daemon in
-      add_fn entry info;
-      debug "Driver %s supported (daemon)" entry
+      let i = sr_get_driver_info entry Daemon in
+      add_fn entry i;
+	  info "SM plugin %s supported (daemon)" entry;
     with e ->
-      debug "Got exception while checking daemon %s: %s" entry (Printexc.to_string e);
+	  error "Rejecting SM plugin: %s because of exception: %s (daemon)" entry (Printexc.to_string e);
       log_backtrace ();
-      debug "Rejected plugin: %s" entry
   in
 
   List.iter 
     (fun (f, dir) ->
 		 if Sys.file_exists dir then begin
-		   debug "Scanning directory %s for SM backends" dir;
+		   debug "Scanning directory %s for SM plugins" dir;
 		   try Array.iter f (Sys.readdir dir)
 		   with e ->
 			   log_backtrace ();
 			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
-		 end else debug "Not scanning %s for SM backends: directory does not exist" dir
+		 end else error "Not scanning %s for SM backends: directory does not exist" dir
     ) 
     [ check_driver, sm_dir;
       check_daemon, sm_daemon_dir; ]
