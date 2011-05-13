@@ -17,6 +17,7 @@
 open Printf
 open Threadext
 open Stringext
+open Listext
 open Pervasiveext
 open Vmopshelpers
 open Client
@@ -307,16 +308,34 @@ let vcpu_configuration snapshot =
   let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
   debug "xen reports max %d pCPUs" pcpus;
 
-  (* vcpu <-> pcpu affinity settings are stored here: *)
-  let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
-  (* convert the mask into a bitmap, one bit per pCPU *)
-  let bitmap string = 
+  (* vcpu <-> pcpu affinity settings are stored here. Format is either:
+	 1,2,3         ::  all vCPUs receive this mask
+     1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs receive first mask
+	 *)
+  let masks = try String.split ';' (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> [] in
+  (* If the mask has fewer elements than vCPUs, expand it *)
+  let masks = match masks with
+	  | [] -> []
+	  | m :: ms ->
+		  let defaults = Range.fold_right (fun _ acc -> m :: acc) 
+			  (Range.make 0 vcpus) [] in
+		  List.take vcpus (masks @ defaults) in
+  (* convert a mask into a binary string, one character per pCPU *)
+  let bitmap string: string = 
     let cpus = List.map int_of_string (String.split ',' string) in
     let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-    let bits = List.map (Int64.shift_left 1L) cpus in
-    List.fold_left Int64.logor 0L bits in
-  let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
-  let affinity = Opt.map (fun int64 -> [ "vcpu/affinity", Int64.to_string int64 ]) bitmap in
+	let result = String.make pcpus '0' in
+	List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+	result in
+  (* Generate key/value pairs for affinity *)
+  let affinity = 
+	  try
+		  List.mapi (fun idx mask -> 
+			  Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+		  ) masks 
+	  with e -> 
+		  warn "Failed to parse vCPU masks: %s" (List.assoc "mask" snapshot.API.vM_VCPUs_params);
+		  [] in
 
   (* scheduler parameters: weight and cap *)
   let weight = try Some (List.assoc "weight" snapshot.API.vM_VCPUs_params) with _ -> None in
@@ -328,7 +347,7 @@ let vcpu_configuration snapshot =
 
   [ "vcpu/number", string_of_int vcpus;
     "vcpu/current", string_of_int vcpus_current ]
-  @ (Opt.default [] affinity)
+  @ affinity
   @ (Opt.default [] weight)
   @ (Opt.default [] cap)
 
