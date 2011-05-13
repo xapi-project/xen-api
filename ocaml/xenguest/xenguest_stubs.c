@@ -55,7 +55,7 @@
 struct flags {
   int vcpus;
   int vcpus_current;
-  uint64_t vcpu_affinity; /* 0 means unset */
+  const char** vcpu_affinity; /* 0 means unset */
   uint16_t vcpu_weight;   /* 0 means unset (0 is an illegal weight) */
   uint16_t vcpu_cap;      /* 0 is default (no cap) */
   int nx;
@@ -83,12 +83,16 @@ static int pasprintf(char **buf, const char *fmt, ...)
     return ret;
 }
 
-static uint64_t
-xenstore_get(char *key, int domid)
+static char *
+xenstore_getsv(int domid, const char *fmt, va_list ap)
 {
-    char *buf = NULL, *path = NULL, *s;
+    char *path = NULL, *s;
     uint64_t value = 0;
     struct xs_handle *xsh = NULL;
+	int n, m;
+	char key[1024];
+
+	bzero(key, sizeof(key));
 
     xsh = xs_daemon_open();
     if (xsh == NULL)
@@ -97,9 +101,42 @@ xenstore_get(char *key, int domid)
     path = xs_get_domain_path(xsh, domid);
     if (path == NULL)
         goto out;
-    pasprintf(&buf, "%s/platform/%s", path, key);
 
-    s = xs_read(xsh, XBT_NULL, buf, NULL);
+	n = snprintf(key, sizeof(key), "%s/platform/", path);
+	if (n < 0)
+	  goto out;
+	m = vsnprintf(key + n, sizeof(key) - n, fmt, ap);
+	if (m < 0)
+	  goto out;
+
+    s = xs_read(xsh, XBT_NULL, key, NULL);
+  out:
+    xs_daemon_close(xsh);
+    free(path);
+    return s;
+}
+
+static char *
+xenstore_gets(int domid, const char *fmt, ...)
+{
+	char *s;
+	va_list ap;
+
+	va_start(ap, fmt);
+	s = xenstore_getsv(domid, fmt, ap);
+	va_end(ap);
+	return s;
+}
+
+static uint64_t
+xenstore_get(int domid, const char *fmt, ...)
+{
+	char *s;
+	uint64_t value;
+	va_list ap;
+
+	va_start(ap, fmt);
+	s = xenstore_getsv(domid, fmt, ap);
     if (s) {
        if (!strcasecmp(s, "true"))
            value = 1;
@@ -107,34 +144,38 @@ xenstore_get(char *key, int domid)
            value = 0;
        free(s);
     }
-
-  out:
-    xs_daemon_close(xsh);
-    free(path);
-    free(buf);
+	va_end(ap);
     return value;
 }
 
 static void 
 get_flags(struct flags *f, int domid) 
 {
-  f->vcpus    = xenstore_get("vcpu/number",domid);
-  f->vcpus_current = xenstore_get("vcpu/current",domid);
-  f->vcpu_affinity = xenstore_get("vcpu/affinity",domid);
-  f->vcpu_weight = xenstore_get("vcpu/weight", domid);
-  f->vcpu_cap = xenstore_get("vcpu/cap", domid);
-  f->nx       = xenstore_get("nx",domid);
-  f->viridian = xenstore_get("viridian",domid);
-  f->apic     = xenstore_get("apic",domid);
-  f->acpi     = xenstore_get("acpi",domid);
-  f->pae      = xenstore_get("pae",domid);
-  f->acpi_s4  = xenstore_get("acpi_s4",domid);
-  f->acpi_s3  = xenstore_get("acpi_s3",domid);
+  int n;
+  f->vcpus    = xenstore_get(domid, "vcpu/number");
+  f->vcpu_affinity = (const char**)(malloc(sizeof(char*) * f->vcpus));
+
+  for (n = 0; n < f->vcpus; n++) {
+	f->vcpu_affinity[n] = xenstore_gets(domid, "vcpu/%d/affinity", n);
+  }
+  f->vcpus_current = xenstore_get(domid, "vcpu/current");
+  f->vcpu_weight = xenstore_get(domid, "vcpu/weight");
+  f->vcpu_cap = xenstore_get(domid, "vcpu/cap");
+  f->nx       = xenstore_get(domid, "nx");
+  f->viridian = xenstore_get(domid, "viridian");
+  f->apic     = xenstore_get(domid, "apic");
+  f->acpi     = xenstore_get(domid, "acpi");
+  f->pae      = xenstore_get(domid, "pae");
+  f->acpi_s4  = xenstore_get(domid, "acpi_s4");
+  f->acpi_s3  = xenstore_get(domid, "acpi_s3");
 
   openlog("xenguest",LOG_NDELAY,LOG_DAEMON);
   syslog(LOG_INFO|LOG_DAEMON,"Determined the following parameters from xenstore:");
-  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/affinity:%Ld vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
-	 f->vcpus,f->vcpu_affinity,f->vcpu_weight,f->vcpu_cap, f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  syslog(LOG_INFO|LOG_DAEMON,"vcpu/number:%d vcpu/weight:%d vcpu/cap:%d nx: %d viridian: %d apic: %d acpi: %d pae: %d acpi_s4: %d acpi_s3: %d",
+                f->vcpus,f->vcpu_weight,f->vcpu_cap,f->nx,f->viridian,f->apic,f->acpi,f->pae,f->acpi_s4,f->acpi_s3);
+  for (n = 0; n < f->vcpus; n++){
+	syslog(LOG_INFO|LOG_DAEMON,"vcpu/%d/affinity:%s", n, (f->vcpu_affinity[n])?f->vcpu_affinity[n]:"unset");
+  }
   closelog();
   
 }
@@ -194,26 +235,29 @@ extern struct xc_dom_image *xc_dom_allocate(xc_interface *xch, const char *cmdli
 
 static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
   struct xen_domctl_sched_credit sdom;
-  int i, r;
-  if (f.vcpu_affinity != 0L){ /* 0L means unset */
-    xc_cpumap_t cpumap = xc_cpumap_alloc(xch);
-    if (cpumap == NULL)
-      failwith_oss_xc(xch, "xc_cpumap_alloc");
+  int i, j, r, size, pcpus_supplied, min;
+  xc_cpumap_t cpumap;
 
-    for (i=0; i<64; i++) {
-      if (f.vcpu_affinity & 1<<i)
-        cpumap[i/8] |= 1 << (i&7);
-    }
+  size = xc_get_cpumap_size(xch) * 8; /* array is of uint8_t */
 
-    for (i=0; i<f.vcpus; i++){
-        r = xc_vcpu_setaffinity(xch, domid, i, cpumap);
-      if (r) {
-        free(cpumap);
-	failwith_oss_xc(xch, "xc_vcpu_setaffinity");
+  for (i=0; i<f.vcpus; i++){
+	if (f.vcpu_affinity[i]){ /* NULL means unset */
+	  pcpus_supplied = strlen(f.vcpu_affinity[i]);
+	  min = (pcpus_supplied < size)?pcpus_supplied:size;
+	  cpumap = xc_cpumap_alloc(xch);
+	  if (cpumap == NULL)
+		failwith_oss_xc(xch, "xc_cpumap_alloc");
+
+	  for (j=0; j<min; j++) {
+		if (f.vcpu_affinity[i][j] == '1')
+		  cpumap[j/8] |= 1 << (j&7);
+	  }
+	  r = xc_vcpu_setaffinity(xch, domid, i, cpumap);
+	  free(cpumap);
+	  if (r) {
+		failwith_oss_xc(xch, "xc_vcpu_setaffinity");
       }
     }
-
-    free(cpumap);
   }
 
   r = xc_sched_credit_domain_get(xch, domid, &sdom);
