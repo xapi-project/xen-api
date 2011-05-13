@@ -745,7 +745,7 @@ let empty log =
 
 (* Flush the database to the given redo_log instance. *)
 let flush_db_to_redo_log db log =
-	R.info "Flushing database to redo_log %s" log.marker;
+	R.info "Flushing database to redo_log [%s]" log.name;
 	let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
 	write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log
 
