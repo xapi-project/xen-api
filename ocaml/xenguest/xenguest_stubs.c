@@ -132,7 +132,7 @@ static uint64_t
 xenstore_get(int domid, const char *fmt, ...)
 {
 	char *s;
-	uint64_t value;
+	uint64_t value = 0;
 	va_list ap;
 
 	va_start(ap, fmt);
