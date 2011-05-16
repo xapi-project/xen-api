@@ -12,6 +12,15 @@ let examples = [
 	Ide(2, 2), "hdc2", 5634;
 ]
 
+let deprecated = [
+	Ide(4, 0), "hde", 8448;
+	Ide(5, 0), "hdf", 8512;
+	Ide(6, 0), "hdg", 8704;
+	Ide(7, 0), "hdh", 8768;
+	Ide(8, 0), "hdi", 14336;
+	Ide(15, 0), "hdp", 22848;
+]
+
 let equivalent = [
 	"d0", "xvda";
 	"d0", "0";
@@ -22,6 +31,7 @@ let equivalent = [
 ]
 
 let _ = 
+	let using_deprecated_ide = try ignore(make (Ide(4, 0))); true with _ -> false in
 	List.iter
 		(fun (spec, linux, xenstore) ->
 			let i = make spec in
@@ -31,7 +41,15 @@ let _ =
 			then failwith (Printf.sprintf "examples %s i (%s) <> j (%s)" linux (to_debug_string i) (to_debug_string j));
 			if i <> k
 			then failwith (Printf.sprintf "examples %s i (%s)<> k (%s)" linux (to_debug_string i) (to_debug_string k));
-		) examples;
+		) (examples @ (if using_deprecated_ide then deprecated else []));
+	(* NB we always understand these even if we don't generate them ourselves *)
+	List.iter
+		(fun (spec, linux, xenstore) ->
+			let j = of_linux_device linux in
+			let k = of_xenstore_key xenstore in
+			if j <> k
+			then failwith (Printf.sprintf "examples %s j (%s)<> k (%s)" linux (to_debug_string j) (to_debug_string k));
+		) deprecated;
 	List.iter
 		(fun (x, y) ->
 			let x' = of_string false x in

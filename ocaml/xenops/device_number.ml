@@ -14,10 +14,13 @@ let (<<) = (lsl)
 
 let int_of_string x = try int_of_string x with _ -> failwith (Printf.sprintf "int_of_string [%s]" x)
 
+(* If this is true then we will use the deprecated (linux-specific) IDE encodings for disks > 3 *)
+let use_deprecated_ide_encoding = true
+
 let make (x: spec) : t = 
 	let max_xen = ((1 << 20) - 1), 15 in
 	let max_scsi = 15, 15 in
-	let max_ide = 3, 63 in
+	let max_ide = if use_deprecated_ide_encoding then 19, 63 else 3, 63 in
 	let assert_in_range description (disk_limit, partition_limit) (disk, partition) = 
 		if disk < 0 || (disk > disk_limit) 
 		then failwith (Printf.sprintf "%s disk number out of range 0 <= %d <= %d" description disk disk_limit);
@@ -32,12 +35,17 @@ let make (x: spec) : t =
 
 let (||) = (lor)
 
+let standard_ide_table = [ 3; 22 ]
+let deprecated_ide_table = standard_ide_table @ [ 33; 34; 56; 57; 88; 89; 90; 91 ]
+
 let to_xenstore_int = function
 	| Xen (disk, partition) when disk < 16 -> (202 << 8) || (disk << 4)       || partition
 	| Xen (disk, partition)                -> (1 << 28)  || (disk << 8)       || partition
 	| Scsi (disk, partition)               -> (8 << 8)   || (disk << 4)       || partition
-	| Ide (disk, partition) when disk < 2  -> (3 << 8)   || (disk << 6)       || partition
-	| Ide (disk, partition)                -> (22 << 8)  || ((disk - 2) << 6) || partition
+	| Ide (disk, partition)                ->
+		let m = List.nth deprecated_ide_table (disk / 2) in
+		let n = disk - (disk / 2) * 2 in (* NB integers behave differently to reals *)
+		(m << 8) || (n << 6) || partition
 
 let of_xenstore_int x =
 	let (&&) = (land) in
@@ -48,9 +56,11 @@ let of_xenstore_int x =
 	else match x >> 8 with
 		| 202 -> Xen ( (x >> 4) && ((1 << 4) - 1), x && ((1 << 4) - 1))
 		| 8   -> Scsi ( (x >> 4) && ((1 << 4) - 1), x && ((1 << 4) - 1))
-		| 3   -> Ide ( (x >> 6) && ((1 << 2) - 1), x && ((1 << 6) - 1))
-		| 22  -> Ide ( ((x >> 6) && ((1 << 2) - 1)) + 2, x && ((1 << 6) - 1))
-		| _   -> failwith (Printf.sprintf "Unknown device number: %d" x)
+		| n   ->
+			let idx = snd(List.fold_left (fun (i, res) e -> i+1, if e = n then i else res) (0, -1) deprecated_ide_table) in
+			if idx < 0
+			then failwith (Printf.sprintf "Unknown device number: %d" x);
+			Ide ( ((x >> 6) && ((1 << 2) - 1)) + idx * 2,  x && ((1 << 6) - 1))
 
 type xenstore_key = int
 
