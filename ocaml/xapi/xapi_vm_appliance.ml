@@ -178,26 +178,38 @@ let recover ~__context ~self ~session_to ~force =
 	assert_can_be_recovered ~__context ~self ~session_to;
 	let vms = Db.VM_appliance.get_VMs ~__context ~self in
 	let recovered_vms = Xapi_dr.recover_vms ~__context ~vms ~session_to ~force in
-	(* Recreate the VM appliance object. *)
+	(* Deal with the VM appliance object. *)
 	let old_appliance = Db.VM_appliance.get_record ~__context ~self in
 	Server_helpers.exec_with_new_task ~session_id:session_to "Recreating VM appliance object"
 		(fun __context_to ->
-			let new_appliance = create ~__context:__context_to
-				~name_label:old_appliance.API.vM_appliance_name_label
-				~name_description:old_appliance.API.vM_appliance_name_description in
+			let recovered_appliance = try
+				(* If an appliance with the same UUID exists, remove all VMs from the appliance and update its name_label/name_description. *)
+				let existing_appliance = Db.VM_appliance.get_by_uuid ~__context:__context_to ~uuid:old_appliance.API.vM_appliance_uuid in
+				debug "An appliance with UUID %s already exists - reusing it." old_appliance.API.vM_appliance_uuid;
+				let vms = Db.VM_appliance.get_VMs ~__context:__context_to ~self:existing_appliance in
+				List.iter
+					(fun vm -> Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:Ref.null)
+					vms;
+				Db.VM_appliance.set_name_label ~__context:__context_to ~self:existing_appliance ~value:old_appliance.API.vM_appliance_name_label;
+				Db.VM_appliance.set_name_description ~__context:__context_to ~self:existing_appliance ~value:old_appliance.API.vM_appliance_name_description;
+				existing_appliance
+			with Db_exn.Read_missing_uuid("VM_appliance", _, _) ->
+				(* If no appliance with the same UUID exists, create a new one from the old appliance's data. *)
+				debug "No appliance with UUID %s exists - creating a new one." old_appliance.API.vM_appliance_uuid;
+				begin
+					let new_appliance = create ~__context:__context_to
+						~name_label:old_appliance.API.vM_appliance_name_label
+						~name_description:old_appliance.API.vM_appliance_name_description in
+					Db.VM_appliance.set_uuid ~__context:__context_to
+						~self:new_appliance
+						~value:old_appliance.API.vM_appliance_uuid;
+					new_appliance
+				end
+			in
 			(* Add all the non-template VMs to the appliance. *)
 			List.iter
 				(fun vm ->
 					if not (Db.VM.get_is_a_template ~__context:__context_to ~self:vm) then
-						Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:new_appliance)
+						Db.VM.set_appliance ~__context:__context_to ~self:vm ~value:recovered_appliance)
 				recovered_vms;
-			update_allowed_operations ~__context:__context_to ~self:new_appliance;
-			try
-				Db.VM_appliance.set_uuid ~__context:__context_to
-					~self:new_appliance
-					~value:old_appliance.API.vM_appliance_uuid
-			with Db_exn.Uniqueness_constraint_violation(_, _, _) ->
-				(* Fail silently if the appliance's uuid already exists. *)
-				debug
-					"Could not give VM appliance the uuid %s as a VM appliance with this uuid already exists."
-					old_appliance.API.vM_appliance_uuid)
+			update_allowed_operations ~__context:__context_to ~self:recovered_appliance)
