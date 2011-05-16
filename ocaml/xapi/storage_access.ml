@@ -188,10 +188,10 @@ let rpc_of_vbd ~__context ~vbd = rpc_inprocess
 (** RPC function for calling the main storage multiplexor *)
 let rpc = rpc_inprocess
 
-(** [datapath_of_vbd domid devid] returns the name of the datapath which corresponds
-    to device [devid] on domain [domid] *)
-let datapath_of_vbd ~domid ~devid =
-	Printf.sprintf "vbd/%d/%d" domid devid
+(** [datapath_of_vbd domid device] returns the name of the datapath which corresponds
+    to device [device] on domain [domid] *)
+let datapath_of_vbd ~domid ~device =
+	Printf.sprintf "vbd/%d/%s" domid device
 
 let unexpected_result expected x = match x with
 	| Success _ ->
@@ -219,10 +219,9 @@ let on_vdi ~__context ~vbd ~domid f =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let rpc = rpc_of_sr ~__context ~sr in
-	let realdevice = Db.VBD.get_device ~__context ~self:vbd in
-	let devid = Device.Vbd.device_number realdevice in
+	let device = Db.VBD.get_device ~__context ~self:vbd in
 	let task = Context.get_task_id __context in
-	let dp = Client.DP.create rpc (Ref.string_of task) (datapath_of_vbd ~domid ~devid) in
+	let dp = Client.DP.create rpc (Ref.string_of task) (datapath_of_vbd ~domid ~device) in
 	f rpc (Ref.string_of task) dp (Ref.string_of sr) (Ref.string_of vdi)
 
 (** [attach_and_activate __context vbd domid f] calls [f physical_device] where

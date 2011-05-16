@@ -27,9 +27,9 @@ val rpc_of_vbd: __context:Context.t -> vbd:API.ref_VBD -> Rpc.call -> Rpc.respon
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
 
-(** [datapath_of_vbd domid devid] returns the name of the datapath which corresponds
-    to device [devid] on domain [domid] *)
-val datapath_of_vbd: domid:int -> devid:int -> Storage_interface.dp
+(** [datapath_of_vbd domid device] returns the name of the datapath which corresponds
+    to device [device] on domain [domid] *)
+val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
 
 val expect_vdi: (Storage_interface.physical_device -> 'a) -> Storage_interface.result -> 'a
 

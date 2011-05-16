@@ -1,10 +1,15 @@
+(** A specification for a device number. There are more valid specifications than
+    valid device numbers because of hardware and/or protocol limits. *)
 type spec = 
-	| Xen of int * int
-	| Scsi of int * int
-	| Ide of int * int
+	| Xen of int * int  (** A xen paravirtualised disk (disk num, partition num) *)
+	| Scsi of int * int (** A SCSI disk (disk num, partition num) *)
+	| Ide of int * int  (** An IDE disk (disk num, partition num) *)
 
+(** A valid device number *)
 type t
 
+(** [make spec] validates a given device number specification [spec] and returns
+    a device number *)
 val make: spec -> t
 
 (** [of_string hvm name] returns the interface which best matches the [name]
