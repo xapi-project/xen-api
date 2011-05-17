@@ -1035,11 +1035,12 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	try
 		Server_helpers.exec_with_new_task ~session_id:session_to
 			"Looking for required SRs"
-			(fun __context -> List.iter
-				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context ~uuid:sr_uuid))
+			(fun __context_to -> List.iter
+				(fun sr_uuid -> ignore (Db.SR.get_by_uuid ~__context:__context_to ~uuid:sr_uuid))
 				required_SR_uuids)
 	with Db_exn.Read_missing_uuid(_, _, sr_uuid) ->
 		(* Throw exception containing the uuid of the first SR which wasn't found. *)
-		let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
+		(* Raise error with VM and SR uuids, since the OpaqueRefs don't mean anything outside the foreign DB. *)
+		let vm_uuid = Db.VM.get_uuid ~__context ~self in
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
-			[Ref.string_of self; Ref.string_of sr_ref]))
+			[vm_uuid; sr_uuid]))
