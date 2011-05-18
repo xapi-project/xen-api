@@ -208,6 +208,11 @@ let destroy  ~__context ~self =
     if ((List.mem_assoc Xapi_globs.default_template_key other_config) &&
 	  (List.assoc Xapi_globs.default_template_key other_config)="true") then
       raise (Api_errors.Server_error (Api_errors.vm_cannot_delete_default_template, []));
+	let appliance = Db.VM.get_appliance ~__context ~self in
+	if Db.is_valid_ref __context appliance then begin
+		Db.VM.set_appliance ~__context ~self ~value:Ref.null;
+		Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
+	end;
   let vbds = Db.VM.get_VBDs ~__context ~self in
     List.iter (fun vbd -> 
 		 (try 
