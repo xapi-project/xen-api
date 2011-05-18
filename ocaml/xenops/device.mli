@@ -141,16 +141,14 @@ sig
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> ?flrscript:string option -> (int * int * int * int) list -> Xc.domid -> int -> unit
+	       -> ?flrscript:string option -> dev list -> Xc.domid -> int -> unit
 	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
 	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
-	val reset : xs:Xs.xsh -> device -> unit
-	val bind : (int * int * int * int) list -> unit
-	val plug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> unit
-	val unplug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> unit
-	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
+	val reset : xs:Xs.xsh -> dev -> unit
+	val bind : dev list -> unit
+	val plug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+	val unplug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * dev) list
 end
 
 module Vfb :
