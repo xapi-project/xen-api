@@ -293,7 +293,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	     
 	     (* Resolve the "autodetect" into a fixed device name now *)
 	     let userdevice = if userdevice = "autodetect" 
-	     then List.hd possibilities (* already checked for [] above *)
+	     then string_of_int (Device_number.to_disk_number (List.hd possibilities)) (* already checked for [] above *)
 	     else userdevice in
 	     
 	     let uuid = Uuid.make_uuid () in
@@ -302,22 +302,11 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 	       userdevice (Uuid.string_of_uuid uuid) (Ref.string_of ref);
 	     
 	     (* Check that the device is definitely unique. If the requested device is numerical
-		(eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
-		all possible clashes. *)
-	     let all = Db.VM.get_VBDs ~__context ~self:vM in
-
-	     let existing_devices = 
-			 let all_devices = List.map (fun self -> Db.VBD.get_device ~__context ~self) all in
-			 let all_devices2 = List.map (fun self -> Db.VBD.get_userdevice ~__context ~self) all in
-			 all_devices @ all_devices2 in
-
-		 let expand s = 
-			 (* NB userdevice fields are arbitrary strings and device fields
-				may be "" *)
-			 let parse hvm x = try Some (Device_number.of_string hvm x) with _ -> None in
-			 Listext.List.unbox_list [ parse true s; parse false s ] in
-		 
-		 if Listext.List.intersect (expand userdevice) (List.concat (List.map expand existing_devices)) <> []
+		    (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
+		    all possible clashes. *)
+		 let userdevices = Xapi_vm_helpers.possible_VBD_devices_of_string userdevice in
+		 let existing_devices = Xapi_vm_helpers.all_used_VBD_devices ~__context ~self:vM in
+		 if Listext.List.intersect userdevices existing_devices <> []
 	     then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
 
 	     (* Make people aware that non-shared disks make VMs not agile *)
