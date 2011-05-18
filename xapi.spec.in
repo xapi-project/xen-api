@@ -190,6 +190,9 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/bin/xe-toolstack-restart
 /opt/xensource/bin/xe-xentrace
 /opt/xensource/bin/xsh
+/etc/xensource/bugtool/xapi.xml
+/etc/xensource/bugtool/xapi/stuff.xml
+/opt/xensource/libexec/sm_diagnostics
 /opt/xensource/libexec/fakeguestagent
 /opt/xensource/libexec/InterfaceReconfigure.py
 /opt/xensource/libexec/InterfaceReconfigure.pyo

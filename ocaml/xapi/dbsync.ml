@@ -67,8 +67,6 @@ let update_env () =
 	  try and sync config files from the old master if someone's
 	  done a pool.designate_new_master!] *)
        if not (Pool_role.is_master ()) then resync_dom0_config_files();
-       (* after all resyncing has been done (on masters and slaves) we need to initialise our VDI refcounts *)
-       Storage_access.VDI.initialise_refcounts_from_db()
     )
 
 let setup () =
