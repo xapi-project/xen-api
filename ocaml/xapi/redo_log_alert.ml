@@ -35,16 +35,13 @@ let raise_system_alert news body =
 let loop () =
 	Debug.name_thread "Metadata VDI monitor";
 	while true do
-		let (device, accessible) = Event.sync (Event.receive Redo_log.redo_log_events) in
-		let device_path = match device with
-		| Some path -> path
-		| None -> "[Unknown device]" (* Should never get here, since the redo_log shouldn't be running without a device. *)
-		in
+		let (name, accessible) = Event.sync (Event.receive Redo_log.redo_log_events) in
+		let alert_body = Printf.sprintf "Redo log [%s]" name in
 		if accessible then begin
-			info "Raising system alert that redo log with device %s is now healthy" device_path;
-			raise_system_alert Api_messages.redo_log_healthy (Printf.sprintf "Device: %s" device_path)
+			info "Raising system alert that redo log [%s] is now healthy" name;
+			raise_system_alert Api_messages.redo_log_healthy alert_body
 		end else begin
-			info "Raising system alert to say that we can't access redo log with device %s" device_path;
-			raise_system_alert Api_messages.redo_log_broken (Printf.sprintf "Device: %s" device_path)
+			info "Raising system alert to say that we can't access redo log [%s]" name;
+			raise_system_alert Api_messages.redo_log_broken alert_body
 		end
 	done

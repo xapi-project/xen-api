@@ -45,6 +45,7 @@ let redo_log_sm_config = [ "type", "raw" ]
 (* Encapsulate the state of a single redo_log instance. *)
 
 type redo_log = {
+	name: string;
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
@@ -99,7 +100,7 @@ let redo_log_events = Event.new_channel ()
 let cannot_connect_fn log =
 	if !(log.currently_accessible) then begin
 		R.debug "Signalling unable to access redo log";
-		Event.sync (Event.send redo_log_events (!(log.device), false));
+		Event.sync (Event.send redo_log_events (log.name, false));
 		Opt.iter (fun callback -> callback false) log.state_change_callback
 	end;
 	log.currently_accessible := false
@@ -107,7 +108,7 @@ let cannot_connect_fn log =
 let can_connect_fn log =
 	if not !(log.currently_accessible) then begin
 		R.debug "Signalling redo log is healthy";
-		Event.sync (Event.send redo_log_events (!(log.device), true));
+		Event.sync (Event.send redo_log_events (log.name, true));
 		Opt.iter (fun callback -> callback true) log.state_change_callback
 	end;
 	log.currently_accessible := true
@@ -659,8 +660,9 @@ let connect_and_perform_action f desc log =
 
 let redo_log_creation_mutex = Mutex.create ()
 
-let create ~state_change_callback ~read_only =
+let create ~name ~state_change_callback ~read_only =
 	let instance = {
+		name = name;
 		marker = Uuid.to_string (Uuid.make_uuid ());
 		read_only = read_only;
 		enabled = ref false;

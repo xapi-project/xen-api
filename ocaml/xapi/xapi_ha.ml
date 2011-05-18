@@ -30,7 +30,7 @@ open Client
 open Threadext
 
 (* Create a redo_log instance to use for HA. *)
-let ha_redo_log = Redo_log.create ~state_change_callback:None ~read_only:false
+let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:None ~read_only:false
 
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)

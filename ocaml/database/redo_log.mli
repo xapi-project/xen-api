@@ -24,6 +24,7 @@ val redo_log_sm_config : (string * string) list
 
 (** {redo_log data type} *)
 type redo_log = {
+	name: string;
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
@@ -51,7 +52,7 @@ val disable : redo_log -> unit
 
 (** Communication with other threads. *)
 
-val redo_log_events: ((string option) * bool) Event.channel
+val redo_log_events: (string * bool) Event.channel
 
 (** {2 Lifecycle of I/O process} *)
 
@@ -63,7 +64,7 @@ val switch : redo_log -> string -> unit
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {Keeping track of existing redo_log instances} *)
-val create: state_change_callback:(bool -> unit) option -> read_only:bool -> redo_log
+val create: name:string -> state_change_callback:(bool -> unit) option -> read_only:bool -> redo_log
 (* Create a redo log instance and add it to the set. *)
 
 val delete: redo_log -> unit
