@@ -861,75 +861,60 @@ let send_sysrq ~__context ~vm ~key =
 let send_trigger ~__context ~vm ~trigger =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
-let range_inclusive a b = 
-  let rec f a b = if a = b then [ a ] else a :: (f (a + 1) b) in
-  List.map string_of_int (f a b)
+let inclusive_range a b = Range.to_list (Range.make a (b + 1))
+let vbd_inclusive_range hvm a b =
+	List.map (Device_number.of_disk_number hvm) (inclusive_range a b)
+let vif_inclusive_range a b = 
+	List.map string_of_int (inclusive_range a b)
 
 (* These are high-watermark limits as documented in CA-6525. Individual guest types
    may be further restricted. *)
 
-let allowed_VBD_devices_HVM    = range_inclusive 0 3
+let allowed_VBD_devices_HVM            = vbd_inclusive_range true 0 3
+let allowed_VBD_devices_HVM_PP         = vbd_inclusive_range true 0 15
+let allowed_VBD_devices_PV             = vbd_inclusive_range false 0 15
+let allowed_VBD_devices_control_domain = vbd_inclusive_range false 0 255
 
-let allowed_VBD_devices_HVM_PP = range_inclusive 0 256
+let allowed_VIF_devices_HVM    = vif_inclusive_range 0 3
+let allowed_VIF_devices_HVM_PP = vif_inclusive_range 0 6
+let allowed_VIF_devices_PV     = vif_inclusive_range 0 6
 
-let allowed_VBD_devices_PV     = range_inclusive 0 256
+(** [possible_VBD_devices_of_string s] returns a list of Device_number.t which 
+	represent possible interpretations of [s]. *)
+let possible_VBD_devices_of_string s = 
+	(* NB userdevice fields are arbitrary strings and device fields may be "" *)
+	let parse hvm x = try Some (Device_number.of_string hvm x) with _ -> None in
+	Listext.List.unbox_list [ parse true s; parse false s ]
 
-let allowed_VIF_devices_HVM    = range_inclusive 0 3
+(** [all_used_VBD_devices __context self] returns a list of Device_number.t
+	which are considered to be already in-use in the VM *)
+let all_used_VBD_devices ~__context ~self =
+	let all = Db.VM.get_VBDs ~__context ~self in
 
-let allowed_VIF_devices_HVM_PP = range_inclusive 0 6
+	let existing_devices = 
+		let all_devices = List.map (fun self -> Db.VBD.get_device ~__context ~self) all in
+		let all_devices2 = List.map (fun self -> Db.VBD.get_userdevice ~__context ~self) all in
+		all_devices @ all_devices2 in
 
-let allowed_VIF_devices_PV     = range_inclusive 0 6
-
-(* If a user has requested a userdevice be set to 'autodetect' and it isn't currently
-   attached, then ignore it. If a userdevice is set to 'autodetect' then we assume the
-   device field contains the actual device in use. *)
-
-(** Given a VBD returns either Some devicename or None in the case where a device is set to
-    autodetect and it hasn't been plugged in. *)
-let get_device_name_in_use ~__context ~self = 
-  try
-	let vbd_r = Db.VBD.get_record ~__context ~self in
-	match vbd_r.API.vBD_userdevice with
-	| "autodetect" -> Some vbd_r.API.vBD_device
-	| x -> Some x
-  with _ -> (* someone just destroyed the VBD *)
-	  None
-
-exception Invalid_device of string
-let translate_vbd_device_to_number name =
-  try 
-    let number = 
-      match String.explode name with
-	| 's' :: 'd' :: ('a'..'p' as n) :: rest -> (int_of_char n) - (int_of_char 'a')
-	| 'x' :: 'v' :: 'd' :: ('a'..'p' as n) :: rest -> (int_of_char n) - (int_of_char 'a')
-	| 'h' :: 'd' :: ('a'..'p' as n) :: rest -> (int_of_char n) - (int_of_char 'a')
-	| _ -> int_of_string name 
-    in
-    string_of_int number 
-  with _ -> raise (Invalid_device name)
+	List.concat (List.map possible_VBD_devices_of_string existing_devices)
 
 let allowed_VBD_devices ~__context ~vm =
-  let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
-  let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
-  let is_pp =
-    try
-      (Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self:guest_metrics) <> []
-    with
-	_ -> false
-  in
-  let all_devices = 
-    match is_hvm,is_pp with
-	false,_ -> allowed_VBD_devices_PV
-      | true,false -> allowed_VBD_devices_HVM
-      | true,true -> allowed_VBD_devices_HVM_PP
-  in
-  (* Filter out those we've already got VBDs for *)
-  let all_vbds = Db.VM.get_VBDs ~__context ~self:vm in
-  let used_devices = List.map (fun self -> get_device_name_in_use ~__context ~self) all_vbds in
-  (* Remove all the Nones *)
-  let used_devices = List.concat (List.map Opt.to_list used_devices) in
-  let used_devices = List.map (fun name -> try translate_vbd_device_to_number name with _ -> name)  used_devices in
-  List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
+	let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
+	let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
+	let is_pp =
+		try
+			let guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
+			(Db.VM_guest_metrics.get_PV_drivers_version ~__context ~self:guest_metrics) <> []
+		with _ -> false in
+	let all_devices = match is_hvm,is_pp,is_control_domain with
+		| false, _, true  -> allowed_VBD_devices_control_domain
+		| false, _, false -> allowed_VBD_devices_PV
+		| true, false, _  -> allowed_VBD_devices_HVM
+		| true, true, _   -> allowed_VBD_devices_HVM_PP
+	in
+	(* Filter out those we've already got VBDs for *)
+	let used_devices = all_used_VBD_devices ~__context ~self:vm in
+	List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
 let allowed_VIF_devices ~__context ~vm =
   let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
