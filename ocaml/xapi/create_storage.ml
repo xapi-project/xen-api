@@ -22,7 +22,7 @@ open D
 let plug_all_pbds __context rpc session_id =
   (* Explicitly resynchronise local PBD state *)
   let my_pbds = Helpers.get_my_pbds __context in
-  Xapi_local_pbd_state.resynchronise ~__context ~pbds:(List.map fst my_pbds);
+  Storage_access.resynchronise_pbds ~__context ~pbds:(List.map fst my_pbds);
   let my_pbds = Helpers.get_my_pbds __context in
   (* We'll return true if all PBD.plugs succeed *)
   let result = ref true in
@@ -112,7 +112,7 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
     let obj_uuid = Helpers.get_localhost_uuid () in
     Xapi_alert.add ~name:Api_messages.pbd_plug_failed_on_server_start ~priority:1L ~cls:`Host ~obj_uuid ~body:"";
   end;
-  Helpers.consider_enabling_host ~__context 
+  Xapi_host_helpers.consider_enabling_host ~__context
       
 
 let create_storage_localhost rpc session_id : unit =

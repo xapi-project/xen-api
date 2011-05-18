@@ -63,6 +63,7 @@ let https_port = ref default_ssl_port
 let xapi_gc_debug = ref true
 
 let unix_domain_socket = "/var/xapi/xapi"
+let storage_unix_domain_socket = "/var/xapi/storage"
 let local_database = "/var/xapi/local.db"
 
 (* amount of time to retry master_connection before (if restart_on_connection_timeout is set) restarting xapi; -ve means don't timeout: *)

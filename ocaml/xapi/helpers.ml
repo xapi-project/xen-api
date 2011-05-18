@@ -773,64 +773,6 @@ let loadavg () =
     float_of_string (List.hd (split_colon all))
   with _ -> -1.
 
-(* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
-let user_requested_host_disable = ref false
-
-let consider_enabling_host_nolock ~__context =
-  debug "Helpers.consider_enabling_host_nolock called";
-  (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
-     Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
-     fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
-  let ha_enabled = try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false in
-
-  let localhost = get_localhost ~__context in
-  let pbds = Db.Host.get_PBDs ~__context ~self:localhost in
-  Xapi_local_pbd_state.resynchronise ~__context ~pbds;
-  let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in
-
-  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) then begin
-    (* If we were in the middle of a shutdown or reboot with HA enabled but somehow we failed
-       and xapi restarted, make sure we don't automatically re-enable ourselves. This is to avoid
-       letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear
-       the flag 'host_disabled_until_reboot' *)
-    let localhost = get_localhost ~__context in
-    let pool = get_pool ~__context in
-    if !Xapi_globs.on_system_boot then begin
-      debug "Host.enabled: system has just restarted: setting localhost to enabled";
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true;
-      Localdb.put Constants.host_disabled_until_reboot "false";
-      (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ();
-    end else begin
-      if try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false then begin
-	debug "Host.enabled: system not just rebooted but host_disabled_until_reboot still set. Leaving host disabled";
-      end else begin
-	debug "System has not just rebooted but host_disabled_until_reboot is not set. Re-enabling host";
-	debug "Host.enabled: system just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
-	Db.Host.set_enabled ~__context ~self:(get_localhost ~__context) ~value:true;
-	(* Start processing pending VM powercycle events *)
-	Local_work_queue.start_vm_lifecycle_queue ();
-      end
-    end;
-    (* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
-    if Db.Host.get_enabled ~__context ~self:localhost && (Db.Pool.get_ha_enabled ~__context ~self:pool)
-    then call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
-  end
-
-(** Attempt to minimise the number of times we call consider_enabling_host_nolock *)
-let consider_enabling_host =
-  At_least_once_more.make "consider_enabling_host"
-    (fun () ->
-       Server_helpers.exec_with_new_task "consider_enabling_host"
-	 (fun __context -> consider_enabling_host_nolock __context)
-    )
-
-let consider_enabling_host_request ~__context = At_least_once_more.again consider_enabling_host
-
-let consider_enabling_host ~__context =
-  debug "Helpers.consider_enabling_host called";
-  consider_enabling_host_request ~__context
-
 let local_storage_exists () =
   (try ignore(Unix.stat (Xapi_globs.xapi_blob_location)); true
     with _ -> false)

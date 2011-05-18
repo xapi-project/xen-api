@@ -265,3 +265,8 @@ val disable_local_storage_caching : __context:Context.t -> host:API.ref_host -> 
 (** Purge all network-related metadata associated with the given host. *)
 val reset_networking : __context:Context.t -> host:API.ref_host -> unit
 
+(** Query diagnostics from the SM layer *)
+val get_sm_diagnostics : __context:Context.t -> host:API.ref_host -> string
+
+(** Attempt to cleanup and destroy an SM datapath *)
+val sm_dp_destroy : __context:Context.t -> host:API.ref_host -> dp:string -> allow_leak:bool -> unit
