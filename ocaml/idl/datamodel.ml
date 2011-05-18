@@ -1360,6 +1360,15 @@ let slave_local_login_with_password = call ~flags:[]
   ~allowed_roles:_R_POOL_ADMIN (*only root can do an emergency slave login*)
   ()
 
+let session_create_from_db_file = call
+	~lifecycle:[Published, rel_dundee, ""]
+	~name:"create_from_db_file"
+	~params:[String, "filename", "Database dump filename."]
+	~result:(Ref _session, "ID of newly created session")
+	~in_oss_since:None
+	~allowed_roles:_R_LOCAL_ROOT_ONLY
+	()
+
 let local_logout = call ~flags:[`Session]
   ~in_product_since:rel_miami
   ~name:"local_logout"
@@ -3566,7 +3575,7 @@ let session =
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~messages:[session_login; session_logout; session_chpass;
 	       slave_login; 
-	       slave_local_login; slave_local_login_with_password; local_logout;
+	       slave_local_login; slave_local_login_with_password; session_create_from_db_file; local_logout;
 	       session_get_all_subject_identifiers; session_logout_subject_identifier;
 	      ] ~contents:[
 		  uid _session;
