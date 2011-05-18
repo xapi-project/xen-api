@@ -311,7 +311,11 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
 			 let all_devices2 = List.map (fun self -> Db.VBD.get_userdevice ~__context ~self) all in
 			 all_devices @ all_devices2 in
 
-		 let expand s = [ Device_number.of_string true s; Device_number.of_string false s ] in
+		 let expand s = 
+			 (* NB userdevice fields are arbitrary strings and device fields
+				may be "" *)
+			 let parse hvm x = try Some (Device_number.of_string hvm x) with _ -> None in
+			 Listext.List.unbox_list [ parse true s; parse false s ] in
 		 
 		 if Listext.List.intersect (expand userdevice) (List.concat (List.map expand existing_devices)) <> []
 	     then raise (Api_errors.Server_error (Api_errors.device_already_exists, [userdevice]));
