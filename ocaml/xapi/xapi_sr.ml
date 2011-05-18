@@ -495,8 +495,8 @@ let enable_database_replication ~__context ~sr =
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 	assert_supports_database_replication ~__context ~sr;
-	let metadata_vdi = find_or_create_metadata_vdi ~__context ~sr in
-	Xapi_vdi_helpers.enable_database_replication ~__context ~vdi:metadata_vdi
+	let get_vdi_callback = (fun () -> find_or_create_metadata_vdi ~__context ~sr) in
+	Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback
 
 (* Disable metadata replication to all metadata VDIs in this SR. *)
 let disable_database_replication ~__context ~sr =
