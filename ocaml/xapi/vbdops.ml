@@ -69,7 +69,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 
 	let userdevice = Db.VBD.get_userdevice ~__context ~self in
 	let device_number = translate_vbd_device self userdevice hvm in
-	Db.VBD.set_device ~__context ~self ~value:(string_of_int (Device_number.to_disk_number device_number));
+	Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 
 	let vdi = Db.VBD.get_VDI ~__context ~self in
 
