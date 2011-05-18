@@ -280,7 +280,7 @@ let hard_shutdown_all_vbds ~xc ~xs ?(extra_debug_paths = []) (devices: device li
 	with Watch.Timeout _ ->
 	  debug "Timeout waiting for backends to flush";
 	  raise Timeout_backend
-	
+
 let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 
@@ -289,8 +289,19 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
           (List.map string_of_device all_devices);
 
 	(* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
-	let all_pci_devices = List.filter (fun device -> device.backend.kind = Pci) all_devices in
-	List.iter (fun pcidev -> Device.PCI.reset ~xs pcidev) all_pci_devices;
+	let _, all_pci_devices = List.split (Device.PCI.list xc xs domid) in
+	List.iter
+		(fun pcidev ->
+			log_exn_continue
+				("Deassign PCI device " ^ Device.PCI.to_string pcidev)
+				(fun () -> Xc.domain_deassign_device xc domid pcidev) ())
+		all_pci_devices;
+	List.iter
+		(fun pcidev ->
+			log_exn_continue
+				("Reset PCI device " ^ Device.PCI.to_string pcidev)
+				(fun () -> Device.PCI.reset ~xs pcidev) ())
+		all_pci_devices;
 
 	(* Now we should kill the domain itself *)
 	debug "Domain.destroy calling Xc.domain_destroy (domid %d)" domid;

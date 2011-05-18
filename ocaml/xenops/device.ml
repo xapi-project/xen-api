@@ -1121,14 +1121,10 @@ let enumerate_devs ~xs (x: device) =
 		| Some dev -> dev :: acc
 	) [] (Array.to_list devs))
 
-let reset ~xs (x: device) =
-	debug "Device.Pci.reset %s" (string_of_device x);
-	let pcidevs = enumerate_devs ~xs x in
-	List.iter (fun (domain, bus, slot, func) ->
-		let devstr = to_string (domain, bus, slot, func) in
-		do_flr devstr
-	) pcidevs;
-	()
+let reset ~xs (x: dev) =
+	let devstr = to_string x in
+	debug "Device.Pci.reset %s" devstr;
+	do_flr devstr
 
 let clean_shutdown ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
