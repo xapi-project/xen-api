@@ -127,7 +127,7 @@ let plug ~__context ~self =
 							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 							try
 								debug "Automatically re-enabling database replication to VDI %s." vdi_uuid;
-								Xapi_vdi_helpers.enable_database_replication ~__context ~vdi
+								Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback:(fun () -> vdi)
 							with e ->
 								(* This should only be best-effort - it should never cause PBD.plug to fail. *)
 								debug "Could not re-enable database replication to VDI %s - caught %s."

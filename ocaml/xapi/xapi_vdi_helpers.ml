@@ -81,18 +81,18 @@ let destroy_all_vbds ~__context ~vdi =
 			existing_vbds)
 
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)
-let enable_database_replication ~__context ~vdi =
+let enable_database_replication ~__context ~get_vdi_callback =
 	Mutex.execute redo_log_lifecycle_mutex (fun () ->
-		let name_label = Db.VDI.get_name_label ~__context ~self:vdi in
-		let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-		debug "Attempting to enable metadata replication on VDI [%s:%s]." name_label uuid;
+		(* Check that the number of metadata redo_logs isn't already at the limit. *)
+		(* There should never actually be more redo_logs than the limit! *)
+		if Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances then
+			raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []));
+		let vdi = get_vdi_callback () in
+		let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 		if Hashtbl.mem metadata_replication vdi then
-			debug "Metadata is already being replicated to VDI [%s:%s]." name_label uuid
+			debug "Metadata is already being replicated to VDI %s" vdi_uuid
 		else begin
-			(* Check that the number of metadata redo_logs isn't already at the limit. *)
-			(* There should never actually be more redo_logs than the limit! *)
-			if Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances then
-				raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []));
+			debug "Attempting to enable metadata replication to VDI %s" vdi_uuid;
 			let log = Redo_log.create () in
 			let dom0 = get_master_dom0 ~__context in
 			(* We've established that metadata is not being replicated to this VDI, so it should be safe to do this. *)
