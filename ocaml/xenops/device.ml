@@ -506,8 +506,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 		"online", "1";
 		"removable", if unpluggable then "1" else "0";
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
-		(* HACK qemu wants a /dev/ in the dev field to find the device *)
-		"dev", "/dev/" ^ (Device_number.to_linux_device device_number);
+		"dev", Device_number.to_linux_device device_number;
 		"type", backendty_of_physty phystype;
 		"mode", string_of_mode mode;
 		"params", physpath;
