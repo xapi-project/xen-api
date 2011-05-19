@@ -121,18 +121,18 @@ let plug ~__context ~self =
 					in
 					(* Add all foreign metadata VDIs to the cache so that their metadata_latest will be up to date. *)
 					Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis_of_foreign_pool;
-					(* Try to re-enable metadata replication to all suitable VDIs. *)
-					List.iter
-						(fun vdi ->
-							let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-							try
-								debug "Automatically re-enabling database replication to VDI %s." vdi_uuid;
-								Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback:(fun () -> vdi)
-							with e ->
-								(* This should only be best-effort - it should never cause PBD.plug to fail. *)
-								debug "Could not re-enable database replication to VDI %s - caught %s."
-									vdi_uuid (Printexc.to_string e))
-						metadata_vdis_of_this_pool
+					(* Try to re-enable metadata replication to a suitable VDI. *)
+					if metadata_vdis_of_this_pool <> [] then begin
+						let metadata_vdi = List.hd metadata_vdis_of_this_pool in
+						let vdi_uuid = Db.VDI.get_uuid ~__context ~self:metadata_vdi in
+						try
+							Xapi_vdi_helpers.enable_database_replication ~__context ~get_vdi_callback:(fun () -> metadata_vdi);
+							debug "Re-enabled database replication to VDI %s" vdi_uuid;
+						with e ->
+							(* This should only be best-effort - it should never cause PBD.plug to fail. *)
+							debug "Could not re-enable database replication to VDI %s - caught %s"
+								vdi_uuid (Printexc.to_string e)
+					end
 				end
 			end
 
