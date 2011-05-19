@@ -107,7 +107,8 @@ let full_update_fn () =
 	let vbds = List.filter_map 
 	  (fun device ->
 	    try
-	      let device_id = Device.Vbd.device_number device in
+			(* NB we only get stats from PV devices *)
+	      let device_id = Device_number.to_xenstore_key (Device_number.of_string false device) in
 	      let read = List.assoc ("vbd_"^device^"_read") values in
 	      let write = List.assoc ("vbd_"^device^"_write") values in
 	      Some (uuid,{vbd_device_id=device_id;
