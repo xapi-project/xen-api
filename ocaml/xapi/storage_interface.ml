@@ -95,6 +95,11 @@ module SR = struct
 		or VDI.deactivate. *)
     external detach : task:task -> sr:sr -> result = ""
 
+	(** [destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr],
+		first detaching and/or deactivating any active VDIs. This may fail with 
+		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
+	external destroy : task:task -> sr:sr -> result = ""
+
 	(** [list task] returns the list of currently attached SRs *)
 	external list: task:task -> sr list = ""
 end
