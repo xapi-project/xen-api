@@ -86,8 +86,9 @@ let update_vm_stats ~__context uuid cpus vbds vifs memory =
 			   end
 			) vm_vifs;
 	    let vm_vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	      List.iter (fun self ->
-	                  let num = try Device.Vbd.device_number (Db.VBD.get_device ~__context ~self) with _ -> -1 in
+	    List.iter (fun self ->
+			(* NB we only get stats from PV devices *)
+			let num = try Device_number.to_xenstore_key (Device_number.of_string false (Db.VBD.get_device ~__context ~self)) with _ -> -1 in
 			  let io_write, io_read =
 			    try
 			      let vbd = List.find (fun vbd -> vbd.vbd_device_id = num) vbds in
