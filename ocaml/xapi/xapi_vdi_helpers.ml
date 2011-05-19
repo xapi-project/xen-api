@@ -93,7 +93,6 @@ let enable_database_replication ~__context ~get_vdi_callback =
 			debug "Metadata is already being replicated to VDI %s" vdi_uuid
 		else begin
 			debug "Attempting to enable metadata replication to VDI %s" vdi_uuid;
-			let log = Redo_log.create () in
 			let dom0 = get_master_dom0 ~__context in
 			(* We've established that metadata is not being replicated to this VDI, so it should be safe to do this. *)
 			destroy_all_vbds ~__context ~vdi;
@@ -108,6 +107,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
 				vbd)
 			in
 			(* Enable redo_log and point it at the new device *)
+			let log = Redo_log.create () in
 			let device = Db.VBD.get_device ~__context ~self:vbd in
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
@@ -118,6 +118,8 @@ let enable_database_replication ~__context ~get_vdi_callback =
 				Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:true;
 				debug "Redo log started on VBD %s" vbd_uuid
 			with e ->
+				Redo_log.shutdown log;
+				Redo_log.delete log;
 				Helpers.call_api_functions ~__context (fun rpc session_id ->
 					Client.VBD.unplug ~rpc ~session_id ~self:vbd);
 				raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log,
