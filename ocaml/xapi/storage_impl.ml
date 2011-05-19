@@ -539,8 +539,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						Success Unit
 				)
 
-		let detach context ~task ~sr =
-			info "SR.attach task:%s sr:%s" task sr;
+		let detach_destroy_common context ~task ~sr f =
 			let active_dps sr_t =
 				(* Enumerate all active datapaths *)
 				List.concat (List.map (fun (_, vdi_t) -> Vdi.dps vdi_t) (Sr.list sr_t)) in
@@ -562,18 +561,25 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 								let dps = active_dps sr_t in
 								if dps <> []
 								then error "The following datapaths have leaked: %s" (String.concat "; " dps);
-								begin match Impl.SR.detach context ~task ~sr with
+								begin match f context ~task ~sr with
 								| Success Unit ->
 									Host.remove sr !Host.host;
 									Everything.to_file !host_state_path (Everything.make ());
 									VDI.locks_remove sr;
 									Success Unit
 								| Success _ ->
-									Failure (Internal_error "SR detach received a non-unit")
+									Failure (Internal_error "SR detach/destroy received a non-unit")
 								| Failure _ as x -> x
 								end
 							)
 				)
+		let detach context ~task ~sr =
+			info "SR.detach task:%s sr:%s" task sr;
+			detach_destroy_common context ~task ~sr Impl.SR.detach
+
+		let destroy context ~task ~sr = 
+			info "SR.destroy task:%s sr:%s" task sr;
+			detach_destroy_common context ~task ~sr Impl.SR.destroy			
 	end
 end
 
