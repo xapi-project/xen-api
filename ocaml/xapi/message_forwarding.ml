@@ -72,13 +72,9 @@ module Early_wakeup = struct
     Mutex.execute table_m (fun () -> Hashtbl.add table key d);
     finally
       (fun () -> 
-	 (*let start = Unix.gettimeofday () in
-	 let waited_full_length = Delay.wait d time in
-	 let time_sleeping = Unix.gettimeofday () -. start in
-	  debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
-	   (if waited_full_length then "slept" else "woken") a b time_sleeping (time -. time_sleeping)
-     *)() )
-      (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
+		  let (_: bool) = Delay.wait d time in
+		  ()
+	  )(fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
       
   let broadcast (a, b) = 
     (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
