@@ -168,31 +168,32 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
   for_each_vdi __context (send_one ofd __context) prefix_vdis
 
 exception Invalid_checksum of string
+
 (* Rio GA and later only *)
-let verify_inline_checksum ifd checksum_table = 
-  let hdr = Tar.Header.get_next_header ifd in
-  let file_name = hdr.Tar.Header.file_name in
-  let length = hdr.Tar.Header.file_size in
-  if not(String.endswith checksum_extension file_name) then begin
-    let msg = Printf.sprintf "Expected to find an inline checksum, found file called: %s" file_name in
-    error "%s" msg;
-    raise (Failure msg)
-  end;
-  try
-    let length' = Int64.to_int length in
-    let csum = String.make length' ' ' in
-    Unixext.really_read ifd csum 0 length';
-    Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
-    (* Look up the relevant file_name in the checksum_table *)
-    let original_file_name = String.sub file_name 0 (String.length file_name - (String.length checksum_extension)) in
-    let csum' = List.assoc original_file_name !checksum_table in
-    if csum <> csum' then begin
-      error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
-      raise (Invalid_checksum (Printf.sprintf "Block %s checksum failed: original = %s; recomputed = %s" original_file_name csum csum'));
-    end
-  with e ->
-    error "Error validating checksums on import: %s" (ExnHelper.string_of_exn e);
-    raise e   
+let verify_inline_checksum ifd checksum_table =
+	let hdr = Tar.Header.get_next_header ifd in
+	let file_name = hdr.Tar.Header.file_name in
+	let length = hdr.Tar.Header.file_size in
+	if not(String.endswith checksum_extension file_name) then begin
+		let msg = Printf.sprintf "Expected to find an inline checksum, found file called: %s" file_name in
+		error "%s" msg;
+		raise (Failure msg)
+	end;
+	try
+		let length' = Int64.to_int length in
+		let csum = String.make length' ' ' in
+		Unixext.really_read ifd csum 0 length';
+		Tar.Archive.skip ifd (Tar.Header.compute_zero_padding_length hdr);
+		(* Look up the relevant file_name in the checksum_table *)
+		let original_file_name = String.sub file_name 0 (String.length file_name - (String.length checksum_extension)) in
+		let csum' = List.assoc original_file_name !checksum_table in
+		if csum <> csum' then begin
+			error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
+			raise (Invalid_checksum (Printf.sprintf "Block %s checksum failed: original = %s; recomputed = %s" original_file_name csum csum'));
+		end
+	with e ->
+		error "Error validating checksums on import: %s" (ExnHelper.string_of_exn e);
+		raise e
 
 (** Receive a set of VDIs split into chunks in a tar format in a defined order *)
 let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force prefix_vdis = 
