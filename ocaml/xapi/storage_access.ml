@@ -69,6 +69,25 @@ module Builtin_impl = struct
 						)
 				)
 
+		let destroy context ~task ~sr = 
+			let self = Ref.of_string sr in
+			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string task)
+				(fun __context ->
+					Sm.call_sm_functions ~__context ~sR:self
+						(fun device_config _type ->
+							try
+								Sm.sr_detach device_config _type self;
+								Success Unit
+							with
+								| Smint.Not_implemented_in_backend ->
+									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ sr ]))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.detach failed SR:%s error:%s" sr e';
+									Failure (Storage_interface.Internal_error e')
+						)
+				)
+
 		let list context ~task = assert false
 
 	end
@@ -337,3 +356,24 @@ let vbd_attach_order ~__context vbds =
 
 let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbds)
 
+(* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
+   It would be better not to plug in the PBD, so that other API calls will be blocked. *)
+let destroy_sr ~__context ~sr =
+	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+	let localhost = Helpers.get_localhost ~__context in
+
+	let rpc = rpc_of_sr ~__context ~sr in
+	let task = Ref.string_of (Context.get_task_id __context) in
+
+	expect_unit (fun () -> ())
+		(Client.SR.attach rpc task (Ref.string_of sr));	
+	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
+	List.iter
+		(fun self ->
+			if Db.PBD.get_host ~__context ~self = localhost
+			then Db.PBD.set_currently_attached ~__context ~self ~value:true
+		) pbds;
+	expect_unit (fun () -> ())
+		(Client.SR.destroy rpc task (Ref.string_of sr));	
+	(* All PBDs are clearly currently_attached = false now *)
+	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds

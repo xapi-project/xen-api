@@ -115,7 +115,7 @@ module Debug_print_impl = struct
 		let attach context ~task ~sr =
 			info "SR.attach sr:%s" sr;
 			Success Unit
-		let detach context ~task ~sr =
+		let fail_if_anything_leaked () = 
 			Mutex.execute VDI.m
 				(fun () ->
 					Hashtbl.iter
@@ -128,8 +128,14 @@ module Debug_print_impl = struct
 							error "leaked activate: %s" k;
 							inc_errors ();
 						) VDI.activated
-				);
+				)
+		let detach context ~task ~sr =
 			info "SR.detach sr:%s" sr;
+			fail_if_anything_leaked ();
+			Success Unit
+		let destroy context ~task ~sr =
+			info "SR.destroy sr:%s" sr;
+			fail_if_anything_leaked (); 
 			Success Unit
 	end
 

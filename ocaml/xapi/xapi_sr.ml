@@ -363,28 +363,12 @@ let destroy  ~__context ~sr =
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
 
-	(* this attaches the PBDs, and they need to stay that way for the call to SM below *)
-	let rpc = Storage_access.rpc_of_sr ~__context ~sr in
-	let task = Ref.string_of (Context.get_task_id __context) in
-	Storage_access.expect_unit (fun () -> ())
-		(Storage_interface.Client.SR.attach rpc task (Ref.string_of sr));
-
-	begin
-		try
-			Sm.call_sm_functions ~__context ~sR:sr
-				(fun device_config driver -> Sm.sr_delete device_config driver sr)
-		with
-		| Smint.Not_implemented_in_backend ->
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
-	end;
-
-	(* return all PBDs to their unattached state *)
-	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds;
+	Storage_access.destroy_sr ~__context ~sr;
+	
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
-	(* Let's not call detach because the backend throws an error *)
 	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
