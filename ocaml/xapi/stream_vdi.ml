@@ -189,8 +189,7 @@ let verify_inline_checksum ifd checksum_table =
     if csum <> csum' then begin
       error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
       raise (Invalid_checksum (Printf.sprintf "Block %s checksum failed: original = %s; recomputed = %s" original_file_name csum csum'));
-    end;
-    debug "Verified checksum on %s: %s = %s" original_file_name csum csum';
+    end
   with e ->
     error "Error validating checksums on import: %s" (ExnHelper.string_of_exn e);
     raise e   
