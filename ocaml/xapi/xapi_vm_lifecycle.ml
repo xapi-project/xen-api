@@ -299,25 +299,17 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		else None) in
 
 	(* Check for an error due to VDI caching/reset behaviour *)
-	let current_error = check current_error (fun () -> 
+	let current_error = check current_error (fun () ->
 		if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
- 		then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
-			begin
-				debug "Checking for vdis_reset_and_caching...";
-				if List.exists fst vdis_reset_and_caching 
-				then begin 
-					debug "Op disallowed!"; Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
-				end else begin
-					debug "Op allowed!";
-					None
-				end
-			end
+		then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
+			if List.exists fst vdis_reset_and_caching
+			then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
+			else None
 		else if op = `pool_migrate then
 			(* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
 			if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
 			then Some (Api_errors.vdi_on_boot_mode_incompatable_with_operation,[]) 
 			else None
-
 		else None) in
 
 	(* If a PCI device is passed-through, check if the operation is allowed *)
