@@ -46,13 +46,13 @@ sig
 	val string_of_devty : devty -> string
 	val devty_of_string : string -> devty
 
-	val device_number : string -> int
 	val device_name : int -> string
 	val device_major_minor : string -> int * int
 	val major_minor_to_device : int * int -> string
 
 	val add : xs:Xs.xsh -> hvm:bool -> mode:mode
-	       -> virtpath:string -> phystype:physty -> physpath:string
+	       -> device_number:Device_number.t
+	       -> phystype:physty -> physpath:string
 	       -> dev_type:devty
 	       -> unpluggable:bool
 	       -> ?protocol:protocol
@@ -62,12 +62,12 @@ sig
 	       -> Xc.domid -> device
 
 	val release : xs:Xs.xsh -> device -> unit
-	val media_eject : xs:Xs.xsh -> virtpath:string -> int -> unit
-	val media_insert : xs:Xs.xsh -> virtpath:string
+	val media_eject : xs:Xs.xsh -> device_number:Device_number.t -> int -> unit
+	val media_insert : xs:Xs.xsh -> device_number:Device_number.t
 	                -> physpath:string -> phystype:physty -> int -> unit
-	val media_refresh : xs:Xs.xsh -> virtpath:string -> physpath:string -> int -> unit
-	val media_is_ejected : xs:Xs.xsh -> virtpath:string -> int -> bool
-	val media_tray_is_locked : xs:Xs.xsh -> virtpath:string -> int -> bool
+	val media_refresh : xs:Xs.xsh -> device_number:Device_number.t -> physpath:string -> int -> unit
+	val media_is_ejected : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
+	val media_tray_is_locked : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
 
 	val pause : xs:Xs.xsh -> device -> string (* token *)
 	val unpause : xs:Xs.xsh -> device -> string (* token *) -> unit

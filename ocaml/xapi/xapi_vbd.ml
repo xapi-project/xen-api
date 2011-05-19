@@ -172,8 +172,8 @@ let assert_not_empty ~__context ~vbd =
 	then raise (Api_errors.Server_error(Api_errors.vbd_is_empty, [ Ref.string_of vbd ]))
 
 (** Throws VBD_TRAY_LOCKED if the VBD's virtual CD tray is locked *)
-let assert_tray_not_locked xs virtpath domid vbd =
-  if Device.Vbd.media_tray_is_locked ~xs ~virtpath domid
+let assert_tray_not_locked xs device_number domid vbd =
+  if Device.Vbd.media_tray_is_locked ~xs ~device_number domid
   then raise (Api_errors.Server_error(Api_errors.vbd_tray_locked, [ Ref.string_of vbd ]))
 
 (** Throws BAD_POWER_STATE if the VM is suspended *)
@@ -207,11 +207,11 @@ let insert  ~__context ~vbd ~vdi =
 	      (* ask qemu nicely *)
 		   let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-		   let virtpath = Db.VBD.get_device ~__context ~self:vbd in
+		   let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 		   Storage_access.attach_and_activate ~__context ~vbd ~domid
 			   (fun physpath ->
 				   with_xs (fun xs ->
-					   Device.Vbd.media_insert ~xs ~virtpath ~phystype ~physpath domid
+					   Device.Vbd.media_insert ~xs ~device_number ~phystype ~physpath domid
 				   )
 			   )
 	    end else begin
@@ -244,11 +244,11 @@ let eject  ~__context ~vbd =
 	&& Db.VBD.get_currently_attached ~__context ~self:vbd then (
 	  if Helpers.has_booted_hvm ~__context ~self:vm then begin
 	    (* ask qemu nicely *)
-	    let virtpath = Db.VBD.get_device ~__context ~self:vbd in
+	    let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 	    let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	    with_xs (fun xs ->
-                       assert_tray_not_locked xs virtpath domid vbd;
-                       Device.Vbd.media_eject ~xs ~virtpath domid);
+                       assert_tray_not_locked xs device_number domid vbd;
+                       Device.Vbd.media_eject ~xs ~device_number domid);
 	    Storage_access.deactivate_and_detach ~__context ~vbd ~domid
 	  end else begin
 	    (* hot unplug *)
@@ -265,12 +265,12 @@ let refresh ~__context ~vbd ~vdi =
     if Helpers.is_running ~__context ~self:vm
     && Db.VBD.get_currently_attached ~__context ~self:vbd then (
 		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-		let virtpath = Db.VBD.get_device ~__context ~self:vbd in
+        let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 		Storage_access.attach_and_activate ~__context ~vbd ~domid
 			(fun physpath ->
 				with_xs 
 					(fun xs -> 
-						Device.Vbd.media_refresh ~xs ~virtpath ~physpath domid
+						Device.Vbd.media_refresh ~xs ~device_number ~physpath domid
 					)
 			)
       )
