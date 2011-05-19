@@ -1031,7 +1031,6 @@ let list_required_SRs ~__context ~self =
 (* Check if the database referenced by session_to *)
 (* contains the SRs required to recover the VM. *)
 let assert_can_be_recovered ~__context ~self ~session_to =
-	let vm_uuid = Db.VM.get_uuid ~__context ~self in
 	(* Get the required SR uuids from the foreign database. *)
 	let required_SRs = list_required_SRs ~__context ~self in
 	let required_SR_uuids = List.map (fun sr -> Db.SR.get_uuid ~__context ~self:sr)
@@ -1052,11 +1051,11 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 					in
 					if attached_pbds = [] then
 						raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
-							[vm_uuid; sr_uuid]))
+							[Ref.string_of self; Ref.string_of sr]))
 				)
 				required_SR_uuids)
 	with Db_exn.Read_missing_uuid(_, _, sr_uuid) ->
-		(* Throw exception containing the uuid of the first SR which wasn't found. *)
-		(* Raise error with VM and SR uuids, since the OpaqueRefs don't mean anything outside the foreign DB. *)
+		(* Throw exception containing the ref of the first SR which wasn't found. *)
+		let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
 		raise (Api_errors.Server_error(Api_errors.vm_requires_sr,
-			[vm_uuid; sr_uuid]))
+			[Ref.string_of self; Ref.string_of sr]))
