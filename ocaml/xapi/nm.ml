@@ -73,12 +73,10 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 			reconfigure_pif ~__context pif args;
 
-			if management_interface then begin
-				warn "About to kill cached stunnels and the master database connection";
-				(* The master_connection would otherwise try to take a broken stunnel from the cache *)
-				Stunnel_cache.flush (); 
-				Master_connection.force_connection_reset ()
-			end;
+			warn "About to kill cached stunnels and the master database connection";
+			(* The master_connection would otherwise try to take a broken stunnel from the cache *)
+			Stunnel_cache.flush ();
+			Master_connection.force_connection_reset ();
 
 			Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
 			if Db.PIF.get_management ~__context ~self:pif then begin
