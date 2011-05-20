@@ -24,16 +24,6 @@ let kind_of_vdi ~__context ~self =
 	let physty = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 	Device.Vbd.kind_of_physty physty
 
-let vbd_of_devid ~__context ~vm devid =
-	let device = string_of_int (Device_number.to_disk_number (Device_number.of_xenstore_key devid)) in
-	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let devs = List.map (fun self -> Db.VBD.get_device ~__context ~self) vbds in
-	let table = List.combine devs vbds in
-	let has_vbd = List.mem_assoc device table in
-	if not(has_vbd)
-	then raise Device_has_no_VBD
-	else List.assoc device table 
-
 (** Given a VBD, return a xenops device. Always called on the host where the VM is present *)
 let device_of_vbd ~__context ~self = 
   let vm = Db.VBD.get_VM ~__context ~self in
