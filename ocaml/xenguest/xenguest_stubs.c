@@ -464,12 +464,6 @@ int switch_qemu_logdirty(int domid, unsigned enable, void *data)
 
 }
 
-static struct save_callbacks save_callbacks = {
-	.suspend = dispatch_suspend,
-  .postcopy = switch_qemu_logdirty,
-        .checkpoint = NULL,
-};
-
 CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
                                    value max_iters, value max_factors,
                                    value flags, value hvm)
@@ -486,7 +480,7 @@ CAMLprim value stub_xc_domain_save(value handle, value fd, value domid,
   c_domid = _D(domid);
 
 	memset(&callbacks, 0, sizeof(callbacks));
-  callbacks.data = c_domid;
+	callbacks.data = (void*)c_domid;
 	callbacks.suspend = dispatch_suspend;
 	callbacks.switch_qemu_logdirty = switch_qemu_logdirty;
 
