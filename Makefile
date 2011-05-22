@@ -23,13 +23,7 @@ export COMPILE_NATIVE COMPILE_BYTE
 
 .PHONY: all
 all: version
-	omake phase1
-	omake phase2
-	omake phase3
-
-.PHONY: phase3
-phase3:
-	omake phase3
+	omake phase1 phase2 phase3
 
 .PHONY: install
 install:

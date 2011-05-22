@@ -30,7 +30,7 @@ OCAMLFLAGS = -g -dtypes -thread -warn-error +a-4-6-9-27-28-29
 # c compiling stuff
 OCAMLCFLAGS += -g
 OCAMLOPTFLAGS = -ccopt -fPIC
-CFLAGS+=-g -O2
+CFLAGS+=-g -O2 -Werror
 if $(NATIVE_ENABLED)
   CFLAGS+=-DCOMPILE_NATIVE
   export
