@@ -10,6 +10,7 @@ REPO ?= $(CURDIR)
 RPM_SPECSDIR?=$(shell rpm --eval='%_specdir')
 RPM_SRPMSDIR?=$(shell rpm --eval='%_srcrpmdir')
 RPM_SOURCESDIR?=$(shell rpm --eval='%_sourcedir')
+RPMBUILD=rpmbuild
 endif
 
 .PHONY: xapi-libs.spec
