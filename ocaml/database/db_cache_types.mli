@@ -1,41 +1,44 @@
 module Row :
   sig
     type t
-    val add : string -> string -> t -> t
-	val add_defaults : Schema.Table.t -> t -> t
+    val add : int64 -> string -> string -> t -> t
+	val add_defaults : int64 -> Schema.Table.t -> t -> t
     val empty : t
-    val fold : (string -> string -> 'a -> 'a) -> t -> 'a -> 'a
+    val fold : (string -> int64 -> int64 -> string -> 'a -> 'a) -> t -> 'a -> 'a
     val find : string -> t -> string
     val iter : (string -> string -> unit) -> t -> unit
     val remove : string -> t -> t
-    val update : string -> string -> (string -> string) -> t -> t
+    val update : int64 -> string -> string -> (string -> string) -> t -> t
+	val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> string -> 'b -> 'b) -> t -> 'b -> 'b
   end
 
 module Table :
   sig
     type t
-    val add : string -> Row.t -> t -> t
+    val add : int64 -> string -> Row.t -> t -> t
     val empty : t
-    val fold : (string -> Row.t -> 'a -> 'a) -> t -> 'a -> 'a
+    val fold : (string -> int64 -> int64 -> Row.t -> 'a -> 'a) -> t -> 'a -> 'a
 	val find_exn : string -> string -> t -> Row.t
     val find : string -> t -> Row.t
+	val mem : string -> t -> bool
     val iter : (string -> Row.t -> unit) -> t -> unit
-    val remove : string -> t -> t
-    val update : string -> Row.t -> (Row.t -> Row.t) -> t -> t
-
+    val remove : int64 -> string -> t -> t
+    val update : int64 -> string -> Row.t -> (Row.t -> Row.t) -> t -> t
+    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> 'b -> 'b) -> (unit -> unit) -> t -> 'b -> 'b
 	val rows : t -> Row.t list
   end
 
 module TableSet :
   sig
     type t
-    val add : string -> Table.t -> t -> t
+    val add : int64 -> string -> Table.t -> t -> t
     val empty : t
-    val fold : (string -> Table.t -> 'a -> 'a) -> t -> 'a -> 'a
+    val fold : (string -> int64 -> int64 -> Table.t -> 'a -> 'a) -> t -> 'a -> 'a
     val find : string -> t -> Table.t
     val iter : (string -> Table.t -> unit) -> t -> unit
     val remove : string -> t -> t
-    val update : string -> Table.t -> (Table.t -> Table.t) -> t -> t
+    val update : int64 -> string -> Table.t -> (Table.t -> Table.t) -> t -> t
+    val fold_over_recent : int64 -> (int64 -> int64 -> int64 -> string -> Table.t -> 'b -> 'b) -> t -> 'b -> 'b
   end
 
 module Manifest :
@@ -79,18 +82,16 @@ module Database :
 	val notify : update -> t -> unit
   end
 
-
 exception Duplicate
 val add_to_set : string -> string -> string
 val remove_from_set : string -> string -> string
 val add_to_map : string -> string -> string -> string
 val remove_from_map : string -> string -> string
 
-val set_table : string -> Table.t -> Database.t -> Database.t
-val set_row_in_table : string -> string -> Row.t -> Database.t -> Database.t
-val set_field_in_row :
-  string -> string -> string -> string -> Database.t -> Database.t
-val remove_row_from_table : string -> string -> Database.t -> Database.t
+val set_field : string -> string -> string -> string -> Database.t -> Database.t
+val get_field : string -> string -> string -> Database.t -> string
+val remove_row : string -> string -> Database.t -> Database.t
+val add_row : string -> string -> Row.t -> Database.t -> Database.t
 
 type where_record = {
 	table: string;       (** table from which ... *)

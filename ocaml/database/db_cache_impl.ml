@@ -70,24 +70,10 @@ let ensure_utf8_xml string =
 		
 (* Write field in cache *)
 let write_field_locked t tblname objref fldname newval =
-	let row = Table.find_exn tblname objref (TableSet.find tblname (Database.tableset (get_database t))) in
-	let current_val = Row.find fldname row in
-	
-	let newval = ensure_utf8_xml newval in
-	
-	if current_val<>newval then begin
-		W.debug "write_field %s,%s: %s |-> %s" tblname objref fldname newval;
-		
-		(* Update the field in the cache whether it's persistent or not *)
-		update_database t (set_field_in_row tblname objref fldname newval);
-		
-		Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t);
-		
-		(* then only persist the change if the schema says so *)
-		if Schema.is_field_persistent (Database.schema (get_database t)) tblname fldname 
-		then update_database t Database.increment
-	end
-		
+	let current_val = get_field tblname objref fldname (get_database t) in
+	update_database t (set_field tblname objref fldname newval);
+	Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t)
+			
 let write_field t tblname objref fldname newval =
 	with_lock (fun () -> 
 		write_field_locked t tblname objref fldname newval)
@@ -118,7 +104,7 @@ let read_set_ref t rcd =
 		Printf.printf "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan\n%!" rcd.table rcd.where_field rcd.where_value rcd.return;
 		let tbl = TableSet.find rcd.table (Database.tableset db) in
 		Table.fold
-			(fun rf row acc ->
+			(fun rf _ _ row acc ->
 				if Row.find rcd.where_field row = rcd.where_value 
 				then Row.find rcd.return row :: acc else acc)
 			tbl []
@@ -135,7 +121,7 @@ let read_record t tblname objref  =
 	let db = get_database t in
 	let tbl = TableSet.find tblname (Database.tableset db) in
 	let row = Table.find_exn tblname objref tbl in
-	let fvlist = Row.fold (fun k d env -> (k,d)::env) row [] in
+	let fvlist = Row.fold (fun k _ _ d env -> (k,d)::env) row [] in
 	(* Unfortunately the interface distinguishes between Set(Ref _) types and 
 	   ordinary fields *)
 	let schema = Schema.table tblname (Database.schema db) in
@@ -161,10 +147,8 @@ let delete_row_locked t tblname objref =
 	
 	let db = get_database t in
 	Database.notify (PreDelete(tblname, objref)) db;
-	update_database t (remove_row_from_table tblname objref);
-	Database.notify (Delete(tblname, objref, Row.fold (fun k v acc -> (k, v) :: acc) row [])) db;
-	if Schema.is_table_persistent (Database.schema db) tblname 
-	then update_database t Database.increment
+	update_database t (remove_row tblname objref);
+	Database.notify (Delete(tblname, objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) db
 		
 let delete_row t tblname objref = 
 	with_lock (fun () -> delete_row_locked t tblname objref)
@@ -178,18 +162,14 @@ let create_row_locked t tblname kvs' new_objref =
     (* we add the reference to the row itself so callers can use read_field_where to
 	   return the reference: awkward if it is just the key *)
     let kvs' = (Db_names.ref, new_objref) :: kvs' in
-
-	let row = List.fold_left (fun row (k, v) -> Row.add k v row) Row.empty kvs' in
+	let g = Manifest.generation (Database.manifest (get_database t)) in
+	let row = List.fold_left (fun row (k, v) -> Row.add g k v row) Row.empty kvs' in
 	let schema = Schema.table tblname (Database.schema (get_database t)) in
     (* fill in default values if kv pairs for these are not supplied already *)
-	let row = Row.add_defaults schema row in
-	
+	let row = Row.add_defaults g schema row in
 	W.debug "create_row %s (%s) [%s]" tblname new_objref (String.concat "," (List.map (fun (k,v)->"("^k^","^"v"^")") kvs'));
-	update_database t (set_row_in_table tblname new_objref row);
-	
-	Database.notify (Create(tblname, new_objref, Row.fold (fun k v acc -> (k, v) :: acc) row [])) (get_database t);
-	if Schema.is_table_persistent (Database.schema (get_database t)) tblname 
-	then update_database t Database.increment
+	update_database t (add_row tblname new_objref row);
+	Database.notify (Create(tblname, new_objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
 		
 let create_row t tblname kvs' new_objref =
 	with_lock (fun () -> create_row_locked t tblname kvs' new_objref)
@@ -199,7 +179,7 @@ let read_field_where t rcd =
 	let db = get_database t in
 	let tbl = TableSet.find rcd.table (Database.tableset db) in
 	Table.fold
-		(fun r row acc ->
+		(fun r _ _ row acc ->
 			let field = Row.find rcd.where_field row in
 			if field = rcd.where_value then Row.find rcd.return row :: acc else acc
 		) tbl []
@@ -222,7 +202,7 @@ let db_get_by_name_label t tbl label =
 (* Read references from tbl *)
 let read_refs t tblname =
 	let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
-	Table.fold (fun r _ acc -> r :: acc) tbl []
+	Table.fold (fun r _ _ _ acc -> r :: acc) tbl []
 		
 (* Return a list of all the refs for which the expression returns true. *)
 let find_refs_with_filter t (tblname: string) (expr: Db_filter_types.expr) = 
@@ -232,7 +212,7 @@ let find_refs_with_filter t (tblname: string) (expr: Db_filter_types.expr) =
 		| Db_filter_types.Literal x -> x
 		| Db_filter_types.Field x -> Row.find x row in
 	Table.fold
-		(fun r row acc ->
+		(fun r _ _ row acc ->
 			if Db_filter.eval_expr (eval_val row) expr
 			then Row.find Db_names.ref row :: acc else acc
 		) tbl []
@@ -387,8 +367,8 @@ let make t connections default_schema =
 
 (** Return an association list of table name * record count *)
 let stats t = 
-	TableSet.fold (fun name tbl acc ->
-		let size = Table.fold (fun _ _ acc -> acc + 1) tbl 0 in
+	TableSet.fold (fun name _ _ tbl acc ->
+		let size = Table.fold (fun _ _ _ _ acc -> acc + 1) tbl 0 in
 		(name, size) :: acc)
 		(Database.tableset (get_database t))
 		[]

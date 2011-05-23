@@ -151,9 +151,9 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		(* add 'bar' to foo.bars *)
 		let db = 
 			((fun x -> x)
-			++ (set_field_in_row "foo" "foo:1" "bars" (add_to_set "bar:1" "()"))
-			++ (set_row_in_table "foo" "foo:1" (Row.add Db_names.ref "foo:1" (Row.add "bars" "()" Row.empty)))
-			++ (set_row_in_table "bar" "bar:1" (Row.add Db_names.ref "bar:1" (Row.add "foos" "()" Row.empty)))) db in
+			++ (set_field "foo" "foo:1" "bars" (add_to_set "bar:1" "()"))
+			++ (add_row "foo" "foo:1" (Row.add 0L Db_names.ref "foo:1" (Row.add 0L "bars" "()" Row.empty)))
+			++ (add_row "bar" "bar:1" (Row.add 0L Db_names.ref "bar:1" (Row.add 0L "foos" "()" Row.empty)))) db in
 		(* check that 'bar.foos' includes 'foo' *)
 		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
 		let bar_foos = Row.find "foos" bar_1 in
@@ -161,22 +161,22 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s" bar_foos);
 		
 		(* set foo.bars to [] *)
-		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in
-		let db = set_field_in_row "foo" "foo:1" "bars" "()" db in
+(*		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in*)
+		let db = set_field "foo" "foo:1" "bars" "()" db in
 		(* check that 'bar.foos' is empty *)
 		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
 		let bar_foos = Row.find "foos" bar_1 in
 		if bar_foos <> "()"
 		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected () got %s" bar_foos);		
 		(* add 'bar' to foo.bars *)
-		let db = set_field_in_row "foo" "foo:1" "bars" "('bar:1')" db in
+		let db = set_field "foo" "foo:1" "bars" "('bar:1')" db in
 		(* check that 'bar.foos' includes 'foo' *)
 		let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
 		let bar_foos = Row.find "foos" bar_1 in
 		if bar_foos <> "('foo:1')"
 		then failwith (Printf.sprintf "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2" bar_foos);
 		(* delete 'bar' *)
-		let db = remove_row_from_table "bar" "bar:1" db in
+		let db = remove_row "bar" "bar:1" db in
 		(* check that 'foo.bars' is empty *)
 		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in		
 		let foo_bars = Row.find "bars" foo_1 in
@@ -408,7 +408,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		
 		expect_missing_tbl "Vm"
 			(fun () ->
-				let xs = Client.find_refs_with_filter t "Vm" Db_filter_types.True in
+				let _ = Client.find_refs_with_filter t "Vm" Db_filter_types.True in
 				failwith "find_refs_with_filter <invalid table>";
 			);
 		let xs = Client.find_refs_with_filter t "VM" Db_filter_types.True in
@@ -506,7 +506,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 						then Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
 						else Client.delete_row t "VBD" vbd_ref
 					end else
-						let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
+						let _ = Client.read_record t "VM" valid_ref in
 						()
 				) in
 			Printf.printf "good sequence: %.2f calls/sec\n%!" benign_time;
@@ -516,8 +516,8 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 					match i mod 3 with
 						| 0 -> Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref
 						| 1 -> Client.delete_row t "VBD" vbd_ref
-						| 2 -> let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
-						()
+						| 2 -> let _ = Client.read_record t "VM" valid_ref in ()
+						| _ -> ()
 				) in
 			Printf.printf "bad sequence: %.2f calls/sec\n%!" malign_time;
 		end
