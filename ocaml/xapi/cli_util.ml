@@ -45,7 +45,7 @@ let wait_for_task_completion rpc session_id task =
 	     let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
 	     let events = List.map Event_helper.record_of_event events in
 	     let matches = function
-	       | Event_helper.Task (t, t_rec) -> t = task && t_rec.API.task_status <> `pending
+	       | Event_helper.Task (t, Some t_rec) -> t = task && t_rec.API.task_status <> `pending
 	       | _ -> false in
 	     finished := List.fold_left (||) false (List.map matches events)
 	   done

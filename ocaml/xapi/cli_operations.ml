@@ -1587,25 +1587,25 @@ let event_wait_gen rpc session_id classname record_matches =
 							let events = Event_types.events_of_xmlrpc (Client.Event.next ~rpc ~session_id) in
 							let doevent event =
 								let tbl = match Event_helper.record_of_event event with
-									| Event_helper.VM (r,x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.VDI (r,x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.SR (r,x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.Host (r,x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.Network (r,x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.VIF (r,x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.PIF (r,x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.VBD (r,x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.PBD (r,x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.Pool (r,x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.Task (r,x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.VMPP (r,x) -> let record = vmpp_record rpc session_id r in record.setrefrec (r,x); record.fields
-									| Event_helper.Secret (r,x) -> let record = secret_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VM (r,Some x) -> let record = vm_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VDI (r,Some x) -> let record = vdi_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.SR (r,Some x) -> let record = sr_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Host (r,Some x) -> let record = host_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Network (r,Some x) -> let record = net_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VIF (r,Some x) -> let record = vif_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.PIF (r,Some x) -> let record = pif_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VBD (r,Some x) -> let record = vbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.PBD (r,Some x) -> let record = pbd_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Pool (r,Some x) -> let record = pool_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Task (r,Some x) -> let record = task_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.VMPP (r,Some x) -> let record = vmpp_record rpc session_id r in record.setrefrec (r,x); record.fields
+									| Event_helper.Secret (r,Some x) -> let record = secret_record rpc session_id r in record.setrefrec (r,x); record.fields
 									| _ -> failwith ("Cli listening for class '"^classname^"' not currently implemented")
 								in
 								let record = List.map (fun r -> (r.name,fun () -> safe_get_field r)) tbl in
 								if record_matches record then raise Finished
 							in
-							List.iter doevent events
+							List.iter doevent (List.filter (fun e -> e.Event_types.snapshot <> None) events)
 						with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->
 							debug "Got EVENTS_LOST; reregistering";
 							Client.Event.unregister ~rpc ~session_id ~classes;

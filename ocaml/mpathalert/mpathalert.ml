@@ -152,30 +152,30 @@ let listener rpc session queue =
 	(* proceed events *)
 	let proceed event =
 		match Event_helper.record_of_event event with
-		| Event_helper.PBD (pbd_ref, pbd_rec) ->
-			begin match event.op with
-			| Add -> 
+		| Event_helper.PBD (pbd_ref, pbd_rec_opt) ->
+			begin match event.op, pbd_rec_opt with
+			| Add, Some pbd_rec -> 
 				debug "Processing an ADD event";
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
-			| Del ->
+			| Del, _ ->
 				debug "Processing a DEL event";
 				remove_from_snapshot pbd_ref
-			| Mod ->
+			| Mod, Some pbd_rec ->
 				debug "Processing a MOD event";
 				let alerts = create_pbd_alerts rpc session (get_snapshot pbd_ref) (pbd_ref, pbd_rec, event.ts) in
 				List.iter (fun alert -> with_global_lock (fun () -> Queue.push alert queue)) alerts;
 				update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
 			| _ -> () (* this should never happens *)
 			end			
-		| Event_helper.Host (host_ref, host_rec) ->
-			begin match event.op with
-			| Add -> 
+		| Event_helper.Host (host_ref, host_rec_opt) ->
+			begin match event.op, host_rec_opt with
+			| Add, Some host_rec -> 
 				debug "Processing an ADD event";
 				update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
-			| Del ->
+			| Del, _ ->
 				debug "Processing a DEL event";
 				remove_from_snapshot host_ref
-			| Mod ->
+			| Mod, Some host_rec ->
 				debug "Processing a MOD event";
 				let alerts = create_host_alerts rpc session (get_snapshot host_ref) (host_ref, host_rec, event.ts) in
 				List.iter (fun alert -> with_global_lock (fun () -> Queue.push alert queue)) alerts;
