@@ -2906,6 +2906,11 @@ end
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.set_snapshot_time ~__context ~self ~value
 
+		let set_metadata_of_pool ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_metadata_of_pool ~__context ~self ~value
+
 		let set_name_label ~__context ~self ~value =
 			info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
 				(vdi_uuid ~__context self) value;
