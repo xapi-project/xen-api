@@ -543,6 +543,9 @@ let set_snapshot_of ~__context ~self ~value =
 let set_snapshot_time ~__context ~self ~value =
 	Db.VDI.set_snapshot_time ~__context ~self ~value
 
+let set_metadata_of_pool ~__context ~self ~value =
+	Db.VDI.set_metadata_of_pool ~__context ~self ~value
+
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let ty = Db.SR.get_type ~__context ~self:sr in
