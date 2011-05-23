@@ -137,8 +137,9 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
 		   List.concat
 		     (List.map
 			(function
-			 | Event_helper.Task (t, t_rec) -> if t_rec.API.task_status <> `pending || t_rec.API.task_current_operations <> [] then [ t ] else [ ]
-			 | _ -> []) events) in
+			  | Event_helper.Task (t, Some t_rec) -> if t_rec.API.task_status <> `pending || t_rec.API.task_current_operations <> [] then [ t ] else [ ]
+			  | Event_helper.Task (t, None) -> [ t ]
+			  | _ -> []) events) in
 		 finished := process_finished_tasks finished_tasks;		 
 	       done
 	     with Api_errors.Server_error(code, _) when code = Api_errors.events_lost ->

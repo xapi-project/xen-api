@@ -187,7 +187,7 @@ let wait_for_vm_to_run rpc session ?(delay=60.0) vm =
       debug "Got %d events..." (List.length events);
       let checkevent ev =
         match Event_helper.record_of_event ev with
-        | Event_helper.VM (r,x) -> if r=vm then check x
+        | Event_helper.VM (r,Some x) -> if r=vm then check x
         | _ -> debug "Got irrelevant event"
       in List.iter checkevent events
     done;
