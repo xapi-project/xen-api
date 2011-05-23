@@ -121,31 +121,18 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 	open Pervasiveext
 	open Db_cache_types
 
-	let check_many_to_many () = 
-		let bar_column = { Schema.Column.name = "bars";
-		persistent = false;
-		empty = "()";
-		default = None;
-		issetref = false;
-		} in
-		let foo_column = { bar_column with Schema.Column.name = "foos" } in
-		let foo_table = { Schema.Table.name = "foo"; columns = [ bar_column ]; persistent = true } in
-		let bar_table = { Schema.Table.name = "bar"; columns = [ foo_column ]; persistent = true } in
-
-		let database = { Schema.Database.tables = [ foo_table; bar_table ] } in
-		let many_to_many = 
-			Schema.StringMap.add "foo" [ "bars", "bar", "foos" ]
-				(Schema.StringMap.add "bar" [ "foos", "foo", "bars" ]
-					Schema.StringMap.empty) in
-		let schema = { Schema.empty with
-			Schema.database = database;
-			many_to_many = many_to_many 
-		} in
+	let create_test_db () =
+		let schema = Test_schemas.many_to_many in
 		let db = 
 			((fun x -> x)
-			++ (Db_backend.blow_away_non_persistent_fields schema)
-			++ (Db_upgrade.generic_database_upgrade))
-			(Database.make schema) in
+			 ++ (Db_backend.blow_away_non_persistent_fields schema)
+			 ++ (Db_upgrade.generic_database_upgrade))
+				(Database.make schema) in
+
+		db
+
+	let check_many_to_many () = 
+		let db = create_test_db () in
 		(* make a foo with bars = [] *)
 		(* make a bar with foos = [] *)
 		(* add 'bar' to foo.bars *)
@@ -184,6 +171,120 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		then failwith (Printf.sprintf "check_many_to_many: foo(foo:1).foos expected () got %s" foo_bars);				
 		()
 
+	let check_events t =
+		let dump db g = 
+			let tables = Db_cache_types.Database.tableset db in
+			Db_cache_types.TableSet.fold_over_recent g 
+				(fun c u d name table acc ->
+					 Db_cache_types.Table.fold_over_recent g 
+						 (fun c u d r acc -> 
+							  let row = Db_cache_types.Table.find r table in
+							  let s = Db_cache_types.Row.fold_over_recent g 
+								  (fun c u d k v acc ->
+									   Printf.sprintf "%s %s=%s" acc k v) row "" in
+							  Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r c u d s;
+							  ())
+						 (fun () -> ()) table ()) tables ()
+		in
+
+		let get_created db g =
+			let tables = Db_cache_types.Database.tableset db in
+			Db_cache_types.TableSet.fold_over_recent g
+				(fun c u d name table acc ->
+					 Db_cache_types.Table.fold_over_recent g
+						 (fun c u d r acc ->
+							  if c>=g then (name,r)::acc else acc) ignore table acc
+				) tables []
+		in
+
+		let get_updated db g =
+			let tables = Db_cache_types.Database.tableset db in
+			Db_cache_types.TableSet.fold_over_recent g
+				(fun c u d name table acc ->
+					 Db_cache_types.Table.fold_over_recent g
+						 (fun c u d r acc ->
+							  let row = Db_cache_types.Table.find r table in
+							  Db_cache_types.Row.fold_over_recent g 
+								  (fun c u d k v acc ->
+									   (r,(k,v))::acc) row acc)
+						 ignore table acc) tables []
+		in
+
+
+		let db = Db_ref.get_database t in
+		let g = Manifest.generation (Database.manifest db) in
+		Printf.printf "check_events: current generation is: %Ld\n" g;
+
+		let vm = "vmref" in
+		let vm_uuid = "vmuuid" in
+		let vbd = "vbdref" in
+		let vbd_uuid = "vbduuid" in
+
+		Client.create_row t "VM" (make_vm vm vm_uuid) vm;
+		let db = Db_ref.get_database t in
+		let g2 = Manifest.generation (Database.manifest db) in
+		Printf.printf "generation after create_row is: %Ld\n" g2;
+		dump db g;
+		let created = get_created db g in
+		Printf.printf "Checking that the VM creation event is reported: ";
+		if (List.exists (fun (table,r) -> table="VM" && r=vm) created) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		let (_: unit) = Client.write_field t "VM" vm "name__label" "moo" in
+		let db = Db_ref.get_database t in
+		let g3 = Manifest.generation (Database.manifest db) in
+		Printf.printf "generation after write_field is: %Ld\n" g3;
+		dump db g2;
+		let updated = get_updated db g2 in
+		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
+		let vm_updated = List.map snd vm_updated in
+		Printf.printf "Checking that the VM field update is reported: ";
+		if (List.mem_assoc "name__label" vm_updated) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		Client.create_row t "VBD" (make_vbd vm vbd vbd_uuid) vbd;
+		let db = Db_ref.get_database t in
+		let g4 = Manifest.generation (Database.manifest db) in
+		Printf.printf "generation after create VBD is: %Ld\n" g4;
+		dump db g3;
+		let updated = get_updated db g3 in
+		Printf.printf "Checking one-to-many after one-create: ";
+		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
+		let vm_updated = List.map snd vm_updated in
+		if (List.mem_assoc "VBDs" vm_updated) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		let (_: unit) = Client.write_field t "VBD" vbd "VM" "moo" in
+		let db = Db_ref.get_database t in
+		let g5 = Manifest.generation (Database.manifest db) in
+		Printf.printf "generation after write_field is: %Ld\n" g5;
+		dump db g4;
+		let updated = get_updated db g4 in
+		Printf.printf "Checking one-to-many after one-update: ";
+		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
+		let vm_updated = List.map snd vm_updated in
+		if (List.mem_assoc "VBDs" vm_updated) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		let (_: unit) = Client.write_field t "VBD" vbd "type" "Banana" in
+		let db = Db_ref.get_database t in
+		let g6 = Manifest.generation (Database.manifest db) in
+		Printf.printf "generation after write_field is: %Ld\n" g6;
+		dump db g5;
+		let updated = get_updated db g5 in
+		Printf.printf "Checking one-to-many after one-update of non-reference field: ";
+		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
+		let vm_updated = List.map snd vm_updated in
+		if not (List.mem_assoc "VBDs" vm_updated) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		()
+		
 	let main in_process = 	
 		(* reference which we create *)
 		let valid_ref = "ref1" in
@@ -454,6 +555,9 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		
 		(* Check that non-persistent fields are filled with an empty value *)
 
+		(* Event tests *)
+
+		check_events t;
 		
 		(* Performance test *)
 		if in_process then begin
