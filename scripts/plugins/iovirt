@@ -21,7 +21,7 @@ import subprocess
 import xml.dom.minidom
 import syslog
 
-ipcmd = "/opt/xensource/libexec/ip"
+ipcmd = "/sbin/ip"
 
 re_virtfn = re.compile("virtfn(\d+)$")
 re_netdev = re.compile("(eth\d+)$")
