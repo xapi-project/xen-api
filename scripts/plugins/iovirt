@@ -14,6 +14,8 @@
 import XenAPI, inventory
 import XenAPIPlugin
 import os
+import os.path
+import stat
 import glob
 import re
 import random
@@ -21,13 +23,60 @@ import subprocess
 import xml.dom.minidom
 import syslog
 
-ipcmd = "/opt/xensource/libexec/ip"
+ipcmd = "/sbin/ip"
+hookscripts = ["/etc/xapi.d/vm-pre-start/vm-pre-start-iovirt"]
 
 re_virtfn = re.compile("virtfn(\d+)$")
 re_netdev = re.compile("(eth\d+)$")
 re_hex16 = re.compile("^[0-9a-f]{4}$")
 re_hex16x = re.compile("^0x([0-9a-f]{4})$")
 
+def _install_hook_script():
+    # Ensure that the hook script(s) used to configure SR-IOV VF MAC and
+    # VLANs is present. If the script isn't present create it. This
+    # function will be called whenever a VF is assigned. The intention
+    # is that the hook is not used for users not using this plugin because
+    # the additional API calls will add a small overhead to the VM.start
+    # time which may hurt some use cases.
+    for hookscript in hookscripts:
+        if os.path.exists(hookscript):
+            continue
+        syslog.syslog("Creating iovirt hook script at %s" % (hookscript))
+        hookdir = os.path.dirname(hookscript)
+        if not os.path.exists(hookdir):
+            os.makedirs(hookdir)
+        f = file(hookscript, "w")
+        f.write("""#!/bin/bash
+#
+# Call the iovirt plugin to set up SR-IOV VF MAC and VLAN config
+# if required for this VF.
+
+PLUGIN=iovirt
+FN=prep_for_vm
+
+for i
+do
+  case "$i" in
+        -vmuuid) shift; VMUUID=$1; shift;;
+  esac
+done
+
+if [ -z "$VMUUID" ]; then
+    logger -t $(basename $0) "VM UUID not found in args"
+fi
+
+. /etc/xensource-inventory
+
+if [ -z "$INSTALLATION_UUID" ]; then
+    logger -t $(basename $0) "Could not determine host UUID"
+fi
+
+xe host-call-plugin plugin=$PLUGIN fn=$FN host-uuid=$INSTALLATION_UUID args:uuid=$VMUUID
+"""
+                )
+        f.close()
+        os.chmod(hookscript, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        
 def _get_vfs():
     # Find PCI devices with virtfns, find all virtfns associated with
     # network devices. Return dictionary of pciid => (vf#, ethdev)
@@ -87,16 +136,12 @@ def _get_vendor_and_device_ids(pciid):
     return vendor, device
 
 def _get_assignments(session):
-    # Return a dict of PCI devices assigned to VMs on this host. A VM is
-    # determined to be on this host if it can satisfy the API
-    # VM.assert_can_boot_here. In a heterogeneous pooled environment this
-    # will be overly restrictive (i.e. a VM manually started on another
-    # host will be reported as having one of our host's devices) but it'll do
-    # for now.
+    # Return a dict of PCI devices assigned to VMs. This currently assumes
+    # a pool of one host. In a pool this will be overly restrictive (i.e.
+    # a VM started on another host will be reported as having one of our
+    # host's devices) but it'll do for now.
     # Returns a dictionary PCIID => (VMUUID, index, vendorid, deviceid, mac, vlan)
     # where mac and vlan are only (optionally) available for SR-IOV VFs.
-    hostuuid = inventory.get_localhost_uuid()
-    hostref = session.xenapi.host.get_by_uuid(hostuuid)
     expr = 'field "is_a_template" = "false" and field "is_a_snapshot" = "false"'
     vms = session.xenapi.VM.get_all_records_where(expr)
     devices = {}
@@ -107,12 +152,6 @@ def _get_assignments(session):
         if not vm['other_config']['pci']:
             continue
         vmuuid = vm['uuid']
-        vmref = session.xenapi.VM.get_by_uuid(vmuuid)
-        # Check the VM can run on this host
-        try:
-            session.xenapi.VM.assert_can_boot_here(vmref, hostref)
-        except:
-            continue
         assignments = _get_vm_assignments(session, vmuuid)
         for index in assignments.keys():
             devices[assignments[index][0]] = (vmuuid,
@@ -233,6 +272,10 @@ def _set_vm_assignments(session, vmuuid, assignments):
     
 def assign_free_vf(session, args):
     """Assign a free VF on this host to the specified VM."""
+
+    # Ensure the hook script exists to configure VFs before VM.start
+    _install_hook_script()
+    
     assigned = _get_assignments(session)
     vfs = _get_vfs()
     for vfid in assigned.keys():
