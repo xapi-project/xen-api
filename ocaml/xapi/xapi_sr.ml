@@ -348,9 +348,9 @@ let forget  ~__context ~sr =
 	(* NB we fail if ANY host is connected to this SR *)
 	check_no_pbds_attached ~__context ~sr;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-	Db.SR.destroy ~__context ~self:sr;
 	let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
+	Db.SR.destroy ~__context ~self:sr
 
 (** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
    PBD record on current host to determine device_config reqd by sr backend) *)
