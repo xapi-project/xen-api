@@ -14,6 +14,8 @@
 import XenAPI, inventory
 import XenAPIPlugin
 import os
+import os.path
+import stat
 import glob
 import re
 import random
@@ -22,12 +24,59 @@ import xml.dom.minidom
 import syslog
 
 ipcmd = "/sbin/ip"
+hookscripts = ["/etc/xapi.d/vm-pre-start/vm-pre-start-iovirt"]
 
 re_virtfn = re.compile("virtfn(\d+)$")
 re_netdev = re.compile("(eth\d+)$")
 re_hex16 = re.compile("^[0-9a-f]{4}$")
 re_hex16x = re.compile("^0x([0-9a-f]{4})$")
 
+def _install_hook_script():
+    # Ensure that the hook script(s) used to configure SR-IOV VF MAC and
+    # VLANs is present. If the script isn't present create it. This
+    # function will be called whenever a VF is assigned. The intention
+    # is that the hook is not used for users not using this plugin because
+    # the additional API calls will add a small overhead to the VM.start
+    # time which may hurt some use cases.
+    for hookscript in hookscripts:
+        if os.path.exists(hookscript):
+            continue
+        syslog.syslog("Creating iovirt hook script at %s" % (hookscript))
+        hookdir = os.path.dirname(hookscript)
+        if not os.path.exists(hookdir):
+            os.makedirs(hookdir)
+        f = file(hookscript, "w")
+        f.write("""#!/bin/bash
+#
+# Call the iovirt plugin to set up SR-IOV VF MAC and VLAN config
+# if required for this VF.
+
+PLUGIN=iovirt
+FN=prep_for_vm
+
+for i
+do
+  case "$i" in
+        -vmuuid) shift; VMUUID=$1; shift;;
+  esac
+done
+
+if [ -z "$VMUUID" ]; then
+    logger -t $(basename $0) "VM UUID not found in args"
+fi
+
+. /etc/xensource-inventory
+
+if [ -z "$INSTALLATION_UUID" ]; then
+    logger -t $(basename $0) "Could not determine host UUID"
+fi
+
+xe host-call-plugin plugin=$PLUGIN fn=$FN host-uuid=$INSTALLATION_UUID args:uuid=$VMUUID
+"""
+                )
+        f.close()
+        os.chmod(hookscript, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+        
 def _get_vfs():
     # Find PCI devices with virtfns, find all virtfns associated with
     # network devices. Return dictionary of pciid => (vf#, ethdev)
@@ -223,6 +272,10 @@ def _set_vm_assignments(session, vmuuid, assignments):
     
 def assign_free_vf(session, args):
     """Assign a free VF on this host to the specified VM."""
+
+    # Ensure the hook script exists to configure VFs before VM.start
+    _install_hook_script()
+    
     assigned = _get_assignments(session)
     vfs = _get_vfs()
     for vfid in assigned.keys():
