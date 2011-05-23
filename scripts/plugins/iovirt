@@ -87,16 +87,12 @@ def _get_vendor_and_device_ids(pciid):
     return vendor, device
 
 def _get_assignments(session):
-    # Return a dict of PCI devices assigned to VMs on this host. A VM is
-    # determined to be on this host if it can satisfy the API
-    # VM.assert_can_boot_here. In a heterogeneous pooled environment this
-    # will be overly restrictive (i.e. a VM manually started on another
-    # host will be reported as having one of our host's devices) but it'll do
-    # for now.
+    # Return a dict of PCI devices assigned to VMs. This currently assumes
+    # a pool of one host. In a pool this will be overly restrictive (i.e.
+    # a VM started on another host will be reported as having one of our
+    # host's devices) but it'll do for now.
     # Returns a dictionary PCIID => (VMUUID, index, vendorid, deviceid, mac, vlan)
     # where mac and vlan are only (optionally) available for SR-IOV VFs.
-    hostuuid = inventory.get_localhost_uuid()
-    hostref = session.xenapi.host.get_by_uuid(hostuuid)
     expr = 'field "is_a_template" = "false" and field "is_a_snapshot" = "false"'
     vms = session.xenapi.VM.get_all_records_where(expr)
     devices = {}
@@ -107,12 +103,6 @@ def _get_assignments(session):
         if not vm['other_config']['pci']:
             continue
         vmuuid = vm['uuid']
-        vmref = session.xenapi.VM.get_by_uuid(vmuuid)
-        # Check the VM can run on this host
-        try:
-            session.xenapi.VM.assert_can_boot_here(vmref, hostref)
-        except:
-            continue
         assignments = _get_vm_assignments(session, vmuuid)
         for index in assignments.keys():
             devices[assignments[index][0]] = (vmuuid,
