@@ -2532,6 +2532,11 @@ end
 	end
 
   module Bond = struct
+    (* As for host.management_reconfigure, we can lose the connection during this operation if we're (e.g.) creating a bond
+       on a slave and the management interface is automatically moved to the bond master PIF.
+       So we don't report error in these "success failures" we catch the "host cannot be contacted" exception and poll briefly to see
+       if the bond master is currently_attached. Since the slave sets this flag after setting up the bond, this is a good
+       indication of the success of the call. *)
     let create ~__context ~network ~members ~mAC ~mode =
       info "Bond.create: network = '%s'; members = [ %s ]"
         (network_uuid ~__context network) (String.concat "; " (List.map (pif_uuid ~__context) members));
@@ -2539,13 +2544,58 @@ end
       then raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []));
       let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
       let local_fn = Local.Bond.create ~network ~members ~mAC ~mode in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode)
+      try
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode)
+      with
+        Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
+        debug "Lost connection with slave during bond.create (expected). Waiting for slave to come up again.";
+        let num_retries = 30 in
+        let time_between_retries = 1. (* seconds *) in
+        let rec poll i =
+          match i with
+          | 0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
+          | i ->
+            begin
+              let bond = Db.PIF.get_bond_slave_of ~__context ~self:(List.hd members) in
+              let attached =
+                if bond <> Ref.null then begin
+                  let master = Db.Bond.get_master ~__context ~self:bond in
+                  Db.PIF.get_currently_attached ~__context ~self:master
+                end else
+                  false
+              in
+              if attached then (debug "Slave is back!"; bond) (* success *)
+              else (Thread.delay time_between_retries; poll (i-1))
+            end
+        in
+        poll num_retries
 
+    (* As for host.management_reconfigure, we can lose the connection during this operation if we're (e.g.) destroying a bond
+       on a slave and the management interface is automatically moved from the bond master PIF.
+       So we don't report error in these "success failures" we catch the "host cannot be contacted" exception and poll briefly to see
+       if the primary bond slave is currently_attached. Since the slave sets this flag after destroying the bond, this is a good
+       indication of the success of the call. *)
     let destroy ~__context ~self =
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
+      let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
       let local_fn = Local.Bond.destroy ~self in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self)
+      try
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self)
+      with
+        Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
+        debug "Lost connection with slave during bond.destroy (expected). Waiting for slave to come up again.";
+        let num_retries = 30 in
+        let time_between_retries = 1. (* seconds *) in
+        let rec poll i =
+          match i with
+          | 0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
+          | i ->
+            let attached = Db.PIF.get_currently_attached ~__context ~self:primary_slave in
+            if attached then (debug "Slave is back!"; ()) (* success *)
+            else (Thread.delay time_between_retries; poll (i-1))
+        in
+        poll num_retries
 
     let set_mode ~__context ~self ~value =
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
