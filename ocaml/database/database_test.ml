@@ -178,10 +178,15 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 				(fun c u d name table acc ->
 					 Db_cache_types.Table.fold_over_recent g 
 						 (fun c u d r acc -> 
-							  let row = Db_cache_types.Table.find r table in
-							  let s = Db_cache_types.Row.fold_over_recent g 
-								  (fun c u d k v acc ->
-									   Printf.sprintf "%s %s=%s" acc k v) row "" in
+							  let s = 
+								  try 
+									  let row = Db_cache_types.Table.find r table in
+									  let s = Db_cache_types.Row.fold_over_recent g 
+										  (fun c u d k v acc ->
+											   Printf.sprintf "%s %s=%s" acc k v) row "" in
+									  s 
+								  with _ -> "(deleted)"
+							  in
 							  Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r c u d s;
 							  ())
 						 (fun () -> ()) table ()) tables ()
@@ -210,9 +215,25 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 						 ignore table acc) tables []
 		in
 
+		let get_deleted db g =
+			let tables = Db_cache_types.Database.tableset db in
+			Db_cache_types.TableSet.fold_over_recent g
+				(fun c u d name table acc ->
+					 Db_cache_types.Table.fold_over_recent g
+						 (fun c u d r acc ->
+							  if d > g then r::acc else acc)
+						 ignore table acc) tables []
+		in
+
+		let get_max db =
+			let tables = Db_cache_types.Database.tableset db in
+			Db_cache_types.TableSet.fold_over_recent (-1L)
+				(fun c u d _ _ largest ->
+					 max c (max u (max d largest))) tables (-1L)
+		in
 
 		let db = Db_ref.get_database t in
-		let g = Manifest.generation (Database.manifest db) in
+		let g = get_max db in
 		Printf.printf "check_events: current generation is: %Ld\n" g;
 
 		let vm = "vmref" in
@@ -222,35 +243,35 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 
 		Client.create_row t "VM" (make_vm vm vm_uuid) vm;
 		let db = Db_ref.get_database t in
-		let g2 = Manifest.generation (Database.manifest db) in
+		let g2 = get_max db in
 		Printf.printf "generation after create_row is: %Ld\n" g2;
 		dump db g;
 		let created = get_created db g in
-		Printf.printf "Checking that the VM creation event is reported: ";
+		Printf.printf "===TEST=== Checking that the VM creation event is reported: ";
 		if (List.exists (fun (table,r) -> table="VM" && r=vm) created) 
 		then (Printf.printf "Pass\n")
 		else (Printf.printf "Fail\n"; failwith "Event problem");
 
 		let (_: unit) = Client.write_field t "VM" vm "name__label" "moo" in
 		let db = Db_ref.get_database t in
-		let g3 = Manifest.generation (Database.manifest db) in
+		let g3 = get_max db in
 		Printf.printf "generation after write_field is: %Ld\n" g3;
 		dump db g2;
 		let updated = get_updated db g2 in
 		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
 		let vm_updated = List.map snd vm_updated in
-		Printf.printf "Checking that the VM field update is reported: ";
+		Printf.printf "===TEST=== Checking that the VM field update is reported: ";
 		if (List.mem_assoc "name__label" vm_updated) 
 		then (Printf.printf "Pass\n")
 		else (Printf.printf "Fail\n"; failwith "Event problem");
 
 		Client.create_row t "VBD" (make_vbd vm vbd vbd_uuid) vbd;
 		let db = Db_ref.get_database t in
-		let g4 = Manifest.generation (Database.manifest db) in
+		let g4 = get_max db in
 		Printf.printf "generation after create VBD is: %Ld\n" g4;
 		dump db g3;
 		let updated = get_updated db g3 in
-		Printf.printf "Checking one-to-many after one-create: ";
+		Printf.printf "===TEST=== Checking one-to-many after one-create: ";
 		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
 		let vm_updated = List.map snd vm_updated in
 		if (List.mem_assoc "VBDs" vm_updated) 
@@ -259,11 +280,11 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 
 		let (_: unit) = Client.write_field t "VBD" vbd "VM" "moo" in
 		let db = Db_ref.get_database t in
-		let g5 = Manifest.generation (Database.manifest db) in
+		let g5 = get_max db in
 		Printf.printf "generation after write_field is: %Ld\n" g5;
 		dump db g4;
 		let updated = get_updated db g4 in
-		Printf.printf "Checking one-to-many after one-update: ";
+		Printf.printf "===TEST=== Checking one-to-many after one-update: ";
 		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
 		let vm_updated = List.map snd vm_updated in
 		if (List.mem_assoc "VBDs" vm_updated) 
@@ -272,16 +293,40 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 
 		let (_: unit) = Client.write_field t "VBD" vbd "type" "Banana" in
 		let db = Db_ref.get_database t in
-		let g6 = Manifest.generation (Database.manifest db) in
+		let g6 = get_max db in
 		Printf.printf "generation after write_field is: %Ld\n" g6;
 		dump db g5;
 		let updated = get_updated db g5 in
-		Printf.printf "Checking one-to-many after one-update of non-reference field: ";
+		Printf.printf "===TEST=== Checking one-to-many after one-update of non-reference field: ";
 		let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
 		let vm_updated = List.map snd vm_updated in
 		if not (List.mem_assoc "VBDs" vm_updated) 
 		then (Printf.printf "Pass\n")
 		else (Printf.printf "Fail\n"; failwith "Event problem");
+
+		let (_ : unit) = Client.delete_row t "VBD" vbd in
+		let db = Db_ref.get_database t in
+		let g7 = get_max db in
+		Printf.printf "generation after delete VBD is: %Ld\n" g7;
+		Printf.printf "===TEST=== Checking deleted event: ";
+		let deleted = get_deleted db g6 in
+		if (List.mem vbd deleted) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+			
+		Client.create_row t "VBD" (make_vbd vm vbd vbd_uuid) vbd;
+		let (_ : unit) = Client.delete_row t "VBD" vbd in
+		let db = Db_ref.get_database t in
+		let g8 = get_max db in
+		Printf.printf "generation after create/delete VBD is: %Ld\n" g8;
+		Printf.printf "===TEST=== Checking the VBD doesn't appear in the deleted list: ";
+		let deleted = get_deleted db g7 in
+		if not (List.mem vbd deleted) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+		dump db g7;
+
+
 
 		()
 		
