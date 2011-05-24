@@ -30,11 +30,14 @@
 
 open Listext   
 open Stringext
+open Threadext
  
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
 let message_dir = Xapi_globs.xapi_blob_location ^ "/messages"
+
+let event_mutex = Mutex.create ()
 
 let class_to_string cls = 
   match cls with 
@@ -226,6 +229,8 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
     begin
       Unixext.mkdir_safe message_dir 0o700;
       
+		Mutex.execute event_mutex 
+			(fun () -> 
       let f,filename,basefilename,timestamp = 
 	let rec doit n =
 	  if n>10 then failwith "Couldn't create a file" else begin
@@ -263,10 +268,14 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       let symlinks = symlinks _ref message basefilename in
       List.iter (fun (dir,newpath) ->
 	Unixext.mkdir_rec dir 0o700;
-	Unix.symlink filename newpath) symlinks;
+								Unix.symlink filename newpath) symlinks);
 
       _ref
     end
+      
+let deleted : (Date.iso8601 * API.ref_message) list ref = ref [Date.never, Ref.null]
+let ndeleted = ref 1
+let deleted_mutex = Mutex.create ()
       
 let destroy_real basefilename =
   let filename = message_dir ^ "/" ^ basefilename in
@@ -280,6 +289,15 @@ let destroy_real basefilename =
     Unixext.unlink_safe newpath) symlinks;
   Unixext.unlink_safe filename;
   let xml = API.To.message_t message in
+  Mutex.execute event_mutex 
+	  (fun () ->
+		   deleted := (Date.of_float (Unix.gettimeofday ()), _ref) :: !deleted;
+		   ndeleted := !ndeleted + 1;
+		   if !ndeleted > 1024
+		   then
+			   (deleted := Listext.List.take 512 !deleted;
+				ndeleted := 512)		    
+	  );
   Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref)
 
 let destroy ~__context ~self = 
@@ -329,8 +347,9 @@ let gc ~__context =
 let get_real dir filter since =
   try
     let allmsgs = Array.to_list (Sys.readdir dir) in
-    let since_f = Date.to_float since in
-    let messages = List.filter (fun msg -> try float_of_string msg > since_f with _ -> false) allmsgs in
+    let since_f = since in
+	debug "since_f=%f" since_f;
+    let messages = List.filter (fun msg -> try debug "testing against message: %s" msg; float_of_string msg > since_f with _ -> false) allmsgs in
     let messages = List.filter_map (fun msg -> 
       let filename = dir ^ "/" ^ msg in
       try 
@@ -346,10 +365,14 @@ let get ~__context ~cls ~obj_uuid ~since =
   (* Read in all the messages for a particular object *)
   let class_symlink = class_symlink cls obj_uuid in
   (if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then raise (Api_errors.Server_error (Api_errors.uuid_invalid, [])));
-  get_real class_symlink (fun _ -> true) since
+  get_real class_symlink (fun _ -> true) (Date.to_float since)
     
 let get_since ~__context ~since =
-  get_real message_dir (fun _ -> true) since
+  get_real message_dir (fun _ -> true) (Date.to_float since)
+
+let get_since_for_events ~__context since =
+	let now = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
+	(now, get_real message_dir (fun _ -> true) since)
 
 let get_by_uuid ~__context ~uuid =
   try
@@ -379,10 +402,13 @@ let get_record ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.handle_invalid, ["message";(Ref.string_of self)]))
 
 let get_all_records ~__context =
-  get_real message_dir (fun _ -> true) (Date.never)
+  get_real message_dir (fun _ -> true) (0.0)
 
 let get_all_records_where ~__context ~expr =
-  get_real message_dir (fun _ -> true) (Date.never)
+  get_real message_dir (fun _ -> true) (0.0)
+
+let register_event_hook () =
+	Xapi_event.message_get_since_for_events := get_since_for_events
 
 (* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
    days worth of messages as an RSS feed. *)  
