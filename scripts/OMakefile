@@ -101,6 +101,7 @@ install:
 	$(IPROG) plugins/perfmon $(DESTDIR)/etc/xapi.d/plugins/
 	$(IPROG) plugins/extauth-hook $(DESTDIR)/etc/xapi.d/plugins/
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)/etc/xapi.d/plugins/
+	$(IPROG) plugins/iovirt $(DESTDIR)/etc/xapi.d/plugins/
 	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xapi.d/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead/
