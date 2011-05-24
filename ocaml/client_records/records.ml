@@ -1156,9 +1156,15 @@ let vdi_record rpc session_id vdi =
 			make_field ~name:"metadata-latest" ~get:(fun () -> string_of_bool (x ()).API.vDI_metadata_latest) ();
 			make_field ~name:"metadata-of-pool"
 				~get:(fun () ->
-					match Client.VDI.read_database_pool_uuid ~rpc ~session_id ~self:vdi with
-					| "" -> nid
-					| pool_uuid -> pool_uuid) ();
+					let local_pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+					let vdi_pool = (x ()).API.vDI_metadata_of_pool in
+					if local_pool = vdi_pool then
+						get_uuid_from_ref local_pool
+					else begin
+						match Client.VDI.read_database_pool_uuid ~rpc ~session_id ~self:vdi with
+						| "" -> nid
+						| pool_uuid -> pool_uuid
+					end) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
 				~get_set:(fun () -> (x ()).API.vDI_tags)
