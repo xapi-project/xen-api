@@ -41,7 +41,7 @@ module Map2 = functor(V: VAL) -> struct
 			else updatefn ()				
 		else
 			updatefn ()
-	let fold_over_recent since f = StringMap.fold (fun x y z -> if y.updated >= since then f y.created y.updated 0L x y.v z else z)
+	let fold_over_recent since f = StringMap.fold (fun x y z -> if y.updated > since then f y.created y.updated 0L x y.v z else z)
 end
 
 module StringStringMap = Map2(struct type v = string end)
@@ -124,9 +124,9 @@ module Table : TABLE = struct
 		let rec fold_over_deleted deleted acc =
 			match deleted with
 				| (created,destroyed,r)::xs ->
-					if destroyed < since
-					then acc
-					else fold_over_deleted xs (f created 0L destroyed r acc)
+					if (destroyed > since) && (created <= since)
+					then fold_over_deleted xs (f created 0L destroyed r acc)
+					else acc
 				| [] ->
 					errf ();
 					acc
