@@ -3316,8 +3316,36 @@ end
 	 2. the SR should still be locked by the current PBD.plug operation so it is safe to use
 	    the internal scan function directly. 
       *)
-      Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
-        Xapi_sr.scan_one ~__context:__scan_context sr)
+			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
+				let handle_metadata_vdis () =
+					if Helpers.i_am_srmaster ~__context:__scan_context ~sr then begin
+						let metadata_vdis = List.filter
+							(fun vdi -> Db.VDI.get_type ~__context:__scan_context ~self:vdi = `metadata)
+							(Db.SR.get_VDIs ~__context:__scan_context ~self:sr)
+						in
+						let pool = Helpers.get_pool ~__context:__scan_context in
+						let (vdis_of_this_pool, vdis_of_foreign_pool) = List.partition
+							(fun vdi -> Db.VDI.get_metadata_of_pool ~__context:__scan_context ~self:vdi = pool)
+							metadata_vdis
+						in
+						debug "Adding foreign pool metadata VDIs to cache: [%s]"
+							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_foreign_pool));
+						Xapi_dr.add_vdis_to_cache ~__context:__scan_context ~vdis:vdis_of_foreign_pool;
+						debug "Found metadata VDIs created by this pool: [%s]"
+							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_this_pool));
+						if vdis_of_this_pool <> [] then begin
+							let target_vdi = List.hd vdis_of_this_pool in
+							let vdi_uuid = Db.VDI.get_uuid ~__context:__scan_context ~self:target_vdi in
+							try
+								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~vdi:target_vdi;
+								debug "Re-enabled database replication to VDI %s" vdi_uuid
+							with e ->
+								debug "Could not re-enable database replication to VDI %s - caught %s"
+									vdi_uuid (Printexc.to_string e)
+						end
+					end
+				in
+				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr)
 
     let unplug ~__context ~self =
       info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);

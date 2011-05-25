@@ -544,23 +544,7 @@ let set_snapshot_time ~__context ~self ~value =
 	Db.VDI.set_snapshot_time ~__context ~self ~value
 
 let set_metadata_of_pool ~__context ~self ~value =
-	Db.VDI.set_metadata_of_pool ~__context ~self ~value;
-	(* If storage has introduced a metadata VDI record, we need to deal with it accordingly. *)
-	let pool = Helpers.get_pool ~__context in
-	let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
-	if value = pool then begin
-		(* Restart database replication if the VDI was created by this pool. *)
-		try
-			Xapi_vdi_helpers.enable_database_replication ~__context ~vdi:self;
-			debug "Re-enabled database replication to VDI %s" vdi_uuid
-		with e ->
-			debug "Could not re-enable database replication to VDI %s - caught %s"
-				vdi_uuid (Printexc.to_string e)
-	end else if value <> Ref.null then begin
-		(* Cache the pool UUID and database generation count if the VDI was created by foreign pool. *)
-		debug "Adding VDI %s to foreign database VDI cache" vdi_uuid;
-		Xapi_dr.add_vdis_to_cache ~__context ~vdis:[self]
-	end
+	Db.VDI.set_metadata_of_pool ~__context ~self ~value
 
 let set_on_boot ~__context ~self ~value =
 	let sr = Db.VDI.get_SR ~__context ~self in
