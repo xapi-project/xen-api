@@ -159,26 +159,28 @@ let scan_finished sr =
        Hashtbl.remove scans_in_progress sr)
 
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
-let scan_one ~__context sr = 
-  if i_should_scan_sr sr
-  then 
-    ignore(Thread.create
-      (fun () ->
-	 Server_helpers.exec_with_subtask ~__context "scan one" (fun ~__context ->
-	 finally
-	   (fun () ->
-	      try
-		Helpers.call_api_functions ~__context
-		  (fun rpc session_id ->
-		     Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
-		       (fun sr -> 
-			  Client.SR.scan rpc session_id sr) sr)
-	      with e ->
-		error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
-	   )
-	   (fun () -> 
-	      scan_finished sr)
-      )) ())
+(* If a callback is supplied, call it once the scan is complete. *)
+let scan_one ~__context ?callback sr =
+	if i_should_scan_sr sr
+	then 
+		ignore(Thread.create
+			(fun () ->
+				Server_helpers.exec_with_subtask ~__context "scan one" (fun ~__context ->
+					finally
+						(fun () ->
+							try
+								Helpers.call_api_functions ~__context
+									(fun rpc session_id ->
+										Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
+											(fun sr -> 
+												Client.SR.scan rpc session_id sr) sr)
+							with e ->
+								error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
+						)
+						(fun () -> 
+							scan_finished sr;
+							Opt.iter (fun f -> f ()) callback)
+					)) ())
 
 let get_all_plugged_srs ~__context =
   let pbds = Db.PBD.get_all ~__context in
