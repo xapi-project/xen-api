@@ -124,9 +124,12 @@ module Table : TABLE = struct
 		let rec fold_over_deleted deleted acc =
 			match deleted with
 				| (created,destroyed,r)::xs ->
-					if (destroyed > since) && (created <= since)
-					then fold_over_deleted xs (f created 0L destroyed r acc)
-					else acc
+					let new_acc =
+						if (destroyed > since) && (created <= since)
+						then (f created 0L destroyed r acc)
+						else acc
+					in
+					if destroyed <= since then new_acc else fold_over_deleted xs new_acc
 				| [] ->
 					errf ();
 					acc

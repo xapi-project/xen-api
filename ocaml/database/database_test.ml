@@ -240,6 +240,8 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		let vm_uuid = "vmuuid" in
 		let vbd = "vbdref" in
 		let vbd_uuid = "vbduuid" in
+		let vbd2 = "vbdref2" in
+		let vbd_uuid2 = "vbduuid2" in
 
 		Client.create_row t "VM" (make_vm vm vm_uuid) vm;
 		let db = Db_ref.get_database t in
@@ -326,6 +328,25 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 		else (Printf.printf "Fail\n"; failwith "Event problem");
 		dump db g7;
 
+		Client.create_row t "VBD" (make_vbd vm vbd vbd_uuid) vbd;
+		let db = Db_ref.get_database t in
+		let g9 = get_max db in
+		let (_ : unit) = Client.delete_row t "VBD" vbd in
+		Client.create_row t "VBD" (make_vbd vm vbd2 vbd_uuid2) vbd2;
+		let (_ : unit) = Client.delete_row t "VBD" vbd2 in
+		let db = Db_ref.get_database t in
+		let g10 = get_max db in
+
+		Printf.printf "===TEST=== Checking for masking of delete events: ";
+
+
+		let deleted = get_deleted db g9 in
+		if (List.mem vbd deleted) 
+		then (Printf.printf "Pass\n")
+		else (Printf.printf "Fail\n"; failwith "Event problem");
+		dump db g9;
+		ignore(g10);
+		
 
 
 		()
