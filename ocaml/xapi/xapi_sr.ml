@@ -159,7 +159,8 @@ let scan_finished sr =
        Hashtbl.remove scans_in_progress sr)
 
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
-let scan_one ~__context sr = 
+(* If a callback is supplied, call it once the scan is complete. *)
+let scan_one ~__context ?callback sr =
 	if i_should_scan_sr sr
 	then 
 		ignore(Thread.create
@@ -177,7 +178,8 @@ let scan_one ~__context sr =
 								error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
 						)
 						(fun () -> 
-							scan_finished sr)
+							scan_finished sr;
+							Opt.iter (fun f -> f ()) callback)
 					)) ())
 
 let get_all_plugged_srs ~__context =
