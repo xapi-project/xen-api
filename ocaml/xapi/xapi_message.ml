@@ -39,6 +39,10 @@ let message_dir = Xapi_globs.xapi_blob_location ^ "/messages"
 
 let event_mutex = Mutex.create ()
 
+let in_memory_cache = ref []
+let in_memory_cache_mutex = Mutex.create ()
+let in_memory_cache_length = ref 0
+
 let class_to_string cls = 
   match cls with 
     | `VM -> "VM" 
@@ -246,7 +250,8 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 	doit 0
       in
 
-      let message = {API.message_name=name;
+					let message = {
+						API.message_name=name;
 		     API.message_uuid=uuid;
 		     API.message_priority=priority;
 		     API.message_cls=cls;
@@ -254,6 +259,16 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
 		     API.message_timestamp=Date.of_float timestamp;
 		     API.message_body=body;}
       in
+
+					Mutex.execute in_memory_cache_mutex (fun () ->
+						in_memory_cache := (timestamp,_ref,message) :: !in_memory_cache;
+						in_memory_cache_length := !in_memory_cache_length + 1;
+
+						if !in_memory_cache_length > 512 then begin
+							in_memory_cache := Listext.List.take 256 !in_memory_cache;
+							in_memory_cache_length := 256;
+							debug "Pruning in-memory cache of messages: Length=%d (%d)" !in_memory_cache_length (List.length !in_memory_cache)
+						end);
 
       let xml = API.To.message_t message in
       Xapi_event.event_add ~snapshot:xml "message" "add" (Ref.string_of _ref);
@@ -344,22 +359,24 @@ let gc ~__context =
 	end
     end
 
-let get_real dir filter since =
+let get_real_inner dir filter since =
   try
     let allmsgs = Array.to_list (Sys.readdir dir) in
     let since_f = since in
-	debug "since_f=%f" since_f;
-    let messages = List.filter (fun msg -> try debug "testing against message: %s" msg; float_of_string msg > since_f with _ -> false) allmsgs in
-    let messages = List.filter_map (fun msg -> 
-      let filename = dir ^ "/" ^ msg in
+	let messages = List.filter (fun msg -> try float_of_string msg > since_f with _ -> false) allmsgs in
+	let messages = List.filter_map (fun msg_fname ->
+		let filename = dir ^ "/" ^ msg_fname in
       try 
 	let ic = open_in filename in
 	let (_ref,msg) = Pervasiveext.finally (fun () -> of_xml (Xmlm.make_input (`Channel ic))) (fun () -> close_in ic) in	  
-	if filter msg then Some (_ref,msg) else None
+			if filter msg then Some (float_of_string msg_fname,_ref,msg) else None
       with _ -> None) messages
     in
-    List.sort (fun (r1,m1) (r2,m2) -> compare m2.API.message_timestamp m1.API.message_timestamp) messages
+	List.sort (fun (t1,r1,m1) (t2,r2,m2) -> compare t2 t1) messages
   with _ -> [] (* Message directory missing *)
+
+let get_real dir filter since =
+	List.map (fun (_,r,m) -> (r,m)) (get_real_inner dir filter since)
 
 let get ~__context ~cls ~obj_uuid ~since =
   (* Read in all the messages for a particular object *)
@@ -372,6 +389,15 @@ let get_since ~__context ~since =
 
 let get_since_for_events ~__context since =
 	let now = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
+	let result = Mutex.execute in_memory_cache_mutex (fun () ->
+		let (last_in_memory,_,_) = List.hd (List.rev !in_memory_cache) in
+		if last_in_memory > since
+		then None
+		else Some (List.filter_map (fun (timestamp,_ref,msg) -> if timestamp > since then Some (_ref, msg) else None) !in_memory_cache))
+	in
+	match result with
+		| Some x -> (now,x)
+		| None ->
 	(now, get_real message_dir (fun _ -> true) since)
 
 let get_by_uuid ~__context ~uuid =
@@ -408,6 +434,14 @@ let get_all_records_where ~__context ~expr =
   get_real message_dir (fun _ -> true) (0.0)
 
 let register_event_hook () =
+	Mutex.execute in_memory_cache_mutex (fun () ->
+		let messages = get_real_inner message_dir (fun _ -> true) 0.0 in
+		let last_256 = List.take 256 messages in
+		in_memory_cache := last_256;
+		let get_ts (ts,_,_) = ts in
+		debug "Constructing in-memory-cache: most length=%d" (List.length last_256);
+		(try debug "newest=%f oldest=%f" (get_ts (List.hd last_256)) (get_ts (List.hd (List.rev last_256))) with _ -> ());
+		in_memory_cache_length := List.length !in_memory_cache);
 	Xapi_event.message_get_since_for_events := get_since_for_events
 
 (* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
