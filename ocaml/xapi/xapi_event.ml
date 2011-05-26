@@ -53,6 +53,7 @@ type subscription_record = {
 	m: Mutex.t;                       (** protects access to the mutable fields in this record *)
 	session: API.ref_session;         (** session which owns this subscription *)
 	mutable session_invalid: bool;    (** set to true if the associated session has been deleted *)
+	mutable timeout: float;           (** Timeout *)
 }
 
 
@@ -176,7 +177,7 @@ let get_subscription ~__context =
 	(fun () ->
 	   if Hashtbl.mem subscriptions session then Hashtbl.find subscriptions session
 	   else 
-		   let subscription = { last_id = !id; last_timestamp=(Unix.gettimeofday ()); last_generation=0L; cur_id = 0L; subs = []; m = Mutex.create(); session = session; session_invalid = false } in
+		   let subscription = { last_id = !id; last_timestamp=(Unix.gettimeofday ()); last_generation=0L; cur_id = 0L; subs = []; m = Mutex.create(); session = session; session_invalid = false; timeout=0.0; } in
 	     Hashtbl.replace subscriptions session subscription;
 	     subscription)
 
@@ -231,9 +232,15 @@ let wait subscription from_id =
 	else !result
 
 let wait2 subscription from_id =
+	let timeoutname = Printf.sprintf "event_from_timeout_%s" (Ref.string_of subscription.session) in
   Mutex.execute event_lock
 	(fun () ->
-	  while from_id = subscription.cur_id && not (session_is_invalid subscription) do Condition.wait newevents event_lock done;
+	  while from_id = subscription.cur_id && not (session_is_invalid subscription) && Unix.gettimeofday () < subscription.timeout 
+	  do 
+		  Xapi_periodic_scheduler.add_to_queue timeoutname Xapi_periodic_scheduler.OneShot (subscription.timeout -. Unix.gettimeofday () +. 0.5) (fun () -> Condition.broadcast newevents);
+		  Condition.wait newevents event_lock; 
+		  Xapi_periodic_scheduler.remove_from_queue timeoutname
+	  done;
 	);
   if session_is_invalid subscription
   then raise (Api_errors.Server_error(Api_errors.session_invalid, [ Ref.string_of subscription.session ]))
@@ -292,7 +299,7 @@ let rec next ~__context =
 	if relevant = [] then next ~__context 
 	else XMLRPC.To.array (List.map xmlrpc_of_event relevant)
 
-let from ~__context ~classes ~token = 
+let from ~__context ~classes ~token ~timeout = 
 	let from, from_t = 
 		try 
 			match String.split ',' token with
@@ -309,6 +316,8 @@ let from ~__context ~classes ~token =
 	(* Temporarily create a subscription for the duration of this call *)
 	let subs = List.map subscription_of_string (List.map String.lowercase classes) in
 	let sub = get_subscription ~__context in
+
+	sub.timeout <- Unix.gettimeofday () +. timeout;
 
 	sub.last_timestamp <- from_t;
 	sub.last_generation <- from;
@@ -353,9 +362,11 @@ let from ~__context ~classes ~token =
 
 	let rec grab_nonempty_range () =
 		let (timestamp, messages, tableset, (creates,mods,deletes,last)) as result = Db_lock.with_lock (fun () -> grab_range (Db_backend.make ())) in
-		if List.length creates = 0 && List.length mods = 0 && List.length deletes = 0 && List.length messages = 0
+		if List.length creates = 0 && List.length mods = 0 && List.length deletes = 0 && List.length messages = 0 && Unix.gettimeofday () < sub.timeout
 		then
 			(
+				debug "Waiting more: timeout=%f now=%f" sub.timeout (Unix.gettimeofday ());
+				
 				sub.last_generation <- last; (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
 				sub.last_timestamp <- timestamp;
 				sub.cur_id <- last; (* last id the client got is equivalent to the current one *)
@@ -423,13 +434,13 @@ let from ~__context ~classes ~token =
 											 ev::acc) createevs messages in
 
 	let valid_ref_counts =
-		XMLRPC.To.structure
-			(Db_cache_types.TableSet.fold
-				 (fun tablename _ _ table acc ->
-					  (tablename, XMLRPC.To.int
-						   (Db_cache_types.Table.fold
-								(fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
-				 tableset [])
+        XMLRPC.To.structure
+            (Db_cache_types.TableSet.fold
+                (fun tablename _ _ table acc ->
+                    (String.lowercase tablename, XMLRPC.To.int
+                        (Db_cache_types.Table.fold
+                            (fun r _ _ _ acc -> Int32.add 1l acc) table 0l))::acc)
+                tableset [])
 	in
 
 	let session = Context.get_session_id __context in

@@ -6787,7 +6787,9 @@ let event =
   let from = call
     ~name:"from" 
 	~params:[Set String, "classes", "register for events for the indicated classes";
-			 String, "token", "A token representing the point from which to generate database events. The empty string represents the beginning."; ]
+			 String, "token", "A token representing the point from which to generate database events. The empty string represents the beginning.";
+			 Float, "timeout", "Return after this many seconds if no events match";
+	]
     ~in_product_since:rel_boston
     ~doc:"Blocking call which returns a (possibly empty) batch of events"
     ~custom_marshaller:true
