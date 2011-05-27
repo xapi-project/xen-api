@@ -437,6 +437,30 @@ let set_physical_utilisation ~__context ~self ~value =
 let assert_can_host_ha_statefile ~__context ~sr = 
   Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
 
+let assert_supports_database_replication ~__context ~sr =
+	(* Check that each host has a PBD to this SR *)
+	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+	let connected_hosts = List.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds) in
+	let all_hosts = Db.Host.get_all ~__context in
+	if List.length connected_hosts < (List.length all_hosts) then begin
+		error "Cannot enable database replication to SR %s: some hosts lack a PBD: [ %s ]"
+			(Ref.string_of sr)
+			(String.concat "; " (List.map Ref.string_of (set_difference all_hosts connected_hosts)));
+		raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
+	end;
+	(* Check that each PBD is plugged in *)
+	List.iter (fun self ->
+		if not(Db.PBD.get_currently_attached ~__context ~self) then begin
+			error "Cannot enable database replication to SR %s: PBD %s is not plugged"
+				(Ref.string_of sr) (Ref.string_of self);
+			(* Same exception is used in this case (see Helpers.assert_pbd_is_plugged) *)
+			raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
+		end) pbds;
+	(* Check the exported capabilities of the SR's SM plugin *)
+	let srtype = Db.SR.get_type ~__context ~self:sr in
+	if not (List.mem Smint.Sr_metadata (Sm.capabilities_of_driver srtype))
+	then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
+
 (* Metadata replication to SRs *)
 let find_or_create_metadata_vdi ~__context ~sr =
 	let pool = Helpers.get_pool ~__context in
@@ -470,6 +494,7 @@ let find_or_create_metadata_vdi ~__context ~sr =
 let enable_database_replication ~__context ~sr =
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	assert_supports_database_replication ~__context ~sr;
 	let metadata_vdi = find_or_create_metadata_vdi ~__context ~sr in
 	Xapi_vdi_helpers.enable_database_replication ~__context ~vdi:metadata_vdi
 
