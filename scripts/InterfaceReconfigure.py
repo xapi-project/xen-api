@@ -574,9 +574,11 @@ class DatabaseCache(object):
         for (ref,rec) in self.__pools.items():
             self.__to_xml(xml, xml.documentElement, _POOL_XML_TAG, ref, rec, _POOL_ATTRS)
 
-        f = open(cache_file, 'w')
+        temp_file = cache_file + ".%d" % os.getpid()
+        f = open(temp_file, 'w')
         f.write(xml.toprettyxml())
         f.close()
+        os.rename(temp_file, cache_file)
 
     def get_pif_by_uuid(self, uuid):
         pifs = map(lambda (ref,rec): ref,
