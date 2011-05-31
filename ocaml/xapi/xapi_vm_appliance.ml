@@ -171,10 +171,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 		vms
 
 let recover ~__context ~self ~session_to ~force =
-	Server_helpers.exec_with_new_task ~session_id:session_to "Checking pool license allows DR"
-		(fun __context_to ->
-			if (not (Pool_features.is_enabled ~__context:__context_to Features.DR)) then
-				raise (Api_errors.Server_error(Api_errors.license_restriction, [])));
+	Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM_appliance.recover";
 	assert_can_be_recovered ~__context ~self ~session_to;
 	let vms = Db.VM_appliance.get_VMs ~__context ~self in
 	let recovered_vms = Xapi_dr.recover_vms ~__context ~vms ~session_to ~force in
