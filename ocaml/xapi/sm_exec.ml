@@ -281,6 +281,7 @@ let parse_sr_get_driver_info driver ty (xml: Xml.xml) =
     [ "SR_PROBE",       Sr_probe;
       "SR_UPDATE",      Sr_update;
 	  "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
+      "SR_METADATA",    Sr_metadata;
       "VDI_CREATE",     Vdi_create;
       "VDI_DELETE",     Vdi_delete;
       "VDI_ATTACH",     Vdi_attach;

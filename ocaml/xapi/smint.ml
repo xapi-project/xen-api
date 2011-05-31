@@ -34,6 +34,7 @@ let make_vdi_info ~location ?uuid () =
 type capability =
     | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update 
 	| Sr_supports_local_caching
+    | Sr_metadata
     | Vdi_create | Vdi_delete | Vdi_attach | Vdi_detach
     | Vdi_clone | Vdi_snapshot | Vdi_resize | Vdi_activate | Vdi_deactivate
     | Vdi_update | Vdi_introduce 
@@ -43,7 +44,8 @@ type capability =
 
 let all_capabilities =
   [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
-    Sr_supports_local_caching; 
+    Sr_supports_local_caching;
+    Sr_metadata;
     Vdi_create; Vdi_delete; Vdi_attach; Vdi_detach;
     Vdi_clone; Vdi_resize; Vdi_activate; Vdi_deactivate;
     Vdi_update; Vdi_introduce;
