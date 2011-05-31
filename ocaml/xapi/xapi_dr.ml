@@ -126,6 +126,19 @@ let clear_sr_introduced_by ~__context ~vm =
 		(fun sr -> Db.SR.set_introduced_by ~__context ~self:sr ~value:Ref.null)
 		srs
 
+let assert_session_allows_dr ~session_id ~action =
+	Server_helpers.exec_with_new_task ~session_id "Checking pool license and session permissions allow DR"
+		(fun __context ->
+			if (not (Pool_features.is_enabled ~__context Features.DR)) then
+				raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+			(* Any session can call VM(_appliance).recover since it is marked as readonly *)
+			(* so it can be used by the sessions returned by VDI.open_database. *)
+			(* We need to manually check that a session could legitimately have called VDI.open_database. *)
+			let permission = Rbac_static.permission_VDI_open_database in
+			if not(Rbac.has_permission ~__context ~permission) then
+				raise (Api_errors.Server_error(Api_errors.rbac_permission_denied,
+					[action; "The supplied session does not have the required permissions for VM recovery."])))
+
 let recover_vms ~__context ~vms ~session_to ~force =
 	let config = {
 		Import.sr = Ref.null;
@@ -136,13 +149,6 @@ let recover_vms ~__context ~vms ~session_to ~force =
 	let objects = create_import_objects ~__context ~vms in
 	Server_helpers.exec_with_new_task ~session_id:session_to "Importing VMs"
 		(fun __context_to ->
-			(* Check that session_to has at least pool admin permissions. *)
-			let permission = Rbac_static.role_pool_operator in
-			if not(Rbac.has_permission ~__context:__context_to ~permission) then begin
-				let permission_name = permission.Db_actions.role_name_label in
-				raise (Api_errors.Server_error(Api_errors.rbac_permission_denied,
-					[permission_name; "The supplied session does not have the required permissions for VM recovery."]))
-			end;
 			let rpc = Helpers.make_rpc ~__context:__context_to in
 			let state = Import.handle_all __context_to
 				config rpc session_to objects

@@ -1267,10 +1267,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
 
 let recover ~__context ~self ~session_to ~force =
-	Server_helpers.exec_with_new_task ~session_id:session_to "Checking pool license allows DR"
-		(fun __context_to ->
-			if (not (Pool_features.is_enabled ~__context:__context_to Features.DR)) then
-				raise (Api_errors.Server_error(Api_errors.license_restriction, [])));
+	Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM.recover";
 	(* Check the VM SRs are available. *)
 	assert_can_be_recovered ~__context ~self ~session_to;
 	(* Attempt to recover the VM. *)
