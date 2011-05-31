@@ -2831,6 +2831,10 @@ end
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
       Local.SR.assert_can_host_ha_statefile ~__context ~sr
 
+		let assert_supports_database_replication ~__context ~sr =
+			info "SR.assert_supports_database_replication: SR '%s'" (sr_uuid ~__context sr);
+			Local.SR.assert_supports_database_replication ~__context ~sr
+
 		let enable_database_replication ~__context ~sr =
 			info "SR.enable_database_replication: SR = '%s'" (sr_uuid ~__context sr);
 			Local.SR.enable_database_replication ~__context ~sr

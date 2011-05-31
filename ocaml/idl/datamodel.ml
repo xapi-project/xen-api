@@ -4617,6 +4617,15 @@ let sr_assert_can_host_ha_statefile = call
    ~allowed_roles:_R_POOL_OP
    ()
 
+let sr_assert_supports_database_replication = call
+	~name:"assert_supports_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to query"]
+	~doc:"Returns successfully if the given SR supports database replication. Otherwise returns an error to explain why not."
+	~allowed_roles:_R_POOL_OP
+	()
+
 let sr_enable_database_replication = call
 	~name:"enable_database_replication"
 	~in_oss_since:None
@@ -4646,6 +4655,7 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
+			sr_assert_supports_database_replication;
 			sr_enable_database_replication;
 			sr_disable_database_replication;
 
