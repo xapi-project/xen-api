@@ -13,6 +13,15 @@ let db_vdi_cache_mutex = Mutex.create ()
 
 (* This doesn't grab the mutex, so should only be called from add_vdis_to_cache or remove_vdis_from_cache. *)
 let update_metadata_latest ~__context =
+	(* Clear out invalid entries in the cache. *)
+	let cached_vdis = Hashtbl.fold
+		(fun vdi _ vdi_list -> vdi::vdi_list)
+		db_vdi_cache
+		[]
+	in
+	List.iter
+		(fun vdi -> if not (Db.is_valid_ref __context vdi) then Hashtbl.remove db_vdi_cache vdi)
+		cached_vdis;
 	debug "Updating metadata_latest on all foreign pool metadata VDIs";
 	let module PoolMap = Map.Make(struct type t = API.ref_pool let compare = compare end) in
 	(* First, create a map of type Pool -> (VDI, generation count) list *)
