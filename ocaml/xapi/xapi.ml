@@ -835,7 +835,6 @@ let server_init() =
 	"hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
     "HA metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Redo_log_alert.loop Xapi_ha.ha_redo_log);
     "DR metadata VDI liveness monitor", [ Startup.OnlyMaster; Startup.OnThread ], (fun () -> Xapi_vdi_helpers.metadata_replication_monitor ~__context);
-    "Starting DR redo-logs", [ Startup.OnlyMaster ], start_dr_redo_logs;
     "bringing up management interface", [], bring_up_management_if ~__context;
     "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
     "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
@@ -935,6 +934,7 @@ let server_init() =
                  (fun () -> Helpers.call_api_functions ~__context Create_templates.create_all_templates);
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
+			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
     ];
 						    
     if !debug_dummy_data then (
