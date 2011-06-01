@@ -73,11 +73,17 @@ let destroy_all_vbds ~__context ~vdi =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> List.iter
 			(fun vbd ->
-				try
-					Client.VBD.unplug ~rpc ~session_id ~self:vbd;
-					Client.VBD.destroy ~rpc ~session_id ~self:vbd
-				with Api_errors.Server_error(code, _) when code = Api_errors.device_already_detached ->
-					Client.VBD.destroy ~rpc ~session_id ~self:vbd)
+				if Client.VBD.get_currently_attached ~session_id ~rpc ~self:vbd then begin
+					(* In the case of HA failover, attempting to unplug the previous master's VBD will timeout as the host is uncontactable. *)
+					try
+						Attach_helpers.safe_unplug rpc session_id vbd
+					with Api_errors.Server_error(code, _) when code = Api_errors.cannot_contact_host ->
+						debug "VBD.unplug attempt on metadata VDI %s timed out - assuming that this is an HA failover and that the previous master is now dead."
+							(Db.VDI.get_uuid ~__context ~self:vdi)
+				end;
+				(* Meanwhile, HA should mark the previous master as dead and set the VBD as detached. *)
+				(* If the VBD is not detached by now, VBD.destroy will fail and we will give up. *)
+				Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 			existing_vbds)
 
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)

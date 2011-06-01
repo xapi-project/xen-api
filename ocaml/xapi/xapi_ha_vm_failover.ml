@@ -442,8 +442,6 @@ let restart_auto_run_vms ~__context live_set n =
 					debug "Setting host %s to dead" hostname;
 					(* Sample this before calling any hook scripts *)
 					let resident_on_vms = Db.Host.get_resident_VMs ~__context ~self:h in
-					(* Skip control domains *)
-					let resident_on_vms = List.filter (fun vm -> not(Db.VM.get_is_control_domain ~__context ~self:vm)) resident_on_vms in
 					reset_vms := resident_on_vms @ !reset_vms;
 
 					(* ensure live=false *)
@@ -476,8 +474,7 @@ let restart_auto_run_vms ~__context live_set n =
 					List.iter
 						(fun vm ->
 							let vm_powerstate = Db.VM.get_power_state ~__context ~self:vm in
-							let control = Db.VM.get_is_control_domain ~__context ~self:vm in
-							if not(control) && (vm_powerstate=`Running || vm_powerstate=`Paused) then
+							if (vm_powerstate=`Running || vm_powerstate=`Paused) then
 								Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
 						)
 						resident_on_vms
