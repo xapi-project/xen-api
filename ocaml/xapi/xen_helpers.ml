@@ -18,30 +18,18 @@
 
 exception Device_has_no_VBD
 
-let devid_of_vbd ~__context ~self =
-	let device_name = Db.VBD.get_device ~__context ~self in
-	Device.Vbd.device_number device_name
-
 (** Returns the backend type ('vbd' or 'tap') used by this VDI *)
 let kind_of_vdi ~__context ~self =
 	let sr = Db.VDI.get_SR ~__context ~self in
 	let physty = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 	Device.Vbd.kind_of_physty physty
 
-let vbd_of_devid ~__context ~vm devid =
-	let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	let devs = List.map (fun self -> devid_of_vbd ~__context ~self) vbds in
-	let table = List.combine devs vbds in
-	let has_vbd = List.mem_assoc devid table in
-	if not(has_vbd)
-	then raise Device_has_no_VBD
-	else List.assoc devid table 
-
-(** Given a VBD, return a xenops device *)
+(** Given a VBD, return a xenops device. Always called on the host where the VM is present *)
 let device_of_vbd ~__context ~self = 
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-  let devid = devid_of_vbd ~__context ~self in
+  let hvm = Xc.with_intf (fun xc -> (Xc.domain_getinfo xc domid).Xc.hvm_guest) in
+  let devid = Device_number.to_xenstore_key (Device_number.of_string hvm (Db.VBD.get_device ~__context ~self)) in
   let backend = { Device_common.domid = 0; 
 		  kind = Device_common.Vbd;
 		  devid = devid } in

@@ -69,9 +69,7 @@ module Crashdump = struct
     if Helpers.has_booted_hvm ~__context ~self:vm then
       warn "crashdump of HVM domain not supported"
     else
-      Pervasiveext.finally
-	(fun () ->
-	let uuid = Db.VM.get_uuid ~__context ~self:vm in
+  	let uuid = Db.VM.get_uuid ~__context ~self:vm in
 	let mem_max = Db.VM.get_memory_static_max ~__context ~self:vm in
 	let required_space = Int64.of_float ((Int64.to_float mem_max) *. 1.1) in
 	let sR = Helpers.choose_crashdump_sr ~__context ~vm in
@@ -84,11 +82,7 @@ module Crashdump = struct
 	     to_file domid filename;
 	     (* If we succeed, create the crashdump record *)
 	     let uuid = Uuid.to_string (Uuid.make_uuid ()) and ref = Ref.make () in
-	     Db.Crashdump.create ~__context ~ref ~uuid ~vM:vm ~vDI:vdi_ref ~other_config:[]))
-	(fun ()->
-	   with_xc_and_xs (fun xc xs ->
-		  Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-		  Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null))
+	     Db.Crashdump.create ~__context ~ref ~uuid ~vM:vm ~vDI:vdi_ref ~other_config:[])
 end
 
 module Domain_shutdown = struct
@@ -245,17 +239,11 @@ module Resync = struct
 	   
 	   (* If it went offline, perform the cleanup action now *)
 	   if not online then (
-	     (* If the device doesn't exist then we'll skip the VDI.detach since it will fail *)
-	     let exists = Device.Generic.exists ~xs device in
-
 	     Device.Vbd.release ~xs device;
 	     (* Also delete xenstore state, otherwise future
 		attempts to add the device will fail *)
 	     Device.Generic.rm_device_state ~xs device;
-	     let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-	     if exists
-	     then Storage_access.deactivate_and_detach ~__context ~vdi
-	     else debug "VBD %s: Skipping VDI.detach of %s since device doesn't exist" (Ref.string_of vbd) (Ref.string_of vdi)
+		 Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
 	   );
 	   (* If VM is suspended, leave currently_attached and the VDI lock
 	      as they are so we can resume properly. *)
@@ -439,6 +427,11 @@ let push vm deferred_queue description work_item =
   in ()
 
 let callback_devices ctx domid dev_event = 
+	let xs = Xal.xs_of_ctx ctx in
+	let read_vbd_ref devid = 
+		let path = Hotplug.get_private_path domid ^ "/private/vbd/" ^ devid ^ "/ref" in
+		Ref.of_string (xs.Xs.read path) in
+
   let dev_event_string = Xal.string_of_dev_event dev_event in
   debug "VM (domid: %d) device_event = %s" domid dev_event_string;
   Helpers.log_exn_continue (Printf.sprintf "callback_devices (domid: %d) device_event = %s" domid dev_event_string)
@@ -455,7 +448,6 @@ let callback_devices ctx domid dev_event =
 				    devid = int_of_string devid } in
 		    let device = Device_common.device_of_backend backend domid in
 
-		    let xs = Xal.xs_of_ctx ctx in
 		    let private_data_path = Hotplug.get_private_data_path_of_device device in
 		    try
 		      let vif = 
@@ -472,49 +464,47 @@ let callback_devices ctx domid dev_event =
 		  end
 	      | Xal.DevShutdownDone (ty, devid) ->
 	          let vm = vm_of_domid ~__context domid in
-		  begin
-		    try
-		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item ~__context token = 
-			Resync.vbd ~__context token vm vbd
-		      in
-		      debug "Adding Resync.vbd to queue";
-		      let description = Printf.sprintf "DevShutdownDone(%s, %s) domid: %d" ty devid domid in
-		      push vm (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) description work_item;
-		    with Xen_helpers.Device_has_no_VBD ->
-		      debug "ignoring because VBD does not exist in DB"
-		  end
+			  let vbd = read_vbd_ref devid in
+			  if not(Db.is_valid_ref __context vbd)
+			  then debug "ignoring event because VBD does not exist in DB"
+			  else begin
+				  let work_item ~__context token = 
+					  Resync.vbd ~__context token vm vbd
+				  in
+				  debug "Adding Resync.vbd to queue";
+				  let description = Printf.sprintf "DevShutdownDone(%s, %s) domid: %d" ty devid domid in
+				  push vm (if domid = 0 then Local_work_queue.dom0_device_resync_queue else Local_work_queue.normal_vm_queue) description work_item;
+			  end
 		    
 	      | Xal.DevThread (devid, pid) ->
 	          let vm = vm_of_domid ~__context domid in
-		  begin
-		    try
-		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item ~__context token = 
-			let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-			Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
-		      in
-		      debug "Adding Vbdops.set_vbd_qos to queue";
-		      let description = Printf.sprintf "DevThread(%s, %d) domid %d" devid pid domid in
-		      push vm Local_work_queue.normal_vm_queue description work_item 
-		    with Xen_helpers.Device_has_no_VBD ->
-		      debug "ignoring because VBD does not exist in DB"
-		  end
+			  let vbd = read_vbd_ref devid in
+			  if not(Db.is_valid_ref __context vbd)
+			  then debug "ignoring event because VBD does not exist in DB"
+			  else begin
+				  let work_item ~__context token = 
+					  let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+					  Vbdops.set_vbd_qos ~__context ~self:vbd domid devid pid
+				  in
+				  debug "Adding Vbdops.set_vbd_qos to queue";
+				  let description = Printf.sprintf "DevThread(%s, %d) domid %d" devid pid domid in
+				  push vm Local_work_queue.normal_vm_queue description work_item 
+			  end
 		    
 	      | Xal.DevEject devid ->
 	          let vm = vm_of_domid ~__context domid in
-		  begin
-		    try
-		      let vbd = Xen_helpers.vbd_of_devid ~__context ~vm (int_of_string devid) in
-		      let work_item ~__context token = 
-			Vbdops.eject_vbd ~__context ~self:vbd
-		      in
-		      debug "Adding Vbdops.eject_vbd to queue";
-		      let description = Printf.sprintf "DevEject(%s) domid %d" devid domid in
-		      push vm Local_work_queue.normal_vm_queue description work_item;
-		    with Xen_helpers.Device_has_no_VBD ->
-		      debug "ignoring because VBD does not exist in DB"
-		  end
+			  let vbd = read_vbd_ref devid in
+			  if not(Db.is_valid_ref __context vbd)
+			  then debug "ignoring event because VBD does not exist in DB"
+			  else begin
+				  let work_item ~__context token = 
+					  Vbdops.eject_vbd ~__context ~self:vbd
+				  in
+				  debug "Adding Vbdops.eject_vbd to queue";
+				  let description = Printf.sprintf "DevEject(%s) domid %d" devid domid in
+				  push vm Local_work_queue.normal_vm_queue description work_item;
+			  end
+
 	      | Xal.ChangeRtc (uuid, data) ->
 		  (* XXX: no locking here *)
 		  begin

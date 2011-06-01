@@ -94,6 +94,10 @@ let create ~__context ~_type ~device_config ~whitelist =
 	(* Check if licence allows disaster recovery. *)
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	(* Check that the SR type supports metadata. *)
+	if not (List.mem Smint.Sr_metadata (Sm.capabilities_of_driver _type)) then
+		raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+			[Printf.sprintf "Disaster recovery not supported on SRs of type %s" _type]));
 	(* Probe the specified device for SRs. *)
 	let pool = Helpers.get_pool ~__context in
 	let master = Db.Pool.get_master ~__context ~self:pool in
@@ -104,15 +108,12 @@ let create ~__context ~_type ~device_config ~whitelist =
 				~_type ~sm_config:["metadata", "true"])
 	in
 	(* Parse the probe result. *)
-	let sr_records = match _type with
-	| "lvmoiscsi" | "lvmohba" ->
-		(try
+	let sr_records =
+		try
 			parse_sr_probe probe_result
 		with Failure msg ->
 			raise (Api_errors.Server_error(Api_errors.internal_error,
-				[Printf.sprintf "SR probe response was malformed: %s" msg])))
-	| _ -> raise (Api_errors.Server_error(Api_errors.invalid_value,
-		["type"; _type]))
+				[Printf.sprintf "SR probe response was malformed: %s" msg]))
 	in
 	(* If the SR record has a UUID, make sure it's in the whitelist. *)
 	let sr_records = List.filter

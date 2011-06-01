@@ -56,8 +56,8 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
 	   let devices = List.map 
 	     (fun (install_vm_vbd, vbd) ->
 		let hvm = Client.VM.get_HVM_boot_policy rpc session_id vm <> "" in
-		let device = Vbdops.translate_vbd_device (Client.VBD.get_userdevice rpc session_id vbd) hvm in
-		device,
+		let device = Vbdops.translate_vbd_device vbd (Client.VBD.get_userdevice rpc session_id vbd) hvm in
+		Device_number.to_linux_device device,
 		"/dev/" ^ (Client.VBD.get_device rpc session_id install_vm_vbd)) (List.combine install_vm_vbds vbds) in
 	   let env = ("vm", Ref.string_of vm) :: devices in
 	   let env = List.map (fun (k, v) -> k ^ "=" ^ v) env in

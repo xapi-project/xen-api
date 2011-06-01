@@ -1146,7 +1146,7 @@ let get_possible_hosts ~__context ~vm = Locking_helpers.with_lock vm (fun token 
   get_possible_hosts_for_vm ~__context ~vm ~snapshot
 ) ()
 
-let get_allowed_VBD_devices = allowed_VBD_devices
+let get_allowed_VBD_devices ~__context ~vm = List.map (fun d -> string_of_int (Device_number.to_disk_number d)) (allowed_VBD_devices ~__context ~vm)
 let get_allowed_VIF_devices = allowed_VIF_devices
 
 (** Mark all currently-attached VBDs and VIFs as reserved, call some function and then
@@ -1267,6 +1267,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
 	Xapi_vm_helpers.assert_can_be_recovered ~__context ~self ~session_to
 
 let recover ~__context ~self ~session_to ~force =
+	Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM.recover";
 	(* Check the VM SRs are available. *)
 	assert_can_be_recovered ~__context ~self ~session_to;
 	(* Attempt to recover the VM. *)

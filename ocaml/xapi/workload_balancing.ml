@@ -475,15 +475,12 @@ let decon_wlb ~__context =
 	in
 	if Db.Pool.get_wlb_url ~__context ~self:pool = ""
 	then
-		raise_not_initialized()
-		(*if wlb not enabled then clear the config but dont attempt to call the server for the removexenserver *)
-	else if not (Db.Pool.get_wlb_enabled ~__context ~self:pool)
-	then
-		clear_wlb_config ~__context ~pool
+		raise_not_initialized()	
 	else
 		let params = pool_uuid_param ~__context in
-		Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
-			~params ~handle_response ~__context)
+		try Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
+			~params ~handle_response ~__context) with 
+		| _ -> clear_wlb_config ~__context ~pool
 
 let send_wlb_config ~__context ~config =
   assert_wlb_licensed ~__context;

@@ -46,13 +46,13 @@ sig
 	val string_of_devty : devty -> string
 	val devty_of_string : string -> devty
 
-	val device_number : string -> int
 	val device_name : int -> string
 	val device_major_minor : string -> int * int
 	val major_minor_to_device : int * int -> string
 
 	val add : xs:Xs.xsh -> hvm:bool -> mode:mode
-	       -> virtpath:string -> phystype:physty -> physpath:string
+	       -> device_number:Device_number.t
+	       -> phystype:physty -> physpath:string
 	       -> dev_type:devty
 	       -> unpluggable:bool
 	       -> ?protocol:protocol
@@ -62,12 +62,12 @@ sig
 	       -> Xc.domid -> device
 
 	val release : xs:Xs.xsh -> device -> unit
-	val media_eject : xs:Xs.xsh -> virtpath:string -> int -> unit
-	val media_insert : xs:Xs.xsh -> virtpath:string
+	val media_eject : xs:Xs.xsh -> device_number:Device_number.t -> int -> unit
+	val media_insert : xs:Xs.xsh -> device_number:Device_number.t
 	                -> physpath:string -> phystype:physty -> int -> unit
-	val media_refresh : xs:Xs.xsh -> virtpath:string -> physpath:string -> int -> unit
-	val media_is_ejected : xs:Xs.xsh -> virtpath:string -> int -> bool
-	val media_tray_is_locked : xs:Xs.xsh -> virtpath:string -> int -> bool
+	val media_refresh : xs:Xs.xsh -> device_number:Device_number.t -> physpath:string -> int -> unit
+	val media_is_ejected : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
+	val media_tray_is_locked : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
 
 	val pause : xs:Xs.xsh -> device -> string (* token *)
 	val unpause : xs:Xs.xsh -> device -> string (* token *) -> unit
@@ -141,16 +141,14 @@ sig
 	exception Cannot_use_pci_with_no_pciback of t list
 
 	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
-	       -> ?flrscript:string option -> (int * int * int * int) list -> Xc.domid -> int -> unit
+	       -> ?flrscript:string option -> dev list -> Xc.domid -> int -> unit
 	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
 	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
-	val reset : xs:Xs.xsh -> device -> unit
-	val bind : (int * int * int * int) list -> unit
-	val plug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> unit
-	val unplug : xc:Xc.handle -> xs:Xs.xsh
-		-> (int * int * int * int) -> Xc.domid -> unit
-	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * (int * int * int * int)) list
+	val reset : xs:Xs.xsh -> dev -> unit
+	val bind : dev list -> unit
+	val plug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+	val unplug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * dev) list
 end
 
 module Vfb :

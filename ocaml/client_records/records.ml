@@ -1156,9 +1156,15 @@ let vdi_record rpc session_id vdi =
 			make_field ~name:"metadata-latest" ~get:(fun () -> string_of_bool (x ()).API.vDI_metadata_latest) ();
 			make_field ~name:"metadata-of-pool"
 				~get:(fun () ->
-					match Client.VDI.read_database_pool_uuid ~rpc ~session_id ~self:vdi with
-					| "" -> nid
-					| pool_uuid -> pool_uuid) ();
+					let local_pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+					let vdi_pool = (x ()).API.vDI_metadata_of_pool in
+					if local_pool = vdi_pool then
+						get_uuid_from_ref local_pool
+					else begin
+						match Client.VDI.read_database_pool_uuid ~rpc ~session_id ~self:vdi with
+						| "" -> nid
+						| pool_uuid -> pool_uuid
+					end) ();
 			make_field ~name:"tags"
 				~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
 				~get_set:(fun () -> (x ()).API.vDI_tags)
@@ -1313,6 +1319,8 @@ let sr_record rpc session_id sr =
 			make_field ~name:"shared"
 				~get:(fun () -> string_of_bool ((x ()).API.sR_shared))
 				~set:(fun x -> Client.SR.set_shared rpc session_id sr (safe_bool_of_string "shared" x)) ();
+			make_field ~name:"introduced-by"
+				~get:(fun () -> (get_uuid_from_ref (x ()).API.sR_introduced_by)) ();
 			make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sR_other_config)
 				~add_to_map:(fun k v -> Client.SR.add_to_other_config rpc session_id sr k v)
 				~remove_from_map:(fun k -> Client.SR.remove_from_other_config rpc session_id sr k)

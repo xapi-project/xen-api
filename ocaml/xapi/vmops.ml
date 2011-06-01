@@ -17,6 +17,7 @@
 open Printf
 open Threadext
 open Stringext
+open Listext
 open Pervasiveext
 open Vmopshelpers
 open Client
@@ -37,7 +38,8 @@ module L = Debug.Debugger(struct let name="license" end)
 type api_access = InternalNetwork | FirstNetwork
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
-let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian"] 
+let filtered_platform_flags = ["acpi"; "apic"; "nx"; "pae"; "viridian";
+                               "acpi_s3";"acpi_s4"]
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
@@ -57,22 +59,7 @@ let clear_all_device_status_fields ~__context ~self =
 
 (* Called on VM.start codepath only to validate current VM parameters *)
 let check_vm_parameters ~__context ~self ~snapshot =
-	let hvm = Helpers.is_hvm snapshot in
 	let refself = Ref.string_of self in
-	let check_vm_vbds () =
-		let vbds = Db.VM.get_VBDs ~__context ~self in
-		let h = Hashtbl.create (List.length vbds) in
-		let hashtbl_exists h e = try ignore (Hashtbl.find h e); true with Not_found -> false in
-		List.iter (fun vbd ->
-			let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
-			let realdevice = translate_vbd_device userdevice hvm in
-			if hashtbl_exists h realdevice then
-				raise (Api_errors.Server_error(Api_errors.vm_duplicate_vbd_device,
-				                               [ refself; Ref.string_of vbd; realdevice ]))
-			else
-				Hashtbl.add h realdevice 0
-		) vbds
-		in
 	let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
 	let mem = snapshot.API.vM_memory_static_max in
 	if vcpus <= 0 then
@@ -81,7 +68,6 @@ let check_vm_parameters ~__context ~self ~snapshot =
 		raise (Api_errors.Server_error (Api_errors.vm_toomany_vcpus, [ refself ]));
 	if mem < Xapi_globs.vm_minimum_memory then
 		raise (Api_errors.Server_error (Api_errors.vm_memory_size_too_low, [ refself ]));
-	check_vm_vbds ();
 	()
 
 let add_vif ~__context ~xs vif_device = 
@@ -307,16 +293,34 @@ let vcpu_configuration snapshot =
   let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
   debug "xen reports max %d pCPUs" pcpus;
 
-  (* vcpu <-> pcpu affinity settings are stored here: *)
-  let mask = try Some (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> None in
-  (* convert the mask into a bitmap, one bit per pCPU *)
-  let bitmap string = 
+  (* vcpu <-> pcpu affinity settings are stored here. Format is either:
+	 1,2,3         ::  all vCPUs receive this mask
+     1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs receive first mask
+	 *)
+  let masks = try String.split ';' (List.assoc "mask" snapshot.API.vM_VCPUs_params) with _ -> [] in
+  (* If the mask has fewer elements than vCPUs, expand it *)
+  let masks = match masks with
+	  | [] -> []
+	  | m :: ms ->
+		  let defaults = Range.fold_right (fun _ acc -> m :: acc) 
+			  (Range.make 0 vcpus) [] in
+		  List.take vcpus (masks @ defaults) in
+  (* convert a mask into a binary string, one character per pCPU *)
+  let bitmap string: string = 
     let cpus = List.map int_of_string (String.split ',' string) in
     let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-    let bits = List.map (Int64.shift_left 1L) cpus in
-    List.fold_left Int64.logor 0L bits in
-  let bitmap = try Opt.map bitmap mask with _ -> warn "Failed to parse vCPU mask"; None in
-  let affinity = Opt.map (fun int64 -> [ "vcpu/affinity", Int64.to_string int64 ]) bitmap in
+	let result = String.make pcpus '0' in
+	List.iter (fun cpu -> result.[cpu] <- '1') cpus;
+	result in
+  (* Generate key/value pairs for affinity *)
+  let affinity = 
+	  try
+		  List.mapi (fun idx mask -> 
+			  Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask
+		  ) masks 
+	  with e -> 
+		  warn "Failed to parse vCPU masks: %s" (List.assoc "mask" snapshot.API.vM_VCPUs_params);
+		  [] in
 
   (* scheduler parameters: weight and cap *)
   let weight = try Some (List.assoc "weight" snapshot.API.vM_VCPUs_params) with _ -> None in
@@ -328,7 +332,7 @@ let vcpu_configuration snapshot =
 
   [ "vcpu/number", string_of_int vcpus;
     "vcpu/current", string_of_int vcpus_current ]
-  @ (Opt.default [] affinity)
+  @ affinity
   @ (Opt.default [] weight)
   @ (Opt.default [] cap)
 
@@ -423,56 +427,52 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
    NB to prevent resource leaks, log errors and continue on attempting to clean up as
    much as possible.
  *)
-let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate_devices=true) ~__context ~xc ~xs ~self domid =
+let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
+	Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
+		(fun () -> 
+			Domain.destroy ~preserve_xs_vm ~xc ~xs domid
+		) ();
 
-  Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
-    (fun () -> Domain.destroy ~preserve_xs_vm ~xc ~xs domid) ();
-  
-  Helpers.log_exn_continue "Vmops.destroy_domain: clearing VBD currently_attached fields"
-    (fun () ->
-       (* Finish using any VDIs whose VBDs were possibly still attached. Note we may
-	  attempt to double 'finish' with VDIs -- this must be idempotent *)
-       let vbds = Db.VM.get_VBDs ~__context ~self in
-	    
-       (* clear currently_attached if clear_currently_attached=true.
-	  detach VDIs if detach_devices is true
-	  deactivate VDIs if deactivate_devices is true *)
-       List.iter 
-	 (fun vbd ->
-	    (* Best effort destroy of each disk *)
-	    Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: clearing currently_attached field of VBD: %s" (Ref.string_of vbd))
-	      (fun () ->
-		 let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-		 let is_currently_attached = Db.VBD.get_currently_attached ~__context ~self:vbd in
-		 (* if vbd is not empty and the vbd is marked as 'currently attached' then call detach and maybe
-		    deactivate vdi *)
-		 if not(Db.VBD.get_empty ~__context ~self:vbd) && is_currently_attached
-		 then Helpers.log_exn_continue (Printf.sprintf "finishing with VDI %s" (Ref.string_of vdi))
-		   (fun vdi ->
-		      if deactivate_devices then Storage_access.VDI.deactivate ~__context ~self:vdi;
-		      if detach_devices then Storage_access.VDI.detach ~__context ~self:vdi) vdi;
-		 (* if we're releasing devices then go for it: *)
-		 if clear_currently_attached then
-		   Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false;
-	      ) ();
-	    (* We unpause every VBD which allows any pending VBD.pause thread to unblock, acquire the VM lock in turn and check the state *)
-	    Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: pre-emptively unpausing VBD: %s" (Ref.string_of vbd))
-	      (fun () ->
-		 Xapi_vbd.clean_up_on_domain_destroy vbd (* effect is to unblock threads, not actually unpause *)
-	      ) ();
-	 ) vbds
-    ) ();
-  (* Remove any static lease we might have *)
-  Helpers.log_exn_continue "Vmops.destroy_domain: attempting to remove DHCP lease"
-    (fun () ->
-       Xapi_udhcpd.maybe_remove_lease ~__context self) ()
+	let all_vbds = Db.VM.get_VBDs ~__context ~self in
+	List.iter
+		(fun vbd ->
+			if not(Db.VBD.get_empty ~__context ~self:vbd)
+			then Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
+				(fun () ->
+					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
+				) ()
+		) (Storage_access.vbd_detach_order ~__context all_vbds);
+
+	if clear_currently_attached
+	then List.iter
+		(fun vbd ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: clearing currently_attached for VBD %s" (Ref.string_of vbd))
+				(fun () ->
+					Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
+				) ()
+		) all_vbds;
+
+	(* We unpause every VBD which allows any pending VBD.pause thread to unblock, acquire the VM lock in turn and check the state *)
+	List.iter
+		(fun vbd ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: pre-emptively unpausing VBD: %s" (Ref.string_of vbd))
+				(fun () ->
+					Xapi_vbd.clean_up_on_domain_destroy vbd (* effect is to unblock threads, not actually unpause *)
+				) ();
+		) all_vbds;
+
+	(* Remove any static lease we might have *)
+	Helpers.log_exn_continue "Vmops.destroy_domain: attempting to remove DHCP lease"
+		(fun () ->
+			Xapi_udhcpd.maybe_remove_lease ~__context self
+		) ()
 
 (* Destroy a VM's domain and all runtime state (domid etc).
    If release_devices is true, unlock all VDIs and clear device_status_flags.
    In the restore case, set release_devices to false so we remember which 
    devices should be attached on resume. *)
-let destroy ?(clear_currently_attached=true) ?(detach_devices=true) ?(deactivate_devices=true) ~__context ~xc ~xs ~self domid state =
-	destroy_domain ~clear_currently_attached ~detach_devices ~deactivate_devices ~__context ~xc ~xs ~self domid;
+let destroy ?(clear_currently_attached=true) ~__context ~xc ~xs ~self domid state =
+	destroy_domain ~clear_currently_attached ~__context ~xc ~xs ~self domid;
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	Db.VM.set_domid ~__context ~self ~value:(-1L);
 
@@ -615,26 +615,13 @@ let get_required_nonCD_VBDs ~__context ~vm =
       && (Db.VBD.get_type ~__context ~self <> `CD))
     (Db.VM.get_VBDs ~__context ~self:vm)
    
-(* get VBDs required to resume *)
-let get_VBDs_required_on_resume ~__context ~vm =
-  List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
-    (Db.VM.get_VBDs ~__context ~self:vm)
-  
-(* get real VDIs required to resume -- i.e. the things we have to attach and maybe activate *)
-let get_VDIs_required_on_resume ~__context ~vm =
-  let needed_vbds = get_VBDs_required_on_resume ~__context ~vm in
-  let needed_vdis =
-    List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd, Db.VBD.get_mode ~__context ~self:vbd)
-      (List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) needed_vbds) in
-  needed_vdis
-
 (* restore CD drives. This needs to happen earlier in the restore sequence. 
  * See CA-17925
  *)
 let _restore_CD_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs =
   	let hvm = Helpers.will_boot_hvm ~__context ~self in
 	let protocol = Helpers.device_protocol_of_string (Db.VM.get_domarch ~__context ~self) in
-    let needed_vbds = get_required_CD_VBDs ~__context ~vm:self in
+    let needed_vbds = Storage_access.vbd_attach_order ~__context (get_required_CD_VBDs ~__context ~vm:self) in
 	let string_of_vbd_list vbds = String.concat "; " 
 	  (List.map (fun vbd -> string_of_vbd ~__context ~vbd) vbds) in
     debug "CD VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
@@ -655,8 +642,9 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs include
 
 	(* We /must/ be able to re-attach all the VBDs the guest had when it suspended. *)
 	let needed_vbds = 
-      if includeCDs then get_VBDs_required_on_resume ~__context ~vm:self 
-      else get_required_nonCD_VBDs ~__context ~vm:self in
+      (if includeCDs then get_required_CD_VBDs ~__context ~vm:self else [])
+		@ (get_required_nonCD_VBDs ~__context ~vm:self) in
+	let needed_vbds = Storage_access.vbd_attach_order ~__context needed_vbds in
 	debug "To restore this domain we need VBDs: [ %s ]" (string_of_vbd_list needed_vbds);
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
@@ -755,42 +743,18 @@ let restore ~__context ~xc ~xs ~self start_paused =
 	    debug "Using suspend image: %s" filename;
 	    let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0o400 in
 	    finally 
-	      (fun () ->
-		 (* Attach and activate VDIs required for resume *)
-		 let needed_vdis = get_VDIs_required_on_resume ~__context ~vm:self in
-		 try
-		   Storage_access.with_careful_attach_and_activate ~__context ~vdis:needed_vdis ~leave_activated:true
-		     (fun () ->
-			try
-			  let vifs = Vm_config.vifs_of_vm ~__context ~vm:self domid in
-			  _restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs true;
-			  _restore_domain ~__context ~xc ~xs ~self snapshot fd ?vnc_statefile domid vifs;
-
-			with exn ->
-			  begin
-			    (* Destroy domain in inner-exn handler because otherwise the storage_access handler won't be able to detach/deactivate the
-			       devices -- the backends will still be accessing them. *** If you ever read this in future and think that this inner exn handler makes
-			       the outer one redundant (or vice-versa) then you're wrong.
-
-			       The double domain destroy that you'll get (since the outer handler will also call destroy) is harmless since domids are
-			       not re-used until we loop round the whole range.
-			    *)
-			    debug "Vmops.restore (inner-handler) caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
-			    destroy ~__context ~xc ~xs ~self ~clear_currently_attached:false ~detach_devices:false ~deactivate_devices:false domid `Suspended;
-			    raise exn (* re-raise *)
-			  end
-		     )
-		 with exn ->
-		   begin
-		     debug "Vmops.restore caught: %s: calling domain_destroy" (ExnHelper.string_of_exn exn);
-		     (* We do not detach/deactivate here because -- either devices were attached (in which case the storage_access
-			handler has already detached them by this point); or devices were _never_ attached because exn was thrown
-			before storage_access handler *)
-		     destroy ~__context ~xc ~xs ~self ~clear_currently_attached:false ~detach_devices:false ~deactivate_devices:false domid `Suspended;
-		     raise exn (* re-raise exn *)
-		   end
-	      )
-	      (fun () -> Helpers.log_exn_continue "restore" (fun () -> Unix.close fd) ()));
+			(fun () ->
+				try
+					let vifs = Vm_config.vifs_of_vm ~__context ~vm:self domid in
+					_restore_devices ~__context ~xc ~xs ~self snapshot fd domid vifs true;
+					_restore_domain ~__context ~xc ~xs ~self snapshot fd ?vnc_statefile domid vifs;
+				with exn ->
+					error "Vmops.restore caught: %s" (ExnHelper.string_of_exn exn);
+					destroy ~__context ~xc ~xs ~self ~clear_currently_attached:false domid `Suspended;
+					raise exn (* re-raise *)
+		    )
+			(fun () -> Helpers.log_exn_continue "restore" (fun () -> Unix.close fd) ())
+	 );
        
        (* No exception must have happened: safe to destroy the VDI *)
 	   begin 
@@ -1012,10 +976,12 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 			assert (target_bytes >= snapshot.API.vM_memory_dynamic_min);
 			assert (target_bytes <= snapshot.API.vM_memory_dynamic_max);
 			let snapshot = { snapshot with API.vM_memory_target = target_bytes } in
+
+			let hvm = Helpers.is_hvm snapshot in
+
 			let (domid: Domain.domid) =
 				create ~__context ~xc ~xs ~self:vm snapshot ~reservation_id () in
-			begin
-				try
+			try
 					Db.VM.set_domid ~__context ~self:vm ~value:(Int64.of_int domid);
 					progress_cb 0.25;
 					clear_all_device_status_fields ~__context ~self:vm;
@@ -1026,27 +992,11 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 						try Some (int_of_string (List.assoc "machine-address-size" other_config))
 						with _ -> None in
 					Domain.set_machine_address_size ~xc domid width;
-					let hvm = Helpers.is_hvm snapshot in
-					(* Don't attempt to attach empty VBDs to PV guests: they can't handle them *)
-					let vbds =
-						if hvm then
-							vbds
-						else
-							List.filter
-								(fun self -> not(Db.VBD.get_empty ~__context ~self))
-								vbds in
-					(* If any VDIs cannot be attached, let the exn propagate *)
-					let vdis =
-						List.map
-							(fun vbd ->
-								Db.VBD.get_VDI ~__context ~self:vbd,
-								Db.VBD.get_mode ~__context ~self:vbd)
-							(List.filter
-								(fun self -> not (Db.VBD.get_empty ~__context ~self))
-								vbds) in
+
+					let non_empty_vbds = List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds in
+					let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) non_empty_vbds in
 					let vdis_with_timeoffset_to_be_reset_on_boot =
 						vdis
-							|> List.map (fst)
 							|> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
 							|> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
 							|> List.filter_map (fun (reference, record) ->
@@ -1079,19 +1029,7 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 
 					Domain.cpuid_apply ~xc ~hvm domid;
 
-					(* Attach and activate reqd vdis: if exn occurs then we do best
-					   effort cleanup -- that is detach and deactivate -- and then
-					   propogate original exception. We need an exn handler around
-					   the whole thing as with_careful_attach_and_activate may throw
-					   an exn whilst trying to attach/activate the vdis; in this case
-					   the inner-fn won't have been able to install its exn handler,
-					   so we have to catch the exn externally and destroy the domain.
-					*)
-					Storage_access.with_careful_attach_and_activate
-						~__context ~vdis ~leave_activated:true
-						(fun () ->
-							try
-								debug "creating VCPU devices and attaching to domain";
+						debug "creating VCPU devices and attaching to domain";
 								create_cpus ~xs snapshot domid;
 								progress_cb 0.40;
 								debug "creating VBD devices and attaching to domain";
@@ -1153,50 +1091,13 @@ let start_paused ?(progress_cb = fun _ -> ()) ~pcidevs ~__context ~vm ~snapshot 
 									~__context
 									~self:snapshot.API.vM_metrics
 									~value:(Date.of_float (Unix.gettimeofday ()));
-							with exn ->
-								(* [Comment copied from similar pattern in "restore" fn above]:
-								   Destroy domain in inner-exn handler because otherwise the
-								   storage_access handler won't be able to detach/deactivate
-								   the devices -- the backends will still be accessing them.
-								   *** If you ever read this in future and think that this
-								   inner exn handler makes the outer one redundant (or vice-
-								   versa) then you're wrong. The double domain destroy that
-								   you'll get (since the outer handler will also call destroy)
-								   is harmless since domids are not re-used until we loop
-								   round the whole range.
-								*)
-								begin
-									debug
-										"Vmops.start_paused (inner-handler) caught: %s: calling domain_destroy"
-											(ExnHelper.string_of_exn exn);
-									destroy
-										~__context ~xc ~xs ~self:vm
-										~detach_devices:false
-										~deactivate_devices:false
-										domid `Halted;
-									raise exn (* re-raise *)
-								end);
-					Helpers.set_boot_record ~__context ~self:vm snapshot
-				with exn ->
-					debug
-						"Vmops.start_paused caught: %s: calling domain_destroy"
-						(ExnHelper.string_of_exn exn);
-					error
-						"Memory F %Ld KiB S %Ld KiB T %Ld MiB"
-						(Memory.get_free_memory_kib xc)
-						(Memory.get_scrub_memory_kib xc)
-						(Memory.get_total_memory_mib xc);
-					(* We do not detach/deactivate here because -- either devices were
-					   attached (in which case the storage_access handler has already
-					   detached them by this point); or devices were _never_ attached
-					   because exn was thrown before storage_access handler
-					*)
-					destroy
-						~__context ~xc ~xs ~self:vm
-						~detach_devices:false
-						~deactivate_devices:false
-						domid `Halted;
-					(* Return a nice exception if we can *)
-					raise (Xapi_xenops_errors.to_api_error exn)
-			end)
-
+								Helpers.set_boot_record ~__context ~self:vm snapshot
+			with exn ->
+				error "Vmops.start_paused caught: %s" (ExnHelper.string_of_exn exn);
+				info "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
+					(Memory.get_free_memory_kib xc)
+					(Memory.get_scrub_memory_kib xc)
+					(Memory.get_total_memory_mib xc);
+				destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+				raise (Xapi_xenops_errors.to_api_error exn) (* re-raise *)
+		)

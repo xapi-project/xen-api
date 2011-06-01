@@ -72,13 +72,9 @@ module Early_wakeup = struct
     Mutex.execute table_m (fun () -> Hashtbl.add table key d);
     finally
       (fun () -> 
-	 (*let start = Unix.gettimeofday () in
-	 let waited_full_length = Delay.wait d time in
-	 let time_sleeping = Unix.gettimeofday () -. start in
-	  debug "Early_wakeup %s key = (%s, %s) after %.2f (speedup %.2f seconds)" 
-	   (if waited_full_length then "slept" else "woken") a b time_sleeping (time -. time_sleeping)
-     *)() )
-      (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
+		  let (_: bool) = Delay.wait d time in
+		  ()
+	  )(fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
       
   let broadcast (a, b) = 
     (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
@@ -355,6 +351,30 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> un
 	 _ -> ())
     
 module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
+
+	(* During certain operations that are executed on a pool slave, the slave management can reconfigure
+	 * its management interface, we can lose connection with the slave.
+	 * This function catches any "host cannot be contacted" exceptions during such calls and polls
+	 * periodically to see whether the operation has completed on the slave. *)
+	let tolerate_connection_loss fn success =
+		try
+			fn ()
+		with
+			Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
+			debug "Lost connection with slave during call (expected). Waiting for slave to come up again.";
+			let num_retries = 30 in
+			let time_between_retries = 1. (* seconds *) in
+			let rec poll i =
+				match i with
+				| 0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
+				| i ->
+					begin
+						match success () with
+						| Some result -> debug "Slave is back!"; result (* success *)
+						| None -> Thread.delay time_between_retries; poll (i-1)
+					end
+			in
+			poll num_retries
 
 	let add_brackets s =
 		if s = "" then
@@ -1991,30 +2011,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	   Client.Host.get_uncooperative_domains rpc session_id self
 	)
 
-    (* We can lose the connection during this operation if we're (e.g.) setting the management interface on a slave to a bond PIF.
-       So we don't report error in these "success failures" we catch the "host cannot be contacted" exception and poll briefly to see
-       if the management flag was set on the PIF we're working with. Since the slave sets this flag after bringing up the management
-       interface, this is a good indication of the success of the call. *)
     let management_reconfigure ~__context ~pif = 
       info "Host.management_reconfigure: management PIF = '%s'" (pif_uuid ~__context pif);
+      (* The management interface on the slave may change during this operation, so expect connection loss.
+       * Consider the operation successful if management flag was set on the PIF we're working with. Since the slave
+       * sets this flag after bringing up the management interface, this is a good indication of success. *)
+      let success () =
+        if Db.PIF.get_management ~__context ~self:pif then Some () else None in
       let local_fn = Local.Host.management_reconfigure ~pif in
-      try
-	do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:pif) (fun session_id rpc -> Client.Host.management_reconfigure rpc session_id pif)
-      with
-	Api_errors.Server_error (ercode, params) when ercode=Api_errors.cannot_contact_host ->
-	  (* poll management pif to see if we lost connection during nw reconfiguration but operation actually succeeded *)
-	  let num_retries = 30 in
-	  let time_between_retries = 1. (* seconds *) in
-	  let rec poll i =
-	    match i with
-	      0 -> raise (Api_errors.Server_error (ercode, params)) (* give up and re-raise exn *)
-	    | i ->
-		begin
-		  if Db.PIF.get_management ~__context ~self:pif then () (* success *)
-		  else (Thread.delay time_between_retries; poll (i-1))
-		end in
-	  poll num_retries
-	    
+      let fn () =
+        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:pif) (fun session_id rpc -> Client.Host.management_reconfigure rpc session_id pif) in
+      tolerate_connection_loss fn success
+
     let management_disable ~__context = 
       info "Host.management_disable";
       Local.Host.management_disable ~__context 
@@ -2347,6 +2355,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	let disable_local_storage_caching ~__context ~host =
 		let local_fn = Local.Host.disable_local_storage_caching ~host in
 		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.disable_local_storage_caching rpc session_id host)
+
+	let get_sm_diagnostics ~__context ~host =
+		let local_fn = Local.Host.get_sm_diagnostics ~host in
+		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_sm_diagnostics rpc session_id host)
+
+	let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
+		let local_fn = Local.Host.sm_dp_destroy ~host ~dp ~allow_leak in
+		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.sm_dp_destroy rpc session_id host dp allow_leak)
 end
 
   module Host_crashdump = struct
@@ -2535,13 +2551,37 @@ end
       then raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []));
       let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
       let local_fn = Local.Bond.create ~network ~members ~mAC ~mode in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode)
+      (* The management interface on the slave may change during this operation, so expect connection loss.
+       * Consider the operation successful if the bond master is currently_attached. Since the slave
+       * sets this flag after setting up the bond, this is a good indication of success. *)
+      let success () =
+        let bond = Db.PIF.get_bond_slave_of ~__context ~self:(List.hd members) in
+        if bond <> Ref.null then begin
+          let master = Db.Bond.get_master ~__context ~self:bond in
+          if Db.PIF.get_currently_attached ~__context ~self:master then
+            Some bond
+          else
+            None
+        end else
+          None
+      in
+      let fn () =
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode) in
+      tolerate_connection_loss fn success
 
     let destroy ~__context ~self =
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
+      (* The management interface on the slave may change during this operation, so expect connection loss.
+       * Consider the operation successful if the primary bond slave is currently_attached. Since the slave
+       * sets this flag after destroying the bond, this is a good indication of success. *)
+      let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
+      let success () =
+        if Db.PIF.get_currently_attached ~__context ~self:primary_slave then Some () else None
+      in
       let local_fn = Local.Bond.destroy ~self in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self)
+      let fn () = do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self) in
+      tolerate_connection_loss fn success
 
     let set_mode ~__context ~self ~value =
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
@@ -2791,6 +2831,10 @@ end
       info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr);
       Local.SR.assert_can_host_ha_statefile ~__context ~sr
 
+		let assert_supports_database_replication ~__context ~sr =
+			info "SR.assert_supports_database_replication: SR '%s'" (sr_uuid ~__context sr);
+			Local.SR.assert_supports_database_replication ~__context ~sr
+
 		let enable_database_replication ~__context ~sr =
 			info "SR.enable_database_replication: SR = '%s'" (sr_uuid ~__context sr);
 			Local.SR.enable_database_replication ~__context ~sr
@@ -2901,6 +2945,11 @@ end
 			let sr = Db.VDI.get_SR ~__context ~self in
 			Sm.assert_session_has_internal_sr_access ~__context ~sr;
 			Local.VDI.set_snapshot_time ~__context ~self ~value
+
+		let set_metadata_of_pool ~__context ~self ~value =
+			let sr = Db.VDI.get_SR ~__context ~self in
+			Sm.assert_session_has_internal_sr_access ~__context ~sr;
+			Local.VDI.set_metadata_of_pool ~__context ~self ~value
 
 		let set_name_label ~__context ~self ~value =
 			info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
@@ -3271,8 +3320,36 @@ end
 	 2. the SR should still be locked by the current PBD.plug operation so it is safe to use
 	    the internal scan function directly. 
       *)
-      Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
-        Xapi_sr.scan_one ~__context:__scan_context sr)
+			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
+				let handle_metadata_vdis () =
+					if Helpers.i_am_srmaster ~__context:__scan_context ~sr then begin
+						let metadata_vdis = List.filter
+							(fun vdi -> Db.VDI.get_type ~__context:__scan_context ~self:vdi = `metadata)
+							(Db.SR.get_VDIs ~__context:__scan_context ~self:sr)
+						in
+						let pool = Helpers.get_pool ~__context:__scan_context in
+						let (vdis_of_this_pool, vdis_of_foreign_pool) = List.partition
+							(fun vdi -> Db.VDI.get_metadata_of_pool ~__context:__scan_context ~self:vdi = pool)
+							metadata_vdis
+						in
+						debug "Adding foreign pool metadata VDIs to cache: [%s]"
+							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_foreign_pool));
+						Xapi_dr.add_vdis_to_cache ~__context:__scan_context ~vdis:vdis_of_foreign_pool;
+						debug "Found metadata VDIs created by this pool: [%s]"
+							(String.concat ";" (List.map (fun vdi -> Db.VDI.get_uuid ~__context:__scan_context ~self:vdi) vdis_of_this_pool));
+						if vdis_of_this_pool <> [] then begin
+							let target_vdi = List.hd vdis_of_this_pool in
+							let vdi_uuid = Db.VDI.get_uuid ~__context:__scan_context ~self:target_vdi in
+							try
+								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~vdi:target_vdi;
+								debug "Re-enabled database replication to VDI %s" vdi_uuid
+							with e ->
+								debug "Could not re-enable database replication to VDI %s - caught %s"
+									vdi_uuid (Printexc.to_string e)
+						end
+					end
+				in
+				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr)
 
     let unplug ~__context ~self =
       info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);

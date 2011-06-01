@@ -159,26 +159,28 @@ let scan_finished sr =
        Hashtbl.remove scans_in_progress sr)
 
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
-let scan_one ~__context sr = 
-  if i_should_scan_sr sr
-  then 
-    ignore(Thread.create
-      (fun () ->
-	 Server_helpers.exec_with_subtask ~__context "scan one" (fun ~__context ->
-	 finally
-	   (fun () ->
-	      try
-		Helpers.call_api_functions ~__context
-		  (fun rpc session_id ->
-		     Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
-		       (fun sr -> 
-			  Client.SR.scan rpc session_id sr) sr)
-	      with e ->
-		error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
-	   )
-	   (fun () -> 
-	      scan_finished sr)
-      )) ())
+(* If a callback is supplied, call it once the scan is complete. *)
+let scan_one ~__context ?callback sr =
+	if i_should_scan_sr sr
+	then 
+		ignore(Thread.create
+			(fun () ->
+				Server_helpers.exec_with_subtask ~__context "scan one" (fun ~__context ->
+					finally
+						(fun () ->
+							try
+								Helpers.call_api_functions ~__context
+									(fun rpc session_id ->
+										Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
+											(fun sr -> 
+												Client.SR.scan rpc session_id sr) sr)
+							with e ->
+								error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
+						)
+						(fun () -> 
+							scan_finished sr;
+							Opt.iter (fun f -> f ()) callback)
+					)) ())
 
 let get_all_plugged_srs ~__context =
   let pbds = Db.PBD.get_all ~__context in
@@ -348,9 +350,9 @@ let forget  ~__context ~sr =
 	(* NB we fail if ANY host is connected to this SR *)
 	check_no_pbds_attached ~__context ~sr;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-	Db.SR.destroy ~__context ~self:sr;
 	let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis
+	List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
+	Db.SR.destroy ~__context ~self:sr
 
 (** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
    PBD record on current host to determine device_config reqd by sr backend) *)
@@ -363,25 +365,12 @@ let destroy  ~__context ~sr =
 	if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
 		raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
 
-	(* this attaches the PBDs, and they need to stay that way for the call to SM below *)
-	Storage_access.SR.attach ~__context ~self:sr;
-
-	begin
-		try
-			Sm.call_sm_functions ~__context ~sR:sr
-				(fun device_config driver -> Sm.sr_delete device_config driver sr)
-		with
-		| Smint.Not_implemented_in_backend ->
-				raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
-	end;
-
-	(* return all PBDs to their unattached state *)
-	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds;
+	Storage_access.destroy_sr ~__context ~sr;
+	
 	(* The sr_delete may have deleted some VDI records *)
 	let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 	let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
-	(* Let's not call detach because the backend throws an error *)
 	Db.SR.destroy ~__context ~self:sr;
 	Xapi_secret.clean_out_passwds ~__context sm_cfg;
 	List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
@@ -448,6 +437,30 @@ let set_physical_utilisation ~__context ~self ~value =
 let assert_can_host_ha_statefile ~__context ~sr = 
   Xha_statefile.assert_sr_can_host_statefile ~__context ~sr
 
+let assert_supports_database_replication ~__context ~sr =
+	(* Check that each host has a PBD to this SR *)
+	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+	let connected_hosts = List.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds) in
+	let all_hosts = Db.Host.get_all ~__context in
+	if List.length connected_hosts < (List.length all_hosts) then begin
+		error "Cannot enable database replication to SR %s: some hosts lack a PBD: [ %s ]"
+			(Ref.string_of sr)
+			(String.concat "; " (List.map Ref.string_of (set_difference all_hosts connected_hosts)));
+		raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
+	end;
+	(* Check that each PBD is plugged in *)
+	List.iter (fun self ->
+		if not(Db.PBD.get_currently_attached ~__context ~self) then begin
+			error "Cannot enable database replication to SR %s: PBD %s is not plugged"
+				(Ref.string_of sr) (Ref.string_of self);
+			(* Same exception is used in this case (see Helpers.assert_pbd_is_plugged) *)
+			raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
+		end) pbds;
+	(* Check the exported capabilities of the SR's SM plugin *)
+	let srtype = Db.SR.get_type ~__context ~self:sr in
+	if not (List.mem Smint.Sr_metadata (Sm.capabilities_of_driver srtype))
+	then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
+
 (* Metadata replication to SRs *)
 let find_or_create_metadata_vdi ~__context ~sr =
 	let pool = Helpers.get_pool ~__context in
@@ -481,6 +494,7 @@ let find_or_create_metadata_vdi ~__context ~sr =
 let enable_database_replication ~__context ~sr =
 	if (not (Pool_features.is_enabled ~__context Features.DR)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	assert_supports_database_replication ~__context ~sr;
 	let metadata_vdi = find_or_create_metadata_vdi ~__context ~sr in
 	Xapi_vdi_helpers.enable_database_replication ~__context ~vdi:metadata_vdi
 

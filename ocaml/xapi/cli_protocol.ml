@@ -208,6 +208,8 @@ let marshal (fd: Unix.file_descr) x =
   write_string fd (marshal_int (String.length payload));
   write_string fd payload
 
+exception Unmarshal_failure of exn * string
+
 let unmarshal_message pos = 
   let tag, pos = unmarshal_int pos in match tag with
     | 9 -> let body, pos = unmarshal_command pos in Command body, pos
@@ -215,23 +217,19 @@ let unmarshal_message pos =
     | 11 -> let body, pos = unmarshal_blob_header pos in Blob body, pos
     | n -> raise (Unknown_tag("blob_header", n))
 
-(* Guarantee to read 'n' bytes from a file descriptor or raise End_of_file *)
-let really_read (fd: Unix.file_descr) n = 
-  let buffer = String.make n '\000' in
-  let rec really_read off n =
-    if n=0 then buffer else
-      let m = Unix.read fd buffer off n in
-      if m = 0 then raise End_of_file;
-      really_read (off+m) (n-m)
-  in
-  really_read 0 n
-
 (** Unmarshal a message from a file descriptor *)
-let unmarshal (fd: Unix.file_descr) = 
-  let buf = really_read fd 4 in
-  let length, _ = unmarshal_int (buf, 0) in
-  let buf = really_read fd length in
-  fst (unmarshal_message (buf, 0))
+let unmarshal (fd: Unix.file_descr) =
+	let buf = Buffer.create 0 in
+	try
+		let head = Unixext.try_read_string ~limit:4 fd in
+		Buffer.add_string buf head;
+		if String.length head < 4 then raise End_of_file;
+		let length, _ = unmarshal_int (head, 0) in
+		let body = Unixext.try_read_string ~limit:length fd in
+		Buffer.add_string buf body;
+		if String.length body < length then raise End_of_file;
+		fst (unmarshal_message (body, 0))
+	with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
 
 let marshal_protocol (fd: Unix.file_descr) = 
   write_string fd (prefix ^ (marshal_int major) ^ (marshal_int minor))
@@ -239,12 +237,24 @@ let marshal_protocol (fd: Unix.file_descr) =
 exception Protocol_mismatch of string
 exception Not_a_cli_server
 
-let unmarshal_protocol (fd: Unix.file_descr) = 
-  let buf = really_read fd (String.length prefix) in
-  if buf <> prefix then raise Not_a_cli_server;
-  let major', _ = unmarshal_int (really_read fd 4, 0) in
-  let minor', _ = unmarshal_int (really_read fd 4, 0) in
-  major', minor'
+let unmarshal_protocol (fd: Unix.file_descr) =
+	let buf = Buffer.create 0 in
+	try
+		let prefix_len = String.length prefix in
+		let prefix' = Unixext.try_read_string ~limit:prefix_len fd in
+		Buffer.add_string buf prefix';
+		if String.length prefix' < prefix_len then raise End_of_file;
+		if prefix' <> prefix then raise Not_a_cli_server;
+		let major_str = Unixext.try_read_string ~limit:4 fd in
+		Buffer.add_string buf major_str;
+		if String.length major_str < 4 then raise End_of_file;
+		let minor_str = Unixext.try_read_string ~limit:4 fd in
+		Buffer.add_string buf minor_str;
+		if String.length minor_str < 4 then raise End_of_file;
+		let major', _ = unmarshal_int (major_str, 0) in
+		let minor', _ = unmarshal_int (minor_str, 0) in
+		major', minor'
+	with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
 
 
 (*****************************************************************************)

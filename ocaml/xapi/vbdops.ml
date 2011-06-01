@@ -28,26 +28,17 @@ open D
 module L = Debug.Debugger(struct let name="license" end)
 
 
-(** Thrown if an empty VBD is attached to a PV guest *)
-exception Empty_VBDs_not_supported_for_PV
 (** Thrown if an empty VBD which isn't a CDROM is attached to an HVM guest *)
 exception Only_CD_VBDs_may_be_empty
 
 
-(* This function maps from a string-encoded integer to a device name, dependent on *)
-(* whether the VM is HVM or not. HVM gets a mapping 0 -> hda | 1 -> hdb etc., and *)
-(* PV gets 0 -> xvda | 1 -> xvdb etc *)
-
-let translate_vbd_device name is_hvm =
-  try
-    let num = int_of_string name in
-    if num<0 || num>15 then failwith "Invalid"; (* Note - this gets caught and the original string is returned *)
-    let a = int_of_char 'a' in
-    if is_hvm
-    then Printf.sprintf "hd%c" (char_of_int (num+a))
-    else Printf.sprintf "xvd%c" (char_of_int (num+a))
-  with
-      _ -> name
+let translate_vbd_device vbd_ref name is_hvm =
+	try
+		let i = Device_number.of_string is_hvm name in
+		debug "VBD device name %s interpreted as %s (hvm = %b)" name (Device_number.to_debug_string i) is_hvm;
+		i
+	with _ ->
+		raise (Api_errors.Server_error(Api_errors.illegal_vbd_device, [ Ref.string_of vbd_ref; name ]))
 
 (** Create a debug-friendly string from a VBD *)
 let string_of_vbd ~__context ~vbd = 
@@ -63,8 +54,6 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
     (fun () ->
 	(* Don't attempt to attach an empty VBD to a PV guest *)
 	let empty = Db.VBD.get_empty ~__context ~self in
-	if not(hvm) && empty
-	then raise Empty_VBDs_not_supported_for_PV;
 	let dev_type = Db.VBD.get_type ~__context ~self in
 	if empty && dev_type <> `CD
 	then raise Only_CD_VBDs_may_be_empty;
@@ -79,41 +68,39 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 	let unpluggable = Db.VBD.get_unpluggable ~__context ~self in
 
 	let userdevice = Db.VBD.get_userdevice ~__context ~self in
-	let realdevice = translate_vbd_device userdevice hvm in
-	Db.VBD.set_device ~__context ~self ~value:realdevice;
+	let device_number = translate_vbd_device self userdevice hvm in
+	Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
+
+	let vdi = Db.VBD.get_VDI ~__context ~self in
 
 	if empty then begin
-	  let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
-	    ~virtpath:realdevice ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
-	  Db.VBD.set_currently_attached ~__context ~self ~value:true;
+		if hvm then begin
+			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
+				~device_number ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
+		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
 	end else begin
-	  (* Attach a real VDI *)
-	  let vdi = Db.VBD.get_VDI ~__context ~self in
-	  let vdi_uuid = Uuid.of_string (Db.VDI.get_uuid ~__context ~self:vdi) in
-
-	  Sm.call_sm_vdi_functions ~__context ~vdi
-	    (fun srconf srtype sr ->
-	       let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) 
-	       and physpath = Storage_access.VDI.get_physical_path vdi_uuid in
-
-		    try
-		      (* The backend can put useful stuff in here on vdi_attach *)
-		      let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
-		      let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~physpath
-			~virtpath:realdevice ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
-
-		      Db.VBD.set_currently_attached ~__context ~self ~value:true;
-		      debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)
-		    with   
-		    | Hotplug.Device_timeout device ->
-			error "Timeout waiting for backend hotplug scripts (%s) for VBD %s" (Device_common.string_of_device device) (string_of_vbd ~__context ~vbd:self);
-			raise (Api_errors.Server_error(Api_errors.device_attach_timeout, 
-						      [ "VBD"; Ref.string_of self ]))
-		    | Hotplug.Frontend_device_timeout device ->
-			error "Timeout waiting for frontend hotplug scripts (%s) for VBD %s" (Device_common.string_of_device device) (string_of_vbd ~__context ~vbd:self);
-			raise (Api_errors.Server_error(Api_errors.device_attach_timeout, 
-						      [ "VBD"; Ref.string_of self ]))
-		 )
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
+		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
+		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
+			(fun physpath ->
+				try
+					(* The backend can put useful stuff in here on vdi_attach *)
+					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
+					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~physpath
+						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+					Db.VBD.set_currently_attached ~__context ~self ~value:true;
+					debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)
+				with
+					| Hotplug.Device_timeout device ->
+						error "Timeout waiting for backend hotplug scripts (%s) for VBD %s" (Device_common.string_of_device device) (string_of_vbd ~__context ~vbd:self);
+						raise (Api_errors.Server_error(Api_errors.device_attach_timeout,
+						[ "VBD"; Ref.string_of self ]))
+					| Hotplug.Frontend_device_timeout device ->
+						error "Timeout waiting for frontend hotplug scripts (%s) for VBD %s" (Device_common.string_of_device device) (string_of_vbd ~__context ~vbd:self);
+						raise (Api_errors.Server_error(Api_errors.device_attach_timeout,
+						[ "VBD"; Ref.string_of self ]))
+			)
 	end
     )
 
@@ -217,11 +204,12 @@ let eject_vbd ~__context ~self =
 			   ejected the cd or not *)
 			let notejected = List.fold_left (fun acc (vbd, vm) ->
 				let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-				let device = Db.VBD.get_device ~__context ~self:vbd in
+				let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 				with_xs (fun xs ->
-					if Device.Vbd.media_is_ejected ~xs ~virtpath:device domid then
+					if Device.Vbd.media_is_ejected ~xs ~device_number domid then begin
+						Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
 						acc
-					else
+					end else
 						vbd :: acc
 				)
 			) [] running_vbds in
@@ -232,7 +220,6 @@ let eject_vbd ~__context ~self =
 					let cmd = [| "eject"; location |] in
 					ignore (Unixext.spawnvp cmd.(0) cmd)
 				);
-				Storage_access.deactivate_and_detach ~__context ~vdi;
 			)
 		) else (
 			Db.VBD.set_empty ~__context ~self ~value:true;

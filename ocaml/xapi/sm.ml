@@ -159,20 +159,12 @@ let vdi_detach dconf driver sr vdi =
 let vdi_activate dconf driver sr vdi writable =
   debug "vdi_activate" driver (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi));
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_activate" [ sprintf "%b" writable ] in
-  let loc = Opt.unbox call.Sm_exec.vdi_location in 
-  Xapi_local_vdi_state.activate loc writable;
-  try 
-	  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
-  with e ->
-	  Xapi_local_vdi_state.deactivate loc;
-	  raise e
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 			
 let vdi_deactivate dconf driver sr vdi =
   debug "vdi_deactivate" driver (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi));
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_deactivate" [] in
-  let loc = Opt.unbox call.Sm_exec.vdi_location in
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call);
-  Xapi_local_vdi_state.deactivate loc
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 let vdi_snapshot dconf driver driver_params sr vdi =
   debug "vdi_snapshot" driver (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr) (Ref.string_of vdi) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params)));

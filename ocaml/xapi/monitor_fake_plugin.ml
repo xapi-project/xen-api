@@ -3,7 +3,7 @@ open Monitor_fake_common
 exception UnknownRpc
 
 
-let add_fake_ds uuid ds_name ds_type value =
+let add_fake_ds fname ds_name ds_type value =
 	let value = float_of_string value in
 	let ty = match ds_type with 
 		| "absolute" -> Rrd.Absolute
@@ -12,7 +12,6 @@ let add_fake_ds uuid ds_name ds_type value =
 		| _ -> failwith "Unknown ds type"
 	in
 	Unixext.mkdir_rec fake_dir 0o755;
-	let fname = Printf.sprintf "%s/%s.fakestats" fake_dir uuid in
 	let orig_dss = 
 		try
 			fake_ds_list_of_rpc (Jsonrpc.of_string (Unixext.string_of_file fname))
@@ -22,7 +21,13 @@ let add_fake_ds uuid ds_name ds_type value =
 	let new_dss = new_ds::(List.filter (fun ds -> ds.f_name <> ds_name) orig_dss) in
 	Unixext.write_string_to_file fname (Jsonrpc.to_string (rpc_of_fake_ds_list new_dss))
 
+let add_fake_ds_vm uuid =
+	let fname = Printf.sprintf "%s/%s.fakestats" fake_dir uuid in
+	add_fake_ds fname
 
+let add_fake_ds_host =
+	let fname = Printf.sprintf "%s/host.fakestats" fake_dir in
+	add_fake_ds fname
 
 let _ =
 	try 
@@ -47,7 +52,13 @@ let _ =
 					let ds_name = Rpc.string_of_rpc (List.assoc "ds_name" args) in
 					let ds_type = Rpc.string_of_rpc (List.assoc "ds_type" args) in
 					let value = Rpc.string_of_rpc (List.assoc "value" args) in
-					add_fake_ds uuid ds_name ds_type value;
+					add_fake_ds_vm uuid ds_name ds_type value;
+					Rpc.rpc_of_string "OK"
+				| "add_fake_ds_host" ->
+					let ds_name = Rpc.string_of_rpc (List.assoc "ds_name" args) in
+					let ds_type = Rpc.string_of_rpc (List.assoc "ds_type" args) in
+					let value = Rpc.string_of_rpc (List.assoc "value" args) in
+					add_fake_ds_host ds_name ds_type value;
 					Rpc.rpc_of_string "OK"
 				| _ -> 
 					raise UnknownRpc

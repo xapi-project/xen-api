@@ -498,6 +498,8 @@ let _ =
     ~doc:"The specified VM has too little memory to be started." ();
   error Api_errors.vm_duplicate_vbd_device [ "vm"; "vbd"; "device" ]
     ~doc:"The specified VM has a duplicate VBD device and cannot be started." ();
+  error Api_errors.illegal_vbd_device [ "vbd"; "device" ]
+	  ~doc:"The specified VBD device is not recognised: please use a non-negative integer" ();
   error Api_errors.vm_not_resident_here [ "vm"; "host" ]
     ~doc:"The specified VM is not currently resident on the specified host." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]
@@ -3837,6 +3839,30 @@ let host_disable_local_storage_caching = call ~flags:[`Session]
 	~allowed_roles:_R_POOL_OP
 	()
 
+let host_get_sm_diagnostics = call ~flags:[`Session]
+	~name:"get_sm_diagnostics"
+	~in_product_since:rel_boston
+	~doc:"Return live SM diagnostics"
+	~params:[
+		Ref _host, "host", "The host"
+	]
+	~result:(String, "Printable diagnostic data")
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	()
+
+let host_sm_dp_destroy = call ~flags:[`Session]
+	~name:"sm_dp_destroy"
+	~in_product_since:rel_boston
+	~doc:"Attempt to cleanup and destroy a named SM datapath"
+	~params:[
+		Ref _host, "host", "The host";
+		String, "dp", "The datapath";
+		Bool, "allow_leak", "If true, all records of the datapath will be removed even if the datapath could not be destroyed cleanly.";
+	]
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	()
 
 (** Hosts *)
 let host =
@@ -3913,6 +3939,8 @@ let host =
 		 host_reset_networking;
 		 host_enable_local_storage_caching;
 		 host_disable_local_storage_caching;
+		 host_get_sm_diagnostics;
+		 host_sm_dp_destroy;
 		 ]
       ~contents:
         ([ uid _host;
@@ -4589,6 +4617,15 @@ let sr_assert_can_host_ha_statefile = call
    ~allowed_roles:_R_POOL_OP
    ()
 
+let sr_assert_supports_database_replication = call
+	~name:"assert_supports_database_replication"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _sr, "sr", "The SR to query"]
+	~doc:"Returns successfully if the given SR supports database replication. Otherwise returns an error to explain why not."
+	~allowed_roles:_R_POOL_OP
+	()
+
 let sr_enable_database_replication = call
 	~name:"enable_database_replication"
 	~in_oss_since:None
@@ -4618,6 +4655,7 @@ let storage_repository =
 		  sr_create_new_blob;
 		  sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
 		  sr_assert_can_host_ha_statefile;
+			sr_assert_supports_database_replication;
 			sr_enable_database_replication;
 			sr_disable_database_replication;
 
@@ -4896,6 +4934,17 @@ let vdi_set_snapshot_time = call
 	~allowed_roles:_R_VM_ADMIN
 	()
 
+let vdi_set_metadata_of_pool = call
+	~name:"set_metadata_of_pool"
+	~in_oss_since:None
+	~in_product_since:rel_boston
+	~params:[Ref _vdi, "self", "The VDI to modify";
+		Ref _pool, "value", "The pool whose metadata is contained by this VDI"]
+	~flags:[`Session]
+	~doc:"Records the pool whose metadata is contained by this VDI."
+	~allowed_roles:_R_VM_ADMIN
+	()
+
 (** An API call for debugging and testing only *)
 let vdi_generate_config = call
    ~name:"generate_config"
@@ -5010,6 +5059,7 @@ let vdi =
 		 vdi_set_is_a_snapshot;
 		 vdi_set_snapshot_of;
 		 vdi_set_snapshot_time;
+		 vdi_set_metadata_of_pool;
 		 vdi_set_name_label;
 		 vdi_set_name_description;
 		 vdi_generate_config;
