@@ -47,7 +47,7 @@ let copy_configuration ~__context from_pif to_pif =
 
 (* Determine local VIFs: candidates for moving to the bond.
  * Local VIFs are those VIFs on the given networks that belong to VMs that
- * are either running on the current host, or can only start on the current host. *)
+ * are either running on the current host, or can only start on the current host or nowhere. *)
 let get_local_vifs ~__context host networks =
 	(* Construct (VM -> VIFs) map for all VIFs on the given networks  *)
 	let vms_with_vifs = Hashtbl.create 10 in
@@ -67,7 +67,7 @@ let get_local_vifs ~__context host networks =
 			true
 		else begin
 			let hosts = Xapi_vm.get_possible_hosts ~__context ~vm in
-			List.mem host hosts && List.length hosts = 1
+			(List.mem host hosts && List.length hosts = 1) || (List.length hosts = 0)
 		end
 	in
 
