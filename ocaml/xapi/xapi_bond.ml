@@ -292,12 +292,8 @@ let create ~__context ~network ~members ~mAC ~mode =
 			debug "Moving management from slave to master";
 			move_management ~__context management_pif master
 		| None ->
-			(* Plug master if one of the slaves was plugged *)
-			let plugged = List.fold_left (fun a m -> Db.PIF.get_currently_attached ~__context ~self:m || a) false members in
-			if plugged then begin
-				debug "Plugging the bond";
-				Nm.bring_pif_up ~__context master
-			end
+			debug "Plugging the bond";
+			Nm.bring_pif_up ~__context master
 		end;
 
 		(* Temporary measure for compatibility with current interface-reconfigure.
