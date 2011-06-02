@@ -351,10 +351,11 @@ let destroy ~__context ~self =
 			(* The master is the management interface: move management to first slave *)
 			debug "Moving management from master to slaves";
 			move_management ~__context master primary_slave;
+			List.iter (fun pif -> if pif <> primary_slave then Nm.bring_pif_up ~__context pif) members
 		end else begin
-			(* Plug the primary slave if the master was plugged *)
+			(* Plug the members if the master was plugged *)
 			if plugged then
-				Nm.bring_pif_up ~__context primary_slave
+				List.iter (Nm.bring_pif_up ~__context) members
 		end;
 
 		(* Move VIFs from master to slaves *)
