@@ -16,6 +16,7 @@ open D
 
 open Listext
 open Threadext
+open Hashtblext
 
 (* Returns the name of a new bond device, which is the string "bond" followed
  * by the smallest integer > 0 that does not yet appear in a bond name on this host. *)
@@ -44,19 +45,41 @@ let copy_configuration ~__context from_pif to_pif =
 	Db.PIF.set_gateway ~__context ~self:to_pif ~value:gateway;
 	Db.PIF.set_DNS ~__context ~self:to_pif ~value:dns
 
-(* Determined local VMs: candidates for moving to the bond *)
-let get_local_vms ~__context host =
-	let check vm =
-		(* only move the VIFs of a VM if this VM is resident, or can _only_ start, on _this_ host *)
-		let hosts = Xapi_vm.get_possible_hosts ~__context ~vm in
-		let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-		resident_on = host || (List.mem host hosts && List.length hosts = 1)
+(* Determine local VIFs: candidates for moving to the bond.
+ * Local VIFs are those VIFs on the given networks that belong to VMs that
+ * are either running on the current host, or can only start on the current host. *)
+let get_local_vifs ~__context host networks =
+	(* Construct (VM -> VIFs) map for all VIFs on the given networks  *)
+	let vms_with_vifs = Hashtbl.create 10 in
+	let all_vifs = List.concat (List.map (fun net -> Db.Network.get_VIFs ~__context ~self:net) networks) in
+	let add_vif vif =
+		let vm = Db.VIF.get_VM ~__context ~self:vif in
+		Hashtbl.add vms_with_vifs vm vif
 	in
-	let local_vms = List.filter check (Db.VM.get_all ~__context) in
-	debug "Found these local VMs: %s" (String.concat ", " (List.map (fun v -> Db.VM.get_uuid ~__context ~self:v) local_vms));
-	local_vms
+	List.iter add_vif all_vifs;
 
-let move_vlan ~__context host new_slave old_vlan vifs =
+	(* This function is potentially expensive, so do not call it more often than necessary. *)
+	let is_local vm =
+		(* Only move the VIFs of a VM if this VM is resident, or can _only_ start on _this_ host or nowhere. *)
+		(* Do the latter check only if needed, as it is expensive. *)
+		let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+		if resident_on = host then
+			true
+		else begin
+			let hosts = Xapi_vm.get_possible_hosts ~__context ~vm in
+			List.mem host hosts && List.length hosts = 1
+		end
+	in
+
+	(* Make a list of the VIFs for local VMs *)
+	let vms = Hashtbl.fold_keys vms_with_vifs in
+	let local_vifs = List.concat (List.map (fun vm ->
+		if is_local vm then Hashtbl.find_all vms_with_vifs vm else []
+	) vms) in
+	debug "Found these local VIFs: %s" (String.concat ", " (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs));
+	local_vifs
+
+let move_vlan ~__context host new_slave old_vlan =
 	let old_master = Db.VLAN.get_untagged_PIF ~__context ~self:old_vlan in
 	let tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
 	let network = Db.PIF.get_network ~__context ~self:old_master in
@@ -75,6 +98,7 @@ let move_vlan ~__context host new_slave old_vlan vifs =
 			let new_master = Db.VLAN.get_untagged_PIF ~__context ~self:new_vlan in
 			let new_network = Db.PIF.get_network ~__context ~self:new_master in
 			(* Move VIFs to other VLAN's network *)
+			let vifs = get_local_vifs ~__context host [network] in
 			ignore (List.map (Xapi_vif.move ~__context ~network:new_network) vifs);
 			new_vlan, new_master
 		| [] ->
@@ -126,25 +150,6 @@ let move_management ~__context from_pif to_pif =
 	Xapi_host.change_management_interface ~__context bridge;
 	Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
-let get_vlan_vifs ~__context vlan =
-	let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
-	let vlan_network = Db.PIF.get_network ~__context ~self:tagged_pif in
-	Db.Network.get_VIFs ~__context ~self:vlan_network
-
-let stuff_to_move_up ~__context members host =
-	(* VIFS *)
-	let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
-	let local_vms = get_local_vms ~__context host in
-	let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
-	let slave_vifs_to_move = List.filter (fun vif -> List.mem (Db.VIF.get_network ~__context ~self:vif) member_networks) local_vifs in
-	(* VLANS *)
-	let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
-	let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
-	(* Tunnels *)
-	let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
-	(* return both *)
-	slave_vifs_to_move, vlans_with_vifs, local_tunnels
-
 let	rec unplug_vifs ~__context l = function
 	| [] -> l
 	| hd :: tl ->
@@ -164,27 +169,30 @@ let fix_bond ~__context ~bond =
 	let network = Db.PIF.get_network ~__context ~self:master in
 	let host = Db.PIF.get_host ~__context ~self:master in
 
-	(* Try unplugging any plugged VIFs that would need to be moved *)
-	let local_vifs_to_move, vlans_with_vifs, local_tunnels = stuff_to_move_up ~__context members host in
+	let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
 
-	if local_vifs_to_move <> [] || vlans_with_vifs <> [] then begin
+	let local_vifs = get_local_vifs ~__context host member_networks in
+	let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
+	let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
+
+	if local_vifs <> [] || local_vlans <> [] || local_tunnels <> [] then begin
 		(* Do not do the following for now, as it created problems 
 		let vifs_to_unplug = List.filter (fun vif -> Db.VIF.get_currently_attached ~__context ~self:vif = true)
 			(local_vifs_to_move @ (List.flatten (List.map (fun (a,b) -> b) vlans_with_vifs))) in
 		ignore (unplug_vifs ~__context [] vifs_to_unplug);
 		*)
 
-		(* Move VLANs, with their VIFs, from members to master *)
-		debug "Moving VLANs, with their VIFs, from slaves to master";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context host master vlan vifs) vlans_with_vifs;
+		(* Move VLANs from members to master *)
+		debug "Checking VLANs to move from slaves to master";
+		List.iter (move_vlan ~__context host master) local_vlans;
 
 		(* Move tunnels from members to master *)
-		debug "Moving tunnels from slaves to master";
+		debug "Checking tunnels to move from slaves to master";
 		List.iter (move_tunnel ~__context host master) local_tunnels;
 
 		(* Move VIFs from members to master *)
-		debug "Moving VIFs from slaves to master";
-		List.iter (Xapi_vif.move ~__context ~network) local_vifs_to_move
+		debug "Checking VIFs to move from slaves to master";
+		List.iter (Xapi_vif.move ~__context ~network) local_vifs
 	end;
 	begin match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
 	| management_pif :: _ -> 
@@ -244,7 +252,11 @@ let create ~__context ~network ~members ~mAC ~mode =
 		then raise (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, []));
 		*)
 
-		let local_vifs_to_move, vlans_with_vifs, local_tunnels = stuff_to_move_up ~__context members host in
+		let member_networks = List.map (fun pif -> Db.PIF.get_network ~__context ~self:pif) members in
+
+		let local_vifs = get_local_vifs ~__context host member_networks in
+		let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
+		let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
 
 		(* Do not do the following for now, as it created problems 
 		(* Try unplugging any plugged VIFs that would need to be moved *)
@@ -317,17 +329,17 @@ let create ~__context ~network ~members ~mAC ~mode =
 		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
 		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
 
-		(* Move VLANs, with their VIFs, from members to master *)
-		debug "Moving VLANs, with their VIFs, from slaves to master";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context host master vlan vifs) vlans_with_vifs;
+		(* Move VLANs from members to master *)
+		debug "Check VLANs to move from slaves to master";
+		List.iter (move_vlan ~__context host master) local_vlans;
 
 		(* Move tunnels from members to master *)
-		debug "Moving tunnels from slaves to master";
+		debug "Check tunnels to move from slaves to master";
 		List.iter (move_tunnel ~__context host master) local_tunnels;
 
 		(* Move VIFs from members to master *)
-		debug "Moving VIFs from slaves to master";
-		List.iter (Xapi_vif.move ~__context ~network) local_vifs_to_move;
+		debug "Check VIFs to move from slaves to master";
+		List.iter (Xapi_vif.move ~__context ~network) local_vifs;
 
 		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
 		if disallow_unplug then
@@ -353,14 +365,8 @@ let destroy ~__context ~self =
 		let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
 		let primary_slave_network = Db.PIF.get_network ~__context ~self:primary_slave in
 
-		let local_vms = get_local_vms ~__context host in
-		let local_vifs = List.concat (List.map (fun vm -> Db.VM.get_VIFs ~__context ~self:vm) local_vms) in
-		let local_vifs_on_master_network =
-			List.filter (fun vif -> Db.VIF.get_network ~__context ~self:vif = master_network) local_vifs in
-		debug "Found these local VIFs: %s" (String.concat ", " (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs));
-
+		let local_vifs = get_local_vifs ~__context host [master_network] in
 		let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
-		let vlans_with_vifs = List.map (fun vlan -> vlan, List.intersect (get_vlan_vifs ~__context vlan) local_vifs) local_vlans in
 		let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
 
 		(* Do not do the following for now, as it created problems
@@ -382,15 +388,15 @@ let destroy ~__context ~self =
 		end;
 
 		(* Move VIFs from master to slaves *)
-		debug "Moving VIFs from master to slaves";
-		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs_on_master_network;
+		debug "Check VIFs to move from master to slaves";
+		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs;
 
 		(* Move VLANs down *)
-		debug "Moving VLANs from master to slaves";
-		List.iter (fun (vlan, vifs) -> move_vlan ~__context host primary_slave vlan vifs) vlans_with_vifs;
+		debug "Check VLANs to move from master to slaves";
+		List.iter (move_vlan ~__context host primary_slave) local_vlans;
 
 		(* Move tunnels down *)
-		debug "Moving tunnels from master to slaves";
+		debug "Check tunnels to move from master to slaves";
 		List.iter (move_tunnel ~__context host primary_slave) local_tunnels;
 
 		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
