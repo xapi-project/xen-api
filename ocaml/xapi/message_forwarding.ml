@@ -2573,11 +2573,9 @@ end
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
       (* The management interface on the slave may change during this operation, so expect connection loss.
-       * Consider the operation successful if the primary bond slave is currently_attached. Since the slave
-       * sets this flag after destroying the bond, this is a good indication of success. *)
-      let primary_slave = Db.Bond.get_primary_slave ~__context ~self in
+       * Consider the operation successful if the bond object is gone. *)
       let success () =
-        if Db.PIF.get_currently_attached ~__context ~self:primary_slave then Some () else None
+        if Db.is_valid_ref __context self then None else Some ()
       in
       let local_fn = Local.Bond.destroy ~self in
       let fn () = do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self) in
