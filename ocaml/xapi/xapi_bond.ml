@@ -293,6 +293,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 			debug "Plugging the bond";
 			Nm.bring_pif_up ~__context master
 		end;
+		TaskHelper.set_progress ~__context 0.2;
 
 		(* Temporary measure for compatibility with current interface-reconfigure.
 		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
@@ -301,14 +302,17 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Move VLANs from members to master *)
 		debug "Check VLANs to move from slaves to master";
 		List.iter (move_vlan ~__context host master) local_vlans;
+		TaskHelper.set_progress ~__context 0.4;
 
 		(* Move tunnels from members to master *)
 		debug "Check tunnels to move from slaves to master";
 		List.iter (move_tunnel ~__context host master) local_tunnels;
+		TaskHelper.set_progress ~__context 0.6;
 
 		(* Move VIFs from members to master *)
 		debug "Check VIFs to move from slaves to master";
 		List.iter (Xapi_vif.move ~__context ~network) local_vifs;
+		TaskHelper.set_progress ~__context 0.8;
 
 		(* Set disallow_unplug on the master, if one of the slaves had disallow_unplug = true (see above) *)
 		if disallow_unplug then
@@ -320,6 +324,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 			Db.PIF.set_ip_configuration_mode ~__context ~self:pif ~value:`None;
 			Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false)
 			members;
+		TaskHelper.set_progress ~__context 1.0;
 	);
 	(* return a ref to the new Bond object *)
 	bond
@@ -351,18 +356,22 @@ let destroy ~__context ~self =
 			if plugged then
 				List.iter (Nm.bring_pif_up ~__context) members
 		end;
+		TaskHelper.set_progress ~__context 0.2;
 
 		(* Move VIFs from master to slaves *)
 		debug "Check VIFs to move from master to slaves";
 		List.iter (Xapi_vif.move ~__context ~network:primary_slave_network) local_vifs;
+		TaskHelper.set_progress ~__context 0.4;
 
 		(* Move VLANs down *)
 		debug "Check VLANs to move from master to slaves";
 		List.iter (move_vlan ~__context host primary_slave) local_vlans;
+		TaskHelper.set_progress ~__context 0.6;
 
 		(* Move tunnels down *)
 		debug "Check tunnels to move from master to slaves";
 		List.iter (move_tunnel ~__context host primary_slave) local_tunnels;
+		TaskHelper.set_progress ~__context 0.8;
 
 		if Db.PIF.get_disallow_unplug ~__context ~self:master = true then
 			Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true;
@@ -372,7 +381,8 @@ let destroy ~__context ~self =
 		Db.PIF.destroy ~__context ~self:master;
 
 		(* Clear the PIF.bond_slave_of fields of the members. *)
-		List.iter (fun slave -> Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:(Ref.null)) members
+		List.iter (fun slave -> Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:(Ref.null)) members;
+		TaskHelper.set_progress ~__context 1.0
 	)
 
 let set_mode ~__context ~self ~value =

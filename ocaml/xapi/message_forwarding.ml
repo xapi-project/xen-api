@@ -370,7 +370,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				| i ->
 					begin
 						match success () with
-						| Some result -> debug "Slave is back!"; result (* success *)
+						| Some result -> debug "Slave is back and has completed the operation!"; result (* success *)
 						| None -> Thread.delay time_between_retries; poll (i-1)
 					end
 			in
@@ -2552,17 +2552,14 @@ end
       let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
       let local_fn = Local.Bond.create ~network ~members ~mAC ~mode in
       (* The management interface on the slave may change during this operation, so expect connection loss.
-       * Consider the operation successful if the bond master is currently_attached. Since the slave
-       * sets this flag after setting up the bond, this is a good indication of success. *)
+       * Consider the operation successful if task progress is set to 1.0. *)
+      let task = Context.get_task_id __context in
       let success () =
-        let bond = Db.PIF.get_bond_slave_of ~__context ~self:(List.hd members) in
-        if bond <> Ref.null then begin
-          let master = Db.Bond.get_master ~__context ~self:bond in
-          if Db.PIF.get_currently_attached ~__context ~self:master then
-            Some bond
-          else
-            None
-        end else
+        let progress = Db.Task.get_progress ~__context ~self:task in
+        debug "Task progress %.1f" progress;
+        if progress = 1.0 then
+          Some (Db.PIF.get_bond_slave_of ~__context ~self:(List.hd members))
+        else
           None
       in
       let fn () =
@@ -2573,9 +2570,15 @@ end
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
       (* The management interface on the slave may change during this operation, so expect connection loss.
-       * Consider the operation successful if the bond object is gone. *)
+       * Consider the operation successful if task progress is set to 1.0. *)
+      let task = Context.get_task_id __context in
       let success () =
-        if Db.is_valid_ref __context self then None else Some ()
+        let progress = Db.Task.get_progress ~__context ~self:task in
+        debug "Task progress %.1f" progress;
+        if progress = 1.0 then
+          Some ()
+        else
+          None
       in
       let local_fn = Local.Bond.destroy ~self in
       let fn () = do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.destroy rpc session_id self) in
