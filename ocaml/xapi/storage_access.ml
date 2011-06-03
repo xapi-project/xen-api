@@ -76,7 +76,7 @@ module Builtin_impl = struct
 					Sm.call_sm_functions ~__context ~sR:self
 						(fun device_config _type ->
 							try
-								Sm.sr_detach device_config _type self;
+								Sm.sr_delete device_config _type self;
 								Success Unit
 							with
 								| Smint.Not_implemented_in_backend ->
