@@ -280,16 +280,6 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	   (* At any time from now on, the remote VM is unpaused and VM.domid, VM.resident_on
 	      both change. We mustn't rely on their values. *)
 
-	   debug "Sender 6a. Detaching VDIs";
-	   List.iter
-		   (fun vbd ->
-			   Storage_access.on_vdi ~__context ~vbd ~domid
-				   (fun rpc task datapath_id sr vdi ->
-					   Storage_access.expect_unit (fun () -> ())
-						   (Storage_interface.Client.VDI.detach rpc task datapath_id sr vdi)
-				   )
-		   ) (Storage_access.vbd_detach_order ~__context vbds);
-
            (* MTC: don't send RRDs since MTC VMs are not really migrated. *)
  	   if not (Mtc.is_this_vm_protected ~__context ~self:vm) then (
 	     (* Now send across the RRD *)
