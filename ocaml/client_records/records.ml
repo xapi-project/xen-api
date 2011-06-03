@@ -409,7 +409,7 @@ let pool_record rpc session_id pool =
 			make_field ~name:"default-SR"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_default_SR)
 				~set:(fun x ->
-					let sr_ref = (Client.SR.get_by_uuid rpc session_id x) in
+					let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in
 					Client.Pool.set_default_SR rpc session_id pool sr_ref) ();
 			make_field ~name:"crash-dump-SR"
 				~get:(fun () -> get_uuid_from_ref (x ()).API.pool_crash_dump_SR)
@@ -1053,9 +1053,9 @@ let host_record rpc session_id host =
 				~remove_from_map:(fun k -> Client.Host.remove_from_logging rpc session_id host k)
 				~get_map:(fun () -> (x ()).API.host_logging) ();
 			make_field ~name:"suspend-image-sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_suspend_image_sr)
-				~set:(fun s -> Client.Host.set_suspend_image_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
+				~set:(fun s -> Client.Host.set_suspend_image_sr rpc session_id host (if s="" then Ref.null else Client.SR.get_by_uuid rpc session_id s)) ();
 			make_field ~name:"crash-dump-sr-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.host_crash_dump_sr)
-				~set:(fun s -> Client.Host.set_crash_dump_sr rpc session_id host (Client.SR.get_by_uuid rpc session_id s)) ();
+				~set:(fun s -> Client.Host.set_crash_dump_sr rpc session_id host (if s="" then Ref.null else Client.SR.get_by_uuid rpc session_id s)) ();
 			make_field ~name:"software-version" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_software_version)
 				~get_map:(fun () -> (x ()).API.host_software_version) ();
 			make_field ~name:"capabilities" ~get:(fun () -> String.concat "; " (x ()).API.host_capabilities)
