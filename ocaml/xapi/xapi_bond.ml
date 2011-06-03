@@ -84,8 +84,6 @@ let move_vlan ~__context host new_slave old_vlan =
 	let tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
 	let network = Db.PIF.get_network ~__context ~self:old_master in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
-	if plugged then
-		Nm.bring_pif_down ~__context old_master;
 
 	(* Only create new objects if the tag does not yet exist *)
 	let new_vlan, new_master =
