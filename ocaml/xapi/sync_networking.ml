@@ -18,9 +18,20 @@ open Client
 module D=Debug.Debugger(struct let name="sync_networking" end)
 open D
 
+(* Ensures that all bonds follow the new rules of Boston: nothing can use bond slaves anymore *)
+let fix_bonds ~__context =
+	let pifs = Db.PIF.get_all_records ~__context in
+	let host = !Xapi_globs.localhost_ref in
+	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> [] && pifr.API.pIF_host = host) pifs in
+	let local_bonds = List.map (fun (_, pifr) -> List.hd pifr.API.pIF_bond_master_of) local_bond_masters in
+	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) local_bonds
+
 (** Copy Bonds from master *)
 let copy_bonds_from_master ~__context () =
 	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		(* First make sure all bonds are in good shape *)
+		fix_bonds ~__context;
+
 		(* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
 		let me = !Xapi_globs.localhost_ref in
 		let pool = List.hd (Db.Pool.get_all ~__context) in
