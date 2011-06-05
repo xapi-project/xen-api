@@ -106,13 +106,6 @@ let refresh_localhost_info ~__context info =
     end else
       Db.Host.remove_from_other_config ~__context ~self:host ~key:Xapi_globs.host_no_local_storage
 
-let fix_bonds ~__context =
-	let pifs = Db.PIF.get_all_records ~__context in
-	let host = !Xapi_globs.localhost_ref in
-	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> [] && pifr.API.pIF_host = host) pifs in
-	let local_bonds = List.map (fun (_, pifr) -> List.hd pifr.API.pIF_bond_master_of) local_bond_masters in
-	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) local_bonds
-
 (*************** update database tools ******************)
 
 (** Update the list of VMs *)
@@ -599,10 +592,5 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_gpus (fun () ->
     Xapi_pgpu.update_gpus ~__context ~host:localhost;
-  );
-
-  switched_sync Xapi_globs.sync_fix_bonds (fun () ->
-    debug "fix bonds";
-    fix_bonds ~__context
   );
 
