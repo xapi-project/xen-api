@@ -450,7 +450,35 @@ let start_redo_log () =
     end
   with e ->
     debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
-  
+
+(* Attempt to start DR redo logs on all SRs which contain metadata VDIs for this pool. *)
+let start_dr_redo_logs () =
+	Server_helpers.exec_with_new_task "start_dr_redo_logs"
+		(fun __context ->
+			(* Find all SRs with metadata VDIs for this pool. *)
+			let pool = Helpers.get_pool ~__context in
+			let metadata_vdis = List.filter
+				(fun vdi ->
+					(Db.VDI.get_type ~__context ~self:vdi = `metadata) &&
+					(Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool))
+				(Db.VDI.get_all ~__context)
+			in
+			let metadata_srs = List.setify
+				(List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) metadata_vdis)
+			in
+			(* Attempt to enable database replication to each SR. *)
+			List.iter
+				(fun sr ->
+					let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+					try
+						Xapi_sr.enable_database_replication ~__context ~sr;
+						debug "Re-enabled database replication to SR %s" sr_uuid
+					with e ->
+						(* Best-effort only. *)
+						debug "Could not re-enable database replication to SR %s - caught %s"
+							sr_uuid (Printexc.to_string e))
+				metadata_srs)
+
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
   info "Cannot contact master: running in slave emergency mode";
@@ -906,6 +934,7 @@ let server_init() =
                  (fun () -> Helpers.call_api_functions ~__context Create_templates.create_all_templates);
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
+			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
     ];
 						    
     if !debug_dummy_data then (
