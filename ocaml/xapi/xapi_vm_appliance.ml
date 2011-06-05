@@ -76,7 +76,7 @@ let wait_for_all_tasks ~rpc ~session_id ~tasks =
 					(* remove that task from the set. *)
 					let pending_task_set = List.fold_left (fun task_set' record ->
 						match record with
-						| Event_helper.Task (t, t_rec) ->
+						| Event_helper.Task (t, Some t_rec) ->
 							if (TaskSet.mem t task_set') && (t_rec.API.task_status <> `pending) then
 								TaskSet.remove t task_set'
 							else

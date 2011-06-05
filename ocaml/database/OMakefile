@@ -19,7 +19,7 @@ BLOCK_DEVICE_IO_FILES = \
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 OCamlDocProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
-DATABASE_SERVER_FILES = database_server_main database_test ../autogen/db_actions
+DATABASE_SERVER_FILES = database_server_main test_schemas database_test ../autogen/db_actions 
 DATABASE_TEST_FILES = database_test database_test_main
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove

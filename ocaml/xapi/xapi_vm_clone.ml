@@ -79,7 +79,7 @@ let wait_for_clone ?progress_minmax ~__context task =
 			refresh_session ();
 			let checkevent ev =
 				match Event_helper.record_of_event ev with
-				| Event_helper.Task (r,x) ->
+				| Event_helper.Task (r, Some x) ->
 					if r=task then process_copy_task x
 					else if r=main_task then process_main_task x
 				| _ -> () (* received an irrelevant event *)
