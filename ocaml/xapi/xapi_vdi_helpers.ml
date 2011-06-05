@@ -73,27 +73,32 @@ let destroy_all_vbds ~__context ~vdi =
 	Helpers.call_api_functions ~__context
 		(fun rpc session_id -> List.iter
 			(fun vbd ->
-				try
-					Client.VBD.unplug ~rpc ~session_id ~self:vbd;
-					Client.VBD.destroy ~rpc ~session_id ~self:vbd
-				with Api_errors.Server_error(code, _) when code = Api_errors.device_already_detached ->
-					Client.VBD.destroy ~rpc ~session_id ~self:vbd)
+				if Client.VBD.get_currently_attached ~session_id ~rpc ~self:vbd then begin
+					(* In the case of HA failover, attempting to unplug the previous master's VBD will timeout as the host is uncontactable. *)
+					try
+						Attach_helpers.safe_unplug rpc session_id vbd
+					with Api_errors.Server_error(code, _) when code = Api_errors.cannot_contact_host ->
+						debug "VBD.unplug attempt on metadata VDI %s timed out - assuming that this is an HA failover and that the previous master is now dead."
+							(Db.VDI.get_uuid ~__context ~self:vdi)
+				end;
+				(* Meanwhile, HA should mark the previous master as dead and set the VBD as detached. *)
+				(* If the VBD is not detached by now, VBD.destroy will fail and we will give up. *)
+				Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 			existing_vbds)
 
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)
-let enable_database_replication ~__context ~vdi =
+let enable_database_replication ~__context ~get_vdi_callback =
 	Mutex.execute redo_log_lifecycle_mutex (fun () ->
-		let name_label = Db.VDI.get_name_label ~__context ~self:vdi in
-		let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
-		debug "Attempting to enable metadata replication on VDI [%s:%s]." name_label uuid;
+		(* Check that the number of metadata redo_logs isn't already at the limit. *)
+		(* There should never actually be more redo_logs than the limit! *)
+		if Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances then
+			raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []));
+		let vdi = get_vdi_callback () in
+		let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
 		if Hashtbl.mem metadata_replication vdi then
-			debug "Metadata is already being replicated to VDI [%s:%s]." name_label uuid
+			debug "Metadata is already being replicated to VDI %s" vdi_uuid
 		else begin
-			(* Check that the number of metadata redo_logs isn't already at the limit. *)
-			(* There should never actually be more redo_logs than the limit! *)
-			if Hashtbl.length metadata_replication >= Xapi_globs.redo_log_max_instances then
-				raise (Api_errors.Server_error(Api_errors.no_more_redo_logs_allowed, []));
-			let log = Redo_log.create () in
+			debug "Attempting to enable metadata replication to VDI %s" vdi_uuid;
 			let dom0 = get_master_dom0 ~__context in
 			(* We've established that metadata is not being replicated to this VDI, so it should be safe to do this. *)
 			destroy_all_vbds ~__context ~vdi;
@@ -108,6 +113,7 @@ let enable_database_replication ~__context ~vdi =
 				vbd)
 			in
 			(* Enable redo_log and point it at the new device *)
+			let log = Redo_log.create () in
 			let device = Db.VBD.get_device ~__context ~self:vbd in
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
@@ -118,6 +124,8 @@ let enable_database_replication ~__context ~vdi =
 				Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:true;
 				debug "Redo log started on VBD %s" vbd_uuid
 			with e ->
+				Redo_log.shutdown log;
+				Redo_log.delete log;
 				Helpers.call_api_functions ~__context (fun rpc session_id ->
 					Client.VBD.unplug ~rpc ~session_id ~self:vbd);
 				raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log,
