@@ -36,28 +36,26 @@ let make_proxy bridge master_ip ip =
 	let sockaddr = Unix.ADDR_INET (addr, port_to_forward) in
 	
 	let handler _ fromfd =
-		(* NB 'fromfd' is accepted within the server_io module and it expects us to 
-		   close it *)
-
-		let use_https = use_https master_ip in
-
-  		let dest_port = if use_https then !Xapi_globs.https_port else Xapi_globs.http_port in
+		(* NB 'fromfd' is accepted within the server_io module and it expects us to close it *)
+		(* NB NB Unixext.proxy closes all fds passed to it *)
+		finally
+			(fun () ->
+				let use_https = use_https master_ip in
+  				let dest_port = if use_https then !Xapi_globs.https_port else Xapi_globs.http_port in
 		
-		if use_https then begin
-			debug "Forwarding connection to %s over SSL" master_ip;
-			let stunnel = Stunnel.connect master_ip dest_port in
-			finally
-				(fun () -> Unixext.proxy fromfd stunnel.Stunnel.fd)
-				(fun () -> Stunnel.disconnect stunnel)
-		end else begin
-			debug "Forwarding connection to %s plaintext" master_ip;
-			let tofd = Unixext.open_connection_fd master_ip dest_port in
-			finally
-				(fun () -> Unixext.proxy fromfd tofd)
-				(fun () -> Unix.close tofd)
-		end;
-		(* XXX: do we close fromfd?? *)
-		debug "Connection forwarding to %s finished" master_ip
+				if use_https then begin
+					debug "Forwarding connection to %s over SSL" master_ip;
+					let stunnel = Stunnel.connect master_ip dest_port in
+					finally
+						(fun () -> Unixext.proxy (Unix.dup fromfd) (Unix.dup stunnel.Stunnel.fd))
+						(fun () -> Stunnel.disconnect stunnel)
+				end else begin
+					debug "Forwarding connection to %s plaintext" master_ip;
+					let tofd = Unixext.open_connection_fd master_ip dest_port in
+					Unixext.proxy (Unix.dup fromfd) tofd;
+				end;
+				debug "Connection forwarding to %s finished" master_ip
+			)(fun () -> Unix.close fromfd)
 	in
 	try
 		Mutex.execute m
