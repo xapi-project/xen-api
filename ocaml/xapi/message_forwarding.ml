@@ -3341,7 +3341,7 @@ end
 							let target_vdi = List.hd vdis_of_this_pool in
 							let vdi_uuid = Db.VDI.get_uuid ~__context:__scan_context ~self:target_vdi in
 							try
-								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~vdi:target_vdi;
+								Xapi_vdi_helpers.enable_database_replication ~__context:__scan_context ~get_vdi_callback:(fun () -> target_vdi);
 								debug "Re-enabled database replication to VDI %s" vdi_uuid
 							with e ->
 								debug "Could not re-enable database replication to VDI %s - caught %s"
