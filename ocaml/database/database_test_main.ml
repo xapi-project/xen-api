@@ -50,5 +50,5 @@ let _ =
 		"--connect-to", Arg.Set_string path, Printf.sprintf "connect to server on path (default %s)" !path;
 		] (fun x -> Printf.fprintf stderr "Ignoring unknown parameter: %s\n%!" x)
 		"query a database server";
-	T.main ()
+	ignore(T.main true)
 

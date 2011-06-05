@@ -19,6 +19,8 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 
 exception Unmarshall_error of string
 
+let persist_generation_counts = true
+
 let name x = ("", x) (* no namespace *)
 let make_tag n attrs : Xmlm.tag = (name n), List.map (fun (k, v) -> name k, v) attrs
 
@@ -41,8 +43,13 @@ module To = struct
 
   (* Marshal a whole database table to an Xmlm output abstraction *)
   let table schema (output: Xmlm.output) name (tbl: Table.t) = 
-    let record rf (row: Row.t) = 
-      let (tag: Xmlm.tag) = make_tag "row" (("ref", rf) :: (Row.fold (fun k v acc -> (k, Xml_spaces.protect v) :: acc) row [])) in
+    let record rf ctime mtime (row: Row.t) _ = 
+		let preamble = 
+			if persist_generation_counts 
+			then [("__mtime",Int64.to_string mtime); ("__ctime",Int64.to_string ctime); ("ref",rf)] 
+			else [("ref",rf)] 
+		in
+	  let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ _ v acc -> (k, Xml_spaces.protect v) :: acc) row preamble)) in
       Xmlm.output output (`El_start tag);
       Xmlm.output output `El_end in
     let tag = make_tag "table" [ "name", name ] in
@@ -51,7 +58,7 @@ module To = struct
        that all tables will be present. However, if the table is marked as "don't persist" then we
        don't write any row entries: *)
 	if Schema.is_table_persistent schema name 
-	then Table.iter record tbl;
+	then Table.fold record tbl ();
     Xmlm.output output `El_end
 	
   (* Write out a manifest *)
@@ -105,11 +112,15 @@ module From = struct
 						f (tableset, Table.empty, manifest)
 					| (_, "row"), ((_, "ref"), rf) :: rest ->
 						(* Remove any other duplicate "ref"s which might have sneaked in there *)
-						let rest = List.filter (fun (_, k) -> k <> "ref") rest in
+						let rest = List.filter (fun ((_,k), _) -> k <> "ref") rest in
+						let (ctime_l,rest) = List.partition (fun ((_, k), _) -> k="__ctime") rest in
+						let (mtime_l,rest) = List.partition (fun ((_, k), _) -> k="__mtime") rest in
+						let ctime = match ctime_l with | [(_,ctime_s)] -> Int64.of_string ctime_s | _ -> 0L in
+						let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
 						let row = List.fold_left (fun row ((_, k), v) -> 
-							Row.add k (Xml_spaces.unprotect v) row
+							Row.update mtime k "" (fun _ -> (Xml_spaces.unprotect v)) (Row.add ctime k (Xml_spaces.unprotect v) row)
 						) Row.empty rest in
-						f (tableset, Table.add rf row table, manifest)
+						f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), manifest)
 					| (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
 						f (tableset, table, (k, v) :: manifest)
 					| (_, name), _ -> 
@@ -121,7 +132,7 @@ module From = struct
 				begin match tag with
 					| (_, ("database" | "manifest" | "row" | "pair")), _ -> maybe_return f acc
 					| (_, "table"), [ (_, "name"), name ] ->
-						maybe_return f (TableSet.add name table tableset, Table.empty, manifest)
+						maybe_return f (TableSet.add 0L name table tableset, Table.empty, manifest)
 					| (_, name), _ -> 
 						raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
 				end

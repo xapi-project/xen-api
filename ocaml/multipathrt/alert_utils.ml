@@ -134,7 +134,7 @@ let wait_for_alert rpc session ?(delay=180.0) check_message f =
       debug "Got %d events..." (List.length events);
       let checkevent ev =
         match Event_helper.record_of_event ev with
-        | Event_helper.Message (r,x) -> check x
+        | Event_helper.Message (r,Some x) -> check x
         | _ -> debug "Got irrelevant event"
       in List.iter checkevent events
     done;

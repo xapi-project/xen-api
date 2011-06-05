@@ -38,30 +38,31 @@ let make () = Db_ref.in_memory (ref master_database)
 (* non-persistent fields will have been flushed to disk anyway [since non-persistent just means dont trigger a flush
    if I change]. Hence we blank non-persistent fields with a suitable empty value, depending on their type *)
 let blow_away_non_persistent_fields (schema: Schema.t) db =
+	let g = Manifest.generation (Database.manifest db) in
 	(* Generate a new row given a table schema *)
-	let row schema row : Row.t =
+	let row schema row : Row.t * int64 =
 		Row.fold 
-			(fun name v acc ->
+			(fun name created updated v (acc,max_upd) ->
 				try
 					let col = Schema.Table.find name schema in
-					let v' = if col.Schema.Column.persistent then v else col.Schema.Column.empty in
-					Row.add name v' acc
+					let v',updated' = if col.Schema.Column.persistent then v,updated else col.Schema.Column.empty,g in
+					(Row.update updated' name "" (fun _ -> v') (Row.add created name v' acc),max max_upd updated')
 				with Not_found ->
 					Printf.printf "Skipping unknown column: %s\n%!" name;
-					acc) row Row.empty in
+					(acc,max max_upd updated)) row (Row.empty,0L) in
 	(* Generate a new table *)
 	let table tblname tbl : Table.t =
 		let schema = Schema.Database.find tblname schema.Schema.database in
 		Table.fold
-			(fun objref r acc ->
-				let r = row schema r in
-				Table.add objref r acc) tbl Table.empty in
+			(fun objref created updated r acc ->
+				let (r,updated) = row schema r in
+				Table.update updated objref Row.empty (fun _ -> r) (Table.add created objref r acc)) tbl Table.empty in
 	Database.update
 		(fun ts -> 
 			TableSet.fold 
-				(fun tblname tbl acc ->
+				(fun tblname created updated tbl acc ->
 					let tbl' = table tblname tbl in
-					TableSet.add tblname tbl' acc) ts TableSet.empty)
+					TableSet.add updated tblname tbl' acc) ts TableSet.empty)
 		db
 
 let db_registration_mutex = Mutex.create ()
