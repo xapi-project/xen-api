@@ -76,6 +76,7 @@ let add_vif ~__context ~xs vif_device =
   let extra_private_keys = ["ref", Ref.string_of vif_device.Vm_config.vif_ref;
                             "vif-uuid", vif_uuid;
                             "network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref] in
+  Xapi_network.register_vif ~__context vif_device.Vm_config.vif_ref;
   Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
   Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
 

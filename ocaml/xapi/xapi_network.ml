@@ -72,6 +72,14 @@ let detach bridge_name =
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
 
+let register_vif ~__context vif =
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	debug "register_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network)
+
+let deregister_vif ~__context vif =
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	debug "deregister_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network)
+
 let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
