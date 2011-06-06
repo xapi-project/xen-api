@@ -208,12 +208,18 @@ let update_vms ~xal ~__context =
 		warn "Caught error resynchronising VBD: %s" (ExnHelper.string_of_exn e)) vm_vbds;
 	 let vm_vifs = vmrec.API.vM_VIFs in
 	 List.iter 
-	   (fun vif ->
-	      try
-			if Db.is_valid_ref __context vif
-			then Events.Resync.vif ~__context token vmref vif
-	      with e ->
-		warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e)) vm_vifs;
+		 (fun vif ->
+			 try
+				 if Db.is_valid_ref __context vif then begin
+					 (* Events.Resync.vif assumes that VIF is registered if currently_attached = true.
+						It will explicitly unregister it IFF currently_attached transitions to false *)
+					 if Db.VIF.get_currently_attached ~__context ~self:vif
+					 then Xapi_network.register_vif ~__context vif;
+					 Events.Resync.vif ~__context token vmref vif
+				 end
+			 with e ->
+				 warn "Caught error resynchronising VIF: %s" (ExnHelper.string_of_exn e);
+		 ) vm_vifs;
 		try Events.Resync.pci ~__context token vmref
 		with e ->
 			warn "Caught error resynchronising PCIs: %s" (ExnHelper.string_of_exn e);

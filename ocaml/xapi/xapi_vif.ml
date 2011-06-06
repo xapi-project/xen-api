@@ -46,6 +46,7 @@ let destroy_vif ~__context ~xs domid self token =
 	  Device.clean_shutdown ~xs device;
 	  Device.Vif.release ~xs device;
 
+	  Xapi_network.deregister_vif ~__context self;
 	  Db.VIF.set_currently_attached ~__context ~self ~value:false
 	with 
 	| Device_common.Device_disconnect_timeout device ->
