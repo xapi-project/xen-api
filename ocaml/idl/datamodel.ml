@@ -3227,7 +3227,7 @@ let task =
       field ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host on which the task is running";
       field ~qualifier:DynamicRO ~ty:Float "progress" "if the task is still pending, this field contains the estimated fraction complete (0.-1.). If task has completed (successfully or unsuccessfully) this should be 1.";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid" "If the task has spawned a program, the field record the PID of the process that the task is waiting on. (-1 if no waiting completion of an external program )";
-      field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid" "If the task has been forwarded, this field records the pid of the stunnel process spawned to manage the forwarding connection";
+      field ~in_oss_since:None ~internal_deprecated_since:rel_boston ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid" "If the task has been forwarded, this field records the pid of the stunnel process spawned to manage the forwarding connection";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded" "True if this task has been forwarded to a slave";
       field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host) "forwarded_to" "The host to which the task has been forwarded";
       field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
@@ -3851,6 +3851,18 @@ let host_get_sm_diagnostics = call ~flags:[`Session]
 	~hide_from_docs:true
 	()
 
+let host_get_thread_diagnostics = call ~flags:[`Session]
+	~name:"get_thread_diagnostics"
+	~in_product_since:rel_boston
+	~doc:"Return live thread diagnostics"
+	~params:[
+		Ref _host, "host", "The host"
+	]
+	~result:(String, "Printable diagnostic data")
+	~allowed_roles:_R_POOL_OP
+	~hide_from_docs:true
+	()
+
 let host_sm_dp_destroy = call ~flags:[`Session]
 	~name:"sm_dp_destroy"
 	~in_product_since:rel_boston
@@ -3940,6 +3952,7 @@ let host =
 		 host_enable_local_storage_caching;
 		 host_disable_local_storage_caching;
 		 host_get_sm_diagnostics;
+		 host_get_thread_diagnostics;
 		 host_sm_dp_destroy;
 		 ]
       ~contents:

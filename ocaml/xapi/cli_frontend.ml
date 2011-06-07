@@ -2044,6 +2044,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.host_get_sm_diagnostics;
       flags=[];
     };
+   "host-get-thread-diagnostics",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Display per-host thread diagnostic information.";
+      implementation=No_fd Cli_operations.host_get_thread_diagnostics;
+      flags=[];
+    };	  
    "host-sm-dp-destroy",
     {
       reqd=["uuid"; "dp"];
