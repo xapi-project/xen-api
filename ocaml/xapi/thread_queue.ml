@@ -27,9 +27,14 @@ type 'a process_fn = 'a -> unit
 (** The type of the function which pushes new elements into the queue *)
 type 'a push_fn = string -> 'a -> bool
 
+type 'a t = {
+	push_fn: 'a push_fn;
+	name: string;
+}
+
 (** Given an optional maximum queue length and a function for processing elements (which will be called in a 
     single background thread), return a function which pushes items onto the queue. *)
-let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a push_fn = 
+let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t = 
   let q = Queue.create () in
   let c = Condition.create () in
   let m = Mutex.create () in
@@ -88,4 +93,4 @@ let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a push_f
 	     true
       )
 
-  in push
+  in { push_fn = push; name = name }

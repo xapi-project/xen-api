@@ -78,17 +78,6 @@ let request_queue : queued_request list ref = ref []
 let request_mutex = Mutex.create()
 let request_cond = Condition.create()
 
-let kill_stunnel ~__context task =
-  let pid = Int64.to_int (Db.Task.get_stunnelpid ~__context ~self:task) in
-    if pid > 0 then
-      begin
-        debug "Killing stunnel pid: %d" pid;
-        Helpers.log_exn_continue
-          (sprintf "Remote request killing stunnel pid: %d" pid)
-	  (fun () -> Unix.kill pid Sys.sigterm) ();
-        Db.Task.set_stunnelpid ~__context ~self:task ~value:0L
-      end
-
 let signal_result' req result () =               
   if !(req.resp) = NoResponse then
     begin
@@ -107,7 +96,8 @@ let watcher_thread = function
            if !(req.resp) = NoResponse then
              begin
                warn "Remote request timed out";
-               kill_stunnel ~__context req.task;
+				 let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task req.task in
+				 List.iter Locking_helpers.kill_resource resources;
                signal_result' req (Exception Timed_out) ()
              end)
 

@@ -792,6 +792,7 @@ let get_system_status_capabilities ~__context ~host =
   System_status.get_capabilities()
 
 let get_sm_diagnostics ~__context ~host = Storage_access.diagnostics ~__context
+let get_thread_diagnostics ~__context ~host = Locking_helpers.Thread_state.to_graphviz ()
 
 let sm_dp_destroy ~__context ~host ~dp ~allow_leak = Storage_access.dp_destroy ~__context dp allow_leak
 
