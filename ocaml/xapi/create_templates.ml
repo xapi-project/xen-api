@@ -500,7 +500,7 @@ let sles10_template name architecture ?(is_experimental=false) flags =
 
 let sles11_template = sles10_template
 
-let debian_template name release architecture ?(supports_cd=true) ?(is_experimental=false) ?(vcpus=16) flags =
+let debian_template name release architecture ?(supports_cd=true) ?(is_experimental=false) flags =
 	let maximum_supported_memory_gib = match architecture with
 		| X32 -> 32
 		| X64_debianlike -> 32
@@ -512,7 +512,7 @@ let debian_template name release architecture ?(supports_cd=true) ?(is_experimen
 	let methods = if supports_cd then "cdrom,http,ftp" else "http,ftp" in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, methods) :: ("install-arch", install_arch) :: ("debian-release", release) :: bt.vM_other_config;
-		vM_recommendations = recommendations ~vcpus ~memory:maximum_supported_memory_gib ();
+		vM_recommendations = recommendations ~memory:maximum_supported_memory_gib ();
 		vM_name_description = bt.vM_name_description ^ (match release with
 			| "lenny"   -> "\nOfficial Debian Lenny CD/DVD images do not support XenServer. To find ISO images that do, please refer to: http://community.citrix.com/display/xs/Debian+Lenny"
 			| "squeeze" -> "\nIn order to install Debian Squeeze from CD/DVD the multi-arch ISO image is required."
@@ -561,8 +561,8 @@ let create_all_templates rpc session_id =
 		debian_template "Debian Lenny 5.0" "lenny" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X32 [    ];
 		debian_template "Debian Squeeze 6.0" "squeeze" X64_debianlike [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false ~vcpus:1 [    ];
-		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false ~vcpus:1 [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X32 ~supports_cd:false [    ];
+		debian_template "Ubuntu Lucid Lynx 10.04" "lucid" X64_debianlike ~supports_cd:false [    ];
 
 		debian_template "Ubuntu Maverick Meerkat 10.10" "maverick" X32 ~supports_cd:false ~is_experimental:true [    ];
 		debian_template "Ubuntu Maverick Meerkat 10.10" "maverick" X64_debianlike ~supports_cd:false ~is_experimental:true [    ];
