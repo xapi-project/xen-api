@@ -39,11 +39,11 @@ exception Stunnel_connection_failed
 
 (** When invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
 	us to store the association between a task and an stunnel pid *)
-val set_stunnelpid_callback : (string -> int -> unit) option ref
+val set_stunnelpid_callback : (string option -> int -> unit) option ref
 
 (** After invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
     us to forget the association between a task and an stunnel pid *)
-val unset_stunnelpid_callback : (string -> int -> unit) option ref
+val unset_stunnelpid_callback : (string option -> int -> unit) option ref
 
 val connect_headers : ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> string -> string list
 val xmlrpc_headers : ?task_id:string -> ?subtask_of:string -> version:string -> string -> string -> int -> string list

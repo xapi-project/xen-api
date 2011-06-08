@@ -2360,6 +2360,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let local_fn = Local.Host.get_sm_diagnostics ~host in
 		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_sm_diagnostics rpc session_id host)
 
+	let get_thread_diagnostics ~__context ~host =
+		let local_fn = Local.Host.get_thread_diagnostics ~host in
+		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.get_thread_diagnostics rpc session_id host)
+
 	let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
 		let local_fn = Local.Host.sm_dp_destroy ~host ~dp ~allow_leak in
 		do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.sm_dp_destroy rpc session_id host dp allow_leak)
