@@ -14,6 +14,7 @@
 PEMFILE="/etc/xensource/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
 SSLCONFFILE="/var/xapi/xapi-ssl.conf"
+STUNNEL=$(which stunnel)
 
 mgmt_ip() {
     . /etc/xensource-inventory
@@ -88,7 +89,7 @@ start() {
 	if test -z "$NEWSTUNNEL"
 	then
 		writeconffile
-		daemon nice -n -3 /usr/sbin/stunnel ${SSLCONFFILE}
+		daemon nice -n -3 ${STUNNEL} ${SSLCONFFILE}
 	else
 		daemon nice -n -3 /usr/sbin/stunnelng -m server -p ${SSLPIDFILE} -c ${PEMFILE} -s :443 -d 127.0.0.1:80
 	fi
