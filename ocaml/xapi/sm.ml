@@ -81,17 +81,17 @@ let sr_delete dconf driver sr =
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call)
 
 (* Mutex for sr_attach, sr_detach, and sr_probe *)
-let serialize_attach_detach = Mutex.create()
+let serialize_attach_detach = Locking_helpers.Named_mutex.create "sr_attach/detach"
 
 let sr_attach dconf driver sr =
-  Threadext.Mutex.execute serialize_attach_detach
+	Locking_helpers.Named_mutex.execute serialize_attach_detach
     (fun ()->
        debug "sr_attach" driver (sprintf "sr=%s" (Ref.string_of sr));
        let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_attach" [] in
        Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_type driver)  (driver_filename driver) call))
 
 let sr_detach dconf driver sr =
-  Threadext.Mutex.execute serialize_attach_detach
+	Locking_helpers.Named_mutex.execute serialize_attach_detach
     (fun ()->
        debug "sr_detach" driver (sprintf "sr=%s" (Ref.string_of sr));
        let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_detach" [] in
@@ -102,7 +102,7 @@ let sr_detach dconf driver sr =
 let sr_probe dconf driver sr_sm_config =
   if List.mem Sr_probe (capabilities_of_driver driver)
   then
-    Threadext.Mutex.execute serialize_attach_detach
+	Locking_helpers.Named_mutex.execute serialize_attach_detach
       (fun ()->
 	 debug "sr_probe" driver (sprintf "sm_config=[%s]" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sr_sm_config)));
 	 let call = Sm_exec.make_call ~sr_sm_config dconf "sr_probe" [] in

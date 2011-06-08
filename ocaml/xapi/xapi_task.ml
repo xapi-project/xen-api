@@ -14,6 +14,8 @@
 (** Module that defines API functions for Task objects
  * @group XenAPI functions
  *)
+
+open Threadext
  
 module D = Debug.Debugger(struct let name="xapi" end)
 open D

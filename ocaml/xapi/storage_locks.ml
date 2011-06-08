@@ -32,23 +32,29 @@ let make () = {
 
 (** Execute the function with the specified instance locked *)
 let with_instance_lock t key f =
+	let r = Locking_helpers.Lock ("SM/" ^ (Ref.really_pretty_and_small (Ref.of_string key))) in
+	Locking_helpers.Thread_state.waiting_for r;
 	Mutex.execute t.m
 		(fun () ->
 			(* Wait for the lock to be free (ie the table entry to be removed and the master lock to be released *)
 			while Hashtbl.mem t.t key || t.master_lock do Condition.wait t.c t.m done;
 			Hashtbl.replace t.t key ()
 		);
+	Locking_helpers.Thread_state.acquired r;
 	finally f
 		(fun () ->
 			Mutex.execute t.m
 				(fun () ->
 					Hashtbl.remove t.t key;
 					Condition.broadcast t.c
-				)
+				);
+			Locking_helpers.Thread_state.released r;
 		)
 
 (** Execute the function with the master_lock held and no instance locks held *)
 let with_master_lock t f =
+	let r = Locking_helpers.Lock "SM" in
+	Locking_helpers.Thread_state.waiting_for r;
 	Mutex.execute t.m
 		(fun () ->
 			(* Wait for the master_lock to be released *)
@@ -58,14 +64,15 @@ let with_master_lock t f =
 			(* Wait for all instance locks to be released *)
 			while Hashtbl.length t.t > 0 do Condition.wait t.c t.m done
 		);
-
+	Locking_helpers.Thread_state.acquired r;
 	finally f
 		(fun () ->
 			Mutex.execute t.m
 				(fun () ->
 					t.master_lock <- false;
 					Condition.broadcast t.c
-				)
+				);
+			Locking_helpers.Thread_state.released r;
 		)
 
 
