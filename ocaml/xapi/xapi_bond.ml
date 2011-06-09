@@ -123,8 +123,6 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
 	let old_access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:old_tunnel in
 	let network = Db.PIF.get_network ~__context ~self:old_access_PIF in
 	let plugged = Db.PIF.get_currently_attached ~__context ~self:old_access_PIF in
-	if plugged then
-		Nm.bring_pif_down ~__context old_access_PIF;
 
 	(* Create new tunnel object and access PIF *)
 	let new_tunnel, new_access_PIF =
@@ -133,7 +131,8 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
 
 	(* Destroy old VLAN and VLAN-master objects *)
 	debug "Destroying old tunnel %s" (Ref.string_of old_tunnel);
-	Xapi_tunnel.destroy ~__context ~self:old_tunnel;
+	Db.Tunnel.destroy ~__context ~self:old_tunnel;
+	Db.PIF.destroy ~__context ~self:old_access_PIF;
 
 	(* Plug again if plugged before the move *)
 	if plugged then begin
