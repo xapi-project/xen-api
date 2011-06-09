@@ -79,7 +79,7 @@ let destroy ~__context ~self =
 		let network = Db.PIF.get_network ~__context ~self:untagged_PIF in
 		let bridge = Db.Network.get_bridge ~__context ~self:network in
 
-		Nm.bring_pif_down ~__context untagged_PIF;
+		Xapi_pif.unplug ~__context ~self:untagged_PIF;
 
 		Xapi_network.detach bridge;
 
