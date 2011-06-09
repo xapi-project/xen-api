@@ -816,7 +816,6 @@ let server_init() =
     "Setting up domain 0 xenstore keys", [], domain0_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
-    "Registering SR plugins", [], Sm.register;
 	"Initialising SM state", [], Storage_impl.initialise;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
@@ -926,6 +925,7 @@ let server_init() =
 	 table happens to be right) *)
       "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
 	  "Starting host internal management network", [ Startup.NoExnRaising ], Xapi_network_real.on_server_start;
+      "Registering SR plugins", [], Sm.register;
       "initialising storage", [ Startup.NoExnRaising ],
                 (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
