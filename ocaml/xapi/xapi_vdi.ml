@@ -332,7 +332,6 @@ let snapshot ~__context ~vdi ~driver_params =
 	let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
 
 	(* Copy across the metadata which we control *)
-	Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
 	Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
 	Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
 	Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
