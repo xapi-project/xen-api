@@ -310,50 +310,50 @@ open Client
    snapshot operation (e.g. vmhint for NetAPP)
 *)
 let snapshot ~__context ~vdi ~driver_params =
-  Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
-  Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-  let a = Db.VDI.get_record_internal ~__context ~self:vdi in
+	Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
+	Xapi_vdi_helpers.assert_managed ~__context ~vdi;
+	let a = Db.VDI.get_record_internal ~__context ~self:vdi in
 
-  let call_snapshot () = 
-    Sm.call_sm_vdi_functions ~__context ~vdi
-      (fun srconf srtype sr ->
-	 try
-	   Sm.vdi_snapshot srconf srtype driver_params sr vdi
-	 with Smint.Not_implemented_in_backend ->
-	   (* CA-28598 *)
-	   debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
-	   raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of sr ]))
-      ) in
+	let call_snapshot () =
+		Sm.call_sm_vdi_functions ~__context ~vdi
+			(fun srconf srtype sr ->
+				try
+					Sm.vdi_snapshot srconf srtype driver_params sr vdi
+				with Smint.Not_implemented_in_backend ->
+					(* CA-28598 *)
+					debug "Backend reported not implemented despite it offering the capability; assuming this is an LVHD upgrade issue";
+					raise (Api_errors.Server_error(Api_errors.sr_requires_upgrade, [ Ref.string_of sr ]))
+			) in
 
-  (* While we don't have blkback support for pause/unpause we only do this
-     for .vhd-based backends. *)
-  let vdi_info = call_snapshot () in
-  let uuid = require_uuid vdi_info in
-  let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
+	(* While we don't have blkback support for pause/unpause we only do this
+	   for .vhd-based backends. *)
+	let vdi_info = call_snapshot () in
+	let uuid = require_uuid vdi_info in
+	let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
 
-  (* Copy across the metadata which we control *)
-  Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
-  Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
-  Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
-  Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
-  Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
-  Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
-  Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
-  Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
+	(* Copy across the metadata which we control *)
+	Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
+	Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
+	Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
+	Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
+	Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
+	Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
+	Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
+	Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
 
-  (* Record the fact this is a snapshot *)
- 
-  (*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
-  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
-  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
-  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
-  Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
-  Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:(Db.VDI.get_by_uuid ~__context ~uuid:a.Db_actions.vDI_uuid);
-  Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
+	(* Record the fact this is a snapshot *)
 
-  update_allowed_operations ~__context ~self:newvdi;
-  update ~__context ~vdi:newvdi;
-  newvdi
+	(*(try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of with _ -> ());
+	  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
+	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
+	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
+	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
+	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:(Db.VDI.get_by_uuid ~__context ~uuid:a.Db_actions.vDI_uuid);
+	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
+
+	update_allowed_operations ~__context ~self:newvdi;
+	update ~__context ~vdi:newvdi;
+	newvdi
 
 let destroy ~__context ~self =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self);
