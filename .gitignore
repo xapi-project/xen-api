@@ -45,6 +45,7 @@ ocaml/idl/xen*api.pdf
 ocaml/stdlib2/t*.ml
 ocaml/auth/testauthx
 ocaml/xapi/at_least_once_more
+ocaml/xapi/storage_interface.mli
 js/devweb/api.js
 ocaml/util/pciutil
 ocaml/autogen/*.*
