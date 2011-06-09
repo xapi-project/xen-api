@@ -164,22 +164,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	   memory_cached <> memory)*)
       then 
 	begin
-	  debug "Keys have changed:";
-	  if pv_drivers_version_cached <> pv_drivers_version then
-	    debug "PV drivers version changed";
-
-	  if os_version_cached <> os_version then
-	    debug "OS version changed";
-	  
-	  if networks_cached <> networks then
-	    debug "networks changed";
-
-	  if other_cached <> other then
-	    debug "other changed";
-	  
-(*	  if memory_cached <> memory then
-	    debug "memory changed";*)
-
      	  let gm = 
 	    let existing = Db.VM.get_guest_metrics ~__context ~self in
 	    if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
@@ -192,9 +176,9 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 		~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true;
 	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
-	      debug "About to remove domain from dead list";
+		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
+		  info "Received initial update from guest agent in VM %s; os_version = [ %s]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl pv_drivers_version) (sl networks);
 	      Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
-	      debug "Done";
 	      new_ref in
 
 	  (* We unconditionally reset the database values but observe that the database
