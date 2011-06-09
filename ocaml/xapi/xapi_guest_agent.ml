@@ -205,11 +205,15 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:up_to_date;
 
 	  (* CA-18034: If viridian flag isn't in there and we have current PV drivers then shove it in the metadata for next boot... *)
-	  if up_to_date then
-	    (try
-	       (* will fail if the flag is already in there with some value *)
-	       Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
-	     with _ -> ());
+	  if up_to_date then begin
+		  let platform = Db.VM.get_platform ~__context ~self in
+		  if not(List.mem_assoc Xapi_globs.viridian_key_name platform) then begin
+			  info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.viridian_key_name Xapi_globs.default_viridian_key_value;
+			  try
+				  Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
+			  with _ -> ()
+		  end
+	  end;
 
 	  (* We base some of our allowed-operations decisions on the PV driver version *)
 	  if pv_drivers_version_cached <> pv_drivers_version then begin
