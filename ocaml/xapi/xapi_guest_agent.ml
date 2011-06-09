@@ -164,22 +164,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	   memory_cached <> memory)*)
       then 
 	begin
-	  debug "Keys have changed:";
-	  if pv_drivers_version_cached <> pv_drivers_version then
-	    debug "PV drivers version changed";
-
-	  if os_version_cached <> os_version then
-	    debug "OS version changed";
-	  
-	  if networks_cached <> networks then
-	    debug "networks changed";
-
-	  if other_cached <> other then
-	    debug "other changed";
-	  
-(*	  if memory_cached <> memory then
-	    debug "memory changed";*)
-
      	  let gm = 
 	    let existing = Db.VM.get_guest_metrics ~__context ~self in
 	    if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
@@ -188,13 +172,13 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	      (* if it doesn't exist, make a fresh one *)
 	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
-		~os_version:[] ~pV_drivers_version:[] ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:[] ~other:[]
-		~last_updated:(Date.of_float 0.) ~other_config:[] ~live:true;
+		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
+		~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true;
 	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
 	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
-	      debug "About to remove domain from dead list";
+		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
+		  info "Received initial update from guest agent in VM %s; os_version = [ %s]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl pv_drivers_version) (sl networks);
 	      Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
-	      debug "Done";
 	      new_ref in
 
 	  (* We unconditionally reset the database values but observe that the database
@@ -221,11 +205,15 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
 	  Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:up_to_date;
 
 	  (* CA-18034: If viridian flag isn't in there and we have current PV drivers then shove it in the metadata for next boot... *)
-	  if up_to_date then
-	    (try
-	       (* will fail if the flag is already in there with some value *)
-	       Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
-	     with _ -> ());
+	  if up_to_date then begin
+		  let platform = Db.VM.get_platform ~__context ~self in
+		  if not(List.mem_assoc Xapi_globs.viridian_key_name platform) then begin
+			  info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.viridian_key_name Xapi_globs.default_viridian_key_value;
+			  try
+				  Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
+			  with _ -> ()
+		  end
+	  end;
 
 	  (* We base some of our allowed-operations decisions on the PV driver version *)
 	  if pv_drivers_version_cached <> pv_drivers_version then begin
