@@ -100,21 +100,22 @@ let string_of = function
   | Windows(major, minor, micro, build) -> Printf.sprintf "Windows %d.%d.%d-%d" major minor micro build
   | Unknown -> "Unknown"
 
+let get_product_vsn () =
+	match (Stringext.String.split '.' Version.product_version) with
+		| [maj; min; mic] ->
+			Some (int_of_string maj, int_of_string min, int_of_string mic)
+		| _ ->
+			(* This can happen if you're running a dev build *)
+			warn "PRODUCT_VERSION is wrong format: \"%s\": is this a development build?" Version.product_version; 
+			None
+
 (** Compares the given version tuple with the product version on this host.
  ** @return -1: if the given version is older;
  ** @return  0: if the given version is equal;
  ** @return +1: if the given version is newer;
  ** @raise Assert_failure: if this host does not have a valid product version.
  **)
-let compare_vsn_with_product_vsn ?(relaxed=false) (pv_maj, pv_min, pv_mic) =
-	let (prod_maj, prod_min, prod_mic) =
-		match (Stringext.String.split '.' Version.product_version) with
-			| [maj; min; mic] ->
-				(int_of_string maj, int_of_string min, int_of_string mic)
-			| _ ->
-				warn "xapi product version is wrong format: %s"
-					Version.product_version; assert false;
-	in
+let compare_vsn_with_product_vsn ?(relaxed=false) (pv_maj, pv_min, pv_mic) (prod_maj, prod_min, prod_mic) =
 	(* out of date if micro version not specified -- reqd since Miami Beta1 was
 	   shipped withoutmicro versions! *)
 	if pv_mic = -1 then -1
@@ -138,17 +139,24 @@ let compare_vsn_with_tools_iso ?(relaxed=false) pv_vsn =
 let has_pv_drivers x = x <> Unknown
 
 (** Returns true if the PV drivers are up to date *)
-let is_up_to_date = function
-    (* XXX: linux guest agent doesn't report build number (-1) while all windows ones do *)
-	| Linux (maj, min, mic, bd)   ->
-		  compare_vsn_with_product_vsn ~relaxed:true (maj, min, mic) >= 0
-		  && (bd = -1 || compare_vsn_with_tools_iso ~relaxed:true (maj, min, mic, bd) >= 0)
-	| Windows (maj, min, mic, bd) ->
-		  compare_vsn_with_product_vsn (maj, min, mic) >= 0
-		  && compare_vsn_with_tools_iso (maj, min, mic, bd) >= 0
-	| Unknown ->
-		  (* Avoid catch all '_', it's bad practice except for false assertion *)
-		  false
+let is_up_to_date pv_driver_vsn = 
+	match get_product_vsn () with
+		| None ->
+			(* Since we must be running a dev build, assuming guest PV drivers are up-to-date *)
+			true
+		| Some p ->
+			begin match pv_driver_vsn with
+				(* XXX: linux guest agent doesn't report build number (-1) while all windows ones do *)
+				| Linux (maj, min, mic, bd)   ->
+					compare_vsn_with_product_vsn ~relaxed:true (maj, min, mic) p >= 0
+					&& (bd = -1 || compare_vsn_with_tools_iso ~relaxed:true (maj, min, mic, bd) >= 0)
+				| Windows (maj, min, mic, bd) ->
+					compare_vsn_with_product_vsn (maj, min, mic) p >= 0
+					&& compare_vsn_with_tools_iso (maj, min, mic, bd) >= 0
+				| Unknown ->
+					(* Avoid catch all '_', it's bad practice except for false assertion *)
+					false
+			end
 
 (** Returns true if the PV drivers are OK for migrate; in Miami we allow migration
     as long as the major vs of the PV drivers are 4. This allows us to migrate VMs
