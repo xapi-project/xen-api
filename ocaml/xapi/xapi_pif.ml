@@ -563,6 +563,10 @@ let rec unplug ~__context ~self =
 	if Db.Host.get_enabled ~__context ~self:host
 	then abort_if_network_attached_to_protected_vms ~__context ~self;
 
+	let network = Db.PIF.get_network ~__context ~self in
+	Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost ~__context) ~network;
+	Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context self;
+
 	let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
 	if tunnel <> []
 	then begin
