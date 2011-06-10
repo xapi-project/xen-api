@@ -23,7 +23,7 @@ open D
 
 exception Xml_parse_failure of string
 
-let request_mutex = Mutex.create()
+let request_mutex = Locking_helpers.Named_mutex.create "WLB"
 
 let raise_url_invalid url =
   raise (Api_errors.Server_error (Api_errors.wlb_url_invalid, [url]))
@@ -449,7 +449,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
 			Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url;
 			Pervasiveext.ignore_exn (fun _ -> Db.Secret.destroy ~__context ~self:old_secret_ref);
 	in
-	Mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
+	Locking_helpers.Named_mutex.execute request_mutex (perform_wlb_request ~enable_log:false 
 		~meth:"AddXenServer" ~params 
 		~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url 
 		~handle_response ~__context)
@@ -478,7 +478,7 @@ let decon_wlb ~__context =
 		raise_not_initialized()	
 	else
 		let params = pool_uuid_param ~__context in
-		try Mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
+		try Locking_helpers.Named_mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer" 
 			~params ~handle_response ~__context) with 
 		| _ -> clear_wlb_config ~__context ~pool
 

@@ -187,7 +187,7 @@ let handle_message ~__context message =
     log_backtrace ()
 
 let start_message_hook_thread ~__context () =
-  queue_push := Thread_queue.make ~name:"email message queue" ~max_q_length:100 (handle_message ~__context)
+  queue_push := (Thread_queue.make ~name:"email message queue" ~max_q_length:100 (handle_message ~__context)).Thread_queue.push_fn
 
 
 (********************************************************************)
