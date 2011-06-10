@@ -258,7 +258,7 @@ let update_vms ~xal ~__context =
 	   restarting the VM *)
 	Xc.domain_shutdown xc dinfo.Xc.domid Xc.Reboot;
 	set_db_state_and_domid vmref `Running dinfo.Xc.domid;
-	Events.callback_release xal dinfo.Xc.domid 
+	Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
       end else begin
 	(* Reset the power state, this also clears VBD operations etc *)
 	let state = if dinfo.Xc.paused then `Paused else `Running in
@@ -285,7 +285,7 @@ let update_vms ~xal ~__context =
     let vmref,vmrec = vmrefrec_of_dinfo dinfo in
     if vmrec.API.vM_resident_on = this_host then begin
       debug "VM is apparently resident on this host; injecting a fake event into the event thread";
-      Events.callback_release xal dinfo.Xc.domid 
+      Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
     end else begin
       debug "VM is not resident on this host; destroying remnant of managed domain";
       Domain.destroy ~xc ~xs dinfo.Xc.domid
