@@ -15,6 +15,8 @@
  * Helpers for Xen-specific functionality (i.e. that which is not needed by
  * the fakeserver).
  *)
+module D=Debug.Debugger(struct let name="xapi" end)
+open D
 
 exception Device_has_no_VBD
 
@@ -28,7 +30,14 @@ let kind_of_vdi ~__context ~self =
 let device_of_vbd ~__context ~self = 
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-  let hvm = Xc.with_intf (fun xc -> (Xc.domain_getinfo xc domid).Xc.hvm_guest) in
+  let hvm = 
+	  try
+		  Xc.with_intf (fun xc -> (Xc.domain_getinfo xc domid).Xc.hvm_guest) 
+	  with Xc.Error("2: No such file or directory") ->
+		  (* This can happen if someone calls "xenops destroy_domain" *)
+		  error "VM %s domid:%d has been destroyed beneath us: returning VM_BAD_POWER_STATE" (Ref.string_of vm) domid;
+		  raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; (Record_util.power_to_string `Halted)]))
+  in
   let devid = Device_number.to_xenstore_key (Device_number.of_string hvm (Db.VBD.get_device ~__context ~self)) in
   let backend = { Device_common.domid = 0; 
 		  kind = Device_common.Vbd;
