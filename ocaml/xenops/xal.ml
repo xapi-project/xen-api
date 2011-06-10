@@ -125,8 +125,8 @@ type state =
 type ctx = {
 	xs: Xs.xsh;
 	xc: Xc.handle;
-	mutable callback_introduce: ctx -> domid -> unit;
-	mutable callback_release: ctx -> domid -> unit;
+	mutable callback_introduce: ctx -> domid -> string -> unit;
+	mutable callback_release: ctx -> domid -> string -> unit;
 	mutable callback_devices: ctx -> domid -> dev_event -> unit;
 	mutable callback_guest_agent: ctx -> domid -> unit;
 	mutable callback_memory_target: ctx -> domid -> unit;
@@ -335,14 +335,14 @@ let domain_update ctx =
 		if not(Hashtbl.mem ctx.tbl domid)
 		then Hashtbl.add ctx.tbl domid (domstate_init uuid);
 		add_domain_watch uuid domid;
-		news := domid :: !news
+		news := (domid, uuid) :: !news
 		in
 	let domain_set_dead domid reason =
 		let domev = get_domstate ctx domid in
 		domev.dead_reason <- Some reason;
 		if reason <> Suspended then begin
 			del_domain_watch domid;
-			deads := domid :: !deads;
+			deads := (domid, domev.uuid) :: !deads;
 		end in
 	let domain_resume domid =
 		let domev = get_domstate ctx domid in
@@ -516,10 +516,11 @@ let device_state_init ctx domid =
 	()
 
 let callback_dom_null ctx domid = ()
+let callback_dom_uuid_null ctx domid uuid = ()
 let callback_dev_null ctx domid dev_event = ()
 
-let init ?(callback_introduce = callback_dom_null)
-         ?(callback_release = callback_dom_null)
+let init ?(callback_introduce = callback_dom_uuid_null)
+         ?(callback_release = callback_dom_uuid_null)
          ?(callback_devices = callback_dev_null)
 	 ?(callback_guest_agent = callback_dom_null)
 	 ?(callback_memory_target = callback_dom_null)
@@ -552,9 +553,9 @@ let init ?(callback_introduce = callback_dom_null)
 
 			let newdomains, deaddomains = domain_update ctx in
 			if ctx.monitor_devices then
-				List.iter (fun domid -> device_state_init ctx domid) newdomains;
-			List.iter (callback_introduce ctx) newdomains;
-			List.iter (callback_release ctx) deaddomains;
+				List.iter (fun (domid, _) -> device_state_init ctx domid) newdomains;
+			List.iter (fun (domid, uuid) -> callback_introduce ctx domid uuid) newdomains;
+			List.iter (fun (domid, uuid) -> callback_release ctx domid uuid) deaddomains;
 			ctx
 		with e -> Xc.interface_close xc; raise e)
 	with e -> Xs.close xs; raise e
@@ -620,8 +621,8 @@ let process ?timeout ctx =
 	match w with
 	| "@introduceDomain" | "@releaseDomain" ->
 		let newdomains, deaddomains = domain_update ctx in
-		List.iter (fun domid -> ctx.callback_introduce ctx domid) newdomains;
-		List.iter (fun domid -> ctx.callback_release ctx domid) deaddomains;
+		List.iter (fun (domid, uuid) -> ctx.callback_introduce ctx domid uuid) newdomains;
+		List.iter (fun (domid, uuid) -> ctx.callback_release ctx domid uuid) deaddomains;
 	| x when String.endswith "/data/updated" x ->
 		(* guest agent has updated state in xenstore *)
 		let domid = int_of_string (String.sub v 4 (String.length v - 4)) in
@@ -655,7 +656,7 @@ let wait_release ctx ?timeout domid =
 		domain_get_dead ctx domid
 	else (
 		let finished = ref false in
-		let cb ctx domid2 = (finished := domid = domid2) in
+		let cb ctx domid2 _ = (finished := domid = domid2) in
 		let old_callback = ctx.callback_release in
 		ctx.callback_release <- cb;
 
@@ -674,8 +675,8 @@ let wait_release ctx ?timeout domid =
 			(* last resort, ask xen directly just in case we didn't saw the @releaseDomain *)
 			ctx.callback_release <- old_callback;
 			let newdomains, deaddomains = domain_update ctx in
-			List.iter (fun domid -> ctx.callback_introduce ctx domid) newdomains;
-			List.iter (fun domid -> ctx.callback_release ctx domid) deaddomains;
+			List.iter (fun (domid, uuid) -> ctx.callback_introduce ctx domid uuid) newdomains;
+			List.iter (fun (domid, uuid) -> ctx.callback_release ctx domid uuid) deaddomains;
 			if deaddomains <> [] && domain_is_dead ctx domid then (
 				(* we missed the event but it's dead anyway so we recover from timeout *)
 				domain_get_dead ctx domid

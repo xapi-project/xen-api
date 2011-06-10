@@ -551,16 +551,15 @@ let callback_devices ctx domid dev_event =
     ) ()
 	  
 (** Handles domain shutdowns *)
-let callback_release ctx domid = 
-  debug "VM (domid: %d) @releaseDomain" domid;
-  Helpers.log_exn_continue (Printf.sprintf "callback_release (domid: %d)" domid)
+let callback_release ctx domid uuid = 
+  debug "VM domid:%d uuid:%s @releaseDomain" domid uuid;
+  Helpers.log_exn_continue (Printf.sprintf "callback_release domid:%d uuid:%s" domid uuid)
     (fun () ->
        try
-	 let description = Printf.sprintf "VM (domid %d) @releaseDomain" domid in
+	 let description = Printf.sprintf "VM domid:%d uuid:%s @releaseDomain" domid uuid in
 	 Server_helpers.exec_with_new_task ~task_in_database:false description
 	   (fun __context ->
-	      (* Get the VM reference given the domid by looking up the uuid *)
-	      let vm = vm_of_domid ~__context domid in
+		   let vm = Db.VM.get_by_uuid ~__context ~uuid in
 	      (* Construct a work item and push it on the work queue *)
 	      let work_item ~__context token = 
 		let action_taken = Resync.vm ~__context token vm in
