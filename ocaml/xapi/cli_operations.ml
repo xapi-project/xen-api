@@ -1882,7 +1882,7 @@ let data_source_to_kvs ds =
 	]
 
 let vm_data_source_list printer rpc session_id params =
-	ignore(do_vm_op printer rpc session_id ~multiple:false
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id ~multiple:false
 		(fun vm ->
 			let vm=vm.getref () in
 			let dss =Client.VM.get_data_sources rpc session_id vm in
@@ -1890,14 +1890,14 @@ let vm_data_source_list printer rpc session_id params =
 			printer (Cli_printer.PTable output)) params [])
 
 let vm_data_source_record printer rpc session_id params =
-	ignore(do_vm_op printer rpc session_id ~multiple:false
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id ~multiple:false
 		(fun vm ->
 			let vm=vm.getref () in
 			let ds=List.assoc "data-source" params in
 			Client.VM.record_data_source rpc session_id vm ds) params ["data-source"])
 
 let vm_data_source_query printer rpc session_id params =
-	ignore(do_vm_op printer rpc session_id ~multiple:false
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id ~multiple:false
 		(fun vm ->
 			let vm=vm.getref () in
 			let ds=List.assoc "data-source" params in
@@ -1905,7 +1905,7 @@ let vm_data_source_query printer rpc session_id params =
 			printer (Cli_printer.PList [Printf.sprintf "%f" value])) params ["data-source"])
 
 let vm_data_source_forget printer rpc session_id params =
-	ignore(do_vm_op printer rpc session_id ~multiple:false
+	ignore(do_vm_op ~include_control_vms:true printer rpc session_id ~multiple:false
 		(fun vm ->
 			let vm=vm.getref () in
 			let ds=List.assoc "data-source" params in
