@@ -517,28 +517,45 @@ module Shutdown = struct
   (** Run with the per-VM lock held to clean up any shutdown domain. Note if the VM has been rebooted
 	  then we abort with OTHER_OPERATION_IN_PROGRESS. See [retry_on_conflict] *)
   let in_dom0_already_locked { TwoPhase.__context=__context; vm=vm; api_call_name=api_call_name; clean=clean } =
-	(* If the VM has been shutdown by the event thread (domid = -1) then there's no domain to destroy. *)
-	(* If the VM is running again then throw an error to trigger retry_on_conflict *)
-    let domid = Helpers.domid_of_vm ~__context ~self:vm in
-	debug "%s Shutdown.in_dom0_already_locked domid=%d" api_call_name domid;
-	if domid <> -1 then begin
-	  with_xc_and_xs
-		  (fun xc xs ->
-			   let di = Xc.domain_getinfo xc domid in
-			   (* If someone rebooted it while we dropped the lock: *)
-			   if Xal.is_running di
-			   then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
+	  (* Scenarios:
+		 1. the VM has been shutdown by the event thread while we didn't have the lock.
+		    if the VM was rebooted then last_known_domid = current_domid = the domid
+		        we throw an other_operation_in_progress error
+		    if the VM was halted then last_known_domid = current_domid = -1
+		        nothing needs to be done
+		 2. someone has destroyed the domain beneath us
+		    we ensure the old domid has been cleaned up and set the power_state to Halted
+		 3. we get the lock and have to shutdown the domain ourselves
+		    last_known_domid = current_domid = the domid
+	  *)
+	  let last_known_domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+      let current_domid = Helpers.domid_of_vm ~__context ~self:vm in
+	  debug "%s Shutdown.in_dom0_already_locked last_known_domid:%d current_domid=%d" api_call_name last_known_domid current_domid;
+	  (* Investigate the current_domid if it's valid, else consider the last known domid *)
+	  let domid = if current_domid <> -1 then current_domid else last_known_domid in
+	  if domid <> -1 then begin
+		  with_xc_and_xs
+			  (fun xc xs ->
+				  begin
+					  try
+						  let di = Xc.domain_getinfo xc domid in
+						  (* If someone rebooted it while we dropped the lock: *)
+						  if Xal.is_running di
+						  then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
+						  (* see retry_on_conflict *)
+					  with Xc.Error("2: No such file or directory") -> ()
+				  end;
 
-			   (* Invoke pre_destroy hook *)
-			   Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
-			   debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
- 		       Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
-		       Xapi_hooks.vm_post_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
+				  (* Invoke pre_destroy hook *)
+				  Xapi_hooks.vm_pre_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
+				  debug "%s: phase 2/2: destroying old domain (domid %d)" api_call_name domid;
+ 				  Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted;
+				  Xapi_hooks.vm_post_destroy ~__context ~reason:(if clean then Xapi_hooks.reason__clean_shutdown else Xapi_hooks.reason__hard_shutdown) ~vm;
 
-		       (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
-		       Monitor.do_monitor __context xc
-		  )
-	end;
+				  (* Force an update of the stats - this will cause the rrds to be synced back to the master *)
+				  Monitor.do_monitor __context xc
+			  )
+	  end;
 
     if Db.VM.get_power_state ~__context ~self:vm = `Suspended then begin
       debug "hard_shutdown: destroying any suspend VDI";
