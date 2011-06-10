@@ -268,5 +268,8 @@ val reset_networking : __context:Context.t -> host:API.ref_host -> unit
 (** Query diagnostics from the SM layer *)
 val get_sm_diagnostics : __context:Context.t -> host:API.ref_host -> string
 
+(** Query diagnostics about running threads *)
+val get_thread_diagnostics : __context:Context.t -> host:API.ref_host -> string
+
 (** Attempt to cleanup and destroy an SM datapath *)
 val sm_dp_destroy : __context:Context.t -> host:API.ref_host -> dp:string -> allow_leak:bool -> unit

@@ -1980,6 +1980,15 @@ let host_get_sm_diagnostics printer rpc session_id params =
 					(Client.Host.get_sm_diagnostics rpc session_id host)))
 		params [])
 
+let host_get_thread_diagnostics printer rpc session_id params =
+	ignore (do_host_op rpc session_id ~multiple:false
+		(fun _ host ->
+			let host = host.getref () in
+			printer
+				(Cli_printer.PMsg
+					(Client.Host.get_thread_diagnostics rpc session_id host)))
+		params [])
+
 let host_sm_dp_destroy printer rpc session_id params =
 	let dp = List.assoc "dp" params in
 	let allow_leak = get_bool_param params "allow-leak" in

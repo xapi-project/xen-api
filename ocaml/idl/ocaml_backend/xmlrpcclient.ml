@@ -18,8 +18,8 @@ open Threadext
 module D = Debug.Debugger(struct let name = "http" end)
 open D
 
-let set_stunnelpid_callback : (string -> int -> unit) option ref = ref None
-let unset_stunnelpid_callback : (string -> int -> unit) option ref = ref None
+let set_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
+let unset_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
 
 (* Headers for an HTTP CONNECT operation *)
 let connect_headers ?session_id ?task_id ?subtask_of host path = 
@@ -344,16 +344,17 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
 
   (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
   let with_recorded_stunnelpid task_opt s_pid f =
+	  info "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
 	begin
-	  match task_id, !set_stunnelpid_callback with
-	  | Some t, Some f -> f t s_pid
-	  | _, _ -> ()
+	  match !set_stunnelpid_callback with
+	  | Some f -> f task_id s_pid
+	  | _ -> ()
 	end;
 	finally f
 		(fun () ->
-			 match task_id, !unset_stunnelpid_callback with
-			 | Some t, Some f -> f t s_pid
-			 | _, _ -> ()
+			 match !unset_stunnelpid_callback with
+			 | Some f -> f task_id s_pid
+			 | _ -> ()
 		) in
 
   with_recorded_stunnelpid task_id s_pid
@@ -370,9 +371,10 @@ let do_secure_http_rpc ?(use_external_fd_wrapper=true) ?(use_stunnel_cache=false
           raise e)
     (fun () ->
       if use_stunnel_cache
-      then
-        Stunnel_cache.add st_proc
-      else
+      then begin
+          Stunnel_cache.add st_proc;
+		  info "stunnel pid: %d (cached = %b) returned stunnel to cache" s_pid use_stunnel_cache;
+      end else
         begin
           Unix.unlink st_proc.Stunnel.logfile;
           Stunnel.disconnect st_proc

@@ -397,33 +397,41 @@ end
 let push vm deferred_queue description work_item =
   (* Perform the work_item now on a locked VM if the VM is still resident here. Otherwise do nothing. *)
   let perform_work_item_if_resident token = 
-    Locking_helpers.assert_locked vm token;
-    Server_helpers.exec_with_new_task (Printf.sprintf "VM %s: processing %s" (Ref.string_of vm) description)
-      (fun __context ->
-	 (* Once the lock has been grabbed, make sure the VM hasn't moved to another host (ie the migrate case) *)
-	 let localhost = Helpers.get_localhost ~__context in
-	 let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-	 if localhost <> resident_on then
-	   debug "VM %s (%s) resident_on other host %s (%s): taking no action" 
-	     (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm)
-	     (Ref.string_of resident_on) (Db.Host.get_hostname ~__context ~self:localhost)
-	 else begin
-	   debug "VM %s: about to perform: %s" (Ref.string_of vm) description;
-	   work_item ~__context token
-	 end) in
+	  Locking_helpers.assert_locked vm token;
+	  Server_helpers.exec_with_new_task (Printf.sprintf "VM %s: processing %s" (Ref.string_of vm) description)
+		  (fun __context ->
+			  (* Once the lock has been grabbed, make sure the VM hasn't moved to another host (ie the migrate case) *)
+			  let localhost = Helpers.get_localhost ~__context in
+			  let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+			  if localhost <> resident_on then
+				  debug "VM %s (%s) resident_on other host %s (%s): taking no action" 
+					  (Ref.string_of vm) (Db.VM.get_name_label ~__context ~self:vm)
+					  (Ref.string_of resident_on) (Db.Host.get_hostname ~__context ~self:localhost)
+			  else begin
+				  debug "VM %s: about to perform: %s" (Ref.string_of vm) description;
+				  work_item ~__context token
+			  end) in
 
   (* The per-VM queue is executed with the VM already locked. The deferred_queue path needs to 
      acquire the lock itself. *)
   let per_vm_work_item token = perform_work_item_if_resident token in
   let deferred_work_item () =
     assert_not_on_xal_thread ();
-    debug "VM %s: grabbing lock to perform: %s" (Ref.string_of vm) description;
-    Locking_helpers.with_lock vm (fun token _ -> perform_work_item_if_resident token) () in
+	  Locking_helpers.Thread_state.acquired (Locking_helpers.Lock deferred_queue.Thread_queue.name);
+	  finally
+		  (fun () ->
+			  debug "VM %s: grabbing lock to perform: %s" (Ref.string_of vm) description;
+			  Locking_helpers.with_lock vm (fun token _ -> perform_work_item_if_resident token) ()
+		  )
+		  (fun () ->
+			  Locking_helpers.Thread_state.released (Locking_helpers.Lock deferred_queue.Thread_queue.name)
+		  )
+ in
 
   let (_: bool) = 
     false
     || Locking_helpers.Per_VM_Qs.maybe_push vm description per_vm_work_item
-    || deferred_queue description deferred_work_item
+    || deferred_queue.Thread_queue.push_fn description deferred_work_item
   in ()
 
 let callback_devices ctx domid dev_event = 

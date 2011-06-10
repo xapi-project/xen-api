@@ -467,7 +467,7 @@ let single_pass () =
 	detect_rolling_upgrade ~__context)
 
 let start_db_gc_thread() =
-  Thread.create 
+  Thread.create
     (fun ()->
       Debug.name_thread "db_gc";
       

@@ -108,15 +108,11 @@ let internal_host_dead_hook __context host =
   info "Running host dead hook for %s" (Ref.string_of host);
   let forwarded_tasks =
     List.filter (fun t -> Db.Task.get_forwarded_to ~__context ~self:t = host) tasks in
-  let kill_stunnel task =
-    let pid = Int64.to_int (Db.Task.get_stunnelpid ~__context ~self:task) in
-    if pid>0 then begin
-      debug "Killing stunnel pid: %d" pid;
-      Helpers.log_exn_continue (Printf.sprintf "killing stunnel pid: %d" pid)
-	(fun () -> Unix.kill pid Sys.sigterm) ();
-      Db.Task.set_stunnelpid ~__context ~self:task ~value:0L
-    end in
-  List.iter kill_stunnel forwarded_tasks
+  List.iter
+	  (fun task ->
+		  let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task task in
+		  List.iter Locking_helpers.kill_resource resources
+	  ) forwarded_tasks
 
 let host_post_declare_dead ~__context ~host ~reason = 
   (* Cancel outstanding tasks first-- should release necessary locks *)
