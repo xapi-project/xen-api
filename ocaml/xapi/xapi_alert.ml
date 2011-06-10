@@ -36,7 +36,7 @@ module Alert = struct
 end
 
 (** Function which pushes Alerts onto the queue for background processing *)
-let alert_queue_push = Thread_queue.make ~name:"API messages" ~max_q_length:100 Alert.process 
+let alert_queue_push = (Thread_queue.make ~name:"API messages" ~max_q_length:100 Alert.process).Thread_queue.push_fn
 
 (** Function which guarantees not to block and creates the message on a 'best-effort' basis *)
 let add ~name ~priority ~cls ~obj_uuid ~body = 
