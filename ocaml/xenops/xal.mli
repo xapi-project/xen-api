@@ -80,8 +80,8 @@ val device_is_connected : ctx -> domid -> string -> string -> bool
 val device_get_hotplug : ctx -> domid -> string -> string -> string option
 
 (* low level *)
-val init : ?callback_introduce:(ctx -> domid -> unit)
-        -> ?callback_release:(ctx -> domid -> unit)
+val init : ?callback_introduce:(ctx -> domid -> string -> unit)
+        -> ?callback_release:(ctx -> domid -> string -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
 	-> ?callback_memory_target:(ctx -> domid -> unit)
@@ -97,8 +97,8 @@ val wait_release : ctx -> ?timeout:float -> domid -> died_reason
 val wait : ctx -> float -> unit
 
 (* high level *)
-val loop : ?callback_introduce:(ctx -> domid -> unit)
-        -> ?callback_release:(ctx -> domid -> unit)
+val loop : ?callback_introduce:(ctx -> domid -> string -> unit)
+        -> ?callback_release:(ctx -> domid -> string -> unit)
         -> ?callback_devices:(ctx -> domid -> dev_event -> unit)
 	-> ?callback_guest_agent:(ctx -> domid -> unit)
 	-> ?callback_memory_target:(ctx -> domid -> unit)
