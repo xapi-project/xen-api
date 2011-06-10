@@ -63,10 +63,10 @@ let _ =
 	          (fun _ -> ()) "usage: fakeguestagent [args]";
 	
 	let domains = ref [] in
-	let callback_introduce ctx domid =
+	let callback_introduce ctx domid _ =
 		if domid = 0 then () else
 		domains := domid :: !domains
-	and callback_release ctx domid =
+	and callback_release ctx domid _ =
 		domains := List.filter (fun id -> id <> domid) !domains
 		in
 	let write_data k = k, (real_data k) in
