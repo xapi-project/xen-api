@@ -551,8 +551,10 @@ module Shutdown = struct
 	(fun rpc session_id -> Client.VDI.destroy rpc session_id vdi);
       (* Whether or not that worked, forget about the VDI *)
       Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
+    end;
+
 	Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
-    end
+
 
   (** In the synchronous API call paths, acquire the lock, check if the VM's domain has shutdown (if not error out)
 	  and continue with the shutdown *)
