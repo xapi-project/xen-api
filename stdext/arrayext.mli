@@ -52,8 +52,17 @@ sig
 	val fold_right2 :
 		('a -> 'b -> 'c -> 'c) -> 'a array -> 'b array -> 'c -> 'c
 
+	(** Get first index of an element in the array, or -1. *)
+	val index : 'a -> 'a array -> int
+
 	(** Compute the inner product of two arrays. *)
 	val inner :
 		(('a -> 'b -> 'c -> 'd) -> 'e -> 'f -> 'g -> 'h) ->
 		'e -> ('b -> 'c -> 'i) -> 'f -> 'g -> ('a -> 'i -> 'd) -> 'h
+
+	(** Check if an element appears in the array. *)
+	val mem : 'a -> 'a array -> bool
+
+	(** Remove the element at specified position from the array. *)
+	val remove : int -> 'a array -> 'a array
 end

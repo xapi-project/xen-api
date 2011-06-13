@@ -39,7 +39,21 @@ let fold_right2 f a b x =
 	done;
 	!r
 
+let index e a =
+	let len = length a in
+	let rec check i =
+		if len <= i then -1
+		else if get a i = e then i
+		else check (i + 1)
+	in check 0
+
 let inner fold_left2 base f l1 l2 g =
 	fold_left2 (fun accu e1 e2 -> g accu (f e1 e2)) base l1 l2
-end
 
+let mem e a =
+	index e a <> -1
+
+let remove n a =
+	append (sub a 0 n) (sub a (n+1) (length a - n - 1))
+
+end
