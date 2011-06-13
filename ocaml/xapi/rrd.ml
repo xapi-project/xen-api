@@ -20,6 +20,7 @@
  * @group Performance Monitoring
  *)
 
+open Arrayext
 open Listext
 open Pervasiveext
 
@@ -438,23 +439,16 @@ let rrd_add_ds rrd newds =
 
 (** Remove the named DS from an RRD. Removes all of the data associated with it, too *)
 let rrd_remove_ds rrd ds_name =
-  let remove n arr =                                                    
-    Array.append (Array.sub arr 0 n) (Array.sub arr (n+1) (Array.length arr - n - 1))
-  in
-  let n = ref (-1) in
-  Array.iteri (fun i ds -> if ds.ds_name=ds_name then n := i) rrd.rrd_dss;
-  if !n > -1 then
-    begin
-      (* Found it! *)
-      { rrd with
-	rrd_dss = remove !n rrd.rrd_dss;
-	rrd_rras = Array.map (fun rra ->
-	  { rra with
-	    rra_data = remove !n rra.rra_data;
-	    rra_cdps = remove !n rra.rra_cdps }) rrd.rrd_rras; }	
-    end
-  else
-    rrd
+	let n = Array.index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
+	if n = -1 then
+		raise (Api_errors.Server_error(Api_errors.invalid_value, ["data-source"; ds_name]))
+	else
+		{ rrd with
+			rrd_dss = Array.remove n rrd.rrd_dss;
+			rrd_rras = Array.map (fun rra ->
+				{ rra with
+					rra_data = Array.remove n rra.rra_data;
+					rra_cdps = Array.remove n rra.rra_cdps }) rrd.rrd_rras; }
 
 exception No_RRA_Available
 
@@ -485,17 +479,14 @@ let find_best_rras rrd pdp_interval cf start =
     let rra = List.hd (List.rev rras) in
     let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
     List.filter (contains_time newstarttime) rras
-	  
+
 let query_named_ds rrd ds_name cf =
-  let n = ref (-1) in
-  Array.iteri (fun i ds -> if ds.ds_name=ds_name then n := i) rrd.rrd_dss;
-  if !n > -1 then
-    begin
-      let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float (Unix.gettimeofday())) in
-      Fring.peek (List.hd rras).rra_data.(!n) 0
-    end
-  else
-    failwith "Could not find DS!"
+	let n = Array.index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss) in
+	if n = -1 then
+		raise (Api_errors.Server_error(Api_errors.invalid_value, ["data-source"; ds_name]))
+	else
+		let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float (Unix.gettimeofday())) in
+		Fring.peek (List.hd rras).rra_data.(n) 0
 
 (******************************************************************************)
 (* Marshalling/Unmarshalling functions                                        *)
