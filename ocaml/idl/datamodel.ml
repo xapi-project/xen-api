@@ -1078,7 +1078,7 @@ let _ =
 		~doc:"The disaster recovery task could not be cleanly destroyed." ();
 
 	error Api_errors.vm_is_part_of_an_appliance ["vm"; "appliance"]
-		~doc:"The VM cannot be recovered on its own as it is part of a VM appliance." ();
+		~doc:"This operation is not allowed as the VM is part of an appliance." ();
 
 	error Api_errors.vm_to_import_is_not_newer_version ["vm"; "existing_version"; "version_to_import"]
 		~doc:"The VM cannot be imported unforced because it is either the same version or an older version of an existing VM." ()
