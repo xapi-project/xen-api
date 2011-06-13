@@ -264,10 +264,6 @@ let clone_snapshot_fields a b =
     Int64.to_string b.API.vDI_virtual_size;
     `Different, "location",
     a.API.vDI_location, b.API.vDI_location;
-    `Same, "name_label",
-    a.API.vDI_name_label, b.API.vDI_name_label;
-    `Same, "name_description",
-    a.API.vDI_name_description, b.API.vDI_name_description;
   ] 
 
 (** If VDI_CLONE and VDI_DELETE are present then make sure VDIs appear and disappear correctly *)
