@@ -87,6 +87,10 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 let set_actions_after_crash ~__context ~self ~value = 
 	Db.VM.set_actions_after_crash ~__context ~self ~value
 let set_is_a_template ~__context ~self ~value =
+	let appliance = Db.VM.get_appliance ~__context ~self in
+	if Db.is_valid_ref __context appliance then
+		raise (Api_errors.Server_error(Api_errors.vm_is_part_of_an_appliance,
+			[(Ref.string_of self); (Ref.string_of appliance)]));
 	(* We define a 'set_is_a_template false' as 'install time' *)
 	info "VM.set_is_a_template('%b')" value;
 	let m = Db.VM.get_metrics ~__context ~self in
