@@ -224,12 +224,12 @@ let release ~xs (x: device) =
 			debug "Hotplug.release releasing %s" loopdev;
 			umount_loopdev loopdev;
 			xs.Xs.rm (path ^ "/loop-device")
-		   | "online" ->
-			debug "Warning, deleting 'online' entry from %s" path;
+		   | "hotplug" ->
+			debug "xenstore-rm %s/online" path;
 			xs.Xs.rm (path ^ "/online")
 		   | "" -> () (* XXX? *)
 		   | x ->
-			warn "Warning, deleting '%s' entry from %s" x path;
+			warn "Warning, deleting unexpected '%s' entry from %s" x path;
 			xs.Xs.rm (path ^ "/" ^ x)
 		  ) all;
 	xs.Xs.rm path
