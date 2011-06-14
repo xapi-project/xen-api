@@ -37,7 +37,7 @@ def dispatch(fn_table):
             # SystemExit should not be caught, as it is handled elsewhere in the plugin system.
             raise
         except Exception, e:
-            print failure_message(['XENAPI_PLUGIN_EXCEPTION',
+            print failure_message(['XENAPI_PLUGIN_FAILURE',
                                    methodname, e.__class__.__name__, str(e)])
     else:
         print failure_message(['UNKNOWN_XENAPI_PLUGIN_FUNCTION', methodname])
