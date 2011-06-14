@@ -638,39 +638,6 @@ let check_mac mac =
         with _ ->
 		raise (Invalid_Mac mac)
 
-(** Plug in the backend of a guest's VIF in dom0. Note that a guest may disconnect and
-    then reconnect their network interface: we have to re-run this code every time we
-    see a hotplug online event. *)
-let plug ~xs ~netty ~mac ?(mtu=0) ?rate ?protocol (x: device) =
-	let backend_dev = try
-		let path = Hotplug.get_hotplug_path x in
-		xs.Xs.read (path ^ "/vif")
-	with Xb.Noent ->
-		raise (Hotplug_script_expecting_field (x, "vif")) in
-
-	if mtu > 0 then
-	  begin
-	    try
-	      Netdev.set_mtu backend_dev mtu
-	    with
-	      e ->
-		(* Collect more logging to figure out what's going on in CA-22046 and friends *)
-		error "Failed to set device MTU. Collecting diagnostic information";
-		let sys_class_net_contents,_ = Forkhelpers.execute_command_get_output "/bin/ls" ["/sys/class/net/"] in
-		error "executed /bin/ls /sys/class/net/; returned: %s" sys_class_net_contents;
-		let sys_class_net_device_contents,_ = Forkhelpers.execute_command_get_output "/bin/ls" ["/sys/class/net/"^backend_dev] in
-		error "executed /bin/ls /sys/class/net/%s; returned: %s" backend_dev sys_class_net_device_contents;
-		raise e
-	  end;
-	Netman.online backend_dev netty;
-
-	(* set <backend>/hotplug-status = connected to interact nicely with the
-	   xs-xen.pq.hq:91e986b8e49f netback-wait-for-hotplug patch *)
-	xs.Xs.write (Hotplug.connected_node ~xs x) "connected";
-
-	x
-
-
 let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) domid =
 	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
