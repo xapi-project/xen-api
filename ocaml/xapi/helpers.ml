@@ -432,8 +432,6 @@ let is_pool_master ~__context ~host =
 	let master_id = Db.Host.get_uuid ~__context ~self:master in
 	host_id = master_id
 
-(** PR-1007 - block operations during rolling upgrade *)
-
 (* Host version compare helpers *)
 let compare_int_lists : int list -> int list -> int =
 	fun a b ->
@@ -477,6 +475,19 @@ let host_has_highest_version_in_pool : __context:Context.t -> host:API.ref_host 
 
 let host_versions_not_decreasing ~__context ~host_from ~host_to =
 	compare_host_product_versions ~__context host_from host_to <= 0
+
+let is_product_version_same_on_master ~__context ~host =
+	if is_pool_master ~__context ~host then true else
+	let pool = get_pool ~__context in
+	let master = Db.Pool.get_master ~__context ~self:pool in
+	compare_host_product_versions ~__context master host = 0
+
+let assert_product_version_is_same_on_master ~__context ~host ~self =
+	if not (is_product_version_same_on_master ~__context ~host) then
+		raise (Api_errors.Server_error (Api_errors.vm_resume_incompatible_version,
+			[Ref.string_of host; Ref.string_of self]))
+
+(** PR-1007 - block operations during rolling upgrade *)
 
 (* Assertion functions which raise an exception if certain invariants
    are broken during an upgrade. *)
