@@ -393,25 +393,23 @@ let cmd_alias cmd =
 	| "getuuid_domain"          -> "dom-uuid"
 	| _                         -> cmd
 
-
-let help allcommands subcmd =
-	begin match subcmd with
-	| None ->
-		eprintf "usage:\n";
-		List.iter (fun (cmd, _) -> eprintf "\t%s\n" cmd) allcommands;
-	| Some cmd ->
-		let cmd = cmd_alias cmd in
-		try
-			let args = List.assoc cmd allcommands in
-			eprintf "%s\n" cmd;
-			List.iter (fun (flags, _, help) ->
-				eprintf "\t%s: %s\n" flags help) args
+let usage subcmd allcommands =
+	let usage_all () =
+		let l = List.map (fun (cmd, _) -> "\t" ^ cmd) allcommands in
+		sprintf "%s\n" (String.concat "\n" ("usage:" :: l)) in
+	(* Unfortunately we can not reuse Arg.usage since it always output to stdout *)
+	let usage_sub c =
+		let spec = List.assoc c allcommands in
+		let l = List.map (fun (opt, _, doc) -> sprintf "  %s %s" opt doc) spec in
+		sprintf "%s\n" (String.concat "\n" (c :: l)) in
+	match subcmd with
+	| None -> Arg.Help (usage_all ())
+	| Some c ->
+		try Arg.Help (usage_sub c)
 		with Not_found ->
-			eprintf "no such command\n";
-	end;
-	exit 1
+			Arg.Bad (sprintf "Unknown subcommand: %s\n%s" c (usage_all ()))
 
-let do_cmd_parsing cmd =
+let do_cmd_parsing subcmd init_pos=
 	let domid = ref (-1)
 	and backend_domid = ref (0)
 	and hvm = ref false
@@ -459,17 +457,17 @@ let do_cmd_parsing cmd =
 	let set_int64 r s =
 		try r := Int64.of_string s
 		with _ -> eprintf "cannot parse %s at integer\n" s
-		in
+	in
+
 	let set_netty s =
 		match String.split ':' s with
 		| "DriverDomain" :: []    -> netty := Netman.DriverDomain
 		| "bridge" :: bname :: [] -> netty := Netman.Bridge bname
 		| _                       -> eprintf "not a valid network type: %s\n" s
-		in
+	in
 
 	let common = [
-		"-debug", Arg.Unit (fun () -> Logs.set_default Log.Debug [ "stderr" ]),
-			  "enable debugging";
+		"-debug", Arg.Unit (fun () -> Logs.set_default Log.Debug [ "stderr" ]), "enable debugging";
 		"-domid", Arg.Set_int domid, "Domain ID to be built";
 	]
 	and setmaxmem_args = [
@@ -555,7 +553,7 @@ let do_cmd_parsing cmd =
 	and watchdog_args = [
 		"-slot", Arg.Set_int slot, "slot";
 		"-timeout", Arg.String (fun x -> timeout := Int32.of_string x), "timeout";
-	] 
+	]
 	and backend_args = [
 		"-backend-domid", Arg.Set_int backend_domid, "Domain ID of backend domain (default: 0)";
 	] in
@@ -610,48 +608,44 @@ let do_cmd_parsing cmd =
 		("pcpuinfo"       , []);
 		("help"           , []);
 	] in
-	try
-		if cmd = "help" then (
-			let subcmd =
-				try
-					Some (if Sys.argv.(0) = "help" then Sys.argv.(1) else Sys.argv.(2))
-				with _ -> None in
-			help allcommands subcmd;
-		);
-		let arguments = List.assoc cmd allcommands in
-		Arg.parse arguments (fun x ->
-			if x.[0] = '-' then
-				printf "Warning, ignoring unknown argument: %s\n" x
-			else
-				otherargs := x :: !otherargs
-		) cmd;
-		!domid, !backend_domid, !hvm, !vcpus, !vcpu, !kernel,
-		!ramdisk, !cmdline, Int64.of_int !mem_max_kib, Int64.of_int !mem_mib,
-		!pae, !apic, !acpi, !nx, !viridian, !verbose, !file,
-		!mode, !phystype, !physpath, !device_number, !dev_type, !devid, !mac, !pci,
-		!reason, !sysrq, !script, !sync, !netty, !weight, !cap, !bitmap, !cooperative,
-		!boot, !ioport_start, !ioport_end, !iomem_start, !iomem_end, !irq,
-		!slot, !timeout, List.rev !otherargs
-	with Not_found ->
-		eprintf "unknown command: %s\nusage:\n" cmd;
-		List.iter (fun (cmd, _) -> eprintf "\t%s\n" cmd) allcommands;
-		exit 1
 
-let _ =
-	let cmd = Filename.basename Sys.argv.(0) in
-	let cmd =
-		if Array.length Sys.argv > 1 then (
-			cmd_alias (if cmd = "xenops" then Sys.argv.(1) else cmd)
-		) else
-			"help" in
+	let () =
+		let () =
+			match usage (Some subcmd) allcommands with
+			| Arg.Help _ -> () | e -> raise e in
+		let spec = List.assoc subcmd allcommands in
+		Arg.current := init_pos;
+		Arg.parse_argv Sys.argv spec
+			(fun x ->
+				if x.[0] = '-' then
+					eprintf "Warning, ignoring unknown argument: %s\n" x
+				else
+					otherargs := x :: !otherargs
+			) subcmd in
+	!domid, !backend_domid, !hvm, !vcpus, !vcpu, !kernel,
+	!ramdisk, !cmdline, Int64.of_int !mem_max_kib, Int64.of_int !mem_mib,
+	!pae, !apic, !acpi, !nx, !viridian, !verbose, !file,
+	!mode, !phystype, !physpath, !device_number, !dev_type, !devid, !mac, !pci,
+	!reason, !sysrq, !script, !sync, !netty, !weight, !cap, !bitmap, !cooperative,
+	!boot, !ioport_start, !ioport_end, !iomem_start, !iomem_end, !irq,
+	!slot, !timeout, List.rev !otherargs, allcommands
 
+let _ = try
+
+	let subcmd, init_pos =
+		let cmd = Filename.basename Sys.argv.(0) in
+		if cmd <> "xenops" then cmd, 0
+		else if Array.length Sys.argv > 1 then Sys.argv.(1), 1
+		else "help", 0 in
+
+	let subcmd = cmd_alias subcmd in
 
 	let domid, backend_domid, hvm, vcpus, vcpu, kernel, ramdisk, cmdline,
-	    max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
-	    phystype, physpath, device_number, dev_type, devid, mac, pci, reason, sysrq,
-	    script, sync, netty, weight, cap, bitmap, cooperative,
-	    boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
-	    slot, timeout, otherargs = do_cmd_parsing cmd in
+		max_kib, mem_mib, pae, apic, acpi, nx, viridian, verbose, file, mode,
+		phystype, physpath, device_number, dev_type, devid, mac, pci, reason, sysrq,
+		script, sync, netty, weight, cap, bitmap, cooperative,
+		boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
+		slot, timeout, otherargs, allcommands = do_cmd_parsing subcmd init_pos in
 
 	let is_domain_hvm xc domid = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
 
@@ -667,7 +661,7 @@ let _ =
 	and assert_bitmap () = if bitmap = "" then error "bitmap"
 	in
 
-	match cmd with
+	match subcmd with
 	| "create_domain" ->
 		with_xc_and_xs (fun xc xs -> create_domain ~xc ~xs ~hvm)
 	| "destroy_domain" ->
@@ -804,7 +798,7 @@ let _ =
 		assert_domid ();
 		with_xc (fun xc -> domain_get_uuid ~xc ~domid);
 	| "watchdog" ->
-		if slot < 0 then error "slot";   
+		if slot < 0 then error "slot";
 		if timeout = -1l then error "timeout";
 		Printf.printf "%d\n" (with_xc (fun xc -> Xc.watchdog xc slot timeout))
 	| "send-s3resume" ->
@@ -828,5 +822,11 @@ let _ =
 		with_xc (fun xc -> print_endline (Xc.version_capabilities xc))
 	| "test" ->
 		self_test ()
-	| _ ->
-		failwith (sprintf "unknown command %s" cmd)
+	| "help" ->
+		raise (usage (try Some (List.hd otherargs) with _ -> None) allcommands)
+	| s ->
+		raise (usage (Some s) allcommands)
+with
+| Arg.Help msg -> printf "%s\n" msg; exit 0
+| Arg.Bad msg -> eprintf "%s\n" msg; exit 1
+
