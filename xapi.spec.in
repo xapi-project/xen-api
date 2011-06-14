@@ -167,7 +167,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/master.d/01-example
 /etc/xensource/master.d/03-mpathalert-daemon
 /etc/xensource/pool.conf
-/etc/xensource/scripts/block
 /etc/xensource/scripts/block-frontend
 /etc/xensource/scripts/tap
 /etc/xensource/scripts/vif
