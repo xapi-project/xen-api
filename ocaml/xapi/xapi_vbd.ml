@@ -57,12 +57,7 @@ let destroy_vbd ?(do_safety_check=true) ~__context ~xs domid self (force: bool) 
 	    raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
 					   [ "Disk does not support surprise-remove" ]))
 	  end;
-	  if Xapi_fist.simulate_vbd_unplug_failure () && not force then begin
-	    debug "Simulating failure of Device.Vbd.clean_shutdown";
-	    (* write the request into xenstore *)
-	    Device.Vbd.request_shutdown ~xs device force;
-	    raise (Device_common.Device_error(device, "fist"));
-	  end else (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
+	  (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
 
 	  Device.Vbd.release ~xs device;
 	  debug "vbd_unplug: setting currently_attached to false";
