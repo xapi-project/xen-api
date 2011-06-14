@@ -195,8 +195,9 @@ case ${TYPE} in
 esac
 
 XAPI=/xapi/${DOMID}/hotplug/vif/${DEVID}
-HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
+#HOTPLUG=/xapi/${DOMID}/hotplug/vif/${DEVID}
 PRIVATE=/xapi/${DOMID}/private/vif/${DEVID}
+HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 
 logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in
@@ -213,11 +214,9 @@ online)
         add_to_bridge
         handle_promiscuous
 
-        xenstore-write "${HOTPLUG}/vif" "${dev}"
-        xenstore-write "${HOTPLUG}/hotplug" "online"
-
-        # xs-xen.pq.hq:91e986b8e49f netback-wait-for-hotplug
-        xenstore-write "/local/domain/0/backend/vif/${DOMID}/${DEVID}/hotplug-status" "connected"
+        #xenstore-write "${HOTPLUG}/vif" "${dev}"
+        logger -t script-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
+        xenstore-write "${HOTPLUG_STATUS}" "connected"
     fi
     ;;
 
@@ -229,7 +228,8 @@ add)
 
 remove)
     if [ "${TYPE}" = "vif" ] ;then
-        xenstore-rm "${HOTPLUG}/hotplug"
+        logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
+        xenstore-rm "${HOTPLUG_STATUS}"
     fi
     logger -t scripts-vif "${dev} has been removed"
     remove_from_bridge
