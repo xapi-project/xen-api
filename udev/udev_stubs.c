@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #define CAML_NAME_SPACE
 #include <caml/alloc.h>
@@ -38,9 +39,13 @@ CAMLprim value stub_socket_netlink_udev(value unit)
 	CAMLparam1(unit);
 	int fd;
 
-	fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
+	fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_KOBJECT_UEVENT);
 	if (fd == -1)
 		caml_failwith("cannot open netlink socket");
+	if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+		close(fd);
+		caml_failwith("cannot set cloexec netlink socket");
+	}
 	CAMLreturn(Val_int(fd));
 }
 
