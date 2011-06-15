@@ -604,7 +604,7 @@ let _ =
   error Api_errors.host_its_own_slave []
     ~doc:"The host is its own slave. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
   error Api_errors.host_still_booting []
-    ~doc:"The host is still booting." ();
+    ~doc:"The host toolstack is still initialising. Please wait." ();
   error Api_errors.host_has_no_management_ip []
     ~doc:"The host failed to acquire an IP address on its management interface and therefore cannot contact the master." ();
   error Api_errors.host_name_invalid [ "reason" ]
