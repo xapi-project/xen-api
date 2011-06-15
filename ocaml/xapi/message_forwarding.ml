@@ -321,7 +321,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
 	else
 		match pbds_to_consider with
 		| [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-		| pbd :: _ -> pbd
+		| l -> List.nth l (Random.int (List.length l))
 
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
