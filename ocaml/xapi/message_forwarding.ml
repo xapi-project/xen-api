@@ -2731,7 +2731,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let host = Db.PBD.get_host ~__context ~self:pbd in
 			do_op_on ~local_fn ~__context ~host op
 
-		(* do op on a host that can view multiple SRs *)
+		(* do op on a host that can view multiple SRs, if none is found, an
+		   exception of Not_found will be raised *)
 		let forward_sr_multiple_op ~local_fn ~__context ~srs op =
 			let hosts = Db.Host.get_all ~__context in
 			let filterfn host =
@@ -2743,7 +2744,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				  _ -> false in
 			let possibles = List.filter filterfn hosts in
 			match possibles with
-			  [] -> local_fn ~__context
+			| [] -> raise Not_found
 			| l ->
 				  let host = List.nth l (Random.int (List.length l)) in
 				  do_op_on ~local_fn ~__context ~host op
