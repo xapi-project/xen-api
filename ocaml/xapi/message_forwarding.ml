@@ -3078,10 +3078,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let copy ~__context ~vdi ~sr =
 			info "VDI.copy: VDI = '%s'; SR = '%s'" (vdi_uuid ~__context vdi) (sr_uuid ~__context sr);
 			let local_fn = Local.VDI.copy ~vdi ~sr in
+			let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
 			(* No need to lock the VDI because the VBD.plug will do that for us *)
-			(* Forward the request to a host which can read the source VDI *)
-			forward_vdi_op ~local_fn ~__context ~self:vdi
-				(fun session_id rpc -> Client.VDI.copy rpc session_id vdi sr)
+			(* Try forward the request to a host which can have access to both source
+			   and destination SR. *)
+			let op session_id rpc = Client.VDI.copy rpc session_id vdi sr in
+			if src_sr = sr then
+				forward_vdi_op ~local_fn ~__context ~self:vdi op
+			else
+				try
+					SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr] op
+				with Not_found ->
+					forward_vdi_op ~local_fn ~__context ~self:vdi op
 
 		let resize ~__context ~vdi ~size =
 			info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size;
