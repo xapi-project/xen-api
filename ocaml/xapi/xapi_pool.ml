@@ -42,6 +42,16 @@ let get_master ~rpc ~session_id =
 	
 (* Pre-join asserts *)
 let pre_join_checks ~__context ~rpc ~session_id ~force =
+	(* I cannot join a Pool unless my management interface exists in the db, otherwise
+	   Pool.eject will fail to rewrite network interface files. *)
+	let assert_management_interface_exists () =
+		try
+			let (_: API.ref_PIF) = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+			()
+		with _ ->
+			error "Pool.join/Pool.eject requires a properly configured management interface. Wait for xapi/firstboot initialisation to complete and then retry.";
+			raise (Api_errors.Server_error(Api_errors.host_still_booting, [])) in
+
 	(* I cannot join a Pool if I have HA already enabled on me *)
 	let ha_is_not_enable_on_me () =
 		let pool = List.hd (Db.Pool.get_all ~__context) in
@@ -277,6 +287,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 	in
 
 	(* call pre-join asserts *)
+	assert_management_interface_exists ();
 	ha_is_not_enable_on_me ();
 	ha_is_not_enable_on_the_distant_pool ();
 	assert_not_joining_myself();
