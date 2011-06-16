@@ -130,3 +130,12 @@ let maybe_remove_lease ~__context vif =
 	  (fun () ->
 		  assigned := List.filter (fun lease -> lease.vif <> vif) !assigned
 	  )
+
+let get_ip ~__context vif =
+	Mutex.execute mutex
+		(fun () ->
+			try 
+				Some ((List.find (fun l -> l.vif = vif) !assigned).ip)
+			with Not_found ->
+				None
+		)
