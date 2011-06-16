@@ -20,6 +20,7 @@ open D
 
 open Forkhelpers
 open Pervasiveext
+open Threadext
 
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
@@ -39,8 +40,7 @@ let writestring f line =
   ignore_int (Unix.write f line 0 (String.length line))
 
 let write_config ~__context ip_router =
-  Mutex.lock mutex;
-  Pervasiveext.finally
+	Mutex.execute mutex
     (fun () ->
       Unixext.unlink_safe "/var/xapi/udhcpd.conf";
       let oc = Unix.openfile "/var/xapi/udhcpd.conf" [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
@@ -63,8 +63,6 @@ let write_config ~__context ip_router =
 	let (a,b,c,d) = lease.ip in
 	ignore (writestring oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vm)))) list;
       Unix.close oc)
-    (fun () ->
-      Mutex.unlock mutex)
   
 let kill_if_running () =	  
   match check_pid () with
@@ -113,25 +111,24 @@ let maybe_add_lease ~__context vif =
       let other_config = Db.Network.get_other_config ~__context ~self:network in
       let ip_begin = List.assoc "ip_begin" other_config in
       let ip_end = List.assoc "ip_end" other_config in
-      Mutex.lock mutex;
-      Pervasiveext.finally
-	(fun () -> 
+      Mutex.execute mutex
+	  (fun () -> 
 	  if List.exists (fun lease -> lease.vm=vm) !assigned then () else
 	    let ip = find_unused_ip ip_begin ip_end in
 	    let (a,b,c,d) = ip in
 	    debug "ip=%d.%d.%d.%d" a b c d;
 	    assigned := {mac=mac; ip=ip; vm=vm} :: !assigned;
-	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vm=%s" lease.mac a b c d (Ref.string_of vm)) !assigned)
-	(fun () -> Mutex.unlock mutex);
+	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vm=%s" lease.mac a b c d (Ref.string_of vm)) !assigned);
       write_config ~__context ip_begin;
       ignore(run ())
     with e -> (debug "exception caught: %s" (Printexc.to_string e); log_backtrace ())
 
 (* Don't bother restarting udhcpd *)
 let maybe_remove_lease ~__context vm =
-  Mutex.lock mutex;
-  assigned := List.filter (fun lease -> lease.vm <> vm) !assigned;
-  Mutex.unlock mutex
+  Mutex.execute mutex
+	  (fun () ->
+		  assigned := List.filter (fun lease -> lease.vm <> vm) !assigned
+	  )
 
 let proxy_fn ~__context headers ip port s =
   debug "attempting to connect to ip %s port %d" ip port;
