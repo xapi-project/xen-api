@@ -25,9 +25,11 @@ open Threadext
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
-type static_lease = { mac : string;
-		      ip : (int*int*int*int);
-		      vm : [`VM] Ref.t }
+type static_lease = { 
+	mac : string;
+	ip : (int*int*int*int);
+	vif : API.ref_VIF; 
+}
 
 let assigned = ref [] 
 let mutex = Mutex.create ()
@@ -61,7 +63,7 @@ let write_config ~__context ip_router =
       let list = !assigned in
       List.iter (fun lease -> 
 	let (a,b,c,d) = lease.ip in
-	ignore (writestring oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vm)))) list;
+	ignore (writestring oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vif)))) list;
       Unix.close oc)
   
 let kill_if_running () =	  
@@ -106,26 +108,25 @@ let maybe_add_lease ~__context vif =
   if network=Db.VIF.get_network ~__context ~self:vif then
     try 
       debug "Adding lease";
-      let vm = Db.VIF.get_VM ~__context ~self:vif in
       let mac = Db.VIF.get_MAC ~__context ~self:vif in
       let other_config = Db.Network.get_other_config ~__context ~self:network in
       let ip_begin = List.assoc "ip_begin" other_config in
       let ip_end = List.assoc "ip_end" other_config in
       Mutex.execute mutex
 	  (fun () -> 
-	  if List.exists (fun lease -> lease.vm=vm) !assigned then () else
+	  if List.exists (fun lease -> lease.vif=vif) !assigned then () else
 	    let ip = find_unused_ip ip_begin ip_end in
 	    let (a,b,c,d) = ip in
 	    debug "ip=%d.%d.%d.%d" a b c d;
-	    assigned := {mac=mac; ip=ip; vm=vm} :: !assigned;
-	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vm=%s" lease.mac a b c d (Ref.string_of vm)) !assigned);
+	    assigned := {mac=mac; ip=ip; vif=vif} :: !assigned;
+	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vif=%s" lease.mac a b c d (Ref.string_of vif)) !assigned);
       write_config ~__context ip_begin;
       ignore(run ())
     with e -> (debug "exception caught: %s" (Printexc.to_string e); log_backtrace ())
 
 (* Don't bother restarting udhcpd *)
-let maybe_remove_lease ~__context vm =
+let maybe_remove_lease ~__context vif =
   Mutex.execute mutex
 	  (fun () ->
-		  assigned := List.filter (fun lease -> lease.vm <> vm) !assigned
+		  assigned := List.filter (fun lease -> lease.vif <> vif) !assigned
 	  )
