@@ -462,10 +462,14 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
 		) all_vbds;
 
 	(* Remove any static lease we might have *)
-	Helpers.log_exn_continue "Vmops.destroy_domain: attempting to remove DHCP lease"
-		(fun () ->
-			Xapi_udhcpd.maybe_remove_lease ~__context self
-		) ()
+	let all_vifs = Db.VM.get_VIFs ~__context ~self in
+	List.iter
+		(fun vif ->
+			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: attempting to remove DHCP lease for VIF: %s" (Ref.string_of vif))
+				(fun () ->
+					Xapi_udhcpd.maybe_remove_lease ~__context vif
+				) ()
+		) all_vifs
 
 (* Destroy a VM's domain and all runtime state (domid etc).
    If release_devices is true, unlock all VDIs and clear device_status_flags.
