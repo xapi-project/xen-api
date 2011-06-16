@@ -660,8 +660,6 @@ let common_http_handlers = [
   ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
   ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
-  ("get_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
-  ("put_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
   ("get_system_status", (Http_svr.FdIO System_status.handler));
   ("get_vm_rrd", (Http_svr.FdIO Monitor_rrds.handler));
   ("put_rrd", (Http_svr.BufIO Monitor_rrds.receive_handler));
