@@ -724,7 +724,7 @@ let request_closure ~xs (x: device) =
 		)
 	)
 
-let unplug_watch ~xs (x: device) = Watch.map (fun () -> "") (Watch.key_to_disappear (Hotplug.connected_node ~xs x))
+let unplug_watch ~xs (x: device) = Watch.map (fun () -> "") (Watch.key_to_disappear (Hotplug.status_node x))
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x) 
 
 let clean_shutdown ~xs (x: device) =
