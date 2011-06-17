@@ -208,6 +208,13 @@ let check_pci ~op ~ref_str =
 	|`suspend | `checkpoint | `pool_migrate -> Some (Api_errors.vm_has_pci_attached, [ref_str])
 	| _ -> None
 
+(* VM cannot be converted into a template while it is a member of an appliance. *)
+let check_appliance ~vmr ~op ~ref_str =
+	match op with
+	| `make_into_template -> Some (Api_errors.vm_is_part_of_an_appliance,
+		[ref_str; Ref.string_of vmr.Db_actions.vM_appliance])
+	| _ -> None
+
 (** Take an internal VM record and a proposed operation, return true if the operation
     would be acceptable *)
 let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled vdis_reset_and_caching ~op =
@@ -318,6 +325,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		then check_pci ~op ~ref_str
 		else None) in
 
+	(* Check for errors caused by VM being in an appliance. *)
+	let current_error = check current_error (fun () ->
+		if Db.is_valid_ref __context vmr.Db_actions.vM_appliance
+		then check_appliance ~vmr ~op ~ref_str
+		else None) in
+
 	current_error
 
 let maybe_get_guest_metrics ~__context ~ref =
@@ -373,7 +386,7 @@ let update_allowed_operations ~__context ~self =
 		else allowed
 	in
 	Db.VM.set_allowed_operations ~__context ~self ~value:allowed;
-	(* Update the parent VM's allowed operations. *)
+	(* Update the appliance's allowed operations. *)
 	let appliance = Db.VM.get_appliance ~__context ~self in
 	if Db.is_valid_ref __context appliance then
 		Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
