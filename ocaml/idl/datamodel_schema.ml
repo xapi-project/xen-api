@@ -33,7 +33,7 @@ let of_datamodel () =
 		{
 			Column.name = Escaping.escape_id f.Datamodel_types.full_name;
 			(* NB we always regenerate one-to-many Set(Ref _) fields *)
-			persistent = f.Datamodel_types.field_persist && (is_many_to_many f || not issetref || f.Datamodel_types.field_ignore_foreign_key);
+			persistent = f.Datamodel_types.field_persist && (is_many_to_many f || not issetref);
 			empty = Datamodel_values.gen_empty_db_val f.Datamodel_types.ty;
 			(* NB Set(Ref _) fields aren't allowed to have a default value specified so we hardcode one here *)
 			default = 
