@@ -227,9 +227,9 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 		then Some (Api_errors.operation_blocked, [ ref_str; List.assoc op vmr.Db_actions.vM_blocked_operations ]) 
 		else None) in
 
-	(* if no other operations are done at the same time, first check if the new operation can be done *)
+	(* Always check the power state constrain of the operation first *)
 	let current_error = check current_error (fun () -> 
-		if List.length current_ops = 0 &&  not (is_allowed_sequentially ~power_state ~op)
+		if not (is_allowed_sequentially ~power_state ~op)
 		then report_power_state_error ~power_state ~op ~ref_str
 		else None) in
 
