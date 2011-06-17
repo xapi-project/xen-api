@@ -153,30 +153,6 @@ remove_from_bridge()
     esac
 }
 
-call_hook_script() {
-    local domid=$1
-    local action=$2
-    # Call the VIF hotplug hook if present
-    if [ -x /etc/xapi.d/vif-hotplug ]; then
-        local vm=$(xenstore-read "/local/domain/$domid/vm" 2>/dev/null)
-        if [ $? -eq 0 -a -n "${vm}" ] ; then
-            local vm_uuid=$(xenstore-read "$vm/uuid" 2>/dev/null)
-        fi
-        if [ -n "${vm_uuid}" ] ; then
-            logger -t scripts-vif "VM UUID ${vm_uuid}"
-        fi
-
-        local vif_uuid=$(xenstore-read "${PRIVATE}/vif-uuid" 2>/dev/null)
-        if [ -n "${vif_uuid}" ] ; then
-            logger -t scripts-vif "VIF UUID ${vif_uuid}"
-        fi
-        if [ -n "${vif_uuid}" -a -n "${vm_uuid}" ] ; then
-            logger -t scripts-vif "Calling VIF hotplug hook for VM ${vm_uuid}, VIF ${vif_uuid}"
-            /etc/xapi.d/vif-hotplug -action "${action}" -vifuuid "${vif_uuid}" -vmuuid "${vm_uuid}"
-        fi
-    fi
-}
-
 NETWORK_MODE=$(cat /etc/xensource/network.conf)
 ACTION=$1
 
@@ -241,8 +217,6 @@ online)
         #xenstore-write "${HOTPLUG}/vif" "${dev}"
         logger -t script-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
         xenstore-write "${HOTPLUG_STATUS}" "connected"
-
-        call_hook_script $DOMID "${ACTION}"
     fi
     ;;
 
@@ -256,7 +230,6 @@ remove)
     if [ "${TYPE}" = "vif" ] ;then
         logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
         xenstore-rm "${HOTPLUG_STATUS}"
-        call_hook_script $DOMID "${ACTION}"
     fi
     logger -t scripts-vif "${dev} has been removed"
     remove_from_bridge
