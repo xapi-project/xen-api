@@ -332,8 +332,12 @@ let snapshot ~__context ~vdi ~driver_params =
 	let newvdi = Db.VDI.get_by_uuid ~__context ~uuid in
 
 	(* Copy across the metadata which we control *)
+	Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
+	Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
+	Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
 	Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
 	Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
+	Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
 	Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
 	Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
 
@@ -343,6 +347,9 @@ let snapshot ~__context ~vdi ~driver_params =
 	  (try Db.VDI.remove_from_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time with _ -> ());
 	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_of ~value:a.Db_actions.vDI_uuid;
 	  Db.VDI.add_to_other_config ~__context ~self:newvdi ~key:Xapi_globs.snapshot_time ~value:(Date.to_string (Date.of_float (Unix.gettimeofday ())));*)
+	Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
+	Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:(Db.VDI.get_by_uuid ~__context ~uuid:a.Db_actions.vDI_uuid);
+	Db.VDI.set_snapshot_time ~__context ~self:newvdi ~value:(Date.of_float (Unix.gettimeofday ()));
 
 	update_allowed_operations ~__context ~self:newvdi;
 	update ~__context ~vdi:newvdi;
