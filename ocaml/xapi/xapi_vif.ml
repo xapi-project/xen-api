@@ -40,10 +40,10 @@ let dynamic_create ~__context ~vif token =
 	    with_xs (fun xs -> Vmops.add_vif ~__context ~xs vif_device)
 
 (* Helper fn called by dynamic_destroy, below *)
-let destroy_vif ~__context ~xs domid self token =
+let destroy_vif ~__context ~xs domid self token force =
 	let device = Xen_helpers.device_of_vif ~__context ~self in
 	try
-	  Device.clean_shutdown ~xs device;
+	  (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
 	  Device.Vif.release ~xs device;
 
 	  Xapi_network.deregister_vif ~__context self;
@@ -57,7 +57,7 @@ let destroy_vif ~__context ~xs domid self token =
 	    raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VIF"; Ref.string_of self; errmsg ]))
 
 (* Destroy device for specified vif and detach from running domain *)
-let dynamic_destroy ~__context ~vif token =
+let dynamic_destroy ~__context ~vif ~force token =
 	Locking_helpers.assert_locked (Db.VIF.get_VM ~__context ~self:vif) token;
 
 	if not (Db.VIF.get_currently_attached ~__context ~self:vif) then
@@ -65,11 +65,15 @@ let dynamic_destroy ~__context ~vif token =
 	let vm = Db.VIF.get_VM ~__context ~self:vif in
 	let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	debug "Attempting to dynamically detach VIF from domid %d" domid;
-	with_xs (fun xs -> destroy_vif ~__context ~xs domid vif token)
+	with_xs (fun xs -> destroy_vif ~__context ~xs domid vif token force)
 
 let plug  ~__context ~self = plug dynamic_create ~__context ~self
 
-let unplug  ~__context ~self = unplug dynamic_destroy ~__context ~self
+let unplug  ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:false)
+	~__context ~self
+
+let unplug_force ~__context ~self = Xapi_vif_helpers.unplug (dynamic_destroy ~force:true)
+	~__context ~self
 
 let create  ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params : API.ref_VIF =

@@ -1833,7 +1833,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
    "vif-unplug",
     {
       reqd=["uuid"];
-      optn=[];
+      optn=["force"];
       help="Attempt to detach the VIF while the VM is in the running state.";
       implementation=No_fd Cli_operations.vif_unplug;
       flags=[];
