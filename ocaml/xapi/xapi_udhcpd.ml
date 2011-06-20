@@ -27,9 +27,14 @@ let udhcpd_skel = "/var/xapi/udhcpd.skel"
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
+type ip = int * int * int * int
+
+let string_of_ip (a, b, c, d) = Printf.sprintf "%d.%d.%d.%d" a b c d
+let ip_of_string s = Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d))
+
 type static_lease = { 
 	mac : string;
-	ip : (int*int*int*int);
+	ip : ip;
 	vif : API.ref_VIF; 
 }
 
@@ -61,9 +66,8 @@ module Udhcpd_conf = struct
 		let interface = Printf.sprintf "interface\t%s" t.interface in
 		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
 		let router = Printf.sprintf "option\trouter\t%s" t.router in
-		let string_of_lease = function
-			| { mac = mac; ip = a, b, c, d; vif = vif } ->
-				Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" mac a b c d (Ref.string_of vif) in
+		let string_of_lease l =
+			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (string_of_ip l.ip) (Ref.string_of l.vif) in
 		let leases = List.map string_of_lease t.leases in
 		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
 
@@ -81,8 +85,8 @@ let run () =
 	execute_command_get_output command [ udhcpd_conf ]
 
 let find_unused_ip ip_begin ip_end =
-  let (a,b,c,d) = Scanf.sscanf ip_begin "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d)) in
-  let (_,_,c',d') = Scanf.sscanf ip_end "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d)) in 
+  let (a,b,c,d) = ip_of_string ip_begin in
+  let (_,_,c',d') = ip_of_string ip_end in
   let check ip = 
     List.length (List.filter (fun lease -> lease.ip = ip) !assigned) = 0 in
   let rec scan myc myd =
