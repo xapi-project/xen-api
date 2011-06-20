@@ -800,6 +800,7 @@ let server_init() =
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
+	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
     "Logging xapi version info", [], Xapi_config.dump_config;
     "Checking control domain", [], check_control_domain;
