@@ -37,9 +37,6 @@ let assigned = ref []
 let mutex = Mutex.create ()
 
 
-let check_pid () =
-  try Unixext.pidfile_read pidfile with _ -> None
-
 let write_config ~__context ip_router =
 	Mutex.execute mutex
     (fun () ->
@@ -65,13 +62,9 @@ let write_config ~__context ip_router =
 	ignore (Unixext.really_write_string oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vif)))) list;
       Unix.close oc)
   
-let kill_if_running () =	  
-  match check_pid () with
-      None -> ()
-    | Some pid -> Unixext.kill_and_wait pid
-  
 let run () =
-	kill_if_running ();
+	let pid = try Unixext.pidfile_read pidfile with _ -> None in
+	Opt.iter Unixext.kill_and_wait pid;
 	execute_command_get_output command [ udhcpd_conf ]
 
 let find_unused_ip ip_begin ip_end =
