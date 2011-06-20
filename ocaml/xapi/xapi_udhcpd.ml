@@ -27,11 +27,12 @@ let ip_end_key = "ip_end"
 
 let udhcpd_conf = "/var/xapi/udhcpd.conf"
 let udhcpd_skel = "/var/xapi/udhcpd.skel"
+let leases_db = "/var/xapi/dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
 module Ip = struct
-	type t = int * int * int * int
+	type t = int * int * int * int with rpc
 
 	exception Invalid_ip of t
 
@@ -65,17 +66,33 @@ end
 type static_lease = { 
 	mac : string;
 	ip : Ip.t;
-	vif : API.ref_VIF; 
-}
+	vif : string; (* API.ref_VIF *)
+} with rpc
 
+type static_leases = static_lease list with rpc
+
+(** List of static leases. Protected by mutex below. *)
 let assigned = ref [] 
+
+(** Called on startup to reload the leases database *)
+let load_db_nolock () =
+    let s = Unixext.string_of_file leases_db in
+    let rpc = Jsonrpc.of_string s in
+    assigned := static_leases_of_rpc rpc;
+	info "Host internal management network successfully loaded DHCP leases db from %s" leases_db
+
+(** Called before every update to save the leases database *)
+let save_db_nolock () =
+	let rpc = rpc_of_static_leases !assigned in
+    let s = Jsonrpc.to_string rpc in
+    Unixext.write_string_to_file leases_db s
 
 module Udhcpd_conf = struct
 	type t = {
 		interface: string;
 		subnet: string;
 		router: Ip.t;
-		leases: static_lease list;
+		leases: static_leases;
 	}
 			
 	let make ~__context leases router =
@@ -96,7 +113,7 @@ module Udhcpd_conf = struct
 		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
 		let router = Printf.sprintf "option\trouter\t%s" (Ip.string_of t.router) in
 		let string_of_lease l =
-			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip) (Ref.string_of l.vif) in
+			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip) l.vif in
 		let leases = List.map string_of_lease t.leases in
 		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
 
@@ -119,6 +136,17 @@ let find_lease_nolock vif =
 	with Not_found ->
 		None
 
+(* We only expire leases when the VIFs are *destroyed* from the database. Otherwise
+   we get into trouble with sequences like VM.suspend, VM.resume *)
+let gc_leases_nolock ~__context =
+	let vif_still_exists l = Db.is_valid_ref __context (Ref.of_string l.vif) in
+	let good, bad = List.partition vif_still_exists !assigned in
+	List.iter
+		(fun l ->
+			info "Host internal management network removing lease for VIF %s -> %s" l.vif (Ip.string_of l.ip)
+		) bad;
+	assigned := good
+
 let maybe_add_lease_nolock ~__context vif =
 	let network = Helpers.get_host_internal_management_network ~__context in
 	if network = Db.VIF.get_network ~__context ~self:vif then begin
@@ -128,16 +156,18 @@ let maybe_add_lease_nolock ~__context vif =
 
 		let ip_begin = Ip.of_string (List.assoc ip_begin_key other_config)
 		and ip_end = Ip.of_string (List.assoc ip_end_key other_config) in
-		match find_lease_nolock vif with
+		match find_lease_nolock (Ref.string_of vif) with
 			| Some l ->
 				info "VIF %s on host-internal management network already has lease: %s" (Ref.string_of vif) (Ip.string_of l.ip)
 			| None -> begin
+				gc_leases_nolock ~__context;
 				let mac = Db.VIF.get_MAC ~__context ~self:vif in
 				(* NB ip_begin is the address on the bridge itself *)
 				match Ip.first (Ip.succ ip_begin) ip_end 
 					(fun ip -> List.filter (fun l -> l.ip = ip) !assigned = []) with
 						| Some ip ->
-							assigned := {mac=mac; ip=ip; vif=vif} :: !assigned;
+							assigned := {mac = mac; ip = ip; vif = Ref.string_of vif} :: !assigned;
+							save_db_nolock ();
 							write_config_nolock ~__context ip_begin;
 							restart_nolock ()
 						| None ->
@@ -157,13 +187,24 @@ let maybe_add_lease ~__context vif =
 				)
 		) ()
 
-(* Don't bother restarting udhcpd *)
-let maybe_remove_lease ~__context vif =
-  Mutex.execute mutex
-	  (fun () ->
-		  assigned := List.filter (fun lease -> lease.vif <> vif) !assigned
-	  )
-
 let get_ip ~__context vif =
+	let vif = Ref.string_of vif in
 	Mutex.execute mutex
 		(fun () -> Opt.map (fun l -> l.ip) (find_lease_nolock vif))
+
+let init () =
+	Mutex.execute mutex
+		(fun () ->
+			begin 
+				try
+					load_db_nolock ()
+				with e ->
+					info "Caught exception %s loading %s: creating new empty leases database" (Printexc.to_string e) leases_db;
+					assigned := []
+			end;
+			Helpers.log_exn_continue "restarting udhcpd"
+				(fun () ->
+					if Sys.file_exists udhcpd_conf
+					then restart_nolock ()
+				) ()
+		)
