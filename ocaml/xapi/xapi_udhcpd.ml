@@ -22,6 +22,8 @@ open Forkhelpers
 open Pervasiveext
 open Threadext
 
+let udhcpd_conf = "/var/xapi/udhcpd.conf"
+let udhcpd_skel = "/var/xapi/udhcpd.skel"
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
@@ -44,11 +46,11 @@ let writestring f line =
 let write_config ~__context ip_router =
 	Mutex.execute mutex
     (fun () ->
-      Unixext.unlink_safe "/var/xapi/udhcpd.conf";
-      let oc = Unix.openfile "/var/xapi/udhcpd.conf" [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
+      Unixext.unlink_safe udhcpd_conf;
+      let oc = Unix.openfile udhcpd_conf [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
       
       (* Write the pre-existing config file first *)
-      let ic = Unix.openfile "/var/xapi/udhcpd.skel" [Unix.O_RDONLY] 0o644 in
+      let ic = Unix.openfile udhcpd_skel [Unix.O_RDONLY] 0o644 in
       ignore_int64 (Unixext.copy_file ic oc);
       Unix.close ic;
       
@@ -75,7 +77,7 @@ let run () =
   kill_if_running ();
   match with_logfile_fd "udhcpd"
     (fun out ->
-      let pid = safe_close_and_exec None (Some out) (Some out) [] command ["/var/xapi/udhcpd.conf"] in
+      let pid = safe_close_and_exec None (Some out) (Some out) [] command [udhcpd_conf] in
       ignore(waitpid pid))
   with
     | Success(log,_) -> debug "success! %s" log
