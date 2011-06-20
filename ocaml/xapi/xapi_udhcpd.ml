@@ -40,9 +40,6 @@ let mutex = Mutex.create ()
 let check_pid () =
   try Unixext.pidfile_read pidfile with _ -> None
 
-let writestring f line =
-  ignore_int (Unix.write f line 0 (String.length line))
-
 let write_config ~__context ip_router =
 	Mutex.execute mutex
     (fun () ->
@@ -56,16 +53,16 @@ let write_config ~__context ip_router =
       
       let network = Helpers.get_guest_installer_network ~__context in
       let bridge = Db.Network.get_bridge ~__context ~self:network in
-      writestring oc (Printf.sprintf "interface\t%s\n" bridge);
+      Unixext.really_write_string oc (Printf.sprintf "interface\t%s\n" bridge);
       let other_config = Db.Network.get_other_config ~__context ~self:network in
       let netmask = List.assoc "netmask" other_config in
-      writestring oc (Printf.sprintf "option\tsubnet\t%s\n" netmask);
-      writestring oc (Printf.sprintf "option\trouter\t%s\n" ip_router);
+      Unixext.really_write_string oc (Printf.sprintf "option\tsubnet\t%s\n" netmask);
+      Unixext.really_write_string oc (Printf.sprintf "option\trouter\t%s\n" ip_router);
       
       let list = !assigned in
       List.iter (fun lease -> 
 	let (a,b,c,d) = lease.ip in
-	ignore (writestring oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vif)))) list;
+	ignore (Unixext.really_write_string oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vif)))) list;
       Unix.close oc)
   
 let kill_if_running () =	  
