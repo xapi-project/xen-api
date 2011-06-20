@@ -27,14 +27,41 @@ let udhcpd_skel = "/var/xapi/udhcpd.skel"
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
-type ip = int * int * int * int
+module Ip = struct
+	type t = int * int * int * int
 
-let string_of_ip (a, b, c, d) = Printf.sprintf "%d.%d.%d.%d" a b c d
-let ip_of_string s = Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d))
+	exception Invalid_ip of t
+
+	let check ((a, b, c, d) as ip) = 
+		if a >= 256 || b >= 256 || c >= 256 || d >=256 then raise (Invalid_ip ip) else ip
+			
+	let string_of (a, b, c, d) = Printf.sprintf "%d.%d.%d.%d" a b c d
+	let of_string s = Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d -> check (a,b,c,d))
+
+	(** [succ ip] returns the "next" address after [ip] *)
+	let succ (a, b, c, d) =
+		let (a, b, c, d) = (a, b, c, d + 1) in
+		let (a, b, c, d) = if d < 256 then (a, b, c, d) else (a, b, c + 1, 0) in
+		let (a, b, c, d) = if c < 256 then (a, b, c, d) else (a, b + 1, 0, d) in
+		let (a, b, c, d) = if b < 256 then (a, b, c, d) else (a + 1, 0, c, d) in
+		check (a, b, c, d)
+
+	(** [gt a b] returns true iff [a] is later than [b] in the sequence *)
+	let gt (a, b, c, d) (a', b', c', d') =
+		(a > a') || ((a = a') && (b > b')) || ((a = a') && (b = b') && (c > c')) || ((a = a') && (b = b') && (c = c') && (d > d'))
+	
+	(** [first a b f] returns [Some x] where [x] is the first address in the sequence from
+		[a] to [b] where [f x] is true if it exists, and [None] otherwise. *)
+	let rec first a b f =
+		if gt a b then None
+		else
+			if f a then Some a
+			else first (succ a) b f
+end
 
 type static_lease = { 
 	mac : string;
-	ip : ip;
+	ip : Ip.t;
 	vif : API.ref_VIF; 
 }
 
@@ -67,7 +94,7 @@ module Udhcpd_conf = struct
 		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
 		let router = Printf.sprintf "option\trouter\t%s" t.router in
 		let string_of_lease l =
-			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (string_of_ip l.ip) (Ref.string_of l.vif) in
+			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip) (Ref.string_of l.vif) in
 		let leases = List.map string_of_lease t.leases in
 		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
 
@@ -85,24 +112,13 @@ let run () =
 	execute_command_get_output command [ udhcpd_conf ]
 
 let find_unused_ip ip_begin ip_end =
-  let (a,b,c,d) = ip_of_string ip_begin in
-  let (_,_,c',d') = ip_of_string ip_end in
-  let check ip = 
-    List.length (List.filter (fun lease -> lease.ip = ip) !assigned) = 0 in
-  let rec scan myc myd =
-    if myd>d' 
-    then 
-      begin
-	if myc=c' then
-	  (error "VM on guest installer network, but not IPs available"; failwith "No IP addresses left")
-	else
-	  scan (myc+1) d
-      end
-    else
-      let ip = (a,b,myc,myd) in
-      if check ip then ip else scan myc (myd+1)  
-  in
-  scan c (d+1) (* d+1 because d is used by the bridge itself! *)
+	let leases = Mutex.execute mutex (fun () -> !assigned) in
+	(* NB ip_begin is the address on the bridge itself *)
+	match Ip.first (Ip.succ ip_begin) ip_end (fun ip -> List.filter (fun l -> l.ip = ip) leases = []) with
+		| Some ip -> ip
+		| None ->
+			error "VM on guest installer network, but not IPs available"; 
+			failwith "No IP addresses left"
 
 (* Slightly odd - we call add_lease with the VIF rather than the VM so that it can be hooked into the create_vif call *)
 (* in vmops, but we call remove_lease with the VM *)
@@ -118,7 +134,7 @@ let maybe_add_lease ~__context vif =
       Mutex.execute mutex
 	  (fun () -> 
 	  if List.exists (fun lease -> lease.vif=vif) !assigned then () else
-	    let ip = find_unused_ip ip_begin ip_end in
+	    let ip = find_unused_ip (Ip.of_string ip_begin) (Ip.of_string ip_end) in
 	    let (a,b,c,d) = ip in
 	    debug "ip=%d.%d.%d.%d" a b c d;
 	    assigned := {mac=mac; ip=ip; vif=vif} :: !assigned;
