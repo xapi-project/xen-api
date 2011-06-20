@@ -71,14 +71,8 @@ let kill_if_running () =
     | Some pid -> Unixext.kill_and_wait pid
   
 let run () =
-  kill_if_running ();
-  match with_logfile_fd "udhcpd"
-    (fun out ->
-      let pid = safe_close_and_exec None (Some out) (Some out) [] command [udhcpd_conf] in
-      ignore(waitpid pid))
-  with
-    | Success(log,_) -> debug "success! %s" log
-    | Failure(log,_) -> debug "failure! %s" log
+	kill_if_running ();
+	execute_command_get_output command [ udhcpd_conf ]
 
 let find_unused_ip ip_begin ip_end =
   let (a,b,c,d) = Scanf.sscanf ip_begin "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d)) in
