@@ -36,31 +36,44 @@ type static_lease = {
 let assigned = ref [] 
 let mutex = Mutex.create ()
 
+module Udhcpd_conf = struct
+	type t = {
+		interface: string;
+		subnet: string;
+		router: string;
+		leases: static_lease list;
+	}
+			
+	let make ~__context leases router =
+      let network = Helpers.get_guest_installer_network ~__context in
+      let interface = Db.Network.get_bridge ~__context ~self:network in
+      let other_config = Db.Network.get_other_config ~__context ~self:network in
+      let subnet = List.assoc "netmask" other_config in
+	  {
+		  interface = interface;
+		  subnet = subnet;
+		  router = router;
+		  leases = leases
+	  }
+	
+	let to_string t =
+		let skel = Unixext.string_of_file udhcpd_skel in
+		let interface = Printf.sprintf "interface\t%s" t.interface in
+		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
+		let router = Printf.sprintf "option\trouter\t%s" t.router in
+		let string_of_lease = function
+			| { mac = mac; ip = a, b, c, d; vif = vif } ->
+				Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" mac a b c d (Ref.string_of vif) in
+		let leases = List.map string_of_lease t.leases in
+		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
+
+end
 
 let write_config ~__context ip_router =
-	Mutex.execute mutex
-    (fun () ->
-      Unixext.unlink_safe udhcpd_conf;
-      let oc = Unix.openfile udhcpd_conf [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-      
-      (* Write the pre-existing config file first *)
-      let ic = Unix.openfile udhcpd_skel [Unix.O_RDONLY] 0o644 in
-      ignore_int64 (Unixext.copy_file ic oc);
-      Unix.close ic;
-      
-      let network = Helpers.get_guest_installer_network ~__context in
-      let bridge = Db.Network.get_bridge ~__context ~self:network in
-      Unixext.really_write_string oc (Printf.sprintf "interface\t%s\n" bridge);
-      let other_config = Db.Network.get_other_config ~__context ~self:network in
-      let netmask = List.assoc "netmask" other_config in
-      Unixext.really_write_string oc (Printf.sprintf "option\tsubnet\t%s\n" netmask);
-      Unixext.really_write_string oc (Printf.sprintf "option\trouter\t%s\n" ip_router);
-      
-      let list = !assigned in
-      List.iter (fun lease -> 
-	let (a,b,c,d) = lease.ip in
-	ignore (Unixext.really_write_string oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vif)))) list;
-      Unix.close oc)
+	let leases = Mutex.execute mutex (fun () -> !assigned) in
+	let config = Udhcpd_conf.make ~__context leases ip_router in
+	Unixext.unlink_safe udhcpd_conf;
+	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
   
 let run () =
 	let pid = try Unixext.pidfile_read pidfile with _ -> None in
