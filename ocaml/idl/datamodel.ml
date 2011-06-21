@@ -3516,6 +3516,7 @@ let host_create_params =
     {param_type=String; param_name="edition"; param_doc="XenServer edition"; param_release=midnight_ride_release; param_default=Some(VString "")};
     {param_type=Map(String,String); param_name="license_server"; param_doc="Contact information of the license server"; param_release=midnight_ride_release; param_default=Some(VMap [VString "address", VString "localhost"; VString "port", VString "27000"])};
     {param_type=Ref _sr; param_name="local_cache_sr"; param_doc="The SR that is used as a local cache"; param_release=cowley_release; param_default=(Some (VRef (Ref.string_of Ref.null)))};
+    {param_type=Map(String,String); param_name="chipset_info"; param_doc="Information about chipset features"; param_release=boston_release; param_default=Some(VMap [])};
   ]
 
 let host_create = call
