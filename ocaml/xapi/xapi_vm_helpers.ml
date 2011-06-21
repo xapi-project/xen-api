@@ -355,8 +355,6 @@ let assert_can_boot_here_common
 		~__context ~self ~host ~snapshot do_memory_check =
 	(* Check to see if the VM is obviously malformed *)
 	validate_basic_parameters ~__context ~self ~snapshot;
-	(* Check if host's product version is compatible with master's. *)
-	Helpers.assert_product_version_is_same_on_master ~__context ~host ~self;
 	(* Check host is live *)
 	assert_host_is_live ~__context ~host;
 	(* Check host is enabled *)
