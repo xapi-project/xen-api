@@ -206,7 +206,7 @@ let length_size = 16
    Set to true if we prefer consistency over completeness/up-to-dateness.
    Set to false if we are happy to (attempt to) apply a record which comes after a missing record.
    In practise, this should never happen since whenever a writedelta fails, we attempt a writedb. *)
-let stop_at_missing_record = true
+let stop_at_missing_record = false
 
 let get_latest_response_time block_time =
   let now = Unix.gettimeofday() in
