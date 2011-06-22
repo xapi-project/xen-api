@@ -926,7 +926,7 @@ let vm_record rpc session_id vm =
 				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
 				~set:(fun x -> Client.VM.set_shutdown_delay rpc session_id vm (safe_i64_of_string "shutdown-delay" x)) ();
 			make_field ~name:"order"
-				~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
+				~get:(fun () -> Int64.to_string (x ()).API.vM_order)
 				~set:(fun x -> Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)) ();
 			make_field ~name:"version"
 				~get:(fun () -> Int64.to_string (x ()).API.vM_version) ();
