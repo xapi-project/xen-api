@@ -153,9 +153,11 @@ let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	then None
 	else make_error_opt pv_drivers ref vmr.Db_actions.vM_guest_metrics
 
-let need_pv_drivers_check ~power_state ~op =
+let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
 	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
-	power_state = `Running && List.mem op op_list
+	power_state = `Running
+	&& Helpers.has_booted_hvm_of_record ~__context vmr
+	&& List.mem op op_list
 
 (* templates support clone operations, destroy (if not default), export, provision and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
@@ -277,7 +279,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
 	(* check PV drivers constraints if needed *)
 	let current_error = check current_error (fun () -> 
-		if need_pv_drivers_check ~power_state ~op
+		if need_pv_drivers_check ~__context ~vmr ~power_state ~op
 		then check_drivers ~__context ~vmr ~vmgmr ~op ~ref
 		else None) in
 
