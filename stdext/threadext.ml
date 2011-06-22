@@ -13,14 +13,258 @@
  *)
 
 module Mutex = struct
-    include Mutex
-    (** execute the function f with the mutex hold *)
-    let execute lock f =
-    	Mutex.lock lock;
-    	let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
-    	Mutex.unlock lock;
-    	r
+	include Mutex
+	(** execute the function f with the mutex hold *)
+	let execute lock f =
+		Mutex.lock lock;
+		let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
+		Mutex.unlock lock;
+		r
 end
+
+
+module Alarm = struct
+
+	type t =
+		  { token: Mutex.t ;
+		    mutable queue: (float * (unit -> unit)) list ;
+		    mutable notifier: (Unix.file_descr * Unix.file_descr) option ;
+		  }
+
+	let create () =
+		{ token = Mutex.create () ;
+		  queue = [] ;
+		  notifier = None ;
+		}
+
+	let global_alarm = create ()
+
+	let rec watch alarm =
+		match alarm.notifier with
+		| None -> assert false
+		| Some (pipe_in, pipe_out) ->
+			  while Thread.wait_timed_read pipe_in 0. do
+				  ignore (Unix.read pipe_in " " 0 1)
+			  done;
+			  let next = Mutex.execute alarm.token
+				  (fun () ->
+					   let now = Unix.time () in
+					   let nqueue = List.filter
+						   (fun (clock, callback) ->
+							    (* Create helper thread in case callback could block us *)
+							    clock > now || (let _ = Thread.create callback () in false))
+						   alarm.queue in
+					   alarm.queue <- nqueue;
+					   match nqueue with
+					   | [] ->
+						     Unix.close pipe_out;
+						     Unix.close pipe_in;
+						     alarm.notifier <- None;
+						     None
+					   | (c, _) :: _ ->
+						     Some c) in
+			  match next with
+			  | None -> Thread.exit ()
+			  | Some c ->
+				    let now = Unix.time () in
+				    if c > now then ignore (Thread.wait_timed_read pipe_in (c -. now));
+				    watch alarm
+
+	let register ?(alarm = global_alarm) time callback =
+		Mutex.execute alarm.token
+			(fun () ->
+				 let nqueue = (time, callback) :: alarm.queue in
+				 alarm.queue <- List.sort (fun x1 x2 -> compare (fst x1) (fst x2)) nqueue;
+				 match alarm.notifier with
+				 | Some (_, pipe_out) ->
+					   ignore (Unix.write pipe_out "X" 0 1)
+				 | None ->
+					   let pipe_in, pipe_out = Unix.pipe () in
+					   alarm.notifier <- Some (pipe_in, pipe_out);
+					   ignore (Thread.create watch alarm))
+end
+
+module Thread = struct
+
+	type t =
+		| Running of Thread.t
+		| Pending of pthread
+	and pthread = float * int * Thread.t lazy_t
+
+	type schedule = Now | Timeout of float | Indefinite
+
+	type policy =
+		| AlwaysRun
+		| MaxCapacity of int * float option
+		| WaitCondition of (unit -> schedule)
+
+	let count = ref 0
+
+	module PQueue = Set.Make(struct type t = pthread let compare = compare end)
+
+	let running = ref 0
+
+	let pqueue = ref PQueue.empty
+
+	(* This info can be deduced from pqueue, but having a specific int val allow
+	   us to inspect it with lower cost and be lock free *)
+	let pending = ref 0
+
+	let running_threads () = !running
+
+	let pending_threads () = !pending
+
+	let scheduler_token = Mutex.create ()
+
+	let policy = ref AlwaysRun
+
+	(* Should be protected by scheduler_token *)
+	let run_thread ((_, _, pt) as t) =
+		(* Might have run by other scheduling policy *)
+		if PQueue.mem t !pqueue then
+			(pqueue := PQueue.remove t !pqueue; decr pending);
+		if not (Lazy.lazy_is_val pt) then
+			let _ = Lazy.force pt in
+			incr running
+
+	let fake_pivot = max_float, 0, lazy (Thread.create ignore ())
+	let pivot = ref fake_pivot
+	let pre_pivot = ref max_int
+
+	(* Should be protected by scheduler_token, this could be triggered either
+	   because a thread finishes running and hence possibly provide an running
+	   slot, or the scheduling policy has been updated hence more oppotunities
+	   appear.  *)
+	let rec run_pendings () =
+		if not (PQueue.is_empty !pqueue) then
+			let now = Unix.time() in
+			let (c, _, _) as t = PQueue.min_elt !pqueue in
+			(* Just in case policy has been changed *)
+			let to_run = match !policy with
+				| AlwaysRun -> true
+				| MaxCapacity (max_threads, _) -> c <= now || !running < max_threads
+				| WaitCondition f -> f () = Now in
+			if to_run then (run_thread t; run_pendings ())
+			else (* extra logic to avoid starvation or wrongly programmed deadlock *)
+				let timeouts, exist, indefs = PQueue.split !pivot !pqueue in
+				if not exist || (PQueue.cardinal timeouts >= !pre_pivot
+				                 && (run_thread !pivot; true)) then
+					pivot :=
+						if PQueue.is_empty indefs then fake_pivot
+						else PQueue.min_elt indefs;
+				pre_pivot := PQueue.cardinal timeouts
+
+	let exit () =
+		Mutex.execute scheduler_token
+			(fun () -> decr running; run_pendings ());
+		Thread.exit ()
+
+
+
+	let set_policy p =
+		Mutex.execute scheduler_token
+			(fun () ->
+				 policy := p;
+				 run_pendings ())
+
+	let create ?(schedule=Indefinite) f x =
+		let f' x =
+			Pervasiveext.finally
+				(fun () -> f x)
+				exit in
+		Mutex.execute scheduler_token
+			(fun () ->
+				 run_pendings ();
+				 let timeout = match schedule with
+					 | Now -> 0.
+					 | Timeout t -> t
+					 | Indefinite -> max_float in
+				 let timeout =
+					 if timeout = 0. then 0. else
+						 match !policy with
+						 | AlwaysRun -> 0.
+						 | MaxCapacity (max_threads, max_wait_opt) ->
+							   if !running < max_threads && PQueue.is_empty !pqueue then 0.
+							   else begin match max_wait_opt with
+							   | None -> timeout
+							   | Some t -> min timeout t end
+						 | WaitCondition f -> match f () with
+						   | Now -> 0.
+						   | Timeout t -> min t timeout
+						   | Indefinite -> timeout in
+				 if timeout <= 0. then
+					 let t = Thread.create f' x in
+					 incr running;
+					 Running t
+				 else
+					 let deadline = 
+						 if timeout < max_float then timeout +. Unix.time()
+						 else max_float in
+					 let pt = lazy (Thread.create f' x) in
+					 incr count;
+					 if !count = max_int then count := 0;
+					 let t = (deadline, !count, pt) in
+					 pqueue := PQueue.add t !pqueue;
+					 incr pending;
+					 if deadline < max_float then
+						 Alarm.register deadline
+							 (fun () -> Mutex.execute scheduler_token
+								  (fun () -> run_thread t));
+					 (* It's fine that a pended thread might get scheduled later on so
+					    that the information held in 't' becomes meaningless. This is
+					    comparable to the case that a Thread.t finishes running and its
+					    thread id still exits.
+					 *)
+					 Pending t)
+
+	let self () =
+		(* When we get here, the thread must be running *)
+		Running (Thread.self ())
+
+	let id = function
+		| Running t -> Thread.id t
+		| Pending (_, id, _) ->
+			  (* Pending thread have a negative id to avoid overlapping with running
+			     thread id *)
+			  -id
+
+	let rec join = function
+		| Running t -> Thread.join t
+		| Pending ((_, _, pt) as t) ->
+			  if not (Lazy.lazy_is_val pt) then begin
+				  (* Give priority to those to be joined *)
+				  Mutex.execute scheduler_token (fun () -> run_thread t);
+				  assert (Lazy.lazy_is_val pt);
+			  end;
+			  Thread.join (Lazy.force pt)
+
+	let kill = function
+		| Running t ->
+			  (* Not implemented in stdlib *)
+			  Thread.kill t
+		| Pending ((_, _, pt) as t) ->
+			  if Lazy.lazy_is_val pt then
+				  Thread.kill (Lazy.force pt)
+			  else
+				  Mutex.execute scheduler_token
+					  (fun () ->
+						   (* Just in case something happens before we grab the lock *)
+						   if Lazy.lazy_is_val pt then Thread.kill (Lazy.force pt)
+						   else (pqueue := PQueue.remove t !pqueue; decr pending))
+
+	let delay = Thread.delay
+	let exit = Thread.exit
+	let wait_read = Thread.wait_read
+	let wait_write = Thread.wait_write
+	let wait_timed_read = Thread.wait_timed_read
+	let wait_timed_write = Thread.wait_timed_write
+	let wait_pid = Thread.wait_pid
+	let select = Thread.select
+	let yield = Thread.yield
+	let sigmask = Thread.sigmask
+	let wait_signal = Thread.wait_signal
+end
+
 
 (** create thread loops which periodically applies a function *)
 module Thread_loop
@@ -167,4 +411,3 @@ let keep_alive () =
 	while true do
 		Thread.delay 20000.
 	done
-	
