@@ -118,40 +118,26 @@ let is_rhel3 gmr =
 	| None ->
 		false
 
-(** Check if we have PV drivers and if we are not an SMP RHEL 3 guest
-		1) Suspend, Pool_migrate, Clean_shutdown, Clean_reboot and Changing_VCPUs_live
-			are not possible for HVM domains whitout PV drivers;
-		2) Suspend and pool_migrate is only possible with drivers whose version is >= 4.
-    Note CA-26764: although we don't have a good policy for dealing with old suspended guests
-    since we still allow them to be migrated we might as well allow them to be suspended because
-    the code is mostly the same.
- *)
+(** Check for PV drivers if we are an HVM guest and we are executing
+    the following ops: pool_migrate, suspend, checkpoint *)
 let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	let has_booted_hvm = Helpers.has_booted_hvm_of_record ~__context vmr in
 	let pv_drivers = of_guest_metrics vmgmr in
-	let has_pv_drivers = has_pv_drivers pv_drivers in
 
-	(* FIXME: need to update the code for is_of_for_nigrate *)
 	let has_good_drivers =
 		match op with
-		| `pool_migrate | `suspend | `checkpoint                     -> is_ok_for_migrate pv_drivers
-		| `clean_shutdown | `clean_reboot | `changing_VCPUs_live | _ -> true
+			| `pool_migrate
+			| `suspend
+			| `checkpoint -> is_ok_for_migrate pv_drivers
+			| _           -> true
 	in
-	let is_a_rhel3_bug =
-		match op with
-		| `suspend | `pool_migrate            -> is_rhel3 vmgmr && vmr.Db_actions.vM_VCPUs_max <> 1L
-		| `changing_VCPUs_live                -> is_rhel3 vmgmr
-		| `clean_shutdown | `clean_reboot | _ -> false
-	in
-	let op_str = Record_util.vm_operation_to_string op in
 
-	if has_booted_hvm && not has_pv_drivers
-	then Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
-	else if is_a_rhel3_bug
-	then Some (Api_errors.operation_not_allowed, [ op_str ^ " not possible for SMP RHEL 3 linux guests" ])
-	else if has_good_drivers
+	if not has_booted_hvm
 	then None
-	else make_error_opt pv_drivers ref vmr.Db_actions.vM_guest_metrics
+	else
+		if has_good_drivers
+		then None
+		else Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
 	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
