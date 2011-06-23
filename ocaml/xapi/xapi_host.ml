@@ -271,13 +271,13 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 							(Opt.of_exception (fun () ->
 								Db.VM_guest_metrics.get_record_internal
 									~__context ~self:vm_record.API.vM_guest_metrics)) in
-					let pv_drivers_present = Xapi_pv_driver_version.has_pv_drivers pv_driver_version in
-					let pv_drivers_correct = Xapi_pv_driver_version.is_ok_for_migrate pv_driver_version in
 					let pv_drivers_error =
-						match (pv_drivers_present, pv_drivers_correct) with
-							| (false, _) -> Some Api_errors.vm_missing_pv_drivers
-							| (_, false) -> Some Api_errors.vm_old_pv_drivers
-							| (_,  true) -> None in
+						if Helpers.has_booted_hvm ~__context ~self:vm
+						then None
+						else
+							if Xapi_pv_driver_version.is_ok_for_migrate pv_driver_version
+							then None
+							else Some Api_errors.vm_missing_pv_drivers in
 					Opt.iter
 						(fun e -> Hashtbl.replace plans vm (Error (e, [Ref.string_of vm])))
 						(pv_drivers_error))
