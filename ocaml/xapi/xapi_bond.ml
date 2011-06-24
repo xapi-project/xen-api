@@ -116,7 +116,14 @@ let move_vlan ~__context host new_slave old_vlan =
 	(* Plug again if plugged before the move *)
 	if plugged then begin
 		debug "Plugging new VLAN";
-		Nm.bring_pif_up ~__context new_master
+		Nm.bring_pif_up ~__context new_master;
+
+		(* Call Xapi_vif.move on VIFs of running VMs to make sure they end up on the right vSwitch *)
+		let vifs = Db.Network.get_VIFs ~__context ~self:network in
+		let vifs = List.filter (fun vif ->
+			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
+			vifs in
+		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
 	end
 
 let move_tunnel ~__context host new_transport_PIF old_tunnel =
@@ -137,7 +144,14 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
 	(* Plug again if plugged before the move *)
 	if plugged then begin
 		debug "Plugging moved tunnel";
-		Nm.bring_pif_up ~__context new_access_PIF
+		Nm.bring_pif_up ~__context new_access_PIF;
+
+		(* Call Xapi_vif.move to make sure vifs end up on the right vSwitch *)
+		let vifs = Db.Network.get_VIFs ~__context ~self:network in
+		let vifs = List.filter (fun vif ->
+			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
+			vifs in
+		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
 	end
 
 let move_management ~__context from_pif to_pif =
