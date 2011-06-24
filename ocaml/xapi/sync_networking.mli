@@ -15,6 +15,7 @@
  * @group Main Loop and Start-up
  *)
 
+val fix_bonds : __context:Context.t -> unit -> unit
 val copy_bonds_from_master : __context:Context.t -> unit -> unit
 val copy_vlans_from_master : __context:Context.t -> unit -> unit
 val copy_tunnels_from_master : __context:Context.t -> unit -> unit
