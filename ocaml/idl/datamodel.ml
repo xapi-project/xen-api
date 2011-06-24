@@ -4382,7 +4382,7 @@ let bond =
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-      field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef "")) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
+      field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:bond_mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
     ]
     ()
