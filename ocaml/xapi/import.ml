@@ -241,6 +241,7 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 			Client.VM.destroy rpc session_id vm) :: state.cleanup;
 		(* Restore the last_booted_record too (critical if suspended but might as well do it all the time) *)
 		Db.VM.set_last_booted_record ~__context ~self:vm ~value:(vm_record.API.vM_last_booted_record);
+		Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:(vm_record.API.vM_last_boot_CPU_flags);
 
 		TaskHelper.operate_on_db_task ~__context (fun t ->
 			(try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.import_task with _ -> ());
