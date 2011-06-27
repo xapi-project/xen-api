@@ -990,6 +990,7 @@ let assert_vm_is_compatible ~__context ~vm ~host =
 	let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
 	if List.mem_assoc "vendor" vm_cpu_info then begin
 		(* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
+		debug "VM has vendor %s; host has vendor %s" (List.assoc "vendor" vm_cpu_info) (List.assoc "vendor" host_cpu_info);
 		if (List.assoc "vendor" vm_cpu_info) <> (List.assoc "vendor" host_cpu_info) then
 			raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
 				[Ref.string_of vm; Ref.string_of host; "VM was last booted on a host which had a CPU from a different vendor."]))
@@ -998,6 +999,7 @@ let assert_vm_is_compatible ~__context ~vm ~host =
 		(* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
 		let host_cpu_features = Cpuid.string_to_features (List.assoc "features" host_cpu_info) in
 		let vm_cpu_features = Cpuid.string_to_features (List.assoc "features" vm_cpu_info) in
+		debug "VM has features %s; host has features %s" (List.assoc "features" vm_cpu_info) (List.assoc "features" host_cpu_info);
 		if not((Cpuid.mask_features host_cpu_features vm_cpu_features) = vm_cpu_features) then
 			raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
 				[Ref.string_of vm; Ref.string_of host; "VM was last booted on a CPU with features this host's CPU does not have."]))
