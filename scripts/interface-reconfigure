@@ -363,6 +363,10 @@ def ipdev_configure_network(pif, dp):
 
     pifs_on_host = [p for p in db().get_all_pifs() if not p in pif_get_bond_masters(pif)]
 
+    # now prune out bond slaves as they are not connected to the IP 
+    # stack and so cannot be used as gateway or DNS devices.
+    pifs_on_host = [ p for p in pifs_on_host if len(pif_get_bond_masters(p)) == 0]
+
     # loop through all the pifs on this host looking for one with
     #   other-config:peerdns = true, and one with
     #   other-config:default-route=true
