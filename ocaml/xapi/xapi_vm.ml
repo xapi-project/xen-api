@@ -1354,8 +1354,8 @@ let set_appliance ~__context ~self ~value =
 		raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Control domains, templates and snapshots cannot be assigned to appliances."]));
 	let previous_value = Db.VM.get_appliance ~__context ~self in
 	Db.VM.set_appliance ~__context ~self ~value;
-	(* Update allowed operations of the old and new appliances, if valid. *)
+	(* Update allowed operations of the old appliance, if valid. *)
 	if Db.is_valid_ref __context previous_value then
 		Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value;
-	if Db.is_valid_ref __context value then
-		Xapi_vm_appliance.update_allowed_operations ~__context ~self:value
+	(* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
+	update_allowed_operations __context self
