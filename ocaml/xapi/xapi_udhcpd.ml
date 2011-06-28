@@ -20,185 +20,191 @@ open D
 
 open Forkhelpers
 open Pervasiveext
+open Threadext
 
+let ip_begin_key = "ip_begin"
+let ip_end_key = "ip_end"
+
+let udhcpd_conf = "/var/xapi/udhcpd.conf"
+let udhcpd_skel = "/var/xapi/udhcpd.skel"
+let leases_db = "/var/xapi/dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
 let command = "/opt/xensource/libexec/udhcpd"
 
-type static_lease = { mac : string;
-		      ip : (int*int*int*int);
-		      vm : [`VM] Ref.t }
+module Ip = struct
+	type t = int * int * int * int with rpc
 
+	exception Invalid_ip of t
+
+	let check ((a, b, c, d) as ip) = 
+		if a >= 256 || b >= 256 || c >= 256 || d >=256 then raise (Invalid_ip ip) else ip
+			
+	let string_of (a, b, c, d) = Printf.sprintf "%d.%d.%d.%d" a b c d
+	let of_string s = Scanf.sscanf s "%d.%d.%d.%d" (fun a b c d -> check (a,b,c,d))
+
+	(** [succ ip] returns the "next" address after [ip] *)
+	let succ (a, b, c, d) =
+		let (a, b, c, d) = (a, b, c, d + 1) in
+		let (a, b, c, d) = if d < 256 then (a, b, c, d) else (a, b, c + 1, 0) in
+		let (a, b, c, d) = if c < 256 then (a, b, c, d) else (a, b + 1, 0, d) in
+		let (a, b, c, d) = if b < 256 then (a, b, c, d) else (a + 1, 0, c, d) in
+		check (a, b, c, d)
+
+	(** [gt a b] returns true iff [a] is later than [b] in the sequence *)
+	let gt (a, b, c, d) (a', b', c', d') =
+		(a > a') || ((a = a') && (b > b')) || ((a = a') && (b = b') && (c > c')) || ((a = a') && (b = b') && (c = c') && (d > d'))
+	
+	(** [first a b f] returns [Some x] where [x] is the first address in the sequence from
+		[a] to [b] where [f x] is true if it exists, and [None] otherwise. *)
+	let rec first a b f =
+		if gt a b then None
+		else
+			if f a then Some a
+			else first (succ a) b f
+end
+
+type static_lease = { 
+	mac : string;
+	ip : Ip.t;
+	vif : string; (* API.ref_VIF *)
+} with rpc
+
+type static_leases = static_lease list with rpc
+
+(** List of static leases. Protected by mutex below. *)
 let assigned = ref [] 
+
+(** Called on startup to reload the leases database *)
+let load_db_nolock () =
+    let s = Unixext.string_of_file leases_db in
+    let rpc = Jsonrpc.of_string s in
+    assigned := static_leases_of_rpc rpc;
+	info "Host internal management network successfully loaded DHCP leases db from %s" leases_db
+
+(** Called before every update to save the leases database *)
+let save_db_nolock () =
+	let rpc = rpc_of_static_leases !assigned in
+    let s = Jsonrpc.to_string rpc in
+    Unixext.write_string_to_file leases_db s
+
+module Udhcpd_conf = struct
+	type t = {
+		interface: string;
+		subnet: string;
+		router: Ip.t;
+		leases: static_leases;
+	}
+			
+	let make ~__context leases router =
+      let network = Helpers.get_guest_installer_network ~__context in
+      let interface = Db.Network.get_bridge ~__context ~self:network in
+      let other_config = Db.Network.get_other_config ~__context ~self:network in
+      let subnet = List.assoc "netmask" other_config in
+	  {
+		  interface = interface;
+		  subnet = subnet;
+		  router = router;
+		  leases = leases
+	  }
+	
+	let to_string t =
+		let skel = Unixext.string_of_file udhcpd_skel in
+		let interface = Printf.sprintf "interface\t%s" t.interface in
+		let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
+		let router = Printf.sprintf "option\trouter\t%s" (Ip.string_of t.router) in
+		let string_of_lease l =
+			Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip) l.vif in
+		let leases = List.map string_of_lease t.leases in
+		String.concat "\n" (skel :: interface :: subnet :: router :: leases)
+
+end
+
+let write_config_nolock ~__context ip_router =
+	let config = Udhcpd_conf.make ~__context (!assigned) ip_router in
+	Unixext.unlink_safe udhcpd_conf;
+	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
+  
+let restart_nolock () =
+	let pid = try Unixext.pidfile_read pidfile with _ -> None in
+	Opt.iter Unixext.kill_and_wait pid;
+	let (_: string * string) = execute_command_get_output command [ udhcpd_conf ] in
+	()
+
+let find_lease_nolock vif =
+	try 
+		Some (List.find (fun l -> l.vif = vif) !assigned)
+	with Not_found ->
+		None
+
+(* We only expire leases when the VIFs are *destroyed* from the database. Otherwise
+   we get into trouble with sequences like VM.suspend, VM.resume *)
+let gc_leases_nolock ~__context =
+	let vif_still_exists l = Db.is_valid_ref __context (Ref.of_string l.vif) in
+	let good, bad = List.partition vif_still_exists !assigned in
+	List.iter
+		(fun l ->
+			info "Host internal management network removing lease for VIF %s -> %s" l.vif (Ip.string_of l.ip)
+		) bad;
+	assigned := good
+
+let maybe_add_lease_nolock ~__context vif =
+	let network = Helpers.get_host_internal_management_network ~__context in
+	if network = Db.VIF.get_network ~__context ~self:vif then begin
+		let other_config = Db.Network.get_other_config ~__context ~self:network in
+		if not(List.mem_assoc ip_begin_key other_config) || not(List.mem_assoc ip_end_key other_config)
+		then failwith (Printf.sprintf "Host internal management network %s other_config has no ip_begin/ip_end keys" (Ref.string_of network));
+
+		let ip_begin = Ip.of_string (List.assoc ip_begin_key other_config)
+		and ip_end = Ip.of_string (List.assoc ip_end_key other_config) in
+		match find_lease_nolock (Ref.string_of vif) with
+			| Some l ->
+				info "VIF %s on host-internal management network already has lease: %s" (Ref.string_of vif) (Ip.string_of l.ip)
+			| None -> begin
+				gc_leases_nolock ~__context;
+				let mac = Db.VIF.get_MAC ~__context ~self:vif in
+				(* NB ip_begin is the address on the bridge itself *)
+				match Ip.first (Ip.succ ip_begin) ip_end 
+					(fun ip -> List.filter (fun l -> l.ip = ip) !assigned = []) with
+						| Some ip ->
+							assigned := {mac = mac; ip = ip; vif = Ref.string_of vif} :: !assigned;
+							save_db_nolock ();
+							write_config_nolock ~__context ip_begin;
+							restart_nolock ()
+						| None ->
+							error "VM on guest installer network, but not IPs available"; 
+							failwith "No IP addresses left"
+			end
+	end
+
 let mutex = Mutex.create ()
 
-
-let check_pid () =
-  try Unixext.pidfile_read pidfile with _ -> None
-
-let writestring f line =
-  ignore_int (Unix.write f line 0 (String.length line))
-
-let write_config ~__context ip_router =
-  Mutex.lock mutex;
-  Pervasiveext.finally
-    (fun () ->
-      Unixext.unlink_safe "/var/xapi/udhcpd.conf";
-      let oc = Unix.openfile "/var/xapi/udhcpd.conf" [Unix.O_WRONLY; Unix.O_CREAT] 0o644 in
-      
-      (* Write the pre-existing config file first *)
-      let ic = Unix.openfile "/var/xapi/udhcpd.skel" [Unix.O_RDONLY] 0o644 in
-      ignore_int64 (Unixext.copy_file ic oc);
-      Unix.close ic;
-      
-      let network = Helpers.get_guest_installer_network ~__context in
-      let bridge = Db.Network.get_bridge ~__context ~self:network in
-      writestring oc (Printf.sprintf "interface\t%s\n" bridge);
-      let other_config = Db.Network.get_other_config ~__context ~self:network in
-      let netmask = List.assoc "netmask" other_config in
-      writestring oc (Printf.sprintf "option\tsubnet\t%s\n" netmask);
-      writestring oc (Printf.sprintf "option\trouter\t%s\n" ip_router);
-      
-      let list = !assigned in
-      List.iter (fun lease -> 
-	let (a,b,c,d) = lease.ip in
-	ignore (writestring oc (Printf.sprintf "static_lease\t%s\t%d.%d.%d.%d # %s\n" lease.mac a b c d (Ref.string_of lease.vm)))) list;
-      Unix.close oc)
-    (fun () ->
-      Mutex.unlock mutex)
-  
-let kill_if_running () =	  
-  match check_pid () with
-      None -> ()
-    | Some pid -> Unixext.kill_and_wait pid
-  
-let run () =
-  kill_if_running ();
-  match with_logfile_fd "udhcpd"
-    (fun out ->
-      let pid = safe_close_and_exec None (Some out) (Some out) [] command ["/var/xapi/udhcpd.conf"] in
-      ignore(waitpid pid))
-  with
-    | Success(log,_) -> debug "success! %s" log
-    | Failure(log,_) -> debug "failure! %s" log
-
-let find_unused_ip ip_begin ip_end =
-  let (a,b,c,d) = Scanf.sscanf ip_begin "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d)) in
-  let (_,_,c',d') = Scanf.sscanf ip_end "%d.%d.%d.%d" (fun a b c d -> (a,b,c,d)) in 
-  let check ip = 
-    List.length (List.filter (fun lease -> lease.ip = ip) !assigned) = 0 in
-  let rec scan myc myd =
-    if myd>d' 
-    then 
-      begin
-	if myc=c' then
-	  (error "VM on guest installer network, but not IPs available"; failwith "No IP addresses left")
-	else
-	  scan (myc+1) d
-      end
-    else
-      let ip = (a,b,myc,myd) in
-      if check ip then ip else scan myc (myd+1)  
-  in
-  scan c (d+1) (* d+1 because d is used by the bridge itself! *)
-
-(* Slightly odd - we call add_lease with the VIF rather than the VM so that it can be hooked into the create_vif call *)
-(* in vmops, but we call remove_lease with the VM *)
 let maybe_add_lease ~__context vif =
-  let network = Helpers.get_guest_installer_network ~__context in
-  if network=Db.VIF.get_network ~__context ~self:vif then
-    try 
-      debug "Adding lease";
-      let vm = Db.VIF.get_VM ~__context ~self:vif in
-      let mac = Db.VIF.get_MAC ~__context ~self:vif in
-      let other_config = Db.Network.get_other_config ~__context ~self:network in
-      let ip_begin = List.assoc "ip_begin" other_config in
-      let ip_end = List.assoc "ip_end" other_config in
-      Mutex.lock mutex;
-      Pervasiveext.finally
-	(fun () -> 
-	  if List.exists (fun lease -> lease.vm=vm) !assigned then () else
-	    let ip = find_unused_ip ip_begin ip_end in
-	    let (a,b,c,d) = ip in
-	    debug "ip=%d.%d.%d.%d" a b c d;
-	    assigned := {mac=mac; ip=ip; vm=vm} :: !assigned;
-	    List.iter (fun lease -> let (a,b,c,d) = lease.ip in debug "lease: mac=%s ip=%d.%d.%d.%d vm=%s" lease.mac a b c d (Ref.string_of vm)) !assigned)
-	(fun () -> Mutex.unlock mutex);
-      write_config ~__context ip_begin;
-      ignore(run ())
-    with e -> (debug "exception caught: %s" (Printexc.to_string e); log_backtrace ())
+	Helpers.log_exn_continue (Printf.sprintf "maybe_add_lease VIF:%s" (Ref.string_of vif)) 
+		(fun () ->
+			Mutex.execute mutex
+				(fun () ->
+					maybe_add_lease_nolock ~__context vif
+				)
+		) ()
 
-(* Don't bother restarting udhcpd *)
-let maybe_remove_lease ~__context vm =
-  Mutex.lock mutex;
-  assigned := List.filter (fun lease -> lease.vm <> vm) !assigned;
-  Mutex.unlock mutex
+let get_ip ~__context vif =
+	let vif = Ref.string_of vif in
+	Mutex.execute mutex
+		(fun () -> Opt.map (fun l -> l.ip) (find_lease_nolock vif))
 
-let proxy_fn ~__context headers ip port s =
-  debug "attempting to connect to ip %s port %d" ip port;
-  begin 
-    try
-      let sock = Unixext.open_connection_fd ip port in
-      Unixext.set_tcp_nodelay sock true;
-      Http.output_http sock headers;
-      Http.output_http sock [""];
-      debug "Connected; running proxy";
-      Unixext.proxy sock s;
-      debug "Proxy exited"
-    with
-	exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
-  end
-
-exception Failure (* return 403 *)
-exception Redirect of string (* 302 redirect *)
-
-open Http
-
-(* Handle URIs of the form: vmuuid:port *)
-let handler (req: request) s =
-  debug "Got to xapi_udhcpd proxy handler";
-  try
-    Server_helpers.exec_with_new_task "Connection to VM via guest installer network" ~task_in_database:true
-      (fun __context ->
-	(* First check the request looks valid *)
-	let uri = req.uri in
-	debug "uri=%s" uri;
-	let split = String.split '/' uri in
-	(* URI is of the form http[s]://uuid:port/path/to/whatever - so split=["http:";"";"uuid:port";"path";"to";"whatever"] *)
-	let (uuid, rest) =
-	  match String.split ':' (List.nth split 2) with
-	  | uuid :: rest -> uuid, rest
-	  | []           ->
-	    warn "wrong format -- expecting uuid:port";
-	    raise Failure;
-	  in
-	debug "uuid=%s" uuid;
-	let port = if rest=[] then (if (List.hd split)="http:" then 80 else 443) else int_of_string (List.hd rest) in
-	debug "List.hd split=%s" (List.hd split);
-	debug "port=%d" port;
-	(* Check the VM is resident on us *)
-	let vm = Db.VM.get_by_uuid ~__context ~uuid in
-	let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-	if not(resident_on = Helpers.get_localhost ~__context) then begin
-	  let address = Db.Host.get_address ~__context ~self:resident_on in
-	  let url = Printf.sprintf "%s" address in
-	  raise (Redirect url)
-	end;
-
-	let lease = List.find (fun lease -> lease.vm=vm) !assigned in
-	let (a,b,c,d) = lease.ip in
-	let ip = Printf.sprintf "%d.%d.%d.%d" a b c d in
-	debug "ip=%s" ip;
-	(* Reconstruct header *)
-	let path = List.tl (List.tl (List.tl split)) in
-	let query = (if req.query = [] then "" else ("?"^(String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)))) in
-	let request = Printf.sprintf "%s %s%s HTTP/1.0" 
-	  (Http.string_of_method_t req.m) ("/"^(String.concat "/" path)) query in
-	proxy_fn ~__context (request::req.headers) ip port (Unix.dup s))
-  with
-      Failure ->
-	let headers = Http.http_403_forbidden in
-	Http_svr.headers s headers
-    | Redirect url ->
-	let headers = Http.http_302_redirect url in
-	debug "new location: %s" url;
-	Http_svr.headers s headers
+let init () =
+	Mutex.execute mutex
+		(fun () ->
+			begin 
+				try
+					load_db_nolock ()
+				with e ->
+					info "Caught exception %s loading %s: creating new empty leases database" (Printexc.to_string e) leases_db;
+					assigned := []
+			end;
+			Helpers.log_exn_continue "restarting udhcpd"
+				(fun () ->
+					if Sys.file_exists udhcpd_conf
+					then restart_nolock ()
+				) ()
+		)

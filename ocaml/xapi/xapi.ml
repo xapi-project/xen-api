@@ -660,8 +660,6 @@ let common_http_handlers = [
   ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
   ("get_config_sync", (Http_svr.FdIO Config_file_sync.config_file_sync_handler));
-  ("get_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
-  ("put_vm_connect", (Http_svr.FdIO Xapi_udhcpd.handler));
   ("get_system_status", (Http_svr.FdIO System_status.handler));
   ("get_vm_rrd", (Http_svr.FdIO Monitor_rrds.handler));
   ("put_rrd", (Http_svr.BufIO Monitor_rrds.receive_handler));
@@ -802,6 +800,7 @@ let server_init() =
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
+	"Loading DHCP leases", [], Xapi_udhcpd.init;
     "Reading pool secret", [], Helpers.get_pool_secret;
     "Logging xapi version info", [], Xapi_config.dump_config;
     "Checking control domain", [], check_control_domain;
