@@ -158,14 +158,8 @@ let is_up_to_date pv_driver_vsn =
 					false
 			end
 
-(** Returns true if the PV drivers are OK for migrate; in Miami we allow migration
-    as long as the major vs of the PV drivers are 4. This allows us to migrate VMs
-    with PV drivers from the previous release during rolling upgrade.
-*)
-let is_ok_for_migrate = function
-	| Linux(major, _, _, _)  ->  major >= 4
-	| Windows(major, _, _, _) -> major >= 4 (* bumped in CA-6891 *)
-	| Unknown -> false
+(** We can migrate as long as PV drivers are present. *)
+let is_ok_for_migrate = has_pv_drivers
 
 let of_drivers_version drivers_version = 
   try
