@@ -116,7 +116,14 @@ let move_vlan ~__context host new_slave old_vlan =
 	(* Plug again if plugged before the move *)
 	if plugged then begin
 		debug "Plugging new VLAN";
-		Nm.bring_pif_up ~__context new_master
+		Nm.bring_pif_up ~__context new_master;
+
+		(* Call Xapi_vif.move on VIFs of running VMs to make sure they end up on the right vSwitch *)
+		let vifs = Db.Network.get_VIFs ~__context ~self:network in
+		let vifs = List.filter (fun vif ->
+			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
+			vifs in
+		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
 	end
 
 let move_tunnel ~__context host new_transport_PIF old_tunnel =
@@ -137,7 +144,14 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
 	(* Plug again if plugged before the move *)
 	if plugged then begin
 		debug "Plugging moved tunnel";
-		Nm.bring_pif_up ~__context new_access_PIF
+		Nm.bring_pif_up ~__context new_access_PIF;
+
+		(* Call Xapi_vif.move to make sure vifs end up on the right vSwitch *)
+		let vifs = Db.Network.get_VIFs ~__context ~self:network in
+		let vifs = List.filter (fun vif ->
+			Db.VM.get_resident_on ~__context ~self:(Db.VIF.get_VM ~__context ~self:vif) = host)
+			vifs in
+		ignore (List.map (Xapi_vif.move ~__context ~network:network) vifs);
 	end
 
 let move_management ~__context from_pif to_pif =
@@ -160,26 +174,30 @@ let fix_bond ~__context ~bond =
 	let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
 	let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
 
-	if local_vifs <> [] || local_vlans <> [] || local_tunnels <> [] then begin
-		(* Move VLANs from members to master *)
-		debug "Checking VLANs to move from slaves to master";
-		List.iter (move_vlan ~__context host master) local_vlans;
+	(* Move VLANs from members to master *)
+	debug "Checking VLANs to move from slaves to master";
+	List.iter (move_vlan ~__context host master) local_vlans;
 
-		(* Move tunnels from members to master *)
-		debug "Checking tunnels to move from slaves to master";
-		List.iter (move_tunnel ~__context host master) local_tunnels;
+	(* Move tunnels from members to master *)
+	debug "Checking tunnels to move from slaves to master";
+	List.iter (move_tunnel ~__context host master) local_tunnels;
 
-		(* Move VIFs from members to master *)
-		debug "Checking VIFs to move from slaves to master";
-		List.iter (Xapi_vif.move ~__context ~network) local_vifs
-	end;
+	(* Move VIFs from members to master *)
+	debug "Checking VIFs to move from slaves to master";
+	List.iter (Xapi_vif.move ~__context ~network) local_vifs;
+
 	begin match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
-	| management_pif :: _ -> 
-		(* The bond contains the management interface: move management to the master.
-		 * This interface will be plugged automatically. *)
-		debug "Moving management from slave to master";
-		move_management ~__context management_pif master
-	| [] -> ()
+		| management_pif :: _ -> 
+			(* The bond contains the management interface: move management to the master.
+			 * This interface will be plugged automatically. *)
+			debug "Moving management from slave to master";
+			move_management ~__context management_pif master;
+			(* Set the primary slave to the former management PIF. *)
+			Db.Bond.set_primary_slave ~__context ~self:bond ~value:management_pif;
+		| [] ->
+			(* Set the primary slave, if not set (just pick the first slave) *)
+			if Db.Bond.get_primary_slave ~__context ~self:bond = Ref.null then
+				Db.Bond.set_primary_slave ~__context ~self:bond ~value:(List.hd members);
 	end
 
 let string_of_mode = function
