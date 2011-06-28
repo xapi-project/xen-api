@@ -300,6 +300,10 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Copy the IP configuration of the primary member to the master *)
 		copy_configuration ~__context primary_slave master;
 
+		(* Temporary measure for compatibility with current interface-reconfigure.
+		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
+
 		begin match management_pif with
 		| Some management_pif ->
 			(* The bond contains the management interface: move management to the master.
@@ -311,10 +315,6 @@ let create ~__context ~network ~members ~mAC ~mode =
 			Nm.bring_pif_up ~__context master
 		end;
 		TaskHelper.set_progress ~__context 0.2;
-
-		(* Temporary measure for compatibility with current interface-reconfigure.
-		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
-		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
 
 		(* Move VLANs from members to master *)
 		debug "Check VLANs to move from slaves to master";
