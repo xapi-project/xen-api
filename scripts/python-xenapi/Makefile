@@ -1,4 +1,4 @@
-PYTHON := /usr/bin/python
+PYTHON := $(shell which python)
 
 all:
 	$(PYTHON) setup.py sdist
