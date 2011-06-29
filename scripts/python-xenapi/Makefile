@@ -2,7 +2,9 @@ PYTHON := $(shell which python)
 
 all:
 	$(PYTHON) setup.py sdist
-	$(PYTHON) setup.py install
+
+install:
+	$(PYTHON) setup.py install --prefix=$(DESTDIR)/usr
 
 rpm:
 	$(PYTHON) setup.py bdist --format=rpm
