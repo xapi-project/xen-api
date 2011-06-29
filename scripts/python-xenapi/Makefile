@@ -8,3 +8,4 @@ clean:
 	rm -rf dist
 	rm -rf build
 	rm -rf MANIFEST
+	rm -f *.pyc
