@@ -331,52 +331,52 @@ let timeout_alerts ~__context =
 (* Compare this host's (the master's) version with that reported by all other hosts
    and mark the Pool with an other_config key if we are in a rolling upgrade mode. If
    we detect the beginning or end of a rolling upgrade, call out to an external script. *)
-let detect_rolling_upgrade ~__context = 
-  try
-    (* If my product version is different to any host (including myself) then we're in a rolling upgrade mode *)
-    (* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
-       is the only time at which the master's Version will be out of sync with its database record *)
-    let all_hosts = Db.Host.get_all ~__context in
-    let other_versions = List.map (fun host -> Db.Host.get_software_version ~__context ~self:host) all_hosts in
-    let product_versions = List.map (fun x -> List.assoc Xapi_globs._product_version x) other_versions in
+let detect_rolling_upgrade ~__context =
+	try
+		(* If my product version is different to any host (including myself) then we're in a rolling upgrade mode *)
+		(* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
+		   is the only time at which the master's Version will be out of sync with its database record *)
+		let all_hosts = Db.Host.get_all ~__context in
+		let other_versions = List.map (fun host -> Db.Host.get_software_version ~__context ~self:host) all_hosts in
+		let product_versions = List.map (fun x -> List.assoc Xapi_globs._product_version x) other_versions in
 
-    let is_different_to_me product_version = product_version <> Version.product_version in
-    let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me product_versions) in
-    (* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
-    let pools = Db.Pool.get_all ~__context in
-    match pools with
-    | [] ->
-        debug "Ignoring absence of pool record in detect_rolling_upgrade: this is expected on first boot"
-    | pool :: _ ->
-        let pool_says_in_progress = 
-          List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
-        (* Resynchronise *)
-        if actually_in_progress <> pool_says_in_progress then begin
-          debug "xapi product version = %s; host product versions = [ %s ]"
-	    Version.product_version (String.concat "; " product_versions);
-    
-          warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
-	    (if pool_says_in_progress then "" else " not");
-          (if actually_in_progress
-           then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
-           else begin
-             Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
-             List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
-           end);
-          (* Call out to an external script to allow external actions to be performed *)
-          if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
-	    let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
-	    debug "Executing rolling_upgrade script: %s %s" 
-	      Xapi_globs.rolling_upgrade_script_hook (String.concat " " args);
-	    ignore(Forkhelpers.execute_command_get_output Xapi_globs.rolling_upgrade_script_hook args)
-          end;
-          (* Call in to internal xapi upgrade code *)
-          if actually_in_progress
-          then Xapi_upgrade.start ()
-          else Xapi_upgrade.stop ()
-        end
-  with exn -> 
-      warn "Ignoring error in detect_rolling_upgrade: %s" (ExnHelper.string_of_exn exn)
+		let is_different_to_me product_version = product_version <> Version.product_version in
+		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me product_versions) in
+		(* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
+		let pools = Db.Pool.get_all ~__context in
+		match pools with
+			| [] ->
+				debug "Ignoring absence of pool record in detect_rolling_upgrade: this is expected on first boot"
+			| pool :: _ ->
+				let pool_says_in_progress =
+					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
+				(* Resynchronise *)
+				if actually_in_progress <> pool_says_in_progress then begin
+					debug "xapi product version = %s; host product versions = [ %s ]"
+						Version.product_version (String.concat "; " product_versions);
+
+					warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
+						(if pool_says_in_progress then "" else " not");
+					(if actually_in_progress
+					 then Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true"
+					 else begin
+						 Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
+						 List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
+					 end);
+					(* Call out to an external script to allow external actions to be performed *)
+					if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
+						let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
+						debug "Executing rolling_upgrade script: %s %s"
+							Xapi_globs.rolling_upgrade_script_hook (String.concat " " args);
+						ignore(Forkhelpers.execute_command_get_output Xapi_globs.rolling_upgrade_script_hook args)
+					end;
+					(* Call in to internal xapi upgrade code *)
+					if actually_in_progress
+					then Xapi_upgrade.start ()
+					else Xapi_upgrade.stop ()
+				end
+	with exn ->
+		warn "Ignoring error in detect_rolling_upgrade: %s" (ExnHelper.string_of_exn exn)
 
 (* A host has asked to tickle its heartbeat to keep it alive (if we're using that
    mechanism for host liveness). *)
