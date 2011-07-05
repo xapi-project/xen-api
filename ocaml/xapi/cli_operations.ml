@@ -2052,8 +2052,6 @@ let vm_install_real printer rpc session_id template name description params =
 			else Some Ref.null
 		else None in
 
-	(* Rewrite the provisioning XML to refer to the sr-name-label, sr-uuid or the pool default_SR *)
-
 	let sr_ref = match sr_ref with
 		| Some _ -> sr_ref
 		| None ->
@@ -2077,24 +2075,6 @@ let vm_install_real printer rpc session_id template name description params =
 					else Some (List.hd sr_list)
 		else sr_ref in
 
-	let sr_ref = match sr_ref with
-		| Some _ -> sr_ref
-		| None ->
-			let all_empty_cd_driver =
-				let vbds = Client.VM.get_VBDs rpc session_id template in
-				let is_empty_cd_drive vbd =
-					Client.VBD.get_type rpc session_id vbd = `CD
-					&& Client.VBD.get_empty rpc session_id vbd in
-				List.for_all is_empty_cd_drive vbds in
-			let no_provision_disk =
-				let other_config = Client.VM.get_other_config rpc session_id template in
-				not (List.mem_assoc "disks" other_config)
-				|| List.assoc "disks" other_config = ""
-				|| (Xml.parse_string (List.assoc "disks" other_config)
-				= Xml.Element("provision", [], [])) in
-			if all_empty_cd_driver && no_provision_disk then Some Ref.null
-			else None in
-
 	let suspend_sr_ref = match sr_ref with
 		| Some sr ->
 			let ref_is_valid = Server_helpers.exec_with_new_task
@@ -2109,31 +2089,29 @@ let vm_install_real printer rpc session_id template name description params =
 				Client.VM.get_suspend_SR rpc session_id template
 		| None ->
 			(* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
-			Client.VM.get_suspend_SR rpc session_id template in
+			  Client.VM.get_suspend_SR rpc session_id template in
 
-	let sr_ref = match sr_ref with
-		| Some _ -> sr_ref
-		| None ->
-			let pool = List.hd (Client.Pool.get_all rpc session_id) in
-			let sr = Client.Pool.get_default_SR rpc session_id pool in
-			Some sr in
-
-	(* We should now have an sr *)
-	let sr_ref = match sr_ref with
-		| Some sr -> sr
-		| None ->
-			failwith "Failed to find a valid default SR for the Pool. Please provide an sr-name-label or sr-uuid parameter." in
-
-	let sr_uuid =
-		if sr_ref = Ref.null then
-			Ref.string_of sr_ref
-		else
-			Client.SR.get_uuid rpc session_id sr_ref in
+	(* It's fine that we still don't have a SR information till this step, we'll do
+	   a VM.clone instead of VM.copy. However we need to figure out sr_uuid for
+	   provisioning disks if any. *)
+	let sr_uuid = match sr_ref with
+		| Some r when r <> Ref.null -> Client.SR.get_uuid rpc session_id r
+		| _ ->
+			  match get_default_sr_uuid rpc session_id with
+			  | Some uuid -> uuid
+			  | None ->
+				    match Xapi_templates.get_template_record rpc session_id template
+				    with
+				    | None | Some {Xapi_templates.disks = []} -> Ref.string_of Ref.null
+				    | _ -> failwith "Failed to find a valid default SR for the \
+Pool. Please provide an sr-name-label or sr-uuid parameter." in
 
 	let new_vm =
-		if sr_ref <> Ref.null
-		then Client.VM.copy rpc session_id template name sr_ref
-		else Client.VM.clone rpc session_id template name in
+		match sr_ref with
+		| Some r when r <> Ref.null ->
+			  Client.VM.copy rpc session_id template name r
+		| _ ->
+			  Client.VM.clone rpc session_id template name in
 
 	try
 		Client.VM.set_name_description rpc session_id new_vm description;
