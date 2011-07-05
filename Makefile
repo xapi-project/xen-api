@@ -14,7 +14,7 @@ RPMBUILD?=rpmbuild
 XEN_RELEASE?=unknown
 endif
 
-BASE_PATH=$(shell scripts/base_path scripts/xapi.conf)
+BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
 
 JQUERY=$(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
 JQUERY_TREEVIEW=$(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
@@ -56,7 +56,7 @@ clean:
 	omake clean
 	omake lib-uninstall
 	rm -rf dist/staging
-	rm -f .omakedb .omakedb.lock
+	rm -f .omakedb .omakedb.lock xapi.spec
 
 .PHONY: otags
 otags:

@@ -49,8 +49,12 @@ XEN_OCAML_CLIBS=
 CFLAGS+=-I$(shell ocamlc -where)
 
 DESTDIR=$(getenv DESTDIR, $(ROOT)/dist/staging)
-DEBUGDIST=$(DESTDIR)/opt/xensource/debug
-LIBEXEC=$(DESTDIR)/opt/xensource/libexec
+RAW_BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
+BASE_PATH=$(DESTDIR)$(RAW_BASE_PATH)
+BIN_DIR=$(RAW_BASE_PATH)/bin
+BIN_PATH=$(DESTDIR)$(BIN_DIR)
+DEBUGDIST=$(BASE_PATH)/debug
+LIBEXEC=$(BASE_PATH)/libexec
 
 DIST=$(ROOT)/dist
 SDK=$(DESTDIR)/usr/share/doc/xapi
@@ -79,7 +83,7 @@ export
 .PHONY: none
 
 # Ocaml #############################################################################
-OCAML_PHASE1= autogen_idl
+OCAML_PHASE1= generate_constants autogen_idl
 OCAML_PHASE2= $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa)
 
 # JS ################################################################################

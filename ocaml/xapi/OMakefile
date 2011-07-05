@@ -274,24 +274,32 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 .DEFAULT: xapi
 
+.PHONY: generate_constants
+
+generate_constants: config_constants.ml
+
+config_constants.ml: config_constants.ml.in
+	sed "s!<BASE_PATH>!\"$(RAW_BASE_PATH)\"!" $< > $@
+
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	cp -f xapi $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(BIN_PATH)
+	cp -f xapi $(BIN_PATH)
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) quicktest $(DEBUGDIST)
 	cp -f quicktestbin $(DEBUGDIST)
 	$(IPROG) rrddump $(DEBUGDIST)
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) sparse_dd $(DESTDIR)/opt/xensource/libexec
+	mkdir -p $(LIBEXEC)
+	$(IPROG) sparse_dd $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
 	$(IPROG) monitor_fake_plugin $(DESTDIR)/etc/xapi.d/plugins
 
 .PHONY: sdk-install
 sdk-install: install
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	cp fakeguestagent $(DESTDIR)/opt/xensource/libexec/
+	mkdir -p $(LIBEXEC)
+	cp fakeguestagent $(LIBEXEC)/
 
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
+	rm -f config_constants.ml

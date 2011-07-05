@@ -628,11 +628,12 @@ let control_domain_memory () =
 				)
 		)
 
-let startup_script () = 
-  if (try Unix.access Xapi_globs.startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
-    debug "Executing startup script: %s" Xapi_globs.startup_script_hook;
-    ignore(Forkhelpers.execute_command_get_output Xapi_globs.startup_script_hook [])
-  end
+let startup_script () =
+	let startup_script_hook = Xapi_globs.startup_script_hook in
+	if (try Unix.access startup_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
+		debug "Executing startup script: %s" startup_script_hook;
+		ignore(Forkhelpers.execute_command_get_output startup_script_hook [])
+	end
 
 let master_only_http_handlers = [
   (* CA-26044: don't let people DoS random slaves *)
@@ -648,7 +649,7 @@ let common_http_handlers = [
   ("get_export", (Http_svr.FdIO Export.handler));
   ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
-  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" "/opt/xensource/www"));
+  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" (Xapi_globs.base_path ^ "/www")));
   ("post_cli", (Http_svr.BufIO Xapi_cli.handler));
   ("get_host_backup", (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
   ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));

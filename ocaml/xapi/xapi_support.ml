@@ -16,8 +16,6 @@ open D
 
 let support_url = "ftp://support.xensource.com/uploads/"
 
-let upload_wrapper = "/opt/xensource/libexec/upload-wrapper"
-
 (* URL to which the crashdump/whatever will be uploaded *)
 let upload_url name =
 	let uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
@@ -33,6 +31,7 @@ let do_upload label file url options =
 
 	match with_logfile_fd label
 		(fun log_fd ->
+			let upload_wrapper = Xapi_globs.base_path ^ "/libexec/upload-wrapper" in
 			let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] upload_wrapper [file; url; proxy] in
 			waitpid_fail_if_bad_exit pid) with
 			| Success _ -> debug "Upload succeeded"

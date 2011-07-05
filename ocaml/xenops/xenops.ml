@@ -284,7 +284,7 @@ let list_pci ~xc ~xs ~domid =
 		  ) pcidevs
 
 let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
-	let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
+	let dmpath = Xapi_globs.base_path ^ "/libexec/qemu-dm-wrapper" in
 	let info = {
  	  Device.Dm.memory = static_max_kib;
  	  Device.Dm.boot = boot;
