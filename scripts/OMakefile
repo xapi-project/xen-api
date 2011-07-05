@@ -26,7 +26,7 @@ install:
 	$(IPROG) xapi-autostart-vms $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
 	$(IPROG) xapi-ssl.conf $(DESTDIR)/etc/xensource/xapi-ssl.conf
-	$(IPROG) xapi.conf $(DESTDIR)/etc/xensource/xapi.conf
+	$(IPROG) xapi.conf $(DESTDIR)/etc/xapi.conf
 	$(IPROG) log.conf $(DESTDIR)/etc/xensource/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)/etc/xensource/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)/etc/xensource/db.conf.rio
