@@ -5,7 +5,7 @@
 # chkconfig: 2345 23 77
 # description: XenServer server
 # processname: xapi
-# config: /etc/xensource/xapi.conf
+# config: /etc/xapi.conf
 # pidfile: /var/run/xapi.pid
 
 # Source function library.

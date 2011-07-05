@@ -85,7 +85,7 @@ start() {
 		esac
 		/opt/xensource/libexec/generate_ssl_cert ${PEMFILE} ${CN}
 	fi
-	NEWSTUNNEL="`grep -e '^ *stunnelng *= *true *' /etc/xensource/xapi.conf`"
+	NEWSTUNNEL="`grep -e '^ *stunnelng *= *true *' /etc/xapi.conf`"
 	if test -z "$NEWSTUNNEL"
 	then
 		writeconffile
