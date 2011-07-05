@@ -23,10 +23,9 @@ open Smint
 module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
 
-let sm_dir = "/opt/xensource/sm"
 let sm_daemon_dir = "/var/xapi/sm"
 
-let cmd_name driver = sprintf "%s/%sSR" sm_dir driver
+let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
 let daemon_path driver = sprintf "%s/%s" sm_daemon_dir driver
 
 (*********************************************************************************************)
@@ -364,7 +363,7 @@ let get_supported add_fn =
 			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e)
 		 end else error "Not scanning %s for SM backends: directory does not exist" dir
     ) 
-    [ check_driver, sm_dir;
+    [ check_driver, Xapi_globs.sm_dir;
       check_daemon, sm_daemon_dir; ]
 
 (*********************************************************************)

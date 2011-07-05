@@ -278,8 +278,8 @@ let sdk_install_template =
 
 (* Demonstration templates ---------------------------------------------------*)
 
-let demo_xgt_dir   = "/opt/xensource/packages/xgt/"
-let post_install_dir = "/opt/xensource/packages/post-install-scripts/"
+let demo_xgt_dir = Xapi_globs.base_path ^ "/packages/xgt/"
+let post_install_dir = Xapi_globs.base_path ^ "/packages/post-install-scripts/"
 
 let demo_xgt_template rpc session_id name_label short_name_label demo_xgt_name post_install_script =
 	let script = post_install_dir ^ post_install_script in

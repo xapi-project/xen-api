@@ -227,7 +227,7 @@ module Udev = struct
 	"XENBUS_BASE_PATH", "backend";
 	"XENBUS_PATH", sprintf "backend/vif/%d/%d" domid devid;
 	"XENBUS_TYPE", "vif";
-	"PATH", "/opt/xensource/bin:/usr/local/bin:/bin:/usr/bin"; (* added /opt/xensource/bin for xenstore wrapper *)
+	"PATH", Xapi_globs.base_path ^ "/bin:/usr/local/bin:/bin:/usr/bin"; (* added <base_path>/bin for xenstore wrapper *)
 	"XIU", !xiu_path; (* make sure we pick up the fake list_domains *)
 	"vif", device
       ] in

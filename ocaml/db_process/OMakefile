@@ -7,8 +7,8 @@ OCamlProgram(xapi-db-process, xapi_db_process)
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	cp -f xapi-db-process $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(BIN_PATH)
+	cp -f xapi-db-process $(BIN_PATH)
 
 .PHONY: sdk-install
 sdk-install: install

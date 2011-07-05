@@ -364,11 +364,12 @@ let detect_rolling_upgrade ~__context =
 						 List.iter (fun vm -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm) (Db.VM.get_all ~__context)
 					 end);
 					(* Call out to an external script to allow external actions to be performed *)
-					if (try Unix.access Xapi_globs.rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
+					let rolling_upgrade_script_hook = Xapi_globs.rolling_upgrade_script_hook in
+					if (try Unix.access rolling_upgrade_script_hook [ Unix.X_OK ]; true with _ -> false) then begin
 						let args = if actually_in_progress then [ "start" ] else [ "stop" ] in
 						debug "Executing rolling_upgrade script: %s %s"
-							Xapi_globs.rolling_upgrade_script_hook (String.concat " " args);
-						ignore(Forkhelpers.execute_command_get_output Xapi_globs.rolling_upgrade_script_hook args)
+							rolling_upgrade_script_hook (String.concat " " args);
+						ignore(Forkhelpers.execute_command_get_output rolling_upgrade_script_hook args)
 					end;
 					(* Call in to internal xapi upgrade code *)
 					if actually_in_progress

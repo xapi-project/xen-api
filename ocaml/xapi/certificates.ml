@@ -24,7 +24,7 @@ module D=Debug.Debugger(struct let name="certificates" end)
 open D
 
 let server_cert = "/etc/xensource/xapi-ssl.pem"
-let c_rehash = "/opt/xensource/libexec/c_rehash"
+let c_rehash = Xapi_globs.base_path ^ "/libexec/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
 let pem_certificate_footer = "-----END CERTIFICATE-----"
 

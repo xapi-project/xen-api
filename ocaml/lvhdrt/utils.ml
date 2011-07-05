@@ -205,7 +205,7 @@ let with_sacrificial_vm rpc session f =
 	let cli_cmd args =
 		debug "$ xe %s" (String.concat " " args);
 		try
-			let output = Stringext.String.rtrim (fst(Forkhelpers.execute_command_get_output "/opt/xensource/bin/xe" args)) in
+			let output = Stringext.String.rtrim (fst(Forkhelpers.execute_command_get_output Xapi_globs.xe_path args)) in
 			debug "%s" output;
 			output
 		with

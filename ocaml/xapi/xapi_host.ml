@@ -24,7 +24,8 @@ open Workload_balancing
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let host_bugreport_upload = "/opt/xensource/libexec/host-bugreport-upload"
+let host_bugreport_upload = Xapi_globs.base_path ^ "/libexec/host-bugreport-upload"
+let set_hostname = Xapi_globs.base_path ^ "/libexec/set-hostname"
 
 let set_emergency_mode_error code params = Xapi_globs.emergency_mode_error := Api_errors.Server_error(code, params)
 
@@ -70,7 +71,6 @@ let bugreport_upload ~__context ~host ~url ~options =
 	if List.mem_assoc "http_proxy" options
 	then List.assoc "http_proxy" options
 	else try Unix.getenv "http_proxy" with _ -> "" in
-
   let cmd = Printf.sprintf "%s %s %s" host_bugreport_upload url proxy in
   try
 	let stdout, stderr = Forkhelpers.execute_command_get_output host_bugreport_upload [ url; proxy ] in
@@ -841,7 +841,7 @@ let set_hostname_live ~__context ~host ~hostname =
 	raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname is too long" ]));
   if is_invalid_hostname hostname then
 	raise (Api_errors.Server_error (Api_errors.host_name_invalid, [ "hostname contains invalid characters" ]));
-  ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/set-hostname" [hostname]);
+  ignore(Forkhelpers.execute_command_get_output set_hostname [hostname]);
   Debug.invalidate_hostname_cache ();
   Db.Host.set_hostname ~__context ~self:host ~value:hostname
   )

@@ -2,28 +2,30 @@
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(BIN_PATH)
 	mkdir -p $(DESTDIR)/var/patch
 	mkdir -p $(DESTDIR)/var/patch/applied
 	mkdir -p $(DESTDIR)/var/xapi
+	mkdir -p $(DESTDIR)/etc/xapi.d
 	mkdir -p $(DESTDIR)/etc/xensource
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	mkdir -p $(DESTDIR)/etc/xensource/master.d
 	mkdir -p $(LIBEXEC)
-	$(IPROG) sm_diagnostics $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) thread_diagnostics $(DESTDIR)/opt/xensource/libexec
+	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
+	$(IPROG) sm_diagnostics $(LIBEXEC)
+	$(IPROG) thread_diagnostics $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xapi
-	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)/etc/xensource/bugtool/
-	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xapi/
-	$(IPROG) fence $(DESTDIR)/opt/xensource/libexec	
-	$(IPROG) xha-lc $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) xapi-health-check $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) license-check.py $(DESTDIR)/opt/xensource/libexec
-	$(IPROG) mail-alarm $(DESTDIR)/opt/xensource/libexec
+	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)/etc/xensource/bugtool
+	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xapi
+	$(IPROG) fence $(LIBEXEC)
+	$(IPROG) xha-lc $(LIBEXEC)
+	$(IPROG) xapi-health-check $(LIBEXEC)
+	$(IPROG) license-check.py $(LIBEXEC)
+	$(IPROG) mail-alarm $(LIBEXEC)
 	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
-	$(IPROG) xapi-wait-init-complete $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xapi-autostart-vms $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xapi-wait-init-complete $(BIN_PATH)
+	$(IPROG) xapi-autostart-vms $(BIN_PATH)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
 	$(IPROG) xapi-ssl.conf $(DESTDIR)/etc/xensource/xapi-ssl.conf
 	$(IPROG) xapi.conf $(DESTDIR)/etc/xapi.conf
@@ -47,33 +49,33 @@ install:
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
 	mkdir -p $(DESTDIR)/etc/udev
-	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev/
-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev/
-	$(IPROG) generate_ssl_cert $(LIBEXEC)/
-	$(IPROG) fix_firewall.sh $(DESTDIR)/opt/xensource/bin/
-	mkdir -p $(DESTDIR)/opt/xensource/debug
-	$(IPROG) debug_ha_query_liveset $(DESTDIR)/opt/xensource/debug
-	$(IPROG) xe-scsi-dev-map $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-mount-iso-sr $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-reset-networking $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-toolstack-restart $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-xentrace $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-edit-bootloader $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) static-vdis $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) with-vdi $(DESTDIR)/opt/xensource/debug
+	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev
+	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev
+	$(IPROG) generate_ssl_cert $(LIBEXEC)
+	$(IPROG) fix_firewall.sh $(BIN_PATH)
+	mkdir -p $(BASE_PATH)/debug
+	$(IPROG) debug_ha_query_liveset $(BASE_PATH)/debug
+	$(IPROG) xe-scsi-dev-map $(BIN_PATH)
+	$(IPROG) xe-mount-iso-sr $(BIN_PATH)
+	$(IPROG) xe-reset-networking $(BIN_PATH)
+	$(IPROG) xe-set-iscsi-iqn $(BIN_PATH)
+	$(IPROG) xe-toolstack-restart $(BIN_PATH)
+	$(IPROG) xe-xentrace $(BIN_PATH)
+	$(IPROG) xe-edit-bootloader $(BIN_PATH)
+	$(IPROG) static-vdis $(BIN_PATH)
+	$(IPROG) with-vdi $(BASE_PATH)/debug
 	mkdir -p $(DESTDIR)/etc/udev/rules.d
 	sh -c \
 	'cd $(DESTDIR)/etc/udev/rules.d; \
 	ln -sf ../xen-backend.rules; \
 	ln -sf ../xen-frontend.rules'
-	mkdir -p $(DESTDIR)/etc/xensource/scripts/
-	$(IPROG) block-frontend vif tap $(DESTDIR)/etc/xensource/scripts/
-	$(IPROG) pool.conf $(DESTDIR)/etc/xensource/
+	mkdir -p $(DESTDIR)/etc/xensource/scripts
+	$(IPROG) block-frontend vif tap $(DESTDIR)/etc/xensource/scripts
+	$(IPROG) pool.conf $(DESTDIR)/etc/xensource
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
-	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(LIBEXEC)/
-	mkdir -p $(DESTDIR)/opt/xensource/packages/iso #omg XXX
+	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(LIBEXEC)
+	mkdir -p $(BASE_PATH)/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(LIBEXEC)
 	$(IPROG) InterfaceReconfigure.py $(LIBEXEC)
 	$(IPROG) InterfaceReconfigureBridge.py $(LIBEXEC)
@@ -85,8 +87,8 @@ install:
 	$(IPROG) set-hostname $(LIBEXEC)
 	$(IPROG) update-mh-info $(LIBEXEC)
 	$(IPROG) host-bugreport-upload $(LIBEXEC)/host-bugreport-upload
-	$(IPROG) xe-backup-metadata $(DESTDIR)/opt/xensource/bin/
-	$(IPROG) xe-restore-metadata $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xe-backup-metadata $(BIN_PATH)
+	$(IPROG) xe-restore-metadata $(BIN_PATH)
 	$(IPROG) link-vms-by-sr.py $(LIBEXEC)
 	$(IPROG) print-custom-templates $(LIBEXEC)
 	$(IPROG) backup-sr-metadata.py $(LIBEXEC)
@@ -98,15 +100,15 @@ install:
 	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) perfmon $(BIN_PATH)
 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) plugins/perfmon $(DESTDIR)/etc/xapi.d/plugins/
-	$(IPROG) plugins/extauth-hook $(DESTDIR)/etc/xapi.d/plugins/
-	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)/etc/xapi.d/plugins/
-	$(IPROG) plugins/iovirt $(DESTDIR)/etc/xapi.d/plugins/
+	$(IPROG) plugins/perfmon $(DESTDIR)/etc/xapi.d/plugins
+	$(IPROG) plugins/extauth-hook $(DESTDIR)/etc/xapi.d/plugins
+	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)/etc/xapi.d/plugins
+	$(IPROG) plugins/iovirt $(DESTDIR)/etc/xapi.d/plugins
 	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
 	mkdir -p $(DESTDIR)/etc/xapi.d/host-post-declare-dead
-	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead/
+	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead
 	$(IPROG) pci-info $(LIBEXEC)
 
 .PHONY: sdk-install

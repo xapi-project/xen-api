@@ -657,9 +657,11 @@ let on_oem ~__context =
 
 exception File_doesnt_exist of string
 
+let find_partition_path = Xapi_globs.base_path ^ "/libexec/find-partition"
+
 let find_secondary_partition () =
 	try
-		let other_partition,_ = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/find-partition" ["-p"; "alternate"] in
+		let other_partition,_ = Forkhelpers.execute_command_get_output find_partition_path ["-p"; "alternate"] in
 		(* Sanity check: does it exist? *)
 		let () =
 			if not (Sys.file_exists other_partition)

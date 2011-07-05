@@ -94,10 +94,10 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	$(IPROG) xe $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(BIN_PATH)
+	$(IPROG) xe $(BIN_PATH)
 	mkdir -p $(DESTDIR)/usr/bin
-	ln -sf /opt/xensource/bin/xe $(DESTDIR)/usr/bin/xe
+	ln -sf $(BIN_DIR)/xe $(DESTDIR)/usr/bin/xe
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/cli
 	mkdir -p $(DEBUGDIST)

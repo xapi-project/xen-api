@@ -59,9 +59,6 @@ let hvm_boot_params_order = "order"
 (* Key we put in VM.other_config when we upgrade a VM from Zurich/Geneva to Rio *)
 let vm_upgrade_time = "upgraded at"
 
-(* Name of the script to execute to fix the firewall for the guest installer network *)
-let fix_firewall_script = "/opt/xensource/bin/fix_firewall.sh"
-
 (* Keys in the local config database *)
 let ha_armed = "ha.armed"
 let ha_disable_failover_decisions = "ha.disable_failover_decisions"

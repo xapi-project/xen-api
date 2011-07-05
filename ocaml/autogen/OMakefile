@@ -20,5 +20,5 @@ api_docs: custom_actions_doc
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/debug
-	$(IPROG) rbac_static.csv $(DESTDIR)/opt/xensource/debug
+	mkdir -p $(BASE_PATH)/debug
+	$(IPROG) rbac_static.csv $(BASE_PATH)/debug
