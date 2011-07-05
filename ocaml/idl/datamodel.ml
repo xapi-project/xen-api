@@ -5050,7 +5050,7 @@ let vdi_read_database_pool_uuid = call
 	~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
 	~result:(String, "The cached pool UUID of the database on the VDI.")
 	~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
-	~allowed_roles:_R_POOL_ADMIN
+	~allowed_roles:_R_READ_ONLY
 	()
 
 (** A virtual disk *)
