@@ -369,8 +369,17 @@ let clone disk_op ~__context ~vm ~new_name =
 			begin try
 				
 				(* copy VBDs *)
-				let (_ : [`VBD] Ref.t list) =
-					List.map (fun (vbd, newvdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd) cloned_disks in				
+				List.iter (fun (vbd, newvdi, _) -> 
+					let vbd = Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd in
+					(* CA-58405: when we make a clone/snapshot/checkpoint we consider the clone/snapshot/checkpoint VM
+					   to "own" all the clone/snapshot/checkpoint *disks* irrespective of the ownership of the original
+					   disks. We wish the clone/snapshot/checkpoint disks to be cleaned up with the VM. *)
+					if Db.VBD.get_type ~__context ~self:vbd = `Disk then begin
+						let other_config = Db.VBD.get_other_config ~__context ~self:vbd in
+						if not(List.mem_assoc Xapi_globs.owner_key other_config)
+						then Db.VBD.add_to_other_config ~__context ~self:vbd ~key:Xapi_globs.owner_key ~value:"";
+					end
+				) cloned_disks;
 				(* copy VIFs *)
 				let (_ : [`VIF] Ref.t list) =
 					List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm:ref ~preserve_mac_address:is_a_snapshot vif) vifs in
