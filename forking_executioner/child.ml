@@ -152,10 +152,10 @@ let run state comms_sock fd_sock fd_sock_path =
 		if code=0 && (List.hd args) = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
 			Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
 
-	  (* We choose to log even exit 0s to help people understand the logs *)
       let pr = match status with
 		| Unix.WEXITED n -> 
-			  log_failure "exitted with code" n;
+			(* Unfortunately logging this was causing too much spam *)
+			if n <> 0 then log_failure "exitted with code" n;
 			  Fe.WEXITED n
 		| Unix.WSIGNALED n -> 
 			  log_failure "exitted with signal" n;
