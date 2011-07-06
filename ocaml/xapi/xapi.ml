@@ -808,7 +808,7 @@ let server_init() =
     "Setting up domain 0 xenstore keys", [], domain0_setup;
     "Initialising random number generator", [], random_setup;
     "Running startup check", [], startup_check;
-    "Registering SR plugins", [], Sm.register;
+    "Registering SR plugins", [Startup.OnlyMaster], Sm.register;
 	"Initialising SM state", [], Storage_impl.initialise;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
@@ -877,6 +877,7 @@ let server_init() =
             Master_connection.restart_on_connection_timeout := false;
             Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
             Db_cache_impl.initialise ();
+            Sm.register ();
             Dbsync.setup ()
           with e ->
             begin
