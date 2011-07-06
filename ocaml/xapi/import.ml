@@ -323,26 +323,28 @@ let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
     else use the config.sr.
     NB we nolonger try to put the VDIs back in the SRs from which they originated.
 *)
-let handle_sr __context config rpc session_id (state: state) (x: obj) : unit = 
-  let sr_record = API.From.sR_t "" x.snapshot in
-  if config.vm_metadata_only then begin
-    (* Look up the existing SR record *)
-    try
-      let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
-      state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
-    with e ->
-      warn "Failed to find SR with UUID: %s content-type: %s %s" 
-	sr_record.API.sR_uuid sr_record.API.sR_content_type
-	(if sr_record.API.sR_content_type = "iso" then " will eject disk" else "-- this is fatal");
-      if sr_record.API.sR_content_type = "iso" 
-      then () (* this one will be handled specially in handle_vdi *)
-      else raise e (* fatal error *)
-  end else begin
-    if sr_record.API.sR_content_type = "iso"
-    then () (* this one will be ejected *)
-    else state.table <- (x.cls, x.id, Ref.string_of config.sr) :: state.table
-  end
-    
+let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
+	let sr_record = API.From.sR_t "" x.snapshot in
+	if config.vm_metadata_only then begin
+		(* Look up the existing SR record *)
+		try
+			let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
+			state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
+		with e ->
+			let msg, fail = match sr_record.API.sR_content_type, config.force with
+			| "iso", _ -> "- will eject disk", false (* Will be handled specially in handle_vdi *)
+			| _, false -> "- this is fatal", true
+			| _, true -> "- skipping SR as import was forced", false
+			in
+			warn "Failed to find SR with UUID: %s content-type: %s %s"
+				sr_record.API.sR_uuid sr_record.API.sR_content_type msg;
+			if fail then raise e
+	end else begin
+		if sr_record.API.sR_content_type = "iso"
+		then () (* this one will be ejected *)
+		else state.table <- (x.cls, x.id, Ref.string_of config.sr) :: state.table
+	end
+
 (** If we're restoring VM metadata only then lookup the VDI by uuid.
     If restoring metadata only: lookup the VDI by location
     If importing everything: create a new VDI in the SR
@@ -351,58 +353,61 @@ let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
     If the SR cannot be found then we skip this VDI.
     If the SR can be found AND is an iso SR then we attempt to lookup the VDI by name_label
     If the SR can be found AND is not an iso SR then we attempt to create the VDI in it *)
-let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit = 
-  let vdi_record = API.From.vDI_t "" x.snapshot in
+let handle_vdi __context config rpc session_id (state: state) (x: obj) : unit =
+	let vdi_record = API.From.vDI_t "" x.snapshot in
 
-  let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
-  if original_sr.API.sR_content_type = "iso" then begin
-    (* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
-    let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
-        && Client.SR.get_type rpc session_id self <> "udev")
-      (Client.SR.get_all rpc session_id) in
-    match List.filter (fun (_, vdir) -> 
-	vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
-    (Client.VDI.get_all_records rpc session_id) with
-    | (vdi, _) :: [] ->
-	(* perfect, found exactly one *)
-	state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-    | (vdi, _) :: _ ->
-	(* hmm, wasn't expecting to have to choose! *)
-	warn "Found multiple ISO VDIs with location = %s; choosing at random" vdi_record.API.vDI_location;
-	state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-    | _ ->
-	warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location
-  end else begin
-    let sr = lookup vdi_record.API.vDI_SR state.table in
-    if config.vm_metadata_only then begin
-      (* Look up the existing VDI record by location *)
-      match List.filter (fun (_, vdir) ->
-	vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
-      (Client.VDI.get_all_records rpc session_id) with
-      | (vdi, _) :: [] ->
-	(* perfect, found exactly one *)
-	state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-      | (vdi, _) :: _ ->
-	(* hmm, wasn't expecting to have to choose! *)
-	warn "Found multiple VDIs with location = %s (location should be unique per-SR); choosing at random" vdi_record.API.vDI_location;
-	state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-      | _ ->
-	error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
-	  (if config.force 
-	   then "ignoring error because '--force' is set" 
-	   else "treating as fatal and abandoning import");
-	if not(config.force)
-	then raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
-    end else begin
-      (* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
-      let task_id = Ref.string_of (Context.get_task_id __context) in
-      let sm_config = List.filter (fun (k,_)->k<>Xapi_globs.import_task) vdi_record.API.vDI_sm_config in
-      let sm_config = (Xapi_globs.import_task, task_id)::sm_config in
-      let vdi = Client.VDI.create_from_record rpc session_id { vdi_record with API.vDI_SR = sr; API.vDI_sm_config = sm_config } in
-      state.cleanup <- (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: state.cleanup;
-      state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
-    end 
- end
+	let original_sr = API.From.sR_t "" (find_in_export (Ref.string_of vdi_record.API.vDI_SR) state.export) in
+	if original_sr.API.sR_content_type = "iso" then begin
+		(* Best effort: locate a VDI in any shared ISO SR with a matching VDI.location *)
+		let iso_srs = List.filter (fun self -> Client.SR.get_content_type rpc session_id self = "iso"
+			&& Client.SR.get_type rpc session_id self <> "udev")
+			(Client.SR.get_all rpc session_id) in
+		match List.filter (fun (_, vdir) -> 
+			vdir.API.vDI_location = vdi_record.API.vDI_location && (List.mem vdir.API.vDI_SR iso_srs))
+			(Client.VDI.get_all_records rpc session_id) with
+		| (vdi, _) :: [] ->
+			(* perfect, found exactly one *)
+			state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+		| (vdi, _) :: _ ->
+			(* hmm, wasn't expecting to have to choose! *)
+			warn "Found multiple ISO VDIs with location = %s; choosing at random" vdi_record.API.vDI_location;
+			state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+		| _ ->
+			warn "Found no ISO VDI with location = %s; attempting to eject" vdi_record.API.vDI_location
+	end else begin
+		if exists vdi_record.API.vDI_SR state.table then begin
+			let sr = lookup vdi_record.API.vDI_SR state.table in
+			if config.vm_metadata_only then begin
+				(* Look up the existing VDI record by location *)
+				match List.filter (fun (_, vdir) ->
+					vdir.API.vDI_location = vdi_record.API.vDI_location && vdir.API.vDI_SR = sr)
+					(Client.VDI.get_all_records rpc session_id) with
+				| (vdi, _) :: [] ->
+					(* perfect, found exactly one *)
+					state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+				| (vdi, _) :: _ ->
+					(* hmm, wasn't expecting to have to choose! *)
+					warn "Found multiple VDIs with location = %s (location should be unique per-SR); choosing at random" vdi_record.API.vDI_location;
+					state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+				| _ ->
+					error "Found no VDI with location = %s: %s" vdi_record.API.vDI_location
+						(if config.force 
+							then "ignoring error because '--force' is set" 
+							else "treating as fatal and abandoning import");
+					if not(config.force)
+					then raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [ Ref.string_of sr; vdi_record.API.vDI_location ]))
+			end else begin
+				(* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
+				let task_id = Ref.string_of (Context.get_task_id __context) in
+				let sm_config = List.filter (fun (k,_)->k<>Xapi_globs.import_task) vdi_record.API.vDI_sm_config in
+				let sm_config = (Xapi_globs.import_task, task_id)::sm_config in
+				let vdi = Client.VDI.create_from_record rpc session_id { vdi_record with API.vDI_SR = sr; API.vDI_sm_config = sm_config } in
+				state.cleanup <- (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: state.cleanup;
+				state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
+			end
+		end else
+			warn "Skipping VDI %s as its SR was not imported." vdi_record.API.vDI_uuid
+	end
 
 
 (** Lookup the network by name_label only. Previously we used UUID which worked if importing
