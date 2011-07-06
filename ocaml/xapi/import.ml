@@ -323,26 +323,26 @@ let handle_gm __context config rpc session_id (state: state) (x: obj) : unit =
     else use the config.sr.
     NB we nolonger try to put the VDIs back in the SRs from which they originated.
 *)
-let handle_sr __context config rpc session_id (state: state) (x: obj) : unit = 
-  let sr_record = API.From.sR_t "" x.snapshot in
-  if config.vm_metadata_only then begin
-    (* Look up the existing SR record *)
-    try
-      let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
-      state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
-    with e ->
-      warn "Failed to find SR with UUID: %s content-type: %s %s" 
-	sr_record.API.sR_uuid sr_record.API.sR_content_type
-	(if sr_record.API.sR_content_type = "iso" then " will eject disk" else "-- this is fatal");
-      if sr_record.API.sR_content_type = "iso" 
-      then () (* this one will be handled specially in handle_vdi *)
-      else raise e (* fatal error *)
-  end else begin
-    if sr_record.API.sR_content_type = "iso"
-    then () (* this one will be ejected *)
-    else state.table <- (x.cls, x.id, Ref.string_of config.sr) :: state.table
-  end
-    
+let handle_sr __context config rpc session_id (state: state) (x: obj) : unit =
+	let sr_record = API.From.sR_t "" x.snapshot in
+	if config.vm_metadata_only then begin
+		(* Look up the existing SR record *)
+		try
+			let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
+			state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
+		with e ->
+			warn "Failed to find SR with UUID: %s content-type: %s %s"
+				sr_record.API.sR_uuid sr_record.API.sR_content_type
+				(if sr_record.API.sR_content_type = "iso" then " will eject disk" else "-- this is fatal");
+			if sr_record.API.sR_content_type = "iso"
+			then () (* this one will be handled specially in handle_vdi *)
+			else raise e (* fatal error *)
+	end else begin
+		if sr_record.API.sR_content_type = "iso"
+		then () (* this one will be ejected *)
+		else state.table <- (x.cls, x.id, Ref.string_of config.sr) :: state.table
+	end
+
 (** If we're restoring VM metadata only then lookup the VDI by uuid.
     If restoring metadata only: lookup the VDI by location
     If importing everything: create a new VDI in the SR
