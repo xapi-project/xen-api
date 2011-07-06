@@ -216,6 +216,7 @@ let create ~__context ~name_label ~name_description
 
 	(* Set the fields which belong to the higher-level API: *)
 	Db.VDI.set_other_config ~__context ~self:ref ~value:other_config;
+	Db.VDI.set_tags ~__context ~self:ref ~value:tags;
 	Db.VDI.set_xenstore_data ~__context ~self:ref ~value:xenstore_data;
 	Db.VDI.set_sharable ~__context ~self:ref ~value:sharable;
 	Db.VDI.set_type ~__context ~self:ref ~value:_type;
