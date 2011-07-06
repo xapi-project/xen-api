@@ -54,7 +54,7 @@ let read_map_params name params =
 	let len = String.length name + 1 in (* include ':' *)
 	let filter_params = List.filter (fun (p,_) -> (String.startswith name p) && (String.length p > len)) params in
 	List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
-
+let read_set_params name params = List.map fst (read_map_params name params)
 
 let get_chunks fd =
 	let buffer = Buffer.create 10240 in
@@ -1048,9 +1048,10 @@ let vdi_create printer rpc session_id params =
 	let ty = vdi_type_of_string str_type in
 	let sharable = get_bool_param params "sharable" in
 	let sm_config=read_map_params "sm-config" params in
+	let tags=read_set_params "tags" params in
 
 	let vdi = Client.VDI.create ~rpc ~session_id ~name_label ~name_description:"" ~sR ~virtual_size ~_type:ty
-		~sharable ~read_only:false ~xenstore_data:[] ~other_config:[] ~sm_config ~tags:[] in
+		~sharable ~read_only:false ~xenstore_data:[] ~other_config:[] ~sm_config ~tags in
 	let vdi_uuid = Client.VDI.get_uuid rpc session_id vdi in
 	printer (Cli_printer.PList [vdi_uuid])
 
