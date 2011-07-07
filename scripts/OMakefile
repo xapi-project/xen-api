@@ -23,6 +23,7 @@ install:
 	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)/opt/xensource/bin/
+	$(IPROG) xapi-autostart-vms $(DESTDIR)/opt/xensource/bin/
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
 	$(IPROG) xapi-ssl.conf $(DESTDIR)/etc/xensource/xapi-ssl.conf
 	$(IPROG) xapi.conf $(DESTDIR)/etc/xensource/xapi.conf
