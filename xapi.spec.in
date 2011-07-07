@@ -178,6 +178,7 @@ rm -rf $RPM_BUILD_ROOT
 /opt/xensource/bin/perfmon
 /opt/xensource/bin/static-vdis
 /opt/xensource/bin/v6d-reopen-logs
+/opt/xensource/bin/xapi-autostart-vms
 /opt/xensource/bin/xapi-db-process
 /opt/xensource/bin/xapi-wait-init-complete
 /opt/xensource/bin/xe-backup-metadata
