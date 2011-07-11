@@ -3,7 +3,7 @@
 # Multipath Alerting Daemon
 
 # location of the executable:
-MPATHALERT="/opt/xensource/bin/mpathalert"
+MPATHALERT="<BASE_PATH>/bin/mpathalert"
 
 #delay in seconds between 2 consecutive alerts:
 DELAY="120"

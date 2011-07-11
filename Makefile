@@ -94,7 +94,7 @@ version:
 .PHONY: xapi.spec
 xapi.spec: xapi.spec.in
 	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
-	sed -i 's/<base_path>/$(shell echo $(BASE_PATH) | sed 's/\//\\\//g')/g' $@
+	sed -i "s!<BASE_PATH>!${BASE_PATH}!g" $@
 
 .PHONY: srpm
 srpm: xapi.spec
