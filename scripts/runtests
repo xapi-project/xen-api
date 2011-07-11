@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# It appears that this file is NOT installed by OMakefile. If installing it in
+# the future, make sure that variable BASE_PATH is set correctly.
+
 if [ -z $1 ]
 then
   echo "Need to specify the current network interface (e.g. eth0) as a parameter
@@ -9,7 +12,7 @@ fi
 
 IF=$1
 
-export PATH=$PATH:/opt/xensource/bin
+export PATH=$PATH:<BASE_PATH>/bin
 
 # generic stuff, necessary for xenrt too
 

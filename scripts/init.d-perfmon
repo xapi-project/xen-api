@@ -11,7 +11,7 @@
 # Source function library.
 . /etc/init.d/functions
 
-PERFMON=/opt/xensource/bin/perfmon
+PERFMON="<BASE_PATH>/bin/perfmon"
 PERFMON_FLAGS=
 
 if [ -f /etc/sysconfig/perfmon ]; then

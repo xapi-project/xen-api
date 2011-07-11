@@ -6,9 +6,11 @@
 # chkconfig: 345 99 00
 # description: Start/stop XE VMs
 
+SHUTDOWN="<BASE_PATH>/libexec/shutdown"
+
 if [ ! -e /proc/xen/privcmd ] || \
    [ ! -e /etc/xensource-inventory ] || \
-   [ ! -e /opt/xensource/libexec/shutdown ] ; then
+   [ ! -e ${SHUTDOWN} ] ; then
         exit 0
 fi
 
@@ -29,9 +31,9 @@ case "$1" in
         ;;
     stop)
         action $"Shutting down Virtual Machines: " \
-	    /opt/xensource/libexec/shutdown "${INSTALLATION_UUID}"
+	    ${SHUTDOWN} "${INSTALLATION_UUID}"
         action $"Terminating remaining Virtual Machines: " \
-	    /opt/xensource/libexec/shutdown --force "${INSTALLATION_UUID}"
+	    ${SHUTDOWN} --force "${INSTALLATION_UUID}"
 
         [ -f /var/lock/subsys/xapi-domains ] && rm -f /var/lock/subsys/xapi-domains
         ;;

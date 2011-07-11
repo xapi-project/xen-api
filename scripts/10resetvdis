@@ -3,7 +3,6 @@
 # Call the SM backend python program to reset the locks on all the VDIs that were on the
 # host that has been declared dead
 
-
 HOSTUUID=$2
 REASON=$4
 
@@ -17,5 +16,5 @@ IFS=","
 for i in `xe pbd-list host-uuid=$HOSTUUID --minimal`
 do
    SR=`xe pbd-param-get uuid=$i param-name=sr-uuid`  
-   /opt/xensource/sm/resetvdis.py $HOSTUUID $SR 
+   "<BASE_PATH>/sm/resetvdis.py" $HOSTUUID $SR
 done

@@ -1,5 +1,6 @@
-IPROG=install -m 755
-IDATA=install -m 644
+SCRIPTS=$(getenv PWD)/scripts
+IPROG=$(SCRIPTS)/install.sh 755
+IDATA=$(SCRIPTS)/install.sh 644
 
 XEN_COMPILE_ARCH = $(shell uname -m | sed -e"s/i.86/x86_32/g")
 

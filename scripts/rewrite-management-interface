@@ -17,4 +17,4 @@ cat ${INV} | grep -v ^MANAGEMENT_INTERFACE > ${TMP}
 echo "MANAGEMENT_INTERFACE='$INTF'" >> ${TMP}
 mv ${TMP} ${INV}
 
-/opt/xensource/libexec/update-mh-info $INTF
+"<BASE_PATH>/libexec/update-mh-info" $INTF
