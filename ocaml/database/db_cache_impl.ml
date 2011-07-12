@@ -23,6 +23,7 @@
 open Db_exn
 open Db_lock
 open Pervasiveext
+open Threadext
 
 module D = Debug.Debugger(struct let name = "sql" end)
 open D

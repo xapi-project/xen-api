@@ -14,6 +14,7 @@
 open Locking_helpers
 open Stringext
 open Pervasiveext
+open Threadext
 
 module D = Debug.Debugger(struct let name = "dispatcher" end)
 open D
