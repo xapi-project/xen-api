@@ -83,7 +83,7 @@ start() {
 		    *)
 			CN=`mgmt_ip`;; 
 		esac
-		"<BASE_PATH>/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
+		"@BASE_PATH@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
 	fi
 	NEWSTUNNEL="`grep -e '^ *stunnelng *= *true *' /etc/xapi.conf`"
 	if test -z "$NEWSTUNNEL"

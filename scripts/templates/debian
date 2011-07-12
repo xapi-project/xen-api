@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     run("/sbin/mkfs.ext3 %s1", xvda)
 
-    xgt = "<BASE_PATH>/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
+    xgt = "@BASE_PATH@/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
     
     run("/bin/mkdir -p %s", mountpoint)
     try:

@@ -27,6 +27,6 @@ for FILE in ${FILES}; do
     NEWFILE=${DEST}
   fi
   if file ${NEWFILE} | grep -q "text"; then
-    sed -i "s!<BASE_PATH>!${BASE_PATH}!g" ${NEWFILE}
+    sed -i "s!@BASE_PATH@!${BASE_PATH}!g" ${NEWFILE}
   fi
 done
