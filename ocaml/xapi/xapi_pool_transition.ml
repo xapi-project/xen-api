@@ -15,6 +15,7 @@
  * @group Pool Management
  *)
  
+open Threadext
 open Client
 
 module D = Debug.Debugger(struct let name="xapi" end)

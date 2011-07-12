@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Printf
+open Threadext
 
 (** Start the XML-RPC server. *)
 let _ =

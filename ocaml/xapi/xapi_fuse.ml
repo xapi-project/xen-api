@@ -14,6 +14,8 @@
 (* Xapi_fuse: Code to cause Xapi to commit not-completely-terminal hari-kiri *)
 (* The watchdog catches the exit()s and restarts us *)
 
+open Threadext
+
 module D = Debug.Debugger(struct let name="xapi_fuse" end)
 open D
 
