@@ -159,8 +159,6 @@ module Thread = struct
 			(fun () -> decr running; run_pendings ());
 		Thread.exit ()
 
-
-
 	let set_policy p =
 		Mutex.execute scheduler_token
 			(fun () ->

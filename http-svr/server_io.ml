@@ -14,6 +14,7 @@
 
 open Unix
 open Pervasiveext
+open Threadext
 
 module D = Debug.Debugger(struct let name = "server_io" end)
 open D
