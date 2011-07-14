@@ -111,7 +111,7 @@ type devstate = {
 }
 
 type domstate = {
-	uuid: string;
+	mutable uuid: string;
 	mutable data_next_window: int64;
 	mutable dead_reason: died_reason option;
 	mutable devices: ((string * string), devstate) Hashtbl.t;
@@ -331,9 +331,13 @@ let domain_update ctx =
 
 	let domain_create domid uuid =
 		let uuid = Uuid.to_string (Uuid.uuid_of_int_array uuid) in
-		(* NB the domstate might already be in the table because of a previous device event. *)
-		if not(Hashtbl.mem ctx.tbl domid)
-		then Hashtbl.add ctx.tbl domid (domstate_init uuid);
+		(* NB the domstate might already be in the table because of a previous device event.
+		   In this case it won't have a valid uuid: we must update it. *)
+		let ds =
+			if Hashtbl.mem ctx.tbl domid
+			then Hashtbl.find ctx.tbl domid
+			else domstate_init uuid in
+		Hashtbl.replace ctx.tbl domid { ds with uuid = uuid };
 		add_domain_watch uuid domid;
 		news := (domid, uuid) :: !news
 		in
