@@ -89,9 +89,9 @@ start() {
 	if test -z "$NEWSTUNNEL"
 	then
 		writeconffile
-		daemon nice -n -3 ${STUNNEL} ${SSLCONFFILE}
+		daemon ${STUNNEL} ${SSLCONFFILE}
 	else
-		daemon nice -n -3 /usr/sbin/stunnelng -m server -p ${SSLPIDFILE} -c ${PEMFILE} -s :443 -d 127.0.0.1:80
+		daemon /usr/sbin/stunnelng -m server -p ${SSLPIDFILE} -c ${PEMFILE} -s :443 -d 127.0.0.1:80
 	fi
 	RETVAL=$?
 
