@@ -64,12 +64,12 @@ start() {
 	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
-	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
+	    /opt/xensource/bin/xapi -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
 		RETVAL=$?
 	    rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
 	else
-	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
+	    /opt/xensource/bin/xapi -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
 		RETVAL=$?
 	fi
