@@ -66,58 +66,28 @@ start() {
 	    rm -rf /var/xen/qemu/*
 	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
-	    #xapi_pid=$!
+		RETVAL=$?
 	    rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
 	else
 	    nice -n -3 /opt/xensource/bin/xapi -daemon ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
-	    #xapi_pid=$!
+		RETVAL=$?
 	fi
-	# wait for startup cookie to be written for up to ${MAX_RETRIES} seconds
-	MAX_RETRIES=180
-	# don't conclude that xapi has failed until at least ${INITIAL_GRACE_PERIOD} seconds
-	INITIAL_GRACE_PERIOD=10
-	RETRY=0
-	while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
-		if [ ${RETRY} -gt ${INITIAL_GRACE_PERIOD} ]; then
-			# Abort early if all xapis have gone 
-			xapi_pids=$(pidof xapi)
-			if [ -z "$xapi_pids" ]; then
-				logger "xapi daemon disappeared; aborting"
-				echo -n .
-				echo -n $"failed to start xapi (daemon disappeared)"
-				failure $"failed to start xapi (daemon disappeared)"
-				echo
-				return 1
-			fi
-		fi
 
-		# If running on multipath root we need to update
-		# the multipath info on the Host object
-		ROOT_PART_MAJOR=$(stat --format=%t /dev/root)
-		DEVICE_MAPPER_MAJOR=$(sed -ne 's/^\([0-9]\+\) device-mapper$/\1/p' /proc/devices)
-		DEVICE_MAPPER_MAJOR_HEX=$(printf "%x" ${DEVICE_MAPPER_MAJOR})
-		if [ "$ROOT_PART_MAJOR" == "$DEVICE_MAPPER_MAJOR_HEX" ] ; then
-		    /opt/xensource/sm/mpathcount.py
-		fi
-
-		if [ -e ${XAPI_STARTUP_COOKIE} ]; then
-			touch /var/lock/subsys/xapi
-			echo -n $"start-of-day complete."
-			success $"start-of-day complete."
-			echo
-			return 0
-		fi
-		sleep 1
-		echo -n .
-		RETRY=$(( ${RETRY} + 1 ))
-	done
-	echo -n $"failed to start xapi."
-	failure $"failed to start xapi."
-	killproc xapi
-	rm -f /var/lock/subsys/xapi /var/run/xapi.pid
-	echo
-	return 1
+	if [ $RETVAL -eq 0 ]; then
+		touch /var/lock/subsys/xapi
+		echo -n $"OK"
+		success $"OK"
+		echo
+		return 0
+	else
+		echo -n $"failed to start xapi."
+		failure $"failed to start xapi."
+		killproc xapi
+		rm -f /var/lock/subsys/xapi /var/run/xapi.pid
+		echo
+		return 1
+	fi
 }
 
 stop() {
@@ -130,11 +100,11 @@ stop() {
 	fi
 	rm -f ${XAPI_STARTUP_COOKIE}
 	rm -f ${XAPI_INIT_COMPLETE_COOKIE}
-	xe host-shutdown-agent
 
 	# Find out if xapi has died
 	RETRIES=60
 	while [ ${RETRIES} -ne 0 ]; do
+		xe host-shutdown-agent 2> /dev/null
 		# Finish if all xapis have gone 
 		xapi_pids=$(pidof xapi)
 		if [ -z "$xapi_pids" ]; then
