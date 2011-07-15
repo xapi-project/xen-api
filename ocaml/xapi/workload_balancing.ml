@@ -698,7 +698,8 @@ let make_param = function
        Xml.Element("ParameterValue", [], [Xml.PCData v])])
   
 let wlb_context_request meth params ~__context ~handler =
-  assert_wlb_enabled ~__context;
+  assert_wlb_licensed ~__context;
+  assert_wlb_initialized ~__context;
   let host, port = wlb_host_port ~__context in
   let auth = wlb_encoded_auth ~__context in
   wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler 
