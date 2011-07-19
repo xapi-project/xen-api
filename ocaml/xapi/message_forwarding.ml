@@ -3173,6 +3173,10 @@ end
       (* NB must always execute this on the master because of the autodetect_mutex *)
       Local.VBD.create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty ~other_config ~qos_algorithm_type ~qos_algorithm_params
 
+	let set_mode ~__context ~self ~value =
+		info "VBD.set_mode: VBD = '%s'; value = %s" (vbd_uuid ~__context self) (Record_util.vbd_mode_to_string value);
+		Local.VBD.set_mode ~__context ~self ~value
+
     let destroy ~__context ~self =
       info "VBD.destroy: VBD = '%s'" (vbd_uuid ~__context self);
       Local.VBD.destroy ~__context ~self

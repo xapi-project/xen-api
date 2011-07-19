@@ -98,6 +98,13 @@ let dynamic_destroy ?(do_safety_check=true) ~__context ~vbd (force: bool) token 
 	  with_xs (fun xs -> destroy_vbd ~do_safety_check ~__context ~xs domid vbd force)
 	end
 
+let set_mode ~__context ~self ~value =
+	let vm = Db.VBD.get_VM ~__context ~self in
+	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	if power_state <> `Halted
+	then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
+	Db.VBD.set_mode ~__context ~self ~value
+
 let plug ~__context ~self =
   let r = Db.VBD.get_record_internal ~__context ~self in
   let vm = r.Db_actions.vBD_VM in
