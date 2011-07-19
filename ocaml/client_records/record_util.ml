@@ -289,6 +289,10 @@ let string_to_vbd_mode s =
 		| "rw" -> `RW
 		| _ -> raise (Record_failure ("Expected 'RO' or 'RW', got "^s))
 
+let vbd_mode_to_string = function
+	| `RO -> "ro"
+	| `RW -> "rw"
+
 let string_to_vbd_type s =
 	match String.lowercase s with
 		| "cd" -> `CD

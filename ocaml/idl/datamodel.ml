@@ -5157,7 +5157,7 @@ let vbd =
        field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
        field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
        field ~ty:Bool "bootable" "true if this VBD is bootable";
-       field ~ty:vbd_mode "mode" "the mode the VBD should be mounted with";
+       field ~effect:true ~ty:vbd_mode "mode" "the mode the VBD should be mounted with";
        field ~ty:vbd_type "type" "how the VBD will appear to the guest (e.g. disk or CD)";
        field ~in_oss_since:None ~in_product_since:rel_miami ~ty:Bool ~default_value:(Some (VBool true))
 	 "unpluggable" "true if this VBD will support hot-unplug";
