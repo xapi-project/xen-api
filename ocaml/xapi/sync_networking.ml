@@ -22,9 +22,15 @@ open D
 (* This, and the associated startup item in xapi.ml, can be removed as soon as upgrades from anything
  * pre-Boston are no longer supported. *)
 let fix_bonds ~__context () =
-	let pifs = Db.PIF.get_all_records ~__context in
-	let host = !Xapi_globs.localhost_ref in
-	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> [] && pifr.API.pIF_host = host) pifs in
+	let pifs = Helpers.get_my_pifs ~__context in
+	
+	(* Fix incorrect PIF.bond_slave_of fields *)
+	List.iter (fun (rf, rc) ->
+		if rc.API.pIF_bond_slave_of <> Ref.null && not (Db.is_valid_ref __context rc.API.pIF_bond_slave_of) then
+			Db.PIF.set_bond_slave_of ~__context ~self:rf ~value:Ref.null
+	) pifs;
+
+	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> []) pifs in
 	let local_bonds = List.map (fun (_, pifr) -> List.hd pifr.API.pIF_bond_master_of) local_bond_masters in
 	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) local_bonds
 
