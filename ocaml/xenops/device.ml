@@ -1175,6 +1175,8 @@ let unplug ~xc ~xs (domain, bus, dev, func) domid =
 	| x ->
 		failwith (Printf.sprintf "Waiting for state=pci-removed; got state=%s" x)
 	in
+	(* CA-62028: tell the device to stop whatever it's doing *)
+	do_flr pci;
 	Xc.domain_deassign_device xc domid (domain, bus, dev, func)
 
 end
