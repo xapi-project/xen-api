@@ -244,12 +244,6 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		| Disk_op_clone | Disk_op_copy _-> Ref.null
 		| Disk_op_snapshot | Disk_op_checkpoint -> all.Db_actions.vM_parent in
 
-	(* update the VM's parent field in case of snapshot. *)
-	begin match disk_op with
-		| Disk_op_clone | Disk_op_copy _-> ()
-		| Disk_op_snapshot | Disk_op_checkpoint -> Db.VM.set_parent ~__context ~self:vm ~value:ref
-	end;
-
   (* verify if this action is happening due to a VM protection policy *)
   let is_snapshot_from_vmpp =
       is_a_snapshot && (Xapi_vmpp.is_snapshot_from_vmpp ~__context)
@@ -325,6 +319,13 @@ let copy_vm_record ~__context ~vm ~disk_op ~new_name ~new_power_state =
 		~suspend_SR:Ref.null
 		~version:0L
 	;
+
+	(* update the VM's parent field in case of snapshot. Note this must be done after "ref"
+	   has been created, so that its "children" field can be updated by the database layer *)
+	begin match disk_op with
+		| Disk_op_clone | Disk_op_copy _-> ()
+		| Disk_op_snapshot | Disk_op_checkpoint -> Db.VM.set_parent ~__context ~self:vm ~value:ref
+	end;
 
 	ref, uuid
 
