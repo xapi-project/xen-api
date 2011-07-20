@@ -112,36 +112,6 @@ let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
 
-let do_bridge_gc rpc session_id =
-  let all_networks = Client.Network.get_all_records_where ~rpc ~session_id ~expr:"true" in
-  let db_bridge_names = List.map (fun r->r.API.network_bridge) (List.map snd all_networks) in
-  let my_bridges = Netdev.network.Netdev.list () in
-    List.iter
-      (fun mybridge -> if not (List.mem mybridge db_bridge_names) then detach mybridge)
-      my_bridges
-
-let network_gc_func() =
-  Server_helpers.exec_with_new_task "network bridge gc"
-    (fun __context ->
-      let other_config = 
-	try
-	  let pool = List.hd (Db.Pool.get_all ~__context) in
-	  Db.Pool.get_other_config ~__context ~self:pool
-	with _ -> []
-      in
-      
-      let skip = (List.mem_assoc Xapi_globs.gc_network_disable other_config 
-		   && (List.assoc Xapi_globs.gc_network_disable other_config = "true")) in
-      
-      if not skip then
-	Helpers.call_api_functions ~__context
-	  (fun rpc session_id ->
-	    do_bridge_gc rpc session_id
-	  )
-      else
-	debug "Skipping network GC")
-    
-
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
