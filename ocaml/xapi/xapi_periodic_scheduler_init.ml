@@ -54,10 +54,6 @@ let register () =
 	()	
   in
   
-  (* Network bridge GC *)
-  let networkgc_timer = 60.0 *. 60.0 *. 1.5 in (* hour and a half *)
-  let networkgc_func () = Xapi_network.network_gc_func () in
-
   (* Heartbeat to show the queue is still running - will be more useful when there's less logging! *)
   let hb_timer = 3600.0 in (* one hour *)
   let hb_func () = debug "Periodic scheduler heartbeat" in
@@ -97,7 +93,6 @@ let register () =
   if master then Xapi_periodic_scheduler.add_to_queue "Trying to update subjects' info using external directory service (if any)" 
     (Xapi_periodic_scheduler.Periodic update_all_subjects_timer) update_all_subjects_delay update_all_subjects_func;
   Xapi_periodic_scheduler.add_to_queue "Logrotate" (Xapi_periodic_scheduler.Periodic logrotate_timer) 120.0 logrotate_func;
-  Xapi_periodic_scheduler.add_to_queue "Network bridge GC" (Xapi_periodic_scheduler.Periodic networkgc_timer) networkgc_timer networkgc_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_configuration_from_master
 

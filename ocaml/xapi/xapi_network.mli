@@ -60,9 +60,6 @@ val register_vif : __context:Context.t -> API.ref_VIF -> unit
     happens, it is safe to clean up the underlying network switch/bridge *)
 val deregister_vif : __context:Context.t -> API.ref_VIF -> unit
 
-(** Detaches all bridges on a host *)
-val network_gc_func : unit -> unit
-
 (** Internal fn used by slave to create new network records on master during pool join operation *)
 val pool_introduce :
   __context:Context.t ->
