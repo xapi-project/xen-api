@@ -72,13 +72,41 @@ let detach bridge_name =
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
 
+let active_vifs_to_networks : (API.ref_VIF, API.ref_network) Hashtbl.t = Hashtbl.create 10
+let active_vifs_to_networks_m = Mutex.create ()
+
 let register_vif ~__context vif =
 	let network = Db.VIF.get_network ~__context ~self:vif in
-	debug "register_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network)
+	Mutex.execute active_vifs_to_networks_m
+		(fun () ->
+			debug "register_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network);
+			Hashtbl.replace active_vifs_to_networks vif network
+		)
 
 let deregister_vif ~__context vif =
 	let network = Db.VIF.get_network ~__context ~self:vif in
-	debug "deregister_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network)
+	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	let internal_only = Db.Network.get_PIFs ~__context ~self:network = [] in
+	Mutex.execute active_vifs_to_networks_m
+		(fun () ->
+			Hashtbl.remove active_vifs_to_networks vif;
+			(* If a network has PIFs, then we create/destroy when the PIFs are plugged/unplugged.
+			   If a network is entirely internal, then we remove it after we've stopped using it
+			   *unless* someone else is still using it. *)
+			if internal_only then begin
+				(* Are there any more vifs using this network? *)
+				let others = Hashtbl.fold (fun v n acc -> if n = network then v :: acc else acc)
+					active_vifs_to_networks [] in
+				debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Ref.string_of others));
+				if others = [] then begin
+					let ifs = Netdev.network.Netdev.intf_list bridge in
+					if ifs = []
+					then detach bridge
+					else error "Cannot remove bridge %s: other interfaces still present [ %s ]" bridge (String.concat "; " ifs)
+				end
+			end
+
+		)
 
 let counter = ref 0
 let mutex = Mutex.create ()
