@@ -72,39 +72,45 @@ let detach bridge_name =
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
 
+let active_vifs_to_networks : (API.ref_VIF, API.ref_network) Hashtbl.t = Hashtbl.create 10
+let active_vifs_to_networks_m = Mutex.create ()
+
+let register_vif ~__context vif =
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	Mutex.execute active_vifs_to_networks_m
+		(fun () ->
+			debug "register_vif vif=%s network=%s" (Ref.string_of vif) (Ref.string_of network);
+			Hashtbl.replace active_vifs_to_networks vif network
+		)
+
+let deregister_vif ~__context vif =
+	let network = Db.VIF.get_network ~__context ~self:vif in
+	let bridge = Db.Network.get_bridge ~__context ~self:network in
+	let internal_only = Db.Network.get_PIFs ~__context ~self:network = [] in
+	Mutex.execute active_vifs_to_networks_m
+		(fun () ->
+			Hashtbl.remove active_vifs_to_networks vif;
+			(* If a network has PIFs, then we create/destroy when the PIFs are plugged/unplugged.
+			   If a network is entirely internal, then we remove it after we've stopped using it
+			   *unless* someone else is still using it. *)
+			if internal_only then begin
+				(* Are there any more vifs using this network? *)
+				let others = Hashtbl.fold (fun v n acc -> if n = network then v :: acc else acc)
+					active_vifs_to_networks [] in
+				debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Helpers.short_string_of_ref others));
+				if others = [] then begin
+					let ifs = Netdev.network.Netdev.intf_list bridge in
+					if ifs = []
+					then detach bridge
+					else error "Cannot remove bridge %s: other interfaces still present [ %s ]" bridge (String.concat "; " ifs)
+				end
+			end
+
+		)
+
 let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
-
-let do_bridge_gc rpc session_id =
-  let all_networks = Client.Network.get_all_records_where ~rpc ~session_id ~expr:"true" in
-  let db_bridge_names = List.map (fun r->r.API.network_bridge) (List.map snd all_networks) in
-  let my_bridges = Netdev.network.Netdev.list () in
-    List.iter
-      (fun mybridge -> if not (List.mem mybridge db_bridge_names) then detach mybridge)
-      my_bridges
-
-let network_gc_func() =
-  Server_helpers.exec_with_new_task "network bridge gc"
-    (fun __context ->
-      let other_config = 
-	try
-	  let pool = List.hd (Db.Pool.get_all ~__context) in
-	  Db.Pool.get_other_config ~__context ~self:pool
-	with _ -> []
-      in
-      
-      let skip = (List.mem_assoc Xapi_globs.gc_network_disable other_config 
-		   && (List.assoc Xapi_globs.gc_network_disable other_config = "true")) in
-      
-      if not skip then
-	Helpers.call_api_functions ~__context
-	  (fun rpc session_id ->
-	    do_bridge_gc rpc session_id
-	  )
-      else
-	debug "Skipping network GC")
-    
 
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
   let r = Ref.make() and uuid = Uuid.make_uuid() in

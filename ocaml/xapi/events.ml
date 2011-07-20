@@ -284,12 +284,13 @@ module Resync = struct
 	     (* Also delete xenstore state, otherwise future 
 		attempts to add the device will fail *)
 	     Device.Generic.rm_device_state ~xs device;
+	     Xapi_network.deregister_vif ~__context vif;
 	   end;
 	   (* If VM is suspended, leave currently_attached as-is so we can
 	      resume properly *)
 	   if Db.VM.get_power_state ~__context ~self:vm = `Suspended
 	   then debug "VM is suspended: leaving currently-attached as-is"
-	   else Db.VIF.set_currently_attached ~__context ~self:vif ~value:online
+	   else Db.VIF.set_currently_attached ~__context ~self:vif ~value:online;
 	 end
       )
 

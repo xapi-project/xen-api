@@ -359,9 +359,6 @@ let sync_gpus = "sync_gpus"
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
 
-(* Set this key to "true" on pool.other_config to disable the network gcing thread *)
-let gc_network_disable = "gc_network_disable"
-
 (* Set on the Pool.other_config to signal that the pool is currently in a mixed-mode
    rolling upgrade state. *)
 let rolling_upgrade_in_progress = "rolling_upgrade_in_progress"

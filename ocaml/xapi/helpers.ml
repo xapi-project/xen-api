@@ -867,3 +867,9 @@ let set_vm_uncooperative ~__context ~self ~value =
 	end;
 	Db.VM.add_to_other_config ~__context ~self ~key:"uncooperative" ~value:(string_of_bool value)
   end
+
+(* Useful for making readable(ish) logs: *)
+let short_string_of_ref x =
+  let x' = Ref.string_of x in
+  String.sub x' (String.length "OpaqueRef:") 8
+
