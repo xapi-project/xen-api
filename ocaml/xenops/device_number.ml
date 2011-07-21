@@ -67,26 +67,32 @@ type xenstore_key = int
 let to_xenstore_key x = to_xenstore_int x
 let of_xenstore_key x = of_xenstore_int x
 
-(** Return an integer in base 26 *)
-let rec base_26_of_int x = 
-	let high, low = x / 26, x mod 26 in
-	let high' = if high = 0 then "" else base_26_of_int high in
-	let low' = String.make 1 (char_of_int (low + (int_of_char 'a'))) in
+(* NB the device encoding is base 26 starting from 1 rather than 0 eg
+   0  -> a
+   25 -> z
+   26 -> aa
+*)
+
+(** Return an integer encoded as a linux device suffix *)
+let rec string_of_int26 x = 
+	let high, low = x / 26 - 1, x mod 26 + 1 in
+	let high' = if high = -1 then "" else string_of_int26 high in
+	let low' = String.make 1 (char_of_int (low + (int_of_char 'a') - 1)) in
 	high' ^ low'
 
 open Stringext
 
-(** Convert a base 26 string back into an integer *)
-let int_of_base_26 x = 
-	let ints = List.map (fun c -> int_of_char c - (int_of_char 'a')) (String.explode x) in
-	List.fold_left (fun acc x -> acc * 26 + x) 0 ints
+(** Convert a linux device string back into an integer *)
+let int26_of_string x = 
+	let ints = List.map (fun c -> int_of_char c - (int_of_char 'a') + 1) (String.explode x) in
+	List.fold_left (fun acc x -> acc * 26 + x) 0 ints - 1
 
 let to_linux_device = 
 	let p x = if x = 0 then "" else string_of_int x in 
 	function
-		| Xen  (disk, part) -> Printf.sprintf "xvd%s%s" (base_26_of_int disk) (p part)
-		| Scsi (disk, part) -> Printf.sprintf "sd%s%s"  (base_26_of_int disk) (p part)
-		| Ide  (disk, part) -> Printf.sprintf "hd%s%s"  (base_26_of_int disk) (p part)
+		| Xen  (disk, part) -> Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
+		| Scsi (disk, part) -> Printf.sprintf "sd%s%s"  (string_of_int26 disk) (p part)
+		| Ide  (disk, part) -> Printf.sprintf "hd%s%s"  (string_of_int26 disk) (p part)
 
 let of_linux_device x =
 	let letter c = 'a' <= c && (c <= 'z') in
@@ -101,7 +107,7 @@ let of_linux_device x =
 	   and y is 123 *)
 	let parse_b26_int x = 
 		let d, p = take letter x in
-		let d' = int_of_base_26 (String.implode d) in
+		let d' = int26_of_string (String.implode d) in
 		let p' = if p = [] then 0 else int_of_string (String.implode p) in
 		d', p' in
 	(* Parse a string "123p456" into x, y where x = 123 and y = 456 *)
