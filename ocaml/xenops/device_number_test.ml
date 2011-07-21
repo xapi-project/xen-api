@@ -10,6 +10,7 @@ let examples = [
 	Scsi(0, 1), "sda1", 2049;
 	Scsi(1, 3), "sdb3", 2067;
 	Ide(2, 2), "hdc2", 5634;
+	Xen(26, 0), "xvdaa", 268442112;
 ]
 
 let deprecated = [
@@ -27,7 +28,7 @@ let equivalent = [
 	"d5", "5";
 	"xvdf", "5";
 	"d0p0", "xvda";
-(*	"d536p37", "xvdtq37" *) (* XXX: we're not parsing xvdtq correctly *)
+	"d536p37", "xvdtq37";
 ]
 
 let _ = 
