@@ -93,7 +93,12 @@ let http_realm = "xapi"
 let xe_key = "/mh/XenSource-TM_XenEnterprise-TM"
 let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc."
 
-let config_file = ref "/etc/xensource/xapi.conf"
+(* Base path and some of its immediate dependencies. *)
+let base_path = Config_constants.base_path
+let xe_path = base_path ^ "/bin/xe"
+let sm_dir = base_path ^ "/sm"
+
+let config_file = ref "/etc/xapi.conf"
 let log_config_file = ref "/etc/xensource/log.conf"
 let db_conf_path = "/etc/xensource/db.conf"
 let remote_db_conf_fragment_path = "/etc/xensource/remote.db.conf"
@@ -178,7 +183,7 @@ let tools_sr_tag = "xenserver_tools_sr"
 let rio_tools_sr_name = "XenSource Tools"
 let miami_tools_sr_name = "XenServer Tools"
 
-let tools_sr_dir = "/opt/xensource/packages/iso"
+let tools_sr_dir = base_path ^ "/packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
@@ -193,7 +198,7 @@ let logrot_max = ref (1024*16*1024)
 (* logrotate is called without a stdin, and when it fork-and-execs gzip, it opens the src *)
 (* getting fd 0, opens the dest getting fd 3, then forks, then dups 0 to 0, dups 3 to 1 and *)
 (* then closes 0 and 3! *)
-let logrot_cmd = "/opt/xensource/libexec/logrotate.sh" 
+let logrot_cmd = base_path ^ "/libexec/logrotate.sh"
 let logrot_arg = [ ]
 
 (* Error codes for internal storage backends -- these have counterparts in sm.hg/drivers/XE_SR_ERRORCODES.xml *)
@@ -368,10 +373,10 @@ let default_ha_timeout = "default_ha_timeout"
 
 (* Executed during startup when the API/database is online but before storage or networks
    are fully initialised. *)
-let startup_script_hook = "/opt/xensource/libexec/xapi-startup-script"
+let startup_script_hook = base_path ^ "/libexec/xapi-startup-script"
 
 (* Executed when a rolling upgrade is detected starting or stopping *)
-let rolling_upgrade_script_hook = "/opt/xensource/libexec/xapi-rolling-upgrade"
+let rolling_upgrade_script_hook = base_path ^ "/libexec/xapi-rolling-upgrade"
 
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
@@ -411,7 +416,7 @@ let sync_timer = 3600.0 *. 24.0 (* sync once a day *)
 
 let message_limit=10000
 
-let xapi_message_script = "/opt/xensource/libexec/mail-alarm"
+let xapi_message_script = base_path ^ "/libexec/mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
 let max_clock_skew = 5. *. 60. (* 5 minutes *)

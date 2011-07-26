@@ -102,7 +102,7 @@ let can_execute_extauth_hook_script ~__context host event_name =
 (* use the generic call below to avoid concurrency problems between the script and host.{enable,disable}_extauth *)
 let call_extauth_hook_script_in_host_wrapper ~__context host event_name ~call_plugin_fn =
 	(* CP-709: call extauth-hook-script *)
-	(* Forkhelpers.execute_command_get_output hook-script "/opt/xensource/bin/external-auth-hook-script" *)
+	(* Forkhelpers.execute_command_get_output hook-script "/etc/xapi.d/plugins/extauth-hook" *)
 	(* fork a new thread and call new xapi.host.call-subject-add-hook-script method *)
 	(* see xapi_sync.ml *)
 	(* host.call-plugins scriptname (calls /etc/xapi.d/plugins/scriptname*)

@@ -1,8 +1,6 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend/ ../idl ../autogen
+OCAMLINCLUDES = ../xapi ../idl/ocaml_backend/ ../idl ../autogen
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
-
-IEXE=install -m 755
 
 OCamlProgram(lvhdrt, lvhdrt lvhdrt_exceptions utils globs fists tc_8670 tc_8682 tc_8699 tc_8700 tc_8707 tc_8766 tc_8775)
 
@@ -16,6 +14,6 @@ install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) lvhdrt $(DEBUGDIST)
 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IEXE) lvhdrt-helper $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-helper
-	$(IEXE) lvhdrt-trash-vdi $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-trash-vdi 
+	$(IPROG) lvhdrt-helper $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-helper
+	$(IPROG) lvhdrt-trash-vdi $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-trash-vdi 
 

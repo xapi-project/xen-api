@@ -19,7 +19,7 @@ open D
 let check_for_bad_link () =
 	(* Look for the exception catching bug caused by dodgy linking (thanks, ocamlfind) *)
 	try
-	  Unix.access "/opt/xensource/bin/doesntexist" [ Unix.F_OK ]
+	  Unix.access "/etc/xapi.d/doesntexist" [ Unix.F_OK ]
 	with 
 	| Unix.Unix_error(_, _, _) -> debug "Binary appears to be correctly linked"
 	| e -> 

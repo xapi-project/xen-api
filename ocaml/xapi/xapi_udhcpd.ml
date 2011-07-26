@@ -29,7 +29,6 @@ let udhcpd_conf = "/var/xapi/udhcpd.conf"
 let udhcpd_skel = "/var/xapi/udhcpd.skel"
 let leases_db = "/var/xapi/dhcp-leases.db"
 let pidfile = "/var/run/udhcpd.pid"
-let command = "/opt/xensource/libexec/udhcpd"
 
 module Ip = struct
 	type t = int * int * int * int with rpc
@@ -123,6 +122,8 @@ let write_config_nolock ~__context ip_router =
 	let config = Udhcpd_conf.make ~__context (!assigned) ip_router in
 	Unixext.unlink_safe udhcpd_conf;
 	Unixext.write_string_to_file udhcpd_conf (Udhcpd_conf.to_string config)
+
+let command = Xapi_globs.base_path ^ "/libexec/udhcpd"
   
 let restart_nolock () =
 	let pid = try Unixext.pidfile_read pidfile with _ -> None in

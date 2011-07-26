@@ -24,8 +24,8 @@ OCamlProgram(v6d-reopen-logs, v6d_reopen_logs)
 install: $(V6D)
 	mkdir -p $(LIBEXEC)
 	$(IPROG) $(V6D) $(LIBEXEC)
-	mkdir -p $(DESTDIR)/opt/xensource/bin
-	$(IPROG) v6d-reopen-logs $(DESTDIR)/opt/xensource/bin
+	mkdir -p $(BIN_PATH)
+	$(IPROG) v6d-reopen-logs $(BIN_PATH)
 
 .PHONY: clean
 clean:

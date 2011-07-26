@@ -1,4 +1,4 @@
 #!/bin/bash
 
 # Run quicktest with support for exception backtraces.
-OCAMLRUNPARAM=b /opt/xensource/debug/quicktestbin "$@"
+OCAMLRUNPARAM=b "@BASE_PATH@/debug/quicktestbin" "$@"

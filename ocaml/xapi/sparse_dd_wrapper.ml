@@ -21,6 +21,8 @@ open Printf
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
+let sparse_dd_path = Xapi_globs.base_path ^ "/libexec/sparse_dd"
+
 (** Use the new external sparse_dd program *)
 let dd ~__context prezeroed infile outfile size = 
 	let pipe_read, pipe_write = Unix.pipe () in
@@ -31,7 +33,7 @@ let dd ~__context prezeroed infile outfile size =
 		match Forkhelpers.with_logfile_fd "sparse_dd"
 			(fun log_fd ->
 				let pid = Forkhelpers.safe_close_and_exec None (Some pipe_write) (Some log_fd) []
-				"/opt/xensource/libexec/sparse_dd"
+				sparse_dd_path
 				([ "-machine"; "-src"; infile; "-dest"; outfile; "-size"; Int64.to_string size ] @
 				(if prezeroed then [ "-prezeroed" ] else [])) in
 				close pipe_write;

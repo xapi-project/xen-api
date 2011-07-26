@@ -21,8 +21,6 @@ let local_m = Mutex.create ()
 
 let with_local_lock f = Mutex.execute local_m f
 
-let interface_reconfigure_script = "/opt/xensource/libexec/interface-reconfigure"
-
 let is_dom0_interface pif_r = pif_r.API.pIF_ip_configuration_mode <> `None
 		
 (* Make sure inventory file has all current interfaces on the local host, so
@@ -39,8 +37,10 @@ let update_inventory ~__context =
 	let bridges = List.map (fun (_, pif_r) -> Db.Network.get_bridge ~__context ~self:pif_r.API.pIF_network) pifs in
 	Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
 
+let interface_reconfigure_script = Xapi_globs.base_path ^ "/libexec/interface-reconfigure"
+
 (* Call the interface reconfigure script. For development ignore the exn if it doesn't exist *)
-let reconfigure_pif ~__context (pif: API.ref_PIF) args = 
+let reconfigure_pif ~__context (pif: API.ref_PIF) args =
 	try
 		Helpers.call_api_functions ~__context (fun _ session_id ->
 			let args = "--session" :: (Ref.string_of session_id) :: "--pif" :: (Ref.string_of pif) :: args in

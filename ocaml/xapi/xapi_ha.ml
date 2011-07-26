@@ -35,14 +35,15 @@ let ha_redo_log = Redo_log.create ()
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
-let ha_set_pool_state = "/opt/xensource/xha/ha_set_pool_state"
-let ha_start_daemon = "/opt/xensource/xha/ha_start_daemon"
-let ha_stop_daemon = "/opt/xensource/xha/ha_stop_daemon"
-let ha_query_liveset = "/opt/xensource/xha/ha_query_liveset"
-let ha_propose_master = "/opt/xensource/xha/ha_propose_master"
-let ha_disarm_fencing = "/opt/xensource/xha/ha_disarm_fencing"
-let ha_set_excluded = "/opt/xensource/xha/ha_set_excluded"
-let ha_clear_excluded = "/opt/xensource/xha/ha_clear_excluded"
+let ha_set_pool_state = Xapi_globs.base_path ^ "/xha/ha_set_pool_state"
+let ha_start_daemon = Xapi_globs.base_path ^ "/xha/ha_start_daemon"
+let ha_stop_daemon = Xapi_globs.base_path ^ "/xha/ha_stop_daemon"
+let ha_query_liveset = Xapi_globs.base_path ^ "/xha/ha_query_liveset"
+let ha_propose_master = Xapi_globs.base_path ^ "/xha/ha_propose_master"
+let ha_disarm_fencing = Xapi_globs.base_path ^  "/xha/ha_disarm_fencing"
+let ha_set_excluded = Xapi_globs.base_path ^ "/xha/ha_set_excluded"
+let fence_path = Xapi_globs.base_path ^ "/libexec/fence"
+(* Unused: let ha_clear_excluded = Xapi_globs.base_path ^ "/xha/ha_clear_excluded" *)
 
 (** The xHA scripts throw these exceptions: *)
 exception Xha_error of Xha_errno.code
@@ -1605,7 +1606,7 @@ let before_clean_shutdown_or_reboot ~__context ~host =
 			error "Error past the commit-point while cleanly shutting down host: %s" (ExnHelper.string_of_exn e);
 			error "Host will self-fence via its own watchdog for safety";
 			(* NB we don't use Xc directly because in the SDK VM this is all fake... *)
-			ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/fence" [ "yesreally" ]);
+			ignore(Forkhelpers.execute_command_get_output fence_path [ "yesreally" ]);
 			Thread.delay 60.;
 			error "Watchdog has not triggered after 60 seconds";
 			(* Attempt to issue a reboot and kill the control stack *)

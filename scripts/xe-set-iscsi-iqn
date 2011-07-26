@@ -6,7 +6,7 @@
 
 set -e
 
-XE=/opt/xensource/bin/xe
+XE="@BASE_PATH@/bin/xe"
 
 configmap="other-config"
 configkey="iscsi_iqn"
