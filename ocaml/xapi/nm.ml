@@ -76,15 +76,17 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			warn "About to kill idle client stunnels";
 			(* The master_connection would otherwise try to take a broken stunnel from the cache *)
 			Stunnel_cache.flush ();
-			warn "About to kill active client stunnels";
-			let stunnels = 
-				let all = Locking_helpers.Thread_state.get_all_acquired_resources () in
-				debug "There are %d allocated resources" (List.length all);
-				List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in
-			debug "Of which %d are stunnels" (List.length stunnels);
-			List.iter Locking_helpers.kill_resource stunnels;
-			warn "About to forcibly reset the master connection";
-			Master_connection.force_connection_reset ();
+			if management_interface then begin
+				warn "About to kill active client stunnels";
+				let stunnels = 
+					let all = Locking_helpers.Thread_state.get_all_acquired_resources () in
+					debug "There are %d allocated resources" (List.length all);
+					List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in
+				debug "Of which %d are stunnels" (List.length stunnels);
+				List.iter Locking_helpers.kill_resource stunnels;
+				warn "About to forcibly reset the master connection";
+				Master_connection.force_connection_reset ();
+			end;
 
 			Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
 			if Db.PIF.get_management ~__context ~self:pif then begin
