@@ -167,10 +167,10 @@ let flush () =
       info "Flushed!")
 
 
-let connect ?use_external_fd_wrapper ?write_to_log host port = 
+let connect ?use_fork_exec_helper ?write_to_log host port =
   try
     remove host port
   with Not_found ->
     error "Failed to find stunnel in cache for endpoint %s:%d" host port;
-    Stunnel.connect ?use_external_fd_wrapper ?write_to_log host port
+    Stunnel.connect ?use_fork_exec_helper ?write_to_log host port
     

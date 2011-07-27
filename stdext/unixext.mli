@@ -130,10 +130,5 @@ end
 
 val wait_for_path : string -> (float -> unit) -> int -> unit
 
-(** Download a file via an HTTP GET *)
-val http_get: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
-(** Upload a file via an HTTP PUT *)
-val http_put: open_tcp:(server:string -> (in_channel * out_channel)) -> uri:string -> filename:string -> server:string -> unit
-
 external send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int = "stub_unix_send_fd_bytecode" "stub_unix_send_fd"
 external recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr = "stub_unix_recv_fd"

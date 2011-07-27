@@ -39,14 +39,14 @@ type t = { mutable pid: pid;
 	   mutable logfile: string;
 	 }
 
-(** Connects via stunnel (optionally via an external 'close fds' wrapper) to
+(** Connects via stunnel (optionally via an external 'fork/exec' helper) to
     a host and port.
     NOTE: this does not guarantee the connection to the remote server actually works.
     For server-side connections, use Xmlrpcclient.get_reusable_stunnel instead.
  *)
 val connect :
   ?unique_id:int ->
-  ?use_external_fd_wrapper:bool ->
+  ?use_fork_exec_helper:bool ->
   ?write_to_log:(string -> unit) ->
   ?verify_cert:bool ->
   ?extended_diagnosis:bool ->

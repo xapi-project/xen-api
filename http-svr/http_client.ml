@@ -15,6 +15,9 @@
 
 open Stringext
 
+module D = Debug.Debugger(struct let name="http" end)
+open D
+
 exception Connection_reset
 
 (** Thrown when no data is received from the remote HTTP server. This could happen if
@@ -23,20 +26,17 @@ exception Connection_reset
 exception Empty_response_from_server
 
 (** Thrown when we get a non-HTTP response *)
-exception Http_request_rejected
+exception Http_request_rejected of string
 
 (** Thrown when we get a specific HTTP failure *)
-exception Http_error of string
+exception Http_error of string * string
 
-let http_rpc_send_query fd request body =
+(** Thrown when we fail to parse a particular part of the HTTP message *)
+exception Parse_error of string
+
+let http_rpc_send_query fd request =
 	try
-		let writeln x = 
-			Unixext.really_write fd x 0 (String.length x);
-			let end_of_line = "\r\n" in
-			Unixext.really_write fd end_of_line 0 (String.length end_of_line) in
-		List.iter writeln (Http.string_list_of_request request);
-		writeln "";
-		if body <> "" then Unixext.really_write fd body 0 (String.length body)
+		Unixext.really_write_string fd (Http.Request.to_wire_string request)
 	with
 	| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
@@ -54,68 +54,89 @@ let input_line_fd (fd: Unix.file_descr) =
 		while not(!finished) do
 			let buffer = " " in
 			let read = Unix.read fd buffer 0 1 in
-			if read < 1 then raise (Http_header_truncated (Buffer.contents buf));
-			if buffer = "\n" then finished := true else Buffer.add_char buf buffer.[0]
+			if read = 1 then begin
+				if buffer = "\n"
+				then finished := true
+				else Buffer.add_char buf buffer.[0]
+			end else begin
+				if Buffer.contents buf = ""
+				then finished := true
+				else raise (Http_header_truncated (Buffer.contents buf));
+			end
 		done;
 		Buffer.contents buf
 	with
 	| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
-(* Read the HTTP response and if a 200 OK, return (content_length, task_id option). Otherwise 
-   throw an exception. *)
-let http_rpc_recv_response fd =
-	let ok = ref false in
+(** [response_of_fd_exn fd] returns an Http.Response.t object, or throws an exception *)
+let response_of_fd_exn fd =
 	let task_id = ref None in
 	let content_length = ref None in
-	(try
-		(* Initial line has the response code on it *)
-		let line = 
-			try input_line_fd fd 
-			with 
-			| Http_header_truncated "" ->
-				(* Special case the error when no data is received at all *)
-				raise Empty_response_from_server        
-		in
-		match String.split_f String.isspace line with
-		| _ :: "200" :: _ ->
-			ok := true;
-			(* Skip the rest of the headers *)
-			while true do
-				let line = input_line_fd fd in
 
+	(* Initial line has the response code on it *)
+	let line = input_line_fd fd in
+	match String.split_f String.isspace line with
+		| http_version :: code :: rest ->
+			let version = match String.split ~limit:2 '/' http_version with
+				| [ "HTTP"; version ] -> version
+				| _ ->
+					error "Failed to parse HTTP response status line [%s]" line;
+					raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version)) in
+			let message = String.concat " " rest in
+			let end_of_headers = ref false in
+			let headers = ref [] in
+			while not !end_of_headers do
+				let line = input_line_fd fd in
 				(* NB input_line removes the final '\n'.
 				   RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
 				match line with       
-				| "" | "\r" -> raise Not_found
-				| x -> 
-					begin
-						let (k,t) = match String.split ':' x with
-						| k :: rst -> (k, String.concat ":" rst) 
-						| _ -> ("","") in
-						let k' = String.lowercase k in
-						if k' = String.lowercase Http.task_id_hdr then begin
-							let t = String.strip String.isspace t in
-							task_id := Some t
-						end else if k' = "content-length" then begin
-							let t = String.strip String.isspace t in
-							content_length := Some (Int64.of_string t)
-						end 
-					end
-			done
-		| _ :: (("401"|"403"|"500") as http_code) :: _ ->
-			raise (Http_error http_code)
-		| _ -> raise Not_found
-	with Not_found -> ());
-	if not(!ok) 
-	then raise Http_request_rejected
-	else { Http.Response.content_length = !content_length;
-	       task = !task_id }
+					| "" | "\r" -> end_of_headers := true
+					| x ->
+						let k, v = match String.split ~limit:2 ':' x with
+							| [ k; v ] -> String.lowercase k, String.strip String.isspace v
+							| _        -> "", "" in
+						if k = String.lowercase Http.Hdr.task_id then task_id := Some v
+						else if k = String.lowercase Http.Hdr.content_length then content_length := Some (Int64.of_string v)
+						else headers := (k, v) :: !headers
+			done;
+			{
+				Http.Response.version = version;
+				code = code;
+				message = message;
+				content_length = !content_length;
+				task = !task_id;
+				additional_headers = !headers;
+				body = None;
+			}
+		| _ ->
+			error "Failed to parse HTTP response status line [%s]" line;
+			raise (Parse_error (Printf.sprintf "Expected initial header [%s]" line))
 
+(** [response_of_fd fd] returns an optional Http.Response.t record *)
+let response_of_fd fd =
+	try
+		Some (response_of_fd_exn fd)
+	with _ -> None
 
-(** [rpc request body f] marshals the HTTP request represented by [request] and [body]
+(** See perftest/tests.ml *)
+let last_content_length = ref 0L
+
+let http_rpc_recv_response error_msg fd =
+	match response_of_fd fd with
+		| None -> raise (Http_request_rejected error_msg)
+		| Some response ->
+			begin match response.Http.Response.code with
+				| ("401"|"403"|"500") as http_code -> raise (Http_error (http_code,error_msg))
+				| "200" ->
+					Opt.iter (fun x -> last_content_length := x) response.Http.Response.content_length;
+					response
+				| _ -> raise (Http_request_rejected error_msg)
+			end
+
+(** [rpc request f] marshals the HTTP request represented by [request] and [body]
     and then parses the response. On success, [f] is called with an HTTP response record.
     On failure an exception is thrown. *)
-let rpc (fd: Unix.file_descr) request body f = 
-	http_rpc_send_query fd request body;
-	f (http_rpc_recv_response fd) fd
+let rpc (fd: Unix.file_descr) request f =
+	http_rpc_send_query fd request;
+	f (http_rpc_recv_response (Http.Request.to_string request) fd) fd
 

@@ -33,8 +33,8 @@
 type uri_path = string
 val make_uri_path : string -> uri_path
 
-type bufio_req_handler = Http.request -> Buf_io.t -> unit
-type fdio_req_handler = Http.request -> Unix.file_descr -> unit
+type bufio_req_handler = Http.Request.t -> Buf_io.t -> unit
+type fdio_req_handler = Http.Request.t -> Unix.file_descr -> unit
 type req_handler = BufIO of bufio_req_handler | FdIO of fdio_req_handler
 
 val connect_handler_table : (uri_path, req_handler) Hashtbl.t
@@ -48,24 +48,28 @@ val add_handler : Http.method_t -> uri_path -> req_handler -> unit
 val best_effort : (unit -> unit) -> unit
 
 val headers : Unix.file_descr -> string list -> unit
-(*val get_return_version : Http.request -> string*)
+(*val get_return_version : Http.Request.t -> string*)
 
 val response_fct :
-  Http.request ->
+  Http.Request.t ->
   ?hdrs:string list ->
   Unix.file_descr -> int64 -> (Unix.file_descr -> unit) -> unit
 
 val response_str :
-  Http.request -> ?hdrs:string list -> Unix.file_descr -> string -> unit
+  Http.Request.t -> ?hdrs:string list -> Unix.file_descr -> string -> unit
 val response_missing : ?hdrs:string list -> Unix.file_descr -> string -> unit
+(*
 val response_redirect : Unix.file_descr -> string -> unit
-val response_unauthorised : string -> Unix.file_descr -> unit
-val response_forbidden : Unix.file_descr -> unit
+*)
+val response_unauthorised : ?req:Http.Request.t -> string -> Unix.file_descr -> unit
+val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
 val response_file :
   ?hdrs:'a list ->
-  mime_content_type:string option -> Unix.file_descr -> string -> unit
+  ?mime_content_type:string -> Unix.file_descr -> string -> unit
 
-val default_callback : Http.request -> Buf_io.t -> unit
+val request_of_bio: Buf_io.t -> Http.Request.t option
+
+val default_callback : Http.Request.t -> Buf_io.t -> unit
 
 exception Too_many_headers
 exception Generic_error of string
@@ -83,7 +87,7 @@ val start : server * string -> Unix.file_descr
 val stop : server -> unit
 
 exception Client_requested_size_over_limit
-val read_body : ?limit:int -> Http.request -> Buf_io.t -> string
+val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
 
 module Chunked :
   sig
@@ -92,5 +96,5 @@ module Chunked :
     val read : t -> int -> string
   end
 
-val read_chunked_encoding : Http.request -> Buf_io.t -> string Http.ll
+val read_chunked_encoding : Http.Request.t -> Buf_io.t -> string Http.ll
 
