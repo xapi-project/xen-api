@@ -25,7 +25,7 @@ open D
 
 let pool_db_sync_timer = 60.0 *. 5. (* CA-16878: 5 minutes, same as the local database flush *)
 
-let octet_stream = "Content-Type: application/octet-stream"
+let octet_stream = Http.Hdr.content_type ^": application/octet-stream"
 
 (* CA-18377: The smallest database that is compatible with the Miami database schema. *)
 let minimally_compliant_miami_database =
@@ -163,9 +163,9 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 	then Db_xml.To.file Xapi_globs.db_temporary_restore_path (Db_ref.get_database (Context.database_of new_context))
   
 (** Called when a CLI user downloads a backup of the database *)
-let pull_database_backup_handler (req: Http.request) s =
+let pull_database_backup_handler (req: Http.Request.t) s =
   debug "received request to write out db as xml";
-  req.Http.close <- true;
+  req.Http.Request.close <- true;
   Xapi_http.with_context "Dumping database as XML" req s
     (fun __context ->
       debug "sending headers";
@@ -176,7 +176,7 @@ let pull_database_backup_handler (req: Http.request) s =
     )
 
 (** Invoked only by the explicit database restore code *)
-let push_database_restore_handler (req: Http.request) s =
+let push_database_restore_handler (req: Http.Request.t) s =
   debug "received request to restore db from xml dump";
   Xapi_http.with_context "Reading database as XML" req s
     (fun __context ->
@@ -190,7 +190,7 @@ let push_database_restore_handler (req: Http.request) s =
 	(fun ()->ignore (Unixext.copy_file s xml_file_fd))
 	(fun ()->Unix.close xml_file_fd) in
       
-      let dry_run = List.mem_assoc "dry_run" req.Http.query && (List.assoc "dry_run" req.Http.query = "true") in
+      let dry_run = List.mem_assoc "dry_run" req.Http.Request.query && (List.assoc "dry_run" req.Http.Request.query = "true") in
       if dry_run
       then debug "performing dry-run database restore"
       else debug "performing full restore and restart";
@@ -209,23 +209,20 @@ let push_database_restore_handler (req: Http.request) s =
     ) 
 
 let http_fetch_db ~master_address ~pool_secret =
-  let headers = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
-    Http.Get master_address Constants.pool_xml_db_sync in
-  let st_proc = Xmlrpcclient.get_reusable_stunnel
-    ~write_to_log:Xmlrpcclient.write_to_log master_address Xapi_globs.default_ssl_port in
-  Pervasiveext.finally
-    (fun () ->
-      debug "Requesting backup from master";
-      let fd = st_proc.Stunnel.fd in
-      (* no content length since it's streaming *)
-      let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
-      let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
-      let db = Db_xml.From.channel (Datamodel_schema.of_datamodel ()) inchan in
-      version_check db;
-	  db
-    )
-    (fun () -> Stunnel.disconnect st_proc)  
-    
+	let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
+		Http.Get Constants.pool_xml_db_sync in
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make (), master_address, !Xapi_globs.https_port) in
+	with_transport transport
+		(with_http request
+			(fun (response, fd) ->
+				(* no content length since it's streaming *)
+				let inchan = Unix.in_channel_of_descr fd in (* never read from fd again! *)
+				let db = Db_xml.From.channel (Datamodel_schema.of_datamodel ()) inchan in
+				version_check db;
+				db
+			)
+		)
 
 (* When we eject from a pool, a slave deletes its backup files. This mutex is used to ensure that
    we're not trying to delete these backup files concurrently with making more! *)

@@ -410,28 +410,28 @@ let with_vm_locked ~__context ~vm ~task_id op f =
 	finally f
 		(fun () -> unlock_vm ~__context ~vm ~task_id)
 
-let vm_from_request ~__context (req: request) = 
-  if List.mem_assoc "ref" req.query
-  then Ref.of_string (List.assoc "ref" req.query) 
+let vm_from_request ~__context (req: Request.t) = 
+  if List.mem_assoc "ref" req.Request.query
+  then Ref.of_string (List.assoc "ref" req.Request.query) 
   else 
-    let uuid = List.assoc "uuid" req.query in
+    let uuid = List.assoc "uuid" req.Request.query in
       Helpers.call_api_functions 
         ~__context (fun rpc session_id -> Client.VM.get_by_uuid rpc session_id uuid) 
 
-let bool_from_request ~__context (req: request) k =
-	if List.mem_assoc k req.query
-	then bool_of_string (List.assoc k req.query)
+let bool_from_request ~__context (req: Request.t) k =
+	if List.mem_assoc k req.Request.query
+	then bool_of_string (List.assoc k req.Request.query)
 	else false
 
-let export_all_vms_from_request ~__context (req: request) = 
+let export_all_vms_from_request ~__context (req: Request.t) = 
 	bool_from_request ~__context req "all"
 
-let include_vhd_parents_from_request ~__context (req: request) = 
+let include_vhd_parents_from_request ~__context (req: Request.t) = 
 	bool_from_request ~__context req "include_vhd_parents"
 
-let metadata_handler (req: request) s = 
+let metadata_handler (req: Request.t) s = 
 	debug "metadata_handler called";
-	req.close <- true;
+	req.Request.close <- true;
 
 	(* Xapi_http.with_context always completes the task at the end *)
 	Xapi_http.with_context "VM.export_metadata" req s
@@ -459,7 +459,7 @@ let metadata_handler (req: request) s =
 
 			let task_id = Ref.string_of (Context.get_task_id __context) in
 			let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-				[ Http.task_id_hdr ^ ": " ^ task_id;
+				[ Http.Hdr.task_id ^ ": " ^ task_id;
 				"Server: "^Xapi_globs.xapi_user_agent;
 				content_type;
 				"Content-Disposition: attachment; filename=\"export.xva\""] in
@@ -475,15 +475,15 @@ let metadata_handler (req: request) s =
  					 Tar.write_end s);
 		)
 
-let handler (req: request) s = 
+let handler (req: Request.t) s = 
   debug "export handler";
-  req.close <- true;
+  req.Request.close <- true;
 
   (* First things first, let's make sure that the request has a valid session or username/password *)
   
   Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req;
     
-  let use_compression = List.mem_assoc Constants.use_compression req.query && List.assoc Constants.use_compression req.query = "true" in
+  let use_compression = List.mem_assoc Constants.use_compression req.Request.query && List.assoc Constants.use_compression req.Request.query = "true" in
   debug "Using compression: %b" use_compression;
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
@@ -505,7 +505,7 @@ let handler (req: request) s =
 	     let host = find_host_for_VM ~__context vm_ref in
 
 	     let address = Db.Host.get_address ~__context ~self:host in
-	     let url = Printf.sprintf "https://%s%s?%s" address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
+	     let url = Printf.sprintf "https://%s%s?%s" address req.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Request.query)) in
 	     info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url;
 	     let headers = Http.http_302_redirect url in
 	     Http_svr.headers s headers;
@@ -515,7 +515,7 @@ let handler (req: request) s =
 		 (* If there's no host that can see the SRs, then it's actually our responsibility *)
 		 (* to complete the task *)
 		 let task_id =
-       let all = req.cookie @ req.query in
+       let all = req.Request.cookie @ req.Request.query in
        if List.mem_assoc "task_id" all 
        then Some (Ref.of_string (List.assoc "task_id" all))
        else None in
@@ -540,10 +540,10 @@ let handler (req: request) s =
 	       let refresh_session = Xapi_session.consider_touching_session rpc session_id in	      
 	       let task_id = Ref.string_of (Context.get_task_id __context) in
 	       let preserve_power_state = 
-			   let all = req.cookie @ req.query in
+			   let all = req.Request.cookie @ req.Request.query in
 			   List.mem_assoc "preserve_power_state" all && bool_of_string (List.assoc "preserve_power_state" all) in
 	       let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-		 [ Http.task_id_hdr ^ ": " ^ task_id;
+		 [ Http.Hdr.task_id ^ ": " ^ task_id;
 		   "Server: "^Xapi_globs.xapi_user_agent;
 		   content_type;
 		   "Content-Disposition: attachment; filename=\"export.xva\""] in

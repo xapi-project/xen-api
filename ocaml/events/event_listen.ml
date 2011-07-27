@@ -19,7 +19,10 @@ let username = ref "root"
 let password = ref ""
 
 (* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
-let rpc xml = Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host:!host ~port:!port ~path:"/" xml
+let rpc xml =
+	let open Xmlrpcclient in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol.rpc ~transport:(TCP(!host, !port)) ~http xml
 
 open Client
 open Printf

@@ -171,8 +171,10 @@ end
 
 module Server=Server(Storage_impl.Wrapper(Builtin_impl))
 
-let rpc_unix call = Rpc_client.do_rpc_unix ~version:"1.0" ~path:"/"
-	~filename:Xapi_globs.storage_unix_domain_socket call
+let rpc_unix call =
+	let open Xmlrpcclient in
+	XML_protocol.rpc ~transport:(Unix Xapi_globs.storage_unix_domain_socket) 
+		~http:(xmlrpc ~version:"1.0" "/") call
 
 let rpc_inprocess call = Server.process () call
 

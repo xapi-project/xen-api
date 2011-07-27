@@ -59,10 +59,16 @@ let string_of_url = function
   | Http(host, port) -> Printf.sprintf "http://%s:%d/" host port
   | Uds path -> Printf.sprintf "file://%s" path
 
-let rpc_of_url = function
-  | Http(host, port) -> fun xml -> Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host ~port ~path:"/" xml 
-  | Https(host, port) -> fun xml -> Xmlrpcclient.do_secure_xml_rpc ~use_stunnel_cache:!use_stunnel_cache ~host:host ~version:"1.1" ~port ~path:"/" xml
-  | Uds filename -> fun xml -> Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename ~path:"/" xml
+let rpc_of_url = 
+	let open Xmlrpcclient in
+	let http = xmlrpc ~version:"1.0" "/" in
+	function
+		| Http(host, port) -> fun xml ->
+			XML_protocol.rpc ~transport:(TCP(host, port)) ~http xml
+		| Https(host, port) -> fun xml ->
+			XML_protocol.rpc ~transport:(SSL(SSL.make ~use_stunnel_cache:!use_stunnel_cache (), host, port)) ~http xml
+		| Uds filename -> fun xml -> 
+			XML_protocol.rpc ~transport:(Unix filename) ~http xml
 
 open API
 open XMLRPC

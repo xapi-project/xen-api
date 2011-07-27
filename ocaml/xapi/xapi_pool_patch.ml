@@ -206,7 +206,7 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
-let pool_patch_upload_handler (req: request) s = 
+let pool_patch_upload_handler (req: Request.t) s = 
   debug "Patch Upload Handler - Entered...";
 
   if not (Pool_role.is_master ())
@@ -228,7 +228,7 @@ let pool_patch_upload_handler (req: request) s =
 
         Http_svr.headers s (Http.http_200_ok ());
         
-        read_in_and_check_patch req.content_length s new_path;
+        read_in_and_check_patch req.Request.content_length s new_path;
 	
         try
           let r = create_patch_record ~__context ~path:new_path (get_patch_info new_path) in
@@ -280,7 +280,7 @@ let update_upload_post_script = Xapi_globs.base_path ^ "/libexec/update-upload-p
 
 let skip_signature_test () = Sys.file_exists skip_signature_flag
 
-let oem_patch_stream_handler (req: request) s =
+let oem_patch_stream_handler (req: Request.t) s =
   Xapi_http.with_context "Streaming OEM update to secondary partition" req s
     (fun __context ->
       if not (on_oem ~__context)
@@ -331,7 +331,7 @@ let oem_patch_stream_handler (req: request) s =
              (no where else to put it...) *)
           let bytes_written = Unixext.with_file secondary_partition [ Unix.O_WRONLY ] 0o0
             (fun fd ->
-               match req.content_length with 
+               match req.Request.content_length with 
                  | Some i ->
                      let length = Int64.sub i header_length in
                        debug "Got content-length of %s, so copying %s" 
@@ -413,14 +413,14 @@ let oem_patch_stream_handler (req: request) s =
       debug "Update applied successfully!";
     )
 
-let pool_patch_download_handler (req: request) s = 
+let pool_patch_download_handler (req: Request.t) s = 
   Xapi_http.with_context "Downloading pool patch" req s
     (fun __context ->     
-      if not(List.mem_assoc "uuid" req.query) then begin
-        Http_svr.headers s (Http.http_400_badrequest);
+      if not(List.mem_assoc "uuid" req.Request.query) then begin
+        Http_svr.headers s (Http.http_400_badrequest ());
         error "HTTP request for pool patch lacked 'uuid' parameter"
       end else begin
-        let uuid = List.assoc "uuid" req.query in
+        let uuid = List.assoc "uuid" req.Request.query in
         (* ensure its a valid uuid *)
         let r = Db.Pool_patch.get_by_uuid ~__context ~uuid in
         let path = Db.Pool_patch.get_filename ~__context ~self:r in
@@ -428,9 +428,9 @@ let pool_patch_download_handler (req: request) s =
         if not (Sys.file_exists path)
         then raise (Api_errors.Server_error (Api_errors.cannot_find_patch, []));
   
-        Http_svr.response_file ~mime_content_type:None s path;
+        Http_svr.response_file s path;
       end;
-      req.close <- true
+      req.Request.close <- true
     )
       
 let get_patch_to_local ~__context ~self =
@@ -443,26 +443,22 @@ let get_patch_to_local ~__context ~self =
         ~session_id:(Context.get_session_id __context) (Printf.sprintf "Get patch %s from master" uuid)
         (fun __context ->
              let task = Context.get_task_id __context in
-             let request = Printf.sprintf "%s?pool_secret=%s&uuid=%s&task_id=%s" 
+             let uri = Printf.sprintf "%s?pool_secret=%s&uuid=%s&task_id=%s" 
                Constants.pool_patch_download_uri pool_secret uuid (Ref.string_of task) in
-             let headers = 
-               [ Printf.sprintf "GET %s HTTP/1.1" request; ] in  
+             let request = Xapi_http.http_request ~version:"1.1"
+				 Http.Get uri in 
              let length = Some (Db.Pool_patch.get_size ~__context ~self) in
-             let f content_length tast_opt s =
-               let _ = Unixext.mkdir_safe patch_dir 0o755 in
-               read_in_and_check_patch length s path
-             in
              let master_address = Pool_role.get_master_address () in
-               try
-                 Xmlrpcclient.do_secure_http_rpc 
-		   ~use_stunnel_cache:true
-                   ~task_id:(Ref.string_of task)
-                   ~host:master_address 
-                   ~port:!Xapi_globs.https_port
-                   ~headers
-                   ~body:""
-                   f;
-                 ()    
+			 let open Xmlrpcclient in
+			 let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task) (), master_address, !Xapi_globs.https_port) in
+			 try
+				 with_transport transport
+					 (with_http request
+						 (fun (response, fd) ->
+							 let _ = Unixext.mkdir_safe patch_dir 0o755 in
+							 read_in_and_check_patch length fd path
+						 )
+					 )
                with _ ->
                  begin
                    let error = Db.Task.get_error_info ~__context ~self:task in

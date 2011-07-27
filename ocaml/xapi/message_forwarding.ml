@@ -175,17 +175,17 @@ let retry_with_global_lock ~__context ~doc ?policy f =
 
 (* Use HTTP 1.0, don't use the connection cache and don't pre-verify the connection *)
 let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
-  Xmlrpcclient.do_secure_xml_rpc ?task_id:(may Ref.string_of task_opt)
-    ~use_stunnel_cache:false
-    ~version:"1.0" ~host:hostname
-    ~port:!Xapi_globs.https_port ~path:"/" xml
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol.rpc ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
 let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
-  Xmlrpcclient.do_secure_xml_rpc ?task_id:(may Ref.string_of task_opt)
-    ~use_stunnel_cache:true
-    ~version:"1.1" ~host:hostname
-    ~port:!Xapi_globs.https_port ~path:"/" xml
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make ~use_stunnel_cache:true (), hostname, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.1" "/" in
+	XML_protocol.rpc ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
   let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
@@ -231,9 +231,6 @@ let do_op_on_common ~local_fn ~__context ~host op f =
       let task_opt = set_forwarding_on_task ~__context ~host in
       f __context host task_opt op
   with 
-  | Xmlrpcclient.Empty_response_from_server ->
-      warn "Caught Empty_response_from_server when contacting host %s; converting into CANNOT_CONTACT_HOST" (Ref.string_of host);
-      raise (Api_errors.Server_error (Api_errors.cannot_contact_host, [Ref.string_of host]))
   | Xmlrpcclient.Connection_reset ->
       warn "Caught Connection_reset when contacting host %s; converting into CANNOT_CONTACT_HOST" (Ref.string_of host);
       raise (Api_errors.Server_error (Api_errors.cannot_contact_host, [Ref.string_of host]))

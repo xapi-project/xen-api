@@ -58,8 +58,8 @@ let host_backup_handler_core ~__context s =
 			debug "host_backup failed - host_backup returned: %s" log;
 			raise (Api_errors.Server_error (Api_errors.backup_script_failed, [log]))
 
-let host_backup_handler (req: request) s =
-	req.close <- true;
+let host_backup_handler (req: Request.t) s =
+	req.Request.close <- true;
 	Xapi_http.with_context "Downloading host backup" req s
 		(fun __context ->
 			Http_svr.headers s (Http.http_200_ok ());
@@ -74,8 +74,8 @@ let close to_close fd =
 	if List.mem fd !to_close then Unix.close fd;
 	to_close := List.filter (fun x -> fd <> x) !to_close
 
-let host_restore_handler (req: request) s =
-	req.close <- true;
+let host_restore_handler (req: Request.t) s =
+	req.Request.close <- true;
 	Xapi_http.with_context "Uploading host backup" req s
 		(fun __context ->
 			Http_svr.headers s (Http.http_200_ok ());
@@ -98,7 +98,7 @@ let host_restore_handler (req: request) s =
 							finally
 								(fun () ->
 									debug "Host restore: reading backup...";
-									let copied_bytes = match req.content_length with
+									let copied_bytes = match req.Request.content_length with
 										| Some i ->
 											debug "got content-length of %s" (Int64.to_string i);
 											Unixext.copy_file ~limit:i s in_pipe

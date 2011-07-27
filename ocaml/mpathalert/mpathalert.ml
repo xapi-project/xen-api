@@ -293,7 +293,10 @@ let _ =
 	Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
 	Unixext.pidfile_write !pidfile;
 
-	let rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:"/var/xapi/xapi" ~path:"/" xml in
+	let rpc xml =
+		let open Xmlrpcclient in
+		let http = xmlrpc ~version:"1.0" "/" in
+		XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http xml in
 	let queue = Queue.create () in
 	let msg = Buffer.create 1024 in
 

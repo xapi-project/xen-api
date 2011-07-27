@@ -49,7 +49,7 @@ let send_via_fd __context s entries output =
     let headers = 
       Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
         [ "Server: "^Xapi_globs.xapi_user_agent;
-          "Content-Type: " ^ content_type;
+          Http.Hdr.content_type ^": " ^ content_type;
           "Content-Disposition: attachment; filename=\"system_status.tgz\""] 
     in
     Http_svr.headers s headers;
@@ -92,7 +92,7 @@ let send_via_cp __context s entries output =
                  [ "Server: "^Xapi_globs.xapi_user_agent;
                    "Content-Disposition: attachment; filename=\"" ^ filename ^ "\""] 
              in
-               Http_svr.response_file ~hdrs:headers ~mime_content_type:(Some content_type) s filename
+               Http_svr.response_file ~hdrs:headers ~mime_content_type:content_type s filename
           )
           (fun () -> Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink filename)
     with e ->
@@ -100,11 +100,11 @@ let send_via_cp __context s entries output =
         error "%s" msg;
         raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
                 
-let handler (req: request) s =
+let handler (req: Request.t) s =
   debug "In system status http handler...";
-  req.close <- true;
+  req.Request.close <- true;
   let get_param s =
-    try List.assoc s req.query
+    try List.assoc s req.Request.query
     with _ -> ""
   in
   let entries = get_param "entries" in

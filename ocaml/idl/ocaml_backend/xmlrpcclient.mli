@@ -11,58 +11,82 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Thrown when an explicit HTTP rejection is received (although note we don't
-    parse enough of the response to be sure... but it was non-empty at least) *)
-exception Http_request_rejected of string
 
-(** Thrown when we get a specific HTTP error, e.g.                                          
-    401 (unauthorized) if we supply the wrong credentials
-    403 (forbidden)    if RBAC denied access                             
-    500 (internal server error) if XAPI failed with an INTERNAL_ERROR,
-          Api_server error, XMLRPC_UNMARSHAL_FAILURE error etc.
-*)
-exception Http_error of string*string
-
-exception Content_length_required
-
-(** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
+(** Thrown when ECONNRESET is caught which suggests the remote crashed 
+	or restarted *)
 exception Connection_reset
 
-(** Thrown when no data is received from the remote HTTP server. This could happen if
-    (eg) an stunnel accepted the connection but xapi refused the forward causing stunnel
-    to immediately close. *)
-exception Empty_response_from_server
-
-(** Thrown when repeated attempts to connect an stunnel to a remote host and check
-    the connection works fail. *)
+(** Thrown when repeated attempts to connect an stunnel to a remote host
+	and check the connection works fail. *)
 exception Stunnel_connection_failed
 
-(** When invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
-	us to store the association between a task and an stunnel pid *)
-val set_stunnelpid_callback : (string option -> int -> unit) option ref
+module SSL : sig
+	(** A desired SSL configuration *)
+	type t
 
-(** After invoking an XMLRPC call over HTTPS via stunnel, this callback is called to allow
-    us to forget the association between a task and an stunnel pid *)
-val unset_stunnelpid_callback : (string option -> int -> unit) option ref
+	(** [make] is used to create a type [t] *)
+	val make : ?use_fork_exec_helper:bool ->
+		?use_stunnel_cache:bool ->
+		?verify_cert:bool ->
+		?task_id:string -> unit -> t
+end
 
-val connect_headers : ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> string -> string list
-val xmlrpc_headers : ?task_id:string -> ?subtask_of:string -> version:string -> string -> string -> int -> string list
-val http_rpc_fd : Unix.file_descr -> string list -> string -> int * string option
-val http_rpc_fd_big_query : Unix.file_descr -> string list -> Bigbuffer.t -> int * string option
-val read_xml_rpc_response : int -> 'a -> Unix.file_descr -> Xml.xml
+(** Understood low-level transport types *)
+type transport =
+	| Unix of string              (** Unix domain socket *)
+	| TCP of string * int         (** Plain TCP/IP with a host, port *)
+	| SSL of SSL.t * string * int (** SSL over TCP/IP with a host, port *)
 
-val do_secure_http_rpc : ?use_external_fd_wrapper : bool -> ?use_stunnel_cache: bool -> ?verify_cert : bool -> ?task_id:string -> host:string -> port:int -> ?unixsock : Unix.file_descr option -> headers:string list -> body:string -> (int -> string option -> Unix.file_descr -> 'a) -> 'a
-val do_http_rpc : string -> int -> ?unixsock:string option -> string list -> string -> (int -> string option -> Unix.file_descr -> 'a) -> 'a
+(** [string_of_transport t] returns a debug-friendly version of [t] *)
+val string_of_transport : transport -> string
 
-val do_xml_rpc : ?task_id:string -> ?subtask_of:string -> version:string -> host:string -> port:int -> path:string -> Xml.xml -> Xml.xml
-val do_secure_xml_rpc : ?task_id:string -> ?subtask_of:string -> ?use_external_fd_wrapper : bool -> ?use_stunnel_cache : bool -> version:string -> host:string -> port:int -> path:string -> Xml.xml -> Xml.xml
-val do_xml_rpc_unix : ?task_id:string -> ?subtask_of:string -> version:string -> filename:string -> path:string -> Xml.xml -> Xml.xml
+(** [with_transport transport f] calls [f fd] with [fd] connected via
+	the requested [transport] *)
+val with_transport : transport -> (Unix.file_descr -> 'a) -> 'a
 
-val do_xml_rpc_persistent : host:string -> path:string -> Unix.file_descr -> Xml.xml -> Xml.xml 
+(** [with_http request f] calls [f (r, fd)] where [r] is the HTTP response
+    received after sending HTTP [request] and [fd] is still connected to
+	the client. *)
+val with_http : Http.Request.t -> (Http.Response.t * Unix.file_descr -> 'a) -> Unix.file_descr -> 'a
 
-val check_reusable : Unix.file_descr -> bool
+(** Returns an HTTP.Request.t representing an XMLRPC request *)
+val xmlrpc: ?version:string -> ?keep_alive:bool -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
 
-val get_reusable_stunnel :   ?use_external_fd_wrapper:bool ->
-  ?write_to_log:(string -> unit) -> string -> int -> Stunnel.t
+(** Returns an HTTP.Request.t representing an HTTP CONNECT *)
+val connect: ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> Http.Request.t
 
-val write_to_log : string -> unit
+module XML_protocol : sig
+	(** Functions for handling HTTP/XML (not necessarily XMLRPC) *)
+
+	(** [read_response r fd] returns the XML from [fd] given 
+		HTTP request [r] *) 
+	val read_response : Http.Response.t -> Unix.file_descr -> Xml.xml
+
+	(** [rpc transport http xml] sends [xml] and returns the result *)
+	val rpc : transport:transport -> http:Http.Request.t -> Xml.xml -> Xml.xml
+end
+
+module XMLRPC_protocol : sig
+	(** Functions for handling HTTP/XML via rpc-light *)
+
+	(** [read_response r fd] returns the response from [fd] given 
+		HTTP request [r] *) 	
+	val read_response : Http.Response.t -> Unix.file_descr -> Rpc.response
+
+	(** [rpc transport http call] sends [call] and returns the result *)
+	val rpc : transport:transport -> http:Http.Request.t -> Rpc.call -> Rpc.response
+end
+
+module Internal : sig
+	(** Internal functions should not be used by clients directly *)
+
+	(** When invoking an XMLRPC call over HTTPS via stunnel, this callback 
+		is called to allow us to store the association between a task and an 
+		stunnel pid *)
+	val set_stunnelpid_callback : (string option -> int -> unit) option ref
+		
+	(** After invoking an XMLRPC call over HTTPS via stunnel, this callback 
+		is called to allow us to forget the association between a task and an
+		stunnel pid *)
+	val unset_stunnelpid_callback : (string option -> int -> unit) option ref
+end

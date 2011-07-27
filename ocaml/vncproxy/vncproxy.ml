@@ -61,9 +61,12 @@ let _ =
 
   let s, _ = Unix.accept sock in
 
-  let rpc xml = match !server with
-    | "" -> Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:"/var/xapi/xapi" ~path:"/" xml 
-    | host -> Xmlrpcclient.do_secure_xml_rpc ~use_external_fd_wrapper:false ~version:"1.0" ~host ~port:443 ~path:"/" xml in
+  let rpc xml = 
+	  let open Xmlrpcclient in
+	  let http = xmlrpc ~version:"1.0" "/" in
+	  match !server with
+		  | "" -> XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http xml
+		  | host -> XML_protocol.rpc ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), host, 443)) ~http xml in
 
   let find_vm rpc session_id vm = 
     try
@@ -77,14 +80,18 @@ let _ =
        let vm = find_vm rpc session_id !vm in
        let resident_on = Client.VM.get_resident_on rpc session_id vm in
        let address = Client.Host.get_address rpc session_id resident_on in
-       
-       let x = Stunnel.connect ~use_external_fd_wrapper:false address 443 in
-       
-       let headers = Xmlrpcclient.connect_headers 
-	 ~session_id:(Ref.string_of session_id) address 
-	 (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm)) in
-       let _, _ = Xmlrpcclient.http_rpc_fd x.Stunnel.fd headers "" in
-       (* Connected *)
-       Unixext.proxy s x.Stunnel.fd
+
+	   let open Xmlrpcclient in
+	   let http = connect
+		   ~session_id:(Ref.string_of session_id)
+		   (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm)) in
+	   let transport = SSL(SSL.make ~use_fork_exec_helper:false (), address, 443) in
+	   with_transport transport
+		   (with_http http
+			   (fun (response, fd) ->
+				   (* NB this will double-close [fd] *)
+				   Unixext.proxy s fd
+			   )
+		   )
     ) (fun () -> Client.Session.logout rpc session_id)
 

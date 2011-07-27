@@ -286,7 +286,7 @@ let clone num_clones rpc session_id test =
 let recordssize rpc session_id test = 
   let doxmlrpctest (subtestname,testfn) =
     testfn ();
-    let res = (float_of_int !Instrumented_xmlrpcclient.last_content_length) in
+    let res = (Int64.to_float !Http_client.last_content_length) in
     {resultname=test.testname; 
      subtest=subtestname;
      xenrtresult=res;
