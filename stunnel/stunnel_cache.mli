@@ -21,11 +21,11 @@
 *)
 
 
-(** Connects via stunnel (optionally via an external 'close fds' wrapper) to
+(** Connects via stunnel (optionally via an external 'fork/exec helper') to
     a host and port. If there is a suitable stunnel in the cache then this 
     will be used, otherwise we make a fresh one. *)
 val connect :
-  ?use_external_fd_wrapper:bool ->
+  ?use_fork_exec_helper:bool ->
   ?write_to_log:(string -> unit) -> string -> int -> Stunnel.t
 
 (** Adds a reusable stunnel to the cache *)

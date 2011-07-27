@@ -20,12 +20,14 @@ open Pervasiveext
 exception Http_parse_failure
 exception Unauthorised of string
 exception Forbidden
+exception Malformed_url of string
+
 
 module D = Debug.Debugger(struct let name = "http" end)
 open D
 
-let http_403_forbidden =
-    [ "HTTP/1.1 403 Forbidden";
+let http_403_forbidden ?(version="1.1") () =
+    [ Printf.sprintf "HTTP/%s 403 Forbidden" version;
       "Connection: close";
       "Cache-Control: no-cache, no-store" ]
 
@@ -40,130 +42,53 @@ let http_200_ok_with_content length ?(version="1.1") ?(keep_alive=true) () =
       "Content-Length: "^(Int64.to_string length);
       "Cache-Control: no-cache, no-store" ]
 
-let http_404_missing =
-    [ "HTTP/1.1 404 Not Found";
+let http_404_missing ?(version="1.1") () =
+    [ Printf.sprintf "HTTP/%s 404 Not Found" version;
       "Connection: close";
       "Cache-Control: no-cache, no-store" ]
 
-let http_302_redirect url =
-    [ "HTTP/1.1 302 Found";
+let http_302_redirect ?(version="1.1") url =
+    [ Printf.sprintf "HTTP/%s 302 Found" version;
       "Connection: close";
       "Cache-Control: no-cache, no-store";
       "Location: "^url ]
 
-let http_400_badrequest =
-      [ "HTTP/1.1 400 Bad Request";
+let http_400_badrequest ?(version="1.1") () =
+    [ Printf.sprintf "HTTP/%s 400 Bad Request" version;
       "Connection: close";
       "Cache-Control: no-cache, no-store" ]
 
-let http_401_unauthorised ?(realm="unknown") () = 
-  [ "HTTP/1.0 401 Unauthorised";
-    Printf.sprintf "WWW-Authenticate: Basic realm=\"%s\"" realm;
-    "Connection: close";
-    "Cache-Control: no-cache, no-store" ]    
+let http_401_unauthorised ?(version="1.0") ?(realm="unknown") () =
+	[ Printf.sprintf "HTTP/%s 401 Unauthorised" version;
+      Printf.sprintf "WWW-Authenticate: Basic realm=\"%s\"" realm;
+      "Connection: close";
+      "Cache-Control: no-cache, no-store" ]
 
-let http_406_notacceptable =
-  [ "HTTP/1.0 406 Not Acceptable";
-    "Connection: close";
-    "Cache-Control: no-cache, no-store" ]    
-
-let http_500_internal_error =
-  [ "HTTP/1.0 500 Internal Error";
+let http_406_notacceptable ?(version="1.0") () =
+  [ Printf.sprintf "HTTP/%s 406 Not Acceptable" version;
     "Connection: close";
     "Cache-Control: no-cache, no-store" ]
 
-let task_id_hdr = "Task-id"
+let http_500_internal_error ?(version="1.0") () =
+  [ Printf.sprintf "HTTP/%s 500 Internal Error" version;
+    "Connection: close";
+    "Cache-Control: no-cache, no-store" ]
 
-let subtask_of_hdr = "Subtask-of"
-
-let content_type_hdr = "Content-Type"
-
-let user_agent_hdr = "User-Agent"
-
-let myprint fmt = debug fmt
-
-let output_http oc headers =
-  let mywrite string =
-    let string = string ^ "\r\n" in
-    ignore(Unix.write oc string 0 (String.length string)) in
-  List.iter mywrite headers
-
-let end_of_string s from =
-  String.sub s from ((String.length s)-from)
-
-let strip_cr r =
-  if String.length r=0 then raise Http_parse_failure;
-  let last_char = String.sub r ((String.length r)-1) 1 in
-    if last_char <> "\r" then raise Http_parse_failure;
-    String.sub r 0 ((String.length r)-1)
-
-type method_t = Get | Post | Put | Connect | Unknown of string
-
-and authorization = 
-    | Basic of string * string
-    | UnknownAuth of string
-
-and request = { m: method_t; 
-		 uri: string; 
-		 query: (string*string) list; 
-		 version: string; 
-		 transfer_encoding: string option;
-		 content_length: int64 option;
-		 auth: authorization option;
-		 cookie: (string * string) list;
-		 task: string option;
-		 subtask_of: string option;
-		 content_type: string option;
-		 user_agent: string option;
-		 mutable close: bool;
-		 headers: string list} with rpc
-
-module Response = struct
-	type t = {
-		content_length: int64 option;
-		task: string option;
-	}
+module Hdr = struct
+	let task_id = "Task-id"
+	let subtask_of = "Subtask-of"
+	let content_type = "Content-Type"
+	let content_length = "Content-Length"
+	let user_agent = "User-Agent"
+	let cookie = "Cookie"
+	let transfer_encoding = "Transfer-encoding"
+	let authorization = "Authorization"
+	let connection = "Connection"
 end
 
-let string_of_method_t = function
-  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
-let method_t_of_string = function
-  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
-
-
-let nullreq = { m=Unknown "";
-		uri="";
-		query=[];
-		version="";
-		transfer_encoding=None;
-		content_length=None;
-		auth=None;
-		cookie=[];
-		task=None;
-		subtask_of=None;
-		content_type = None;
-		user_agent = None;
-		close= true;
-		headers=[];}
-
-let authorization_of_string x = 
-  let basic = "Basic " in
-  if String.startswith basic x 
-  then 
-    let userpass = Base64.decode (end_of_string x (String.length basic)) in
-    match String.split ':' userpass with
-    | [ username; password ] -> Basic(username, password)
-    | _ -> UnknownAuth x
-  else UnknownAuth x
-
-let string_of_authorization = function
-| UnknownAuth x -> x
-| Basic(username, password) -> "Basic " ^ (Base64.encode (username ^ ":" ^ password))
-
-exception Malformed_url of string
-
-let print_keyvalpairs xs = 
-  String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) xs)
+let output_http fd headers =
+	Unixext.really_write_string fd
+		(String.concat "" (List.map (fun x -> x ^ "\r\n") headers))
 
 let urldecode url =
     let chars = String.explode url in
@@ -215,70 +140,195 @@ let parse_uri x = match String.split '?' x with
 | [ uri; params ] -> uri, parse_keyvalpairs params
 | _ -> raise Http_parse_failure
 
-let request_of_string x = 
-  match String.split_f String.isspace x with
-  | [ m; uri; version ] ->
-      (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
-      let uri, query = parse_uri uri in
-      { m = method_t_of_string m; uri = uri; query = query; 
-	content_length = None; transfer_encoding = None;
-	version = version; cookie = []; auth = None; task = None; subtask_of = None; content_type = None; user_agent = None; close=false; headers=[] } 
-  | _ -> raise Http_parse_failure
 
+type authorization =
+    | Basic of string * string
+    | UnknownAuth of string
+with rpc
 
-let pretty_string_of_request x =
-  let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-  Printf.sprintf "{ method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
-    (string_of_method_t x.m) x.uri 
-    (kvpairs x.query)
-    (default "" (may Int64.to_string x.content_length))
-    (default "" x.transfer_encoding)
-    x.version 
-    (kvpairs x.cookie)
-    (default "" x.task)
-    (default "" x.subtask_of)
-    (default "" x.content_type)
-    (default "" x.user_agent)
+let authorization_of_string x =
+  let basic = "Basic " in
+  if String.startswith basic x
+  then
+	  let end_of_string s from =
+		  String.sub s from ((String.length s)-from) in
+    let userpass = Base64.decode (end_of_string x (String.length basic)) in
+    match String.split ':' userpass with
+    | [ username; password ] -> Basic(username, password)
+    | _ -> UnknownAuth x
+  else UnknownAuth x
 
-let http_request_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
-{ nullreq with
-  version = version;
-  close = not keep_alive;
-  cookie = Opt.default [] cookie;
-  content_length = length;
-  user_agent = Some user_agent;
-  m = meth;
-  uri = path;
-  headers = [ Printf.sprintf "Host: %s" host ];
-}
+let string_of_authorization = function
+| UnknownAuth x -> x
+| Basic(username, password) -> "Basic " ^ (Base64.encode (username ^ ":" ^ password))
 
-let http_request ?(version="1.0") ?(keep_alive=false) ?cookie ?length ~user_agent meth host path = 
-  let cookie = default [] (may (fun x -> [ "Cookie: " ^ (print_keyvalpairs x) ]) cookie) in
-  let content_length = default [] (may (fun l -> [ "Content-Length: "^(Int64.to_string l)]) length) in
-  [ Printf.sprintf "%s %s HTTP/%s" (string_of_method_t meth) path version;
-    Printf.sprintf "Host: %s" host;
-    Printf.sprintf "Connection: %s" (if keep_alive then "keep-alive" else "close");
-    Printf.sprintf "%s :%s" user_agent_hdr user_agent;
-  ] @ cookie @ content_length
+type method_t = Get | Post | Put | Connect | Unknown of string with rpc
 
-let string_list_of_request x = 
-	let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
-	let query = if x.query = [] then "" else "?" ^ (kvpairs x.query) in
-	let cookie = if x.cookie = [] then [] else [ "Cookie: " ^ (kvpairs x.cookie) ] in
-	let transfer_encoding = Opt.default [] (Opt.map (fun x -> [ "transfer-encoding: " ^ x ]) x.transfer_encoding) in
-	let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "content-length: %Ld" x ]) x.content_length) in
-	let auth = Opt.default [] (Opt.map (fun x -> [ "authorization: " ^ (string_of_authorization x) ]) x.auth) in
-	let task = Opt.default [] (Opt.map (fun x -> [ task_id_hdr ^ ": " ^ x ]) x.task) in
-	let subtask_of = Opt.default [] (Opt.map (fun x -> [ subtask_of_hdr ^ ": " ^ x ]) x.subtask_of) in
-	let content_type = Opt.default [] (Opt.map (fun x -> [ "content-type: " ^ x ]) x.content_type) in
-	let user_agent = Opt.default [] (Opt.map (fun x -> [ "user-agent: " ^ x ]) x.user_agent) in
-	let close = [ "Connection: " ^ (if x.close then "close" else "keep-alive") ] in
-	[ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
-	@ cookie @ transfer_encoding @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
-	@ x.headers
+let string_of_method_t = function
+  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
+let method_t_of_string = function
+  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
 
-let escape uri =
-	String.escaped ~rules:[ '<', "&lt;"; '>', "&gt;"; '\'', "&apos;"; '"', "&quot;"; '&', "&amp;" ] uri
+module Request = struct
+	type t = {
+		m: method_t;
+		uri: string;
+		query: (string*string) list;
+		version: string;
+		transfer_encoding: string option;
+		content_length: int64 option;
+		auth: authorization option;
+		cookie: (string * string) list;
+		task: string option;
+		subtask_of: string option;
+		content_type: string option;
+		user_agent: string option;
+		mutable close: bool;
+		additional_headers: (string*string) list;
+		body: string option;
+	} with rpc
+
+	let empty = {
+		m=Unknown "";
+		uri="";
+		query=[];
+		version="";
+		transfer_encoding=None;
+		content_length=None;
+		auth=None;
+		cookie=[];
+		task=None;
+		subtask_of=None;
+		content_type = None;
+		user_agent = None;
+		close= true;
+		additional_headers=[];
+		body = None;
+	}
+
+	let make ?(version="1.0") ?(keep_alive=false) ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
+		{ empty with
+			version = version;
+			close = not keep_alive;
+			cookie = Opt.default [] cookie;
+			subtask_of = subtask_of;
+			content_length = length;
+			content_type = content_type;
+			user_agent = Some user_agent;
+			m = meth;
+			uri = path;
+			additional_headers = headers;
+			body = body;
+		}
+
+	let get_version x = x.version
+
+	let of_request_line x = match String.split_f String.isspace x with
+		| [ m; uri; version ] ->
+			(* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
+			let uri, query = parse_uri uri in
+			{ m = method_t_of_string m; uri = uri; query = query;
+			content_length = None; transfer_encoding = None;
+			version = version; cookie = []; auth = None; task = None;
+			subtask_of = None; content_type = None; user_agent = None;
+			close=false; additional_headers=[]; body = None }
+		| _ -> raise Http_parse_failure
+
+	let to_string x =
+		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
+		Printf.sprintf "{ method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
+			(string_of_method_t x.m) x.uri
+			(kvpairs x.query)
+			(default "" (may Int64.to_string x.content_length))
+			(default "" x.transfer_encoding)
+			x.version
+			(kvpairs x.cookie)
+			(default "" x.task)
+			(default "" x.subtask_of)
+			(default "" x.content_type)
+			(default "" x.user_agent)
+
+	let to_header_list x =
+		let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
+		let query = if x.query = [] then "" else "?" ^ (kvpairs x.query) in
+		let cookie = if x.cookie = [] then [] else [ Hdr.cookie ^": " ^ (kvpairs x.cookie) ] in
+		let transfer_encoding = Opt.default [] (Opt.map (fun x -> [ Hdr.transfer_encoding ^": " ^ x ]) x.transfer_encoding) in
+		let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length) in
+		let auth = Opt.default [] (Opt.map (fun x -> [ Hdr.authorization ^": " ^ (string_of_authorization x) ]) x.auth) in
+		let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
+		let subtask_of = Opt.default [] (Opt.map (fun x -> [ Hdr.subtask_of ^ ": " ^ x ]) x.subtask_of) in
+		let content_type = Opt.default [] (Opt.map (fun x -> [ Hdr.content_type ^": " ^ x ]) x.content_type) in
+		let user_agent = Opt.default [] (Opt.map (fun x -> [ Hdr.user_agent^": " ^ x ]) x.user_agent) in
+		let close = [ Hdr.connection ^": " ^ (if x.close then "close" else "keep-alive") ] in
+		[ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
+		@ cookie @ transfer_encoding @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
+		@ (List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers)
+
+	let to_wire_string (x: t) =
+		(* If the body is given then compute a content length *)
+		let x = match x.body with
+			| None -> x
+			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
+		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") (to_header_list x @ [""])) in
+		let body = Opt.default "" x.body in
+		headers ^ body
+
+end
+
+module Response = struct
+	type t = {
+		version: string;
+		code: string;
+		message: string;
+		content_length: int64 option;
+		task: string option;
+		additional_headers: (string*string) list;
+		body: string option;
+	}
+	let to_string x =
+		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
+		Printf.sprintf "{ version = %s; code = %s; message = %s; content_length = %s; task = %s; additional_headers = [ %s ] }"
+			x.version x.code x.message
+			(Opt.default "None" (Opt.map (fun x -> "Some " ^ (Int64.to_string x)) x.content_length))
+			(Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task))
+			(kvpairs x.additional_headers)
+
+	let empty = {
+		version = "1.0";
+		code = "500";
+		message = "Unknown error message";
+		content_length = None;
+		task = None;
+		additional_headers = [];
+		body = None;
+	}
+	let make ?(version="1.0") ?length ?task ?(headers=[]) ?body code message = {
+		version = version;
+		code = code;
+		message = message;
+		content_length = length;
+		task = task;
+		additional_headers = headers;
+		body = body
+	}
+
+	let internal_error = { empty with code = "500"; message = "internal error"; content_length = Some 0L }
+	let to_header_list (x: t) =
+		let status = Printf.sprintf "HTTP/%s %s %s" x.version x.code x.message in
+		let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length) in
+		let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
+		let headers = List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers in
+		status :: (content_length @ task @ headers)
+
+	let to_wire_string (x: t) =
+		(* If the body is given then compute a content length *)
+		let x = match x.body with
+			| None -> x
+			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
+		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") (to_header_list x @ [""])) in
+		let body = Opt.default "" x.body in
+		headers ^ body
+end
 
 
 (* For transfer-encoding: chunked *)
