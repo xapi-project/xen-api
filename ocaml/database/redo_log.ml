@@ -197,7 +197,7 @@ let string_to_redo_log_entry str =
 exception RedoLogFailure of string
 exception CommunicationsProblem of string
 
-let prog = "/opt/xensource/libexec/block_device_io"
+let prog = Xapi_globs.base_path ^ "/libexec/block_device_io"
 
 let generation_size = 16
 let length_size = 16

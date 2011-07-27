@@ -798,7 +798,7 @@ end
 
 module PV_Vnc = struct
 
-let vncterm_wrapper = "/opt/xensource/libexec/vncterm-wrapper"
+let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
 
 let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
 
@@ -1013,7 +1013,7 @@ let write_string_to_file file s =
 let do_flr device =
   debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	let script = "/opt/xensource/libexec/pci-flr" in
+	let script = Xapi_globs.base_path ^ "/libexec/pci-flr" in
 	let callscript =
                 let f s devstr =
 	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])

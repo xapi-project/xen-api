@@ -198,46 +198,46 @@ let time f x =
   (result, after -. before)
 
 (* Clone an existing VM, pass it to the function and destroy it on the way out *)
-let with_sacrificial_vm rpc session f = 
-    let sr = find_lvhd_sr rpc session in
+let with_sacrificial_vm rpc session f =
+	let sr = find_lvhd_sr rpc session in
 
-    (* Shamefully stolen from quicktest *)
-    let cli_cmd args = 
-      debug "$ xe %s" (String.concat " " args);
-      try
-	let output = Stringext.String.rtrim (fst(Forkhelpers.execute_command_get_output "/opt/xensource/bin/xe" args)) in
-	debug "%s" output;
-	output
-      with 
-      | Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED n) ->
-	  failwith "CLI failed"
-      | Forkhelpers.Spawn_internal_error(log, output, _) ->
-	  failwith "CLI failed"
-      | e ->
-	  failwith "CLI failed" in
+	(* Shamefully stolen from quicktest *)
+	let cli_cmd args =
+		debug "$ xe %s" (String.concat " " args);
+		try
+			let output = Stringext.String.rtrim (fst(Forkhelpers.execute_command_get_output Xapi_globs.xe_path args)) in
+			debug "%s" output;
+			output
+		with
+			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED n) ->
+				failwith "CLI failed"
+			| Forkhelpers.Spawn_internal_error(log, output, _) ->
+				failwith "CLI failed"
+			| e ->
+				failwith "CLI failed" in
 
-    let vm_install session_id template name sr = 
-      let sr_uuid = Client.SR.get_uuid rpc session_id sr in
-      let newvm_uuid = cli_cmd [ "vm-install"; "template=" ^ template; "new-name-label=" ^ name; "sr-uuid=" ^ sr_uuid ] in
-      let vm =
-	Client.VM.get_by_uuid rpc session_id newvm_uuid
-      in
-	Client.VM.set_PV_args rpc session_id vm "noninteractive"; 
-	vm
-    in
-    let vm' = vm_install session "Demo Linux VM" "lvhdrt sacrificial VM" sr in
+	let vm_install session_id template name sr =
+		let sr_uuid = Client.SR.get_uuid rpc session_id sr in
+		let newvm_uuid = cli_cmd [ "vm-install"; "template=" ^ template; "new-name-label=" ^ name; "sr-uuid=" ^ sr_uuid ] in
+		let vm =
+			Client.VM.get_by_uuid rpc session_id newvm_uuid
+		in
+		Client.VM.set_PV_args rpc session_id vm "noninteractive";
+		vm
+	in
+	let vm' = vm_install session "Demo Linux VM" "lvhdrt sacrificial VM" sr in
 
-    Pervasiveext.finally 
-      (fun () -> f vm')
-      (fun () ->
-	 if Client.VM.get_power_state rpc session vm' <> `Halted then
-	   Client.VM.hard_shutdown rpc session vm';
-	 List.iter 
-	   (fun vbd ->
-	      let vdi = Client.VBD.get_VDI rpc session vbd in
-	      if not (Client.VBD.get_empty rpc session vbd) then Client.VDI.destroy rpc session vdi)
-	   (Client.VM.get_VBDs rpc session vm');
-	 Client.VM.destroy rpc session vm')
+	Pervasiveext.finally
+		(fun () -> f vm')
+		(fun () ->
+			if Client.VM.get_power_state rpc session vm' <> `Halted then
+				Client.VM.hard_shutdown rpc session vm';
+			List.iter
+				(fun vbd ->
+					let vdi = Client.VBD.get_VDI rpc session vbd in
+					if not (Client.VBD.get_empty rpc session vbd) then Client.VDI.destroy rpc session vdi)
+				(Client.VM.get_VBDs rpc session vm');
+			Client.VM.destroy rpc session vm')
 
 let get_free_space rpc session sr =
 	let total = Client.SR.get_physical_size rpc session sr in

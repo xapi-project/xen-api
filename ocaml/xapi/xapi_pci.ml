@@ -30,6 +30,8 @@ type pci = {
 
 type pci_class = Display_controller | Network_controller
 
+let prog = Xapi_globs.base_path ^ "/libexec/pci-info"
+
 let find_class_id = function
 	| Display_controller -> "03"
 	| Network_controller -> "02"
@@ -37,7 +39,6 @@ let find_class_id = function
 let managed_classes = [Display_controller]
 
 let read_pcis () =
-	let prog = "/opt/xensource/libexec/pci-info" in
 	let result, _ = Forkhelpers.execute_command_get_output prog [] in
 	let result = String.split '\n' result in
 	let rec read ac = function
