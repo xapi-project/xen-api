@@ -136,6 +136,12 @@ let handle_host __context config rpc session_id (state: state) (x: obj) : unit =
 		with _ -> Ref.null in
 	state.table <- (x.cls, x.id, Ref.string_of host) :: state.table
 
+type import_action =
+	| Replace of API.ref_VM
+	| Fail of exn
+	| Skip
+	| Clean_import
+
 (** Create a new VM record, add the reference to the table *)
 let handle_vm __context config rpc session_id (state: state) (x: obj) : unit = 
 	let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -144,46 +150,8 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 	let get_vm_uuid () = Client.VM.get_by_uuid rpc session_id vm_record.API.vM_uuid in
 	let get_vm_name () = try List.hd (Client.VM.get_by_name_label rpc session_id vm_record.API.vM_name_label) with _ -> Ref.null in
 	let vm_uuid_exists () = try ignore (get_vm_uuid ()); true with _ -> false in
-
-	(* if the VM is a default template, then pick-up the one with the same name *)
-	if vm_record.API.vM_is_a_template
-		&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
-		&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
-	then begin
-		let template = get_vm_name () in
-		state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
-	end else begin
-		(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
-		if config.full_restore && vm_uuid_exists () then begin
-			let vm = get_vm_uuid () in
-			(* The existing VM cannot be replaced if it is running. *)
-			let power_state = Db.VM.get_power_state ~__context ~self:vm in
-			if power_state <> `Halted then
-				raise(Api_errors.Server_error(Api_errors.vm_bad_power_state,
-					[
-						Ref.string_of vm;
-						Record_util.power_state_to_string `Halted;
-						Record_util.power_state_to_string power_state;
-					]));
-			(* The existing VM should not be replaced if the version to be imported is no newer, unless force = true. *)
-			let existing_version = Db.VM.get_version ~__context ~self:vm in
-			let version_to_import = vm_record.API.vM_version in
-			if (existing_version >= version_to_import) && (config.force = false) then
-				raise(Api_errors.Server_error(Api_errors.vm_to_import_is_not_newer_version,
-					[
-						Ref.string_of vm;
-						Int64.to_string existing_version;
-						Int64.to_string version_to_import;
-					]));
-			(* All checks have passed, so destroy the existing VM, along with its VIFs and VBDs. *)
-			Helpers.call_api_functions ~__context 
-				(fun rpc session_id ->
-					let vifs = Db.VM.get_VIFs ~__context ~self:vm in
-					List.iter (fun vif -> Client.VIF.destroy ~rpc ~session_id ~self:vif) vifs;
-					let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-					List.iter (fun vbd -> Client.VBD.destroy ~rpc ~session_id ~self:vbd) vbds;
-					Client.VM.destroy ~rpc ~session_id ~self:vm);
-		end;
+	(* This function assumes we've already checked for and dealt with any existing VM with the same UUID. *)
+	let do_import () =
 		(* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
 		let other_config = List.filter
 			(fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
@@ -294,7 +262,67 @@ let handle_vm __context config rpc session_id (state: state) (x: obj) : unit =
 			Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm;
 
 			state.table <- (x.cls, x.id, Ref.string_of vm) :: state.table;
-			state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms;
+			state.created_vms <- (x.cls, x.id, Ref.string_of vm) :: state.created_vms
+	in
+
+	(* if the VM is a default template, then pick-up the one with the same name *)
+	if vm_record.API.vM_is_a_template
+		&& (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
+		&& ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
+	then begin
+		let template = get_vm_name () in
+		state.table <- (x.cls, x.id, Ref.string_of template) :: state.table
+	end else begin
+		(* Check for an existing VM with the same UUID - if one exists, what we do next *)
+		(* will depend on the state of the VM and whether the import is forced. *)
+		let import_action =
+			(* If full_restore is true then we want to keep the VM uuid - this may involve replacing an existing VM. *)
+			if config.full_restore && vm_uuid_exists () then begin
+				(* The existing VM cannot be replaced if it is running. *)
+				let vm = get_vm_uuid () in
+				(* The existing VM cannot be replaced if it is running. *)
+				(* If import is forced then skip the VM, else throw an error. *)
+				let power_state = Db.VM.get_power_state ~__context ~self:vm in
+				if power_state <> `Halted then begin
+					if config.force then Skip
+					else Fail (Api_errors.Server_error(Api_errors.vm_bad_power_state,
+						[
+							Ref.string_of vm;
+							Record_util.power_state_to_string `Halted;
+							Record_util.power_state_to_string power_state
+						]))
+				end else begin
+					(* The existing VM should not be replaced if the version to be imported is no newer, unless the import is forced. *)
+					let existing_version = Db.VM.get_version ~__context ~self:vm in
+					let version_to_import = vm_record.API.vM_version in
+					if (existing_version >= version_to_import) && (config.force = false) then
+						Fail (Api_errors.Server_error(Api_errors.vm_to_import_is_not_newer_version,
+							[
+								Ref.string_of vm;
+								Int64.to_string existing_version;
+								Int64.to_string version_to_import;
+							]))
+					else
+						Replace vm
+				end
+			end else
+				Clean_import
+		in
+		match import_action with
+		| Skip -> debug "Could not force import VM %s as VM to replace was not halted." vm_record.API.vM_uuid
+		| Fail e -> raise e
+		| Clean_import -> do_import ()
+		| Replace vm ->
+			(* Destroy the existing VM, along with its VIFs and VBDs. *)
+			debug "Replacing VM %s" vm_record.API.vM_uuid;
+			Helpers.call_api_functions ~__context 
+				(fun rpc session_id ->
+					let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+					List.iter (fun vif -> Client.VIF.destroy ~rpc ~session_id ~self:vif) vifs;
+					let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+					List.iter (fun vbd -> Client.VBD.destroy ~rpc ~session_id ~self:vbd) vbds;
+					Client.VM.destroy ~rpc ~session_id ~self:vm);
+			do_import ()
 	end
 
 (** Create the guest metrics *)

@@ -34,7 +34,6 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `changing_shadow_memory
 	| `changing_static_range
 	| `changing_VCPUs
-	| `destroy
 	| `make_into_template
 	| `provision
 	| `start
@@ -66,6 +65,7 @@ let allowed_power_states ~(op:API.vm_operations) =
 	| `clone
 	| `copy
 	| `create_template (* Don't touch until XMLRPC unmarshal code is able to pre-blank fields on input. *)
+	| `destroy
 	| `export
 	                                -> [`Halted; `Suspended]
 	| `hard_reboot
