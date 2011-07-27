@@ -16,7 +16,10 @@ let host = ref ""
 let port = ref 0
 
 let rpc xml =
-  Xmlrpcclient.do_secure_xml_rpc ~host:!host ~version:"1.1" ~port:!port ~path:"/" xml
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make(), !host, !port) in
+	let http = xmlrpc ~version:"1.1" "/" in
+	XML_protocol.rpc ~transport ~http xml
 
 open Client
 

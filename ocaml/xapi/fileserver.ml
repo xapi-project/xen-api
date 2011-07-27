@@ -23,6 +23,9 @@ open Pervasiveext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+let escape uri =
+       String.escaped ~rules:[ '<', "&lt;"; '>', "&gt;"; '\'', "&apos;"; '"', "&quot;"; '&', "&amp;" ] uri
+
 let missing uri = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"> \
 <html><head> \
 <title>404 Not Found</title> \
@@ -41,11 +44,22 @@ let get_extension filename =
 	with _ ->
 		None
 
-let send_file (uri_base: string) (dir: string) (req: request) (bio: Buf_io.t) =
+let application_octet_stream = "application/octet-stream"
+
+let mime_of_extension = function
+    | "html" | "htm" -> "text/html"
+    | "css"          -> "text/css"
+    | "js"           -> "application/javascript"
+    | "gif"          -> "image/gif"
+    | "png"          -> "image/png"
+    | "jpg" | "jpeg" -> "image/jpeg"
+	| _              -> application_octet_stream
+
+let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) =
   let uri_base_len = String.length uri_base in
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
-  let uri = req.uri in
+  let uri = req.Request.uri in
   try
     let relative_url = String.sub uri uri_base_len (String.length uri - uri_base_len) in
     (* file_path is the thing which should be served *)
@@ -62,16 +76,8 @@ let send_file (uri_base: string) (dir: string) (req: request) (bio: Buf_io.t) =
       let file_path = if stat.Unix.st_kind = Unix.S_DIR then file_path ^ "/index.html" else file_path in
       
       let mime_content_type =
-        let ext = may String.lowercase (get_extension file_path) in
-        match ext with
-        | Some "html" | Some "htm" -> Some "text/html"
-        | Some "css" -> Some "text/css"
-        | Some "js"  -> Some "application/javascript"
-        | Some "gif" -> Some "image/gif"
-        | Some "png" -> Some "image/png"
-        | Some "jpg" | Some "jpeg" -> Some "image/jpeg"
-        | Some _ | None -> Some "application/octet-stream"
-        in
+          let ext = Opt.map String.lowercase (get_extension file_path) in
+		  Opt.default application_octet_stream (Opt.map mime_of_extension ext) in
       Http_svr.response_file ~mime_content_type s file_path
     end
   with

@@ -16,7 +16,9 @@
 let socket = "/var/xapi/v6"
 
 (* RPC function for communication with the v6 daemon *)
-let v6rpc xml = Xmlrpcclient.do_xml_rpc_unix ~version:"1.0" ~filename:socket ~path:"/" xml
+let v6rpc xml = 
+	let open Xmlrpcclient in
+	XML_protocol.rpc ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ = 
 	try

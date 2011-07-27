@@ -38,12 +38,12 @@ let destroy ~__context ~self =
 exception Unknown_blob
 exception No_storage
 
-let handler (req: Http.request) s =
-  let query = req.Http.query in
-  req.Http.close <- true;
+let handler (req: Http.Request.t) s =
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   debug "blob handler";
   if not(List.mem_assoc "ref" query) then begin
-    let headers = Http.http_400_badrequest in
+    let headers = Http.http_400_badrequest () in
     Http_svr.headers s headers;
     error "HTTP request for binary blob lacked 'ref' parameter";
   end else
@@ -59,7 +59,7 @@ let handler (req: Http.request) s =
 	  (try let (_: Unix.stats) = Unix.stat blob_path in () with _ -> raise No_storage);
 	  let path = Xapi_globs.xapi_blob_location ^ "/" ^ blob_uuid in
 
-	  match req.Http.m with
+	  match req.Http.Request.m with
 	    | Http.Get ->
 		begin
 		  try
@@ -68,12 +68,12 @@ let handler (req: Http.request) s =
 		    let size = (Unix.LargeFile.stat path).Unix.LargeFile.st_size in
 		    Http_svr.headers s ((Http.http_200_ok_with_content 
 					    size ~version:"1.1" ~keep_alive:false ()) 
-					 @ ["Content-Type: "^(Db.Blob.get_mime_type ~__context ~self)]);
+					 @ [Http.Hdr.content_type ^": "^(Db.Blob.get_mime_type ~__context ~self)]);
 		    ignore(Pervasiveext.finally 
 			      (fun () -> Unixext.copy_file ifd s) 
 			      (fun () -> Unix.close ifd))
 		  with _ ->
-		    Http_svr.headers s (Http.http_404_missing)
+		    Http_svr.headers s (Http.http_404_missing ())
 		end
 	    | Http.Put ->
 		let ofd = Unix.openfile path [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_SYNC; Unix.O_CREAT] 0o600 in

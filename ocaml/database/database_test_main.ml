@@ -19,17 +19,18 @@ let path = ref "./database"
 let rpc_common url content_type request = 
 	let version = "1.1" in
 	let content_length = String.length request in
-	let headers = [
-		Printf.sprintf "POST %s HTTP/%s" url version;
-		Printf.sprintf "User-Agent: xapi/%s" Xapi_globs.api_version_string;
-		"Content-Type: text/json";
-		Printf.sprintf "Content-length: %d" content_length;
-	] in
-	Xmlrpcclient.do_http_rpc "" 0 headers ~unixsock:(Some (!path)) request
-		(fun content_length _ fd ->
-			let buffer = String.make content_length '\000' in
-			Unixext.really_read fd buffer 0 content_length;
-			buffer)
+	let request = Http.Request.make ~version ~content_type:"text/json"
+		~user_agent:"database_test"
+		~length:(Int64.of_int content_length) Http.Post url in
+	let open Xmlrpcclient in
+	with_transport (Unix !path)
+		(with_http request
+			(fun (response, fd) ->
+				match response.Http.Response.content_length with
+					| None -> failwith "Need a content-length"
+					| Some l -> Unixext.really_read_string fd (Int64.to_int l)
+			)
+		)
 
 module Client_v1 = Db_rpc_client_v1.Make(struct
 	let initialise () = ()

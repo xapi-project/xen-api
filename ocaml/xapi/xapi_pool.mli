@@ -53,7 +53,6 @@ val protect_exn : ('a -> 'b) -> 'a -> 'b option
 val update_non_vm_metadata :
   __context:Context.t ->
   rpc:(XMLRPC.xmlrpc -> XMLRPC.xmlrpc) -> session_id:API.ref_session -> unit
-val open_tcp : server:string -> in_channel * out_channel
 val update_vm_metadata :
   __context:Context.t ->
   rpc:'a -> session_id:'b Ref.t -> master_address:string -> unit

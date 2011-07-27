@@ -223,7 +223,7 @@ let open_tcp_ssl server =
   let port = get_xapiport true in
   debug "Connecting via stunnel to [%s] port [%d]\n%!" server port;
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
-  let x = Stunnel.connect ~use_external_fd_wrapper:false
+  let x = Stunnel.connect ~use_fork_exec_helper:false
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
     ~extended_diagnosis:(!debug_file <> None) server port in
   if !stunnel_process = None then stunnel_process := Some x;

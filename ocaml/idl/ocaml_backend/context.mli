@@ -16,7 +16,7 @@
 type t 
 
 type origin =
-  | Http of Http.request * Unix.file_descr
+  | Http of Http.Request.t * Unix.file_descr
   | Internal
 
 (** {6 Constructors} *)
