@@ -191,15 +191,16 @@ let wlb_body meth params =
   </s:Body>
 </s:Envelope>" meth params meth
 
-let wlb_headers host meth len encoded_auth =
-  Xapi_http.http_request Http.Post host
-    "/Citrix.Dwm.WorkloadBalance/Service" ~keep_alive:false @
-    [sprintf
-       "SOAPAction: \"http://schemas.citrix.com/DWM/IWorkloadBalance/%s\""
-       meth;
-     "Content-Type: text/xml; charset=utf-8"; 
-     "Authorization: Basic " ^ encoded_auth;
-     "Content-Length: " ^ (string_of_int len)]
+let wlb_request host meth len encoded_auth =
+	let headers = [
+		"SOAPAction", sprintf "\"http://schemas.citrix.com/DWM/IWorkloadBalance/%s\"" meth;
+		"Content-Type", "text/xml; charset=utf-8"; 
+		"Authorization", "Basic " ^ encoded_auth;
+		"Host", host;
+		"Content-Length", (string_of_int len)
+	] in
+	Xapi_http.http_request Http.Post ~headers
+    "/Citrix.Dwm.WorkloadBalance/Service" ~keep_alive:false
 
 let filtered_headers headers =
   List.map (fun s ->
@@ -272,7 +273,7 @@ let retrieve_inner_xml meth response enable_log=
 (* This function handles the actual network request and deals with any errors relating to the connection *)
 let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log ~timeout_key ~timeout_default =
   let body = wlb_body meth params in
-  let headers = wlb_headers host meth (String.length body) auth in
+  let request = wlb_request host meth (String.length body) auth in
   let pool = Helpers.get_pool ~__context in
   let verify_cert = Db.Pool.get_wlb_verify_cert ~__context ~self:pool in
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
@@ -287,14 +288,14 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
           timeout_default
   in
   if enable_log then
-    debug "%s\n%s" (String.concat "\n" (filtered_headers headers)) body;
+    debug "%s\n%s" (String.concat "\n" (filtered_headers (Http.Request.to_header_list request))) body;
   try
     Remote_requests.perform_request ~__context ~timeout ~verify_cert
-        ~host ~port ~headers ~body ~handler ~enable_log
+        ~host ~port ~request ~handler ~enable_log
   with
     | Remote_requests.Timed_out ->
         raise_timeout timeout
-    | Xmlrpcclient.Http_request_rejected _ | Xmlrpcclient.Http_error _ ->
+    | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
         raise_authentication_failed ()
     | Xmlrpcclient.Connection_reset ->
         raise_connection_reset ()
@@ -337,10 +338,10 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
   in
   let result = ref None in
   (* this function attempts to parse the result into xml , and pass the 'result' section through to the handler*)
-  let check_response content_length task_id s =
+  let check_response response s =
     let response =
       try
-        Xmlrpcclient.read_xml_rpc_response content_length task_id s
+        Xmlrpcclient.XML_protocol.read_response response s
       with
         | Xml.Error err ->
             raise_malformed_response' meth (Xml.error err) ""

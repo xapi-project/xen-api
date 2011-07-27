@@ -18,7 +18,9 @@ open Globs
 
 let rpc_of_hostname host =
   fun xml -> 
-    Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host ~port:80 ~path:"/" xml 
+	  let open Xmlrpcclient in
+	  let http = xmlrpc ~version:"1.0" "/" in
+	  XML_protocol.rpc ~transport:(TCP(host, 80)) ~http xml
 
 let _ =
   Arg.parse [

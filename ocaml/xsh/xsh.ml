@@ -66,7 +66,7 @@ let proxy (ain: Unix.file_descr) (aout: Unix.file_descr) (bin: Unix.file_descr) 
 let open_tcp_ssl server = 
   let port = 443 in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
-  let x = Stunnel.connect ~use_external_fd_wrapper:false 
+  let x = Stunnel.connect ~use_fork_exec_helper:false 
     ~write_to_log:(fun _ -> ()) server port in
   x.Stunnel.fd
 

@@ -446,9 +446,9 @@ let register_event_hook () =
 
 (* Query params: cls=VM etc, obj_uuid=<..>, min_priority. Returns the last
    days worth of messages as an RSS feed. *)  
-let handler (req: Http.request) (bio: Buf_io.t) = 
-  let query = req.Http.query in
-  req.Http.close <- true;
+let handler (req: Http.Request.t) (bio: Buf_io.t) = 
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   debug "Message handler";
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
@@ -493,5 +493,5 @@ let handler (req: Http.request) (bio: Buf_io.t) =
       let body = "<?xml version=\"1.0\"?>" ^ body in
       Http_svr.headers s ((Http.http_200_ok_with_content 
 			      (Int64.of_int (String.length body)) 
-			      ~version:"1.1" ~keep_alive:false ())@["Content-Type: application/rss+xml"]);
+			      ~version:"1.1" ~keep_alive:false ())@[Http.Hdr.content_type ^": application/rss+xml"]);
       ignore(Unix.write s body 0 (String.length body)))

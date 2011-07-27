@@ -20,7 +20,7 @@
 open Printf
 open Http
 
-let upload_file (req: request) (bio: Buf_io.t) =
+let upload_file (req: Request.t) (bio: Buf_io.t) =
   let chunks = Http_svr.read_chunked_encoding req bio in
   let s = Buf_io.fd_of bio in
   let oc = open_out "/tmp/test-upload" in
@@ -31,6 +31,6 @@ let upload_file (req: request) (bio: Buf_io.t) =
     Unix.close s
   with e ->
     close_out oc;
-    Http.output_http s Http.http_400_badrequest;
+    Http.output_http s (Http.http_400_badrequest ());
     Unix.close s;
     raise e

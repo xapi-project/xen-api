@@ -133,7 +133,7 @@ let remote_stats_handler req bio =
   if not rolling_upgrade_in_progress then
     begin
       try
-	let pool_secret = List.assoc "pool_secret" req.Http.cookie in
+	let pool_secret = List.assoc "pool_secret" req.Http.Request.cookie in
 	if pool_secret <> !Xapi_globs.pool_secret then auth_failed();
       with _ ->
 	auth_failed()
@@ -208,8 +208,8 @@ let register_callback_fns() =
 		Locking_helpers.Thread_state.acquired (Locking_helpers.Process("stunnel", pid)) in
 	let unset_stunnelpid task_opt pid =
 		Locking_helpers.Thread_state.released (Locking_helpers.Process("stunnel", pid)) in
-	Xmlrpcclient.set_stunnelpid_callback := Some set_stunnelpid;
-	Xmlrpcclient.unset_stunnelpid_callback := Some unset_stunnelpid;
+	Xmlrpcclient.Internal.set_stunnelpid_callback := Some set_stunnelpid;
+	Xmlrpcclient.Internal.unset_stunnelpid_callback := Some unset_stunnelpid;
     Pervasiveext.exnhook := Some (fun _ -> log_backtrace ());
     TaskHelper.init ()
 

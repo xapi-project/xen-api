@@ -275,7 +275,7 @@ let gen_module api : O.Module.t =
       O.Module.Let (
 	O.Let.make
 	  ~name: "dispatch_xml"
-	  ~params: [ O.Anon(Some "http_req", "Http.request"); 
+	  ~params: [ O.Anon(Some "http_req", "Http.Request.t"); 
 		     O.Anon(Some "fd", "Unix.file_descr");
 		     O.Anon(Some "xml", "xml") ]
 	  ~ty: "response"
@@ -286,7 +286,7 @@ let gen_module api : O.Module.t =
 	      "let __async = Server_helpers.is_async __call in";
 	      "let __label = __call in";
 	      "let __call = if __async then Server_helpers.remove_async_prefix __call else __call in";
-	      "let subtask_of = if http_req.Http.task <> None then http_req.Http.task else http_req.Http.subtask_of in";
+	      "let subtask_of = if http_req.Http.Request.task <> None then http_req.Http.Request.task else http_req.Http.Request.subtask_of in";
 	      "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ?subtask_of:(Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
 (*
 	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
@@ -313,7 +313,7 @@ let gen_module api : O.Module.t =
 			       O.Let.make
 				 ~name: "dispatch"
 				 ~params: [
-					    O.Anon(Some "http_req", "Http.request"); 
+					    O.Anon(Some "http_req", "Http.Request.t"); 
 					    O.Anon(Some "fd", "Unix.file_descr");
 					    O.Anon(Some "body", "string")
 					  ]

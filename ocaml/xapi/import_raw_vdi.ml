@@ -28,8 +28,8 @@ open Client
 let receive_chunks (s: Unix.file_descr) (fd: Unix.file_descr) = 
 	Chunk.fold (fun () -> Chunk.write fd) () s
 
-let vdi_of_req ~__context (req: request) = 
-	let all = req.Http.query @ req.Http.cookie in
+let vdi_of_req ~__context (req: Request.t) = 
+	let all = req.Request.query @ req.Request.cookie in
 	let vdi = 
 		if List.mem_assoc "vdi" all
 		then List.assoc "vdi" all
@@ -38,20 +38,20 @@ let vdi_of_req ~__context (req: request) =
 	then Ref.of_string vdi 
 	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 
-let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
-  req.close <- true;
+let localhost_handler rpc session_id (req: Request.t) (s: Unix.file_descr) =
+  req.Request.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
     (fun __context ->
-	let all = req.Http.query @ req.Http.cookie in
+	let all = req.Request.query @ req.Request.cookie in
       let vdi = vdi_of_req ~__context req in
       let chunked = List.mem_assoc "chunked" all in
       let task_id = Context.get_task_id __context in
 	 debug "import_raw_vdi task_id = %s vdi = %s; chunked = %b" (Ref.string_of task_id) (Ref.string_of vdi) chunked;
 	 try
-	match req.transfer_encoding with
+	match req.Request.transfer_encoding with
 	| Some x ->
 	    error "Chunked encoding not yet implemented in the import code";
-	    Http_svr.headers s http_403_forbidden;
+	    Http_svr.headers s (http_403_forbidden ());
 	    raise (Failure (Printf.sprintf "import code cannot handle encoding: %s" x))
 	| None ->
 		Server_helpers.exec_with_new_task "VDI.import" 
@@ -59,13 +59,13 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 		 Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
 		   (fun fd ->
 			   let headers = Http.http_200_ok ~keep_alive:false () @
-				   [ Http.task_id_hdr ^ ":" ^ (Ref.string_of task_id);
+				   [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
 				   content_type ] in
                Http_svr.headers s headers;
 			   try
 			     if chunked
 			     then receive_chunks s fd
-			     else ignore(Unixext.copy_file ?limit:req.content_length s fd);
+			     else ignore(Unixext.copy_file ?limit:req.Request.content_length s fd);
 			     Unixext.fsync fd;
 			   with Unix.Unix_error(Unix.EIO, _, _) ->
 			     raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O errors"]))
@@ -78,13 +78,13 @@ let localhost_handler rpc session_id (req: request) (s: Unix.file_descr) =
 	TaskHelper.failed ~__context (Api_errors.internal_error, ["Caught exception: " ^ (ExnHelper.string_of_exn e)]);
 	raise e)
 
-let return_302_redirect (req: request) s address =
-	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
+let return_302_redirect (req: Request.t) s address =
+	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Request.query)) in
 	let headers = Http.http_302_redirect url in
 	debug "HTTP 302 redirect to: %s" url;
 	Http_svr.headers s headers
 
-let handler (req: request) (s: Unix.file_descr) =
+let handler (req: Request.t) (s: Unix.file_descr) =
 	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
 
 	(* Perform the SR reachability check using a fresh context/task because
