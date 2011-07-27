@@ -540,7 +540,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 					List.map (String.strip String.isspace) l
 				with _ -> []
 			in
-		let dmpath = "/opt/xensource/libexec/qemu-dm-wrapper" in
+		let dmpath = Xapi_globs.base_path ^ "/libexec/qemu-dm-wrapper" in
 		let dmstart = if restore then Device.Dm.restore else Device.Dm.start in
 
 		(* Display and input devices are usually conflated *)

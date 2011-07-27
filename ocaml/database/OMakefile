@@ -13,7 +13,7 @@ OCamlProgram(unit_test_sql, unit_test_sql)
 BLOCK_DEVICE_IO_FILES = \
 	block_device_io_errors \
 	block_device_io \
-	../xapi/xapi_globs ../idl/ocaml_backend/ref \
+	../xapi/config_constants ../xapi/xapi_globs ../idl/ocaml_backend/ref \
 	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors
 
 OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))

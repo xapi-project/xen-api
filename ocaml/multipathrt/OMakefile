@@ -2,8 +2,6 @@ OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend
 OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../client_records
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log
 
-IEXE=install -m 755
-
 OCamlProgram(multipathrt, \
 	multipathrt multipathrt_exceptions \
 	utils devmapper_utils iscsi_utils netapp_utils hba_utils alert_utils \
@@ -20,4 +18,4 @@ install:
 	mkdir -p $(DEBUGDIST)
 	$(IPROG) multipathrt $(DEBUGDIST)
 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IEXE) multipathrt-helper $(DESTDIR)/etc/xapi.d/plugins/multipathrt-helper
+	$(IPROG) multipathrt-helper $(DESTDIR)/etc/xapi.d/plugins/multipathrt-helper

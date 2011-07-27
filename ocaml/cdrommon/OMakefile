@@ -1,11 +1,13 @@
+OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common
+OCAMLINCLUDES = ../xapi
 OCAMLPACKS += unix cdrom
 
 OCamlProgram(cdrommon, cdrommon)
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)/opt/xensource/libexec
-	cp -f cdrommon $(DESTDIR)/opt/xensource/libexec
+	mkdir -p $(LIBEXEC)
+	cp -f cdrommon $(LIBEXEC)
 
 .PHONY: clean
 clean:

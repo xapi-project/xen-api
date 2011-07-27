@@ -3,16 +3,11 @@
 # License check - loads in the xapi license file and creates a message if the license
 # is about to expire. No error checking done at the moment.
 
-import subprocess
-import sys
-import syslog
-import traceback
-import time
-import re
+import os, re, subprocess, sys, syslog, time, traceback
 from xml.dom import minidom
 
 gpg_binary_path="/usr/bin/gpg"
-gpg_homedir="/opt/xensource/gpg"
+gpg_homedir="@BASE_PATH@/gpg"
 gpg_pub_keyring=gpg_homedir + "/pubring.gpg"
 license_file="/etc/xensource/license"
 expiry_message_name="LICENSE_EXPIRES_SOON"

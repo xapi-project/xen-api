@@ -9,7 +9,7 @@ To see the output, you must also comment out the line
 
 log = debug;dispatcher;nil
 
-in /etc/xensource/xapi.conf on the server.
+in /etc/xapi.conf on the server.
 
 diff -r cfceb249cbfd -r 212dd2e2b166 ocaml/idl/ocaml_backend/gen_server.ml
 --- a/ocaml/idl/ocaml_backend/gen_server.ml	Tue Nov 13 10:33:34 2007 +0000
