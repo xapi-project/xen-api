@@ -825,7 +825,8 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
     try
 		debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
 		Xs.monitor_paths xs [ "@releaseDomain","X" ] rel_timeout
-			(fun _ -> (Xc.domain_getinfo xc domid).Xc.shutdown);
+			(fun _ ->
+				 try (Xc.domain_getinfo xc domid).Xc.shutdown with Xc.Error _ -> true);
 		result := Some (try Domain.shutdown_reason_of_int (Xc.domain_getinfo xc domid).Xc.shutdown_code with _ -> Domain.Unknown (-1));
     with Xs.Timeout -> 
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
