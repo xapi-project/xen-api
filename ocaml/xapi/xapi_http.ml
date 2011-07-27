@@ -30,10 +30,13 @@ let inet_rpc xml =
 	let http = 80 and https = !Xapi_globs.https_port in
 	(* Bypass SSL for localhost, this works even if the management interface
 	   is disabled. *)
-	if Pool_role.is_master ()
-	then Xmlrpcclient.do_xml_rpc ~version ~host ~port:http ~path xml
-	else Xmlrpcclient.do_secure_xml_rpc ~version ~host ~port:https ~path ~use_stunnel_cache:true xml
-
+	let open Xmlrpcclient in
+	let transport =
+		if Pool_role.is_master ()
+		then TCP(host, http)
+		else SSL(SSL.make (), host, https) in
+	let http = xmlrpc ~version path in
+	XML_protocol.rpc ~transport ~http xml
 
 open Client
 
@@ -41,8 +44,8 @@ open Http
 
 exception NoAuth
 
-let get_session_id (req: request) =
-  let all = req.cookie @ req.query in
+let get_session_id (req: Request.t) =
+  let all = req.Request.cookie @ req.Request.query in
   if List.mem_assoc "session_id" all
   then
 		let session_id = (Ref.of_string (List.assoc "session_id" all)) in
@@ -72,8 +75,8 @@ let init_fn_append_to_master_audit_log =
 	then Rbac_audit.fn_append_to_master_audit_log := Some(append_to_master_audit_log)
 
 
-let rbac_audit_params_of (req:request) =
-	let all = req.cookie @ req.query in
+let rbac_audit_params_of (req: Request.t) =
+	let all = req.Request.cookie @ req.Request.query in
 	List.fold_right (fun (n,v) (acc_n,acc_v) ->
 											(n::acc_n,
 												 (Xml.PCData v)::acc_v
@@ -82,9 +85,9 @@ let rbac_audit_params_of (req:request) =
 	all
 	([],[])
 
-let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: request) =
+let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Request.t) =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
-  let all = req.cookie @ req.query in
+  let all = req.Request.cookie @ req.Request.query in
   let subtask_of =
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
@@ -137,7 +140,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
   end
   else
     begin
-      match req.Http.auth with
+      match req.Http.Request.auth with
 	| Some (Http.Basic(username, password)) ->
 	  begin
 	    let session_id = try
@@ -155,8 +158,8 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: reque
 	    raise (Http.Unauthorised realm) end
     end
 
-let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f = 
-  let all = req.cookie @ req.query in
+let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f = 
+  let all = req.Request.cookie @ req.Request.query in
   let task_id =
     if List.mem_assoc "task_id" all 
     then Some (Ref.of_string (List.assoc "task_id" all))
@@ -174,7 +177,7 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
 	    if List.mem_assoc "pool_secret" all
 	    then Client.Session.slave_login inet_rpc localhost (List.assoc "pool_secret" all), true
 	    else begin
-	      match req.Http.auth with
+	      match req.Http.Request.auth with
 	        | Some (Http.Basic(username, password)) ->
 		    begin
 		      try
@@ -214,13 +217,12 @@ let with_context ?(dummy=false) label (req: request) (s: Unix.file_descr) f =
         | None -> Server_helpers.exec_with_new_task ~task_in_database:(not dummy) label fail
         | Some task_id -> Server_helpers.exec_with_forwarded_task task_id fail
     end;
-    req.close <- true;
+    req.Request.close <- true;
     raise e
 
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
 	  
-let http_request = Http.http_request ~user_agent:Xapi_globs.xapi_user_agent
-let http_request_request = Http.http_request_request ~user_agent:Xapi_globs.xapi_user_agent
+let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 
 let bind inetaddr = 
 	let description = match inetaddr with

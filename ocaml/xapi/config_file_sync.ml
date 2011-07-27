@@ -17,11 +17,11 @@ open D
 open Config_file_io
 
 (** URL used by slaves to fetch dom0 config files (currently /etc/passwd) *)
-let config_file_sync_handler (req: Http.request) s =
+let config_file_sync_handler (req: Http.Request.t) s =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
-      req.Http.close <- true;
+      req.Http.Request.close <- true;
       debug "sending headers";
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
       debug "writing dom0 config files";
@@ -36,20 +36,16 @@ let fetch_config_files ~master_address ~pool_secret =
        Helpers.call_api_functions ~__context 
 	 (fun rpc session_id ->
 
-	    let headers = Xapi_http.http_request ~cookie:[ "session_id", Ref.string_of session_id ]
-	      Http.Get master_address Constants.config_sync_uri in
-	    let st_proc = Xmlrpcclient.get_reusable_stunnel
-	      ~write_to_log:Xmlrpcclient.write_to_log master_address Xapi_globs.default_ssl_port in
-	    Pervasiveext.finally
-	      (fun () ->
-		 debug "Requesting config files from master";
-		 let fd = st_proc.Stunnel.fd in
-		 (* no content length since it's streaming *)
-		 let _, _ = Xmlrpcclient.http_rpc_fd fd headers "" in
-		 let config_files = Unixext.string_of_fd fd in
-		 config_files
-	      )
-	      (fun () -> Stunnel.disconnect st_proc)
+	    let request = Xapi_http.http_request ~cookie:[ "session_id", Ref.string_of session_id ]
+	      Http.Get Constants.config_sync_uri in
+		let open Xmlrpcclient in
+		let transport = SSL (SSL.make (), master_address, !Xapi_globs.https_port) in
+		with_transport transport
+			(with_http request
+				(fun (response, fd) ->
+					Unixext.string_of_fd fd
+				)
+			)
 	 )
     )
     

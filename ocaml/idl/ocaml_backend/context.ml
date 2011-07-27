@@ -20,7 +20,7 @@ module Dummy = Debug.Debugger(struct let name = "dummytaskhelper" end)
     an internal subsystem (eg synchroniser thread / event handler
  thread) *)
 type origin = 
-    | Http of Http.request * Unix.file_descr
+    | Http of Http.Request.t * Unix.file_descr
     | Internal
 
 let string_of_origin = function
@@ -28,7 +28,7 @@ let string_of_origin = function
       let peer = match Unix.getpeername fd with
 	| Unix.ADDR_UNIX _ -> "Unix domain socket"
 	| Unix.ADDR_INET _ -> "Internet" in (* unfortunately all connections come from stunnel on localhost *)
-      Printf.sprintf "HTTP request from %s with User-Agent: %s" peer (default "unknown" req.Http.user_agent)
+      Printf.sprintf "HTTP request from %s with User-Agent: %s" peer (default "unknown" req.Http.Request.user_agent)
   | Internal -> "Internal"
 
 (** A Context is used to represent every API invocation. It may be extended

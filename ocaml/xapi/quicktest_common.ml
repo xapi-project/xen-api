@@ -146,11 +146,10 @@ let summarise () =
 
 let host = ref "" 
 
-let rpc_remote xml =
-  Xmlrpcclient.do_secure_xml_rpc ~host:!host ~version:"1.1" ~port:443 ~path:"/" xml
-
-let rpc_unix_domain xml =
-  Xmlrpcclient.do_xml_rpc_unix ~version:"1.1" ~filename:Xapi_globs.unix_domain_socket ~path:"/" xml
+open Xmlrpcclient
+let http = xmlrpc ~version:"1.1" "/"
+let rpc_remote xml = XML_protocol.rpc ~transport:(SSL(SSL.make(), !host, 443)) ~http xml
+let rpc_unix_domain xml = XML_protocol.rpc ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml
 
 let rpc = ref rpc_unix_domain
 

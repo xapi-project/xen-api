@@ -27,8 +27,9 @@ let _ =
     ] (fun _ -> ())
     "Create the default set of SRs on a server";
 
-  let rpc xml = Xmlrpcclient.do_xml_rpc ~version:"1.0" 
-    ~host:!host ~port:!port ~path:"/" xml in
+  let open Xmlrpcclient in
+  let http = xmlrpc ~version:"1.0" "/" in
+  let rpc xml = XML_protocol.rpc ~transport:(TCP(!host, !port)) ~http xml in
   let session_id = Client.Session.login_with_password ~rpc 
     ~uname:!username ~pwd:!password ~version:Xapi_globs.api_version_string in
   create_storage_localhost rpc session_id;

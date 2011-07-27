@@ -27,7 +27,10 @@ let srid = ref ""
 
 open Client
 
-let rpc xml = Xmlrpcclient.do_xml_rpc ~version:"1.0" ~host:!host ~port:!port ~path:"/" xml
+let rpc xml =
+	let open Xmlrpcclient in
+	let http = xmlrpc ~version:"1.0" "/" in
+	XML_protocol ~transport:(TCP(!host, !port)) ~http xml
 
 let _ = 
   let path = ref "" in
@@ -55,15 +58,17 @@ let _ =
     | TarXVA -> stream_from_xva_file path
     | Unknown -> failwith "Failed to detect XVA type" in
 
-  let writer _ task_id sock = 
-    begin match task_id with Some task_id -> debug(Printf.sprintf "Got task id: %s" task_id) | None -> () end;
+  let writer (response, sock) = 
+    begin match response.Http.Response.task with Some task_id -> debug(Printf.sprintf "Got task id: %s" task_id) | None -> () end;
     let oc = Unix.out_channel_of_descr sock in
     send_fn oc;
     flush oc in
 
   let path = Constants.import_xva_uri in
-  let headers = Xmlrpcclient.connect_headers ~session_id:(Ref.string_of session_id) !host Constants.import_xva_uri in
-  Xmlrpcclient.do_http_rpc !host !port headers "" writer;
+  let open Xmlrpcclient in
+  let request = connect ~session_id:(Ref.string_of session_id) !host Constants.import_xva_uri in
+  let transport = TCP(!host, !port) in
+  with_transport transport (with_http request writer);
   debug "XVA import successful"
   
 

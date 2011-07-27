@@ -21,7 +21,7 @@ open D
 let vncsnapshot = "/usr/bin/vncsnapshot"
 
 
-let vncsnapshot_handler (req: request) s =
+let vncsnapshot_handler (req: Request.t) s =
   debug "vncshapshot handler running";
   Xapi_http.with_context "Taking snapshot of VM console" req s
     (fun __context ->
@@ -38,10 +38,10 @@ let vncsnapshot_handler (req: request) s =
 	      [ "-quiet"; "-allowblank" ; "-encodings"; "\"raw\"";
 		Printf.sprintf "%s:%d" "127.0.0.1" (vnc_port-5900); tmp ] in
 	    waitpid_fail_if_bad_exit pid;
-	    Http_svr.response_file ~mime_content_type:None s tmp
+	    Http_svr.response_file s tmp
 	   )
 	   (fun () -> try Unix.unlink tmp with _ -> ())
        with e ->
-	 req.close <- true;
+	 req.Request.close <- true;
 	 raise e
     )

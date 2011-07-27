@@ -142,7 +142,7 @@ let vm_exported_pre_dmc (x: obj) =
 open Client
 
 (** HTTP header type used for streaming binary data *)
-let content_type = "Content-Type: application/octet-stream"
+let content_type = Http.Hdr.content_type ^ ": application/octet-stream"
 
 let xmlrpc_of_checksum_table table = API.To.string_to_string_map table
 let checksum_table_of_xmlrpc xml = API.From.string_to_string_map "" xml

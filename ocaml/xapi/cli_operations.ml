@@ -2859,13 +2859,13 @@ let vm_import fd printer rpc session_id params =
 							let address = Client.Host.get_address rpc session_id host in
 							(* Although it's inefficient use a loopback HTTP connection *)
 							debug "address is: %s" address;
-							let headers = Xapi_http.http_request
+							let request = Xapi_http.http_request
 								~cookie:(["session_id", Ref.string_of session_id;
 								"task_id", Ref.string_of importtask] @
 									(if sr <> Ref.null then [ "sr_id", Ref.string_of sr ] else []))
-								Http.Put address Constants.import_uri in
+								Http.Put Constants.import_uri in
 							(* Stream the disk data from the client *)
-							let writer _ task_id sock =
+							let writer (response, sock) =
 								try
 									(* First add the metadata file *)
 									let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int (String.length buffer)) in
@@ -2920,11 +2920,9 @@ let vm_import fd printer rpc session_id params =
 									false
 							in
 
-							let stream_ok = Xmlrpcclient.do_secure_http_rpc ~use_stunnel_cache:true
-								~task_id:(Ref.string_of (Context.get_task_id __context))
-								~host:address ~port:Xapi_globs.default_ssl_port ~headers ~body:"" writer in
-							debug "VM import in final stage; have to wait for the task to complete";
-
+							let open Xmlrpcclient in
+							let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Xapi_globs.https_port) in
+							let stream_ok = with_transport transport (with_http request writer) in
 							if not stream_ok
 							then
 								begin

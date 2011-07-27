@@ -224,7 +224,7 @@ let handle req bio method_name tokens (method_name, request_func) =
   let client_sock = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
   debug "handle: fd = %d" (Unixext.int_of_file_descr client_sock);
-  req.close <- true;
+  req.Request.close <- true;
 
   Xapi_http.with_context (sprintf "WLB %s request" method_name) req
     client_sock
@@ -234,7 +234,7 @@ let handle req bio method_name tokens (method_name, request_func) =
        (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
        TaskHelper.set_progress ~__context 0.0;
 
-       let parse content_length task_id wlb_sock =
+       let parse response wlb_sock =
          Http_svr.headers client_sock (Http.http_200_ok ());
          trim_and_send method_name tokens wlb_sock client_sock
        in
@@ -253,25 +253,25 @@ let handle req bio method_name tokens (method_name, request_func) =
 (* GET /wlb_report?session_id=<session>&task_id=<task>&
                    report=<report name>&<param1>=<value1>&...
 *)
-let report_handler (req: request) (bio: Buf_io.t) =
-  if not (List.mem_assoc "report" req.query) then
+let report_handler (req: Request.t) (bio: Buf_io.t) =
+  if not (List.mem_assoc "report" req.Request.query) then
     begin
       error "Request for WLB report lacked 'report' parameter";
       failwith "Bad request"
     end;
 
-  let report = List.assoc "report" req.query in
+  let report = List.assoc "report" req.Request.query in
   let params =
     List.filter
       (fun (k, _) ->
          not (List.mem k ["session_id"; "task_id"; "report"]))
-      req.query
+      req.Request.query
   in
   handle req bio "ExecuteReport" report_tokens
     (Workload_balancing.wlb_report_request report params)
 
 
 (* GET /wlb_diagnostics?session_id=<session>&task_id=<task> *)
-let diagnostics_handler (req: request) (bio: Buf_io.t) =
+let diagnostics_handler (req: Request.t) (bio: Buf_io.t) =
   handle req bio "GetDiagnostics" diagnostics_tokens
     Workload_balancing.wlb_diagnostics_request

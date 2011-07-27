@@ -809,18 +809,18 @@ let complete_import ~__context vmrefs =
   with e -> error "Caught exception completing import: %s" (ExnHelper.string_of_exn e); raise e
 
 (** Import metadata only *)
-let metadata_handler (req: request) s = 
+let metadata_handler (req: Request.t) s = 
   debug "metadata_handler called";  
   Xapi_http.with_context "VM.metadata_import" req s
     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
        let full_restore = 
-	 List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
+	 List.mem_assoc "restore" req.Request.query && (List.assoc "restore" req.Request.query = "true") in
        let force = 
-	 List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
+	 List.mem_assoc "force" req.Request.query && (List.assoc "force" req.Request.query = "true") in
        info "VM.import_metadata: force = %b; full_restore = %b" force full_restore;
        let config = { sr = Ref.null; full_restore = full_restore; vm_metadata_only = true; force = force } in
        let headers = Http.http_200_ok ~keep_alive:false () @
-	 [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
+	 [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 	   content_type ] in
        Http_svr.headers s headers;
        with_open_archive s
@@ -856,19 +856,19 @@ let metadata_handler (req: request) s =
 	 raise e
     )))
 
-let handler (req: request) s = 
-  req.close <- true;
+let handler (req: Request.t) s = 
+  req.Request.close <- true;
 
   Xapi_http.assert_credentials_ok "VM.import" ~http_action:"put_import" req;
 
   debug "import handler";
 
   let full_restore = 
-    List.mem_assoc "restore" req.Http.query && (List.assoc "restore" req.Http.query = "true") in
+    List.mem_assoc "restore" req.Request.query && (List.assoc "restore" req.Request.query = "true") in
   let force = 
-    List.mem_assoc "force" req.Http.query && (List.assoc "force" req.Http.query = "true") in
+    List.mem_assoc "force" req.Request.query && (List.assoc "force" req.Request.query = "true") in
 
-  let all = req.Http.cookie @ req.Http.query in
+  let all = req.Request.cookie @ req.Request.query in
   let subtask_of =
     if List.mem_assoc "subtask_of" all
     then Some (Ref.of_string (List.assoc "subtask_of" all))
@@ -900,7 +900,7 @@ let handler (req: request) s =
 	 (debug "sr not available - redirecting";
 	  let host = find_host_for_sr ~__context sr in
 	  let address = Db.Host.get_address ~__context ~self:host in
-	  let url = Printf.sprintf "https://%s%s?%s" address req.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.query)) in
+	  let url = Printf.sprintf "https://%s%s?%s" address req.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Request.query)) in
 	  let headers = Http.http_302_redirect url in
 	  debug "new location: %s" url;
 	  Http_svr.headers s headers)
@@ -917,7 +917,7 @@ let handler (req: request) s =
 	     if Db.SR.get_content_type ~__context ~self:sr = "iso" 
 	     then
 	       begin		 
-		 Http_svr.headers s Http.http_400_badrequest;
+		 Http_svr.headers s (Http.http_400_badrequest ());
 		 raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 	       end;
 	     try
@@ -926,14 +926,14 @@ let handler (req: request) s =
 	        debug "Importing %s" (if full_restore then "(as 'restore')" else "(as new VM)");
 		let config = { sr = sr; full_restore = full_restore; vm_metadata_only = false; force = force } in
 		
-		match req.transfer_encoding, req.content_length with
+		match req.Request.transfer_encoding, req.Request.content_length with
 		| Some x, _ ->
 		    error "Encoding not yet implemented in the import code: %s" x;
-		    Http_svr.headers s http_403_forbidden;
+		    Http_svr.headers s (http_403_forbidden ());
 		    raise (IFailure Cannot_handle_chunked)
 		| None, _ ->
 		    let headers = Http.http_200_ok ~keep_alive:false () @
-		      [ Http.task_id_hdr ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
+		      [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of (Context.get_task_id __context));
 			content_type ] in
 		    Http_svr.headers s headers;
 		    debug "Reading XML";

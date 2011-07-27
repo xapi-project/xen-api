@@ -30,11 +30,13 @@ let no_exn f x =
     debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
 let rpc host_address xml =
-  try
-    Xmlrpcclient.do_secure_xml_rpc ~version:"1.0" ~host:host_address
-      ~port:!Xapi_globs.https_port ~path:"/" xml
-  with Xmlrpcclient.Connection_reset ->
-    raise (Api_errors.Server_error(Api_errors.pool_joining_host_connection_failed, []))
+	let open Xmlrpcclient in
+	try
+		let transport = SSL(SSL.make (), host_address, !Xapi_globs.https_port) in
+		let http = xmlrpc ~version:"1.0" "/" in
+		XML_protocol.rpc ~transport ~http xml
+	with Connection_reset ->
+		raise (Api_errors.Server_error(Api_errors.pool_joining_host_connection_failed, []))
 
 let get_master ~rpc ~session_id =
 	let pool = List.hd (Client.Pool.get_all rpc session_id) in
@@ -579,32 +581,35 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 	()
 
-let open_tcp ~server =
-	(* We don't bother closing fds since this requires our close_and_exec wrapper *)
-	let port = 443 in
-	let x = Stunnel.connect ~use_external_fd_wrapper:false ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x) server port in
-	Unix.in_channel_of_descr x.Stunnel.fd, Unix.out_channel_of_descr x.Stunnel.fd
-
 let update_vm_metadata ~__context ~rpc ~session_id ~master_address =
-	let temp_file = Printf.sprintf "/tmp/pool-join-metadata.out" in
 	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
 
-	finally
-		(fun () ->
-			Unixext.unlink_safe temp_file;
+	let open Xmlrpcclient in
 
-			(* 1. export my VMs metadata to the tempory file *)
-			let my_address = Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context) in
-			Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
-				let export_uri = Printf.sprintf "%s?session_id=%s&subtask_of=%s&all=true" Constants.export_metadata_uri (Ref.string_of my_session_id) subtask_of in
-				debug "exporting the metadata into filename = '%s' to server = '%s'" temp_file my_address;
-				Unixext.http_get ~open_tcp ~uri:export_uri ~filename:temp_file ~server:my_address);
-
-			(* 2. import that tempory file to the distant pool *)
-			let import_uri = Printf.sprintf "%s?session_id=%s&subtask_of=%s&restore=true" Constants.import_metadata_uri (Ref.string_of session_id) subtask_of in
-			debug "importing the metadata from filename = '%s' to server = '%s'" temp_file master_address;
-			Unixext.http_put ~open_tcp ~uri:import_uri ~filename:temp_file ~server:master_address)
-		(fun () -> Unixext.unlink_safe temp_file)
+	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
+			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
+			Http.Get
+			(Printf.sprintf "%s?all=true" Constants.export_metadata_uri) in
+		let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
+			~cookie:["session_id", Ref.string_of session_id] ~keep_alive:false
+			Http.Put
+			(Printf.sprintf "%s?restore=true" Constants.import_metadata_uri) in
+		debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
+		with_transport (Unix Xapi_globs.unix_domain_socket)
+			(with_http get
+				(fun (r, ifd) ->
+					let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
+					with_transport (SSL (SSL.make (), master_address, !Xapi_globs.https_port))
+						(with_http put
+							(fun (_, ofd) ->
+								let (_: int64) = Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+								()
+							)
+						)
+				)
+			)
+	)
 
 let join_common ~__context ~master_address ~master_username ~master_password ~force =
 	(* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
@@ -613,7 +618,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 	let rpc = rpc master_address in
 	let session_id =
 	try Client.Session.login_with_password rpc master_username master_password Xapi_globs.api_version_string
-		with Xmlrpcclient.Http_request_rejected _ | Xmlrpcclient.Http_error _ ->
+		with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
 	let cluster_secret = ref "" in
