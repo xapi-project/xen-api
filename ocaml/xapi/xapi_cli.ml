@@ -41,31 +41,21 @@ let write s string =
 let forward args s session =
 	(* Reject forwarding cli commands if the request came in from a tcp socket *)
 	if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
-	let host = Pool_role.get_master_address () in
-	let port = !Xapi_globs.https_port in
-	let st_proc = Xmlrpcclient.get_reusable_stunnel
-		~write_to_log:Xmlrpcclient.write_to_log host port in
-	finally
-		(fun () ->
-			let ms = st_proc.Stunnel.fd in
-			(* Headers *)
-			let body = String.concat "\r\n" args in
-			let body =
-				match session with None -> body | Some s -> ("session_id="^(Ref.string_of s)^"\r\n")^body in
-			List.iter (write ms)
-				["POST /cli HTTP/1.1";"Content-Length: "^(string_of_int (String.length body)); ""];
-			ignore_int (Unix.write ms body 0 (String.length body));
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
+	let body = 
+		let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
+		String.concat "\r\n" args in
+	let user_agent = Printf.sprintf "xapi/%s" Xapi_globs.api_version_string in
+	let request = Http.Request.make ~version:"1.0" ~user_agent ~body
+		Http.Post "/cli" in
+	with_transport transport
+		(fun ms ->
+			Unixext.really_write_string ms (Http.Request.to_wire_string request);
+			(* NB: CLI protocol handler doesn't send an HTTP response *)
 			let (_ : int * int) = unmarshal_protocol ms in
 			marshal_protocol ms;
 			Unixext.proxy (Unix.dup s) (Unix.dup ms)
-		)
-		(fun () ->
-			if Xmlrpcclient.check_reusable st_proc.Stunnel.fd then begin
-				Stunnel_cache.add st_proc
-			end else begin
-				debug "Disconnecting CLI because it is not reusable";
-				Stunnel.disconnect st_proc
-			end
 		)
 
 
@@ -188,7 +178,7 @@ let multiple_error errs sock =
     marshal sock (Command (Print msg))) errs;
   marshal sock (Command (Exit 1))
 
-let do_handle (req:Http.request) str (s:Unix.file_descr) =
+let do_handle (req:Http.Request.t) str (s:Unix.file_descr) =
 	let rec get_args n cur =
 		let (next,arg) = get_line str n in
 		let arg = zap_cr arg in
@@ -245,7 +235,7 @@ let exception_handler s e =
     | exc ->
 	Cli_util.server_error Api_errors.internal_error [ ExnHelper.string_of_exn exc ] s
 
-let handler (req:Http.request) (bio: Buf_io.t) =
+let handler (req:Http.Request.t) (bio: Buf_io.t) =
   let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in 
   let s = Buf_io.fd_of bio in
   (* Tell the client the server version *)

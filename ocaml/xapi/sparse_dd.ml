@@ -177,7 +177,7 @@ module Network_writer = struct
 			(fun () -> f fd)
 			(fun () -> Unix.close fd) in
 		let uri, query = Http.parse_uri url.uri in
-		let request = { Http.m = Http.Put;
+		let request = { Http.Request.m = Http.Put;
 				uri = uri;
 				query = query;
 				version = "1.0";
@@ -189,12 +189,14 @@ module Network_writer = struct
 				content_type = None;
 				user_agent = Some "sparse_dd/0.1";
 				close = true;
-				headers = [] } in
+				additional_headers = [];
+				body = None
+		} in
 		try
 			if url.https
-			then with_ssl url (fun fd -> Http_client.rpc fd request "" f)
-			else with_plaintext url (fun fd -> Http_client.rpc fd request "" f)
-		with Http_client.Http_error("401") as e ->
+			then with_ssl url (fun fd -> Http_client.rpc fd request f)
+			else with_plaintext url (fun fd -> Http_client.rpc fd request f)
+		with Http_client.Http_error("401", _) as e ->
 			Printf.printf "HTTP 401 Unauthorized\n";
 			raise e
 

@@ -63,46 +63,39 @@ end
 
 module Secret_Auth_fails = struct (* {{{1 *)
 
-	let http_remote headers body f = 
-		Xmlrpcclient.do_secure_http_rpc ~use_external_fd_wrapper:false 
-			~host:!host ~port:443 ~headers ~body f
-
-	let http_unix_domain headers body f = 
-		let unixsock = Unixext.open_connection_unix_fd Xapi_globs.unix_domain_socket in
-		finally
-			(fun () ->
-				Xmlrpcclient.do_secure_http_rpc ~use_external_fd_wrapper:false
-				~host:!host ~port:443 ~unixsock:(Some unixsock) ~headers ~body f
-			) (fun () -> Unix.close unixsock)
-
-	let http headers body f = 
-		if !using_unix_domain_socket
-		then http_unix_domain headers body f
-		else http_remote headers body f
+	let http request f =
+		let open Xmlrpcclient in
+		let transport =
+			if !using_unix_domain_socket
+			then Unix Xapi_globs.unix_domain_socket
+			else SSL(SSL.make ~use_fork_exec_helper:false (), !host, 443) in
+		with_transport transport (with_http request f)
 
 	let invalid_pool_secret = 
-		[ "GET /sync_config_files HTTP/1.0";
-		"Cookie: pool-secret=whatever" ]
+		Http.Request.make ~version:"1.0" ~cookie:["pool_secret", "whatever"]
+			~user_agent:"quicktest"
+			Http.Get "/sync_config_files"
 
 	let invalid_basicauth = 
-		[ "GET /rss HTTP/1.0";
-		"Authorization: Basic cm9vdDpiYXI="; (* root:bar *)
-		]
+		Http.Request.make ~version:"1.0" 
+			~user_agent:"quicktest"
+			~headers:["Authorization", "Basic cm9vdDpiYXI="] (* root:bar *)
+			Http.Get "/rss"
 
 	let test_invalid_pool_secret = make_test_case "invalid_pool_secret"
 		"Tests that invalid pool secrets are rejected."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_error _ -> true | _ -> false)
-				(fun () -> http invalid_pool_secret "" (fun _ _ _ -> ()))
+				(function Http_client.Http_error _ -> true | _ -> false)
+				(fun () -> http invalid_pool_secret (fun _ -> ()))
 		end
 
 	let test_invalid_basicauth = make_test_case "invalid_basicauth"
 		"Tests that invalid basic authentication fails."
 		begin fun () ->
 			assert_raises_match
-				(function Xmlrpcclient.Http_error _ -> true | Xmlrpcclient.Http_request_rejected _ -> true | _ -> false)
-				(fun () -> http invalid_basicauth "" (fun _ _ _ -> ()))
+				(function Http_client.Http_error _ -> true | Http_client.Http_request_rejected _ -> true | _ -> false)
+				(fun () -> http invalid_basicauth (fun _ -> ()))
 		end
 
 	let tests = make_module_test_suite "Secret_Auth"

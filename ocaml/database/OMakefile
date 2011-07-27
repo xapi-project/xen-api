@@ -1,6 +1,6 @@
 
 OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr 
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr log sexpr rpc-light
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
 
@@ -20,7 +20,7 @@ OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 OCamlDocProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
 DATABASE_SERVER_FILES = database_server_main test_schemas database_test ../autogen/db_actions 
-DATABASE_TEST_FILES = database_test database_test_main
+DATABASE_TEST_FILES = database_test database_test_main test_schemas
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove
 	OCAML_LIBS += ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server

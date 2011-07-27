@@ -21,7 +21,9 @@ let retry = ref true
 
 (* RPC function for communication with the v6 daemon *)
 let socket = "/var/xapi/v6"
-let v6rpc call = Rpc_client.do_rpc_unix ~version:"1.0" ~filename:socket ~path:"/" call
+let v6rpc call =
+	let open Xmlrpcclient in
+	XMLRPC_protocol.rpc ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
 let rec apply_edition ~__context edition additional =
 	let host = Helpers.get_localhost ~__context in

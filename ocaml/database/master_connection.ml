@@ -38,6 +38,7 @@ let force_connection_reset () =
   match !my_connection with
     None -> ()
   | Some st_proc ->
+  info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 	
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
@@ -91,9 +92,11 @@ let on_database_connection_established = ref (fun () -> ())
 let open_secure_connection () =
   let host = Pool_role.get_master_address () in
   let port = !Xapi_globs.https_port in
-  let st_proc = Stunnel.connect
+  let st_proc = Stunnel.connect ~use_fork_exec_helper:true
+	  ~extended_diagnosis:true
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
   my_connection := Some st_proc;
+  info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Unixext.int_of_file_descr st_proc.Stunnel.fd);
   !on_database_connection_established ()
     
 (* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
@@ -105,7 +108,9 @@ let connection_timeout = ref 10. (* -ve means retry forever *)
    can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
    are exceeded *)
 let restart_on_connection_timeout = ref true
-  
+
+exception Content_length_required
+
 let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string = 
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
@@ -122,33 +127,37 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
     begin
       try
 	let req_string = req in
-	let headers = Xmlrpcclient.xmlrpc_headers ~version:"1.1" host path (String.length req_string + 0) in
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
-	let headers = headers @ ["Cookie: pool_secret="^(!Xapi_globs.pool_secret)] in
+	let open Xmlrpcclient in
+	let request = xmlrpc 
+		~version:"1.1" ~keep_alive:true
+		~length:(Int64.of_int (String.length req_string))
+		~cookie:["pool_secret", !Xapi_globs.pool_secret] ~body:req path in
 	match !my_connection with
 	  None -> raise Goto_handler
 	| (Some stunnel_proc) ->
 	    let fd = stunnel_proc.Stunnel.fd in
-	    let content_length, task_id = with_timestamp (fun ()->Xmlrpcclient.http_rpc_fd fd headers req_string) in
-	    (* XML responses must have a content-length because we cannot use the Xml.parse_in
-	       in_channel function: the input channel will buffer an arbitrary amount of stuff
-	       and we'll be out of sync with the next request. *)
-	    if content_length < 0 then raise Xmlrpcclient.Content_length_required;
-	    let res = with_timestamp (fun ()->
-			let buffer = String.make content_length '\000' in
-			Unixext.really_read fd buffer 0 content_length;
-			buffer
-		) in
-	    write_ok := true;
-	    result := res (* yippeee! return and exit from while loop *)
+		with_http request
+			(fun (response, _) ->
+				(* XML responses must have a content-length because we cannot use the Xml.parse_in
+				   in_channel function: the input channel will buffer an arbitrary amount of stuff
+				   and we'll be out of sync with the next request. *)
+				let res = match response.Http.Response.content_length with
+					| None -> raise Content_length_required
+					| Some l ->
+						with_timestamp (fun ()-> Unixext.really_read_string fd (Int64.to_int l)) in
+				write_ok := true;
+				result := res (* yippeee! return and exit from while loop *)
+			) fd
       with
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
-      | Xmlrpcclient.Http_error (http_code,err_msg) ->
+      | Http_client.Http_error (http_code,err_msg) ->
 	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg Xapi_globs.permanent_master_failure_retry_timeout;
 	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
 	  exit Xapi_globs.restart_return_code
-      |	_ ->
+      |	e ->
 	  begin
+		  error "Caught %s" (Printexc.to_string e);
 	    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
 	    begin
 	      match !my_connection with

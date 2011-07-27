@@ -40,7 +40,7 @@ let choose_network_name_for_pif device =
 (** Once the server functor has been instantiated, set this reference to the appropriate
     "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
     the HTTP request headers it has already received together with its active file descriptor. *)
-let rpc_fun : (Http.request -> Unix.file_descr -> Xml.xml -> Xml.xml) option ref = ref None
+let rpc_fun : (Http.Request.t -> Unix.file_descr -> Xml.xml -> Xml.xml) option ref = ref None
 
 let get_rpc () =
   match !rpc_fun with
@@ -73,19 +73,13 @@ let get_localhost ~__context : API.ref_host  =
 
 let make_rpc ~__context xml =
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
-    if Pool_role.is_master () then
-      (* Master goes via domain socket *)
-      (* !!! FIXME - maybe could make this go direct !!! *)
-      Xmlrpcclient.do_xml_rpc_unix ~subtask_of ~version:"1.0"
-	~filename:Xapi_globs.unix_domain_socket ~path:"/" xml
-    else
-      (* Slave has to go back to master via network *)
-      Xmlrpcclient.do_secure_xml_rpc
-	~subtask_of
-  ~use_stunnel_cache:true
-    ~version:"1.1" ~host:(Pool_role.get_master_address ())
-    ~port:!Xapi_globs.https_port ~path:"/" xml
-    (* No auth needed over unix domain socket *)
+	let open Xmlrpcclient in
+	let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+	let transport =
+		if Pool_role.is_master ()
+		then Unix(Xapi_globs.unix_domain_socket)
+		else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
+	XML_protocol.rpc ~transport ~http xml
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
@@ -129,8 +123,10 @@ let call_api_functions ~__context f =
       then Client.Client.Session.logout rpc session_id)
 
 let call_emergency_mode_functions hostname f =
-  let rpc xml = Xmlrpcclient.do_secure_xml_rpc ~version:"1.0" ~host:hostname
-    ~port:!Xapi_globs.https_port ~path:"/" xml in
+	let open Xmlrpcclient in
+	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
+	let http = xmlrpc ~version:"1.0" "/" in
+	let rpc = XML_protocol.rpc ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in
   finally
     (fun () -> f rpc session_id)

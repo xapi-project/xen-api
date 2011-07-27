@@ -63,17 +63,17 @@ let default_console_of_vm ~__context ~self =
 
 let console_of_request __context req = 
   (* First check the request looks valid *)
-  if not(List.mem_assoc "ref" req.query) && not(List.mem_assoc "uuid" req.query) then begin
+  if not(List.mem_assoc "ref" req.Http.Request.query) && not(List.mem_assoc "uuid" req.Http.Request.query) then begin
     error "HTTP request for console forwarding lacked 'ref' or 'uuid' parameter";
     raise Failure
   end;
   let _ref = 
-    if List.mem_assoc "uuid" req.query 
+    if List.mem_assoc "uuid" req.Http.Request.query 
     then 
-      let uuid = List.assoc "uuid" req.query in
+      let uuid = List.assoc "uuid" req.Http.Request.query in
       (try Ref.string_of(Db.VM.get_by_uuid ~__context ~uuid)
        with _ -> Ref.string_of(Db.Console.get_by_uuid ~__context ~uuid))
-    else List.assoc "ref" req.query in
+    else List.assoc "ref" req.Http.Request.query in
 
   (* The _ref may be either a VM ref in which case we look for a
      default VNC console or it may be a console ref in which case we
@@ -91,7 +91,7 @@ let console_of_request __context req =
   if is_vm then default_console_of_vm ~__context ~self:(Ref.of_string _ref) else (Ref.of_string _ref) 
     
 
-let rbac_check_for_control_domain __context (req:request) console_id permission =
+let rbac_check_for_control_domain __context (req:Request.t) console_id permission =
 	let is_control_domain =
 		let vm_id = Db.Console.get_VM ~__context ~self:console_id in
 		Db.VM.get_is_control_domain ~__context ~self:vm_id
@@ -117,8 +117,8 @@ let check_vm_is_running_here __context console =
 
 (* GET /console_uri?ref=.....
    Cookie: <session id> *)
-let handler proxy_fn (req: request) s =
-  req.close <- true;
+let handler proxy_fn (req: Request.t) s =
+  req.Request.close <- true;
   Xapi_http.with_context "Connection to VM console" req s
     (fun __context ->
       let console = console_of_request __context req in

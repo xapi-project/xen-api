@@ -48,24 +48,22 @@ type queued_request = {
   verify_cert : bool;
   host : string;
   port : int;
-  headers : string list;
-  body : string;
-  handler : int -> string option -> Unix.file_descr -> unit;
+  request : Http.Request.t;
+  handler : Http.Response.t -> Unix.file_descr -> unit;
   resp : response ref;
   resp_mutex : Mutex.t;
   resp_cond : Condition.t;
   enable_log : bool;
 }
 
-let make_queued_request task verify_cert host port headers body handler
+let make_queued_request task verify_cert host port request handler
     resp resp_mutex resp_cond enable_log =
   {
     task = task;
     verify_cert = verify_cert;
     host = host;
     port = port;
-    headers = headers;
-    body = body;
+	request = request;
     handler = handler;
     resp = resp;
     resp_mutex = resp_mutex;
@@ -103,16 +101,19 @@ let watcher_thread = function
 
 let handle_request req =
   try
-    Xmlrpcclient.do_secure_http_rpc ~task_id:(Ref.string_of req.task)
-      ~verify_cert:req.verify_cert ~host:req.host ~port:req.port
-      ~headers:req.headers ~body:req.body
-      (fun content_length task_id s ->
-         req.handler content_length task_id s;
-         signal_result req Success)
+	  let open Xmlrpcclient in
+	  let transport = SSL(SSL.make ~verify_cert:req.verify_cert ~task_id:(Ref.string_of req.task) (), req.host, req.port) in
+	  with_transport transport
+		  (with_http req.request
+			  (fun (response, s) ->
+				  req.handler response s;
+				  signal_result req Success
+			  )
+		  )
   with
     | exn ->
         if req.enable_log then
-          warn "Exception handling remote request %s: %s" req.body
+          warn "Exception handling remote request %s: %s" (Opt.default "" req.request.Http.Request.body)
             (ExnHelper.string_of_exn exn);
         signal_result req (Exception exn)
 
@@ -147,7 +148,7 @@ let queue_request req =
        Condition.signal request_cond)
 
 let perform_request ~__context ~timeout ~verify_cert ~host ~port
-    ~headers ~body ~handler ~enable_log =
+    ~request ~handler ~enable_log =
   let task = Context.get_task_id __context in
   let resp = ref NoResponse in
   let resp_mutex = Mutex.create() in
@@ -157,7 +158,7 @@ let perform_request ~__context ~timeout ~verify_cert ~host ~port
          let delay = Delay.make () in
          let req =
            make_queued_request
-             task verify_cert host port headers body handler
+             task verify_cert host port request handler
              resp resp_mutex resp_cond enable_log
          in
          start_watcher __context timeout delay req;
@@ -181,23 +182,20 @@ let stop_request_thread () =
        shutting_down := true;
        Condition.signal request_cond)
 
-let read_response result content_length task_id s =
+let read_response result response s =
   try
     result := Unixext.string_of_fd s
   with
     | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
         raise Xmlrpcclient.Connection_reset
 
-let test_post_headers host len =
-  Xapi_http.http_request Http.Post host "/" ~keep_alive:false @
-    ["Content-Length: " ^ (string_of_int len)]
-
 let send_test_post ~__context ~host ~port ~body =
   try
     let result = ref "" in
-    let headers = test_post_headers host (String.length body) in
+	let request = Xapi_http.http_request ~keep_alive:false ~body
+		~headers:["Host", host] Http.Post "/" in
       perform_request ~__context ~timeout:30.0 ~verify_cert:true
-        ~host ~port:(Int64.to_int port) ~headers ~body
+        ~host ~port:(Int64.to_int port) ~request
         ~handler:(read_response result) ~enable_log:true;
       !result
   with

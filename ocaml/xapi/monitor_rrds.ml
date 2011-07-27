@@ -179,22 +179,20 @@ let create_fresh_rrd use_min_max dss =
 let send_rrd address to_archive uuid rrd =
   debug "Sending RRD for object uuid=%s archiving=%b to address: %s" uuid to_archive address;
   let pool_secret = !Xapi_globs.pool_secret in
-  let headers = Xapi_http.http_request_request ~cookie:[ "pool_secret", pool_secret ]
-    Http.Put address (Constants.rrd_put_uri^"?uuid="^uuid^(if to_archive then "&archive=true" else "")) in
-  let st_proc = Xmlrpcclient.get_reusable_stunnel
-    ~write_to_log:Xmlrpcclient.write_to_log address Xapi_globs.default_ssl_port in
-  let fd = st_proc.Stunnel.fd in
-  Pervasiveext.finally
-    (fun () ->
-      try
-	debug "Sending rrd to %s" address;
-	Http_client.rpc fd headers "" (fun _ fd -> Rrd.to_fd rrd fd);
-	debug "Sent"
-      with e ->
-	debug "Caught exception: %s" (ExnHelper.string_of_exn e);
-	log_backtrace ();
-    )
-    (fun () -> Stunnel.disconnect st_proc)
+  let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
+    Http.Put (Constants.rrd_put_uri^"?uuid="^uuid^(if to_archive then "&archive=true" else "")) in
+  let open Xmlrpcclient in
+  let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
+  with_transport transport
+	  (with_http request
+		  (fun (response, fd) ->
+			  try
+				  Rrd.to_fd rrd fd
+			  with e ->
+				  debug "Caught exception: %s" (ExnHelper.string_of_exn e);
+				  log_backtrace ();
+		  )
+	  )
 
 (* never called with the mutex held *)
 let archive_rrd ?(save_stats_locally = Pool_role.is_master ()) uuid rrd =
@@ -375,20 +373,22 @@ let pull_rrd_from_master ~__context uuid is_host =
     else Constants.vm_rrd_uri
   in 
   let uri = uri ^"?uuid="^uuid^"&dbsync=true" in    
-  let headers = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ] 
-    Http.Get address uri in
-  let st_proc = Xmlrpcclient.get_reusable_stunnel
-    ~write_to_log:Xmlrpcclient.write_to_log address Xapi_globs.default_ssl_port in
-  let fd = st_proc.Stunnel.fd in
-  Pervasiveext.finally
-    (fun () ->
-       let length, task = Xmlrpcclient.http_rpc_fd fd headers "" in
-       let body = String.create length in
-       Unixext.really_read fd body 0 length;
-       let input = Xmlm.make_input (`String (0, body)) in
-       debug "Pulled rrd for vm uuid=%s" uuid;
-       Rrd.from_xml input)
-    (fun () -> Stunnel.disconnect st_proc)
+  let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ] 
+    Http.Get uri in
+  let open Xmlrpcclient in
+  let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
+  with_transport transport
+	  (with_http request
+		  (fun (response, s) ->
+			  match response.Http.Response.content_length with
+				  | None -> failwith "pull_rrd_from_master needs a content-length"
+				  | Some l ->
+					  let body = Unixext.really_read_string s (Int64.to_int l) in
+					  let input = Xmlm.make_input (`String (0, body)) in
+					  debug "Pulled rrd for vm uuid=%s" uuid;
+					  Rrd.from_xml input
+		  )
+	  )
 
 (** Only called from dbsync in two cases:
     1. for the local host after a xapi restart or host restart
@@ -429,14 +429,14 @@ let load_rrd ~__context uuid is_host =
 (** Receive handler, for RRDs being pushed onto us *)
 exception Invalid_RRD
 
-let receive_handler (req: Http.request) (bio: Buf_io.t) =
+let receive_handler (req: Http.Request.t) (bio: Buf_io.t) =
   debug "Monitor_rrds.receive_handler";
-  let query = req.Http.query in
-  req.Http.close <- true;
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   if not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
-    Http_svr.headers fd Http.http_400_badrequest;
+    Http_svr.headers fd (Http.http_400_badrequest ());
     failwith "Monitor_rrds.receive_handler: Bad request"
   end;
   Xapi_http.with_context ~dummy:true "Receiving VM rrd" req fd
@@ -450,7 +450,7 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
 	    with _ -> begin
 	      try ignore(Db.Host.get_by_uuid ~__context ~uuid); Host
 	      with _ ->
-		Http_svr.headers fd Http.http_404_missing;
+		Http_svr.headers fd (Http.http_404_missing ());
 		failwith (Printf.sprintf "Monitor_rrds.receive_handler: UUID %s neither host nor VM" uuid)
 	    end
 	  end
@@ -479,10 +479,10 @@ let receive_handler (req: Http.request) (bio: Buf_io.t) =
     )
 
 (** Send handler, for sending out requested RRDs *)
-let handler (req: Http.request) s =
+let handler (req: Http.Request.t) s =
   debug "Monitor_rrds.handler";
-  let query = req.Http.query in
-  req.Http.close <- true;
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   if not(List.mem_assoc "ref" query) && not(List.mem_assoc "uuid" query) then begin
     error "HTTP request for RRD lacked 'uuid' parameter";
     failwith "Bad request"
@@ -500,7 +500,7 @@ let handler (req: Http.request) s =
 	    (* If we're not the master, redirect to the master *)
 	    if not (Pool_role.is_master ()) then
 	      let url = Printf.sprintf "https://%s%s?%s" 
-		(Pool_role.get_master_address ()) req.Http.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
+		(Pool_role.get_master_address ()) req.Http.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
 	      Http_svr.headers s (Http.http_302_redirect url);
 	    else
 	      begin
@@ -517,7 +517,7 @@ let handler (req: Http.request) s =
 		if Db.is_valid_ref __context host &&
 		  (not (List.mem_assoc "dbsync" query)) then
 		  let address = Db.Host.get_address ~__context ~self:host in
-		  let url = Printf.sprintf "https://%s%s?%s" address req.Http.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
+		  let url = Printf.sprintf "https://%s%s?%s" address req.Http.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) query)) in
 		  Http_svr.headers s (Http.http_302_redirect url);
 		else
 		  (* it's off, and we're the master, so unarchive the rrd and
@@ -529,16 +529,16 @@ let handler (req: Http.request) s =
 	      end)
 
 (** Send handler, for sending out requested host RRDs *)
-let handler_host (req: Http.request) s =
+let handler_host (req: Http.Request.t) s =
   debug "Monitor_rrds.handler_host";
-  let query = req.Http.query in
-  req.Http.close <- true;
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
       (* This is only used by hosts when booting - not for public use! *)
       if List.mem_assoc "dbsync" query then begin
         if not(List.mem_assoc "uuid" query) then begin
-          Http_svr.headers s (Http.http_400_badrequest);
+          Http_svr.headers s (Http.http_400_badrequest ());
           error "HTTP request for RRD dbsync lacked 'uuid' parameter"
         end else begin
 	  let uuid = List.assoc "uuid" query in
@@ -576,14 +576,14 @@ let get_host_stats ?(json=false) start interval cfopt host uuid =
     in
     Rrd.export ~json prefixandrrds start interval cfopt)
 
-let handler_rrd_updates (req: Http.request) s =
+let handler_rrd_updates (req: Http.Request.t) s =
   (* This is commonly-called: not worth logging *)
-  let query = req.Http.query in
-  req.Http.close <- true;
+  let query = req.Http.Request.query in
+  req.Http.Request.close <- true;
   Xapi_http.with_context ~dummy:true "Obtaining the Host RRD statistics" req s
     (fun __context ->
       if not(List.mem_assoc "start" query) then begin
-        let headers = Http.http_400_badrequest in
+        let headers = Http.http_400_badrequest () in
         Http_svr.headers s headers;
         error "HTTP request for Host RRD statistics lacked the 'start' parameter"
       end else begin
@@ -599,7 +599,7 @@ let handler_rrd_updates (req: Http.request) s =
 	       (Int64.of_int (String.length xml))
 	       ~version:"1.1" ~keep_alive:false ())
         in
-        let headers = if json then headers else (headers@["Content-Type: text/xml"]) in
+        let headers = if json then headers else (headers@[Http.Hdr.content_type ^ ": text/xml"]) in
         Http_svr.headers s headers;
         ignore(Unix.write s xml 0 (String.length xml))
       end)

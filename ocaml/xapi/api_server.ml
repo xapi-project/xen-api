@@ -94,16 +94,9 @@ open D
 
 (** Forward a call to the master *)
 let forward req body xml =
-  let host = Pool_role.get_master_address () in
-  let port = !Xapi_globs.https_port in
-  match body with
-  | Some body -> 
-      (* If we've got a body, we came in from a real socket, so we can just proxy *)
-      Xmlrpcclient.do_secure_http_rpc ~use_stunnel_cache:true 
-        ~host ~port ~headers:("POST / HTTP/1.1"::req.Http.headers) ~body (Xmlrpcclient.read_xml_rpc_response)
-  | None -> 
-      (* If we've not got a body, we came in via the fake rpc, so we'll have to read the results ourselves *)
-      Xmlrpcclient.do_secure_xml_rpc ~use_stunnel_cache:true ~version:"1.1" ~host ~port ~path:"/" xml
+  let open Xmlrpcclient in
+  let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
+  XML_protocol.rpc ~transport ~http:req xml
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -137,12 +130,15 @@ let callback1 is_json req fd body xml =
 let callback is_json req bio =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
-  let xml = Xml.parse_string body in
   try
-    let response = Xml.to_bigbuffer (callback1 is_json req fd (Some body) xml) in
-    Http_svr.response_fct req ~hdrs:[ "Content-Type: text/xml" ] fd (Bigbuffer.length response) 
-      (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s)))) 
+	  let xml = Xml.parse_string body in
+      let response = Xml.to_bigbuffer (callback1 is_json req fd (Some body) xml) in
+      Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type ^": text/xml" ] fd (Bigbuffer.length response) 
+		  (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
   with 
-  | (Api_errors.Server_error (err, params)) ->
-      Http_svr.response_str req ~hdrs:[ "Content-Type: text/xml" ] fd 
-	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Failure(err, params))))
+	  | (Api_errors.Server_error (err, params)) ->
+		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type ^": text/xml" ] fd 
+			  (Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Failure(err, params))))
+	  | Xml.Error _ ->
+		  Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type ^": text/xml" ] fd 
+			  (Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Fault(1l, "Failed to parse supplied XML"))))	  
