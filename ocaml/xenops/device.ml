@@ -43,6 +43,11 @@ let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx";
 (****************************************************************************************)
 
 module Generic = struct
+
+let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
+
+let tc_port_path domid = sprintf "/local/domain/%d/console/tc-port" domid
+
 (* this transactionally hvm:bool
            -> add entries to add a device
    specified by backend and frontend *)
@@ -167,6 +172,19 @@ let destroy ~xs domid kind devid =
 	let frontend_path = get_frontend_path ~xs domid kind devid in
 	xs.Xs.rm frontend_path
 *)
+
+	  let really_kill pid =
+		  try
+			  Unixext.kill_and_wait pid
+		  with Unixext.Process_still_alive ->
+			  debug "%d: failed to respond to SIGTERM, sending SIGKILL" pid;
+			  Unixext.kill_and_wait ~signal:Sys.sigkill pid
+	  let best_effort txt f =
+		  try
+			  f ()
+		  with e ->
+			  info "%s: ignoring exception %s" txt (Printexc.to_string e)
+
 end
 
 (****************************************************************************************)
@@ -800,14 +818,34 @@ module PV_Vnc = struct
 
 let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
 
-let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
+let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 
 let pid ~xs domid =
 	try
-		let pid = xs.Xs.read (sprintf "/local/domain/%d/console/vncterm-pid" domid) in
+		let pid = xs.Xs.read (vnc_pid_path domid) in
 		Some (int_of_string pid)
 	with _ ->
 		None
+
+let is_vncterm_running ~xs domid =
+	match pid ~xs domid with
+		| None -> false
+		| Some p ->
+			try
+				Unix.kill p 0;
+				true
+			with _ -> false
+
+let get_vnc_port ~xs domid =
+	if not (is_vncterm_running ~xs domid)
+	then None
+	else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+
+let get_tc_port ~xs domid =
+	if not (is_vncterm_running ~xs domid)
+	then None
+	else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
+
 
 let load_args = function
 	| None -> []
@@ -850,21 +888,23 @@ let save ~xs domid =
 
 let start ?statefile ~xs domid =
 	let l = [ string_of_int domid; (* absorbed by vncterm-wrapper *)
-		  (* everything else goes straight through to vncterm-wrapper: *)
+		  (* everything else goes straight through to vncterm: *)
 		  "-x"; sprintf "/local/domain/%d/console" domid;
+		  "-T"; (* listen for raw connections *)
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
 	let pid = Forkhelpers.safe_close_and_exec None None None [] vncterm_wrapper l in
-	Forkhelpers.dontwaitpid pid;
-	
-	(* Block waiting for it to write the VNC port into the store *)
-	try
-	  let port = Watch.wait_for ~xs (Watch.value_to_appear (vnc_port_path domid)) in
-	  debug "vncterm: wrote vnc port %s into the store" port;
-	  int_of_string port
-	with Watch.Timeout _ ->
-	  warn "vncterm: Timed out waiting for vncterm to start";
-	  raise Failed_to_start
+	Forkhelpers.dontwaitpid pid
+
+let stop ~xs domid =
+	let open Generic in
+	match pid ~xs domid with
+		| Some pid ->
+			best_effort "killing vncterm"
+				(fun () -> Unix.kill (-pid) Sys.sigterm);
+			best_effort "removing vncterm-pid from xenstore"
+				(fun () -> xs.Xs.rm (vnc_pid_path domid))
+		| None -> ()
 
 end
 
@@ -1324,11 +1364,38 @@ let write_logfile_to_log domid =
 
 let unlink_logfile domid = Unix.unlink (logfile domid)
 
-(* Where qemu writes its port number *)
-let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
+(* Where qemu-dm-wrapper writes its pid *)
+let qemu_pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
 
 (* Where qemu writes its state and is signalled *)
 let device_model_path domid = sprintf "/local/domain/0/device-model/%d" domid
+
+let pid ~xs domid =
+	try
+		let pid = xs.Xs.read (qemu_pid_path domid) in
+		Some (int_of_string pid)
+	with _ ->
+		None
+
+let is_qemu_running ~xs domid =
+	match pid ~xs domid with
+		| None -> false
+		| Some p ->
+			try
+				Unix.kill p 0;
+				true
+			with _ -> false
+
+let get_vnc_port ~xs domid =
+	if not (is_qemu_running ~xs domid)
+	then None
+	else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+
+let get_tc_port ~xs domid =
+	if not (is_qemu_running ~xs domid)
+	then None
+	else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
+
 
 (* Xenclient specific paths *)
 let power_mgmt_path domid = sprintf "/local/domain/0/device-model/%d/xen_extended_power_mgmt" domid
@@ -1389,6 +1456,7 @@ let get_state ~xs domid =
 
 (* Returns the allocated vnc port number *)
 let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
+	debug "Device.Dm.start domid=%d" domid;
 	let usb' =
 		if info.usb = [] then
 			[]
@@ -1449,11 +1517,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		    (["-intel"] @ vga_type_opts @ dom0_input_opts), false
 	in
 
-	let xenclient_specific_options = 
-	  if info.xenclient_enabled 
-	  then xenclient_specific ~xs info domid
-	  else [] 
-	in
+	let xenclient_specific_options = xenclient_specific ~xs info domid in
 
 	let l = [ string_of_int domid; (* absorbed by qemu-dm-wrapper *)
 		  log;                 (* absorbed by qemu-dm-wrapper *)
@@ -1508,19 +1572,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	end;
 		
 	(* At this point we expect qemu to outlive us; we will never call waitpid *)	
-	Forkhelpers.dontwaitpid pid;
-
-	(* Block waiting for it to write the VNC port into the store *)
-	if wait_for_port then (
-		try
-			let port = Watch.wait_for ~xs (Watch.value_to_appear (vnc_port_path domid)) in
-			debug "qemu-dm: wrote vnc port %s into the store" port;
-			int_of_string port
-		with Watch.Timeout _ ->
-			warn "qemu-dm: Timed out waiting for qemu's VNC server to start";
-			raise (Ioemu_failed (Printf.sprintf "The qemu-dm process (pid %d) failed to write a vnc port" qemu_pid)) 
-	) else
-		(-1)	
+	Forkhelpers.dontwaitpid pid
 
 let start ~xs ~dmpath ?timeout info domid = __start ~xs ~restore:false ~dmpath ?timeout info domid
 let restore ~xs ~dmpath ?timeout info domid = __start ~xs ~restore:true ~dmpath ?timeout info domid
@@ -1533,95 +1585,42 @@ let resume ~xs domid =
 
 (* Called by every domain destroy, even non-HVM *)
 let stop ~xs domid  =
-	let qemu_pid_path = sprintf "/local/domain/%d/qemu-pid" domid in
-	let qemu_pid =
-		try int_of_string (xs.Xs.read qemu_pid_path)
-		with _ -> 0 in
-	if qemu_pid = 0
-	then debug "No qemu-dm pid in xenstore; assuming this domain was PV"
-	else begin
-		debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
+	let qemu_pid_path = qemu_pid_path domid in
+	match (pid ~xs domid) with
+		| None -> () (* nothing to do *)
+		| Some qemu_pid ->
+			debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
 
-		(* Note that we consider ioemu to be dead if either the pid has gone altogether
-		   OR in the very unlikely event that the pid has been recycled by a process
-		   with a different /proc/cmdline *)
-
-	        (* Note that we cannot do a waitpid here, since we're not parent of
-		   the ioemu process. But posix mandates kill(pid, 0) to be 
-		   a noop with error reporting. *)
-		let pid_exists pid =
-		  try
-		    Unix.kill qemu_pid 0; true
-		  with Unix.Unix_error(Unix.ESRCH, _, _) -> false
-		in
-		let readcmdline pid =
-		  try
-		    match Unixext.string_of_file (sprintf "/proc/%d/cmdline" pid) with
-		    | "" -> None (* CA-27800: proc/cmdline returns empty strings during _exit() *)
-		    | x -> Some x
-		  with e -> None in
-
-		(* CA-32284: make sure we clean up after all exceptions *)
-		finally
-		(fun () ->
-		if pid_exists qemu_pid then (
-			let loop_time_waiting = 0.03 in
-			let left = ref qemu_dm_shutdown_timeout in
-
-			let reference = readcmdline qemu_pid and quit = ref false in
-			if get_state ~xs domid = Some "paused" then begin
-				debug "qemu-dm: process is paused so sending signal now (domid %d pid %d)" domid qemu_pid;
-				resume ~xs domid;
-			end;
-
-			debug "qemu-dm: process is alive so sending signal now (domid %d pid %d)" domid qemu_pid;
-			Unix.kill qemu_pid Sys.sigterm;
-
-			while pid_exists qemu_pid && not !quit && !left > 0.
-			do
-				let cmdline = readcmdline qemu_pid in
-				quit := cmdline <> None && cmdline <> reference;
-				if !quit then debug "qemu-dm: /proc/%d/cmdline has changed; assuming qemu-dm has gone away" qemu_pid
-				else begin
-				  Unix.kill qemu_pid Sys.sigterm;
-				  (* sleep *)
-				  ignore (Unix.select [] [] [] loop_time_waiting);
-				  left := !left -. loop_time_waiting
-				end
-			done;
-			if !left <= 0. then begin
-				debug  "qemu-dm: failed to go away %f seconds after receiving signal (domid %d pid %d)" qemu_dm_shutdown_timeout domid qemu_pid;
-				raise Ioemu_failed_dying
-			end;
-			(try xs.Xs.rm qemu_pid_path with _ -> ());
+			let open Generic in
+			best_effort "killing qemu-dm"
+				(fun () -> really_kill qemu_pid);
+			best_effort "removing qemu-pid from xenstore"
+				(fun () -> xs.Xs.rm qemu_pid_path);
 			(* best effort to delete the qemu chroot dir; we deliberately want this to fail if the dir is not empty cos it may contain
 			   core files that bugtool will pick up; the xapi init script cleans out this directory with "rm -rf" on boot *)
-			(try Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)) with _ -> ()); failwith "crazy fool"
-		);
-		) 
-		(fun () ->
-		(try xs.Xs.rm (device_model_path domid) with _ -> ());
-
-		(* Even if it's already dead (especially if it's already dead!) inspect the logfile *)
-		begin try write_logfile_to_log domid
-		with _ ->
-			debug "qemu-dm: error reading stdout/stderr logfile (domid %d pid %d)" domid qemu_pid;
-		end;
-		begin try unlink_logfile domid
-		with _ ->
-			debug "qemu-dm: error unlinking stdout/stderr logfile (domid %d pid %d), already gone?" domid qemu_pid
-		end
-		  )
-	end
+			best_effort "removing core files from /var/xen/qemu"
+				(fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
+			best_effort "removing device model path from xenstore"
+				(fun () -> xs.Xs.rm (device_model_path domid));
+			best_effort "incorporating qemu-dm logfile"
+				(fun () -> write_logfile_to_log domid);
+			best_effort "unlinking logfile"
+				(fun () -> unlink_logfile domid)
 
 end
 
-let vnc_port_path ~xc ~xs domid = 
-  if (Xc.domain_getinfo xc domid).Xc.hvm_guest
-  then Dm.vnc_port_path domid
-  else PV_Vnc.vnc_port_path domid
+let get_vnc_port ~xs domid = 
+	(* Check whether a qemu exists for this domain *)
+	let qemu_exists = Dm.is_qemu_running ~xs domid in
+	if qemu_exists
+	then Dm.get_vnc_port ~xs domid
+	else PV_Vnc.get_vnc_port ~xs domid
 
-let vnc_port_path ~xc ~xs domid = 
-  if (Xc.domain_getinfo xc domid).Xc.hvm_guest
-  then Dm.vnc_port_path domid
-  else PV_Vnc.vnc_port_path domid
+let get_tc_port ~xs domid = 
+	(* Check whether a qemu exists for this domain *)
+	let qemu_exists = Dm.is_qemu_running ~xs domid in
+	if qemu_exists
+	then Dm.get_tc_port ~xs domid
+	else PV_Vnc.get_tc_port ~xs domid
+
+

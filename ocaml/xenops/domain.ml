@@ -309,6 +309,8 @@ let destroy ?(preserve_xs_vm=false) ~xc ~xs domid =
 
 	log_exn_continue "Error stoping device-model, already dead ?"
 	                 (fun () -> Device.Dm.stop ~xs domid) ();
+	log_exn_continue "Error stoping vncterm, already dead ?"
+	                 (fun () -> Device.PV_Vnc.stop ~xs domid) ();
 
 	(* Forcibly shutdown every backend *)
 	List.iter 

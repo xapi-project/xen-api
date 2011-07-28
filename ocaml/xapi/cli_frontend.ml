@@ -1046,6 +1046,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[Standard;Vm_selectors];
    };
 
+   "console",
+   {
+     reqd=[];
+     optn=[];
+     help="Attach to a particular console.";
+	 implementation= With_fd Cli_operations.console;
+	 flags=[Hidden; Vm_selectors];
+   };
+
    "vm-start",
    {
      reqd=[];
