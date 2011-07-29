@@ -75,15 +75,16 @@ let http_500_internal_error ?(version="1.0") () =
     "Cache-Control: no-cache, no-store" ]
 
 module Hdr = struct
-	let task_id = "Task-id"
-	let subtask_of = "Subtask-of"
-	let content_type = "Content-Type"
-	let content_length = "Content-Length"
-	let user_agent = "User-Agent"
-	let cookie = "Cookie"
-	let transfer_encoding = "Transfer-encoding"
-	let authorization = "Authorization"
-	let connection = "Connection"
+	let task_id = "task-id"
+	let subtask_of = "subtask-of"
+	let content_type = "content-type"
+	let content_length = "content-length"
+	let user_agent = "user-agent"
+	let cookie = "cookie"
+	let transfer_encoding = "transfer-encoding"
+	let authorization = "authorization"
+	let connection = "connection"
+	let header_len = "hdr"
 end
 
 let output_http fd headers =
@@ -168,6 +169,102 @@ let string_of_method_t = function
   | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
 let method_t_of_string = function
   | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
+
+module Scanner = struct
+	type t = {
+		marker: string;
+		mutable i: int;
+	}
+	let make x = { marker = x; i = 0 }
+	let input x c =
+		if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
+	let remaining x = String.length x.marker - x.i
+	let matched x = x.i = String.length x.marker
+	let to_string x = Printf.sprintf "%d" x.i
+end
+
+let end_of_headers = "\r\n\r\n"
+
+let header_len_header = Printf.sprintf "\r\n%s:" Hdr.header_len
+
+let header_len_value_len = 5
+
+let read_up_to buf already_read marker fd =
+	let marker = Scanner.make marker in
+	let hl_marker = Scanner.make header_len_header in
+	let b = ref 0 in (* next free byte in [buf] *)
+
+	let header_len = ref None in
+	let header_len_value_at = ref None in
+	while not(Scanner.matched marker) do
+		let safe_to_read = match !header_len_value_at, !header_len with
+			| None, None -> Scanner.remaining marker
+			| Some x, None -> header_len_value_len - (!b - x)
+			| _, Some l -> l - !b in
+(*
+		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read; 
+		flush stderr;
+*)
+		let n =
+			if !b < already_read
+			then min safe_to_read (already_read - !b)
+			else Unix.read fd buf !b safe_to_read in
+		if n = 0 then raise End_of_file;
+(*
+		Printf.fprintf stderr "  n = %d\n" n;
+		flush stderr;
+*)
+		for j = 0 to n - 1 do
+(*
+			Printf.fprintf stderr "b = %d; marker = %s; n = %d; j = %d\n" !b (Scanner.to_string marker) n j;
+			flush stderr;
+*)
+			Scanner.input marker buf.[!b + j];
+			if !header_len_value_at = None then begin
+				Scanner.input hl_marker buf.[!b + j];
+				if Scanner.matched hl_marker then begin
+					header_len_value_at := Some(!b + j + 1);
+(*
+					Printf.fprintf stderr "header_len_value_at = %d\n" (!b + j + 1);
+					flush stderr
+*)
+				end
+			end
+		done;
+		b := !b + n;
+(*
+		Printf.fprintf stderr "b = %d\n" !b;
+		flush stderr;
+*)
+		match !header_len_value_at with
+			| Some x when x + header_len_value_len <= !b ->
+				(* We can now read the header len header *)
+				let hlv = String.sub buf x header_len_value_len in
+(*
+				Printf.fprintf stderr "hlvn=[%s]" hlv;
+				flush stderr;
+*)
+				header_len := Some (int_of_string hlv);
+			| _ -> ()
+	done;
+	!b
+
+let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
+
+let read_http_request_header buf fd =
+	let smallest_request = "GET / HTTP/1.0\r\n\r\n" in
+	Unixext.really_read fd buf 0 (String.length smallest_request);
+	read_up_to buf (String.length smallest_request) end_of_headers fd
+
+let read_http_response_header buf fd =
+	let smallest_response = "HTTP/1.0 200 OK\r\n\r\n" in
+	Unixext.really_read fd buf 0 (String.length smallest_response);
+	read_up_to buf (String.length smallest_response) end_of_headers fd
+
+let add_header_len hl =
+	let hl_len = String.length Hdr.header_len + 1 + header_len_value_len + 2 in
+	let header_len = List.fold_left (+) 0 (List.map (fun x -> String.length x + 2) hl) + hl_len in
+	List.hd hl :: (Printf.sprintf "%s:%05d" Hdr.header_len header_len) :: (List.tl hl)
 
 module Request = struct
 	type t = {
@@ -276,7 +373,9 @@ module Request = struct
 		let x = match x.body with
 			| None -> x
 			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
-		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") (to_header_list x @ [""])) in
+		let hl = to_header_list x @ [""] in
+		let hl = add_header_len hl in
+		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
 		let body = Opt.default "" x.body in
 		headers ^ body
 
@@ -292,6 +391,17 @@ module Response = struct
 		additional_headers: (string*string) list;
 		body: string option;
 	}
+
+	let empty = {
+		version = "1.0";
+		code = "500";
+		message = "Empty response";
+		content_length = Some 0L;
+		task = None;
+		additional_headers = [];
+		body = None
+	}
+
 	let to_string x =
 		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
 		Printf.sprintf "{ version = %s; code = %s; message = %s; content_length = %s; task = %s; additional_headers = [ %s ] }"
@@ -332,7 +442,9 @@ module Response = struct
 		let x = match x.body with
 			| None -> x
 			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
-		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") (to_header_list x @ [""])) in
+		let hl = to_header_list x @ [""] in
+		let hl = add_header_len hl in
+		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
 		let body = Opt.default "" x.body in
 		headers ^ body
 end

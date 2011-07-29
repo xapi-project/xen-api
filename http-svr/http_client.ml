@@ -68,8 +68,7 @@ let input_line_fd (fd: Unix.file_descr) =
 	with
 	| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset
 
-(** [response_of_fd_exn fd] returns an Http.Response.t object, or throws an exception *)
-let response_of_fd_exn fd =
+let response_of_fd_exn_slow fd =
 	let task_id = ref None in
 	let content_length = ref None in
 
@@ -112,10 +111,44 @@ let response_of_fd_exn fd =
 			error "Failed to parse HTTP response status line [%s]" line;
 			raise (Parse_error (Printf.sprintf "Expected initial header [%s]" line))
 
+(** [response_of_fd_exn fd] returns an Http.Response.t object, or throws an exception *)
+let response_of_fd_exn fd =
+	let buf = String.create 1024 in
+	let b = Http.read_http_response_header buf fd in
+	let buf = String.sub buf 0 b in
+
+	let open Http.Response in
+	snd(List.fold_left
+		(fun (status, res) header ->
+			if not status then begin
+				match String.split ~limit:3 ' ' header with
+					| [ http_version; c; rest ] ->
+						begin match String.split ~limit:2 '/' http_version with
+							| [ "HTTP"; version ] -> 
+								true, { res with version = version; code = c; message = rest }
+							| _ ->
+								error "Failed to parse HTTP response status line [%s]" header;
+								raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version))
+						end
+					| _ -> raise (Parse_error (Printf.sprintf "Failed to parse %s" header))
+			end else begin
+				match String.split ~limit:2 ':' header with
+					| [ k; v ] ->
+						let k = String.lowercase k in
+						let v = String.strip String.isspace v in
+						true, begin match k with
+							| k when k = Http.Hdr.task_id -> { res with task = Some v }
+							| k when k = Http.Hdr.content_length -> { res with content_length = Some (Int64.of_string v) }
+							| k -> { res with additional_headers = (k, v) :: res.additional_headers }
+						end
+					| _ -> true, res (* end of headers? *)
+			end
+		) (false, empty) (String.split '\n' buf))
+
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
 let response_of_fd fd =
 	try
-		Some (response_of_fd_exn fd)
+		Some (response_of_fd_exn_slow fd)
 	with _ -> None
 
 (** See perftest/tests.ml *)
@@ -130,13 +163,14 @@ let http_rpc_recv_response error_msg fd =
 				| "200" ->
 					Opt.iter (fun x -> last_content_length := x) response.Http.Response.content_length;
 					response
-				| _ -> raise (Http_request_rejected error_msg)
+				| code -> raise (Http_request_rejected (Printf.sprintf "%s: %s" code error_msg))
 			end
 
 (** [rpc request f] marshals the HTTP request represented by [request] and [body]
     and then parses the response. On success, [f] is called with an HTTP response record.
     On failure an exception is thrown. *)
 let rpc (fd: Unix.file_descr) request f =
+(*	Printf.printf "request = [%s]" (Http.Request.to_wire_string request);*)
 	http_rpc_send_query fd request;
 	f (http_rpc_recv_response (Http.Request.to_string request) fd) fd
 

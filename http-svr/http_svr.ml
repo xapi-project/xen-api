@@ -37,35 +37,32 @@ module D = Debug.Debugger(struct let name="http" end)
 module DCritical = Debug.Debugger(struct let name="http_critical" end)
 open D
 
-
 type uri_path = string 
 let make_uri_path x = x
 
+module Stats = struct
+	(** Record of statistics per-handler *)
+
+	type t = {
+		mutable n_requests: int; (** successful requests *)
+		mutable n_connections: int; (** closed connections *)
+	}
+	let empty () = {
+		n_requests = 0;
+		n_connections = 0;
+	}
+	let update (x: t) (m: Mutex.t) new_connection =
+		Threadext.Mutex.execute m
+			(fun () ->
+				x.n_requests <- x.n_requests + 1;
+				if new_connection then x.n_connections <- x.n_connections + 1
+			)
+end
+
 (** Type of a function which can handle a Request.t *)
-type bufio_req_handler = Request.t -> Buf_io.t -> unit
-type fdio_req_handler = Request.t -> Unix.file_descr -> unit
-type req_handler =
-	| BufIO of bufio_req_handler
-	| FdIO of fdio_req_handler
-
-(* One table per HTTP method *)
-let connect_handler_table : (uri_path, req_handler) Hashtbl.t = Hashtbl.create 3
-let get_handler_table : (uri_path, req_handler) Hashtbl.t = Hashtbl.create 3
-let post_handler_table : (uri_path, req_handler) Hashtbl.t = Hashtbl.create 3
-let put_handler_table : (uri_path, req_handler) Hashtbl.t = Hashtbl.create 3
-    
-let handler_table = function
-    | Get -> get_handler_table 
-    | Post -> post_handler_table
-    | Put -> put_handler_table
-    | Connect -> connect_handler_table
-    | x -> failwith (Printf.sprintf "No handler table for HTTP method %s" (Http.string_of_method_t x))
-
-let add_handler ty uri handler = 
-  let table = handler_table ty in
-  if Hashtbl.mem table uri 
-  then failwith (Printf.sprintf "Handler for URI: %s already registered" uri)
-  else Hashtbl.add table uri handler
+type handler =
+	| BufIO of (Http.Request.t -> Buf_io.t -> unit)
+	| FdIO of (Http.Request.t -> Unix.file_descr -> unit)
 
 (* try and do f (unit -> unit), ignore exceptions *)
 let best_effort f =
@@ -141,15 +138,64 @@ let default_callback req bio =
   response_forbidden (Buf_io.fd_of bio);
   req.Request.close <- true
     
+let default_stats = Stats.empty ()
+let default_stats_m = Mutex.create ()
+
+
+module TE = struct
+	type t = {
+		stats: Stats.t;
+		stats_m: Mutex.t;
+		handler: handler
+	}
+	let empty () = {
+		stats = Stats.empty ();
+		stats_m = Mutex.create ();
+		handler = BufIO default_callback;
+	}
+end
+
+let stats_of_table t = Radix_tree.fold (fun _ te acc -> te.TE.stats :: acc) [] t
+
+module MethodMap = Map.Make(struct type t = Http.method_t let compare = compare end)
+
+module Server = struct
+	type t = {
+		mutable handlers: TE.t Radix_tree.t MethodMap.t;
+	}
+
+	let empty = {
+		handlers = MethodMap.empty;
+	}
+
+	let add_handler x ty uri handler =
+		let existing =
+			if MethodMap.mem ty x.handlers
+			then MethodMap.find ty x.handlers
+			else Radix_tree.empty in
+		x.handlers <- MethodMap.add ty (Radix_tree.insert uri { TE.empty () with TE.handler = handler } existing) x.handlers
+
+	let find_stats x m uri =
+		if not (MethodMap.mem m x.handlers)
+		then None
+		else
+			let rt = MethodMap.find m x.handlers in
+			Opt.map (fun te -> te.TE.stats) (Radix_tree.longest_prefix uri rt)
+
+	let all_stats x =
+		let open Radix_tree in
+		MethodMap.fold (fun m rt acc ->
+			fold (fun k te acc -> (m, k, te.TE.stats) :: acc) acc rt
+		) x.handlers []
+end
+
 let escape uri =
        String.escaped ~rules:[ '<', "&lt;"; '>', "&gt;"; '\'', "&apos;"; '"', "&quot;"; '&', "&amp;" ] uri
 
 exception Too_many_headers
 exception Generic_error of string
 
-(** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
-	it simply throws an exception and doesn't touch the output stream. *)
-let request_of_bio_exn ic =
+let request_of_bio_exn_slow ic =
     (* Try to keep the connection open for a while to prevent spurious End_of_file type 
 	   problems under load *)
 	let initial_timeout = 5. *. 60. in
@@ -218,12 +264,65 @@ let request_of_bio_exn ic =
 		additional_headers = headers;
 	}
 
+(** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
+	it simply throws an exception and doesn't touch the output stream. *)
+
+let request_of_bio_exn bio =
+	let fd = Buf_io.fd_of bio in
+
+	let buf = String.create 1024 in
+	let b = Http.read_http_request_header buf fd in
+	let buf = String.sub buf 0 b in
+(*
+	Printf.printf "parsed = [%s]\n" buf;
+	flush stdout;
+*)
+	let open Http.Request in
+	snd(List.fold_left
+		(fun (status, req) header ->
+			if not status then begin
+				match String.split ~limit:3 ' ' header with
+					| [ meth; uri; version ] ->
+						let m = Http.method_t_of_string meth in
+						let prefix = "HTTP/" in
+						let http_ver = String.sub version (String.length prefix) (String.length version - (String.length prefix)) in
+						let close = version = "1.0" in
+						true, { req with m = m; uri = uri; version = http_ver; close = close }
+					| _ -> raise Http_parse_failure
+			end else begin
+				match String.split ~limit:2 ':' header with
+					| [ k; v ] ->
+						let k = String.lowercase k in
+						let v = String.strip String.isspace v in
+						true, begin match k with
+							| k when k = Http.Hdr.content_length -> { req with content_length = Some (Int64.of_string v) }
+							| k when k = Http.Hdr.cookie -> { req with cookie = Http.parse_keyvalpairs v }
+							| k when k = Http.Hdr.transfer_encoding -> { req with transfer_encoding = Some v }
+							| k when k = Http.Hdr.authorization -> { req with auth = Some(authorization_of_string v) }
+							| k when k = Http.Hdr.task_id -> { req with task = Some v }
+							| k when k = Http.Hdr.subtask_of -> { req with subtask_of = Some v }
+							| k when k = Http.Hdr.content_type -> { req with content_type = Some v }
+							| k when k = Http.Hdr.user_agent -> { req with user_agent = Some v }
+							| k when k = Http.Hdr.connection && String.lowercase v = "close" -> { req with close = true }
+							| k when k = Http.Hdr.connection && String.lowercase v = "keep-alive" -> { req with close = false }
+							| _ -> { req with additional_headers = (k, v) :: req.additional_headers }
+						end
+					| _ -> true, req (* end of headers *)
+			end
+		) (false, empty) (String.split '\n' buf))
+
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
 	already sent back a suitable error code and response to the client. *)
 let request_of_bio ic =
 	try
-		Some (request_of_bio_exn ic)
+		let r = request_of_bio_exn_slow ic in
+(*
+		Printf.fprintf stderr "Parsed [%s]\n" (Http.Request.to_wire_string r);
+		flush stderr;
+*)
+		Some r
 	with e ->
+		Printf.fprintf stderr "%s" (Printexc.to_string e);
 		best_effort (fun () ->
 			let ss = Buf_io.fd_of ic in
 			match e with
@@ -261,7 +360,7 @@ let request_of_bio ic =
 		);
 		None
 
-let handle_connection _ ss =
+let handle_connection (x: Server.t) _ ss =
 	let ic = Buf_io.of_fd ss in
 	let finished = ref false in
 	let reqno = ref 0 in
@@ -277,26 +376,18 @@ let handle_connection _ ss =
 			(fun req ->
 				try
 					D.debug "Request %s" (Http.Request.to_string req);
-					let table = handler_table req.Request.m in
-					(* Find a specific handler: the last one whose URI is a prefix of the received
-					   URI defaulting to 'default_callback' if none can be found *)
-					let uris = Hashtbl.fold (fun k v a -> k::a) table [] in
-					let uris = List.sort (fun a b -> compare (String.length b) (String.length a)) uris in
-					let handlerfn =
-						try
-							let longest_match = List.find (fun uri -> String.startswith uri req.Request.uri) uris in
-							Hashtbl.find table longest_match
-						with
-								_ -> BufIO (default_callback)
-					in
-					(match handlerfn with
+					let te = Opt.default
+						(TE.empty ())
+						(Radix_tree.longest_prefix req.Request.uri (MethodMap.find req.Request.m x.Server.handlers)) in
+					(match te.TE.handler with
 						| BufIO handlerfn -> handlerfn req ic
 						| FdIO handlerfn ->
 							let fd = Buf_io.fd_of ic in
 							Buf_io.assert_buffer_empty ic;
 							handlerfn req fd
 					);
-					finished := (req.Request.close)
+					finished := (req.Request.close);
+					Stats.update te.TE.stats te.TE.stats_m req.Request.close
 				with e ->
 					finished := true;
 					best_effort (fun () -> match e with
@@ -324,7 +415,7 @@ let handle_connection _ ss =
 	done;
 	Unix.close ss
 
-let bind ?(listen_backlog=128) sockaddr = 
+let bind ?(listen_backlog=128) sockaddr name =
   let domain = match sockaddr with
     | Unix.ADDR_UNIX path ->
 		debug "Establishing Unix domain server on path: %s" path;
@@ -340,41 +431,29 @@ let bind ?(listen_backlog=128) sockaddr =
     (match sockaddr with Unix.ADDR_INET _ -> Unixext.set_tcp_nodelay sock true | _ -> ());
     Unix.bind sock sockaddr;
     Unix.listen sock listen_backlog;
-    sock 
+    sock, name
   with e ->
     debug "Caught exception in Http_svr.bind (closing socket): %s" (Printexc.to_string e);
     Unix.close sock;
     raise e
 
-let http_svr sockets = 
-  (* Fork a thread for each socket, return the list of threads so they may be
-     joined later (potentially). *)
-  List.map
-    (fun (sock,name) ->
-       Thread.create 
-	 (fun () ->
-	    let handler = { Server_io.name = name;
-			    body = handle_connection } in
-	    Server_io.server handler sock) ()) sockets
-
 (* Maps sockets to Server_io.server records *)
-let server_table = Hashtbl.create 10
+let socket_table = Hashtbl.create 10
 
-type server = Unix.file_descr
+type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
-let start (socket, name) : server  = 
+let start (x: Server.t) (socket, name) =
   let handler = { Server_io.name = name;
-		  body = handle_connection } in
+		  body = handle_connection x } in
   let server = Server_io.server handler socket in
-  Hashtbl.add server_table socket server;
-  socket
+  Hashtbl.add socket_table socket server
 
-exception Server_not_found
+exception Socket_not_found
 (* Stop an HTTP server running on a socket *)
-let stop (key: server) = 
-  let server = try Hashtbl.find server_table key with Not_found -> raise Server_not_found in
-  Hashtbl.remove server_table key;
+let stop (socket, name) =
+  let server = try Hashtbl.find socket_table socket with Not_found -> raise Socket_not_found in
+  Hashtbl.remove socket_table socket;
   server.Server_io.shutdown ()
 
 exception Client_requested_size_over_limit
