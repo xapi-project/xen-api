@@ -485,7 +485,9 @@ let enable  ~__context ~host =
   end
 
 let shutdown_and_reboot_common ~__context ~host label description operation cmd =
-  assert_bacon_mode ~__context ~host;
+	if Db.Host.get_enabled ~__context ~self:host
+	then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
+
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Remote_requests.stop_request_thread();
 
