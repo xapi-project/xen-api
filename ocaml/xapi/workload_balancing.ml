@@ -191,15 +191,14 @@ let wlb_body meth params =
   </s:Body>
 </s:Envelope>" meth params meth
 
-let wlb_request host meth len encoded_auth =
+let wlb_request host meth body encoded_auth =
 	let headers = [
 		"SOAPAction", sprintf "\"http://schemas.citrix.com/DWM/IWorkloadBalance/%s\"" meth;
 		"Content-Type", "text/xml; charset=utf-8"; 
 		"Authorization", "Basic " ^ encoded_auth;
 		"Host", host;
-		"Content-Length", (string_of_int len)
 	] in
-	Xapi_http.http_request Http.Post ~headers
+	Xapi_http.http_request Http.Post ~headers ~body
     "/Citrix.Dwm.WorkloadBalance/Service" ~keep_alive:false
 
 let filtered_headers headers =
@@ -273,7 +272,7 @@ let retrieve_inner_xml meth response enable_log=
 (* This function handles the actual network request and deals with any errors relating to the connection *)
 let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log ~timeout_key ~timeout_default =
   let body = wlb_body meth params in
-  let request = wlb_request host meth (String.length body) auth in
+  let request = wlb_request host meth body auth in
   let pool = Helpers.get_pool ~__context in
   let verify_cert = Db.Pool.get_wlb_verify_cert ~__context ~self:pool in
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
