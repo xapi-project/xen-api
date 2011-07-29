@@ -418,6 +418,9 @@ module Reboot = struct
 	 debug "Setting boot record";
 	 Helpers.set_boot_record ~__context ~self:vm new_snapshot;
 
+	 (* Invoke pre-reboot hook *)
+	 Xapi_hooks.vm_pre_reboot ~__context ~reason:Xapi_hooks.reason__none ~vm;
+
          debug "%s phase 2/3: starting new domain" api_call_name;
 	 begin
 	   try
