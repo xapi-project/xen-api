@@ -18,6 +18,7 @@ open D
 let scriptname__vm_pre_destroy  = "vm-pre-shutdown"
 let scriptname__vm_pre_migrate  = "vm-pre-migrate"
 let scriptname__vm_pre_start    = "vm-pre-start"
+let scriptname__vm_pre_reboot   = "vm-pre-reboot"
 let scriptname__vm_post_destroy  = "vm-post-destroy"
 
 (* VM Script hook reason codes *)
@@ -95,6 +96,8 @@ let vm_pre_migrate ~__context ~reason ~vm =
   execute_vm_hook ~__context ~script_name:scriptname__vm_pre_migrate ~reason ~vm
 let vm_pre_start ~__context ~reason ~vm =
   execute_vm_hook ~__context ~script_name:scriptname__vm_pre_start ~reason ~vm
+let vm_pre_reboot ~__context ~reason ~vm =
+  execute_vm_hook ~__context ~script_name:scriptname__vm_pre_reboot ~reason ~vm
 let vm_post_destroy ~__context ~reason ~vm =
   execute_vm_hook ~__context ~script_name:scriptname__vm_post_destroy ~reason ~vm
 
