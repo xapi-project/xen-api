@@ -261,10 +261,15 @@ static void configure_vcpus(xc_interface *xch, int domid, struct flags f){
   }
 
   r = xc_sched_credit_domain_get(xch, domid, &sdom);
-      if (r)
-    failwith_oss_xc(xch, "xc_sched_credit_domain_get");
+  /* This should only happen when a different scheduler is set */
+  if (r) {
+	syslog(LOG_WARNING|LOG_DAEMON, "Failed to get credit scheduler parameters: scheduler not enabled?");
+	return;
+  }
   if (f.vcpu_weight != 0L) sdom.weight = f.vcpu_weight;
   if (f.vcpu_cap != 0L) sdom.cap = f.vcpu_cap;
+  /* This shouldn't fail, if "get" above succeeds. This error is fatal
+	 to highlight the need to investigate further. */
   r = xc_sched_credit_domain_set(xch, domid, &sdom);
   if (r)
     failwith_oss_xc(xch, "xc_sched_credit_domain_set");
