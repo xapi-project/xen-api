@@ -575,7 +575,10 @@ let rec unplug ~__context ~self =
 		let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
 		unplug ~__context ~self:access_PIF
 	end;
-	Nm.bring_pif_down ~__context self
+	Nm.bring_pif_down ~__context self;
+	mark_pif_as_dirty
+		(Db.PIF.get_device ~__context ~self)
+		(-1L)
 
 let rec plug ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
@@ -596,7 +599,10 @@ let rec plug ~__context ~self =
 			plug ~__context ~self:transport_PIF
 		end
 	end;
-	Xapi_network.attach ~__context ~network ~host
+	Xapi_network.attach ~__context ~network ~host;
+	mark_pif_as_dirty
+		(Db.PIF.get_device ~__context ~self)
+		(-1L)
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
