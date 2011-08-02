@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2006-2008 Citrix Systems.
+# Copyright (c) Citrix Systems.
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -13,11 +13,14 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# Take all running VMS on a host, if force is not passed then those
-# which advertise a clean_shutdown capability are clean_shutdown'ed
-# and waited for on a timeout.
+# Prepare to shutdown a host by:
+# 1. attempting to evacuate running VMs to other hosts
+# 2. remaining VMs are shutdown cleanly
+# 3. remaining VMs are shutdown forcibly
 #
-# If force is passed than all VMS are hard_shutdown'ed.
+# Step (1) and (2) can be skipped if the "force" option is specified.
+# Clean shutdown attempts are run in parallel and are cancelled on
+# timeout.
 
 import sys, time
 import signal
@@ -57,20 +60,21 @@ def task_is_pending(session, task):
     except:
         return false
 
-# returns true if all tasks are nolonger pending (ie success/failure/cancelled)
-# and false if a timeout occurs
 def wait_for_tasks(session, tasks, timeout):
+    """returns true if all tasks are nolonger pending (ie success/failure/cancelled)
+    and false if a timeout occurs"""
     finished = False
     start = time.time ()
     while not(finished) and ((time.time () - start) < timeout):
         finished = True
-        for (task,_) in tasks:
+        for task in tasks:
             if task_is_pending(session, task):
                 finished = False
         time.sleep(1)        
     return finished
 
 def get_running_domains(session, host):
+    """Return a list of (vm, record) pairs for all VMs running on the given host"""
     vms = []
     for vm in session.xenapi.host.get_resident_VMs(host):
         record = session.xenapi.VM.get_record(vm)
@@ -78,52 +82,111 @@ def get_running_domains(session, host):
             vms.append((vm,record))
     return vms
 
+def host_evacuate(session, host):
+    """Attempts a host evacuate. If the timeout expires then it attempts to cancel
+    any in-progress tasks it can find."""
+    rc = 0
+    print "\n  Requesting evacuation of host",
+    sys.stdout.flush()
+    task = session.xenapi.Async.host.evacuate(host)
+    try:
+        if not(wait_for_tasks(session, [ task ], 240)):
+            print "\n  Cancelling evacuation of host",
+            sys.stdout.flush()
+            session.xenapi.task.cancel(task)
+            for vm, record in get_running_domains(session, host):
+                current = record["current_operations"]
+                for t in current.keys():
+                    try:
+                        print "\n  Cancelling operation on VM: %s" % record["name_label"],
+                        sys.stdout.flush()
+                        session.xenapi.task.cancel(t)
+                    except:
+                        print "Failed to cancel task: %s" % t,
+                        sys.stdout.flush()
+    finally:
+        session.xenapi.task.destroy(task)
+        return rc
+
+def parallel_clean_shutdown(session, vms):
+    """Performs a parallel VM.clean_shutdown of all running VMs on a given host.
+    If the timeout expires then any in-progress tasks are cancelled."""
+    tasks = []
+    rc = 0
+
+    try:
+        for vm,record in vms:
+            if not "clean_shutdown" in record["allowed_operations"]:
+                continue
+
+            print "\n  Requesting clean shutdown of VM: %s" % (record["name_label"]),
+            sys.stdout.flush()
+            task = session.xenapi.Async.VM.clean_shutdown(vm)
+            tasks.append((task,vm,record))
+
+        if tasks == []:
+            return 0
+
+        if not(wait_for_tasks(session, map(lambda x:x[0], tasks), 60)):
+            # Cancel any remaining tasks.
+            for (task,_,record) in tasks:
+                try:
+                    if task_is_pending(session, task):
+                        print "\n  Cancelling clean shutdown of VM: %s" % (record["name_label"]),
+                        sys.stdout.flush()
+                        session.xenapi.task.cancel(task)
+                except:
+                    pass
+
+        if not(wait_for_tasks(session, map(lambda x:x[0], tasks), 60)):
+            for (_,vm,_) in tasks:
+                if session.xenapi.VM.get_power_state(vm) == "Running":
+                    rc = rc + 1
+
+    finally:
+        for (task,_,_) in tasks:
+            session.xenapi.task.destroy(task)
+        return rc
+
+def serial_hard_shutdown(session, vms):
+    """Performs a serial VM.hard_shutdown of all running VMs on a given host."""
+    rc = 0
+    try:
+        for (vm,record) in vms:
+            print "\n  Requesting hard shutdown of VM: %s" % (record["name_label"]),
+            sys.stdout.flush()
+
+            try:
+                session.xenapi.VM.hard_shutdown(vm)
+            except:
+                print "\n  Failure performing hard shutdown of VM: %s" % (record["name_label"]),
+                rc = rc + 1
+    finally:
+        return rc
+
 def main(session, host_uuid, force):
     rc = 0
     host = session.xenapi.host.get_by_uuid(host_uuid)
 
     if not force:
+        # VMs which can't be evacuated should be shutdown first
+        vms = []
+        for vm in session.xenapi.host.get_vms_which_prevent_evacuation(host).keys():
+            r = session.xenapi.VM.get_record(vm)
+            print "\n  VM %s cannot be evacuated" % r["name_label"],
+            sys.stdout.flush()
+            vms.append((vm, r))
+        rc = rc + parallel_clean_shutdown(session, vms)
+        vms = filter(lambda (vm, _): session.xenapi.VM.get_power_state(vm) == "Running", vms)
+        rc = rc + serial_hard_shutdown(session, vms)
 
-        tasks = []
-        
-        try:
-            for vm,record in get_running_domains(session, host):
-                if not "clean_shutdown" in record["allowed_operations"]:
-                    continue
-                
-                print "\n  * %s" % (record["name_label"]),
-                task = session.xenapi.Async.VM.clean_shutdown(vm)
-                tasks.append((task,vm))
+        # VMs which can be evacuated should be evacuated
+        rc = rc + host_evacuate(session, host)
 
-            if tasks == []:
-                return 0
-
-            if not(wait_for_tasks(session, tasks, 60)):
-                # Cancel any remaining tasks.
-                for (task,_) in tasks:
-                    try:
-                        if task_is_pending(session, task):
-                            session.xenapi.task.cancel(task)
-                    except:
-                        pass
-
-            if not(wait_for_tasks(session, tasks, 60)):
-                for (_,vm) in tasks:
-                    if session.xenapi.VM.get_power_state(vm) == "Running":
-                        rc = rc + 1
-                        
-        finally:
-            for (task,_) in tasks:
-                session.xenapi.task.destroy(task)
+        # Any remaining VMs should be shutdown
+        rc = rc + parallel_clean_shutdown(session, get_running_domains(session, host))
     else:
-        for (vm,record) in get_running_domains(session, host):
-            print "\n  * %s" % (record["name_label"]),
-        
-            try:
-                session.xenapi.VM.hard_shutdown(vm)
-            except:
-                rc = rc + 1
-
+        rc = rc + serial_hard_shutdown(session, get_running_domains(session, host))
     return rc
 
 if __name__ == "__main__":
@@ -153,8 +216,13 @@ if __name__ == "__main__":
         print 'Failed to connect to master.'
         sys.exit(2)
         
+    rc = main(session, uuid, force)
+    sys.exit(rc)
     try:
-        rc = main(session, uuid, force)
+        try:
+            rc = main(session, uuid, force)
+        except Exception, e:
+            print "Caught %s" % str(e)
     finally:
         session.xenapi.session.logout()
 

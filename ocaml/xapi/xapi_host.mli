@@ -143,8 +143,8 @@ val query_data_source :
 val forget_data_source_archives :
   __context:'a -> host:'b -> data_source:string -> unit
 val tickle_heartbeat :
-  __context:'a ->
-  host:API.ref_host -> stuff:(string * string) list -> (string * string) list
+  __context:Context.t ->
+  host:API.ref_host -> stuff:(string * string) list -> 'a list
 val create_new_blob :
   __context:Context.t ->
   host:[ `host ] Ref.t -> name:string -> mime_type:string -> [ `blob ] Ref.t
