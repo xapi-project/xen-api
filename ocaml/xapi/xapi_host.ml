@@ -1335,6 +1335,8 @@ let enable_local_storage_caching ~__context ~host ~sr =
 	if (shared=false) && (List.length pbds = 1) && has_required_capability then begin
 		let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
 		if pbd_host <> host then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
+		let old_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
+		if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
 		Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
 		Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
 		Monitor.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr);
