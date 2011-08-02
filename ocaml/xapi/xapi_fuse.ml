@@ -75,6 +75,11 @@ let light_fuse_and_dont_restart ?(fuse_length=Xapi_globs.fuse_time) () =
 	 (fun __context ->
 	    debug "About to set Host.enabled to false";
 	    let localhost = Helpers.get_localhost ~__context in
-	    Db.Host.set_enabled ~__context ~self:localhost ~value:false)
+	    Db.Host.set_enabled ~__context ~self:localhost ~value:false;
+		Helpers.call_api_functions ~__context
+			(fun rpc session_id ->
+				Db_gc.send_one_heartbeat ~__context rpc ~shutting_down:true session_id
+			)
+	 )
     ) ()
 

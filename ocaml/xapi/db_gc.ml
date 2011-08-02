@@ -35,6 +35,7 @@ let host_table_m = Mutex.create ()
 
 let _uncooperative_domains = "uncooperative-domains"
 let _time = "time"
+let _shutting_down = "shutting-down"
 
 let valid_ref x = Db.is_valid_ref x
 
@@ -381,29 +382,37 @@ let detect_rolling_upgrade ~__context =
 
 (* A host has asked to tickle its heartbeat to keep it alive (if we're using that
    mechanism for host liveness). *)
-let tickle_heartbeat ~__context:_ host stuff =
-  (* debug "Tickling heartbeat for host: %s stuff = [ %s ]" (Ref.string_of host) (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) stuff)); *)
+let tickle_heartbeat ~__context host stuff =
+	(* debug "Tickling heartbeat for host: %s stuff = [ %s ]" (Ref.string_of host) (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) stuff)); *)
 
-  Mutex.execute host_table_m 
-    (fun () -> 
-       let now = Unix.gettimeofday () in
-       Hashtbl.replace host_heartbeat_table host now;
-       (* compute the clock skew for later analysis *)
-       if List.mem_assoc _time stuff then begin
-	 try
-	   let slave = float_of_string (List.assoc _time stuff) in
-	   let skew = abs_float (now -. slave) in
-	   Hashtbl.replace host_skew_table host skew
-	 with _ -> ()
-       end;
-       if List.mem_assoc _uncooperative_domains stuff then begin
-	 try
-	   let domains = Stringext.String.split ',' (List.assoc _uncooperative_domains stuff) in
-	   Hashtbl.replace host_uncooperative_domains_table host domains
-	 with _ -> ()
-       end
-    );
-  []
+	Mutex.execute host_table_m 
+		(fun () ->
+			(* When a host is going down it will send a negative heartbeat *)
+			if List.mem_assoc _shutting_down stuff then begin
+				Hashtbl.remove host_skew_table host;
+				Hashtbl.remove host_uncooperative_domains_table host;
+				let reason = Xapi_hooks.reason__clean_shutdown in
+				Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
+			end else begin
+				let now = Unix.gettimeofday () in
+				Hashtbl.replace host_heartbeat_table host now;
+				(* compute the clock skew for later analysis *)
+				if List.mem_assoc _time stuff then begin
+					try
+						let slave = float_of_string (List.assoc _time stuff) in
+						let skew = abs_float (now -. slave) in
+						Hashtbl.replace host_skew_table host skew
+					with _ -> ()
+				end;
+				if List.mem_assoc _uncooperative_domains stuff then begin
+					try
+						let domains = Stringext.String.split ',' (List.assoc _uncooperative_domains stuff) in
+						Hashtbl.replace host_uncooperative_domains_table host domains
+					with _ -> ()
+				end
+			end
+		);
+	[]
 
 let gc_messages ~__context = 
   Xapi_message.gc ~__context
@@ -480,7 +489,7 @@ let start_db_gc_thread() =
 	  done
     ) ()
 
-let send_one_heartbeat ~__context rpc session_id = 
+let send_one_heartbeat ~__context ?(shutting_down=false) rpc session_id = 
   let localhost = Helpers.get_localhost ~__context in
   let time = Unix.gettimeofday () +. (if Xapi_fist.insert_clock_skew () then Xapi_globs.max_clock_skew *. 2. else 0.) in
   (* Transmit the list of uncooperative domains to the master *)
@@ -488,7 +497,9 @@ let send_one_heartbeat ~__context rpc session_id =
 
   let stuff = 
     [ _time, string_of_float time;
-      _uncooperative_domains, String.concat "," uncooperative_domains ] in
+      _uncooperative_domains, String.concat "," uncooperative_domains ]
+	  @ (if shutting_down then [ _shutting_down, "true" ] else [])
+  in
       
   let (_: (string*string) list) = Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff in
   ()
