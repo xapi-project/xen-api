@@ -39,18 +39,28 @@ let valid_operations ~__context record _ref' =
 		 if Hashtbl.find table op = None
 		 then Hashtbl.replace table op (Some(code, params))) ops in
 
-  (* evacuate, reboot and shutdown are all exclusive *)
-  let exclusive : API.host_allowed_operations_set = [ `evacuate; `reboot; `shutdown ] in
-  (* If an exclusive operation is in progress then nothing else may happen
-     except power_on which we handle separately *)
-  if List.fold_left (fun acc op -> acc || (List.mem op exclusive)) false current_ops
+  (* Operations are divided into two groups:
+	 1. those that create new VMs: `provision, `vm_resume, `vm_migrate
+	 2. those that remove VMs: `evacuate, `reboot, `shutdown *)
+  let is_creating_new x = List.mem x [ `provision; `vm_resume; `vm_migrate ] in
+  let is_removing x = List.mem x [ `evacuate; `reboot; `shutdown ] in
+  let creating_new = List.fold_left (fun acc op -> acc || (is_creating_new op)) false current_ops in
+  let removing = List.fold_left (fun acc op -> acc || (is_removing op)) false current_ops in
+  List.iter
+	  (fun op ->
+		  if is_creating_new op && removing || (is_removing op && creating_new)
+		  then set_errors Api_errors.other_operation_in_progress
+			  [ "host"; _ref; host_operation_to_string (List.hd current_ops) ]
+			  [ op ]
+	  ) (List.filter (fun x -> x <> `power_on) all_operations);
+
+  (* reboot and shutdown cannot run concurrently *)
+  if List.mem `reboot current_ops
   then set_errors Api_errors.other_operation_in_progress
-    [ "host"; _ref; host_operation_to_string (List.hd current_ops) ] (List.filter (fun x -> x <> `power_on) all_operations);
-  (* If any operation is in progress then the exclusive ones must be blocked *)
-  if List.length current_ops > 0
+	  [ "host"; _ref; host_operation_to_string `reboot ] [ `shutdown ];
+  if List.mem `shutdown current_ops
   then set_errors Api_errors.other_operation_in_progress
-    [ "host"; _ref; host_operation_to_string (List.hd current_ops) ]
-    exclusive;
+	  [ "host"; _ref; host_operation_to_string `shutdown ] [ `reboot ];
 
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
