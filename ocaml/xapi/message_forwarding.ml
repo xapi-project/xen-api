@@ -2044,8 +2044,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       with_host_operation ~__context ~self:host ~doc:"Host.shutdown" ~op:`shutdown
 	(fun () ->
 	   do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.shutdown rpc session_id host)
-	);
-      Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason:Xapi_hooks.reason__clean_shutdown
+	)
 
     let reboot ~__context ~host =
       info "Host.reboot: host = '%s'" (host_uuid ~__context host);
@@ -2053,8 +2052,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       with_host_operation ~__context ~self:host ~doc:"Host.reboot" ~op:`reboot
 	(fun () ->
 	   do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reboot rpc session_id host)
-	);
-      Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason:Xapi_hooks.reason__clean_reboot
+	)
 
     let power_on ~__context ~host = 
       info "Host.power_on: host = '%s'" (host_uuid ~__context host);
