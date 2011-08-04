@@ -119,6 +119,28 @@ let diagnostic_timing_stats printer rpc session_id params =
 
 	printer (Cli_printer.PTable all)
 
+let diagnostic_net_stats printer rpc session_id params =
+	let all = Http_svr.Server.all_stats Xapi_http.server in
+	let meth (m, _, _) =
+		not (List.mem_assoc "method" params)
+		|| (String.lowercase(Http.string_of_method_t m) = String.lowercase (List.assoc "method" params)) in
+	let uri (_, u, _) =
+		not (List.mem_assoc "uri" params)
+		|| (String.lowercase u = String.lowercase (List.assoc "uri" params)) in
+	let has_param x = not(List.mem_assoc "params" params) || (List.mem x (String.split ',' (List.assoc "params" params))) in
+	let all = List.filter meth (List.filter uri all) in
+	let rows = List.map
+		(fun (m, uri, stats) ->
+			let m' = if has_param "method" then [ Http.string_of_method_t m ] else [] in
+			let uri' = if has_param "uri" then [ uri ] else [] in
+			let requests' = if has_param "requests" then [ string_of_int stats.Http_svr.Stats.n_requests ] else [] in
+			let connections' = if has_param "connections" then [ string_of_int stats.Http_svr.Stats.n_connections ] else [] in
+			m' @ uri' @ requests' @ connections'
+		) all in
+	let widths = Table.compute_col_widths rows in
+	let sll = List.map (List.map2 Table.right widths) rows in
+	List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
+
 let diagnostic_db_stats printer rpc session_id params =
 	let (n,avgtime,min,max) = Db_lock.report () in
 	let (writes,reads,creates,drops,tasks,threads) = Stats.summarise_db_calls () in
