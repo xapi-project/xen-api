@@ -595,11 +595,10 @@ let initialise () =
 	end else info "No storage state is persisted in %s; creating blank database" !host_state_path
 
 module Local_domain_socket = struct
-	(** Code to create a standalone process listening on a Unix domain socket.
-	    WARNING: the http server uses a global table of URI -> handlers so there
-	    is NO WAY to separate the XenAPI handlers from these ones. Therefore
-	    never turn this code on in xapi! *)
-	let server = ref None
+	(** Code to create a standalone process listening on a Unix domain socket. *)
+	let server = Http_svr.Server.empty
+
+	let socket = ref None
 
 	let path = "/var/xapi/storage"
 
@@ -614,14 +613,14 @@ module Local_domain_socket = struct
 		Http_svr.response_str req s str
 
 	let start path process =
+		Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 		Unixext.mkdir_safe (Filename.dirname path) 0o700;
 		Unixext.unlink_safe path;
-		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) in
-		server := Some (Http_svr.start (domain_sock, "unix-RPC"));
-		Http_svr.add_handler Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process))
-
+		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
+		Http_svr.start server domain_sock;
+		socket := Some(domain_sock)
 
 	let shutdown () =
-		Opt.iter Http_svr.stop !server;
-		server := None
+		Opt.iter Http_svr.stop !socket;
+		socket := None
 end
