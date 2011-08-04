@@ -69,7 +69,7 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
 
     if not(String.startswith dir file_path) then begin 
       debug "Rejecting request for file: %s (outside of directory %s)" file_path dir;
-      Http_svr.default_callback req bio
+		Http_svr.response_forbidden ~req s
     end else begin
       let stat = Unix.stat file_path in
       (* if a directory, automatically add index.html *)
