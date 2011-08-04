@@ -91,6 +91,7 @@ let remove_asterisks str =
 				phase := 0;
 				Buffer.add_char res str.[i]
 			end
+		| _ -> failwith "something went wrong!"
 	done;
 	Buffer.contents res
 
@@ -274,9 +275,10 @@ class gen () =
 	| Odoc_info.Index_list -> Leaf "" (* node "index_list" [] *)
 	| Odoc_info.Custom (s,t) ->
 		if s = "{html" then
-			Raw_html (String.concat "" (List.map (fun (Odoc_info.Raw s) -> remove_asterisks s) t))
+			Raw_html (String.concat "" (List.map (function (Odoc_info.Raw s) -> remove_asterisks s | _ -> "") t))
 		else
 			node "div" ~atts:["class", s] (self#t_of_text t)
+	| _ -> failwith "unhandled element!"
 
 	method t_of_Ref name ref_opt =
 		let code = node "span" ~atts:["class", "code"] [Leaf name] in
@@ -524,6 +526,7 @@ class gen () =
 		[ self#t_of_module_kind mk ;
 		  self#t_of_module_type_kind mtk ;
 		]*)
+	| _ -> failwith "unhandled element!"
 
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
