@@ -2037,6 +2037,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.diagnostic_db_stats;
       flags=[Neverforward];
     };
+   "diagnostic-net-stats",
+	{
+		reqd=[];
+		optn=["uri"; "method"; "params"];
+		help="Print network stats.";
+		implementation=No_fd Cli_operations.diagnostic_net_stats;
+		flags=[Neverforward];
+	};
    "diagnostic-db-log",
     {
       reqd=[];

@@ -7,7 +7,7 @@ CFLAGS          += $(XEN_CFLAGS)
 OCAMLPACKS     = threads xc xs stdext log cdrom netdev
 OCAMLFLAGS    += -thread
 
-LIBFILES = xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number
+LIBFILES = table xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number
 
 StaticCLibrary(statdev_stubs, statdev_stubs)
 OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
@@ -15,8 +15,8 @@ OCamlDocLibrary(xenops, $(LIBFILES))
 
 OCAML_LIBS += ../util/version ../idl/ocaml_backend/common xenops
 
-OCamlProgram(list_domains, list_domains table)
-OCamlDocProgram(list_domains, list_domains table)
+OCamlProgram(list_domains, list_domains)
+OCamlDocProgram(list_domains, list_domains)
 OCamlProgram(memory_breakdown, memory_breakdown)
 OCamlProgram(memory_summary, memory_summary)
 OCamlProgram(freemem, freemem)
@@ -27,19 +27,19 @@ OCamlProgram(squeezed_client, squeezed_client)
 OCamlProgram(device_number_test, device_number_test device_number)
 
 # legacy
-OCamlProgram(create_domain, table xenops)
-OCamlProgram(destroy_domain, table xenops)
-OCamlProgram(build_domain, table xenops)
-OCamlProgram(build_hvm, table xenops)
-OCamlProgram(restore_domain, table xenops)
-OCamlProgram(suspend_domain, table xenops)
-OCamlProgram(add_vbd, table xenops)
-OCamlProgram(add_vif, table xenops)
-OCamlProgram(shutdown_domain, table xenops)
-OCamlProgram(unpause_domain, table xenops)
-OCamlProgram(pause_domain, table xenops)
+OCamlProgram(create_domain, xenops)
+OCamlProgram(destroy_domain, xenops)
+OCamlProgram(build_domain, xenops)
+OCamlProgram(build_hvm, xenops)
+OCamlProgram(restore_domain, xenops)
+OCamlProgram(suspend_domain, xenops)
+OCamlProgram(add_vbd, xenops)
+OCamlProgram(add_vif, xenops)
+OCamlProgram(shutdown_domain, xenops)
+OCamlProgram(unpause_domain, xenops)
+OCamlProgram(pause_domain, xenops)
 
-OCamlProgram(xenops, table xenops)
+OCamlProgram(xenops, xenops)
 OCamlProgram(fence, fence)
 OCamlProgram(dbgring, dbgring)
 
