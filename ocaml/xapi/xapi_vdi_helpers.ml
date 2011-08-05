@@ -113,7 +113,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
 				vbd)
 			in
 			(* Enable redo_log and point it at the new device *)
-			let log = Redo_log.create () in
+			let log = Redo_log.create ~read_only:false in
 			let device = Db.VBD.get_device ~__context ~self:vbd in
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
@@ -162,7 +162,7 @@ let database_open_mutex = Mutex.create ()
 (* Extract a database from a VDI. *)
 let database_ref_of_vdi ~__context ~vdi =
 	let database_ref_of_device device =
-		let log = Redo_log.create () in
+		let log = Redo_log.create ~read_only:true in
 		debug "Enabling redo_log with device reason [%s]" device;
 		Redo_log.enable_block log device;
 		let db = Database.make (Datamodel_schema.of_datamodel ()) in
