@@ -17,5 +17,6 @@ let debug (fmt : ('a, unit, string, unit) format4) =
   Printf.kprintf (fun s -> debug_log := Printf.sprintf "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s :: !debug_log) fmt
 
 let write_log () =
-  List.iter (Syslog.log Syslog.Syslog Syslog.Err) (List.rev !debug_log)
+  List.iter (Syslog.log Syslog.Syslog Syslog.Err) (List.rev !debug_log);
+  reset ()
 
