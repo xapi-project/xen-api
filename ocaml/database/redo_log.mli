@@ -29,6 +29,7 @@ val redo_log_sm_config : (string * string) list
 (** {redo_log data type} *)
 type redo_log = {
 	marker: string;
+	read_only: bool;
 	enabled: bool ref;
 	device: block_device option ref;
 	currently_accessible: bool ref;
@@ -63,16 +64,13 @@ val switch : redo_log -> string -> unit
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {Keeping track of existing redo_log instances} *)
-val create: unit -> redo_log
+val create: read_only:bool -> redo_log
 (* Create a redo log instance and add it to the set. *)
 
 val delete: redo_log -> unit
 (* Shutdown a redo_log instance and remove it from the set. *)
 
 (** {Finding active redo_log instances} *)
-val active_redo_logs_exist : unit -> bool
-(* Return true if any redo_logs are active. *)
-
 val with_active_redo_logs : (redo_log -> unit) -> unit
 (* Apply the supplied function to all active redo_logs. *)
 

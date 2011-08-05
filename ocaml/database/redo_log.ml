@@ -50,6 +50,7 @@ let redo_log_sm_config = [ "type", "raw" ]
 
 type redo_log = {
 	marker: string;
+	read_only: bool;
 	enabled: bool ref;
 	device: block_device option ref;
 	currently_accessible: bool ref;
@@ -663,9 +664,10 @@ let connect_and_perform_action f desc log =
 
 let redo_log_creation_mutex = Mutex.create ()
 
-let create () =
+let create ~read_only =
 	let instance = {
 		marker = Uuid.to_string (Uuid.make_uuid ());
+		read_only = read_only;
 		enabled = ref false;
 		device = ref None;
 		currently_accessible = ref true;
@@ -690,15 +692,11 @@ let delete log =
 
 (* -------------------------------------------------------- *)
 (* Helper functions for interacting with multiple redo_logs *)
-let active_redo_logs_exist () =
-	Mutex.execute redo_log_creation_mutex
-		(fun () -> RedoLogSet.exists (fun log -> is_enabled log) !(all_redo_logs))
-
 let with_active_redo_logs f =
 	Mutex.execute redo_log_creation_mutex
 		(fun () ->
 			let active_redo_logs =
-				RedoLogSet.filter (fun log -> is_enabled log) !(all_redo_logs)
+				RedoLogSet.filter (fun log -> (is_enabled log) && not(log.read_only)) !(all_redo_logs)
 			in
 			RedoLogSet.iter f active_redo_logs)
 
@@ -763,9 +761,8 @@ let flush_db_to_all_active_redo_logs db =
 
 (* Write a delta to all active redo_logs *)
 let database_callback event db =
-	let to_write = 
-		if active_redo_logs_exist ()
-		then match event with
+	let to_write =
+		match event with
 			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
 				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname oldval newval;
 				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname 
@@ -781,7 +778,7 @@ let database_callback event db =
 				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
 				then Some (CreateRow(tblname, objref, kvs))
 				else None 
-		else None in
+	in
 
 	Opt.iter (fun entry ->
 		with_active_redo_logs (fun log ->
