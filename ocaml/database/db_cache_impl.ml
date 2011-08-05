@@ -148,7 +148,7 @@ let delete_row_locked t tblname objref =
 	let db = get_database t in
 	Database.notify (PreDelete(tblname, objref)) db;
 	update_database t (remove_row tblname objref);
-	Database.notify (Delete(tblname, objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) db
+	Database.notify (Delete(tblname, objref, Row.fold (fun k _ _ v acc -> (k, v) :: acc) row [])) (get_database t)
 		
 let delete_row t tblname objref = 
 	with_lock (fun () -> delete_row_locked t tblname objref)
