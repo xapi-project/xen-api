@@ -1347,23 +1347,6 @@ type info = {
 	extras: (string * string option) list;
 }
 
-(* Path to redirect qemu's stdout and stderr *)
-let logfile domid = Printf.sprintf "/tmp/qemu.%d" domid
-
-(* Called when destroying the domain to spool the log to the main debug log *)
-let write_logfile_to_log domid =
-	let logfile = logfile domid in
-	try
-		let fd = Unix.openfile logfile [ Unix.O_RDONLY ] 0o0 in
-		finally
-		  (fun () -> debug "qemu-dm: logfile contents: %s" (Unixext.string_of_fd fd))
-		  (fun () -> Unix.close fd)
-	with e ->
-		debug "Caught exception reading qemu log file from %s: %s" logfile (Printexc.to_string e);
-		raise e
-
-let unlink_logfile domid = Unix.unlink (logfile domid)
-
 (* Where qemu-dm-wrapper writes its pid *)
 let qemu_pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
 
@@ -1483,7 +1466,6 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 			) nics
 		else [["-net"; "none"]] in
 
-	let log = logfile domid in
 	let restorefile = sprintf qemu_restore_path domid in
 	let vga_type_opts x = 
 	  match x with
@@ -1520,7 +1502,6 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	let xenclient_specific_options = xenclient_specific ~xs info domid in
 
 	let l = [ string_of_int domid; (* absorbed by qemu-dm-wrapper *)
-		  log;                 (* absorbed by qemu-dm-wrapper *)
 		  (* everything else goes straight through to qemu-dm: *)
 		  "-d"; string_of_int domid;
 		  "-m"; Int64.to_string (Int64.div info.memory 1024L);
@@ -1537,9 +1518,9 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ [ "-monitor"; "pty"; "-vnc"; "127.0.0.1:1" ]
 		in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] dmpath l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout:true dmpath l in
 
-	debug "qemu-dm: should be running in the background (stdout and stderr redirected to %s)" log;
+        debug "qemu-dm: should be running in the background (stdout and stderr redirected to syslog)";
 
 	(* There are two common-cases:
 	   1. (in development) the qemu process may crash
@@ -1601,11 +1582,7 @@ let stop ~xs domid  =
 			best_effort "removing core files from /var/xen/qemu"
 				(fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
 			best_effort "removing device model path from xenstore"
-				(fun () -> xs.Xs.rm (device_model_path domid));
-			best_effort "incorporating qemu-dm logfile"
-				(fun () -> write_logfile_to_log domid);
-			best_effort "unlinking logfile"
-				(fun () -> unlink_logfile domid)
+				(fun () -> xs.Xs.rm (device_model_path domid))
 
 end
 
