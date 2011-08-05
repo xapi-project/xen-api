@@ -8,6 +8,7 @@ type state_t = {
   cmdargs : string list;
   env : string list;
   id_to_fd_map : (string * int option) list;
+  syslog_stdout : bool;
   ids_received : (string * Unix.file_descr) list;
   fd_sock2 : Unix.file_descr option;
   finished : bool;
@@ -84,7 +85,7 @@ let handle_comms comms_sock fd_sock state =
     | None -> handle_comms_no_fd_sock2 comms_sock fd_sock state
     | Some x -> handle_comms_with_fd_sock2 comms_sock fd_sock x state
 
-let run state comms_sock fd_sock fd_sock_path =
+let run state comms_sock fd_sock fd_sock_path syslog_stdout =
   let rec inner state =
     let state = handle_comms comms_sock fd_sock state in
     if state.finished then state else inner state
@@ -126,15 +127,33 @@ let run state comms_sock fd_sock fd_sock_path =
     debug "I've received the following fds: [%s]\n" 
       (String.concat ";" (List.map (fun fd -> string_of_int (Unixext.int_of_file_descr fd)) fds));
 
+    let in_childlogging = ref None in
+    let out_childlogging = ref None in
+    if syslog_stdout then begin
+      (* Create a pipe used to listen to the child process's stdout *)
+      let (in_fd, out_fd) = Unix.pipe () in
+      in_childlogging := Some in_fd;
+      out_childlogging := Some out_fd
+    end;
+
     let result = Unix.fork () in
 
     if result=0 then begin
       (* child *)
+
+      begin
+        match !out_childlogging with
+        | None -> ()
+        | Some out_fd ->
+          (* Make the child's stdout go into the pipe *)
+          Unix.dup2 out_fd Unix.stdout
+      end;
+
       (* Now let's close everything except those fds mentioned in the ids_received list *)
       Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
       
-	  (* Distance ourselves from our parent process: *)
-	  if Unix.setsid () == -1 then failwith "Unix.setsid failed";	  
+      (* Distance ourselves from our parent process: *)
+      if Unix.setsid () == -1 then failwith "Unix.setsid failed";	  
 
       (* And exec *)
       Unix.execve (List.hd args) (Array.of_list args) (Array.of_list state.env)
@@ -142,15 +161,49 @@ let run state comms_sock fd_sock fd_sock_path =
       Fecomms.write_raw_rpc comms_sock (Fe.Execed result);
 
       List.iter (fun fd -> Unix.close fd) fds;
-      let (pid,status) = Unix.waitpid [] result in
-	  
-	  let log_failure reason code = 
+
+      begin
+        match !out_childlogging with
+        | None -> ()
+        | Some out_fd ->
+          (* Close the end of the pipe that's only supposed to be written to by the child process. *)
+          Unix.close out_fd
+      end;
+
+      let log_failure reason code = 
 		(* The commandline might be too long to clip it *)
 		let cmdline = String.concat " " args in
 		let limit = 80 - 3 in
 		let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
 		if code=0 && (List.hd args) = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
 			Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
+
+      let cleanup () = Unix.waitpid [] result in
+
+      let (pid, status) =
+        match !in_childlogging with
+        | None -> cleanup ()
+        | Some in_fd ->
+          (* Read from the child's stdout and write each one to syslog *)
+          let in_chan = Unix.in_channel_of_descr in_fd in
+          let rec read_lines ic =
+            let line = input_line ic in
+            Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "line [%s]" line);
+            read_lines ic (* throws End_of_file when child process exits *)
+          in
+          begin
+            try
+              read_lines in_chan
+            with
+            | End_of_file ->
+                (* qemu process has exited *)
+                cleanup ()
+            | e ->
+                log_failure "Unexpected exception while reading child output";
+                cleanup ();
+                raise e
+          end
+      in
 
       let pr = match status with
 		| Unix.WEXITED n -> 

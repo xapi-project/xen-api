@@ -2,7 +2,9 @@
 type setup_cmd = {
   cmdargs : string list;
   env : string list;
-  id_to_fd_map : (string * int option) list } 
+  id_to_fd_map : (string * int option) list;
+  syslog_stdout : bool;
+} 
 
 and setup_response = {
   fd_sock_path : string } 

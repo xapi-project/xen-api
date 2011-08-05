@@ -8,7 +8,7 @@ let _ =
 		exit 1
   | cmd :: args ->
 		try
-		  let out, err = Forkhelpers.execute_command_get_output cmd args in
+		  let out, err = Forkhelpers.execute_command_get_output ~syslog_stdout:false cmd args (* TODO *) in
 		  Printf.printf "stdout=[%s]\n" out;
 		  Printf.printf "stderr=[%s]\n" err;
 		  exit 0

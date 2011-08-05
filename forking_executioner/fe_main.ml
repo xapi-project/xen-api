@@ -4,7 +4,7 @@ let default_pidfile = "/var/run/fe.pid"
 
 open Fe_debug
 
-let setup sock cmdargs id_to_fd_map env =
+let setup sock cmdargs id_to_fd_map syslog_stdout env =
   let fd_sock_path = Printf.sprintf "/var/xapi/forker/fd_%s" 
     (Uuid.to_string (Uuid.make_uuid ())) in
   let fd_sock = Fecomms.open_unix_domain_sock () in
@@ -25,11 +25,12 @@ let setup sock cmdargs id_to_fd_map env =
 	Child.cmdargs=cmdargs; 
 	env=env;
 	id_to_fd_map=id_to_fd_map; 
+	syslog_stdout=syslog_stdout;
 	ids_received=[];
 	fd_sock2=None;
 	finished=false;
       } in
-      Child.run state sock fd_sock fd_sock_path
+      Child.run state sock fd_sock fd_sock_path syslog_stdout
     end else begin
       (* Child *)
       exit 0;
@@ -70,7 +71,7 @@ let _ =
       let cmd = Fecomms.read_raw_rpc sock in
       match cmd with
 	| Fe.Setup s ->
-	    let result = setup sock s.Fe.cmdargs s.Fe.id_to_fd_map s.Fe.env in
+	    let result = setup sock s.Fe.cmdargs s.Fe.id_to_fd_map s.Fe.syslog_stdout s.Fe.env in
 	    (match result with
 	      | Some response ->
 		  Fecomms.write_raw_rpc sock (Fe.Setup_response response);
