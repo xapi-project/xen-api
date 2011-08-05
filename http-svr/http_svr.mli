@@ -49,6 +49,9 @@ module Server : sig
 	(** [all_stats x] returns a list of (method, uri, stats) triples *)
 	val all_stats: t -> (Http.method_t * uri_path * Stats.t) list
 
+	(** [enable_fastpath x] switches on experimental performance optimisations *)
+	val enable_fastpath: t -> unit
+
 end
 
 exception Too_many_headers
@@ -92,5 +95,5 @@ val response_file :
   ?mime_content_type:string -> Unix.file_descr -> string -> unit
 val headers : Unix.file_descr -> string list -> unit
 val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
-val request_of_bio: Buf_io.t -> Http.Request.t option
+val request_of_bio: ?use_fastpath:bool -> Buf_io.t -> Http.Request.t option
 

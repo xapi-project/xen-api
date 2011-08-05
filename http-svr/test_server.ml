@@ -6,12 +6,16 @@ let finished_c = Condition.create ()
 
 let _ =
 	let port = ref 8080 in
+	let use_fastpath = ref false in
 	Arg.parse [
-		"-p", Arg.Set_int port, "port to listen on"
+		"-p", Arg.Set_int port, "port to listen on";
+		"-fast", Arg.Set use_fastpath, "use HTTP fastpath";
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
 		"A simple test HTTP server";
 	let open Http_svr in
 	let server = Server.empty in
+	if !use_fastpath then Server.enable_fastpath server;
+
 	Server.add_handler server Http.Get "/stop" (FdIO
 		(fun request s ->
 			let r = Http.Response.to_wire_string (Http.Response.make "200" "OK") in

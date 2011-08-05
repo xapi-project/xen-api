@@ -31,8 +31,8 @@ let with_stunnel ip port =
 			(fun () -> f fd)
 			(fun () -> Stunnel.disconnect s)
 
-let one keep_alive s =
-	Http_client.rpc s (Http.Request.make ~version:"1.1" ~keep_alive
+let one ~use_fastpath keep_alive s =
+	Http_client.rpc ~use_fastpath s (Http.Request.make ~version:"1.1" ~keep_alive
 		~user_agent ~body:"hello" Http.Post "/echo")
 		(fun response s ->
 			match response.Http.Response.content_length with
@@ -100,41 +100,58 @@ let _ =
 	let ip = ref "127.0.0.1" in
 	let port = ref 8080 in
 	let use_ssl = ref false in
+	let use_fastpath = ref false in
 	Arg.parse [
 		"-ip", Arg.Set_string ip, "IP to connect to";
 		"-p", Arg.Set_int port, "port to connect";
+		"-fast", Arg.Set use_fastpath, "use HTTP fastpath";
 		"--ssl", Arg.Set use_ssl, "use SSL rather than plaintext";
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
 		"A simple test HTTP client";
-
+	let use_fastpath = !use_fastpath in
 	let transport = if !use_ssl then with_stunnel else with_connection in
 (*
 	Printf.printf "Overhead of timing:                ";
 	let overhead = sample 10 (fun () -> per_nsec 1. (fun () -> ())) in
 	Printf.printf "%s ops/sec\n" (Normal_population.to_string overhead);
 *)
-	Printf.printf "Persistent connection:             ";
-	let persistent = sample 10
-		(fun () -> transport !ip !port
-			(fun s -> per_nsec 1. (fun () -> one true s))) in
-	Printf.printf "%s RPCs/sec\n" (Normal_population.to_string persistent);
-	Printf.printf "Non-persistent connections:        ";
-	let nonpersistent = sample 10
+	Printf.printf "1 thread non-persistent connections:        ";
+	let nonpersistent = sample 1
 		(fun () -> per_nsec 1.
-			(fun () -> transport !ip !port (one false))) in
-	Printf.printf "%s RPCs/sec\n" (Normal_population.to_string nonpersistent);
+			(fun () -> transport !ip !port (one ~use_fastpath false))) in
+	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent);
+	Printf.printf "10 threads non-persistent connections: ";
+	let thread_nonpersistent =
+		sample 1
+			(fun () ->
+				threads 10
+					(fun () ->
+						per_nsec 5.
+							(fun () ->
+								transport !ip !port
+									(one ~use_fastpath false)
+							)
+					)
+			) in
+	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_nonpersistent);
+
+	Printf.printf "1 thread persistent connection:             ";
+	let persistent = sample 1
+		(fun () -> transport !ip !port
+			(fun s -> per_nsec 1. (fun () -> one ~use_fastpath true s))) in
+	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent);
+	Printf.printf "10 threads persistent connections: ";
 	let thread_persistent =
-		sample 5
+		sample 1
 			(fun () ->
 				threads 10
 					(fun () ->
 						transport !ip !port
 							(fun s ->
 								per_nsec 5.
-									(fun () -> one true s)
+									(fun () -> one ~use_fastpath true s)
 							)
 					)
 			) in
-	Printf.printf "10 threads persistent connections: ";
-	Printf.printf "%s RPCs/sec\n" (Normal_population.to_string thread_persistent);
+	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent);
 

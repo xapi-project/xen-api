@@ -146,16 +146,18 @@ let response_of_fd_exn fd =
 		) (false, empty) (String.split '\n' buf))
 
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
-let response_of_fd fd =
+let response_of_fd ?(use_fastpath=false) fd =
 	try
-		Some (response_of_fd_exn_slow fd)
+		if use_fastpath
+		then Some(response_of_fd_exn fd)
+		else Some (response_of_fd_exn_slow fd)
 	with _ -> None
 
 (** See perftest/tests.ml *)
 let last_content_length = ref 0L
 
-let http_rpc_recv_response error_msg fd =
-	match response_of_fd fd with
+let http_rpc_recv_response use_fastpath error_msg fd =
+	match response_of_fd ~use_fastpath fd with
 		| None -> raise (Http_request_rejected error_msg)
 		| Some response ->
 			begin match response.Http.Response.code with
@@ -169,8 +171,8 @@ let http_rpc_recv_response error_msg fd =
 (** [rpc request f] marshals the HTTP request represented by [request] and [body]
     and then parses the response. On success, [f] is called with an HTTP response record.
     On failure an exception is thrown. *)
-let rpc (fd: Unix.file_descr) request f =
+let rpc ?(use_fastpath=false) (fd: Unix.file_descr) request f =
 (*	Printf.printf "request = [%s]" (Http.Request.to_wire_string request);*)
 	http_rpc_send_query fd request;
-	f (http_rpc_recv_response (Http.Request.to_string request) fd) fd
+	f (http_rpc_recv_response use_fastpath (Http.Request.to_string request) fd) fd
 

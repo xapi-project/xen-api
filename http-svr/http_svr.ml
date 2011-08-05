@@ -162,10 +162,12 @@ module MethodMap = Map.Make(struct type t = Http.method_t let compare = compare 
 module Server = struct
 	type t = {
 		mutable handlers: TE.t Radix_tree.t MethodMap.t;
+		mutable use_fastpath: bool;
 	}
 
 	let empty = {
 		handlers = MethodMap.empty;
+		use_fastpath = false;
 	}
 
 	let add_handler x ty uri handler =
@@ -187,6 +189,8 @@ module Server = struct
 		MethodMap.fold (fun m rt acc ->
 			fold (fun k te acc -> (m, k, te.TE.stats) :: acc) acc rt
 		) x.handlers []
+
+	let enable_fastpath x = x.use_fastpath <- true
 end
 
 let escape uri =
@@ -313,9 +317,9 @@ let request_of_bio_exn bio =
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
 	already sent back a suitable error code and response to the client. *)
-let request_of_bio ic =
+let request_of_bio ?(use_fastpath=false) ic =
 	try
-		let r = request_of_bio_exn_slow ic in
+		let r = (if use_fastpath then request_of_bio_exn else request_of_bio_exn_slow) ic in
 (*
 		Printf.fprintf stderr "Parsed [%s]\n" (Http.Request.to_wire_string r);
 		flush stderr;
@@ -367,7 +371,7 @@ let handle_connection (x: Server.t) _ ss =
 
 	while not !finished do
 		(* 1. we must successfully parse a request *)
-		let req = request_of_bio ic in
+		let req = request_of_bio ~use_fastpath:x.Server.use_fastpath ic in
 		Opt.iter (fun _ -> reqno := !reqno + 1) req;
 		if req = None then finished := true;
 
