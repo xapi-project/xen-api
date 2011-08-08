@@ -159,7 +159,8 @@ let maybe_add_lease_nolock ~__context vif =
 		and ip_end = Ip.of_string (List.assoc ip_end_key other_config) in
 		match find_lease_nolock (Ref.string_of vif) with
 			| Some l ->
-				info "VIF %s on host-internal management network already has lease: %s" (Ref.string_of vif) (Ip.string_of l.ip)
+				info "VIF %s on host-internal management network already has lease: %s" (Ref.string_of vif) (Ip.string_of l.ip);
+				restart_nolock ()
 			| None -> begin
 				gc_leases_nolock ~__context;
 				let mac = Db.VIF.get_MAC ~__context ~self:vif in
@@ -196,16 +197,9 @@ let get_ip ~__context vif =
 let init () =
 	Mutex.execute mutex
 		(fun () ->
-			begin 
-				try
-					load_db_nolock ()
-				with e ->
-					info "Caught exception %s loading %s: creating new empty leases database" (Printexc.to_string e) leases_db;
-					assigned := []
-			end;
-			Helpers.log_exn_continue "restarting udhcpd"
-				(fun () ->
-					if Sys.file_exists udhcpd_conf
-					then restart_nolock ()
-				) ()
+			try
+				load_db_nolock ()
+			with e ->
+				info "Caught exception %s loading %s: creating new empty leases database" (Printexc.to_string e) leases_db;
+				assigned := []
 		)
