@@ -24,7 +24,7 @@ import xml.dom.minidom
 import syslog
 
 ipcmd = "/sbin/ip"
-hookscripts = ["/etc/xapi.d/vm-pre-start/vm-pre-start-iovirt";
+hookscripts = ["/etc/xapi.d/vm-pre-start/vm-pre-start-iovirt",
                "/etc/xapi.d/vm-pre-reboot/vm-pre-reboot-iovirt"
 ]
 
