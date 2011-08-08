@@ -3326,7 +3326,11 @@ end
       *)
 			Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __scan_context ->
 				let handle_metadata_vdis () =
-					if Helpers.i_am_srmaster ~__context:__scan_context ~sr then begin
+					(* Only handle metadata VDIs when attaching shared storage to the master. *)
+					let pbd_host = Db.PBD.get_host ~__context:__scan_context ~self in
+					let master = Db.Pool.get_master ~__context:__scan_context ~self:(Helpers.get_pool ~__context:__scan_context) in
+					if (pbd_host = master) && (Db.SR.get_shared ~__context:__scan_context ~self:sr) then begin
+						debug "Shared SR %s is being plugged to master - handling metadata VDIs." (sr_uuid ~__context sr);
 						let metadata_vdis = List.filter
 							(fun vdi -> Db.VDI.get_type ~__context:__scan_context ~self:vdi = `metadata)
 							(Db.SR.get_VDIs ~__context:__scan_context ~self:sr)
@@ -3351,7 +3355,8 @@ end
 								debug "Could not re-enable database replication to VDI %s - caught %s"
 									vdi_uuid (Printexc.to_string e)
 						end
-					end
+					end else
+						debug "SR %s is not shared or is being plugged to a slave - not handling metadata VDIs at this point." (sr_uuid ~__context sr)
 				in
 				Xapi_sr.scan_one ~__context:__scan_context ~callback:handle_metadata_vdis sr)
 
