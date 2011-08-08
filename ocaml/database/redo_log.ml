@@ -202,12 +202,6 @@ let prog = Xapi_globs.base_path ^ "/libexec/block_device_io"
 let generation_size = 16
 let length_size = 16
 
-(* Flag indicating whether we should stop if there is a missing record in the redo-log.
-   Set to true if we prefer consistency over completeness/up-to-dateness.
-   Set to false if we are happy to (attempt to) apply a record which comes after a missing record.
-   In practise, this should never happen since whenever a writedelta fails, we attempt a writedb. *)
-let stop_at_missing_record = false
-
 let get_latest_response_time block_time =
   let now = Unix.gettimeofday() in
   now +. block_time
@@ -302,14 +296,15 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
     read_read_response sock fn_db fn_delta (Generation.add_int gen_count 1) latest_response_time datasockpath
   | "delta" ->
     let gen_count = read_generation_count sock latest_response_time in
-    (* If we're worrying about missing records then check that the generation count is as we expect *)
-    if gen_count <> expected_gen_count && stop_at_missing_record then begin
-      R.debug "Found record with generation count %Ld. Expected a record with generation count %Ld so skipping this record." gen_count expected_gen_count;
+    (* Since Boston all deltas cause a bump in generation count, whether or not they are persisted to the redo_log. *)
+    (* For safety, we should only read a delta if the generation count is higher than that of the last delta read. *)
+    if gen_count < expected_gen_count then begin
+      R.debug "Found record with generation count %Ld. Expected a record with generation count of at least %Ld so skipping this record." gen_count expected_gen_count;
       (* Now skip over all the remaining data that the process is trying to send, discarding it all *)
       read_delta (fun _ _ -> ()) gen_count sock latest_response_time;
       read_read_response sock fn_db fn_delta expected_gen_count latest_response_time datasockpath
     end else begin
-		R.debug "Found record with generation count %Ld as expected" gen_count;
+      R.debug "Found record with generation count %Ld which is >= expected generation count %Ld" gen_count expected_gen_count;
       read_delta fn_delta gen_count sock latest_response_time;
       read_read_response sock fn_db fn_delta (Generation.add_int gen_count 1) latest_response_time datasockpath
     end
