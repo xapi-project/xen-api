@@ -146,21 +146,25 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
    immediately rejected *)
 let scans_in_progress = Hashtbl.create 10
 let scans_in_progress_m = Mutex.create ()
+let scans_in_progress_c = Condition.create ()
 
-let i_should_scan_sr sr = 
-  Mutex.execute scans_in_progress_m 
-    (fun () -> 
+let i_should_scan_sr sr =
+  Mutex.execute scans_in_progress_m
+    (fun () ->
        if Hashtbl.mem scans_in_progress sr
        then false (* someone else already is *)
        else (Hashtbl.replace scans_in_progress sr true; true))
-let scan_finished sr = 
-  Mutex.execute scans_in_progress_m 
-    (fun () -> 
-       Hashtbl.remove scans_in_progress sr)
+
+let scan_finished sr =
+	Mutex.execute scans_in_progress_m
+		(fun () ->
+			Hashtbl.remove scans_in_progress sr;
+			Condition.broadcast scans_in_progress_c)
 
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
 (* If a callback is supplied, call it once the scan is complete. *)
 let scan_one ~__context ?callback sr =
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
 	if i_should_scan_sr sr
 	then 
 		ignore(Thread.create
@@ -177,10 +181,29 @@ let scan_one ~__context ?callback sr =
 							with e ->
 								error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
 						)
-						(fun () -> 
+						(fun () ->
 							scan_finished sr;
-							Opt.iter (fun f -> f ()) callback)
+							debug "Scan of SR %s complete." sr_uuid;
+							Opt.iter (fun f ->
+								debug "Starting callback for SR %s." sr_uuid;
+								f ();
+								debug "Callback for SR %s finished." sr_uuid) callback)
 					)) ())
+	else
+		(* If a callback was supplied but a scan is already in progress, call the callback once the scan is complete. *)
+		Opt.iter (fun f ->
+			ignore (Thread.create
+				(fun () ->
+					debug "Tried to scan SR %s but scan already in progress - waiting for scan to complete." sr_uuid;
+					Mutex.execute scans_in_progress_m (fun () ->
+						while Hashtbl.mem scans_in_progress sr do
+							Condition.wait scans_in_progress_c scans_in_progress_m;
+						done);
+					debug "Got signal that scan of SR %s is complete - starting callback." sr_uuid;
+					f ();
+					debug "Callback for SR %s finished." sr_uuid)
+				()
+			)) callback
 
 let get_all_plugged_srs ~__context =
   let pbds = Db.PBD.get_all ~__context in

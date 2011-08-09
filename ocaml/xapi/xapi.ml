@@ -473,6 +473,19 @@ let start_dr_redo_logs () =
 							sr_uuid (Printexc.to_string e))
 				metadata_srs)
 
+(* Attempt to cache all metadata VDIs created by foreign pools *)
+let cache_metadata_vdis () =
+	Server_helpers.exec_with_new_task "cache_metadata_vdis"
+	 (fun __context ->
+			let pool = Helpers.get_pool ~__context in
+			let metadata_vdis = List.filter
+				(fun vdi ->
+					(Db.VDI.get_type ~__context ~self:vdi = `metadata) &&
+					(Db.VDI.get_metadata_of_pool ~__context ~self:vdi <> pool))
+				(Db.VDI.get_all ~__context)
+			in
+			Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis)
+
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
   info "Cannot contact master: running in slave emergency mode";
@@ -931,6 +944,7 @@ let server_init() =
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
 			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
+			"Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
     ];
 						    
     if !debug_dummy_data then (
