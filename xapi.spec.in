@@ -108,6 +108,10 @@ DESTDIR=$RPM_BUILD_ROOT %{__make} sdk-install
 rm -rf $RPM_BUILD_ROOT
 
 %post core
+if ! grep -q xenfs /etc/fstab; then
+    echo "none        /proc/xen xenfs  defaults   0  0" >> /etc/fstab
+    mount /proc/xen >/dev/null 2>&1 || true
+fi
 [ ! -x /sbin/chkconfig ] || chkconfig --add xapi
 [ ! -x /sbin/chkconfig ] || chkconfig --add management-interface
 [ ! -x /sbin/chkconfig ] || chkconfig --add xenservices
