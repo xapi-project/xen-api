@@ -1,4 +1,5 @@
 open Stringext
+open Pervasiveext
 
 let debug (fmt : ('a, unit, string, unit) format4) = (Printf.kprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt)
 
@@ -121,6 +122,7 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
       with _ -> arg) state.cmdargs in
 
     debug "Args after replacement = [%s]" (String.concat ";" args);    
+	let name = List.hd args in
 
     let fds = List.map snd state.ids_received in
     
@@ -139,15 +141,10 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
     let result = Unix.fork () in
 
     if result=0 then begin
-      (* child *)
+		(* child *)
 
-      begin
-        match !out_childlogging with
-        | None -> ()
-        | Some out_fd ->
-          (* Make the child's stdout go into the pipe *)
-          Unix.dup2 out_fd Unix.stdout
-      end;
+        (* Make the child's stdout go into the pipe *)
+		Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stdout) !out_childlogging;
 
       (* Now let's close everything except those fds mentioned in the ids_received list *)
       Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
@@ -156,56 +153,37 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
       if Unix.setsid () == -1 then failwith "Unix.setsid failed";	  
 
       (* And exec *)
-      Unix.execve (List.hd args) (Array.of_list args) (Array.of_list state.env)
+      Unix.execve name (Array.of_list args) (Array.of_list state.env)
     end else begin
       Fecomms.write_raw_rpc comms_sock (Fe.Execed result);
 
       List.iter (fun fd -> Unix.close fd) fds;
 
-      begin
-        match !out_childlogging with
-        | None -> ()
-        | Some out_fd ->
-          (* Close the end of the pipe that's only supposed to be written to by the child process. *)
-          Unix.close out_fd
-      end;
+      (* Close the end of the pipe that's only supposed to be written to by the child process. *)
+	  Opt.iter Unix.close !out_childlogging;
 
       let log_failure reason code = 
 		(* The commandline might be too long to clip it *)
 		let cmdline = String.concat " " args in
 		let limit = 80 - 3 in
 		let cmdline' = if String.length cmdline > limit then String.sub cmdline 0 limit ^ "..." else cmdline in
-		if code=0 && (List.hd args) = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
+		if code=0 && name = "/opt/xensource/sm/ISOSR" && (String.has_substr cmdline' "sr_scan") then () else
 			Syslog.log Syslog.Syslog Syslog.Err (Printf.sprintf "%d (%s) %s %d" result cmdline' reason code) in
 
-      let cleanup () = Unix.waitpid [] result in
+	  let status = ref (Unix.WEXITED (-1)) in
+	  finally
+		  (fun () ->
+			  Opt.iter
+				  (fun in_fd ->
+					  (* Read from the child's stdout and write each one to syslog *)
+					  Unixext.lines_iter
+						  (fun line ->
+							  Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "%s: %s" name line)
+						  ) (Unix.in_channel_of_descr in_fd)
+				  ) !in_childlogging
+		  ) (fun () -> status := snd (Unix.waitpid [] result));
 
-      let (pid, status) =
-        match !in_childlogging with
-        | None -> cleanup ()
-        | Some in_fd ->
-          (* Read from the child's stdout and write each one to syslog *)
-          let in_chan = Unix.in_channel_of_descr in_fd in
-          let rec read_lines ic =
-            let line = input_line ic in
-            Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "line [%s]" line);
-            read_lines ic (* throws End_of_file when child process exits *)
-          in
-          begin
-            try
-              read_lines in_chan
-            with
-            | End_of_file ->
-                (* qemu process has exited *)
-                cleanup ()
-            | e ->
-                log_failure "Unexpected exception while reading child output";
-                cleanup ();
-                raise e
-          end
-      in
-
-      let pr = match status with
+      let pr = match !status with
 		| Unix.WEXITED n -> 
 			(* Unfortunately logging this was causing too much spam *)
 			if n <> 0 then log_failure "exitted with code" n;
