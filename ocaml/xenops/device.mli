@@ -196,9 +196,6 @@ sig
 		extras: (string * string option) list;
 	}
 
-	val write_logfile_to_log : int -> unit
-	val unlink_logfile : int -> unit
-
 	val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
 	val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
 
