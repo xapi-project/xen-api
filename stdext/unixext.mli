@@ -21,10 +21,17 @@ val pidfile_write : string -> unit
 val pidfile_read : string -> int option
 val daemonize : unit -> unit
 val with_file : string -> Unix.open_flag list -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
+val with_input_channel : string -> (in_channel -> 'a) -> 'a
 val with_directory : string -> (Unix.dir_handle -> 'a) -> 'a
 
 (** Exception to be raised in function to break out of [file_lines_fold]. *)
 exception Break
+
+(** Folds function [f] over every line in the input channel *)
+val lines_fold : ('a -> string -> 'a) -> 'a -> in_channel -> 'a
+
+(** Applies function [f] to every line in the input channel *)
+val lines_iter : (string -> unit) -> in_channel -> unit
 
 (** Folds function [f] over every line in the file at [file_path] using the
 starting value [start]. *)

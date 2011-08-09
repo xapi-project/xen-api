@@ -87,8 +87,7 @@ let daemonize () =
 
 exception Break
 
-let file_lines_fold f start file_path =
-	let input = open_in file_path in
+let lines_fold f start input =
 	let rec fold accumulator =
 		let line =
 			try Some (input_line input)
@@ -96,13 +95,16 @@ let file_lines_fold f start file_path =
 		match line with
 			| Some line -> (try fold (f accumulator line) with Break -> accumulator)
 			| None -> accumulator in
+	fold start
+
+let lines_iter f = lines_fold (fun () line -> ignore(f line)) ()
+
+(** open a file, and make sure the close is always done *)
+let with_input_channel file f =
+	let input = open_in file in
 	finally
-		(fun () -> fold start)
+		(fun () -> f input)
 		(fun () -> close_in input)
-
-let file_lines_iter f file_path = file_lines_fold (fun () line -> ignore(f line)) () file_path
-
-let readfile_line = file_lines_iter
 
 (** open a file, and make sure the close is always done *)
 let with_file file mode perms f =
@@ -113,6 +115,13 @@ let with_file file mode perms f =
 		in
 	Unix.close fd;
 	r
+
+let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
+
+let file_lines_iter f = file_lines_fold (fun () line -> ignore(f line)) ()
+
+let readfile_line = file_lines_iter
+
 
 (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
     from the fd [fd] with initial value [start] *)
