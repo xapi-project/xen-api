@@ -18,42 +18,42 @@ start() {
     # and start the hypercall simulator
     "@BASE_PATH@/bin/list_domains" 2>/dev/null 1>/dev/null
     if [ $? -ne 0 ]; then
-	echo -n $"Starting simulator: "
-	rm -f /var/xapi/xiu-xc /var/xapi/xiu-xs
-	"@BASE_PATH@/libexec/xiu" /var/xapi/xiu 2>/dev/null 1>/dev/null &
+        echo -n $"Starting simulator: "
+        rm -f /var/xapi/xiu-xc /var/xapi/xiu-xs
+        "@BASE_PATH@/libexec/xiu" /var/xapi/xiu 2>/dev/null 1>/dev/null &
 
-        # wait for unix domain socket to appear 
+        # wait for unix domain socket to appear
         RETRIES=180
         while [ ${RETRIES} -ne 0 ]; do
-		[ -e /var/xapi/xiu-xc ] && break
-		RETRIES=$(( ${RETRIES} - 1 ))
-		sleep 1
-		echo -n .
-	done
-	if [ -e /var/xapi/xiu-xc ]; then
-	    echo "[   OK   ]"
-	else
-	    failure $"xiu"
-	    exit 1
-	fi
-	export XENCTRL_OSDEP="@BASE_PATH@/lib/libxenctrl_xiu.so"
-	export XIU=/var/xapi/xiu
+            [ -e /var/xapi/xiu-xc ] && break
+            RETRIES=$(( ${RETRIES} - 1 ))
+            sleep 1
+            echo -n .
+        done
+        if [ -e /var/xapi/xiu-xc ]; then
+            echo "[   OK   ]"
+        else
+            failure $"xiu"
+            exit 1
+        fi
+        export XENCTRL_OSDEP="@BASE_PATH@/lib/libxenctrl_xiu.so"
+        export XIU=/var/xapi/xiu
     fi
-	echo -n $"Starting xenstored: "	
-        if [ -e /var/lock/subsys/xen ]; then
-	    if [ -e /var/run/xenstored.pid ] && [ -e /proc/`cat /var/run/xenstored.pid` ]; then
-		echo -n $"cannot start xenstored: xenstored is already running.";
-		failure $"cannot start xenstored: xenstored already running.";
-		echo
-		return 1
-	    fi
-	    if [ -e /var/run/xenconsoled.pid ] && [ -e /proc/`cat /var/run/xenconsoled.pid` ]; then
-		echo -n $"cannot start xenconsoled: xenconsoled is already running.";
-		failure $"cannot start xenconsoled: xenconsoled already running.";
-		echo
-		return 1
-	    fi
-	fi
+    echo -n $"Starting xenstored: "
+    if [ -e /var/lock/subsys/xen ]; then
+        if [ -e /var/run/xenstored.pid ] && [ -e /proc/`cat /var/run/xenstored.pid` ]; then
+            echo -n $"cannot start xenstored: xenstored is already running.";
+            failure $"cannot start xenstored: xenstored already running.";
+            echo
+            return 1
+        fi
+        if [ -e /var/run/xenconsoled.pid ] && [ -e /proc/`cat /var/run/xenconsoled.pid` ]; then
+            echo -n $"cannot start xenconsoled: xenconsoled is already running.";
+            failure $"cannot start xenconsoled: xenconsoled already running.";
+            echo
+            return 1
+        fi
+    fi
 
     # Existence of stampfile suppresses the access log (oem)
     XENSTORED_ARG=""
@@ -61,60 +61,59 @@ start() {
     [ -e /var/lib/xenstored/tdb ] && mv -f /var/lib/xenstored/tdb /var/lib/xenstored/tdb.bak
     "@BASE_PATH@/bin/xenstored" ${XENSTORED_ARG}
 
-	/usr/sbin/xenconsoled
-	[ -d /var/log/blktap ] || mkdir /var/log/blktap
-	
-	# Delete rubbish from xapi's private tree in xenstore, once per boot (not once per
-	# xapi invocation since the data should be persistent across xapi restarts)
-	xenstore-rm /xapi
+    /usr/sbin/xenconsoled
+    [ -d /var/log/blktap ] || mkdir /var/log/blktap
 
-	# Delete any accumulated /vm entries, once per boot
-	xenstore-rm /vm
+    # Delete rubbish from xapi's private tree in xenstore, once per boot (not once per
+    # xapi invocation since the data should be persistent across xapi restarts)
+    xenstore-rm /xapi
 
-	# start cdrommon on all physicals cdrom at startup
-	for i in `find /dev/xapi/cd/ ! -type d`; do "@BASE_PATH@/libexec/cdrommon" $i; done
+    # Delete any accumulated /vm entries, once per boot
+    xenstore-rm /vm
 
-	echo 
-	touch /var/lock/subsys/xen;
-	return $RETVAL
+    # start cdrommon on all physicals cdrom at startup
+    for i in `find /dev/xapi/cd/ ! -type d`; do "@BASE_PATH@/libexec/cdrommon" $i; done
+
+    echo
+    touch /var/lock/subsys/xen
+    return $RETVAL
 }
 
 stop() {
-	echo -n $"Action not supported"
-	failure $"Action not supported"
-	echo 
-	return 1;
-}	
+    echo -n $"Action not supported"
+    failure $"Action not supported"
+    echo
+    return 1;
+}
 
 rhstatus() {
-	status xapi
-}	
+    status xapi
+}
 
 restart() {
-	echo -n $"Action not supported"
-	failure $"Action not supported"
-	echo 
-	return 1;
-}	
+    echo -n $"Action not supported"
+    failure $"Action not supported"
+    echo
+    return 1;
+}
 
 case "$1" in
-  start)
-  	start
-	;;
-  stop)
-  	stop
-	;;
-  restart)
-  	restart
-	;;
-  status)
-  	rhstatus
-	;;
-  condrestart)
-  	[ -f /var/lock/subsys/xapi ] && restart || :
-	;;
-  *)
-	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
-	exit 1
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    status)
+        rhstatus
+        ;;
+    condrestart)
+        [ -f /var/lock/subsys/xapi ] && restart || :
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+        exit 1
 esac
-
