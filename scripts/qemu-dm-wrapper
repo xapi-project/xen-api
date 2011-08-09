@@ -13,9 +13,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
-from syslog import syslog
-from syslog import LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING
-from syslog import LOG_NOTICE, LOG_INFO, LOG_DEBUG
 from xen.lowlevel import xs
 
 def do_cloexec(fd):
@@ -62,7 +59,7 @@ def cleanup(domid):
 	from xen.lowlevel import xc
 	hcall = xc.xc()
 
-	syslog(LOG_ERR, 'Unexpected termination, cleaning up...')
+	print 'Unexpected termination, cleaning up...'
 
 	try:
 		hcall.domain_destroy(domid)
@@ -79,63 +76,26 @@ def enable_core_dumps():
 	return limit
 
 def main(argv):
-	from os import environ, fdopen, pipe
-	from subprocess import Popen
-	from syslog import openlog, LOG_NDELAY, LOG_NOWAIT, LOG_DAEMON
+	import os
 
-	qemu_env = environ
+	qemu_env = os.environ
 	qemu_dm = '/usr/lib/xen/bin/qemu-dm'
 	domid = int(argv[1])
-	logfile = argv[2]
-	qemu_args = ['qemu-dm-%d'%domid] + argv[3:]
+	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
 
 	if is_sdk() is True:
 		return fake_dm(domid)
 
-	openlog('qemu-dm-%d'%domid, LOG_NDELAY|LOG_NOWAIT, LOG_DAEMON)
-
-	syslog(LOG_INFO, "qemu-dm-wrapper in python:")
-	syslog(LOG_INFO, "Using domid: %d" % domid)
-	syslog(LOG_INFO, "Arguments: %s" % " ".join(argv[2:]))
-	syslog(LOG_INFO, "everything else is from qemu-dm:")
+	print "qemu-dm-wrapper in python:"
+	print "Using domid: %d" % domid
+	print "Arguments: %s" % " ".join(argv[1:])
+	print "everything else is from qemu-dm:"
 
 	core_dump_limit = enable_core_dumps()
-	syslog(LOG_INFO, "core dump limit: %d" % core_dump_limit)
+	print "core dump limit: %d" % core_dump_limit
 
-	(r,w) = pipe()
-	do_cloexec(r)
-	outpipe = fdopen(w, 'w')
-	inpipe = fdopen(r, 'r')
-
-	p = Popen(qemu_args,
-		executable = qemu_dm,
-		stdin=open('/dev/null', 'r'),
-		stdout=outpipe, stderr=outpipe,
-		shell=False, close_fds=True)
-
-	del outpipe
-
-	write_dm_pid(domid, p.pid)
-
-	while True:
-		l = inpipe.readline()
-		if l == '':
-			break
-		l = l[:-1]
-		syslog(LOG_NOTICE, l)
-
-	if p.returncode is None:
-		p.wait()
-
-	if p.returncode < 0:
-		syslog(LOG_ERR, 'Terminated with signal %d'%-p.returncode)
-	else:
-		syslog(LOG_NOTICE, 'Exited with code %d'%p.returncode)
-		if p.returncode == 0:
-			return 0
-
-	cleanup(domid)
-	return 1
+	os.dup2(1, 2)
+	os.execve(qemu_dm, qemu_args, qemu_env)
 
 if __name__ == '__main__':
 	from sys import argv
