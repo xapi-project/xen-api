@@ -178,7 +178,7 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
 					  (* Read from the child's stdout and write each one to syslog *)
 					  Unixext.lines_iter
 						  (fun line ->
-							  Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "%s: %s" name line)
+							  Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "%s[%d]: %s" (Filename.basename name) result line)
 						  ) (Unix.in_channel_of_descr in_fd)
 				  ) !in_childlogging
 		  ) (fun () -> status := snd (Unix.waitpid [] result));
