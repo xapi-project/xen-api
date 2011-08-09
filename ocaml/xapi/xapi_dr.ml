@@ -5,6 +5,8 @@ open Threadext
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+(* -------------------------- VDI caching ----------------------------------- *)
+
 (* Keep track of foreign metadata VDIs and their database generations and pool UUIDs. *)
 (* The generation count is used to keep track of metadata_latest of all foreign database VDIs. *)
 (* The pool uuid is cached so that "xe pool-param-get param-name=metadata-of-pool" can be called without opening the database. *)
@@ -112,6 +114,42 @@ let read_vdi_cache_record ~vdi =
 				Some (Hashtbl.find db_vdi_cache vdi)
 			else
 				None)
+
+(* ------------ Providing signalling that an SR is ready for DR ------------- *)
+
+let processing_srs : API.ref_SR list ref = ref []
+let processing_srs_m = Mutex.create ()
+let processing_srs_c = Condition.create ()
+
+let signal_sr_is_processing ~__context ~sr =
+	debug "Recording that processing of SR %s has started." (Db.SR.get_uuid ~__context ~self:sr);
+	Mutex.execute processing_srs_m
+		(fun () ->
+			let srs = !processing_srs in
+			if not(List.mem sr srs) then
+				processing_srs := sr::srs)
+
+let signal_sr_is_ready ~__context ~sr =
+	debug "Recording that processing of SR %s has finished." (Db.SR.get_uuid ~__context ~self:sr);
+	Mutex.execute processing_srs_m
+		(fun () ->
+			let srs = !processing_srs in
+			if List.mem sr srs then begin
+				processing_srs := (List.filter (fun x -> x <> sr) srs);
+				Condition.broadcast processing_srs_c
+			end)
+
+let wait_until_sr_is_ready ~__context ~sr =
+	let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+	Mutex.execute processing_srs_m
+		(fun () ->
+			debug "Waiting for SR %s to be processed." sr_uuid;
+			while List.mem sr !processing_srs do
+				Condition.wait processing_srs_c processing_srs_m
+			done;
+			debug "Finished waiting for SR %s to be processed." sr_uuid)
+
+(* --------------------------------- VM recovery ---------------------------- *)
 
 (* This function uses the VM export functionality to *)
 (* create the objects required to reimport a list of VMs *)
