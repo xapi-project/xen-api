@@ -28,6 +28,7 @@ let error = Squeeze.error
 let _initial_reservation = "/memory/initial-reservation"  (* immutable *)
 let _target              = "/memory/target"               (* immutable *)
 let _feature_balloon     = "/control/feature-balloon"     (* immutable *)
+let _data_updated        = "/data/updated"                (* mutable: written by guest agent *)
 let _memory_offset       = "/memory/memory-offset"        (* immutable *)
 let _uncooperative       = "/memory/uncooperative"        (* mutable: written by us *)
 
@@ -165,13 +166,25 @@ module Domain = struct
 	let maxmem_kib = xen_max_offset_kib (get_hvm cnx domid) +* target_kib in
 	set_maxmem_noexn cnx domid maxmem_kib
 
-  (** Return true if feature_balloon has been advertised *)
-  let get_feature_balloon (xc, xs) domid = 
+  let get_xenstore_key k (xc, xs) domid = 
 	(* Cache the presence of this key when it appears but always read through when it hasn't yet *)
 	let per_domain = get_per_domain (xc, xs) domid in
-	if Hashtbl.mem per_domain.keys _feature_balloon && Hashtbl.find per_domain.keys _feature_balloon <> None
+	if Hashtbl.mem per_domain.keys k && Hashtbl.find per_domain.keys k <> None
 	then true
-	else (try ignore (read_nocache (xc, xs) domid _feature_balloon); true with Xb.Noent -> false)
+	else (try ignore (read_nocache (xc, xs) domid k); true with Xb.Noent -> false)
+
+  (** Return true if feature_balloon has been advertised *)
+  let get_feature_balloon = get_xenstore_key _feature_balloon
+
+  (** Return true if the guest agent has been advertised *)
+  let get_guest_agent = get_xenstore_key _data_updated
+
+  let get_guest_agent (xc, xs) domid =
+	(* Cache the presence of this key when it appears but always read through when it hasn't yet *)
+	let per_domain = get_per_domain (xc, xs) domid in
+	if Hashtbl.mem per_domain.keys _data_updated && Hashtbl.find per_domain.keys _data_updated <> None
+	then true
+	else (try ignore (read_nocache (xc, xs) domid _data_updated); true with Xb.Noent -> false)	  
 
   (** Query a domain's initial reservation. Throws Xb.Noent if the domain has been destroyed *)
   let get_initial_reservation cnx domid = 
@@ -273,11 +286,13 @@ let make_host ~verbose ~xc ~xs =
 					(* Misc other stuff appears in max_memory_pages *)
 					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xc.hvm_guest)) in
 					let can_balloon = Domain.get_feature_balloon cnx di.Xc.domid in
-					(* Once the domain tells us it can balloon, we assume it's not currently ballooning and
+					let has_guest_agent = Domain.get_guest_agent cnx di.Xc.domid in
+					let has_booted = can_balloon || has_guest_agent in
+					(* Once the domain tells us it has booted, we assume it's not currently ballooning and
 					   record the offset between memory_actual and target. We assume this is constant over the 
 					   lifetime of the domain. *)
 					let offset_kib : int64 = 
-					  if not can_balloon then 0L
+					  if not has_booted then 0L
 					  else begin
 					    try
 					      Domain.get_memory_offset cnx di.Xc.domid
@@ -288,7 +303,13 @@ let make_host ~verbose ~xc ~xs =
 							let target_kib = Domain.get_target cnx di.Xc.domid in
 							let memory_actual_kib' = Xc.pages_to_kib (Int64.of_nativeint (Xc.domain_getinfo xc di.Xc.domid).Xc.total_memory_pages) in
 							let offset_kib = memory_actual_kib' -* target_kib in
-							debug "domid %d just exposed feature-balloon; calibrating memory-offset = %Ld KiB" di.Xc.domid offset_kib;
+							debug "domid %d just %s; calibrating memory-offset = %Ld KiB" di.Xc.domid
+								(match can_balloon, has_guest_agent with
+									| true, false -> "advertised a balloon driver"
+									| true, true -> "started a guest agent and advertised a balloon driver"
+									| false, true -> "started a guest agent (but has no balloon driver)"
+									| false, false -> "N/A" (*impossible: see if has_booted above *)
+							) offset_kib;
 							Domain.set_memory_offset_noexn cnx di.Xc.domid offset_kib;
 							offset_kib
 					  end in
@@ -310,9 +331,9 @@ let make_host ~verbose ~xc ~xs =
 					   then we'll need to consider the domain's "initial-reservation". Note that the other fields
 					   won't necessarily have been created yet. *)
 
-					(* If the domain has yet to expose it's feature-balloon flag then we assume it is using at least its
+					(* If the domain has yet to boot properly then we assume it is using at least its
 					   "initial-reservation". *)
-					if not can_balloon then begin
+					if not has_booted then begin
 						let initial_reservation_kib = Domain.get_initial_reservation cnx di.Xc.domid in
 						let unaccounted_kib = max 0L
 							(initial_reservation_kib -* memory_actual_kib -* memory_shadow_kib) in
