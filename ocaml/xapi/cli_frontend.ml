@@ -1302,8 +1302,8 @@ there are two or more empty CD devices, please use the command 'vbd-insert' and 
 
    "snapshot-export-to-template",
     {
-      reqd=["filename"];
-      optn=["uuid"; "preserve-power-state"];
+      reqd=["filename"; "snapshot-uuid"];
+      optn=["preserve-power-state"];
       help="Export a snapshot to <filename>.";
       implementation= With_fd Cli_operations.snapshot_export;
       flags=[Standard];
