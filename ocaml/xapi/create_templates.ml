@@ -543,9 +543,9 @@ let create_all_templates rpc session_id =
 		oracle_template "Oracle Enterprise Linux 5" X64 [    ];
 		rhel6x_template "Red Hat Enterprise Linux 6.0"   X32 [    ];
 		rhel6x_template "Red Hat Enterprise Linux 6.0"   X64 [    ];
-
-		rhel6x_template "Oracle Enterprise Linux 6.0" X32 [    ];
 		rhel6x_template "Oracle Enterprise Linux 6.0" X64 [    ];
+		rhel6x_template "CentOS 6.0" X32 ~is_experimental:true [    ];
+		rhel6x_template "CentOS 6.0" X64 ~is_experimental:true [    ];
 
 		sles_9_template    "SUSE Linux Enterprise Server 9 SP4"  X32 [    ];
 		sles10sp1_template "SUSE Linux Enterprise Server 10 SP1" X32 [    ];
