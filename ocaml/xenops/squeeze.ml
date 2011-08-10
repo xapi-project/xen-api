@@ -295,11 +295,11 @@ module Proportional = struct
 	  let total_range = sum (List.map range domains) in
 	  let gamma' = Int64.to_float surplus_memory_kib /. (Int64.to_float total_range) in
 	  let gamma = constrain 0. 1. gamma' in
-	  debug "total_range = %Ld gamma = %f gamma' = %f" total_range gamma gamma';
-	  if verbose
-	  then debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma 
-		(if total_range = 0L then 0L else Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma)));
-
+	  if verbose then begin
+		  debug "total_range = %Ld gamma = %f gamma' = %f" total_range gamma gamma';
+		  debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma 
+			  (if total_range = 0L then 0L else Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma)));
+	  end;
 	  List.map (fun domain -> domain, domain.dynamic_min_kib +* (allocate gamma domain)) domains
 
 
@@ -339,14 +339,16 @@ module Squeezer = struct
 		let declared_inactive_domids = set_difference non_active_domids x.non_active_domids in
 		let declared_active_domids = set_difference x.non_active_domids non_active_domids in
 
-		List.iter
-			(fun d ->
-				debug "domid %d has been declared inactive" d
-			) declared_inactive_domids;
-		List.iter
-			(fun d ->
-				debug "domid %d has been declared active" d
-			) declared_active_domids;
+		if verbose then begin
+			List.iter
+				(fun d ->
+					debug "domid %d has been declared inactive" d
+				) declared_inactive_domids;
+			List.iter
+				(fun d ->
+					debug "domid %d has been declared active" d
+				) declared_active_domids;
+		end;
 
 		let x = { x with non_active_domids = non_active_domids } in
 
