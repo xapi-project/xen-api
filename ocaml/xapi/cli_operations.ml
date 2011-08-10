@@ -3267,7 +3267,12 @@ let vm_vif_list printer rpc session_id params =
 
 let with_database_vdi rpc session_id params f =
 	let database_params = read_map_params "database" params in
-	let database_uuid = List.assoc "vdi-uuid" database_params in
+	let database_uuid =
+		if List.mem_assoc "vdi-uuid" database_params then
+			List.assoc "vdi-uuid" database_params
+		else
+			failwith "A parameter of the form 'database:vdi-uuid=<uuid>' must be specified to run this command."
+	in
 	let database_vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:database_uuid in
 	let database_session = Client.VDI.open_database ~rpc ~session_id ~self:database_vdi in
 	finally
