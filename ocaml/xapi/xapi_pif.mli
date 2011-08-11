@@ -166,10 +166,6 @@ val pool_introduce :
   other_config:(string * string) list ->
   disallow_unplug:bool -> [ `PIF ] Ref.t
 
-(** This signals the monitor thread to tell it that it should write to the database
- *  to sync it with the current dom0 networking config. *)
-val mark_pif_as_dirty : Rrd_shared.StringSet.elt -> int64 -> unit
-
 (** Create a new PIF record with the given details. Also create a network for the
  *  new PIF, or reuses an existing one if the name matches the convention prescribed
  *  by the function {!bridge_naming_convention}. Also check whether the new PIF

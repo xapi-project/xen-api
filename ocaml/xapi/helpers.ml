@@ -47,10 +47,6 @@ let get_rpc () =
       None -> failwith "No rpc set!"
     | Some f -> f
 
-(* Given a device-name and a VLAN, figure out what the dom0 device name is that corresponds to this: *)
-let get_dom0_network_device_name dev vlan =
-  if vlan = -1L then dev else Printf.sprintf "%s.%Ld" dev vlan
-
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f =
