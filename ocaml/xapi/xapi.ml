@@ -811,7 +811,7 @@ let server_init() =
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
     "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Xapi_config.read_log_config !Xapi_globs.log_config_file);
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
-    "XAPI SERVER STARTING", [], print_server_starting_message;
+    "XAPI SERVER STARTING - dave is cool", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
     "Initialising local database", [], init_local_database;
 	"Loading DHCP leases", [], Xapi_udhcpd.init;
