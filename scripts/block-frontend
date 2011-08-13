@@ -3,24 +3,23 @@
 # Writes to the store when this domain's frontend block device appears.
 # Once this happens we should be safe opening the device.
 
-# NB special handling of partition events:
-# If we block-attach a device and then create partitions, events are
-# generated with DEVPATHs of the form /block/xvde/xvde1 -- we ignore these
-# If we block-attach a partition directly then events are generated
-# with DEVPATHs of the form /block/xvde1 -- we act on these.
+# FIXME: The interface with xapi doesn't distinguish between the whole
+# device and any partitions so we handle them identically.
 
-PARTITION=`echo ${DEVPATH} | cut -f 4 -d '/'`
-if [ ! -z ${PARTITION} ]; then
-        # the bad kind of partition
-	exit
-fi
- 
 DOMID=`xenstore-read domid`
 
-# Extract the device type and ID from the PHYSDEVPATH eg
-# PHYSDEVPATH=/devices/xen/vbd-51728
-TYPE=`echo ${PHYSDEVPATH} | cut -f 4 -d '/' | cut -f 1 -d '-'`
-DEVID=`echo ${PHYSDEVPATH} | cut -f 2 -d '-'`
+if [ ! -z ${PHYSDEVPATH} ]; then
+    # Extract the device type and ID from the PHYSDEVPATH eg
+    # PHYSDEVPATH=/devices/xen/vbd-51728
+    TYPE=`echo ${PHYSDEVPATH} | cut -f 4 -d '/' | cut -f 1 -d '-'`
+    DEVID=`echo ${PHYSDEVPATH} | cut -f 2 -d '-'`
+else
+    # Extract the device type and ID from DEVPATH. e.g.,
+    # DEVPATH=/devices/vbd-51728/block/xvda1
+    id=$(echo ${DEVPATH} | cut -f 3 -d '/')
+    TYPE=$(echo ${id} | cut -f 1 -d '-')
+    DEVID=$(echo ${id} | cut -f 2 -d '-')
+fi
 
 XAPI=/xapi/${DOMID}/frontend/${TYPE}/${DEVID}
 
