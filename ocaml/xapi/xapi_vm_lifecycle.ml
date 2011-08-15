@@ -155,6 +155,7 @@ let check_template ~vmr ~op ~ref_str =
 		`changing_dynamic_range;
 		`changing_static_range;
 		`changing_memory_limits;
+		`changing_shadow_memory;
 		`changing_VCPUs;
 		`clone;
 		`copy;
@@ -365,7 +366,7 @@ let update_allowed_operations ~__context ~self =
 			 `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
 			`hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
 			`provision; `changing_VCPUs_live; `pool_migrate; `make_into_template; `changing_static_range;
-			`changing_dynamic_range]
+			`changing_shadow_memory; `changing_dynamic_range]
 	in
 	(* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
 	let allowed =
