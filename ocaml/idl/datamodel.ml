@@ -754,8 +754,8 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
   error Api_errors.vm_requires_iommu ["host"]
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualisation (IOMMU/VT-d) enabled, which is needed by the VM." ();
-  error Api_errors.vm_resume_incompatible_version ["host"; "vm"]
-    ~doc:"The VM resume could not be performed on this host, because it has a different (incompatible) product version to the pool's master." ();
+  error Api_errors.vm_host_incompatible_version ["host"; "vm"]
+    ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
   error Api_errors.vm_has_pci_attached ["vm"]
     ~doc:"This operation could not be performed, because the VM has one or more PCI devices passed through." ();
   error Api_errors.host_cannot_attach_network [ "host"; "network" ]
@@ -1492,6 +1492,7 @@ let vm_assert_can_boot_here = call
 	~errs:[
 		Api_errors.host_not_enough_free_memory;
 		Api_errors.vm_requires_sr;
+		Api_errors.vm_host_incompatible_version;
 	]
 	()
 
