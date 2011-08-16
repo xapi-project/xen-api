@@ -476,7 +476,7 @@ let is_product_version_same_on_master ~__context ~host =
 
 let assert_product_version_is_same_on_master ~__context ~host ~self =
 	if not (is_product_version_same_on_master ~__context ~host) then
-		raise (Api_errors.Server_error (Api_errors.vm_resume_incompatible_version,
+		raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version,
 			[Ref.string_of host; Ref.string_of self]))
 
 (** PR-1007 - block operations during rolling upgrade *)
