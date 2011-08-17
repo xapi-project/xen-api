@@ -87,14 +87,8 @@ start() {
 		esac
 		"@BASE_PATH@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
 	fi
-	NEWSTUNNEL="`grep -e '^ *stunnelng *= *true *' /etc/xapi.conf`"
-	if test -z "$NEWSTUNNEL"
-	then
-		writeconffile
-		daemon ${STUNNEL} ${SSLCONFFILE}
-	else
-		daemon /usr/sbin/stunnelng -m server -p ${SSLPIDFILE} -c ${PEMFILE} -s :443 -d 127.0.0.1:80
-	fi
+	writeconffile
+	daemon ${STUNNEL} ${SSLCONFFILE}
 	RETVAL=$?
 
 	echo
