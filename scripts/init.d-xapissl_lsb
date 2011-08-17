@@ -11,7 +11,7 @@
 ### END INIT INFO
 
 # Source function library.
-. /etc/init.d/functions
+. /lib/lsb/init-functions
 
 PEMFILE="/etc/xensource/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
