@@ -17,6 +17,7 @@ PEMFILE="/etc/xensource/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
 SSLCONFFILE="/etc/xensource/xapi-ssl.conf"
 STUNNEL=$(which stunnel)
+XAPISSL_LOCK="/var/lock/xapissl"
 
 mgmt_ip() {
     . /etc/xensource-inventory
@@ -65,7 +66,7 @@ EOF
 
 start() {
 	echo -n $"Starting xapi SSL: "
-        if [ -e /var/lock/subsys/xapissl ]; then
+        if [ -e ${XAPISSL_LOCK} ]; then
 		if [ -e ${SSLPIDFILE} ] && [ -e /proc/`cat ${SSLPIDFILE}` ]; then
 			echo -n $"cannot start xapi SSL: xapi SSL is already running.";
 			failure $"cannot start xapi SSL: xapi SSL already running.";
@@ -92,13 +93,13 @@ start() {
 	RETVAL=$?
 
 	echo
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/xapissl;
+	[ $RETVAL -eq 0 ] && touch ${XAPISSL_LOCK};
 	return $RETVAL
 }
 
 stop() {
 	echo -n $"Stopping xapi SSL: "
-        if [ ! -e /var/lock/subsys/xapissl ]; then
+        if [ ! -e ${XAPISSL_LOCK} ]; then
 	    echo -n $"cannot stop xapi SSL: xapi SSL is not running."
 	    failure $"cannot stop xapi: xapi SSL is not running."
 	    echo
@@ -122,7 +123,7 @@ stop() {
 		sleep 1
 	    else
 		echo
-		rm -f /var/lock/subsys/xapissl
+		rm -f ${XAPISSL_LOCK}
 		return 0
             fi
         done
@@ -130,7 +131,7 @@ stop() {
 	echo -n $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
 	failure $"stunnel ($SSLPID) failed to terminate gracefully, terminating forcefully"
 	kill -9 ${SSLPID}
-	rm -f /var/lock/subsys/xapissl
+	rm -f ${XAPISSL_LOCK}
 	return 1
 }
 
@@ -157,7 +158,7 @@ case "$1" in
 	rhstatus
 	;;
   condrestart)
-	[ -f /var/lock/subsys/xapissl ] && restart || :
+	[ -f ${XAPISSL_LOCK} ] && restart || :
 	;;
   *)
 	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
