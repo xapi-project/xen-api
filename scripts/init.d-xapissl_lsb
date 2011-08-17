@@ -138,8 +138,16 @@ stop() {
 	return 1
 }
 
-rhstatus() {
-	status xapissl
+status() {
+    if [ -e ${XAPISSL_LOCK} ] &&
+	    [ -e ${SSLPIDFILE} ] &&
+        [ -e /proc/`cat ${SSLPIDFILE}` ];
+    then
+        status_of_proc ${STUNNEL} `basename ${STUNNEL}` && exit 0 || exit $?
+    else
+        echo "stunnel is not running ... failed!"
+        exit 1
+    fi
 }
 
 restart() {
@@ -158,7 +166,7 @@ case "$1" in
 	restart
 	;;
   status)
-	rhstatus
+	status
 	;;
   condrestart)
 	[ -f ${XAPISSL_LOCK} ] && restart || :
