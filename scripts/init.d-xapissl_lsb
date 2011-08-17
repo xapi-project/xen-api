@@ -13,7 +13,7 @@
 
 PEMFILE="/etc/xensource/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
-SSLCONFFILE="/var/xapi/xapi-ssl.conf"
+SSLCONFFILE="/etc/xensource/xapi-ssl.conf"
 STUNNEL=$(which stunnel)
 
 mgmt_ip() {
