@@ -1,12 +1,14 @@
 #! /bin/bash
-#
-# xapi          Start/Stop the XAPI SSL proxy
-#
-# chkconfig: 2345 91 01
-# description: XenServer server SSL
-# processname: stunnel
-# config: /etc/xensource/stunnel.conf
-# pidfile: /var/run/xapi.ssl.pid
+### BEGIN INIT INFO
+# Provides:          xapissl
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: XenAP server SSL proxy
+# Description:       This file will initialize stunnel for
+#                    the XenAPI server.
+### END INIT INFO
 
 # Source function library.
 . /etc/init.d/functions
