@@ -21,8 +21,10 @@ XAPISSL_LOCK="/var/lock/xapissl"
 
 mgmt_ip() {
     . /etc/xensource-inventory
-    if [ -n "${MANAGEMENT_INTERFACE}" ] && [ "${MANAGEMENT_INTERFACE}" != "lo" ]; then
-	/sbin/ifconfig ${MANAGEMENT_INTERFACE} | sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'
+    if [ -n "${MANAGEMENT_INTERFACE}" ] && [ "${MANAGEMENT_INTERFACE}" != "lo" ];
+    then
+	/sbin/ifconfig ${MANAGEMENT_INTERFACE} | \
+        sed -ne 's/.*inet addr:\([^ ]*\).*/\1/p'
     fi
 }
 
