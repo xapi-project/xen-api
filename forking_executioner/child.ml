@@ -86,7 +86,7 @@ let handle_comms comms_sock fd_sock state =
     | None -> handle_comms_no_fd_sock2 comms_sock fd_sock state
     | Some x -> handle_comms_with_fd_sock2 comms_sock fd_sock x state
 
-let run state comms_sock fd_sock fd_sock_path syslog_stdout =
+let run state comms_sock fd_sock fd_sock_path =
   let rec inner state =
     let state = handle_comms comms_sock fd_sock state in
     if state.finished then state else inner state
@@ -131,7 +131,7 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
 
     let in_childlogging = ref None in
     let out_childlogging = ref None in
-    if syslog_stdout then begin
+    if state.syslog_stdout then begin
       (* Create a pipe used to listen to the child process's stdout *)
       let (in_fd, out_fd) = Unix.pipe () in
       in_childlogging := Some in_fd;

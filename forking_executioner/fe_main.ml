@@ -30,7 +30,7 @@ let setup sock cmdargs id_to_fd_map syslog_stdout env =
 	fd_sock2=None;
 	finished=false;
       } in
-      Child.run state sock fd_sock fd_sock_path syslog_stdout
+      Child.run state sock fd_sock fd_sock_path
     end else begin
       (* Child *)
       exit 0;
