@@ -249,7 +249,7 @@ let init_args() =
 	       "-dummydata", Arg.Set debug_dummy_data, "populate with dummy data for demo/debugging purposes";
 	       "-version", Arg.Unit show_version, "show version of the binary"
 	     ] (fun x -> printf "Warning, ignoring unknown argument: %s" x)
-    "Citrix XenServer API server"
+    "XenAPI server"
 
 let wait_to_die() =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
