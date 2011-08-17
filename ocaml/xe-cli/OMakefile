@@ -99,7 +99,7 @@ install:
 	mkdir -p $(DESTDIR)/usr/bin
 	ln -sf $(BIN_DIR)/xe $(DESTDIR)/usr/bin/xe
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/cli
+	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 	mkdir -p $(DEBUGDIST)
 
 .PHONY: sdk-install
