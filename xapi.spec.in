@@ -123,6 +123,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files core
 %defattr(-,root,root,-)
+%exclude /etc/init.d/xapissl
 @BASE_PATH@/bin/xapi
 /etc/xapi.conf
 /etc/logrotate.d/audit
