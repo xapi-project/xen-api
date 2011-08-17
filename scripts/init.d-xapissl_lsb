@@ -50,9 +50,10 @@ EOF
 
     . /etc/xensource-inventory
     # Only if the management interface is set ask stunnel to bind to it
-    if [ -n "${MANAGEMENT_INTERFACE}" ] && [ "${MANAGEMENT_INTERFACE}" != "lo" ]; then
-    	MGMT_IP=`ifconfig ${MANAGEMENT_INTERFACE} | grep "inet addr" | cut -d: -f2 | awk '{print $1}'`
-	cat >> $SSLCONFFILE <<EOF
+    if [ -n "${MANAGEMENT_INTERFACE}" ] && [ "${MANAGEMENT_INTERFACE}" != "lo" ];
+    then
+        MGMT_IP=`mgmt_ip`
+        cat >> $SSLCONFFILE <<EOF
 
 [xapi]
 accept = ${MGMT_IP}:443
