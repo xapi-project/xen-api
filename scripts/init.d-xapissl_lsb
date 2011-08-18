@@ -92,7 +92,7 @@ start() {
 		"@BASE_PATH@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
 	fi
 	writeconffile
-	daemon ${STUNNEL} ${SSLCONFFILE}
+	start_daemon ${STUNNEL} ${SSLCONFFILE}
 	RETVAL=$?
 
 	echo
