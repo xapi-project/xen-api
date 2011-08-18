@@ -16,7 +16,7 @@
 PEMFILE="/etc/xensource/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
 SSLCONFFILE="/etc/xensource/xapi-ssl.conf"
-STUNNEL=$(which stunnel)
+STUNNEL=$(which stunnel4)
 XAPISSL_LOCK="/var/lock/xapissl"
 
 mgmt_ip() {
