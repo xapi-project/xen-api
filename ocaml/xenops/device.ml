@@ -1517,10 +1517,11 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
 	   @ [ "-monitor"; "pty"; "-vnc"; "127.0.0.1:1" ]
 		in
-	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout:true dmpath l in
+	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
+	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout dmpath l in
 
-        debug "qemu-dm: should be running in the background (stdout and stderr redirected to syslog)";
+        debug "qemu-dm: should be running in the background (stdout redirected to syslog)";
 
 	(* There are two common-cases:
 	   1. (in development) the qemu process may crash
