@@ -25,12 +25,12 @@ let setup sock cmdargs id_to_fd_map syslog_stdout env =
 	Child.cmdargs=cmdargs; 
 	env=env;
 	id_to_fd_map=id_to_fd_map; 
-	syslog_stdout=syslog_stdout;
+	syslog_stdout={Child.enabled=syslog_stdout.Fe.enabled; Child.key=syslog_stdout.Fe.key};
 	ids_received=[];
 	fd_sock2=None;
 	finished=false;
       } in
-      Child.run state sock fd_sock fd_sock_path syslog_stdout
+      Child.run state sock fd_sock fd_sock_path
     end else begin
       (* Child *)
       exit 0;

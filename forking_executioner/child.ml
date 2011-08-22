@@ -5,11 +5,16 @@ let debug (fmt : ('a, unit, string, unit) format4) = (Printf.kprintf (fun s -> P
 
 exception Cancelled
 
+type syslog_stdout_t = {
+  enabled : bool;
+  key : string option;
+}
+
 type state_t = {
   cmdargs : string list;
   env : string list;
   id_to_fd_map : (string * int option) list;
-  syslog_stdout : bool;
+  syslog_stdout : syslog_stdout_t;
   ids_received : (string * Unix.file_descr) list;
   fd_sock2 : Unix.file_descr option;
   finished : bool;
@@ -86,7 +91,7 @@ let handle_comms comms_sock fd_sock state =
     | None -> handle_comms_no_fd_sock2 comms_sock fd_sock state
     | Some x -> handle_comms_with_fd_sock2 comms_sock fd_sock x state
 
-let run state comms_sock fd_sock fd_sock_path syslog_stdout =
+let run state comms_sock fd_sock fd_sock_path =
   let rec inner state =
     let state = handle_comms comms_sock fd_sock state in
     if state.finished then state else inner state
@@ -131,7 +136,7 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
 
     let in_childlogging = ref None in
     let out_childlogging = ref None in
-    if syslog_stdout then begin
+    if state.syslog_stdout.enabled then begin
       (* Create a pipe used to listen to the child process's stdout *)
       let (in_fd, out_fd) = Unix.pipe () in
       in_childlogging := Some in_fd;
@@ -175,10 +180,11 @@ let run state comms_sock fd_sock fd_sock_path syslog_stdout =
 		  (fun () ->
 			  Opt.iter
 				  (fun in_fd ->
+					  let key = (match state.syslog_stdout.key with None -> Filename.basename name | Some key -> key) in
 					  (* Read from the child's stdout and write each one to syslog *)
 					  Unixext.lines_iter
 						  (fun line ->
-							  Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "%s[%d]: %s" (Filename.basename name) result line)
+							  Syslog.log Syslog.Daemon Syslog.Info (Printf.sprintf "%s[%d]: %s" key result line)
 						  ) (Unix.in_channel_of_descr in_fd)
 				  ) !in_childlogging
 		  ) (fun () -> status := snd (Unix.waitpid [] result));

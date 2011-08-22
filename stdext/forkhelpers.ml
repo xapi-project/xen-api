@@ -86,9 +86,14 @@ exception Spawn_internal_error of string * string * Unix.process_status
 
 let id = ref 0 
 
+type syslog_stdout_t =
+  | NoSyslogging
+  | Syslog_DefaultKey
+  | Syslog_WithKey of string
+
 (** Safe function which forks a command, closing all fds except a whitelist and
     having performed some fd operations in the child *)
-let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr) list) ?(syslog_stdout=false)
+let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr) list) ?(syslog_stdout=NoSyslogging)
     (cmd: string) (args: string list) =
 
   let sock = Fecomms.open_unix_domain_sock_client "/var/xapi/forker/main" in
@@ -125,6 +130,11 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
       |	Some e -> e
       | None -> [| "PATH=" ^ (String.concat ":" default_path) |]
     in
+    let syslog_stdout = match syslog_stdout with
+      | NoSyslogging -> {Fe.enabled=false; Fe.key=None}
+      | Syslog_DefaultKey -> {Fe.enabled=true; Fe.key=None}
+      | Syslog_WithKey k -> {Fe.enabled=true; Fe.key=Some k}
+    in
     Fecomms.write_raw_rpc sock (Fe.Setup {Fe.cmdargs=(cmd::args); env=(Array.to_list env); id_to_fd_map = id_to_fd_map; syslog_stdout = syslog_stdout});
 
     let response = Fecomms.read_raw_rpc sock in
@@ -151,7 +161,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     close_fds
 
 
-let execute_command_get_output ?env ?(syslog_stdout=false) cmd args =
+let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) cmd args =
   match with_logfile_fd "execute_command_get_out" (fun out_fd ->
     with_logfile_fd "execute_command_get_err" (fun err_fd ->
       let (sock,pid) = safe_close_and_exec ?env None (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in

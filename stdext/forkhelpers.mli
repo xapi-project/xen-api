@@ -34,10 +34,15 @@
 
 (** {2 High-level interface } *)
 
+type syslog_stdout_t =
+  | NoSyslogging
+  | Syslog_DefaultKey
+  | Syslog_WithKey of string
+
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
 	on success (exit 0). On failure this raises 
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
-val execute_command_get_output : ?env:string array -> ?syslog_stdout:bool -> string -> string list -> string * string
+val execute_command_get_output : ?env:string array -> ?syslog_stdout:syslog_stdout_t -> string -> string list -> string * string
 
 (** Thrown by [execute_command_get_output] if the subprocess exits with a non-zero exit code *)
 exception Spawn_internal_error of string * string * Unix.process_status
@@ -63,7 +68,7 @@ exception Subprocess_killed of int
 	with the optional [stdin], [stdout] and [stderr] file descriptors (or /dev/null if not
 	specified) and with any key from [id_to_fd_list] in [args] replaced by the integer
 	value of the file descriptor in the final process. *)
-val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> ?syslog_stdout:bool -> string -> string list -> pidty
+val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> ?syslog_stdout:syslog_stdout_t -> string -> string list -> pidty
 
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 val waitpid : pidty -> (int * Unix.process_status)
