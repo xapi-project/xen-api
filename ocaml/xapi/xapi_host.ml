@@ -413,34 +413,39 @@ let compute_evacuation_plan ~__context ~host =
 		compute_evacuation_plan_no_wlb ~__context ~host
 
 let evacuate ~__context ~host =
-  let task = Context.get_task_id __context in
+	let task = Context.get_task_id __context in
 	begin
-	  let plans = compute_evacuation_plan ~__context ~host in
+		let plans = compute_evacuation_plan ~__context ~host in
 		(* Check there are no errors in this list *)
-		Hashtbl.iter (fun vm plan -> match plan with Error(code, params) -> raise (Api_errors.Server_error(code, params)) | _ -> ()) plans;
+		Hashtbl.iter (fun vm plan ->
+			match plan with
+				| Error(code, params) -> raise (Api_errors.Server_error(code, params))
+				| _ -> ())
+			plans;
 
 		(* Do it *)
 		let individual_progress = 1.0 /. float (Hashtbl.length plans) in
 		let migrate_vm  vm plan = match plan with
-		  | Migrate host ->
-			  Helpers.call_api_functions ~__context
-				(fun rpc session_id -> Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options:[ "live", "true" ]);
-			  let progress = Db.Task.get_progress ~__context ~self:task in
+			| Migrate host ->
+				Helpers.call_api_functions ~__context
+					(fun rpc session_id -> Client.Client.VM.pool_migrate
+						~rpc ~session_id ~vm ~host ~options:[ "live", "true" ]);
+				let progress = Db.Task.get_progress ~__context ~self:task in
 				TaskHelper.set_progress ~__context (progress +. individual_progress)
-		  | Error(code, params) -> (* should never happen *) raise (Api_errors.Server_error(code, params))
+			| Error(code, params) -> (* should never happen *)
+				raise (Api_errors.Server_error(code, params))
 		in
 		let () = Hashtbl.iter migrate_vm plans in
 
 		(* Now check there are no VMs left *)
 		let vms = Db.Host.get_resident_VMs ~__context ~self:host in
 		let vms =
-		  List.filter
-			(fun vm ->
-			   not (Db.VM.get_is_control_domain ~__context ~self:vm)
-			)
-			vms
+			List.filter
+				(fun vm ->
+					not (Db.VM.get_is_control_domain ~__context ~self:vm))
+				vms
 		in
-		  assert (List.length vms = 0)
+		assert (List.length vms = 0)
 	end
 
 let retrieve_wlb_evacuate_recommendations ~__context ~self =
