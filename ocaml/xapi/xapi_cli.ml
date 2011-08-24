@@ -96,6 +96,8 @@ let do_rpcs req s username password minimal cmd session args =
   let _ = check_required_keys cmd cspec.reqd in
   try
     let generic_rpc = Helpers.get_rpc () in
+    (* NB the request we've received is for the /cli. We need an XMLRPC request for the API *)
+    let req = Xmlrpcclient.xmlrpc ~version:"1.1" "/" in
     let rpc = generic_rpc req s in
     if do_forward
     then with_session ~local:false rpc username password session (fun sess -> forward args s (Some sess))
