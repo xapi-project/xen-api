@@ -227,11 +227,18 @@ module Request = struct
 		| [ m; uri; version ] ->
 			(* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
 			let uri, query = parse_uri uri in
-			{ m = method_t_of_string m; uri = uri; query = query;
-			content_length = None; transfer_encoding = None;
-			version = version; cookie = []; auth = None; task = None;
-			subtask_of = None; content_type = None; user_agent = None;
-			close=false; additional_headers=[]; body = None }
+			(* strip the "HTTP/" prefix from the version string *)
+            begin match String.split ~limit:2 '/' version with
+                | [ _; version ] ->
+                    { m = method_t_of_string m; uri = uri; query = query;
+                    content_length = None; transfer_encoding = None;
+                    version = version; cookie = []; auth = None; task = None;
+                    subtask_of = None; content_type = None; user_agent = None;
+                    close=false; additional_headers=[]; body = None }
+                | _ ->
+                    error "Failed to parse: %s" x;
+                    raise Http_parse_failure
+            end
 		| _ -> raise Http_parse_failure
 
 	let to_string x =

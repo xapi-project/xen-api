@@ -197,7 +197,9 @@ let request_of_bio_exn ic =
 					| k when k = subtask_of_hdr -> subtask_of := Some v; true
 					| k when k = content_type_hdr -> content_type := Some v; true
 					| k when k = user_agent_hdr -> user_agent := Some v; true
-					| k when k = connection_hdr && String.lowercase v = "close" -> req.Request.close <- true; true
+                    | k when k = connection_hdr ->
+                        req.Request.close <- String.lowercase v = "close";
+                        true
 					| _ -> false in
 				if not absorbed && left <= 0 then raise Too_many_headers;
 				if absorbed
