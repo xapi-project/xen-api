@@ -21,22 +21,27 @@ INSTALLED_REPOS_DIR = '/etc/xensource/installed-repos'
 def main():
     session = XenAPI.xapi_local()
     logged_in = False
-    for tries in range(5):
+    # read dom0 uuid out of inventory file
+    uuid = filter(lambda x: x.startswith('CONTROL_DOMAIN_UUID'), open('/etc/xensource-inventory').readlines())[0].strip().split('=')[1].strip("'")
+    oref = rec = None
+    for tries in range(180):
         try:
             session.xenapi.login_with_password("", "")
             logged_in = True
+
+            # get dom0's DB record
+            oref = session.xenapi.VM.get_by_uuid(uuid)
+            rec = session.xenapi.VM.get_record(oref)
             break
         except:
             # repeat after a delay
             time.sleep(1)
-    if not logged_in:
-        print >> sys.stderr, "Unable to log into xapi, aborting"
+    if oref == None:
+        if logged_in:
+            session.xenapi.session.logout()
+        print >> sys.stderr, "Xapi is not ready. Aborting."
         return 1
 
-    # read dom0 uuid out of inventory file and 
-    uuid = filter(lambda x: x.startswith('CONTROL_DOMAIN_UUID'), open('/etc/xensource-inventory').readlines())[0].strip().split('=')[1].strip("'")
-    oref = session.xenapi.VM.get_by_uuid(uuid)
-    rec = session.xenapi.VM.get_record(oref)
     static_min = int(rec['memory_static_min'])
     static_max = int(rec['memory_static_max'])
     current_target = int(rec['memory_target'])
