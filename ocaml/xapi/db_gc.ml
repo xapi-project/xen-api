@@ -384,6 +384,9 @@ let detect_rolling_upgrade ~__context =
    mechanism for host liveness). *)
 let tickle_heartbeat ~__context host stuff =
 	(* debug "Tickling heartbeat for host: %s stuff = [ %s ]" (Ref.string_of host) (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) stuff)); *)
+	let use_host_heartbeat_for_liveness =
+		Mutex.execute use_host_heartbeat_for_liveness_m
+			(fun () -> !use_host_heartbeat_for_liveness) in
 
 	Mutex.execute host_table_m 
 		(fun () ->
@@ -392,7 +395,8 @@ let tickle_heartbeat ~__context host stuff =
 				Hashtbl.remove host_skew_table host;
 				Hashtbl.remove host_uncooperative_domains_table host;
 				let reason = Xapi_hooks.reason__clean_shutdown in
-				Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
+				if use_host_heartbeat_for_liveness
+				then Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
 			end else begin
 				let now = Unix.gettimeofday () in
 				Hashtbl.replace host_heartbeat_table host now;
