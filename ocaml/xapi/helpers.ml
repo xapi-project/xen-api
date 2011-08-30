@@ -778,6 +778,30 @@ let loadavg () =
     float_of_string (List.hd (split_colon all))
   with _ -> -1.
 
+let memusage () =
+	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
+		ref None, ref None, ref None, ref None, ref None, ref None in
+	let find_field key s v =
+		if String.startswith key s then
+			let vs = List.hd (List.filter ((<>) "") (List.tl (String.split ' ' s))) in
+			v := Some (float_of_string vs) in
+	try
+		Unixext.file_lines_iter
+			(fun s ->
+				 find_field "MemTotal" s memtotal;
+				 find_field "MemFree" s memfree;
+				 find_field "SwapTotal" s swaptotal;
+				 find_field "SwapFree" s swapfree;
+				 find_field "Buffers" s buffers;
+				 find_field "Cached" s cached)
+			"/proc/meminfo";
+		match !memtotal, !memfree, !swaptotal, !swapfree, !buffers, !cached with
+		| Some mt, Some mf, Some st, Some sf, Some bu, Some ca ->
+			  let su = if st = 0. then 0. else (st -. sf) /. st in
+			  (mt -. mf -. (bu +. ca) *. (1. -. su)) /. mt
+		| _ -> raise Exit
+	with _ -> - 1.
+
 let local_storage_exists () =
   (try ignore(Unix.stat (Xapi_globs.xapi_blob_location)); true
     with _ -> false)
