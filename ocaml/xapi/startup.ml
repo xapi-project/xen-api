@@ -14,6 +14,8 @@
 (**
  * @group Main Loop and Start-up
  *)
+
+open Threadext
  
 module D=Debug.Debugger(struct let name="startup" end)
 open D
