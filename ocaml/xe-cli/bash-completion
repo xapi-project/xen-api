@@ -1,4 +1,4 @@
-# Copy this file to /etc/bash_completion.d/cli
+# Copy this file to /etc/bash_completion.d/xe
 # Make sure that cli is on your path, too!
 
 MAGIC_SQUOTE="jsufbtghejhw"
