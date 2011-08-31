@@ -171,7 +171,7 @@ let request_of_bio_exn ic =
 
 	(* Default for HTTP/1.1 is persistent connections. Anything else closes *)
 	(* the channel as soon as the request is processed *)
-	if req.Request.version <> "HTTP/1.1" then req.Request.close <- true;
+	if req.Request.version <> "1.1" then req.Request.close <- true;
 
 	let rec read_rest_of_headers left =
 		let cl_hdr = String.lowercase Http.Hdr.content_length in
