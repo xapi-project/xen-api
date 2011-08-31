@@ -573,7 +573,7 @@ let on_enable config_params =
 	
 	(* execute the likewise domain join cmd *)
 	try
-		let (_: (string*string) list) = likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";domain;user])
+		let (_: (string*string) list) = likewise_common ~stdin_string:pass (["--minimal";"join"]@ou_params@["--ignore-pam";"--ignore-ssh";"--notimesync";domain;user])
 			"/usr/bin/domainjoin-cli" in
 
 		let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
