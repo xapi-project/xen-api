@@ -19,7 +19,10 @@ RPM_BINDIR=$(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)
 SPECNAME=xapi-libs.spec
 
 .PHONY: build
-build: $(MY_SOURCES)/MANIFEST
+build: $(MY_SOURCES)/MANIFEST rpm
+
+.PHONY: rpm
+rpm:
 	mkdir -p $(RPM_RPMSDIR)
 	$(MAKE) -C $(REPO) -f Makefile.xcp srpm
 	mkdir -p $(RPM_RPMSDIR)/$(DOMAIN_ZERO_OPTIMIZED)
@@ -27,7 +30,7 @@ build: $(MY_SOURCES)/MANIFEST
 	mkdir -p $(MY_MAIN_PACKAGES)
 	cp $(RPM_RPMSDIR)/$(DOMAIN0_ARCH_OPTIMIZED)/xapi-libs-fe-*.rpm $(MY_MAIN_PACKAGES)
 
-$(MY_SOURCES)/MANIFEST: $(MY_SOURCES_DIRSTAMP)
+$(MY_SOURCES)/MANIFEST: rpm $(MY_SOURCES_DIRSTAMP)
 	rm -f $@
 	/bin/sh ./srpms-to-manifest api-libs $(MY_OUTPUT_DIR)/SRPMS > $@
 
