@@ -4,7 +4,7 @@ all:
 	$(PYTHON) setup.py sdist
 
 install:
-	$(PYTHON) setup.py install --prefix=$(DESTDIR)/usr
+	$(PYTHON) setup.py install
 
 rpm:
 	$(PYTHON) setup.py bdist --format=rpm
