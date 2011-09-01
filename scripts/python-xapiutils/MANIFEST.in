@@ -1,0 +1,2 @@
+include XenAPIPlugin.py
+include inventory.py
