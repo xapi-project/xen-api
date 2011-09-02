@@ -35,7 +35,8 @@ let xmlrpc_handler process req bio =
 	debug "Response: %s" (Rpc.to_string result.Rpc.contents);
 	let str = Xmlrpc.string_of_response result in
 	Http_svr.response_str req s str
-	
+
+let server = Http_svr.Server.empty
 
 let daemon_init post_daemonize_hook process =
 	post_daemonize_hook ();
@@ -44,9 +45,9 @@ let daemon_init post_daemonize_hook process =
 	let unix_socket_path = "/var/xapi/v6" in
 	Unixext.mkdir_safe (Filename.dirname unix_socket_path) 0o700;
 	Unixext.unlink_safe unix_socket_path;
-	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(unix_socket_path)) in
-	ignore(Http_svr.start (domain_sock, "unix-RPC"));
-	Http_svr.add_handler Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
+	let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(unix_socket_path)) "unix_rpc" in
+	Http_svr.start server domain_sock;
+	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 
 	(* TCP socket: only use for testing! *)
 (*	let localhost = Unix.inet_addr_of_string "127.0.0.1" in
