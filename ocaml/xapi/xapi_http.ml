@@ -221,6 +221,8 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
     raise e
 
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
+
+let server = Http_svr.Server.empty
 	  
 let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 
@@ -235,7 +237,7 @@ let bind inetaddr =
 	let timeout = 30.0 in (* 30s *)
 	while !result = None && (Unix.gettimeofday () -. start < timeout) do
 		try
-			result := Some (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr);
+			result := Some (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr description);
 		with Unix.Unix_error(code, _, _) ->
 			debug "While binding %s: %s" description (Unix.error_message code);
 			Thread.delay 5.
@@ -290,4 +292,4 @@ let add_handler (name, handler) =
 	| Datamodel.Put -> Http.Put
 	| Datamodel.Post -> Http.Post
 	| Datamodel.Connect -> Http.Connect
-      in Http_svr.add_handler ty uri h
+      in Http_svr.Server.add_handler server ty uri h

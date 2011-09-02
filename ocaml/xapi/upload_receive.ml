@@ -29,15 +29,15 @@ let _ =
 	  "Receive file uploads by HTTP";
 
 	printf "Starting server on port %d\n%!" !http_port;
+	let server = Http_svr.Server.empty in
 	try
-	  Http_svr.add_handler Put "/upload" (Http_svr.BufIO Fileupload.upload_file);
+	  Http_svr.add_handler server Put "/upload" (Http_svr.BufIO Fileupload.upload_file);
 	  let sockaddr = Unix.ADDR_INET(Unix.inet_addr_of_string Xapi_globs.ips_to_listen_on, !http_port) in
-	  let inet_sock = Http_svr.bind sockaddr in
-	  let threads = Http_svr.http_svr [ (inet_sock,"ur_inet") ]	in
+	  let inet_sock = Http_svr.bind sockaddr "inet_rpc" in
+	  Http_svr.start server inet_sock;
 	  print_endline "Receiving upload requests on:";
 	  Printf.printf "http://%s:%d/upload\n" (Helpers.get_main_ip_address ()) !http_port;
 	  flush stdout;
-	  List.iter Thread.join threads
 	with
 	  | exn -> (eprintf "Caught exception: %s\n!"
 		      (ExnHelper.string_of_exn exn))

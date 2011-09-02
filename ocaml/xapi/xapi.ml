@@ -699,13 +699,13 @@ let server_init() =
     Unixext.mkdir_safe (Filename.dirname Xapi_globs.unix_domain_socket) 0o700;
     Unixext.unlink_safe Xapi_globs.unix_domain_socket;
     let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX(Xapi_globs.unix_domain_socket)) in
-    ignore(Http_svr.start (domain_sock, "unix-RPC"));
+    ignore(Http_svr.start Xapi_http.server domain_sock);
     in
   let listen_localhost () =
     (* Always listen on 127.0.0.1 *)
     let localhost = Unix.inet_addr_of_string "127.0.0.1" in
     let localhost_sock = Xapi_http.bind (Unix.ADDR_INET(localhost, Xapi_globs.http_port)) in
-    ignore(Http_svr.start (localhost_sock, "inet-RPC"));
+    ignore(Http_svr.start Xapi_http.server localhost_sock);
     in
 
   let print_server_starting_message() = debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
