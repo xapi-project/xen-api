@@ -300,14 +300,13 @@ let db_introduce = pool_introduce
 
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
-let mark_pif_as_dirty device vLAN =
+(* This signals the monitor thread to tell it that it should sync the database
+ * with the current dom0 networking config. *)
+let mark_pif_as_dirty device =
 	Threadext.Mutex.execute
 		(Rrd_shared.mutex)
 		(fun () ->
-			Rrd_shared.dirty_pifs :=
-				Rrd_shared.StringSet.add
-					(Helpers.get_dom0_network_device_name device vLAN)
-					(!Rrd_shared.dirty_pifs);
+			Rrd_shared.dirty_pifs := Rrd_shared.StringSet.add device (!Rrd_shared.dirty_pifs);
 			Condition.broadcast Rrd_shared.condition)
 
 (* Internal [introduce] is passed a pre-built table [t] *)
@@ -360,7 +359,7 @@ let introduce_internal
 	 * subsequent changes to this PIFs' device's dom0 configuration
 	 * will be reflected accordingly]
 	 *)
-	mark_pif_as_dirty device vLAN;
+	mark_pif_as_dirty device;
 
 	(* return ref of newly created pif record *)
 	pif
@@ -552,9 +551,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
 	 * a PIF.reconfigure_ip to set mode=dhcp, but you have already
 	 * got an IP on the dom0 device (e.g. because it's a management
 	 * i/f that was brought up independently by init scripts) *)
-	mark_pif_as_dirty
-		(Db.PIF.get_device ~__context ~self)
-		(Db.PIF.get_VLAN ~__context ~self)
+	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
 
 let rec unplug ~__context ~self =
 	assert_no_protection_enabled ~__context ~self;
@@ -575,7 +572,8 @@ let rec unplug ~__context ~self =
 		let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
 		unplug ~__context ~self:access_PIF
 	end;
-	Nm.bring_pif_down ~__context self
+	Nm.bring_pif_down ~__context self;
+	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
 
 let rec plug ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
@@ -596,7 +594,8 @@ let rec plug ~__context ~self =
 			plug ~__context ~self:transport_PIF
 		end
 	end;
-	Xapi_network.attach ~__context ~network ~host
+	Xapi_network.attach ~__context ~network ~host;
+	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in

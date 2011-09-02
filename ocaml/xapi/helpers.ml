@@ -47,10 +47,6 @@ let get_rpc () =
       None -> failwith "No rpc set!"
     | Some f -> f
 
-(* Given a device-name and a VLAN, figure out what the dom0 device name is that corresponds to this: *)
-let get_dom0_network_device_name dev vlan =
-  if vlan = -1L then dev else Printf.sprintf "%s.%Ld" dev vlan
-
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f =
@@ -480,7 +476,7 @@ let is_product_version_same_on_master ~__context ~host =
 
 let assert_product_version_is_same_on_master ~__context ~host ~self =
 	if not (is_product_version_same_on_master ~__context ~host) then
-		raise (Api_errors.Server_error (Api_errors.vm_resume_incompatible_version,
+		raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version,
 			[Ref.string_of host; Ref.string_of self]))
 
 (** PR-1007 - block operations during rolling upgrade *)
@@ -781,6 +777,30 @@ let loadavg () =
   try
     float_of_string (List.hd (split_colon all))
   with _ -> -1.
+
+let memusage () =
+	let memtotal, memfree, swaptotal, swapfree, buffers, cached =
+		ref None, ref None, ref None, ref None, ref None, ref None in
+	let find_field key s v =
+		if String.startswith key s then
+			let vs = List.hd (List.filter ((<>) "") (List.tl (String.split ' ' s))) in
+			v := Some (float_of_string vs) in
+	try
+		Unixext.file_lines_iter
+			(fun s ->
+				 find_field "MemTotal" s memtotal;
+				 find_field "MemFree" s memfree;
+				 find_field "SwapTotal" s swaptotal;
+				 find_field "SwapFree" s swapfree;
+				 find_field "Buffers" s buffers;
+				 find_field "Cached" s cached)
+			"/proc/meminfo";
+		match !memtotal, !memfree, !swaptotal, !swapfree, !buffers, !cached with
+		| Some mt, Some mf, Some st, Some sf, Some bu, Some ca ->
+			  let su = if st = 0. then 0. else (st -. sf) /. st in
+			  (mt -. mf -. (bu +. ca) *. (1. -. su)) /. mt
+		| _ -> raise Exit
+	with _ -> - 1.
 
 let local_storage_exists () =
   (try ignore(Unix.stat (Xapi_globs.xapi_blob_location)); true

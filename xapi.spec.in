@@ -282,7 +282,7 @@ fi
 %defattr(-,root,root,-)
 @BASE_PATH@/bin/xe
 /usr/bin/xe
-/etc/bash_completion.d/cli
+/etc/bash_completion.d/xe
 
 %files squeezed
 %defattr(-,root,root,-)
