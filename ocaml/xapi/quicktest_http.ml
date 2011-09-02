@@ -106,6 +106,9 @@ end
 
 module HTML_Escaping = struct (* {{{1 *)
 
+	module D = Debug.Debugger(struct let name = "quicktest_http:HTML_Escaping" end)
+	open D
+
 	let non_resource_cmd = "GET /foo<>'\"& HTTP/1.0\r\n\r\n"
 	let non_resource_exp = "&lt;&gt;&apos;&quot;&amp;"
 	let bad_resource_cmd = "GET /%foo<>'\"& HTTP/1.0\r\n\r\n"
@@ -116,6 +119,7 @@ module HTML_Escaping = struct (* {{{1 *)
 	let html_escaping expected cmd =
 		let check_result b = String.has_substr b expected in
 		let _, _, _, body = Uds.http_command Xapi_globs.unix_domain_socket cmd in
+		Printf.printf "expected = [%s]; received = [%s]\n%!" expected (List.hd body);
 		check_result (List.hd body)
 
 	let test_html_escaping_non_resource = make_test_case "html_escaping_non_resouce"
@@ -126,14 +130,9 @@ module HTML_Escaping = struct (* {{{1 *)
 		"Tests that the data returned when asking for a badly named resource is properly escaped."
 		(fun () -> assert_true (html_escaping bad_resource_exp bad_resource_cmd))
 
-	let test_html_escaping_bad_command = make_test_case "html_escaping_bad_command"
-		"Tests that the data returned when executing a bad command (FOO) is properly escaped."
-		(fun () -> assert_true (html_escaping bad_command_exp bad_command_cmd))
-
 	let tests = make_module_test_suite "HTML_Escaping"
 		[ test_html_escaping_non_resource
 		; test_html_escaping_bad_resource
-		; test_html_escaping_bad_command
 		]
 end
 
