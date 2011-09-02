@@ -51,6 +51,16 @@ val string_of_device : device -> string
 val string_of_kind : kind -> string
 val kind_of_string : string -> kind
 
+(** [list_backends xs domid] returns a list of devices where there is a
+	backend in [domid]. This function only reads data stored in the backend
+    directory.*)
+val list_backends : xs:Xs.xsh -> Xc.domid -> device list
+
+(** [list_frontends xs domid] returns a list of devices where there is a
+	frontend in [domid]. This function only reads data stored in the frontend
+    directory.*)
+val list_frontends : xs:Xs.xsh -> Xc.domid -> device list
+
 (** Return a list of devices connecting two domains. Ignore those whose kind 
     we don't recognise *)
 val list_devices_between : xs:Xs.xsh -> Xc.domid -> Xc.domid -> device list
