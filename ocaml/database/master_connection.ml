@@ -18,6 +18,8 @@
    restarts in emergency mode.
 *)
 
+open Threadext
+
 type db_record = (string * string) list * (string * (string list)) list
 module D = Debug.Debugger(struct let name = "master_connection" end)
 open D

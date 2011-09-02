@@ -327,10 +327,14 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
       ) ~block_size:16384 data_client
     )
     (fun () -> 
-      (* Close the connection *)
-      (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
-      R.info "Closing connection on data socket";
-      ignore_exn (fun () -> Unix.close data_client)
+       (* Close the connection *)
+       (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
+       R.info "Closing connection on data socket";
+       try
+         Unix.shutdown data_client Unix.SHUTDOWN_ALL;
+         Unix.close data_client
+       with e ->
+         R.warn "Exception %s while closing socket" (Printexc.to_string e);
     ) in
   R.debug "Finished reading from data socket";
   bytes_read
@@ -618,7 +622,7 @@ let action_read block_dev_fd client datasock target_response_time =
 
     (* Attempt to read a database record *)
     let length, db_fn, generation_count, marker = read_database block_dev_fd target_response_time in
-    
+
     (* Send the generation count and length of the database to the client *)
     send_response client (Printf.sprintf "%s|%016d|%016d" db_mesg generation_count length);
 

@@ -216,8 +216,8 @@ let start_io_process block_dev ctrlsockpath datasockpath =
   Forkhelpers.safe_close_and_exec None None None [] prog args
 
 let connect sockpath latest_response_time =
-  let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-  let rec attempt s =
+  let rec attempt () =
+    let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     try
       Unix.connect s (Unix.ADDR_UNIX sockpath);
       R.debug "Connected to I/O process via socket %s" sockpath;
@@ -225,6 +225,7 @@ let connect sockpath latest_response_time =
     with Unix.Unix_error(a,b,c) ->
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
+      Unix.close s;
       let attempt_delay = Xapi_globs.redo_log_connect_delay in
       let now = Unix.gettimeofday() in
       let remaining = latest_response_time -. now in
@@ -232,11 +233,11 @@ let connect sockpath latest_response_time =
         (* Wait for a while then try again *)
         R.debug "Waiting to connect to I/O process via socket %s (error was %s: %s)..." sockpath b (Unix.error_message a);
         Thread.delay attempt_delay;
-        attempt s
+        attempt ()
       end else
         raise Unixext.Timeout
   in
-  attempt s
+  attempt ()
 
 let read_separator sock latest_response_time =
   let sep = Unixext.time_limited_read sock 1 latest_response_time in
