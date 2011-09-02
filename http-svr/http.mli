@@ -19,6 +19,7 @@ val method_t_of_string : string -> method_t
 (** Exception raised when parsing start line of request *)
 exception Http_parse_failure
 exception Unauthorised of string
+exception Method_not_implemented
 exception Forbidden
 
 type authorization = 
@@ -117,6 +118,7 @@ val http_400_badrequest : ?version:string -> unit -> string list
 val http_401_unauthorised : ?version:string -> ?realm:string -> unit -> string list
 val http_406_notacceptable : ?version:string -> unit -> string list
 val http_500_internal_error : ?version:string -> unit -> string list
+val http_501_method_not_implemented : ?version:string -> unit -> string list
 
 module Hdr : sig
 	(** Header used for task id *)

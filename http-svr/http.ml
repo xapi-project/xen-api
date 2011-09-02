@@ -20,6 +20,7 @@ open Pervasiveext
 exception Http_parse_failure
 exception Unauthorised of string
 exception Forbidden
+exception Method_not_implemented
 exception Malformed_url of string
 
 
@@ -71,6 +72,11 @@ let http_406_notacceptable ?(version="1.0") () =
 
 let http_500_internal_error ?(version="1.0") () =
   [ Printf.sprintf "HTTP/%s 500 Internal Error" version;
+    "Connection: close";
+    "Cache-Control: no-cache, no-store" ]
+
+let http_501_method_not_implemented ?(version="1.0") () =
+  [ Printf.sprintf "HTTP/%s 501 Method Not Implemented" version;
     "Connection: close";
     "Cache-Control: no-cache, no-store" ]
 

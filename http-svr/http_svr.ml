@@ -123,6 +123,14 @@ let response_internal_error ?req ?extra s =
 	let body = "<html><body><h1>HTTP 500 internal server error</h1>An unexpected error occurred; please wait a while and try again. If the problem persists, please contact your support representative." ^ extra ^ "</body></html>" in
 	response_error_html s (http_500_internal_error ?version ()) body
 
+let response_method_not_implemented ?req s =
+	let version = Opt.map get_return_version req in
+    let extra = Opt.default "" (Opt.map (fun req ->
+		Printf.sprintf "<p>%s not supported.<br /></p>" (Http.string_of_method_t req.Http.Request.m)
+	) req) in
+    let body = "<html><body><h1>HTTP 501 Method Not Implemented</h1>" ^ extra ^ "</body></html>" in
+    response_error_html s (http_501_method_not_implemented ?version ()) body
+
 let response_file ?(hdrs=[]) ?mime_content_type s file =
 	let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
 	let mime_header = Opt.default [] (Opt.map (fun ty -> [ "Content-Type: " ^ ty ]) mime_content_type) in
@@ -380,9 +388,9 @@ let handle_connection (x: Server.t) _ ss =
 			(fun req ->
 				try
 					D.debug "Request %s" (Http.Request.to_string req);
-					let te = Opt.default
-						(TE.empty ())
-						(Radix_tree.longest_prefix req.Request.uri (MethodMap.find req.Request.m x.Server.handlers)) in
+					let method_map = try MethodMap.find req.Request.m x.Server.handlers with Not_found -> raise Method_not_implemented in
+					let empty = TE.empty () in
+					let te = Opt.default empty (Radix_tree.longest_prefix req.Request.uri method_map) in
 					(match te.TE.handler with
 						| BufIO handlerfn -> handlerfn req ic
 						| FdIO handlerfn ->
@@ -403,6 +411,8 @@ let handle_connection (x: Server.t) _ ss =
 						| Http.Forbidden ->
 							response_forbidden ~req ss
 							(* Generic errors thrown by handlers *)
+						| Http.Method_not_implemented ->
+							response_method_not_implemented ~req ss
 						| End_of_file ->
 							DCritical.debug "Premature termination of connection!";
 						| Unix.Unix_error (a,b,c) ->
