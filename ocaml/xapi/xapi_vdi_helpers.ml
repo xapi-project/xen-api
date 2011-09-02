@@ -42,25 +42,6 @@ let redo_log_lifecycle_mutex = Mutex.create ()
 let metadata_replication : ((API.ref_VDI, (API.ref_VBD * Redo_log.redo_log)) Hashtbl.t) =
 	Hashtbl.create Xapi_globs.redo_log_max_instances
 
-let metadata_replication_monitor ~__context =
-	while true do
-		Mutex.execute redo_log_lifecycle_mutex
-			(fun () ->
-				(* Set each VDI's metadata_latest according to whether its redo_log is currently accessible. *)
-				Hashtbl.iter
-					(fun vdi (_, log) ->
-						let accessible = Mutex.execute log.Redo_log.currently_accessible_mutex
-							(fun () -> !(log.Redo_log.currently_accessible))
-						in
-						try
-							Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:accessible
-						with e -> () (* Should only get here if the VDI ref stored in the hashtbl is invalid. *)
-					)
-					metadata_replication
-			);
-		Thread.delay 60.0
-	done
-
 let get_master_dom0 ~__context =
 	let pool = Helpers.get_pool ~__context in
 	let master = Db.Pool.get_master ~__context ~self:pool in
@@ -112,8 +93,15 @@ let enable_database_replication ~__context ~get_vdi_callback =
 				Client.VBD.plug ~rpc ~session_id ~self:vbd;
 				vbd)
 			in
+			(* This needs to be done in a thread, otherwise the redo_log will hang when attempting the DB write. *)
+			let state_change_callback =
+				Some (fun new_state ->
+					ignore (Thread.create (fun () ->
+						Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:new_state) ()))
+			in
 			(* Enable redo_log and point it at the new device *)
-			let log = Redo_log.create ~read_only:false in
+			let log_name = Printf.sprintf "DR redo log for VDI %s" vdi_uuid in
+			let log = Redo_log.create ~name:log_name ~state_change_callback ~read_only:false in
 			let device = Db.VBD.get_device ~__context ~self:vbd in
 			try
 				Redo_log.enable_block log ("/dev/" ^ device);
@@ -162,7 +150,7 @@ let database_open_mutex = Mutex.create ()
 (* Extract a database from a VDI. *)
 let database_ref_of_vdi ~__context ~vdi =
 	let database_ref_of_device device =
-		let log = Redo_log.create ~read_only:true in
+		let log = Redo_log.create ~name:"Foreign database redo log" ~state_change_callback:None ~read_only:true in
 		debug "Enabling redo_log with device reason [%s]" device;
 		Redo_log.enable_block log device;
 		let db = Database.make (Datamodel_schema.of_datamodel ()) in
