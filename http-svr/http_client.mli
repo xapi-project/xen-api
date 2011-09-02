@@ -20,12 +20,12 @@ exception Http_request_rejected of string
 exception Http_error of string * string
 
 (** [response_of_fd fd] returns an HTTP response read from fd, or None *)
-val response_of_fd: Unix.file_descr -> Http.Response.t option
+val response_of_fd: ?use_fastpath:bool -> Unix.file_descr -> Http.Response.t option
 
 (** [rpc fd request body f] marshals the HTTP request represented by [request] and [body]
     through file descriptor [fd] and then applies the response to [f]. On failure an 
     exception is thrown. *)
-val rpc : Unix.file_descr -> Http.Request.t -> (Http.Response.t -> Unix.file_descr -> 'a) -> 'a
+val rpc : ?use_fastpath:bool -> Unix.file_descr -> Http.Request.t -> (Http.Response.t -> Unix.file_descr -> 'a) -> 'a
 
 (** See perftest/tests.ml *)
 val last_content_length: int64 ref

@@ -14,15 +14,22 @@
 (** Recognised HTTP methods *)
 type method_t = Get | Post | Put | Connect | Unknown of string
 val string_of_method_t : method_t -> string
+val method_t_of_string : string -> method_t
 
 (** Exception raised when parsing start line of request *)
 exception Http_parse_failure
 exception Unauthorised of string
+exception Method_not_implemented
 exception Forbidden
 
 type authorization = 
     | Basic of string * string
     | UnknownAuth of string
+
+val read_http_header: string -> Unix.file_descr -> int
+
+val read_http_request_header: string -> Unix.file_descr -> int
+val read_http_response_header: string -> Unix.file_descr -> int
 
 (** Parsed form of the HTTP request line plus cookie info *)
 module Request : sig
@@ -79,6 +86,8 @@ module Response : sig
 		body: string option
 	}
 
+	val empty: t
+
 	(** Returns an instance of type t *)
 	val make: ?version:string -> ?length:int64 -> ?task:string -> ?headers:(string*string) list -> ?body:string -> string -> string -> t
 
@@ -109,6 +118,7 @@ val http_400_badrequest : ?version:string -> unit -> string list
 val http_401_unauthorised : ?version:string -> ?realm:string -> unit -> string list
 val http_406_notacceptable : ?version:string -> unit -> string list
 val http_500_internal_error : ?version:string -> unit -> string list
+val http_501_method_not_implemented : ?version:string -> unit -> string list
 
 module Hdr : sig
 	(** Header used for task id *)
