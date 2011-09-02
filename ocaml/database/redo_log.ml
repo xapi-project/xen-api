@@ -20,10 +20,6 @@ module R = Debug.Debugger(struct let name = "redo_log" end)
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)
 
-type block_device =
-	| Static_attached of Static_vdis_list.vdi
-	| Block_attached of string
-
 let get_static_device reason =
   (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
 	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
@@ -35,7 +31,7 @@ let get_static_device reason =
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
   match vdis with
   | [] -> None
-  | hd :: _ -> Some (Static_attached hd)
+  | hd :: _ -> hd.Static_vdis_list.path
 
 (* Make sure we have plenty of room for the database *)
 let minimum_vdi_size =
@@ -49,13 +45,13 @@ let redo_log_sm_config = [ "type", "raw" ]
 (* Encapsulate the state of a single redo_log instance. *)
 
 type redo_log = {
+	name: string;
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
-	device: block_device option ref;
+	device: string option ref;
 	currently_accessible: bool ref;
-	currently_accessible_mutex: Mutex.t;
-	currently_accessible_condition: Condition.t;
+	state_change_callback: (bool -> unit) option;
 	time_of_last_failure: float ref;
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
@@ -88,7 +84,7 @@ let enable log vdi_reason =
 
 let enable_block log path =
   R.info "Enabling use of redo log";
-  log.device := Some (Block_attached path);
+  log.device := Some path;
   log.enabled := true
 
 let disable log =
@@ -99,15 +95,23 @@ let disable log =
 (* ------------------------------------------------------------------------------------------------ *)
 (* Functions relating to whether the latest attempt to read/write the redo-log succeeded or failed. *)
 
+let redo_log_events = Event.new_channel ()
+
 let cannot_connect_fn log =
-  R.debug "Signalling unable to access redo log";
-  Mutex.execute log.currently_accessible_mutex
-    (fun () -> log.currently_accessible := false; Condition.signal log.currently_accessible_condition)
+	if !(log.currently_accessible) then begin
+		R.debug "Signalling unable to access redo log";
+		Event.sync (Event.send redo_log_events (log.name, false));
+		Opt.iter (fun callback -> callback false) log.state_change_callback
+	end;
+	log.currently_accessible := false
 
 let can_connect_fn log =
-  R.debug "Signalling redo log is healthy";
-  Mutex.execute log.currently_accessible_mutex
-    (fun () -> log.currently_accessible := true; Condition.signal log.currently_accessible_condition)
+	if not !(log.currently_accessible) then begin
+		R.debug "Signalling redo log is healthy";
+		Event.sync (Event.send redo_log_events (log.name, true));
+		Opt.iter (fun callback -> callback true) log.state_change_callback
+	end;
+	log.currently_accessible := true
 
 (* ----------------------------------------------------------- *)
 (* Functions relating to the serialisation of redo log entries *)
@@ -524,12 +528,6 @@ let healthy log =
 
 exception TooManyProcesses
 
-let get_device_path = function
-| Static_attached vdi ->
-	vdi.Static_vdis_list.path
-| Block_attached path ->
-	Some path
-
 let startup log =
   if is_enabled log then
     try
@@ -546,26 +544,23 @@ let startup log =
             | None ->
               R.info "Could not find block device"
             | Some device ->
-			  match (get_device_path device) with
-			  | None ->
-		        R.info "Could not find block device"
-		      | Some block_dev -> begin
-		        R.info "Using block device at %s" block_dev;
-		          
-		        (* Check that the block device exists *)
-		        Unix.access block_dev [Unix.F_OK; Unix.R_OK];
-		        (* will throw Unix.Unix_error if not readable *)
-		          
-		        (* Start the I/O process *)
-		        let ctrlsockpath, datasockpath = 
-					let f suffix = Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix in
-					f "ctrl", f "data" in
-		        R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" block_dev ctrlsockpath datasockpath;
-		        let p = start_io_process block_dev ctrlsockpath datasockpath in
-		          
-		        log.pid := Some (p, ctrlsockpath, datasockpath);
-		        R.info "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
-		      end
+              begin
+                R.info "Using block device at %s" device;
+
+                (* Check that the block device exists *)
+                Unix.access device [Unix.F_OK; Unix.R_OK];
+                (* will throw Unix.Unix_error if not readable *)
+
+                (* Start the I/O process *)
+                let ctrlsockpath, datasockpath =
+                  let f suffix = Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix in
+                  f "ctrl", f "data" in
+                R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" device ctrlsockpath datasockpath;
+                let p = start_io_process device ctrlsockpath datasockpath in
+
+                log.pid := Some (p, ctrlsockpath, datasockpath);
+                R.info "Block device I/O process has PID [%d]" (Forkhelpers.getpid p)
+              end
           end
       end;
       match !(log.pid) with
@@ -665,15 +660,15 @@ let connect_and_perform_action f desc log =
 
 let redo_log_creation_mutex = Mutex.create ()
 
-let create ~read_only =
+let create ~name ~state_change_callback ~read_only =
 	let instance = {
+		name = name;
 		marker = Uuid.to_string (Uuid.make_uuid ());
 		read_only = read_only;
 		enabled = ref false;
 		device = ref None;
 		currently_accessible = ref true;
-		currently_accessible_mutex = Mutex.create ();
-		currently_accessible_condition = Condition.create ();
+		state_change_callback = state_change_callback;
 		time_of_last_failure = ref 0.;
 		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
 		sock = ref None;
@@ -750,7 +745,7 @@ let empty log =
 
 (* Flush the database to the given redo_log instance. *)
 let flush_db_to_redo_log db log =
-	R.info "Flushing database to redo_log %s" log.marker;
+	R.info "Flushing database to redo_log [%s]" log.name;
 	let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
 	write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log
 

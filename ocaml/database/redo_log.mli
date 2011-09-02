@@ -15,11 +15,7 @@
 
 (** {2 VDI related} *)
 
-type block_device =
-	| Static_attached of Static_vdis_list.vdi
-	| Block_attached of string
-
-val get_static_device : string -> block_device option
+val get_static_device : string -> string option
 (** Finds an attached metadata VDI with a given reason *)
 val minimum_vdi_size : int64 
 (** Minimum size for redo log VDI *)
@@ -28,13 +24,13 @@ val redo_log_sm_config : (string * string) list
 
 (** {redo_log data type} *)
 type redo_log = {
+	name: string;
 	marker: string;
 	read_only: bool;
 	enabled: bool ref;
-	device: block_device option ref;
+	device: string option ref;
 	currently_accessible: bool ref;
-	currently_accessible_mutex: Threadext.Mutex.t;
-	currently_accessible_condition: Condition.t;
+	state_change_callback: (bool -> unit) option;
 	time_of_last_failure: float ref;
 	backoff_delay: int ref;
 	sock: Unix.file_descr option ref;
@@ -54,6 +50,10 @@ val enable_block : redo_log -> string -> unit
 val disable : redo_log -> unit
 (** Disables writing deltas to the block device. Subsequent modifications to the database will not be persisted to the block device. *)
 
+(** Communication with other threads. *)
+
+val redo_log_events: (string * bool) Event.channel
+
 (** {2 Lifecycle of I/O process} *)
 
 val startup : redo_log -> unit
@@ -64,7 +64,7 @@ val switch : redo_log -> string -> unit
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {Keeping track of existing redo_log instances} *)
-val create: read_only:bool -> redo_log
+val create: name:string -> state_change_callback:(bool -> unit) option -> read_only:bool -> redo_log
 (* Create a redo log instance and add it to the set. *)
 
 val delete: redo_log -> unit
