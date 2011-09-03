@@ -259,8 +259,6 @@ exception Stunnel_exit of int * Unix.process_status
 exception Unexpected_msg of message
 exception Server_internal_error
 
-let attr = ref None
-
 let handle_unmarshal_failure ex ifd = match ex with
 	| Unmarshal_failure (e, s) ->
 		let s = s ^ Unixext.try_read_string ifd in
@@ -271,10 +269,6 @@ let handle_unmarshal_failure ex ifd = match ex with
 	| e -> raise e
 
 let main_loop ifd ofd =
-  (* Save the terminal state to restore it at exit *)
-  (attr := try Some (Unix.tcgetattr Unix.stdin) with _ -> None);
-  at_exit (fun () ->
-             match !attr with Some a -> Unix.tcsetattr Unix.stdin Unix.TCSANOW a | None -> ());
   (* Intially exchange version information *)
   let major', minor' =
 	  try unmarshal_protocol ifd with
