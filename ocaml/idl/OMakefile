@@ -117,6 +117,7 @@ clean:
 	rm -rf *datamodel.tex datamodel-dtd.xml datamodel-coversheet.tex
 	rm -rf /tmp/docs
 	rm -rf $(SDKWWW)/docs/html
+	rm -f html_build js_backend/main
 
 sdk-README.txt : sdk-README.html
 	lynx -dump sdk-README.html > sdk-README.txt
