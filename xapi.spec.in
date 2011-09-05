@@ -123,7 +123,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files core
 %defattr(-,root,root,-)
-%exclude /etc/init.d/xapissl
 @BASE_PATH@/bin/xapi
 /etc/xapi.conf
 /etc/logrotate.d/audit
@@ -173,7 +172,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/scripts/block-frontend
 /etc/xensource/scripts/tap
 /etc/xensource/scripts/vif
-/etc/xensource/xapi-ssl.conf
 @BASE_PATH@/bin/fix_firewall.sh
 @BASE_PATH@/bin/list_domains
 @BASE_PATH@/bin/mpathalert
