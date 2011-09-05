@@ -126,6 +126,7 @@ OCAML_PHASE3_XEN = \
 
 OCAML_PHASE3_NOXEN = \
 		     ocaml/ptoken/genptoken \
+	ocaml/auth/testauth \
 	ocaml/auth/testauthx \
 	ocaml/xe-cli/xe \
 	ocaml/xsh/xsh \
