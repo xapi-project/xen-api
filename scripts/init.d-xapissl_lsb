@@ -5,10 +5,16 @@
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: XenAP server SSL proxy
+# Short-Description: XenAPI server SSL proxy
 # Description:       This file will initialize stunnel for
 #                    the XenAPI server.
 ### END INIT INFO
+#
+# chkconfig: 2345 91 01
+# description: XenAPI server SSL proxy
+# processname: stunnel
+# config: /etc/xensource/stunnel.conf
+# pidfile: /var/run/xapissl.pid
 
 # Source function library.
 . /lib/lsb/init-functions
