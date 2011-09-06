@@ -554,9 +554,11 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 
 
 	Generic.add_device ~xs device back front extra_private_keys;
-
+	Hotplug.wait_for_plug ~xs device;
 	(* 'Normally' we connect devices to other domains, and cannot know whether the
 	   device is 'available' from their userspace (or even if they have a userspace).
+	   The best we can do is just to wait for the backend hotplug scripts to run,
+	   indicating that the backend has locked the resource.
 	   In the case of domain 0 we can do better: we have custom hotplug scripts
 	   which call us back when the device is actually available to userspace. We need
 	   to wait for this condition to make the template installers work.
@@ -733,6 +735,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
 
 	Generic.add_device ~xs device back front extra_private_keys;
+	Hotplug.wait_for_plug ~xs device;
 	device
 
 let clean_shutdown = Generic.clean_shutdown
