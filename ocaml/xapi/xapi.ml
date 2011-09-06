@@ -181,7 +181,6 @@ let domain0_setup () =
 	     xs.Xs.write "/local/domain/0/memory/target" (Int64.to_string memory_actual_kib);
 	     (* XXX: remove when domain 0 gets the same script as the linux domUs *)
 	     xs.Xs.write "/local/domain/0/control/feature-balloon" "1";
-	     xs.Xs.write "/local/domain/0/control/feature-shutdown-request" "1";
 	     
 	     xs.Xs.writev ("/vm/" ^ uuid) [ "uuid", uuid; "name", "Domain-0" ];
 	     (* add special key demanded by the PV drivers *)

@@ -342,22 +342,12 @@ let verify_network_connectivity session_id test vm =
     (fun vif ->
        let network = Client.VIF.get_network !rpc session_id vif in
        let bridge = Client.Network.get_bridge !rpc session_id network in
-       let other_config = Client.VIF.get_other_config !rpc session_id vif in
-
        let device = Printf.sprintf "vif%Ld.%s" (Client.VM.get_domid !rpc session_id vm) (Client.VIF.get_device !rpc session_id vif) in
-	   (* The VIF is attached to the bridge asynchronously, so be prepared to poll for it *)
-	   let finished = ref false in
-	   let start = Unix.gettimeofday () in
-	   while not !finished && (Unix.gettimeofday () -. start < 10.) do
-		   let devices = Netdev.network.Netdev.intf_list bridge in
-		   finished := List.mem device devices;
-		   if not !finished then begin
-			   debug test (Printf.sprintf "Failed to find device %s on bridge: retrying" device);
-			   Unix.sleep 1;
-		   end
-	   done;
-	   if not !finished
-       then failed test (Printf.sprintf "Failed to find device %s on bridge" device);
+       let devices = Netdev.network.Netdev.intf_list bridge in
+       let other_config = Client.VIF.get_other_config !rpc session_id vif in
+       if not(List.mem device devices) 
+       then failed test (Printf.sprintf "Failed to find device %s on bridge %s (found [ %s ])" device bridge (String.concat ", " devices))
+       else debug test (Printf.sprintf "Device %s is on bridge %s" device bridge);
 
        (* Check the udev script set promiscuous mode correctly, IFF brport/promisc exists in sysfs. *)
        let sysfs_promisc = Printf.sprintf "/sys/class/net/%s/brport/promisc" device in
