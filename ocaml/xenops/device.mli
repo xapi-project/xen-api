@@ -77,6 +77,8 @@ sig
 	val hard_shutdown_request : xs:Xs.xsh -> device -> unit
 	val hard_shutdown_complete : xs:Xs.xsh -> device -> string Watch.t
 
+	(* For testing: *)
+	val request_shutdown : xs:Xs.xsh -> device -> bool -> unit
 end
 
 module Vif :
