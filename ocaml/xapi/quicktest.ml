@@ -265,75 +265,6 @@ let compare_snapshots session_id test one two =
 		compare_vms session_id test x y in
 	List.iter2 compare_all one_s two_s
 
-(* CA-24232 serialising VBD.pause VBD.unpause *)
-let vbd_pause_unpause_test session_id vm =
-	let vm = Client.VM.clone !rpc session_id vm "vbd-pause-unpause-test" in
-	let test = make_test "VBD.pause and VBD.unpause" 1 in
-	start test;
-	finally
-		(fun () ->
-			let vbds = Client.VM.get_VBDs !rpc session_id vm in
-			(* CA-24275 *)
-			debug test "VBD.pause should fail for offline VMs";
-			let vbd = List.hd vbds in
-			begin
-				try
-					ignore(Client.VBD.pause !rpc session_id vbd);
-					failed test "VBD.pause should not have succeeded";
-				with 
-					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-					| e ->
-						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-			end;
-			debug test "VBD.unpause should fail for offline VMs";
-			begin
-				try
-					ignore(Client.VBD.unpause !rpc session_id vbd "");
-					failed test "VBD.unpause should not have succeeded";
-				with 
-					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-					| e ->
-						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-			end;
-			debug test "Starting VM";
-			Client.VM.start !rpc session_id vm false false;
-			debug test "A solitary unpause should succeed";
-			Client.VBD.unpause !rpc session_id vbd "";
-			debug test "100 pause/unpause cycles should succeed";
-			for i = 0 to 100 do
-				let token = Client.VBD.pause !rpc session_id vbd in
-				Client.VBD.unpause !rpc session_id vbd token
-			done;
-			debug test "force-shutdown should still work even if a device is paused";
-			debug test "pausing device";
-			let token = Client.VBD.pause !rpc session_id vbd in
-			debug test "performing hard shutdown";
-			let (_: unit) = Client.VM.hard_shutdown !rpc session_id vm in
-			begin
-				try
-					ignore(Client.VBD.unpause !rpc session_id vbd "");
-					failed test "VBD.unpause should not have succeeded";
-				with 
-					| (Api_errors.Server_error(code, params)) when code = Api_errors.vm_bad_power_state -> ()
-					| e ->
-						failed test (Printf.sprintf "Unexpected exception from VBD.pause: %s" (Printexc.to_string e))
-			end;
-			debug test "starting VM again";
-			try
-				Client.VM.start !rpc session_id vm false false;
-				Client.VBD.unpause !rpc session_id vbd token;
-			with 
-				| Api_errors.Server_error(code, params) as e -> 
-					debug test (Printf.sprintf "Api_error %s [ %s ]" code (String.concat "; " params));
-					raise e
-				| e ->
-					debug test (Printf.sprintf "Exception: %s" (Printexc.to_string e));
-					raise e
-		) (fun () -> 
-			Client.VM.hard_shutdown !rpc session_id vm;
-			vm_uninstall test session_id vm);
-	success test
-
 let read_sys path = Stringext.String.strip Stringext.String.isspace (Unixext.string_of_file path)
 
 let verify_network_connectivity session_id test vm =
@@ -629,7 +560,6 @@ let vm_powercycle_test s vm =
 		()
   | _ -> ()
   end;
-  vbd_pause_unpause_test s vm;
   powercycle_test s vm;
   success test
 
