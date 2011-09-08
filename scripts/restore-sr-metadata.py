@@ -7,6 +7,10 @@ import XenAPI
 import os, sys, time
 import getopt
 from xml.dom.minidom import parse
+import codecs
+
+sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
+sys.stderr = codecs.getwriter("utf-8")(sys.stderr)
 
 def logout():
     try:

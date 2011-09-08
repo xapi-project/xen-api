@@ -6,6 +6,7 @@ import atexit
 import XenAPI
 import sys
 import getopt
+import codecs
 from xml.dom.minidom import Document
 
 def logout():
@@ -43,7 +44,7 @@ def main(argv):
     if outfile == None:
         usage()
 
-    f = open(outfile, 'w')
+    f = codecs.open(outfile, 'w', encoding="utf-8")
 
     srs = session.xenapi.SR.get_all_records()
     vdis = session.xenapi.SR.get_all_records()
@@ -73,7 +74,7 @@ def main(argv):
  
         metaxml.appendChild(srxml)
 
-    doc.writexml(f)
+    doc.writexml(f, encoding="utf-8")
     f.close()
     session.xenapi.logout()
 
