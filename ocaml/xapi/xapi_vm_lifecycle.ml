@@ -118,26 +118,14 @@ let is_rhel3 gmr =
 	| None ->
 		false
 
-(** Check for PV drivers if we are an HVM guest and we are executing
-    the following ops: pool_migrate, suspend, checkpoint *)
+(** Return an error if we are an HVM guest and we don't have PV drivers *)
 let check_drivers ~__context ~vmr ~vmgmr ~op ~ref =
 	let has_booted_hvm = Helpers.has_booted_hvm_of_record ~__context vmr in
-	let pv_drivers = of_guest_metrics vmgmr in
+	let has_pv_drivers = has_pv_drivers (of_guest_metrics vmgmr) in
 
-	let has_good_drivers =
-		match op with
-			| `pool_migrate
-			| `suspend
-			| `checkpoint -> is_ok_for_migrate pv_drivers
-			| _           -> true
-	in
-
-	if not has_booted_hvm
-	then None
-	else
-		if has_good_drivers
-		then None
-		else Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
+	if has_booted_hvm && not has_pv_drivers
+	then Some (Api_errors.vm_missing_pv_drivers, [ Ref.string_of ref ])
+	else None
 
 let need_pv_drivers_check ~__context ~vmr ~power_state ~op =
 	let op_list = [ `suspend; `checkpoint; `pool_migrate; `clean_shutdown; `clean_reboot; `changing_VCPUs_live ] in
