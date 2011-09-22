@@ -272,9 +272,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 								Db.VM_guest_metrics.get_record_internal
 									~__context ~self:vm_record.API.vM_guest_metrics)) in
 					let pv_drivers_error =
-						if Helpers.has_booted_hvm ~__context ~self:vm
-						then None
-						else
+						if not (Helpers.has_booted_hvm ~__context ~self:vm)
+						then None       (* PV guests don't need driver check *)
+						else            (* HVM guest do *)
 							if Xapi_pv_driver_version.is_ok_for_migrate pv_driver_version
 							then None
 							else Some Api_errors.vm_missing_pv_drivers in
