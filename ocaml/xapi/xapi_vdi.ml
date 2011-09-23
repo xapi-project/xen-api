@@ -602,8 +602,12 @@ let open_database ~__context ~self =
 		read_only_session
 	with e ->
 		let error = Printexc.to_string e in
-		debug "Caught %s while trying to open database" error;
-		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [error]))
+		let reason = match e with
+		| Db_exn.DBCache_NotFound(_, _, _) -> "Database does not match local schema."
+		| _ -> error
+		in
+		debug "Caught %s while trying to open database." error;
+		raise (Api_errors.Server_error(Api_errors.could_not_import_database, [reason]))
 
 let read_database_pool_uuid ~__context ~self =
 	match Xapi_dr.read_vdi_cache_record ~vdi:self with
