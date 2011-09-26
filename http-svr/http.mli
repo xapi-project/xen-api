@@ -51,6 +51,9 @@ module Request : sig
 		body: string option;
 	}
 
+	val rpc_of_t : t -> Rpc.t
+	val t_of_rpc : Rpc.t -> t
+	  
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
