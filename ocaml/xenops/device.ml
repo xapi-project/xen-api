@@ -566,7 +566,7 @@ let is_paused ~xs (x: device) =
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
+let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
         ?(protocol=Protocol_Native) ?extra_backend_keys ?(extra_private_keys=[]) ?(backend_domid=0) domid  =
 	let back_tbl = Hashtbl.create 16 and front_tbl = Hashtbl.create 16 in
 	let devid = Device_number.to_xenstore_key device_number in
@@ -575,8 +575,8 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 	  in  device_of_backend backend domid
 	in
 
-	debug "Device.Vbd.add (device_number=%s | physpath=%s | phystype=%s)"
-	  (Device_number.to_debug_string device_number) physpath (string_of_physty phystype);
+	debug "Device.Vbd.add (device_number=%s | params=%s | phystype=%s)"
+	  (Device_number.to_debug_string device_number) params (string_of_physty phystype);
 	(* Notes:
 	   1. qemu accesses devices images itself and so needs the path of the original
               file (in params)
@@ -599,7 +599,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 		"device-type", if dev_type = CDROM then "cdrom" else "disk";
 	];
 	Hashtbl.add_list back_tbl [
-		"physical-device", (string_of_major_minor physpath);
+		"physical-device", string_of_major_minor params;
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
@@ -609,7 +609,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 		"dev", Device_number.to_linux_device device_number;
 		"type", backendty_of_physty phystype;
 		"mode", string_of_mode mode;
-		"params", physpath;
+		"params", params;
 	];
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
@@ -648,10 +648,10 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~physpath ~dev_type ~unpluggable
 		if phystype = Phys then begin
 		  try
 			(* Speculatively query the physical device as if a CDROM *)
-			  match Cdrom.query_cdrom_drive_status physpath with
+			  match Cdrom.query_cdrom_drive_status params with
 			  | Cdrom.DISC_OK -> () (* nothing unusual here *)
 			  | x -> 
-					error "CDROM device %s: %s" physpath (Cdrom.string_of_cdrom_drive_status x);
+					error "CDROM device %s: %s" params (Cdrom.string_of_cdrom_drive_status x);
 					raise Cdrom
 		  with 
 		  | Cdrom as e' -> raise e'
@@ -684,12 +684,11 @@ let media_tray_is_locked ~xs ~device_number domid =
 let media_eject ~xs ~device_number domid =
 	qemu_media_change ~xs ~device_number domid "" ""
 
-let media_insert ~xs ~device_number ~physpath ~phystype domid =
-	let _type = backendty_of_physty phystype
-	and params = physpath in
+let media_insert ~xs ~device_number ~params ~phystype domid =
+	let _type = backendty_of_physty phystype in
 	qemu_media_change ~xs ~device_number domid _type params
 
-let media_refresh ~xs ~device_number ~physpath domid =
+let media_refresh ~xs ~device_number ~params domid =
 	let devid = Device_number.to_xenstore_key device_number in
 	let back_dom_path = xs.Xs.getdomainpath 0 in
 	let backend = sprintf "%s/backend/vbd/%u/%d" back_dom_path domid devid in
@@ -699,10 +698,10 @@ let media_refresh ~xs ~device_number ~physpath domid =
 	   spurious '/' character at the beggining of the string.  *)
 	let oldval = try xs.Xs.read path with _ -> "" in
 	let pathtowrite =
-		if oldval = physpath then (
-			"/" ^ physpath
+		if oldval = params then (
+			"/" ^ params
 		) else
-			physpath in
+			params in
 	xs.Xs.write path pathtowrite;
 	()
 
