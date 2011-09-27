@@ -52,7 +52,7 @@ sig
 
 	val add : xs:Xs.xsh -> hvm:bool -> mode:mode
 	       -> device_number:Device_number.t
-	       -> phystype:physty -> physpath:string
+	       -> phystype:physty -> params:string
 	       -> dev_type:devty
 	       -> unpluggable:bool
 	       -> ?protocol:protocol
@@ -64,8 +64,8 @@ sig
 	val release : xs:Xs.xsh -> device -> unit
 	val media_eject : xs:Xs.xsh -> device_number:Device_number.t -> int -> unit
 	val media_insert : xs:Xs.xsh -> device_number:Device_number.t
-	                -> physpath:string -> phystype:physty -> int -> unit
-	val media_refresh : xs:Xs.xsh -> device_number:Device_number.t -> physpath:string -> int -> unit
+	                -> params:string -> phystype:physty -> int -> unit
+	val media_refresh : xs:Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
 	val media_is_ejected : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
 	val media_tray_is_locked : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
 
@@ -77,8 +77,6 @@ sig
 	val hard_shutdown_request : xs:Xs.xsh -> device -> unit
 	val hard_shutdown_complete : xs:Xs.xsh -> device -> string Watch.t
 
-	(* For testing: *)
-	val request_shutdown : xs:Xs.xsh -> device -> bool -> unit
 end
 
 module Vif :

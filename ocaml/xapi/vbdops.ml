@@ -75,7 +75,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 
 	if empty then begin
 		if hvm then begin
-			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~physpath:""
+			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~params:""
 				~device_number ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
 			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
 		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
@@ -83,11 +83,11 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
-			(fun physpath ->
+			(fun params ->
 				try
 					(* The backend can put useful stuff in here on vdi_attach *)
 					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
-					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~physpath
+					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~params
 						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
 					Db.VBD.set_currently_attached ~__context ~self ~value:true;
 					debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)
