@@ -36,6 +36,7 @@ type create_info = {
 type build_hvm_info = {
 	shadow_multiplier: float;
 	timeoffset: string;
+	video_mib: int;
 }
 
 type build_pv_info = {
@@ -472,10 +473,11 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 	assert (target_mib <= static_max_mib);
 
 	(* Adapt memory configuration values for Xen and the domain builder. *)
+	let video_mib = 0 in
 	let build_max_mib =
-		Memory.Linux.build_max_mib static_max_mib in
+		Memory.Linux.build_max_mib static_max_mib video_mib in
 	let build_start_mib =
-		Memory.Linux.build_start_mib target_mib in
+		Memory.Linux.build_start_mib target_mib video_mib in
 	let xen_max_mib =
 		Memory.Linux.xen_max_mib static_max_mib in
 	let shadow_multiplier =
@@ -530,7 +532,7 @@ let build_linux ~xc ~xs ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
 
 (** build hvm type of domain *)
 let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-              ~kernel ~timeoffset domid =
+              ~kernel ~timeoffset ~video_mib domid =
 	assert_file_is_readable kernel;
 
 	(* Convert memory configuration values into the correct units. *)
@@ -542,9 +544,9 @@ let build_hvm ~xc ~xs ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
 
 	(* Adapt memory configuration values for Xen and the domain builder. *)
 	let build_max_mib =
-		Memory.HVM.build_max_mib static_max_mib in
+		Memory.HVM.build_max_mib static_max_mib video_mib in
 	let build_start_mib =
-		Memory.HVM.build_start_mib target_mib in
+		Memory.HVM.build_start_mib target_mib video_mib in
 	let xen_max_mib =
 		Memory.HVM.xen_max_mib static_max_mib in
 	let shadow_mib =
@@ -616,7 +618,7 @@ let build ~xc ~xs info domid =
 	| BuildHVM hvminfo ->
 		build_hvm ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		          ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset domid
+		          ~kernel:info.kernel ~timeoffset:hvminfo.timeoffset ~video_mib:hvminfo.video_mib domid
 	| BuildPV pvinfo   ->
 		build_linux ~xc ~xs ~static_max_kib:info.memory_max ~target_kib:info.memory_target
 		            ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk

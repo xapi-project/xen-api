@@ -191,7 +191,7 @@ sig
 		power_mgmt: int option;
 		oem_features: int option;
 		inject_sci: int option;
-		videoram: int;
+		video_mib: int;
 	       
 		extras: (string * string option) list;
 	}

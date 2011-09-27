@@ -210,6 +210,19 @@ let assert_kernel_is_whitelisted kernel =
     raise (Api_errors.Server_error (Api_errors.permission_denied, [
       (Printf.sprintf "illegal kernel path %s" kernel)]))
 
+let hvm_video_mib snapshot =
+	let platform = snapshot.API.vM_platform in
+	let default = 4 in (* MiB *)
+	if not(List.mem_assoc "videoram" platform)
+	then default
+	else
+		let v = List.assoc "videoram" platform in
+		try
+			int_of_string v
+		with _ ->
+			error "Unknown videoram option: %s" v;
+			default
+
 (* Called on VM.start to populate kernel part of domain *)
 let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	(* get common parameters *)
@@ -225,10 +238,11 @@ let create_kernel ~__context ~xc ~xs ~self domid snapshot =
 	| Helpers.HVM { Helpers.timeoffset = timeoffset; } ->
 		let kernel_path = Domain.hvmloader in
 		let shadow_multiplier = snapshot.API.vM_HVM_shadow_multiplier in
-		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld timeoffset:%s"
-		      kernel_path vcpus mem_max_kib mem_target_kib timeoffset;
+		let video_mib = hvm_video_mib snapshot in
+		debug "build hvm \"%s\" vcpus:%d mem_max:%Ld mem_target:%Ld video_mib:%d MiB timeoffset:%s"
+		      kernel_path vcpus mem_max_kib mem_target_kib video_mib timeoffset;
 		let arch = Domain.build_hvm xc xs mem_max_kib mem_target_kib shadow_multiplier vcpus kernel_path
-		  timeoffset domid in
+		  timeoffset video_mib domid in
 		(* Since our shadow allocation might have been increased by Xen we need to 
 		   update the shadow_multiplier now. Nb. the last_boot_record wont 
 		   necessarily have the right value in! *)
@@ -528,7 +542,17 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 		let acpi = has_platform_flag platform "acpi" in
 		let serial = try List.assoc "hvm_serial" other_config with _ -> "pty" in
 		let vnc_keymap = try List.assoc "keymap" platform with _ -> "en-us" in
-
+		let vga =
+			let default = Device.Dm.Cirrus in
+			if not(List.mem_assoc "vga" platform)
+			then default
+			else match (List.assoc "vga" platform) with
+				| "std" -> Device.Dm.Std_vga
+				| "cirrus" -> Device.Dm.Cirrus
+				| x ->
+					error "Unknown platform/vga option: %s (expected 'std' or 'cirrus')" x;
+					default in
+		let video_mib = hvm_video_mib snapshot in
 		(* Xenclient specific *)
 		let dom0_input = try if Xapi_globs.xenclient_enabled then Some (int_of_string (List.assoc "dom0_input" platform)) else None with _ -> 
 		  warn "failed to parse dom0_input platform flag.";
@@ -550,7 +574,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 
 		(* Display and input devices are usually conflated *)
 		let disp,usb = 
-		  let default_disp_usb = (Device.Dm.VNC (Device.Dm.Cirrus, true, 0, vnc_keymap), ["tablet"]) in
+		  let default_disp_usb = (Device.Dm.VNC (vga, true, 0, vnc_keymap), ["tablet"]) in
 		  if Xapi_globs.xenclient_enabled then begin 
 		    try 
 		      match List.assoc "vga_mode" platform with
@@ -587,7 +611,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			Device.Dm.power_mgmt=None;
 			Device.Dm.oem_features=None;
 			Device.Dm.inject_sci = None;
-			Device.Dm.videoram=4;
+			Device.Dm.video_mib=video_mib;
 
 			Device.Dm.extras = [];
 		} in
