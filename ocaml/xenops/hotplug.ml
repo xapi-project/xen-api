@@ -61,9 +61,6 @@ let get_private_data_path_of_device (x: device) =
 let get_hotplug_path (x: device) =
 	sprintf "%s/hotplug/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
-(* The path in xenstore written to by the hotplug scripts *)
-let status_node (x: device) = get_hotplug_path x ^ "/hotplug"
-
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
 	sprintf "%s/frontend/%s/%d/hotplug" (get_private_path x.frontend.domid) (string_of_kind x.frontend.kind) x.frontend.devid
@@ -92,7 +89,7 @@ let blkback_error_node ~xs (x: device) =
    (ie not an API-initiated hotunplug; this is start of day) then we check the state 
    of the backend hotplug scripts. *)
 let device_is_online ~xs (x: device) = 
-  let backend_hotplug () = try xs.Xs.read (status_node x) = "online" with Xb.Noent -> false
+  let backend_hotplug () = try xs.Xs.read (connected_node ~xs x) = "connected" with Xb.Noent -> false
   and backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xb.Noent -> false 
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xb.Noent -> false in
 
@@ -104,7 +101,7 @@ let device_is_online ~xs (x: device) =
       then not(backend_shutdown ())
       else backend_hotplug ()
 
-(* Poll a device (vif) to see whether it has hotplug-status = connected *)
+(* Poll a device to see whether it has hotplug-status = connected *)
 let device_is_connected ~xs (x: device) =
 	try
 		let path = connected_node ~xs x in
@@ -116,7 +113,7 @@ let wait_for_plug ~xs (x: device) =
   try
     Stats.time_this "udev backend add event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.value_to_appear (status_node x)));
+    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.value_to_appear (connected_node ~xs x)));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
@@ -127,7 +124,7 @@ let wait_for_unplug ~xs (x: device) =
   try
     Stats.time_this "udev backend remove event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear (status_node x)));
+    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear (connected_node ~xs x)));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->

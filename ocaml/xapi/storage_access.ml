@@ -111,14 +111,14 @@ module Builtin_impl = struct
 
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
 			try
-				let physical_device =
+				let params =
 					for_vdi ~task ~sr ~vdi "VDI.attach"
 						(fun device_config _type sr self ->
 							Sm.vdi_attach device_config _type sr self read_write
 						) in
 				Mutex.execute vdi_read_write_m
 					(fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
-				Success (Vdi physical_device)
+				Success (Vdi params)
 			with Api_errors.Server_error(code, params) ->
 				Failure (Backend_error(code, params))
 
@@ -226,8 +226,8 @@ let on_vdi ~__context ~vbd ~domid f =
 	let dp = Client.DP.create rpc (Ref.string_of task) (datapath_of_vbd ~domid ~device) in
 	f rpc (Ref.string_of task) dp (Ref.string_of sr) (Ref.string_of vdi)
 
-(** [attach_and_activate __context vbd domid f] calls [f physical_device] where
-    [physical_device] is the result of attaching a VDI which is also activated.
+(** [attach_and_activate __context vbd domid f] calls [f params] where
+    [params] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
 let attach_and_activate ~__context ~vbd ~domid f =
