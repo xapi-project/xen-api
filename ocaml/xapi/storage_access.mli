@@ -31,15 +31,15 @@ val rpc: Rpc.call -> Rpc.response
     to device [device] on domain [domid] *)
 val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
 
-val expect_vdi: (Storage_interface.physical_device -> 'a) -> Storage_interface.result -> 'a
+val expect_vdi: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
 val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
 
-(** [attach_and_activate __context vbd domid f] calls [f physical_device] where
-    [physical_device] is the result of attaching a VDI which is also activated.
+(** [attach_and_activate __context vbd domid f] calls [f params] where
+    [params] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> (Storage_interface.physical_device -> 'a) -> 'a
+val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> (Storage_interface.params -> 'a) -> 'a
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
