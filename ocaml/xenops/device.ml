@@ -264,9 +264,17 @@ type shutdown_mode =
 	| Classic (** no signal that backend has flushed, rely on (eg) SM vdi_deactivate for safety *)
     | ShutdownRequest (** explicit signal that backend has flushed via "shutdown-done" *)
 
+let read_feature_flag ~xs (x: device) flag =
+	let feature_flag_path = Printf.sprintf "/local/domain/%d/control/%s" x.backend.domid flag in
+	try ignore(xs.Xs.read feature_flag_path); true with _ -> false
+
 let shutdown_mode_of_device ~xs (x: device) =
-	let feature_flag_path = Printf.sprintf "/local/domain/%d/control/feature-shutdown-request" x.backend.domid in
-	try ignore(xs.Xs.read feature_flag_path); ShutdownRequest with _ -> Classic
+	if read_feature_flag ~xs x "feature-shutdown-request"
+	then ShutdownRequest
+	else Classic
+
+let blkback_needs_physical_device_in_transaction ~xs (x: device) =
+	read_feature_flag ~xs x "feature-blkback-needs-physical-device-in-transaction"
 
 let major_number_table = [| 3; 22; 33; 34; 56; 57; 88; 89; 90; 91 |]
 
@@ -599,7 +607,6 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 		"device-type", if dev_type = CDROM then "cdrom" else "disk";
 	];
 	Hashtbl.add_list back_tbl [
-		"physical-device", string_of_major_minor params;
 		"frontend-id", sprintf "%u" domid;
 		(* Prevents the backend hotplug scripts from running if the frontend disconnects.
 		   This allows the xenbus connection to re-establish itself *)
@@ -611,6 +618,9 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 		"mode", string_of_mode mode;
 		"params", params;
 	];
+	if blkback_needs_physical_device_in_transaction ~xs device then
+		Hashtbl.add back_tbl "physical-device" (string_of_major_minor params);
+
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
 
