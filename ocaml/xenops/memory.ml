@@ -127,28 +127,25 @@ let get_total_memory_bytes ~xc =
 (* === Domain memory breakdown: HVM guests ================================== *)
 
 module type MEMORY_MODEL_DATA = sig
-	val video_mib : int64
 	val extra_internal_mib : int64
 	val extra_external_mib : int64
 end
 
 module HVM_memory_model_data : MEMORY_MODEL_DATA = struct
-	let video_mib = 4L
 	let extra_internal_mib = 1L
 	let extra_external_mib = 1L
 end
 
 module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
-	let video_mib = 0L
 	let extra_internal_mib = 0L
 	let extra_external_mib = 1L
 end
 
 module Memory_model (D : MEMORY_MODEL_DATA) = struct
 
-	let build_max_mib static_max_mib = static_max_mib --- D.video_mib
+	let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
 
-	let build_start_mib target_mib = target_mib --- D.video_mib
+	let build_start_mib target_mib video_mib = target_mib --- (Int64.of_int video_mib)
 
 	let xen_max_offset_mib = D.extra_internal_mib
 
