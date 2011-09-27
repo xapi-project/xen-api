@@ -105,12 +105,12 @@ let string_of_date x = Date.to_string (Date.of_float x)
 module Vdi = struct
 	(** Represents the information known about a VDI *)
 	type t = {
-		physical_device: physical_device option;    (** Some path when attached; None otherwise *)
+		params: params option;    (** Some path when attached; None otherwise *)
 		dps: (Dp.t * Vdi_automaton.state) list; (** state of the VDI from each dp's PoV *)
 		leaked: Dp.t list;                        (** "leaked" dps *)
 	} with rpc
 	let empty () = {
-		physical_device = None;
+		params = None;
 		dps = [];
 		leaked = [];
 	}
@@ -145,7 +145,7 @@ module Vdi = struct
 		set_dp_state dp state' t
 
 	let to_string_list x =
-		let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.physical_device)) in
+		let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.params)) in
 		let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
 		title :: (List.map indent (List.map of_dp x.dps))
 end
@@ -287,7 +287,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							let result = Impl.VDI.attach context ~task ~dp ~sr ~vdi ~read_write in
 							let result, vdi_t = match result with
 							| Success (Vdi x) ->
-								result, { vdi_t with Vdi.physical_device = Some x }
+								result, { vdi_t with Vdi.params = Some x }
 							| Success Unit
 							| Failure _ ->
 								result, vdi_t
@@ -335,7 +335,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					(* NB this_op = attach but ops = [] because the disk is already attached *)
 					let result = match result, this_op with
 						| Success _, Vdi_automaton.Attach _ ->
-							Success (Vdi (Opt.unbox vdi_t.Vdi.physical_device))
+							Success (Vdi (Opt.unbox vdi_t.Vdi.params))
 						| x, _ -> x in
 					
 					result, vdi_t
