@@ -1342,7 +1342,7 @@ type info = {
 	power_mgmt : int option;
 	oem_features : int option;
 	inject_sci : int option;
-	videoram : int;
+	video_mib : int;
 
 	extras: (string * string option) list;
 }
@@ -1409,7 +1409,7 @@ let xenclient_specific ~xs info domid =
       | Some device -> [ "-soundhw"; device ]
   in
 
-  ["-videoram"; string_of_int info.videoram;
+  ["-videoram"; string_of_int info.video_mib;
    "-M"; (if info.hvm then "xenfv" else "xenpv")] 
   @ sound_options
    

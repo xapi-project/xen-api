@@ -72,7 +72,7 @@ let build_domain ~xc ~xs ~kernel ?(ramdisk=None) ~cmdline ~domid ~vcpus ~static_
 
 let build_hvm ~xc ~xs ~kernel ~domid ~vcpus ~static_max_kib ~target_kib =
 	let (_: Domain.domarch) = Domain.build_hvm xc xs static_max_kib target_kib 1.
-	                                           vcpus kernel "0" domid in
+	                                           vcpus kernel "0" 4 domid in
 	printf "built hvm domain: %u\n" domid
 
 let clean_shutdown_domain ~xal ~domid ~reason ~sync =
@@ -355,7 +355,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
 	  Device.Dm.power_mgmt=None;
 	  Device.Dm.oem_features=None;
 	  Device.Dm.inject_sci=None;
-	  Device.Dm.videoram=0;
+	  Device.Dm.video_mib=0;
 
  	  Device.Dm.extras = []
  	} in
