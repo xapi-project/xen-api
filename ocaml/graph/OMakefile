@@ -6,7 +6,7 @@ OCamlProgram(graph, graph ../idl/datamodel ../idl/datamodel_utils ../idl/dm_api)
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN_OBJS)
+	rm -f $(CLEAN_OBJS) graph
 
 .PHONY: install
 install:

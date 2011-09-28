@@ -89,6 +89,11 @@ section
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)
+	rm -f ./xe
+	rm -f ./rt/gtclient
+	rm -f ./rt/xgetip
+	rm -f ./rt/gtserver_linux
+	rm -f ./rt/test_host
 
 .SUBDIRS: rt
 

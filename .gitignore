@@ -43,6 +43,7 @@ ocaml/idl/xen*-datamodel.tex
 ocaml/idl/xen*api.ps
 ocaml/idl/xen*api.pdf
 ocaml/stdlib2/t*.ml
+ocaml/auth/testauth
 ocaml/auth/testauthx
 ocaml/xapi/at_least_once_more
 ocaml/xapi/config_constants.ml
