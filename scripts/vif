@@ -257,12 +257,13 @@ add)
 
 remove)
     if [ "${TYPE}" = "vif" ] ;then
-        # only for the benefit of xenrt test case, see CA-61528
-        xenstore-rm "${HOTPLUG}/hotplug"
-
         call_hook_script $DOMID "${ACTION}"
+		# Unclear whether this is necessary, since netback also does it:
         logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
         xenstore-rm "${HOTPLUG_STATUS}"
+        logger -t script-vif "${dev}: removing ${HOTPLUG}/hotplug"
+		# Trigger xapi to clean up:
+        xenstore-rm "${HOTPLUG}/hotplug"
     fi
     logger -t scripts-vif "${dev} has been removed"
     remove_from_bridge
