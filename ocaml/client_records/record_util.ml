@@ -134,6 +134,7 @@ let vif_operation_to_string = function
   | `attach -> "attach"
   | `plug -> "plug"
   | `unplug -> "unplug"
+  | `unplug_force -> "unplug_force"
 
 let vm_appliance_operation_to_string = function
   | `start -> "start"
