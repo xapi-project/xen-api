@@ -81,7 +81,6 @@ val domain_get_domid : ctx -> string -> domid option
 val domains_running : ctx -> domid list
 val uuid_of_domid : ctx -> domid -> string
 
-val device_is_connected : ctx -> domid -> string -> string -> bool
 val device_get_hotplug : ctx -> domid -> string -> string -> string option
 
 (* low level *)

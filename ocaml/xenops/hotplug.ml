@@ -68,12 +68,6 @@ let status_node (x: device) = get_hotplug_path x ^ "/hotplug"
 let frontend_status_node (x: device) = 
 	sprintf "%s/frontend/%s/%d/hotplug" (get_private_path x.frontend.domid) (string_of_kind x.frontend.kind) x.frontend.devid
 
-(* The path in xenstore written to /by/ the hotplug scripts when the (network) device
-   is properly online.
-   See xs-xen.pq.hq:91e986b8e49f netback-wait-for-hotplug *)
-let connected_node ~xs (x: device) = 
-	sprintf "%s/backend/%s/%d/%d/hotplug-status" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
-
 (* CA-15605: node written to by tapdisk to report an error (eg opening .vhd files). *)
 let tapdisk_error_node ~xs (x: device) = 
   sprintf "%s/backend/%s/%d/%d/tapdisk-error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
@@ -103,13 +97,6 @@ let device_is_online ~xs (x: device) =
       if backend_request () 
       then not(backend_shutdown ())
       else backend_hotplug ()
-
-(* Poll a device to see whether it has hotplug-status = connected *)
-let device_is_connected ~xs (x: device) =
-	try
-		let path = connected_node ~xs x in
-		xs.Xs.read path = "connected"
-	with Xb.Noent -> false
 
 let wait_for_plug ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
