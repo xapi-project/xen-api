@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "XenStore RPC"
-requires = "xs"
-archive(byte) = "xsrpc.cma"
-archive(native) = "xsrpc.cmxa"
