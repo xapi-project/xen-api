@@ -27,11 +27,11 @@ install:
 	$(IPROG) xapi-wait-init-complete $(BIN_PATH)
 	$(IPROG) xapi-autostart-vms $(BIN_PATH)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
-	$(IPROG) xapi-ssl.conf $(DESTDIR)/etc/xensource/xapi-ssl.conf
 	$(IPROG) xapi.conf $(DESTDIR)/etc/xapi.conf
 	$(IPROG) log.conf $(DESTDIR)/etc/xensource/log.conf
 	$(IPROG) db.conf.skel $(DESTDIR)/etc/xensource/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)/etc/xensource/db.conf.rio
+	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi

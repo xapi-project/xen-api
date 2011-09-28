@@ -383,18 +383,21 @@ let get ~__context ~cls ~obj_uuid ~since =
   let class_symlink = class_symlink cls obj_uuid in
   (if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then raise (Api_errors.Server_error (Api_errors.uuid_invalid, [])));
   get_real class_symlink (fun _ -> true) (Date.to_float since)
-    
+
 let get_since ~__context ~since =
   get_real message_dir (fun _ -> true) (Date.to_float since)
 
 let get_since_for_events ~__context since =
 	let now = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
-	let result = Mutex.execute in_memory_cache_mutex (fun () ->
-		let (last_in_memory,_,_) = List.hd (List.rev !in_memory_cache) in
-		if last_in_memory > since
-		then None
-		else Some (List.filter_map (fun (timestamp,_ref,msg) -> if timestamp > since then Some (_ref, msg) else None) !in_memory_cache))
-	in
+	let result = Mutex.execute in_memory_cache_mutex
+		(fun () ->
+			 match !in_memory_cache with
+			 | (last_in_memory, _, _) :: _ when last_in_memory > since ->
+				   Some (List.filter_map
+					         (fun (timestamp,_ref,msg) ->
+						          if timestamp > since then Some (_ref, msg) else None)
+					         !in_memory_cache)
+			 | _ -> None) in
 	match result with
 		| Some x -> (now,x)
 		| None ->

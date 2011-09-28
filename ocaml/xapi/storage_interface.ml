@@ -28,13 +28,13 @@ type task = string
 
 (** The result of a successful VDI.attach: this information (eg) can be used to
 	connect a VBD backend to a VBD frontend *)
-type physical_device = string
+type params = string
 
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
 type success_t =
-	| Vdi of physical_device                  (** success (from VDI.attach) *)
+	| Vdi of params                  (** success (from VDI.attach) *)
 	| Unit                                    (** success *)
 	| State of Vdi_automaton.state            (** success (from VDI.stat) *)
 
@@ -108,7 +108,7 @@ module VDI = struct
 	(** Functions which operate on particular VDIs.
 		These functions are all idempotent from the point of view of a given [dp]. *)
 
-	(** [attach task dp sr vdi read_write] returns the [physical_device] for a given
+	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true *)
 	external attach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> result = ""
@@ -125,7 +125,7 @@ module VDI = struct
 		[vdi]. *)
     external deactivate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 
-	(** [detach task dp sr vdi] signals that this client no-longer needs the [physical_device]
+	(** [detach task dp sr vdi] signals that this client no-longer needs the [params]
 		to be valid. *)
     external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 end

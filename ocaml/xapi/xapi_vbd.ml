@@ -57,12 +57,7 @@ let destroy_vbd ?(do_safety_check=true) ~__context ~xs domid self (force: bool) 
 	    raise (Api_errors.Server_error(Api_errors.operation_not_allowed, 
 					   [ "Disk does not support surprise-remove" ]))
 	  end;
-	  if Xapi_fist.simulate_vbd_unplug_failure () && not force then begin
-	    debug "Simulating failure of Device.Vbd.clean_shutdown";
-	    (* write the request into xenstore *)
-	    Device.Vbd.request_shutdown ~xs device force;
-	    raise (Device_common.Device_error(device, "fist"));
-	  end else (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
+	  (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
 
 	  Device.Vbd.release ~xs device;
 	  debug "vbd_unplug: setting currently_attached to false";
@@ -216,9 +211,9 @@ let insert  ~__context ~vbd ~vdi =
 		   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 		   let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 		   Storage_access.attach_and_activate ~__context ~vbd ~domid
-			   (fun physpath ->
+			   (fun params ->
 				   with_xs (fun xs ->
-					   Device.Vbd.media_insert ~xs ~device_number ~phystype ~physpath domid
+					   Device.Vbd.media_insert ~xs ~device_number ~phystype ~params domid
 				   )
 			   )
 	    end else begin
@@ -274,10 +269,10 @@ let refresh ~__context ~vbd ~vdi =
 		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
         let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 		Storage_access.attach_and_activate ~__context ~vbd ~domid
-			(fun physpath ->
+			(fun params ->
 				with_xs 
 					(fun xs -> 
-						Device.Vbd.media_refresh ~xs ~device_number ~physpath domid
+						Device.Vbd.media_refresh ~xs ~device_number ~params domid
 					)
 			)
       )

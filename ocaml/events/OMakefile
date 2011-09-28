@@ -6,7 +6,7 @@ OCamlProgram(event_listen, event_listen)
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN_OBJS)
+	rm -f $(CLEAN_OBJS) event_listen
 
 .PHONY: install
 install:

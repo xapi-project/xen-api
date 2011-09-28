@@ -8,7 +8,7 @@ OCamlDocProgram(mpathalert, mpathalert)
 .PHONY: clean
 
 clean:
-	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
+	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o mpathalert
 
 .PHONY: install
 install:

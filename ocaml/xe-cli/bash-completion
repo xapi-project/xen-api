@@ -7,15 +7,39 @@ MAGIC_DQUOTE="JSUFBTGHEJHW"
 _xe()
 {
 	local IFS=$'\n,'
-
 	local cur prev opts xe IFS
 	COMPREPLY=()
 	# The following if statement is a fix for CA-28853. "cur=`_get_cword`" is used in newer scripts, but it somehow does not work.
 	if [[ $COMP_CWORD < 1 ]] ; then
 			COMP_CWORD=$(( ${#COMP_WORDS[@]} + 1))
 	fi
-	cur="${COMP_WORDS[COMP_CWORD]}"
-	prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+	# bash 4 changed the semantics of COMP_WORDS: specifically it will
+	# split (eg) on "=" if this is contained in COMP_WORDBREAKS. We
+	# have a particular problem with "=", so we work around by
+	# regenerating the old style of array.
+	j=0
+	for ((i=0;i<=$COMP_CWORD;i++)); do
+		if [ "${COMP_WORDS[$i]}" = "=" ]; then
+			j=$(expr $j - 1)
+			OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
+			# and the next one if there is one
+			if [ $i -lt $COMP_CWORD ]; then
+				i=$(expr $i + 1)
+				OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
+
+			fi
+			j=$(expr $j + 1)
+		else
+			OLDSTYLE_WORDS[$j]="${COMP_WORDS[$i]}"
+			j=$(expr $j + 1)
+		fi
+	done
+	OLDSTYLE_CWORD=$(expr $j - 1)
+	COMP_CWORD=$OLDSTYLE_CWORD
+
+	cur="${OLDSTYLE_WORDS[COMP_CWORD]}"
+	prev="${OLDSTYLE_WORDS[COMP_CWORD-1]}"
 	xe=xe
 
 	if [[ $COMP_CWORD == 1 ]] ; then
@@ -23,13 +47,11 @@ _xe()
 		return 0
 	fi
 
-# parameters are passed as param=value
-
-	if echo ${COMP_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
+	if echo ${OLDSTYLE_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
 		local param value
 		local IFS=""
-		param=`echo ${COMP_WORDS[COMP_CWORD]} | cut -d= -f1`
-		value=`echo ${COMP_WORDS[COMP_CWORD]} | cut -d= -f2`
+		param=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f1`
+		value=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f2`
 
 		local vms args
 
@@ -41,10 +63,10 @@ _xe()
 				;;
 
 			mode) # for pif-reconfigure-ip
-				if [ "${COMP_WORDS[1]}" == "pif-reconfigure-ip" ]; then
+				if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
 					IFS=$'\n,'
 					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
-				elif [ "${COMP_WORDS[1]}" == "bond-set-mode" ] || [ "${COMP_WORDS[1]}" == "bond-create" ]; then
+				elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
 					IFS=$'\n,'
 					COMPREPLY=( $(compgen -W "balance-slb ,active-backup" -- ${value}) )
 				fi
@@ -52,10 +74,10 @@ _xe()
 				;;
 
 			uuid)
-				case "${COMP_WORDS[1]}" in
+				case "${OLDSTYLE_WORDS[1]}" in
 					diagnostic-vm-status) cmd=vm-list;;
 					diagnostic-vdi-status) cmd=vdi-list;;
-					*) cmd=`echo ${COMP_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
+					*) cmd=`echo ${OLDSTYLE_WORDS[1]} | awk -F- '/^host-cpu-/ || /^host-crashdump-/ || /^gpu-group-/ { print $1 "-" $2 }
 $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1 }'`-list;;
 				esac
 				IFS=$'\n,'
@@ -75,7 +97,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 				;;
 			params)
 				val=$(final_comma_separated_param "$value")
-				class=`echo ${COMP_WORDS[1]} | cut -d- -f1`
+				class=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
 				params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
 				IFS=$'\n,'
 				COMPREPLY=( $(compgen -W "$params,all" -- "$val" ) )
@@ -89,30 +111,30 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 
 			# param name is used by *-param-add, *-param-remove, and *-param-get
 			param-name)
-				if echo ${COMP_WORDS[1]} | grep "param-add" > /dev/null; then
-					class=`echo ${COMP_WORDS[1]} | sed s/-param-add//g`
+				if echo ${OLDSTYLE_WORDS[1]} | grep "param-add" > /dev/null; then
+					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
 					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
 					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
 					return 0
-				elif echo ${COMP_WORDS[1]} | grep "param-remove" > /dev/null; then
-					class=`echo ${COMP_WORDS[1]} | sed s/-param-remove//g`
+				elif echo ${OLDSTYLE_WORDS[1]} | grep "param-remove" > /dev/null; then
+					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-remove//g`
 					paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
 					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
 					return 0
-				elif echo ${COMP_WORDS[1]} | grep "param-get" > /dev/null; then
-					class=`echo ${COMP_WORDS[1]} | sed s/-param-get//g`
+				elif echo ${OLDSTYLE_WORDS[1]} | grep "param-get" > /dev/null; then
+					class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-get//g`
 					paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//` 
 					IFS=$'\n,' COMPREPLY=( $(compgen -W "${paramsset}" -- ${value}) )
 					return 0
 				fi
 				;;
 			cd-name)
-				if [[ "${COMP_WORDS[1]}" == "vm-cd-add" || "${COMP_WORDS[1]}" == "vm-cd-insert" ]]; then
+				if [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-add" || "${OLDSTYLE_WORDS[1]}" == "vm-cd-insert" ]]; then
                                         IFS=$'\n,'
                                         COMPREPLY=( $(compgen_names cd-list name-label "$value") )
 					return 0
-				elif [[ "${COMP_WORDS[1]}" == "vm-cd-remove" ]]; then
-				        vm=`for i in ${COMP_WORDS[@]:2}; do echo $i | grep "^vm="; done`
+				elif [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-remove" ]]; then
+				        vm=`for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^vm="; done`
 					local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null | sed -e "s,',$MAGIC_SQUOTE,g" -e "s,\",$MAGIC_DQUOTE,g"`
                                         IFS=$'\n,'
                                         COMPREPLY=( $(compgen_escape "$cds" "$value") )
@@ -147,7 +169,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 				;;
 			type) # for vbd-create/vdi-create/sr-create/sr-probe
                                 IFS=$'\n,'
-			        fst=`echo ${COMP_WORDS[1]} | cut -d- -f1`
+			        fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
 
 				if [[ "${fst}" == "vbd" ]]; then
 				   COMPREPLY=( $(compgen -W "Disk ,CD " -- ${value}) )
@@ -170,7 +192,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
                                 return 0
                                 ;;
 			output)
-                                case "${COMP_WORDS[1]}" in
+                                case "${OLDSTYLE_WORDS[1]}" in
                                     log-set-output)
                                         IFS=$'\n,'
                                         COMPREPLY=( $(compgen -W "file,syslog,nil " -- ${value}) )
@@ -246,8 +268,8 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
                                    COMPREPLY=( $(compgen_escape "$uuids" "$value") )
 				   return 0
 				else
-				   fst=`echo ${COMP_WORDS[1]} | cut -d- -f1`
-				   snd=`echo ${COMP_WORDS[1]} | cut -d- -f2`
+				   fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
+				   snd=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f2`
 				   if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
                                      IFS=$'\n,'
 				     COMPREPLY=( $(compgen_names "${fst}-list" "$param" "$value") )
@@ -258,9 +280,9 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 		esac
 	else
 		local param reqd
-		param=${COMP_WORDS[COMP_CWORD]}
-		vmselectors=`${xe} help ${COMP_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
-		hostselectors=`${xe} help ${COMP_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
+		param=${OLDSTYLE_WORDS[COMP_CWORD]}
+		vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
+		hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
 		isdeviceconfig=`echo "${param}" | grep "device-config:"`
 		isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
 		isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
@@ -268,7 +290,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 		isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
 		isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
 		if [ "${isdeviceconfig}" ]; then
-			IFS=" " type=$(for i in ${COMP_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr [A-Z] [a-z])
+			IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr [A-Z] [a-z])
 			extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
 		elif [ "${isvcpusparams}" ]; then
 			extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
@@ -304,7 +326,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 			extraargs=""
 		fi
 		IFS=$'\n,'
-		COMPREPLY=( $(compgen_params "${COMP_WORDS[1]}" "$extraargs" "$param") )
+		COMPREPLY=( $(compgen_params "${OLDSTYLE_WORDS[1]}" "$extraargs" "$param") )
 		return 0
 	fi
 }
@@ -349,5 +371,4 @@ compgen_params()
 	local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g')
 	compgen -o nospace -W "$v$2" -- "$3"
 }
-
 complete -F _xe -o nospace xe

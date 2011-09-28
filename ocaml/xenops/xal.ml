@@ -300,12 +300,6 @@ let domains_running ctx =
 	List.map (fun (domid, state) -> domid)
 	         (List.filter (fun (domid, state) -> state = Running) ctx.currents)
 
-let device_is_connected ctx domid ty devid =
-	if not ctx.monitor_devices then
-		raise Device_not_monitored;
-	let devstate = get_devstate ctx domid ty devid in
-	devstate.frontstate = Connected && devstate.backstate = Connected
-
 let device_get_hotplug ctx domid ty devid =
 	if not ctx.monitor_devices then
 		raise Device_not_monitored;

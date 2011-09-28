@@ -7,4 +7,4 @@ OCamlProgram(xscheckperms, perms common)
 
 .PHONY: clean
 clean:
-	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
+	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi xstest xsbench xscheckperms

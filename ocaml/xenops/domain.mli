@@ -38,6 +38,7 @@ type create_info = {
 type build_hvm_info = {
 	shadow_multiplier: float;
 	timeoffset: string;
+	video_mib: int;
 }
 
 type build_pv_info = {
@@ -115,7 +116,7 @@ val build_linux: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
 val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
             -> target_kib:Int64.t -> shadow_multiplier:float
             -> vcpus:int -> kernel:string
-            -> timeoffset:string -> domid
+            -> timeoffset:string -> video_mib:int -> domid
             -> domarch
 
 (** Restore a domain using the info provided *)
