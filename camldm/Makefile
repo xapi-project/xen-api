@@ -1,29 +1,10 @@
 include ../config.mk
 
-FEPP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
-
-LDFLAGS = -cclib -L./
-
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
-
 OBJS = camldm
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = camldm.cma camldm.cmxa
 
-DOCDIR = ../doc
-
-OCAMLFLAGS = -pp '${FEPP}' -I ../rpc-light
-
+OCAMLFLAGS = $(RPCLIGHTFLAGS)
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

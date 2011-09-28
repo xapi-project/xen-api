@@ -1,25 +1,10 @@
 include ../config.mk
 
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR) -I$(XEN_ROOT)/usr/include
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
 INCLUDES = -I ../stdext $(OCAML_XC_INC) -I ../xen-utils
-
-LDFLAGS = -cclib -L./
-
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
 
 OBJS = cpuid
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = cpuid.cma cpuid.cmxa
-
-DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

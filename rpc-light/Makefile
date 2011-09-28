@@ -1,12 +1,9 @@
 include ../config.mk
 
-OCAMLC = ocamlfind ocamlc
-OCAMLOPT = ocamlfind ocamlopt
 OCAMLFLAGS = -annot -g
 PACKS = xmlm
 
 ICAMLP4 = -I $(shell ocamlfind query camlp4) -I $(shell ocamlfind query type-conv)
-DOCDIR  = ../doc
 TARGETS = \
 	rpc.cmi rpc.cmo rpc.o rpc.cmx \
 	pa_rpc.cma idl.cma \

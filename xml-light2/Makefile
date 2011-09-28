@@ -1,33 +1,15 @@
 include ../config.mk
 
 IPROG=install -m 755
-OCAMLPACKS = xmlm
-
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-
-OCAMLFIND = ocamlfind
-OCAMLFINDFLAGS = -package $(OCAMLPACKS)
-
-OCAMLC = $(OCAMLFIND) ocamlc -g $(OCAMLFINDFLAGS)
-OCAMLOPT = $(OCAMLFIND) ocamlopt $(OCAMLFINDFLAGS)
-
-LDFLAGS = -cclib -L./
-
-LIBEXEC  = "/opt/xensource/libexec"
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+PACKAGES = xmlm
 
 OBJS = xml
 INTF = xml.cmi
 LIBS = xml-light2.cma xml-light2.cmxa
 PROGRAMS = xmlpp
 
-DOCDIR = ../doc
+OCAMLCFLAGS += -package $(PACKAGES)
+OCAMLOPTFLAGS += -package $(PACKAGES)
 
 all: $(INTF) $(LIBS)
 
@@ -42,13 +24,13 @@ xml-light2.cmxa: $(foreach obj,$(OBJS),$(obj).cmx)
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmx)
 
 xml-light2.cma: $(foreach obj,$(OBJS),$(obj).cmo)
-	$(OCAMLC) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
+	$(OCAMLC) $(OCAMLCFLAGS) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 %.cmo: %.ml
-	$(OCAMLC) -c -I ../stdext -o $@ $<
+	$(OCAMLC) $(OCAMLCFLAGS) -c -I ../stdext -o $@ $<
 
 %.cmi: %.mli
-	$(OCAMLC) -c -I ../stdext -o $@ $<
+	$(OCAMLC) $(OCAMLCFLAGS) -c -I ../stdext -o $@ $<
 
 %.cmx: %.ml
 	$(OCAMLOPT) $(OCAMLOPTFLAGS) -c -I ../stdext -o $@ $<

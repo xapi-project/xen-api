@@ -11,3 +11,25 @@ OCAML_XC_LIB = $(OCAML_XC_DIR)/xc.cmxa
 OCAML_XS_INC = -I $(OCAML_XS_DIR)
 OCAML_XS_LIB = $(OCAML_XS_DIR)/xs.cmxa
 
+LDFLAGS = -cclib -L./
+
+VERSION := 0.2
+VERSION ?= $(shell git show-ref --head -s origin/HEAD || echo 0)
+
+OCAMLABI := $(shell ocamlc -version)
+OCAMLLIBDIR := $(shell ocamlc -where)
+OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+
+CC = gcc
+CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
+OCAMLC = ocamlfind ocamlc
+OCAMLOPT = ocamlfind ocamlopt
+OCAMLYACC = ocamlyacc
+OCAMLCFLAGS = -dtypes
+OCAMLOPTFLAGS = -g -dtypes
+
+RPCLIGHTFLAGS = -package type-conv -ppopt -I -ppopt ../rpc-light -ppopt pa_rpc.cma -syntax camlp4o -I ../rpc-light
+
+DOCDIR = ../doc
+
+LIBEXEC = "/opt/xensource/libexec"

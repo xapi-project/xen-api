@@ -1,29 +1,11 @@
 include ../config.mk
 
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-LDFLAGS = -cclib -L./
-VERSION = 0.1
-
-PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
-
-DESTDIR ?= /
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
 LIBOBJS = constants lvm_uuid crc utils absty lvmconfigparser lvmconfiglex lvmmarshal allocator debug redo lv pv vg 
 INTF = $(foreach obj, $(LIBOBJS),$(obj).cmi)
 CMDOBJS = messages.cmx mlvm.cmx
-OCAMLC = ocamlfind ocamlc -g
-OCAMLOPT = ocamlfind ocamlopt 
-COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm -pp '${PP}' -I ../rpc-light
+COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm $(RPCLIGHTFLAGS)
 
 LIBS = lvm.cma lvm.cmxa
-
-DOCDIR = ../doc
 
 default : $(LIBS)
 

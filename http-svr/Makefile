@@ -1,22 +1,5 @@
 include ../config.mk
 
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
-OCAMLFIND = ocamlfind
-
-LDFLAGS = -cclib -L./
-
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
-
-PP = camlp4o -I ../rpc-light -I $(shell ocamlfind query type-conv) pa_type_conv.cmo pa_rpc.cma
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
 OBJS = radix_tree server_io buf_io http http_svr http_client test_server test_client
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
@@ -47,13 +30,13 @@ http_svr.cma: $(foreach obj,$(OBJS),$(obj).cmo)
 	$(OCAMLC) -a -o $@ $(foreach obj,$(OBJS),$(obj).cmo)
 
 %.cmo: %.ml %.cmi
-	$(OCAMLC) -c -pp '${PP}' -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
+	$(OCAMLC) -c $(RPCLIGHTFLAGS) -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
 
 %.cmi: %.mli
 	$(OCAMLC) -c -I ../rpc-light -thread -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) -pp '${PP}' -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
+	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<

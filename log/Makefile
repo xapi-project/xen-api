@@ -1,27 +1,11 @@
 include ../config.mk
 
-CC = gcc
-OCAMLLOC := $(shell ocamlc -where)
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(OCAMLLOC)
-OCAMLC = ocamlc
-OCAMLOPT = ocamlopt 
-
-LDFLAGS = -cclib -L./
-
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLCFLAGS = -g -dtypes -thread -I ../stdext
-OCAMLOPTFLAGS = -g -dtypes -thread -I ../stdext
-
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
 OBJS = syslog log logs debug
 INTF = log.cmi logs.cmi syslog.cmi debug.cmi
 LIBS = log.cma log.cmxa
 
-DOCDIR = ../doc
+OCAMLCFLAGS += -thread -I ../stdext
+OCAMLOPTFLAGS += -thread -I ../stdext
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

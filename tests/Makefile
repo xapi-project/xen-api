@@ -1,7 +1,5 @@
 include ../config.mk
 
-OCAMLC = ocamlfind ocamlc -g -package "unix,stdext,xc,xb,xs,mmap"
-OCAMLOPT = ocamlfind ocamlopt -package "unix,stdext,xc,xb,xs,mmap"
 
 
 all: copy_file close_all_fds_except unlink watch_bug dotdot

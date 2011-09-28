@@ -1,25 +1,14 @@
 include ../config.mk
 
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml -I$(XEN_ROOT)/usr/include
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
 INCLUDES = -I ../stdext
 
-LDFLAGS = -cclib -L./
 
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
 
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
 OBJS = xen_cmdline
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = xen-utils.cma xen-utils.cmxa
 
-DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

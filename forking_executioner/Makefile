@@ -1,30 +1,14 @@
 include ../config.mk
 
 IPROG=install -m 755
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
 
-LDFLAGS = -cclib -L./
-
-LIBEXEC  = /opt/xensource/libexec
 INIT_D   = /etc/rc.d/init.d
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
-
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
-
 
 OBJS = 
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = 
 
 PROGRAMS = fe
-
-DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 

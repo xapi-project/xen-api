@@ -1,24 +1,13 @@
 include ../config.mk
 
-CC = gcc
-CFLAGS = -Wall -fPIC -O2 -I/opt/xensource/lib/ocaml
-OCAMLC = ocamlc -g
-OCAMLOPT = ocamlopt
 
-LDFLAGS = -cclib -L./
 
-VERSION := $(shell git show-ref --head | grep -E " HEAD$$" | cut -f 1 -d " " || echo 0)
-OCAMLOPTFLAGS = -g -dtypes
 
-OCAMLABI := $(shell ocamlc -version)
-OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
 OBJS = stunnel stunnel_cache
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = stunnel.cma stunnel.cmxa
 
-DOCDIR = ../doc
 
 all: $(INTF) $(LIBS) $(PROGRAMS)
 
