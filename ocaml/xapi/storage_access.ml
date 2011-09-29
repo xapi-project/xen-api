@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
+module XenAPI = Client.Client
 open Storage_interface
 
 module D=Debug.Debugger(struct let name="storage_access" end)
@@ -164,12 +165,92 @@ module Builtin_impl = struct
 			with Api_errors.Server_error(code, params) ->
 				Failure (Backend_error(code, params))
 
-		let stat context ~task ?dp ~sr ~vdi () = assert false
+		let stat context ~task ~sr ~vdi () = assert false
 
 	end
 end
 
 module Server=Server(Storage_impl.Wrapper(Builtin_impl))
+
+module Qemu_blkfront = struct
+	(** If the qemu is in a different domain to the storage backend, a blkfront is
+		needed to exposes disks to guests so the emulated interfaces work. *)
+
+	let get_qemu_vm ~__context ~vm = Helpers.get_domain_zero ~__context
+
+	let needed ~__context ~self hvm =
+		not(Db.VBD.get_empty ~__context ~self) && begin
+            let userdevice = Db.VBD.get_userdevice ~__context ~self in
+            let device_number = Device_number.of_string hvm userdevice in
+            match Device_number.spec device_number with
+                | Device_number.Ide(n, _) when n < 4 -> true
+                | _ -> false
+		end
+
+	let related_to = "related_to"
+
+	(* If we have a shared VDI (eg CDROM) we don't share the blkfront
+	   to simplify the accounting. We use the other_config:related_to key
+	   to distinguish the different VBDs. *)
+	let vbd_opt ~__context ~self =
+		let vdi = Db.VBD.get_VDI ~__context ~self in
+		let user_vm = Db.VBD.get_VM ~__context ~self in
+		let vm = get_qemu_vm ~__context ~vm:user_vm in
+		if Db.is_valid_ref __context vdi
+		then begin
+			match List.filter (fun other ->
+				let vbd_r = Db.VBD.get_record ~__context ~self:other in
+				true
+				&& vbd_r.API.vBD_VM = vm
+				&& (List.mem_assoc related_to vbd_r.API.vBD_other_config)
+				&& (List.assoc related_to vbd_r.API.vBD_other_config = Ref.string_of self)
+			) (Db.VDI.get_VBDs ~__context ~self:vdi) with
+				| vbd :: _ -> Some vbd
+				| [] -> None
+		end else None
+
+	let create ~__context ~self hvm =
+		match vbd_opt ~__context ~self with
+			| Some vbd ->
+				if not (Db.VBD.get_currently_attached ~__context ~self:vbd)
+				then Helpers.call_api_functions ~__context
+					(fun rpc session_id -> XenAPI.VBD.plug rpc session_id vbd)
+			| None ->
+				let vdi = Db.VBD.get_VDI ~__context ~self in
+				let user_vm = Db.VBD.get_VM ~__context ~self in
+				let vm = get_qemu_vm ~__context ~vm:user_vm in
+				if needed ~__context ~self hvm
+				then Helpers.call_api_functions ~__context
+					(fun rpc session_id ->
+						let read_only = Db.VDI.get_read_only ~__context ~self:vdi in
+						let mode = if read_only then `RO else `RW in
+						let vbd = XenAPI.VBD.create
+							~rpc ~session_id ~vM:vm ~vDI:vdi
+							~other_config:[ related_to, Ref.string_of self ]
+							~userdevice:"autodetect" ~bootable:false ~mode
+							~_type:`Disk ~empty:false ~unpluggable:true
+							~qos_algorithm_type:"" ~qos_algorithm_params:[] in
+						XenAPI.VBD.plug rpc session_id vbd
+					)
+
+	let path_opt ~__context ~self =
+		let vbd = vbd_opt ~__context ~self in
+		let path_of vbd = "/dev/" ^ (Db.VBD.get_device ~__context ~self:vbd) in
+		Opt.map path_of vbd
+
+	let destroy ~__context ~self =
+		let vbd = vbd_opt ~__context ~self in
+		Opt.iter
+            (fun vbd ->
+                Helpers.call_api_functions ~__context
+                    (fun rpc session_id ->
+                        Attach_helpers.safe_unplug rpc session_id vbd;
+                        XenAPI.VBD.destroy rpc session_id vbd
+                    )
+            ) vbd
+end
+
+
 
 let rpc_unix call =
 	let open Xmlrpcclient in
@@ -230,7 +311,7 @@ let is_attached ~__context ~vbd ~domid  =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let open Vdi_automaton in
 	match Client.VDI.stat rpc ~task ~sr ~vdi () with
-		| Success (State Detached) -> false
+		| Success (Stat { superstate = Detached }) -> false
 		| Success _ -> true
 		| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r); false
 
@@ -245,9 +326,9 @@ let on_vdi ~__context ~vbd ~domid f =
     [params] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-let attach_and_activate ~__context ~vbd ~domid f =
+let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
-	on_vdi ~__context ~vbd ~domid
+	let result = on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			expect_vdi
 				(fun path ->
@@ -256,18 +337,23 @@ let attach_and_activate ~__context ~vbd ~domid f =
 							f path
 						) (Client.VDI.activate rpc task dp sr vdi)
 				) (Client.VDI.attach rpc task dp sr vdi read_write)
-		)
+		) in
+	Qemu_blkfront.create ~__context ~self:vbd hvm;
+	result
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-let deactivate_and_detach ~__context ~vbd ~domid =
+let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 	(* It suffices to destroy the datapath: any attached or activated VDIs will be
 	   automatically detached and deactivated. *)
 	on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			expect_unit (fun () -> ())
 				(Client.DP.destroy rpc task dp false)
-		)
+		);
+	(* If the only datapath left is the qemu_blkfront one, clean it up *)
+	if unplug_frontends
+	then Qemu_blkfront.destroy ~__context ~self:vbd
 
 let diagnostics ~__context =
 	Storage_interface.Client.DP.diagnostics rpc ()
@@ -341,19 +427,19 @@ let refresh_local_vdi_activations ~__context =
 			if List.mem sr srs
 			then
 				match Client.VDI.stat rpc ~task ~sr ~vdi () with
-					| Success (State (Activated RO)) -> 
+					| Success (Stat { superstate = Activated RO }) -> 
 						lock_vdi (vdi_ref, vdi_rec) RO;
 						remember (sr, vdi) RO
-					| Success (State (Activated RW)) -> 
+					| Success (Stat { superstate = Activated RW }) -> 
 						lock_vdi (vdi_ref, vdi_rec) RW;
 						remember (sr, vdi) RW
-					| Success (State (Attached RO)) ->
+					| Success (Stat { superstate = Attached RO }) -> 
 						unlock_vdi (vdi_ref, vdi_rec);
 						remember (sr, vdi) RO
-					| Success (State (Attached RW)) ->
+					| Success (Stat { superstate = Attached RW }) -> 
 						unlock_vdi (vdi_ref, vdi_rec);
 						remember (sr, vdi) RW
-					| Success (State Detached) ->
+					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
 					| Success (Vdi _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)

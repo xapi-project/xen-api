@@ -33,10 +33,19 @@ type params = string
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
+type stat_t = {
+	superstate: Vdi_automaton.state;
+	dps: (string * Vdi_automaton.state) list;
+}
+
+let string_of_stat_t x = Printf.sprintf "{ superstate = %s; dps = [ %s ] }"
+	(Vdi_automaton.string_of_state x.superstate)
+	(String.concat "; " (List.map (fun (name, state) -> Printf.sprintf "%s, %s" name (Vdi_automaton.string_of_state state)) x.dps))
+
 type success_t =
 	| Vdi of params                  (** success (from VDI.attach) *)
 	| Unit                                    (** success *)
-	| State of Vdi_automaton.state            (** success (from VDI.stat) *)
+	| Stat of stat_t                          (** success (from VDI.stat) *)
 
 type failure_t =
 	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
@@ -52,7 +61,7 @@ type result =
 let string_of_success = function
 	| Vdi x -> "VDI " ^ x
 	| Unit -> "()"
-	| State s -> Vdi_automaton.string_of_state s
+	| Stat x -> string_of_stat_t x
 
 let string_of_failure = function
 	| Sr_not_attached -> "Sr_not_attached"
@@ -117,9 +126,9 @@ module VDI = struct
 		This client must have called [attach] on the [vdi] first. *)
     external activate : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 
-	(** [stat task dp sr vdi ()] returns the state of the given VDI from the point of view of
-		the specified dp, or the superstate if dp is omitted *)
-	external stat: task:task -> ?dp:dp -> sr:sr -> vdi:vdi -> unit -> result = ""
+	(** [stat task sr vdi ()] returns the state of the given VDI from the point of view of
+        each dp as well as the overall superstate. *)
+	external stat: task:task -> sr:sr -> vdi:vdi -> unit -> result = ""
 
 	(** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
 		[vdi]. *)

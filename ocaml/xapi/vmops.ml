@@ -447,7 +447,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
    NB to prevent resource leaks, log errors and continue on attempting to clean up as
    much as possible.
  *)
-let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
+let destroy_domain ?(preserve_xs_vm=false) ?(unplug_frontends=true) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
 	Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
 		(fun () -> 
 			Domain.destroy ~preserve_xs_vm ~xc ~xs domid
@@ -459,7 +459,7 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
 			if not(Db.VBD.get_empty ~__context ~self:vbd)
 			then Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
 				(fun () ->
-					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
+					Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends
 				) ()
 		) (Storage_access.vbd_detach_order ~__context all_vbds);
 
@@ -485,8 +485,8 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
    If release_devices is true, unlock all VDIs and clear device_status_flags.
    In the restore case, set release_devices to false so we remember which 
    devices should be attached on resume. *)
-let destroy ?(clear_currently_attached=true) ~__context ~xc ~xs ~self domid state =
-	destroy_domain ~clear_currently_attached ~__context ~xc ~xs ~self domid;
+let destroy ?(unplug_frontends=true) ?(clear_currently_attached=true) ~__context ~xc ~xs ~self domid state =
+	destroy_domain ~unplug_frontends ~clear_currently_attached ~__context ~xc ~xs ~self domid;
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	Db.VM.set_domid ~__context ~self ~value:(-1L);
 
@@ -673,7 +673,6 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs include
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
 	List.iter (fun self -> create_vbd ~__context ~xs ~hvm ~protocol domid self) needed_vbds;
-	
 	
 	create_cpus ~xs at_boot_time domid;
 	create_vifs ~__context ~xs vifs;
