@@ -37,6 +37,9 @@ val plug : __context:Context.t -> self:API.ref_VIF -> unit
 (** Hot-unplug the VIF, dynamically unattaching it to the running VM *)
 val unplug : __context:Context.t -> self:API.ref_VIF -> unit
 
+(** Forcibly hot-unplug the VIF from the running VM *)
+val unplug_force : __context:Context.t -> self:API.ref_VIF -> unit
+
 (** Create a new VIF instance *)
 val create :
   __context:Context.t ->
