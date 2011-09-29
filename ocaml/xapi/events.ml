@@ -215,46 +215,54 @@ module Resync = struct
   (** For a given VM and VBD look to see whether the device has unplugged itself in xenstore and 
       synchronise the database with it. *)
   let vbd ~__context token vm vbd =
-    (* By the time we get here the domid might have changed *)
-    let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-    debug "VM %s (domid: %d) Resync.vbd %s" 
-      (Ref.string_of vm) domid
-      (Ref.string_of vbd);
-    assert_not_on_xal_thread ();
-    Locking_helpers.assert_locked vm token;
-    with_xs
-      (fun xs ->
-	 (* This is what the DB thinks: *)
-	 let is_attached = Db.VBD.get_currently_attached ~__context ~self:vbd in
-	 let device = Xen_helpers.device_of_vbd ~__context ~self:vbd in
-	 (* This is what the hotplug scripts think: *)
-	 let online = Hotplug.device_is_online ~xs device in
-	 let online_to_string b = if b then "attached" else "detached" in
-	 
-	 if is_attached = online then begin
-	   debug "VBD %s currently_attached field is in sync with xenstore" (Ref.string_of vbd)
-	 end else begin
-	   debug "VBD %s in %s in the database but %s in xenstore" (Ref.string_of vbd)
-	     (online_to_string is_attached) (online_to_string online);
-	   
-	   (* If it went offline, perform the cleanup action now *)
-	   if not online then (
-	     Device.Vbd.release ~xs device;
-	     (* Also delete xenstore state, otherwise future
-		attempts to add the device will fail *)
-	     Device.Generic.rm_device_state ~xs device;
-		 Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
-	   );
-	   (* If VM is suspended, leave currently_attached and the VDI lock
-	      as they are so we can resume properly. *)
-	   if Db.VM.get_power_state ~__context ~self:vm = `Suspended
-	   then debug "VM is suspended: leaving currently-attached as-is"
-	   else (
-	     Db.VBD.set_currently_attached ~__context ~self:vbd ~value:online;
-	   )
-	 end
-      )
+      (* By the time we get here the domid might have changed *)
+      let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+	  let driver_vm = System_domains.storage_driver_domain_of_vbd ~__context ~vbd in
+	  let is_loopback = driver_vm = vm in
+	  let is_attached = Db.VBD.get_currently_attached ~__context ~self:vbd in
+      debug "VM %s (domid: %d) Resync.vbd %s" (Ref.string_of vm) domid (Ref.string_of vbd);
+      assert_not_on_xal_thread ();
+      Locking_helpers.assert_locked vm token;
 
+	  (* Code common to both 'xen vbd exists' case and 'loopback only' case *)
+	  let maybe_detach online =
+		  if not online
+		  then Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
+		  (* If VM is suspended, leave currently_attached and the VDI lock
+			 as they are so we can resume properly. *)
+		  if Db.VM.get_power_state ~__context ~self:vm = `Suspended
+		  then debug "VM is suspended: leaving currently-attached as-is"
+		  else Db.VBD.set_currently_attached ~__context ~self:vbd ~value:online in
+
+	  if is_loopback then begin
+		  let online = Storage_access.is_attached ~__context ~vbd ~domid in
+		  if is_attached = online then begin
+			  debug "VBD %s currently_attached field is in sync with storage layer" (Ref.string_of vbd)
+		  end else begin
+			  info "VBD %s currently_attached=%b but storage layer has %b"
+				  (Ref.string_of vbd) is_attached online;
+			  maybe_detach online
+		  end
+	  end else begin
+		  with_xs
+			  (fun xs ->
+				  let device = Xen_helpers.device_of_vbd ~__context ~self:vbd in
+				  let online = Hotplug.device_is_online ~xs device in
+				  if is_attached = online then begin
+					  debug "VBD %s currently_attached field is in sync with xenstore" (Ref.string_of vbd)
+				  end else begin
+					  info "VBD %s currently_attached=%b but xenstore has %b" (Ref.string_of vbd)
+						  is_attached online;
+					  if not online then begin
+						  Device.Vbd.release ~xs device;
+						  (* Also delete xenstore state, otherwise future
+							 attempts to add the device will fail *)
+						  Device.Generic.rm_device_state ~xs device;
+					  end;
+					  maybe_detach online
+				  end
+			  )
+	  end
   (** For a given VM and VIF look to see whether the device has unplugged itself in xenstore and
       synchronise the database with it. *)
   let vif ~__context token vm vif = 

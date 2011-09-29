@@ -27,9 +27,9 @@ val rpc_of_vbd: __context:Context.t -> vbd:API.ref_VBD -> Rpc.call -> Rpc.respon
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
 
-(** [datapath_of_vbd domid device] returns the name of the datapath which corresponds
-    to device [device] on domain [domid] *)
-val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
+(** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
+    to device [userdevice] on domain [domid] *)
+val datapath_of_vbd: domid:int -> userdevice:string -> Storage_interface.dp
 
 val expect_vdi: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
@@ -44,6 +44,10 @@ val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
 val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unit
+
+(** [is_attached __context vbd] returns true if the [vbd] has an attached
+    or activated datapath. *)
+val is_attached: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
 
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions, applying the

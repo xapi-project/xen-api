@@ -47,7 +47,6 @@ let string_of_vbd ~__context ~vbd =
   let vdi = if r.API.vBD_empty then "empty" else try Db.VDI.get_uuid ~__context ~self:r.API.vBD_VDI with _ -> "missing" in
   name ^ ":" ^ vdi
 
-
 (* real helpers *)
 let create_vbd ~__context ~xs ~hvm ~protocol domid self =
   Xapi_xenops_errors.handle_xenops_error
@@ -69,7 +68,6 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 
 	let userdevice = Db.VBD.get_userdevice ~__context ~self in
 	let device_number = translate_vbd_device self userdevice hvm in
-	Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 
 	let vdi = Db.VBD.get_VDI ~__context ~self in
 
@@ -77,8 +75,19 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 		if hvm then begin
 			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~params:""
 				~device_number ~dev_type ~unpluggable ~protocol ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+			Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
 		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
+	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = Db.VBD.get_VM ~__context ~self then begin
+		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
+		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
+			(fun params ->
+				let prefix = "/dev/" in
+				let prefix_len = String.length prefix in
+				let path = String.sub params prefix_len (String.length params - prefix_len) in
+				Db.VBD.set_device ~__context ~self ~value:path;
+				Db.VBD.set_currently_attached ~__context ~self ~value:true;
+			)
 	end else begin
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
@@ -89,6 +98,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
 					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~params
 						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+					Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 					Db.VBD.set_currently_attached ~__context ~self ~value:true;
 					debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)
 				with

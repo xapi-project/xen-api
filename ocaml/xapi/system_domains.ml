@@ -71,6 +71,21 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 	vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd);
 	domain
 
+let storage_driver_domain_of_vbd ~__context ~vbd =
+	let dom0 = Helpers.get_domain_zero ~__context in
+	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+	if Db.is_valid_ref __context vdi
+	then
+		let sr = Db.VDI.get_SR ~__context ~self:vdi in
+		let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
+		let my_pbds = List.map fst (Helpers.get_my_pbds __context) in
+		match Listext.List.intersect sr_pbds my_pbds with
+			| pbd :: _ ->
+				storage_driver_domain_of_pbd ~__context ~pbd
+			| _ ->
+				dom0
+	else dom0
+
 let is_in_use ~__context ~self =
 	let other_config = Db.VM.get_other_config ~__context ~self in
 	List.mem_assoc storage_driver_domain_key other_config
