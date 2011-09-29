@@ -1466,7 +1466,8 @@ let vif_plug printer rpc session_id params =
 let vif_unplug printer rpc session_id params =
 	let uuid = List.assoc "uuid" params in
 	let vif = Client.VIF.get_by_uuid rpc session_id uuid in
-	Client.VIF.unplug rpc session_id vif
+	let force = get_bool_param params "force" in
+	(if force then Client.VIF.unplug_force else Client.VIF.unplug) rpc session_id vif
 
 let net_create printer rpc session_id params =
 	let network = List.assoc "name-label" params in

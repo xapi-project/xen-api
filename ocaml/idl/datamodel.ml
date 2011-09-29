@@ -4510,11 +4510,21 @@ let vif_unplug = call
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let vif_unplug_force = call
+  ~name:"unplug_force"
+  ~in_product_since:rel_boston
+  ~doc:"Forcibly unplug the specified VIF"
+  ~params:[Ref _vif, "self", "The VIF to forcibly unplug"]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
 let vif_operations =
   Enum ("vif_operations", 
 	[ "attach", "Attempting to attach this VIF to a VM";
 	  "plug", "Attempting to hotplug this VIF";
-	  "unplug", "Attempting to hot unplug this VIF"; ])
+	  "unplug", "Attempting to hot unplug this VIF";
+	  "unplug_force", "Attempting to forcibly unplug this VIF";
+	])
 
 (** A virtual network interface *)
 let vif =
@@ -4522,7 +4532,7 @@ let vif =
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[vif_plug; vif_unplug] ~contents:
+      ~messages:[vif_plug; vif_unplug; vif_unplug_force] ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
 	 field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";

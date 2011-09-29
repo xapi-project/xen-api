@@ -2506,14 +2506,23 @@ end
       with_vif_marked ~__context ~vif:self ~doc:"VIF.plug" ~op:`plug
 	(fun () ->
 	   forward_vif_op ~local_fn ~__context ~self (fun session_id rpc -> Client.VIF.plug rpc session_id self))
-    
-    let unplug ~__context ~self =
-      info "VIF.unplug: VIF = '%s'" (vif_uuid ~__context self);
-      let local_fn = Local.VIF.unplug ~self in
-      with_vif_marked ~__context ~vif:self ~doc:"VIF.unplug" ~op:`unplug
+
+    let unplug_common ~__context  ~self ~force =
+      let op = if force then `unplug_force else `unplug in
+      let name = "VIF." ^ (Record_util.vif_operation_to_string op) in
+      info "%s: VIF = '%s'" name (vif_uuid ~__context self);
+      let local_fn, remote_fn =
+        if force then Local.VIF.unplug_force, Client.VIF.unplug_force
+        else Local.VIF.unplug, Client.VIF.unplug in
+      let local_fn = local_fn ~self in
+      with_vif_marked ~__context ~vif:self ~doc:name ~op
 	(fun () ->
-	   forward_vif_op ~local_fn ~__context ~self (fun session_id rpc -> Client.VIF.unplug rpc session_id self))
-   end
+	   forward_vif_op ~local_fn ~__context ~self (fun session_id rpc -> remote_fn rpc session_id self))
+
+    let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
+    let unplug_force ~__context ~self = unplug_common ~__context ~self ~force:true
+
+  end
 
   module VIF_metrics = struct
   end
