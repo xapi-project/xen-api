@@ -170,6 +170,8 @@ sig
 		| Passthrough of int option
 		| Intel of disp_intf_opt * int option
 
+	type media = Disk | Cdrom
+
 	type info = {
 		memory: int64;
 		boot: string;
@@ -177,6 +179,7 @@ sig
 		vcpus: int;
 		usb: string list;
 		nics: (string * string * int) list;
+		disks: (int * string * media) list;
 		acpi: bool;
 		disp: disp_opt;
 		pci_emulations: string list;

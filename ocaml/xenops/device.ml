@@ -657,7 +657,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	    release ~xs device;
 		(* Attempt to diagnose the error: the error from blkback ("2 creating vbd structure")
 		   doesn't give much away. *)
-		if phystype = Phys then begin
+		if backend_domid = 0 && phystype = Phys then begin
 		  try
 			(* Speculatively query the physical device as if a CDROM *)
 			  match Cdrom.query_cdrom_drive_status params with
@@ -1371,6 +1371,9 @@ type disp_opt =
 	| Passthrough of int option
 	| Intel of disp_intf_opt * int option
 
+type media = Disk | Cdrom
+let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
+
 type info = {
 	memory: int64;
 	boot: string;
@@ -1378,6 +1381,7 @@ type info = {
 	vcpus: int;
 	usb: string list;
 	nics: (string * string * int) list;
+	disks: (int * string * media) list;
 	acpi: bool;
 	disp: disp_opt;
 	pci_emulations: string list;
@@ -1514,6 +1518,10 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 			) nics
 		else [["-net"; "none"]] in
 
+	let disks' = List.map (fun (index, file, media) -> [
+		"-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
+	]) info.disks in
+
 	let restorefile = sprintf qemu_restore_path domid in
 	let vga_type_opts x = 
 	  match x with
@@ -1556,7 +1564,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		  "-boot"; info.boot;
 		  "-serial"; info.serial;
 		  "-vcpus"; string_of_int info.vcpus; ]
-		@ disp_options @ usb' @ List.concat nics'
+		@ disp_options @ usb' @ List.concat nics' @ List.concat disks'
 	   @ (if info.acpi then [ "-acpi" ] else [])
 	   @ (if restore then [ "-loadvm"; restorefile ] else [])
 	   @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
