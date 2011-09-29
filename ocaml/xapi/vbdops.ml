@@ -80,7 +80,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
 	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = Db.VBD.get_VM ~__context ~self then begin
 		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
-		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
+		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun params ->
 				let prefix = "/dev/" in
 				let prefix_len = String.length prefix in
@@ -91,7 +91,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 	end else begin
 		let sr = Db.VDI.get_SR ~__context ~self:vdi in
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
-		Storage_access.attach_and_activate ~__context ~vbd:self ~domid
+		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun params ->
 				try
 					(* The backend can put useful stuff in here on vdi_attach *)
@@ -217,7 +217,7 @@ let eject_vbd ~__context ~self =
 				let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 				with_xs (fun xs ->
 					if Device.Vbd.media_is_ejected ~xs ~device_number domid then begin
-						Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
+						Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true;
 						acc
 					end else
 						vbd :: acc

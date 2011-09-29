@@ -291,7 +291,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Success Unit
 							| Failure _ ->
 								result, vdi_t
-							| Success (State _) ->
+							| Success (Stat _) ->
 								Failure (Internal_error (Printf.sprintf "VDI.attach type error, received: %s" (string_of_result result))), vdi_t in
 								result, vdi_t
 							| Vdi_automaton.Activate ->
@@ -430,17 +430,18 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 						(fun () ->
 							fst(perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
-		let stat context ~task ?dp ~sr ~vdi () =
-			info "VDI.stat task:%s dp:%s sr:%s vdi:%s" task (Opt.default "superstate" dp) sr vdi;
+		let stat context ~task ~sr ~vdi () =
+			info "VDI.stat task:%s sr:%s vdi:%s" task sr vdi;
 			with_vdi sr vdi
 				(fun () ->
 					match Host.find sr !Host.host with
 					| None -> Failure Sr_not_attached
 					| Some sr_t ->
 						let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
-						match dp with
-						| None -> Success (State (Vdi.superstate vdi_t))
-						| Some dp -> Success (State (Vdi.get_dp_state dp vdi_t))
+						Success (Stat {
+							superstate = Vdi.superstate vdi_t;
+							dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)
+						})
 				)
 
 		let deactivate context ~task ~dp ~sr ~vdi =

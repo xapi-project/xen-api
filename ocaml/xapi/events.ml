@@ -226,8 +226,7 @@ module Resync = struct
 
 	  (* Code common to both 'xen vbd exists' case and 'loopback only' case *)
 	  let maybe_detach online =
-		  if not online
-		  then Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
+		  if not online then Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true;
 		  (* If VM is suspended, leave currently_attached and the VDI lock
 			 as they are so we can resume properly. *)
 		  if Db.VM.get_power_state ~__context ~self:vm = `Suspended
