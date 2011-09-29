@@ -343,6 +343,7 @@ let add_dm ~xs ~domid ~static_max_kib ~vcpus ~boot =
  	  Device.Dm.serial = "pty";
  	  Device.Dm.vcpus = vcpus;
  	  Device.Dm.nics = [];
+	  Device.Dm.disks = [];
  	  Device.Dm.pci_emulations = [];
 	  Device.Dm.pci_passthrough = false;
  	  Device.Dm.usb = [];

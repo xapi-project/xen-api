@@ -23,7 +23,7 @@ module Qemu_blkfront: sig
 
 	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
 end
- 
+
 (** [rpc_of_sr __context sr] returns an Rpc.call -> Rpc.response function
     for talking to the implementation of [sr], which could be in xapi, in domain 0
     or in a driver domain. *)
