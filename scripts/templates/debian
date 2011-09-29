@@ -72,6 +72,16 @@ def create_partition(lvpath):
         rc = 0
         log("fdisk exited with rc %d (some non-zero exits can be ignored safely)." % rc)
 
+def map_partitions(lvpath):
+    run("/sbin/kpartx -a %s", lvpath)
+    ps = []
+    for line in run("/sbin/kpartx -l %s" % lvpath).split("\n"):
+        ps.append("/dev/mapper/" + line.split()[0])
+    return ps
+
+def unmap_partitions(lvpath):
+    run("/sbin/kpartx -d %s", lvpath)
+
 def umount(mountpoint):
     run("umount -l %s",mountpoint)
 
@@ -104,25 +114,30 @@ if __name__ == "__main__":
     create_partition(xvda)
     create_partition(xvdb)
 
-    run("/sbin/mkfs.ext3 %s1", xvda)
-
-    xgt = "@BASE_PATH@/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
-    
-    run("/bin/mkdir -p %s", mountpoint)
     try:
-        run("/bin/mount %s1 %s", xvda, mountpoint)
-        run("/usr/bin/unzip -p %s root.tar.bz2 | tar -C %s -jx", xgt, mountpoint)
-    finally:
-        run("/bin/umount %s", mountpoint)
-        run("/bin/rmdir %s", mountpoint)
-    run("/usr/bin/unzip -p %s swap.img | dd of=%s oflag=direct bs=1M", xgt, xvdb)
+        xvda_parts = map_partitions(xvda)
 
-    try:
-        session_id = server.session.login_with_password('','')['Value']
-        vbds = server.VM.get_VBDs(session_id, vm)['Value']
-        for i in vbds:
-            dev = server.VBD.get_userdevice(session_id, i)['Value']
-            if dev == "0":
-                server.VBD.set_bootable(session_id, i, True)
+        run("/sbin/mkfs.ext3 %s", xvda_parts[0])
+
+        xgt = "/opt/xensource/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
+
+        run("/bin/mkdir -p %s", mountpoint)
+        try:
+            run("/bin/mount %s %s", xvda_parts[0], mountpoint)
+            run("/usr/bin/unzip -p %s root.tar.bz2 | tar -C %s -jx", xgt, mountpoint)
+        finally:
+            run("/bin/umount %s", mountpoint)
+            run("/bin/rmdir %s", mountpoint)
+        run("/usr/bin/unzip -p %s swap.img | dd of=%s oflag=direct bs=1M", xgt, xvdb)
+
+        try:
+            session_id = server.session.login_with_password('','')['Value']
+            vbds = server.VM.get_VBDs(session_id, vm)['Value']
+            for i in vbds:
+                dev = server.VBD.get_userdevice(session_id, i)['Value']
+                if dev == "0":
+                    server.VBD.set_bootable(session_id, i, True)
+        finally:
+            server.session.logout(session_id)
     finally:
-        server.session.logout(session_id)
+        unmap_partitions(xvda)

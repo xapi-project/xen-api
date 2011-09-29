@@ -190,10 +190,10 @@ let rpc_of_vbd ~__context ~vbd = rpc_inprocess
 (** RPC function for calling the main storage multiplexor *)
 let rpc = rpc_inprocess
 
-(** [datapath_of_vbd domid device] returns the name of the datapath which corresponds
-    to device [device] on domain [domid] *)
-let datapath_of_vbd ~domid ~device =
-	Printf.sprintf "vbd/%d/%s" domid device
+(** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
+    to device [userdevice] on domain [domid] *)
+let datapath_of_vbd ~domid ~userdevice =
+	Printf.sprintf "vbd/%d/%s" domid userdevice
 
 let unexpected_result expected x = match x with
 	| Success _ ->
@@ -215,16 +215,31 @@ let expect_unit f x = match x with
 	| Success Unit -> f ()
 	| _ -> unexpected_result "()" x
 
-(** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
-    useful for executing Storage_interface.Client.VDI functions  *)
-let on_vdi ~__context ~vbd ~domid f =
+let of_vbd ~__context ~vbd ~domid =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let rpc = rpc_of_sr ~__context ~sr in
-	let device = Db.VBD.get_device ~__context ~self:vbd in
+	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
 	let task = Context.get_task_id __context in
-	let dp = Client.DP.create rpc (Ref.string_of task) (datapath_of_vbd ~domid ~device) in
-	f rpc (Ref.string_of task) dp (Ref.string_of sr) (Ref.string_of vdi)
+	let dp = datapath_of_vbd ~domid ~userdevice in
+	rpc, (Ref.string_of task), dp, (Ref.string_of sr), (Ref.string_of vdi)
+
+(** [is_attached __context vbd] returns true if the [vbd] has an attached
+    or activated datapath. *)
+let is_attached ~__context ~vbd ~domid  =
+	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
+	let open Vdi_automaton in
+	match Client.VDI.stat rpc ~task ~sr ~vdi () with
+		| Success (State Detached) -> false
+		| Success _ -> true
+		| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r); false
+
+(** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
+    useful for executing Storage_interface.Client.VDI functions  *)
+let on_vdi ~__context ~vbd ~domid f =
+	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
+	let dp = Client.DP.create rpc task dp in
+	f rpc task dp sr vdi
 
 (** [attach_and_activate __context vbd domid f] calls [f params] where
     [params] is the result of attaching a VDI which is also activated.

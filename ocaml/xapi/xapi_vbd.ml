@@ -87,6 +87,11 @@ let dynamic_destroy ?(do_safety_check=true) ~__context ~vbd (force: bool) token 
 	if not hvm && Db.VBD.get_empty ~__context ~self:vbd then begin
 	  debug "VBD.unplug of empty VBD '%s' from VM '%s'" (Db.VBD.get_uuid ~__context ~self:vbd) (Db.VM.get_uuid ~__context ~self:vm);
 	  Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
+	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd = vm then begin
+		debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of vbd);
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		Storage_access.deactivate_and_detach ~__context ~vbd ~domid;
+		Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
 	end else begin
 	  let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	  debug "Attempting to dynamically detach VBD from domid %d" domid;
