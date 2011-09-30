@@ -60,7 +60,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 		 then Hashtbl.replace table op (Some(code, params))) ops in
 
   let vm = Db.VBD.get_VM ~__context ~self:_ref' in
-  let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
+  let vm_r = Db.VM.get_record ~__context ~self:vm in
+  let is_system_domain = System_domains.is_system_domain vm_r in
 
   let safe_to_parallelise = [ `pause; `unpause ] in
 
@@ -152,24 +153,27 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
 		let vbd_records = 
 			let vbds = List.filter (fun vbd -> vbd <> _ref') vdi_record.Db_actions.vDI_VBDs in
 			List.concat (List.map (fun self -> try [ Db.VBD.get_record_internal ~__context ~self ] with _ -> []) vbds) in	
-	(* Any VBD with a current_operation is said to conflict
-	   EXCEPT if I'm a control_domain (running pygrub) and the VBD is being 'attach'ed for booting *)
-	let any p xs = try ignore(List.find p xs); true with Not_found -> false in
-	let conflicting (_, op) = not (is_control_domain && op = `attach) in
 	let pointing_to_a_suspended_VM vbd =
 		Db.VM.get_power_state ~__context ~self:(vbd.Db_actions.vBD_VM) = `Suspended in
+	let pointing_to_a_system_domain vbd =
+		System_domains.get_is_system_domain ~__context ~self:(vbd.Db_actions.vBD_VM) in
 
 	let vbds_to_check = List.filter 
-	  (fun self -> not (pointing_to_a_suspended_VM self) && (
-	     self.Db_actions.vBD_currently_attached || 
-	       self.Db_actions.vBD_reserved || (* happens during reboots *)
-	       (any conflicting self.Db_actions.vBD_current_operations))) vbd_records in
+	  (fun self ->
+		  not (pointing_to_a_suspended_VM self) (* these are really offline *)
+		  && not (pointing_to_a_system_domain self) (* these can share the disk safely *)
+		  && (
+			  self.Db_actions.vBD_currently_attached
+			  || self.Db_actions.vBD_reserved
+			  || self.Db_actions.vBD_current_operations <> []
+		  )
+	  ) vbd_records in
 	let someones_got_rw_access = 
 	  try let (_: Db_actions.vBD_t) = List.find (fun vbd -> vbd.Db_actions.vBD_mode = `RW) vbds_to_check in true with _ -> false
 	in
 	let need_write = record.Db_actions.vBD_mode = `RW in
 	(* Read-only access doesn't require VDI to be marked sharable *)
-	if not(vdi_record.Db_actions.vDI_sharable) && someones_got_rw_access
+	if not(vdi_record.Db_actions.vDI_sharable) && (not is_system_domain) && someones_got_rw_access
 	then set_errors Api_errors.vdi_in_use [ Ref.string_of vdi ] [ `attach; `insert; `plug ];
 	if need_write && vdi_record.Db_actions.vDI_read_only 
 	then set_errors Api_errors.vdi_readonly [ Ref.string_of vdi ] [ `attach; `insert; `plug ]
