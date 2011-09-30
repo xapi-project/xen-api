@@ -639,8 +639,8 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	end
 
 let create_vfb_vkbd ~xc ~xs ?protocol domid =
-  Device.Vfb.add ~xc ~xs ~hvm:false ?protocol domid;
-  Device.Vkbd.add ~xc ~xs ~hvm:false ?protocol domid
+  Device.Vfb.add ~xc ~xs ?protocol domid;
+  Device.Vkbd.add ~xc ~xs ?protocol domid
 
 (* get CD VBDs required to resume *)
 let get_required_CD_VBDs ~__context ~vm =

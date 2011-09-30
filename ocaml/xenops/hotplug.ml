@@ -104,7 +104,7 @@ let device_is_online ~xs (x: device) =
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xb.Noent -> false in
 
   match x.backend.kind with
-  | Pci | Vkbd | Vfb  -> assert false (* PCI backend doesn't create online node *)
+  | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
   | ( Vbd | Tap ) -> 
       if backend_request () 
