@@ -1269,13 +1269,56 @@ let unplug ~xc ~xs (domain, bus, dev, func) domid =
 
 end
 
+module Vfs = struct
+
+let add ~xc ~xs ?(backend_domid=0) domid =
+    debug "Device.Vfs.add domid=%d" domid;
+    let frontend = { domid = domid; kind = Vfs; devid = 0 } in
+    let backend = { domid = backend_domid; kind = Vfs; devid = 0 } in
+    let _ = { backend = backend; frontend = frontend } in
+
+    let frontend_path = Printf.sprintf "/local/domain/%d/device/vfs/%d" domid 0 in
+    let backend_path = Printf.sprintf "/local/domain/%d/backend/vfs/%d" backend_domid domid in
+    let request_path = Printf.sprintf "/local/domain/%d/backend/vfs/exports/requests/%d" backend_domid domid in
+
+    (* TODO also have a backend?! *)
+    let front = [
+        "state", "ready"; (* definitely needs to be "ready" *)
+        "backend", backend_path;
+    ] in
+    Xs.transaction xs (fun t ->
+        (* Add the frontend *)
+        let perms = (domid, Xsraw.PERM_NONE, [(0, Xsraw.PERM_READ)]) in
+        t.Xst.mkdir frontend_path;
+        t.Xst.setperms frontend_path perms;
+        t.Xst.writev frontend_path front;
+
+        (* Now make the request *)
+        let perms = (domid, Xsraw.PERM_NONE, []) in
+        let request_path = Printf.sprintf "%s/%d" request_path 0 in
+        t.Xst.mkdir request_path;
+        t.Xst.setperms request_path perms;
+        t.Xst.write (request_path ^ "/frontend") frontend_path;
+    );
+	()
+
+let hard_shutdown ~xs (x: device) =
+	debug "Device.Vfs.hard_shutdown %s" (string_of_device x);
+	()
+
+let clean_shutdown ~xs (x: device) =
+	debug "Device.Vfs.clean_shutdown %s" (string_of_device x);
+	()
+end
+
+
 module Vfb = struct
 
-let add ~xc ~xs ~hvm ?(protocol=Protocol_Native) domid =
+let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	debug "Device.Vfb.add %d" domid;
 
 	let frontend = { domid = domid; kind = Vfb; devid = 0 } in
-	let backend = { domid = 0; kind = Vfb; devid = 0 } in
+	let backend = { domid = backend_domid; kind = Vfb; devid = 0 } in
 	let device = { backend = backend; frontend = frontend } in
 
 	let back = [
@@ -1284,7 +1327,7 @@ let add ~xc ~xs ~hvm ?(protocol=Protocol_Native) domid =
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 	] in
 	let front = [
-		"backend-id", string_of_int 0;
+		"backend-id", string_of_int backend_domid;
 		"protocol", (string_of_protocol protocol);
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 	] in
@@ -1303,11 +1346,11 @@ end
 
 module Vkbd = struct
 
-let add ~xc ~xs ~hvm ?(protocol=Protocol_Native) domid =
+let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	debug "Device.Vkbd.add %d" domid;
 
 	let frontend = { domid = domid; kind = Vkbd; devid = 0 } in
-	let backend = { domid = 0; kind = Vkbd; devid = 0 } in
+	let backend = { domid = backend_domid; kind = Vkbd; devid = 0 } in
 	let device = { backend = backend; frontend = frontend } in
 
 	let back = [
@@ -1316,7 +1359,7 @@ let add ~xc ~xs ~hvm ?(protocol=Protocol_Native) domid =
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 	] in
 	let front = [
-		"backend-id", string_of_int 0;
+		"backend-id", string_of_int backend_domid;
 		"protocol", (string_of_protocol protocol);
 		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
 	] in
@@ -1337,6 +1380,7 @@ let hard_shutdown ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown ~xs x
   | Vbd | Tap -> Vbd.hard_shutdown ~xs x
   | Pci -> PCI.hard_shutdown ~xs x
+  | Vfs -> Vfs.hard_shutdown ~xs x
   | Vfb -> Vfb.hard_shutdown ~xs x
   | Vkbd -> Vkbd.hard_shutdown ~xs x
 
@@ -1344,6 +1388,7 @@ let clean_shutdown ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown ~xs x
   | Vbd | Tap -> Vbd.clean_shutdown ~xs x
   | Pci -> PCI.clean_shutdown ~xs x
+  | Vfs -> Vfs.clean_shutdown ~xs x
   | Vfb -> Vfb.clean_shutdown ~xs x
   | Vkbd -> Vkbd.clean_shutdown ~xs x
 
