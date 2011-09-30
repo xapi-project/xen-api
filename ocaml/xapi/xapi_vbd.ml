@@ -219,6 +219,9 @@ let insert  ~__context ~vbd ~vdi =
 		   Storage_access.attach_and_activate ~__context ~vbd ~domid ~hvm:true
 			   (fun params ->
 				   with_xs (fun xs ->
+					   (* Use the path from the qemu blkfront where available, since this is
+						  relative to the domain in which qemu is running. *)
+					   let params = Opt.default params (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd) in
 					   Device.Vbd.media_insert ~xs ~device_number ~phystype ~params domid
 				   )
 			   )
@@ -276,6 +279,9 @@ let refresh ~__context ~vbd ~vdi =
         let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
 		Storage_access.attach_and_activate ~__context ~vbd ~domid ~hvm:true
 			(fun params ->
+				(* Use the path from the qemu blkfront where available, since this is
+				   relative to the domain in which qemu is running. *)
+				let params = Opt.default params (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd) in
 				with_xs 
 					(fun xs -> 
 						Device.Vbd.media_refresh ~xs ~device_number ~params domid
