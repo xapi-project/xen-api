@@ -64,6 +64,7 @@ OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 OCamlProgram(rrddump, rrddump rrd)
 
 XAPI_MODULES = $(COMMON) \
+	system_domains \
 	local_work_queue \
 	../xva/xva \
 	../idl/ocaml_backend/json \
