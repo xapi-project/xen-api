@@ -147,7 +147,9 @@ let request_closure ~xs (x: device) =
 		)
 	)
 
-let unplug_watch ~xs (x: device) = Watch.map (fun () -> "") (Watch.key_to_disappear (Hotplug.status_node x))
+let unplug_watch ~xs (x: device) =
+	let path = Hotplug.path_written_by_hotplug_scripts x in
+	Watch.map (fun () -> "") (Watch.key_to_disappear path)
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus.string_of Xenbus.Closed))
 
