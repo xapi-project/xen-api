@@ -147,14 +147,19 @@ sig
 	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * dev) list
 end
 
+module Vfs :
+sig
+	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> Xc.domid -> unit
+end
+
 module Vfb :
 sig
-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
+	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xc.domid -> unit
 end
 
 module Vkbd :
 sig 
-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> ?protocol:protocol -> Xc.domid -> unit
+	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xc.domid -> unit
 end
 
 module Dm :
@@ -170,6 +175,8 @@ sig
 		| Passthrough of int option
 		| Intel of disp_intf_opt * int option
 
+	type media = Disk | Cdrom
+
 	type info = {
 		memory: int64;
 		boot: string;
@@ -177,6 +184,7 @@ sig
 		vcpus: int;
 		usb: string list;
 		nics: (string * string * int) list;
+		disks: (int * string * media) list;
 		acpi: bool;
 		disp: disp_opt;
 		pci_emulations: string list;

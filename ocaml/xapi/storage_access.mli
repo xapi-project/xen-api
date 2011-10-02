@@ -14,7 +14,16 @@
 (**
  * @group Storage
  *)
- 
+
+module Qemu_blkfront: sig
+
+	(** [path_opt __context self] returns [Some path] where [path] names the
+        storage device in the qemu domain, or [None] if there is no path *)
+	val path_opt: __context:Context.t -> self:API.ref_VBD -> string option
+
+	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
+end
+
 (** [rpc_of_sr __context sr] returns an Rpc.call -> Rpc.response function
     for talking to the implementation of [sr], which could be in xapi, in domain 0
     or in a driver domain. *)
@@ -27,9 +36,9 @@ val rpc_of_vbd: __context:Context.t -> vbd:API.ref_VBD -> Rpc.call -> Rpc.respon
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
 
-(** [datapath_of_vbd domid device] returns the name of the datapath which corresponds
-    to device [device] on domain [domid] *)
-val datapath_of_vbd: domid:int -> device:string -> Storage_interface.dp
+(** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
+    to device [userdevice] on domain [domid] *)
+val datapath_of_vbd: domid:int -> userdevice:string -> Storage_interface.dp
 
 val expect_vdi: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
@@ -39,11 +48,15 @@ val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
     [params] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> (Storage_interface.params -> 'a) -> 'a
+val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> hvm:bool -> (Storage_interface.params -> 'a) -> 'a
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unit
+val deactivate_and_detach: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unplug_frontends:bool -> unit
+
+(** [is_attached __context vbd] returns true if the [vbd] has an attached
+    or activated datapath. *)
+val is_attached: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
 
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions, applying the

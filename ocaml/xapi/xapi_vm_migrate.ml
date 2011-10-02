@@ -277,6 +277,8 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	   debug "Sender 5a. Deactivating VDIs";
 	   List.iter
 		   (fun vbd ->
+			   if not is_localhost_migration
+			   then Storage_access.Qemu_blkfront.destroy ~__context ~self:vbd;
 			   Storage_access.on_vdi ~__context ~vbd ~domid
 				   (fun rpc task datapath_id sr vdi ->
 					   Storage_access.expect_unit (fun () -> ())
@@ -323,7 +325,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 	    debug "MTC: Sender won't clean up by destroying remains of local domain";
          ) else (
 	 let preserve_xs_vm = (Helpers.get_localhost ~__context = host) in
-	 Vmops.destroy_domain ~preserve_xs_vm ~clear_currently_attached:false
+	 Vmops.destroy_domain ~preserve_xs_vm ~unplug_frontends:(not is_localhost_migration) ~clear_currently_attached:false
 	   ~__context ~xc ~xs ~self:vm domid)
 	)
 ) (* Stats.timethis *)
@@ -504,7 +506,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   debug "Receiver 9a Success"
   with e ->
     error "Receiver 9b Failure";
-     Vmops.destroy_domain ~clear_currently_attached:false  ~__context ~xc ~xs ~self:vm domid;
+     Vmops.destroy_domain ~clear_currently_attached:false ~unplug_frontends:(not is_localhost_migration) ~__context ~xc ~xs ~self:vm domid;
     raise e
 
 

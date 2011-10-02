@@ -12,6 +12,9 @@ type t
     a device number *)
 val make: spec -> t
 
+(** [spec t] takes a [t] and returns the corresponding [spec] *)
+val spec: t -> spec
+
 (** [of_string hvm name] returns the interface which best matches the [name]
     by applying the policy: first check if it is a disk_number, else fall back to
 	a linux_device for backwards compatability *)
