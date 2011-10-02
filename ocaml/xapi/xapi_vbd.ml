@@ -18,6 +18,7 @@
 open Vmopshelpers
 open Stringext
 open Xapi_vbd_helpers
+open Vbdops
 open D
 
 let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) = 
@@ -60,8 +61,8 @@ let destroy_vbd ?(do_safety_check=true) ~__context ~xs domid self (force: bool) 
 	  (if force then Device.hard_shutdown else Device.clean_shutdown) ~xs device;
 
 	  Device.Vbd.release ~xs device;
+	  Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid:(device.Device_common.frontend.Device_common.domid) ~unplug_frontends:true;
 	  debug "vbd_unplug: setting currently_attached to false";
-	  Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid:(device.Device_common.frontend.Device_common.domid);
 	  Db.VBD.set_currently_attached ~__context ~self ~value:false;	  
 
 	with 
@@ -87,6 +88,11 @@ let dynamic_destroy ?(do_safety_check=true) ~__context ~vbd (force: bool) token 
 	if not hvm && Db.VBD.get_empty ~__context ~self:vbd then begin
 	  debug "VBD.unplug of empty VBD '%s' from VM '%s'" (Db.VBD.get_uuid ~__context ~self:vbd) (Db.VM.get_uuid ~__context ~self:vm);
 	  Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
+	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd = vm then begin
+		debug "VBD.unplug of loopback VBD '%s'" (Ref.string_of vbd);
+		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+		Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true;
+		Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
 	end else begin
 	  let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	  debug "Attempting to dynamically detach VBD from domid %d" domid;
@@ -210,9 +216,12 @@ let insert  ~__context ~vbd ~vdi =
 		   let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 		   let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
-		   Storage_access.attach_and_activate ~__context ~vbd ~domid
+		   Storage_access.attach_and_activate ~__context ~vbd ~domid ~hvm:true
 			   (fun params ->
 				   with_xs (fun xs ->
+					   (* Use the path from the qemu blkfront where available, since this is
+						  relative to the domain in which qemu is running. *)
+					   let params = Opt.default params (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd) in
 					   Device.Vbd.media_insert ~xs ~device_number ~phystype ~params domid
 				   )
 			   )
@@ -251,7 +260,7 @@ let eject  ~__context ~vbd =
 	    with_xs (fun xs ->
                        assert_tray_not_locked xs device_number domid vbd;
                        Device.Vbd.media_eject ~xs ~device_number domid);
-	    Storage_access.deactivate_and_detach ~__context ~vbd ~domid
+	    Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends:true
 	  end else begin
 	    (* hot unplug *)
 	    dynamic_destroy ~__context ~vbd false token
@@ -268,8 +277,11 @@ let refresh ~__context ~vbd ~vdi =
     && Db.VBD.get_currently_attached ~__context ~self:vbd then (
 		let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
         let device_number = Device_number.of_string true (Db.VBD.get_device ~__context ~self:vbd) in
-		Storage_access.attach_and_activate ~__context ~vbd ~domid
+		Storage_access.attach_and_activate ~__context ~vbd ~domid ~hvm:true
 			(fun params ->
+				(* Use the path from the qemu blkfront where available, since this is
+				   relative to the domain in which qemu is running. *)
+				let params = Opt.default params (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd) in
 				with_xs 
 					(fun xs -> 
 						Device.Vbd.media_refresh ~xs ~device_number ~params domid

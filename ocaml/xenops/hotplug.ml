@@ -61,8 +61,22 @@ let get_private_data_path_of_device (x: device) =
 let get_hotplug_path (x: device) =
 	sprintf "%s/hotplug/%s/%d" (get_private_path x.frontend.domid) (string_of_kind x.backend.kind) x.backend.devid
 
-(* The path in xenstore written to by the hotplug scripts *)
-let status_node (x: device) = get_hotplug_path x ^ "/hotplug"
+let path_written_by_hotplug_scripts (x: device) = match x.backend.kind with
+	| Vif -> get_hotplug_path x ^ "/hotplug"
+	| Vbd ->
+		sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-status"
+			x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
+	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
+
+let value_written_by_hotplug_scripts (x: device) = match x.backend.kind with
+	| Vif -> "online"
+	| Vbd -> "connected"
+	| k -> failwith (Printf.sprintf "No xenstore interface for this kind of device: %s" (string_of_kind k))
+
+let hotplugged ~xs (x: device) =
+	let path = path_written_by_hotplug_scripts x
+	and v = value_written_by_hotplug_scripts x in
+	try xs.Xs.read path = v with Xb.Noent -> false
 
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
@@ -86,24 +100,24 @@ let blkback_error_node ~xs (x: device) =
    (ie not an API-initiated hotunplug; this is start of day) then we check the state 
    of the backend hotplug scripts. *)
 let device_is_online ~xs (x: device) = 
-  let backend_hotplug () = try xs.Xs.read (status_node x) = "online" with Xb.Noent -> false
-  and backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xb.Noent -> false 
+  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xb.Noent -> false 
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xb.Noent -> false in
 
   match x.backend.kind with
-  | Pci | Vkbd | Vfb  -> assert false (* PCI backend doesn't create online node *)
-  | Vif -> backend_hotplug ()
+  | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
+  | Vif -> hotplugged ~xs x
   | ( Vbd | Tap ) -> 
       if backend_request () 
       then not(backend_shutdown ())
-      else backend_hotplug ()
+      else hotplugged ~xs x
 
 let wait_for_plug ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend add event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.value_to_appear (status_node x)));
+		  let path = path_written_by_hotplug_scripts x in
+		  ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.value_to_appear path));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
@@ -114,7 +128,8 @@ let wait_for_unplug ~xs (x: device) =
   try
     Stats.time_this "udev backend remove event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear (status_node x)));
+		  let path = path_written_by_hotplug_scripts x in
+		  ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear path));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
