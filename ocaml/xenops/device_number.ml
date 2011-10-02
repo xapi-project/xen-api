@@ -33,6 +33,8 @@ let make (x: spec) : t =
 	end;
 	x
 
+let spec (x: t) : spec = x
+
 let (||) = (lor)
 
 let standard_ide_table = [ 3; 22 ]

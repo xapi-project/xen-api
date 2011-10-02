@@ -447,7 +447,7 @@ let create ~__context ~xc ~xs ~self (snapshot: API.vM_t) ~reservation_id () =
    NB to prevent resource leaks, log errors and continue on attempting to clean up as
    much as possible.
  *)
-let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
+let destroy_domain ?(preserve_xs_vm=false) ?(unplug_frontends=true) ?(clear_currently_attached=true)  ~__context ~xc ~xs ~self domid =
 	Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: Destroying xen domain domid %d" domid)
 		(fun () -> 
 			Domain.destroy ~preserve_xs_vm ~xc ~xs domid
@@ -459,7 +459,7 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
 			if not(Db.VBD.get_empty ~__context ~self:vbd)
 			then Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: detaching associated with VBD %s" (Ref.string_of vbd))
 				(fun () ->
-					Storage_access.deactivate_and_detach ~__context ~vbd ~domid
+					Storage_access.deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends
 				) ()
 		) (Storage_access.vbd_detach_order ~__context all_vbds);
 
@@ -485,8 +485,8 @@ let destroy_domain ?(preserve_xs_vm=false) ?(clear_currently_attached=true)  ~__
    If release_devices is true, unlock all VDIs and clear device_status_flags.
    In the restore case, set release_devices to false so we remember which 
    devices should be attached on resume. *)
-let destroy ?(clear_currently_attached=true) ~__context ~xc ~xs ~self domid state =
-	destroy_domain ~clear_currently_attached ~__context ~xc ~xs ~self domid;
+let destroy ?(unplug_frontends=true) ?(clear_currently_attached=true) ~__context ~xc ~xs ~self domid state =
+	destroy_domain ~unplug_frontends ~clear_currently_attached ~__context ~xc ~xs ~self domid;
 	Db.VM.set_power_state ~__context ~self ~value:state;
 	Db.VM.set_domid ~__context ~self ~value:(-1L);
 
@@ -518,9 +518,23 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	(* XXX: we need some locking here & some better place to put the bridge name *)
 	let nics = List.map (fun vif -> vif.Vm_config.mac, vif.Vm_config.bridge, vif.Vm_config.devid) vifs in
 
+	let platform = snapshot.API.vM_platform in
+
+	let disks =
+		(* XXX: this is an experimental way of attaching disks to VMs *)
+		if has_platform_flag platform "qemu_disk_cmdline"
+		then List.unbox_list (List.map (fun vbd ->
+			Opt.map (fun filename ->
+				let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
+				let device_number = Device_number.to_disk_number (Vbdops.translate_vbd_device self userdevice true) in
+				let media = if Db.VBD.get_type ~__context ~self:vbd = `CD then Device.Dm.Cdrom else Device.Dm.Disk in
+				device_number, filename, media
+			) (Storage_access.Qemu_blkfront.path_opt ~__context ~self:vbd)
+		) snapshot.API.vM_VBDs)
+		else [] in
+
 	let hvm = Helpers.is_hvm snapshot in
 
-	let platform = snapshot.API.vM_platform in
 	let pvfb = has_platform_flag platform "pvfb" in
 	
 	(* Examine the boot method if the guest is HVM and do something about it *)
@@ -600,6 +614,7 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 			Device.Dm.serial = serial;
 			Device.Dm.vcpus = vcpus;
 			Device.Dm.nics = nics;
+			Device.Dm.disks = disks;
 			Device.Dm.pci_emulations = pci_emulations;
 			Device.Dm.usb = usb;
 			Device.Dm.acpi = acpi;
@@ -624,8 +639,8 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 	end
 
 let create_vfb_vkbd ~xc ~xs ?protocol domid =
-  Device.Vfb.add ~xc ~xs ~hvm:false ?protocol domid;
-  Device.Vkbd.add ~xc ~xs ~hvm:false ?protocol domid
+  Device.Vfb.add ~xc ~xs ?protocol domid;
+  Device.Vkbd.add ~xc ~xs ?protocol domid
 
 (* get CD VBDs required to resume *)
 let get_required_CD_VBDs ~__context ~vm =
@@ -673,7 +688,6 @@ let _restore_devices ~__context ~xc ~xs ~self at_boot_time fd domid vifs include
 	
 	(* If any VBDs cannot be attached, let the exn propagate *)
 	List.iter (fun self -> create_vbd ~__context ~xs ~hvm ~protocol domid self) needed_vbds;
-	
 	
 	create_cpus ~xs at_boot_time domid;
 	create_vifs ~__context ~xs vifs;
