@@ -617,7 +617,7 @@ module Local_domain_socket = struct
 		Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
 		Unixext.mkdir_safe (Filename.dirname path) 0o700;
 		Unixext.unlink_safe path;
-		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "unix_rpc" in
+		let domain_sock = Http_svr.bind (Unix.ADDR_UNIX(path)) "storage_unix" in
 		Http_svr.start server domain_sock;
 		socket := Some(domain_sock)
 

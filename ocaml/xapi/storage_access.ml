@@ -172,6 +172,10 @@ end
 
 module Server=Server(Storage_impl.Wrapper(Builtin_impl))
 
+let start () =
+	let open Storage_impl.Local_domain_socket in
+	start Xapi_globs.storage_unix_domain_socket Server.process
+
 module Qemu_blkfront = struct
 	(** If the qemu is in a different domain to the storage backend, a blkfront is
 		needed to exposes disks to guests so the emulated interfaces work. *)
