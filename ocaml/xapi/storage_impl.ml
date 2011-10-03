@@ -597,7 +597,7 @@ let initialise () =
 
 module Local_domain_socket = struct
 	(** Code to create a standalone process listening on a Unix domain socket. *)
-	let server = Http_svr.Server.empty
+	let server = Http_svr.Server.empty ()
 
 	let socket = ref None
 

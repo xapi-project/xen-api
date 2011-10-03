@@ -36,7 +36,7 @@ let xmlrpc_handler process req bio =
 	let str = Xmlrpc.string_of_response result in
 	Http_svr.response_str req s str
 
-let server = Http_svr.Server.empty
+let server = Http_svr.Server.empty ()
 
 let daemon_init post_daemonize_hook process =
 	post_daemonize_hook ();
