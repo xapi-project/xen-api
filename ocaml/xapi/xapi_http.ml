@@ -222,7 +222,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
 
 (* Other exceptions are dealt with by the Http_svr module's exception handler *)
 
-let server = Http_svr.Server.empty
+let server = Http_svr.Server.empty ()
 	  
 let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
 
