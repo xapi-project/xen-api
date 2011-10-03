@@ -13,7 +13,7 @@ let _ =
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
 		"A simple test HTTP server";
 	let open Http_svr in
-	let server = Server.empty in
+	let server = Server.empty () in
 	if !use_fastpath then Server.enable_fastpath server;
 
 	Server.add_handler server Http.Get "/stop" (FdIO

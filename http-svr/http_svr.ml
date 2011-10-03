@@ -173,7 +173,7 @@ module Server = struct
 		mutable use_fastpath: bool;
 	}
 
-	let empty = {
+	let empty () = {
 		handlers = MethodMap.empty;
 		use_fastpath = false;
 	}

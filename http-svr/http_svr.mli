@@ -36,7 +36,7 @@ module Server : sig
 	type t
 
 	(** An HTTP server which sends back a default error response to every request *)
-	val empty: t
+	val empty: unit -> t
 
 	(** [add_handler x m uri h] adds handler [h] to server [x] to serve all requests with
 		method [m] for URI prefix [uri] *)
