@@ -15,6 +15,10 @@
  * @group Storage
  *)
 
+val start: unit -> unit
+(** once [start ()] returns the storage service is listening for requests on
+    its unix domain socket. *)
+
 module Qemu_blkfront: sig
 
 	(** [path_opt __context self] returns [Some path] where [path] names the
