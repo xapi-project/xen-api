@@ -30,7 +30,7 @@ let inet_rpc xml =
 	let http = 80 and https = !Xapi_globs.https_port in
 	(* Bypass SSL for localhost, this works even if the management interface
 	   is disabled. *)
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	let transport =
 		if Pool_role.is_master ()
 		then TCP(host, http)

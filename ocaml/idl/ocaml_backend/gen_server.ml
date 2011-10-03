@@ -204,7 +204,7 @@ let operation (obj: obj) (x: message) =
 
 	let gen_body () =
 		let ret = match x.msg_result with Some(ty, _) -> Some ty | _ -> None in
-		let type_xml = XMLRPC.TypeToXML.marshal ret in
+		let type_xml = Datamodel_types.TypeToXML.marshal ret in
 		let module_prefix = if (Gen_empty_custom.operation_requires_side_effect x) then _custom else _db_defaults in
 		let common_let_decs =
 			[

@@ -181,7 +181,7 @@ let send_rrd address to_archive uuid rrd =
   let pool_secret = !Xapi_globs.pool_secret in
   let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
     Http.Put (Constants.rrd_put_uri^"?uuid="^uuid^(if to_archive then "&archive=true" else "")) in
-  let open Xmlrpcclient in
+  let open Xmlrpc_client in
   let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
   with_transport transport
 	  (with_http request
@@ -375,7 +375,7 @@ let pull_rrd_from_master ~__context uuid is_host =
   let uri = uri ^"?uuid="^uuid^"&dbsync=true" in    
   let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ] 
     Http.Get uri in
-  let open Xmlrpcclient in
+  let open Xmlrpc_client in
   let transport = SSL(SSL.make (), address, !Xapi_globs.https_port) in
   with_transport transport
 	  (with_http request

@@ -49,7 +49,7 @@ let ty_to_xmlrpc api ty =
     | Int -> "fun n -> To.string(Int64.to_string n)"
     | Map(key, value) ->
 	let kf = begin match key with
-	  | Ref x -> "ToString.reference"
+	  | Ref x -> "tostring_reference"
 	  | Enum (name, cs) ->
 	      let aux (c, _) = Printf.sprintf "%s -> \"%s\"" (constructor_of c) (String.lowercase c) in
 	      "   function " ^ (String.concat ("\n" ^ indent ^ "| ") (List.map aux cs))
@@ -84,6 +84,7 @@ let gen_to_xmlrpc api tys = block
 
     ["let methodCall = To.methodCall"];
     ["let methodResponse f x = To.methodResponse (f x)"; ];
+	["let tostring_reference = Ref.string_of"];
     ["let set f l =";
      "  To.array (List.map f l)"];
     ["let map fk fv m =";
@@ -115,7 +116,7 @@ let ty_of_xmlrpc api ty =
     | Int -> wrap "xml" "Int64.of_string(From.string xml)"
     | Map(key, value) ->
 	let kf = begin match key with
-	  | Ref x -> "FromString.reference"
+	  | Ref x -> "fromstring_reference"
 	  | Enum (name, cs) ->
 	      let aux (c, _) = "\""^(String.lowercase c)^"\" -> "^constructor_of c in
 	      wrap "txt"
@@ -167,6 +168,7 @@ let gen_of_xmlrpc api tys = block
   ([["open Xml"];
     ["exception Dispatcher_FieldNotFound of string"];
     ["let my_assoc fld assoc_list = try List.assoc fld assoc_list with Not_found -> raise (Dispatcher_FieldNotFound fld)"];
+	["let fromstring_reference = Ref.of_string"];
     ["let methodCall = From.methodCall"];
     ["let methodResponse = From.methodResponse"];
     ["let set f (xml: XMLRPC.xmlrpc) =";

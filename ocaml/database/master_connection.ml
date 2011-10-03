@@ -130,7 +130,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
       try
 	let req_string = req in
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	let request = xmlrpc 
 		~version:"1.1" ~keep_alive:true
 		~length:(Int64.of_int (String.length req_string))

@@ -94,7 +94,7 @@ open D
 
 (** Forward a call to the master *)
 let forward req body xml =
-  let open Xmlrpcclient in
+  let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
   XML_protocol.rpc ~transport ~http:req xml
 

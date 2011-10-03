@@ -296,7 +296,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
         raise_timeout timeout
     | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
         raise_authentication_failed ()
-    | Xmlrpcclient.Connection_reset ->
+    | Xmlrpc_client.Connection_reset ->
         raise_connection_reset ()
     | Stunnel.Stunnel_verify_error reason ->
         raise_verify_error reason
@@ -340,7 +340,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
   let check_response response s =
     let response =
       try
-        Xmlrpcclient.XML_protocol.read_response response s
+        Xmlrpc_client.XML_protocol.read_response response s
       with
         | Xml.Error err ->
             raise_malformed_response' meth (Xml.error err) ""

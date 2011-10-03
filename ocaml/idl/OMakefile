@@ -8,7 +8,7 @@ JQUERYTREEVIEWZIP_DISTFILE = $(CARBON_DISTFILES)/javascript/jquery/treeview/jque
 PSTOPDF = $(shell bash -c "which pstopdf 2>/dev/null || which ps2pdf 2>/dev/null || which ps2pdf14 2>/dev/null || echo false")
 
 OCAMLINCLUDES  = ocaml_backend ../database
-OCAMLPACKS     = xml-light2 sexpr log
+OCAMLPACKS     = xml-light2 sexpr log http-svr
 
 CAMLP4_FILES = datamodel_types
 
@@ -25,7 +25,7 @@ OCamlLibrary(datamodel, datamodel constants datamodel_utils datamodel_types api_
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ocaml_backend/xMLRPC ocaml_backend/ref ../database/string_marshall_helper
+DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend html_backend html_imagemap html_common html_main html_autogen html_types ocaml_backend/ref ../database/string_marshall_helper
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps

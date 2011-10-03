@@ -30,7 +30,7 @@ let no_exn f x =
     debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
 let rpc host_address xml =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	try
 		let transport = SSL(SSL.make (), host_address, !Xapi_globs.https_port) in
 		let http = xmlrpc ~version:"1.0" "/" in
@@ -584,7 +584,7 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 let update_vm_metadata ~__context ~rpc ~session_id ~master_address =
 	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
 
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 
 	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
 		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of

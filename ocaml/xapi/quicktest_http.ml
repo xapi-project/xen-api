@@ -64,7 +64,7 @@ end
 module Secret_Auth_fails = struct (* {{{1 *)
 
 	let http request f =
-		let open Xmlrpcclient in
+		let open Xmlrpc_client in
 		let transport =
 			if !using_unix_domain_socket
 			then Unix Xapi_globs.unix_domain_socket
