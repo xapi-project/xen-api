@@ -175,7 +175,7 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
     let (xml,stderr) = Stats.time_this name (fun () -> 
       match ty with 
 	| Daemon ->
-		let open Xmlrpcclient in
+		let open Xmlrpc_client in
 		let http = xmlrpc ~version:"1.0" (Printf.sprintf "/%s" driver) in
 		let transport = Unix (daemon_path driver) in
 		XML_protocol.rpc ~transport ~http xml, ""

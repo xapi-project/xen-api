@@ -146,7 +146,7 @@ let summarise () =
 
 let host = ref "" 
 
-open Xmlrpcclient
+open Xmlrpc_client
 let http = xmlrpc ~version:"1.1" "/"
 let rpc_remote xml = XML_protocol.rpc ~transport:(SSL(SSL.make(), !host, 443)) ~http xml
 let rpc_unix_domain xml = XML_protocol.rpc ~transport:(Unix Xapi_globs.unix_domain_socket) ~http xml

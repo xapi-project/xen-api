@@ -38,7 +38,7 @@ let fetch_config_files ~master_address ~pool_secret =
 
 	    let request = Xapi_http.http_request ~cookie:[ "session_id", Ref.string_of session_id ]
 	      Http.Get Constants.config_sync_uri in
-		let open Xmlrpcclient in
+		let open Xmlrpc_client in
 		let transport = SSL (SSL.make (), master_address, !Xapi_globs.https_port) in
 		with_transport transport
 			(with_http request

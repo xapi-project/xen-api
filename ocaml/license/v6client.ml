@@ -22,7 +22,7 @@ let retry = ref true
 (* RPC function for communication with the v6 daemon *)
 let socket = "/var/xapi/v6"
 let v6rpc call =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(Unix socket) ~http:(xmlrpc ~version:"1.0" "/") call
 
 let rec apply_edition ~__context edition additional =

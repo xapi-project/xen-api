@@ -17,11 +17,11 @@ open Client
 open Stringext
 
 let rpc xml =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XML_protocol.rpc ~transport:(Unix "/var/xapi/xapi") ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let remoterpc host xml =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XML_protocol.rpc ~transport:(SSL(SSL.make (), host, 443)) ~http:(xmlrpc ~version:"1.1" "/") xml
 
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR. This is cut-n-pasted from cli_util.ml *)

@@ -2973,7 +2973,7 @@ let vm_import fd printer rpc session_id params =
 									false
 							in
 
-							let open Xmlrpcclient in
+							let open Xmlrpc_client in
 							let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Xapi_globs.https_port) in
 							let stream_ok = with_transport transport (with_http request writer) in
 							if not stream_ok

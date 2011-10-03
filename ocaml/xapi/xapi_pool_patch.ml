@@ -449,7 +449,7 @@ let get_patch_to_local ~__context ~self =
 				 Http.Get uri in 
              let length = Some (Db.Pool_patch.get_size ~__context ~self) in
              let master_address = Pool_role.get_master_address () in
-			 let open Xmlrpcclient in
+			 let open Xmlrpc_client in
 			 let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task) (), master_address, !Xapi_globs.https_port) in
 			 try
 				 with_transport transport

@@ -125,7 +125,7 @@ let singleton = ref false
 
 (* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
 let rpc xml = 
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XML_protocol.rpc ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ =

@@ -17,7 +17,7 @@ open Client
 open Globs
 
 let rpc_of_hostname host xml =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XML_protocol.rpc ~transport:(TCP(host, 80)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ =
