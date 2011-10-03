@@ -8,6 +8,7 @@ OCAMLPACKS    = stdext log
 	ptoken \
 	autogen \
 	xe-cli \
+	sm-cli \
 	client_records \
 	idl \
 	util \

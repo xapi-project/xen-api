@@ -276,6 +276,7 @@ rm -rf $RPM_BUILD_ROOT
 %files xe
 %defattr(-,root,root,-)
 @BASE_PATH@/bin/xe
+@BASE_PATH@/debug/sm
 /usr/bin/xe
 /etc/bash_completion.d/xe
 

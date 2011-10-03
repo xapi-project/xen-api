@@ -1,0 +1,25 @@
+OCAML_LIBS    =
+OCAMLINCLUDES = ../xapi
+OCAMLPACKS    = xml-light2 stdext stunnel log http-svr
+
+section
+	OCAMLINCLUDES += .
+	OCAMLFLAGS = -dtypes -thread -warn-error F
+	CLI_FILES = main ../xapi/storage_interface ../xapi/vdi_automaton
+	OCamlProgram(sm, $(CLI_FILES))
+	OCamlDocProgram(sm, $(CLI_FILES))
+
+.PHONY: clean
+clean:
+	rm -f $(CLEAN_OBJS)
+	rm -f ./xe
+	rm -f ./rt/gtclient
+	rm -f ./rt/xgetip
+	rm -f ./rt/gtserver_linux
+	rm -f ./rt/test_host
+
+.PHONY: install
+install:
+	mkdir -p $(DEBUGDIST)
+	$(IPROG) sm $(DEBUGDIST)
+
