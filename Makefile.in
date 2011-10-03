@@ -17,7 +17,6 @@ endif
 	$(MAKE) -C log
 	$(MAKE) -C stunnel
 	$(MAKE) -C pciutil
-	$(MAKE) -C http-svr
 	$(MAKE) -C close-and-exec
 	$(MAKE) -C sexpr
 	$(MAKE) -C udev
@@ -26,6 +25,7 @@ ifeq ($(HAVE_XMLM),xmlm)
 	$(MAKE) -C xml-light2
 	$(MAKE) -C rss
 endif
+	$(MAKE) -C http-svr
 ifeq ($(HAVE_LINUX_CDROM),1)
 	$(MAKE) -C cdrom
 endif

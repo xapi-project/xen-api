@@ -22,8 +22,8 @@ OCAMLDESTDIR ?= $(OCAMLLIBDIR)
 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
-OCAMLC = ocamlfind ocamlc
-OCAMLOPT = ocamlfind ocamlopt
+OCAMLC = ocamlfind ocamlc -I ../xml-light2 -I ../stdext -I ../uuid
+OCAMLOPT = ocamlfind ocamlopt -I ../xml-light2 -I ../stdext -I ../uuid
 OCAMLYACC = ocamlyacc
 OCAMLCFLAGS = -dtypes
 OCAMLOPTFLAGS = -g -dtypes
