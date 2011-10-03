@@ -253,7 +253,7 @@ end
 
 
 let rpc_unix call =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XML_protocol.rpc ~transport:(Unix Xapi_globs.storage_unix_domain_socket) 
 		~http:(xmlrpc ~version:"1.0" "/") call
 

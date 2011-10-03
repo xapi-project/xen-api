@@ -112,7 +112,7 @@ let migration_failure __context task_id vm source dest exn =
 			raise (Api_errors.Server_error(code, params))
 	end;
 	match exn with
-		| Xmlrpcclient.Connection_reset
+		| Xmlrpc_client.Connection_reset
 		| Unix.Unix_error(_, _, _) ->
 			raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of dest]))
 		| Api_errors.Server_error(_, _) -> raise exn (* leave it alone *)
@@ -550,7 +550,7 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 
 			(* Open stunnel if 'encrypt' is set. Otherwise, open a cleartext socket. *)
 			let use_https = try bool_of_string (List.assoc "encrypt" options) with _ -> false in
-			let open Xmlrpcclient in
+			let open Xmlrpc_client in
 			let transport : transport =
 				if use_https
 				then SSL (SSL.make (), hostname, !Xapi_globs.https_port)

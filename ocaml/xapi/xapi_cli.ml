@@ -41,7 +41,7 @@ let write s string =
 let forward args s session =
 	(* Reject forwarding cli commands if the request came in from a tcp socket *)
 	if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
 	let body = 
 		let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
@@ -97,7 +97,7 @@ let do_rpcs req s username password minimal cmd session args =
   try
     let generic_rpc = Helpers.get_rpc () in
     (* NB the request we've received is for the /cli. We need an XMLRPC request for the API *)
-    let req = Xmlrpcclient.xmlrpc ~version:"1.1" "/" in
+    let req = Xmlrpc_client.xmlrpc ~version:"1.1" "/" in
     let rpc = generic_rpc req s in
     if do_forward
     then with_session ~local:false rpc username password session (fun sess -> forward args s (Some sess))

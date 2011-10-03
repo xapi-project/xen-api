@@ -101,7 +101,7 @@ let watcher_thread = function
 
 let handle_request req =
   try
-	  let open Xmlrpcclient in
+	  let open Xmlrpc_client in
 	  let transport = SSL(SSL.make ~verify_cert:req.verify_cert ~task_id:(Ref.string_of req.task) (), req.host, req.port) in
 	  with_transport transport
 		  (with_http req.request
@@ -187,7 +187,7 @@ let read_response result response s =
     result := Unixext.string_of_fd s
   with
     | Unix.Unix_error(Unix.ECONNRESET, _, _) ->
-        raise Xmlrpcclient.Connection_reset
+        raise Xmlrpc_client.Connection_reset
 
 let send_test_post ~__context ~host ~port ~body =
   try

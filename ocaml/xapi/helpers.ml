@@ -67,9 +67,9 @@ let get_localhost ~__context : API.ref_host  =
     let uuid = get_localhost_uuid () in
 	Db.Host.get_by_uuid ~__context ~uuid
 
-let make_rpc ~__context xml =
+let make_rpc ~__context xml : XMLRPC.xmlrpc =
     let subtask_of = Ref.string_of (Context.get_task_id __context) in
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
 	let transport =
 		if Pool_role.is_master ()
@@ -119,7 +119,7 @@ let call_api_functions ~__context f =
       then Client.Client.Session.logout rpc session_id)
 
 let call_emergency_mode_functions hostname f =
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
 	let http = xmlrpc ~version:"1.0" "/" in
 	let rpc = XML_protocol.rpc ~transport ~http in
