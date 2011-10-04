@@ -44,7 +44,7 @@ val rpc: Rpc.call -> Rpc.response
     to device [userdevice] on domain [domid] *)
 val datapath_of_vbd: domid:int -> userdevice:string -> Storage_interface.dp
 
-val expect_vdi: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
+val expect_params: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
 val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
 

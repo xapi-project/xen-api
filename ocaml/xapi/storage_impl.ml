@@ -286,7 +286,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							let read_write = (ro_rw = Vdi_automaton.RW) in
 							let result = Impl.VDI.attach context ~task ~dp ~sr ~vdi ~read_write in
 							let result, vdi_t = match result with
-							| Success (Vdi x) ->
+							| Success (Params x) ->
 								result, { vdi_t with Vdi.params = Some x }
 							| Success Unit
 							| Failure _ ->
@@ -335,7 +335,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 					(* NB this_op = attach but ops = [] because the disk is already attached *)
 					let result = match result, this_op with
 						| Success _, Vdi_automaton.Attach _ ->
-							Success (Vdi (Opt.unbox vdi_t.Vdi.params))
+							Success (Params (Opt.unbox vdi_t.Vdi.params))
 						| x, _ -> x in
 					
 					result, vdi_t
