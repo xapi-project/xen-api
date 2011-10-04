@@ -64,7 +64,7 @@ module Debug_print_impl = struct
 						error "VDI.attach dp:%s sr:%s vdi:%s : double attach" dp sr vdi;
 						failwith "double attach"
 						end else Hashtbl.replace attached key ());
-				Success (Storage_interface.Vdi "XXX")
+				Success (Storage_interface.Params "XXX")
 			end
 		let activate context ~task ~dp ~sr ~vdi =
 			Mutex.execute m
@@ -190,7 +190,7 @@ let test_vdis sr : unit =
 	let one id sr vdi () =
 		let dp = datapath_of_id id in
 		for i = 0 to iterations - 1 do
-			expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+			expect "Params _" (function Success (Params _) -> true | _ -> false)
 				(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO)" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
 				(Client.VDI.stat rpc ~task ~sr ~vdi ());
@@ -200,7 +200,7 @@ let test_vdis sr : unit =
 				(Client.VDI.stat rpc ~task ~sr ~vdi ());
 			expect "()" (fun x -> x = Success Unit)
 				(Client.VDI.detach rpc ~task ~dp ~sr ~vdi);
-			expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+			expect "Params _" (function Success (Params _) -> true | _ -> false)
 				(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:false);
 			expect "Attached(RO)" (dp_is dp (Vdi_automaton.Attached Vdi_automaton.RO))
 				(Client.VDI.stat rpc ~task ~sr ~vdi ());
@@ -232,7 +232,7 @@ let test_vdis sr : unit =
 
 let leak dp sr activate vdi =
 	info "Leaking some attaches and activates";
-	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+	expect "Params _" (function Success (Params _) -> true | _ -> false)
 		(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:true);
 	if activate
 	then expect "()" (function Success Unit -> true | _ -> false)
@@ -279,14 +279,14 @@ let test_stat sr vdi =
 		(Client.SR.attach rpc ~task ~sr);
 	let dp1 = datapath_of_id "dp1" (* will be r/w *)
 	and dp2 = datapath_of_id "dp2" (* will be r/o *) in
-	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+	expect "Params _" (function Success (Params _) -> true | _ -> false)
 		(Client.VDI.attach rpc ~task ~dp:dp1 ~sr ~vdi ~read_write:true);
 	(* dp1: Attached(RW) dp2: Detached superstate: Attached(RW) *)
 	expect "Attached(RW)" (dp_is dp1 (Vdi_automaton.Attached Vdi_automaton.RW))
 		(Client.VDI.stat rpc ~task ~sr ~vdi ());
 	expect "Attached(RW)" (function Success (Stat { superstate = Vdi_automaton.Attached Vdi_automaton.RW }) -> true | _ -> false)
 		(Client.VDI.stat rpc ~task ~sr ~vdi ());
-	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+	expect "Params _" (function Success (Params _) -> true | _ -> false)
 		(Client.VDI.attach rpc ~task ~dp:dp2 ~sr ~vdi ~read_write:false);
 	(* dp1: Attached(RW) dp2: Attached(RO) superstate: Attached(RW) *)
 	expect "Attached(RO)" (dp_is dp2 (Vdi_automaton.Attached Vdi_automaton.RO))
@@ -343,7 +343,7 @@ let test_sr_detach_cleanup_errors_2 sr vdi =
 		(Client.DP.destroy rpc ~task ~dp ~allow_leak:false);
 	Debug_print_impl.VDI.working := true;
 	debug "Attempting to attach RO (having failed a detach of a RW detach)";
-	expect "Vdi _" (function Success (Vdi _) -> true | _ -> false)
+	expect "Params _" (function Success (Params _) -> true | _ -> false)
 		(Client.VDI.attach rpc ~task ~dp ~sr ~vdi ~read_write:false);
 	debug "Detaching and cleaning up";
 	expect "()" (fun x -> x = Success Unit)

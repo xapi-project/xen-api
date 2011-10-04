@@ -153,7 +153,7 @@ module Builtin_impl = struct
 						) in
 				Mutex.execute vdi_read_write_m
 					(fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
-				Success (Vdi params)
+				Success (Params params)
 			with Api_errors.Server_error(code, params) ->
 				Failure (Backend_error(code, params))
 
@@ -326,9 +326,9 @@ let unexpected_result expected x = match x with
 	| Failure Illegal_transition(a, b) ->
 		failwith (Printf.sprintf "Storage_access failed with %s" (string_of_result x))
 
-let expect_vdi f x = match x with
-	| Success (Vdi v) -> f v
-	| _ -> unexpected_result "Vdi _" x
+let expect_params f x = match x with
+	| Success (Params v) -> f v
+	| _ -> unexpected_result "Params _" x
 
 let expect_unit f x = match x with
 	| Success Unit -> f ()
@@ -368,7 +368,7 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
 	let result = on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
-			expect_vdi
+			expect_params
 				(fun path ->
 					expect_unit
 						(fun () ->
@@ -479,7 +479,7 @@ let refresh_local_vdi_activations ~__context =
 						remember (sr, vdi) RW
 					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Vdi _ | Vdis _ | Unit)
+					| Success (Params _ | Vdis _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs

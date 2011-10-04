@@ -63,7 +63,7 @@ let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 type success_t =
 	| Vdis of vdi_info list                    (** success (from SR.scan) *)
-	| Vdi of params                  (** success (from VDI.attach) *)
+	| Params of params                        (** success (from VDI.attach) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
 
