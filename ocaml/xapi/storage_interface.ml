@@ -63,6 +63,7 @@ let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 type success_t =
 	| Vdis of vdi_info list                    (** success (from SR.scan) *)
+	| Vdi of vdi_info                         (** success (from VDI.create) *)
 	| Params of params                        (** success (from VDI.attach) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
@@ -130,6 +131,11 @@ end
 module VDI = struct
 	(** Functions which operate on particular VDIs.
 		These functions are all idempotent from the point of view of a given [dp]. *)
+
+	(** [create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some
+        fields in the [vdi_info] may be modified (e.g. rounded up), so the function
+        returns the vdi_info which was used. *)
+	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]

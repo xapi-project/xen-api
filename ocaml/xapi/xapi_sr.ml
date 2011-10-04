@@ -408,115 +408,123 @@ let get_supported_types ~__context = Sm.supported_drivers ()
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
+(* Update VDI records in the database to be in sync with new information
+   from a storage backend. *)
+let update_vdis ~__context ~sr db_vdis vdi_infos =
+    let open Storage_interface in
+	let db_vdi_map = List.fold_left
+		(fun m (r, v) ->
+			StringMap.add v.API.vDI_location (r, v) m
+		) StringMap.empty
+		db_vdis in
+	let scan_vdi_map = List.fold_left
+		(fun m v -> StringMap.add v.vdi v m) StringMap.empty vdi_infos in
+	let to_delete = StringMap.merge (fun loc db scan -> match loc, db, scan with
+		| loc, Some (r, v), None -> Some r
+		| _, _, _ -> None
+	) db_vdi_map scan_vdi_map in
+	let to_create = StringMap.merge (fun loc db scan -> match loc, db, scan with
+		| loc, None, Some v -> Some v
+		| _, _, _ -> None
+	) db_vdi_map scan_vdi_map in
+	let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
+		| loc, Some (r, v), Some vi -> Some (r, v, vi)
+		| _, _, _ -> None
+	) db_vdi_map scan_vdi_map in
+
+	let find_vdi db_vdi_map loc =
+		if StringMap.mem loc db_vdi_map
+		then fst (StringMap.find loc db_vdi_map)
+		else Ref.null in
+
+	(* Delete ones which have gone away *)
+	StringMap.iter
+		(fun loc r ->
+			debug "Forgetting VDI: %s" (Ref.string_of r);
+			Db.VDI.destroy ~__context ~self:r
+		) to_delete;
+	(* Create the new ones *)
+	let db_vdi_map = StringMap.fold
+		(fun loc vdi m ->
+			let ref = Ref.make () and uuid = Uuid.make_uuid () in
+			debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
+			Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
+				~name_label:vdi.name_label ~name_description:vdi.name_description
+				~current_operations:[] ~allowed_operations:[]
+				~is_a_snapshot:vdi.is_a_snapshot
+				~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
+				~snapshot_time:(Date.of_float vdi.snapshot_time)
+				~sR:sr ~virtual_size:vdi.virtual_size
+				~physical_utilisation:vdi.physical_utilisation
+				~_type:(Opt.default `user (Record_util.string_to_vdi_type vdi.ty))
+				~sharable:false ~read_only:vdi.read_only
+				~xenstore_data:[] ~sm_config:[]
+				~other_config:[] ~storage_lock:false ~location:vdi.vdi
+				~managed:true ~missing:false ~parent:Ref.null ~tags:[]
+				~on_boot:`persist ~allow_caching:false
+				~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
+				~metadata_latest:false;
+			StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
+		) to_create db_vdi_map in
+	(* Update the ones which already exist *)
+	StringMap.iter
+		(fun loc (r, v, vi) ->
+			if v.API.vDI_name_label <> vi.name_label then begin
+				debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
+				Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label
+			end;
+			if v.API.vDI_name_description <> vi.name_description then begin
+				debug "%s name_description <- %s" (Ref.string_of r) vi.name_description;
+				Db.VDI.set_name_description ~__context ~self:r ~value:vi.name_description
+			end;
+			let ty = Opt.default `user (Record_util.string_to_vdi_type vi.ty) in
+			if v.API.vDI_type <> ty then begin
+				debug "%s type <- %s" (Ref.string_of r) vi.ty;
+				Db.VDI.set_type ~__context ~self:r ~value:ty
+			end;
+			let mop = Ref.of_string vi.metadata_of_pool in
+			if v.API.vDI_metadata_of_pool <> mop then begin
+				debug "%s metadata_of_pool <- %s" (Ref.string_of r) vi.metadata_of_pool;
+				Db.VDI.set_metadata_of_pool ~__context ~self:r ~value:mop
+			end;
+			if v.API.vDI_is_a_snapshot <> vi.is_a_snapshot then begin
+				debug "%s is_a_snapshot <- %b" (Ref.string_of r) vi.is_a_snapshot;
+				Db.VDI.set_is_a_snapshot ~__context ~self:r ~value:vi.is_a_snapshot
+			end;
+			if v.API.vDI_snapshot_time <> Date.of_float vi.snapshot_time then begin
+				debug "%s snapshot_time <- %.0f" (Ref.string_of r) vi.snapshot_time;
+				Db.VDI.set_snapshot_time ~__context ~self:r ~value:(Date.of_float vi.snapshot_time)
+			end;
+			let snapshot_of = find_vdi db_vdi_map vi.snapshot_of in
+			if v.API.vDI_snapshot_of <> snapshot_of then begin
+				debug "%s snapshot_of <- %s" (Ref.string_of r) (Ref.string_of snapshot_of);
+				Db.VDI.set_snapshot_of ~__context ~self:r ~value:snapshot_of
+			end;
+			if v.API.vDI_read_only <> vi.read_only then begin
+				debug "%s read_only <- %b" (Ref.string_of r) vi.read_only;
+				Db.VDI.set_read_only ~__context ~self:r ~value:vi.read_only
+			end;
+			if v.API.vDI_virtual_size <> vi.virtual_size then begin
+				debug "%s virtual_size <- %Ld" (Ref.string_of r) vi.virtual_size;
+				Db.VDI.set_virtual_size ~__context ~self:r ~value:vi.virtual_size
+			end;
+			if v.API.vDI_physical_utilisation <> vi.physical_utilisation then begin
+				debug "%s physical_utilisation <- %Ld" (Ref.string_of r) vi.physical_utilisation;
+				Db.VDI.set_physical_utilisation ~__context ~self:r ~value:vi.physical_utilisation
+			end
+		) to_update
+
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr = 
-    let open Storage_access in
+	let open Storage_access in
     let task = Context.get_task_id __context in
     let open Storage_interface in
+
 	let sr' = Ref.string_of sr in
 	match Client.SR.scan rpc ~task:(Ref.string_of task) ~sr:sr' with
 		| Success (Vdis vs) ->
-			let db_vdi_map = List.fold_left
-				(fun m (r, v) ->
-					StringMap.add v.API.vDI_location (r, v) m
-				) StringMap.empty
-				(Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr'))) in
-			let scan_vdi_map = List.fold_left
-				(fun m v -> StringMap.add v.vdi v m) StringMap.empty vs in
-			let to_delete = StringMap.merge (fun loc db scan -> match loc, db, scan with
-				| loc, Some (r, v), None -> Some r
-				| _, _, _ -> None
-			) db_vdi_map scan_vdi_map in
-			let to_create = StringMap.merge (fun loc db scan -> match loc, db, scan with
-				| loc, None, Some v -> Some v
-				| _, _, _ -> None
-			) db_vdi_map scan_vdi_map in
-			let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
-				| loc, Some (r, v), Some vi -> Some (r, v, vi)
-				| _, _, _ -> None
-			) db_vdi_map scan_vdi_map in
-
-			let find_vdi db_vdi_map loc =
-				if StringMap.mem loc db_vdi_map
-				then fst (StringMap.find loc db_vdi_map)
-				else Ref.null in
-
-			(* Delete ones which have gone away *)
-			StringMap.iter
-				(fun loc r ->
-					debug "Forgetting VDI: %s" (Ref.string_of r);
-					Db.VDI.destroy ~__context ~self:r
-				) to_delete;
-			(* Create the new ones *)
-			let db_vdi_map = StringMap.fold
-				(fun loc vdi m ->
-					let ref = Ref.make () and uuid = Uuid.make_uuid () in
-					debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi) (Ref.string_of ref);
-					Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
-						~name_label:vdi.name_label ~name_description:vdi.name_description
-						~current_operations:[] ~allowed_operations:[]
-						~is_a_snapshot:vdi.is_a_snapshot
-						~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
-						~snapshot_time:(Date.of_float vdi.snapshot_time)
-						~sR:sr ~virtual_size:vdi.virtual_size
-						~physical_utilisation:vdi.physical_utilisation
-						~_type:(Opt.default `user (Record_util.string_to_vdi_type vdi.ty))
-						~sharable:false ~read_only:vdi.read_only
-						~xenstore_data:[] ~sm_config:[]
-						~other_config:[] ~storage_lock:false ~location:vdi.vdi
-						~managed:true ~missing:false ~parent:Ref.null ~tags:[]
-						~on_boot:`persist ~allow_caching:false
-						~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
-						~metadata_latest:false;
-					StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
-				) to_create db_vdi_map in
-			(* Update the ones which already exist *)
-			StringMap.iter
-				(fun loc (r, v, vi) ->
-					if v.API.vDI_name_label <> vi.name_label then begin
-						debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
-						Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label
-					end;
-					if v.API.vDI_name_description <> vi.name_description then begin
-						debug "%s name_description <- %s" (Ref.string_of r) vi.name_description;
-						Db.VDI.set_name_description ~__context ~self:r ~value:vi.name_description
-					end;
-					let ty = Opt.default `user (Record_util.string_to_vdi_type vi.ty) in
-					if v.API.vDI_type <> ty then begin
-						debug "%s type <- %s" (Ref.string_of r) vi.ty;
-						Db.VDI.set_type ~__context ~self:r ~value:ty
-					end;
-					let mop = Ref.of_string vi.metadata_of_pool in
-					if v.API.vDI_metadata_of_pool <> mop then begin
-						debug "%s metadata_of_pool <- %s" (Ref.string_of r) vi.metadata_of_pool;
-						Db.VDI.set_metadata_of_pool ~__context ~self:r ~value:mop
-					end;
-					if v.API.vDI_is_a_snapshot <> vi.is_a_snapshot then begin
-						debug "%s is_a_snapshot <- %b" (Ref.string_of r) vi.is_a_snapshot;
-						Db.VDI.set_is_a_snapshot ~__context ~self:r ~value:vi.is_a_snapshot
-					end;
-					if v.API.vDI_snapshot_time <> Date.of_float vi.snapshot_time then begin
-						debug "%s snapshot_time <- %.0f" (Ref.string_of r) vi.snapshot_time;
-						Db.VDI.set_snapshot_time ~__context ~self:r ~value:(Date.of_float vi.snapshot_time)
-					end;
-					let snapshot_of = find_vdi db_vdi_map vi.snapshot_of in
-					if v.API.vDI_snapshot_of <> snapshot_of then begin
-						debug "%s snapshot_of <- %s" (Ref.string_of r) (Ref.string_of snapshot_of);
-						Db.VDI.set_snapshot_of ~__context ~self:r ~value:snapshot_of
-					end;
-					if v.API.vDI_read_only <> vi.read_only then begin
-						debug "%s read_only <- %b" (Ref.string_of r) vi.read_only;
-						Db.VDI.set_read_only ~__context ~self:r ~value:vi.read_only
-					end;
-					if v.API.vDI_virtual_size <> vi.virtual_size then begin
-						debug "%s virtual_size <- %Ld" (Ref.string_of r) vi.virtual_size;
-						Db.VDI.set_virtual_size ~__context ~self:r ~value:vi.virtual_size
-					end;
-					if v.API.vDI_physical_utilisation <> vi.physical_utilisation then begin
-						debug "%s physical_utilisation <- %Ld" (Ref.string_of r) vi.physical_utilisation;
-						Db.VDI.set_physical_utilisation ~__context ~self:r ~value:vi.physical_utilisation
-					end
-				) to_update;
+			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
+			update_vdis ~__context ~sr:sr db_vdis vs;
 			Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
 		| x ->
 			error "Unexpected result from scanning SR %s: %s" sr' (string_of_result x);
