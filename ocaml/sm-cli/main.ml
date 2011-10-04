@@ -34,6 +34,7 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s sr-scan <SR>\n" Sys.argv.(0);
 	Printf.fprintf stderr "  %s vdi-create <SR> key_1=val_1 ... key_n=val_n\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s vdi-destroy <SR> <VDI>\n" Sys.argv.(0);
 	exit 1
 
 let _ =
@@ -90,6 +91,15 @@ let _ =
 			begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params with
 				| Success (Vdi v) ->
 					Printf.printf "%s\n" (string_of_vdi_info v)
+				| x ->
+					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
+			end
+		| "vdi-destroy" ->
+			if Array.length Sys.argv < 4 then usage_and_exit ();
+			let sr = Sys.argv.(2) in
+			let vdi = Sys.argv.(3) in
+			begin match Client.VDI.destroy rpc ~task ~sr ~vdi with
+				| Success Unit -> ()
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end

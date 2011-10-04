@@ -129,6 +129,9 @@ module Vdi = struct
 
 	let get_leaked t = t.leaked
 
+    let leaked t (x: Dp.t) = List.mem x t.leaked
+    let all _ _ = true
+
 	let remove_leaked dp t =
 		{ t with leaked = List.filter (fun u -> u <> dp) t.leaked }
 
@@ -395,17 +398,17 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 				end
 
 		(* Attempt to clear leaked datapaths associed with this vdi *)
-		let remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi next =
+		let remove_datapaths_andthen_nolock context ~task ~sr ~vdi which next =
 			let dps = match Host.find sr !Host.host with
 			| None -> []
 			| Some sr_t ->
 				begin match Sr.find vdi sr_t with
 				| Some vdi_t ->
-					Vdi.get_leaked vdi_t
+					List.filter (which vdi_t) (Vdi.dps vdi_t)
 				| None -> []
 				end in
 			let failures = List.fold_left (fun acc dp ->
-				info "Attempting to destroy leaked datapath dp:%s sr:%s vdi:%s" dp sr vdi;
+				info "Attempting to destroy datapath dp:%s sr:%s vdi:%s" dp sr vdi;
 				match destroy_datapath_nolock context ~task ~dp ~sr ~vdi ~allow_leak:false with
 				| Success _ -> acc
 				| Failure f -> f :: acc
@@ -418,7 +421,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.attach task:%s dp:%s sr:%s vdi:%s read_write:%b" task dp sr vdi read_write;
 			with_vdi sr vdi
 				(fun () ->
-					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
+					remove_datapaths_andthen_nolock context ~task ~sr ~vdi Vdi.leaked
 						(fun () ->
 							fst(perform_nolock context ~task ~dp ~sr ~vdi
 								(Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)))))
@@ -426,7 +429,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.activate task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
-					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
+					remove_datapaths_andthen_nolock context ~task ~sr ~vdi Vdi.leaked
 						(fun () ->
 							fst(perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Activate)))
 
@@ -448,14 +451,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.deactivate task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
-					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
+					remove_datapaths_andthen_nolock context ~task ~sr ~vdi Vdi.leaked
 						(fun () ->
 							fst (perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Deactivate)))
 		let detach context ~task ~dp ~sr ~vdi =
 			info "VDI.detach task:%s dp:%s sr:%s vdi:%s" task dp sr vdi;
 			with_vdi sr vdi
 				(fun () ->
-					remove_leaked_datapaths_andthen_nolock context ~task ~sr ~vdi
+					remove_datapaths_andthen_nolock context ~task ~sr ~vdi Vdi.leaked
 						(fun () ->
 							fst (perform_nolock context ~task ~dp ~sr ~vdi Vdi_automaton.Detach)))
 
@@ -467,6 +470,17 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                     error "VDI.create task:%s created a smaller VDI (%Ld)" task virtual_size';
                     Failure(Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size']))
                 | result -> result
+
+        let destroy context ~task ~sr ~vdi =
+            info "VDI.destroy task:%s sr:%s vdi:%s" task sr vdi;
+            with_vdi sr vdi
+                (fun () ->
+                    remove_datapaths_andthen_nolock context ~task ~sr ~vdi Vdi.all
+                        (fun () ->
+                            Impl.VDI.destroy context ~task ~sr ~vdi
+                        )
+                )
+
 	end
 
 	module DP = struct

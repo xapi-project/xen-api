@@ -72,6 +72,7 @@ let string_of_success (x: success_t) = Jsonrpc.to_string (rpc_of_success_t x)
 
 type failure_t =
 	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
+	| Vdi_does_not_exist                      (** error: the VDI is unknown *)
 	| Illegal_transition of Vdi_automaton.state * Vdi_automaton.state (** This operation implies an illegal state transition *)
 	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
 	| Internal_error of string		          (** error: some unexpected internal error *)
@@ -136,6 +137,9 @@ module VDI = struct
         fields in the [vdi_info] may be modified (e.g. rounded up), so the function
         returns the vdi_info which was used. *)
 	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+
+    (** [destroy task sr vdi] removes [vdi] from [sr] *)
+    external destroy : task:task -> sr:sr -> vdi:vdi -> result = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
