@@ -147,7 +147,7 @@ module Server=Server(Storage_impl.Wrapper(Debug_print_impl))
 let path = "/tmp/storage"
 
 let rpc_unix call = 
-	let open Xmlrpcclient in
+	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(Unix path) ~http:(xmlrpc ~version:"1.0" "/") call
 let rpc_inprocess call = Server.process () call
 
