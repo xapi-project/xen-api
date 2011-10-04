@@ -128,16 +128,20 @@ module Builtin_impl = struct
 	end
 
 	module VDI = struct
+		exception No_VDI
+
 		let for_vdi ~task ~sr ~vdi op_name f =
-			let self = Ref.of_string vdi in
 			Server_helpers.exec_with_new_task op_name ~subtask_of:(Ref.of_string task)
 				(fun __context ->
-					Sm.call_sm_vdi_functions ~__context ~vdi:self
-						(fun device_config _type sr ->
-							f device_config _type sr self
-						)
+					let open Db_filter_types in
+					match Db.VDI.get_records_where ~__context ~expr:(Eq (Field "location", Literal vdi)) with
+						| (self, _) :: _ ->
+							Sm.call_sm_vdi_functions ~__context ~vdi:self
+								(fun device_config _type sr ->
+									f device_config _type sr self
+								)
+						| [] -> raise No_VDI
 				)
-		
 		(* Allow us to remember whether a VDI is attached read/only or read/write.
 		   If this is meaningful to the backend then this should be recorded there! *)
 		let vdi_read_write = Hashtbl.create 10
@@ -242,6 +246,17 @@ module Builtin_impl = struct
             with Api_errors.Server_error(code, params) ->
                 Failure (Backend_error(code, params))
 
+        let destroy context ~task ~sr ~vdi =
+            try
+                for_vdi ~task ~sr ~vdi "VDI.destroy"
+                    (fun device_config _type sr self ->
+                        Sm.vdi_delete device_config _type sr self
+                    );
+                Mutex.execute vdi_read_write_m
+                    (fun () -> Hashtbl.remove vdi_read_write (sr, vdi));
+                Success Unit
+            with Api_errors.Server_error(code, params) ->
+                Failure (Backend_error(code, params))
 	end
 end
 
@@ -360,6 +375,8 @@ let unexpected_result expected x = match x with
 		failwith (Printf.sprintf "Run-time type error. Expected %s; got: %s" expected (string_of_result x))
 	| Failure Sr_not_attached ->
 		failwith "Storage_access failed with Sr_not_attached"
+	| Failure Vdi_does_not_exist ->
+		failwith "Storage_access failed with Vdi_does_not_exist"
 	| Failure (Backend_error(code, params)) ->
 		raise (Api_errors.Server_error(code, params))
 	| Failure (Internal_error x) ->
@@ -381,12 +398,13 @@ let expect_unit f x = match x with
 
 let of_vbd ~__context ~vbd ~domid =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+	let location = Db.VDI.get_location ~__context ~self:vdi in
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
 	let rpc = rpc_of_sr ~__context ~sr in
 	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
 	let task = Context.get_task_id __context in
 	let dp = datapath_of_vbd ~domid ~userdevice in
-	rpc, (Ref.string_of task), dp, (Ref.string_of sr), (Ref.string_of vdi)
+	rpc, (Ref.string_of task), dp, (Ref.string_of sr), location
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)

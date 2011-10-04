@@ -63,6 +63,22 @@ module Debug_print_impl = struct
                 );
             Success (Vdi info)
 
+        let destroy context ~task ~sr ~vdi =
+            Mutex.execute m
+                (fun () ->
+                    let key = key_of sr vdi in
+                    if not(Hashtbl.mem created key)
+                    then Failure (Backend_error("ENOENT", [ sr; vdi ]))
+                    else if Hashtbl.mem activated key
+                    then Failure (Backend_error("Still activated", [ sr; vdi]))
+                    else if Hashtbl.mem attached key
+                    then Failure (Backend_error("Still attached", [ sr; vdi]))
+                    else begin
+                        Hashtbl.remove created key;
+                        Success Unit
+                    end
+                )
+
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
 			if dp = "error"
