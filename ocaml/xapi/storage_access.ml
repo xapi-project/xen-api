@@ -201,6 +201,47 @@ module Builtin_impl = struct
 
 		let stat context ~task ~sr ~vdi () = assert false
 
+        let require_uuid vdi_info =
+            match vdi_info.Smint.vdi_info_uuid with
+                | Some uuid -> uuid
+                | None -> failwith "SM backend failed to return <uuid> field"
+
+        let newvdi ~__context vi =
+            (* The current backends stash data directly in the db *)
+            let uuid = require_uuid vi in
+            let ref = Db.VDI.get_by_uuid ~__context ~uuid in
+
+            let r = Db.VDI.get_record ~__context ~self:ref in
+            Vdi {
+                vdi = r.API.vDI_location;
+                name_label = r.API.vDI_name_label;
+                name_description = r.API.vDI_name_description;
+                ty = Record_util.vdi_type_to_string r.API.vDI_type;
+				metadata_of_pool = Ref.string_of r.API.vDI_metadata_of_pool;
+                is_a_snapshot = r.API.vDI_is_a_snapshot;
+                snapshot_time = Date.to_float r.API.vDI_snapshot_time;
+                snapshot_of = Ref.string_of r.API.vDI_snapshot_of;
+                read_only = r.API.vDI_read_only;
+                virtual_size = r.API.vDI_virtual_size;
+                physical_utilisation = r.API.vDI_physical_utilisation;
+            }
+
+        let create context ~task ~sr ~vdi_info ~params =
+            try
+                Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string task)
+                    (fun __context ->
+                        let sr = Ref.of_string sr in
+                        let vi =
+                            Sm.call_sm_functions ~__context ~sR:sr
+                                (fun device_config _type ->
+                                    Sm.vdi_create device_config _type sr params vdi_info.ty
+                                        vdi_info.virtual_size vdi_info.name_label vdi_info.name_description
+                                ) in
+                        Success (newvdi ~__context vi)
+                    )
+            with Api_errors.Server_error(code, params) ->
+                Failure (Backend_error(code, params))
+
 	end
 end
 
@@ -325,6 +366,10 @@ let unexpected_result expected x = match x with
 		failwith (Printf.sprintf "Storage_access failed with: %s" x)
 	| Failure Illegal_transition(a, b) ->
 		failwith (Printf.sprintf "Storage_access failed with %s" (string_of_result x))
+
+let expect_vdi f x = match x with
+	| Success (Vdi v) -> f v
+	| _ -> unexpected_result "Vdi _" x
 
 let expect_params f x = match x with
 	| Success (Params v) -> f v
@@ -479,7 +524,7 @@ let refresh_local_vdi_activations ~__context =
 						remember (sr, vdi) RW
 					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Params _ | Vdis _ | Unit)
+					| Success (Params _ | Vdi _ | Vdis _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs

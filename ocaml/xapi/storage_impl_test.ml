@@ -45,9 +45,23 @@ module Debug_print_impl = struct
 		let m = Mutex.create ()
 		let attached = Hashtbl.create 10
 		let activated = Hashtbl.create 10
+        let created = Hashtbl.create 10
 		let key_of sr vdi = Printf.sprintf "%s/%s" sr vdi
 
 		let stat context ~task ~sr ~vdi () = assert false
+
+        let create context ~task ~sr ~vdi_info ~params =
+            let vdi = "newvdi" in
+            let info =
+                if List.mem_assoc "toosmall" params
+                then { vdi_info with virtual_size = Int64.sub vdi_info.virtual_size 1L }
+                else vdi_info in
+            Mutex.execute m
+                (fun () ->
+                    let key = key_of sr vdi in
+                    Hashtbl.replace created key info
+                );
+            Success (Vdi info)
 
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
 			info "VDI.attach dp:%s sr:%s vdi:%s read_write:%b" dp sr vdi read_write;
@@ -169,6 +183,10 @@ let expect expected f x =
 let backend_error = function
 	| Failure (Backend_error(code, params)) when code = "SR_BACKEND_FAILURE_test" -> true
 	| _ -> false
+
+let too_small_backend_error = function
+    | Failure (Backend_error(code, params)) when code = "SR_BACKEND_FAILURE" && (List.hd params = "Disk too small") -> true
+    | _ -> false
 
 let internal_error = function
 	| Failure (Internal_error "Storage_impl_test.Api_error(\"SR_BACKEND_FAILURE_test\", _)") -> true
@@ -349,6 +367,37 @@ let test_sr_detach_cleanup_errors_2 sr vdi =
 	expect "()" (fun x -> x = Success Unit)
 		(Client.SR.detach rpc ~task ~sr)
 
+let create_vdi_test sr =
+    let dp = datapath_of_id "datapath" in
+    expect "()" (fun x -> x = Success Unit)
+        (Client.SR.attach rpc ~task ~sr);
+	let vdi_info = {
+		vdi = "";
+		name_label = "name_label";
+		name_description = "name_description";
+		virtual_size = 10L;
+		ty = "user";
+        is_a_snapshot = false;
+        snapshot_time = 0.;
+        snapshot_of = "";
+        read_only = false;
+        physical_utilisation = 10L;
+		metadata_of_pool = "";
+	} in
+    expect "too_small_backend_error" too_small_backend_error
+        (Client.VDI.create rpc ~task ~sr ~vdi_info ~params:["toosmall", ""]);
+    expect "Vdi" (function
+        | Success (Vdi v) ->
+            expect "Params _" (function Success (Params _) -> true | _ -> false)
+                (Client.VDI.attach rpc ~task ~dp ~sr ~vdi:v.vdi ~read_write:false);
+            true
+        | _ -> false
+	)
+        (Client.VDI.create rpc ~task ~sr ~vdi_info ~params:[]);
+    debug "Detaching and cleaning up";
+    expect "()" (fun x -> x = Success Unit)
+        (Client.SR.detach rpc ~task ~sr)
+
 let _ =
 	Storage_impl.print_debug := true;
 	Storage_impl.host_state_path := "/tmp/storage.db";
@@ -365,6 +414,8 @@ let _ =
 	test_sr_detach_cleanup_errors_2 "sr" "error";
 
 	test_stat "sr" "vdi";
+
+    create_vdi_test "sr";
 
 	if !total_errors = 0 then begin
 		info "OK";

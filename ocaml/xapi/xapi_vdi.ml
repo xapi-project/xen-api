@@ -189,6 +189,52 @@ let require_uuid vdi_info =
   | Some uuid -> uuid
   | None -> failwith "SM backend failed to return <uuid> field" 
 
+let newvdi ~__context ~sr newvdi =
+	let open Storage_interface in
+	let open Db_filter_types in
+	let db_vdis = Db.VDI.get_records_where  ~__context ~expr:(Eq(Field "location", Literal newvdi.vdi)) in
+	Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ]
+
+let create ~__context ~name_label ~name_description
+        ~sR ~virtual_size ~_type
+        ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
+    Sm.assert_pbd_is_plugged ~__context ~sr:sR;
+
+	(* XXX: unify with record_util.vdi_type_to_string *)
+    let vdi_type = match _type with
+        | `crashdump -> "crashdump"
+        | `ephemeral -> "ephemeral"
+        | `ha_statefile -> "ha_statefile"
+        | `metadata -> "metadata"
+        | `redo_log -> "redo_log"
+        | `suspend -> "suspend"
+        | `system -> "system"
+        | `user -> "user" in
+
+    let open Storage_access in
+    let task = Context.get_task_id __context in
+    let open Storage_interface in
+	let vdi_info = {
+		vdi = "";
+		name_label = name_label;
+		name_description = name_description;
+		ty = vdi_type;
+		metadata_of_pool = "";
+		is_a_snapshot = false;
+		snapshot_time = Date.to_float Date.never;
+		snapshot_of = "";
+		read_only = read_only;
+		virtual_size = virtual_size;
+		physical_utilisation = 0L
+	} in
+    expect_vdi
+        (fun vi ->
+            if virtual_size < vi.virtual_size
+            then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
+            newvdi ~__context ~sr:sR vi
+        ) (Client.VDI.create rpc ~task:(Ref.string_of task) ~sr:(Ref.string_of sR)
+			~vdi_info ~params:sm_config)
+
 let create ~__context ~name_label ~name_description
                   ~sR ~virtual_size ~_type
                   ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =

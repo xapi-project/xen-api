@@ -181,7 +181,8 @@ let exec_xmlrpc ?context ?(needs_session=true) (ty : sm_type) (driver: string) (
 		XML_protocol.rpc ~transport ~http xml, ""
 	| Executable ->
 		let exe = cmd_name driver in
-		begin try			
+		begin try
+			debug "XML = [ %s ]" (Xml.to_string_fmt xml);
 			let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
 			begin try
 				(Xml.parse_string output), stderr
