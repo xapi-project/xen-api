@@ -291,7 +291,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Success Unit
 							| Failure _ ->
 								result, vdi_t
-							| Success (Stat _) ->
+							| Success (Stat _ | Vdis _)->
 								Failure (Internal_error (Printf.sprintf "VDI.attach type error, received: %s" (string_of_result result))), vdi_t in
 								result, vdi_t
 							| Vdi_automaton.Activate ->
@@ -516,6 +516,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
 		let list context ~task =
 			List.map fst (Host.list !Host.host)
+
+		let scan context ~task ~sr =
+			info "SR.scan task:%s sr:%s" task sr;
+			with_sr sr
+				(fun () ->
+					match Host.find sr !Host.host with
+						| None -> Failure Sr_not_attached
+						| Some _ ->
+							Impl.SR.scan context ~task ~sr
+				)
 
 		let attach context ~task ~sr =
 			info "SR.attach task:%s sr:%s" task sr;

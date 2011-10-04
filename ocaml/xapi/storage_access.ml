@@ -89,6 +89,40 @@ module Builtin_impl = struct
 						)
 				)
 
+		let scan context ~task ~sr =
+			let self = Ref.of_string sr in
+			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string task)
+				(fun __context ->
+					Sm.call_sm_functions ~__context ~sR:self
+						(fun device_config _type ->
+							try
+								Sm.sr_scan device_config _type self;
+								let open Db_filter_types in
+								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr)) in
+								let info_of_vdi (vdi_ref, vdi_rec) = {
+									vdi = vdi_rec.API.vDI_location;
+									name_label = vdi_rec.API.vDI_name_label;
+									name_description = vdi_rec.API.vDI_name_description;
+									ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
+									metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
+									is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
+									snapshot_time = Date.to_float vdi_rec.API.vDI_snapshot_time;
+									snapshot_of = Ref.string_of vdi_rec.API.vDI_snapshot_of;
+									read_only = vdi_rec.API.vDI_read_only;
+									virtual_size = vdi_rec.API.vDI_virtual_size;
+									physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+								} in
+								Success (Vdis (List.map info_of_vdi vdis))
+							with
+								| Smint.Not_implemented_in_backend ->
+									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ sr ]))
+								| e ->
+									let e' = ExnHelper.string_of_exn e in
+									error "SR.scan failed SR:%s error:%s" sr e';
+									Failure (Storage_interface.Internal_error e')
+						)
+				)			
+
 		let list context ~task = assert false
 
 	end
@@ -445,7 +479,7 @@ let refresh_local_vdi_activations ~__context =
 						remember (sr, vdi) RW
 					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Vdi _ | Unit)
+					| Success (Vdi _ | Vdis _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs

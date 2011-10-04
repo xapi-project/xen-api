@@ -30,6 +30,27 @@ type task = string
 	connect a VBD backend to a VBD frontend *)
 type params = string
 
+(** The result of an operation which creates or examines a VDI *)
+type vdi_info = {
+    vdi: vdi;
+    name_label: string;
+    name_description: string;
+    ty: string;
+    (* sm_config: workaround via XenAPI *)
+    metadata_of_pool: string;
+    is_a_snapshot: bool;
+    snapshot_time: float;
+    snapshot_of: vdi;
+    (* managed: workaround via XenAPI *)
+    read_only: bool;
+    (* missing: workaround via XenAPI *)
+    virtual_size: int64;
+    physical_utilisation: int64;
+    (* xenstore_data: workaround via XenAPI *)
+}
+
+let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
+
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
@@ -38,14 +59,15 @@ type stat_t = {
 	dps: (string * Vdi_automaton.state) list;
 }
 
-let string_of_stat_t x = Printf.sprintf "{ superstate = %s; dps = [ %s ] }"
-	(Vdi_automaton.string_of_state x.superstate)
-	(String.concat "; " (List.map (fun (name, state) -> Printf.sprintf "%s, %s" name (Vdi_automaton.string_of_state state)) x.dps))
+let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 type success_t =
+	| Vdis of vdi_info list                    (** success (from SR.scan) *)
 	| Vdi of params                  (** success (from VDI.attach) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
+
+let string_of_success (x: success_t) = Jsonrpc.to_string (rpc_of_success_t x)
 
 type failure_t =
 	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
@@ -53,25 +75,14 @@ type failure_t =
 	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
 	| Internal_error of string		          (** error: some unexpected internal error *)
 
+let string_of_failure (x: failure_t) = Jsonrpc.to_string (rpc_of_failure_t x)
+
 (* Represents a common "result" type. Note this is only here as a way to wrap exceptions. *)
 type result =
 	| Success of success_t
 	| Failure of failure_t
 
-let string_of_success = function
-	| Vdi x -> "VDI " ^ x
-	| Unit -> "()"
-	| Stat x -> string_of_stat_t x
-
-let string_of_failure = function
-	| Sr_not_attached -> "Sr_not_attached"
-	| Illegal_transition(a, b) -> Printf.sprintf "Illegal VDI transition: %s -> %s" (Vdi_automaton.string_of_state a) (Vdi_automaton.string_of_state b)
-	| Backend_error (code, params) -> Printf.sprintf "Backend_error (%s; [ %s ])" code (String.concat ";" params)
-	| Internal_error x -> "Internal_error " ^ x
-
-let string_of_result = function
-	| Success s -> "Success: " ^ (string_of_success s)
-	| Failure f -> "Failure: " ^ (string_of_failure f)
+let string_of_result (x: result) = Jsonrpc.to_string (rpc_of_result x)
 
 let success = function
 	| Success _ -> true
@@ -108,6 +119,9 @@ module SR = struct
 		first detaching and/or deactivating any active VDIs. This may fail with 
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
 	external destroy : task:task -> sr:sr -> result = ""
+
+	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
+	external scan: task:task -> sr:sr -> result = ""
 
 	(** [list task] returns the list of currently attached SRs *)
 	external list: task:task -> sr list = ""
