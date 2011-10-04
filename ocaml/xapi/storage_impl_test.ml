@@ -112,6 +112,7 @@ module Debug_print_impl = struct
 
 	module SR = struct
 		let list context ~task = assert false
+		let scan context ~task ~sr = assert false
 		let attach context ~task ~sr =
 			info "SR.attach sr:%s" sr;
 			Success Unit

@@ -29,6 +29,7 @@ let task = "sm-cli"
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
 	Printf.fprintf stderr "  %s sr-list\n" Sys.argv.(0);
+	Printf.fprintf stderr "  %s sr-scan\n" Sys.argv.(0);
 	exit 1
 
 let _ =
@@ -40,6 +41,18 @@ let _ =
 				(fun sr ->
 					Printf.printf "%s\n" sr
 				) srs
+		| "sr-scan" ->
+			if Array.length Sys.argv < 3 then usage_and_exit ();
+			let sr = Sys.argv.(2) in
+			begin match Client.SR.scan rpc ~task ~sr with
+				| Success (Vdis vs) ->
+					List.iter
+						(fun v ->
+							Printf.printf "%s\n" (string_of_vdi_info v)
+						) vs
+				| x ->
+					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
+			end
 		| x ->
 			Printf.fprintf stderr "Unknown command: %s\n" x;
 			usage_and_exit ()
