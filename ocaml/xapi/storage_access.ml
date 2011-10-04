@@ -255,8 +255,11 @@ module Builtin_impl = struct
                 Mutex.execute vdi_read_write_m
                     (fun () -> Hashtbl.remove vdi_read_write (sr, vdi));
                 Success Unit
-            with Api_errors.Server_error(code, params) ->
-                Failure (Backend_error(code, params))
+            with 
+				| Api_errors.Server_error(code, params) ->
+					Failure (Backend_error(code, params))
+				| No_VDI ->
+					Failure Vdi_does_not_exist
 	end
 end
 

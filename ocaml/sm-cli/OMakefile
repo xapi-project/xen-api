@@ -1,13 +1,16 @@
 OCAML_LIBS    =
 OCAMLINCLUDES = ../xapi
-OCAMLPACKS    = xml-light2 stdext stunnel log http-svr
+OCAMLPACKS    = xml-light2 stdext stunnel log http-svr oUnit
 
 section
 	OCAMLINCLUDES += .
 	OCAMLFLAGS = -dtypes -thread -warn-error F
 	CLI_FILES = main ../xapi/storage_interface ../xapi/vdi_automaton
+	TEST_FILES = test ../xapi/storage_interface ../xapi/vdi_automaton
 	OCamlProgram(sm, $(CLI_FILES))
 	OCamlDocProgram(sm, $(CLI_FILES))
+	OCamlProgram(smtest, $(TEST_FILES))
+	OCamlDocProgram(smtest, $(TEST_FILES))
 
 .PHONY: clean
 clean:
