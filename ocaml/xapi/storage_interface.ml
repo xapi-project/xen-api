@@ -110,7 +110,7 @@ module SR = struct
 	(** Functions which attach/detach SRs *)
 
 	(** [attach task sr]: attaches the SR *)
-    external attach : task:task -> sr:sr -> result = ""
+    external attach : task:task -> sr:sr -> device_config:(string * string) list -> result = ""
 
 	(** [detach task sr]: detaches the SR, first detaching and/or deactivating any
 		active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach
