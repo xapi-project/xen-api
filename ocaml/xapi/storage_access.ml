@@ -30,7 +30,14 @@ module Builtin_impl = struct
 	    the backend interface.
 	*)
 
-	type context = unit
+	type context = Smint.request
+
+    let query context () = {
+        name = "SMAPIv1 adapter";
+        vendor = "XCP";
+        version = "0.1";
+        features = [];
+    }
 
 	module DP = struct
 		let create context ~task ~id = assert false
@@ -269,12 +276,6 @@ module Builtin_impl = struct
 	end
 end
 
-module Server=Server(Storage_impl.Wrapper(Builtin_impl))
-
-let start () =
-	let open Storage_impl.Local_domain_socket in
-	start Xapi_globs.storage_unix_domain_socket Server.process
-
 module Qemu_blkfront = struct
 	(** If the qemu is in a different domain to the storage backend, a blkfront is
 		needed to exposes disks to guests so the emulated interfaces work. *)
@@ -353,26 +354,64 @@ module Qemu_blkfront = struct
             ) vbd
 end
 
+module type SERVER = sig
+    val process : Smint.request -> Rpc.call -> Rpc.response
+end
 
+let make_local _ =
+    (module Server(Builtin_impl) : SERVER)
 
-let rpc_unix call =
+let make_remote host path =
 	let open Xmlrpc_client in
-	XML_protocol.rpc ~transport:(Unix Xapi_globs.storage_unix_domain_socket) 
-		~http:(xmlrpc ~version:"1.0" "/") call
+    (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
 
-let rpc_inprocess call = Server.process () call
+let bind ~__context ~pbd =
+    (* Start the VM if necessary, discover its domid *)
+    let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
+    if Db.VM.get_power_state ~__context ~self:driver = `Halted then begin
+        info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd) (Ref.string_of driver);
+        Helpers.call_api_functions ~__context
+            (fun rpc session_id -> XenAPI.VM.start rpc session_id driver false false);
+    end;
+    let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:driver) in
+    let ip_of driver =
+        (* Find the VIF on the Host internal management network *)
+        let vifs = Db.VM.get_VIFs ~__context ~self:driver in
+        let hin = Helpers.get_host_internal_management_network ~__context in
+        let ip =
+            let vif =
+                try
+                    List.find (fun vif -> Db.VIF.get_network ~__context ~self:vif = hin) vifs
+                with Not_found -> failwith (Printf.sprintf "PBD %s driver domain %s has no VIF on host internal management network" (Ref.string_of pbd) (Ref.string_of driver)) in
+            match Xapi_udhcpd.get_ip ~__context vif with
+                | Some (a, b, c, d) -> Printf.sprintf "%d.%d.%d.%d" a b c d
+                | None -> failwith (Printf.sprintf "PBD %s driver domain %s has no IP on the host internal management network" (Ref.string_of pbd) (Ref.string_of driver)) in
 
-(** [rpc_of_sr __context sr] returns an Rpc.call -> Rpc.response function
-    for talking to the implementation of [sr], which could be in xapi, in domain 0
-    or in a driver domain. *)
-let rpc_of_sr ~__context ~sr = rpc_inprocess
+        info "PBD %s driver domain domid:%d ip:%s" (Ref.string_of pbd) domid ip;
+        if not(System_domains.wait_for (System_domains.pingable ip))
+        then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
+        if not(System_domains.wait_for (System_domains.queryable ip 8080))
+        then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to XMLRPC query" (Ref.string_of pbd) (Ref.string_of driver));
+        ip in
+    let sr = Db.PBD.get_SR ~__context ~self:pbd in
+    let path = Xapi_services.path [ Xapi_services._services; Xapi_services._SM; Db.SR.get_type ~__context ~self:sr ] in
 
-(** [rpc_of_vbd __context vbd] returns an Rpc.call -> Rpc.response function
-    for talking to the SR underlying the VDI corresponding to [vbd]. See rpc_of_sr *)
-let rpc_of_vbd ~__context ~vbd = rpc_inprocess
+    let dom0 = Helpers.get_domain_zero ~__context in
+    let module Impl = (val (if driver = dom0 then make_local path else make_remote (ip_of driver) path): SERVER) in
+    let sr = Db.PBD.get_SR ~__context ~self:pbd in
+    info "SR %s will be implemented by %s in VM %s" (Ref.string_of sr) path (Ref.string_of driver);
+    Storage_mux.register sr (Impl.process (Some path)) domid
 
-(** RPC function for calling the main storage multiplexor *)
-let rpc = rpc_inprocess
+let unbind ~__context ~pbd =
+        let sr = Db.PBD.get_SR ~__context ~self:pbd in
+        Storage_mux.unregister sr
+
+let rpc call = Storage_mux.Server.process None call
+
+let start () =
+	let open Storage_impl.Local_domain_socket in
+	start Xapi_globs.storage_unix_domain_socket Storage_mux.Server.process
+
 
 (** [datapath_of_vbd domid userdevice] returns the name of the datapath which corresponds
     to device [userdevice] on domain [domid] *)
@@ -405,11 +444,14 @@ let expect_unit f x = match x with
 	| Success Unit -> f ()
 	| _ -> unexpected_result "()" x
 
+let expect_string f x = match x with
+	| Success (String x) -> f x
+	| _ -> unexpected_result "String" x
+
 let of_vbd ~__context ~vbd ~domid =
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
 	let location = Db.VDI.get_location ~__context ~self:vdi in
 	let sr = Db.VDI.get_SR ~__context ~self:vdi in
-	let rpc = rpc_of_sr ~__context ~sr in
 	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
 	let task = Context.get_task_id __context in
 	let dp = datapath_of_vbd ~domid ~userdevice in
@@ -466,7 +508,8 @@ let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 	then Qemu_blkfront.destroy ~__context ~self:vbd
 
 let diagnostics ~__context =
-	Storage_interface.Client.DP.diagnostics rpc ()
+	expect_string (fun x -> x)
+		(Storage_interface.Client.DP.diagnostics rpc ())
 
 let dp_destroy ~__context dp allow_leak =
 	let task = Context.get_task_id __context in
@@ -483,6 +526,7 @@ let resynchronise_pbds ~__context ~pbds =
 			let sr = Db.PBD.get_SR ~__context ~self in
 			let value = List.mem (Ref.string_of sr) srs in
 			debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
+			if value then bind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value
 		) pbds
 
@@ -551,7 +595,7 @@ let refresh_local_vdi_activations ~__context =
 						remember (sr, vdi) RW
 					| Success (Stat { superstate = Detached }) -> 
 						unlock_vdi (vdi_ref, vdi_rec)
-					| Success (Params _ | Vdi _ | Vdis _ | Unit)
+					| Success (Params _ | Vdi _ | Vdis _ | String _ | Unit)
 					| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r)
 			else unlock_vdi (vdi_ref, vdi_rec)
 		) all_vdi_recs
@@ -571,25 +615,15 @@ let vbd_detach_order ~__context vbds = List.rev (vbd_attach_order ~__context vbd
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
    It would be better not to plug in the PBD, so that other API calls will be blocked. *)
 let destroy_sr ~__context ~sr =
-	let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-	let localhost = Helpers.get_localhost ~__context in
-
-	let rpc = rpc_of_sr ~__context ~sr in
+	let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
+	bind ~__context ~pbd;
 	let task = Ref.string_of (Context.get_task_id __context) in
-    let device_config =
-        match List.filter (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = localhost) pbds with
-            | pbd :: _ -> Db.PBD.get_device_config ~__context ~self:pbd
-            | _ -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ])) in
-
 	expect_unit (fun () -> ())
-		(Client.SR.attach rpc task (Ref.string_of sr) device_config);
+		(Client.SR.attach rpc task (Ref.string_of sr) pbd_t.API.pBD_device_config);
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
-	List.iter
-		(fun self ->
-			if Db.PBD.get_host ~__context ~self = localhost
-			then Db.PBD.set_currently_attached ~__context ~self ~value:true
-		) pbds;
+	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 	expect_unit (fun () -> ())
 		(Client.SR.destroy rpc task (Ref.string_of sr));	
 	(* All PBDs are clearly currently_attached = false now *)
-	List.iter (fun self -> Db.PBD.set_currently_attached ~__context ~self ~value:false) pbds
+	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
+	unbind ~__context ~pbd

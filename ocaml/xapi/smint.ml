@@ -80,4 +80,12 @@ exception Sr_not_empty
 exception Vdi_in_use
 exception Device_in_use
 
+(** Identifies where a request should go to (i.e. a URI) or None if unknown *)
+type request = string option
+
+let string_of_request = function
+	| Some x -> Printf.sprintf "Some %s" x
+	| None -> "None"
+
+
 
