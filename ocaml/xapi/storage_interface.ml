@@ -39,7 +39,7 @@ type vdi_info = {
     (* sm_config: workaround via XenAPI *)
     metadata_of_pool: string;
     is_a_snapshot: bool;
-    snapshot_time: float;
+    snapshot_time: string;
     snapshot_of: vdi;
     (* managed: workaround via XenAPI *)
     read_only: bool;

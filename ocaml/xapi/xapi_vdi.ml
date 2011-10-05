@@ -193,7 +193,10 @@ let newvdi ~__context ~sr newvdi =
 	let open Storage_interface in
 	let open Db_filter_types in
 	let db_vdis = Db.VDI.get_records_where  ~__context ~expr:(Eq(Field "location", Literal newvdi.vdi)) in
-	Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ]
+	Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ];
+	match Db.VDI.get_records_where  ~__context ~expr:(Eq(Field "location", Literal newvdi.vdi)) with
+		| (vdi, _) :: _ -> vdi
+		| [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
 
 let create ~__context ~name_label ~name_description
         ~sR ~virtual_size ~_type
@@ -221,7 +224,7 @@ let create ~__context ~name_label ~name_description
 		ty = vdi_type;
 		metadata_of_pool = "";
 		is_a_snapshot = false;
-		snapshot_time = Date.to_float Date.never;
+		snapshot_time = Date.to_string Date.never;
 		snapshot_of = "";
 		read_only = read_only;
 		virtual_size = virtual_size;
@@ -235,45 +238,8 @@ let create ~__context ~name_label ~name_description
         ) (Client.VDI.create rpc ~task:(Ref.string_of task) ~sr:(Ref.string_of sR)
 			~vdi_info ~params:sm_config)
 
-let create ~__context ~name_label ~name_description
-                  ~sR ~virtual_size ~_type
-                  ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
-	Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-
-	let vdi_type = match _type with
-	| `crashdump -> "crashdump"
-	| `ephemeral -> "ephemeral"
-	| `ha_statefile -> "ha_statefile"
-	| `metadata -> "metadata"
-	| `redo_log -> "redo_log"
-	| `suspend -> "suspend"
-	| `system -> "system"
-	| `user -> "user" in
-	let vdi_info = 
-	    Sm.call_sm_functions ~__context ~sR
-	      (fun device_config sr_type ->
-		Sm.vdi_create device_config sr_type sR sm_config vdi_type virtual_size name_label name_description)
- 	in
-	let uuid = require_uuid vdi_info in
-	let ref = Db.VDI.get_by_uuid ~__context ~uuid in
-
-	let actual_size = Db.VDI.get_virtual_size ~__context ~self:ref in
-	debug "created VDI on disk, requested size = %Ld; actual size = %Ld" virtual_size actual_size;
-
-	(* Set the fields which belong to the higher-level API: *)
-	Db.VDI.set_other_config ~__context ~self:ref ~value:other_config;
-	Db.VDI.set_tags ~__context ~self:ref ~value:tags;
-	Db.VDI.set_xenstore_data ~__context ~self:ref ~value:xenstore_data;
-	Db.VDI.set_sharable ~__context ~self:ref ~value:sharable;
-	Db.VDI.set_type ~__context ~self:ref ~value:_type;
-	Db.VDI.set_name_label ~__context ~self:ref ~value:name_label;
-	Db.VDI.set_name_description ~__context ~self:ref ~value:name_description;
-
-	update_allowed_operations ~__context ~self:ref;
-	ref
-
 (* Make the database record only *)
-let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
+let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   (* Verify that the location field is unique in this SR *)
   List.iter
     (fun vdi ->
@@ -288,22 +254,23 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     with _ -> raise (Api_errors.Server_error (Api_errors.uuid_invalid, [ "VDI"; uuid ]))
   end;
   let ref = Ref.make() in
+  debug "VDI.introduce read_only = %b" read_only;
   Db.VDI.create ~__context ~ref ~uuid:uuid
     ~name_label ~name_description 
     ~current_operations:[] ~allowed_operations:[]
-    ~is_a_snapshot:false ~snapshot_of:Ref.null ~snapshot_time:Date.never
-    ~sR ~virtual_size:(-1L)
-    ~physical_utilisation:(-1L) ~_type
+    ~is_a_snapshot ~snapshot_of ~snapshot_time
+    ~sR ~virtual_size
+    ~physical_utilisation ~_type
     ~sharable ~read_only
     ~xenstore_data ~sm_config
-    ~other_config ~storage_lock:false ~location ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
+    ~other_config ~storage_lock:false ~location ~managed ~missing:false ~parent:Ref.null ~tags:[]
     ~on_boot:`persist ~allow_caching:false
-    ~metadata_of_pool:Ref.null ~metadata_latest:false;
+    ~metadata_of_pool ~metadata_latest:false;
   ref
 
-let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
+let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   debug "{pool,db}_introduce uuid=%s name_label=%s" uuid name_label;
-  let ref = introduce_dbonly ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config in
+  let ref = introduce_dbonly ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of in
   update_allowed_operations ~__context ~self:ref;
   ref
   
@@ -314,7 +281,7 @@ let db_forget ~__context ~vdi =
   debug "db_forget uuid=%s" (Db.VDI.get_uuid ~__context ~self:vdi);
   Db.VDI.destroy ~__context ~self:vdi
 
-let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config =
+let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));  
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   let vdi_info = 

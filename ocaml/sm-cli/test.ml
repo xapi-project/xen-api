@@ -49,7 +49,7 @@ let test_create_destroy sr _ =
 	let ty = "ephemeral" in
 	let metadata_of_pool = "mop" in
 	let is_a_snapshot = true in
-	let snapshot_time = 0. in
+	let snapshot_time = "19700101T00:00:00Z" in
 	let snapshot_of = "sof" in
 	let read_only = false in
 	let virtual_size = 123L in
@@ -75,21 +75,21 @@ let test_create_destroy sr _ =
 			then fail (Printf.sprintf "name_label: %s <> %s" vdi_info.name_label vdi_info'.name_label);
 			if vdi_info.name_description <> vdi_info'.name_description
 			then fail (Printf.sprintf "name_description: %s <> %s" vdi_info.name_description vdi_info'.name_description);
-			if vdi_info.ty <> vdi_info'.ty
+			if (String.lowercase vdi_info.ty) <> (String.lowercase vdi_info'.ty)
 			then fail (Printf.sprintf "ty: %s <> %s" vdi_info.ty vdi_info'.ty);
 			if vdi_info.metadata_of_pool <> vdi_info'.metadata_of_pool
 			then fail (Printf.sprintf "metadata_of_pool: %s <> %s" vdi_info.metadata_of_pool vdi_info'.metadata_of_pool);
 			if vdi_info.is_a_snapshot <> vdi_info'.is_a_snapshot
 			then fail (Printf.sprintf "is_a_snapshot: %b <> %b" vdi_info.is_a_snapshot vdi_info'.is_a_snapshot);
 			if vdi_info.snapshot_time <> vdi_info'.snapshot_time
-			then fail (Printf.sprintf "snapshot_time: %.0f <> %.0f" vdi_info.snapshot_time vdi_info'.snapshot_time);
+			then fail (Printf.sprintf "snapshot_time: %s <> %s" vdi_info.snapshot_time vdi_info'.snapshot_time);
 			if vdi_info.snapshot_of <> vdi_info'.snapshot_of
 			then fail (Printf.sprintf "snapshot_of: %s <> %s" vdi_info.snapshot_of vdi_info'.snapshot_of);
 			if vdi_info.read_only <> vdi_info'.read_only
 			then fail (Printf.sprintf "read_only: %b <> %b" vdi_info.read_only vdi_info'.read_only);
 			assert_equal vdi_info.name_label vdi_info'.name_label;
 			assert_equal vdi_info.name_description vdi_info'.name_description;
-			assert_equal vdi_info.ty vdi_info'.ty;
+			assert_equal (String.lowercase vdi_info.ty) (String.lowercase vdi_info'.ty);
 			assert_equal vdi_info.metadata_of_pool vdi_info'.metadata_of_pool;
 			assert_equal vdi_info.is_a_snapshot vdi_info'.is_a_snapshot;
 			assert_equal vdi_info.snapshot_time vdi_info'.snapshot_time;

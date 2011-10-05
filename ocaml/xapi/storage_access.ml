@@ -106,7 +106,7 @@ module Builtin_impl = struct
 									ty = Record_util.vdi_type_to_string vdi_rec.API.vDI_type;
 									metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
 									is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
-									snapshot_time = Date.to_float vdi_rec.API.vDI_snapshot_time;
+									snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
 									snapshot_of = Ref.string_of vdi_rec.API.vDI_snapshot_of;
 									read_only = vdi_rec.API.vDI_read_only;
 									virtual_size = vdi_rec.API.vDI_virtual_size;
@@ -223,7 +223,7 @@ module Builtin_impl = struct
                 ty = Record_util.vdi_type_to_string r.API.vDI_type;
 				metadata_of_pool = Ref.string_of r.API.vDI_metadata_of_pool;
                 is_a_snapshot = r.API.vDI_is_a_snapshot;
-                snapshot_time = Date.to_float r.API.vDI_snapshot_time;
+                snapshot_time = Date.to_string r.API.vDI_snapshot_time;
                 snapshot_of = Ref.string_of r.API.vDI_snapshot_of;
                 read_only = r.API.vDI_read_only;
                 virtual_size = r.API.vDI_virtual_size;
@@ -240,6 +240,8 @@ module Builtin_impl = struct
                                 (fun device_config _type ->
                                     Sm.vdi_create device_config _type sr params vdi_info.ty
                                         vdi_info.virtual_size vdi_info.name_label vdi_info.name_description
+										vdi_info.metadata_of_pool vdi_info.is_a_snapshot
+										vdi_info.snapshot_time vdi_info.snapshot_of vdi_info.read_only
                                 ) in
                         Success (newvdi ~__context vi)
                     )
