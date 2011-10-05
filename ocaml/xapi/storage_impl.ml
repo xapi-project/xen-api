@@ -550,13 +550,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							Impl.SR.scan context ~task ~sr
 				)
 
-		let attach context ~task ~sr =
-			info "SR.attach task:%s sr:%s" task sr;
+		let attach context ~task ~sr ~device_config =
+			info "SR.attach task:%s sr:%s device_config:[%s]" task sr (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) device_config));
 			with_sr sr
 				(fun () ->
 					match Host.find sr !Host.host with
 					| None ->
-						begin match Impl.SR.attach context ~task ~sr with
+						begin match Impl.SR.attach context ~task ~sr ~device_config with
 						| Success Unit ->
 							Host.replace sr (Sr.empty ()) !Host.host;
 							(* FH1: Perform the side-effect first: in the case of a

@@ -39,14 +39,18 @@ module Builtin_impl = struct
 	end
 
 	module SR = struct
-		let attach context ~task ~sr =
+		let attach context ~task ~sr ~device_config =
 			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
+					(* Existing backends expect an SRMaster flag to be added
+					   through the device-config. *)
+					let srmaster = Helpers.i_am_srmaster ~__context ~sr:self in
+					let device_config = (Sm.sm_master srmaster) :: device_config in
 					Sm.call_sm_functions ~__context ~sR:self
-						(fun device_config _type ->
+						(fun _ _type ->
 							try
-								Sm.sr_attach device_config _type self;
+								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type self;
 								Success Unit
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
@@ -572,9 +576,13 @@ let destroy_sr ~__context ~sr =
 
 	let rpc = rpc_of_sr ~__context ~sr in
 	let task = Ref.string_of (Context.get_task_id __context) in
+    let device_config =
+        match List.filter (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = localhost) pbds with
+            | pbd :: _ -> Db.PBD.get_device_config ~__context ~self:pbd
+            | _ -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ])) in
 
 	expect_unit (fun () -> ())
-		(Client.SR.attach rpc task (Ref.string_of sr));	
+		(Client.SR.attach rpc task (Ref.string_of sr) device_config);
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 	List.iter
 		(fun self ->

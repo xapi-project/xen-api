@@ -111,8 +111,9 @@ let plug ~__context ~self =
 				check_sharing_constraint ~__context ~self:sr;
 				let rpc = Storage_access.rpc_of_sr ~__context ~sr in
 				let task = Ref.string_of (Context.get_task_id __context) in
+				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.expect_unit (fun () -> ())
-					(Storage_interface.Client.SR.attach rpc task (Ref.string_of sr));
+					(Storage_interface.Client.SR.attach rpc task (Ref.string_of sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 			end
 

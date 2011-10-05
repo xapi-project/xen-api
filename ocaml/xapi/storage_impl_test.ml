@@ -143,7 +143,7 @@ module Debug_print_impl = struct
 	module SR = struct
 		let list context ~task = assert false
 		let scan context ~task ~sr = assert false
-		let attach context ~task ~sr =
+		let attach context ~task ~sr ~device_config =
 			info "SR.attach sr:%s" sr;
 			Success Unit
 		let fail_if_anything_leaked () = 
@@ -275,7 +275,7 @@ let leak dp sr activate vdi =
 let test_sr sr =
 	let dp = datapath_of_id "pbd" in
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	test_vdis sr;
 	leak dp sr false "leaked";
 	leak dp sr true "leaked2";
@@ -283,7 +283,7 @@ let test_sr sr =
 	expect "()" (fun x -> x = Success Unit)
 		(Client.SR.detach rpc ~task ~sr);
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	leak dp sr false "leaked";
 	leak dp sr true "leaked2";
 	info "About to logout";
@@ -295,7 +295,7 @@ let test_sr sr =
 	(* About to check the error handling *)
 	let dp = datapath_of_id "error" in
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	debug "This VDI.attach should fail:";
 	expect "internal_error" internal_error
 		(Client.VDI.attach rpc ~task ~dp ~sr ~vdi:"leaked" ~read_write:true);
@@ -310,7 +310,7 @@ let test_sr sr =
 (* Check the VDI.stat function works *)
 let test_stat sr vdi = 
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	let dp1 = datapath_of_id "dp1" (* will be r/w *)
 	and dp2 = datapath_of_id "dp2" (* will be r/o *) in
 	expect "Params _" (function Success (Params _) -> true | _ -> false)
@@ -348,7 +348,7 @@ let test_stat sr vdi =
 let test_sr_detach_cleanup_errors_1 sr vdi =
 	Debug_print_impl.VDI.working := false;
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	let dp = datapath_of_id "datapath" in
 	leak dp sr true vdi;
 	expect "()" (fun x -> x = Success Unit)
@@ -367,7 +367,7 @@ let test_sr_detach_cleanup_errors_1 sr vdi =
 let test_sr_detach_cleanup_errors_2 sr vdi =
 	Debug_print_impl.VDI.working := false;
 	expect "()" (fun x -> x = Success Unit)
-		(Client.SR.attach rpc ~task ~sr);
+		(Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	let dp = datapath_of_id "datapath" in
 	leak dp sr true vdi;
 	if vdi = "error2"
@@ -386,7 +386,7 @@ let test_sr_detach_cleanup_errors_2 sr vdi =
 let create_vdi_test sr =
     let dp = datapath_of_id "datapath" in
     expect "()" (fun x -> x = Success Unit)
-        (Client.SR.attach rpc ~task ~sr);
+        (Client.SR.attach rpc ~task ~sr ~device_config:[]);
 	let vdi_info = {
 		vdi = "";
 		name_label = "name_label";
