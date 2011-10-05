@@ -660,6 +660,7 @@ let master_only_http_handlers = [
 ]
 
 let common_http_handlers = [
+  ("get_services", (Http_svr.FdIO Xapi_services.handler));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
   ("put_import", (Http_svr.FdIO Import.handler));
   ("put_import_metadata", (Http_svr.FdIO Import.metadata_handler));

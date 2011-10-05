@@ -38,3 +38,6 @@ val wait_for: ?timeout:float -> (unit -> bool) -> bool
 
 (** [pingable ip ()] returns true if the [ip] responds to an ICMP ECHO REQUEST *)
 val pingable: string -> unit -> bool
+
+(** [queryable ip port ()] returns true if [ip]:[port] responsds to an XMLRPC query *)
+val queryable: string -> int -> unit -> bool

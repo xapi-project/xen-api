@@ -245,11 +245,13 @@ module Everything = struct
 end
 
 module Wrapper = functor(Impl: Server_impl) -> struct
-	type context = unit
+	type context = Smint.request
 
 	let expect_unit dp sr vdi x = match x with
 		| Success Unit -> ()
 		| x -> Errors.add dp sr vdi (string_of_result x)
+
+	let query = Impl.query
 
 	module VDI = struct
 		type vdi_locks = (string, unit) Storage_locks.t
@@ -294,7 +296,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 							| Success Unit
 							| Failure _ ->
 								result, vdi_t
-							| Success (Stat _ | Vdi _ | Vdis _)->
+							| Success (Stat _ | Vdi _ | Vdis _ | String _)->
 								Failure (Internal_error (Printf.sprintf "VDI.attach type error, received: %s" (string_of_result result))), vdi_t in
 								result, vdi_t
 							| Vdi_automaton.Activate ->
@@ -526,11 +528,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			let of_sr (sr, sr_t) =
 				let title = Printf.sprintf "SR %s" sr in
 				title :: (List.map indent (Sr.to_string_list sr_t)) in
-				let srs = List.concat (List.map of_sr srs) in
-				let errors = List.map Errors.to_string (Errors.list ()) in
-				let errors = (if errors <> [] then "The following errors have been logged:" else "No errors have been logged.") :: errors in
-				let lines = [ "The following SRs are attached:" ] @ (List.map indent srs) @ [ "" ] @ errors in
-				String.concat "" (List.map (fun x -> x ^ "\n") lines)
+			let srs = List.concat (List.map of_sr srs) in
+			let errors = List.map Errors.to_string (Errors.list ()) in
+			let errors = (if errors <> [] then "The following errors have been logged:" else "No errors have been logged.") :: errors in
+			let lines = [ "The following SRs are attached:" ] @ (List.map indent srs) @ [ "" ] @ errors in
+			Success (String (String.concat "" (List.map (fun x -> x ^ "\n") lines)))
 	end
 
 	module SR = struct
@@ -641,7 +643,7 @@ module Local_domain_socket = struct
 		let s = Buf_io.fd_of bio in
 		let rpc = Xmlrpc.call_of_string body in
 		(* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
-		let result = process () rpc in
+		let result = process (Some req.Http.Request.uri) rpc in
 		(* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
 		let str = Xmlrpc.string_of_response result in
 		Http_svr.response_str req s str

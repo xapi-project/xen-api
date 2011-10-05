@@ -17,6 +17,13 @@
 
 open Vdi_automaton
 
+type query_result = {
+    name: string;
+    vendor: string;
+    version: string;
+    features: string list;
+}
+
 (** Primary key identifying the SR *)
 type sr = string
 
@@ -65,6 +72,7 @@ type success_t =
 	| Vdis of vdi_info list                    (** success (from SR.scan) *)
 	| Vdi of vdi_info                         (** success (from VDI.create) *)
 	| Params of params                        (** success (from VDI.attach) *)
+	| String of string                        (** success (from DP.diagnostics) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
 
@@ -90,6 +98,25 @@ let success = function
 	| Success _ -> true
 	| Failure _ -> false
 
+module Driver_info = struct
+    type t = {
+        uri: string;
+        name: string;
+        description: string;
+        vendor: string;
+        copyright: string;
+        version: string;
+        required_api_version: string;
+        capabilities: string list;
+        configuration: (string * string) list;
+    }
+
+    type ts = t list
+end
+
+(** [query ()] returns information about this storage driver *)
+external query: unit -> query_result = ""
+
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
 
@@ -103,7 +130,7 @@ module DP = struct
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
-	external diagnostics: unit -> string = ""
+	external diagnostics: unit -> result = ""
 end
 
 module SR = struct

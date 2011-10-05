@@ -93,11 +93,12 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun params ->
+				let backend_domid = Storage_mux.domid_of_sr (Ref.string_of sr) in
 				try
 					(* The backend can put useful stuff in here on vdi_attach *)
 					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in
 					let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype ~params
-						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] domid in
+						~device_number ~dev_type ~unpluggable ~protocol ~extra_backend_keys ~extra_private_keys:[ "ref", Ref.string_of self ] ~backend_domid domid in
 					Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 					Db.VBD.set_currently_attached ~__context ~self ~value:true;
 					debug "set_currently_attached to true for VBD uuid %s" (Db.VBD.get_uuid ~__context ~self)
