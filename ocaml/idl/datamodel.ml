@@ -158,6 +158,12 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
+let tampa_release =
+	{ internal=get_product_releases rel_tampa
+	; opensource=get_oss_releases None
+	; internal_deprecated_since=None
+	}
+
 let boston_release =
 	{ internal=get_product_releases rel_boston
 	; opensource=get_oss_releases None
@@ -4780,6 +4786,15 @@ let vdi_introduce_params first_rel =
     {param_type=String; param_name="location"; param_doc="location information"; param_release=first_rel; param_default=None};
     {param_type=Map(String, String); param_name="xenstore_data"; param_doc="Data to insert into xenstore"; param_release=first_rel; param_default=Some (VMap [])};
     {param_type=Map(String, String); param_name="sm_config"; param_doc="Storage-specific config"; param_release=miami_release; param_default=Some (VMap [])};
+	{param_type=Bool; param_name = "managed"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool true) };
+	{param_type=Int; param_name="virtual_size"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
+	{param_type=Int; param_name="physical_utilisation"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
+	{param_type=Ref _pool; param_name="metadata_of_pool"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
+	{param_type=Bool; param_name="is_a_snapshot"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool false) };
+	{param_type=DateTime; param_name="snapshot_time"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VDateTime Date.never) };
+	{param_type=Ref _vdi; param_name="snapshot_of"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
+
+
   ]
 
 (* This used to be called VDI.introduce but it was always an internal call *)
