@@ -15,6 +15,7 @@ module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Threadext
+open Db_filter_types
 
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
@@ -22,18 +23,14 @@ let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
 let is_dom0_interface pif_r = pif_r.API.pIF_ip_configuration_mode <> `None
-		
+
 (* Make sure inventory file has all current interfaces on the local host, so
  * they will all be brought up again at start up. *)
 let update_inventory ~__context =
 	let localhost = Helpers.get_localhost ~__context in
-	let pifs = List.filter 
-		(fun (pif, pif_r) -> 
-			true &&
-				pif_r.API.pIF_host = localhost &&
-				is_dom0_interface pif_r &&
-				pif_r.API.pIF_currently_attached)
-		(Db.PIF.get_all_records ~__context) in
+	let pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+			Not (Eq (Field "ip_configuration_mode", Literal "None")))) in
 	let bridges = List.map (fun (_, pif_r) -> Db.Network.get_bridge ~__context ~self:pif_r.API.pIF_network) pifs in
 	Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
 
@@ -78,7 +75,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 			Stunnel_cache.flush ();
 			if management_interface then begin
 				warn "About to kill active client stunnels";
-				let stunnels = 
+				let stunnels =
 					let all = Locking_helpers.Thread_state.get_all_acquired_resources () in
 					debug "There are %d allocated resources" (List.length all);
 					List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in

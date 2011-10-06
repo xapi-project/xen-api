@@ -15,6 +15,8 @@
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
+open Db_filter_types
+
 let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
   (* Check if there are any active VIFs on VMs resident on me *)
   let vifs = Db.Network.get_VIFs ~__context ~self:network in
@@ -36,9 +38,11 @@ let assert_pif_disallow_unplug_not_set ~__context pif =
     raise (Api_errors.Server_error(Api_errors.pif_does_not_allow_unplug, [ Ref.string_of pif ]))    
 
 let assert_can_attach_network_on_host ~__context ~self ~host =
-  let pifs = Db.Network.get_PIFs ~__context ~self in
   (* There really should be only one local PIF by construction *)
-  let local_pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) pifs in
+  let local_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+    Eq (Field "network", Literal (Ref.string_of self)),
+    Eq (Field "host", Literal (Ref.string_of host))
+  )) in
   (* Plugging a bond slave is not allowed *)
   let assert_no_slave pif =
     if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then

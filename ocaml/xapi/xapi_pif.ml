@@ -20,6 +20,7 @@ open Listext
 open Pervasiveext
 open Stringext
 open Fun
+open Db_filter_types
 
 let refresh_internal ~__context ~self =
 
@@ -203,26 +204,20 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
 	end
 
 let assert_no_other_local_pifs ~__context ~host ~network =
-	let all_pifs = Db.Host.get_PIFs ~__context ~self:host in
-	let other_pifs =
-		List.filter
-			(fun self -> Db.PIF.get_network ~__context ~self = network)
-			(all_pifs) in
+	let other_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "network", Literal (Ref.string_of network)),
+		Eq (Field "host", Literal (Ref.string_of host))
+	)) in
 	if other_pifs <> []
 	then raise (Api_errors.Server_error
 		(Api_errors.network_already_connected,
 			[Ref.string_of host; Ref.string_of (List.hd other_pifs)]))
 
 let find_or_create_network (bridge: string) (device: string) ~__context =
-	let all = Db.Network.get_all ~__context in
-	let bridges =
-		List.map
-			(fun self -> Db.Network.get_bridge ~__context ~self)
-			(all) in
-	let table = List.combine bridges all in
-	if List.mem_assoc bridge table
-	then List.assoc bridge table
-	else
+	let nets = Db.Network.get_refs_where ~__context ~expr:(Eq (Field "bridge", Literal bridge)) in
+	match nets with
+	| [net] -> net
+	| _ ->
 		let net_ref = Ref.make ()
 		and net_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 		let () = Db.Network.create
@@ -243,21 +238,16 @@ let make_tables ~__context ~host =
 		List.filter
 			(Netdev.is_physical)
 			(Netdev.list ()) in
-	let pifs =
-		List.filter
-			(fun pif -> Db.PIF.get_physical ~__context ~self:pif)
-			(Db.Host.get_PIFs ~__context ~self:host) in
+	let pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
+			Eq (Field "physical", Literal "true"))) in
 	{
 		device_to_mac_table =
 			List.combine
 				(devices)
 				(List.map Netdev.get_address devices);
 		pif_to_device_table =
-			List.combine
-				(pifs)
-				(List.map
-					(fun pif -> Db.PIF.get_device ~__context ~self:pif)
-					(pifs));
+			List.map (fun (pref, prec) -> pref, prec.API.pIF_device) pifs;
 	}
 
 let is_my_management_pif ~__context ~self =
@@ -599,17 +589,10 @@ let rec plug ~__context ~self =
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
-	List.filter
-		(fun (_,pifr) ->
-			true
-			&& pifr.API.pIF_host = localhost
-				(* this host only *)
-			(* && Nm.is_dom0_interface pifr *)
-			&& not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)
-				(* not enslaved by a bond *)
-			&& not (Db.is_valid_ref __context pifr.API.pIF_VLAN_master_of)
-				(* not a VLAN PIF *))
-		(Db.PIF.get_all_records ~__context)
+	Db.PIF.get_records_where ~__context
+		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+			Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null))),
+			Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))))
 
 let start_of_day_best_effort_bring_up () =
 	begin
