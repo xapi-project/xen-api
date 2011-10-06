@@ -20,11 +20,13 @@ open OUnit
 open Listext
 open Stringext
 
-let socket = ref "/var/xapi/storage"
+open Xmlrpc_client
+
+let default_path = "/var/xapi/storage"
+let transport = ref (Unix default_path)
 
 let rpc call =
-	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~transport:(Unix !socket) 
+	XMLRPC_protocol.rpc ~transport:!transport
 		~http:(xmlrpc ~version:"1.0" "/") call
 
 open Storage_interface
@@ -36,12 +38,40 @@ let usage_and_exit () =
 	Printf.fprintf stderr "  %s <SR>" Sys.argv.(0);
 	exit 1
 
+let find_vdi_in_scan sr vdi =
+	match Client.SR.scan rpc ~task ~sr with
+		| Success (Vdis results) ->
+			begin
+				try
+					Some (List.find (fun x -> x.vdi = vdi) results)
+				with Not_found ->
+					None
+			end
+		| x ->
+			failwith (Printf.sprintf "Unexpected result from SR.scan: %s\n" (string_of_result x))
+
+let missing_vdi = "missing"
+
+let test_scan_missing_vdi sr _ =
+	match find_vdi_in_scan sr missing_vdi with
+		| Some vdi -> failwith (Printf.sprintf "SR.scan found a VDI that was supposed to be missing: %s" (string_of_vdi_info vdi))
+		| None -> ()
+
 let test_destroy_missing_vdi sr _ =
-	let vdi = "missing" in
-	begin match Client.VDI.destroy rpc ~task ~sr ~vdi with
+	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:missing_vdi with
 		| Failure Vdi_does_not_exist -> ()
-		| x -> Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
+		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (string_of_result x))
 	end
+
+let vdi_info_assert_equal vdi_info vdi_info' =
+	assert_equal ~msg:"name_label" ~printer:(fun x -> x) vdi_info.name_label vdi_info'.name_label;
+	assert_equal ~msg:"name_description" ~printer:(fun x -> x) vdi_info.name_description vdi_info'.name_description;
+	assert_equal ~msg:"ty" ~printer:(fun x -> x) (String.lowercase vdi_info.ty) (String.lowercase vdi_info'.ty);
+	assert_equal ~msg:"metadata_of_pool" ~printer:(fun x -> x) vdi_info.metadata_of_pool vdi_info'.metadata_of_pool;
+	assert_equal ~msg:"is_a_snapshot" ~printer:string_of_bool vdi_info.is_a_snapshot vdi_info'.is_a_snapshot;
+	assert_equal ~msg:"snapshot_time" ~printer:(fun x -> x) vdi_info.snapshot_time vdi_info'.snapshot_time;
+	assert_equal ~msg:"snapshot_of" ~printer:(fun x -> x) vdi_info.snapshot_of vdi_info'.snapshot_of;
+	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only
 
 let test_create_destroy sr _ =
 	let name_label = "test_name_label" in
@@ -67,57 +97,59 @@ let test_create_destroy sr _ =
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
 	} in
-	let vdi = begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params:[] with
+	let vdi_info' = begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params:[] with
 		| Success (Vdi vdi_info') ->
-			let fail msg =
-				Printf.fprintf stderr "VDI.create field mismatch: %s\n" msg in
-			if vdi_info.name_label <> vdi_info'.name_label
-			then fail (Printf.sprintf "name_label: %s <> %s" vdi_info.name_label vdi_info'.name_label);
-			if vdi_info.name_description <> vdi_info'.name_description
-			then fail (Printf.sprintf "name_description: %s <> %s" vdi_info.name_description vdi_info'.name_description);
-			if (String.lowercase vdi_info.ty) <> (String.lowercase vdi_info'.ty)
-			then fail (Printf.sprintf "ty: %s <> %s" vdi_info.ty vdi_info'.ty);
-			if vdi_info.metadata_of_pool <> vdi_info'.metadata_of_pool
-			then fail (Printf.sprintf "metadata_of_pool: %s <> %s" vdi_info.metadata_of_pool vdi_info'.metadata_of_pool);
-			if vdi_info.is_a_snapshot <> vdi_info'.is_a_snapshot
-			then fail (Printf.sprintf "is_a_snapshot: %b <> %b" vdi_info.is_a_snapshot vdi_info'.is_a_snapshot);
-			if vdi_info.snapshot_time <> vdi_info'.snapshot_time
-			then fail (Printf.sprintf "snapshot_time: %s <> %s" vdi_info.snapshot_time vdi_info'.snapshot_time);
-			if vdi_info.snapshot_of <> vdi_info'.snapshot_of
-			then fail (Printf.sprintf "snapshot_of: %s <> %s" vdi_info.snapshot_of vdi_info'.snapshot_of);
-			if vdi_info.read_only <> vdi_info'.read_only
-			then fail (Printf.sprintf "read_only: %b <> %b" vdi_info.read_only vdi_info'.read_only);
-			assert_equal vdi_info.name_label vdi_info'.name_label;
-			assert_equal vdi_info.name_description vdi_info'.name_description;
-			assert_equal (String.lowercase vdi_info.ty) (String.lowercase vdi_info'.ty);
-			assert_equal vdi_info.metadata_of_pool vdi_info'.metadata_of_pool;
-			assert_equal vdi_info.is_a_snapshot vdi_info'.is_a_snapshot;
-			assert_equal vdi_info.snapshot_time vdi_info'.snapshot_time;
-			assert_equal vdi_info.snapshot_of vdi_info'.snapshot_of;
-			assert_equal vdi_info.read_only vdi_info'.read_only;
-			vdi_info'.vdi
+			vdi_info_assert_equal vdi_info vdi_info';
+			vdi_info'
 			(* sizes will be rounded up *)
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
 	end in
-	begin match Client.VDI.destroy rpc ~task ~sr ~vdi with
+	begin match find_vdi_in_scan sr vdi_info'.vdi with
+		| None -> failwith (Printf.sprintf "SR.scan failed to find vdi: %s" (string_of_vdi_info vdi_info'))
+		| Some vdi_info'' -> vdi_info_assert_equal vdi_info' vdi_info''
+	end;
+	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:vdi_info'.vdi with
 		| Success Unit -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
+	end;
+	begin match find_vdi_in_scan sr vdi_info'.vdi with
+		| Some vdi_info''' -> failwith (Printf.sprintf "SR.scan found a VDI that was just deleted: %s" (string_of_vdi_info vdi_info'''))
+		| None -> ()
 	end
+
 
 let _ =
 	let verbose = ref false in
 	let sr = ref "" in
+	let unix_path = ref "" in
+	let host_port = ref "" in
+
 	Arg.parse [
 		"-sr", Arg.Set_string sr, "Specify SR";
 		"-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
+		"-tcp", Arg.Set_string host_port, "Connect via TCP to a host:port";
+		"-unix", Arg.Set_string unix_path, Printf.sprintf "Connect via a Unix domain socket (default %s)" default_path
 	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
 		"Test via storage backend";
 
 	if !sr = "" then failwith "Please supply -sr argument";
 
+	if !host_port <> "" && (!unix_path <> "") then failwith "Please supply either -tcp OR -unix";
+
+	if !host_port <> "" then begin
+		match String.split ~limit:2 ':' !host_port with
+			| [ host; port ] ->
+				transport := TCP(host, int_of_string port)
+			| _ -> failwith "Failed to parse host:port"
+	end;
+	if !unix_path <> "" then transport := Unix(!unix_path);
+
 	let suite = "Storage test" >::: 
-		[ "test_destroy_missing_vdi" >:: (test_destroy_missing_vdi !sr);
-		"test_create_destroy" >:: (test_create_destroy !sr) ] in
+		[
+			"test_scan_missing_vdi" >:: (test_scan_missing_vdi !sr);
+			"test_destroy_missing_vdi" >:: (test_destroy_missing_vdi !sr);
+			"test_create_destroy" >:: (test_create_destroy !sr)
+		] in
 
 	run_test_tt ~verbose:!verbose suite
 
