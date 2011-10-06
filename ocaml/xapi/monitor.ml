@@ -228,7 +228,10 @@ let update_netdev doms =
 				tx_errors = List.nth vs 5;
 			} in
 			(* CA-23291: no good can come of recording 'dummy' device stats *)
-			if not(String.startswith "dummy" name)
+			if not(String.startswith "dummy" name) &&
+				not(String.startswith "xenbr" name) &&
+				not(String.startswith "xapi" name) &&
+				not(String.startswith "eth" name && String.contains name '.')
 			then devs := (name,eth_stat) :: (!devs)
 		)
 	in
