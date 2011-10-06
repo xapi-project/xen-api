@@ -43,12 +43,11 @@ let create ~__context ~tagged_PIF ~tag ~network =
 	if tag<0L || tag>4094L then
 		raise (Api_errors.Server_error (Api_errors.vlan_tag_invalid, [Int64.to_string tag]));
 
-	let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
-	let other_keys = List.map (fun self ->
-		Db.PIF.get_device ~__context ~self,
-		Db.PIF.get_VLAN ~__context ~self) other_pifs in
 	let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
-	if List.mem (device, tag) other_keys then
+	let vlans = Db.VLAN.get_records_where ~__context
+		~expr:(Db_filter_types.And (Db_filter_types.Eq (Db_filter_types.Field "tagged_PIF", Db_filter_types.Literal (Ref.string_of tagged_PIF)),
+			Db_filter_types.Eq (Db_filter_types.Field "tag", Db_filter_types.Literal (Int64.to_string tag)))) in
+	if vlans <> [] then
 		raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
 
 	if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then

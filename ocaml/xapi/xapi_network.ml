@@ -28,25 +28,19 @@ let create_internal_bridge ~bridge ~uuid =
 
 let attach_internal ?(management_interface=false) ~__context ~self () =
   let host = Helpers.get_localhost ~__context in
-  let (_: API.ref_PIF list) =
+  let net = Db.Network.get_record ~__context ~self in
+  (* This returns a list of local PIFs, of which there should be only by construction *)
+  let local_pifs =
     Xapi_network_attach_helpers.assert_can_attach_network_on_host ~__context ~self ~host in
-
-  let pifs = Db.Network.get_PIFs ~__context ~self in
-  (* There really should be only one local PIF by construction *)
-  let local_pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) pifs in
-  let bridge = Db.Network.get_bridge ~__context ~self in
-
-  let uuid = Db.Network.get_uuid ~__context ~self in
 
   (* Ensure internal bridge exists and is up. external bridges will be
      brought up by call to interface-reconfigure. *)
-  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge ~uuid;
+  if List.length(local_pifs) = 0 then create_internal_bridge ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid;
 
   (* Check if we're a guest-installer network: *)
-  let other_config = Db.Network.get_other_config ~__context ~self in
-  if (List.mem_assoc Xapi_globs.is_guest_installer_network other_config)
-    && (List.assoc Xapi_globs.is_guest_installer_network other_config = "true")
-  then Xapi_network_real.maybe_start bridge other_config;
+  if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
+    && (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true")
+  then Xapi_network_real.maybe_start net.API.network_bridge net.API.network_other_config;
 
   (* Create the new PIF.
      NB if we're doing this as part of a management-interface-reconfigure then
