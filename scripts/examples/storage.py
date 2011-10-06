@@ -41,11 +41,13 @@ class Loop:
     def _find(self, task, path):
         global root
         for line in run(task, "losetup -a").split("\n"):
-            bits = line.split()
-            loop = bits[0][0:-1]
-            this_path = bits[2][1:-1]
-            if this_path == path:
-                return loop
+            line = line.strip()
+            if line <> "":
+                bits = line.split()
+                loop = bits[0][0:-1]
+                this_path = bits[2][1:-1]
+                if this_path == path:
+                    return loop
         return None
     # [add task path] creates a new loop device for [path] and returns it
     def add(self, task, path):
@@ -99,7 +101,7 @@ class RawFiles:
                                smapiv2.feature_vdi_activate,
                                smapiv2.feature_vdi_deactivate ] }
 
-    def sr_attach(self, task, sr):
+    def sr_attach(self, task, sr, device_config):
         if not(os.path.exists(root)):
             raise BackendError("SR directory doesn't exist", [ root ])
     def sr_detach(self, task, sr):
@@ -140,6 +142,7 @@ class RawFiles:
     def vdi_attach(self, task, dp, sr, vdi, read_write):
         path = path_of_vdi(vdi) + disk_suffix
         loop = self.device.add(task, path)
+        log("loop = %s" % repr(loop))
         return loop
 
     def vdi_activate(self, task, dp, sr, vdi):

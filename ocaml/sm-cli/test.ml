@@ -33,6 +33,8 @@ open Storage_interface
 
 let task = "sm-test"
 
+let mib = Int64.mul 1024L 1024L
+
 let usage_and_exit () =
 	Printf.fprintf stderr "Usage:\n";
 	Printf.fprintf stderr "  %s <SR>" Sys.argv.(0);
@@ -49,6 +51,8 @@ let find_vdi_in_scan sr vdi =
 			end
 		| x ->
 			failwith (Printf.sprintf "Unexpected result from SR.scan: %s\n" (string_of_result x))
+
+let test_query sr _ = let (_: query_result) = Client.query rpc () in ()
 
 let missing_vdi = "missing"
 
@@ -73,7 +77,7 @@ let vdi_info_assert_equal vdi_info vdi_info' =
 	assert_equal ~msg:"snapshot_of" ~printer:(fun x -> x) vdi_info.snapshot_of vdi_info'.snapshot_of;
 	assert_equal ~msg:"read_only" ~printer:string_of_bool vdi_info.read_only vdi_info'.read_only
 
-let test_create_destroy sr _ =
+let example_vdi_info =
 	let name_label = "test_name_label" in
 	let name_description = "test_name_description" in
 	let ty = "ephemeral" in
@@ -82,9 +86,9 @@ let test_create_destroy sr _ =
 	let snapshot_time = "19700101T00:00:00Z" in
 	let snapshot_of = "sof" in
 	let read_only = false in
-	let virtual_size = 123L in
+	let virtual_size = Int64.mul 8L mib in
 	let physical_utilisation = 0L in
-	let vdi_info = {
+	{
 		vdi = "";
 		name_label = name_label;
 		name_description = name_description;
@@ -96,7 +100,10 @@ let test_create_destroy sr _ =
 		read_only = read_only;
 		virtual_size = virtual_size;
 		physical_utilisation = physical_utilisation;
-	} in
+	}
+
+let test_create_destroy sr _ =
+	let vdi_info = example_vdi_info in
 	let vdi_info' = begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params:[] with
 		| Success (Vdi vdi_info') ->
 			vdi_info_assert_equal vdi_info vdi_info';
@@ -117,6 +124,22 @@ let test_create_destroy sr _ =
 		| None -> ()
 	end
 
+let test_attach_activate sr _ =
+	let vdi_info = match Client.VDI.create rpc ~task ~sr ~vdi_info:example_vdi_info ~params:[] with
+		| Success (Vdi x) -> x
+		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
+	let dp = "test_attach_activate" in
+	let (_: string) = match Client.VDI.attach rpc ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
+		| Success (Params x) -> x
+		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
+	begin match Client.VDI.activate rpc ~task ~sr ~dp ~vdi:vdi_info.vdi with
+		| Success Unit -> ()
+		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
+	end;
+	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:vdi_info.vdi with
+		| Success Unit -> ()
+		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
+	end		
 
 let _ =
 	let verbose = ref false in
@@ -146,9 +169,11 @@ let _ =
 
 	let suite = "Storage test" >::: 
 		[
+			"test_query" >:: (test_query !sr);
 			"test_scan_missing_vdi" >:: (test_scan_missing_vdi !sr);
 			"test_destroy_missing_vdi" >:: (test_destroy_missing_vdi !sr);
-			"test_create_destroy" >:: (test_create_destroy !sr)
+			"test_create_destroy" >:: (test_create_destroy !sr);
+			"test_attach_activate" >:: (test_attach_activate !sr);
 		] in
 
 	run_test_tt ~verbose:!verbose suite
