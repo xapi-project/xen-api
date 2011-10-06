@@ -48,8 +48,8 @@ def vdi(vdi_info):
 def vdis(vis):
     return ['Success', ['Vdis', vis]]
 
-def attachedvdi(params):
-    return ['Success', ['Vdi', params ]]
+def params(params):
+    return ['Success', ['Params', params ]]
 
 def value(result):
     return { "Status": "Success", "Value": result }
@@ -144,7 +144,7 @@ class Marshall:
         return value(result)
 
     def sr_attach(self, args):
-        result = self.x.sr_attach(args["task"], args["sr"])
+        result = self.x.sr_attach(args["task"], args["sr"], args["device_config"])
         expect_none(result)
         return value(unit)
     def sr_detach(self, args):
@@ -171,7 +171,7 @@ class Marshall:
     def vdi_attach(self, args):
         result = self.x.vdi_attach(args["task"], args["dp"], args["sr"], args["vdi"], args["read_write"])
         expect_string(result)
-        return value(attachedvdi(result))
+        return value(params(result))
     def vdi_activate(self, args):
         result = self.x.vdi_activate(args["task"], args["dp"], args["sr"], args["vdi"])
         expect_none(result)
@@ -244,12 +244,18 @@ def daemonize():
     os.dup2(devnull.fileno(), sys.stdout.fileno())
     os.dup2(devnull.fileno(), sys.stderr.fileno())
 
+from SimpleXMLRPCServer import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
+
+# Server XMLRPC from any HTTP POST path #####################################
+
+class RequestHandler(SimpleXMLRPCRequestHandler):
+    rpc_paths = []
+
 # SimpleXMLRPCServer with SO_REUSEADDR ######################################
 
-from SimpleXMLRPCServer import SimpleXMLRPCServer
 class Server(SimpleXMLRPCServer):
-    def __init__(self, *args):
-        SimpleXMLRPCServer.__init__(self, *args)
+    def __init__(self, ip, port):
+        SimpleXMLRPCServer.__init__(self, (ip, port), requestHandler=RequestHandler)
     def server_bind(self):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         SimpleXMLRPCServer.server_bind(self)
@@ -267,7 +273,6 @@ def _bare_address_string(self):
 BaseHTTPServer.BaseHTTPRequestHandler.address_string = \
         _bare_address_string
 
-
 # Given an implementation, serve requests forever ###########################
 
 def start(impl, ip, port, daemon):
@@ -275,7 +280,7 @@ def start(impl, ip, port, daemon):
         log("daemonising")
         daemonize()
     log("will listen on %s:%d" % (ip, port))
-    server = Server((ip, port))
+    server = Server(ip, port)
     log("server registered on %s:%d" % (ip, port))
     server.register_introspection_functions() # for debugging
     server.register_instance(Marshall(impl))
