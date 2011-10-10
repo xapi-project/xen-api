@@ -13,6 +13,7 @@
  *)
 open Pervasiveext
 open Watch
+open Xenstore
 
 module Tests = struct
   let title name = 

@@ -65,13 +65,13 @@ type died_reason =
 
 val string_of_died_reason : died_reason -> string
 
-val is_running : Xc.domaininfo -> bool
-val dead_reason_of_xc : Xc.domaininfo -> died_reason
+val is_running : Xenctrl.domaininfo -> bool
+val dead_reason_of_xc : Xenctrl.domaininfo -> died_reason
 
 type ctx
 
-val xc_of_ctx : ctx -> Xc.handle
-val xs_of_ctx : ctx -> Xs.xsh
+val xc_of_ctx : ctx -> Xenctrl.handle
+val xs_of_ctx : ctx -> Xenstore.Xs.xsh
 
 (* context query function *)
 val domain_is_dead : ctx -> domid -> bool

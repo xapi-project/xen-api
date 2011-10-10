@@ -13,7 +13,7 @@
  *)
 open Pervasiveext
 
-let xc = Xc.interface_open() 
+let xc = Xenctrl.interface_open() 
 
 let hash = ref false
 let delay = ref (-1.0)
@@ -35,17 +35,17 @@ let _ =
 	  if !delay > 0. then ignore(Unix.select [] [] [] !delay);
 	  flush stdout;
 
-	  let physinfo = Xc.physinfo xc in
+	  let physinfo = Xenctrl.physinfo xc in
 	  let one_page = 4096L in
-	  let total_pages = Int64.of_nativeint physinfo.Xc.total_pages in
-	  let free_pages = Int64.of_nativeint physinfo.Xc.free_pages +*
-	    (Int64.of_nativeint physinfo.Xc.scrub_pages) in
+	  let total_pages = Int64.of_nativeint physinfo.Xenctrl.total_pages in
+	  let free_pages = Int64.of_nativeint physinfo.Xenctrl.free_pages +*
+	    (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) in
 	  
-	  let domains = Xc.domain_getinfolist xc 0 in
+	  let domains = Xenctrl.domain_getinfolist xc 0 in
 	  let domains = List.map
 	    (fun di ->
-	       di.Xc.domid,
-	       Int64.of_nativeint di.Xc.total_memory_pages
+	       di.Xenctrl.domid,
+	       Int64.of_nativeint di.Xenctrl.total_memory_pages
 	    )
 	    domains
 	  in

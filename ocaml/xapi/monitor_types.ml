@@ -18,7 +18,7 @@
 type vcpu = {
   vcpu_sumcpus: float;
   vcpu_vcpus: float array;
-  vcpu_rawvcpus: Xc.vcpuinfo array;
+  vcpu_rawvcpus: Xenctrl.vcpuinfo array;
   vcpu_cputime: int64;
 }
 

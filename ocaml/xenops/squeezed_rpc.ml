@@ -16,6 +16,7 @@
 
 open Pervasiveext
 open Xenops_helpers
+open Xenstore
 
 (* Service-specific: *)
 let _service = "squeezed" (* prefix in xenstore of daemon *)
@@ -83,8 +84,8 @@ let debug (fmt: ('a , unit, string, unit) format4) =
 
 let path = List.fold_left Filename.concat "/"
 
-let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xb.Noent -> []
-let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
+let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
 
 exception Server_not_registered
 exception Error of string * string
@@ -212,7 +213,7 @@ module type RPC = sig
   
   type handler = (string * string) list -> (string * string) list
 
-  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
+  val loop: service:string -> function_table:((string * handler) list) -> xc:Xenctrl.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
 
   val client: xs:Xs.xsh -> service:string -> fn:string -> args:((string * string) list) -> (string * string) list
 

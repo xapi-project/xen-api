@@ -42,5 +42,5 @@ val any_of : ('a * 'b t) list -> ('a * 'b) t
 exception Timeout of float
 
 (** Wait for a result *)
-val wait_for : xs:Xs.xsh -> ?timeout:float -> 'a t -> 'a
+val wait_for : xs:Xenstore.Xs.xsh -> ?timeout:float -> 'a t -> 'a
 

@@ -15,6 +15,7 @@
 open Listext
 open Stringext
 open Unixext
+open Xenstore
 
 (** Command-line tool for sampling host and guest memory usage. *)
 
@@ -98,11 +99,11 @@ let xs_read_bytes_from_kib_key xs path = match xs_read xs path with
 let host_time h =
 	Date.to_string (Date.of_float (Unix.gettimeofday ()))
 let host_total_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.total_pages))
+	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.total_pages))
 let host_free_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.free_pages))
+	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.free_pages))
 let host_scrub_bytes h = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.scrub_pages))
+	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.scrub_pages))
 
 let host_fields = [
 		"host_time"       , host_time       ;
@@ -117,13 +118,13 @@ let host_field_extractors = List.map snd host_fields
 (** {2 Guest fields} *)
 
 let guest_id xc xs g =
-	Uuid.to_string (Uuid.uuid_of_int_array (g.Xc.handle))
+	Uuid.to_string (Uuid.uuid_of_int_array (g.Xenctrl.handle))
 let guest_domain_id xc xs g = string_of_int
-	(g.Xc.domid)
+	(g.Xenctrl.domid)
 let guest_total_bytes xc xs g = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.total_memory_pages))
+	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
 let guest_maximum_bytes xc xs g = Int64.to_string
-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.max_memory_pages))
+	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
 let guest_target_bytes xc xs g =
 	xs_read_bytes_from_kib_key xs (memory_target_path (guest_domain_id xc xs g))
 let guest_offset_bytes xc xs g =
@@ -133,7 +134,7 @@ let guest_balloonable xc xs g = string_of_bool
 let guest_uncooperative xc xs g = string_of_bool
 	(xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
 let guest_shadow_bytes xc xs g = Int64.to_string (
-	try Memory.bytes_of_mib (Int64.of_int (Xc.shadow_allocation_get xc g.Xc.domid))
+	try Memory.bytes_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc g.Xenctrl.domid))
 	with _ -> 0L)
 
 let guest_fields = [
@@ -173,13 +174,13 @@ let print_memory_field_names () =
 
 (** Prints memory field values to the console. *)
 let print_memory_field_values xc xs =
-	let host = Xc.physinfo xc in
-	let control_domain_info = Xc.domain_getinfo xc 0 in
-	let control_domain_id = control_domain_info.Xc.handle in
+	let host = Xenctrl.physinfo xc in
+	let control_domain_info = Xenctrl.domain_getinfo xc 0 in
+	let control_domain_id = control_domain_info.Xenctrl.handle in
 	let guests = List.sort
 		(fun g1 g2 ->
-			compare_guests control_domain_id g1.Xc.handle g2.Xc.handle)
-		(Xc.domain_getinfolist xc 0) in
+			compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle)
+		(Xenctrl.domain_getinfolist xc 0) in
 	let print_host_info field =
 		print_string " ";
 		print_string (field host) in

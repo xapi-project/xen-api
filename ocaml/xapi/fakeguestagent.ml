@@ -18,6 +18,7 @@
 
 open Printf
 open Pervasiveext
+open Xenstore
 
 let debug_enabled = ref false
 let debug (fmt: ('a, unit, string, unit) format4) =
@@ -78,7 +79,7 @@ let _ =
 		do
 			Xal.wait xal 5.;
 
-			let currents = List.map (fun dominfo -> dominfo.Xc.domid) (Xc.domain_getinfolist (Xal.xc_of_ctx xal) 1) in
+			let currents = List.map (fun dominfo -> dominfo.Xenctrl.domid) (Xenctrl.domain_getinfolist (Xal.xc_of_ctx xal) 1) in
 			List.iter (fun domid ->
 				debug "writing guest data to domain %d" domid;
 				let path = sprintf "/local/domain/%d" domid in

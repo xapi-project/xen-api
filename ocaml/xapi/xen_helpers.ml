@@ -32,8 +32,8 @@ let device_of_vbd ~__context ~self =
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
   let hvm = 
 	  try
-		  Xc.with_intf (fun xc -> (Xc.domain_getinfo xc domid).Xc.hvm_guest) 
-	  with Xc.Error("2: No such file or directory") ->
+		  Xenctrl.with_intf (fun xc -> (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest) 
+	  with Xenctrl.Error("2: No such file or directory") ->
 		  (* This can happen if someone calls "xenops destroy_domain" *)
 		  error "VM %s domid:%d has been destroyed beneath us: returning VM_BAD_POWER_STATE" (Ref.string_of vm) domid;
 		  raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; (Record_util.power_to_string `Halted)]))

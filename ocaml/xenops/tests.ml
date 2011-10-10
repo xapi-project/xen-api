@@ -13,6 +13,7 @@
  *)
 open Printf
 open Pervasiveext
+open Xenstore
 
 module D=Debug.Debugger(struct let name="testsuite" end)
 open D
@@ -48,7 +49,7 @@ let test_succeed n s =
 
 (************* xen helpers ************)
 let list_domid xc =
-	List.map (fun x -> x.Xc.domid) (Xc.domain_getinfolist xc 0)
+	List.map (fun x -> x.Xenctrl.domid) (Xenctrl.domain_getinfolist xc 0)
 
 let assert_nodomain xc =
 	if List.length (list_domid xc) > 1 then
@@ -56,8 +57,8 @@ let assert_nodomain xc =
 
 let check_dead xc domid =
 	try
-		let inf = Xc.domain_getinfo xc domid in
-		inf.Xc.dying || inf.Xc.shutdown
+		let inf = Xenctrl.domain_getinfo xc domid in
+		inf.Xenctrl.dying || inf.Xenctrl.shutdown
 	with
 		_ -> true
 
@@ -133,8 +134,8 @@ let with_domain_restore cfg xc xs file f =
 
 (************* all tests *************)
 let test_xc_open () =
-	let xc = Xc.interface_open () in
-	Xc.interface_close xc
+	let xc = Xenctrl.interface_open () in
+	Xenctrl.interface_close xc
 
 let test_xs_open () =
 	let xs = Xs.daemon_open () in
@@ -180,8 +181,8 @@ let test_xal2 () =
 let test_domain_creation xc =
 	assert_nodomain xc;
 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	let domid = Xc.domain_create xc 0l false uuid in
-	Xc.domain_destroy xc domid;
+	let domid = Xenctrl.domain_create xc 0l false uuid in
+	Xenctrl.domain_destroy xc domid;
 	assert_nodomain xc
 
 let test_xenops_creation cfg xc xs =
@@ -268,9 +269,9 @@ let test_xenops_chkpoint cfg xal xc xs =
 
 type ty =
 	| NO   of (unit -> unit)
-	| XC   of (Xc.handle -> unit)
-	| XCS  of (domain_config -> Xc.handle -> Xs.xsh -> unit)
-	| XCSA of (domain_config -> Xal.ctx -> Xc.handle -> Xs.xsh -> unit)
+	| XC   of (Xenctrl.handle -> unit)
+	| XCS  of (domain_config -> Xenctrl.handle -> Xs.xsh -> unit)
+	| XCSA of (domain_config -> Xal.ctx -> Xenctrl.handle -> Xs.xsh -> unit)
 
 let all_tests = [
 	"[xc] opening", NO test_xc_open;
@@ -315,17 +316,17 @@ let _ =
 			begin match fct_test with
 			| NO f -> f ()
 			| XC f ->
-				let xc = Xc.interface_open () in
+				let xc = Xenctrl.interface_open () in
 				finally (fun () -> f xc)
-					(fun () -> Xc.interface_close xc)
+					(fun () -> Xenctrl.interface_close xc)
 			| XCS f ->
-				let xc = Xc.interface_open () in
+				let xc = Xenctrl.interface_open () in
 				finally (fun () ->
 					let xs = Xs.daemon_open () in
 					finally (fun () ->
 						allcfg (fun cfg -> f cfg xc xs);
 					) (fun () -> Xs.close xs)
-				) (fun () -> Xc.interface_close xc)
+				) (fun () -> Xenctrl.interface_close xc)
 			| XCSA f ->
 				let ctx = Xal.init () in
 				finally (fun () ->

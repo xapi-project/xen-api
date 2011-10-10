@@ -22,6 +22,7 @@ open Vmopshelpers
 open Create_misc
 open Client
 open Pervasiveext
+open Xenstore
 
 module D=Debug.Debugger(struct let name="dbsync" end)
 open D
@@ -82,7 +83,7 @@ let refresh_localhost_info ~__context info =
     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-    let caps = String.split ' ' (Xc.with_intf (fun xc -> Xc.version_capabilities xc)) in
+    let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
     Db.Host.set_capabilities ~__context ~self:host ~value:caps;
     Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr());
 
@@ -138,9 +139,9 @@ let update_vms ~xal ~__context =
     List.iter (fun self -> Xapi_vbd_helpers.clear_current_operations ~__context ~self) (Db.VM.get_VBDs ~__context ~self:vm);
     force_state_reset ~__context ~self:vm ~value:state in
 
-  let all_my_domains = Xc.domain_getinfolist xc 0 in
-  let my_active_domains = List.filter (fun dinfo -> (not dinfo.Xc.dying) && (not dinfo.Xc.shutdown)) all_my_domains in
-  let my_shutdown_domains = List.filter (fun dinfo -> dinfo.Xc.shutdown) all_my_domains in
+  let all_my_domains = Xenctrl.domain_getinfolist xc 0 in
+  let my_active_domains = List.filter (fun dinfo -> (not dinfo.Xenctrl.dying) && (not dinfo.Xenctrl.shutdown)) all_my_domains in
+  let my_shutdown_domains = List.filter (fun dinfo -> dinfo.Xenctrl.shutdown) all_my_domains in
 
   let this_host = Helpers.get_localhost __context in
   (* CA-22309: consider this host to 'own' a domain if:
@@ -171,7 +172,7 @@ let update_vms ~xal ~__context =
   let my_running_vm_refs_according_to_db = List.map fst my_running_vms_according_to_db in
 
   let uuid_from_dinfo dinfo =
-    Uuid.to_string (Uuid.uuid_of_int_array dinfo.Xc.handle) in
+    Uuid.to_string (Uuid.uuid_of_int_array dinfo.Xenctrl.handle) in
 
   let uuid_from_vmref vmref =
     try
@@ -255,31 +256,31 @@ let update_vms ~xal ~__context =
          or rebooted, which would always have the power state to Halted or Running)
        We start it again by setting the domain's state to shutdown with reason reboot (the event
        thread will do the hard work for us). *)
-    if dinfo.Xc.paused && not(dinfo.Xc.shutdown) && dinfo.Xc.cpu_time = 0L && 
+    if dinfo.Xenctrl.paused && not(dinfo.Xenctrl.shutdown) && dinfo.Xenctrl.cpu_time = 0L && 
       (vmrec.API.vM_power_state <> `Paused) then begin
 	warn "domain id %d uuid %s is paused but not in the database as paused; assuming it's broken; rebooting" 
-	  dinfo.Xc.domid (uuid_from_vmref vmref);
+	  dinfo.Xenctrl.domid (uuid_from_vmref vmref);
 	(* Mark the domain as shutdown(reboot), the power state as running and inject
 	   a fake event into the event system. This should provoke the event thread into 
 	   restarting the VM *)
-	Xc.domain_shutdown xc dinfo.Xc.domid Xc.Reboot;
-	set_db_state_and_domid vmref `Running dinfo.Xc.domid;
-	Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
+	Xenctrl.domain_shutdown xc dinfo.Xenctrl.domid Xenctrl.Reboot;
+	set_db_state_and_domid vmref `Running dinfo.Xenctrl.domid;
+	Events.callback_release xal dinfo.Xenctrl.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xenctrl.handle))
       end else begin
 	(* Reset the power state, this also clears VBD operations etc *)
-	let state = if dinfo.Xc.paused then `Paused else `Running in
-	set_db_state_and_domid vmref state dinfo.Xc.domid;
+	let state = if dinfo.Xenctrl.paused then `Paused else `Running in
+	set_db_state_and_domid vmref state dinfo.Xenctrl.domid;
       end;
     (* Now sync devices *)
     debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
-    let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
+    let uuid = Uuid.uuid_of_int_array dinfo.Xenctrl.handle in
 	sync_devices dinfo;
 	(* Update the VM's guest metrics since: (i) while we were offline we may
 	   have missed an update; and (ii) if the tools .iso has been updated then
 	   we wish to re-evaluate whether we believe the VMs have up-to-date
 	   tools *)
 
-	Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
+	Events.guest_agent_update xal dinfo.Xenctrl.domid (uuid_from_dinfo dinfo);
 	(* Now register with monitoring thread *)
 
       Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
@@ -291,16 +292,16 @@ let update_vms ~xal ~__context =
     let vmref,vmrec = vmrefrec_of_dinfo dinfo in
     if vmrec.API.vM_resident_on = this_host then begin
       debug "VM is apparently resident on this host; injecting a fake event into the event thread";
-      Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
+      Events.callback_release xal dinfo.Xenctrl.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xenctrl.handle))
     end else begin
       debug "VM is not resident on this host; destroying remnant of managed domain";
-      Domain.destroy ~xc ~xs dinfo.Xc.domid
+      Domain.destroy ~xc ~xs dinfo.Xenctrl.domid
     end in
   
   (* Process an "unmanaged domain" that's running here *)
   let unmanaged_domain_running dinfo =
     debug "killing umanaged domain: %s" (uuid_from_dinfo dinfo);
-    Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *) in
+    Domain.destroy ~xc ~xs dinfo.Xenctrl.domid (* bye-bye... *) in
 
   let have_record_for dinfo = try let _,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
 
