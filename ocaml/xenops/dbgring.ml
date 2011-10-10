@@ -16,16 +16,16 @@ let xenstored_proc_kva = "/proc/xen/xsd_kva"
 
 let open_ring0 () =
 	let fd = Unix.openfile xenstored_proc_kva [ Unix.O_RDWR ] 0o600 in
-	let sz = Mmap.getpagesize () in
-	let intf = Mmap.mmap fd Mmap.RDWR Mmap.SHARED sz 0 in
+	let sz = Xenmmap.getpagesize () in
+	let intf = Xenmmap.mmap fd Xenmmap.RDWR Xenmmap.SHARED sz 0 in
 	Unix.close fd;
 	intf
 
 let open_ringU domid mfn =
-	let xc = Xc.interface_open () in
+	let xc = Xenctrl.interface_open () in
 	Pervasiveext.finally
-		(fun () -> Xc.map_foreign_range xc domid (Mmap.getpagesize()) mfn)
-		(fun () -> Xc.interface_close xc)
+		(fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize()) mfn)
+		(fun () -> Xenctrl.interface_close xc)
 
 let open_ring domid mfn =
 	if domid = 0
@@ -72,9 +72,9 @@ let _ =
 		try int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2)
 		with _ -> 0, Nativeint.zero
 	in
-	let sz = Mmap.getpagesize () - 1024 - 512 in
+	let sz = Xenmmap.getpagesize () - 1024 - 512 in
 	let intf = open_ring domid mfn in
-	let s = Mmap.read intf 0 sz in
+	let s = Xenmmap.read intf 0 sz in
 	let ss = (hexify s) in
 
 	let req_cons = int_from_page ss (4*ring_size) in

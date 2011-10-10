@@ -63,14 +63,14 @@ let to_api_error = function
       Server_error(internal_error, [ sprintf "received failure message from xenguesthelper: %s" x ])
   | XenguestHelper.Domain_builder_error(fn, code, msg) ->
       Server_error(domain_builder_error, [ fn; string_of_int code; msg ])
-  | Xc.Error x ->
+  | Xenctrl.Error x ->
       Vmopshelpers.with_xc
 	(fun xc ->
 	   let free = Memory.get_free_memory_kib ~xc
 	   and total = Memory.get_total_memory_mib ~xc
 	   and scrub = Memory.get_scrub_memory_kib ~xc in
 	   
-	   Server_error(internal_error, [ sprintf "Xc.Error [ memory %Ld KiB free; to be scrubbed %Ld KiB; total %Ld MiB]: %s" free scrub total x ])
+	   Server_error(internal_error, [ sprintf "Xenctrl.Error [ memory %Ld KiB free; to be scrubbed %Ld KiB; total %Ld MiB]: %s" free scrub total x ])
 	)
   | e -> e
 

@@ -26,19 +26,19 @@
 *)
 
 (** reserve [kib] KiB of memory for some undisclosed purpose, return a reservation_id *)
-val reserve_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> kib:int64 -> string
+val reserve_memory: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> kib:int64 -> string
 
 (** reserve between [min] and [max] KiB of memory for some undisclosed purpose, return the actual amount plus reservation_id *)
-val reserve_memory_range: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> min:int64 -> max:int64 -> int64 * string
+val reserve_memory_range: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> min:int64 -> max:int64 -> int64 * string
 
 (** Transfer the memory reserved by [reservation_id] to domain [domid] *)
-val transfer_reservation_to_domain: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> domid:int -> unit
+val transfer_reservation_to_domain: __context:Context.t -> xs:Xenstore.Xs.xsh -> reservation_id:string -> domid:int -> unit
 
 (** Delete the reservation given by [reservation_id] *)
-val delete_reservation: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> unit
+val delete_reservation: __context:Context.t -> xs:Xenstore.Xs.xsh -> reservation_id:string -> unit
 
 (** After some domain destruction event (or possibly other memory-changing event), rebalance memory allocations *)
-val balance_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> unit
+val balance_memory: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> unit
 
 (** Arrange to have at least one more memory rebalance happen in the future *)
 val async_balance_memory: At_least_once_more.manager

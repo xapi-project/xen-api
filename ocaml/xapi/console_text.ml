@@ -17,6 +17,7 @@ open Printf
 open Debug
 open Http
 open Vmopshelpers
+open Xenstore
 
 exception Failure
 

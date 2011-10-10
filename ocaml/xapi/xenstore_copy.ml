@@ -14,7 +14,7 @@
 (* Simple example program which recursively copies a xenstore subtree to another path. *)
 
 open Xenstore_dump
-
+open Xenstore
 
 let _ = 
 

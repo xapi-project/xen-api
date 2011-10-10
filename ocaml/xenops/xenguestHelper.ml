@@ -22,11 +22,11 @@ let path = Xapi_globs.base_path ^ "/libexec/xenguest"
 let last_log_file = "/tmp/xenguesthelper-log"
 
 (* Exceptions which may propagate from the xenguest binary *)
-exception Xc_dom_allocate_failure of int * string
-exception Xc_dom_linux_build_failure of int * string
-exception Xc_domain_save_failure of int * string
-exception Xc_domain_resume_failure of int * string
-exception Xc_domain_restore_failure of int * string
+exception Xenctrl_dom_allocate_failure of int * string
+exception Xenctrl_dom_linux_build_failure of int * string
+exception Xenctrl_domain_save_failure of int * string
+exception Xenctrl_domain_resume_failure of int * string
+exception Xenctrl_domain_restore_failure of int * string
 
 exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
 
@@ -41,7 +41,7 @@ let connect (args: string list) (fds: (string * Unix.file_descr) list) : t =
 	(* Need to send commands and receive responses from the
 	   slave process *)
 
-	let using_xiu = Xc.is_fake () in
+	let using_xiu = Xenctrl.is_fake () in
 
 	let last_log_file = "/tmp/xenguest.log" in
 	(try Unix.unlink last_log_file with _ -> ());
@@ -126,7 +126,7 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
 (* Dump memory statistics on failure *)
 let non_debug_receive ?debug_callback cnx = 
   let debug_memory () = 
-    Xc.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
+    Xenctrl.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
   in
   try
     match non_debug_receive ?debug_callback cnx with
@@ -147,13 +147,13 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 		begin
 			match Stringext.String.split ~limit:3 ' ' x with
 			| [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
-			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xc_dom_allocate_failure    (int_of_string code, msg))
-			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xc_dom_linux_build_failure (int_of_string code, msg))
+			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
+			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
 			| [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
 			| [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
-			| [ "xc_domain_save"    ; code; msg ] -> raise (Xc_domain_save_failure     (int_of_string code, msg))
-			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xc_domain_resume_failure   (int_of_string code, msg))
-			| [ "xc_domain_restore" ; code; msg ] -> raise (Xc_domain_restore_failure  (int_of_string code, msg))
+			| [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
+			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
+			| [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
 			| _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
 		end
 	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"

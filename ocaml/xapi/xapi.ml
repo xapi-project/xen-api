@@ -23,6 +23,7 @@ open Pervasiveext
 open Listext
 open Auth_signature
 open Extauth
+open Xenstore
 
 
 module D=Debug.Debugger(struct let name="xapi" end)
@@ -39,7 +40,7 @@ let check_control_domain () =
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
   if domuuid <> uuid then (
     info "dom0 uuid mismatch with inventory -- setting it the proper value";
-    with_xc (fun xc -> Xc.domain_sethandle xc 0 uuid)
+    with_xc (fun xc -> Xenctrl.domain_sethandle xc 0 uuid)
   )
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
@@ -172,8 +173,8 @@ let signals_handling () =
 let domain0_setup () =
   with_xc_and_xs (fun xc xs ->
 	     (* Write an initial neutral target in for domain 0 *)
-	     let di = Xc.domain_getinfo xc 0 in
-	     let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
+	     let di = Xenctrl.domain_getinfo xc 0 in
+	     let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
 	     (* Find domain 0's UUID *)
 	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
 	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
@@ -301,7 +302,7 @@ let on_master_restart ~__context =
     (fun () -> 
        (* Explicitly dirty all VM memory values *)
        let uuids = Vmopshelpers.with_xc 
-	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xc.handle)) (Xc.domain_getinfolist xc 0)) in
+	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle)) (Xenctrl.domain_getinfolist xc 0)) in
        Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
        Rrd_shared.dirty_host_memory := true; 
        Condition.broadcast Rrd_shared.condition);
@@ -548,15 +549,15 @@ let resynchronise_ha_state () =
 (*     2. No other domains have been started.                     *)
 let calculate_boot_time_host_free_memory () =
 	let ( + ) = Nativeint.add in
-	let host_info = with_xc (fun xc -> Xc.physinfo xc) in
-	let host_free_pages = host_info.Xc.free_pages in
-	let host_scrub_pages = host_info.Xc.scrub_pages in
-	let domain0_info = with_xc (fun xc -> Xc.domain_getinfo xc 0) in
-	let domain0_total_pages = domain0_info.Xc.total_memory_pages in
+	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
+	let host_free_pages = host_info.Xenctrl.free_pages in
+	let host_scrub_pages = host_info.Xenctrl.scrub_pages in
+	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
+	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
 	let boot_time_host_free_pages =
 		host_free_pages + host_scrub_pages + domain0_total_pages in
 	let boot_time_host_free_kib =
-		Xc.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
+		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
 	Memory.bytes_of_kib boot_time_host_free_kib
 
 (* Read the free memory on the host and record this in the db. This is used *)

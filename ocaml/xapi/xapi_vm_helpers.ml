@@ -19,6 +19,7 @@ open Stringext
 open Printf
 open Xapi_vm_memory_constraints
 open Listext
+open Xenstore
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -768,9 +769,9 @@ let wait_memory_target_live ~__context ~self
 			then raise_error Api_errors.task_cancelled;
 		(* Fetch up-to-date value of memory_actual via a hypercall to Xen. *)
 		let domain_id = Helpers.domid_of_vm ~__context ~self in
-		let domain_info = Vmopshelpers.with_xc (fun xc -> Xc.domain_getinfo xc domain_id) in
-		let memory_actual_pages = Int64.of_nativeint domain_info.Xc.total_memory_pages in
-		let memory_actual_kib = Xc.pages_to_kib memory_actual_pages in 
+		let domain_info = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc domain_id) in
+		let memory_actual_pages = Int64.of_nativeint domain_info.Xenctrl.total_memory_pages in
+		let memory_actual_kib = Xenctrl.pages_to_kib memory_actual_pages in 
 		let memory_actual_bytes = Memory.bytes_of_kib memory_actual_kib in
 		(* Fetch up-to-date value of target from xenstore. *)
 		let memory_target_kib = Int64.of_string (Vmopshelpers.with_xs (fun xs -> xs.Xs.read (xs.Xs.getdomainpath domain_id ^ "/memory/target"))) in
@@ -832,9 +833,9 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 			Memory_check.host_compute_free_memory_with_maximum_compression
 				~__context ~host None in
 		let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
-		let multiplier_to_record = Xc.with_intf
+		let multiplier_to_record = Xenctrl.with_intf
 		  (fun xc ->
-		     let curshadow = Xc.shadow_allocation_get xc domid in
+		     let curshadow = Xenctrl.shadow_allocation_get xc domid in
 		     let needed_mib = newshadow - curshadow in
 		     debug "Domid %d has %d MiB shadow; an increase of %d MiB requested; host has %d MiB free"
 		       domid curshadow needed_mib free_mem_mib;
@@ -849,7 +850,7 @@ let set_shadow_multiplier_live ~__context ~self ~multiplier =
 		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
 		     end;
 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
-		     Xc.shadow_allocation_set xc domid newshadow;
+		     Xenctrl.shadow_allocation_set xc domid newshadow;
 		     Memory.HVM.round_shadow_multiplier static_max_mib vcpus multiplier domid) in
 		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
 		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in

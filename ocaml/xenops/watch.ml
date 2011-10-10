@@ -15,6 +15,7 @@
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
+open Xenstore
 
 type path = string
 
@@ -82,7 +83,7 @@ let value_to_appear (path: path): string t =
 	let v = xs.Xs.read path in
 	(*debug "watch: value has appeared: %s = %s" path v;*)
 	Result v
-      with Xb.Noent -> KeepWaiting }
+      with Xenbus.Xb.Noent -> KeepWaiting }
 
 (** Wait for a node to disappear from the store *)
 let key_to_disappear (path: path) : unit t = 
@@ -90,7 +91,7 @@ let key_to_disappear (path: path) : unit t =
     evaluate = fun ~xs -> 
       try 
 	ignore(xs.Xs.read path); KeepWaiting 
-      with Xb.Noent ->
+      with Xenbus.Xb.Noent ->
 	(*debug "watch: key has disappeared: %s" path;*)
 	Result () 
   }
@@ -105,7 +106,7 @@ let value_to_become (path: path) (v: string) : unit t =
 	  (*debug "watch: value has become: %s = %s" path v;*)
 	  Result () 
 	end else KeepWaiting 
-      with Xb.Noent -> KeepWaiting }
+      with Xenbus.Xb.Noent -> KeepWaiting }
 
 (** Wait for a set of conditions simultaneously. Note when any watch fires we
     re-evaluate everything which isn't necessarily the most efficient thing to do. *)

@@ -535,7 +535,7 @@ let power_on ~__context ~host =
   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
 
 let dmesg ~__context ~host =
-	Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc)
+	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
 
 let dmesg_clear ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))
@@ -544,7 +544,7 @@ let get_log ~__context ~host =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
 
 let send_debug_keys ~__context ~host ~keys =
-  Vmopshelpers.with_xc (fun xc -> Xc.send_debug_keys xc keys)
+  Vmopshelpers.with_xc (fun xc -> Xenctrl.send_debug_keys xc keys)
 
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))

@@ -13,6 +13,7 @@
  *)
 (*open OUnit*)
 open Printf
+open Xenstore
 
 let fill_store () =
 	let xsh = Xs.daemon_open () in

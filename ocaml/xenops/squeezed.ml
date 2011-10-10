@@ -19,6 +19,7 @@ open Pervasiveext
 open Squeezed_rpc
 open Squeezed_state
 open Xenops_helpers
+open Xenstore
 
 (* We assume only one instance of a named service logs in at a time and therefore can use
    the service name as a session_id. *)
@@ -164,7 +165,7 @@ let transfer_reservation_to_domain args =
 		[]
 	     )
 	) ()
-    with Xb.Noent ->
+    with Xenbus.Xb.Noent ->
       [ _code, _error_unknown_reservation; _description, reservation_id ]
   end
 
