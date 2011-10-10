@@ -14,6 +14,7 @@
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
+open Xenstore
 
 let fs_backend_path = "/usr/sbin/fs-backend"
 
@@ -48,7 +49,7 @@ let create ~xc ~xs (info: Device.Dm.info) domid =
     (* Point the stub domain at the guest *)
     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
 	(* XXX: this binding is missing
-    Xc.domain_set_target xc stubdom_domid domid; *)
+    Xenctrl.domain_set_target xc stubdom_domid domid; *)
 
     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;

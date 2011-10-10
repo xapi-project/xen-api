@@ -18,9 +18,10 @@
  *)
 
 open Stringext
+open Xenstore
 
 exception Invalid_path of string
-let handle_enoent f x = try f x with Xb.Noent -> raise (Invalid_path x)
+let handle_enoent f x = try f x with Xenbus.Xb.Noent -> raise (Invalid_path x)
 
 let dump ~xs (path: string) : Xml.xml =
   let rec ls_R prefix path =

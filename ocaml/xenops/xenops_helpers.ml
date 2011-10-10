@@ -12,10 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 open Pervasiveext
+open Xenstore
 
 (** {2 XC, XS and XAL interface helpers.} *)
 
-let with_xc f = Xc.with_intf f
+let with_xc f = Xenctrl.with_intf f
 
 let with_xs f =
 	let xs = Xs.daemon_open () in
@@ -26,7 +27,7 @@ let with_xal f =
 	finally (fun () -> f xal) (fun () -> Xal.close xal)
 
 let with_xc_and_xs f =
-	Xc.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
+	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 let with_xc_and_xs_final f cf =
 	with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)

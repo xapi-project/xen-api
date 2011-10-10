@@ -18,6 +18,7 @@
  **************************************************************************)
 exception X
 open Stringext
+open Xenbus
 
 let pkt_recv con =
 	let workdone = ref false in

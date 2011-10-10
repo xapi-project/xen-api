@@ -24,6 +24,7 @@ open Client
 open Vbdops
 open Listext
 open Fun
+open Xenstore
 
 let ( +++ ) = Int64.add
 let ( --- ) = Int64.sub
@@ -302,7 +303,7 @@ let general_domain_create_check ~__context ~vm ~snapshot =
     (* If guest will boot HVM check that this host has HVM capabilities *)
     let hvm = Helpers.is_hvm snapshot in
       if hvm then (
-	  let caps = with_xc (fun xc -> Xc.version_capabilities xc) in
+	  let caps = with_xc (fun xc -> Xenctrl.version_capabilities xc) in
 	  if not (String.has_substr caps "hvm") then (raise (Api_errors.Server_error (Api_errors.vm_hvm_required,[]))))
 
 (** [vcpu_configuration snapshot] transforms a vM_t into a list of 
@@ -310,7 +311,7 @@ let general_domain_create_check ~__context ~vm ~snapshot =
 let vcpu_configuration snapshot = 
   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
   let vcpus_current = Int64.to_int snapshot.API.vM_VCPUs_at_startup in
-  let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
+  let pcpus = with_xc (fun xc -> (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus) in
   debug "xen reports max %d pCPUs" pcpus;
 
   (* vcpu <-> pcpu affinity settings are stored here. Format is either:
@@ -864,8 +865,8 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
 		debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
 		Xs.monitor_paths xs [ "@releaseDomain","X" ] rel_timeout
 			(fun _ ->
-				 try (Xc.domain_getinfo xc domid).Xc.shutdown with Xc.Error _ -> true);
-		result := Some (try Domain.shutdown_reason_of_int (Xc.domain_getinfo xc domid).Xc.shutdown_code with _ -> Domain.Unknown (-1));
+				 try (Xenctrl.domain_getinfo xc domid).Xenctrl.shutdown with Xenctrl.Error _ -> true);
+		result := Some (try Domain.shutdown_reason_of_int (Xenctrl.domain_getinfo xc domid).Xenctrl.shutdown_code with _ -> Domain.Unknown (-1));
     with Xs.Timeout -> 
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
@@ -920,7 +921,7 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
 		Memory_control.balance_memory ~__context ~xc ~xs;
 		debug "suspend phase 1/4: hot-unplugging any PCI devices";
-		let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+		let hvm = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
 		if hvm then Pciops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
 		Sm_fs_ops.with_new_fs_vdi __context
 			~name_label:"Suspend image" ~name_description:"Suspend image"
@@ -951,11 +952,11 @@ let suspend ~live ~progress_cb ~__context ~xc ~xs ~vm =
 		debug "suspend phase 4/4: recording memory usage";
 		(* Record the final memory usage of the VM, so that we know how much *)
 		(* memory to free before attempting to resume this VM in future.     *)
-		let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
+		let di = with_xc (fun xc -> Xenctrl.domain_getinfo xc domid) in
 		let final_memory_bytes = Memory.bytes_of_pages
-			(Int64.of_nativeint di.Xc.total_memory_pages) in
+			(Int64.of_nativeint di.Xenctrl.total_memory_pages) in
 		debug "total_memory_pages=%Ld; storing target=%Ld"
-			(Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
+			(Int64.of_nativeint di.Xenctrl.total_memory_pages) final_memory_bytes;
 		(* CA-31759: avoid using the LBR to simplify upgrade *)
 		Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes
 	in

@@ -56,15 +56,15 @@ let uncooperative_domains: (int, unit) Hashtbl.t = Hashtbl.create 20
 let uncooperative_domains_m = Mutex.create ()
 
 let uuid_of_domid domains domid = 
-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) domains in
+  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) domains in
   if List.mem_assoc domid domid_to_uuid
   then Uuid.string_of_uuid (List.assoc domid domid_to_uuid)
   else failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
 
 let get_uncooperative_domains () = 
   let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
-  let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) dis in
+  let dis = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
+  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) dis in
   let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
   List.map Uuid.string_of_uuid uuids
 
@@ -76,30 +76,30 @@ let get_uncooperative_domains () =
    VMs present on this host *)
 let update_vcpus xc doms =
   List.fold_left (fun (dss,uuids,domids) dom ->
-    let domid = dom.Xc.domid in
-    let maxcpus = dom.Xc.max_vcpu_id + 1 in
-    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
+    let domid = dom.Xenctrl.domid in
+    let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
+    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
 
     let rec cpus i dss = 
       if i>=maxcpus then dss else 
-	let vcpuinfo = Xc.domain_get_vcpuinfo xc domid i in
+	let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
 	cpus (i+1) ((VM uuid,ds_make ~name:(Printf.sprintf "cpu%d" i) 
 	  ~description:(Printf.sprintf "CPU%d usage" i)
-	  ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xc.cputime) /. 1.0e9))
+	  ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
 	  ~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0())::dss)
     in
 
     (* Runstate info is per-domain rather than per-vcpu *)
     let dss = 
       try
-	let ri = Xc.domain_get_runstate_info xc domid in 
-	(VM uuid, ds_make ~name:"runstate_entry_time" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.state_entry_time) /. 1.0e9)) ~description:"" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_fullrun" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time0) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are running" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_full_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time1) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time2) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running and some are runnable" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_blocked" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time3) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are blocked or offline" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-	  (VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss 
+	let ri = Xenctrl.domain_get_runstate_info xc domid in 
+	(VM uuid, ds_make ~name:"runstate_entry_time" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.state_entry_time) /. 1.0e9)) ~description:"" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_fullrun" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time0) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are running" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_full_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time1) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time2) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running and some are runnable" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_blocked" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time3) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are blocked or offline" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+	  (VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss 
       with e -> 
 	dss 
     in
@@ -116,12 +116,12 @@ let physcpus = ref [| |]
 let update_pcpus xc =
   let len = Array.length !physcpus in
   let newinfos = if len = 0 then (
-    let physinfo = Xc.physinfo xc in
-    let pcpus = physinfo.Xc.nr_cpus in
+    let physinfo = Xenctrl.physinfo xc in
+    let pcpus = physinfo.Xenctrl.nr_cpus in
     physcpus := if pcpus > 0 then (Array.make pcpus 0L) else [| |];
-    Xc.pcpu_info xc pcpus
+    Xenctrl.pcpu_info xc pcpus
   ) else (
-    Xc.pcpu_info xc len
+    Xenctrl.pcpu_info xc len
   ) in
   let (dss,_) = Array.fold_left (fun (acc,i) v -> 
     ((Host,ds_make ~name:(Printf.sprintf "cpu%d" i)
@@ -132,10 +132,10 @@ let update_pcpus xc =
 
 let update_memory __context xc doms = 
 	List.fold_left (fun acc dom ->
-		let domid = dom.Xc.domid in
-		let kib = Xc.pages_to_kib (Int64.of_nativeint dom.Xc.total_memory_pages) in 
+		let domid = dom.Xenctrl.domid in
+		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in 
 		let memory = Int64.mul kib 1024L in
-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
+		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
 		let main_mem_ds = 
 		  (VM uuid,
 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
@@ -402,9 +402,9 @@ let previous_free_words = ref 0
 let previous_live_words = ref 0
 
 let read_mem_metrics xc =
-  let physinfo = Xc.physinfo xc in
-  let total_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.total_pages) 
-  and free_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.free_pages) in
+  let physinfo = Xenctrl.physinfo xc in
+  let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) 
+  and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
 
   let gcstat =
     if !Xapi_globs.xapi_gc_debug then (
@@ -529,12 +529,12 @@ let read_all_dom0_stats __context =
       end in
   Mutex.execute lock (fun () ->
 	with_xc (fun xc ->
-	  let domains = Xc.domain_getinfolist xc 0 in
+	  let domains = Xenctrl.domain_getinfolist xc 0 in
       let timestamp = Unix.gettimeofday() in
       let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
 			let uuid_of_domain d =
-				Uuid.to_string (Uuid.uuid_of_int_array (d.Xc.handle)) in
-			let domain_paused d = d.Xc.paused in
+				Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
+			let domain_paused d = d.Xenctrl.paused in
 			let my_paused_domain_uuids =
 				List.map uuid_of_domain (List.filter domain_paused domains) in
       let (vifs,pifs) = try update_netdev domains with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in

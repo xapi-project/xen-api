@@ -5,6 +5,7 @@ open Pervasiveext
 open Stringext
 open Listext
 open Zerocheck
+open Xenstore
 
 let ( +* ) = Int64.add
 let ( -* ) = Int64.sub

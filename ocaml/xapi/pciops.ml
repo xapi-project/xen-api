@@ -71,7 +71,7 @@ let plug_pcidevs ~__context ~vm domid pcidevs =
 	if List.length pcidevs > 0 then begin
 		(* XXX: PCI passthrough needs a lot of work *)
 		Vmopshelpers.with_xc_and_xs (fun xc xs ->
-			if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
+			if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
 				Device.PCI.bind pcidevs;
 				List.iter (fun ((a, b, c, d) as device) ->
 					debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
@@ -100,7 +100,7 @@ let plug_pcis ~__context ~vm domid managed_pcis other_pcidevs =
 let unplug_pcidevs_noexn ~__context ~vm domid pcidevs =
 	Helpers.log_exn_continue "unplug_pcidevs" (fun () ->
 		Vmopshelpers.with_xc_and_xs (fun xc xs ->
-			if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
+			if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
 				List.iter (fun (devid, devices) ->
 					List.iter (fun device ->
 						debug "requesting hotunplug of PCI device %s" (Device.PCI.to_string device);
@@ -114,7 +114,7 @@ let unplug_pcidevs_noexn ~__context ~vm domid pcidevs =
 let currently_attached_pcis ~__context domid =
 	let host = Helpers.get_localhost ~__context in
 	Vmopshelpers.with_xc_and_xs (fun xc xs ->
-		if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
+		if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
 			let online_devs = List.map (fun (_, (a, b, c, d)) -> Printf.sprintf "%04x:%02x:%02x.%01x" a b c d)
 				(Device.PCI.list ~xc ~xs domid) in
 			List.filter_map (fun (pref, prec) ->
