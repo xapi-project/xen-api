@@ -20,11 +20,11 @@ let _ =
     exit 1
   end;
 
-  let xc = Xc.interface_open () in
+  let xc = Xenctrl.interface_open () in
   (* Clear both watchdog slots *)
-  (try ignore(Xc.watchdog xc 1 0l) with _ -> ());
-  (try ignore(Xc.watchdog xc 2 0l) with _ -> ());
+  (try ignore(Xenctrl.watchdog xc 1 0l) with _ -> ());
+  (try ignore(Xenctrl.watchdog xc 2 0l) with _ -> ());
   (* set a very short timeout *)
-  Xc.watchdog xc 0 0l
+  Xenctrl.watchdog xc 0 0l
   (* boom? *)
 

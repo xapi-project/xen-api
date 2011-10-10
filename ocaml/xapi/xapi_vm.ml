@@ -20,6 +20,7 @@ open Client
 open Threadext
 open Xmlrpc_sexpr
 open Listext
+open Xenstore
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -305,9 +306,9 @@ module TwoPhase = struct
 	&& domid <> -1 (* someone set the state to Halted *)
 	&& (with_xc
 			(fun xc ->
-				 let di = Xc.domain_getinfo xc domid in
+				 let di = Xenctrl.domain_getinfo xc domid in
 				 let running = Xal.is_running di in
-				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xc.shutdown di.Xc.dying (if running then "still" else "not");
+				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xenctrl.shutdown di.Xenctrl.dying (if running then "still" else "not");
 				 running))
 
   (** Called before a regular synchronous reboot/shutdown to simulate parallel in-guest shutdowns *)
@@ -321,10 +322,10 @@ module TwoPhase = struct
 					   (fun xc ->
 							warn "FIST: simulating internal %s for domid=%d" x domid;
 							match x with
-							| "reboot" -> Xc.domain_shutdown xc domid Xc.Reboot
-							| "halt" -> Xc.domain_shutdown xc domid Xc.Halt
-							| "suspend" -> Xc.domain_shutdown xc domid Xc.Suspend
-							| "crash" -> Xc.domain_shutdown xc domid Xc.Crash
+							| "reboot" -> Xenctrl.domain_shutdown xc domid Xenctrl.Reboot
+							| "halt" -> Xenctrl.domain_shutdown xc domid Xenctrl.Halt
+							| "suspend" -> Xenctrl.domain_shutdown xc domid Xenctrl.Suspend
+							| "crash" -> Xenctrl.domain_shutdown xc domid Xenctrl.Crash
 							| _ -> failwith "Unknown simulate_internal_shutdown code");
 				   (* pause for 5s which probably lets the event thread do something (unless it is disabled) *)
 				   Thread.delay 5.
@@ -366,9 +367,9 @@ module Reboot = struct
 		(* Make sure no-one inserts an artificial delay at this point *)
 		(with_xs (fun xs -> xs.Xs.write (Hotplug.get_private_path domid ^ "/" ^ Xapi_globs.artificial_reboot_delay) "0"));
 		(* The domain might be killed by the event thread. Again, this is ok. *)
-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Reboot" domid)
+		Helpers.log_exn_continue (Printf.sprintf "Xenctrl.domain_shutdown domid=%d Xenctrl.Reboot" domid)
 			(fun () ->
-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Reboot)
+				 with_xc (fun xc -> Xenctrl.domain_shutdown xc domid Xenctrl.Reboot)
 			) ()
 	  end
 	end
@@ -511,10 +512,10 @@ module Shutdown = struct
       end else begin
 		debug "%s phase 0/3: no shutdown request required since this is a hard_shutdown" api_call_name;
 		(* The domain might be killed by the event thread. Again, this is ok. *)
-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Halt" domid)
+		Helpers.log_exn_continue (Printf.sprintf "Xenctrl.domain_shutdown domid=%d Xenctrl.Halt" domid)
 			(fun () ->
-				 debug "Xc.domain_shutdown domid=%d Halt" domid;
-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Halt)
+				 debug "Xenctrl.domain_shutdown domid=%d Halt" domid;
+				 with_xc (fun xc -> Xenctrl.domain_shutdown xc domid Xenctrl.Halt)
 			) ()
 	  end
 	end
@@ -543,12 +544,12 @@ module Shutdown = struct
 			  (fun xc xs ->
 				  begin
 					  try
-						  let di = Xc.domain_getinfo xc domid in
+						  let di = Xenctrl.domain_getinfo xc domid in
 						  (* If someone rebooted it while we dropped the lock: *)
 						  if Xal.is_running di
 						  then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
 						  (* see retry_on_conflict *)
-					  with Xc.Error("2: No such file or directory") -> ()
+					  with Xenctrl.Error("2: No such file or directory") -> ()
 				  end;
 
 				  (* Invoke pre_destroy hook *)
@@ -701,7 +702,7 @@ let power_state_reset ~__context ~vm =
   if power_state = `Running || power_state = `Paused then begin
     debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
     let localhost = Helpers.get_localhost ~__context in
-    (* We only query domid, resident_on and Xc.domain_getinfo with the VM lock held to make
+    (* We only query domid, resident_on and Xenctrl.domain_getinfo with the VM lock held to make
        sure the VM isn't in the middle of a migrate/reboot/shutdown. Note we don't hold it for
        the whole of this function which might perform off-box RPCs. *)
     let resident, domid, getinfo = Locking_helpers.with_lock vm
@@ -712,7 +713,7 @@ let power_state_reset ~__context ~vm =
 	   if resident = localhost then begin
 	     debug "VM.power_state_reset vm=%s resident_on=localhost; looking for a domain" (Ref.string_of vm);
 	     if domid = -1L then None
-	     else (try Some (with_xc (fun xc -> Xc.domain_getinfo xc (Int64.to_int domid)))
+	     else (try Some (with_xc (fun xc -> Xenctrl.domain_getinfo xc (Int64.to_int domid)))
 		   with e ->
 		     debug "VM.power_state_reset vm=%s caught %s: assuming domain doesn't exist"
 		       (Ref.string_of vm) (ExnHelper.string_of_exn e);
@@ -722,7 +723,7 @@ let power_state_reset ~__context ~vm =
     if resident = localhost then begin
       match getinfo with
       | Some di ->
-	  let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Xc.handle) in
+	  let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle) in
 	  if Db.VM.get_uuid ~__context ~self:vm = uuid then begin
 	    error "VM.power_state_reset vm=%s uuid=%s domid=%Ld cannot proceed because domain still exists"
 	      (Ref.string_of vm) uuid domid;

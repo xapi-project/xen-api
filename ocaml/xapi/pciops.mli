@@ -29,22 +29,22 @@ val other_pcidevs_of_vm :
 (** Attach PCI devices to the domain. The should be done before starting the domain. *)
 val attach_pcis :
   __context:'a ->
-  xc:Xc.handle ->
-  xs:Xs.xsh ->
-  hvm:bool -> Xc.domid -> (int * (int * int * int * int)) list -> unit
+  xc:Xenctrl.handle ->
+  xs:Xenstore.Xs.xsh ->
+  hvm:bool -> Xenctrl.domid -> (int * (int * int * int * int)) list -> unit
 
 (** Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
 val plug_pcis :
   __context:Context.t ->
   vm:'a ->
-  Xc.domid ->
+  Xenctrl.domid ->
   [ `PCI ] Ref.t list -> ('b * (int * int * int * int)) list -> unit
 
 (** Hot unplug the PCI devices from the domain. Note this is done serially due to a limitation of the
    xenstore protocol. *)
 val unplug_pcidevs_noexn :
-  __context:'a -> vm:'b -> Xc.domid -> ('c * Device.PCI.dev) list -> unit
+  __context:'a -> vm:'b -> Xenctrl.domid -> ('c * Device.PCI.dev) list -> unit
 
 (** Find all PCI devices that are currently attached to a domain, according to XenStore. *)
 val currently_attached_pcis :
-  __context:Context.t -> Xc.domid -> 'a Ref.t list
+  __context:Context.t -> Xenctrl.domid -> 'a Ref.t list

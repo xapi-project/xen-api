@@ -17,12 +17,13 @@ let print_error fmt = Printf.fprintf stderr fmt
 let print_debug fmt = Printf.kprintf (fun s -> if !debug_enabled then output_string stderr s) fmt
 
 open Printf
+open Xenstore
 
 let catch_invalid message f x =
   try
     f x
-  with Xb.Invalid as e ->
-    print_error "Caught Xb.Invalid while executing: %s" message;
+  with Xenbus.Xb.Invalid as e ->
+    print_error "Caught Xenbus.Xb.Invalid while executing: %s" message;
     raise e
 
 let readdir ?(full_paths=true) ~xs path =

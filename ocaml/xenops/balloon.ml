@@ -13,6 +13,7 @@
  *)
 open Stringext
 open Printf
+open Xenstore
 
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
@@ -26,7 +27,7 @@ let _low_mem_balloon = "Low-mem balloon"
 let _high_mem_balloon = "High-mem balloon"
 
 (** Indicates whether or not we're running with XIU (Xen-In Userspace) *)
-let on_xiu () = Xc.is_fake ()
+let on_xiu () = Xenctrl.is_fake ()
 
 (** Reads /proc/xen/balloon into a string * int64 option association list *)
 let parse_proc_xen_balloon () =

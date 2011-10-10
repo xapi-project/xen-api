@@ -144,13 +144,13 @@ let one s vm test =
 				begin match test with
 					| { api = None; parallel_op = Some x } ->
 						let reason = match x with
-							| Internal_reboot -> Xc.Reboot
-							| Internal_halt -> Xc.Halt
-							| Internal_crash -> Xc.Crash
-							| Internal_suspend -> Xc.Suspend in
+							| Internal_reboot -> Xenctrl.Reboot
+							| Internal_halt -> Xenctrl.Halt
+							| Internal_crash -> Xenctrl.Crash
+							| Internal_suspend -> Xenctrl.Suspend in
 						begin 
 							try
-								Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
+								Xenctrl.with_intf (fun xc -> Xenctrl.domain_shutdown xc (Int64.to_int domid) reason)
 							with e ->
 								debug t (Printf.sprintf "Ignoring exception: %s" (Printexc.to_string e))
 						end

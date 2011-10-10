@@ -19,6 +19,7 @@ open D
 open Stringext
 open Printf
 open Pervasiveext
+open Xenstore
 
 type domid = int
 
@@ -134,7 +135,7 @@ type state =
 
 type ctx = {
 	xs: Xs.xsh;
-	xc: Xc.handle;
+	xc: Xenctrl.handle;
 	mutable callback_introduce: ctx -> domid -> string -> unit;
 	mutable callback_release: ctx -> domid -> string -> unit;
 	mutable callback_devices: ctx -> domid -> dev_event -> unit;
@@ -161,40 +162,40 @@ let domstate_init uuid = {
 
 (* some helper to find out if a domain is running or not reading xc dominfo *)
 let is_running dom =
-	not (dom.Xc.dying || dom.Xc.shutdown) &&
-	((dom.Xc.paused || dom.Xc.running || dom.Xc.blocked) ||
+	not (dom.Xenctrl.dying || dom.Xenctrl.shutdown) &&
+	((dom.Xenctrl.paused || dom.Xenctrl.running || dom.Xenctrl.blocked) ||
 	(* for hvm domain *)
-	((dom.Xc.paused || dom.Xc.running || dom.Xc.blocked) = false))
+	((dom.Xenctrl.paused || dom.Xenctrl.running || dom.Xenctrl.blocked) = false))
 
 let is_not_running dom =
-	dom.Xc.dying || dom.Xc.shutdown
+	dom.Xenctrl.dying || dom.Xenctrl.shutdown
 
 let dead_reason_of_xc dom =
-	if dom.Xc.shutdown then
-		match dom.Xc.shutdown_code with
+	if dom.Xenctrl.shutdown then
+		match dom.Xenctrl.shutdown_code with
 		| 0 -> Halted
 		| 1 -> Rebooted
 		| 2 -> Suspended
 		| 3 -> Crashed
 		| 4 -> Halted
 		| i -> Shutdown i
-	else if dom.Xc.dying then
+	else if dom.Xenctrl.dying then
 		Crashed
 	else
-		raise (Domain_not_dead dom.Xc.domid)
+		raise (Domain_not_dead dom.Xenctrl.domid)
 
 
 let xal_devstate_of_string s =
-	let state = try Xenbus.of_int (int_of_string s)
-		    with _ -> Xenbus.Unknown in
+	let state = try Xenbus_utils.of_int (int_of_string s)
+		    with _ -> Xenbus_utils.Unknown in
 	match state with
-	| Xenbus.Unknown      -> Closed
-	| Xenbus.Initialising -> Connecting
-	| Xenbus.InitWait     -> Connecting
-	| Xenbus.Initialised  -> Connecting
-	| Xenbus.Connected    -> Connected
-	| Xenbus.Closing      -> Closing
-	| Xenbus.Closed       -> Closed
+	| Xenbus_utils.Unknown      -> Closed
+	| Xenbus_utils.Initialising -> Connecting
+	| Xenbus_utils.InitWait     -> Connecting
+	| Xenbus_utils.Initialised  -> Connecting
+	| Xenbus_utils.Connected    -> Connected
+	| Xenbus_utils.Closing      -> Closing
+	| Xenbus_utils.Closed       -> Closed
 
 let get_domstate ctx domid =
 	try Hashtbl.find ctx.tbl domid
@@ -224,7 +225,7 @@ let get_devstate ctx domid ty devid =
 let get_all_doms xc =
 	List.map (fun dom ->
 		let state = if is_running dom then Running else Dead in
-		dom.Xc.domid, state, dom) (Xc.domain_getinfolist xc 0)
+		dom.Xenctrl.domid, state, dom) (Xenctrl.domain_getinfolist xc 0)
 
 let get_doms doms =
 	List.map (fun (domid, state, _) -> (domid, state)) doms
@@ -236,9 +237,9 @@ let domain_is_dead ctx domid =
 		match dom.dead_reason with None -> false | Some _ -> true
 	else (
 		try
-			let dom = Xc.domain_getinfo ctx.xc domid in
+			let dom = Xenctrl.domain_getinfo ctx.xc domid in
 			not (is_running dom)
-		with Xc.Error _ ->
+		with Xenctrl.Error _ ->
 			true
 	)
 
@@ -250,10 +251,10 @@ let domain_get_dead ctx domid =
 		| Some reason -> reason
 	else (
 		try
-			let dom = Xc.domain_getinfo ctx.xc domid in
+			let dom = Xenctrl.domain_getinfo ctx.xc domid in
 			dead_reason_of_xc dom
-		with Xc.Error err ->
-			debug "Xc.domain_getinfo %d threw exception: %s; assuming domain has Vanished" domid err;
+		with Xenctrl.Error err ->
+			debug "Xenctrl.domain_getinfo %d threw exception: %s; assuming domain has Vanished" domid err;
 			Vanished
 	)
 
@@ -280,15 +281,15 @@ let domain_is_paused ctx domid =
 		let domstate = Hashtbl.find ctx.tbl domid in
 		if domstate.dead_reason = None then
 			try
-				let dom = Xc.domain_getinfo ctx.xc domid in
+				let dom = Xenctrl.domain_getinfo ctx.xc domid in
 				if is_running dom then
-					dom.Xc.paused
+					dom.Xenctrl.paused
 				else (
 					domstate.dead_reason <- Some (dead_reason_of_xc dom);
 					false
 				)
 			with
-			Xc.Error _ ->
+			Xenctrl.Error _ ->
 				domstate.dead_reason <- Some Vanished;
 				false
 		else
@@ -368,7 +369,7 @@ let domain_update ctx =
 	List.iter (fun (domid, state, dom) ->
 		(* if domid is not found in old list, create the domain *)
 		if state = Running && not (List.mem_assoc domid olddoms) then
-			domain_create domid dom.Xc.handle
+			domain_create domid dom.Xenctrl.handle
 	) doms;
 
 	(* search for domains that disappeared from the list *)
@@ -475,7 +476,7 @@ let other_watch xs w v =
 		let data = xs.Xs.read w in
 		Some (-1, (Rtc (uuid, data)), "", "")
 	| "" :: "local" :: "domain" :: domid :: "memory" :: [ "uncooperative" ] ->
-		let uncooperative = try ignore (xs.Xs.read w); true with Xb.Noent -> false in
+		let uncooperative = try ignore (xs.Xs.read w); true with Xenbus.Xb.Noent -> false in
 		Some (int_of_string domid, Uncooperative uncooperative, "", "")
 (* disabled for CA-22306
 	| "" :: "local" :: "domain" :: domid :: "messages" :: id :: name :: priority :: [ "body" ] ->
@@ -498,7 +499,7 @@ let other_watch xs w v =
 let device_state_init ctx domid =
 	let xs = ctx.xs in
 	let frontend_path = sprintf "/local/domain/%u/device" domid in
-	let frontend_tys = try xs.Xs.directory frontend_path with Xb.Noent -> [] in
+	let frontend_tys = try xs.Xs.directory frontend_path with Xenbus.Xb.Noent -> [] in
 	let frontend_tys = List.filter (fun ty -> ty <> "") frontend_tys in
 
 	let iter_device ty devid =
@@ -544,7 +545,7 @@ let init ?(callback_introduce = callback_dom_uuid_null)
 	(* Make sure if this function fails to close any opened descriptors *)
 	let xs = Xs.daemon_open () in	
 	try
-		let xc = Xc.interface_open () in
+		let xc = Xenctrl.interface_open () in
 		(try
 			let ctx = {
 				xs = xs;
@@ -573,13 +574,13 @@ let init ?(callback_introduce = callback_dom_uuid_null)
 			List.iter (fun (domid, uuid) -> callback_introduce ctx domid uuid) newdomains;
 			List.iter (fun (domid, uuid) -> callback_release ctx domid uuid) deaddomains;
 			ctx
-		with e -> Xc.interface_close xc; raise e)
+		with e -> Xenctrl.interface_close xc; raise e)
 	with e -> Xs.close xs; raise e
 
 let close ctx =
 	(try Xs.close ctx.xs 
 	 with e -> error "Caught exception: %s while closing xenstore connection" (Printexc.to_string e));
-  	(try Xc.interface_close ctx.xc 
+  	(try Xenctrl.interface_close ctx.xc 
 	 with e -> error "Caught exception: %s while closing xc" (Printexc.to_string e))
 
 let domain_device_event ctx w v =

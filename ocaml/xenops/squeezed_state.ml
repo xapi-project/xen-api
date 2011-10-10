@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Squeezed_rpc 
+open Xenstore
 
 (** Path in xenstore where the daemon stores state, specifically reservations *)
 let state_path service = path [ ""; service; "state" ]

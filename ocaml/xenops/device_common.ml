@@ -15,12 +15,13 @@ open Printf
 open Stringext
 open Hashtblext
 open Pervasiveext
+open Xenstore
 
 type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
 
 type devid = int
 (** Represents one end of a device *)
-type endpoint = { domid: Xc.domid; kind: kind; devid: int }
+type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
@@ -51,7 +52,7 @@ let kind_of_string = function
 let string_of_endpoint (x: endpoint) =
   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
 
-let backend_path ~xs (backend: endpoint) (domu: Xc.domid) = 
+let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) = 
   sprintf "%s/backend/%s/%u/%d" 
     (xs.Xs.getdomainpath backend.domid) 
     (string_of_kind backend.kind)
@@ -111,7 +112,7 @@ let backend_pause_done_path_of_device ~xs (x: device) =
 let string_of_device (x: device) = 
   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
 
-let device_of_backend (backend: endpoint) (domu: Xc.domid) = 
+let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
 		   kind = (match backend.kind with
 			   | Vbd | Tap -> Vbd
@@ -151,7 +152,7 @@ let parse_backend_link x =
 			end
 		| _ -> None
 
-let readdir ~xs d = try xs.Xs.directory d with Xb.Noent -> []
+let readdir ~xs d = try xs.Xs.directory d with Xenbus.Xb.Noent -> []
 let to_list ys = List.concat (List.map Opt.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 

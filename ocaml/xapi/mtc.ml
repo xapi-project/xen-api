@@ -27,6 +27,7 @@
 open Pervasiveext
 open Printf
 open Vmopshelpers
+open Xenstore
 
 module DD=Debug.Debugger(struct let name="MTC:" end)
 open DD

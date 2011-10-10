@@ -17,6 +17,7 @@
 open Printf
 open Stringext
 open Common
+open Xenbus
 
 let tnb data =
 	try int_of_string (List.hd (String.split '\000' data))

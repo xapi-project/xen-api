@@ -16,6 +16,7 @@ open Vmopshelpers
 open Pervasiveext
 open Threadext
 open Listext
+open Xenstore
 
 module D = Debug.Debugger(struct let name = "event" end)
 open D
@@ -61,7 +62,7 @@ module Crashdump = struct
 		let fd = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT;
 						  Unix.O_TRUNC; ] 0o640 in
 		Pervasiveext.finally (fun () ->
-				      with_xc (fun xc -> Xc.coredump xc domid fd);
+				      with_xc (fun xc -> Xenctrl.coredump xc domid fd);
 		) (fun () -> Unix.close fd)
 	)
 
@@ -363,7 +364,7 @@ module Resync = struct
       end else begin
 	with_xc
 	  (fun xc ->
-	     let dom = Xc.domain_getinfo xc domid in
+	     let dom = Xenctrl.domain_getinfo xc domid in
 	     if Xal.is_running dom then begin
 	       debug "VM %s (domid %d) is still running; taking no action" vm' domid;
 	       false (* no action taken *)
@@ -471,7 +472,7 @@ let callback_devices ctx domid dev_event =
 		    try
 		      let vif = 
 			try Ref.of_string (xs.Xs.read (private_data_path ^ "/ref")) 
-			with Xb.Noent -> Helpers.vif_of_devid ~__context ~vm (int_of_string devid) in
+			with Xenbus.Xb.Noent -> Helpers.vif_of_devid ~__context ~vm (int_of_string devid) in
 		      let work_item ~__context token = 
 			Resync.vif ~__context token vm vif
 		      in
@@ -598,8 +599,8 @@ let guest_agent_update ctx domid uuid =
     (fun () ->
        let xs = Xal.xs_of_ctx ctx in
        let path = xs.Xs.getdomainpath domid in
-       let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xb.Noent -> None in
-       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xb.Noent -> [] in
+       let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xenbus.Xb.Noent -> None in
+       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xenbus.Xb.Noent -> [] in
        (* NB Xapi_guest_agent.all is robust to spurious events *)
        Server_helpers.exec_with_new_task (Printf.sprintf "Event thread updating guest metrics (domid: %d)" domid)
 	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid)
@@ -621,7 +622,7 @@ let callback_memory_target ctx domid =
     (fun () ->
        let xs = Xal.xs_of_ctx ctx in
        let path = xs.Xs.getdomainpath domid in
-       let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xb.Noent -> None in
+       let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xenbus.Xb.Noent -> None in
        Opt.iter (fun t -> Mutex.execute Monitor.memory_targets_m (fun () -> Hashtbl.replace Monitor.memory_targets domid t)) target;
     ) ()
 

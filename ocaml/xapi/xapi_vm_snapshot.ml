@@ -17,6 +17,7 @@
  
 open Client
 open Vmopshelpers
+open Xenstore
 
 open Client
 module D = Debug.Debugger(struct let name="xapi" end)
@@ -231,7 +232,7 @@ let checkpoint ~__context ~vm ~new_name =
 			Vmops.restore ~__context ~xc ~xs ~self:vm false in
 
 		  let domid = Helpers.domid_of_vm ~__context ~self:vm in
-		  let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
+		  let hvm = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
 		  if hvm
 		  then fast_resume ()
 		  else slow_resume () (* most vendor kernels don't support fast resume *)

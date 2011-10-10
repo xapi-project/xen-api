@@ -13,6 +13,7 @@
  *)
 open Common
 open Printf
+open Xenbus
 
 module Perm =
 struct
