@@ -1,15 +1,15 @@
-OCAML_XB_DIR = $(shell ocamlfind query xb)
-OCAML_XC_DIR = $(shell ocamlfind query xc)
-OCAML_XS_DIR = $(shell ocamlfind query xs)
+OCAML_XB_DIR = $(shell ocamlfind query xenbus)
+OCAML_XC_DIR = $(shell ocamlfind query xenctrl)
+OCAML_XS_DIR = $(shell ocamlfind query xenstore)
 
 OCAML_XB_INC = -I $(OCAML_XB_DIR)
-OCAML_XB_LIB = $(OCAML_XB_DIR)/xb.cmxa
+OCAML_XB_LIB = $(OCAML_XB_DIR)/xenbus.cmxa
 
 OCAML_XC_INC = -I $(OCAML_XC_DIR)
-OCAML_XC_LIB = $(OCAML_XC_DIR)/xc.cmxa
+OCAML_XC_LIB = $(OCAML_XC_DIR)/xenctrl.cmxa
 
 OCAML_XS_INC = -I $(OCAML_XS_DIR)
-OCAML_XS_LIB = $(OCAML_XS_DIR)/xs.cmxa
+OCAML_XS_LIB = $(OCAML_XS_DIR)/xenstore.cmxa
 
 LDFLAGS = -cclib -L./
 
