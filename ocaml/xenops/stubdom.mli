@@ -12,4 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val create: xc:Xc.handle -> xs:Xs.xsh -> Device.Dm.info -> Xc.domid -> Xc.domid
+val create: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Device.Dm.info -> Xenctrl.domid -> Xenctrl.domid

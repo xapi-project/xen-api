@@ -243,12 +243,12 @@ let guest_metrics_liveness_thread () =
 	  while true do
 	    try
 	      Thread.delay Xapi_globs.guest_liveness_timeout;
-	      let doms = Xc.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
+	      let doms = Xenctrl.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
 	      let now = Unix.gettimeofday () in
 	      (* debug "Running liveness logic"; *)
 	      Mutex.execute mutex (fun () -> 
 		List.iter (fun dom ->
-		  let domid = dom.Xc.domid in
+		  let domid = dom.Xenctrl.domid in
 		  try
 		    let (_,_,_,_,_,last_updated) = Hashtbl.find cache domid in		    
 		    let dead = IntSet.mem domid !dead_domains in
@@ -261,7 +261,7 @@ let guest_metrics_liveness_thread () =
 			    (* debug "Marking as alive!"; *)
 			    (* Mark guest as alive! *)
 			    dead_domains := IntSet.remove domid !dead_domains;
-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in
+				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:true;
 			    (* debug "Done" *)
@@ -277,7 +277,7 @@ let guest_metrics_liveness_thread () =
 			    (* debug "Marking as dead!"; *)
 			    (* Mark guest as dead! *)
 			    dead_domains := IntSet.add domid !dead_domains;
-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in				
+				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in				
 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:false;
 			    (* debug "Done" *)

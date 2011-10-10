@@ -11,7 +11,7 @@ section
 
 section
 
-	OCAMLPACKS += xb xs netdev
+	OCAMLPACKS += xenbus xenstore netdev
 	OCAML_CLIBS = ../xenops/statdev_stubs 
 
 	OCamlProgram(fatxe, cli options \

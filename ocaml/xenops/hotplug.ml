@@ -16,6 +16,7 @@ open Printf
 open Stringext
 
 open Device_common
+open Xenstore
 
 module D = Debug.Debugger(struct let name = "hotplug" end)
 open D
@@ -76,7 +77,7 @@ let value_written_by_hotplug_scripts (x: device) = match x.backend.kind with
 let hotplugged ~xs (x: device) =
 	let path = path_written_by_hotplug_scripts x
 	and v = value_written_by_hotplug_scripts x in
-	try xs.Xs.read path = v with Xb.Noent -> false
+	try xs.Xs.read path = v with Xenbus.Xb.Noent -> false
 
 (* The path in xenstore written to by the frontend hotplug scripts *)
 let frontend_status_node (x: device) = 
@@ -100,8 +101,8 @@ let blkback_error_node ~xs (x: device) =
    (ie not an API-initiated hotunplug; this is start of day) then we check the state 
    of the backend hotplug scripts. *)
 let device_is_online ~xs (x: device) = 
-  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xb.Noent -> false 
-  and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xb.Noent -> false in
+  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xenbus.Xb.Noent -> false 
+  and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xenbus.Xb.Noent -> false in
 
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
@@ -208,7 +209,7 @@ let umount_loopdev loopdev =
 let mount_loopdev ~xs (x: device) file readonly =
 	let path = get_hotplug_path x ^ "/loop-device" in
 	(* Make sure any previous loop device is gone *)
-	(try umount_loopdev (xs.Xs.read path) with Xb.Noent -> ());
+	(try umount_loopdev (xs.Xs.read path) with Xenbus.Xb.Noent -> ());
 	let loopdev = mount_loopdev_file readonly file in
 	debug "Allocated loop device %s" loopdev;
 	debug "xenstore-write %s = %s" path loopdev;

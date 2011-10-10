@@ -13,6 +13,7 @@
  *)
 open Vmopshelpers
 open Xapi_vif_helpers
+open Xenstore
 open D
 
 let assert_operation_valid ~__context ~self ~(op:API.vif_operations) = 

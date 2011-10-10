@@ -19,6 +19,7 @@ open Pervasiveext
 open Listext
 
 open Device_common
+open Xenstore
 
 exception Ioemu_failed of string
 exception Ioemu_failed_dying
@@ -62,10 +63,10 @@ let add_device ~xs device backend_list frontend_list private_list =
 	Xs.transaction xs (fun t ->
 		begin try
 			ignore (t.Xst.read frontend_path);
-			if Xenbus.of_string (t.Xst.read (frontend_path ^ "/state"))
-			   <> Xenbus.Closed then
+			if Xenbus_utils.of_string (t.Xst.read (frontend_path ^ "/state"))
+			   <> Xenbus_utils.Closed then
 				raise (Device_frontend_already_connected device)
-		with Xb.Noent -> () end;
+		with Xenbus.Xb.Noent -> () end;
 
 		t.Xst.rm frontend_path;
 		t.Xst.rm backend_path;
@@ -124,13 +125,13 @@ let exists ~xs (x: device) =
   try
     ignore_string(xs.Xs.read backend_stub);
     true
-  with Xb.Noent -> false
+  with Xenbus.Xb.Noent -> false
 
 let assert_exists_t ~xs t (x: device) =
   let backend_stub = backend_path_of_device ~xs x in
   try
     ignore_string(t.Xst.read backend_stub)
-  with Xb.Noent -> raise Device_not_found
+  with Xenbus.Xb.Noent -> raise Device_not_found
 
 (** When hot-unplugging a device we ask nicely *)
 let request_closure ~xs (x: device) =
@@ -140,10 +141,10 @@ let request_closure ~xs (x: device) =
 		let online_path = backend_path ^ "/online" in
 		debug "xenstore-write %s = 0" online_path;
 		t.Xst.write online_path "0";
-		let state = try Xenbus.of_string (t.Xst.read state_path) with _ -> Xenbus.Closed in
-		if state <> Xenbus.Closed then (
+		let state = try Xenbus_utils.of_string (t.Xst.read state_path) with _ -> Xenbus_utils.Closed in
+		if state <> Xenbus_utils.Closed then (
 			debug "Device.del_device setting backend to Closing";
-			t.Xst.write state_path (Xenbus.string_of Xenbus.Closing);
+			t.Xst.write state_path (Xenbus_utils.string_of Xenbus_utils.Closing);
 		)
 	)
 
@@ -151,7 +152,7 @@ let unplug_watch ~xs (x: device) =
 	let path = Hotplug.path_written_by_hotplug_scripts x in
 	Watch.map (fun () -> "") (Watch.key_to_disappear path)
 let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
-let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus.string_of Xenbus.Closed))
+let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 
 let clean_shutdown ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
@@ -215,7 +216,7 @@ let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate other
 	let finished = ref false and error = ref None in
 	let callback watch =
 		finished := predicate ();
-		error := (try Some (xs.Xs.read errorpath) with Xb.Noent -> None);
+		error := (try Some (xs.Xs.read errorpath) with Xenbus.Xb.Noent -> None);
 		(* We return if the predicate is true of an error node has appeared *)
 		!finished || !error <> None in
 	begin try
@@ -505,7 +506,7 @@ let pause ~xs (x: device) =
 				ignore(t.Xst.read path);
 				error "Vbd.pause failed because path exists already: %s" path;
 				raise Pause_failed
-			with Xb.Noent -> () in
+			with Xenbus.Xb.Noent -> () in
 		path_should_not_exist request_path;
 		path_should_not_exist token_path;
 		path_should_not_exist response_path;
@@ -542,7 +543,7 @@ let unpause ~xs (x: device) (token: string) =
 
 		let path_should_exist path = 
 			try ignore(t.Xst.read path)
-			with Xb.Noent ->
+			with Xenbus.Xb.Noent ->
 				error "Vbd.unpause failed because path does not exist already: %s" path;
 				raise Device_not_paused in
 		path_should_exist request_path;
@@ -571,7 +572,7 @@ let unpause ~xs (x: device) (token: string) =
 
 let is_paused ~xs (x: device) = 
 	let request_path = backend_pause_request_path_of_device ~xs x in
-	try ignore(xs.Xs.read request_path); true with Xb.Noent -> false
+	try ignore(xs.Xs.read request_path); true with Xenbus.Xb.Noent -> false
 
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
@@ -604,7 +605,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"virtual-device", string_of_int devid;
 		"device-type", if dev_type = CDROM then "cdrom" else "disk";
 	];
@@ -614,7 +615,7 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 		   This allows the xenbus connection to re-establish itself *)
 		"online", "1";
 		"removable", if unpluggable then "1" else "0";
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"dev", Device_number.to_linux_device device_number;
 		"type", backendty_of_physty phystype;
 		"mode", string_of_mode mode;
@@ -785,7 +786,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 	let back = [
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"script", "/etc/xensource/scripts/vif";
 		"mac", mac;
 		"handle", string_of_int devid
@@ -799,7 +800,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 
 	let front = [
 		"backend-id", string_of_int backend_domid;
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"handle", string_of_int devid;
 		"mac", mac;
 		"disconnect", if carrier then "0" else "1";
@@ -810,8 +811,8 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 	let extra_private_keys = extra_private_keys @
 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
 	  (match netty with
-	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
-	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
 	     | Netman.DriverDomain -> []
 	     | Netman.Nat -> []) @
 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
@@ -858,7 +859,7 @@ let status ~xs ~devid domid =
 	| "online"  -> true
 	| "offline" -> false
 	| _         -> (* garbage, assuming false *) false
-	with Xb.Noent -> false
+	with Xenbus.Xb.Noent -> false
 
 end
 
@@ -1013,14 +1014,14 @@ let grant_access_resources xc domid resources v =
 			let nr_ports = (Int64.to_int e) - first_port + 1 in
 
 			debug "pci %s io bar %Lx-%Lx" action s e;
-			Xc.domain_ioport_permission xc domid first_port nr_ports v
+			Xenctrl.domain_ioport_permission xc domid first_port nr_ports v
 		) else (
 			let mem_to_pfn m = Int64.to_nativeint (Int64.div m 4096L) in
 			let first_pfn = mem_to_pfn s and end_pfn = mem_to_pfn e in
 			let nr_pfns = Nativeint.add (Nativeint.sub end_pfn first_pfn) 1n in
 
 			debug "pci %s mem bar %Lx-%Lx" action s e;
-			Xc.domain_iomem_permission xc domid first_pfn nr_pfns v
+			Xenctrl.domain_iomem_permission xc domid first_pfn nr_pfns v
 		)
 	) resources
 
@@ -1038,12 +1039,12 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 
 	List.iter (fun dev ->
 		if hvm then (
-			ignore_bool (Xc.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
+			ignore_bool (Xenctrl.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
 			()
 		);
 		grant_access_resources xc domid dev.resources true;
 		if dev.irq > 0 then
-			Xc.domain_irq_permission xc domid dev.irq true
+			Xenctrl.domain_irq_permission xc domid dev.irq true
 	) pcidevs;
 
 	let device = {
@@ -1060,12 +1061,12 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"num_devs", string_of_int (List.length xsdevs);
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 		"msitranslate", string_of_int (msitranslate);
                 "pci_power_mgmt", string_of_int (pci_power_mgmt);
 	] and frontendlist = [
 		"backend-id", "0";
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
@@ -1090,7 +1091,7 @@ let release ~xc ~xs ~hvm pcidevs domid devid =
 	List.iter (fun dev ->
 		grant_access_resources xc domid dev.resources false;
 		if dev.irq > 0 then
-			Xc.domain_irq_permission xc domid dev.irq false
+			Xenctrl.domain_irq_permission xc domid dev.irq false
 	) pcidevs;
 	()
 
@@ -1172,9 +1173,9 @@ let reset ~xs (x: dev) =
 let clean_shutdown ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
 	let devs = enumerate_devs ~xs x in
-	Xc.with_intf (fun xc ->
+	Xenctrl.with_intf (fun xc ->
 		let hvm =
-			try (Xc.domain_getinfo xc x.frontend.domid).Xc.hvm_guest
+			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
 			with _ -> false
 			in
 		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid
@@ -1218,7 +1219,7 @@ let wait_device_model ~xc ~xs domid =
 let read_pcidir ~xc ~xs domid = 
   let path = device_model_pci_device_path xs 0 domid in
   let prefix = "dev-" in
-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
+  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xenbus.Xb.Noent -> []) in
   (* The values are the PCI device (domain, bus, dev, func) strings *)
   let device_number_of_string x =
     (* remove the silly prefix *)
@@ -1247,7 +1248,7 @@ let plug ~xc ~xs (domain, bus, dev, func) domid =
 	| x ->
 		failwith
 			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
-	Xc.domain_assign_device xc domid (domain, bus, dev, func)
+	Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
 
 let unplug ~xc ~xs (domain, bus, dev, func) domid = 
     let current = list ~xc ~xs domid in
@@ -1265,7 +1266,7 @@ let unplug ~xc ~xs (domain, bus, dev, func) domid =
 	in
 	(* CA-62028: tell the device to stop whatever it's doing *)
 	do_flr pci;
-	Xc.domain_deassign_device xc domid (domain, bus, dev, func)
+	Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
 
 end
 
@@ -1324,12 +1325,12 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	let back = [
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
 	let front = [
 		"backend-id", string_of_int backend_domid;
 		"protocol", (string_of_protocol protocol);
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
 	Generic.add_device ~xs device back front [];
 	()
@@ -1356,12 +1357,12 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	let back = [
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
 	let front = [
 		"backend-id", string_of_int backend_domid;
 		"protocol", (string_of_protocol protocol);
-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
+		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
 	Generic.add_device ~xs device back front []; 
 	()

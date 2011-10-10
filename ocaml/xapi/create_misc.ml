@@ -43,10 +43,10 @@ type host_info = {
 
 let read_localhost_info () =
 	let xen_verstring =
-		let xc = Xc.interface_open () in
-		let v = Xc.version xc in
-		Xc.interface_close xc;
-		Printf.sprintf "%d.%d%s" v.Xc.major v.Xc.minor v.Xc.extra
+		let xc = Xenctrl.interface_open () in
+		let v = Xenctrl.version xc in
+		Xenctrl.interface_close xc;
+		Printf.sprintf "%d.%d%s" v.Xenctrl.major v.Xenctrl.minor v.Xenctrl.extra
 	and linux_verstring =
 		let verstring = ref "" in
 		let f line =
@@ -393,10 +393,10 @@ let make_software_version () =
 
 let create_host_cpu ~__context =
 	let get_nb_cpus () =
-		let xc = Xc.interface_open () in
-		let p = Xc.physinfo xc in
-		Xc.interface_close xc;
-		p.Xc.nr_cpus
+		let xc = Xenctrl.interface_open () in
+		let p = Xenctrl.physinfo xc in
+		Xenctrl.interface_close xc;
+		p.Xenctrl.nr_cpus
 		in
 	let trim_end s =
         	let i = ref (String.length s - 1) in
@@ -496,7 +496,7 @@ let create_chipset_info ~__context =
 	let host = Helpers.get_localhost ~__context in
 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
 	let iommu =
-		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc) in
+		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc) in
 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
 			"true"
 		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then

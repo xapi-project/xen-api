@@ -17,7 +17,7 @@ type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
 type devid = int
 
 (** Represents one end of a device *)
-type endpoint = { domid: Xc.domid; kind: kind; devid: int }
+type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
@@ -32,19 +32,19 @@ exception Device_error of device * string
 exception Device_unrecognized of string
 exception Hotplug_script_expecting_field of device * string
 
-val backend_path : xs:Xs.xsh -> endpoint -> Xc.domid -> string
-val backend_path_of_device : xs:Xs.xsh -> device -> string
-val frontend_path_of_device : xs:Xs.xsh -> device -> string
-val disconnect_path_of_device : xs:Xs.xsh -> device -> string
-val error_path_of_device : xs:Xs.xsh -> device -> string
-val backend_error_path_of_device : xs:Xs.xsh -> device -> string
+val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
+val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val frontend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
-val backend_shutdown_request_path_of_device : xs:Xs.xsh -> device -> string
-val backend_shutdown_done_path_of_device : xs:Xs.xsh -> device -> string
+val backend_shutdown_request_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_shutdown_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
-val backend_pause_request_path_of_device : xs:Xs.xsh -> device -> string
-val backend_pause_token_path_of_device : xs:Xs.xsh -> device -> string
-val backend_pause_done_path_of_device : xs:Xs.xsh -> device -> string
+val backend_pause_request_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_pause_token_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string
@@ -54,18 +54,18 @@ val kind_of_string : string -> kind
 (** [list_backends xs domid] returns a list of devices where there is a
 	backend in [domid]. This function only reads data stored in the backend
     directory.*)
-val list_backends : xs:Xs.xsh -> Xc.domid -> device list
+val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 
 (** [list_frontends xs domid] returns a list of devices where there is a
 	frontend in [domid]. This function only reads data stored in the frontend
     directory.*)
-val list_frontends : xs:Xs.xsh -> Xc.domid -> device list
+val list_frontends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 
 (** Return a list of devices connecting two domains. Ignore those whose kind 
     we don't recognise *)
-val list_devices_between : xs:Xs.xsh -> Xc.domid -> Xc.domid -> device list
+val list_devices_between : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
 
-val device_of_backend : endpoint -> Xc.domid -> device
+val device_of_backend : endpoint -> Xenctrl.domid -> device
 
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
 val string_of_protocol : protocol -> string

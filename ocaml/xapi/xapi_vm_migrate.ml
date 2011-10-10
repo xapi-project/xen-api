@@ -226,7 +226,7 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
   try
     if want_failure __context vm 2 then begin
       debug "Simulating domain crash during Domain.suspend";
-      Xc.domain_shutdown xc domid Xc.Crash;
+      Xenctrl.domain_shutdown xc domid Xenctrl.Crash;
       raise (Vmops.Domain_shutdown_for_wrong_reason Xal.Crashed)
     end;
 
@@ -451,7 +451,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
   (* <-- [2] Synchronisation point *)  
   if want_failure __context vm 5 then begin
     debug "Simulating domain crash after restore";
-    Xc.domain_shutdown xc domid Xc.Crash;
+    Xenctrl.domain_shutdown xc domid Xenctrl.Crash;
     (* Continue on, like would happen if we crashed asynchronously *)
   end;
 
@@ -577,12 +577,12 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 									(* The lowest upper-bound on the amount of memory the domain can consume during
 									   the migration is the max of maxmem and memory_actual (with our overheads subtracted),
 									   assuming no reconfiguring of target happens during the process. *)
-									let info = Xc.domain_getinfo xc domid in
+									let info = Xenctrl.domain_getinfo xc domid in
 									let totmem =
-										Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
+										Memory.bytes_of_pages (Int64.of_nativeint info.Xenctrl.total_memory_pages) in
 									let maxmem =
-										let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
-										let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
+										let overhead_bytes = Memory.bytes_of_mib (if info.Xenctrl.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+										let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xenctrl.max_memory_pages) in
 										Int64.sub raw_bytes overhead_bytes in
 									(* CA-31764: maxmem may be larger than static_max if maxmem has been increased to initial-reservation. *)
 									let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
