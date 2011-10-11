@@ -224,7 +224,7 @@ let update_pifs ~__context host pifs =
 		in
 		begin try
 			let pif_stats = List.find (fun p -> p.pif_name = physical_device_name) pifs in
-			let carrier = pif_stats.pif_carrier && rc.API.pIF_currently_attached in
+			let carrier = pif_stats.pif_carrier in
 			let speed = Int64.of_int (Netdev.Link.int_of_speed pif_stats.pif_speed) in
 			let duplex = match pif_stats.pif_duplex with
 				| Netdev.Link.Duplex_full    -> true
