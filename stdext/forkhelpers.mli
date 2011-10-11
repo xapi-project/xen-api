@@ -44,6 +44,11 @@ type syslog_stdout_t =
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 val execute_command_get_output : ?env:string array -> ?syslog_stdout:syslog_stdout_t -> string -> string list -> string * string
 
+(** [execute_command_get_output cmd args stdin] runs [cmd args], passes in the string [stdin] and returns (stdout, stderr)
+	on success (exit 0). On failure this raises 
+    [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
+val execute_command_get_output_send_stdin : ?env:string array -> ?syslog_stdout:syslog_stdout_t -> string -> string list -> string -> string * string
+
 (** Thrown by [execute_command_get_output] if the subprocess exits with a non-zero exit code *)
 exception Spawn_internal_error of string * string * Unix.process_status
 

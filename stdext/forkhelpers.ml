@@ -161,23 +161,34 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     close_fds
 
 
-let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) cmd args =
-  match with_logfile_fd "execute_command_get_out" (fun out_fd ->
-    with_logfile_fd "execute_command_get_err" (fun err_fd ->
-      let (sock,pid) = safe_close_and_exec ?env None (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
-      match Fecomms.read_raw_rpc sock with
-	| Fe.Finished x -> Unix.close sock; x
-	| _ -> Unix.close sock; failwith "Communications error"	    
-    )) with
-    | Success(out,Success(err,(status))) -> 
-	begin
-	  match status with
-	    | Fe.WEXITED 0 -> (out,err)
-	    | Fe.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
-	    | Fe.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
-	    | Fe.WSIGNALED n -> raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
-	end
-    | Success(_,Failure(_,exn))
-    | Failure(_, exn) ->
-	raise exn
+let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) cmd args =
+	let stdinandpipes = Opt.map (fun str -> 
+		let (x,y) = Unix.pipe () in
+		(str,x,y)) stdin in
+	Pervasiveext.finally (fun () -> 
+		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
+			with_logfile_fd "execute_command_get_err" (fun err_fd ->
+				let (sock,pid) = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
+				Opt.map (fun (str,_,wr) -> Unixext.really_write_string wr str) stdinandpipes;
+				match Fecomms.read_raw_rpc sock with
+					| Fe.Finished x -> Unix.close sock; x
+					| _ -> Unix.close sock; failwith "Communications error"	    
+			)) with
+			| Success(out,Success(err,(status))) -> 
+				begin
+					match status with
+						| Fe.WEXITED 0 -> (out,err)
+						| Fe.WEXITED n -> raise (Spawn_internal_error(err,out,Unix.WEXITED n))
+						| Fe.WSTOPPED n -> raise (Spawn_internal_error(err,out,Unix.WSTOPPED n))
+						| Fe.WSIGNALED n -> raise (Spawn_internal_error(err,out,Unix.WSIGNALED n))
+				end
+			| Success(_,Failure(_,exn))
+			| Failure(_, exn) ->
+				raise exn)
+		(fun () -> Opt.iter (fun (_,x,y) -> Unix.close x; Unix.close y) stdinandpipes)
 
+let execute_command_get_output ?env ?(syslog_stdout=NoSyslogging) cmd args =
+	execute_command_get_output_inner ?env ?stdin:None ~syslog_stdout cmd args
+
+let execute_command_get_output_send_stdin ?env ?(syslog_stdout=NoSyslogging) cmd args stdin =
+	execute_command_get_output_inner ?env ~stdin ~syslog_stdout cmd args
