@@ -41,7 +41,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xen-utils META $(INTF) $(LIBS) *.a *.cmx *.sp?t
+	ocamlfind install -destdir $(path) -ldconf ignore xen-utils META $(INTF) $(LIBS) *.a *.cmx $(SPOT)
 
 .PHONY: uninstall
 uninstall:
@@ -52,5 +52,5 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "xen-utils" "package" "$(OBJS)" "." "stdext" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) $(LIBS) $(PROGRAMS)
 

@@ -45,7 +45,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xml-light2 META $(INTF) $(LIBS) *.a *.cmx *.sp?t
+	ocamlfind install -destdir $(path) -ldconf ignore xml-light2 META $(INTF) $(LIBS) *.a *.cmx $(SPOT)
 
 .PHONY: bininstall
 bininstall: path = $(DESTDIR)$(LIBEXEC)
@@ -66,5 +66,5 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "xml-light2" "package" "$(OBJS)" "." "stdext,xmlm" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) $(LIBS) $(PROGRAMS)
 

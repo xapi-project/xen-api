@@ -44,7 +44,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore netdev META $(INTF) $(LIBS) *.a *.so *.cmx *.sp?t
+	ocamlfind install -destdir $(path) -ldconf ignore netdev META $(INTF) $(LIBS) *.a *.so *.cmx $(SPOT)
 
 .PHONY: uninstall
 uninstall:
@@ -55,5 +55,5 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "netdev" "package" "$(OBJS)" "." "" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) $(LIBS) $(PROGRAMS)
 

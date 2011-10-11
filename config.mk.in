@@ -33,3 +33,6 @@ RPCLIGHTFLAGS = -package camlp4,type-conv -ppopt -I -ppopt /usr/lib/ocaml/type-c
 DOCDIR = ../doc
 
 LIBEXEC = "/opt/xensource/libexec"
+
+SPOT=$(wildcard *.sp?t)
+

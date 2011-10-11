@@ -20,7 +20,7 @@ dotdot: dotdot.cmo
 	$(OCAMLC) -linkpkg -custom -o $@ $<
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t copy_file
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) copy_file
 
 %.cmo: %.ml
 	$(OCAMLC) -c -o $@ $<

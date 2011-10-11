@@ -55,7 +55,7 @@ META: META.in
 install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
 	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore sexpr META $(INTF) $(LIBS) *.a *.cmx *.sp?t
+	ocamlfind install -destdir $(path) -ldconf ignore sexpr META $(INTF) $(LIBS) *.a *.cmx $(SPOT)
 
 .PHONY: bininstall
 bininstall: path = $(DESTDIR)$(LIBEXEC)
@@ -76,4 +76,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "sexpr" "package" "$(OBJS)" "." "stdext" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot *.sp?t sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)
+	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)
