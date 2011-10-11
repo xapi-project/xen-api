@@ -76,4 +76,4 @@ doc: $(INTF)
 	python ../doc/doc.py $(DOCDIR) "sexpr" "package" "$(OBJS)" "." "stdext" ""
 
 clean:
-	rm -f *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)
+	rm -f META *.o *.so *.a *.cmo *.cmi *.cma *.cmx *.cmxa *.annot $(SPOT) sExprLexer.ml{,i} sExprParser.ml{,i} $(LIBS) $(PROGRAMS)

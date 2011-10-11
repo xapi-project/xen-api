@@ -36,7 +36,7 @@ uninstall:
 	ocamlfind remove lvm
 
 clean : 
-	rm -f *.cmo *.cmi *.cmx *.o *~ *.cma *.cmxa *.a *.annot $(SPOT) lvmconfiglex.ml \
+	rm -f META *.cmo *.cmi *.cmx *.o *~ *.cma *.cmxa *.a *.annot $(SPOT) lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
 	rm -f test_allocator
 
