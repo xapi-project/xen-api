@@ -1630,9 +1630,9 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 	   2. (in production) We know qemu is ready (and the domain may be unpaused) when
 	      device-misc/dm-ready is set in the store. See xs-xen.pq.hg:hvm-late-unpause *)
 
-    let dm_ready = xs.Xs.getdomainpath domid ^ "/device-misc/dm-ready" in
+    let dm_ready = Printf.sprintf "/local/domain/0/device-model/%d/state" domid in
 	let qemu_pid = Forkhelpers.getpid pid in
-	debug "qemu-dm: pid = %d. Waiting for device-misc/dm-ready" qemu_pid;
+	debug "qemu-dm: pid = %d. Waiting for %s" qemu_pid dm_ready;
 	(* We can't block for both a xenstore key and a process disappearing so we
 	   block for 5s at a time *)
 	begin
@@ -1640,8 +1640,10 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
 		let start = Unix.gettimeofday () in
 		while Unix.gettimeofday () -. start < timeout && not !finished do
 			try
-				ignore(Watch.wait_for ~xs ~timeout:5. (Watch.value_to_appear dm_ready));
-				finished := true
+			  let state = Watch.wait_for ~xs ~timeout:5. (Watch.value_to_appear dm_ready) in
+				if state = "running" 
+				then finished := true
+				else raise (Ioemu_failed (Printf.sprintf "qemu-dm state not running (%s)" state))
 			with Watch.Timeout _ ->
 				begin match Forkhelpers.waitpid_nohang pid with
 					| 0, Unix.WEXITED 0 -> () (* still running *)
