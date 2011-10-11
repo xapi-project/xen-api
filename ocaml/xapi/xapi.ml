@@ -172,6 +172,8 @@ let signals_handling () =
 
 let domain0_setup () =
   with_xc_and_xs (fun xc xs ->
+    let already_setup = try ignore(xs.Xs.read "/local/domain/0/name"); true with _ -> false in
+    if not already_setup then begin
 	     (* Write an initial neutral target in for domain 0 *)
 	     let di = Xenctrl.domain_getinfo xc 0 in
 	     let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
@@ -189,6 +191,7 @@ let domain0_setup () =
 				  t.Xst.write Xapi_globs.xe_key Xapi_globs.xe_val;
 				  t.Xst.setperms Xapi_globs.xe_key (0, Xsraw.PERM_READ, [])
 			       )
+    end
           )
 
 let random_setup () =
