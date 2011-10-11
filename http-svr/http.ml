@@ -169,12 +169,12 @@ let string_of_authorization = function
 | UnknownAuth x -> x
 | Basic(username, password) -> "Basic " ^ (Base64.encode (username ^ ":" ^ password))
 
-type method_t = Get | Post | Put | Connect | Unknown of string with rpc
+type method_t = Get | Post | Put | Connect | Options | Unknown of string with rpc
 
 let string_of_method_t = function
-  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Unknown x -> "Unknown " ^ x
+  | Get -> "GET" | Post -> "POST" | Put -> "PUT" | Connect -> "CONNECT" | Options -> "OPTIONS" | Unknown x -> "Unknown " ^ x
 let method_t_of_string = function
-  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | x -> Unknown x
+  | "GET" -> Get | "POST" -> Post | "PUT" -> Put | "CONNECT" -> Connect | "OPTIONS" -> Options | x -> Unknown x
 
 module Scanner = struct
 	type t = {
