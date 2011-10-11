@@ -43,8 +43,8 @@ let api_version_vendor_implementation = []
 let tools_version = ref (-1, -1, -1, -1)
 
 (* client min/max version range *)
-let xencenter_min_verstring = "1.9"
-let xencenter_max_verstring = "1.9"
+let xencenter_min_verstring = "1.10"
+let xencenter_max_verstring = "1.10"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
