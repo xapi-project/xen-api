@@ -51,6 +51,8 @@ module To = struct
 
   let value v = box "value" [v]
 
+  let nil () = value (box "nil" [])
+
   let name v = box "name" [pcdata v]
 
   let array vs = value (box "array" [box "data" vs])

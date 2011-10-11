@@ -45,6 +45,9 @@ end
 
 (** Functions to marshal OCaml values to our subset of XML-RPC. *)
 module To : sig
+    (** Marshal a nil value *)
+  val nil : unit -> xmlrpc
+
     (** Marshal a homogeneous array. *)
   val array : xmlrpc list -> xmlrpc
 
