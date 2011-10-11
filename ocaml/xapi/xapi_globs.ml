@@ -105,7 +105,7 @@ let remote_db_conf_fragment_path = "/etc/xensource/remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
 let pool_config_file = "/etc/xensource/pool.conf"
 let cpu_info_file = "/etc/xensource/boot_time_cpus"
-let initial_host_free_memory_file = "/etc/xensource/boot_time_memory"
+let initial_host_free_memory_file = "/var/run/xapi/boot_time_memory"
 let using_rrds = ref false
 
 let ready_file = ref ""
