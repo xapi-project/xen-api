@@ -40,12 +40,12 @@ This package contains the fork-and-exec daemon, required by xapi at runtime.
 %build
 sh autogen.sh
 ./configure
-%{__make} all allxen bins
+%{__make} 
 
 %install
 rm -rf %{buildroot}
 
-DESTDIR=$RPM_BUILD_ROOT %{__make} install installxen bininstall
+DESTDIR=$RPM_BUILD_ROOT %{__make} install
 
 %clean
 rm -rf $RPM_BUILD_ROOT

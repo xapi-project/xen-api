@@ -7,6 +7,10 @@ HAVE_TYPECONV = @OCAML_PKG_type_conv@
 
 include config.mk
 
+.PHONY: default
+default: all 
+	@:
+
 .PHONY: all
 all:
 ifeq ($(HAVE_TYPECONV),type-conv)
@@ -36,16 +40,20 @@ endif
 	$(MAKE) -C forking_executioner
 	$(MAKE) -C xen-utils
 
-.PHONY: allxen
-allxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev
 	$(MAKE) -C cpuid
 	$(MAKE) -C vhd
 	$(MAKE) -C tapctl
 endif
+	$(MAKE) -C pciutil bins
+	$(MAKE) -C xml-light2 bins
+	$(MAKE) -C sexpr bins
+	$(MAKE) -C stdext bins
+	$(MAKE) -C close-and-exec bins
 
-install:
+
+install: $(STUBLIBDIR) 
 	$(MAKE) -C uuid install
 	$(MAKE) -C stdext install
 	$(MAKE) -C log install
@@ -72,13 +80,19 @@ endif
 	$(MAKE) -C forking_executioner install
 	$(MAKE) -C xen-utils install
 
-installxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev install
 	$(MAKE) -C cpuid install
 	$(MAKE) -C vhd install
 	$(MAKE) -C tapctl install
 endif
+	$(MAKE) -C pciutil bininstall
+	$(MAKE) -C xml-light2 bininstall
+	$(MAKE) -C sexpr bininstall
+	$(MAKE) -C stdext bininstall
+	$(MAKE) -C close-and-exec bininstall
+	$(MAKE) -C forking_executioner bininstall
+
 
 uninstall:
 	$(MAKE) -C uuid uninstall
@@ -107,7 +121,6 @@ endif
 	$(MAKE) -C forking_executioner uninstall
 	$(MAKE) -C xen-utils uninstall
 
-uninstallxen:
 ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C netdev uninstall
 	$(MAKE) -C cpuid uninstall
@@ -115,22 +128,6 @@ ifeq ($(HAVE_XEN),1)
 	$(MAKE) -C tapctl uninstall
 endif
 
-bins:
-	$(MAKE) -C pciutil bins
-	$(MAKE) -C xml-light2 bins
-	$(MAKE) -C sexpr bins
-	$(MAKE) -C stdext bins
-	$(MAKE) -C close-and-exec bins
-
-bininstall:
-	$(MAKE) -C pciutil bininstall
-	$(MAKE) -C xml-light2 bininstall
-	$(MAKE) -C sexpr bininstall
-	$(MAKE) -C stdext bininstall
-	$(MAKE) -C close-and-exec bininstall
-	$(MAKE) -C forking_executioner bininstall
-
-binuninstall:
 	$(MAKE) -C pciutil binuninstall
 	$(MAKE) -C xml-light2 binuninstall
 	$(MAKE) -C sexpr binuninstall
@@ -181,12 +178,14 @@ clean:
 	$(MAKE) -C forking_executioner clean
 	$(MAKE) -C mlvm clean
 	$(MAKE) -C xen-utils clean
-
-cleanxen:
 	$(MAKE) -C netdev clean
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
 	$(MAKE) -C tapctl clean
+
+STUBLIBDIR = $(DESTDIR)$(shell ocamlc -where)/stublibs
+$(STUBLIBDIR):
+	mkdir -p $@
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
