@@ -1,4 +1,5 @@
 open Absty
+open Fun
 open Listext
 
 type stat = 
@@ -28,7 +29,7 @@ and segment =
 and logical_volume = {
   name : string;
   id : string;
-  tags : string list;
+  tags : Tag.t list;
   status : stat list;
   segments : segment list;
 } with rpc
@@ -54,7 +55,7 @@ let write_to_buffer b lv =
   bprintf b "\n%s {\nid = \"%s\"\nstatus = [%s]\n" lv.name lv.id 
     (String.concat ", " (List.map (o quote status_to_string) lv.status));
   if List.length lv.tags > 0 then 
-    bprintf b "tags = [%s]\n" (String.concat ", " (List.map quote lv.tags));
+    bprintf b "tags = [%s]\n" (String.concat ", " (List.map (quote ++ Tag.string_of) lv.tags));
   bprintf b "segment_count = %d\n\n" (List.length lv.segments);
   Listext.List.iteri
     (fun i s -> 
@@ -102,24 +103,25 @@ let segment_of_metadata name config =
 		 st_stripes=stripes}
   }
 
+(** Builds a logical_volume structure out of a name and metadata. *)
 let of_metadata name config =
-  let id = expect_mapped_string "id" config in
-  let status = map_expected_mapped_array "status" 
-    (fun a -> status_of_string (expect_string "status" a)) config in
-  let segments = filter_structs config in
-  let segments = List.map 
-    (fun (a,_) -> 
-      segment_of_metadata a (expect_mapped_struct a segments)) segments in
-  let tags = 
-    if List.mem_assoc "tags" config 
-    then map_expected_mapped_array "tags" (expect_string "tag") config 
-    else [] 
-  in
-  { name=name;
-    id=id;
-    status=status;
-    tags=tags;
-    segments=sort_segments segments }
+	let id = expect_mapped_string "id" config in
+	let status = map_expected_mapped_array "status"
+		(fun a -> status_of_string (expect_string "status" a)) config in
+	let tags =
+		List.map Tag.of_string
+			(if List.mem_assoc "tags" config
+			 then map_expected_mapped_array "tags" (expect_string "tags") config
+			 else []) in
+	let segments = filter_structs config in
+	let segments = List.map
+		(fun (a,_) ->
+			 segment_of_metadata a (expect_mapped_struct a segments)) segments in
+	{ name = name;
+	  id = id;
+	  status = status;
+	  tags = tags;
+	  segments = sort_segments segments }
 
 let allocation_of_segment s =
   match s.s_cls with

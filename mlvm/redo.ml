@@ -1,3 +1,4 @@
+open Debug
 
 type lvcreate_t = {
   lvc_id : string;
@@ -15,20 +16,21 @@ and lvreduce_t = {
 and lvexpand_t = {
   lvex_segments : Allocator.t;
 }
-    
+
+(** First string corresponds to the name of the LV. *)
 and operation =
-    | LvCreate of string * lvcreate_t
-    | LvReduce of string * lvreduce_t
-    | LvExpand of string * lvexpand_t
-    | LvRename of string * lvrename_t
-    | LvRemove of string
+	| LvCreate of string * lvcreate_t
+	| LvReduce of string * lvreduce_t
+	| LvExpand of string * lvexpand_t
+	| LvRename of string * lvrename_t
+	| LvRemove of string
+	| LvAddTag of string * Tag.t
+	| LvRemoveTag of string * Tag.t
 
 and sequenced_op = {
   so_seqno : int;
   so_op : operation
 } with rpc
-
-open Debug
 
 (** Marshal to and from a string *)
 let redo_to_string (l : sequenced_op) = 
@@ -98,20 +100,20 @@ let read fd offset size =
 
 let reset fd offset =
   write_initial_pos fd offset (Int64.add offset 12L)
-  
+
+(** Converts the redo operation to a human-readable string. *)
 let redo_to_human_readable op =
-  let lvcreate_t_to_string l =
-    Printf.sprintf "{id:'%s', segments:[%s]}" l.lvc_id (Allocator.to_string l.lvc_segments)
-  in
-  let lvexpand_t_to_string l =
-    Printf.sprintf "[%s]" (Allocator.to_string l.lvex_segments)
-  in
-  let opstr = 
-    match op.so_op with
-      | LvCreate (name,lvc) -> Printf.sprintf "LvCreate(%s,%s)" name (lvcreate_t_to_string lvc)
-      | LvRemove name -> Printf.sprintf "LvRemove(%s)" name 
-      | LvReduce (name,lvrd) -> Printf.sprintf "LvReduce(%s,%Ld)" name lvrd.lvrd_new_extent_count
-      | LvExpand (name,lvex) -> Printf.sprintf "LvExpand(%s,%s)" name (lvexpand_t_to_string lvex)
-      | LvRename (name,lvmv) -> Printf.sprintf "LvRename(%s,%s)" name lvmv.lvmv_new_name
-  in
-  Printf.sprintf "{seqno=%d; op=%s}" op.so_seqno opstr
+	let lvcreate_t_to_string l =
+		Printf.sprintf "{id:'%s', segments:[%s]}" l.lvc_id (Allocator.to_string l.lvc_segments) in
+	let lvexpand_t_to_string l =
+		Printf.sprintf "[%s]" (Allocator.to_string l.lvex_segments) in
+	let opstr =
+		match op.so_op with
+			| LvCreate (name,lvc) -> Printf.sprintf "LvCreate(%s,%s)" name (lvcreate_t_to_string lvc)
+			| LvRemove name -> Printf.sprintf "LvRemove(%s)" name
+			| LvReduce (name,lvrd) -> Printf.sprintf "LvReduce(%s,%Ld)" name lvrd.lvrd_new_extent_count
+			| LvExpand (name,lvex) -> Printf.sprintf "LvExpand(%s,%s)" name (lvexpand_t_to_string lvex)
+			| LvRename (name,lvmv) -> Printf.sprintf "LvRename(%s,%s)" name lvmv.lvmv_new_name
+			| LvAddTag (name,tag)	 -> Printf.sprintf "LvAddTag(%s,%s)" name (Tag.string_of tag)
+			| LvRemoveTag (name,tag) -> Printf.sprintf "LvRemoveTag(%s,%s)" name (Tag.string_of tag) in
+	Printf.sprintf "{seqno=%d; op=%s}" op.so_seqno opstr

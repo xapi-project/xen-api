@@ -74,65 +74,67 @@ let to_string vg =
 (*************************************************************)
 
 let do_op vg op =
-  (if vg.seqno <> op.so_seqno then failwith "Failing to do VG operation out-of-order");
-  Unixext.write_string_to_file (Printf.sprintf "/tmp/redo_op.%d" op.so_seqno) (Redo.redo_to_human_readable op);
-  let rec createsegs ss lstart = 
-    match ss with 
-      | a::ss ->
-	  let length = Allocator.get_size a in
-	  let pv_name = Allocator.get_name a in
-	  ({Lv.s_start_extent=lstart; s_extent_count=length; 
-	    s_cls=Lv.Linear {Lv.l_pv_name=pv_name; 
-			     l_pv_start_extent=Allocator.get_start a}})::createsegs ss (Int64.add lstart length)
-      | _ -> []
-  in
-  let change_lv lv_name fn =
-    let lv,others = List.partition (fun lv -> lv.Lv.name=lv_name) vg.lvs in
-    match lv with 
-      | [lv] ->
-	  fn lv others
-      | _ -> failwith "Unknown LV"
-  in
-  let vg = {vg with seqno = vg.seqno + 1; ops=op::vg.ops} in
-  match op.so_op with
-    | LvCreate (name,l) ->
-	let new_free_space = Allocator.alloc_specified_areas vg.free_space l.lvc_segments in
-	let segments = Lv.sort_segments (createsegs l.lvc_segments 0L) in	
-	let lv = { Lv.name=name;
-		   id=l.lvc_id;
-		   tags=[];
-		   status=[Lv.Read; Lv.Visible];
-		   segments=segments } 
+	(if vg.seqno <> op.so_seqno then failwith "Failing to do VG operation out-of-order");
+	Unixext.write_string_to_file (Printf.sprintf "/tmp/redo_op.%d" op.so_seqno) (Redo.redo_to_human_readable op);
+	let rec createsegs ss lstart =
+		match ss with
+			| a::ss ->
+				let length = Allocator.get_size a in
+				let pv_name = Allocator.get_name a in
+				({Lv.s_start_extent = lstart; s_extent_count = length;
+				  s_cls = Lv.Linear {Lv.l_pv_name = pv_name;
+					l_pv_start_extent=Allocator.get_start a}})::createsegs ss (Int64.add lstart length)
+			| _ -> []
 	in
-	{ vg with     
-	  lvs = lv::vg.lvs;
-	  free_space=new_free_space }
-    | LvExpand (name,l) ->
-	change_lv name (fun lv others ->
-	  let old_size = Lv.size_in_extents lv in
-	  let free_space = Allocator.alloc_specified_areas vg.free_space l.lvex_segments in
-	  let segments = createsegs l.lvex_segments old_size in
-	  let lv = { lv with Lv.segments = Lv.sort_segments (segments @ lv.Lv.segments) } in
-	  { vg with 
-	    lvs = lv::others; free_space=free_space})
-    | LvReduce (name,l) ->
-	change_lv name (fun lv others ->
-	  let allocation = Lv.allocation_of_lv lv in
-	  let lv = Lv.reduce_size_to lv l.lvrd_new_extent_count in
-	  let new_allocation = Lv.allocation_of_lv lv in
-	  let free_space = Allocator.alloc_specified_areas (Allocator.free vg.free_space allocation) new_allocation in
-	  {vg with
-	    lvs = lv::others; free_space=free_space})
-    | LvRemove name ->
-	change_lv name (fun lv others ->
-	  let allocation = Lv.allocation_of_lv lv in
-	  { vg with
-	    lvs = others;
-	    free_space = Allocator.free vg.free_space allocation })
-    | LvRename (name,l) ->
-	change_lv name (fun lv others ->
-	  { vg with
-	    lvs = {lv with Lv.name=l.lvmv_new_name}::others })
+	let change_lv lv_name fn =
+		let lv,others = List.partition (fun lv -> lv.Lv.name=lv_name) vg.lvs in
+		match lv with
+			| [lv] ->
+			  fn lv others
+			| _ -> failwith "Unknown LV"
+	in
+	let vg = {vg with seqno = vg.seqno + 1; ops=op::vg.ops} in
+	match op.so_op with
+		| LvCreate (name,l) ->
+			let new_free_space = Allocator.alloc_specified_areas vg.free_space l.lvc_segments in
+			let segments = Lv.sort_segments (createsegs l.lvc_segments 0L) in
+			let lv =
+				{ Lv.name = name; id = l.lvc_id; tags = [];
+				  status = [Lv.Read; Lv.Visible]; segments = segments } in
+			{vg with lvs = lv::vg.lvs; free_space = new_free_space}
+		| LvExpand (name,l) ->
+			change_lv name (fun lv others ->
+				let old_size = Lv.size_in_extents lv in
+				let free_space = Allocator.alloc_specified_areas vg.free_space l.lvex_segments in
+				let segments = createsegs l.lvex_segments old_size in
+				let lv = {lv with Lv.segments = Lv.sort_segments (segments @ lv.Lv.segments)} in
+				{vg with lvs = lv::others; free_space=free_space})
+		| LvReduce (name,l) ->
+			change_lv name (fun lv others ->
+				let allocation = Lv.allocation_of_lv lv in
+				let lv = Lv.reduce_size_to lv l.lvrd_new_extent_count in
+				let new_allocation = Lv.allocation_of_lv lv in
+				let free_space = Allocator.alloc_specified_areas (Allocator.free vg.free_space allocation) new_allocation in
+				{vg with
+				  lvs = lv::others; free_space=free_space})
+		| LvRemove name ->
+			change_lv name (fun lv others ->
+				let allocation = Lv.allocation_of_lv lv in
+				{vg with lvs = others; free_space = Allocator.free vg.free_space allocation })
+		| LvRename (name,l) ->
+			change_lv name (fun lv others ->
+				{vg with lvs = {lv with Lv.name=l.lvmv_new_name}::others })
+		| LvAddTag (name, tag) ->
+			change_lv name (fun lv others ->
+				let tags = lv.Lv.tags in
+				let lv' = {lv with Lv.tags = if List.mem tag tags then tags else tag::tags} in
+				{vg with lvs = lv'::others})
+		| LvRemoveTag (name, tag) ->
+			change_lv name (fun lv others ->
+				let tags = lv.Lv.tags in
+				let lv' = {lv with Lv.tags = List.filter (fun t -> t <> tag) tags} in
+				{vg with lvs = lv'::others})
+
 
 let create_lv vg name size =
   let id = Lvm_uuid.create () in
@@ -159,11 +161,13 @@ let resize_lv vg name new_size =
 let remove_lv vg name =
   do_op vg {so_seqno=vg.seqno; so_op=LvRemove name}
 
+let add_tag_lv vg name tag =
+	do_op vg {so_seqno = vg.seqno; so_op = LvAddTag (name, tag)}
+
+let remove_tag_lv vg name tag =
+	do_op vg {so_seqno = vg.seqno; so_op = LvRemoveTag (name, tag)}
+
 (******************************************************************************)
-
-
-
-
 
 let human_readable vg =
   let pv_strings = List.map Pv.human_readable vg.pvs in

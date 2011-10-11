@@ -1,6 +1,6 @@
 include ../config.mk
 
-LIBOBJS = constants lvm_uuid crc utils absty lvmconfigparser lvmconfiglex lvmmarshal allocator debug redo lv pv vg 
+LIBOBJS = constants lvm_uuid crc utils tag absty lvmconfigparser lvmconfiglex lvmmarshal allocator debug redo lv pv vg 
 INTF = $(foreach obj, $(LIBOBJS),$(obj).cmi)
 CMDOBJS = messages.cmx mlvm.cmx
 COMPFLAG = -dtypes -g -I ../stdext -I ../camldm -I ../uuid -for-pack Lvm $(RPCLIGHTFLAGS)
@@ -36,7 +36,7 @@ uninstall:
 	ocamlfind remove lvm
 
 clean : 
-	rm -f *.cmo *.cmi *.cmx *.o *~ *.annot $(SPOT) lvmconfiglex.ml \
+	rm -f *.cmo *.cmi *.cmx *.o *~ *.cma *.cmxa *.a *.annot $(SPOT) lvmconfiglex.ml \
 	lvmconfigparser.mli lvmconfigparser.ml
 	rm -f test_allocator
 
@@ -77,4 +77,18 @@ pv.cmx: utils.cmx lvmmarshal.cmx lvm_uuid.cmx crc.cmx constants.cmx \
     allocator.cmx absty.cmx 
 vg.cmo: debug.cmo pv.cmo lvm_uuid.cmo lv.cmo allocator.cmo absty.cmo 
 vg.cmx: debug.cmx pv.cmx lvm_uuid.cmx lv.cmx allocator.cmx absty.cmx 
+redo.cmo: tag.cmi debug.cmo allocator.cmo
+redo.cmx: tag.cmx debug.cmx allocator.cmx
+tag.cmo: debug.cmo tag.cmi
+tag.cmx: debug.cmx tag.cmi
 
+test_allocator: default
+	$(OCAMLOPT) -package kaputt -linkpkg -dtypes -g  -I ../stdext -I ../camldm -I ../uuid -I +kaputt $(INCLUDES) ./lvm.cmxa test_allocator.ml -o $@
+
+INCLUDES = unix.cmxa ../rpc-light/rpc.cmx ../rpc-light/jsonrpc.cmx ../camldm/camldm.cmxa ../uuid/uuid.cmxa ../stdext/stdext.cmxa
+
+test_fragment: lvm.cmxa $(LIBCMXS) test_fragment.ml
+	$(OCAMLOPT) $(COMPFLAG) $(INCLUDES) $^ -o $@
+
+tag_is_valid_test: $(LIBCMXS) tag.cmx tag_is_valid_test.ml
+	$(OCAMLOPT) $(COMPFLAG) $(INCLUDES) $^ -o $@
