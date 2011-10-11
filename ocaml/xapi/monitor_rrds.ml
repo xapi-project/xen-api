@@ -524,7 +524,7 @@ let handler (req: Http.Request.t) s =
 		     send it off (if it's there) *)
 		  let path = Xapi_globs.xapi_rrd_location ^ "/" ^ uuid in
                   let rrd = rrd_of_gzip path in
-		  Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
+		  Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false () @ ["Access-Control-Allow-Origin: *"]);
 		  Rrd.to_fd rrd s
 	      end)
 
@@ -553,7 +553,7 @@ let handler_host (req: Http.Request.t) s =
 	    debug "Received request for Host RRD";
 	    Rrd.copy_rrd (match !host_rrd with Some rrdi -> rrdi.rrd | None -> failwith "No host RRD available")
 	  ) in
-	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
+	Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false () @ ["Access-Control-Allow-Origin: *"]);
 	Rrd.to_fd ~json:(List.mem_assoc "json" query) rrd s
       end)
 

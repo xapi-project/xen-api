@@ -696,6 +696,8 @@ let common_http_handlers = [
   ("get_audit_log", (Http_svr.BufIO Audit_log.handler));
   ("post_root", (Http_svr.BufIO (Api_server.callback false)));
   ("post_json", (Http_svr.BufIO (Api_server.callback true)));
+  ("post_root_options", (Http_svr.BufIO (Api_server.options_callback)));
+  ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
 ]
 
 let server_init() =
