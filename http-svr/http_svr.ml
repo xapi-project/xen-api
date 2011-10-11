@@ -141,6 +141,19 @@ let response_file ?(hdrs=[]) ?mime_content_type s file =
 			()
 		)
 
+let respond_to_options req s =
+  let access_control_allow_headers = 
+    try
+      let acrh = List.assoc Hdr.acrh req.Request.additional_headers in
+      Printf.sprintf "%s, X-Requested-With" acrh
+    with Not_found -> 
+      "X-Requested-With"
+  in
+  response_fct req ~hdrs:[
+    "Access-Control-Allow-Origin: *";
+    Printf.sprintf "Access-Control-Allow-Headers: %s" access_control_allow_headers] s 0L (fun _ -> ())
+      
+
 (** If no handler matches the request then call this callback *)
 let default_callback req bio = 
   response_forbidden (Buf_io.fd_of bio);

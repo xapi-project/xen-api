@@ -93,6 +93,8 @@ val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
 val response_file :
   ?hdrs:'a list ->
   ?mime_content_type:string -> Unix.file_descr -> string -> unit
+val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
+
 val headers : Unix.file_descr -> string list -> unit
 val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
 val request_of_bio: ?use_fastpath:bool -> Buf_io.t -> Http.Request.t option

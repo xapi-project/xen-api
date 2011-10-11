@@ -91,6 +91,7 @@ module Hdr = struct
 	let authorization = "authorization"
 	let connection = "connection"
 	let header_len = "hdr"
+	let acrh = "access-control-request-headers"
 end
 
 let output_http fd headers =

@@ -135,6 +135,7 @@ module Hdr : sig
 	val transfer_encoding: string
 	val authorization: string
 	val connection: string
+	val acrh : string
 end
 
 val output_http : Unix.file_descr -> string list -> unit
