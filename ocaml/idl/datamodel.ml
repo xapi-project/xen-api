@@ -7448,7 +7448,7 @@ type action_arg =   (* I'm not using Datamodel_types here because we need vararg
    Bool_query_arg of string |
    Varargs_query_arg
 
-type http_meth = Get | Put | Post | Connect
+type http_meth = Get | Put | Post | Connect | Options
 let rbac_http_permission_prefix = "http/"
 
 (* Each action has:
@@ -7504,6 +7504,8 @@ let http_actions = [
   ("post_root", (Post, "/", false, [], _R_READ_ONLY, []));
   (* JSON callback *)
   ("post_json", (Post, Constants.json_uri, false, [], _R_READ_ONLY, []));
+  ("post_root_options", (Options, "/", false, [], _R_READ_ONLY, []));
+  ("post_json_options", (Options, Constants.json_uri, false, [], _R_READ_ONLY, []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)
@@ -7516,6 +7518,8 @@ let public_http_actions_with_no_rbac_check =
 		"post_json"; (* JSON -> calls XMLRPC *)
 		"get_root";  (* Make sure that downloads, personal web pages etc do not go through RBAC asking for a password or session_id *)
 		             (* also, without this line, quicktest_http.ml fails on non_resource_cmd and bad_resource_cmd with a 401 instead of 404 *)
+		"post_root_options"; (* Preflight-requests are not RBAC checked *)
+		"post_json_options"; 
 	]
 
 (* permissions not associated with any object message or field *)
