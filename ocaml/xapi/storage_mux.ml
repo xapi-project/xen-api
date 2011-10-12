@@ -33,8 +33,16 @@ let debug_printer rpc call =
 
 let register sr m d = Hashtbl.replace plugins sr { processor = debug_printer m; backend_domid = d }
 let unregister sr = Hashtbl.remove plugins sr
+
+exception No_storage_plugin_for_sr of string
+
 (* This is the policy: *)
-let of_sr sr = (Hashtbl.find plugins (Ref.of_string sr)).processor
+let of_sr sr =
+	let sr' = Ref.of_string sr in
+	if not (Hashtbl.mem plugins sr') then begin
+		error "No storage plugin for SR: %s" sr;
+		raise (No_storage_plugin_for_sr sr)
+	end else (Hashtbl.find plugins sr').processor
 let domid_of_sr sr = (Hashtbl.find plugins (Ref.of_string sr)).backend_domid
 
 open Fun
