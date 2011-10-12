@@ -660,6 +660,7 @@ let master_only_http_handlers = [
 ]
 
 let common_http_handlers = [
+  ("get_services", (Http_svr.FdIO Xapi_services.handler));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
   ("put_import", (Http_svr.FdIO Import.handler));
   ("put_import_metadata", (Http_svr.FdIO Import.metadata_handler));
@@ -831,6 +832,7 @@ let server_init() =
     "Running startup check", [], startup_check;
     "Registering SR plugins", [Startup.OnlyMaster], Sm.register;
 	"Initialising SM state", [], Storage_impl.initialise;
+	"Starting SM service", [], Storage_access.start;
     "Registering http handlers", [], (fun () -> List.iter Xapi_http.add_handler common_http_handlers);
     "Registering master-only http handlers", [ Startup.OnlyMaster ], (fun () -> List.iter Xapi_http.add_handler master_only_http_handlers);
     "Listening unix socket", [], listen_unix_socket;

@@ -545,6 +545,14 @@ let update_env __context sync_keys =
     Xapi_host_crashdump.resynchronise ~__context ~host:localhost;
   );
 
+  (* We need to re-establish our binding of PBD/SR -> driver plugin
+     before we call 'update_vms' which calls 'Resync.vbd' which uses
+     the storage driver interface. *)
+  switched_sync Xapi_globs.sync_pbds (fun () ->
+	  debug "resynchronising host PBDs";
+	  Storage_access.resynchronise_pbds ~__context ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost);
+  );
+
   switched_sync Xapi_globs.sync_update_vms (fun () -> 
     debug "updating VM states";
     with_xal (fun xal -> update_vms ~xal ~__context);

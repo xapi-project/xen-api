@@ -63,6 +63,7 @@ let https_port = ref default_ssl_port
 let xapi_gc_debug = ref true
 
 let unix_domain_socket = "/var/xapi/xapi"
+let local_storage_unix_domain_socket = "/var/xapi/storage-local"
 let storage_unix_domain_socket = "/var/xapi/storage"
 let local_database = "/var/xapi/local.db"
 
@@ -351,6 +352,7 @@ let sync_copy_license_to_db = "sync_copy_license_to_db"
 let sync_create_host_cpu = "sync_create_host_cpu"
 let sync_create_domain_zero = "sync_create_domain_zero"
 let sync_crashdump_resynchronise = "sync_crashdump_resynchronise"
+let sync_pbds = "sync_pbds"
 let sync_update_vms = "sync_update_vms"
 let sync_remove_leaked_vbds = "sync_remove_leaked_vbds"
 let sync_pif_params = "sync_pif_params"

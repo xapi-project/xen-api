@@ -45,14 +45,31 @@ let get_random lr =
     List.nth !lr n
 
 let rec make_vdis_and_vbds __context vmref i =
-  if i=0 then ()
-  else
-    begin
-      let uuid = Uuid.to_string (Uuid.make_uuid()) in
-      let vm_uuid = Db.VM.get_uuid ~self:vmref ~__context in
-      let vdi =
-	Xapi_vdi.pool_introduce ~__context ~uuid ~name_label:("VDI-"^(string_of_int i)^"-for-VM-"^vm_uuid)
-	  ~name_description:"dummy" ~sR:(get_random srs) ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~location:(vm_uuid ^ (string_of_int i)) ~xenstore_data:[] ~sm_config:[] in
+	if i=0 then ()
+	else
+		begin
+			let uuid = Uuid.to_string (Uuid.make_uuid()) in
+			let vm_uuid = Db.VM.get_uuid ~self:vmref ~__context in
+			let name_label = "VDI-"^(string_of_int i)^"-for-VM-"^vm_uuid in
+			let name_description = "dummy" in
+			let sR = get_random srs in
+			let _type = `user in
+			let read_only = false in
+			let other_config = [] in
+			let location = vm_uuid ^ (string_of_int i) in
+			let xenstore_data = [] in
+			let sm_config = [] in
+			let managed = true in
+			let virtual_size = 1L in
+			let physical_utilisation = 1L in
+			let metadata_of_pool = Ref.null in
+			let is_a_snapshot = false in
+			let snapshot_time = Date.never in
+			let snapshot_of = Ref.null in
+			let sharable = false in
+			let vdi = Xapi_vdi.pool_introduce 
+~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of in
+
       let _ =
 	Xapi_vbd.create ~__context ~vM:vmref ~vDI:vdi ~userdevice:(string_of_int i) ~bootable:true ~mode:`RW ~_type:`Disk ~empty:false
           ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
