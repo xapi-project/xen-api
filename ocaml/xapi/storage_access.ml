@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Threadext
+open Stringext
 module XenAPI = Client.Client
 open Storage_interface
 
@@ -534,8 +535,6 @@ let resynchronise_pbds ~__context ~pbds =
 (* The following functions are symptoms of a broken interface with the SM layer.
    They should be removed, by enhancing the SM layer. *)
 
-open Vdi_automaton
-
 (* This is a layering violation. The layers are:
      xapi: has a pool-wide view
      storage_impl: has a host-wide view of SRs and VDIs
@@ -546,24 +545,41 @@ open Vdi_automaton
    xapi view with the storage_impl view here. *)
 let refresh_local_vdi_activations ~__context =
 	let all_vdi_recs = Db.VDI.get_all_records ~__context in
-	let host_key = Printf.sprintf "host_%s" (Ref.string_of (Helpers.get_localhost ~__context)) in
+	let localhost = Helpers.get_localhost ~__context in
+	let all_hosts = Db.Host.get_all ~__context in
 
-	(* If this VDI is currently locked to this host, remove the lock *)
+	let key host = Printf.sprintf "host_%s" (Ref.string_of host) in
+	let hosts_of vdi_t =
+		let prefix = "host_" in
+		let ks = List.map fst vdi_t.API.vDI_sm_config in
+		let ks = List.filter (String.startswith prefix) ks in
+		let ks = List.map (fun k -> String.sub k (String.length prefix) (String.length k - (String.length prefix))) ks in
+		List.map Ref.of_string ks in
+
+	(* If this VDI is currently locked to this host, remove the lock.
+	   If this VDI is currently locked to a non-existent host (note host references
+	   change across pool join), remove the lock. *)
 	let unlock_vdi (vdi_ref, vdi_rec) = 
 		(* VDI is already unlocked is the common case: avoid eggregious logspam *)
-		if List.mem_assoc host_key vdi_rec.API.vDI_sm_config then begin
-			info "Unlocking VDI %s" (Ref.string_of vdi_ref);
+		let hosts = hosts_of vdi_rec in
+		let i_locked_it = List.mem localhost hosts in
+		let all = List.fold_left (&&) true in
+		let someone_leaked_it = all (List.map (fun h -> not(List.mem h hosts)) all_hosts) in
+		if i_locked_it || someone_leaked_it then begin
+			info "Unlocking VDI %s (because %s)" (Ref.string_of vdi_ref)
+				(if i_locked_it then "I locked it and then restarted" else "it was leaked (pool join?)");
 			try
-				Db.VDI.remove_from_sm_config ~__context ~self:vdi_ref ~key:host_key
+				List.iter (fun h -> Db.VDI.remove_from_sm_config ~__context ~self:vdi_ref ~key:(key h)) hosts
 			with e ->
 				error "Failed to unlock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
 		end in
+	let open Vdi_automaton in
 	(* Lock this VDI to this host *)
 	let lock_vdi (vdi_ref, vdi_rec) ro_rw = 
 		info "Locking VDI %s" (Ref.string_of vdi_ref);
-		if not(List.mem_assoc host_key vdi_rec.API.vDI_sm_config) then begin
+		if not(List.mem_assoc (key localhost) vdi_rec.API.vDI_sm_config) then begin
 			try
-				Db.VDI.add_to_sm_config ~__context ~self:vdi_ref ~key:host_key ~value:(string_of_ro_rw ro_rw)
+				Db.VDI.add_to_sm_config ~__context ~self:vdi_ref ~key:(key localhost) ~value:(string_of_ro_rw ro_rw)
 			with e ->
 				error "Failed to lock VDI %s: %s" (Ref.string_of vdi_ref) (ExnHelper.string_of_exn e)
 		end in
@@ -577,7 +593,7 @@ let refresh_local_vdi_activations ~__context =
 	List.iter 
 		(fun (vdi_ref, vdi_rec) ->
 			let sr = Ref.string_of vdi_rec.API.vDI_SR in
-			let vdi = Ref.string_of vdi_ref in
+			let vdi = vdi_rec.API.vDI_location in
 			if List.mem sr srs
 			then
 				match Client.VDI.stat rpc ~task ~sr ~vdi () with
