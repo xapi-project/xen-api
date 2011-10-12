@@ -17,6 +17,13 @@
 
 open Vdi_automaton
 
+type query_result = {
+    name: string;
+    vendor: string;
+    version: string;
+    features: string list;
+}
+
 (** Primary key identifying the SR *)
 type sr = string
 
@@ -30,6 +37,27 @@ type task = string
 	connect a VBD backend to a VBD frontend *)
 type params = string
 
+(** The result of an operation which creates or examines a VDI *)
+type vdi_info = {
+    vdi: vdi;
+    name_label: string;
+    name_description: string;
+    ty: string;
+    (* sm_config: workaround via XenAPI *)
+    metadata_of_pool: string;
+    is_a_snapshot: bool;
+    snapshot_time: string;
+    snapshot_of: vdi;
+    (* managed: workaround via XenAPI *)
+    read_only: bool;
+    (* missing: workaround via XenAPI *)
+    virtual_size: int64;
+    physical_utilisation: int64;
+    (* xenstore_data: workaround via XenAPI *)
+}
+
+let string_of_vdi_info (x: vdi_info) = Jsonrpc.to_string (rpc_of_vdi_info x)
+
 (** Each VDI is associated with one or more "attached" or "activated" "datapaths". *)
 type dp = string
 
@@ -38,44 +66,56 @@ type stat_t = {
 	dps: (string * Vdi_automaton.state) list;
 }
 
-let string_of_stat_t x = Printf.sprintf "{ superstate = %s; dps = [ %s ] }"
-	(Vdi_automaton.string_of_state x.superstate)
-	(String.concat "; " (List.map (fun (name, state) -> Printf.sprintf "%s, %s" name (Vdi_automaton.string_of_state state)) x.dps))
+let string_of_stat_t (x: stat_t) = Jsonrpc.to_string (rpc_of_stat_t x)
 
 type success_t =
-	| Vdi of params                  (** success (from VDI.attach) *)
+	| Vdis of vdi_info list                    (** success (from SR.scan) *)
+	| Vdi of vdi_info                         (** success (from VDI.create) *)
+	| Params of params                        (** success (from VDI.attach) *)
+	| String of string                        (** success (from DP.diagnostics) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
 
+let string_of_success (x: success_t) = Jsonrpc.to_string (rpc_of_success_t x)
+
 type failure_t =
 	| Sr_not_attached                         (** error: SR must be attached to access VDIs *)
+	| Vdi_does_not_exist                      (** error: the VDI is unknown *)
 	| Illegal_transition of Vdi_automaton.state * Vdi_automaton.state (** This operation implies an illegal state transition *)
 	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
 	| Internal_error of string		          (** error: some unexpected internal error *)
+
+let string_of_failure (x: failure_t) = Jsonrpc.to_string (rpc_of_failure_t x)
 
 (* Represents a common "result" type. Note this is only here as a way to wrap exceptions. *)
 type result =
 	| Success of success_t
 	| Failure of failure_t
 
-let string_of_success = function
-	| Vdi x -> "VDI " ^ x
-	| Unit -> "()"
-	| Stat x -> string_of_stat_t x
-
-let string_of_failure = function
-	| Sr_not_attached -> "Sr_not_attached"
-	| Illegal_transition(a, b) -> Printf.sprintf "Illegal VDI transition: %s -> %s" (Vdi_automaton.string_of_state a) (Vdi_automaton.string_of_state b)
-	| Backend_error (code, params) -> Printf.sprintf "Backend_error (%s; [ %s ])" code (String.concat ";" params)
-	| Internal_error x -> "Internal_error " ^ x
-
-let string_of_result = function
-	| Success s -> "Success: " ^ (string_of_success s)
-	| Failure f -> "Failure: " ^ (string_of_failure f)
+let string_of_result (x: result) = Jsonrpc.to_string (rpc_of_result x)
 
 let success = function
 	| Success _ -> true
 	| Failure _ -> false
+
+module Driver_info = struct
+    type t = {
+        uri: string;
+        name: string;
+        description: string;
+        vendor: string;
+        copyright: string;
+        version: string;
+        required_api_version: string;
+        capabilities: string list;
+        configuration: (string * string) list;
+    }
+
+    type ts = t list
+end
+
+(** [query ()] returns information about this storage driver *)
+external query: unit -> query_result = ""
 
 module DP = struct
 	(** Functions which create/destroy (or register/unregister) dps *)
@@ -90,14 +130,14 @@ module DP = struct
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
 		resources. *)
-	external diagnostics: unit -> string = ""
+	external diagnostics: unit -> result = ""
 end
 
 module SR = struct
 	(** Functions which attach/detach SRs *)
 
 	(** [attach task sr]: attaches the SR *)
-    external attach : task:task -> sr:sr -> result = ""
+    external attach : task:task -> sr:sr -> device_config:(string * string) list -> result = ""
 
 	(** [detach task sr]: detaches the SR, first detaching and/or deactivating any
 		active VDIs. This may fail with Sr_not_attached, or any error from VDI.detach
@@ -109,6 +149,9 @@ module SR = struct
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
 	external destroy : task:task -> sr:sr -> result = ""
 
+	(** [scan task sr] returns a list of VDIs contained within an attached SR *)
+	external scan: task:task -> sr:sr -> result = ""
+
 	(** [list task] returns the list of currently attached SRs *)
 	external list: task:task -> sr list = ""
 end
@@ -116,6 +159,14 @@ end
 module VDI = struct
 	(** Functions which operate on particular VDIs.
 		These functions are all idempotent from the point of view of a given [dp]. *)
+
+	(** [create task sr vdi_info params] creates a new VDI in [sr] using [vdi_info]. Some
+        fields in the [vdi_info] may be modified (e.g. rounded up), so the function
+        returns the vdi_info which was used. *)
+	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+
+    (** [destroy task sr vdi] removes [vdi] from [sr] *)
+    external destroy : task:task -> sr:sr -> vdi:vdi -> result = ""
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]

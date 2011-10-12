@@ -786,7 +786,7 @@ let _ = try
 		assert_domid ();
 		with_xc_and_xs (fun xc xs ->
 			let hvm = is_domain_hvm xc domid in
-			ignore(add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~dev_type ~unpluggable:false ~mode ~backend_domid)
+			ignore(add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~dev_type ~unpluggable:true ~mode ~backend_domid)
 		)
 	| "del_vbd" ->
 		assert_domid ();

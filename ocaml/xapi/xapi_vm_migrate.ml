@@ -404,7 +404,7 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
 				  let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
 				  Storage_access.on_vdi ~__context ~vbd ~domid
 					  (fun rpc task datapath_id sr vdi ->
-						  Storage_access.expect_vdi (fun _ -> ())
+						  Storage_access.expect_params (fun _ -> ())
 						  (Storage_interface.Client.VDI.attach rpc task datapath_id sr vdi read_write)
 					  )
 			  ) (Storage_access.vbd_attach_order ~__context vbds);
