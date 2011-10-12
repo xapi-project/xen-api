@@ -74,6 +74,9 @@ XAPI_MODULES = $(COMMON) \
 	../client_records/record_util \
 	bootloader \
 	storage_access \
+	storage_mux \
+	storage_proxy \
+	xapi_services \
 	sm_exec \
 	sm \
 	storage_interface \

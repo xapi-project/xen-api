@@ -122,3 +122,12 @@ let pingable ip () =
 		let (_: string * string) = Forkhelpers.execute_command_get_output "/bin/ping" [ "-c"; "1"; "-w"; "1"; ip ] in
 		true
 	with _ -> false
+
+let queryable ip port () =
+	let open Xmlrpc_client in
+	let rpc = XMLRPC_protocol.rpc ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
+    try
+        let q = Storage_interface.Client.query rpc () in
+        info "%s:%s:%s at %s:%d" q.Storage_interface.name q.Storage_interface.vendor q.Storage_interface.version ip port;
+        true
+    with _ -> false

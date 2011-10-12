@@ -15,6 +15,10 @@
  * @group Storage
  *)
 
+val start: unit -> unit
+(** once [start ()] returns the storage service is listening for requests on
+    its unix domain socket. *)
+
 module Qemu_blkfront: sig
 
 	(** [path_opt __context self] returns [Some path] where [path] names the
@@ -24,14 +28,13 @@ module Qemu_blkfront: sig
 	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
 end
 
-(** [rpc_of_sr __context sr] returns an Rpc.call -> Rpc.response function
-    for talking to the implementation of [sr], which could be in xapi, in domain 0
-    or in a driver domain. *)
-val rpc_of_sr: __context:Context.t -> sr:API.ref_SR -> Rpc.call -> Rpc.response
+(** [bind __context pbd] causes the storage_access module to choose the most
+        appropriate driver implementation for the given [pbd] *)
+val bind: __context:Context.t -> pbd:API.ref_PBD -> unit
 
-(** [rpc_of_vbd __context vbd] returns an Rpc.call -> Rpc.response function
-    for talking to the SR underlying the VDI corresponding to [vbd]. See rpc_of_sr *)
-val rpc_of_vbd: __context:Context.t -> vbd:API.ref_VBD -> Rpc.call -> Rpc.response
+(** [unbind __context pbd] causes the storage access module to forget the association
+    between [pbd] and driver implementation *)
+val unbind: __context:Context.t -> pbd:API.ref_PBD -> unit
 
 (** RPC function for calling the main storage multiplexor *)
 val rpc: Rpc.call -> Rpc.response
@@ -40,7 +43,9 @@ val rpc: Rpc.call -> Rpc.response
     to device [userdevice] on domain [domid] *)
 val datapath_of_vbd: domid:int -> userdevice:string -> Storage_interface.dp
 
-val expect_vdi: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
+val expect_vdi: (Storage_interface.vdi_info -> 'a) -> Storage_interface.result -> 'a
+
+val expect_params: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
 val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
 

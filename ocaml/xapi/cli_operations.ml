@@ -1092,8 +1092,16 @@ let vdi_introduce printer rpc session_id params =
 	let xenstore_data = read_map_params "xenstore-data" params in
 	let sm_config = read_map_params "sm-config" params in
 	let location = List.assoc "location" params in
+	let managed = get_bool_param params "managed" in
+	let virtual_size = 0L and physical_utilisation = 0L in
+	let metadata_of_pool = Ref.null in
+	let is_a_snapshot = false in
+	let snapshot_time = Date.never in
+	let snapshot_of = Ref.null in
 	let vdi = Client.VDI.introduce ~rpc ~session_id ~uuid ~name_label ~name_description
-		~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config in
+		~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config
+		~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot
+		~snapshot_time ~snapshot_of in
 	(* round-trip catches partial application errors *)
 	let vdi_uuid = Client.VDI.get_uuid ~rpc ~session_id ~self:vdi in
 	printer (Cli_printer.PList [ vdi_uuid ])
