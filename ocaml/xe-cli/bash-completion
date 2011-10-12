@@ -290,7 +290,7 @@ $0 !~ /^host-cpu-/ && $0 !~ /^host-crashdump-/ && $0 !~ /^gpu-group-/ { print $1
 		isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
 		isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
 		if [ "${isdeviceconfig}" ]; then
-			IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr [A-Z] [a-z])
+			IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
 			extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
 		elif [ "${isvcpusparams}" ]; then
 			extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
