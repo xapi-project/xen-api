@@ -292,4 +292,6 @@ let add_handler (name, handler) =
 	| Datamodel.Put -> Http.Put
 	| Datamodel.Post -> Http.Post
 	| Datamodel.Connect -> Http.Connect
+	| Datamodel.Options -> Http.Options
       in Http_svr.Server.add_handler server ty uri h
+
