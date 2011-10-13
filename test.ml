@@ -1,3 +1,17 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 
 module NoOpMonad = struct
   type 'a t = 'a
@@ -21,22 +35,5 @@ module StringMonad = struct
   let getdata x = x.data
 end
 
-module Test = Iteratees.Iteratee(NoOpMonad)
-
-let test = "PUT /file HTTP/1.1\nHost: example.com\nUser-agent: X\ncontent-type: text/plain\r\n\r\n"
-let test2 = "GET / HTTP/1.0\nfoo\nbar\nbaz\n\n"
-
-let test_noop () =
-  let open Test in
-      let mylines = 
-	match extract_result_from_iteratee (enum_eof (enum_nchunk test2 5 read_lines)) with 
-	  | Left mylines ->
-	    Printf.printf "Left:\n"; mylines
-	  | Right mylines -> 
-	    Printf.printf "Right:\n"; mylines
-      in
-      List.iter (fun x -> Printf.printf "'%s'\n" x) mylines
-
-module Test2 = Iteratees.Iteratee(Lwt)
 
 

@@ -1,5 +1,22 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
 
-module LwtIteratee=Iteratees.Iteratee(Lwt)
+open Iteratees 
+
+type 'a t = 'a Iteratee(Lwt).t =
+	    | IE_done of 'a
+	    | IE_cont of err option * (stream -> ('a t * stream) Lwt.t)
 
 let really_write fd str =
   let len = String.length str in
@@ -13,13 +30,18 @@ let lwt_fd_enumerator fd =
   let (>>=) = Lwt.bind in
   let blocksize = 1024 in
   let str = String.create blocksize in
+  let get_str n =
+    if n=0 
+    then (Eof None) 
+    else (Chunk (String.sub str 0 n))
+  in
   let rec go = function
-    | LwtIteratee.IE_cont (None,x) -> 
-      Lwt_unix.read fd str 0 blocksize                               >>= fun n ->
-      (if n=0 then x (Iteratees.Eof None) else x (Iteratees.Chunk (String.sub str 0 n))) >>= fun x -> 
-      Lwt.return (fst x)                                             >>= fun x ->
+    | IE_cont (None,x) -> 
+      Lwt_unix.read fd str 0 blocksize >>= fun n ->
+      x (get_str n)                    >>= fun x -> 
+      Lwt.return (fst x)               >>= fun x ->
       go x
-	| x -> Lwt.return x 
+    | x -> Lwt.return x 
   in go 
   
 let lwt_enumerator file iter =

@@ -1,3 +1,17 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 
 let get_dir_path () = Printf.sprintf "/var/xapi/" 
 
@@ -46,8 +60,8 @@ let proxy (fd : Lwt_unix.file_descr) localport =
   let open Lwt_support in
   let (>>=) = Lwt.bind in
   open_connection_fd "localhost" localport >>= fun localfd -> 
-  let thread1 = lwt_fd_enumerator localfd $ wsencode (I.writer $ really_write fd) >>= fun _ -> Lwt.return () in
-  let thread2 = lwt_fd_enumerator fd $ wsdecode (I.writer $ really_write localfd) >>= fun _ -> Lwt.return () in
+  let thread1 = lwt_fd_enumerator localfd $ wsencode (writer $ really_write fd) >>= fun _ -> Lwt.return () in
+  let thread2 = lwt_fd_enumerator fd $ wsdecode (writer $ really_write localfd) >>= fun _ -> Lwt.return () in
   Lwt.join [thread1; thread2] >>= (fun _ -> Lwt_unix.close fd)
 
 let handler sock msg =

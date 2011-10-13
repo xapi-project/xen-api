@@ -1,13 +1,31 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 (* Websockets protocol here *)
 
-module Wsprotocol (IO : Iteratees.MonadIO) = struct
+module Wsprotocol (IO : Iteratees.Monad) = struct
 
   module I = Iteratees.Iteratee(IO)
   open I
 
+  type 'a t = 'a I.t 
+
   let base64encode s = modify Base64.encode s
   let base64decode s = modify Base64.decode s
     
+  let writer = I.writer
+
   let wsframe s = modify (fun s ->
     let l = String.length s in
     if l < 126 

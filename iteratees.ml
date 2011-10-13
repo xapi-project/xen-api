@@ -1,3 +1,17 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 open Helpers
 
 type err = string
@@ -12,14 +26,14 @@ let string_of_stream = function
   | Chunk s -> Printf.sprintf "Chunk '%s'" s
 
 
-module type MonadIO = sig
+module type Monad = sig
   type 'a t
 
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
 end      
 
-module Iteratee (IO : MonadIO) = struct
+module Iteratee (IO : Monad) = struct
   type 'a t =
     | IE_done of 'a
     | IE_cont of err option * (stream -> ('a t * stream) IO.t)
@@ -81,7 +95,7 @@ module Iteratee (IO : MonadIO) = struct
       match st with
 	| Chunk s ->
 	  IO.bind (really_write s) 
-	    (fun _ -> IO.return (IE_cont (None, step), Chunk ""))
+	    (fun () -> IO.return (IE_cont (None, step), Chunk ""))
 	| Eof _ ->
 	  IO.return (IE_done (), st)
     in
