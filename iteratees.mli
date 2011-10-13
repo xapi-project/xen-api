@@ -18,7 +18,8 @@ module Iteratee :
       val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
       val ie_contM : (stream -> ('a t * stream) IO.t) -> stream -> ('a t * stream) IO.t
       val ie_doneM : 'a -> stream -> ('a t * stream) IO.t
-      val ie_errM : err -> 'a t
+      val ie_errM : err -> (stream -> ('a t * stream) IO.t) -> stream -> ('a t * stream) IO.t
+      val state : 'a t -> string
       val peek : char option t
       val head : char option t
       val writer : (string -> 'a IO.t) -> unit t
@@ -30,6 +31,8 @@ module Iteratee :
       val read_int16 : int t
       val read_int32 : int32 t
       val drop_while : (char -> bool) -> unit t
+      val accumulate : string t
+      val apply : (string -> unit) -> unit t
       val liftI : 'a t IO.t -> 'a t
       type 'a enumerator = 'a t -> 'a t IO.t
       val enum_eof : 'a t -> 'a t IO.t

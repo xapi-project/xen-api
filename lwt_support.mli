@@ -14,7 +14,8 @@ module LwtIteratee :
       (Iteratees.stream -> ('a t * Iteratees.stream) Lwt.t) -> Iteratees.stream ->
       ('a t * Iteratees.stream) Lwt.t
     val ie_doneM : 'a -> Iteratees.stream -> ('a t * Iteratees.stream) Lwt.t
-    val ie_errM : Iteratees.err -> 'a t
+    val ie_errM : Iteratees.err -> (Iteratees.stream -> ('a t * Iteratees.stream) Lwt.t) -> Iteratees.stream ->
+      ('a t * Iteratees.stream) Lwt.t
     val peek : char option t
     val head : char option t
     val writer : (string -> 'a Lwt.t) -> unit t

@@ -45,11 +45,12 @@ module Iteratee (IO : MonadIO) = struct
 
   let ie_contM k x = IO.return (IE_cont (None,k), x)
   let ie_doneM res x = IO.return (IE_done res, x)
-  let rec ie_errM msg = 
-    let rec inner c = 
-      IO.return (IE_cont (Some msg, inner), Chunk "")
-    in 
-    IE_cont (Some msg, inner)
+  let rec ie_errM msg k x = IO.return (IE_cont (Some msg, k), Chunk "")
+
+  let state = function
+    | IE_done result -> "Done"
+    | IE_cont (None,_) -> "Ready"
+    | IE_cont (Some e, _) -> Printf.sprintf "Error (%s)" e
 
 (* Simplest iteratees *)
 	  
@@ -129,15 +130,16 @@ module Iteratee (IO : MonadIO) = struct
   let rec readn = function 
     | 0 -> IE_done ""
     | n -> begin
-      let rec step acc n st =  match st with
+      let rec step acc n st =  
+	match st with
 	| Chunk s ->
 	  let len = String.length s in
 	  if len < n 
 	  then ie_contM (step (acc^s) (n-len)) (Chunk "")
 	  else 
 	    let (s1,s2) = split s n in
-	    IO.return (IE_done (acc^s1), Chunk s2)
-	| Eof _ -> IO.return (IE_cont ((Some "EOF"), step acc n), st)
+	    ie_doneM (acc^s1) (Chunk s2)
+	| Eof _ -> ie_errM "EOF" (step acc n) st
       in IE_cont (None, step "" n)
     end
 
@@ -145,7 +147,7 @@ module Iteratee (IO : MonadIO) = struct
   let read_int16 = readn 2 >>= (fun s -> return (unmarshal_int16 s))
   let read_int32 = readn 4 >>= (fun s -> return (unmarshal_int32 s))
 
-  let rec drop_while pred = 
+  let drop_while pred = 
     let rec step st = match st with
       | Chunk s -> 
 	let news = str_drop_while pred s in
@@ -157,6 +159,21 @@ module Iteratee (IO : MonadIO) = struct
     in
     IE_cont (None, step)
 
+  let accumulate =
+    let rec step acc st = match st with
+      | Chunk s -> 
+	ie_contM (step (acc^s)) (Chunk "")
+      | Eof _ -> ie_doneM acc st
+    in IE_cont (None, step "")
+
+  let apply f =
+    let rec step st = match st with
+      | Chunk s -> 
+	f s;
+	ie_contM step (Chunk "")
+      | Eof _ -> ie_doneM () st
+    in IE_cont (None, step)
+
   let liftI m = 
     let rec step st i =
       match i with
@@ -164,6 +181,7 @@ module Iteratee (IO : MonadIO) = struct
 	| IE_cont (Some _, _) | IE_done _ -> IO.return (i,st)
     in
     IE_cont (None, fun s -> IO.bind m (step s))
+
 
 
 (* ****************************** ENUMERATORS *********************************)
@@ -188,7 +206,7 @@ module Iteratee (IO : MonadIO) = struct
     | x -> IO.return x
 
   let rec enum_nchunk str n = 
-    if str="" then enum_eof else
+    if str="" then (fun x -> IO.return x) else
       let (str1,str2) = split str n in
       function
 	| IE_cont (None, f) -> 

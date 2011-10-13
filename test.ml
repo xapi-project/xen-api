@@ -6,6 +6,21 @@ module NoOpMonad = struct
   let bind x f = f x
 end
 
+module StringMonad = struct
+  type 'a t = 
+      { data : 'a;
+	str : string }
+  let return a = { data=a; str=""; }
+  let bind x f =
+    let newstr = f x.data in
+    {newstr with str = x.str ^ newstr.str}
+
+  let strwr x = 
+    { data=(); str=x }
+  let getstr x = x.str
+  let getdata x = x.data
+end
+
 module Test = Iteratees.Iteratee(NoOpMonad)
 
 let test = "PUT /file HTTP/1.1\nHost: example.com\nUser-agent: X\ncontent-type: text/plain\r\n\r\n"
