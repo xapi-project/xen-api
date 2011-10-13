@@ -414,6 +414,7 @@ let crl_corrupt = "CRL_CORRUPT"
 
 let vmpp_has_vm = "VMPP_HAS_VM"
 let vmpp_archive_more_frequent_than_backup = "VMPP_ARCHIVE_MORE_FREQUENT_THAN_BACKUP"
+let vm_assigned_to_protection_policy = "VM_ASSIGNED_TO_PROTECTION_POLICY"
 
 let ssl_verify_error = "SSL_VERIFY_ERROR"
 
