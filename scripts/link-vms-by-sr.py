@@ -52,6 +52,9 @@ def main(argv):
         # Ignore dom0
         if vmrec['is_control_domain']:
             continue
+        # Ignore snapshots
+        if vmrec['is_a_snapshot']:
+            continue
 
         # for each VM, figure out the set of SRs it uses
         for vbd in vmrec['VBDs']:
