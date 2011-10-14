@@ -7,14 +7,22 @@ let open_unix_domain_sock_server path =
   Unixext.mkdir_rec (Filename.dirname path) 0o755;
   Unixext.unlink_safe path;
   let sock = open_unix_domain_sock () in
-  Unix.bind sock (Unix.ADDR_UNIX path);
-  Unix.listen sock 5;
-  sock
+  try
+    Unix.bind sock (Unix.ADDR_UNIX path);
+    Unix.listen sock 5;
+    sock
+  with e ->
+    Unix.close sock;
+    raise e
 
 let open_unix_domain_sock_client path =
   let sock = open_unix_domain_sock () in
-  Unix.connect sock (Unix.ADDR_UNIX path);
-  sock
+  try 
+    Unix.connect sock (Unix.ADDR_UNIX path);
+    sock
+  with e ->
+    Unix.close sock;
+    raise e
 
 let read_raw_rpc sock =
   let buffer = String.make 12 '\000' in
