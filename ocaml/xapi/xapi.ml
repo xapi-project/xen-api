@@ -668,6 +668,7 @@ let common_http_handlers = [
   ("get_export", (Http_svr.FdIO Export.handler));
   ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
+  ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy));
   ("get_root", Http_svr.BufIO (Fileserver.send_file "/" (Xapi_globs.base_path ^ "/www")));
   ("post_cli", (Http_svr.BufIO Xapi_cli.handler));
   ("get_host_backup", (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
