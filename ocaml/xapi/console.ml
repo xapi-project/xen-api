@@ -39,8 +39,9 @@ let port_of_proxy __context console =
 	debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_int x)) vnc_port_option));
 	vnc_port_option
 
-let real_proxy __context vnc_port s = 
+let real_proxy __context _ _ vnc_port s = 
 	try
+	  Http_svr.headers s (Http.http_200_ok ());
     let vnc_sock = Unixext.open_connection_fd "127.0.0.1" vnc_port in
     (* Unixext.proxy closes fds itself so we must dup here *)
     let s' = Unix.dup s in
@@ -51,9 +52,49 @@ let real_proxy __context vnc_port s =
   with
     exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 		
-
-let fake_proxy __context console s = 
+let fake_proxy __context _ _ console s = 
   Rfb_randomtest.server s
+
+let ws_proxy __context req protocol port s =
+  let protocol = match protocol with 
+    | `rfb -> "rfb"
+    | `vt100 -> "vt100"
+    | `rdp -> "rdp"
+  in
+
+  let real_path = "/var/xapi/wsproxy" in    
+  let sock = 
+    try
+      Some (Fecomms.open_unix_domain_sock_client real_path)
+    with e -> 
+      debug "Error connecting to wsproxy (%s)" (Printexc.to_string e);
+      Http_svr.headers s (Http.http_501_method_not_implemented ());      
+      None 
+  in
+
+  (* Ensure we always close the socket *)
+  Pervasiveext.finally (fun () -> 
+    let upgrade_successful = Opt.map (fun sock -> 
+      try 
+	Ws_helpers.upgrade req s;
+	(sock,true)
+      with _ ->
+	(sock,false)) sock
+    in
+    
+    Opt.iter (function
+      | (sock,true) -> begin
+	let message = Printf.sprintf "%s:%d" protocol port in
+	let len = String.length message in
+	ignore(Unixext.send_fd sock message 0 len [] s)
+      end
+      | (sock,false) -> begin
+	Http_svr.headers s (Http.http_501_method_not_implemented ())
+      end) upgrade_successful)
+    (fun () ->
+      Opt.iter (fun sock -> Unix.close sock) sock)
+			
+  
 
 let default_console_of_vm ~__context ~self = 
   try
@@ -126,6 +167,7 @@ let handler proxy_fn (req: Request.t) s =
     (fun __context ->
       let console = console_of_request __context req in
       (* only sessions with 'http/connect_console/host_console' permission *)
+      let protocol = Db.Console.get_protocol ~__context ~self:console in
       (* can access dom0 host consoles *)
       rbac_check_for_control_domain __context req console
         Rbac_static.permission_http_connect_console_host_console.Db_actions.role_name_label;
@@ -135,8 +177,7 @@ let handler proxy_fn (req: Request.t) s =
 
 	  match port_of_proxy __context console with
 		  | Some vnc_port ->
-			  Http_svr.headers s (Http.http_200_ok ());
-			  proxy_fn __context vnc_port s
+			  proxy_fn __context req protocol vnc_port s
 		  | None ->
 			  Http_svr.headers s (Http.http_404_missing ())
 	)

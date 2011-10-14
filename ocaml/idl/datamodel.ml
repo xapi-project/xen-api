@@ -7483,6 +7483,8 @@ let http_actions = [
   ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
   ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP, 
     [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
+  ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP, 
+    [("host_console_ws", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("get_root", (Get, "/", false, [], _R_READ_ONLY, []));
   ("post_cli", (Post, Constants.cli_uri, false, [], _R_READ_ONLY, []));
   ("get_host_backup", (Get, Constants.host_backup_uri, true, [], _R_POOL_ADMIN, []));
