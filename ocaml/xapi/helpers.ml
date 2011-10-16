@@ -891,3 +891,9 @@ let short_string_of_ref x =
   let x' = Ref.string_of x in
   String.sub x' (String.length "OpaqueRef:") 8
 
+let force_loopback_vbd ~__context =
+	(* Workaround assumption in SMRT: if a global flag is set, force use
+	   of loopback VBDs. *)
+	let pool = get_pool ~__context in
+	let other_config = Db.Pool.get_other_config ~__context ~self:pool in
+	List.mem_assoc "force_loopback_vbd" other_config
