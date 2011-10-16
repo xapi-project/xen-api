@@ -71,6 +71,8 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 
 	let vdi = Db.VBD.get_VDI ~__context ~self in
 
+	let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+
 	if empty then begin
 		if hvm then begin
 			let (_: Device_common.device) = Device.Vbd.add ~xs ~hvm ~mode ~phystype:Device.Vbd.File ~params:""
@@ -78,7 +80,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 			Db.VBD.set_device ~__context ~self ~value:(Device_number.to_linux_device device_number);
 			Db.VBD.set_currently_attached ~__context ~self ~value:true;			
 		end else info "domid: %d PV guests don't support the concept of an empty CD; skipping device" domid
-	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = Db.VBD.get_VM ~__context ~self then begin
+	end else if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = Db.VBD.get_VM ~__context ~self && not force_loopback_vbd then begin
 		debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun params ->
