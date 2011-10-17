@@ -220,6 +220,8 @@ module Resync = struct
       let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
 	  let driver_vm = System_domains.storage_driver_domain_of_vbd ~__context ~vbd in
 	  let is_loopback = driver_vm = vm in
+	  let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
+
 	  let is_attached = Db.VBD.get_currently_attached ~__context ~self:vbd in
       debug "VM %s (domid: %d) Resync.vbd %s" (Ref.string_of vm) domid (Ref.string_of vbd);
       assert_not_on_xal_thread ();
@@ -234,7 +236,7 @@ module Resync = struct
 		  then debug "VM is suspended: leaving currently-attached as-is"
 		  else Db.VBD.set_currently_attached ~__context ~self:vbd ~value:online in
 
-	  if is_loopback then begin
+	  if is_loopback && not force_loopback_vbd then begin
 		  let online = Storage_access.is_attached ~__context ~vbd ~domid in
 		  if is_attached = online then begin
 			  debug "VBD %s currently_attached field is in sync with storage layer" (Ref.string_of vbd)
