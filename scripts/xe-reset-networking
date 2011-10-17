@@ -93,7 +93,16 @@ if __name__ == "__main__":
 		sys.exit(1)
 	
 	# Warn user
-	res = raw_input("This command will reboot the host and reset its network configuration.\nAny running VMs should first be shut down.\nType 'yes' to continue.\n")
+	warning = """!! WARNING !!
+
+This command will reboot the host and reset its network configuration.
+Before completing this command:
+- Shut down all VMs running on this host.
+- Disable HA if this host is part of a resource pool with HA enabled.
+
+Type 'yes' to continue.
+"""
+	res = raw_input(warning)
 	if res <> 'yes':
 		sys.exit(1)
 	
