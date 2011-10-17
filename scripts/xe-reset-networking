@@ -23,34 +23,33 @@ from optparse import OptionParser
 pool_conf = '/etc/xensource/pool.conf'
 interface_reconfigure = "@BASE_PATH@/libexec/interface-reconfigure"
 inventory_file = '/etc/xensource-inventory'
+management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'
 
-# read inventory file
-def read_inventory():
-	f = open(inventory_file, 'r')
-	inventory = {}
+def read_dict_file(fname):
+	f = open(fname, 'r')
+	d = {}
 	for l in f.readlines():
 		kv = l.split('=')
-		inventory[kv[0]] = kv[1][1:-2]
-	return inventory
-	
+		d[kv[0]] = kv[1][1:-2]
+	return d
+
+def read_inventory():
+	return read_dict_file(inventory_file)
+
+def read_management_conf():
+	return read_dict_file(management_conf)
+
 def write_inventory(inventory):
 	f = open(inventory_file, 'w')
 	for k in inventory:
 		f.write(k + "='" + inventory[k] + "'\n")
 	f.close()
-	
-def biosdevname(d):
-	try:
-		p = os.popen('biosdevname -i ' + d)
-		return p.read().strip()
-	except:
-		return d
 
 if __name__ == "__main__":
 	parser = OptionParser()
 	parser.add_option("-m", "--master", help="Master's address", dest="address", default=None)
-	parser.add_option("--mac", help="MAC address of new management interface", dest="mac", default=None)
+	parser.add_option("--device", help="Device name of new management interface", dest="device", default=None)
 	parser.add_option("--mode", help='IP configuration mode for new management interface: "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
 	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
@@ -75,13 +74,19 @@ if __name__ == "__main__":
 	except:
 		pass
 	
-	# Check if a MAC is given
-	if options.mac == None:
-		parser.error("please specify the MAC address of the management interface")
-		sys.exit(1)
+	# Get the management device from the firstboot data if not specified by the user
+	if options.device == None:
+		try:
+			conf = read_management_conf()
+			device = conf['LABEL']
+		except:
+			print "Could not figure out which interface should become the management interface. \
+				Please specify one using the --device option."
+			sys.exit(1)
 	else:
-		mac = options.mac.lower()
-		
+		device = options.device
+	print "The management interface will be", device
+
 	# Determine IP configuration for management interface
 	options.mode = options.mode.lower()
 	if options.mode not in ["dhcp", "static"]:
@@ -118,30 +123,6 @@ Type 'yes' to continue.
 	
 	# Stop networking subsystem to ensure bonds etc are down
 	os.system('service network stop')
-	
-	# Find existing network interfaces (MAC and device name)
-	sysfs = '/sys/class/net/'
-	device = None
-	# iterate over all devices
-	for d in os.listdir(sysfs):
-		# only continue if it is a physical device
-		if os.access(sysfs + d + '/device', os.F_OK):
-			# try to get the MAC
-			m = None
-			try:
-				f = open(sysfs + d + '/address', 'r')
-				m = f.readline()[:-1].lower()
-			finally:
-				f.close()
-			if m == mac:
-				device = biosdevname(d)
-				break
-	
-	# Find current device name for management interface
-	if device == None:
-		print "Could not find MAC", mac
-		print "Aborting."
-		sys.exit(1)
 		
 	# Construct bridge name for management interface based on convention
 	if device[:3] == 'eth':
@@ -155,7 +136,7 @@ Type 'yes' to continue.
 	
 	# Reconfigure new management interface
 	print "Reconfiguring " + device + "..."
-	if_args = ' --force ' + bridge + ' rewrite --mac=' + mac + ' --device=' + device + ' --mode=' + options.mode
+	if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
 	if options.mode == 'static':
 		if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
 		if options.gateway != '':
@@ -172,7 +153,7 @@ Type 'yes' to continue.
 	# Write trigger file for XAPI to continue the network reset on startup
 	try:
 		f = file(network_reset, 'w')
-		f.write('MAC=' + mac + '\n')
+		f.write('DEVICE=' + device + '\n')
 		f.write('MODE=' + options.mode + '\n')
 		if options.mode == 'static':
 			f.write('IP=' + options.ip + '\n')
