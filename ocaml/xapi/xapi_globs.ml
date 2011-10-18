@@ -189,7 +189,9 @@ let tools_sr_dir = base_path ^ "/packages/iso"
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 
-let vbd_task_key = "task_id" (* set on dom0 block-attached VBDs to indicate the task they're associated with *)
+(* Keys to explain the presence of dom0 block-attached VBDs: *)
+let vbd_task_key = "task_id"
+let related_to_key = "related_to"
 
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"

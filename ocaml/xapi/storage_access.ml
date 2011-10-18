@@ -292,8 +292,6 @@ module Qemu_blkfront = struct
                 | _ -> false
 		end
 
-	let related_to = "related_to"
-
 	(* If we have a shared VDI (eg CDROM) we don't share the blkfront
 	   to simplify the accounting. We use the other_config:related_to key
 	   to distinguish the different VBDs. *)
@@ -308,8 +306,8 @@ module Qemu_blkfront = struct
 					let vbd_r = Db.VBD.get_record ~__context ~self:other in
 					true
 					&& vbd_r.API.vBD_VM = vm
-							&& (List.mem_assoc related_to vbd_r.API.vBD_other_config)
-							&& (List.assoc related_to vbd_r.API.vBD_other_config = Ref.string_of self)
+							&& (List.mem_assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config)
+							&& (List.assoc Xapi_globs.related_to_key vbd_r.API.vBD_other_config = Ref.string_of self)
 				with _ -> false (* the VBD may be destroyed concurrently *)
 			) (Db.VDI.get_VBDs ~__context ~self:vdi) with
 				| vbd :: _ -> Some vbd
@@ -332,7 +330,7 @@ module Qemu_blkfront = struct
 						let mode = if read_write then `RW else `RO in
 						let vbd = XenAPI.VBD.create
 							~rpc ~session_id ~vM:vm ~vDI:vdi
-							~other_config:[ related_to, Ref.string_of self ]
+							~other_config:[ Xapi_globs.related_to_key, Ref.string_of self ]
 							~userdevice:"autodetect" ~bootable:false ~mode
 							~_type:`Disk ~empty:false ~unpluggable:true
 							~qos_algorithm_type:"" ~qos_algorithm_params:[] in
