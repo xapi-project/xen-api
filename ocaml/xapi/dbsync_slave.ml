@@ -391,34 +391,6 @@ let test_uniqueness_doesnt_kill_us ~__context =
     ()
 *)
 
-(** Important in case the server restarts in the middle of a provision: potentially leaking
-    dom0 block-attached VBDs. This will remove them again. *)
-let remove_all_leaked_vbds __context =
-  let localhost = Helpers.get_localhost ~__context in
-  let vms = Db.Host.get_resident_VMs ~__context ~self:localhost in
-  let control_domains = List.filter (fun self -> Db.VM.get_is_control_domain ~__context ~self) vms in
-  (* there should only be one control domain per host *)
-  List.iter 
-    (fun control ->
-       let vbds = Db.VM.get_VBDs ~__context ~self:control in
-       let leaked = List.filter (Attach_helpers.has_vbd_leaked __context) vbds in
-       (* Attempt to unplug and destroy them if possible *)
-       Helpers.call_api_functions ~__context
-	 (fun rpc session_id ->
-	    List.iter 
-	      (Helpers.log_exn_continue "removing leaked dom0 block-attached VBD"
-		 (fun self ->
-		    let device = Db.VBD.get_device ~__context ~self in
-		    debug "Attempting to unplug dom0 block-attached VBD device %s: %s"
-		      device (Ref.string_of self);
-		    Helpers.log_exn_continue "attempting to hot-unplug block-attached VBD"
-		      (fun self -> Client.VBD.unplug rpc session_id self) self;
-		    debug "Attempting to destroy dom0 block-attached VBD device %s: %s"
-		      device (Ref.string_of self);
-		    (* try this anyway: unplug could have failed if it wasn't plugged in *)
-		    Client.VBD.destroy rpc session_id self)) leaked)
-    ) control_domains
-
 (** Make sure the PIF we're using as a management interface is marked as attached
     otherwise we might blow it away by accident *)
 (* CA-23803:
@@ -560,7 +532,7 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_remove_leaked_vbds (fun () ->
     debug "removing any leaked dom0 block-attached VBDs (if any)";
-    remove_all_leaked_vbds __context;
+    Attach_helpers.remove_all_leaked_vbds __context;
   );
 
 (*
