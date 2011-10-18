@@ -216,9 +216,11 @@ let set_forwarding_on_task ~__context ~host =
   end else None
 
 let check_live ~__context h =
-  (* check host is live *)
-  if (not (Xapi_vm_helpers.is_host_live ~__context h)) then
-    raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
+	(* assume that localhost is always live *)
+	if true
+		&& (Helpers.get_localhost ~__context <> h)
+		&& (not (Xapi_vm_helpers.is_host_live ~__context h))
+	then raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
 
 let check_enabled ~__context h =
   (* check host is enabled *)
