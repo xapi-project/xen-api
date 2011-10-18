@@ -314,7 +314,7 @@ module Qemu_blkfront = struct
 				| [] -> None
 		end else None
 
-	let create ~__context ~self hvm =
+	let create ~__context ~self ~read_write hvm =
 		match vbd_opt ~__context ~self with
 			| Some vbd ->
 				if not (Db.VBD.get_currently_attached ~__context ~self:vbd)
@@ -327,8 +327,7 @@ module Qemu_blkfront = struct
 				if needed ~__context ~self hvm
 				then Helpers.call_api_functions ~__context
 					(fun rpc session_id ->
-						let read_only = Db.VDI.get_read_only ~__context ~self:vdi in
-						let mode = if read_only then `RO else `RW in
+						let mode = if read_write then `RW else `RO in
 						let vbd = XenAPI.VBD.create
 							~rpc ~session_id ~vM:vm ~vDI:vdi
 							~other_config:[ related_to, Ref.string_of self ]
@@ -491,7 +490,7 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 						) (Client.VDI.activate rpc task dp sr vdi)
 				) (Client.VDI.attach rpc task dp sr vdi read_write)
 		) in
-	Qemu_blkfront.create ~__context ~self:vbd hvm;
+	Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
 	result
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
