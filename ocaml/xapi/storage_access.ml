@@ -496,16 +496,19 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
 let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
+	(* Remove the qemu frontend first: this will not pass the deactivate/detach
+	   through to the backend so an SM backend failure won't cause us to leak
+	   a VBD. *)
+	if unplug_frontends
+	then Qemu_blkfront.destroy ~__context ~self:vbd;
 	(* It suffices to destroy the datapath: any attached or activated VDIs will be
 	   automatically detached and deactivated. *)
 	on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
 			expect_unit (fun () -> ())
 				(Client.DP.destroy rpc task dp false)
-		);
-	(* If the only datapath left is the qemu_blkfront one, clean it up *)
-	if unplug_frontends
-	then Qemu_blkfront.destroy ~__context ~self:vbd
+		)
+
 
 let diagnostics ~__context =
 	expect_string (fun x -> x)
