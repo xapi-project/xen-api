@@ -136,6 +136,9 @@ let unplug ~__context ~self =
 				then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
 			end;
 
+			(* Unplug any disks attached to me which have leaked *)
+			Attach_helpers.remove_all_leaked_vbds __context;
+
 			let vdis = get_active_vdis_by_pbd ~__context ~self in
 			let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
 			if List.length non_metadata_vdis > 0 
