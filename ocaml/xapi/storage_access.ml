@@ -304,11 +304,13 @@ module Qemu_blkfront = struct
 		if Db.is_valid_ref __context vdi
 		then begin
 			match List.filter (fun other ->
-				let vbd_r = Db.VBD.get_record ~__context ~self:other in
-				true
-				&& vbd_r.API.vBD_VM = vm
-				&& (List.mem_assoc related_to vbd_r.API.vBD_other_config)
-				&& (List.assoc related_to vbd_r.API.vBD_other_config = Ref.string_of self)
+				try
+					let vbd_r = Db.VBD.get_record ~__context ~self:other in
+					true
+					&& vbd_r.API.vBD_VM = vm
+							&& (List.mem_assoc related_to vbd_r.API.vBD_other_config)
+							&& (List.assoc related_to vbd_r.API.vBD_other_config = Ref.string_of self)
+				with _ -> false (* the VBD may be destroyed concurrently *)
 			) (Db.VDI.get_VBDs ~__context ~self:vdi) with
 				| vbd :: _ -> Some vbd
 				| [] -> None
