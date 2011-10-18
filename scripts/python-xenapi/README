@@ -1,0 +1,13 @@
+===============================================================================
+Python bindings for the XenAPI 1.0 
+(C) XenSource, Inc. / Ewan Mellor (firstname.lastname@citrix.com)
+===============================================================================
+
+The Xen Management API is an interface for remotely configuring and controlling
+virtualised guests running on a Xen-enabled host. 
+
+References & specifications:
+
+http://wiki.xensource.com/xenwiki/XenApi
+http://docs.vmd.citrix.com/XenServer/5.6.0fp1/1.0/en_gb/api
+http://docs.vmd.citrix.com/XenServer/5.6.0fp1/1.0/en_gb/sdk.html
