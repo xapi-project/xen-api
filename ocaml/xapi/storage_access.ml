@@ -82,6 +82,8 @@ module Builtin_impl = struct
 						)
 				)
 
+		let reset context ~task ~sr = assert false
+
 		let destroy context ~task ~sr = 
 			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string task)
@@ -366,14 +368,14 @@ let make_remote host path =
     (module Server(Storage_proxy.Proxy(struct let rpc call = XMLRPC_protocol.rpc ~transport:(TCP(host, 8080)) ~http:(xmlrpc ~version:"1.0" path) call end)) : SERVER)
 
 let bind ~__context ~pbd =
-    (* Start the VM if necessary, discover its domid *)
+    (* Start the VM if necessary, record its uuid *)
     let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
     if Db.VM.get_power_state ~__context ~self:driver = `Halted then begin
         info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd) (Ref.string_of driver);
         Helpers.call_api_functions ~__context
             (fun rpc session_id -> XenAPI.VM.start rpc session_id driver false false);
     end;
-    let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:driver) in
+	let uuid = Db.VM.get_uuid ~__context ~self:driver in
     let ip_of driver =
         (* Find the VIF on the Host internal management network *)
         let vifs = Db.VM.get_VIFs ~__context ~self:driver in
@@ -387,7 +389,7 @@ let bind ~__context ~pbd =
                 | Some (a, b, c, d) -> Printf.sprintf "%d.%d.%d.%d" a b c d
                 | None -> failwith (Printf.sprintf "PBD %s driver domain %s has no IP on the host internal management network" (Ref.string_of pbd) (Ref.string_of driver)) in
 
-        info "PBD %s driver domain domid:%d ip:%s" (Ref.string_of pbd) domid ip;
+        info "PBD %s driver domain uuid:%s ip:%s" (Ref.string_of pbd) uuid ip;
         if not(System_domains.wait_for (System_domains.pingable ip))
         then failwith (Printf.sprintf "PBD %s driver domain %s is not responding to IP ping" (Ref.string_of pbd) (Ref.string_of driver));
         if not(System_domains.wait_for (System_domains.queryable ip 8080))
@@ -400,7 +402,7 @@ let bind ~__context ~pbd =
     let module Impl = (val (if driver = dom0 then make_local path else make_remote (ip_of driver) path): SERVER) in
     let sr = Db.PBD.get_SR ~__context ~self:pbd in
     info "SR %s will be implemented by %s in VM %s" (Ref.string_of sr) path (Ref.string_of driver);
-    Storage_mux.register sr (Impl.process (Some path)) domid
+    Storage_mux.register sr (Impl.process (Some path)) uuid
 
 let unbind ~__context ~pbd =
         let sr = Db.PBD.get_SR ~__context ~self:pbd in
@@ -473,6 +475,17 @@ let on_vdi ~__context ~vbd ~domid f =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let dp = Client.DP.create rpc task dp in
 	f rpc task dp sr vdi
+
+let reset ~__context ~vm =
+	let task = Context.get_task_id __context in
+	Opt.iter
+		(fun pbd ->
+			let sr = Ref.string_of (Db.PBD.get_SR ~__context ~self:pbd) in
+			info "Resetting all state associated with SR: %s" sr;
+			expect_unit (fun () -> ())
+				(Client.SR.reset rpc (Ref.string_of task) sr);
+			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
+		) (System_domains.pbd_of_vm ~__context ~vm)
 
 (** [attach_and_activate __context vbd domid f] calls [f params] where
     [params] is the result of attaching a VDI which is also activated.

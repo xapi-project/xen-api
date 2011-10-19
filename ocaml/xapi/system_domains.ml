@@ -50,6 +50,12 @@ let vm_set_storage_driver_domain ~__context ~self ~value =
 	Db.VM.remove_from_other_config ~__context ~self ~key:storage_driver_domain_key;
 	Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
 
+let pbd_of_vm ~__context ~vm =
+	let other_config = Db.VM.get_other_config ~__context ~self:vm in
+	if List.mem_assoc storage_driver_domain_key other_config
+	then Some(Ref.of_string (List.assoc storage_driver_domain_key other_config))
+	else None
+
 let storage_driver_domain_of_pbd ~__context ~pbd =
 	let other_config = Db.PBD.get_other_config ~__context ~self:pbd in
 	let dom0 = Helpers.get_domain_zero ~__context in

@@ -165,6 +165,7 @@ module Debug_print_impl = struct
 			info "SR.detach sr:%s" sr;
 			fail_if_anything_leaked ();
 			Success Unit
+		let reset context ~task ~sr = assert false
 		let destroy context ~task ~sr =
 			info "SR.destroy sr:%s" sr;
 			fail_if_anything_leaked (); 
@@ -181,7 +182,7 @@ let path = "/tmp/storage"
 let rpc_unix call = 
 	let open Xmlrpc_client in
 	XMLRPC_protocol.rpc ~transport:(Unix path) ~http:(xmlrpc ~version:"1.0" "/") call
-let rpc_inprocess call = Server.process () call
+let rpc_inprocess call = Server.process (Some "") call
 
 let use_inprocess_rpc = ref true
 
@@ -395,7 +396,7 @@ let create_vdi_test sr =
 		virtual_size = 10L;
 		ty = "user";
         is_a_snapshot = false;
-        snapshot_time = 0.;
+        snapshot_time = "";
         snapshot_of = "";
         read_only = false;
         physical_utilisation = 10L;
