@@ -496,8 +496,10 @@ let destroy ?(unplug_frontends=true) ?(clear_currently_attached=true) ~__context
 	   In any other case (Halted/Suspended) the VM's memory is nolonger needed so
 	   we can blank the resident_on. 
 	*)
-	if state <> `Running 
+	if state <> `Running
 	then Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
+
+	Storage_access.reset ~__context ~vm:self;
 
 	destroy_consoles ~__context ~vM:self;
 	(* to make debugging easier, set currently_attached to false for all
