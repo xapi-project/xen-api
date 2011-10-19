@@ -14,6 +14,8 @@
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+open Fun
+
 let vmpr_plugin = "vmpr"
 let vmpr_username = "__dom0__vmpr"
 let vmpr_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
@@ -648,6 +650,12 @@ let create ~__context ~name_label ~name_description ~is_policy_enabled
     ~is_alarm_enabled ~alarm_config ~recent_alerts:[];
   ref
 
+let destroy_all_messages ~__context ~self =
+	let uuid = Db.VMPP.get_uuid ~__context ~self in
+	Xapi_message.get_all_records ~__context
+		|> List.filter (fun (_, record) -> record.API.message_obj_uuid = uuid)
+		|> List.iter (fun (ref, _) -> Xapi_message.destroy ~__context ~self:ref)
+
 let destroy ~__context ~self = 
   let vms = Db.VMPP.get_VMs ~__context ~self in
   if List.length vms > 0
@@ -657,6 +665,7 @@ let destroy ~__context ~self =
   else ( 
     let archive_target_config = (Db.VMPP.get_archive_target_config ~__context ~self) in
     remove_any_secrets ~__context ~config:archive_target_config ~key:Datamodel.vmpp_archive_target_config_password;
+    destroy_all_messages ~__context ~self;
     Db.VMPP.destroy ~__context ~self
   )
 
