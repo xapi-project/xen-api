@@ -64,6 +64,8 @@ class Mdconfig:
     def _find(self, task, path):
         # md0	vnode	 1024M	/root/big.img
         for line in run(task, "mdconfig -l -v").split("\n"):
+            if line == "":
+                continue
             bits = line.split()
             this_path = bits[3]
             if this_path == path:
@@ -75,7 +77,8 @@ class Mdconfig:
     # [remove task path] removes the block device associated with [path]
     def remove(self, task, path):
         md = self._find(task, path)
-        run(task, "mdconfig -d -u %s" % md) 
+        if md:
+            run(task, "mdconfig -d -u %s" % md) 
 
 # [path_of_vdi vdi] returns the path in the local filesystem corresponding
 # to vdi location [vdi]
