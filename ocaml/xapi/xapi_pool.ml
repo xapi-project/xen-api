@@ -460,9 +460,12 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
 	let my_bridge = network.API.network_bridge in
 
 	let new_network_ref =
-		if String.startswith "xenbr" my_bridge then
-			(* Physical network: try to join an existing one with the same bridge name, or create one.
-			 * This relies on the convention that PIFs with the same label need to be connected. *)
+		if String.startswith "xenbr" my_bridge || my_bridge = "xenapi" then
+			(* Physical network or Host Internal Management Network:
+			 * try to join an existing network with the same bridge name, or create one.
+			 * This relies on the convention that PIFs with the same device name need to be connected.
+			 * Furthermore, there should be only one Host Internal Management Network in a pool, and it
+			 * should always have bridge name "xenapi". *)
 			try
 				let pool_networks = Client.Network.get_all_records ~rpc ~session_id in
 				let net_ref, _ = List.find (fun (_, net) -> net.API.network_bridge = my_bridge) pool_networks in
