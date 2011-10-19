@@ -633,7 +633,11 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 
 			Device.Dm.extras = [];
 		} in
-		dmstart ~xs ~dmpath info domid
+		dmstart ~xs ~dmpath info domid;
+		(* We can now attempt to unplug the qemu frontends, safe in the
+		   knowledge that qemu won't close its filehandles until it has
+		   finished with them. *)
+		List.iter (fun vbd -> Storage_access.Qemu_blkfront.unplug_nowait ~__context ~self:vbd) snapshot.API.vM_VBDs
 	end else begin
 	        (* if we have a "disable_pv_vnc" entry in other_config we disable
 		   VNC for PV *)
