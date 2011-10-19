@@ -25,6 +25,8 @@ module Qemu_blkfront: sig
         storage device in the qemu domain, or [None] if there is no path *)
 	val path_opt: __context:Context.t -> self:API.ref_VBD -> string option
 
+	val unplug_nowait: __context:Context.t -> self:API.ref_VBD -> unit
+
 	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
 end
 

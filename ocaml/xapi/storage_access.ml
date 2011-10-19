@@ -344,16 +344,27 @@ module Qemu_blkfront = struct
 		let path_of vbd = "/dev/" ^ (Db.VBD.get_device ~__context ~self:vbd) in
 		Opt.map path_of vbd
 
-	let destroy ~__context ~self =
+	let on_vbd ~__context ~self f =
 		let vbd = vbd_opt ~__context ~self in
 		Opt.iter
             (fun vbd ->
                 Helpers.call_api_functions ~__context
-                    (fun rpc session_id ->
-                        Attach_helpers.safe_unplug rpc session_id vbd;
-                        XenAPI.VBD.destroy rpc session_id vbd
-                    )
+                    (fun rpc session_id -> f rpc session_id vbd)
             ) vbd
+
+	let unplug_nowait ~__context ~self =
+		on_vbd ~__context ~self
+			(fun rpc session_id vbd ->
+				try XenAPI.VBD.unplug rpc session_id vbd
+				with _ -> ()
+			)
+		
+	let destroy ~__context ~self =
+		on_vbd ~__context ~self
+			(fun rpc session_id vbd ->
+                Attach_helpers.safe_unplug rpc session_id vbd;
+                XenAPI.VBD.destroy rpc session_id vbd
+            )
 end
 
 module type SERVER = sig
