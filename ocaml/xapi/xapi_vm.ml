@@ -449,13 +449,17 @@ module Reboot = struct
 			     Domain.unpause ~xc domid;
 			  );
 	   Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
-           Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
+       Db.VM.set_power_state ~__context ~self:vm ~value:`Running;
 
 	 with exn ->
 	   error "Caught exception during %s: %s" api_call_name (ExnHelper.string_of_exn exn);
 	   with_xc_and_xs (fun xc xs -> Vmops.destroy ~__context ~xc ~xs ~self:vm domid `Halted);
 	   raise exn
-      )
+      );
+	(* If this is a storage domain, attempt to plug the PBD *)
+	Opt.iter (fun pbd -> Xapi_pbd.plug ~__context ~self:pbd) (System_domains.pbd_of_vm ~__context ~vm)
+
+
 
   (** In the synchronous API call paths, acquire the VM lock and see if the VM hasn't rebooted yet.
 	  If necessary we reboot it here. *)
