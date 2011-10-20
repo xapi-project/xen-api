@@ -95,7 +95,7 @@ let http_proxy master_ip ip =
 			
 let maybe_start bridge other_config =
 	if not(List.mem_assoc "ip_begin" other_config)
-	then error "Cannot setup host internal management network: no other-config:i_begin"
+	then error "Cannot setup host internal management network: no other-config:ip_begin"
 	else begin
 		let ip = List.assoc "ip_begin" other_config in
 		let address = Helpers.get_main_ip_address () in
