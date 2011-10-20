@@ -590,7 +590,7 @@ let check_network_reset () =
 				(* Parse reset file *)
 				let args = String.split '\n' reset_file in
 				let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
-				let mAC = List.assoc "MAC" args in
+				let device = List.assoc "DEVICE" args in
 				let mode = match List.assoc "MODE" args with
 					| "static" -> `Static
 					| "dhcp" | _ -> `DHCP
@@ -611,7 +611,7 @@ let check_network_reset () =
 				let pifs = Db.PIF.get_all ~__context in
 				
 				(* Introduce and configure the management PIF *)
-				let pif = List.find (fun p -> Db.PIF.get_MAC ~__context ~self:p = mAC) pifs in
+				let pif = List.find (fun p -> Db.PIF.get_device ~__context ~self:p = device) pifs in
 				Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask ~gateway ~dNS;
 				Xapi_host.management_reconfigure ~__context ~pif;
 			);
