@@ -4042,9 +4042,6 @@ let secret_destroy printer rpc session_id params =
 	let ref = Client.Secret.get_by_uuid ~rpc ~session_id ~uuid in
 	Client.Secret.destroy ~rpc ~session_id ~self:ref
 
-let regenerate_built_in_templates printer rpc session_id params =
-	Create_templates.create_all_templates rpc session_id
-
 let vmpp_create printer rpc session_id params =
 	let get ?default param_name =
 		if List.mem_assoc param_name params
