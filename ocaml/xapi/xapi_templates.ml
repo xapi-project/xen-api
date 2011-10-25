@@ -95,12 +95,6 @@ let disks_key = "disks"
 (** The key name pointing to the post-install script *)
 let post_install_key = "postinstall"
 
-(** The name of the "distro" other-config key, as used by ELI template *)
-let distros_otherconfig_key = "install-distro"
-
-(** The name of an other-config key, used by XenCenter *)
-let install_methods_otherconfig_key = "install-methods"
-
 open Client
 
 (** From a VM reference, return an 'install' record option. *)
@@ -113,8 +107,6 @@ let get_template_record rpc session_id vm =
   if disks = [] && script = None
   then None
   else Some { disks = disks; post_install_script = script } 
-
-let pv_bootloader = "pygrub"
 
 (** A special bootloader which takes care of the initial boot -- fakeserver only *)
 let bootloader = "installer"
