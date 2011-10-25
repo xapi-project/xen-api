@@ -16,7 +16,6 @@
  *)
 
 open API
-open Xapi_templates
 open Stringext
 
 module D = Debug.Debugger(struct let name="xapi" end)
@@ -41,6 +40,41 @@ let distros_otherconfig_key = "install-distro"
 
 (** The name of an other-config key, used by XenCenter *)
 let install_methods_otherconfig_key = "install-methods"
+
+(** The key name pointing to the disks *)
+let disks_key = "disks"
+
+(** The key name pointing to the post-install script *)
+let post_install_key = "postinstall"
+
+(** A record which describes a disk provision request *)
+type disk = { device: string; (** device inside the guest eg xvda *)
+	      size: int64;    (** size in bytes *)
+	      sr: string;     (** name or UUID of the SR in which to make the disk *)
+	      bootable: bool;
+	      _type: API.vdi_type
+	    }
+
+let vdi_type2string v =
+  match v with
+      `system -> "system"
+    | `user -> "user"
+    | `ephemeral -> "ephemeral"
+    | `suspend -> "suspend"
+    | `crashdump -> "crashdump"
+    | `ha_statefile -> "HA statefile"
+    | `metadata -> "metadata"
+    | `redo_log -> "redo log"
+
+let xml_of_disk disk =
+	Xml.Element("disk", [
+		"device", disk.device;
+		"size", Int64.to_string disk.size;
+		"sr", disk.sr; 
+		"bootable", string_of_bool disk.bootable;
+		"type", vdi_type2string disk._type
+	], [])
+let xml_of_disks disks = Xml.Element("provision", [], List.map xml_of_disk disks)
 
 (* template restrictions (added to recommendations field for UI) *)
 let recommendations ?(memory=128) ?(vcpus=16) ?(vbds=7) ?(vifs=7) () =
