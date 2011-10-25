@@ -49,26 +49,6 @@ let string2vdi_type s =
     | "crashdump" -> `crashdump
     | _           -> assert false
 
-let vdi_type2string v =
-  match v with
-      `system -> "system"
-    | `user -> "user"
-    | `ephemeral -> "ephemeral"
-    | `suspend -> "suspend"
-    | `crashdump -> "crashdump"
-    | `ha_statefile -> "HA statefile"
-    | `metadata -> "metadata"
-    | `redo_log -> "redo log"
-
-let xml_of_disk disk = 
-  Element("disk", [ "device", disk.device;
-		    "size", Int64.to_string disk.size;
-		    "sr", disk.sr; 
-		    "bootable", string_of_bool disk.bootable;
-		    "type", vdi_type2string disk._type
-		  ], [])
-let xml_of_disks disks = Element("provision", [], List.map xml_of_disk disks)
-
 exception Parse_failure
 let disk_of_xml = function
   | Element("disk", params, []) ->
