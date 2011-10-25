@@ -68,7 +68,7 @@ _xe()
 					COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
 				elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
 					IFS=$'\n,'
-					COMPREPLY=( $(compgen -W "balance-slb ,active-backup" -- ${value}) )
+					COMPREPLY=( $(compgen -W "balance-slb ,active-backup ,lacp " -- ${value}) )
 				fi
 				return 0
 				;;
