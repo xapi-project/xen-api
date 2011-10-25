@@ -47,7 +47,8 @@ let disks_key = "disks"
 (** The key name pointing to the post-install script *)
 let post_install_key = "postinstall"
 
-(** A record which describes a disk provision request *)
+(** This type should never be modified. If you want to extend it, then
+    we should do this some other way e.g. by using VDI.create directly. *)
 type disk = { device: string; (** device inside the guest eg xvda *)
 	      size: int64;    (** size in bytes *)
 	      sr: string;     (** name or UUID of the SR in which to make the disk *)
@@ -55,16 +56,9 @@ type disk = { device: string; (** device inside the guest eg xvda *)
 	      _type: API.vdi_type
 	    }
 
-let vdi_type2string v =
-  match v with
-      `system -> "system"
-    | `user -> "user"
-    | `ephemeral -> "ephemeral"
-    | `suspend -> "suspend"
-    | `crashdump -> "crashdump"
-    | `ha_statefile -> "HA statefile"
-    | `metadata -> "metadata"
-    | `redo_log -> "redo log"
+let vdi_type2string = function
+	| `system -> "system"
+    | _ -> "user"
 
 let xml_of_disk disk =
 	Xml.Element("disk", [
