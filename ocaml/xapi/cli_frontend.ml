@@ -2310,16 +2310,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       flags=[Host_selectors]
     };
 
-    (* Half-way house before templates are fully removed from xapi *)
-    "regenerate-built-in-templates",
-    {
-      reqd=[];
-      optn=[];
-      help="Regenerate any missing built-in templates";
-      implementation=No_fd Cli_operations.regenerate_built_in_templates;
-      flags=[Hidden];
-    };
-
 		"secret-create",
 			{ reqd = ["value"]
 			; optn = []

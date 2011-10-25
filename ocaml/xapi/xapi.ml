@@ -948,8 +948,6 @@ let server_init() =
       (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
       "starting events thread", [], (fun () -> if not (!noevents) then ignore (Thread.create Events.listen_xal ()));
       "SR scanning", [ Startup.OnlyMaster; Startup.OnThread ], Xapi_sr.scanning_thread;
-      "checking/creating templates", [ Startup.OnlyMaster; Startup.NoExnRaising ],
-                 (fun () -> Helpers.call_api_functions ~__context Create_templates.create_all_templates);
       "writing init complete", [], (fun () -> Helpers.touch_file !Xapi_globs.init_complete);
 (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
 			"Starting DR redo-logs", [ Startup.OnlyMaster; ], start_dr_redo_logs;
