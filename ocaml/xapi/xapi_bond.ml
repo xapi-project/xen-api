@@ -200,11 +200,6 @@ let fix_bond ~__context ~bond =
 				Db.Bond.set_primary_slave ~__context ~self:bond ~value:(List.hd members);
 	end
 
-let string_of_mode = function
-	| `balanceslb -> "balance-slb"
-	| `activebackup -> "active-backup"
-
-
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
@@ -302,7 +297,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 
 		(* Temporary measure for compatibility with current interface-reconfigure.
 		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
-		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -409,7 +404,7 @@ let set_mode ~__context ~self ~value =
 	(* Temporary measure for compatibility with current interface-reconfigure.
 	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
 	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
-	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode value);
+	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string value);
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
