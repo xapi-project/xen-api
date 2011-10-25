@@ -25,13 +25,20 @@ let kib = 1024L
 let mib = 1024L ** kib
 let gib = 1024L ** mib
 
-let viridian_flag = (Xapi_globs.viridian_key_name,Xapi_globs.default_viridian_key_value)
+(* Viridian key name (goes in platform flags) *)
+let viridian_key_name = "viridian"
+(* Viridian key value (set in new templates, in built-in templates on upgrade and when Orlando PV drivers up-to-date first detected) *)
+let default_viridian_key_value = "true"
+
+let viridian_flag = viridian_key_name, default_viridian_key_value
 let nx_flag = ("nx","true")
 let no_nx_flag = ("nx","false")
 let base_platform_flags = ["acpi","true";"apic","true";"pae","true"]
 
-let default_template = (Xapi_globs.default_template_key, "true")
-let linux_template = (Xapi_globs.linux_template_key, "true")
+let default_template_key = "default_template"
+let linux_template_key = "linux_template"
+let default_template = default_template_key, "true"
+let linux_template = linux_template_key, "true"
 
 let pv_bootloader = "pygrub"
 
@@ -102,6 +109,9 @@ let version_of_tools_vdi rpc session_id vdi =
   | [ major; minor; micro ] -> major, minor, micro, build
   | _                       -> 0, 0, 0, build (* only if filename is malformed *)
 
+(* From Miami GA onward we identify the tools SR with the SR.other_config key: *)
+let tools_sr_tag = "xenserver_tools_sr"
+
 (** Return a reference to a VDI in the XenSource Tools SR, identified by its 
     sm-config keys. We always invoke an SR.scan to be sure in the upgrade
     case we find the latest version of the VDI. Nb. we require the tools VDI
@@ -110,14 +120,14 @@ let version_of_tools_vdi rpc session_id vdi =
     used to distinguish between builds of the tools VDI.  *)
 let find_xs_tools_vdi rpc session_id = 
   (* Find the SR first *)
-  let srs = List.filter (fun sr -> List.mem_assoc Xapi_globs.tools_sr_tag (Client.SR.get_other_config rpc session_id sr)) (Client.SR.get_all rpc session_id) in
+  let srs = List.filter (fun sr -> List.mem_assoc tools_sr_tag (Client.SR.get_other_config rpc session_id sr)) (Client.SR.get_all rpc session_id) in
   
   let find_vdi sr = 
     begin 
       try
 	Client.SR.scan rpc session_id sr
       with e ->
-	error "Scan of tools SR failed - exception was '%s'" (ExnHelper.string_of_exn e);
+	error "Scan of tools SR failed - exception was '%s'" (Printexc.to_string e);
 	error "Ignoring error and continuing"
     end;
     
@@ -148,18 +158,6 @@ let find_xs_tools_vdi rpc session_id =
     | [ sr ] -> find_vdi sr
     | sr::_ -> warn "Multiple Tools SRs detected, choosing one at random"; find_vdi sr
 	
-(** Return a reference to the guest installer network *)
-let find_guest_installer_network rpc session_id = 
-  let networks = Client.Network.get_all rpc session_id in
-  let findfn x = 
-    let other_config = Client.Network.get_other_config rpc session_id x in
-    try bool_of_string (List.assoc Xapi_globs.is_guest_installer_network other_config) with _ -> false
-  in
-  try Some (List.find findfn networks) 
-  with Not_found ->
-    warn "Guest installer network not found";
-    None
-
 (** Values of memory parameters for templates. *)
 type template_memory_parameters = {
 	memory_static_min_mib : int64;
@@ -314,8 +312,9 @@ let sdk_install_template =
 
 (* Demonstration templates ---------------------------------------------------*)
 
-let demo_xgt_dir = Xapi_globs.base_path ^ "/packages/xgt/"
-let post_install_dir = Xapi_globs.base_path ^ "/packages/post-install-scripts/"
+let base_path = "/opt/xensource/libexec"
+let demo_xgt_dir = base_path ^ "/packages/xgt/"
+let post_install_dir = base_path ^ "/packages/post-install-scripts/"
 
 let demo_xgt_template rpc session_id name_label short_name_label demo_xgt_name post_install_script =
 	let script = post_install_dir ^ post_install_script in
@@ -426,6 +425,10 @@ let hvm_template
 		vM_recommendations = (recommendations ~memory:maximum_supported_memory_gib ());
 	}
 
+(* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
+let machine_address_size_key_name = "machine-address-size"
+let machine_address_size_key_value = "36"
+
 let rhel4x_template name architecture ?(is_experimental=false) flags =
 	let name = make_long_name name architecture is_experimental in
 	let s_s_p_f =
@@ -434,7 +437,7 @@ let rhel4x_template name architecture ?(is_experimental=false) flags =
 		else [] in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
-		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		then [(machine_address_size_key_name, machine_address_size_key_value)]
 		else [] in
 	let bt = eli_install_template (default_memory_parameters 256L) name "rhlike" true "graphical utf8" in
 	{ bt with
@@ -452,7 +455,7 @@ let rhel5x_template name architecture ?(is_experimental=false) flags =
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
-		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		then [(machine_address_size_key_name, machine_address_size_key_value)]
 		else [] in
 	{ bt with
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: m_a_s @ bt.vM_other_config;
@@ -469,7 +472,7 @@ let oracle_template name architecture ?(is_experimental=false) flags =
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
-		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		then [(machine_address_size_key_name, machine_address_size_key_value)]
 		else [] in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel5","true") :: m_a_s @ bt.vM_other_config;
@@ -486,7 +489,7 @@ let rhel6x_template name architecture ?(is_experimental=false) flags =
 	let bt = eli_install_template (default_memory_parameters 512L) name "rhlike" true "graphical utf8" in
 	let m_a_s =
 		if List.mem Limit_machine_address_size flags
-		then [(Xapi_globs.machine_address_size_key_name, Xapi_globs.machine_address_size_key_value)]
+		then [(machine_address_size_key_name, machine_address_size_key_value)]
 		else [] in
 	{ bt with 
 		vM_other_config = (install_methods_otherconfig_key, "cdrom,nfs,http,ftp") :: ("rhel6","true") :: m_a_s @ bt.vM_other_config;
