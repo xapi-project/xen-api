@@ -34,6 +34,14 @@ let base_platform_flags = ["acpi","true";"apic","true";"pae","true"]
 let default_template = (Xapi_globs.default_template_key, "true")
 let linux_template = (Xapi_globs.linux_template_key, "true")
 
+let pv_bootloader = "pygrub"
+
+(** The name of the "distro" other-config key, as used by ELI template *)
+let distros_otherconfig_key = "install-distro"
+
+(** The name of an other-config key, used by XenCenter *)
+let install_methods_otherconfig_key = "install-methods"
+
 (* template restrictions (added to recommendations field for UI) *)
 let recommendations ?(memory=128) ?(vcpus=16) ?(vbds=7) ?(vifs=7) () =
   let ( ** ) = Int64.mul in
