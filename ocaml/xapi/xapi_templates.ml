@@ -49,26 +49,6 @@ let string2vdi_type s =
     | "crashdump" -> `crashdump
     | _           -> assert false
 
-let vdi_type2string v =
-  match v with
-      `system -> "system"
-    | `user -> "user"
-    | `ephemeral -> "ephemeral"
-    | `suspend -> "suspend"
-    | `crashdump -> "crashdump"
-    | `ha_statefile -> "HA statefile"
-    | `metadata -> "metadata"
-    | `redo_log -> "redo log"
-
-let xml_of_disk disk = 
-  Element("disk", [ "device", disk.device;
-		    "size", Int64.to_string disk.size;
-		    "sr", disk.sr; 
-		    "bootable", string_of_bool disk.bootable;
-		    "type", vdi_type2string disk._type
-		  ], [])
-let xml_of_disks disks = Element("provision", [], List.map xml_of_disk disks)
-
 exception Parse_failure
 let disk_of_xml = function
   | Element("disk", params, []) ->
@@ -95,12 +75,6 @@ let disks_key = "disks"
 (** The key name pointing to the post-install script *)
 let post_install_key = "postinstall"
 
-(** The name of the "distro" other-config key, as used by ELI template *)
-let distros_otherconfig_key = "install-distro"
-
-(** The name of an other-config key, used by XenCenter *)
-let install_methods_otherconfig_key = "install-methods"
-
 open Client
 
 (** From a VM reference, return an 'install' record option. *)
@@ -113,8 +87,6 @@ let get_template_record rpc session_id vm =
   if disks = [] && script = None
   then None
   else Some { disks = disks; post_install_script = script } 
-
-let pv_bootloader = "pygrub"
 
 (** A special bootloader which takes care of the initial boot -- fakeserver only *)
 let bootloader = "installer"

@@ -51,7 +51,6 @@ COMMON = \
 	../gpg/gpg \
 	helpers \
 	at_least_once_more \
-	create_templates \
 	fileserver
 
 #OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
