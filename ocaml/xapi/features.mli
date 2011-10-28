@@ -39,6 +39,7 @@ type feature =
 	| IntelliCache                 (** Enable use of IntelliCache feature *)
 	| GPU                          (** Enable use of GPU passthrough *)
 	| DR                           (** Enable disaster recovery *)
+	| VIF_locking                  (** Enable locking of VIFs to specific MAC addresses and IP addresses. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
