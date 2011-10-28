@@ -496,8 +496,10 @@ let destroy ?(unplug_frontends=true) ?(clear_currently_attached=true) ~__context
 	   In any other case (Halted/Suspended) the VM's memory is nolonger needed so
 	   we can blank the resident_on. 
 	*)
-	if state <> `Running 
+	if state <> `Running
 	then Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
+
+	Storage_access.reset ~__context ~vm:self;
 
 	destroy_consoles ~__context ~vM:self;
 	(* to make debugging easier, set currently_attached to false for all
@@ -631,7 +633,11 @@ let create_device_emulator ~__context ~xc ~xs ~self ?(restore=false) ?vnc_statef
 
 			Device.Dm.extras = [];
 		} in
-		dmstart ~xs ~dmpath info domid
+		dmstart ~xs ~dmpath info domid;
+		(* We can now attempt to unplug the qemu frontends, safe in the
+		   knowledge that qemu won't close its filehandles until it has
+		   finished with them. *)
+		List.iter (fun vbd -> Storage_access.Qemu_blkfront.unplug_nowait ~__context ~self:vbd) snapshot.API.vM_VBDs
 	end else begin
 	        (* if we have a "disable_pv_vnc" entry in other_config we disable
 		   VNC for PV *)

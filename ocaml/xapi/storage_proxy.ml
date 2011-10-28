@@ -33,6 +33,7 @@ module Proxy = functor(RPC: RPC) -> struct
 	module SR = struct
 		let attach _ = Client.SR.attach RPC.rpc
 		let detach _ = Client.SR.detach RPC.rpc
+		let reset _ = Client.SR.reset RPC.rpc
 		let destroy _ = Client.SR.destroy RPC.rpc
 		let scan _ = Client.SR.scan RPC.rpc
 		let list _ = Client.SR.list RPC.rpc

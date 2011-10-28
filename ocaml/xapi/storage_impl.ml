@@ -613,6 +613,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "SR.detach task:%s sr:%s" task sr;
 			detach_destroy_common context ~task ~sr Impl.SR.detach
 
+		let reset context ~task ~sr =
+			info "SR.reset task:%s sr:%s" task sr;
+			with_sr sr
+				(fun () ->
+					Host.remove sr !Host.host;
+					Everything.to_file !host_state_path (Everything.make ());
+					VDI.locks_remove sr;
+					Success Unit			
+				)
+
 		let destroy context ~task ~sr = 
 			info "SR.destroy task:%s sr:%s" task sr;
 			detach_destroy_common context ~task ~sr Impl.SR.destroy			
