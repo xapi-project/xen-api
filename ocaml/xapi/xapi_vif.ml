@@ -80,6 +80,7 @@ let create  ~__context ~device ~network ~vM
            ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params : API.ref_VIF =
   create ~__context ~device ~network ~vM ~currently_attached:false
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
+    ~locking_mode:`default ~ipv4_allowed:[] ~ipv6_allowed:[]
 
 let destroy  ~__context ~self = destroy ~__context ~self
 
