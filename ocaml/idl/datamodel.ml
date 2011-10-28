@@ -4113,6 +4113,13 @@ let network_operations =
   Enum ("network_operations", 
 	[ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
 
+let network_default_locking_mode =
+	Enum ("network_default_locking_mode", [
+		"unlocked", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'unlocked'";
+		"disabled", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'disabled'";
+	])
+
+
 let network_attach = call
   ~name:"attach"
   ~doc:"Makes the network immediately available on a particular host"
@@ -4171,7 +4178,8 @@ let network =
       field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
       field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
       field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
-      field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes"
+      field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+      field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
        ])
      ()
 
