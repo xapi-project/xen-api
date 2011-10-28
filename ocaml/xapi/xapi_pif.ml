@@ -229,7 +229,9 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
 			~current_operations:[] ~allowed_operations:[]
 			~name_label:(Helpers.choose_network_name_for_pif device)
 			~name_description:"" ~mTU:1500L
-			~bridge ~other_config:[] ~blobs:[] ~tags:[] in
+			~bridge ~other_config:[] ~blobs:[]
+			~tags:[] ~default_locking_mode:`unlocked
+		in
 		net_ref
 
 type tables = {

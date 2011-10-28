@@ -105,11 +105,12 @@ let mutex = Mutex.create ()
 let stem = "xapi"
 
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
-	let r = Ref.make() and uuid = Uuid.make_uuid() in
-	Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-		~current_operations:[] ~allowed_operations:[]
-		~name_label ~name_description ~mTU ~bridge ~other_config ~blobs:[] ~tags:[];
-	r
+  let r = Ref.make() and uuid = Uuid.make_uuid() in
+  Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
+    ~current_operations:[] ~allowed_operations:[]
+    ~name_label ~name_description ~mTU ~bridge
+    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked;
+  r
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 	Mutex.execute mutex (fun () ->
@@ -123,8 +124,9 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
 			else
 				let r = Ref.make () and uuid = Uuid.make_uuid () in
 				Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-				  ~current_operations:[] ~allowed_operations:[]
-				  ~name_label ~name_description ~mTU ~bridge:name ~other_config ~blobs:[] ~tags;
+					~current_operations:[] ~allowed_operations:[]
+					~name_label ~name_description ~mTU ~bridge:name
+					~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked;
 				r in
 		loop ())
 
