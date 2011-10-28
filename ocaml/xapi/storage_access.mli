@@ -25,6 +25,8 @@ module Qemu_blkfront: sig
         storage device in the qemu domain, or [None] if there is no path *)
 	val path_opt: __context:Context.t -> self:API.ref_VBD -> string option
 
+	val unplug_nowait: __context:Context.t -> self:API.ref_VBD -> unit
+
 	val destroy: __context:Context.t -> self:API.ref_VBD -> unit
 end
 
@@ -48,6 +50,10 @@ val expect_vdi: (Storage_interface.vdi_info -> 'a) -> Storage_interface.result -
 val expect_params: (Storage_interface.params -> 'a) -> Storage_interface.result -> 'a
 
 val expect_unit: (unit -> 'a) -> Storage_interface.result -> 'a
+
+(** [reset __context vm] declares that [vm] has reset and if it's a driver
+    domain, we expect it to lose all state. *)
+val reset: __context:Context.t -> vm:API.ref_VM -> unit
 
 (** [attach_and_activate __context vbd domid f] calls [f params] where
     [params] is the result of attaching a VDI which is also activated.

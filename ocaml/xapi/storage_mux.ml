@@ -21,7 +21,7 @@ open Storage_interface
 
 type plugin = {
 	processor: processor;
-	backend_domid: int;
+	backend_domain: string;
 }
 let plugins : (API.ref_SR, plugin) Hashtbl.t = Hashtbl.create 10
 
@@ -31,7 +31,7 @@ let debug_printer rpc call =
 	debug "Rpc.response = %s" (Xmlrpc.string_of_response result);
 	result
 
-let register sr m d = Hashtbl.replace plugins sr { processor = debug_printer m; backend_domid = d }
+let register sr m d = Hashtbl.replace plugins sr { processor = debug_printer m; backend_domain = d }
 let unregister sr = Hashtbl.remove plugins sr
 
 exception No_storage_plugin_for_sr of string
@@ -43,7 +43,17 @@ let of_sr sr =
 		error "No storage plugin for SR: %s" sr;
 		raise (No_storage_plugin_for_sr sr)
 	end else (Hashtbl.find plugins sr').processor
-let domid_of_sr sr = (Hashtbl.find plugins (Ref.of_string sr)).backend_domid
+let domid_of_sr sr =
+	let uuid = (Hashtbl.find plugins (Ref.of_string sr)).backend_domain in
+	try
+		Vmopshelpers.with_xc
+			(fun xc ->
+				let all = Xenctrl.domain_getinfolist xc 0 in
+				let di = List.find (fun x -> Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle) = uuid) all in
+				di.Xenctrl.domid
+			)
+	with _ ->
+		failwith (Printf.sprintf "Failed to find domid of driver domain %s (SR %s)" uuid sr)
 
 open Fun
 
@@ -87,6 +97,7 @@ module Mux = struct
 		let scan context ~task ~sr = Client.SR.scan (of_sr sr) ~task ~sr
 		let list context ~task =
 			List.fold_left (fun acc (sr, list) -> list @ acc) [] (multicast (Client.SR.list ~task))
+		let reset context ~task ~sr = assert false
 	end
 	module VDI = struct
 		let create context ~task ~sr ~vdi_info ~params =
