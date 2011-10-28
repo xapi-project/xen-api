@@ -54,7 +54,10 @@ val create :
   other_config:(string * string) list ->
   qos_algorithm_type:string ->
   qos_algorithm_params:(string * string) list ->
-  currently_attached:bool -> API.ref_VIF
+  currently_attached:bool ->
+  locking_mode:API.vif_locking_mode ->
+  ipv4_allowed:string list ->
+  ipv6_allowed:string list -> API.ref_VIF
 
 (** Destroy a VIF object in the database. *)  
 val destroy : __context:Context.t -> self:[ `VIF ] Ref.t -> unit
