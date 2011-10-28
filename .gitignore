@@ -140,6 +140,7 @@ ocaml/netdev/brctl
 ocaml/p2v/p2v
 ocaml/perftest/perftest
 ocaml/rfb/rfb_randomtest
+ocaml/sm-cli/sm
 ocaml/util/file_access_test
 ocaml/util/unix-domain-wrapper
 ocaml/util/xmlpp
