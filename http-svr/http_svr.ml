@@ -309,10 +309,12 @@ let request_of_bio_exn bio =
 				match String.split ~limit:3 ' ' header with
 					| [ meth; uri; version ] ->
 						let m = Http.method_t_of_string meth in
-						let prefix = "HTTP/" in
-						let http_ver = String.sub version (String.length prefix) (String.length version - (String.length prefix)) in
+						let version =
+							let x = String.strip String.isspace version in
+							let prefix = "HTTP/" in
+							String.sub x (String.length prefix) (String.length x - (String.length prefix)) in
 						let close = version = "1.0" in
-						true, { req with m = m; uri = uri; version = http_ver; close = close }
+						true, { req with m = m; uri = uri; version = version; close = close }
 					| _ -> raise Http_parse_failure
 			end else begin
 				match String.split ~limit:2 ':' header with
