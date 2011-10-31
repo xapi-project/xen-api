@@ -358,6 +358,9 @@ let vif_record rpc session_id vif =
 	    let name = Printf.sprintf "vif_%s_tx" (x ()).API.vIF_device in
 	    string_of_float ((Client.VM.query_data_source rpc session_id (x ()).API.vIF_VM name) /. 1024.0)
 	  with _ -> "<unknown>") ~expensive:true ();
+	make_field ~name:"locking-mode"
+		~get:(fun () -> Record_util.vif_locking_mode_to_string (x ()).API.vIF_locking_mode)
+		~set:(fun value -> Client.VIF.set_locking_mode rpc session_id vif (Record_util.string_to_vif_locking_mode value)) ();
       ]}
 
 
@@ -392,6 +395,10 @@ let net_record rpc session_id net =
 				~get_set:(fun () -> (x ()).API.network_tags)
 				~add_to_set:(fun tag -> Client.Network.add_tags rpc session_id net tag)
 				~remove_from_set:(fun tag -> Client.Network.remove_tags rpc session_id net tag) ();
+			make_field ~name:"default-locking-mode"
+				~get:(fun () -> Record_util.network_default_locking_mode_to_string (x ()).API.network_default_locking_mode)
+				~set:(fun value -> Client.Network.set_default_locking_mode rpc session_id net
+					(Record_util.string_to_network_default_locking_mode value)) ();
 		]}
 
 
