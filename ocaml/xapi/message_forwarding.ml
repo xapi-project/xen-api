@@ -2466,6 +2466,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let create_new_blob ~__context ~network ~name ~mime_type =
 			info "Network.create_new_blob: network = '%s'; name = %s; MIME type = '%s'" (network_uuid ~__context network) name mime_type;
 			Local.Network.create_new_blob ~__context ~network ~name ~mime_type
+
+		let set_default_locking_mode ~__context ~network ~value =
+			info "Network.set_default_locking_mode: network = '%s'; value = %s" (network_uuid ~__context network) (Record_util.network_default_locking_mode_to_string value);
+			Local.Network.set_default_locking_mode ~__context ~network ~value
 	end
 
 	module VIF = struct

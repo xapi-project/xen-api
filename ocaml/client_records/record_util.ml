@@ -136,6 +136,10 @@ let vif_operation_to_string = function
   | `unplug -> "unplug"
   | `unplug_force -> "unplug_force"
 
+let network_default_locking_mode_to_string = function
+	| `unlocked -> "unlocked"
+	| `disabled -> "disabled"
+
 let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"

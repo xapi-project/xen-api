@@ -158,3 +158,16 @@ let create_new_blob ~__context ~network ~name ~mime_type =
 	Db.Network.add_to_blobs ~__context ~self:network ~key:name ~value:blob;
 	blob
 
+let set_default_locking_mode ~__context ~network ~value =
+	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	(* Get all VIFs which are attached and associated with this network. *)
+	let open Db_filter_types in
+	match Db.VIF.get_records_where ~__context
+		~expr:(And (
+			(Eq (Field "network", Literal (Ref.string_of network))),
+			(Eq (Field "currently_attached", Literal "true"))
+		))
+	with
+	| [] -> Db.Network.set_default_locking_mode ~__context ~self:network ~value
+	| (vif,_)::_ -> raise (Api_errors.Server_error (Api_errors.vif_in_use, [Ref.string_of network; Ref.string_of vif]))
