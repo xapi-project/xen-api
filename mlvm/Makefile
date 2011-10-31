@@ -29,7 +29,7 @@ META: META.in
 
 .PHONY: install
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore lvm META lvm.cmi lvm.cmxa lvm.cma lvm.a $(SPOT)
+	ocamlfind install -destdir $(OCAMLDESTDIR) -ldconf ignore lvm META lvm.cmi lvm.cmxa lvm.cma lvm.a $(SPOT)
 
 .PHONY: uninstall
 uninstall:

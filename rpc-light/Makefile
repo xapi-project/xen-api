@@ -41,9 +41,8 @@ p4_idl.cmo: p4_idl.ml p4_rpc.cmo
 	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $<
 
 .PHONY: install
-install: INSTALL_PATH = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: all
-	ocamlfind install -destdir $(INSTALL_PATH) rpc-light META $(TARGETS) $(SPOT)
+	ocamlfind install -destdir $(OCAMLDESTDIR) rpc-light META $(TARGETS) $(SPOT)
 
 .PHONY: uninstall
 uninstall:

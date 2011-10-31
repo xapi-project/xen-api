@@ -52,6 +52,10 @@ endif
 	$(MAKE) -C stdext bins
 	$(MAKE) -C close-and-exec bins
 
+STUBLIBDIR = $(OCAMLDESTDIR)/stublibs
+$(STUBLIBDIR):
+	mkdir -p $@
+
 
 install: $(STUBLIBDIR) 
 	$(MAKE) -C uuid install
@@ -182,10 +186,6 @@ clean:
 	$(MAKE) -C cpuid clean
 	$(MAKE) -C vhd clean
 	$(MAKE) -C tapctl clean
-
-STUBLIBDIR = $(DESTDIR)$(shell ocamlc -where)/stublibs
-$(STUBLIBDIR):
-	mkdir -p $@
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')

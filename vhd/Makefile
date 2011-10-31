@@ -47,7 +47,7 @@ META: META.in
 
 .PHONY: install
 install: $(LIBS) META
-	ocamlfind install -destdir $(DESTDIR)$(shell ocamlfind printconf destdir) -ldconf ignore vhd META $(INTF) $(LIBS) *.a *.so *.cmx $(SPOT)
+	ocamlfind install -destdir $(OCAMLDESTDIR) -ldconf ignore vhd META $(INTF) $(LIBS) *.a *.so *.cmx $(SPOT)
 
 .PHONY: uninstall
 uninstall:

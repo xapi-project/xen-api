@@ -38,10 +38,9 @@ META: META.in
 	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
 
 .PHONY: install
-install: path = $(DESTDIR)$(shell ocamlfind printconf destdir)
 install: $(LIBS) META
-	mkdir -p $(path)
-	ocamlfind install -destdir $(path) -ldconf ignore xen-utils META $(INTF) $(LIBS) *.a *.cmx $(SPOT)
+	mkdir -p $(OCAMLDESTDIR)
+	ocamlfind install -destdir $(OCAMLDESTDIR) -ldconf ignore xen-utils META $(INTF) $(LIBS) *.a *.cmx $(SPOT)
 
 .PHONY: uninstall
 uninstall:

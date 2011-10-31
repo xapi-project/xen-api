@@ -18,7 +18,7 @@ VERSION ?= $(shell git show-ref --head -s origin/HEAD || echo 0)
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)
-OCAMLDESTDIR ?= $(OCAMLLIBDIR)
+OCAMLDESTDIR ?= $(DESTDIR)/$(OCAMLLIBDIR)
 
 CC = gcc
 CFLAGS = -Wall -fPIC -O2 -I$(OCAMLLIBDIR)
