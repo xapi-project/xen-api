@@ -105,3 +105,7 @@ let move ~__context ~network vif =
 			let devid = string_of_int vif_device.Vm_config.devid in
 			ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
 
+let set_locking_mode ~__context ~self ~value =
+	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+	Db.VIF.set_locking_mode ~__context ~self ~value

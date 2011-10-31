@@ -2540,6 +2540,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
 		let unplug_force ~__context ~self = unplug_common ~__context ~self ~force:true
 
+		let set_locking_mode ~__context ~self ~value =
+			info "VIF.set_locking_mode: VIF = '%s'; value = '%s'" (vif_uuid ~__context self) (Record_util.vif_locking_mode_to_string value);
+			let local_fn = Local.VIF.set_locking_mode ~self ~value in
+			let remote_fn = (fun session_id rpc -> Client.VIF.set_locking_mode rpc session_id self value) in
+			forward_vif_op ~local_fn ~__context ~self remote_fn
+
 	end
 
 	module VIF_metrics = struct
