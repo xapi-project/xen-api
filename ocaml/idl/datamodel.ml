@@ -4162,12 +4162,24 @@ let network_create_new_blob = call
   ~allowed_roles:_R_POOL_OP
   ()
 
+let network_set_default_locking_mode = call
+	~name:"set_default_locking_mode"
+	~in_product_since:rel_tampa
+	~doc:"Set the default locking mode for VIFs attached to this network"
+	~params:[
+		Ref _network, "network", "The network";
+		network_default_locking_mode, "value", "The default locking mode for VIFs attached to this network.";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network *)
 let network =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
-      ~messages:[ network_attach; network_pool_introduce; network_create_new_blob ] ~contents: 
+      ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode]
+      ~contents:
       ([
       uid _network;
       namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW) ();
