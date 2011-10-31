@@ -84,6 +84,7 @@ version:
 	let product_version = \"$(PRODUCT_VERSION)\" \n \
 	let product_version_text = \"$(PRODUCT_VERSION_TEXT)\" \n \
 	let product_version_text_short = \"$(PRODUCT_VERSION_TEXT_SHORT)\" \n \
+	let platform_version = Util_inventory.lookup ~default:\"\" \"PLATFORM_VERSION\" \n \
 	let product_brand = \"$(PRODUCT_BRAND)\" \n \
 	let build_number = Util_inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n" \
 	> ocaml/util/version.ml

@@ -120,6 +120,7 @@ let _date = "date"
 let _product_version = "product_version"
 let _product_version_text = "product_version_text"
 let _product_version_text_short = "product_version_text_short"
+let _platform_version = "platform_version"
 let _product_brand = "product_brand"
 let _build_number = "build_number"
 let _hg_id = "hg_id"
@@ -141,6 +142,7 @@ let export_vsn = 2
 let software_version = [ _product_version, Version.product_version;
 			_product_version_text,       Version.product_version_text;
 			_product_version_text_short, Version.product_version_text_short;
+			_platform_version, Version.platform_version;
 			 _product_brand,   Version.product_brand;
 			 _build_number,    Version.build_number;
 			 _hg_id,           Version.hg_id;
