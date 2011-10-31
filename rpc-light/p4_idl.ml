@@ -276,10 +276,7 @@ struct
 					with
 						[ RpcFailure (x,y) -> 
 							{ Rpc.success = False;
-							  Rpc.contents = rpc_of_failure (x,y); }
-						| e -> 
-							{ Rpc.success = False;
-							  Rpc.contents = rpc_of_failure ("INTERNAL_ERROR",[]) } ];
+							  Rpc.contents = rpc_of_failure (x,y); } ];
 			end >>
 
 
