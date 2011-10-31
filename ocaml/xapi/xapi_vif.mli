@@ -74,3 +74,7 @@ val assert_operation_valid :
 val update_allowed_operations :
   __context:Context.t -> self:[ `VIF ] Ref.t -> unit
 
+(** Set the locking mode of this VIF.
+ *  Update the firewall rules associated with this VIF, if it is plugged. *)
+val set_locking_mode :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:API.vif_locking_mode -> unit

@@ -4622,13 +4622,24 @@ let vif_locking_mode =
 		"disabled", "No traffic is permitted";
 	])
 
+let vif_set_locking_mode = call
+	~name:"set_locking_mode"
+	~in_product_since:rel_tampa
+	~doc:"Set the locking mode for this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF whose locking mode will be set";
+		vif_locking_mode, "value", "The new locking mode for the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network interface *)
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[vif_plug; vif_unplug; vif_unplug_force] ~contents:
+      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode] ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
 	 field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";

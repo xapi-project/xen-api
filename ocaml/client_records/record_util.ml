@@ -136,6 +136,12 @@ let vif_operation_to_string = function
   | `unplug -> "unplug"
   | `unplug_force -> "unplug_force"
 
+let vif_locking_mode_to_string = function
+	| `default -> "default"
+	| `locked -> "locked"
+	| `unlocked -> "unlocked"
+	| `disabled -> "disabled"
+
 let network_default_locking_mode_to_string = function
 	| `unlocked -> "unlocked"
 	| `disabled -> "disabled"
