@@ -24,8 +24,11 @@ let timeout = 300. (* 5 minutes, should never take this long *)
 let safe_unplug rpc session_id self = 
   try
     Client.VBD.unplug rpc session_id self
-  with Api_errors.Server_error(error, _) as e when error = Api_errors.device_detach_rejected ->
-    debug "safe_unplug caught device_detach_rejected: polling the currently_attached flag of the VBD";
+  with
+	  | Api_errors.Server_error(error, _) when error = Api_errors.device_already_detached ->
+		  debug "safe_unplug caught DEVICE_ALREADY_DETACHED: this is safe to ignore"
+	  | Api_errors.Server_error(error, _) as e when error = Api_errors.device_detach_rejected ->
+    debug "safe_unplug caught DEVICE_DETACH_REJECTED: polling the currently_attached flag of the VBD";
     let start = Unix.gettimeofday () in
     let unplugged = ref false in
     while not(!unplugged) && (Unix.gettimeofday () -. start < timeout) do
