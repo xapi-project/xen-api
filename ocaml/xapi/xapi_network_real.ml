@@ -86,6 +86,7 @@ let http_proxy master_ip ip =
 				let handler = { Server_io.name = "http_proxy"; body = tcp_connection } in
 				let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
 				Unix.bind sock sockaddr;
+				Unix.listen sock 5;
 				let s = Server_io.server handler sock in
 				server := Some s
 			)
