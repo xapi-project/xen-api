@@ -39,6 +39,7 @@ type feature =
 	| IntelliCache
 	| GPU
 	| DR
+	| VIF_locking
 	with rpc
 
 type orientation = Positive | Negative
@@ -67,6 +68,7 @@ let keys_of_features =
 		IntelliCache, ("restrict_intellicache", Negative, "IntelliCache");
 		GPU, ("restrict_gpu", Negative, "GPU");
 		DR, ("restrict_dr", Negative, "DR");
+		VIF_locking, ("restrict_vif_locking", Negative, "VIFLock");
 	]
 
 let string_of_feature f =
