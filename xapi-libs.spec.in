@@ -77,6 +77,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib/ocaml/*/*.cmxa
 /usr/lib/ocaml/*/*.[o|a]
 /usr/lib/ocaml/*/*.so
+/usr/lib/ocaml/*/*.so.owner
 
 %exclude /usr/lib/ocaml/close-and-exec/closeandexec_main.cmx
 %exclude /usr/lib/ocaml/pciutil/pciutil_main.cmx
