@@ -81,7 +81,7 @@ let response s hdrs length f =
 (* If http/1.0 was requested, return that, else return http/1.1 *)
 let get_return_version req =
   try
-    let (maj,min) = Scanf.sscanf (Request.get_version req) "HTTP/%d.%d" (fun a b -> (a,b)) in
+    let (maj,min) = Scanf.sscanf (Request.get_version req) "%d.%d" (fun a b -> (a,b)) in
     match (maj,min) with
 	(1,0) -> "1.0"
       | _ -> "1.1"
@@ -306,15 +306,20 @@ let request_of_bio_exn bio =
 	snd(List.fold_left
 		(fun (status, req) header ->
 			if not status then begin
-				match String.split ~limit:3 ' ' header with
+				match String.split_f String.isspace header with
 					| [ meth; uri; version ] ->
+						(* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
+						let uri, query = Http.parse_uri uri in
 						let m = Http.method_t_of_string meth in
 						let version =
 							let x = String.strip String.isspace version in
 							let prefix = "HTTP/" in
 							String.sub x (String.length prefix) (String.length x - (String.length prefix)) in
 						let close = version = "1.0" in
-						true, { req with m = m; uri = uri; version = version; close = close }
+						true,
+						{ req with m = m; uri = uri; query = query;
+							version = version; close = close
+						}
 					| _ -> raise Http_parse_failure
 			end else begin
 				match String.split ~limit:2 ':' header with
