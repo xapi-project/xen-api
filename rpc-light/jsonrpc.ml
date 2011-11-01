@@ -435,7 +435,6 @@ module Parser = struct
 		| Json_parse_incomplete of parse_state
 
 	let parse state str =
-		begin try
 			while get_parse_result state = None do
 				parse_char state (str ());
 				(* This is here instead of inside parse_char since
@@ -444,7 +443,6 @@ module Parser = struct
 				*)
 				state.num_chars_parsed <- state.num_chars_parsed + 1;
 			done;
-		with _ -> () end;
 		match get_parse_result state with
 		| Some v -> Json_value v
 		| None -> Json_parse_incomplete state
@@ -490,7 +488,7 @@ let get name dict =
 	if List.mem_assoc name dict then
 		List.assoc name dict
 	else begin
-		Printf.eprintf "%s was not found in the dictionnary\n" name;
+		Printf.eprintf "%s was not found in the dictionary\n" name;
 		let str = List.map (fun (n,_) -> Printf.sprintf "%s=..." n) dict in
 		let str = Printf.sprintf "{%s}" (String.concat "," str) in
 		raise (Malformed_method_request str)
