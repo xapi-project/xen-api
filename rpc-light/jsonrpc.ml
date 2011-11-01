@@ -490,7 +490,7 @@ let get name dict =
 	if List.mem_assoc name dict then
 		List.assoc name dict
 	else begin
-		Printf.eprintf "%s was not found in the dictionnary\n" name;
+		Printf.eprintf "%s was not found in the dictionary\n" name;
 		let str = List.map (fun (n,_) -> Printf.sprintf "%s=..." n) dict in
 		let str = Printf.sprintf "{%s}" (String.concat "," str) in
 		raise (Malformed_method_request str)
