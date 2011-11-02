@@ -28,7 +28,7 @@ type authorization =
 
 val read_http_header: string -> Unix.file_descr -> int
 
-val read_http_request_header: string -> Unix.file_descr -> int
+val read_http_request_header: string -> Unix.file_descr -> int * bool
 val read_http_response_header: string -> Unix.file_descr -> int
 
 (** Parsed form of the HTTP request line plus cookie info *)
@@ -38,6 +38,7 @@ module Request : sig
 		uri: string;
 		query: (string*string) list;
 		version: string;
+		frame: bool;
 		transfer_encoding: string option;
 		content_length: int64 option;
 		auth: authorization option;
@@ -57,7 +58,7 @@ module Request : sig
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
-	val make: ?version:string -> ?keep_alive:bool -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
 
 	(** [get_version t] returns the HTTP protocol version *)
 	val get_version: t -> string
@@ -81,6 +82,7 @@ end
 module Response : sig
 	type t = {
 		version: string;
+		frame: bool;
 		code: string;
 		message: string;
 		content_length: int64 option;
@@ -92,7 +94,7 @@ module Response : sig
 	val empty: t
 
 	(** Returns an instance of type t *)
-	val make: ?version:string -> ?length:int64 -> ?task:string -> ?headers:(string*string) list -> ?body:string -> string -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?length:int64 -> ?task:string -> ?headers:(string*string) list -> ?body:string -> string -> string -> t
 
 	val internal_error: t
 
@@ -118,9 +120,6 @@ val http_200_ok_with_content : int64 -> ?version:string -> ?keep_alive:bool -> u
 val http_302_redirect : ?version:string -> string -> string list
 val http_404_missing : ?version:string -> unit -> string list
 val http_400_badrequest : ?version:string -> unit -> string list
-val http_401_unauthorised : ?version:string -> ?realm:string -> unit -> string list
-val http_406_notacceptable : ?version:string -> unit -> string list
-val http_500_internal_error : ?version:string -> unit -> string list
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
 module Hdr : sig
@@ -136,6 +135,8 @@ module Hdr : sig
 	val authorization: string
 	val connection: string
 	val acrh : string
+	val cache_control: string
+	val content_disposition: string
 end
 
 val output_http : Unix.file_descr -> string list -> unit

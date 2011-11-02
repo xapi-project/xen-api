@@ -46,16 +46,20 @@ module Stats = struct
 	type t = {
 		mutable n_requests: int; (** successful requests *)
 		mutable n_connections: int; (** closed connections *)
+		mutable n_framed: int; (** using the more efficient framed protocol *)
 	}
 	let empty () = {
 		n_requests = 0;
 		n_connections = 0;
+		n_framed = 0;
 	}
-	let update (x: t) (m: Mutex.t) new_connection =
+	let update (x: t) (m: Mutex.t) req =
+		let new_connection = req.Http.Request.close in
 		Threadext.Mutex.execute m
 			(fun () ->
 				x.n_requests <- x.n_requests + 1;
-				if new_connection then x.n_connections <- x.n_connections + 1
+				if req.Http.Request.close then x.n_connections <- x.n_connections + 1;
+				if req.Http.Request.frame then x.n_framed <- x.n_framed + 1;
 			)
 end
 
@@ -86,42 +90,61 @@ let get_return_version req =
 	(1,0) -> "1.0"
       | _ -> "1.1"
   with _ -> "1.1"
-    
+
+let response_of_request req hdrs =
+	let connection = Http.Hdr.connection, if req.Request.close then "close" else "keep-alive" in
+	let cache = Http.Hdr.cache_control, "no-cache, no-store" in
+	Http.Response.make
+		~version:(get_return_version req) ~frame:req.Http.Request.frame
+		~headers:(connection :: cache :: hdrs) "200" "OK"
+
 let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
-	let version = get_return_version req in
-	let keep_alive = if req.Request.close then false else true in
-	response s ((http_200_ok ~version ~keep_alive ()) @ hdrs) response_length write_response_to_fd_fn
+	let res = { response_of_request req hdrs with Http.Response.content_length = Some response_length } in
+	Unixext.really_write_string s (Http.Response.to_wire_string res);
+	write_response_to_fd_fn s
 
 let response_str req ?hdrs s body =
 	let length = String.length body in
 	response_fct req ?hdrs s (Int64.of_int length) (fun s -> Unixext.really_write_string s body)
 
 let response_missing ?(hdrs=[]) s body =
-	response s (http_404_missing () @ hdrs) (Int64.of_int (String.length body)) (fun s -> Unixext.really_write_string s body)
+	let connection = Http.Hdr.connection, "close" in
+	let cache = Http.Hdr.cache_control, "no-cache, no-store" in
+	let res = Http.Response.make
+		~version:"1.1" ~headers:(connection :: cache :: hdrs)
+		~body "404" "Not Found" in
+	Unixext.really_write_string s (Http.Response.to_wire_string res)
 
-let response_error_html s hdrs body =
-	let hdrs = hdrs @ [ "Content-Type: text/html" ] in
-	response s hdrs (Int64.of_int (String.length body)) (fun x -> Unixext.really_write_string s body)
+let response_error_html ?(version="1.1") s code message hdrs body =
+	let connection = Http.Hdr.connection, "close" in
+	let cache = Http.Hdr.cache_control, "no-cache, no-store" in
+	let content_type = Http.Hdr.content_type, "text/html" in
+	let res = Http.Response.make
+		~version ~headers:(content_type :: connection :: cache :: hdrs)
+		~body code message in
+	Unixext.really_write_string s (Http.Response.to_wire_string res)
 
 let response_unauthorised ?req label s =
+	let version = Opt.map get_return_version req in
 	let body = "<html><body><h1>HTTP 401 unauthorised</h1>Please check your credentials and retry.</body></html>" in
-	response_error_html s (http_401_unauthorised ~realm:label ()) body
+	let realm = "WWW-Authenticate", Printf.sprintf "Basic realm=\"%s\"" label in
+	response_error_html ?version s "401" "Unauthorised" [ realm ] body
 
 let response_forbidden ?req s =
 	let version = Opt.map get_return_version req in
 	let body = "<html><body><h1>HTTP 403 forbidden</h1>Access to the requested resource is forbidden.</body></html>" in	
-	response_error_html s (http_403_forbidden ?version ()) body
+	response_error_html ?version s "403" "Forbidden" [] body
 
 let response_badrequest ?req s =
 	let version = Opt.map get_return_version req in
 	let body = "<html><body><h1>HTTP 400 bad request</h1>The HTTP request was malformed. Please correct and retry.</body></html>" in
-	response_error_html s (http_400_badrequest ?version ()) body
+	response_error_html ?version s "400" "Bad Request" [] body
 
 let response_internal_error ?req ?extra s =
 	let version = Opt.map get_return_version req in
 	let extra = Opt.default "" (Opt.map (fun x -> "<h1> Additional information </h1>" ^ x) extra) in
 	let body = "<html><body><h1>HTTP 500 internal server error</h1>An unexpected error occurred; please wait a while and try again. If the problem persists, please contact your support representative." ^ extra ^ "</body></html>" in
-	response_error_html s (http_500_internal_error ?version ()) body
+	response_error_html ?version s "500" "Internal Error" [] body
 
 let response_method_not_implemented ?req s =
 	let version = Opt.map get_return_version req in
@@ -129,14 +152,18 @@ let response_method_not_implemented ?req s =
 		Printf.sprintf "<p>%s not supported.<br /></p>" (Http.string_of_method_t req.Http.Request.m)
 	) req) in
     let body = "<html><body><h1>HTTP 501 Method Not Implemented</h1>" ^ extra ^ "</body></html>" in
-    response_error_html s (http_501_method_not_implemented ?version ()) body
+    response_error_html ?version s "501" "Method not implemented" [] body
 
-let response_file ?(hdrs=[]) ?mime_content_type s file =
+let response_file ?mime_content_type s file =
 	let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
-	let mime_header = Opt.default [] (Opt.map (fun ty -> [ "Content-Type: " ^ ty ]) mime_content_type) in
-	headers s (http_200_ok_with_content size ~version:"1.1" ~keep_alive:true () @ mime_header);
+	let mime_header = Opt.default [] (Opt.map (fun ty -> [ Hdr.content_type, ty ]) mime_content_type) in
+	let keep_alive = Http.Hdr.connection, "keep-alive" in
+	let disposition = Http.Hdr.content_disposition, "attachment; filename=\"" ^ file ^ "\"" in
+	let res = Http.Response.make ~version:"1.1" ~headers:(disposition :: keep_alive :: mime_header)
+		~length:size "200" "OK" in
 	Unixext.with_file file [ Unix.O_RDONLY ] 0
 		(fun f ->
+			Unixext.really_write_string s (Http.Response.to_wire_string res);
 			let (_: int64) = Unixext.copy_file f s in
 			()
 		)
@@ -150,8 +177,8 @@ let respond_to_options req s =
       "X-Requested-With"
   in
   response_fct req ~hdrs:[
-    "Access-Control-Allow-Origin: *";
-    Printf.sprintf "Access-Control-Allow-Headers: %s" access_control_allow_headers] s 0L (fun _ -> ())
+    "Access-Control-Allow-Origin", "*";
+    "Access-Control-Allow-Headers", access_control_allow_headers] s 0L (fun _ -> ())
       
 
 (** If no handler matches the request then call this callback *)
@@ -296,7 +323,7 @@ let request_of_bio_exn bio =
 	let fd = Buf_io.fd_of bio in
 
 	let buf = String.create 1024 in
-	let b = Http.read_http_request_header buf fd in
+	let b, frame = Http.read_http_request_header buf fd in
 	let buf = String.sub buf 0 b in
 (*
 	Printf.printf "parsed = [%s]\n" buf;
@@ -341,7 +368,7 @@ let request_of_bio_exn bio =
 						end
 					| _ -> true, req (* end of headers *)
 			end
-		) (false, empty) (String.split '\n' buf))
+		) (false, { empty with Http.Request.frame = frame }) (String.split '\n' buf))
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
 	already sent back a suitable error code and response to the client. *)
@@ -419,7 +446,7 @@ let handle_connection (x: Server.t) _ ss =
 							handlerfn req fd
 					);
 					finished := (req.Request.close);
-					Stats.update te.TE.stats te.TE.stats_m req.Request.close
+					Stats.update te.TE.stats te.TE.stats_m req
 				with e ->
 					finished := true;
 					best_effort (fun () -> match e with

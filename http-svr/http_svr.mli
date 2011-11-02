@@ -27,6 +27,7 @@ module Stats : sig
 	type t = {
 		mutable n_requests: int;    (** Total number of requests processed *)
 		mutable n_connections: int; (** Total number of connections accepted *)
+		mutable n_framed: int;      (** using the more efficient framed protocol *)
 	}
 end
 
@@ -82,17 +83,15 @@ val read_chunked_encoding : Http.Request.t -> Buf_io.t -> string Http.ll
 
 val response_fct :
   Http.Request.t ->
-  ?hdrs:string list ->
+  ?hdrs:(string * string) list ->
   Unix.file_descr -> int64 -> (Unix.file_descr -> unit) -> unit
 
 val response_str :
-  Http.Request.t -> ?hdrs:string list -> Unix.file_descr -> string -> unit
-val response_missing : ?hdrs:string list -> Unix.file_descr -> string -> unit
+  Http.Request.t -> ?hdrs:(string * string) list -> Unix.file_descr -> string -> unit
+val response_missing : ?hdrs:(string * string) list -> Unix.file_descr -> string -> unit
 val response_unauthorised : ?req:Http.Request.t -> string -> Unix.file_descr -> unit
 val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
-val response_file :
-  ?hdrs:'a list ->
-  ?mime_content_type:string -> Unix.file_descr -> string -> unit
+val response_file : ?mime_content_type:string -> Unix.file_descr -> string -> unit
 val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
 
 val headers : Unix.file_descr -> string list -> unit

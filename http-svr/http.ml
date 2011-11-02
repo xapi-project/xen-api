@@ -59,22 +59,6 @@ let http_400_badrequest ?(version="1.1") () =
       "Connection: close";
       "Cache-Control: no-cache, no-store" ]
 
-let http_401_unauthorised ?(version="1.0") ?(realm="unknown") () =
-	[ Printf.sprintf "HTTP/%s 401 Unauthorised" version;
-      Printf.sprintf "WWW-Authenticate: Basic realm=\"%s\"" realm;
-      "Connection: close";
-      "Cache-Control: no-cache, no-store" ]
-
-let http_406_notacceptable ?(version="1.0") () =
-  [ Printf.sprintf "HTTP/%s 406 Not Acceptable" version;
-    "Connection: close";
-    "Cache-Control: no-cache, no-store" ]
-
-let http_500_internal_error ?(version="1.0") () =
-  [ Printf.sprintf "HTTP/%s 500 Internal Error" version;
-    "Connection: close";
-    "Cache-Control: no-cache, no-store" ]
-
 let http_501_method_not_implemented ?(version="1.0") () =
   [ Printf.sprintf "HTTP/%s 501 Method Not Implemented" version;
     "Connection: close";
@@ -92,6 +76,8 @@ module Hdr = struct
 	let connection = "connection"
 	let header_len = "hdr"
 	let acrh = "access-control-request-headers"
+	let cache_control = "cache-control"
+    let content_disposition = "content-disposition"
 end
 
 let output_http fd headers =
@@ -258,20 +244,33 @@ let read_up_to buf already_read marker fd =
 
 let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
 
+let smallest_request  = "GET / HTTP/1.0\r\n\r\n"
+let smallest_response = "HTTP/1.0 200 OK\r\n\r\n"
+let frame_header_length = String.length smallest_request
+
+let make_frame_header headers =
+	(* Frame header is the size of the smallest HTTP request
+	   and the smallest HTTP request is smaller than the smallest 
+	   HTTP response. *)
+	Printf.sprintf "FRAME %012d" (String.length headers)
+
+let read_frame_header buf =
+	let prefix = String.sub buf 0 frame_header_length in
+	try
+		Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x)
+	with _ -> None
+
 let read_http_request_header buf fd =
-	let smallest_request = "GET / HTTP/1.0\r\n\r\n" in
-	Unixext.really_read fd buf 0 (String.length smallest_request);
-	read_up_to buf (String.length smallest_request) end_of_headers fd
+	Unixext.really_read fd buf 0 frame_header_length;
+	match read_frame_header buf with
+		| None -> read_up_to buf frame_header_length end_of_headers fd, false
+		| Some length -> Unixext.really_read fd buf 0 length; length, true
 
 let read_http_response_header buf fd =
-	let smallest_response = "HTTP/1.0 200 OK\r\n\r\n" in
-	Unixext.really_read fd buf 0 (String.length smallest_response);
-	read_up_to buf (String.length smallest_response) end_of_headers fd
-
-let add_header_len hl =
-	let hl_len = String.length Hdr.header_len + 1 + header_len_value_len + 2 in
-	let header_len = List.fold_left (+) 0 (List.map (fun x -> String.length x + 2) hl) + hl_len in
-	List.hd hl :: (Printf.sprintf "%s:%05d" Hdr.header_len header_len) :: (List.tl hl)
+	Unixext.really_read fd buf 0 frame_header_length;
+	match read_frame_header buf with
+		| None -> read_up_to buf frame_header_length end_of_headers fd
+		| Some length -> Unixext.really_read fd buf 0 length; length
 
 module Request = struct
 	type t = {
@@ -279,6 +278,7 @@ module Request = struct
 		uri: string;
 		query: (string*string) list;
 		version: string;
+		frame: bool;
 		transfer_encoding: string option;
 		content_length: int64 option;
 		auth: authorization option;
@@ -297,6 +297,7 @@ module Request = struct
 		uri="";
 		query=[];
 		version="";
+		frame=false;
 		transfer_encoding=None;
 		content_length=None;
 		auth=None;
@@ -310,9 +311,10 @@ module Request = struct
 		body = None;
 	}
 
-	let make ?(version="1.0") ?(keep_alive=false) ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
+	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
 		{ empty with
 			version = version;
+			frame = frame;
 			close = not keep_alive;
 			cookie = Opt.default [] cookie;
 			subtask_of = subtask_of;
@@ -334,7 +336,7 @@ module Request = struct
 			(* strip the "HTTP/" prefix from the version string *)
             begin match String.split ~limit:2 '/' version with
                 | [ _; version ] ->
-                    { m = method_t_of_string m; uri = uri; query = query;
+                    { m = method_t_of_string m; frame = false; uri = uri; query = query;
                     content_length = None; transfer_encoding = None;
                     version = version; cookie = []; auth = None; task = None;
                     subtask_of = None; content_type = None; user_agent = None;
@@ -347,8 +349,8 @@ module Request = struct
 
 	let to_string x =
 		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-		Printf.sprintf "{ method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
-			(string_of_method_t x.m) x.uri
+		Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; user_agent = %s }" 
+			x.frame (string_of_method_t x.m) x.uri
 			(kvpairs x.query)
 			(default "" (may Int64.to_string x.content_length))
 			(default "" x.transfer_encoding)
@@ -375,22 +377,27 @@ module Request = struct
 		@ cookie @ transfer_encoding @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
 		@ (List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers)
 
-	let to_wire_string (x: t) =
+	let to_headers_and_body (x: t) =
 		(* If the body is given then compute a content length *)
 		let x = match x.body with
 			| None -> x
 			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
 		let hl = to_header_list x @ [""] in
-		let hl = add_header_len hl in
 		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
 		let body = Opt.default "" x.body in
-		headers ^ body
+		headers, body
+
+	let to_wire_string (x: t) =
+		let headers, body = to_headers_and_body x in
+		let frame_header = if x.frame then make_frame_header headers else "" in
+		frame_header ^ headers ^ body
 
 end
 
 module Response = struct
 	type t = {
 		version: string;
+		frame: bool;
 		code: string;
 		message: string;
 		content_length: int64 option;
@@ -401,6 +408,7 @@ module Response = struct
 
 	let empty = {
 		version = "1.0";
+		frame = false;
 		code = "500";
 		message = "Empty response";
 		content_length = Some 0L;
@@ -411,14 +419,15 @@ module Response = struct
 
 	let to_string x =
 		let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-		Printf.sprintf "{ version = %s; code = %s; message = %s; content_length = %s; task = %s; additional_headers = [ %s ] }"
-			x.version x.code x.message
+		Printf.sprintf "{ frame = %b; version = %s; code = %s; message = %s; content_length = %s; task = %s; additional_headers = [ %s ] }"
+			x.frame x.version x.code x.message
 			(Opt.default "None" (Opt.map (fun x -> "Some " ^ (Int64.to_string x)) x.content_length))
 			(Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task))
 			(kvpairs x.additional_headers)
 
 	let empty = {
 		version = "1.0";
+		frame = false;
 		code = "500";
 		message = "Unknown error message";
 		content_length = None;
@@ -426,8 +435,9 @@ module Response = struct
 		additional_headers = [];
 		body = None;
 	}
-	let make ?(version="1.0") ?length ?task ?(headers=[]) ?body code message = {
+	let make ?(frame=false) ?(version="1.0") ?length ?task ?(headers=[]) ?body code message = {
 		version = version;
+		frame = frame;
 		code = code;
 		message = message;
 		content_length = length;
@@ -444,18 +454,21 @@ module Response = struct
 		let headers = List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers in
 		status :: (content_length @ task @ headers)
 
-	let to_wire_string (x: t) =
+	let to_headers_and_body (x: t) =
 		(* If the body is given then compute a content length *)
 		let x = match x.body with
 			| None -> x
 			| Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
 		let hl = to_header_list x @ [""] in
-		let hl = add_header_len hl in
 		let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
 		let body = Opt.default "" x.body in
-		headers ^ body
-end
+		headers, body
 
+	let to_wire_string (x: t) =
+		let headers, body = to_headers_and_body x in
+		let frame_header = if x.frame then make_frame_header headers else "" in
+		frame_header ^ headers ^ body
+end
 
 (* For transfer-encoding: chunked *)
 

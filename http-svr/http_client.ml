@@ -74,10 +74,13 @@ let response_of_fd_exn_slow fd =
 
 	(* Initial line has the response code on it *)
 	let line = input_line_fd fd in
-	match String.split_f String.isspace line with
+	let bits = String.split_f String.isspace line in
+	(* We just ignore the initial "FRAME xxxxx" *)
+	let bits = if bits <> [] && List.hd bits = "FRAME" then List.tl bits else bits in
+	match bits with
 		| http_version :: code :: rest ->
 			let version = match String.split ~limit:2 '/' http_version with
-				| [ "HTTP"; version ] -> version
+				| [ http; version ] when String.endswith "HTTP" http -> version
 				| _ ->
 					error "Failed to parse HTTP response status line [%s]" line;
 					raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version)) in
@@ -100,6 +103,7 @@ let response_of_fd_exn_slow fd =
 			done;
 			{
 				Http.Response.version = version;
+				frame = false;
 				code = code;
 				message = message;
 				content_length = !content_length;
