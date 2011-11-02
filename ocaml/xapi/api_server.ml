@@ -133,17 +133,17 @@ let callback is_json req bio =
   try
     let xml = Xml.parse_string body in
     let response = Xml.to_bigbuffer (callback1 is_json req fd (Some body) xml) in
-    Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type ^": text/xml";
-				    "Access-Control-Allow-Origin: *"; 
-				    "Access-Control-Allow-Headers: X-Requested-With"] fd (Bigbuffer.length response) 
+    Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
+				    "Access-Control-Allow-Origin", "*";
+				    "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
       (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
   with 
     | (Api_errors.Server_error (err, params)) ->
-      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type ^": text/xml" ] fd 
+      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
 	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Failure(err, params))))
     | Xml.Error _ ->
-      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type ^": text/xml" ] fd 
-	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Fault(1l, "Failed to parse supplied XML"))))	  
+      Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
+	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Fault(1l, "Failed to parse supplied XML")))) 
 
 let options_callback req bio =
 	let fd = Buf_io.fd_of bio in
