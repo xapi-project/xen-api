@@ -31,8 +31,8 @@ let with_stunnel ip port =
 			(fun () -> f fd)
 			(fun () -> Stunnel.disconnect s)
 
-let one ~use_fastpath keep_alive s =
-	Http_client.rpc ~use_fastpath s (Http.Request.make ~version:"1.1" ~keep_alive
+let one ~use_fastpath ~use_framing keep_alive s =
+	Http_client.rpc ~use_fastpath s (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive
 		~user_agent ~body:"hello" Http.Post "/echo")
 		(fun response s ->
 			match response.Http.Response.content_length with
@@ -101,14 +101,17 @@ let _ =
 	let port = ref 8080 in
 	let use_ssl = ref false in
 	let use_fastpath = ref false in
+	let use_framing = ref false in
 	Arg.parse [
 		"-ip", Arg.Set_string ip, "IP to connect to";
 		"-p", Arg.Set_int port, "port to connect";
 		"-fast", Arg.Set use_fastpath, "use HTTP fastpath";
+		"-frame", Arg.Set use_framing, "use HTTP framing";
 		"--ssl", Arg.Set use_ssl, "use SSL rather than plaintext";
 	] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
 		"A simple test HTTP client";
 	let use_fastpath = !use_fastpath in
+	let use_framing = !use_framing in
 	let transport = if !use_ssl then with_stunnel else with_connection in
 (*
 	Printf.printf "Overhead of timing:                ";
@@ -118,7 +121,7 @@ let _ =
 	Printf.printf "1 thread non-persistent connections:        ";
 	let nonpersistent = sample 1
 		(fun () -> per_nsec 1.
-			(fun () -> transport !ip !port (one ~use_fastpath false))) in
+			(fun () -> transport !ip !port (one ~use_fastpath ~use_framing false))) in
 	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent);
 	Printf.printf "10 threads non-persistent connections: ";
 	let thread_nonpersistent =
@@ -129,7 +132,7 @@ let _ =
 						per_nsec 5.
 							(fun () ->
 								transport !ip !port
-									(one ~use_fastpath false)
+									(one ~use_fastpath ~use_framing false)
 							)
 					)
 			) in
@@ -138,7 +141,7 @@ let _ =
 	Printf.printf "1 thread persistent connection:             ";
 	let persistent = sample 1
 		(fun () -> transport !ip !port
-			(fun s -> per_nsec 1. (fun () -> one ~use_fastpath true s))) in
+			(fun s -> per_nsec 1. (fun () -> one ~use_fastpath ~use_framing true s))) in
 	Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent);
 	Printf.printf "10 threads persistent connections: ";
 	let thread_persistent =
@@ -149,7 +152,7 @@ let _ =
 						transport !ip !port
 							(fun s ->
 								per_nsec 5.
-									(fun () -> one ~use_fastpath true s)
+									(fun () -> one ~use_fastpath ~use_framing true s)
 							)
 					)
 			) in

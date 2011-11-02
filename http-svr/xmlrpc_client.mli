@@ -50,7 +50,7 @@ val with_transport : transport -> (Unix.file_descr -> 'a) -> 'a
 val with_http : Http.Request.t -> (Http.Response.t * Unix.file_descr -> 'a) -> Unix.file_descr -> 'a
 
 (** Returns an HTTP.Request.t representing an XMLRPC request *)
-val xmlrpc: ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
+val xmlrpc: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
 
 (** Returns an HTTP.Request.t representing an HTTP CONNECT *)
 val connect: ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> Http.Request.t

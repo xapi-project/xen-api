@@ -31,9 +31,9 @@ let connect ?session_id ?task_id ?subtask_of path =
 	Http.Request.make ~user_agent ~version:"1.0" ~keep_alive:true ~cookie ?subtask_of
 		Http.Connect path
 
-let xmlrpc ?version ?keep_alive ?task_id ?cookie ?length ?subtask_of ?body path =
+let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?subtask_of ?body path =
 	let headers = Opt.map (fun x -> [ Http.Hdr.task_id, x ]) task_id in
-	Http.Request.make ~user_agent ?version ?keep_alive ?cookie ?headers ?length ?subtask_of ?body
+	Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?subtask_of ?body
 		Http.Post path
 
 (** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
