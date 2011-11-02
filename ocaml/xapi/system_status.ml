@@ -87,12 +87,7 @@ let send_via_cp __context s entries output =
         finally
           (fun () ->
              debug "bugball path: %s" filename;
-             let headers = 
-               Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-                 [ "Server: "^Xapi_globs.xapi_user_agent;
-                   "Content-Disposition: attachment; filename=\"" ^ filename ^ "\""] 
-             in
-               Http_svr.response_file ~hdrs:headers ~mime_content_type:content_type s filename
+              Http_svr.response_file ~mime_content_type:content_type s filename
           )
           (fun () -> Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink filename)
     with e ->
