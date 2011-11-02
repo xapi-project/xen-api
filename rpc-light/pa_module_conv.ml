@@ -70,7 +70,7 @@ GLOBAL: str_item;
 
 	generator: [[ id = LIDENT; arg = generator_arg -> (id, arg) ]];
 
-	str_item:  [[
+	str_item: AFTER "top" [[
 		"module"; "type"; name = a_UIDENT; "="; md = module_type; "with_gen"; drvs = LIST1 generator SEP ","  ->
 			<:str_item<
 				module type $uid:name$ = $md$;
