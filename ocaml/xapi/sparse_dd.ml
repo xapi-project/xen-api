@@ -178,7 +178,8 @@ module Network_writer = struct
 			(fun () -> f fd)
 			(fun () -> Unix.close fd) in
 		let uri, query = Http.parse_uri url.uri in
-		let request = { Http.Request.m = Http.Put;
+		let request = { Http.Request.empty with
+			Http.Request.m = Http.Put;
 				uri = uri;
 				query = query;
 				version = "1.0";
@@ -191,7 +192,6 @@ module Network_writer = struct
 				user_agent = Some "sparse_dd/0.1";
 				close = true;
 				additional_headers = [];
-				body = None
 		} in
 		try
 			if url.https
