@@ -132,7 +132,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
 	(* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
 	let open Xmlrpc_client in
 	let request = xmlrpc 
-		~version:"1.1" ~keep_alive:true
+		~version:"1.1" ~frame:true ~keep_alive:true
 		~length:(Int64.of_int (String.length req_string))
 		~cookie:["pool_secret", !Xapi_globs.pool_secret] ~body:req path in
 	match !my_connection with
