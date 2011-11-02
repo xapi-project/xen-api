@@ -135,7 +135,8 @@ let diagnostic_net_stats printer rpc session_id params =
 			let uri' = if has_param "uri" then [ uri ] else [] in
 			let requests' = if has_param "requests" then [ string_of_int stats.Http_svr.Stats.n_requests ] else [] in
 			let connections' = if has_param "connections" then [ string_of_int stats.Http_svr.Stats.n_connections ] else [] in
-			m' @ uri' @ requests' @ connections'
+			let framed' = if has_param "framed" then [ string_of_int stats.Http_svr.Stats.n_framed ] else [] in
+			m' @ uri' @ requests' @ connections' @ framed'
 		) all in
 	let widths = Table.compute_col_widths rows in
 	let sll = List.map (List.map2 Table.right widths) rows in
