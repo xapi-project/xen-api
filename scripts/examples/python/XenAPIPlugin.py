@@ -9,9 +9,9 @@ class Failure(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        self._params = [ code ] + params
+        self.params = [ code ] + params
     def __str__(self):
-        return str(self._params)
+        return str(self.params)
 
 def success_message(result):
     rpcparams = { 'Status': 'Success', 'Value': result }
@@ -36,6 +36,8 @@ def dispatch(fn_table):
         except SystemExit:
             # SystemExit should not be caught, as it is handled elsewhere in the plugin system.
             raise
+        except Failure, e:
+            print failure_message(e.params)
         except Exception, e:
             print failure_message(['XENAPI_PLUGIN_FAILURE',
                                    methodname, e.__class__.__name__, str(e)])
