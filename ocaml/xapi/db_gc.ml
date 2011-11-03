@@ -72,8 +72,11 @@ let gc_PIFs ~__context =
        let bonds_to_gc = Db.PIF.get_bond_master_of ~__context ~self in
        let vlan_to_gc = Db.PIF.get_VLAN_master_of ~__context ~self in
        let tunnels_to_gc = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
-       let metrics = Db.PIF.get_metrics ~__context ~self in
-       (try Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
+       (* Only destroy PIF_metrics of physical or bond PIFs *)
+       if vlan_to_gc = Ref.null && tunnels_to_gc = [] then begin
+         let metrics = Db.PIF.get_metrics ~__context ~self in
+         (try Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ())
+       end;
        (try Db.VLAN.destroy ~__context ~self:vlan_to_gc with _ -> ());
        List.iter (fun tunnel -> (try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ())) tunnels_to_gc;
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
