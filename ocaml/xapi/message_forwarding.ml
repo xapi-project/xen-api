@@ -2601,6 +2601,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
 			let local_fn = Local.Bond.set_mode ~self ~value in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_mode rpc session_id self value)
+
+		let set_hashing_algorithm ~__context ~self ~value =
+			info "Bond.set_hashing_algorithm: bond = '%s'; value= '%s'" (bond_uuid ~__context self) (Record_util.bond_hashing_algorithm_to_string value);
+			let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
+			let local_fn = Local.Bond.set_hashing_algorithm ~self ~value in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_hashing_algorithm rpc session_id self value)
 	end
 
 	module PIF = struct

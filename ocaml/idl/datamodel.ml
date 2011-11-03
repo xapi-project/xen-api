@@ -4395,10 +4395,21 @@ let bond_set_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let bond_set_hashing_algorithm = call
+	~name:"set_hashing_algorithm"
+	~doc:"Change the bond's hashing algorithm"
+	~params:[
+		Ref _bond, "self", "The bond";
+		bond_hashing_algorithm, "value", "The new hashing algorithm";
+	]
+	~in_product_since:rel_boston
+	~allowed_roles:_R_POOL_OP
+	()
+
 let bond = 
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ bond_create; bond_destroy; bond_set_mode ] 
+    ~messages:[ bond_create; bond_destroy; bond_set_mode; bond_set_hashing_algorithm ] 
     ~contents:
     [ uid _bond;
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));

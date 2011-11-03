@@ -424,3 +424,23 @@ let set_mode ~__context ~self ~value =
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
+
+let set_hashing_algorithm ~__context ~self ~value =
+	let mode = Db.Bond.get_mode ~__context ~self in
+	if mode <> `lacp then
+		raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Can only set hashing algorithm for LACP bonds."]))
+	else begin
+		if value = `none then
+			raise (Api_errors.Server_error(Api_errors.invalid_value, ["hashing_algorithm"; Record_util.bond_hashing_algorithm_to_string value]));
+		Db.Bond.set_hashing_algorithm ~__context ~self ~value;
+		let master = Db.Bond.get_master ~__context ~self in
+
+		(* Temporary measure for compatibility with current interface-reconfigure.
+		 * Remove once interface-reconfigure has been updated to recognise and bond.hashing_algorithm. *)
+		Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(Record_util.bond_hashing_algorithm_to_string value);
+
+		(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
+		Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
+		Nm.bring_pif_up ~__context master
+	end
