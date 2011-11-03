@@ -72,6 +72,11 @@ _xe()
 				fi
 				return 0
 				;;
+			hashing-algorithm)
+				IFS=$'\n,'
+				COMPREPLY=( $(compgen -W "src_mac ,tcpudp_ports " -- ${value}) )
+				return 0
+				;;
 
 			uuid)
 				case "${OLDSTYLE_WORDS[1]}" in
