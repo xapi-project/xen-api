@@ -84,9 +84,6 @@ let destroy ~__context ~self =
 		Xapi_network.detach bridge;
 
 		(try
-			let metrics = Db.PIF.get_metrics ~__context ~self:untagged_PIF in
-			Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
-		(try
 			let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF in
 			Db.VLAN.destroy ~__context ~self:vlan with _ -> ());
 		Db.PIF.destroy ~__context ~self:untagged_PIF
