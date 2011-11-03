@@ -22,8 +22,9 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
 	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 	(* Copy the MTU from the base PIF *)
 	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
+	let metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
 	let untagged_PIF = Xapi_pif.introduce_internal ~physical:false ~t ~__context ~host
-		~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network () in
+		~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network ~metrics () in
 	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
 	vlan, untagged_PIF
 

@@ -302,7 +302,7 @@ let mark_pif_as_dirty device =
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of () =
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics () =
 
 	let bridge = bridge_naming_convention device in
 
@@ -312,7 +312,10 @@ let introduce_internal
 		match network with
 			| None -> find_or_create_network bridge device ~__context
 			| Some x -> x in
-	let metrics = make_pif_metrics ~__context in
+	let metrics = match metrics with
+		| None -> make_pif_metrics ~__context
+		| Some m -> m
+	in
 	let pif = Ref.make () in
 	debug
 		"Creating a new record for NIC: %s: %s"
