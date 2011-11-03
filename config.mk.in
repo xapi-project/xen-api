@@ -28,7 +28,7 @@ OCAMLYACC = ocamlyacc
 OCAMLCFLAGS = -dtypes
 OCAMLOPTFLAGS = -g -dtypes
 
-RPCLIGHTFLAGS = -package camlp4,type-conv -ppopt -I -ppopt /usr/lib/ocaml/type-conv -ppopt /usr/lib/ocaml/type-conv/pa_type_conv.cmo  -ppopt -I -ppopt ../rpc-light -ppopt pa_rpc.cma -syntax camlp4o -I ../rpc-light -I ../jsonrpc -I ../rpc-light 
+RPCLIGHTFLAGS = -package camlp4,type-conv -ppopt -I -ppopt /usr/lib/ocaml/type-conv  -ppopt -I -ppopt ../rpc-light -ppopt pa_rpc.cma -syntax camlp4o -I ../rpc-light -I ../jsonrpc -I ../rpc-light 
 
 DOCDIR = ../doc
 
