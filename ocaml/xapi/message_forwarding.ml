@@ -2597,7 +2597,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			tolerate_connection_loss fn success
 
 		let set_mode ~__context ~self ~value =
-			info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
+			info "Bond.set_mode: bond = '%s'; value = '%s'" (bond_uuid ~__context self) (Record_util.bond_mode_to_string value);
 			let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
 			let local_fn = Local.Bond.set_mode ~self ~value in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_mode rpc session_id self value)
