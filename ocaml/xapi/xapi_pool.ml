@@ -998,8 +998,6 @@ let create_VLAN ~__context ~device ~network ~vLAN =
 		| Api_errors.Server_error (a,b) ->
 		    if a=Api_errors.host_offline 
 		    then
-		      let metrics = Db.PIF.get_metrics ~__context ~self:pif in
-		      Db.PIF_metrics.destroy ~__context ~self:metrics;
 		      Db.PIF.destroy ~__context ~self:pif
 		    else
 		      (* If theres any other error, leave the PIF to be destroyed
