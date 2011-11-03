@@ -204,7 +204,13 @@ let fix_bond ~__context ~bond =
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
-let create ~__context ~network ~members ~mAC ~mode =
+(* Deal with invalid combinations of mode and hashing algorithm. *)
+let choose_hashing_algorithm : API.bond_mode * API.bond_hashing_algorithm -> API.bond_hashing_algorithm = function
+	| `lacp, `none -> `src_mac
+	| `lacp, x -> x
+	| _, _ -> `none
+
+let create ~__context ~network ~members ~mAC ~mode ~hashing_algorithm =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 
@@ -280,13 +286,14 @@ let create ~__context ~network ~members ~mAC ~mode =
 		(* Create master PIF and Bond objects *)
 		let device = choose_bond_device_name ~__context ~host in
 		let device_name = device in
+		let hashing_algorithm = choose_hashing_algorithm (mode, hashing_algorithm) in
 		Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
 			~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
 			~physical:false ~currently_attached:false
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave ~mode;
+			~primary_slave ~mode ~hashing_algorithm;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
@@ -401,12 +408,19 @@ let set_mode ~__context ~self ~value =
 	Db.Bond.set_mode ~__context ~self ~value;
 	let master = Db.Bond.get_master ~__context ~self in
 
+	(* Set Bond.hashing_algorithm to the default type for this bond mode. *)
+	let old_hashing_algorithm = Db.Bond.get_hashing_algorithm ~__context ~self in
+	let new_hashing_algorithm = choose_hashing_algorithm (value, old_hashing_algorithm) in
+	Db.Bond.set_hashing_algorithm ~__context ~self ~value:new_hashing_algorithm;
+
 	(* Temporary measure for compatibility with current interface-reconfigure.
-	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
+	 * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.hashing_algorithm. *)
 	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
 	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string value);
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
+	if new_hashing_algorithm <> `none then
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(Record_util.bond_hashing_algorithm_to_string new_hashing_algorithm);
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
-
