@@ -78,3 +78,27 @@ val update_allowed_operations :
  *  Update the firewall rules associated with this VIF, if it is plugged. *)
 val set_locking_mode :
 	__context:Context.t -> self:[ `VIF ] Ref.t -> value:API.vif_locking_mode -> unit
+
+(** Set the list of IPv4 addresses allowed to use this VIF. *)
+val set_ipv4_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string list -> unit
+
+(** Associate an IPv4 address with this VIF. *)
+val add_ipv4_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
+
+(** Remove an IPv4 address from this VIF. *)
+val remove_ipv4_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
+
+(** Set the list of IPv6 addresses allowed to use this VIF. *)
+val set_ipv6_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string list -> unit
+
+(** Associate an IPv6 address with this VIF. *)
+val add_ipv6_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
+
+(** Remove an IPv6 address from this VIF. *)
+val remove_ipv6_allowed :
+	__context:Context.t -> self:[ `VIF ] Ref.t -> value:string -> unit
