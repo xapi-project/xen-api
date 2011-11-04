@@ -91,7 +91,6 @@ let remove_asterisks str =
 				phase := false;
 				Buffer.add_char res str.[i]
 			end
-		| _ -> failwith "something went wrong!"
 	done;
 	Buffer.contents res
 
