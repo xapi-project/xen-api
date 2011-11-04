@@ -4633,13 +4633,81 @@ let vif_set_locking_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let vif_set_ipv4_allowed = call
+	~name:"set_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Set the IPv4 addresses to which traffic on this VIF can be restricted"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+		Set String, "value", "The IP addresses which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_add_ipv4_allowed = call
+	~name:"add_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Associates an IPv4 address with this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP address will be associated with";
+		String, "value", "The IP address which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_remove_ipv4_allowed = call
+	~name:"remove_ipv4_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Removes an IPv4 address from this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF from which the IP address will be removed";
+		String, "value", "The IP address which will be removed from the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_set_ipv6_allowed = call
+	~name:"set_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Set the IPv6 addresses to which traffic on this VIF can be restricted"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+		Set String, "value", "The IP addresses which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_add_ipv6_allowed = call
+	~name:"add_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Associates an IPv6 address with this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF which the IP address will be associated with";
+		String, "value", "The IP address which will be associated with the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
+let vif_remove_ipv6_allowed = call
+	~name:"remove_ipv6_allowed"
+	~in_product_since:rel_tampa
+	~doc:"Removes an IPv6 address from this VIF"
+	~params:[
+		Ref _vif, "self", "The VIF from which the IP address will be removed";
+		String, "value", "The IP address which will be removed from the VIF";
+	]
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** A virtual network interface *)
 let vif =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
       ~gen_events:true
       ~doccomments:[] 
       ~messages_default_allowed_roles:_R_VM_ADMIN
-      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode] ~contents:
+      ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_set_locking_mode;
+        vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed]
+      ~contents:
       ([ uid _vif;
        ] @ (allowed_and_current_operations vif_operations) @ [
 	 field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";

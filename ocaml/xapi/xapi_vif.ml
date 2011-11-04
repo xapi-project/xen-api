@@ -105,7 +105,45 @@ let move ~__context ~network vif =
 			let devid = string_of_int vif_device.Vm_config.devid in
 			ignore(Helpers.call_script (Filename.concat Fhs.scriptsdir "vif") ["move"; "vif"; domid; devid])
 
-let set_locking_mode ~__context ~self ~value =
+let assert_locking_licensed ~__context =
 	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
-		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
+
+let set_locking_mode ~__context ~self ~value =
+	assert_locking_licensed ~__context;
 	Db.VIF.set_locking_mode ~__context ~self ~value
+
+let assert_ip_address_is domain field_name addr =
+	match Helpers.validate_ip_address addr with
+	| Some x when x = domain -> ()
+	| _ -> raise (Api_errors.Server_error (Api_errors.invalid_value, [field_name; addr]))
+
+let set_ipv4_allowed ~__context ~self ~value =
+	assert_locking_licensed ~__context;
+	List.iter
+		(assert_ip_address_is Unix.PF_INET "ipv4_allowed")
+		value;
+	Db.VIF.set_ipv4_allowed ~__context ~self ~value
+
+let add_ipv4_allowed ~__context ~self ~value =
+	assert_locking_licensed ~__context;
+	assert_ip_address_is Unix.PF_INET "ipv4_allowed" value;
+	Db.VIF.add_ipv4_allowed ~__context ~self ~value
+
+let remove_ipv4_allowed ~__context ~self ~value =
+	Db.VIF.remove_ipv4_allowed ~__context ~self ~value
+
+let set_ipv6_allowed ~__context ~self ~value =
+	assert_locking_licensed ~__context;
+	List.iter
+		(assert_ip_address_is Unix.PF_INET6 "ipv6_allowed")
+		value;
+	Db.VIF.set_ipv6_allowed ~__context ~self ~value
+
+let add_ipv6_allowed ~__context ~self ~value =
+	assert_locking_licensed ~__context;
+	assert_ip_address_is Unix.PF_INET6 "ipv6_allowed" value;
+	Db.VIF.add_ipv6_allowed ~__context ~self ~value
+
+let remove_ipv6_allowed ~__context ~self ~value =
+	Db.VIF.remove_ipv6_allowed ~__context ~self ~value
