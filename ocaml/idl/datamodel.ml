@@ -4356,7 +4356,7 @@ let bond_mode =
 
 let bond_hashing_algorithm =
 	Enum ("bond_hashing_algorithm", [
-		"none", "No hashing algorithm (only valid if bond_mode != lacp)";
+		"none", "No choice of hashing algorithm available for the current bond type";
 		"src_mac", "Hashing based on source MAC address";
 		"tcpudp_ports", "Hashing based on source and destination IP and port";
 	])
