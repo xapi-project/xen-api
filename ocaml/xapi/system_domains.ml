@@ -32,9 +32,17 @@ let is_system_domain snapshot =
 let get_is_system_domain ~__context ~self =
 	is_system_domain (Db.VM.get_record ~__context ~self)
 
+(* Notes on other_config keys: in the future these should become first-class fields.
+   For now note that although two threads may attempt to update these keys in parallel,
+   order shouldn't matter because everyone will always update them to the same value.
+   It's therefore safe to throw away exceptions. *)
+
 let set_is_system_domain ~__context ~self ~value =
-	Db.VM.remove_from_other_config ~__context ~self ~key:system_domain_key;
-	Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value
+	Helpers.log_exn_continue (Printf.sprintf "set_is_system_domain self = %s" (Ref.string_of self))
+		(fun () ->
+			Db.VM.remove_from_other_config ~__context ~self ~key:system_domain_key;
+			Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value
+		) ()
 
 (** If a VM is a driver domain then it hosts backends for either disk or network
     devices. We link PBD.other_config:storage_driver_domain_key to 
@@ -43,12 +51,24 @@ let set_is_system_domain ~__context ~self ~value =
 let storage_driver_domain_key = "storage_driver_domain"
 
 let pbd_set_storage_driver_domain ~__context ~self ~value =
-	Db.PBD.remove_from_other_config ~__context ~self ~key:storage_driver_domain_key;
-	Db.PBD.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
+	Helpers.log_exn_continue (Printf.sprintf "pbd_set_storage_driver_domain self = %s" (Ref.string_of self))
+		(fun () ->
+			Db.PBD.remove_from_other_config ~__context ~self ~key:storage_driver_domain_key;
+			Db.PBD.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
+		) ()
 
 let vm_set_storage_driver_domain ~__context ~self ~value =
-	Db.VM.remove_from_other_config ~__context ~self ~key:storage_driver_domain_key;
-	Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
+	Helpers.log_exn_continue (Printf.sprintf "vm_set_storage_driver_domain self = %s" (Ref.string_of self))
+		(fun () ->
+			Db.VM.remove_from_other_config ~__context ~self ~key:storage_driver_domain_key;
+			Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
+		) ()
+
+let record_pbd_storage_driver_domain ~__context ~pbd ~domain =
+	set_is_system_domain ~__context ~self:domain ~value:"true";
+	pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
+	vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd)
+
 
 let pbd_of_vm ~__context ~vm =
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
@@ -69,13 +89,6 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 			with _ ->
 				failwith (Printf.sprintf "PBD %s has invalid %s key" (Ref.string_of pbd) storage_driver_domain_key)
 	end else dom0
-
-let storage_driver_domain_of_pbd ~__context ~pbd =
-	let domain = storage_driver_domain_of_pbd ~__context ~pbd in
-	set_is_system_domain ~__context ~self:domain ~value:"true";
-	pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
-	vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd);
-	domain
 
 let storage_driver_domain_of_vbd ~__context ~vbd =
 	let dom0 = Helpers.get_domain_zero ~__context in
