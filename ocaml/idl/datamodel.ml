@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 63
+let schema_minor_vsn = 64
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -39,9 +39,12 @@ let midnight_ride_release_schema_minor_vsn = 60
 let cowley_release_schema_major_vsn = 5
 let cowley_release_schema_minor_vsn = 61
 
+let boston_release_schema_major_vsn = 5
+let boston_release_schema_minor_vsn = 63
+
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = cowley_release_schema_major_vsn
-let last_release_schema_minor_vsn = cowley_release_schema_minor_vsn
+let last_release_schema_major_vsn = boston_release_schema_major_vsn
+let last_release_schema_minor_vsn = boston_release_schema_minor_vsn
 
 (** Bindings for currently specified releases *)
 
@@ -4348,6 +4351,14 @@ let bond_mode =
 	Enum ("bond_mode", [
 		"balance-slb", "Source-level balancing";
 		"active-backup", "Active/passive bonding: only one NIC is carrying traffic";
+		"lacp", "Link aggregation";
+	])
+
+let bond_hashing_algorithm =
+	Enum ("bond_hashing_algorithm", [
+		"none", "No choice of hashing algorithm available for the current bond type";
+		"src_mac", "Hashing based on source MAC address";
+		"tcpudp_ports", "Hashing based on source and destination IP and port";
 	])
 
 let bond_create = call
@@ -4358,6 +4369,7 @@ let bond_create = call
     {param_type=Set (Ref _pif); param_name="members"; param_doc="PIFs to add to this bond"; param_release=miami_release; param_default=None};
     {param_type=String; param_name="MAC"; param_doc="The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."; param_release=miami_release; param_default=None};
     {param_type=bond_mode; param_name="mode"; param_doc="Bonding mode to use for the new bond"; param_release=boston_release; param_default=Some (VEnum "balance-slb")};
+    {param_type=bond_hashing_algorithm; param_name="hashing_algorithm"; param_doc="Hashing algorithm to use if bond_mode = lacp"; param_release=tampa_release; param_default=Some (VEnum "none")};
   ]
   ~result:(Ref _bond, "The reference of the created Bond object")
   ~in_product_since:rel_miami
@@ -4383,10 +4395,21 @@ let bond_set_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let bond_set_hashing_algorithm = call
+	~name:"set_hashing_algorithm"
+	~doc:"Change the bond's hashing algorithm"
+	~params:[
+		Ref _bond, "self", "The bond";
+		bond_hashing_algorithm, "value", "The new hashing algorithm";
+	]
+	~in_product_since:rel_boston
+	~allowed_roles:_R_POOL_OP
+	()
+
 let bond = 
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ bond_create; bond_destroy; bond_set_mode ] 
+    ~messages:[ bond_create; bond_destroy; bond_set_mode; bond_set_hashing_algorithm ] 
     ~contents:
     [ uid _bond;
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
@@ -4394,6 +4417,7 @@ let bond =
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
       field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:bond_mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
+      field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO  ~default_value:(Some (VEnum "none")) ~ty:bond_hashing_algorithm "hashing_algorithm" "Hashing algorithm to use if bond_mode = lacp";
     ]
     ()
 

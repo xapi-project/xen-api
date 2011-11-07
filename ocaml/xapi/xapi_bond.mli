@@ -25,6 +25,10 @@ A host can have multiple network interfaces. These can be used to physically sep
 }
 *)
 
+val choose_hashing_algorithm :
+	API.bond_mode * API.bond_hashing_algorithm ->
+	API.bond_hashing_algorithm
+
 (** Create a PIF to represent the bond master and a Bond record to represent the bond. 
  *  Return a reference to the bond record. The given network must not have any local
  *  PIFs on it yet.
@@ -35,6 +39,7 @@ val create :
   members:[ `PIF ] Ref.t list ->
   mAC:string ->
   mode:API.bond_mode ->
+  hashing_algorithm:API.bond_hashing_algorithm ->
   [ `Bond ] Ref.t
 
 (** Destroy the bond master (PIF) and the Bond objects, unless the bond master
@@ -43,6 +48,9 @@ val destroy : __context:Context.t -> self:[ `Bond ] Ref.t -> unit
 
 (** Change the bond mode. *)
 val set_mode : __context:Context.t -> self:[ `Bond ] Ref.t -> value:API.bond_mode -> unit
+
+(** Change the bond hashing algorithm. *)
+val set_hashing_algorithm : __context:Context.t -> self:[ `Bond ] Ref.t -> value:API.bond_hashing_algorithm -> unit
 
 (** If the given bond has VIFs or VLANs on its slaves, move these to the master. *)
 val fix_bond :

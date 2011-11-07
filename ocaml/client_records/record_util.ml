@@ -347,12 +347,26 @@ let ip_configuration_mode_of_string m =
 let bond_mode_to_string = function
 	| `balanceslb -> "balance-slb"
 	| `activebackup -> "active-backup"
+	| `lacp -> "lacp"
 
 let bond_mode_of_string m =
 	match String.lowercase m with
 	| "balance-slb" | "" -> `balanceslb
 	| "active-backup" -> `activebackup
+	| "lacp" -> `lacp
 	| s -> raise (Record_failure ("Invalid bond mode. Got " ^ s))
+
+let bond_hashing_algorithm_to_string = function
+	| `none -> "none"
+	| `src_mac -> "src_mac"
+	| `tcpudp_ports -> "tcpudp_ports"
+
+let bond_hashing_algorithm_of_string s =
+	match String.lowercase s with
+	| "none" | "" -> `none
+	| "src_mac" -> `src_mac
+	| "tcpudp_ports" -> `tcpudp_ports
+	| _ -> raise (Record_failure ("Invalid hashing algorithm. Got " ^ s))
 
 let bool_of_string s =
 	match String.lowercase s with
