@@ -64,6 +64,12 @@ let vm_set_storage_driver_domain ~__context ~self ~value =
 			Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key ~value
 		) ()
 
+let record_pbd_storage_driver_domain ~__context ~pbd ~domain =
+	set_is_system_domain ~__context ~self:domain ~value:"true";
+	pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
+	vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd)
+
+
 let pbd_of_vm ~__context ~vm =
 	let other_config = Db.VM.get_other_config ~__context ~self:vm in
 	if List.mem_assoc storage_driver_domain_key other_config
@@ -83,13 +89,6 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 			with _ ->
 				failwith (Printf.sprintf "PBD %s has invalid %s key" (Ref.string_of pbd) storage_driver_domain_key)
 	end else dom0
-
-let storage_driver_domain_of_pbd ~__context ~pbd =
-	let domain = storage_driver_domain_of_pbd ~__context ~pbd in
-	set_is_system_domain ~__context ~self:domain ~value:"true";
-	pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
-	vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd);
-	domain
 
 let storage_driver_domain_of_vbd ~__context ~vbd =
 	let dom0 = Helpers.get_domain_zero ~__context in

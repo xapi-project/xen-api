@@ -381,6 +381,7 @@ let make_remote host path =
 let bind ~__context ~pbd =
     (* Start the VM if necessary, record its uuid *)
     let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
+	System_domains.record_pbd_storage_driver_domain ~__context ~pbd ~domain:driver;
     if Db.VM.get_power_state ~__context ~self:driver = `Halted then begin
         info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd) (Ref.string_of driver);
         Helpers.call_api_functions ~__context
