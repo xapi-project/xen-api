@@ -3891,6 +3891,18 @@ let host_sm_dp_destroy = call ~flags:[`Session]
 	~hide_from_docs:true
 	()
 
+let host_sync_vlans = call ~flags:[`Session]
+	~name:"sync_vlans"
+	~lifecycle:[]
+	~doc:"Synchronise VLANs on given host with the master's VLANs"
+	~params:[
+		Ref _host, "host", "The host";
+	]
+	~hide_from_docs:true
+	~pool_internal:true
+	~allowed_roles:_R_POOL_OP
+	()
+
 (** Hosts *)
 let host =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -3969,6 +3981,7 @@ let host =
 		 host_get_sm_diagnostics;
 		 host_get_thread_diagnostics;
 		 host_sm_dp_destroy;
+		 host_sync_vlans;
 		 ]
       ~contents:
         ([ uid _host;
