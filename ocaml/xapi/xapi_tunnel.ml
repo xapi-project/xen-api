@@ -14,10 +14,16 @@
 module D = Debug.Debugger(struct let name="xapi" end) 
 open D
 
+open Db_filter_types
+
 let choose_tunnel_device_name ~__context ~host = 
-	let pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) (Db.PIF.get_all ~__context) in
+	(* list all the tunnel access PIFs on this host *)
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
 	let devices = List.map (fun self -> Db.PIF.get_device ~__context ~self) pifs in
-	let rec choose n = 
+	let rec choose n =
 		let name = Printf.sprintf "tunnel%d" n in
 		if List.mem name devices
 		then choose (n + 1)
