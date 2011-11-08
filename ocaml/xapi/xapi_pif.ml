@@ -63,9 +63,13 @@ let refresh ~__context ~host ~self =
 
 let refresh_all ~__context ~host =
 	assert (host = Helpers.get_localhost ~__context);
-	List.iter
-		(fun (self, _) -> refresh_internal ~__context ~self)
-		(Helpers.get_my_pifs ~__context)
+	(* Only refresh physical or attached PIFs *)
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Or (Eq (Field "physical", Literal "true"),
+			Eq (Field "currently_attached", Literal "true"))
+	)) in
+	List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
 let bridge_naming_convention (device: string) =
 	if String.startswith "eth" device
