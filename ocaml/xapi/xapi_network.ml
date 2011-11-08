@@ -159,7 +159,8 @@ let create_new_blob ~__context ~network ~name ~mime_type =
 	blob
 
 let set_default_locking_mode ~__context ~network ~value =
-	if (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
+	(* Allow unlicensed users to set default_locking_mode = `unlocked, i.e. turn the feature off. *)
+	if (value = `disabled) && (not (Pool_features.is_enabled ~__context Features.VIF_locking)) then
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 	(* Get all VIFs which are attached and associated with this network. *)
 	let open Db_filter_types in

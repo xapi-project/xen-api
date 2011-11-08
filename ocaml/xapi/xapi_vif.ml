@@ -110,7 +110,9 @@ let assert_locking_licensed ~__context =
 		raise (Api_errors.Server_error(Api_errors.license_restriction, []))
 
 let set_locking_mode ~__context ~self ~value =
-	assert_locking_licensed ~__context;
+	(* Allow unlicensed users to set locking_mode = `default, i.e. turn the feature off. *)
+	if value <> `default then
+		assert_locking_licensed ~__context;
 	Db.VIF.set_locking_mode ~__context ~self ~value
 
 let assert_ip_address_is domain field_name addr =
