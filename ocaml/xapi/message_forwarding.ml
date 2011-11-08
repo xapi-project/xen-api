@@ -2370,6 +2370,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let sync_vlans ~__context ~host =
 			info "Host.sync_vlans: host = '%s'" (host_uuid ~__context host);
 			Local.Host.sync_vlans ~__context ~host
+
+		let sync_tunnels ~__context ~host =
+			info "Host.sync_tunnels: host = '%s'" (host_uuid ~__context host);
+			Local.Host.sync_tunnels ~__context ~host
 	end
 
 	module Host_crashdump = struct

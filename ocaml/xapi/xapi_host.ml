@@ -1431,3 +1431,57 @@ let sync_vlans ~__context ~host =
 	(* For each of the master's PIFs, create a corresponding one on the slave if necessary *)
 	List.iter maybe_create_vlan master_vlan_pifs
 
+let sync_tunnels ~__context ~host =
+	let master = !Xapi_globs.localhost_ref in
+
+	let master_tunnel_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of master)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
+	let slave_tunnel_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
+
+	let get_network_of_transport_pif access_pif =
+		match Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif with
+		| [tunnel] ->
+			let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+			Db.PIF.get_network ~__context ~self:transport_pif
+		| _ -> failwith (Printf.sprintf "PIF %s has no tunnel_access_PIF_of" (Ref.string_of access_pif))
+	in
+
+	let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
+		(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
+		let existing_pif = List.filter (fun (_, slave_pif_record) ->
+			(* Is the slave's tunnel access PIF that we're considering (slave_pif_ref)
+			 * the one that corresponds to the master's tunnel access PIF we're considering (master_pif_ref)? *)
+			slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+		) slave_tunnel_pifs in
+		(* If the slave doesn't have any such PIF then make one: *)
+		if List.length existing_pif = 0
+		then
+			begin
+				(* On the master, we find the network the tunnel transport PIF is on *)
+				let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_ref in
+				let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of network_of_transport_pif_on_master))
+				)) in
+				match pifs with
+				| [] ->
+					(* we have no PIF on which to make the tunnel; do nothing *)
+					()
+				| [(pif_ref,_)] ->
+					(* this is the PIF on which we want as transport PIF; let's make it *)
+					ignore (Xapi_tunnel.create_internal ~__context ~transport_PIF:pif_ref
+						~network:master_pif_rec.API.pIF_network ~host)
+				| _ ->
+					(* This should never happen cos we should never have more than one of _our_ pifs
+					 * on the same nework *)
+					()
+			end
+	in
+	(* for each of the master's pifs, create a corresponding one on this host if necessary *)
+	List.iter maybe_create_tunnel_for_me master_tunnel_pifs
+
