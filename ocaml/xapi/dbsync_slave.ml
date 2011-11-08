@@ -434,18 +434,15 @@ let resynchronise_pif_params ~__context =
 			let all_up_bridges = management_bridge @ bridges_already_up in
 			let bridge = List.assoc pif pifs_to_bridge in
 			let currently_attached = Opt.default false (Opt.map (fun x -> List.mem x all_up_bridges) bridge) in
-			let management = Opt.default false (Opt.map (fun x -> List.mem x management_bridge) bridge) in
 			if pif_r.API.pIF_currently_attached <> currently_attached then begin
 				Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached;
 				debug "PIF %s currently_attached <- %b" (Ref.string_of pif) currently_attached;
 			end;
-			if pif_r.API.pIF_management <> management then begin
-				Db.PIF.set_management ~__context ~self:pif ~value:management;
-				debug "PIF %s management <- %b" (Ref.string_of pif) management;
-			end
 		) pifs;
-		(* sync MACs and MTUs *)
-		Xapi_pif.refresh_all ~__context ~host:(Helpers.get_localhost ~__context)
+	(* sync management *)
+	Xapi_pif.update_management_flags ~__context ~host:localhost;
+	(* sync MACs and MTUs *)
+	Xapi_pif.refresh_all ~__context ~host:localhost
 
 (** Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
