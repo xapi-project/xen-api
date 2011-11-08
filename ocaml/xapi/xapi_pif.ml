@@ -374,24 +374,34 @@ let forget_internal ~t ~__context ~self =
 	Db.PIF.destroy ~__context ~self
 
 let update_management_flags ~__context ~host =
-	let management_intf =
-		Xapi_inventory.lookup Xapi_inventory._management_interface in
-	let all_pifs = Db.PIF.get_all ~__context in
-	let my_pifs =
-		List.filter
-			(fun self -> Db.PIF.get_host ~__context ~self = host)
-			(all_pifs) in
-	List.iter
-		(fun pif ->
-			let is_management_pif =
-				try
-					let net = Db.PIF.get_network ~__context ~self:pif in
-					let bridge = Db.Network.get_bridge ~__context ~self:net in
-					bridge = management_intf
-				with _ -> false in
-			Db.PIF.set_management
-				~__context ~self:pif ~value:is_management_pif)
-		(my_pifs)
+	try
+		let management_bridge = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		let management_networks = Db.Network.get_refs_where ~__context ~expr:(
+			Eq (Field "bridge", Literal management_bridge)
+		) in
+		let current_management_pifs =
+			match management_networks with
+			| [] -> []
+			| net :: _ ->
+				Db.PIF.get_refs_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of net))
+				))
+		in
+		let management_pifs_in_db = Db.PIF.get_refs_where ~__context ~expr:(And (
+			Eq (Field "host", Literal (Ref.string_of host)),
+			Eq (Field "management", Literal "true")
+		)) in
+		let set_management value self =
+			debug "PIF %s management <- %b" (Ref.string_of self) value;
+			Db.PIF.set_management ~__context ~self ~value
+		in
+		(* Set management flag of PIFs that are now management PIFs, and do not have this flag set *)
+		List.iter (set_management true) (List.set_difference current_management_pifs management_pifs_in_db);
+		(* Clear management flag of PIFs that are no longer management PIFs *)
+		List.iter (set_management false) (List.set_difference management_pifs_in_db current_management_pifs)
+	with Xapi_inventory.Missing_inventory_key _ ->
+		error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
 let introduce ~__context ~host ~mAC ~device =
 
