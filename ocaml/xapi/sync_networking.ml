@@ -144,64 +144,11 @@ let copy_bonds_from_master ~__context () =
 	List.iter (Helpers.log_exn_continue "resynchronising bonds on slave" maybe_create_bond_for_me) master_bonds
 
 (** Copy VLANs from master *)
-(* Here's how we do VLAN resyncing:
-   We take a VLAN master and record (i) the Network it is on; (ii) its VLAN tag;
-   (iii) the Network of the PIF that underlies the VLAN (e.g. eth0 underlies eth0.25).
-   We then look to see whether we already have a VLAN record that is (i) on the same Network;
-   (ii) has the same tag; and (iii) also has a PIF underlying it on the same Network.
-   If we do not already have a VLAN that falls into this category then we make one,
-   as long as we already have a suitable PIF to base the VLAN off -- if we don't have such a
-   PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
-*)
+(* This is now executed fully on the master, once asked by the slave when the slave's Xapi starts up *)
 let copy_vlans_from_master ~__context () =
 	debug "Resynchronising VLANs";
-	(* 1. Download data from the master, minimising round-trips *)
-	let me = !Xapi_globs.localhost_ref in
-	let pool = Helpers.get_pool ~__context in
-	let master = Db.Pool.get_master ~__context ~self:pool in
-	let pifs = Db.PIF.get_all_records ~__context in
-	let vlans = Db.VLAN.get_all_records ~__context in
-	(* 2. Make lists and lookup tables *)
-	let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) pifs in
-	let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) pifs in
-	let master_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) all_master_pifs in
-	let my_vlan_pifs = List.filter (fun (_,prec) -> prec.API.pIF_VLAN <> -1L) my_pifs in
-
-	let get_network_of_pif_underneath_vlan vlan_pif_ref =
-		let pif_r = List.assoc vlan_pif_ref pifs in
-		let vlan = pif_r.API.pIF_VLAN_master_of in
-		let vlan_r = List.assoc vlan vlans in
-		let pif_underneath_vlan = vlan_r.API.vLAN_tagged_PIF in
-		let pif_underneath_vlan_r = List.assoc pif_underneath_vlan pifs in
-		pif_underneath_vlan_r.API.pIF_network in
-
-	let maybe_create_vlan_pif_for_me (master_pif_ref, master_pif_rec) =
-		(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
-		let existing_pif = List.filter (fun (my_pif_ref,my_pif_record) -> 
-			(* Is my VLAN PIF that we're considering (my_pif_ref) the one that corresponds to the master_pif we're considering (master_pif_ref)? *)
-			true 
-			&& my_pif_record.API.pIF_network = master_pif_rec.API.pIF_network 
-			&& my_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
-			&& ((get_network_of_pif_underneath_vlan my_pif_ref) =
-				(get_network_of_pif_underneath_vlan master_pif_ref))
-			) my_vlan_pifs in
-		(* if I don't have any such pif(s) then make one: *)
-		if List.length existing_pif = 0 
-		then
-			begin
-				(* On the master, we find the pif, p, that underlies the VLAN 
-				 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
-				let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
-				match List.filter (fun (_,prec) -> prec.API.pIF_network=network_of_pif_underneath_vlan_on_master ) my_pifs with
-				| [] -> () (* we have no PIF on which to make the vlan; do nothing *)
-				| [(pif_ref,_)] -> (* this is the PIF on which we want to base our vlan record; let's make it *)
-					ignore (Xapi_vlan.create ~__context ~tagged_PIF:pif_ref
-						~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network)
-				| _ -> () (* this should never happen cos we should never have more than one of _our_ pifs on the same nework *)
-			end
-	in 
-	(* for each of the master's pifs, create a corresponding one on this host if necessary *)
-	List.iter maybe_create_vlan_pif_for_me master_vlan_pifs
+	let host = !Xapi_globs.localhost_ref in
+	Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.sync_vlans ~rpc ~session_id ~host)
 
 (** Copy tunnels from master *)
 let copy_tunnels_from_master ~__context () =

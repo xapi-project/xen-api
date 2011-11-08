@@ -2366,6 +2366,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
 			let local_fn = Local.Host.sm_dp_destroy ~host ~dp ~allow_leak in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.sm_dp_destroy rpc session_id host dp allow_leak)
+
+		let sync_vlans ~__context ~host =
+			info "Host.sync_vlans: host = '%s'" (host_uuid ~__context host);
+			Local.Host.sync_vlans ~__context ~host
 	end
 
 	module Host_crashdump = struct

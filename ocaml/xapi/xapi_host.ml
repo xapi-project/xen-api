@@ -1363,3 +1363,71 @@ let disable_local_storage_caching ~__context ~host =
 	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
 	Monitor.unset_cache_sr ();
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> ()
+
+(* Here's how we do VLAN resyncing:
+   We take a VLAN master and record (i) the Network it is on; (ii) its VLAN tag;
+   (iii) the Network of the PIF that underlies the VLAN (e.g. eth0 underlies eth0.25).
+   We then look to see whether we already have a VLAN record that is (i) on the same Network;
+   (ii) has the same tag; and (iii) also has a PIF underlying it on the same Network.
+   If we do not already have a VLAN that falls into this category then we make one,
+   as long as we already have a suitable PIF to base the VLAN off -- if we don't have such a
+   PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
+*)
+let sync_vlans ~__context ~host =
+	let master = !Xapi_globs.localhost_ref in
+	let master_vlan_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of master)),
+		Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
+	)) in
+	let slave_vlan_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
+	)) in
+
+	let get_network_of_pif_underneath_vlan vlan_pif =
+		let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif in
+		let pif_underneath_vlan = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+		Db.PIF.get_network ~__context ~self:pif_underneath_vlan
+	in
+
+	let maybe_create_vlan (master_pif_ref, master_pif_rec) =
+		(* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
+		let existing_pif = List.filter (fun (slave_pif_ref, slave_pif_record) ->
+			(* Is slave VLAN PIF that we're considering (slave_pif_ref) the one that corresponds
+			 * to the master_pif we're considering (master_pif_ref)? *)
+			true
+			&& slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+			&& slave_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
+			&& ((get_network_of_pif_underneath_vlan slave_pif_ref) =
+				(get_network_of_pif_underneath_vlan master_pif_ref))
+			) slave_vlan_pifs in
+		(* if I don't have any such pif(s) then make one: *)
+		if List.length existing_pif = 0
+		then
+			begin
+				(* On the master, we find the pif, p, that underlies the VLAN
+				 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
+				let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
+				let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of network_of_pif_underneath_vlan_on_master))
+				)) in
+				match pifs with
+				| [] ->
+					(* We have no PIF on which to make the VLAN; do nothing *)
+					()
+				| [(pif_ref, pif_rec)] ->
+					(* This is the PIF on which we want to base our VLAN record; let's make it *)
+					debug "Creating VLAN %Ld on slave" master_pif_rec.API.pIF_VLAN;
+					ignore (Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif_ref
+						~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network
+						~device:pif_rec.API.pIF_device)
+				| _ ->
+					(* This should never happen since we should never have more than one of _our_ pifs
+					 * on the same network *)
+					 ()
+			end
+	in
+	(* For each of the master's PIFs, create a corresponding one on the slave if necessary *)
+	List.iter maybe_create_vlan master_vlan_pifs
+

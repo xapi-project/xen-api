@@ -274,3 +274,7 @@ val get_thread_diagnostics : __context:Context.t -> host:API.ref_host -> string
 
 (** Attempt to cleanup and destroy an SM datapath *)
 val sm_dp_destroy : __context:Context.t -> host:API.ref_host -> dp:string -> allow_leak:bool -> unit
+
+(** Synchronise slave VLANs with master *)
+val sync_vlans : __context:Context.t -> host:API.ref_host -> unit
+
