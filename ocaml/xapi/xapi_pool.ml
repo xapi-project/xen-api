@@ -149,8 +149,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		end in
 
 	let assert_management_interface_is_physical () =
-		let pifs = Db.PIF.get_all_records ~__context in
-		if List.exists (fun (_,pifr)-> pifr.API.pIF_management && not pifr.API.pIF_physical) pifs then begin
+		let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+			Eq (Field "management", Literal "true"),
+			Eq (Field "physical", Literal "false")
+		)) in
+		if pifs <> [] then begin
 			error "The current host has a management interface which is not physical: cannot join a new pool";
 			raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_physical_managment_nic, []));
 		end in
@@ -577,8 +580,9 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 		List.map (protect_exn (create_or_get_network_on_master __context rpc session_id)) my_networks in
 
 	(* update PIFs *)
-	let my_pifs = Db.PIF.get_all_records ~__context in
-	let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_physical) my_pifs in
+	let my_pifs = Db.PIF.get_records_where ~__context ~expr:(
+		Eq (Field "physical", Literal "true")
+	) in
 	let (_ : API.ref_PIF option list) =
 		List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
 
