@@ -14,6 +14,7 @@
 
 open Listext
 open Client
+open Db_filter_types
 
 module D=Debug.Debugger(struct let name="sync_networking" end)
 open D
@@ -22,17 +23,23 @@ open D
 (* This, and the associated startup item in xapi.ml, can be removed as soon as upgrades from anything
  * pre-Boston are no longer supported. *)
 let fix_bonds ~__context () =
-	let pifs = Helpers.get_my_pifs ~__context in
-	
+	let me = !Xapi_globs.localhost_ref in
+	let my_slave_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of me)),
+		Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))
+	)) in
 	(* Fix incorrect PIF.bond_slave_of fields *)
 	List.iter (fun (rf, rc) ->
-		if rc.API.pIF_bond_slave_of <> Ref.null && not (Db.is_valid_ref __context rc.API.pIF_bond_slave_of) then
+		if not (Db.is_valid_ref __context rc.API.pIF_bond_slave_of) then
 			Db.PIF.set_bond_slave_of ~__context ~self:rf ~value:Ref.null
-	) pifs;
+	) my_slave_pifs;
 
-	let local_bond_masters = List.filter (fun (_, pifr) -> pifr.API.pIF_bond_master_of <> []) pifs in
-	let local_bonds = List.map (fun (_, pifr) -> List.hd pifr.API.pIF_bond_master_of) local_bond_masters in
-	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) local_bonds
+	let my_bond_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of me)),
+		Not (Eq (Field "bond_master_of", Literal "()"))
+	)) in
+	let my_bonds = List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs in
+	List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) my_bonds
 
 (** Copy Bonds from master *)
 let copy_bonds_from_master ~__context () =
@@ -41,14 +48,25 @@ let copy_bonds_from_master ~__context () =
 	let pool = List.hd (Db.Pool.get_all ~__context) in
 	let master = Db.Pool.get_master ~__context ~self:pool in
 
-	let all_pifs = Db.PIF.get_records_where ~__context ~expr:Db_filter_types.True in
-	let all_master_pifs = List.filter (fun (_, prec) -> prec.API.pIF_host=master) all_pifs in
-	let my_pifs = List.filter (fun (_, pif) -> pif.API.pIF_host=me) all_pifs in
+	let master_bond_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of master)),
+		Not (Eq (Field "bond_master_of", Literal "()"))
+	)) in
+	let master_bonds = List.map (fun (_, pif) ->
+		Db.Bond.get_record ~__context ~self:(List.hd pif.API.pIF_bond_master_of)) master_bond_pifs in
+
+	let my_bond_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of me)),
+		Not (Eq (Field "bond_master_of", Literal "()"))
+	)) in
+	let my_slave_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of me)),
+		Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))
+	)) in
 
 	(* Consider Bonds *)
 	debug "Resynchronising bonds";
-	let all_bonds = Db.Bond.get_records_where ~__context ~expr:Db_filter_types.True in
-	let maybe_create_bond_for_me bond = 
+	let maybe_create_bond_for_me bond =
 		let network = Db.PIF.get_network ~__context ~self:bond.API.bond_master in
 		let slaves_to_mac_and_device_map =
 			List.map (fun self -> self, Db.PIF.get_MAC ~__context ~self, Db.PIF.get_device ~__context ~self)
@@ -76,18 +94,16 @@ let copy_bonds_from_master ~__context () =
 		(* Look at the master's slaves and find the corresponding slave PIFs. Note that the slave
 		 * might not have the necessary devices: in this case we'll try to make partial bonds *)
 		let slave_devices = List.map (fun (_,_,device)->device) slaves_to_mac_and_device_map in
-		let my_slave_pifs = List.filter
-			(fun (_, pif) -> List.mem pif.API.pIF_device slave_devices && pif.API.pIF_VLAN = (-1L)) my_pifs in
-
-		let my_slave_pif_refs = List.map fst my_slave_pifs in
-		(* Do I have a pif that I should treat as a primary pif - 
+		let my_slave_pifs' = List.filter (fun (_, pif) -> List.mem pif.API.pIF_device slave_devices) my_slave_pifs in
+		let my_slave_pif_refs = List.map fst my_slave_pifs' in
+		(* Do I have a pif that I should treat as a primary pif -
 		 * i.e. the one to inherit the MAC address from on my bond create? *)
 		let my_primary_slave =
 			match device_of_primary_slave with
 			| None -> None (* don't care cos we couldn't even figure out who master's primary slave was *)
 			| Some master_primary ->
 				begin
-					match List.filter (fun (_,pif) -> pif.API.pIF_device=master_primary) my_slave_pifs with
+					match List.filter (fun (_,pif) -> pif.API.pIF_device=master_primary) my_slave_pifs' with
 					| [] -> None
 					| [pifref,_] ->
 						debug "I have found a PIF to use as primary bond slave (will inherit MAC address of bond from this PIF).";
@@ -101,8 +117,8 @@ let copy_bonds_from_master ~__context () =
 			match my_primary_slave with
 			| None -> my_slave_pif_refs (* no change *)
 			| Some primary_pif -> primary_pif :: (List.filter (fun x-> x<>primary_pif) my_slave_pif_refs) (* remove primary pif ref and stick it on the front *)
-		in				 
-		match List.filter (fun (_, pif) -> pif.API.pIF_network = network) my_pifs, my_slave_pifs with
+		in
+		match List.filter (fun (_, pif) -> pif.API.pIF_network = network) my_bond_pifs, my_slave_pifs with
 		| [], [] ->
 			(* No bond currently exists but neither do any slave interfaces -> do nothing *)
 			warn "Cannot create bond %s at all: no PIFs exist on slave" bond.API.bond_uuid
@@ -125,10 +141,7 @@ let copy_bonds_from_master ~__context () =
 				uuid (Db.Network.get_uuid ~__context ~self:network)
 		| _ -> warn "Unexpected bond configuration"
 	in
-	let master_bonds =
-		List.filter (fun (_, b) -> List.mem b.API.bond_master (List.map fst all_master_pifs)) all_bonds in
-	List.iter (Helpers.log_exn_continue "resynchronising bonds on slave" maybe_create_bond_for_me)
-	(List.map snd master_bonds)
+	List.iter (Helpers.log_exn_continue "resynchronising bonds on slave" maybe_create_bond_for_me) master_bonds
 
 (** Copy VLANs from master *)
 (* Here's how we do VLAN resyncing:
