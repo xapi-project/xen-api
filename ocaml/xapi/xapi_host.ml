@@ -733,9 +733,15 @@ let syslog_reconfigure ~__context ~host =
 	syslog_config_write destination destination_only listen_remote
 
 let get_management_interface ~__context ~host =
-	let pifs = Db.PIF.get_all_records ~__context in
-	let management_pif, _ = List.find (fun (_, pif) -> pif.API.pIF_management && pif.API.pIF_host = host) pifs in
-	management_pif
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Eq (Field "management", Literal "true")
+	)) in
+	match pifs with
+	| [] ->
+		raise Not_found
+	| pif :: _ ->
+		pif
 
 let change_management_interface ~__context interface =
 	debug "Changing management interface";
