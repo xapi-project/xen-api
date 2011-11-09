@@ -1259,6 +1259,7 @@ let refresh_pack_info ~__context ~host =
 
 let reset_networking ~__context ~host =
 	debug "Resetting networking";
+	(* This is only ever done on the master, so using "Db.*.get_all " is ok. *)
 	let local_pifs = List.filter (fun pif -> Db.PIF.get_host ~__context ~self:pif = host) (Db.PIF.get_all ~__context) in
 	let bond_is_local bond =
 		List.fold_left (fun a pif -> Db.Bond.get_master ~__context ~self:bond = pif || a) false local_pifs
@@ -1278,10 +1279,12 @@ let reset_networking ~__context ~host =
 	let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
 	List.iter (fun tunnel -> debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel);
 		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
-	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
-		let metrics = Db.PIF.get_metrics ~__context ~self:pif in
-		Db.PIF.destroy ~__context ~self:pif;
-		Db.PIF_metrics.destroy ~__context ~self:metrics
+	List.iter (fun self -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self);
+		if Db.PIF.get_physical ~__context ~self = true || Db.PIF.get_bond_master_of ~__context ~self <> [] then begin
+			let metrics = Db.PIF.get_metrics ~__context ~self in
+			Db.PIF_metrics.destroy ~__context ~self:metrics
+		end;
+		Db.PIF.destroy ~__context ~self;
 	) local_pifs
 
 (* CPU feature masking *)
