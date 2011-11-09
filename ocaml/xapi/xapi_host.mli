@@ -281,3 +281,7 @@ val sync_vlans : __context:Context.t -> host:API.ref_host -> unit
 (** Synchronise slave tunnels with master *)
 val sync_tunnels : __context:Context.t -> host:API.ref_host -> unit
 
+(** Synchronise PIF.currently_attached fields on given host.
+ *  The parameter [bridges] contains a list of bridge names reflecting all bridges that are up. *)
+val sync_pif_currently_attached : __context:Context.t -> host:API.ref_host -> bridges:string list -> unit
+
