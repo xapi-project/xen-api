@@ -400,47 +400,17 @@ let test_uniqueness_doesnt_kill_us ~__context =
  *)
 let resynchronise_pif_params ~__context =
 	let localhost = Helpers.get_localhost ~__context in
-	(* 1. Acquire data. We minimise round-trips not bandwidth *)
-	let networks = Db.Network.get_all_records ~__context in
-	let expr = Db_filter_types.Eq(Db_filter_types.Field "host", Db_filter_types.Literal (Ref.string_of localhost)) in
-	let pifs = Db.PIF.get_records_where ~__context ~expr in
 
-	(* 2. Inspect current system configuration *)
-	let bridges_already_up = 
-		try Xapi_pif.read_bridges_from_inventory ()
-		with Xapi_inventory.Missing_inventory_key _ -> [] in
-	debug "dom0 interfaces: [%s]" (String.concat "; " bridges_already_up);
-	let management_bridge = 
-		try [ Xapi_inventory.lookup Xapi_inventory._management_interface ]
-		with Xapi_inventory.Missing_inventory_key _ -> [] in			
-	debug "management interface: [%s]" (String.concat "; " management_bridge);
+	(* Determine all bridges that are currently up, and ask the master to sync the currently_attached
+	 * fields on all my PIFs *)
+	Helpers.call_api_functions ~__context (fun rpc session_id ->
+		let bridges = Netdev.network.Netdev.list () in
+		Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
+	);
 
-	(* 3. Produce internal lookup tables *)
-	let network_to_bridge = List.map (fun (net, net_r) -> net, net_r.API.network_bridge) networks in
-
-	(* PIF -> bridge option: None means "dangling PIF" *)
-	let pifs_to_bridge =
-		(* Create a list pairing each PIF with the bridge for the network 
-		   that it is on *)
-		List.map (fun (pif, pif_r) ->
-			let net = pif_r.API.pIF_network in
-			let bridge = if List.mem_assoc net network_to_bridge
-			then Some (List.assoc net network_to_bridge) else None in
-			pif, bridge) pifs in
-
-	(* 4. Perform the database resynchronisation *)
-	List.iter
-		(fun (pif, pif_r) ->
-			let all_up_bridges = management_bridge @ bridges_already_up in
-			let bridge = List.assoc pif pifs_to_bridge in
-			let currently_attached = Opt.default false (Opt.map (fun x -> List.mem x all_up_bridges) bridge) in
-			if pif_r.API.pIF_currently_attached <> currently_attached then begin
-				Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached;
-				debug "PIF %s currently_attached <- %b" (Ref.string_of pif) currently_attached;
-			end;
-		) pifs;
 	(* sync management *)
 	Xapi_pif.update_management_flags ~__context ~host:localhost;
+
 	(* sync MACs and MTUs *)
 	Xapi_pif.refresh_all ~__context ~host:localhost
 
