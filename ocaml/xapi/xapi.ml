@@ -24,7 +24,7 @@ open Listext
 open Auth_signature
 open Extauth
 open Xenstore
-
+open Db_filter_types
 
 module D=Debug.Debugger(struct let name="xapi" end)
 open D
@@ -608,12 +608,17 @@ let check_network_reset () =
 				
 				(* Introduce PIFs for remaining interfaces *)
 				Xapi_pif.scan ~__context ~host;
-				let pifs = Db.PIF.get_all ~__context in
 				
 				(* Introduce and configure the management PIF *)
-				let pif = List.find (fun p -> Db.PIF.get_device ~__context ~self:p = device) pifs in
-				Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask ~gateway ~dNS;
-				Xapi_host.management_reconfigure ~__context ~pif;
+				let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "device", Literal device)
+				)) in
+				match pifs with
+				| [] -> error "management PIF %s not found" device
+				| pif :: _ ->
+					Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask ~gateway ~dNS;
+					Xapi_host.management_reconfigure ~__context ~pif;
 			);
 		(* Remove trigger file *)
 		Unix.unlink("/tmp/network-reset")
