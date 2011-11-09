@@ -215,11 +215,23 @@ let update_pifs ~__context host pifs =
 			(* 1. Update corresponding VIF carrier flags *)
 			if !Monitor_rrds.pass_through_pif_carrier then begin
 				try
-					(* go from physical interface -> bridge -> vif devices *)
+					(* Go from physical interface -> bridge -> vif devices.
+					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
 					let network = pifrec.API.pIF_network in
-					let bridge = Db.Network.get_bridge ~__context ~self:network in
+					let vlan_networks = List.map (fun vlan ->
+						let vlan_master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+						Db.PIF.get_network ~__context ~self:vlan_master
+					) pifrec.API.pIF_VLAN_slave_of
+					in
+					let tunnel_networks = List.map (fun tunnel ->
+						let access_pif = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+						Db.PIF.get_network ~__context ~self:access_pif
+					) pifrec.API.pIF_tunnel_transport_PIF_of
+					in
+					let bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network)
+						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
-					let ifs = n.Netdev.intf_list bridge in
+					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
 
 					let set_carrier xs vif =
 						if vif.Monitor.pv
