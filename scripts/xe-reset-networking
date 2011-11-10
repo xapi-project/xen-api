@@ -98,7 +98,8 @@ if __name__ == "__main__":
 		sys.exit(1)
 	
 	# Warn user
-	warning = """!! WARNING !!
+	if not os.access('/tmp/fist_network_reset_no_warning', os.F_OK):
+		warning = """!! WARNING !!
 
 This command will reboot the host and reset its network configuration.
 Before completing this command:
@@ -107,9 +108,9 @@ Before completing this command:
 
 Type 'yes' to continue.
 """
-	res = raw_input(warning)
-	if res <> 'yes':
-		sys.exit(1)
+		res = raw_input(warning)
+		if res <> 'yes':
+			sys.exit(1)
 	
 	# Update master's IP, if needed and given
 	if master == True and options.address != None:
