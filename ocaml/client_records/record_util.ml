@@ -347,11 +347,13 @@ let ip_configuration_mode_of_string m =
 let bond_mode_to_string = function
 	| `balanceslb -> "balance-slb"
 	| `activebackup -> "active-backup"
+	| `lacp -> "lacp"
 
 let bond_mode_of_string m =
 	match String.lowercase m with
 	| "balance-slb" | "" -> `balanceslb
 	| "active-backup" -> `activebackup
+	| "lacp" -> `lacp
 	| s -> raise (Record_failure ("Invalid bond mode. Got " ^ s))
 
 let bool_of_string s =

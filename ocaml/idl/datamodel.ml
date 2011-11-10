@@ -4351,6 +4351,7 @@ let bond_mode =
 	Enum ("bond_mode", [
 		"balance-slb", "Source-level balancing";
 		"active-backup", "Active/passive bonding: only one NIC is carrying traffic";
+		"lacp", "Link aggregation control protocol";
 	])
 
 let bond_create = call
