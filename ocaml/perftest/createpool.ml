@@ -400,7 +400,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
 			let nets = List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs in
 			unused_nets := List.filter (fun net -> not (List.mem net nets)) !unused_nets;
 			let mac = Client.PIF.get_MAC poolrpc poolses master in
-			let bond = Client.Bond.create poolrpc poolses bondednets.(bnum) pifs mac `balanceslb in
+			let bond = Client.Bond.create poolrpc poolses bondednets.(bnum) pifs mac `balanceslb [] in
 			let bondpif = Client.Bond.get_master poolrpc poolses bond in
 			Client.PIF.reconfigure_ip poolrpc poolses bondpif `Static (Client.PIF.get_IP poolrpc poolses master) "255.255.255.0" "" "";
 			if Client.PIF.get_management poolrpc poolses master then begin

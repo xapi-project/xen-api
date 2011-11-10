@@ -2556,13 +2556,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 	end
 
 	module Bond = struct
-		let create ~__context ~network ~members ~mAC ~mode =
+		let create ~__context ~network ~members ~mAC ~mode ~properties =
 			info "Bond.create: network = '%s'; members = [ %s ]"
 				(network_uuid ~__context network) (String.concat "; " (List.map (pif_uuid ~__context) members));
 			if List.length members = 0
 			then raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []));
 			let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
-			let local_fn = Local.Bond.create ~network ~members ~mAC ~mode in
+			let local_fn = Local.Bond.create ~network ~members ~mAC ~mode ~properties in
 			(* The management interface on the slave may change during this operation, so expect connection loss.
 			 * Consider the operation successful if task progress is set to 1.0. *)
 			let task = Context.get_task_id __context in
@@ -2575,7 +2575,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					None
 			in
 			let fn () =
-				do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode) in
+				do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.create rpc session_id network members mAC mode properties) in
 			tolerate_connection_loss fn success
 
 		let destroy ~__context ~self =

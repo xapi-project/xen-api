@@ -35,6 +35,7 @@ val create :
   members:[ `PIF ] Ref.t list ->
   mAC:string ->
   mode:API.bond_mode ->
+  properties:(string * string) list ->
   [ `Bond ] Ref.t
 
 (** Destroy the bond master (PIF) and the Bond objects, unless the bond master
