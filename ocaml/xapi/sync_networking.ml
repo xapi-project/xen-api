@@ -59,6 +59,7 @@ let copy_bonds_from_master ~__context () =
 		let master_bond_mac = Db.PIF.get_MAC ~__context ~self:bond.API.bond_master in
 		(* The bond mode used on the master. We will use the same mode on the slave, when creating a new bond. *)
 		let bond_mode = bond.API.bond_mode in
+		let bond_properties = bond.API.bond_properties in
 		let master_slaves_with_same_mac_as_bond (* expecting a list of at most 1 here *) =
 			List.filter (fun (pifref,mac,device) -> mac=master_bond_mac) slaves_to_mac_and_device_map in
 		(* This tells us the device that the master used to inherit the bond's MAC address
@@ -109,7 +110,7 @@ let copy_bonds_from_master ~__context () =
 		| [], _ ->
 			(* No bond currently exists but some slave interfaces do -> create a (partial?) bond *)
 			(* CA-56957: changed the following from Client.Bond.... to Xapi_bond.... *)
-			let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode in ()
+			let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode ~properties:bond_properties in ()
 		| [ _, { API.pIF_bond_master_of = [ slave_bond ] } ], _ ->
 			(* Some bond exists, check whether the existing set of slaves is the same as the potential set *)
 			let current_slave_pifs = Db.Bond.get_slaves ~__context ~self:slave_bond in
@@ -118,7 +119,7 @@ let copy_bonds_from_master ~__context () =
 				debug "Partial bond exists; recreating";
 				(* CA-56957: changed the following from Client.Bond.... to Xapi_bond.... *)
 				Xapi_bond.destroy ~__context ~self:slave_bond;
-				let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode in ()
+				let (_: API.ref_Bond) = Xapi_bond.create ~__context ~network ~members:my_slave_pif_refs ~mAC:"" ~mode:bond_mode ~properties:bond_properties in ()
 			end
 		| [ _, { API.pIF_uuid = uuid } ], _ ->
 			warn "Couldn't create bond on slave because PIF %s already on network %s"

@@ -204,7 +204,7 @@ let fix_bond ~__context ~bond =
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
-let create ~__context ~network ~members ~mAC ~mode =
+let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 
@@ -286,7 +286,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave ~mode;
+			~primary_slave ~mode ~properties;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
