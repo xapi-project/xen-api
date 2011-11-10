@@ -1279,7 +1279,10 @@ let reset_networking ~__context ~host =
 	List.iter (fun tunnel -> debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel);
 		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
 	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
-		Db.PIF.destroy ~__context ~self:pif) local_pifs
+		let metrics = Db.PIF.get_metrics ~__context ~self:pif in
+		Db.PIF.destroy ~__context ~self:pif;
+		Db.PIF_metrics.destroy ~__context ~self:metrics
+	) local_pifs
 
 (* CPU feature masking *)
 
