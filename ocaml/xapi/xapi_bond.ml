@@ -14,6 +14,7 @@
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+open Fun
 open Listext
 open Threadext
 open Hashtblext
@@ -460,6 +461,14 @@ let set_mode ~__context ~self ~value =
 	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
 	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
 	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string value);
+
+	(* Set up sensible properties for this bond mode. *)
+	let requirements = requirements_of_mode value in
+	let properties = Db.Bond.get_properties ~__context ~self
+		|> List.filter (fun property -> try ignore(validate_property requirements property); true with _-> false)
+		|> add_defaults requirements
+	in
+	Db.Bond.set_properties ~__context ~self ~value:properties;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
