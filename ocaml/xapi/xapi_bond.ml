@@ -204,6 +204,53 @@ let fix_bond ~__context ~bond =
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
+(* Represents a required property of a bond and its allowed values. *)
+type requirement =
+	{
+		name:string;
+		default_value:string;
+		is_valid_value:string -> bool;
+	}
+
+let requirements_of_mode = function
+	| `lacp -> [
+			{
+				name = "hashing_algorithm";
+				default_value = "src_mac";
+				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
+			};
+		]
+	| _ -> []
+
+(* Validate a key-value pair against a list of property requirements. *)
+let validate_property requirements (property_name, property_value) =
+	let fail () = raise (Api_errors.Server_error
+		(Api_errors.invalid_value, ["properties"; Printf.sprintf "%s = %s" property_name property_value]))
+	in
+	(* Try to find a required property requirement with this name. *)
+	let requirement =
+		try
+			List.find
+				(fun requirement -> requirement.name = property_name)
+				requirements
+		with Not_found -> fail ()
+	in
+	(* Check whether the proposed value for this property is allowed. *)
+	if not (requirement.is_valid_value property_value) then fail ()
+
+(* Check that a property is present for each requirement. *)
+(* If any are not, add the default value. *)
+let add_defaults requirements properties =
+	let property_is_present requirement = List.exists
+		(fun (property_name, _) -> property_name = requirement.name)
+		properties
+	in
+	List.fold_left
+		(fun acc requirement ->
+			if property_is_present requirement then acc
+			else (requirement.name, requirement.default_value)::acc)
+		properties requirements
+
 let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
@@ -212,6 +259,14 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 	 * primary slave PIF' (see below) *)
 	if mAC <> "" && (not (Helpers.is_valid_MAC mAC)) then
 		raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC]));
+
+	let requirements = requirements_of_mode mode in
+	(* Check that each of the supplied properties is valid. *)
+	List.iter
+		(fun property -> validate_property requirements property)
+		properties;
+	(* Add default properties if necessary. *)
+	let properties = add_defaults requirements properties in
 
 	(* Prevent someone supplying the same PIF multiple times and bypassing the
 	 * number of bond members check *)
