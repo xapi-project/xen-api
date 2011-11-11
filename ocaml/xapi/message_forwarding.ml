@@ -2601,6 +2601,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 			let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
 			let local_fn = Local.Bond.set_mode ~self ~value in
 			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_mode rpc session_id self value)
+
+		let set_property ~__context ~self ~name ~value =
+			info "Bond.set_property: bond = '%s'; name = '%s'; value = '%s'" (bond_uuid ~__context self) name value;
+			let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
+			let local_fn = Local.Bond.set_property ~self ~name ~value in
+			do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Bond.set_property rpc session_id self name value)
 	end
 
 	module PIF = struct

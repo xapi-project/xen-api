@@ -474,3 +474,20 @@ let set_mode ~__context ~self ~value =
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
 
+let set_property ~__context ~self ~name ~value =
+	let mode = Db.Bond.get_mode ~__context ~self in
+	let requirements = requirements_of_mode mode in
+	validate_property requirements (name, value);
+
+	(* Remove the existing property with this name, then add the new value. *)
+	let properties = List.filter
+		(fun (property_name, _) -> property_name <> name)
+		(Db.Bond.get_properties ~__context ~self)
+	in
+	let properties = (name, value)::properties in
+	Db.Bond.set_properties ~__context ~self ~value:properties;
+
+	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
+	let master = Db.Bond.get_master ~__context ~self in
+	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
+	Nm.bring_pif_up ~__context master

@@ -4388,10 +4388,22 @@ let bond_set_mode = call
 	~allowed_roles:_R_POOL_OP
 	()
 
+let bond_set_property = call
+	~name:"set_property"
+	~doc:"Set the value of a property of the bond"
+	~params:[
+		Ref _bond, "self", "The bond";
+		String, "name", "The property name";
+		String, "value", "The property value";
+	]
+	~in_product_since:rel_tampa
+	~allowed_roles:_R_POOL_OP
+	()
+
 let bond = 
   create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ bond_create; bond_destroy; bond_set_mode ] 
+    ~messages:[ bond_create; bond_destroy; bond_set_mode; bond_set_property ]
     ~contents:
     [ uid _bond;
       field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
