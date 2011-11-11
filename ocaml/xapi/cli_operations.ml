@@ -642,12 +642,17 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 					let get_map = match field.get_map with
 						| Some x -> x
 						| None -> failwith (Printf.sprintf "Broken Client_records (field %s)" s)
-					in
-					let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
-					let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Client_records broken (field %s)" s) in
-					let map = get_map () in
-					if List.mem_assoc key map then remove_from_map key;
-					add_to_map key v
+					in begin
+						(* If set_in_map is present, use it instead of using remove_from_map followed by add_to_map. *)
+						match field.set_in_map with
+							| Some set_in_map -> set_in_map key v
+							| None ->
+								let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
+								let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Client_records broken (field %s)" s) in
+								let map = get_map () in
+								if List.mem_assoc key map then remove_from_map key;
+								add_to_map key v
+					end
 				| Set s -> failwith "Cannot param-set on set fields"
 				| Normal ->
 					let field=field_lookup record k in
@@ -713,6 +718,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
 			let all_optn = List.map (fun r -> r.name) all in
 			let settable = List.map (fun r -> r.name) (List.filter (fun r -> r.set <> None) all) in
 			let settable = settable @ (List.map (fun r -> r.name ^ ":") (List.filter (fun r -> r.add_to_map <> None) all)) in
+			let settable = settable @ (List.map (fun r -> r.name ^ ":") (List.filter (fun r -> r.set_in_map <> None) all)) in
 			let addable = List.map (fun r -> r.name) (List.filter (fun r -> r.add_to_set <> None || r.add_to_map <> None) all) in
 			let clearable = List.map (fun r -> r.name) (List.filter (fun r -> r.set <> None || r.get_set <> None || r.get_map <> None) all) in
 			(* We need the names of the set and map filters *)
