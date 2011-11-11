@@ -453,14 +453,23 @@ let destroy ~__context ~self =
 		TaskHelper.set_progress ~__context 1.0
 	)
 
+(* Temporary measure for compatibility with current interface-reconfigure.
+ * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
+let refresh_pif_other_config ~__context ~self =
+	let master = Db.Bond.get_master ~__context ~self in
+	let mode = Db.Bond.get_mode ~__context ~self in
+	let properties = Db.Bond.get_properties ~__context ~self in
+
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
+
+	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
+	if List.mem_assoc "hashing_algorithm" properties then
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(List.assoc "hashing_algorithm" properties)
+
 let set_mode ~__context ~self ~value =
 	Db.Bond.set_mode ~__context ~self ~value;
 	let master = Db.Bond.get_master ~__context ~self in
-
-	(* Temporary measure for compatibility with current interface-reconfigure.
-	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
-	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string value);
 
 	(* Set up sensible properties for this bond mode. *)
 	let requirements = requirements_of_mode value in
@@ -469,6 +478,8 @@ let set_mode ~__context ~self ~value =
 		|> add_defaults requirements
 	in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
+
+	refresh_pif_other_config ~__context ~self;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
@@ -486,6 +497,8 @@ let set_property ~__context ~self ~name ~value =
 	in
 	let properties = (name, value)::properties in
 	Db.Bond.set_properties ~__context ~self ~value:properties;
+
+	refresh_pif_other_config ~__context ~self;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	let master = Db.Bond.get_master ~__context ~self in
