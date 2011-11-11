@@ -42,6 +42,7 @@ type field  = { name: string;
 		get_map : (unit -> (string * string) list) option;
 		add_to_map: (string -> string -> unit) option;
 		remove_from_map: (string -> unit) option;
+		set_in_map: (string -> string -> unit) option; (* Change the value of an existing map field, without using add/remove *)
 		expensive: bool; (* Simply means an extra API call is required to get it *)
 		hidden: bool; (* Meaning we don't show it unless it's *explicitly* asked for (i.e. hidden from *-list and *-param-list *)
 		deprecated: bool; 
@@ -54,10 +55,11 @@ type ('a,'b) record = { getref : unit -> 'a Ref.t;
 			setrefrec : 'a Ref.t * 'b -> unit;
 			fields : field list; }
 		
-let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map ?set ?get_set ?get_map ?(expensive=false) ?(hidden=false) ?(deprecated=false) ?(case_insensitive=false) ~name ~get () = 
+let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map ?set_in_map ?set ?get_set ?get_map ?(expensive=false) ?(hidden=false) ?(deprecated=false) ?(case_insensitive=false) ~name ~get () = 
   { name = name; get = get; set = set; 
     add_to_set = add_to_set; remove_from_set = remove_from_set;
-    add_to_map = add_to_map; remove_from_map = remove_from_map; 
+    add_to_map = add_to_map; remove_from_map = remove_from_map;
+    set_in_map = set_in_map;
     get_set = get_set; get_map = get_map; expensive = expensive;
     hidden = hidden; case_insensitive = case_insensitive; 
     deprecated = deprecated
@@ -143,6 +145,10 @@ let bond_record rpc session_id bond =
         make_field ~name:"master"       ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_master) ();
         make_field ~name:"slaves"       ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.bond_slaves)) ();
         make_field ~name:"mode" ~get:(fun () -> Record_util.bond_mode_to_string (x ()).API.bond_mode) ();
+        make_field ~name:"properties"
+          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.bond_properties)
+          ~get_map:(fun () -> (x ()).API.bond_properties)
+          ~set_in_map:(fun k v -> Client.Bond.set_property rpc session_id bond k v) ();
         make_field ~name:"primary-slave" ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_primary_slave) ();
       ]
   }

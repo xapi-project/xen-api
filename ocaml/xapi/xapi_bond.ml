@@ -14,6 +14,7 @@
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
+open Fun
 open Listext
 open Threadext
 open Hashtblext
@@ -200,16 +201,58 @@ let fix_bond ~__context ~bond =
 				Db.Bond.set_primary_slave ~__context ~self:bond ~value:(List.hd members);
 	end
 
-let string_of_mode = function
-	| `balanceslb -> "balance-slb"
-	| `activebackup -> "active-backup"
-
-
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
 let with_local_lock f = Mutex.execute local_m f
 
-let create ~__context ~network ~members ~mAC ~mode =
+(* Represents a required property of a bond and its allowed values. *)
+type requirement =
+	{
+		name:string;
+		default_value:string;
+		is_valid_value:string -> bool;
+	}
+
+let requirements_of_mode = function
+	| `lacp -> [
+			{
+				name = "hashing_algorithm";
+				default_value = "src_mac";
+				is_valid_value = (fun str -> List.mem str ["src_mac"; "tcpudp_ports"]);
+			};
+		]
+	| _ -> []
+
+(* Validate a key-value pair against a list of property requirements. *)
+let validate_property requirements (property_name, property_value) =
+	let fail () = raise (Api_errors.Server_error
+		(Api_errors.invalid_value, ["properties"; Printf.sprintf "%s = %s" property_name property_value]))
+	in
+	(* Try to find a required property requirement with this name. *)
+	let requirement =
+		try
+			List.find
+				(fun requirement -> requirement.name = property_name)
+				requirements
+		with Not_found -> fail ()
+	in
+	(* Check whether the proposed value for this property is allowed. *)
+	if not (requirement.is_valid_value property_value) then fail ()
+
+(* Check that a property is present for each requirement. *)
+(* If any are not, add the default value. *)
+let add_defaults requirements properties =
+	let property_is_present requirement = List.exists
+		(fun (property_name, _) -> property_name = requirement.name)
+		properties
+	in
+	List.fold_left
+		(fun acc requirement ->
+			if property_is_present requirement then acc
+			else (requirement.name, requirement.default_value)::acc)
+		properties requirements
+
+let create ~__context ~network ~members ~mAC ~mode ~properties =
 	let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
 	Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
 
@@ -217,6 +260,14 @@ let create ~__context ~network ~members ~mAC ~mode =
 	 * primary slave PIF' (see below) *)
 	if mAC <> "" && (not (Helpers.is_valid_MAC mAC)) then
 		raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC]));
+
+	let requirements = requirements_of_mode mode in
+	(* Check that each of the supplied properties is valid. *)
+	List.iter
+		(fun property -> validate_property requirements property)
+		properties;
+	(* Add default properties if necessary. *)
+	let properties = add_defaults requirements properties in
 
 	(* Prevent someone supplying the same PIF multiple times and bypassing the
 	 * number of bond members check *)
@@ -291,7 +342,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 			~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
 			~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;
 		Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-			~primary_slave ~mode;
+			~primary_slave ~mode ~properties;
 
 		(* Set the PIF.bond_slave_of fields of the members.
 		 * The value of the Bond.slaves field is dynamically computed on request. *)
@@ -302,7 +353,7 @@ let create ~__context ~network ~members ~mAC ~mode =
 
 		(* Temporary measure for compatibility with current interface-reconfigure.
 		 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
-		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode mode);
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
 
 		begin match management_pif with
 		| Some management_pif ->
@@ -402,16 +453,54 @@ let destroy ~__context ~self =
 		TaskHelper.set_progress ~__context 1.0
 	)
 
+(* Temporary measure for compatibility with current interface-reconfigure.
+ * Remove once interface-reconfigure has been updated to recognise bond.mode and bond.properties. *)
+let refresh_pif_other_config ~__context ~self =
+	let master = Db.Bond.get_master ~__context ~self in
+	let mode = Db.Bond.get_mode ~__context ~self in
+	let properties = Db.Bond.get_properties ~__context ~self in
+
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
+	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-hashing-algorithm";
+
+	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(Record_util.bond_mode_to_string mode);
+	if List.mem_assoc "hashing_algorithm" properties then
+		Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-hashing-algorithm" ~value:(List.assoc "hashing_algorithm" properties)
+
 let set_mode ~__context ~self ~value =
 	Db.Bond.set_mode ~__context ~self ~value;
 	let master = Db.Bond.get_master ~__context ~self in
 
-	(* Temporary measure for compatibility with current interface-reconfigure.
-	 * Remove once interface-reconfigure has been updated to recognise bond.mode. *)
-	Db.PIF.remove_from_other_config ~__context ~self:master ~key:"bond-mode";
-	Db.PIF.add_to_other_config ~__context ~self:master ~key:"bond-mode" ~value:(string_of_mode value);
+	(* Set up sensible properties for this bond mode. *)
+	let requirements = requirements_of_mode value in
+	let properties = Db.Bond.get_properties ~__context ~self
+		|> List.filter (fun property -> try ignore(validate_property requirements property); true with _-> false)
+		|> add_defaults requirements
+	in
+	Db.Bond.set_properties ~__context ~self ~value:properties;
+
+	refresh_pif_other_config ~__context ~self;
 
 	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
 	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
 	Nm.bring_pif_up ~__context master
 
+let set_property ~__context ~self ~name ~value =
+	let mode = Db.Bond.get_mode ~__context ~self in
+	let requirements = requirements_of_mode mode in
+	validate_property requirements (name, value);
+
+	(* Remove the existing property with this name, then add the new value. *)
+	let properties = List.filter
+		(fun (property_name, _) -> property_name <> name)
+		(Db.Bond.get_properties ~__context ~self)
+	in
+	let properties = (name, value)::properties in
+	Db.Bond.set_properties ~__context ~self ~value:properties;
+
+	refresh_pif_other_config ~__context ~self;
+
+	(* Need to set currently_attached to false, otherwise bring_pif_up does nothing... *)
+	let master = Db.Bond.get_master ~__context ~self in
+	Db.PIF.set_currently_attached ~__context ~self:master ~value:false;
+	Nm.bring_pif_up ~__context master
