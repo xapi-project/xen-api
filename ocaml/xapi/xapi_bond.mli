@@ -45,6 +45,9 @@ val destroy : __context:Context.t -> self:[ `Bond ] Ref.t -> unit
 (** Change the bond mode. *)
 val set_mode : __context:Context.t -> self:[ `Bond ] Ref.t -> value:API.bond_mode -> unit
 
+(** Change a property of the bond. *)
+val set_property : __context:Context.t -> self:[ `Bond ] Ref.t -> name:string -> value:string -> unit
+
 (** If the given bond has VIFs or VLANs on its slaves, move these to the master. *)
 val fix_bond :
   __context:Context.t ->
