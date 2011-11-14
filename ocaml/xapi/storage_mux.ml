@@ -23,7 +23,7 @@ type plugin = {
 	processor: processor;
 	backend_domain: string;
 }
-let plugins : (API.ref_SR, plugin) Hashtbl.t = Hashtbl.create 10
+let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
 
 let debug_printer rpc call =
 	debug "Rpc.call = %s" (Xmlrpc.string_of_call call);
@@ -38,13 +38,13 @@ exception No_storage_plugin_for_sr of string
 
 (* This is the policy: *)
 let of_sr sr =
-	let sr' = Ref.of_string sr in
-	if not (Hashtbl.mem plugins sr') then begin
+	if not (Hashtbl.mem plugins sr) then begin
 		error "No storage plugin for SR: %s" sr;
 		raise (No_storage_plugin_for_sr sr)
-	end else (Hashtbl.find plugins sr').processor
+	end else (Hashtbl.find plugins sr).processor
+
 let domid_of_sr sr =
-	let uuid = (Hashtbl.find plugins (Ref.of_string sr)).backend_domain in
+	let uuid = (Hashtbl.find plugins sr).backend_domain in
 	try
 		Vmopshelpers.with_xc
 			(fun xc ->
@@ -85,7 +85,7 @@ module Mux = struct
 		let diagnostics context () =
 			let combine results =
 				let all = List.fold_left (fun acc (sr, result) ->
-					Printf.sprintf "For SR: %s" (Ref.string_of sr) :: (string_of_result result) :: acc) [] results in
+					Printf.sprintf "For SR: %s" sr :: (string_of_result result) :: acc) [] results in
 				Success (String (String.concat "\n" all)) in
 			fail_or combine (multicast (fun rpc -> Client.DP.diagnostics rpc ()))
 	end

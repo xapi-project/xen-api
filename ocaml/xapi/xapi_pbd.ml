@@ -113,7 +113,7 @@ let plug ~__context ~self =
 				let task = Ref.string_of (Context.get_task_id __context) in
 				let device_config = Db.PBD.get_device_config ~__context ~self in
 				Storage_access.expect_unit (fun () -> ())
-					(Storage_interface.Client.SR.attach Storage_access.rpc task (Ref.string_of sr) device_config);
+					(Storage_interface.Client.SR.attach Storage_access.rpc task (Db.SR.get_uuid ~__context ~self:sr) device_config);
 				Db.PBD.set_currently_attached ~__context ~self ~value:true;
 			end
 
@@ -164,7 +164,7 @@ let unplug ~__context ~self =
 			end;
 			let task = Ref.string_of (Context.get_task_id __context) in
 			Storage_access.expect_unit (fun () -> ())
-				(Storage_interface.Client.SR.detach Storage_access.rpc task (Ref.string_of sr));
+				(Storage_interface.Client.SR.detach Storage_access.rpc task (Db.SR.get_uuid ~__context ~self:sr));
             Storage_access.unbind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value:false
 		end

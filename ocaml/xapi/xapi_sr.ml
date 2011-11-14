@@ -521,7 +521,7 @@ let scan ~__context ~sr =
     let open Storage_interface in
 
 	let sr' = Ref.string_of sr in
-	match Client.SR.scan rpc ~task:(Ref.string_of task) ~sr:sr' with
+	match Client.SR.scan rpc ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) with
 		| Success (Vdis vs) ->
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
