@@ -78,6 +78,7 @@ module Hdr = struct
 	let acrh = "access-control-request-headers"
 	let cache_control = "cache-control"
     let content_disposition = "content-disposition"
+	let accept = "accept"
 end
 
 let output_http fd headers =
@@ -271,6 +272,65 @@ let read_http_response_header buf fd =
 	match read_frame_header buf with
 		| None -> read_up_to buf frame_header_length end_of_headers fd
 		| Some length -> Unixext.really_read fd buf 0 length; length
+
+module Accept = struct
+	(* Constraint: we can't have ty = None but subty <> None *)
+	type t = {
+		ty: string option; (* None means '*' *)
+		subty: string option; (* None means '*' *)
+		q: int; (* range 0 - 1000 *)
+		(* We won't parse the more advanced stuff *)
+	}
+
+	let string_of_t x = Printf.sprintf "%s/%s;q=%.3f" (Opt.default "*" x.ty) (Opt.default "*" x.subty) (float_of_int x.q /. 1000.)
+
+	let matches (ty, subty) = function
+		| { ty = Some ty'; subty = Some subty' } -> ty' = ty && (subty' = subty)
+		| { ty = Some ty'; subty = None } -> ty' = ty
+		| { ty = None;     subty = Some subty' } -> assert false
+		| { ty = None;     subty = None } -> true
+
+	(* compare [a] and [b] where both match some media type *)
+	let compare (a: t) (b: t) =
+		let c = compare a.q b.q in
+		if c <> 0
+		then -c (* q factor (user-preference) overrides all else *)
+		else match a.ty, b.ty with
+			| Some _, None -> 1
+			| None, Some _ -> -1
+			| _, _ ->
+				begin match a.subty, b.subty with
+					| Some _, None -> 1
+					| None, Some _ -> -1
+					| _, _ -> 0
+				end
+
+	let preferred_match media ts =
+		match List.filter (matches media) ts with
+			| [] -> None
+			| xs -> Some (List.hd (List.sort compare xs))
+
+	exception Parse_failure of string
+	let t_of_string x = match String.split ';' x with
+		| ty_subty :: params ->
+			let ty_of_string = function
+				| "*" -> None
+				| x -> Some x in
+			let ty, subty = match String.split '/' ty_subty with
+				| [ ty; subty ] -> ty_of_string ty, ty_of_string subty
+				| _ -> raise (Parse_failure ty_subty) in
+			if ty = None && (subty <> None) then raise (Parse_failure x);
+
+			let params = List.map (fun x -> match String.split ~limit:2 '=' x with
+				| [ k; v ] -> k, v
+				| _ -> raise (Parse_failure x)
+			) params in
+			let q = if List.mem_assoc "q" params then int_of_float (1000. *. (float_of_string (List.assoc "q" params))) else 1000 in
+			{ ty = ty; subty = subty; q = q }
+		| _ -> raise (Parse_failure x)
+
+	let ts_of_string x = List.map t_of_string (String.split ',' x)
+end
 
 module Request = struct
 	type t = {

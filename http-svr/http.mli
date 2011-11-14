@@ -31,6 +31,23 @@ val read_http_header: string -> Unix.file_descr -> int
 val read_http_request_header: string -> Unix.file_descr -> int * bool
 val read_http_response_header: string -> Unix.file_descr -> int
 
+module Accept : sig
+	type t = {
+		ty: string option; (* None means '*' *)
+		subty: string option; (* None means '*' *)
+		q: int;
+	}
+	exception Parse_failure of string
+	val t_of_string : string -> t
+	val ts_of_string : string -> t list
+
+	val string_of_t : t -> string
+
+	val matches : (string * string) -> t -> bool
+	val preferred_match : (string * string) -> t list -> t option
+end
+
+
 (** Parsed form of the HTTP request line plus cookie info *)
 module Request : sig
 	type t = {
