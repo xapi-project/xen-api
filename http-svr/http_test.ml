@@ -35,6 +35,65 @@ let test_accept_complex _ =
 	let m = Accept.preferred_match ("foo", "bar") ts in
 	assert((Opt.unbox m).Accept.ty = None)
 
+let test_strings = [
+	"/import_vdi";
+	"/import_raw_vdi";
+	"/export";
+	"/export_metadata";
+	"/import";
+	"/import_metadata";
+	"/migrate";
+	"/console";
+	"/host_backup";
+	"/host_restore";
+	"/host_logs_download";
+	"/pool_patch_upload";
+	"/oem_patch_stream";
+	"/pool_patch_download";
+	"/sync_config_files";
+	"/pool/xmldbdump";
+	"http";
+	"/vncsnapshot";
+	"/system-status";
+	"/remote_db_access";
+	"/remote_db_access_v2";
+	"/remote_stats";
+	"/json";
+	"/cli";
+	"/vm_rrd";
+	"/rrd";
+	"/host_rrd";
+	"/rrd_updates";
+	"/blob";
+	"/remotecmd";
+	"/rss";
+	"/wlb_report";
+	"/wlb_diagnostics";
+	"/audit_log";
+	"/"
+]
+
+let make_radix_tree () =
+	let open Radix_tree in
+	List.fold_left (fun t x -> insert x x t) empty test_strings
+
+let test_radix_tree1 _ =
+	let open Radix_tree in
+	let t = make_radix_tree () in
+	(* Check that each string can be found in the structure and maps to
+	   the right key *)
+	List.iter
+		(fun x ->
+			if longest_prefix x t <> Some x
+			then failwith (Printf.sprintf "x = %s" x)) test_strings
+
+let test_radix_tree2 _ =
+	let open Radix_tree in
+	let t = make_radix_tree () in
+	let all = fold (fun k v acc -> k :: acc) [] t in
+	if List.length all <> (List.length test_strings)
+	then failwith "fold"
+
 let _ =
     let verbose = ref false in
     Arg.parse [
@@ -46,5 +105,7 @@ let _ =
         [
             "accept_simple" >:: test_accept_simple;
             "accept_complex" >:: test_accept_complex;
+			"radix1" >:: test_radix_tree1;
+			"radix2" >:: test_radix_tree2;
 		] in
     run_test_tt ~verbose:!verbose suite
