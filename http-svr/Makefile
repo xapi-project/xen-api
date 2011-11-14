@@ -3,7 +3,7 @@ include ../config.mk
 OBJS = radix_tree server_io buf_io http http_svr http_client test_server test_client xMLRPC xmlrpc_client ws_helpers
 INTF = $(foreach obj, $(OBJS),$(obj).cmi)
 LIBS = http_svr.cma http_svr.cmxa
-PROGRAMS = test_server radix_tree
+PROGRAMS = test_server radix_tree http_test
 
 
 DOCDIR = ../doc
@@ -16,6 +16,12 @@ libs: $(LIBS)
 
 radix_tree.opt: radix_tree.cmx radix_tree_test.cmx
 	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "stdext,unix" -linkpkg -o $@ radix_tree.cmx radix_tree_test.cmx
+
+test: http_test.opt
+	./http_test.opt
+
+http_test.opt: http_svr.cmxa http_test.cmx
+	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "stdext,unix,threads,oUnit" -thread -linkpkg -o $@ -cclib -L../log ../log/log.cmxa http_svr.cmxa http_test.cmx
 
 test_server.opt: http_svr.cmxa test_server.cmx
 	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "stdext,unix,threads" -thread -linkpkg -o $@ -cclib -L../log ../log/log.cmxa http_svr.cmxa test_server.cmx
@@ -36,7 +42,7 @@ http_svr.cma: $(foreach obj,$(OBJS),$(obj).cmo)
 	$(OCAMLC) -c -I ../rpc-light -thread -o $@ $<
 
 %.cmx: %.ml %.cmi
-	$(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
+	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -package "oUnit" -c -thread -I ../rpc-light -I ../stdext -I ../log -I ../stunnel -o $@ $<
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
