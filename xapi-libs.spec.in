@@ -41,6 +41,7 @@ This package contains the fork-and-exec daemon, required by xapi at runtime.
 sh autogen.sh
 ./configure
 %{__make} 
+%{__make} test
 
 %install
 rm -rf %{buildroot}
