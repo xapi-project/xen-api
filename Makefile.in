@@ -162,6 +162,10 @@ doc:
 	$(MAKE) -C tapctl doc
 	$(MAKE) -C xen-utils doc
 
+.PHONY: test
+test:
+	$(MAKE) -C http-svr test
+
 .PHONY: clean
 clean:
 	$(MAKE) -C uuid clean
