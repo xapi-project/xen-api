@@ -21,7 +21,7 @@ test: http_test.opt
 	./http_test.opt
 
 http_test.opt: http_svr.cmxa http_test.cmx
-	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "stdext,unix,threads,oUnit" -thread -linkpkg -o $@ -cclib -L../log ../log/log.cmxa http_svr.cmxa http_test.cmx
+	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "unix,threads,oUnit" -thread -linkpkg -o $@ ../rpc-light/rpc.cmx ../uuid/uuid.cmxa -cclib -L../stdext ../stdext/stdext.cmxa -cclib -L../log ../log/log.cmxa  http_svr.cmxa http_test.cmx
 
 test_server.opt: http_svr.cmxa test_server.cmx
 	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) -package "stdext,unix,threads" -thread -linkpkg -o $@ -cclib -L../log ../log/log.cmxa http_svr.cmxa test_server.cmx
