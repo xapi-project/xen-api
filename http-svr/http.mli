@@ -57,6 +57,7 @@ module Request : sig
 		version: string;
 		frame: bool;
 		transfer_encoding: string option;
+		accept: string option;
 		content_length: int64 option;
 		auth: authorization option;
 		cookie: (string * string) list;
@@ -75,7 +76,7 @@ module Request : sig
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
-	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
 
 	(** [get_version t] returns the HTTP protocol version *)
 	val get_version: t -> string
@@ -154,6 +155,7 @@ module Hdr : sig
 	val acrh : string
 	val cache_control: string
 	val content_disposition: string
+	val accept: string
 end
 
 val output_http : Unix.file_descr -> string list -> unit

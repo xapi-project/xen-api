@@ -340,6 +340,7 @@ module Request = struct
 		version: string;
 		frame: bool;
 		transfer_encoding: string option;
+		accept: string option;
 		content_length: int64 option;
 		auth: authorization option;
 		cookie: (string * string) list;
@@ -359,6 +360,7 @@ module Request = struct
 		version="";
 		frame=false;
 		transfer_encoding=None;
+		accept=None;
 		content_length=None;
 		auth=None;
 		cookie=[];
@@ -371,7 +373,7 @@ module Request = struct
 		body = None;
 	}
 
-	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
+	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
 		{ empty with
 			version = version;
 			frame = frame;
@@ -385,6 +387,7 @@ module Request = struct
 			uri = path;
 			additional_headers = headers;
 			body = body;
+			accept = accept;
 		}
 
 	let get_version x = x.version
@@ -397,7 +400,7 @@ module Request = struct
             begin match String.split ~limit:2 '/' version with
                 | [ _; version ] ->
                     { m = method_t_of_string m; frame = false; uri = uri; query = query;
-                    content_length = None; transfer_encoding = None;
+                    content_length = None; transfer_encoding = None; accept = None;
                     version = version; cookie = []; auth = None; task = None;
                     subtask_of = None; content_type = None; user_agent = None;
                     close=false; additional_headers=[]; body = None }
@@ -426,6 +429,7 @@ module Request = struct
 		let query = if x.query = [] then "" else "?" ^ (kvpairs x.query) in
 		let cookie = if x.cookie = [] then [] else [ Hdr.cookie ^": " ^ (kvpairs x.cookie) ] in
 		let transfer_encoding = Opt.default [] (Opt.map (fun x -> [ Hdr.transfer_encoding ^": " ^ x ]) x.transfer_encoding) in
+		let accept = Opt.default [] (Opt.map (fun x -> [ Hdr.accept ^ ": " ^ x]) x.accept) in
 		let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length) in
 		let auth = Opt.default [] (Opt.map (fun x -> [ Hdr.authorization ^": " ^ (string_of_authorization x) ]) x.auth) in
 		let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
@@ -434,7 +438,7 @@ module Request = struct
 		let user_agent = Opt.default [] (Opt.map (fun x -> [ Hdr.user_agent^": " ^ x ]) x.user_agent) in
 		let close = [ Hdr.connection ^": " ^ (if x.close then "close" else "keep-alive") ] in
 		[ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
-		@ cookie @ transfer_encoding @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
+		@ cookie @ transfer_encoding @ accept @ content_length @ auth @ task @ subtask_of @ content_type @ user_agent @ close
 		@ (List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers)
 
 	let to_headers_and_body (x: t) =

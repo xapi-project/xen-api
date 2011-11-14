@@ -255,6 +255,7 @@ let request_of_bio_exn_slow ic =
 	let content_length = ref (-1L) in
 	let cookie = ref "" in
 	let transfer_encoding = ref None in
+	let accept = ref None in
 	let auth = ref None in
 	let task = ref None in
 	let subtask_of = ref None in
@@ -276,6 +277,7 @@ let request_of_bio_exn_slow ic =
 		let cookie_hdr = String.lowercase Http.Hdr.cookie in
 		let connection_hdr = String.lowercase Http.Hdr.connection in
 		let transfer_encoding_hdr = String.lowercase Http.Hdr.transfer_encoding in
+		let accept_hdr = String.lowercase Http.Hdr.accept in
 		let auth_hdr = String.lowercase Http.Hdr.authorization in
 		let task_hdr = String.lowercase Http.Hdr.task_id in
 		let subtask_of_hdr = String.lowercase Http.Hdr.subtask_of in
@@ -290,6 +292,7 @@ let request_of_bio_exn_slow ic =
 					| k when k = cl_hdr -> content_length := Int64.of_string v; true
 					| k when k = cookie_hdr -> cookie := v; true
 					| k when k = transfer_encoding_hdr -> transfer_encoding := Some v; true
+					| k when k = accept_hdr -> accept := Some v; true
 					| k when k = auth_hdr -> auth := Some(authorization_of_string v); true
 					| k when k = task_hdr -> task := Some v; true
 					| k when k = subtask_of_hdr -> subtask_of := Some v; true
@@ -314,6 +317,7 @@ let request_of_bio_exn_slow ic =
 		content_type = !content_type;
 		user_agent = !user_agent;
 		additional_headers = headers;
+		accept = !accept;
 	}
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
@@ -357,6 +361,7 @@ let request_of_bio_exn bio =
 							| k when k = Http.Hdr.content_length -> { req with content_length = Some (Int64.of_string v) }
 							| k when k = Http.Hdr.cookie -> { req with cookie = Http.parse_keyvalpairs v }
 							| k when k = Http.Hdr.transfer_encoding -> { req with transfer_encoding = Some v }
+							| k when k = Http.Hdr.accept -> { req with accept = Some v }
 							| k when k = Http.Hdr.authorization -> { req with auth = Some(authorization_of_string v) }
 							| k when k = Http.Hdr.task_id -> { req with task = Some v }
 							| k when k = Http.Hdr.subtask_of -> { req with subtask_of = Some v }
