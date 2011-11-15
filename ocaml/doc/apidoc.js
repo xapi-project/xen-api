@@ -126,11 +126,6 @@ function current_lifecycle_stage(s)
 	}
 }
 
-function get_release_name(s)
-{
-	return s;
-}
-
 function make_field(fld, n)
 {
 	name = fld.full_name.join('_');
@@ -319,6 +314,7 @@ function release_doc()
 function class_list()
 {
 	html = '<h2 class="title">Classes</h2>';
+	html += '<div id="class_overview"><a href="index.html">Overview</a></div>';
 	
 	classes.sort(function(a, b){return compare(a.toLowerCase(), b.toLowerCase())});
 	for (i in classes) {
@@ -343,6 +339,7 @@ function release_list()
 
 function build()
 {
+	make_header('apidoc');
 	if (cls != "") {
 		class_list();
 		release_list();
