@@ -314,6 +314,7 @@ function release_doc()
 function class_list()
 {
 	html = '<h2 class="title">Classes</h2>';
+	html += '<div id="class_overview"><a href="index.html">Overview</a></div>';
 	
 	classes.sort(function(a, b){return compare(a.toLowerCase(), b.toLowerCase())});
 	for (i in classes) {
