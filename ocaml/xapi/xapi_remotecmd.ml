@@ -40,7 +40,7 @@ let do_cmd s cmd args =
 let allowed_cmds = ["rsync","/usr/bin/rsync"]
 
 (* Handle URIs of the form: vmuuid:port *)
-let handler (req: Http.Request.t) s =
+let handler (req: Http.Request.t) s _ =
   let q = req.Http.Request.query in
   debug "remotecmd handler running";
   Xapi_http.with_context "Remote command" req s

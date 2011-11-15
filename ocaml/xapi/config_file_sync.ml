@@ -17,7 +17,7 @@ open D
 open Config_file_io
 
 (** URL used by slaves to fetch dom0 config files (currently /etc/passwd) *)
-let config_file_sync_handler (req: Http.Request.t) s =
+let config_file_sync_handler (req: Http.Request.t) s _ =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->

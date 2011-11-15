@@ -38,7 +38,7 @@ let destroy ~__context ~self =
 exception Unknown_blob
 exception No_storage
 
-let handler (req: Http.Request.t) s =
+let handler (req: Http.Request.t) s _ =
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
   debug "blob handler";

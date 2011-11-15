@@ -21,7 +21,7 @@ open D
 let vncsnapshot = "/usr/bin/vncsnapshot"
 
 
-let vncsnapshot_handler (req: Request.t) s =
+let vncsnapshot_handler (req: Request.t) s _ =
   debug "vncshapshot handler running";
   Xapi_http.with_context "Taking snapshot of VM console" req s
     (fun __context ->

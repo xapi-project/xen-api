@@ -237,7 +237,7 @@ let exception_handler s e =
     | exc ->
 	Cli_util.server_error Api_errors.internal_error [ ExnHelper.string_of_exn exc ] s
 
-let handler (req:Http.Request.t) (bio: Buf_io.t) =
+let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
   let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in 
   let s = Buf_io.fd_of bio in
   (* Tell the client the server version *)
