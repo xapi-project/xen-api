@@ -609,6 +609,7 @@ function component_index()
 
 function build()
 {
+	make_header('codedoc');
 	fill_components();
 	if (component == "")
 		component_index();
