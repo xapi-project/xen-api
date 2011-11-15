@@ -28,6 +28,7 @@ open Pervasiveext
 open Forkhelpers
 open Client
 open Threadext
+open Db_filter_types
 
 (* Create a redo_log instance to use for HA. *)
 let ha_redo_log = Redo_log.create ~name:"HA redo log" ~state_change_callback:None ~read_only:false
@@ -1387,18 +1388,19 @@ let enable __context heartbeat_srs configuration =
 	then raise (Api_errors.Server_error(Api_errors.license_restriction, []));
 
 	(* Check that all of our 'disallow_unplug' PIFs are currently attached *)
-	let pifs = Db.PIF.get_all_records ~__context in
-	let unplugged_ununpluggable_pifs =
-		List.filter (fun (_,pifr) -> pifr.API.pIF_disallow_unplug && (not pifr.API.pIF_currently_attached)) pifs
-	in
-
+	let unplugged_ununpluggable_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "disallow_unplug", Literal "true"),
+		Eq (Field "currently_attached", Literal "false")
+	)) in
 	if List.length unplugged_ununpluggable_pifs > 0 then
 		raise (Api_errors.Server_error(Api_errors.required_pif_is_unplugged,
-		(List.map (fun (pif,pifr) -> Ref.string_of pif) unplugged_ununpluggable_pifs)));
+		(List.map (fun pif -> Ref.string_of pif) unplugged_ununpluggable_pifs)));
 
 	(* Check also that any PIFs with IP information set are currently attached - it's a non-fatal
 	   error if they are, but we'll warn with a message *)
-	let pifs_with_ip_config = List.filter (fun (_,pifr) -> pifr.API.pIF_ip_configuration_mode <> `None) pifs in
+	let pifs_with_ip_config = Db.PIF.get_records_where ~__context ~expr:(
+		Not (Eq (Field "ip_configuration_mode", Literal "None"))
+	) in
 	let not_bond_slaves = List.filter (fun (_,pifr) -> not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)) pifs_with_ip_config in
 	let without_disallow_unplug = List.filter (fun (_,pifr) -> not (pifr.API.pIF_disallow_unplug || pifr.API.pIF_management)) not_bond_slaves in
 	if List.length without_disallow_unplug > 0 then begin
