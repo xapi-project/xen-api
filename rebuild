@@ -3,6 +3,6 @@
 export REPO=/myrepos/xen-api-libs
 
 set -e 
-make clean; make cleanxen;
-make uninstall; make uninstallxen; make binuninstall
-make all && make bins && make install && make allxen && make installxen && make bininstall
+make clean
+make uninstall; make binuninstall
+make all && make bins && make install && make bininstall
