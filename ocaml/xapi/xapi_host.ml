@@ -733,9 +733,15 @@ let syslog_reconfigure ~__context ~host =
 	syslog_config_write destination destination_only listen_remote
 
 let get_management_interface ~__context ~host =
-	let pifs = Db.PIF.get_all_records ~__context in
-	let management_pif, _ = List.find (fun (_, pif) -> pif.API.pIF_management && pif.API.pIF_host = host) pifs in
-	management_pif
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Eq (Field "management", Literal "true")
+	)) in
+	match pifs with
+	| [] ->
+		raise Not_found
+	| pif :: _ ->
+		pif
 
 let change_management_interface ~__context interface =
 	debug "Changing management interface";
@@ -1259,6 +1265,7 @@ let refresh_pack_info ~__context ~host =
 
 let reset_networking ~__context ~host =
 	debug "Resetting networking";
+	(* This is only ever done on the master, so using "Db.*.get_all " is ok. *)
 	let local_pifs = List.filter (fun pif -> Db.PIF.get_host ~__context ~self:pif = host) (Db.PIF.get_all ~__context) in
 	let bond_is_local bond =
 		List.fold_left (fun a pif -> Db.Bond.get_master ~__context ~self:bond = pif || a) false local_pifs
@@ -1278,10 +1285,12 @@ let reset_networking ~__context ~host =
 	let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
 	List.iter (fun tunnel -> debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel);
 		Db.Tunnel.destroy ~__context ~self:tunnel) tunnels;
-	List.iter (fun pif -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self:pif);
-		let metrics = Db.PIF.get_metrics ~__context ~self:pif in
-		Db.PIF.destroy ~__context ~self:pif;
-		Db.PIF_metrics.destroy ~__context ~self:metrics
+	List.iter (fun self -> debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self);
+		if Db.PIF.get_physical ~__context ~self = true || Db.PIF.get_bond_master_of ~__context ~self <> [] then begin
+			let metrics = Db.PIF.get_metrics ~__context ~self in
+			Db.PIF_metrics.destroy ~__context ~self:metrics
+		end;
+		Db.PIF.destroy ~__context ~self;
 	) local_pifs
 
 (* CPU feature masking *)
@@ -1360,3 +1369,159 @@ let disable_local_storage_caching ~__context ~host =
 	Db.Host.set_local_cache_sr ~__context ~self:host ~value:Ref.null;
 	Monitor.unset_cache_sr ();
 	try Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:false with _ -> ()
+
+(* Here's how we do VLAN resyncing:
+   We take a VLAN master and record (i) the Network it is on; (ii) its VLAN tag;
+   (iii) the Network of the PIF that underlies the VLAN (e.g. eth0 underlies eth0.25).
+   We then look to see whether we already have a VLAN record that is (i) on the same Network;
+   (ii) has the same tag; and (iii) also has a PIF underlying it on the same Network.
+   If we do not already have a VLAN that falls into this category then we make one,
+   as long as we already have a suitable PIF to base the VLAN off -- if we don't have such a
+   PIF (e.g. if the master has eth0.25 and we don't have eth0) then we do nothing.
+*)
+let sync_vlans ~__context ~host =
+	let master = !Xapi_globs.localhost_ref in
+	let master_vlan_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of master)),
+		Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
+	)) in
+	let slave_vlan_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
+	)) in
+
+	let get_network_of_pif_underneath_vlan vlan_pif =
+		let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif in
+		let pif_underneath_vlan = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+		Db.PIF.get_network ~__context ~self:pif_underneath_vlan
+	in
+
+	let maybe_create_vlan (master_pif_ref, master_pif_rec) =
+		(* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
+		let existing_pif = List.filter (fun (slave_pif_ref, slave_pif_record) ->
+			(* Is slave VLAN PIF that we're considering (slave_pif_ref) the one that corresponds
+			 * to the master_pif we're considering (master_pif_ref)? *)
+			true
+			&& slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+			&& slave_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
+			&& ((get_network_of_pif_underneath_vlan slave_pif_ref) =
+				(get_network_of_pif_underneath_vlan master_pif_ref))
+			) slave_vlan_pifs in
+		(* if I don't have any such pif(s) then make one: *)
+		if List.length existing_pif = 0
+		then
+			begin
+				(* On the master, we find the pif, p, that underlies the VLAN
+				 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
+				let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
+				let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of network_of_pif_underneath_vlan_on_master))
+				)) in
+				match pifs with
+				| [] ->
+					(* We have no PIF on which to make the VLAN; do nothing *)
+					()
+				| [(pif_ref, pif_rec)] ->
+					(* This is the PIF on which we want to base our VLAN record; let's make it *)
+					debug "Creating VLAN %Ld on slave" master_pif_rec.API.pIF_VLAN;
+					ignore (Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif_ref
+						~tag:master_pif_rec.API.pIF_VLAN ~network:master_pif_rec.API.pIF_network
+						~device:pif_rec.API.pIF_device)
+				| _ ->
+					(* This should never happen since we should never have more than one of _our_ pifs
+					 * on the same network *)
+					 ()
+			end
+	in
+	(* For each of the master's PIFs, create a corresponding one on the slave if necessary *)
+	List.iter maybe_create_vlan master_vlan_pifs
+
+let sync_tunnels ~__context ~host =
+	let master = !Xapi_globs.localhost_ref in
+
+	let master_tunnel_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of master)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
+	let slave_tunnel_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
+
+	let get_network_of_transport_pif access_pif =
+		match Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif with
+		| [tunnel] ->
+			let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+			Db.PIF.get_network ~__context ~self:transport_pif
+		| _ -> failwith (Printf.sprintf "PIF %s has no tunnel_access_PIF_of" (Ref.string_of access_pif))
+	in
+
+	let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
+		(* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
+		let existing_pif = List.filter (fun (_, slave_pif_record) ->
+			(* Is the slave's tunnel access PIF that we're considering (slave_pif_ref)
+			 * the one that corresponds to the master's tunnel access PIF we're considering (master_pif_ref)? *)
+			slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+		) slave_tunnel_pifs in
+		(* If the slave doesn't have any such PIF then make one: *)
+		if List.length existing_pif = 0
+		then
+			begin
+				(* On the master, we find the network the tunnel transport PIF is on *)
+				let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_ref in
+				let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of network_of_transport_pif_on_master))
+				)) in
+				match pifs with
+				| [] ->
+					(* we have no PIF on which to make the tunnel; do nothing *)
+					()
+				| [(pif_ref,_)] ->
+					(* this is the PIF on which we want as transport PIF; let's make it *)
+					ignore (Xapi_tunnel.create_internal ~__context ~transport_PIF:pif_ref
+						~network:master_pif_rec.API.pIF_network ~host)
+				| _ ->
+					(* This should never happen cos we should never have more than one of _our_ pifs
+					 * on the same nework *)
+					()
+			end
+	in
+	(* for each of the master's pifs, create a corresponding one on this host if necessary *)
+	List.iter maybe_create_tunnel_for_me master_tunnel_pifs
+
+let sync_pif_currently_attached ~__context ~host ~bridges =
+	(* Produce internal lookup tables *)
+	let networks = Db.Network.get_all_records ~__context in
+	let pifs = Db.PIF.get_records_where ~__context ~expr:(
+		Eq (Field "host", Literal (Ref.string_of host))
+	) in
+
+	let network_to_bridge = List.map (fun (net, net_r) -> net, net_r.API.network_bridge) networks in
+
+	(* PIF -> bridge option: None means "dangling PIF" *)
+	let pif_to_bridge =
+		(* Create a list pairing each PIF with the bridge for the network 
+		   that it is on *)
+		List.map (fun (pif, pif_r) ->
+			let net = pif_r.API.pIF_network in
+			let bridge =
+				if List.mem_assoc net network_to_bridge then
+					Some (List.assoc net network_to_bridge)
+				else
+					None
+			in pif, bridge
+		) pifs in
+
+	(* Perform the database resynchronisation *)
+	List.iter
+		(fun (pif, pif_r) ->
+			let bridge = List.assoc pif pif_to_bridge in
+			let currently_attached = Opt.default false (Opt.map (fun x -> List.mem x bridges) bridge) in
+			if pif_r.API.pIF_currently_attached <> currently_attached then begin
+				Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached;
+				debug "PIF %s currently_attached <- %b" (Ref.string_of pif) currently_attached;
+			end;
+		) pifs
+

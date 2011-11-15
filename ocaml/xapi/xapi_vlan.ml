@@ -18,12 +18,17 @@ open D
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
-	let t = Xapi_pif.make_tables ~__context ~host in
 	let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	(* Copy the MTU from the base PIF *)
+	let untagged_PIF = Ref.make () in
+	(* Copy the MTU and metrics from the base PIF *)
 	let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
-	let untagged_PIF = Xapi_pif.introduce_internal ~physical:false ~t ~__context ~host
-		~mAC:vlan_mac ~device ~vLAN:tag ~mTU ~vLAN_master_of:vlan ~network () in
+	let metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
+	Db.PIF.create ~__context ~ref:untagged_PIF ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+		~device ~device_name:device ~network ~host ~mAC:vlan_mac ~mTU ~vLAN:tag ~metrics
+		~physical:false ~currently_attached:false
+		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
+		~vLAN_master_of:vlan ~management:false ~other_config:[] ~disallow_unplug:false;
+
 	let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config:[] in
 	vlan, untagged_PIF
 
@@ -43,12 +48,11 @@ let create ~__context ~tagged_PIF ~tag ~network =
 	if tag<0L || tag>4094L then
 		raise (Api_errors.Server_error (Api_errors.vlan_tag_invalid, [Int64.to_string tag]));
 
-	let other_pifs = Db.Host.get_PIFs ~__context ~self:host in
-	let other_keys = List.map (fun self ->
-		Db.PIF.get_device ~__context ~self,
-		Db.PIF.get_VLAN ~__context ~self) other_pifs in
 	let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
-	if List.mem (device, tag) other_keys then
+	let vlans = Db.VLAN.get_records_where ~__context
+		~expr:(Db_filter_types.And (Db_filter_types.Eq (Db_filter_types.Field "tagged_PIF", Db_filter_types.Literal (Ref.string_of tagged_PIF)),
+			Db_filter_types.Eq (Db_filter_types.Field "tag", Db_filter_types.Literal (Int64.to_string tag)))) in
+	if vlans <> [] then
 		raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
 
 	if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
@@ -83,9 +87,6 @@ let destroy ~__context ~self =
 
 		Xapi_network.detach bridge;
 
-		(try
-			let metrics = Db.PIF.get_metrics ~__context ~self:untagged_PIF in
-			Db.PIF_metrics.destroy ~__context ~self:metrics with _ -> ());
 		(try
 			let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF in
 			Db.VLAN.destroy ~__context ~self:vlan with _ -> ());
