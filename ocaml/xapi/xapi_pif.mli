@@ -180,7 +180,11 @@ val introduce_internal :
   mAC:Rrd_shared.StringSet.elt ->
   mTU:int64 ->
   device:Rrd_shared.StringSet.elt ->
-  vLAN:int64 -> vLAN_master_of:[ `VLAN ] Ref.t -> unit -> [ `PIF ] Ref.t
+  vLAN:int64 ->
+  vLAN_master_of:[ `VLAN ] Ref.t ->
+  ?metrics:[ `PIF_metrics ] Ref.t ->
+  unit ->
+  [ `PIF ] Ref.t
   
 (** Brings down the network interface and removes the PIF object. *)
 val forget_internal :

@@ -18,12 +18,16 @@ open Fun
 open Listext
 open Threadext
 open Hashtblext
+open Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
  * by the smallest integer > 0 that does not yet appear in a bond name on this host. *)
 let choose_bond_device_name ~__context ~host =
-	(* list all the PIFs on this host *)
-	let pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) (Db.PIF.get_all ~__context) in
+	(* list all the bond PIFs on this host *)
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "bond_master_of", Literal "()"))
+	)) in
 	let devices = List.map (fun self -> Db.PIF.get_device ~__context ~self) pifs in
 	let rec choose n =
 		let name = Printf.sprintf "bond%d" n in

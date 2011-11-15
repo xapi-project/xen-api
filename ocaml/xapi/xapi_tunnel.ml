@@ -14,10 +14,16 @@
 module D = Debug.Debugger(struct let name="xapi" end) 
 open D
 
+open Db_filter_types
+
 let choose_tunnel_device_name ~__context ~host = 
-	let pifs = List.filter (fun self -> Db.PIF.get_host ~__context ~self = host) (Db.PIF.get_all ~__context) in
+	(* list all the tunnel access PIFs on this host *)
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+	)) in
 	let devices = List.map (fun self -> Db.PIF.get_device ~__context ~self) pifs in
-	let rec choose n = 
+	let rec choose n =
 		let name = Printf.sprintf "tunnel%d" n in
 		if List.mem name devices
 		then choose (n + 1)
@@ -30,8 +36,9 @@ let create_internal ~__context ~transport_PIF ~network ~host =
 	let device = choose_tunnel_device_name ~__context ~host in
 	let device_name = device in
 	let mAC = Xapi_vif_helpers.gen_mac (0, Uuid.to_string (Uuid.make_uuid ())) in
+	let metrics = Db.PIF.get_metrics ~__context ~self:transport_PIF in
 	Db.PIF.create ~__context ~ref:access_PIF ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
-		~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics:Ref.null
+		~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
 		~physical:false ~currently_attached:false 
 		~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null 
 		~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false;

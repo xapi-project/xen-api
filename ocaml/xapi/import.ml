@@ -450,21 +450,21 @@ let handle_net __context config rpc session_id (state: state) (x: obj) : unit =
   let net = 
     match possibilities, config.vm_metadata_only with
       | [], true ->
-          begin try
+          begin
             (* Lookup by bridge name as fallback *)
-            let nets = Client.Network.get_all_records rpc session_id in
-            let net, _ =
-              List.find (fun (_, netr) -> netr.API.network_bridge = net_record.API.network_bridge) nets in
-            net
-          with _ ->
- 	        (* In vm_metadata_only_mode the network must exist *)
- 	        let msg = 
-              Printf.sprintf "Unable to find Network with name_label = '%s' nor bridge = '%s'" 
- 	            net_record.API.network_name_label net_record.API.network_bridge
-            in
- 	          error "%s" msg;
- 	          raise (Failure msg)
- 	      end
+            let expr = "field \"bridge\"=\"" ^ net_record.API.network_bridge ^ "\"" in
+            let nets = Client.Network.get_all_records_where rpc session_id expr in
+            match nets with
+            | [] ->
+              (* In vm_metadata_only_mode the network must exist *)
+              let msg =
+                Printf.sprintf "Unable to find Network with name_label = '%s' nor bridge = '%s'"
+                net_record.API.network_name_label net_record.API.network_bridge
+              in
+              error "%s" msg;
+              raise (Failure msg)
+            | (net, _) :: _ -> net
+          end
       | [], false ->
  	      (* In normal mode we attempt to create any networks which are missing *)
  	      let net = 

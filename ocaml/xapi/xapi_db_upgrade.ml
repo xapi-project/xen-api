@@ -45,6 +45,7 @@ let apply_upgrade_rules ~__context rules previous_version =
 
 let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
 let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
+let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
 
 let upgrade_vm_memory_overheads = {
 	description = "Upgrade VM.memory_overhead fields";
@@ -285,6 +286,31 @@ let upgrade_auto_poweron = {
 		List.iter update_vm all_vms
 }
 
+let upgrade_pif_metrics = {
+	description = "Upgrading PIF_metrics";
+	version = (fun x -> x <= boston);
+	fn = fun ~__context ->
+		let pifs = Db.PIF.get_all ~__context in
+		let phy_and_bond_pifs = List.filter (fun self ->
+			Db.PIF.get_physical ~__context ~self ||
+			Db.PIF.get_bond_master_of ~__context ~self <> []
+		) pifs in
+		List.iter (fun pif ->
+			let rc = Db.PIF.get_record ~__context ~self:pif in
+			let vlan_pifs = List.map (fun self ->
+				Db.VLAN.get_untagged_PIF ~__context ~self) rc.API.pIF_VLAN_slave_of in
+			let tunnel_pifs = List.map (fun self ->
+				Db.Tunnel.get_access_PIF ~__context ~self) rc.API.pIF_tunnel_transport_PIF_of in
+			List.iter (fun self ->
+				let metrics = Db.PIF.get_metrics ~__context ~self in
+				if metrics <> rc.API.pIF_metrics then begin
+					Db.PIF.set_metrics ~__context ~self ~value:rc.API.pIF_metrics;
+					Db.PIF_metrics.destroy ~__context ~self:metrics
+				end
+			) (vlan_pifs @ tunnel_pifs)
+		) phy_and_bond_pifs
+}
+
 let rules = [
 	upgrade_vm_memory_overheads;
 	upgrade_wlb_configuration;
@@ -296,6 +322,7 @@ let rules = [
 	upgrade_ha_restart_priority;
 	upgrade_cpu_flags;
 	upgrade_auto_poweron;
+	upgrade_pif_metrics;
 ]
 
 (* Maybe upgrade most recent db *)

@@ -20,6 +20,7 @@ open Listext
 open Pervasiveext
 open Stringext
 open Fun
+open Db_filter_types
 
 let refresh_internal ~__context ~self =
 
@@ -62,9 +63,13 @@ let refresh ~__context ~host ~self =
 
 let refresh_all ~__context ~host =
 	assert (host = Helpers.get_localhost ~__context);
-	List.iter
-		(fun (self, _) -> refresh_internal ~__context ~self)
-		(Helpers.get_my_pifs ~__context)
+	(* Only refresh physical or attached PIFs *)
+	let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "host", Literal (Ref.string_of host)),
+		Or (Eq (Field "physical", Literal "true"),
+			Eq (Field "currently_attached", Literal "true"))
+	)) in
+	List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
 let bridge_naming_convention (device: string) =
 	if String.startswith "eth" device
@@ -203,26 +208,20 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
 	end
 
 let assert_no_other_local_pifs ~__context ~host ~network =
-	let all_pifs = Db.Host.get_PIFs ~__context ~self:host in
-	let other_pifs =
-		List.filter
-			(fun self -> Db.PIF.get_network ~__context ~self = network)
-			(all_pifs) in
+	let other_pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+		Eq (Field "network", Literal (Ref.string_of network)),
+		Eq (Field "host", Literal (Ref.string_of host))
+	)) in
 	if other_pifs <> []
 	then raise (Api_errors.Server_error
 		(Api_errors.network_already_connected,
 			[Ref.string_of host; Ref.string_of (List.hd other_pifs)]))
 
 let find_or_create_network (bridge: string) (device: string) ~__context =
-	let all = Db.Network.get_all ~__context in
-	let bridges =
-		List.map
-			(fun self -> Db.Network.get_bridge ~__context ~self)
-			(all) in
-	let table = List.combine bridges all in
-	if List.mem_assoc bridge table
-	then List.assoc bridge table
-	else
+	let nets = Db.Network.get_refs_where ~__context ~expr:(Eq (Field "bridge", Literal bridge)) in
+	match nets with
+	| [net] -> net
+	| _ ->
 		let net_ref = Ref.make ()
 		and net_uuid = Uuid.to_string (Uuid.make_uuid ()) in
 		let () = Db.Network.create
@@ -243,21 +242,16 @@ let make_tables ~__context ~host =
 		List.filter
 			(Netdev.is_physical)
 			(Netdev.list ()) in
-	let pifs =
-		List.filter
-			(fun pif -> Db.PIF.get_physical ~__context ~self:pif)
-			(Db.Host.get_PIFs ~__context ~self:host) in
+	let pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
+			Eq (Field "physical", Literal "true"))) in
 	{
 		device_to_mac_table =
 			List.combine
 				(devices)
 				(List.map Netdev.get_address devices);
 		pif_to_device_table =
-			List.combine
-				(pifs)
-				(List.map
-					(fun pif -> Db.PIF.get_device ~__context ~self:pif)
-					(pifs));
+			List.map (fun (pref, prec) -> pref, prec.API.pIF_device) pifs;
 	}
 
 let is_my_management_pif ~__context ~self =
@@ -312,7 +306,7 @@ let mark_pif_as_dirty device =
 (* Internal [introduce] is passed a pre-built table [t] *)
 let introduce_internal
 		?network ?(physical=true) ~t ~__context ~host
-		~mAC ~mTU ~device ~vLAN ~vLAN_master_of () =
+		~mAC ~mTU ~device ~vLAN ~vLAN_master_of ?metrics () =
 
 	let bridge = bridge_naming_convention device in
 
@@ -322,7 +316,10 @@ let introduce_internal
 		match network with
 			| None -> find_or_create_network bridge device ~__context
 			| Some x -> x in
-	let metrics = make_pif_metrics ~__context in
+	let metrics = match metrics with
+		| None -> make_pif_metrics ~__context
+		| Some m -> m
+	in
 	let pif = Ref.make () in
 	debug
 		"Creating a new record for NIC: %s: %s"
@@ -377,24 +374,34 @@ let forget_internal ~t ~__context ~self =
 	Db.PIF.destroy ~__context ~self
 
 let update_management_flags ~__context ~host =
-	let management_intf =
-		Xapi_inventory.lookup Xapi_inventory._management_interface in
-	let all_pifs = Db.PIF.get_all ~__context in
-	let my_pifs =
-		List.filter
-			(fun self -> Db.PIF.get_host ~__context ~self = host)
-			(all_pifs) in
-	List.iter
-		(fun pif ->
-			let is_management_pif =
-				try
-					let net = Db.PIF.get_network ~__context ~self:pif in
-					let bridge = Db.Network.get_bridge ~__context ~self:net in
-					bridge = management_intf
-				with _ -> false in
-			Db.PIF.set_management
-				~__context ~self:pif ~value:is_management_pif)
-		(my_pifs)
+	try
+		let management_bridge = Xapi_inventory.lookup Xapi_inventory._management_interface in
+		let management_networks = Db.Network.get_refs_where ~__context ~expr:(
+			Eq (Field "bridge", Literal management_bridge)
+		) in
+		let current_management_pifs =
+			match management_networks with
+			| [] -> []
+			| net :: _ ->
+				Db.PIF.get_refs_where ~__context ~expr:(And (
+					Eq (Field "host", Literal (Ref.string_of host)),
+					Eq (Field "network", Literal (Ref.string_of net))
+				))
+		in
+		let management_pifs_in_db = Db.PIF.get_refs_where ~__context ~expr:(And (
+			Eq (Field "host", Literal (Ref.string_of host)),
+			Eq (Field "management", Literal "true")
+		)) in
+		let set_management value self =
+			debug "PIF %s management <- %b" (Ref.string_of self) value;
+			Db.PIF.set_management ~__context ~self ~value
+		in
+		(* Set management flag of PIFs that are now management PIFs, and do not have this flag set *)
+		List.iter (set_management true) (List.set_difference current_management_pifs management_pifs_in_db);
+		(* Clear management flag of PIFs that are no longer management PIFs *)
+		List.iter (set_management false) (List.set_difference management_pifs_in_db current_management_pifs)
+	with Xapi_inventory.Missing_inventory_key _ ->
+		error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
 let introduce ~__context ~host ~mAC ~device =
 
@@ -572,8 +579,7 @@ let rec unplug ~__context ~self =
 		let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
 		unplug ~__context ~self:access_PIF
 	end;
-	Nm.bring_pif_down ~__context self;
-	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
+	Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
 	let network = Db.PIF.get_network ~__context ~self in
@@ -594,20 +600,14 @@ let rec plug ~__context ~self =
 			plug ~__context ~self:transport_PIF
 		end
 	end;
-	Xapi_network.attach ~__context ~network ~host;
-	mark_pif_as_dirty (Db.PIF.get_device ~__context ~self)
+	Xapi_network.attach ~__context ~network ~host
 
 let calculate_pifs_required_at_start_of_day ~__context =
 	let localhost = Helpers.get_localhost ~__context in
-	List.filter
-		(fun (_,pifr) ->
-			true
-			&& pifr.API.pIF_host = localhost
-				(* this host only *)
-			(* && Nm.is_dom0_interface pifr *)
-			&& not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)
-				(* not enslaved by a bond *))
-		(Db.PIF.get_all_records ~__context)
+	Db.PIF.get_records_where ~__context
+		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+			Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null))),
+			Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))))
 
 let start_of_day_best_effort_bring_up () =
 	begin

@@ -18,6 +18,7 @@
 open Listext
 open Threadext
 open Monitor_types
+open Db_filter_types
 
 module D=Debug.Debugger(struct let name="monitormaster" end)
 open D
@@ -192,38 +193,14 @@ let set_pif_metrics ~__context ~self ~vendor ~device
 (* Nb, the following function is actually called on the slave most of the time now - 
    but only when the PIF information changes. *)
 let update_pifs ~__context host pifs =
-	let pifdevs = Db.Host.get_PIFs ~__context ~self:host in
-	let pifrecs = List.map (fun pif -> pif, Db.PIF.get_record ~__context ~self:pif) pifdevs in
-	List.iter (fun pifdev ->
-		(* Compute the name of the dom0 interface to take metrics from *)
-		let rec get_physical_device_name p =
-			(* Walk down until we find a physical or bond PIF *)
-			let rc = List.assoc p pifrecs in
-			if rc.API.pIF_tunnel_access_PIF_of <> [] then begin
-				(* Found a tunnel PIF *)
-				let lower, _ = List.find (fun (_, rc') ->
-					rc'.API.pIF_tunnel_transport_PIF_of = rc.API.pIF_tunnel_access_PIF_of) pifrecs in
-				let dev, _ = get_physical_device_name lower in
-				dev, false
-			end else if rc.API.pIF_VLAN_master_of <> Ref.null then begin
-				(* Found a VLAN PIF *)
-				let lower, _ = List.find (fun (_, rc') ->
-					rc'.API.pIF_VLAN_slave_of = [rc.API.pIF_VLAN_master_of]) pifrecs in
-				let dev, _ = get_physical_device_name lower in
-				dev, false
-			end else
-				(* Found is a physical or bond PIF! *)
-				rc.API.pIF_device, true
-		in
-		let rc = List.assoc pifdev pifrecs in
-		let physical_device_name, is_physical =
-			try
-				get_physical_device_name pifdev
-			with Not_found ->
-				rc.API.pIF_device, true
-		in
+	(* All physical and bond PIFs *)
+	let db_pifs = Db.PIF.get_records_where ~__context
+		~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
+			Or (Eq (Field "physical", Literal "true"),
+				Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))))) in
+	List.iter (fun (pifdev, pifrec) ->
 		begin try
-			let pif_stats = List.find (fun p -> p.pif_name = physical_device_name) pifs in
+			let pif_stats = List.find (fun p -> p.pif_name = pifrec.API.pIF_device) pifs in
 			let carrier = pif_stats.pif_carrier in
 			let speed = Int64.of_int (Netdev.Link.int_of_speed pif_stats.pif_speed) in
 			let duplex = match pif_stats.pif_duplex with
@@ -231,18 +208,30 @@ let update_pifs ~__context host pifs =
 				| Netdev.Link.Duplex_half    -> false
 				| Netdev.Link.Duplex_unknown -> false
 			in
-			let vendor = if is_physical then pif_stats.pif_vendor_id else "" in
-			let device = if is_physical then pif_stats.pif_device_id else "" in
-			let pcibuspath = if is_physical then pif_stats.pif_pci_bus_path else "" in
+			let vendor = pif_stats.pif_vendor_id in
+			let device = pif_stats.pif_device_id in
+			let pcibuspath = pif_stats.pif_pci_bus_path in
 
 			(* 1. Update corresponding VIF carrier flags *)
 			if !Monitor_rrds.pass_through_pif_carrier then begin
 				try
-					(* go from physical interface -> bridge -> vif devices *)
-					let network = rc.API.pIF_network in
-					let bridge = Db.Network.get_bridge ~__context ~self:network in
+					(* Go from physical interface -> bridge -> vif devices.
+					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
+					let network = pifrec.API.pIF_network in
+					let vlan_networks = List.map (fun vlan ->
+						let vlan_master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+						Db.PIF.get_network ~__context ~self:vlan_master
+					) pifrec.API.pIF_VLAN_slave_of
+					in
+					let tunnel_networks = List.map (fun tunnel ->
+						let access_pif = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+						Db.PIF.get_network ~__context ~self:access_pif
+					) pifrec.API.pIF_tunnel_transport_PIF_of
+					in
+					let bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network)
+						(network :: vlan_networks @ tunnel_networks) in
 					let n = Netdev.network in
-					let ifs = n.Netdev.intf_list bridge in
+					let ifs = List.flatten (List.map (fun bridge -> n.Netdev.intf_list bridge) bridges) in
 
 					let set_carrier xs vif =
 						if vif.Monitor.pv
@@ -264,9 +253,8 @@ let update_pifs ~__context host pifs =
 			(* 2. Update database *)
 			let metrics =
 				(* If PIF metrics don't exist then create them *)
-				let m = Db.PIF.get_metrics ~__context ~self:pifdev in
-				if Db.is_valid_ref __context m then
-					m
+				if Db.is_valid_ref __context pifrec.API.pIF_metrics then
+					pifrec.API.pIF_metrics
 				else begin
 					let ref = Ref.make() in
 					Db.PIF_metrics.create ~__context ~ref ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~carrier:false
@@ -282,7 +270,7 @@ let update_pifs ~__context host pifs =
 			set_pif_metrics ~__context ~self:metrics ~vendor ~device ~carrier ~speed:speed ~duplex:duplex
 				~pcibuspath ~io_write:pif_stats.pif_tx ~io_read:pif_stats.pif_rx pmr;
 		with Not_found -> () end
-	) pifdevs
+	) db_pifs
 
 let update_all ~__context host_stats =
 	(* update monitor events for specified domain  *)
