@@ -424,60 +424,60 @@ let request_of_bio ?(use_fastpath=false) ic =
 		);
 		None
 
+let handle_one (x: Server.t) ss req =
+	let ic = Buf_io.of_fd ss in
+	let finished = ref false in
+	try
+		D.debug "Request %s" (Http.Request.to_string req);
+		let method_map = try MethodMap.find req.Request.m x.Server.handlers with Not_found -> raise Method_not_implemented in
+		let empty = TE.empty () in
+		let te = Opt.default empty (Radix_tree.longest_prefix req.Request.uri method_map) in
+		(match te.TE.handler with
+			| BufIO handlerfn -> handlerfn req ic
+			| FdIO handlerfn ->
+				let fd = Buf_io.fd_of ic in
+				Buf_io.assert_buffer_empty ic;
+				handlerfn req fd
+		);
+		finished := (req.Request.close);
+		Stats.update te.TE.stats te.TE.stats_m req;
+		!finished
+	with e ->
+		finished := true;
+		best_effort (fun () -> match e with
+				(* Specific errors thrown by handlers *)
+			| Generic_error s ->
+				response_internal_error ~req ss ~extra:s
+			| Http.Unauthorised realm ->
+				response_unauthorised ~req realm ss
+			| Http.Forbidden ->
+				response_forbidden ~req ss
+					(* Generic errors thrown by handlers *)
+			| Http.Method_not_implemented ->
+				response_method_not_implemented ~req ss
+			| End_of_file ->
+				DCritical.debug "Premature termination of connection!";
+			| Unix.Unix_error (a,b,c) ->
+				response_internal_error ~req ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c);
+				DCritical.debug "Unhandled unix exception: %s %s %s" (Unix.error_message a) b c;
+				
+			| exc ->
+				response_internal_error ~req ss ~extra:(escape (Printexc.to_string exc));
+				DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
+				log_backtrace ()			
+		);
+		!finished
+
 let handle_connection (x: Server.t) _ ss =
 	let ic = Buf_io.of_fd ss in
 	let finished = ref false in
-	let reqno = ref 0 in
 
 	while not !finished do
 		(* 1. we must successfully parse a request *)
 		let req = request_of_bio ~use_fastpath:x.Server.use_fastpath ic in
-		Opt.iter (fun _ -> reqno := !reqno + 1) req;
-		if req = None then finished := true;
 
 		(* 2. now we attempt to process the request *)
-		Opt.iter
-			(fun req ->
-				try
-					D.debug "Request %s" (Http.Request.to_string req);
-					let method_map = try MethodMap.find req.Request.m x.Server.handlers with Not_found -> raise Method_not_implemented in
-					let empty = TE.empty () in
-					let te = Opt.default empty (Radix_tree.longest_prefix req.Request.uri method_map) in
-					(match te.TE.handler with
-						| BufIO handlerfn -> handlerfn req ic
-						| FdIO handlerfn ->
-							let fd = Buf_io.fd_of ic in
-							Buf_io.assert_buffer_empty ic;
-							handlerfn req fd
-					);
-					finished := (req.Request.close);
-					Stats.update te.TE.stats te.TE.stats_m req
-				with e ->
-					finished := true;
-					best_effort (fun () -> match e with
-							(* Specific errors thrown by handlers *)
-						| Generic_error s ->
-							response_internal_error ~req ss ~extra:s
-						| Http.Unauthorised realm ->
-							response_unauthorised ~req realm ss
-						| Http.Forbidden ->
-							response_forbidden ~req ss
-							(* Generic errors thrown by handlers *)
-						| Http.Method_not_implemented ->
-							response_method_not_implemented ~req ss
-						| End_of_file ->
-							DCritical.debug "Premature termination of connection!";
-						| Unix.Unix_error (a,b,c) ->
-							response_internal_error ~req ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c);
-							DCritical.debug "Unhandled unix exception: %s %s %s" (Unix.error_message a) b c;
-
-						| exc ->
-							response_internal_error ~req ss ~extra:(escape (Printexc.to_string exc));
-							DCritical.debug "Unhandled exception: %s" (Printexc.to_string exc);
-							log_backtrace ()
-
-					)
-			) req
+		finished := Opt.default true (Opt.map (handle_one x ss) req);
 	done;
 	Unix.close ss
 

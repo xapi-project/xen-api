@@ -64,6 +64,8 @@ val bind : ?listen_backlog:int -> Unix.sockaddr -> string -> socket
 
 val start : Server.t -> socket -> unit
 
+val handle_one : Server.t -> Unix.file_descr -> Http.Request.t -> bool
+
 exception Socket_not_found
 
 val stop : socket -> unit
