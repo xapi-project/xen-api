@@ -18,9 +18,9 @@
 type uri_path = string
 
 (** A handler is a function which takes a request and produces a response *)
-type handler =
-	| BufIO of (Http.Request.t -> Buf_io.t -> unit)
-	| FdIO of (Http.Request.t -> Unix.file_descr -> unit)
+type 'a handler =
+	| BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
+	| FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
 
 module Stats : sig
 	(** Statistics recorded per-handler *)
@@ -34,24 +34,24 @@ end
 module Server : sig
 
 	(** Represents an HTTP server with a set of handlers and set of listening sockets *)
-	type t
+	type 'a t
 
 	(** An HTTP server which sends back a default error response to every request *)
-	val empty: unit -> t
+	val empty: 'a -> 'a t
 
 	(** [add_handler x m uri h] adds handler [h] to server [x] to serve all requests with
 		method [m] for URI prefix [uri] *)
-	val add_handler : t -> Http.method_t -> uri_path -> handler -> unit
+	val add_handler : 'a t -> Http.method_t -> uri_path -> 'a handler -> unit
 
 	(** [find_stats x m uri] returns stats associated with method [m] and uri [uri]
 		in server [x], or None if none exist *)
-	val find_stats: t -> Http.method_t -> uri_path -> Stats.t option
+	val find_stats: 'a t -> Http.method_t -> uri_path -> Stats.t option
 
 	(** [all_stats x] returns a list of (method, uri, stats) triples *)
-	val all_stats: t -> (Http.method_t * uri_path * Stats.t) list
+	val all_stats: 'a t -> (Http.method_t * uri_path * Stats.t) list
 
 	(** [enable_fastpath x] switches on experimental performance optimisations *)
-	val enable_fastpath: t -> unit
+	val enable_fastpath: 'a t -> unit
 
 end
 
@@ -62,9 +62,9 @@ type socket
 
 val bind : ?listen_backlog:int -> Unix.sockaddr -> string -> socket
 
-val start : Server.t -> socket -> unit
+val start : 'a Server.t -> socket -> unit
 
-val handle_one : Server.t -> Unix.file_descr -> Http.Request.t -> bool
+val handle_one : 'a Server.t -> Unix.file_descr -> 'a -> Http.Request.t -> bool
 
 exception Socket_not_found
 

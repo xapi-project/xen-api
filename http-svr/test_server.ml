@@ -17,7 +17,7 @@ let _ =
 	if !use_fastpath then Server.enable_fastpath server;
 
 	Server.add_handler server Http.Get "/stop" (FdIO
-		(fun request s ->
+		(fun request s _ ->
 			let r = Http.Response.to_wire_string (Http.Response.make "200" "OK") in
 			Unixext.really_write_string s r;
 			Mutex.execute finished_m
@@ -28,7 +28,7 @@ let _ =
 		)
 	);
 	Server.add_handler server Http.Post "/echo" (FdIO
-		(fun request s ->
+		(fun request s _ ->
 			match request.Http.Request.content_length with
 				| None ->
 					Unixext.really_write_string s (Http.Response.to_wire_string (Http.Response.make "404" "content length missing"))
@@ -39,7 +39,7 @@ let _ =
 		)
 	);
 	Server.add_handler server Http.Get "/stats" (FdIO
-		(fun request s ->
+		(fun request s _ ->
 			let lines = List.map (fun (m, uri, s) ->
 				Printf.sprintf "%s,%s,%d,%d\n" (Http.string_of_method_t m) uri s.Http_svr.Stats.n_requests s.Http_svr.Stats.n_connections
 			) (Server.all_stats server) in

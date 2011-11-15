@@ -64,9 +64,9 @@ module Stats = struct
 end
 
 (** Type of a function which can handle a Request.t *)
-type handler =
-	| BufIO of (Http.Request.t -> Buf_io.t -> unit)
-	| FdIO of (Http.Request.t -> Unix.file_descr -> unit)
+type 'a handler =
+	| BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
+	| FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
 
 (* try and do f (unit -> unit), ignore exceptions *)
 let best_effort f =
@@ -182,7 +182,7 @@ let respond_to_options req s =
       
 
 (** If no handler matches the request then call this callback *)
-let default_callback req bio = 
+let default_callback req bio _ = 
   response_forbidden (Buf_io.fd_of bio);
   req.Request.close <- true
     
@@ -191,10 +191,10 @@ let default_stats_m = Mutex.create ()
 
 
 module TE = struct
-	type t = {
+	type 'a t = {
 		stats: Stats.t;
 		stats_m: Mutex.t;
-		handler: handler
+		handler: 'a handler
 	}
 	let empty () = {
 		stats = Stats.empty ();
@@ -208,14 +208,16 @@ let stats_of_table t = Radix_tree.fold (fun _ te acc -> te.TE.stats :: acc) [] t
 module MethodMap = Map.Make(struct type t = Http.method_t let compare = compare end)
 
 module Server = struct
-	type t = {
-		mutable handlers: TE.t Radix_tree.t MethodMap.t;
+	type 'a t = {
+		mutable handlers: 'a TE.t Radix_tree.t MethodMap.t;
 		mutable use_fastpath: bool;
+		default_context: 'a;
 	}
 
-	let empty () = {
+	let empty default_context = {
 		handlers = MethodMap.empty;
 		use_fastpath = false;
+		default_context = default_context;
 	}
 
 	let add_handler x ty uri handler =
@@ -424,7 +426,7 @@ let request_of_bio ?(use_fastpath=false) ic =
 		);
 		None
 
-let handle_one (x: Server.t) ss req =
+let handle_one (x: 'a Server.t) ss context req =
 	let ic = Buf_io.of_fd ss in
 	let finished = ref false in
 	try
@@ -433,11 +435,11 @@ let handle_one (x: Server.t) ss req =
 		let empty = TE.empty () in
 		let te = Opt.default empty (Radix_tree.longest_prefix req.Request.uri method_map) in
 		(match te.TE.handler with
-			| BufIO handlerfn -> handlerfn req ic
+			| BufIO handlerfn -> handlerfn req ic context
 			| FdIO handlerfn ->
 				let fd = Buf_io.fd_of ic in
 				Buf_io.assert_buffer_empty ic;
-				handlerfn req fd
+				handlerfn req fd context
 		);
 		finished := (req.Request.close);
 		Stats.update te.TE.stats te.TE.stats_m req;
@@ -468,7 +470,7 @@ let handle_one (x: Server.t) ss req =
 		);
 		!finished
 
-let handle_connection (x: Server.t) _ ss =
+let handle_connection (x: 'a Server.t) _ ss =
 	let ic = Buf_io.of_fd ss in
 	let finished = ref false in
 
@@ -477,7 +479,7 @@ let handle_connection (x: Server.t) _ ss =
 		let req = request_of_bio ~use_fastpath:x.Server.use_fastpath ic in
 
 		(* 2. now we attempt to process the request *)
-		finished := Opt.default true (Opt.map (handle_one x ss) req);
+		finished := Opt.default true (Opt.map (handle_one x ss x.Server.default_context) req);
 	done;
 	Unix.close ss
 
@@ -509,7 +511,7 @@ let socket_table = Hashtbl.create 10
 type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
-let start (x: Server.t) (socket, name) =
+let start (x: 'a Server.t) (socket, name) =
   let handler = { Server_io.name = name;
 		  body = handle_connection x } in
   let server = Server_io.server handler socket in
