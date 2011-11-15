@@ -78,6 +78,9 @@ body {
 	color: white;
 }
 
+#sidebar #class_overview a {
+	font-weight: bold;
+}
 
 #sidebar th {
 	text-align: left;
