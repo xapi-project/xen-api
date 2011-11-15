@@ -201,17 +201,18 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 		(* Check software version *)
 					
 		let get_software_version_fields fields =
-			begin try List.assoc "product_version" fields with _ -> "" end,
-			begin try List.assoc "product_brand" fields with _ -> "" end,
-			begin try List.assoc "build_number" fields with _ -> "" end,
-			begin try List.assoc "git_id" fields with _ -> "" end,
-			begin try 
-				if List.mem_assoc Xapi_globs.linux_pack_vsn_key fields then "installed"
+			let open Xapi_globs in
+			begin try List.assoc _platform_version fields with _ -> "" end,
+			begin match get_compatibility_name fields with Some x -> x | None -> "" end,
+			begin try List.assoc _build_number fields with _ -> "" end,
+			begin try List.assoc _git_id fields with _ -> "" end,
+			begin try
+				if List.mem_assoc linux_pack_vsn_key fields then "installed"
 				else "not present"
 			with _ -> "not present" end
 		in
-		let print_software_version (version,brand,number,id,linux_pack) =
-			debug "version:%s, brand:%s, build:%s, id:%s, linux_pack:%s" version brand number id linux_pack in
+		let print_software_version (version,name,number,id,linux_pack) =
+			debug "version:%s, name:%s, build:%s, id:%s, linux_pack:%s" version name number id linux_pack in
 			
 		let master_software_version = master.API.host_software_version in
 		let my_software_version = Db.Host.get_software_version ~__context ~self:me in
