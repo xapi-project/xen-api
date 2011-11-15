@@ -110,17 +110,17 @@ let wait_until_database_is_ready_for_clients () =
        while not !database_ready_for_clients do Condition.wait database_ready_for_clients_c database_ready_for_clients_m done)
 
 (** Handler for the remote database access URL *)
-let remote_database_access_handler req bio = 
+let remote_database_access_handler req bio c =
 	wait_until_database_is_ready_for_clients ();
-	Db_remote_cache_access_v1.handler req bio
+	Db_remote_cache_access_v1.handler req bio c
 
 (** Handler for the remote database access URL *)
-let remote_database_access_handler_v2 req bio = 
+let remote_database_access_handler_v2 req bio c =
 	wait_until_database_is_ready_for_clients ();
-	Db_remote_cache_access_v2.handler req bio
+	Db_remote_cache_access_v2.handler req bio c
 
 (** Handler for the legacy remote stats URL *)
-let remote_stats_handler req bio = 
+let remote_stats_handler req bio _ =
   wait_until_database_is_ready_for_clients ();
 	let fd = Buf_io.fd_of bio in (* fd only used for writing *)
 

@@ -49,7 +49,7 @@ let respond req rpc s =
 	req.Http.Request.close <- true;
 	Unixext.really_write s txt 0 (String.length txt)
 
-let handler (req: Http.Request.t) s =
+let handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			debug "uri = %s" req.Http.Request.uri;

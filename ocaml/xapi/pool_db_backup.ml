@@ -163,7 +163,7 @@ let restore_from_xml __context dry_run (xml_filename: string) =
 	then Db_xml.To.file Xapi_globs.db_temporary_restore_path (Db_ref.get_database (Context.database_of new_context))
   
 (** Called when a CLI user downloads a backup of the database *)
-let pull_database_backup_handler (req: Http.Request.t) s =
+let pull_database_backup_handler (req: Http.Request.t) s _ =
   debug "received request to write out db as xml";
   req.Http.Request.close <- true;
   Xapi_http.with_context "Dumping database as XML" req s
@@ -176,7 +176,7 @@ let pull_database_backup_handler (req: Http.Request.t) s =
     )
 
 (** Invoked only by the explicit database restore code *)
-let push_database_restore_handler (req: Http.Request.t) s =
+let push_database_restore_handler (req: Http.Request.t) s _ =
   debug "received request to restore db from xml dump";
   Xapi_http.with_context "Reading database as XML" req s
     (fun __context ->

@@ -206,7 +206,7 @@ let create_patch_record ~__context ?path patch_info =
 
 exception CannotUploadPatchToSlave
 
-let pool_patch_upload_handler (req: Request.t) s = 
+let pool_patch_upload_handler (req: Request.t) s _ =
   debug "Patch Upload Handler - Entered...";
 
   if not (Pool_role.is_master ())
@@ -280,7 +280,7 @@ let update_upload_post_script = Xapi_globs.base_path ^ "/libexec/update-upload-p
 
 let skip_signature_test () = Sys.file_exists skip_signature_flag
 
-let oem_patch_stream_handler (req: Request.t) s =
+let oem_patch_stream_handler (req: Request.t) s _ =
   Xapi_http.with_context "Streaming OEM update to secondary partition" req s
     (fun __context ->
       if not (on_oem ~__context)
@@ -413,7 +413,7 @@ let oem_patch_stream_handler (req: Request.t) s =
       debug "Update applied successfully!";
     )
 
-let pool_patch_download_handler (req: Request.t) s = 
+let pool_patch_download_handler (req: Request.t) s _ =
   Xapi_http.with_context "Downloading pool patch" req s
     (fun __context ->     
       if not(List.mem_assoc "uuid" req.Request.query) then begin
