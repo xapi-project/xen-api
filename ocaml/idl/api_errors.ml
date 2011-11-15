@@ -241,6 +241,7 @@ let restore_target_missing_device = "RESTORE_TARGET_MISSING_DEVICE"
 let restore_target_mgmt_if_not_in_backup = "RESTORE_TARGET_MGMT_IF_NOT_IN_BACKUP"
 
 let pool_not_in_emergency_mode = "NOT_IN_EMERGENCY_MODE"
+let pool_hosts_not_compatible = "HOSTS_NOT_COMPATIBLE"
 let pool_hosts_not_homogeneous = "HOSTS_NOT_HOMOGENEOUS"
 let pool_joining_host_cannot_contain_shared_SRs = "JOINING_HOST_CANNOT_CONTAIN_SHARED_SRS"
 let pool_joining_host_cannot_have_running_or_suspended_VMs = "JOINING_HOST_CANNOT_HAVE_RUNNING_OR_SUSPENDED_VMS"
