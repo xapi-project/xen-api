@@ -84,3 +84,15 @@ function compare(a, b)
 	return 0;
 }
 
+// include a JS script
+function load_script(url, callback)
+{
+	var head= document.getElementsByTagName('head')[0];
+	var script= document.createElement('script');
+	script.type= 'text/javascript';
+	script.src= url;
+	script.onreadystatechange = callback;
+	script.onload = callback
+	head.appendChild(script);
+}
+
