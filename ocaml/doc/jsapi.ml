@@ -36,11 +36,15 @@ let _ =
 		let search_obj obj =
 			let changes = List.filter (fun (transition, release, doc) -> release = rel) obj.obj_lifecycle in
 			let obj_changes : changes_t = 
-				List.map (fun (transition, release, doc) -> (transition, obj.name, doc)) changes in
+				List.map (fun (transition, release, doc) ->
+					(transition, obj.name, if doc = "" && transition = Published then obj.description else doc)
+				) changes in
 			
 			let changes_for_msg m =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) m.msg_lifecycle in
-				List.map (fun (transition, release, doc) -> (transition, m.msg_name, doc)) changes
+				List.map (fun (transition, release, doc) ->
+					(transition, m.msg_name, if doc = "" && transition = Published then m.msg_doc else doc)
+				) changes
 			in
 			let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
 			let msg_changes : changes_t = List.fold_left (fun l m -> l @ (changes_for_msg m)) [] msgs in
@@ -48,7 +52,9 @@ let _ =
 			let changes_for_field f =
 				let changes = List.filter (fun (transition, release, doc) -> release = rel) f.lifecycle in
 				let field_name = String.concat "_" f.full_name in
-				List.map (fun (transition, release, doc) -> (transition, field_name, doc)) changes
+				List.map (fun (transition, release, doc) ->
+					(transition, field_name, if doc = "" && transition = Published then f.field_description else doc)
+				) changes
 			in
 			let rec flatten_contents contents =
 				List.fold_left (fun l -> function
