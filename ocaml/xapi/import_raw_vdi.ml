@@ -84,7 +84,7 @@ let return_302_redirect (req: Request.t) s address =
 	debug "HTTP 302 redirect to: %s" url;
 	Http_svr.headers s headers
 
-let handler (req: Request.t) (s: Unix.file_descr) =
+let handler (req: Request.t) (s: Unix.file_descr) _ =
 	Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req;
 
 	(* Perform the SR reachability check using a fresh context/task because

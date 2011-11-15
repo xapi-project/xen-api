@@ -429,7 +429,7 @@ let export_all_vms_from_request ~__context (req: Request.t) =
 let include_vhd_parents_from_request ~__context (req: Request.t) = 
 	bool_from_request ~__context req "include_vhd_parents"
 
-let metadata_handler (req: Request.t) s = 
+let metadata_handler (req: Request.t) s _ = 
 	debug "metadata_handler called";
 	req.Request.close <- true;
 
@@ -475,7 +475,7 @@ let metadata_handler (req: Request.t) s =
  					 Tar.write_end s);
 		)
 
-let handler (req: Request.t) s = 
+let handler (req: Request.t) s _ =
   debug "export handler";
   req.Request.close <- true;
 

@@ -20,7 +20,7 @@ open D
 
 let logs_download = Xapi_globs.base_path ^ "/libexec/logs-download"
 
-let logs_download_handler (req: Request.t) s = 
+let logs_download_handler (req: Request.t) s _ =
   debug "running logs-download handler";
   Xapi_http.with_context "Downloading host logs" req s
     (fun __context ->

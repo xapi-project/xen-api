@@ -95,7 +95,7 @@ let send_via_cp __context s entries output =
         error "%s" msg;
         raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
                 
-let handler (req: Request.t) s =
+let handler (req: Request.t) s _ =
   debug "In system status http handler...";
   req.Request.close <- true;
   let get_param s =
