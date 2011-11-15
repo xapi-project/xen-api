@@ -126,11 +126,6 @@ function current_lifecycle_stage(s)
 	}
 }
 
-function get_release_name(s)
-{
-	return s;
-}
-
 function make_field(fld, n)
 {
 	name = fld.full_name.join('_');
@@ -343,6 +338,7 @@ function release_list()
 
 function build()
 {
+	make_header('apidoc');
 	if (cls != "") {
 		class_list();
 		release_list();

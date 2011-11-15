@@ -2,12 +2,13 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 	<head>
-		<title>OCamlDoc</title>
 		<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 		<script type="text/javascript" src="main.js"></script>
+		<script type="text/javascript" src="branding.js"></script>
 		<script type="text/javascript" src="components.js"></script>
 		<script type="text/javascript" src="ocamldoc.js"></script>
 		<script>
+			make_title();
 			for (z in components)
 				document.write('<script src="content/', components[z], '/index.json" type="text/JavaScript"><\/script>');
 			if (component != "" && module != "")
@@ -17,15 +18,7 @@
 	</head>
 	<body onload="build();">
 		<div id="wrap">
-			<div id="header">
-				<h1 style="float:left"><a href="index.html" style="text-decoration: none">
-					Xapi &ndash; OCaml Code Documentation
-				</a></h1>
-				<ul id="menu">
-					<li><a href="apidoc.html">XenAPI Docs</a></li>
-					<li><a href="codedoc.html">Code Docs</a></li>
-				</ul>	
-			</div>
+			<div id="header"></div>
 			<div id="main">
 				<div id="container"><div id="content">
 					<h1 class="title">Introduction</h1>
