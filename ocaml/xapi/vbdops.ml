@@ -95,7 +95,7 @@ let create_vbd ~__context ~xs ~hvm ~protocol domid self =
 		let phystype = Device.Vbd.physty_of_string (Sm.sr_content_type ~__context ~sr) in
 		Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
 			(fun params ->
-				let backend_domid = Storage_mux.domid_of_sr (Ref.string_of sr) in
+				let backend_domid = Storage_mux.domid_of_sr (Db.SR.get_uuid ~__context ~self:sr) in
 				try
 					(* The backend can put useful stuff in here on vdi_attach *)
 					let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (Db.VDI.get_xenstore_data ~__context ~self:vdi) in

@@ -34,7 +34,7 @@ let device_of_vbd ~__context ~self =
         else
             let vdi = Db.VBD.get_VDI ~__context ~self in
             let sr = Db.VDI.get_SR ~__context ~self:vdi in
-			Storage_mux.domid_of_sr (Ref.string_of sr) in
+			Storage_mux.domid_of_sr (Db.SR.get_uuid ~__context ~self:sr) in
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
   let hvm = 

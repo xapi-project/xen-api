@@ -48,36 +48,38 @@ module Builtin_impl = struct
 
 	module SR = struct
 		let attach context ~task ~sr ~device_config =
-			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+
 					(* Existing backends expect an SRMaster flag to be added
 					   through the device-config. *)
-					let srmaster = Helpers.i_am_srmaster ~__context ~sr:self in
+					let srmaster = Helpers.i_am_srmaster ~__context ~sr in
 					let device_config = (Sm.sm_master srmaster) :: device_config in
-					Sm.call_sm_functions ~__context ~sR:self
+					Sm.call_sm_functions ~__context ~sR:sr
 						(fun _ _type ->
 							try
-								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type self;
+								Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr;
 								Success Unit
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
-								error "SR.attach failed SR:%s error:%s" sr e';
+								error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
 								Failure (Internal_error e')
 						)
 				)
 		let detach context ~task ~sr =
-			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.detach" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
-					Sm.call_sm_functions ~__context ~sR:self
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+
+					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
-								Sm.sr_detach device_config _type self;
+								Sm.sr_detach device_config _type sr;
 								Success Unit
 							with e ->
 								let e' = ExnHelper.string_of_exn e in
-								error "SR.detach failed SR:%s error:%s" sr e';
+								error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
 								Failure (Storage_interface.Internal_error e')
 						)
 				)
@@ -85,34 +87,36 @@ module Builtin_impl = struct
 		let reset context ~task ~sr = assert false
 
 		let destroy context ~task ~sr = 
-			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
-					Sm.call_sm_functions ~__context ~sR:self
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+
+					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
-								Sm.sr_delete device_config _type self;
+								Sm.sr_delete device_config _type sr;
 								Success Unit
 							with
 								| Smint.Not_implemented_in_backend ->
-									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ sr ]))
+									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
-									error "SR.detach failed SR:%s error:%s" sr e';
+									error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
 									Failure (Storage_interface.Internal_error e')
 						)
 				)
 
 		let scan context ~task ~sr =
-			let self = Ref.of_string sr in
 			Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string task)
 				(fun __context ->
-					Sm.call_sm_functions ~__context ~sR:self
+					let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+
+					Sm.call_sm_functions ~__context ~sR:sr
 						(fun device_config _type ->
 							try
-								Sm.sr_scan device_config _type self;
+								Sm.sr_scan device_config _type sr;
 								let open Db_filter_types in
-								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr)) in
+								let vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
 								let info_of_vdi (vdi_ref, vdi_rec) = {
 									vdi = vdi_rec.API.vDI_location;
 									name_label = vdi_rec.API.vDI_name_label;
@@ -129,10 +133,10 @@ module Builtin_impl = struct
 								Success (Vdis (List.map info_of_vdi vdis))
 							with
 								| Smint.Not_implemented_in_backend ->
-									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ sr ]))
+									Failure (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
 								| e ->
 									let e' = ExnHelper.string_of_exn e in
-									error "SR.scan failed SR:%s error:%s" sr e';
+									error "SR.scan failed SR:%s error:%s" (Ref.string_of sr) e';
 									Failure (Storage_interface.Internal_error e')
 						)
 				)			
@@ -248,7 +252,7 @@ module Builtin_impl = struct
             try
                 Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string task)
                     (fun __context ->
-                        let sr = Ref.of_string sr in
+                        let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
                         let vi =
                             Sm.call_sm_functions ~__context ~sR:sr
                                 (fun device_config _type ->
@@ -412,12 +416,12 @@ let bind ~__context ~pbd =
 
     let dom0 = Helpers.get_domain_zero ~__context in
     let module Impl = (val (if driver = dom0 then make_local path else make_remote (ip_of driver) path): SERVER) in
-    let sr = Db.PBD.get_SR ~__context ~self:pbd in
-    info "SR %s will be implemented by %s in VM %s" (Ref.string_of sr) path (Ref.string_of driver);
+    let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
+    info "SR %s will be implemented by %s in VM %s" sr path (Ref.string_of driver);
     Storage_mux.register sr (Impl.process (Some path)) uuid
 
 let unbind ~__context ~pbd =
-        let sr = Db.PBD.get_SR ~__context ~self:pbd in
+        let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
         Storage_mux.unregister sr
 
 let rpc call = Storage_mux.Server.process None call
@@ -469,7 +473,7 @@ let of_vbd ~__context ~vbd ~domid =
 	let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
 	let task = Context.get_task_id __context in
 	let dp = datapath_of_vbd ~domid ~userdevice in
-	rpc, (Ref.string_of task), dp, (Ref.string_of sr), location
+	rpc, (Ref.string_of task), dp, (Db.SR.get_uuid ~__context ~self:sr), location
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
@@ -492,7 +496,7 @@ let reset ~__context ~vm =
 	let task = Context.get_task_id __context in
 	Opt.iter
 		(fun pbd ->
-			let sr = Ref.string_of (Db.PBD.get_SR ~__context ~self:pbd) in
+			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
 			info "Resetting all state associated with SR: %s" sr;
 			expect_unit (fun () -> ())
 				(Client.SR.reset rpc (Ref.string_of task) sr);
@@ -551,8 +555,8 @@ let resynchronise_pbds ~__context ~pbds =
 	debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
 	List.iter
 		(fun self ->
-			let sr = Db.PBD.get_SR ~__context ~self in
-			let value = List.mem (Ref.string_of sr) srs in
+			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
+			let value = List.mem sr srs in
 			debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
 			if value then bind ~__context ~pbd:self;
 			Db.PBD.set_currently_attached ~__context ~self ~value
@@ -619,7 +623,7 @@ let refresh_local_vdi_activations ~__context =
 	let srs = Client.SR.list rpc task in
 	List.iter 
 		(fun (vdi_ref, vdi_rec) ->
-			let sr = Ref.string_of vdi_rec.API.vDI_SR in
+			let sr = Db.SR.get_uuid ~__context ~self:vdi_rec.API.vDI_SR in
 			let vdi = vdi_rec.API.vDI_location in
 			if List.mem sr srs
 			then
@@ -662,11 +666,11 @@ let destroy_sr ~__context ~sr =
 	bind ~__context ~pbd;
 	let task = Ref.string_of (Context.get_task_id __context) in
 	expect_unit (fun () -> ())
-		(Client.SR.attach rpc task (Ref.string_of sr) pbd_t.API.pBD_device_config);
+		(Client.SR.attach rpc task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config);
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 	expect_unit (fun () -> ())
-		(Client.SR.destroy rpc task (Ref.string_of sr));	
+		(Client.SR.destroy rpc task (Db.SR.get_uuid ~__context ~self:sr));	
 	(* All PBDs are clearly currently_attached = false now *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 	unbind ~__context ~pbd

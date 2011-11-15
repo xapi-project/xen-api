@@ -235,7 +235,7 @@ let create ~__context ~name_label ~name_description
             if virtual_size < vi.virtual_size
             then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) vi.vdi virtual_size vi.virtual_size;
             newvdi ~__context ~sr:sR vi
-        ) (Client.VDI.create rpc ~task:(Ref.string_of task) ~sr:(Ref.string_of sR)
+        ) (Client.VDI.create rpc ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR)
 			~vdi_info ~params:sm_config)
 
 (* Make the database record only *)
@@ -388,7 +388,7 @@ let destroy ~__context ~self =
           let open Storage_interface in
           let task = Context.get_task_id __context in
           expect_unit (fun () -> ())
-              (Client.VDI.destroy rpc ~task:(Ref.string_of task) ~sr:(Ref.string_of sr) ~vdi:location);
+              (Client.VDI.destroy rpc ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location);
 
 	(* destroy all the VBDs now rather than wait for the GC thread. This helps
 	   prevent transient glitches but doesn't totally prevent races. *)
