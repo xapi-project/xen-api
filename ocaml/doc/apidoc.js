@@ -328,6 +328,7 @@ function release_list()
 {
 	html = '<h2>Release notes</h2>';
 	
+	releases = releases.slice(releases.indexOf(first_release))
 	for (i in releases) {
 		r = releases[i];
 		html += '<a href="?r=' + r + '">' + get_release_name(r) + '</a><br>';

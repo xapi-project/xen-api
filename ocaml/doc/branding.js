@@ -31,8 +31,29 @@ function make_header(t) {
 	document.getElementById('header').innerHTML = html;
 }
 
+first_release = 'midnight-ride';
+
 function get_release_name(s)
 {
-	return s;
+	switch (s) {
+	case 'rio':
+	case 'miami':
+	case 'symc':
+	case 'orlando':
+	case 'orlando-update-1':
+	case 'george':
+	case 'midnight-ride':
+		return 'XCP 0.5';
+		break;
+	case 'cowley':
+		return 'XCP 1.0';
+		break;
+	case 'boston':
+		return 'XCP 1.5';
+		break;
+	default:
+		return 'Unreleased';
+		break;
+	}
 }
 
