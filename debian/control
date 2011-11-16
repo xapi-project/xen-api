@@ -2,7 +2,7 @@ Source: xen-api
 Section: admin
 Priority: extra
 Maintainer: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
-Build-Depends: debhelper (>= 8.0.0), ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, dh-autoreconf, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml-4.1, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, dh-ocaml
+Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-nox | ocaml, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml-4.1, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev
 Standards-Version: 3.9.2
 Homepage: http://www.xen.org/XCP/
 #Vcs-Git: git://git.debian.org/collab-maint/xen-api.git
