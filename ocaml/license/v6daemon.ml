@@ -21,7 +21,7 @@ open D
 
 module W=Debug.Debugger(struct let name="watchdog" end)
 
-let xmlrpc_handler process req bio =
+let xmlrpc_handler process req bio _ =
 	let path = match String.split '/' req.Http.Request.uri with
 	| x::path::_ -> path
 	| _ -> failwith "Unknown path"

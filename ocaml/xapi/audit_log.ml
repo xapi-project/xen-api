@@ -133,7 +133,7 @@ let log_timestamp_of_iso8601 iso8601_timestamp =
  eg. /audit_log?...&since=2009-09-10T11:31
  eg. /audit_log?...&since=2009-09-10
 *)
-let handler (req: Request.t) (bio: Buf_io.t) =
+let handler (req: Request.t) (bio: Buf_io.t) _ =
 
 	let s = Buf_io.fd_of bio in
 	Buf_io.assert_buffer_empty bio;
