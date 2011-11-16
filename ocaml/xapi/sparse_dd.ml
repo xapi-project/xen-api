@@ -132,71 +132,29 @@ module Network_writer = struct
 	open Sparse_encoding
 	type t = Unix.file_descr
 
-	type url = {
-		host: string;
-		port: int;
-		auth: (string * string) option;
-		uri: string;
-		https: bool;
-	}
-
-	let url_of_string url = 
-		let host x = match String.split ':' x with
-		| host :: _ -> host
-		| _ -> failwith (Printf.sprintf "Failed to parse host: %s" x) in
-		let port x = match String.split ':' x with
-		| _ :: port :: _ -> Some (int_of_string port)
-		| _ -> None in
-		let uname_password_host_port x = match String.split '@' x with
-		| [ _ ] -> None, host x, port x
-		| [ uname_password; host_port ] -> 
-			begin match String.split ':' uname_password with 
-			| [ uname; password ] -> Some (uname, password), host host_port, port host_port
-			| _ -> failwith (Printf.sprintf "Failed to parse authentication substring: %s" uname_password)
-			end 
-		| _ -> failwith (Printf.sprintf "Failed to parse username password host and port: %s" x) in
-		match String.split '/' url with
-		| http_or_https :: "" :: x :: uri ->
-			let uname_password, host, port = uname_password_host_port x in
-			if not(List.mem http_or_https [ "https:"; "http:" ])
-			then failwith (Printf.sprintf "Unknown URL scheme: %s" http_or_https);
-			let https = String.startswith "https://" url in
-			let port = (match port with Some p -> p | None -> if https then 443 else 80) in
-			{ host = host; port = port; auth = uname_password; uri = "/" ^ (String.concat "/" uri); https = https }
-		| _ -> failwith (Printf.sprintf "Failed to parse URL: %s" url)
-
-	let open_url url f = 
-		let with_ssl url f = 
-			Printf.printf "connecting to %s:%d\n" url.host url.port;
-			let stunnel = Stunnel.connect url.host url.port in
-			finally
-			(fun () -> f stunnel.Stunnel.fd)
-			(fun () -> Stunnel.disconnect stunnel) in
-		let with_plaintext url f = 
-			let fd = Unixext.open_connection_fd url.host url.port in
-			finally
-			(fun () -> f fd)
-			(fun () -> Unix.close fd) in
-		let uri, query = Http.parse_uri url.uri in
+	let do_http_put f url =
+		let open Http.Url in
+		let uri = Http.Url.uri_of url in
+		let auth = Http.Url.auth_of url in
+		let uri, query = Http.parse_uri uri in
 		let request = { Http.Request.empty with
 			Http.Request.m = Http.Put;
-				uri = uri;
-				query = query;
-				version = "1.0";
-				transfer_encoding = None;
-				content_length = None;
-				auth = Opt.map (fun (username, password) -> Http.Basic(username, password)) url.auth;
-				cookie = [ "chunked", "true" ];
-				task = None; subtask_of = None;
-				content_type = None;
-				user_agent = Some "sparse_dd/0.1";
-				close = true;
-				additional_headers = [];
+			uri = uri;
+			query = query;
+			version = "1.0";
+			transfer_encoding = None;
+			content_length = None;
+			auth = auth;
+			cookie = [ "chunked", "true" ];
+			task = None; subtask_of = None;
+			content_type = None;
+			user_agent = Some "sparse_dd/0.1";
+			close = true;
+			additional_headers = [];
 		} in
 		try
-			if url.https
-			then with_ssl url (fun fd -> Http_client.rpc fd request f)
-			else with_plaintext url (fun fd -> Http_client.rpc fd request f)
+			Xmlrpc_client.with_transport (Xmlrpc_client.transport_of_url url)
+				(fun fd -> Http_client.rpc fd request f)
 		with Http_client.Http_error("401", _) as e ->
 			Printf.printf "HTTP 401 Unauthorized\n";
 			raise e
@@ -236,7 +194,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 	let ifd = Unix.openfile src [ Unix.O_RDONLY ] 0o600 in
 	if String.startswith "http:" dst || String.startswith "https:" dst then begin
 		(* Network copy *)
-		Network_writer.open_url (Network_writer.url_of_string dst)
+		Network_writer.do_http_put
 		(fun _ ofd ->
 			Printf.printf "\nWriting chunked encoding to fd: %d\n" (Unixext.int_of_file_descr ofd);
 			let stats = Network_copy.copy progress_cb bat prezeroed ifd ofd blocksize size in
@@ -245,7 +203,7 @@ let file_dd ?(progress_cb = (fun _ -> ())) ?size ?bat prezeroed src dst =
 			Printf.printf "Waiting for connection to close\n";
 			(try let tmp = " " in Unixext.really_read ofd tmp 0 1 with End_of_file -> ());
 			Printf.printf "Connection closed\n";
-			stats)
+			stats) (Http.Url.of_string dst)
 	end else begin
 		let ofd = Unix.openfile dst [ Unix.O_WRONLY; Unix.O_CREAT ] 0o600 in
 	 	(* Make sure the output file has the right size *)
