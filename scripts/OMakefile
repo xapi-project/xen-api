@@ -95,7 +95,6 @@ install:
 	$(IPROG) restore-sr-metadata.py $(LIBEXEC)
 	$(IPROG) probe-device-for-file $(LIBEXEC)
 	$(IPROG) backup-metadata-cron $(LIBEXEC)
-	$(IPROG) c_rehash $(LIBEXEC)
 	$(IPROG) lw-force-domain-leave $(LIBEXEC)
 	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
 	mkdir -p $(DESTDIR)/etc/sysconfig
