@@ -730,7 +730,7 @@ let pool_migrate ~__context ~vm ~host ~options =
 exception Failure
 
 (** HTTP handler to receive the live memory image *)
-let handler req fd =
+let handler req fd _ =
   let safe_lookup key list =
     if not (List.mem_assoc key list) then begin
 	error "Failed to find key %s (list was [ %s ])"

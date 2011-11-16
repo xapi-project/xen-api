@@ -810,7 +810,7 @@ let complete_import ~__context vmrefs =
   with e -> error "Caught exception completing import: %s" (ExnHelper.string_of_exn e); raise e
 
 (** Import metadata only *)
-let metadata_handler (req: Request.t) s = 
+let metadata_handler (req: Request.t) s _ = 
   debug "metadata_handler called";  
   Xapi_http.with_context "VM.metadata_import" req s
     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -857,7 +857,7 @@ let metadata_handler (req: Request.t) s =
 	 raise e
     )))
 
-let handler (req: Request.t) s = 
+let handler (req: Request.t) s _ =
   req.Request.close <- true;
 
   Xapi_http.assert_credentials_ok "VM.import" ~http_action:"put_import" req;

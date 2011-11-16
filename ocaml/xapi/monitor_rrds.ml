@@ -429,7 +429,7 @@ let load_rrd ~__context uuid is_host =
 (** Receive handler, for RRDs being pushed onto us *)
 exception Invalid_RRD
 
-let receive_handler (req: Http.Request.t) (bio: Buf_io.t) =
+let receive_handler (req: Http.Request.t) (bio: Buf_io.t) _ =
   debug "Monitor_rrds.receive_handler";
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
@@ -479,7 +479,7 @@ let receive_handler (req: Http.Request.t) (bio: Buf_io.t) =
     )
 
 (** Send handler, for sending out requested RRDs *)
-let handler (req: Http.Request.t) s =
+let handler (req: Http.Request.t) s _ =
   debug "Monitor_rrds.handler";
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
@@ -529,7 +529,7 @@ let handler (req: Http.Request.t) s =
 	      end)
 
 (** Send handler, for sending out requested host RRDs *)
-let handler_host (req: Http.Request.t) s =
+let handler_host (req: Http.Request.t) s _ =
   debug "Monitor_rrds.handler_host";
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;
@@ -576,7 +576,7 @@ let get_host_stats ?(json=false) start interval cfopt host uuid =
     in
     Rrd.export ~json prefixandrrds start interval cfopt)
 
-let handler_rrd_updates (req: Http.Request.t) s =
+let handler_rrd_updates (req: Http.Request.t) s _ =
   (* This is commonly-called: not worth logging *)
   let query = req.Http.Request.query in
   req.Http.Request.close <- true;

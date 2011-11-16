@@ -127,7 +127,7 @@ let callback1 is_json req fd body xml =
       (* debug(fmt "response = %s" response); *)
 
 (** HTML callback that dispatches an RPC and returns the response. *)
-let callback is_json req bio =
+let callback is_json req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
   try
@@ -145,6 +145,6 @@ let callback is_json req bio =
       Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
 	(Xml.to_string (XMLRPC.To.methodResponse (XMLRPC.Fault(1l, "Failed to parse supplied XML")))) 
 
-let options_callback req bio =
+let options_callback req bio _ =
 	let fd = Buf_io.fd_of bio in
 	Http_svr.respond_to_options req fd 

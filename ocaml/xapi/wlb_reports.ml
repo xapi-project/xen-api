@@ -253,7 +253,7 @@ let handle req bio method_name tokens (method_name, request_func) =
 (* GET /wlb_report?session_id=<session>&task_id=<task>&
                    report=<report name>&<param1>=<value1>&...
 *)
-let report_handler (req: Request.t) (bio: Buf_io.t) =
+let report_handler (req: Request.t) (bio: Buf_io.t) _ =
   if not (List.mem_assoc "report" req.Request.query) then
     begin
       error "Request for WLB report lacked 'report' parameter";
@@ -272,6 +272,6 @@ let report_handler (req: Request.t) (bio: Buf_io.t) =
 
 
 (* GET /wlb_diagnostics?session_id=<session>&task_id=<task> *)
-let diagnostics_handler (req: Request.t) (bio: Buf_io.t) =
+let diagnostics_handler (req: Request.t) (bio: Buf_io.t) _ =
   handle req bio "GetDiagnostics" diagnostics_tokens
     Workload_balancing.wlb_diagnostics_request
