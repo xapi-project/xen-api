@@ -373,7 +373,7 @@ module Request = struct
 		body = None;
 	}
 
-	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
+	let make ?(frame=false) ?(version="1.0") ?(keep_alive=false) ?accept ?cookie ?length ?auth ?subtask_of ?body ?(headers=[]) ?content_type ~user_agent meth path = 
 		{ empty with
 			version = version;
 			frame = frame;
@@ -381,6 +381,7 @@ module Request = struct
 			cookie = Opt.default [] cookie;
 			subtask_of = subtask_of;
 			content_length = length;
+			auth = auth;
 			content_type = content_type;
 			user_agent = Some user_agent;
 			m = meth;
@@ -541,3 +542,57 @@ type 'a ll = End | Item of 'a * (unit -> 'a ll)
 let rec ll_iter f = function
   | End -> ()
   | Item (x, xs) -> f x; ll_iter f (xs ())
+
+
+module Url = struct
+	type http = {
+		host: string;
+		auth: authorization option;
+		port: int option;
+		ssl: bool;
+	}
+	type file = {
+		path: string;
+	}
+
+	type t =
+		| Http of http * string
+		| File of file * string
+
+	let of_string url =
+		let host x = match String.split ':' x with
+			| host :: _ -> host
+			| _ -> failwith (Printf.sprintf "Failed to parse host: %s" x) in
+		let port x = match String.split ':' x with
+			| _ :: port :: _ -> Some (int_of_string port)
+			| _ -> None in
+		let uname_password_host_port x = match String.split '@' x with
+			| [ _ ] -> None, host x, port x
+			| [ uname_password; host_port ] ->
+				begin match String.split ':' uname_password with 
+					| [ uname; password ] -> Some (Basic (uname, password)), host host_port, port host_port
+					| _ -> failwith (Printf.sprintf "Failed to parse authentication substring: %s" uname_password)
+				end
+			| _ -> failwith (Printf.sprintf "Failed to parse username password host and port: %s" x) in
+		let reconstruct_uri uri = "/" ^ (String.concat "/" uri) in
+		let http_or_https ssl x uri =
+			let uname_password, host, port = uname_password_host_port x in
+			Http ({
+				host = host; port = port; auth = uname_password; ssl = ssl;
+			}, reconstruct_uri uri) in
+		match String.split '/' url with
+			| "http:" :: "" :: x :: uri -> http_or_https false x uri
+			| "https:" :: "" :: x :: uri -> http_or_https true x uri
+			| "file:" :: uri ->
+				File ({ path = reconstruct_uri uri }, "/")
+			| x :: _ -> failwith (Printf.sprintf "Unknown scheme %s" x)
+			| _ -> failwith (Printf.sprintf "Failed to parse URL: %s" url)
+
+	let uri_of = function
+		| File (_, x) -> x
+		| Http (_, x) -> x
+
+	let auth_of = function
+		| File (_, _) -> None
+		| Http ({ auth = auth }, _) -> auth
+end

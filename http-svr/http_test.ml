@@ -94,6 +94,41 @@ let test_radix_tree2 _ =
 	if List.length all <> (List.length test_strings)
 	then failwith "fold"
 
+let test_url _ =
+	let open Http in
+	let open Http.Url in
+	begin match of_string "file:/var/xapi/storage" with
+		| File ({ path = "/var/xapi/storage" }, "/") -> ()
+		| _ -> assert false
+	end;
+	begin match of_string "http://root:foo@localhost" with
+		| Http (t, "/") ->
+			assert (t.auth = Some(Basic("root", "foo")));
+			assert (t.ssl = false);
+			assert (t.host = "localhost");
+		| _ -> assert false
+	end;
+	begin match of_string "https://google.com/gmail" with
+		| Http (t, "/gmail") ->
+			assert (t.ssl = true);
+			assert (t.host = "google.com");
+		| _ -> assert false
+	end;
+	begin match of_string "https://xapi.xen.org/services/SM" with
+		| Http (t, "/services/SM") ->
+			assert (t.ssl = true);
+			assert (t.host = "xapi.xen.org");
+		| _ -> assert false
+	end;
+	begin match of_string "https://root:foo@xapi.xen.org:1234/services/SM" with
+		| Http (t, "/services/SM") ->
+			assert (t.auth = Some(Basic("root", "foo")));
+			assert (t.port = Some 1234);
+			assert (t.ssl = true);
+			assert (t.host = "xapi.xen.org");
+		| _ -> assert false
+	end
+
 let _ =
     let verbose = ref false in
     Arg.parse [
@@ -107,5 +142,6 @@ let _ =
             "accept_complex" >:: test_accept_complex;
 			"radix1" >:: test_radix_tree1;
 			"radix2" >:: test_radix_tree2;
+			"test_url" >:: test_url
 		] in
     run_test_tt ~verbose:!verbose suite

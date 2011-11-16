@@ -76,7 +76,7 @@ module Request : sig
 	val empty: t
 
 	(** [make] is the standard constructor for [t] *)
-	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
+	val make: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?accept:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:authorization -> ?subtask_of:string -> ?body:string -> ?headers:(string*string) list -> ?content_type:string -> user_agent:string -> method_t -> string -> t
 
 	(** [get_version t] returns the HTTP protocol version *)
 	val get_version: t -> string
@@ -166,3 +166,25 @@ val urlencode : string -> string
 
 type 'a ll = End | Item of 'a * (unit -> 'a ll)
 val ll_iter : ('a -> unit) -> 'a ll -> unit
+
+module Url : sig
+	type http = {
+		host: string;
+		auth: authorization option;
+		port: int option;
+		ssl: bool;
+	}
+	type file = {
+		path: string;
+	}
+
+	type t =
+		| Http of http * string
+		| File of file * string
+
+	val of_string: string -> t
+
+	val uri_of: t -> string
+
+	val auth_of: t -> authorization option
+end

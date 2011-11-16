@@ -179,4 +179,3 @@ let rpc ?(use_fastpath=false) (fd: Unix.file_descr) request f =
 (*	Printf.printf "request = [%s]" (Http.Request.to_wire_string request);*)
 	http_rpc_send_query fd request;
 	f (http_rpc_recv_response use_fastpath (Http.Request.to_string request) fd) fd
-
