@@ -19,6 +19,7 @@ open D
 
 open Fun
 open Stringext
+open Pervasiveext
 
 (* URI prefix *)
 let _services = "services"
@@ -49,11 +50,35 @@ let respond req rpc s =
 	req.Http.Request.close <- true;
 	Unixext.really_write s txt 0 (String.length txt)
 
+(* Transmits [req] and [s] to the service listening on [path] *)
+let hand_over_connection req s path =
+	try
+		let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+		finally
+			(fun () ->
+				Unix.connect control_fd (Unix.ADDR_UNIX path);
+				let msg = req |> Http.Request.rpc_of_t |> Jsonrpc.to_string in
+				let len = String.length msg in
+				let written = Unixext.send_fd control_fd msg 0 len [] s in
+				if written <> len then begin
+					error "Failed to transfer fd to %s" path;
+					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
+					req.Http.Request.close <- true
+				end;
+			)
+			(fun () -> Unix.close control_fd)
+	with e ->
+		error "Failed to transfer fd to %s: %s" path (Printexc.to_string e);
+		Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
+		req.Http.Request.close <- true
+
 let handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			debug "uri = %s" req.Http.Request.uri;
 			match String.split '/' req.Http.Request.uri with
+				| [ ""; services; "xenops" ] when services = _services ->
+					hand_over_connection req s "/var/xapi/xenopsd.forwarded"
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try
