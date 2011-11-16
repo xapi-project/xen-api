@@ -23,6 +23,7 @@ DAEMON=/usr/lib/xen-common/xapi/bin/$NAME
 DAEMON_ARGS="-daemon"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
+REGENERATE_TEMPLATES_STAMP=/usr/lib/xen-common/xapi/REGENERATE_TEMPLATES
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -65,6 +66,13 @@ do_start()
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
 	# on this one.  As a last resort, sleep for some time.
+
+	# Check for REGENERATE_TEMPLATES_STAMP, and call 'regenerate_templates
+	# start' if it is present.
+	if [ -f ${REGENERATE_TEMPLATES_STAMP} ]; then
+		/usr/lib/xen-common/xapi/libexec/regenerate-templates start
+		rm ${REGENERATE_TEMPLATES_STAMP}
+	fi
 }
 
 #
