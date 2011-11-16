@@ -72,7 +72,18 @@ let hand_over_connection req s path =
 		Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
 		req.Http.Request.close <- true
 
-let handler (req: Http.Request.t) s _ =
+let post_handler (req: Http.Request.t) s _ =
+	Xapi_http.with_context ~dummy:true "Querying services" req s
+		(fun __context ->
+			match String.split '/' req.Http.Request.uri with
+				| [ ""; services; "SM" ] when services = _services ->
+					Storage_impl.Local_domain_socket.xmlrpc_handler Storage_mux.Server.process req (Buf_io.of_fd s) ()
+				| _ ->
+					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
+					req.Http.Request.close <- true
+		)
+
+let get_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			debug "uri = %s" req.Http.Request.uri;

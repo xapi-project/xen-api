@@ -16,14 +16,15 @@
  *)
 
 open Listext
+open Fun
 open Stringext
+open Xmlrpc_client
 
-let socket = ref "/var/xapi/storage"
+let url = ref (Http.Url.File ({ Http.Url.path = "/var/xapi/storage" }, "/"))
 
 let rpc call =
-	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~transport:(Unix !socket) 
-		~http:(xmlrpc ~version:"1.0" "/") call
+	XMLRPC_protocol.rpc ~transport:(transport_of_url !url)
+		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) (Http.Url.uri_of !url)) call
 
 open Storage_interface
 
@@ -39,16 +40,25 @@ let usage_and_exit () =
 
 let _ =
 	if Array.length Sys.argv < 2 then usage_and_exit ();
-	match Sys.argv.(1) with
-		| "sr-list" ->
+	Stunnel.init_stunnel_path ();
+	(* Look for url=foo *)
+	let args = Array.to_list Sys.argv in
+	begin
+		match List.filter (String.startswith "url=") args with
+			| x :: _ ->
+				url := Http.Url.of_string (String.sub x 4 (String.length x - 4))
+			| _ -> ()
+	end;
+	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
+	match args with
+		| [ "sr-list" ] ->
 			let srs = Client.SR.list rpc ~task in
 			List.iter
 				(fun sr ->
 					Printf.printf "%s\n" sr
 				) srs
-		| "sr-scan" ->
+		| [ "sr-scan"; sr ] ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			let sr = Sys.argv.(2) in
 			begin match Client.SR.scan rpc ~task ~sr with
 				| Success (Vdis vs) ->
 					List.iter
@@ -58,14 +68,12 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| "vdi-create" ->
+		| "vdi-create" :: sr :: args ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			let sr = Sys.argv.(2) in
 			let kvpairs = List.filter_map
 				(fun x -> match String.split ~limit:2 '=' x with
 					| [k; v] -> Some (k, v)
-					| _ -> None)
-				(Array.to_list (Array.sub Sys.argv 3 (Array.length Sys.argv - 3))) in
+					| _ -> None) args in
 			let find key = if List.mem_assoc key kvpairs then Some (List.assoc key kvpairs) else None in
 			let vdi_info = {
 				vdi = "";
@@ -94,15 +102,11 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| "vdi-destroy" ->
-			if Array.length Sys.argv < 4 then usage_and_exit ();
-			let sr = Sys.argv.(2) in
-			let vdi = Sys.argv.(3) in
+		| [ "vdi-destroy"; sr; vdi ] ->
 			begin match Client.VDI.destroy rpc ~task ~sr ~vdi with
 				| Success Unit -> ()
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| x ->
-			Printf.fprintf stderr "Unknown command: %s\n" x;
+		| _ ->
 			usage_and_exit ()
