@@ -31,9 +31,9 @@ let connect ?session_id ?task_id ?subtask_of path =
 	Http.Request.make ~user_agent ~version:"1.0" ~keep_alive:true ~cookie ?subtask_of
 		Http.Connect path
 
-let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?subtask_of ?body path =
+let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_of ?body path =
 	let headers = Opt.map (fun x -> [ Http.Hdr.task_id, x ]) task_id in
-	Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?subtask_of ?body
+	Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?auth ?subtask_of ?body
 		Http.Post path
 
 (** Thrown when ECONNRESET is caught which suggests the remote crashed or restarted *)
@@ -163,6 +163,17 @@ let string_of_transport = function
 	| Unix x -> Printf.sprintf "Unix %s" x
 	| TCP (host, port) -> Printf.sprintf "TCP %s:%d" host port
 	| SSL (ssl, host, port) -> Printf.sprintf "SSL %s:%d %s" host port (SSL.to_string ssl)
+
+let transport_of_url =
+	let open Http.Url in
+	function
+		| File ({ path = path }, _) -> Unix path
+		| Http ({ ssl = false } as h, _) ->
+			let port = Opt.default 80 h.port in
+			TCP(h.host, port)
+		| Http ({ ssl = true } as h, _) ->
+			let port = Opt.default 443 h.port in
+			SSL(SSL.make (), h.host, port)
 
 let with_transport transport f = match transport with
 	| Unix path ->

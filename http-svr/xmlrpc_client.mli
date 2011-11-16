@@ -37,6 +37,9 @@ type transport =
 	| TCP of string * int         (** Plain TCP/IP with a host, port *)
 	| SSL of SSL.t * string * int (** SSL over TCP/IP with a host, port *)
 
+(** [transport_of_url url] returns the transport associated with [url] *)
+val transport_of_url : Http.Url.t -> transport
+
 (** [string_of_transport t] returns a debug-friendly version of [t] *)
 val string_of_transport : transport -> string
 
@@ -50,7 +53,7 @@ val with_transport : transport -> (Unix.file_descr -> 'a) -> 'a
 val with_http : Http.Request.t -> (Http.Response.t * Unix.file_descr -> 'a) -> Unix.file_descr -> 'a
 
 (** Returns an HTTP.Request.t representing an XMLRPC request *)
-val xmlrpc: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
+val xmlrpc: ?frame:bool -> ?version:string -> ?keep_alive:bool -> ?task_id:string -> ?cookie:(string*string) list -> ?length:int64 -> ?auth:Http.authorization -> ?subtask_of:string -> ?body:string -> string -> Http.Request.t
 
 (** Returns an HTTP.Request.t representing an HTTP CONNECT *)
 val connect: ?session_id:string -> ?task_id:string -> ?subtask_of:string -> string -> Http.Request.t
