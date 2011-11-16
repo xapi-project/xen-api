@@ -1,0 +1,13 @@
+--- a/ocaml/xapi/create_misc.ml
++++ b/ocaml/xapi/create_misc.ml
+@@ -284,8 +284,8 @@
+ 	let calculate_domain_zero_memory_static_min () =
+ 		(* Base our calculation on the total amount of host memory. *)
+ 		let host_total_memory_mib = host_info.total_memory_mib in
+-		let minimum = 200L in            (*   lower hard limit                               *)
+-		let intercept = 126L in          (*   [domain 0 memory] when [total host memory] = 0 *)
++		let minimum = 1000L in            (*   lower hard limit                               *)
++		let intercept = 1000L in          (*   [domain 0 memory] when [total host memory] = 0 *)
+ 		let gradient = 21.0 /. 1024.0 in (* d [domain 0 memory] /  d [total host memory]     *)
+ 		let result = Int64.add (Int64.of_float (gradient *. (Int64.to_float host_total_memory_mib))) intercept in
+ 		let result = if result < minimum then minimum else result in

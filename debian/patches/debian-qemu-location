@@ -1,0 +1,11 @@
+--- a/scripts/qemu-dm-wrapper
++++ b/scripts/qemu-dm-wrapper
+@@ -79,7 +79,7 @@
+ 	import os
+ 
+ 	qemu_env = os.environ
+-	qemu_dm = '/usr/lib/xen/bin/qemu-dm'
++	qemu_dm = '/usr/lib/xen-4.1/bin/qemu-dm'
+ 	domid = int(argv[1])
+ 	qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
+ 

@@ -1,0 +1,8 @@
+--- a/scripts/xapi.conf
++++ b/scripts/xapi.conf
+@@ -1,4 +1,4 @@
+-base_path = /opt/xensource
++base_path = /usr/lib/xen-common/xapi
+ 
+ schema_filename = /etc/xensource/db_schema.sql
+ license_filename = /etc/xensource/license

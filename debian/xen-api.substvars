@@ -1,0 +1,3 @@
+python:Depends=python
+shlibs:Depends=blktap, libc6 (>= 2.3.6-6~), libc6 (>= 2.7), libpam0g (>= 0.99.7.1), libuuid1 (>= 2.16)
+misc:Depends=

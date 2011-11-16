@@ -1,0 +1,22 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:41 +0100
+Subject: [PATCH] fix-xenapi-py
+
+---
+ scripts/examples/python/XenAPI.py |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/scripts/examples/python/XenAPI.py b/scripts/examples/python/XenAPI.py
+index c459d31..314606e 100644
+--- a/scripts/examples/python/XenAPI.py
++++ b/scripts/examples/python/XenAPI.py
+@@ -92,7 +92,7 @@ class UDSTransport(xmlrpclib.Transport):
+         self._extra_headers += [ (key,value) ]
+     def make_connection(self, host):
+         # Python 2.4 compatibility
+-        if sys.version_info[0] <= 2 and sys.version_info[1] < 6:
++        if sys.version_info[0] <= 2 and sys.version_info[1] < 7:
+             return UDSHTTP(host)
+         else:
+             return UDSHTTPConnection(host)
+-- 

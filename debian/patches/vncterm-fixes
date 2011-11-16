@@ -1,0 +1,11 @@
+--- a/scripts/vncterm-wrapper
++++ b/scripts/vncterm-wrapper
+@@ -41,7 +41,7 @@
+ echo vncterm-wrapper:
+ xenstore-write -s /local/domain/$DOMID/vncterm-pid $$
+ if [ -z "${XIU}" ]; then
+-	exec /usr/lib/xen/bin/vncterm $VNCTERM_LISTEN $VNCVIEWER $* > /dev/null 2>&1
++	exec /usr/lib/xen-common/xapi/libexec/vncterm $VNCTERM_LISTEN $VNCVIEWER -S $* > /dev/null 2>&1
+ else
+ 	exec xenstore-write -s /local/domain/$DOMID/console/vnc-port 0
+ fi

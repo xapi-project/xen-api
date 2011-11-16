@@ -1,0 +1,11 @@
+--- a/OMakefile
++++ b/OMakefile
+@@ -50,7 +50,7 @@
+ CFLAGS+=-I$(shell ocamlc -where)
+ 
+ DESTDIR=$(getenv DESTDIR, $(ROOT)/dist/staging)
+-RAW_BASE_PATH=$(shell scripts/base-path scripts/xapi.conf)
++RAW_BASE_PATH=$(shell bash scripts/base-path scripts/xapi.conf)
+ BASE_PATH=$(DESTDIR)$(RAW_BASE_PATH)
+ BIN_DIR=$(RAW_BASE_PATH)/bin
+ BIN_PATH=$(DESTDIR)$(BIN_DIR)

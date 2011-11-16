@@ -1,0 +1,5 @@
+xen-api (0.1-1) unstable; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Jon Ludlam <jonathan.ludlam@eu.citrix.com>  Thu, 07 Jul 2011 21:50:18 +0100

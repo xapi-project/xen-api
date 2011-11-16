@@ -1,0 +1,11 @@
+--- a/scripts/OMakefile
++++ b/scripts/OMakefile
+@@ -35,7 +35,7 @@
+ 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
+ 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
+ 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
+-	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
++	$(IPROG) init.d-xapissl $(DESTDIR)/etc/init.d/xapissl
+ 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
+ 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
+ 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface

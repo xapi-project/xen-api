@@ -1,0 +1,27 @@
+--- a/OMakefile
++++ b/OMakefile
+@@ -115,8 +115,6 @@
+ 	allxenops \
+ 	ocaml/xenguest/xenguest \
+ 	ocaml/xenguest/dumpcore \
+-	ocaml/xiu/libxenctrl_xiu.so \
+-	ocaml/xiu/xiu \
+ 	ocaml/xapi/fakeguestagent \
+ 	ocaml/xapi/quicktestbin \
+ 	ocaml/xapi/sparse_dd \
+--- a/ocaml/xiu/OMakefile
++++ b/ocaml/xiu/OMakefile
+@@ -18,13 +18,9 @@
+ .PHONY: install
+ install:
+ 	mkdir -p $(LIBEXEC)
+-	$(IPROG) xiu $(LIBEXEC)/
+ 	mkdir -p $(BASE_PATH)/lib
+-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib
+ 
+ .PHONY: sdk-install
+ sdk-install:
+ 	mkdir -p $(LIBEXEC)
+-	$(IPROG) xiu $(LIBEXEC)/
+ 	mkdir -p $(BASE_PATH)/lib
+-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib

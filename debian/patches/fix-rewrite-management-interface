@@ -1,0 +1,8 @@
+--- a/scripts/rewrite-management-interface
++++ b/scripts/rewrite-management-interface
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ #
+ # Copyright (c) Citrix Systems 2008. All rights reserved.
+ #

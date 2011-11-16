@@ -1,0 +1,3743 @@
+--- a/ocaml/xapi/OMakefile
++++ b/ocaml/xapi/OMakefile
+@@ -1,4 +1,4 @@
+-OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xs rpc-light
++OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xenstore rpc-light
+ OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
+ 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
+ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
+@@ -17,7 +17,7 @@
+ # (the same holds for OCaml packages)
+ XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
+ XEN_OCAMLINCLUDES =
+-XEN_OCAMLPACKS = xc xs cpuid
++XEN_OCAMLPACKS = xenctrl xenstore cpuid
+ OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
+ OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS)
+ CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
+--- a/ocaml/xe-cli/OMakefile
++++ b/ocaml/xe-cli/OMakefile
+@@ -11,7 +11,7 @@
+ 
+ section
+ 
+-	OCAMLPACKS += xb xs netdev
++	OCAMLPACKS += xenbus xenstore netdev
+ 	OCAML_CLIBS = ../xenops/statdev_stubs 
+ 
+ 	OCamlProgram(fatxe, cli options \
+--- a/ocaml/xenops/OMakefile
++++ b/ocaml/xenops/OMakefile
+@@ -4,10 +4,10 @@
+ OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS)
+ CFLAGS          += $(XEN_CFLAGS)
+ 
+-OCAMLPACKS     = threads xc xs stdext log cdrom netdev
++OCAMLPACKS     = threads xenctrl xenstore stdext log cdrom netdev
+ OCAMLFLAGS    += -thread
+ 
+-LIBFILES = table xenops_helpers xenbus balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom
++LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom
+ 
+ StaticCLibrary(statdev_stubs, statdev_stubs)
+ OCamlLibraryClib(xenops, $(LIBFILES), statdev_stubs)
+@@ -46,7 +46,7 @@
+ section
+ 	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
+ 	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
+-	OCAMLPACKS = xc xs
++	OCAMLPACKS = xenctrl xenstore
+ 	OCamlProgram(xs, xenstore_readdir)
+ 
+ OCamlProgram(xal, xal_main)
+--- a/ocaml/xiu/OMakefile
++++ b/ocaml/xiu/OMakefile
+@@ -1,4 +1,4 @@
+-OCAMLPACKS    = stdext xs netdev log
++OCAMLPACKS    = stdext xenstore netdev log
+ OCAML_LIBS    += ../util/version ../idl/ocaml_backend/common ../xenops/xenops
+ OCAMLINCLUDES += ../xapi ../xenops
+ 
+--- a/ocaml/xstest/OMakefile
++++ b/ocaml/xstest/OMakefile
+@@ -1,4 +1,4 @@
+-OCAMLPACKS    += threads xc xs
++OCAMLPACKS    += threads xenctrl xenstore
+ OCAMLFLAGS    += -thread
+ 
+ OCamlProgram(xstest, xstest common)
+--- a/ocaml/xapi/events.ml
++++ b/ocaml/xapi/events.ml
+@@ -16,6 +16,7 @@
+ open Pervasiveext
+ open Threadext
+ open Listext
++open Xenstore
+ 
+ module D = Debug.Debugger(struct let name = "event" end)
+ open D
+@@ -61,7 +62,7 @@
+ 		let fd = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT;
+ 						  Unix.O_TRUNC; ] 0o640 in
+ 		Pervasiveext.finally (fun () ->
+-				      with_xc (fun xc -> Xc.coredump xc domid fd);
++				      with_xc (fun xc -> Xenctrl.coredump xc domid fd);
+ 		) (fun () -> Unix.close fd)
+ 	)
+ 
+@@ -363,7 +364,7 @@
+       end else begin
+ 	with_xc
+ 	  (fun xc ->
+-	     let dom = Xc.domain_getinfo xc domid in
++	     let dom = Xenctrl.domain_getinfo xc domid in
+ 	     if Xal.is_running dom then begin
+ 	       debug "VM %s (domid %d) is still running; taking no action" vm' domid;
+ 	       false (* no action taken *)
+@@ -471,7 +472,7 @@
+ 		    try
+ 		      let vif = 
+ 			try Ref.of_string (xs.Xs.read (private_data_path ^ "/ref")) 
+-			with Xb.Noent -> Helpers.vif_of_devid ~__context ~vm (int_of_string devid) in
++			with Xenbus.Xb.Noent -> Helpers.vif_of_devid ~__context ~vm (int_of_string devid) in
+ 		      let work_item ~__context token = 
+ 			Resync.vif ~__context token vm vif
+ 		      in
+@@ -598,8 +599,8 @@
+     (fun () ->
+        let xs = Xal.xs_of_ctx ctx in
+        let path = xs.Xs.getdomainpath domid in
+-       let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xb.Noent -> None in
+-       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xb.Noent -> [] in
++       let lookup (key: string) = try Some (xs.Xs.read (path ^ "/" ^ key)) with Xenbus.Xb.Noent -> None in
++       let list (dir: string) = try List.filter (fun x -> x <> "") (xs.Xs.directory (path ^ dir)) with Xenbus.Xb.Noent -> [] in
+        (* NB Xapi_guest_agent.all is robust to spurious events *)
+        Server_helpers.exec_with_new_task (Printf.sprintf "Event thread updating guest metrics (domid: %d)" domid)
+ 	 (fun __context -> Xapi_guest_agent.all lookup list ~__context ~domid ~uuid)
+@@ -621,7 +622,7 @@
+     (fun () ->
+        let xs = Xal.xs_of_ctx ctx in
+        let path = xs.Xs.getdomainpath domid in
+-       let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xb.Noent -> None in
++       let target = try Some (Int64.mul 1024L (Int64.of_string (xs.Xs.read (path ^ "/memory/target")))) with Xenbus.Xb.Noent -> None in
+        Opt.iter (fun t -> Mutex.execute Monitor.memory_targets_m (fun () -> Hashtbl.replace Monitor.memory_targets domid t)) target;
+     ) ()
+ 
+--- a/ocaml/xapi/xenstore_dump.ml
++++ b/ocaml/xapi/xenstore_dump.ml
+@@ -18,9 +18,10 @@
+  *)
+ 
+ open Stringext
++open Xenstore
+ 
+ exception Invalid_path of string
+-let handle_enoent f x = try f x with Xb.Noent -> raise (Invalid_path x)
++let handle_enoent f x = try f x with Xenbus.Xb.Noent -> raise (Invalid_path x)
+ 
+ let dump ~xs (path: string) : Xml.xml =
+   let rec ls_R prefix path =
+--- a/ocaml/xenops/device.ml
++++ b/ocaml/xenops/device.ml
+@@ -19,6 +19,7 @@
+ open Listext
+ 
+ open Device_common
++open Xenstore
+ 
+ exception Ioemu_failed of string
+ exception Ioemu_failed_dying
+@@ -62,10 +63,10 @@
+ 	Xs.transaction xs (fun t ->
+ 		begin try
+ 			ignore (t.Xst.read frontend_path);
+-			if Xenbus.of_string (t.Xst.read (frontend_path ^ "/state"))
+-			   <> Xenbus.Closed then
++			if Xenbus_utils.of_string (t.Xst.read (frontend_path ^ "/state"))
++			   <> Xenbus_utils.Closed then
+ 				raise (Device_frontend_already_connected device)
+-		with Xb.Noent -> () end;
++		with Xenbus.Xb.Noent -> () end;
+ 
+ 		t.Xst.rm frontend_path;
+ 		t.Xst.rm backend_path;
+@@ -124,13 +125,13 @@
+   try
+     ignore_string(xs.Xs.read backend_stub);
+     true
+-  with Xb.Noent -> false
++  with Xenbus.Xb.Noent -> false
+ 
+ let assert_exists_t ~xs t (x: device) =
+   let backend_stub = backend_path_of_device ~xs x in
+   try
+     ignore_string(t.Xst.read backend_stub)
+-  with Xb.Noent -> raise Device_not_found
++  with Xenbus.Xb.Noent -> raise Device_not_found
+ 
+ (** When hot-unplugging a device we ask nicely *)
+ let request_closure ~xs (x: device) =
+@@ -140,10 +141,10 @@
+ 		let online_path = backend_path ^ "/online" in
+ 		debug "xenstore-write %s = 0" online_path;
+ 		t.Xst.write online_path "0";
+-		let state = try Xenbus.of_string (t.Xst.read state_path) with _ -> Xenbus.Closed in
+-		if state <> Xenbus.Closed then (
++		let state = try Xenbus_utils.of_string (t.Xst.read state_path) with _ -> Xenbus_utils.Closed in
++		if state <> Xenbus_utils.Closed then (
+ 			debug "Device.del_device setting backend to Closing";
+-			t.Xst.write state_path (Xenbus.string_of Xenbus.Closing);
++			t.Xst.write state_path (Xenbus_utils.string_of Xenbus_utils.Closing);
+ 		)
+ 	)
+ 
+@@ -151,7 +152,7 @@
+ 	let path = Hotplug.path_written_by_hotplug_scripts x in
+ 	Watch.map (fun () -> "") (Watch.key_to_disappear path)
+ let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
+-let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus.string_of Xenbus.Closed))
++let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
+ 
+ let clean_shutdown ~xs (x: device) =
+ 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
+@@ -215,7 +216,7 @@
+ 	let finished = ref false and error = ref None in
+ 	let callback watch =
+ 		finished := predicate ();
+-		error := (try Some (xs.Xs.read errorpath) with Xb.Noent -> None);
++		error := (try Some (xs.Xs.read errorpath) with Xenbus.Xb.Noent -> None);
+ 		(* We return if the predicate is true of an error node has appeared *)
+ 		!finished || !error <> None in
+ 	begin try
+@@ -505,7 +506,7 @@
+ 				ignore(t.Xst.read path);
+ 				error "Vbd.pause failed because path exists already: %s" path;
+ 				raise Pause_failed
+-			with Xb.Noent -> () in
++			with Xenbus.Xb.Noent -> () in
+ 		path_should_not_exist request_path;
+ 		path_should_not_exist token_path;
+ 		path_should_not_exist response_path;
+@@ -542,7 +543,7 @@
+ 
+ 		let path_should_exist path = 
+ 			try ignore(t.Xst.read path)
+-			with Xb.Noent ->
++			with Xenbus.Xb.Noent ->
+ 				error "Vbd.unpause failed because path does not exist already: %s" path;
+ 				raise Device_not_paused in
+ 		path_should_exist request_path;
+@@ -571,7 +572,7 @@
+ 
+ let is_paused ~xs (x: device) = 
+ 	let request_path = backend_pause_request_path_of_device ~xs x in
+-	try ignore(xs.Xs.read request_path); true with Xb.Noent -> false
++	try ignore(xs.Xs.read request_path); true with Xenbus.Xb.Noent -> false
+ 
+ (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
+    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
+@@ -604,7 +605,7 @@
+ 
+ 	Hashtbl.add_list front_tbl [
+ 		"backend-id", string_of_int backend_domid;
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 		"virtual-device", string_of_int devid;
+ 		"device-type", if dev_type = CDROM then "cdrom" else "disk";
+ 	];
+@@ -614,7 +615,7 @@
+ 		   This allows the xenbus connection to re-establish itself *)
+ 		"online", "1";
+ 		"removable", if unpluggable then "1" else "0";
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 		"dev", Device_number.to_linux_device device_number;
+ 		"type", backendty_of_physty phystype;
+ 		"mode", string_of_mode mode;
+@@ -785,7 +786,7 @@
+ 	let back = [
+ 		"frontend-id", sprintf "%u" domid;
+ 		"online", "1";
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 		"script", "/etc/xensource/scripts/vif";
+ 		"mac", mac;
+ 		"handle", string_of_int devid
+@@ -799,7 +800,7 @@
+ 
+ 	let front = [
+ 		"backend-id", string_of_int backend_domid;
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 		"handle", string_of_int devid;
+ 		"mac", mac;
+ 		"disconnect", if carrier then "0" else "1";
+@@ -810,8 +811,8 @@
+ 	let extra_private_keys = extra_private_keys @
+ 	  (match mtu with | Some mtu when mtu > 0 -> [ "MTU", string_of_int mtu ] | _ -> []) @
+ 	  (match netty with
+-	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+-	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
++	     | Netman.Bridge b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
++	     | Netman.Vswitch b -> [ "bridge", b; "bridge-MAC", if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff"; ]
+ 	     | Netman.DriverDomain -> []
+ 	     | Netman.Nat -> []) @
+ 	  (match rate with | None -> [] | Some(rate, timeslice) -> [ "rate", Int64.to_string rate; "timeslice", Int64.to_string timeslice ]) in
+@@ -858,7 +859,7 @@
+ 	| "online"  -> true
+ 	| "offline" -> false
+ 	| _         -> (* garbage, assuming false *) false
+-	with Xb.Noent -> false
++	with Xenbus.Xb.Noent -> false
+ 
+ end
+ 
+@@ -1013,14 +1014,14 @@
+ 			let nr_ports = (Int64.to_int e) - first_port + 1 in
+ 
+ 			debug "pci %s io bar %Lx-%Lx" action s e;
+-			Xc.domain_ioport_permission xc domid first_port nr_ports v
++			Xenctrl.domain_ioport_permission xc domid first_port nr_ports v
+ 		) else (
+ 			let mem_to_pfn m = Int64.to_nativeint (Int64.div m 4096L) in
+ 			let first_pfn = mem_to_pfn s and end_pfn = mem_to_pfn e in
+ 			let nr_pfns = Nativeint.add (Nativeint.sub end_pfn first_pfn) 1n in
+ 
+ 			debug "pci %s mem bar %Lx-%Lx" action s e;
+-			Xc.domain_iomem_permission xc domid first_pfn nr_pfns v
++			Xenctrl.domain_iomem_permission xc domid first_pfn nr_pfns v
+ 		)
+ 	) resources
+ 
+@@ -1038,12 +1039,12 @@
+ 
+ 	List.iter (fun dev ->
+ 		if hvm then (
+-			ignore_bool (Xc.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
++			ignore_bool (Xenctrl.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
+ 			()
+ 		);
+ 		grant_access_resources xc domid dev.resources true;
+ 		if dev.irq > 0 then
+-			Xc.domain_irq_permission xc domid dev.irq true
++			Xenctrl.domain_irq_permission xc domid dev.irq true
+ 	) pcidevs;
+ 
+ 	let device = {
+@@ -1060,12 +1061,12 @@
+ 		"frontend-id", sprintf "%u" domid;
+ 		"online", "1";
+ 		"num_devs", string_of_int (List.length xsdevs);
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 		"msitranslate", string_of_int (msitranslate);
+                 "pci_power_mgmt", string_of_int (pci_power_mgmt);
+ 	] and frontendlist = [
+ 		"backend-id", "0";
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 	] in
+ 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
+ 	()
+@@ -1090,7 +1091,7 @@
+ 	List.iter (fun dev ->
+ 		grant_access_resources xc domid dev.resources false;
+ 		if dev.irq > 0 then
+-			Xc.domain_irq_permission xc domid dev.irq false
++			Xenctrl.domain_irq_permission xc domid dev.irq false
+ 	) pcidevs;
+ 	()
+ 
+@@ -1172,9 +1173,9 @@
+ let clean_shutdown ~xs (x: device) =
+ 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
+ 	let devs = enumerate_devs ~xs x in
+-	Xc.with_intf (fun xc ->
++	Xenctrl.with_intf (fun xc ->
+ 		let hvm =
+-			try (Xc.domain_getinfo xc x.frontend.domid).Xc.hvm_guest
++			try (Xenctrl.domain_getinfo xc x.frontend.domid).Xenctrl.hvm_guest
+ 			with _ -> false
+ 			in
+ 		try release ~xc ~xs ~hvm devs x.frontend.domid x.frontend.devid
+@@ -1218,7 +1219,7 @@
+ let read_pcidir ~xc ~xs domid = 
+   let path = device_model_pci_device_path xs 0 domid in
+   let prefix = "dev-" in
+-  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xb.Noent -> []) in
++  let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xenbus.Xb.Noent -> []) in
+   (* The values are the PCI device (domain, bus, dev, func) strings *)
+   let device_number_of_string x =
+     (* remove the silly prefix *)
+@@ -1247,7 +1248,7 @@
+ 	| x ->
+ 		failwith
+ 			(Printf.sprintf "Waiting for state=pci-inserted; got state=%s" x) in
+-	Xc.domain_assign_device xc domid (domain, bus, dev, func)
++	Xenctrl.domain_assign_device xc domid (domain, bus, dev, func)
+ 
+ let unplug ~xc ~xs (domain, bus, dev, func) domid = 
+     let current = list ~xc ~xs domid in
+@@ -1265,7 +1266,7 @@
+ 	in
+ 	(* CA-62028: tell the device to stop whatever it's doing *)
+ 	do_flr pci;
+-	Xc.domain_deassign_device xc domid (domain, bus, dev, func)
++	Xenctrl.domain_deassign_device xc domid (domain, bus, dev, func)
+ 
+ end
+ 
+@@ -1324,12 +1325,12 @@
+ 	let back = [
+ 		"frontend-id", sprintf "%u" domid;
+ 		"online", "1";
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 	] in
+ 	let front = [
+ 		"backend-id", string_of_int backend_domid;
+ 		"protocol", (string_of_protocol protocol);
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 	] in
+ 	Generic.add_device ~xs device back front [];
+ 	()
+@@ -1356,12 +1357,12 @@
+ 	let back = [
+ 		"frontend-id", sprintf "%u" domid;
+ 		"online", "1";
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 	] in
+ 	let front = [
+ 		"backend-id", string_of_int backend_domid;
+ 		"protocol", (string_of_protocol protocol);
+-		"state", string_of_int (Xenbus.int_of Xenbus.Initialising);
++		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
+ 	] in
+ 	Generic.add_device ~xs device back front []; 
+ 	()
+--- a/ocaml/xenops/device_common.ml
++++ b/ocaml/xenops/device_common.ml
+@@ -15,12 +15,13 @@
+ open Stringext
+ open Hashtblext
+ open Pervasiveext
++open Xenstore
+ 
+ type kind = Vif | Vbd | Tap | Pci | Vfs | Vfb | Vkbd
+ 
+ type devid = int
+ (** Represents one end of a device *)
+-type endpoint = { domid: Xc.domid; kind: kind; devid: int }
++type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+ 
+ (** Represent a device as a pair of endpoints *)
+ type device = { 
+@@ -51,7 +52,7 @@
+ let string_of_endpoint (x: endpoint) =
+   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
+ 
+-let backend_path ~xs (backend: endpoint) (domu: Xc.domid) = 
++let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) = 
+   sprintf "%s/backend/%s/%u/%d" 
+     (xs.Xs.getdomainpath backend.domid) 
+     (string_of_kind backend.kind)
+@@ -111,7 +112,7 @@
+ let string_of_device (x: device) = 
+   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
+ 
+-let device_of_backend (backend: endpoint) (domu: Xc.domid) = 
++let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
+   let frontend = { domid = domu;
+ 		   kind = (match backend.kind with
+ 			   | Vbd | Tap -> Vbd
+@@ -151,7 +152,7 @@
+ 			end
+ 		| _ -> None
+ 
+-let readdir ~xs d = try xs.Xs.directory d with Xb.Noent -> []
++let readdir ~xs d = try xs.Xs.directory d with Xenbus.Xb.Noent -> []
+ let to_list ys = List.concat (List.map Opt.to_list ys)
+ let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
+ 
+--- a/ocaml/xenops/domain.ml
++++ b/ocaml/xenops/domain.ml
+@@ -17,6 +17,7 @@
+ open Stringext
+ open Listext
+ open Pervasiveext
++open Xenstore
+ 
+ open Device_common
+ 
+@@ -64,7 +65,7 @@
+ exception Xenguest_failure of string (* an actual error is reported to us *)
+ exception Timeout_backend
+ exception Could_not_read_file of string (* eg linux kernel/ initrd *)
+-exception Domain_stuck_in_dying_state of Xc.domid
++exception Domain_stuck_in_dying_state of Xenctrl.domid
+ 
+ let save_signature = "XenSavedDomain\n"
+ let qemu_save_signature = "QemuDeviceModelRecord\n"
+@@ -100,15 +101,15 @@
+ let make ~xc ~xs info uuid =
+ 	let flags = if info.hvm then (
+ 	  let default_flags =
+-		(if info.hvm then [ Xc.CDF_HVM ] else []) @
+-		(if (info.hvm && info.hap) then [ Xc.CDF_HAP ] else []) in
++		(if info.hvm then [ Xenctrl.CDF_HVM ] else []) @
++		(if (info.hvm && info.hap) then [ Xenctrl.CDF_HAP ] else []) in
+ 	   if (List.mem_assoc "hap" info.platformdata) then (
+               if (List.assoc "hap" info.platformdata) = "false" then (
+                  debug "HAP will be disabled for VM %s." (Uuid.to_string uuid);
+-                 [ Xc.CDF_HVM ]
++                 [ Xenctrl.CDF_HVM ]
+               ) else if (List.assoc "hap" info.platformdata) = "true" then (
+                  debug "HAP will be enabled for VM %s." (Uuid.to_string uuid);
+-                 [ Xc.CDF_HVM; Xc.CDF_HAP ] 
++                 [ Xenctrl.CDF_HVM; Xenctrl.CDF_HAP ] 
+               ) else (
+                  debug "Unrecognized HAP platform value.  Assuming default settings for VM %s." (Uuid.to_string uuid);
+                  default_flags
+@@ -116,14 +117,14 @@
+            ) else
+               default_flags
+         ) else [] in
+-	let domid = Xc.domain_create xc info.ssidref flags (Uuid.to_string uuid) in
++	let domid = Xenctrl.domain_create xc info.ssidref flags (Uuid.to_string uuid) in
+ 	let name = if info.name <> "" then info.name else sprintf "Domain-%d" domid in
+ 	try
+ 		let dom_path = xs.Xs.getdomainpath domid in
+ 		let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
+ 		let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
+-		let roperm = Xenbus.roperm_for_guest domid in
+-		let rwperm = Xenbus.rwperm_for_guest domid in
++		let roperm = Xenbus_utils.roperm_for_guest domid in
++		let rwperm = Xenbus_utils.rwperm_for_guest domid in
+ 		debug "Regenerating the xenstored tree under: [%s]" dom_path;
+ 
+ 		Xs.transaction xs (fun t ->
+@@ -202,17 +203,17 @@
+ 	| x -> Unknown x
+ 
+ let shutdown_to_xc_shutdown = function
+-	| PowerOff -> Xc.Poweroff
+-	| Reboot   -> Xc.Reboot
+-	| Suspend  -> Xc.Suspend
+-	| Crash    -> Xc.Crash
+-	| Halt     -> Xc.Halt
++	| PowerOff -> Xenctrl.Poweroff
++	| Reboot   -> Xenctrl.Reboot
++	| Suspend  -> Xenctrl.Suspend
++	| Crash    -> Xenctrl.Crash
++	| Halt     -> Xenctrl.Halt
+ 	| S3Suspend -> raise (Invalid_argument "unknown")
+ 	| Unknown _-> raise (Invalid_argument "unknown")
+ 
+ (** Immediately change the domain state to shutdown *)
+ let hard_shutdown ~xc domid req = 
+-	Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
++	Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
+ 
+ (** Return the path in xenstore watched by the PV shutdown driver *)
+ let control_shutdown ~xs domid = xs.Xs.getdomainpath domid ^ "/control/shutdown"
+@@ -229,7 +230,7 @@
+ 	Xs.transaction xs
+ 		(fun t ->
+ 			 (* Fail if the directory has been deleted *)
+-			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xb.Noent -> false in
++			 let domain_exists = try ignore (t.Xst.read domainpath); true with Xenbus.Xb.Noent -> false in
+ 			 if not domain_exists then raise Domain_does_not_exist;
+ 			 (* Delete the node if it already exists. NB: the guest may well still shutdown for the
+ 				previous reason... we only want to give it a kick again just in case. *)
+@@ -240,17 +241,17 @@
+ (** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
+ 	All other exceptions imply the domain has disappeared. *)
+ let shutdown_wait_for_ack ?(timeout=60.) ~xc ~xs domid req =
+-  let di = Xc.domain_getinfo xc domid in
++  let di = Xenctrl.domain_getinfo xc domid in
+ 
+-  if di.Xc.hvm_guest then begin
+-	if Xc.hvm_check_pvdriver xc domid
++  if di.Xenctrl.hvm_guest then begin
++	if Xenctrl.hvm_check_pvdriver xc domid
+ 	then debug "HVM guest with PV drivers: not expecting any acknowledgement"
+-	else Xc.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
++	else Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
+   end else begin
+ 	debug "Waiting for PV domain %d to acknowledge shutdown request" domid;
+ 	let path = control_shutdown ~xs domid in
+ 	(* If already shutdown then we continue *)
+-	if not di.Xc.shutdown
++	if not di.Xenctrl.shutdown
+ 	then match Watch.wait_for ~xs ~timeout (Watch.any_of [ `Ack, Watch.value_to_become path "";
+ 													  `Gone, Watch.key_to_disappear path ]) with
+ 	| `Ack, _ ->
+@@ -298,7 +299,7 @@
+ 		(fun pcidev ->
+ 			log_exn_continue
+ 				("Deassign PCI device " ^ Device.PCI.to_string pcidev)
+-				(fun () -> Xc.domain_deassign_device xc domid pcidev) ())
++				(fun () -> Xenctrl.domain_deassign_device xc domid pcidev) ())
+ 		all_pci_devices;
+ 	List.iter
+ 		(fun pcidev ->
+@@ -308,8 +309,8 @@
+ 		all_pci_devices;
+ 
+ 	(* Now we should kill the domain itself *)
+-	debug "Domain.destroy calling Xc.domain_destroy (domid %d)" domid;
+-	log_exn_continue "Xc.domain_destroy" (Xc.domain_destroy xc) domid;
++	debug "Domain.destroy calling Xenctrl.domain_destroy (domid %d)" domid;
++	log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid;
+ 
+ 	log_exn_continue "Error stoping device-model, already dead ?"
+ 	                 (fun () -> Device.Dm.stop ~xs domid) ();
+@@ -368,15 +369,15 @@
+ 	(* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
+ 	let still_exists () = 
+ 	  try
+-	    let info = Xc.domain_getinfo xc domid in
+-	    debug "Domain %d still exists (domid=%d; uuid=%s): waiting for it to disappear." domid info.Xc.domid (Uuid.to_string (Uuid.uuid_of_int_array info.Xc.handle));
++	    let info = Xenctrl.domain_getinfo xc domid in
++	    debug "Domain %d still exists (domid=%d; uuid=%s): waiting for it to disappear." domid info.Xenctrl.domid (Uuid.to_string (Uuid.uuid_of_int_array info.Xenctrl.handle));
+ 	    true
+ 	  with 
+-	  | Xc.Error err ->
+-	      debug "Xc.domain_getinfo %d threw: %s -- assuming domain nolonger exists" domid err;
++	  | Xenctrl.Error err ->
++	      debug "Xenctrl.domain_getinfo %d threw: %s -- assuming domain nolonger exists" domid err;
+ 	      false
+ 	  | e ->
+-	      warn "Xc.domain_getinfo %d threw unexpected error: %s -- assuming domain nolonger exists" domid (Printexc.to_string e);
++	      warn "Xenctrl.domain_getinfo %d threw unexpected error: %s -- assuming domain nolonger exists" domid (Printexc.to_string e);
+ 	      raise e in
+ 	let start = Unix.gettimeofday () in
+ 	let timeout = 30. in
+@@ -387,21 +388,21 @@
+ 	  (* CA-13801: to avoid confusing people, we shall change this domain's uuid *)
+ 	  let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
+ 	  warn "Domain stuck in dying state after 30s; resetting UUID to %s" s;
+-	  Xc.domain_sethandle xc domid s;
++	  Xenctrl.domain_sethandle xc domid s;
+ 	  raise (Domain_stuck_in_dying_state domid)
+ 	end
+ 
+ 
+ let pause ~xc domid =
+-	Xc.domain_pause xc domid
++	Xenctrl.domain_pause xc domid
+ 
+ let unpause ~xc domid =
+-	Xc.domain_unpause xc domid
++	Xenctrl.domain_unpause xc domid
+ 
+ (** create store and console channels *)
+ let create_channels ~xc domid =
+-	let store = Xc.evtchn_alloc_unbound xc domid 0 in
+-	let console = Xc.evtchn_alloc_unbound xc domid 0 in
++	let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
++	let console = Xenctrl.evtchn_alloc_unbound xc domid 0 in
+ 	store, console
+ 
+ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib domid =
+@@ -424,13 +425,13 @@
+           maybe (fun opt -> try f opt with exn -> warn "exception setting %s: %s" name (Printexc.to_string exn)) opt
+         in
+ 
+-	maybe_exn_ign "timer mode" (fun mode -> Xc.domain_set_timer_mode xc domid mode) timer_mode;
+-        maybe_exn_ign "hpet" (fun hpet -> Xc.domain_set_hpet xc domid hpet) hpet;
+-        maybe_exn_ign "vpt align" (fun vpt_align -> Xc.domain_set_vpt_align xc domid vpt_align) vpt_align;
+-
+-	Xc.domain_max_vcpus xc domid vcpus;
+-	Xc.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
+-	Xc.shadow_allocation_set xc domid shadow_mib;
++	maybe_exn_ign "timer mode" (fun mode -> Xenctrl.domain_set_timer_mode xc domid mode) timer_mode;
++        maybe_exn_ign "hpet" (fun hpet -> Xenctrl.domain_set_hpet xc domid hpet) hpet;
++        maybe_exn_ign "vpt align" (fun vpt_align -> Xenctrl.domain_set_vpt_align xc domid vpt_align) vpt_align;
++
++	Xenctrl.domain_max_vcpus xc domid vcpus;
++	Xenctrl.domain_set_memmap_limit xc domid (Memory.kib_of_mib xen_max_mib);
++	Xenctrl.shadow_allocation_set xc domid shadow_mib;
+ 	create_channels ~xc domid
+ 
+ let resume_post ~xc ~xs domid =
+@@ -578,14 +579,14 @@
+ 	(* XXX: domain builder will reduce our shadow allocation under our feet.
+ 	   Detect this and override. *)
+ 	let requested_shadow_mib = Int64.to_int shadow_mib in
+-	let actual_shadow_mib = Xc.shadow_allocation_get xc domid in
++	let actual_shadow_mib = Xenctrl.shadow_allocation_get xc domid in
+ 	if actual_shadow_mib < requested_shadow_mib then begin
+ 		warn
+ 			"HVM domain builder reduced our \
+ 			shadow memory from %d to %d MiB; reverting" 
+ 			requested_shadow_mib actual_shadow_mib;
+-		Xc.shadow_allocation_set xc domid requested_shadow_mib;
+-		let shadow = Xc.shadow_allocation_get xc domid in
++		Xenctrl.shadow_allocation_set xc domid requested_shadow_mib;
++		let shadow = Xenctrl.shadow_allocation_get xc domid in
+ 		debug "Domain now has %d MiB of shadow" shadow;
+ 	end;
+ 
+@@ -678,7 +679,7 @@
+ let resume ~xc ~xs ~hvm ~cooperative domid =
+ 	if not cooperative
+ 	then failwith "Domain.resume works only for collaborative domains";
+-	Xc.domain_resume_fast xc domid;
++	Xenctrl.domain_resume_fast xc domid;
+ 	resume_post ~xc	~xs domid;
+ 	if hvm then Device.Dm.resume ~xs domid
+ 
+@@ -862,10 +863,10 @@
+ 	);
+ 	debug "Suspend for domid %d finished" domid
+ 
+-let send_s3resume ~xc domid = Xc.domain_send_s3resume xc domid
++let send_s3resume ~xc domid = Xenctrl.domain_send_s3resume xc domid
+ 
+-let trigger_power ~xc domid = Xc.domain_trigger_power xc domid
+-let trigger_sleep ~xc domid = Xc.domain_trigger_sleep xc domid
++let trigger_power ~xc domid = Xenctrl.domain_trigger_power xc domid
++let trigger_sleep ~xc domid = Xenctrl.domain_trigger_sleep xc domid
+ 
+ let vcpu_affinity_set ~xc domid vcpu cpumap =
+ 	(*
+@@ -878,25 +879,25 @@
+ 	Array.iteri (fun i has_affinity ->
+ 		if has_affinity then bitmap := bit_set !bitmap i
+ 		) cpumap;
+-	(*Xc.vcpu_affinity_set xc domid vcpu !bitmap*)
++	(*Xenctrl.vcpu_affinity_set xc domid vcpu !bitmap*)
+ 	*)
+-	Xc.vcpu_affinity_set xc domid vcpu cpumap
++	Xenctrl.vcpu_affinity_set xc domid vcpu cpumap
+ 
+ 
+ let vcpu_affinity_get ~xc domid vcpu =
+ 	(*
+-	let pcpus = (Xc.physinfo xc).Xc.max_nr_cpus in
++	let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
+ 	(* NB we ignore bits corresponding to pCPUs which we don't have *)
+-	let bitmap = Xc.vcpu_affinity_get xc domid vcpu in
++	let bitmap = Xenctrl.vcpu_affinity_get xc domid vcpu in
+ 	let bit_isset bitmap n =
+ 		(Int64.logand bitmap (Int64.shift_left 1L n)) > 0L in
+ 	let cpumap = Array.of_list (List.map (bit_isset bitmap) (List.range 0 pcpus)) in
+ 	cpumap
+ 	*)
+-	Xc.vcpu_affinity_get xc domid vcpu
++	Xenctrl.vcpu_affinity_get xc domid vcpu
+ 
+ let get_uuid ~xc domid =
+-	Uuid.uuid_of_int_array (Xc.domain_getinfo xc domid).Xc.handle
++	Uuid.uuid_of_int_array (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
+ 
+ let set_memory_dynamic_range ~xs ~min ~max domid =
+ 	let kvs = [
+@@ -908,12 +909,12 @@
+ let add_ioport ~xc domid start_port end_port =
+ 	let nr_ports = end_port - start_port in
+ 	debug "ioport add %d %#x-%#x" domid start_port (start_port + nr_ports);
+-	Xc.domain_ioport_permission xc domid start_port nr_ports true
++	Xenctrl.domain_ioport_permission xc domid start_port nr_ports true
+ 
+ let del_ioport ~xc domid start_port end_port =
+ 	let nr_ports = end_port - start_port in
+ 	debug "ioport del %d %#x-%#x" domid start_port (start_port + nr_ports);
+-	Xc.domain_ioport_permission xc domid start_port nr_ports false
++	Xenctrl.domain_ioport_permission xc domid start_port nr_ports false
+ 
+ (* start_address and end_address are potentially 64 bit? *)
+ let add_iomem ~xc domid start_address end_address =
+@@ -921,34 +922,34 @@
+ 	let start_pfn = mem_to_pfn start_address and end_pfn = mem_to_pfn end_address in
+ 	let nr_pfns = Nativeint.sub end_pfn start_pfn in
+ 	debug "iomem add %d %#nx-%#nx" domid start_pfn end_pfn;
+-	Xc.domain_iomem_permission xc domid start_pfn nr_pfns true
++	Xenctrl.domain_iomem_permission xc domid start_pfn nr_pfns true
+ 
+ let del_iomem ~xc domid start_address end_address =
+ 	let mem_to_pfn m = Int64.to_nativeint (Int64.div m 4096L) in
+ 	let start_pfn = mem_to_pfn start_address and end_pfn = mem_to_pfn end_address in
+ 	let nr_pfns = Nativeint.sub end_pfn start_pfn in
+ 	debug "iomem del %d %#nx-%#nx" domid start_pfn end_pfn;
+-	Xc.domain_iomem_permission xc domid start_pfn nr_pfns false
++	Xenctrl.domain_iomem_permission xc domid start_pfn nr_pfns false
+ 
+ let add_irq ~xc domid irq =
+ 	debug "irq add %d %#x" domid irq;
+-	Xc.domain_irq_permission xc domid irq true
++	Xenctrl.domain_irq_permission xc domid irq true
+ 
+ let del_irq ~xc domid irq =
+ 	debug "irq del %d %#x" domid irq;
+-	Xc.domain_irq_permission xc domid irq false
++	Xenctrl.domain_irq_permission xc domid irq false
+ 
+ let set_machine_address_size ~xc domid width =
+   match width with
+     | Some width -> begin
+ 	(debug "set machine address size dom%d to %d bits" domid width);
+-	Xc.domain_set_machine_address_size xc domid width
++	Xenctrl.domain_set_machine_address_size xc domid width
+ 	  end
+     | None -> ()
+ 
+ let suppress_spurious_page_faults ~xc domid =
+   debug "suppress spurious page faults for dom%d" domid;
+-  Xc.domain_suppress_spurious_page_faults xc domid
++  Xenctrl.domain_suppress_spurious_page_faults xc domid
+ 
+ type cpuid_reg = Eax | Ebx | Ecx | Edx
+ type cpuid_rtype = Clear | Set | Default | Same | Keep
+@@ -1008,20 +1009,20 @@
+ 	let tmp = Array.create 4 None in
+ 	let cfgout = List.map (fun (node, constr) ->
+ 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
+-		let ret = Xc.domain_cpuid_set xc domid (*hvm*) node tmp in
++		let ret = Xenctrl.domain_cpuid_set xc domid (*hvm*) node tmp in
+ 		let ret = cpuid_cfg_of_xc_cpuid_cfg ret in
+ 		(node, ret)
+ 	) cfg in
+ 	cfgout
+ 
+ let cpuid_apply ~xc ~hvm domid =
+-	if not (Xc.is_fake()) then
+-		Xc.domain_cpuid_apply_policy xc domid
++	if not (Xenctrl.is_fake()) then
++		Xenctrl.domain_cpuid_apply_policy xc domid
+ 
+ let cpuid_check ~xc cfg =
+ 	let tmp = Array.create 4 None in
+ 	List.map (fun (node, constr) ->
+ 		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
+-		let (success, cfgout) = Xc.cpuid_check xc node tmp in
++		let (success, cfgout) = Xenctrl.cpuid_check xc node tmp in
+ 		(success, (node, (cpuid_cfg_of_xc_cpuid_cfg cfgout)))
+ 	) cfg
+--- a/ocaml/xenops/hotplug.ml
++++ b/ocaml/xenops/hotplug.ml
+@@ -16,6 +16,7 @@
+ open Stringext
+ 
+ open Device_common
++open Xenstore
+ 
+ module D = Debug.Debugger(struct let name = "hotplug" end)
+ open D
+@@ -76,7 +77,7 @@
+ let hotplugged ~xs (x: device) =
+ 	let path = path_written_by_hotplug_scripts x
+ 	and v = value_written_by_hotplug_scripts x in
+-	try xs.Xs.read path = v with Xb.Noent -> false
++	try xs.Xs.read path = v with Xenbus.Xb.Noent -> false
+ 
+ (* The path in xenstore written to by the frontend hotplug scripts *)
+ let frontend_status_node (x: device) = 
+@@ -100,8 +101,8 @@
+    (ie not an API-initiated hotunplug; this is start of day) then we check the state 
+    of the backend hotplug scripts. *)
+ let device_is_online ~xs (x: device) = 
+-  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xb.Noent -> false 
+-  and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xb.Noent -> false in
++  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xenbus.Xb.Noent -> false 
++  and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xenbus.Xb.Noent -> false in
+ 
+   match x.backend.kind with
+   | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
+@@ -208,7 +209,7 @@
+ let mount_loopdev ~xs (x: device) file readonly =
+ 	let path = get_hotplug_path x ^ "/loop-device" in
+ 	(* Make sure any previous loop device is gone *)
+-	(try umount_loopdev (xs.Xs.read path) with Xb.Noent -> ());
++	(try umount_loopdev (xs.Xs.read path) with Xenbus.Xb.Noent -> ());
+ 	let loopdev = mount_loopdev_file readonly file in
+ 	debug "Allocated loop device %s" loopdev;
+ 	debug "xenstore-write %s = %s" path loopdev;
+--- a/ocaml/xenops/squeeze_xen.ml
++++ b/ocaml/xenops/squeeze_xen.ml
+@@ -20,6 +20,7 @@
+ 	2. not depend on any other info beyond domain_getinfolist and xenstore.
+ *)
+ open Pervasiveext
++open Xenstore
+ 
+ module M = Debug.Debugger(struct let name = "memory" end)
+ let debug = Squeeze.debug
+@@ -62,10 +63,10 @@
+ 	if Hashtbl.mem cache domid
+ 	then Hashtbl.find cache domid
+ 	else 
+-	  let di = Xc.domain_getinfo xc domid in
+-      let maxmem = Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
++	  let di = Xenctrl.domain_getinfo xc domid in
++      let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+ 	  let d = { path = xs.Xs.getdomainpath domid;
+-				hvm = di.Xc.hvm_guest;
++				hvm = di.Xenctrl.hvm_guest;
+ 				maxmem = maxmem;
+ 				keys = Hashtbl.create 10 } in
+ 	  Hashtbl.replace cache domid d;
+@@ -75,12 +76,12 @@
+   let set_maxmem_noexn (xc, xs) domid m = 
+ 	let per_domain = get_per_domain (xc, xs) domid in
+ 	if per_domain.maxmem <> m then begin
+-		debug "Xc.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid m per_domain.maxmem;
++		debug "Xenctrl.domain_setmaxmem domid=%d max=%Ld (was=%Ld)" domid m per_domain.maxmem;
+ 	  try
+-		Xc.domain_setmaxmem xc domid m;
++		Xenctrl.domain_setmaxmem xc domid m;
+ 		per_domain.maxmem <- m
+ 	  with e ->
+-		  error "Xc.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s" domid m per_domain.maxmem (Printexc.to_string e)
++		  error "Xenctrl.domain_setmaxmem domid=%d max=%Ld: (was=%Ld) %s" domid m per_domain.maxmem (Printexc.to_string e)
+ 	end
+ 
+   (** Read a particular domain's key, using the cache *)
+@@ -91,14 +92,14 @@
+ 	  then Hashtbl.find per_domain.keys key
+ 	  else begin
+ 		let x = (try Some (xs.Xs.read (per_domain.path ^ key))
+-				 with Xb.Noent -> None) in
++				 with Xenbus.Xb.Noent -> None) in
+ 		Hashtbl.replace per_domain.keys key x;
+ 		x
+ 	  end in
+ 	match x with
+ 	| Some y -> y
+ 	| None ->
+-		  raise Xb.Noent
++		  raise Xenbus.Xb.Noent
+ 
+   (** Read a particular domain's key from xenstore, for when we believe the cache is out of date *)
+   let read_nocache (xc, xs) domid key = 
+@@ -124,7 +125,7 @@
+ 		  error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
+ 	end
+   (** Returns true if the key exists, false otherwise *)
+-  let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xb.Noent -> false
++  let exists (xc, xs) domid key = try ignore(read (xc, xs) domid key); true with Xenbus.Xb.Noent -> false
+   (** Delete the key. Don't throw exceptions. *)
+   let rm_noexn (xc, xs) domid key = 
+ 	let per_domain = get_per_domain (xc, xs) domid in
+@@ -140,7 +141,7 @@
+   let set_target_noexn cnx domid target_kib = 
+ 	write_noexn cnx domid _target (Int64.to_string target_kib)
+ 
+-  (** Get a domain's memory target. Throws Xb.Noent if the domain has been destroyed *)
++  (** Get a domain's memory target. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_target cnx domid = 
+ 	Int64.of_string (read cnx domid _target)
+ 
+@@ -150,14 +151,14 @@
+ 	then write_noexn cnx domid _uncooperative ""
+ 	else rm_noexn cnx domid _uncooperative
+ 
+-  (** Query a domain's uncooperative status. Throws Xb.Noent if the domain has been destroyed *)
++  (** Query a domain's uncooperative status. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_uncooperative_noexn cnx domid = exists cnx domid _uncooperative
+ 
+   (** Set a domain's memory-offset. Don't throw an exception if the domain has been destroyed *)
+   let set_memory_offset_noexn cnx domid offset_kib =
+ 	write_noexn cnx domid _memory_offset (Int64.to_string offset_kib)
+ 
+-  (** Query a domain's memory-offset. Throws Xb.Noent if the domain has been destroyed *)
++  (** Query a domain's memory-offset. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_memory_offset cnx domid =
+ 	Int64.of_string (read cnx domid _memory_offset)
+ 
+@@ -171,7 +172,7 @@
+ 	let per_domain = get_per_domain (xc, xs) domid in
+ 	if Hashtbl.mem per_domain.keys k && Hashtbl.find per_domain.keys k <> None
+ 	then true
+-	else (try ignore (read_nocache (xc, xs) domid k); true with Xb.Noent -> false)
++	else (try ignore (read_nocache (xc, xs) domid k); true with Xenbus.Xb.Noent -> false)
+ 
+   (** Return true if feature_balloon has been advertised *)
+   let get_feature_balloon = get_xenstore_key _feature_balloon
+@@ -184,17 +185,17 @@
+ 	let per_domain = get_per_domain (xc, xs) domid in
+ 	if Hashtbl.mem per_domain.keys _data_updated && Hashtbl.find per_domain.keys _data_updated <> None
+ 	then true
+-	else (try ignore (read_nocache (xc, xs) domid _data_updated); true with Xb.Noent -> false)	  
++	else (try ignore (read_nocache (xc, xs) domid _data_updated); true with Xenbus.Xb.Noent -> false)	  
+ 
+-  (** Query a domain's initial reservation. Throws Xb.Noent if the domain has been destroyed *)
++  (** Query a domain's initial reservation. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_initial_reservation cnx domid = 
+ 	Int64.of_string (read cnx domid _initial_reservation)
+ 
+-  (** Query a domain's dynamic_min. Throws Xb.Noent if the domain has been destroyed *)
++  (** Query a domain's dynamic_min. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_dynamic_min cnx domid = 
+ 	Int64.of_string (read_nocache cnx domid _dynamic_min)
+ 
+-  (** Query a domain's dynamic_max. Throws Xb.Noent if the domain has been destroyed *)
++  (** Query a domain's dynamic_max. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
+   let get_dynamic_max cnx domid = 
+ 	Int64.of_string (read_nocache cnx domid _dynamic_max)
+ 
+@@ -257,16 +258,16 @@
+ 	(* We cannot query simultaneously the host memory info and the domain memory info. Furthermore
+ 	   the call to domain_getinfolist is not atomic but comprised of many hypercall invocations. *)
+ 
+-	let domain_infolist = Xc.domain_getinfolist xc 0 in
++	let domain_infolist = Xenctrl.domain_getinfolist xc 0 in
+ 	(*
+ 		For the host free memory we sum the free pages and the pages needing
+ 		scrubbing: we don't want to adjust targets simply because the scrubber
+ 		is slow.
+ 	*)
+-	let physinfo = Xc.physinfo xc in
+-	let free_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.free_pages)
+-	and scrub_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.scrub_pages) 
+-	and total_pages_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.total_pages) in
++	let physinfo = Xenctrl.physinfo xc in
++	let free_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
++	and scrub_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) 
++	and total_pages_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) in
+ 	let free_mem_kib = free_pages_kib +* scrub_pages_kib in
+ 
+ 	let cnx = xc, xs in
+@@ -274,19 +275,19 @@
+ 		(List.map
+ 			(fun di ->
+ 				try
+-					let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
++					let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
+ 					let memory_shadow_kib =
+-						if di.Xc.hvm_guest then
++						if di.Xenctrl.hvm_guest then
+ 							try
+-								Memory.kib_of_mib (Int64.of_int (Xc.shadow_allocation_get xc di.Xc.domid))
++								Memory.kib_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid))
+ 							with _ -> 0L
+ 						else 0L in
+ 					(* dom0 is special for some reason *)
+-					let memory_max_kib = if di.Xc.domid = 0 then 0L else Xc.pages_to_kib (Int64.of_nativeint di.Xc.max_memory_pages) in
++					let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+ 					(* Misc other stuff appears in max_memory_pages *)
+-					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xc.hvm_guest)) in
+-					let can_balloon = Domain.get_feature_balloon cnx di.Xc.domid in
+-					let has_guest_agent = Domain.get_guest_agent cnx di.Xc.domid in
++					let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest)) in
++					let can_balloon = Domain.get_feature_balloon cnx di.Xenctrl.domid in
++					let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
+ 					let has_booted = can_balloon || has_guest_agent in
+ 					(* Once the domain tells us it has booted, we assume it's not currently ballooning and
+ 					   record the offset between memory_actual and target. We assume this is constant over the 
+@@ -295,29 +296,29 @@
+ 					  if not has_booted then 0L
+ 					  else begin
+ 					    try
+-					      Domain.get_memory_offset cnx di.Xc.domid
+-					    with Xb.Noent ->
++					      Domain.get_memory_offset cnx di.Xenctrl.domid
++					    with Xenbus.Xb.Noent ->
+ 							(* Our memory_actual_kib value was sampled before reading xenstore which means there is a slight race.
+ 							   The race is probably only noticable in the hypercall simulator. However we can fix it by resampling
+ 							   memory_actual *after* noticing the feature-balloon flag. *)
+-							let target_kib = Domain.get_target cnx di.Xc.domid in
+-							let memory_actual_kib' = Xc.pages_to_kib (Int64.of_nativeint (Xc.domain_getinfo xc di.Xc.domid).Xc.total_memory_pages) in
++							let target_kib = Domain.get_target cnx di.Xenctrl.domid in
++							let memory_actual_kib' = Xenctrl.pages_to_kib (Int64.of_nativeint (Xenctrl.domain_getinfo xc di.Xenctrl.domid).Xenctrl.total_memory_pages) in
+ 							let offset_kib = memory_actual_kib' -* target_kib in
+-							debug "domid %d just %s; calibrating memory-offset = %Ld KiB" di.Xc.domid
++							debug "domid %d just %s; calibrating memory-offset = %Ld KiB" di.Xenctrl.domid
+ 								(match can_balloon, has_guest_agent with
+ 									| true, false -> "advertised a balloon driver"
+ 									| true, true -> "started a guest agent and advertised a balloon driver"
+ 									| false, true -> "started a guest agent (but has no balloon driver)"
+ 									| false, false -> "N/A" (*impossible: see if has_booted above *)
+ 							) offset_kib;
+-							Domain.set_memory_offset_noexn cnx di.Xc.domid offset_kib;
++							Domain.set_memory_offset_noexn cnx di.Xenctrl.domid offset_kib;
+ 							offset_kib
+ 					  end in
+ 					let memory_actual_kib = memory_actual_kib -* offset_kib in
+ 
+ 					let domain = 
+ 					  { Squeeze.
+-						domid = di.Xc.domid;
++						domid = di.Xenctrl.domid;
+ 						can_balloon = can_balloon;
+ 						dynamic_min_kib = 0L;
+ 						dynamic_max_kib = 0L;
+@@ -334,7 +335,7 @@
+ 					(* If the domain has yet to boot properly then we assume it is using at least its
+ 					   "initial-reservation". *)
+ 					if not has_booted then begin
+-						let initial_reservation_kib = Domain.get_initial_reservation cnx di.Xc.domid in
++						let initial_reservation_kib = Domain.get_initial_reservation cnx di.Xenctrl.domid in
+ 						let unaccounted_kib = max 0L
+ 							(initial_reservation_kib -* memory_actual_kib -* memory_shadow_kib) in
+ 						reserved_kib := Int64.add !reserved_kib unaccounted_kib;
+@@ -346,13 +347,13 @@
+ 						} ]
+ 					end else begin
+ 
+-						let target_kib = Domain.get_target cnx di.Xc.domid in
++						let target_kib = Domain.get_target cnx di.Xenctrl.domid in
+ 						(* min and max are written separately; if we notice they *)
+ 						(* are missing set them both to the target for now.      *)
+ 						let min_kib, max_kib =
+ 						try
+-						  Domain.get_dynamic_min cnx di.Xc.domid,
+-						  Domain.get_dynamic_max cnx di.Xc.domid
++						  Domain.get_dynamic_min cnx di.Xenctrl.domid,
++						  Domain.get_dynamic_max cnx di.Xenctrl.domid
+ 						with _ ->
+ 							target_kib, target_kib
+ 						in
+@@ -364,13 +365,13 @@
+ 						  } ]
+ 					end
+ 				with
+-				| Xb.Noent ->
++				| Xenbus.Xb.Noent ->
+ 				    (* useful debug message is printed by the Domain.read* functions *)
+ 				    []
+ 				|  e ->
+ 					if verbose 
+ 					then debug "Skipping domid %d: %s"
+-						di.Xc.domid (Printexc.to_string e);
++						di.Xenctrl.domid (Printexc.to_string e);
+ 					[]
+ 			)
+ 			domain_infolist
+@@ -383,7 +384,7 @@
+ 	reserved_kib := Int64.add !reserved_kib non_domain_reservations;
+ 
+ 	let host = Squeeze.make_host ~domains ~free_mem_kib:(Int64.sub free_mem_kib !reserved_kib) in
+-	Domain.gc (List.map (fun di -> di.Xc.domid) domain_infolist);
++	Domain.gc (List.map (fun di -> di.Xenctrl.domid) domain_infolist);
+ 
+ 	(* Externally-visible side-effects. It's a bit ugly to include these here: *)
+ 	update_cooperative_table host;
+--- a/ocaml/xenops/squeezed.ml
++++ b/ocaml/xenops/squeezed.ml
+@@ -19,6 +19,7 @@
+ open Squeezed_rpc
+ open Squeezed_state
+ open Xenops_helpers
++open Xenstore
+ 
+ (* We assume only one instance of a named service logs in at a time and therefore can use
+    the service name as a session_id. *)
+@@ -164,7 +165,7 @@
+ 		[]
+ 	     )
+ 	) ()
+-    with Xb.Noent ->
++    with Xenbus.Xb.Noent ->
+       [ _code, _error_unknown_reservation; _description, reservation_id ]
+   end
+ 
+--- a/ocaml/xenops/squeezed_rpc.ml
++++ b/ocaml/xenops/squeezed_rpc.ml
+@@ -16,6 +16,7 @@
+ 
+ open Pervasiveext
+ open Xenops_helpers
++open Xenstore
+ 
+ (* Service-specific: *)
+ let _service = "squeezed" (* prefix in xenstore of daemon *)
+@@ -83,8 +84,8 @@
+ 
+ let path = List.fold_left Filename.concat "/"
+ 
+-let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xb.Noent -> []
+-let xs_read xs path = try xs.Xs.read path with Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
++let listdir xs path = try List.filter (fun x -> x <> "") (xs.Xs.directory path) with Xenbus.Xb.Noent -> []
++let xs_read xs path = try xs.Xs.read path with Xenbus.Xb.Noent as e -> begin debug "xenstore-read %s returned ENOENT" path; raise e end
+ 
+ exception Server_not_registered
+ exception Error of string * string
+@@ -212,7 +213,7 @@
+   
+   type handler = (string * string) list -> (string * string) list
+ 
+-  val loop: service:string -> function_table:((string * handler) list) -> xc:Xc.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
++  val loop: service:string -> function_table:((string * handler) list) -> xc:Xenctrl.handle -> xs:Xs.xsh -> ?idle_timeout:float -> ?idle_callback:(unit -> unit) -> unit -> unit
+ 
+   val client: xs:Xs.xsh -> service:string -> fn:string -> args:((string * string) list) -> (string * string) list
+ 
+--- a/ocaml/xenops/watch.ml
++++ b/ocaml/xenops/watch.ml
+@@ -15,6 +15,7 @@
+ 
+ module D = Debug.Debugger(struct let name = "xenops" end)
+ open D
++open Xenstore
+ 
+ type path = string
+ 
+@@ -82,7 +83,7 @@
+ 	let v = xs.Xs.read path in
+ 	(*debug "watch: value has appeared: %s = %s" path v;*)
+ 	Result v
+-      with Xb.Noent -> KeepWaiting }
++      with Xenbus.Xb.Noent -> KeepWaiting }
+ 
+ (** Wait for a node to disappear from the store *)
+ let key_to_disappear (path: path) : unit t = 
+@@ -90,7 +91,7 @@
+     evaluate = fun ~xs -> 
+       try 
+ 	ignore(xs.Xs.read path); KeepWaiting 
+-      with Xb.Noent ->
++      with Xenbus.Xb.Noent ->
+ 	(*debug "watch: key has disappeared: %s" path;*)
+ 	Result () 
+   }
+@@ -105,7 +106,7 @@
+ 	  (*debug "watch: value has become: %s = %s" path v;*)
+ 	  Result () 
+ 	end else KeepWaiting 
+-      with Xb.Noent -> KeepWaiting }
++      with Xenbus.Xb.Noent -> KeepWaiting }
+ 
+ (** Wait for a set of conditions simultaneously. Note when any watch fires we
+     re-evaluate everything which isn't necessarily the most efficient thing to do. *)
+--- a/ocaml/xenops/xal.ml
++++ b/ocaml/xenops/xal.ml
+@@ -19,6 +19,7 @@
+ open Stringext
+ open Printf
+ open Pervasiveext
++open Xenstore
+ 
+ type domid = int
+ 
+@@ -134,7 +135,7 @@
+ 
+ type ctx = {
+ 	xs: Xs.xsh;
+-	xc: Xc.handle;
++	xc: Xenctrl.handle;
+ 	mutable callback_introduce: ctx -> domid -> string -> unit;
+ 	mutable callback_release: ctx -> domid -> string -> unit;
+ 	mutable callback_devices: ctx -> domid -> dev_event -> unit;
+@@ -161,40 +162,40 @@
+ 
+ (* some helper to find out if a domain is running or not reading xc dominfo *)
+ let is_running dom =
+-	not (dom.Xc.dying || dom.Xc.shutdown) &&
+-	((dom.Xc.paused || dom.Xc.running || dom.Xc.blocked) ||
++	not (dom.Xenctrl.dying || dom.Xenctrl.shutdown) &&
++	((dom.Xenctrl.paused || dom.Xenctrl.running || dom.Xenctrl.blocked) ||
+ 	(* for hvm domain *)
+-	((dom.Xc.paused || dom.Xc.running || dom.Xc.blocked) = false))
++	((dom.Xenctrl.paused || dom.Xenctrl.running || dom.Xenctrl.blocked) = false))
+ 
+ let is_not_running dom =
+-	dom.Xc.dying || dom.Xc.shutdown
++	dom.Xenctrl.dying || dom.Xenctrl.shutdown
+ 
+ let dead_reason_of_xc dom =
+-	if dom.Xc.shutdown then
+-		match dom.Xc.shutdown_code with
++	if dom.Xenctrl.shutdown then
++		match dom.Xenctrl.shutdown_code with
+ 		| 0 -> Halted
+ 		| 1 -> Rebooted
+ 		| 2 -> Suspended
+ 		| 3 -> Crashed
+ 		| 4 -> Halted
+ 		| i -> Shutdown i
+-	else if dom.Xc.dying then
++	else if dom.Xenctrl.dying then
+ 		Crashed
+ 	else
+-		raise (Domain_not_dead dom.Xc.domid)
++		raise (Domain_not_dead dom.Xenctrl.domid)
+ 
+ 
+ let xal_devstate_of_string s =
+-	let state = try Xenbus.of_int (int_of_string s)
+-		    with _ -> Xenbus.Unknown in
++	let state = try Xenbus_utils.of_int (int_of_string s)
++		    with _ -> Xenbus_utils.Unknown in
+ 	match state with
+-	| Xenbus.Unknown      -> Closed
+-	| Xenbus.Initialising -> Connecting
+-	| Xenbus.InitWait     -> Connecting
+-	| Xenbus.Initialised  -> Connecting
+-	| Xenbus.Connected    -> Connected
+-	| Xenbus.Closing      -> Closing
+-	| Xenbus.Closed       -> Closed
++	| Xenbus_utils.Unknown      -> Closed
++	| Xenbus_utils.Initialising -> Connecting
++	| Xenbus_utils.InitWait     -> Connecting
++	| Xenbus_utils.Initialised  -> Connecting
++	| Xenbus_utils.Connected    -> Connected
++	| Xenbus_utils.Closing      -> Closing
++	| Xenbus_utils.Closed       -> Closed
+ 
+ let get_domstate ctx domid =
+ 	try Hashtbl.find ctx.tbl domid
+@@ -224,7 +225,7 @@
+ let get_all_doms xc =
+ 	List.map (fun dom ->
+ 		let state = if is_running dom then Running else Dead in
+-		dom.Xc.domid, state, dom) (Xc.domain_getinfolist xc 0)
++		dom.Xenctrl.domid, state, dom) (Xenctrl.domain_getinfolist xc 0)
+ 
+ let get_doms doms =
+ 	List.map (fun (domid, state, _) -> (domid, state)) doms
+@@ -236,9 +237,9 @@
+ 		match dom.dead_reason with None -> false | Some _ -> true
+ 	else (
+ 		try
+-			let dom = Xc.domain_getinfo ctx.xc domid in
++			let dom = Xenctrl.domain_getinfo ctx.xc domid in
+ 			not (is_running dom)
+-		with Xc.Error _ ->
++		with Xenctrl.Error _ ->
+ 			true
+ 	)
+ 
+@@ -250,10 +251,10 @@
+ 		| Some reason -> reason
+ 	else (
+ 		try
+-			let dom = Xc.domain_getinfo ctx.xc domid in
++			let dom = Xenctrl.domain_getinfo ctx.xc domid in
+ 			dead_reason_of_xc dom
+-		with Xc.Error err ->
+-			debug "Xc.domain_getinfo %d threw exception: %s; assuming domain has Vanished" domid err;
++		with Xenctrl.Error err ->
++			debug "Xenctrl.domain_getinfo %d threw exception: %s; assuming domain has Vanished" domid err;
+ 			Vanished
+ 	)
+ 
+@@ -280,15 +281,15 @@
+ 		let domstate = Hashtbl.find ctx.tbl domid in
+ 		if domstate.dead_reason = None then
+ 			try
+-				let dom = Xc.domain_getinfo ctx.xc domid in
++				let dom = Xenctrl.domain_getinfo ctx.xc domid in
+ 				if is_running dom then
+-					dom.Xc.paused
++					dom.Xenctrl.paused
+ 				else (
+ 					domstate.dead_reason <- Some (dead_reason_of_xc dom);
+ 					false
+ 				)
+ 			with
+-			Xc.Error _ ->
++			Xenctrl.Error _ ->
+ 				domstate.dead_reason <- Some Vanished;
+ 				false
+ 		else
+@@ -368,7 +369,7 @@
+ 	List.iter (fun (domid, state, dom) ->
+ 		(* if domid is not found in old list, create the domain *)
+ 		if state = Running && not (List.mem_assoc domid olddoms) then
+-			domain_create domid dom.Xc.handle
++			domain_create domid dom.Xenctrl.handle
+ 	) doms;
+ 
+ 	(* search for domains that disappeared from the list *)
+@@ -475,7 +476,7 @@
+ 		let data = xs.Xs.read w in
+ 		Some (-1, (Rtc (uuid, data)), "", "")
+ 	| "" :: "local" :: "domain" :: domid :: "memory" :: [ "uncooperative" ] ->
+-		let uncooperative = try ignore (xs.Xs.read w); true with Xb.Noent -> false in
++		let uncooperative = try ignore (xs.Xs.read w); true with Xenbus.Xb.Noent -> false in
+ 		Some (int_of_string domid, Uncooperative uncooperative, "", "")
+ (* disabled for CA-22306
+ 	| "" :: "local" :: "domain" :: domid :: "messages" :: id :: name :: priority :: [ "body" ] ->
+@@ -498,7 +499,7 @@
+ let device_state_init ctx domid =
+ 	let xs = ctx.xs in
+ 	let frontend_path = sprintf "/local/domain/%u/device" domid in
+-	let frontend_tys = try xs.Xs.directory frontend_path with Xb.Noent -> [] in
++	let frontend_tys = try xs.Xs.directory frontend_path with Xenbus.Xb.Noent -> [] in
+ 	let frontend_tys = List.filter (fun ty -> ty <> "") frontend_tys in
+ 
+ 	let iter_device ty devid =
+@@ -544,7 +545,7 @@
+ 	(* Make sure if this function fails to close any opened descriptors *)
+ 	let xs = Xs.daemon_open () in	
+ 	try
+-		let xc = Xc.interface_open () in
++		let xc = Xenctrl.interface_open () in
+ 		(try
+ 			let ctx = {
+ 				xs = xs;
+@@ -573,13 +574,13 @@
+ 			List.iter (fun (domid, uuid) -> callback_introduce ctx domid uuid) newdomains;
+ 			List.iter (fun (domid, uuid) -> callback_release ctx domid uuid) deaddomains;
+ 			ctx
+-		with e -> Xc.interface_close xc; raise e)
++		with e -> Xenctrl.interface_close xc; raise e)
+ 	with e -> Xs.close xs; raise e
+ 
+ let close ctx =
+ 	(try Xs.close ctx.xs 
+ 	 with e -> error "Caught exception: %s while closing xenstore connection" (Printexc.to_string e));
+-  	(try Xc.interface_close ctx.xc 
++  	(try Xenctrl.interface_close ctx.xc 
+ 	 with e -> error "Caught exception: %s while closing xc" (Printexc.to_string e))
+ 
+ let domain_device_event ctx w v =
+--- a/ocaml/xenops/xenops.ml
++++ b/ocaml/xenops/xenops.ml
+@@ -16,40 +16,41 @@
+ open Stringext
+ open Device_common
+ open Xenops_helpers
++open Xenstore
+ 
+ let print_xen_dmesg ~xc =
+-	let s = Xc.readconsolering xc in
++	let s = Xenctrl.readconsolering xc in
+ 	printf "%s\n" s
+ 
+ let print_xen_physinfo ~xc =
+-	let physinfo = Xc.physinfo xc in
+-	let totalmib = Xc.pages_to_mib (Int64.of_nativeint physinfo.Xc.total_pages)
+-	and freemib = Xc.pages_to_mib (Int64.of_nativeint physinfo.Xc.free_pages)
+-	and scrubmib = Xc.pages_to_mib (Int64.of_nativeint physinfo.Xc.scrub_pages) in
+-	printf "nr_cpus = %d\n" physinfo.Xc.nr_cpus;
+-	printf "threads_per_core = %d\n" physinfo.Xc.threads_per_core;
+-	printf "cores_per_socket = %d\n" physinfo.Xc.cores_per_socket;
+-	(*printf "sockets_per_node = %d\n" physinfo.Xc.sockets_per_node;*)
+-	(*printf "nr_nodes = %d\n" physinfo.Xc.nr_nodes;*)
+-	printf "cpu_khz = %d\n" physinfo.Xc.cpu_khz;
+-	printf "total_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xc.total_pages) totalmib;
+-	printf "free_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xc.free_pages) freemib;
+-	printf "scrub_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xc.scrub_pages) scrubmib
++	let physinfo = Xenctrl.physinfo xc in
++	let totalmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
++	and freemib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
++	and scrubmib = Xenctrl.pages_to_mib (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) in
++	printf "nr_cpus = %d\n" physinfo.Xenctrl.nr_cpus;
++	printf "threads_per_core = %d\n" physinfo.Xenctrl.threads_per_core;
++	printf "cores_per_socket = %d\n" physinfo.Xenctrl.cores_per_socket;
++	(*printf "sockets_per_node = %d\n" physinfo.Xenctrl.sockets_per_node;*)
++	(*printf "nr_nodes = %d\n" physinfo.Xenctrl.nr_nodes;*)
++	printf "cpu_khz = %d\n" physinfo.Xenctrl.cpu_khz;
++	printf "total_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.total_pages) totalmib;
++	printf "free_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.free_pages) freemib;
++	printf "scrub_pages = %s (%Ld Mb)\n" (Nativeint.to_string physinfo.Xenctrl.scrub_pages) scrubmib
+ 
+ let print_pcpus_info ~xc =
+-	let physinfo = Xc.physinfo xc in
+-	let infos = Xc.pcpu_info xc (physinfo.Xc.nr_cpus) in
++	let physinfo = Xenctrl.physinfo xc in
++	let infos = Xenctrl.pcpu_info xc (physinfo.Xenctrl.nr_cpus) in
+ 	Array.iteri (fun i info -> printf "cpu: %d  usage: %Ld\n" i info) infos
+ 
+ let debugkeys ~xc args =
+ 	List.iter (fun arg ->
+-		try Xc.send_debug_keys xc arg
++		try Xenctrl.send_debug_keys xc arg
+ 		with exn ->
+ 			printf "sending key \"%s\" failed: %s" arg (Printexc.to_string exn);
+ 	) args
+ 
+ let is_hvm ~xc domid =
+-	(Xc.domain_getinfo xc domid).Xc.hvm_guest
++	(Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest
+ 
+ let create_domain ~xc ~xs ~hvm =
+ 	let uuid = Uuid.make_uuid () in
+@@ -142,8 +143,8 @@
+ 
+ let domain_get_uuid ~xc ~domid =
+ 	try
+-		let h = Xc.domain_getinfo xc domid in
+-		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xc.handle) in
++		let h = Xenctrl.domain_getinfo xc domid in
++		let uuid = Uuid.to_string (Uuid.uuid_of_int_array h.Xenctrl.handle) in
+ 		printf "%s\n" uuid
+ 	with _ ->
+ 		()
+@@ -162,26 +163,26 @@
+ 		else
+ 			[ "id"; "state"; "cpu_time"; "uuid" ]
+ 		in
+-	let sl_of_domaininfo (x: Xc.domaininfo) : string list =
++	let sl_of_domaininfo (x: Xenctrl.domaininfo) : string list =
+ 		let page_to_mib pages =
+ 			Nativeint.to_string (Nativeint.div pages (Nativeint.of_int 256)) in
+ 		let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
+-		let domid = int x.Xc.domid in
++		let domid = int x.Xenctrl.domid in
+ 		(* Can more than one flag be true at a time? *)
+ 		let state =
+ 			let bool ch = function true -> ch | _ -> " " in
+-			(bool "D" x.Xc.dying) ^ (bool "S" x.Xc.shutdown) ^
+-			(bool "P" x.Xc.paused) ^ (bool "B" x.Xc.blocked) ^
+-			(bool "R" x.Xc.running) ^ (bool "H" x.Xc.hvm_guest) in
+-		let shutdown_code     = int x.Xc.shutdown_code in
+-		let tot_memory_mib    = page_to_mib x.Xc.total_memory_pages in
+-		let max_memory_mib    = page_to_mib x.Xc.max_memory_pages in
+-		let shared_info_frame = int64 x.Xc.shared_info_frame in
+-		let cpu_time          = int64 x.Xc.cpu_time in
+-		let nr_online_vcpus   = int x.Xc.nr_online_vcpus in
+-		let max_vcpu_id       = int x.Xc.max_vcpu_id in
+-		let ssidref           = int32 x.Xc.ssidref in
+-		let handle            = Uuid.to_string (Uuid.uuid_of_int_array x.Xc.handle) in
++			(bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^
++			(bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^
++			(bool "R" x.Xenctrl.running) ^ (bool "H" x.Xenctrl.hvm_guest) in
++		let shutdown_code     = int x.Xenctrl.shutdown_code in
++		let tot_memory_mib    = page_to_mib x.Xenctrl.total_memory_pages in
++		let max_memory_mib    = page_to_mib x.Xenctrl.max_memory_pages in
++		let shared_info_frame = int64 x.Xenctrl.shared_info_frame in
++		let cpu_time          = int64 x.Xenctrl.cpu_time in
++		let nr_online_vcpus   = int x.Xenctrl.nr_online_vcpus in
++		let max_vcpu_id       = int x.Xenctrl.max_vcpu_id in
++		let ssidref           = int32 x.Xenctrl.ssidref in
++		let handle            = Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle) in
+ 
+ 		if verbose then
+ 			[ domid; state; shutdown_code; tot_memory_mib; max_memory_mib;
+@@ -191,7 +192,7 @@
+ 			[ domid; state; cpu_time; handle ]
+ 		in
+ 
+-	let l = Xc.domain_getinfolist xc 0 in
++	let l = Xenctrl.domain_getinfolist xc 0 in
+ 	let header = header () in
+ 	let infos = List.map sl_of_domaininfo l in
+ 	print_table (header :: infos)
+@@ -219,8 +220,8 @@
+ 	[ int ds.device.backend.domid; ds.backend_proto; ds.backend_device; ds.backend_state; "->"; ds.frontend_state; ds.frontend_type; ds.frontend_device; int ds.device.frontend.domid; ]
+ 
+ let stat ~xs d =
+-	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xb.Noent -> "??" in
+-	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xb.Noent -> "??" in
++	let frontend_state = try xs.Xs.read (sprintf "%s/state" (frontend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
++	let backend_state = try xs.Xs.read (sprintf "%s/state" (backend_path_of_device ~xs d)) with Xenbus.Xb.Noent -> "??" in
+ 	(* The params string can be very long, truncate to a more reasonable width *)
+ 	let truncate params =
+ 		let limit = 10 in
+@@ -244,9 +245,9 @@
+ 		| Vbd | Tap ->
+ 			let be = backend_path_of_device ~xs d in
+ 			(try xs.Xs.read (sprintf "%s/physical-device" be)
+-			with Xb.Noent ->
++			with Xenbus.Xb.Noent ->
+ 				(try truncate (xs.Xs.read (sprintf "%s/params" be))
+-				with Xb.Noent -> "??"))
++				with Xenbus.Xb.Noent -> "??"))
+ 		| Vif -> "-"
+ 		| _ -> string_of_int d.backend.devid in
+ 	let frontend_device = match d.frontend.kind with
+@@ -258,8 +259,8 @@
+ 	let header = [ "be"; "proto"; "dev"; "state"; "->"; "state"; "kind"; "dev"; "fe" ] in
+ 	let of_device (d: device) : string list =
+ 		device_state_to_sl (stat ~xs d) in
+-	let l = Xc.domain_getinfolist xc 0 in
+-	let domids = List.map (fun x -> x.Xc.domid) l in
++	let l = Xenctrl.domain_getinfolist xc 0 in
++	let domids = List.map (fun x -> x.Xenctrl.domid) l in
+ 	let devices =
+ 		Listext.List.setify (
+ 			List.concat (
+@@ -381,27 +382,27 @@
+ 	Domain.del_irq ~xc domid irq
+ 
+ let sched_domain ~xc ~domid ~weight ~cap =
+-	if Xc.sched_id xc <> 5 then
++	if Xenctrl.sched_id xc <> 5 then
+ 		failwith "not using credit scheduler";
+ 	match weight, cap with
+ 	| Some wei, Some cap ->
+-		Xc.sched_credit_domain_set xc domid
+-		                           { Xc.weight = wei; Xc.cap = cap }
++		Xenctrl.sched_credit_domain_set xc domid
++		                           { Xenctrl.weight = wei; Xenctrl.cap = cap }
+ 	| None, Some cap     ->
+-		let old = Xc.sched_credit_domain_get xc domid in
+-		Xc.sched_credit_domain_set xc domid
+-		               { old with Xc.cap = cap }
++		let old = Xenctrl.sched_credit_domain_get xc domid in
++		Xenctrl.sched_credit_domain_set xc domid
++		               { old with Xenctrl.cap = cap }
+ 	| Some wei, None     ->
+-		let old = Xc.sched_credit_domain_get xc domid in
+-		Xc.sched_credit_domain_set xc domid
+-		               { old with Xc.weight = wei }
++		let old = Xenctrl.sched_credit_domain_get xc domid in
++		Xenctrl.sched_credit_domain_set xc domid
++		               { old with Xenctrl.weight = wei }
+ 	| None, None         -> ()
+ 
+ let sched_domain_get ~xc ~domid =
+-	if Xc.sched_id xc <> 5 then
++	if Xenctrl.sched_id xc <> 5 then
+ 		failwith "not using credit scheduler";
+-	let params = Xc.sched_credit_domain_get xc domid in
+-	params.Xc.weight, params.Xc.cap
++	let params = Xenctrl.sched_credit_domain_get xc domid in
++	params.Xenctrl.weight, params.Xenctrl.cap
+ 
+ 
+ let affinity_set ~xc ~domid ~vcpu ~bitmap =
+@@ -699,7 +700,7 @@
+                boot, ioport_start, ioport_end, iomem_start, iomem_end, irq,
+                slot, timeout, otherargs, allcommands = do_cmd_parsing subcmd init_pos in
+ 
+-	let is_domain_hvm xc domid = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
++	let is_domain_hvm xc domid = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
+ 
+ 	(* Aliases *)
+ 	let target_kib = max_kib in
+@@ -728,7 +729,7 @@
+ 		with_xc_and_xs (fun xc xs -> build_hvm ~xc ~xs ~kernel ~vcpus ~static_max_kib ~target_kib ~domid)
+ 	| "setmaxmem"     ->
+ 		assert_domid ();
+-		with_xc (fun xc -> Xc.domain_setmaxmem xc domid max_kib) (* call takes pages *)
++		with_xc (fun xc -> Xenctrl.domain_setmaxmem xc domid max_kib) (* call takes pages *)
+ 	| "save_domain"   ->
+ 		assert_domid (); assert_file ();
+ 		with_xc_and_xs (fun xc xs -> suspend_domain_and_destroy ~xc ~xs ~domid ~file)
+@@ -850,7 +851,7 @@
+ 	| "watchdog" ->
+ 		if slot < 0 then error "slot";
+ 		if timeout = -1l then error "timeout";
+-		Printf.printf "%d\n" (with_xc (fun xc -> Xc.watchdog xc slot timeout))
++		Printf.printf "%d\n" (with_xc (fun xc -> Xenctrl.watchdog xc slot timeout))
+ 	| "send-s3resume" ->
+ 		assert_domid ();
+ 		with_xc (fun xc -> Domain.send_s3resume ~xc domid);
+@@ -869,7 +870,7 @@
+ 	| "pcpuinfo" ->
+ 		with_xc (fun xc -> print_pcpus_info ~xc);
+ 	| "capabilities" ->
+-		with_xc (fun xc -> print_endline (Xc.version_capabilities xc))
++		with_xc (fun xc -> print_endline (Xenctrl.version_capabilities xc))
+     | "test" ->
+         self_test ()
+     | "help" ->
+--- a/ocaml/xenops/xenstore_readdir.ml
++++ b/ocaml/xenops/xenstore_readdir.ml
+@@ -17,12 +17,13 @@
+ let print_debug fmt = Printf.kprintf (fun s -> if !debug_enabled then output_string stderr s) fmt
+ 
+ open Printf
++open Xenstore
+ 
+ let catch_invalid message f x =
+   try
+     f x
+-  with Xb.Invalid as e ->
+-    print_error "Caught Xb.Invalid while executing: %s" message;
++  with Xenbus.Xb.Invalid as e ->
++    print_error "Caught Xenbus.Xb.Invalid while executing: %s" message;
+     raise e
+ 
+ let readdir ?(full_paths=true) ~xs path =
+--- a/ocaml/xiu/xiu.ml
++++ b/ocaml/xiu/xiu.ml
+@@ -14,6 +14,8 @@
+ open Printf
+ open Pervasiveext
+ open Threadext
++open Xenbus
++open Xenstore
+ 
+ type inject_error_ty =
+ 	| Inject_error_create
+--- a/ocaml/xstest/common.ml
++++ b/ocaml/xstest/common.ml
+@@ -18,6 +18,7 @@
+  **************************************************************************)
+ exception X
+ open Stringext
++open Xenbus
+ 
+ let pkt_recv con =
+ 	let workdone = ref false in
+--- a/ocaml/xstest/perms.ml
++++ b/ocaml/xstest/perms.ml
+@@ -13,6 +13,7 @@
+  *)
+ open Common
+ open Printf
++open Xenbus
+ 
+ module Perm =
+ struct
+--- a/ocaml/xstest/xstest.ml
++++ b/ocaml/xstest/xstest.ml
+@@ -17,6 +17,7 @@
+ open Printf
+ open Stringext
+ open Common
++open Xenbus
+ 
+ let tnb data =
+ 	try int_of_string (List.hd (String.split '\000' data))
+--- a/ocaml/xenops/balloon.ml
++++ b/ocaml/xenops/balloon.ml
+@@ -13,6 +13,7 @@
+  *)
+ open Stringext
+ open Printf
++open Xenstore
+ 
+ module D = Debug.Debugger(struct let name = "xenops" end)
+ open D
+@@ -26,7 +27,7 @@
+ let _high_mem_balloon = "High-mem balloon"
+ 
+ (** Indicates whether or not we're running with XIU (Xen-In Userspace) *)
+-let on_xiu () = Xc.is_fake ()
++let on_xiu () = Xenctrl.is_fake ()
+ 
+ (** Reads /proc/xen/balloon into a string * int64 option association list *)
+ let parse_proc_xen_balloon () =
+--- a/ocaml/xenops/device.mli
++++ b/ocaml/xenops/device.mli
+@@ -26,8 +26,8 @@
+ 
+ module Generic :
+ sig
+-	val rm_device_state : xs:Xs.xsh -> device -> unit
+-	val exists : xs:Xs.xsh -> device -> bool
++	val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
++	val exists : xs:Xenstore.Xs.xsh -> device -> bool
+ end
+ 
+ module Vbd :
+@@ -50,7 +50,7 @@
+ 	val device_major_minor : string -> int * int
+ 	val major_minor_to_device : int * int -> string
+ 
+-	val add : xs:Xs.xsh -> hvm:bool -> mode:mode
++	val add : xs:Xenstore.Xs.xsh -> hvm:bool -> mode:mode
+ 	       -> device_number:Device_number.t
+ 	       -> phystype:physty -> params:string
+ 	       -> dev_type:devty
+@@ -58,24 +58,24 @@
+ 	       -> ?protocol:protocol
+ 	       -> ?extra_backend_keys:(string*string) list
+ 	       -> ?extra_private_keys:(string*string) list 
+-	       -> ?backend_domid:Xc.domid
+-	       -> Xc.domid -> device
++	       -> ?backend_domid:Xenctrl.domid
++	       -> Xenctrl.domid -> device
+ 
+-	val release : xs:Xs.xsh -> device -> unit
+-	val media_eject : xs:Xs.xsh -> device_number:Device_number.t -> int -> unit
+-	val media_insert : xs:Xs.xsh -> device_number:Device_number.t
++	val release : xs:Xenstore.Xs.xsh -> device -> unit
++	val media_eject : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> unit
++	val media_insert : xs:Xenstore.Xs.xsh -> device_number:Device_number.t
+ 	                -> params:string -> phystype:physty -> int -> unit
+-	val media_refresh : xs:Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
+-	val media_is_ejected : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
+-	val media_tray_is_locked : xs:Xs.xsh -> device_number:Device_number.t -> int -> bool
+-
+-	val pause : xs:Xs.xsh -> device -> string (* token *)
+-	val unpause : xs:Xs.xsh -> device -> string (* token *) -> unit
+-	val is_paused : xs:Xs.xsh -> device -> bool
++	val media_refresh : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
++	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
++	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
++
++	val pause : xs:Xenstore.Xs.xsh -> device -> string (* token *)
++	val unpause : xs:Xenstore.Xs.xsh -> device -> string (* token *) -> unit
++	val is_paused : xs:Xenstore.Xs.xsh -> device -> bool
+ 
+ 	(* For migration: *)
+-	val hard_shutdown_request : xs:Xs.xsh -> device -> unit
+-	val hard_shutdown_complete : xs:Xs.xsh -> device -> string Watch.t
++	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
++	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> string Watch.t
+ 
+ end
+ 
+@@ -83,40 +83,40 @@
+ sig
+ 	exception Invalid_Mac of string
+ 
+-	val add : xs:Xs.xsh -> devid:int -> netty:Netman.netty
++	val add : xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
+ 	       -> mac:string -> carrier:bool 
+ 	       -> ?mtu:int -> ?rate:(int64 * int64) option
+-	       -> ?protocol:protocol -> ?backend_domid:Xc.domid 
++	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid 
+ 	       -> ?other_config:((string * string) list) 
+-	       -> ?extra_private_keys:(string * string) list -> Xc.domid
++	       -> ?extra_private_keys:(string * string) list -> Xenctrl.domid
+ 	       -> device
+-	val set_carrier : xs:Xs.xsh -> device -> bool -> unit
+-	val release : xs:Xs.xsh -> device -> unit
++	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
++	val release : xs:Xenstore.Xs.xsh -> device -> unit
+ end
+ 
+-val clean_shutdown : xs:Xs.xsh -> device -> unit
+-val hard_shutdown  : xs:Xs.xsh -> device -> unit
++val clean_shutdown : xs:Xenstore.Xs.xsh -> device -> unit
++val hard_shutdown  : xs:Xenstore.Xs.xsh -> device -> unit
+ 
+-val can_surprise_remove : xs:Xs.xsh -> device -> bool
++val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
+ 
+ module Vcpu :
+ sig
+-	val add : xs:Xs.xsh -> devid:int -> int -> unit
+-	val del : xs:Xs.xsh -> devid:int -> int -> unit
+-	val set : xs:Xs.xsh -> devid:int -> int -> bool -> unit
+-	val status : xs:Xs.xsh -> devid:int -> int -> bool
++	val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
++	val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
++	val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
++	val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+ end
+ 
+ module PV_Vnc :
+ sig
+ 	exception Failed_to_start
+-	val save : xs:Xs.xsh -> Xc.domid -> unit
+-	val get_statefile : xs:Xs.xsh -> Xc.domid -> string option
+-	val start : ?statefile:string -> xs:Xs.xsh -> Xc.domid -> unit
+-	val stop : xs:Xs.xsh -> Xc.domid -> unit
++	val save : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
++	val get_statefile : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string option
++	val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
++	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+ 
+-	val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+-	val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
++	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
++	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+ end
+ 
+ module PCI :
+@@ -136,30 +136,30 @@
+ 
+ 	exception Cannot_use_pci_with_no_pciback of t list
+ 
+-	val add : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
+-	       -> ?flrscript:string option -> dev list -> Xc.domid -> int -> unit
+-	val release : xc:Xc.handle -> xs:Xs.xsh -> hvm:bool
+-	       -> (int * int * int * int) list -> Xc.domid -> int -> unit
+-	val reset : xs:Xs.xsh -> dev -> unit
++	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> msitranslate:int -> pci_power_mgmt:int
++	       -> ?flrscript:string option -> dev list -> Xenctrl.domid -> int -> unit
++	val release : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool
++	       -> (int * int * int * int) list -> Xenctrl.domid -> int -> unit
++	val reset : xs:Xenstore.Xs.xsh -> dev -> unit
+ 	val bind : dev list -> unit
+-	val plug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+-	val unplug : xc:Xc.handle -> xs:Xs.xsh -> dev -> Xc.domid -> unit
+-	val list : xc:Xc.handle -> xs:Xs.xsh -> Xc.domid -> (int * dev) list
++	val plug : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
++	val unplug : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> dev -> Xenctrl.domid -> unit
++	val list : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * dev) list
+ end
+ 
+ module Vfs :
+ sig
+-	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> Xc.domid -> unit
++	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> Xenctrl.domid -> unit
+ end
+ 
+ module Vfb :
+ sig
+-	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xc.domid -> unit
++	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
+ end
+ 
+ module Vkbd :
+ sig 
+-	val add : xc:Xc.handle -> xs:Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xc.domid -> unit
++	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
+ end
+ 
+ module Dm :
+@@ -202,18 +202,18 @@
+ 		extras: (string * string option) list;
+ 	}
+ 
+-	val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+-	val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
++	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
++	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+ 
+-	val signal : xs:Xs.xsh -> domid:Xc.domid -> ?wait_for:string -> ?param:string
++	val signal : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
+ 	          -> string -> unit
+ 
+-	val start : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> unit
+-	val restore : xs:Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xc.domid -> unit
+-	val suspend : xs:Xs.xsh -> Xc.domid -> unit
+-	val resume : xs:Xs.xsh -> Xc.domid -> unit
+-	val stop : xs:Xs.xsh -> Xc.domid -> unit
++	val start : xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
++	val restore : xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
++	val suspend : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
++	val resume : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
++	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+ end
+ 
+-val get_vnc_port : xs:Xs.xsh -> Xc.domid -> int option
+-val get_tc_port : xs:Xs.xsh -> Xc.domid -> int option
++val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
++val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+--- a/ocaml/xenops/device_common.mli
++++ b/ocaml/xenops/device_common.mli
+@@ -17,7 +17,7 @@
+ type devid = int
+ 
+ (** Represents one end of a device *)
+-type endpoint = { domid: Xc.domid; kind: kind; devid: int }
++type endpoint = { domid: Xenctrl.domid; kind: kind; devid: int }
+ 
+ (** Represent a device as a pair of endpoints *)
+ type device = { 
+@@ -32,19 +32,19 @@
+ exception Device_unrecognized of string
+ exception Hotplug_script_expecting_field of device * string
+ 
+-val backend_path : xs:Xs.xsh -> endpoint -> Xc.domid -> string
+-val backend_path_of_device : xs:Xs.xsh -> device -> string
+-val frontend_path_of_device : xs:Xs.xsh -> device -> string
+-val disconnect_path_of_device : xs:Xs.xsh -> device -> string
+-val error_path_of_device : xs:Xs.xsh -> device -> string
+-val backend_error_path_of_device : xs:Xs.xsh -> device -> string
+-
+-val backend_shutdown_request_path_of_device : xs:Xs.xsh -> device -> string
+-val backend_shutdown_done_path_of_device : xs:Xs.xsh -> device -> string
+-
+-val backend_pause_request_path_of_device : xs:Xs.xsh -> device -> string
+-val backend_pause_token_path_of_device : xs:Xs.xsh -> device -> string
+-val backend_pause_done_path_of_device : xs:Xs.xsh -> device -> string
++val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
++val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val frontend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val backend_error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++
++val backend_shutdown_request_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val backend_shutdown_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++
++val backend_pause_request_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val backend_pause_token_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
++val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+ 
+ val string_of_endpoint : endpoint -> string
+ val string_of_device : device -> string
+@@ -54,18 +54,18 @@
+ (** [list_backends xs domid] returns a list of devices where there is a
+ 	backend in [domid]. This function only reads data stored in the backend
+     directory.*)
+-val list_backends : xs:Xs.xsh -> Xc.domid -> device list
++val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
+ 
+ (** [list_frontends xs domid] returns a list of devices where there is a
+ 	frontend in [domid]. This function only reads data stored in the frontend
+     directory.*)
+-val list_frontends : xs:Xs.xsh -> Xc.domid -> device list
++val list_frontends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
+ 
+ (** Return a list of devices connecting two domains. Ignore those whose kind 
+     we don't recognise *)
+-val list_devices_between : xs:Xs.xsh -> Xc.domid -> Xc.domid -> device list
++val list_devices_between : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
+ 
+-val device_of_backend : endpoint -> Xc.domid -> device
++val device_of_backend : endpoint -> Xenctrl.domid -> device
+ 
+ type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
+ val string_of_protocol : protocol -> string
+--- a/ocaml/xenops/domain.mli
++++ b/ocaml/xenops/domain.mli
+@@ -15,7 +15,7 @@
+ 
+ open Device_common
+ 
+-type domid = Xc.domid
++type domid = Xenctrl.domid
+ 
+ exception Restore_signature_mismatch
+ exception Domain_build_failed
+@@ -65,7 +65,7 @@
+ val hvmloader : string
+ 
+ (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
+-val make: xc:Xc.handle -> xs:Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
++val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> [`domain] Uuid.t -> domid
+ 
+ (** 'types' of shutdown request *)
+ type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
+@@ -77,122 +77,122 @@
+ val shutdown_reason_of_int : int -> shutdown_reason
+ 
+ (** Immediately force shutdown the domain with reason 'shutdown_reason' *)
+-val hard_shutdown: xc:Xc.handle -> domid -> shutdown_reason -> unit
++val hard_shutdown: xc:Xenctrl.handle -> domid -> shutdown_reason -> unit
+ 
+ (** Thrown if the domain has disappeared *)
+ exception Domain_does_not_exist
+ 
+ (** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an ack *)
+-val shutdown: xs:Xs.xsh -> domid -> shutdown_reason -> unit
++val shutdown: xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+ 
+ (** Tell the domain to shutdown with reason ''shutdown_reason', waiting for an ack *)
+-val shutdown_wait_for_ack: ?timeout:float -> xc:Xc.handle -> xs:Xs.xsh -> domid -> shutdown_reason -> unit
++val shutdown_wait_for_ack: ?timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+ 
+ (** send a domain a sysrq *)
+-val sysrq: xs:Xs.xsh -> domid -> char -> unit
++val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
+ 
+ (** Forcibly close all VBD backends and wait for them to indicate they've flushed
+     (only used by the migrate code) *)
+-val hard_shutdown_all_vbds: xc:Xc.handle -> xs:Xs.xsh -> ?extra_debug_paths:string list -> device list -> unit
++val hard_shutdown_all_vbds: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?extra_debug_paths:string list -> device list -> unit
+ 
+ (** destroy a domain *)
+-val destroy: ?preserve_xs_vm : bool -> xc: Xc.handle -> xs:Xs.xsh -> domid -> unit
++val destroy: ?preserve_xs_vm : bool -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
+ 
+ (** Pause a domain *)
+-val pause: xc: Xc.handle -> domid -> unit
++val pause: xc: Xenctrl.handle -> domid -> unit
+ 
+ (** Unpause a domain *)
+-val unpause: xc: Xc.handle -> domid -> unit
++val unpause: xc: Xenctrl.handle -> domid -> unit
+ 
+-(* val create_channels : xc:Xc.handle -> domid -> int * int *)
++(* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
+ 
+ (** Builds a linux guest in a fresh domain created with 'make' *)
+-val build_linux: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
++val build_linux: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
+               -> target_kib:Int64.t -> kernel:string -> cmdline:string
+               -> ramdisk:string option -> vcpus:int -> domid
+               -> domarch
+ 
+ (** build an hvm domain in a fresh domain created with 'make' *)
+-val build_hvm: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
++val build_hvm: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
+             -> target_kib:Int64.t -> shadow_multiplier:float
+             -> vcpus:int -> kernel:string
+             -> timeoffset:string -> video_mib:int -> domid
+             -> domarch
+ 
+ (** Restore a domain using the info provided *)
+-val build: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> domarch
++val build: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> domarch
+ 
+ (** resume a domain either cooperative or not *)
+-val resume: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
++val resume: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> domid -> unit
+ 
+ (** restore a PV domain into a fresh domain created with 'make' *)
+-val pv_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t 
++val pv_restore: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t 
+           -> target_kib:Int64.t -> vcpus:int -> domid -> Unix.file_descr
+           -> unit
+ 
+ (** restore an HVM domain from the file descriptor into a fresh domain created
+  *  with 'make' *)
+-val hvm_restore: xc: Xc.handle -> xs: Xs.xsh -> static_max_kib:Int64.t
++val hvm_restore: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> static_max_kib:Int64.t
+              -> target_kib:Int64.t -> shadow_multiplier:float
+              -> vcpus:int -> timeoffset:string
+              -> domid -> Unix.file_descr
+              -> unit
+ 
+ (** Restore a domain using the info provided *)
+-val restore: xc: Xc.handle -> xs: Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
++val restore: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> build_info -> domid -> Unix.file_descr -> unit
+ 
+ type suspend_flag = Live | Debug
+ 
+ (** suspend a domain into the file descriptor *)
+-val suspend: xc: Xc.handle -> xs: Xs.xsh -> hvm: bool -> domid
++val suspend: xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> domid
+           -> Unix.file_descr -> suspend_flag list
+           -> ?progress_callback: (float -> unit)
+           -> (unit -> unit) -> unit
+ 
+ (** send a s3resume event to a domain *)
+-val send_s3resume: xc: Xc.handle -> domid -> unit
++val send_s3resume: xc: Xenctrl.handle -> domid -> unit
+ 
+ (** send a power button push to a domain *)
+-val trigger_power: xc: Xc.handle -> domid -> unit
++val trigger_power: xc: Xenctrl.handle -> domid -> unit
+ 
+ (** send a sleep button push to a domain *)
+-val trigger_sleep: xc: Xc.handle -> domid -> unit
++val trigger_sleep: xc: Xenctrl.handle -> domid -> unit
+ 
+ (** Set cpu affinity of some vcpus of a domain using an boolean array *)
+-val vcpu_affinity_set: xc: Xc.handle -> domid -> int -> bool array -> unit
++val vcpu_affinity_set: xc: Xenctrl.handle -> domid -> int -> bool array -> unit
+ 
+ (** Get Cpu affinity of some vcpus of a domain *)
+-val vcpu_affinity_get: xc: Xc.handle -> domid -> int -> bool array
++val vcpu_affinity_get: xc: Xenctrl.handle -> domid -> int -> bool array
+ 
+ (** Get the uuid from a specific domain *)
+-val get_uuid: xc: Xc.handle -> Xc.domid -> [`domain] Uuid.t
++val get_uuid: xc: Xenctrl.handle -> Xenctrl.domid -> [`domain] Uuid.t
+ 
+ (** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
+-val set_memory_dynamic_range: xs: Xs.xsh -> min:int -> max:int -> domid -> unit
++val set_memory_dynamic_range: xs: Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit
+ 
+ (** Grant a domain access to a range of IO ports *)
+-val add_ioport: xc: Xc.handle -> domid -> int -> int -> unit
++val add_ioport: xc: Xenctrl.handle -> domid -> int -> int -> unit
+ 
+ (** Revoke a domain's access to a range of IO ports *)
+-val del_ioport: xc: Xc.handle -> domid -> int -> int -> unit
++val del_ioport: xc: Xenctrl.handle -> domid -> int -> int -> unit
+ 
+ (** Grant a domain access to a range of IO memory *)
+-val add_iomem: xc: Xc.handle -> domid -> int64 -> int64 -> unit
++val add_iomem: xc: Xenctrl.handle -> domid -> int64 -> int64 -> unit
+ 
+ (** Revoke a domain's access to a range of IO memory *)
+-val del_iomem: xc: Xc.handle -> domid -> int64 -> int64 -> unit
++val del_iomem: xc: Xenctrl.handle -> domid -> int64 -> int64 -> unit
+ 
+ (** Grant a domain access to a physical IRQ *)
+-val add_irq: xc: Xc.handle -> domid -> int -> unit
++val add_irq: xc: Xenctrl.handle -> domid -> int -> unit
+ 
+ (** Revoke a domain's access to a physical IRQ *)
+-val del_irq: xc: Xc.handle -> domid -> int -> unit
++val del_irq: xc: Xenctrl.handle -> domid -> int -> unit
+ 
+ (** Restrict a domain to a maximum machine address width *)
+-val set_machine_address_size: xc: Xc.handle -> domid -> int option -> unit
++val set_machine_address_size: xc: Xenctrl.handle -> domid -> int option -> unit
+ 
+ (** Suppress spurious page faults for this domain *)
+-val suppress_spurious_page_faults: xc: Xc.handle -> domid -> unit
++val suppress_spurious_page_faults: xc: Xenctrl.handle -> domid -> unit
+ 
+ (** CPUID related functions *)
+ type cpuid_reg = Eax | Ebx | Ecx | Edx
+@@ -205,6 +205,6 @@
+ val cpuid_reg_of_string : string -> cpuid_reg
+ val cpuid_rtype_of_char : char -> cpuid_rtype
+ 
+-val cpuid_set : xc: Xc.handle -> hvm: bool -> domid -> cpuid_config -> cpuid_config
+-val cpuid_apply : xc: Xc.handle -> hvm: bool -> domid -> unit
+-val cpuid_check : xc: Xc.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
++val cpuid_set : xc: Xenctrl.handle -> hvm: bool -> domid -> cpuid_config -> cpuid_config
++val cpuid_apply : xc: Xenctrl.handle -> hvm: bool -> domid -> unit
++val cpuid_check : xc: Xenctrl.handle -> cpuid_config -> (bool * ((int64 * int64 option) * (cpuid_reg * cpuid_rtype array) list)) list
+--- a/ocaml/xenops/memory_breakdown.ml
++++ b/ocaml/xenops/memory_breakdown.ml
+@@ -15,6 +15,7 @@
+ open Listext
+ open Stringext
+ open Unixext
++open Xenstore
+ 
+ (** Command-line tool for sampling host and guest memory usage. *)
+ 
+@@ -98,11 +99,11 @@
+ let host_time h =
+ 	Date.to_string (Date.of_float (Unix.gettimeofday ()))
+ let host_total_bytes h = Int64.to_string
+-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.total_pages))
++	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.total_pages))
+ let host_free_bytes h = Int64.to_string
+-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.free_pages))
++	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.free_pages))
+ let host_scrub_bytes h = Int64.to_string
+-	(Memory.bytes_of_pages (Int64.of_nativeint h.Xc.scrub_pages))
++	(Memory.bytes_of_pages (Int64.of_nativeint h.Xenctrl.scrub_pages))
+ 
+ let host_fields = [
+ 		"host_time"       , host_time       ;
+@@ -117,13 +118,13 @@
+ (** {2 Guest fields} *)
+ 
+ let guest_id xc xs g =
+-	Uuid.to_string (Uuid.uuid_of_int_array (g.Xc.handle))
++	Uuid.to_string (Uuid.uuid_of_int_array (g.Xenctrl.handle))
+ let guest_domain_id xc xs g = string_of_int
+-	(g.Xc.domid)
++	(g.Xenctrl.domid)
+ let guest_total_bytes xc xs g = Int64.to_string
+-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.total_memory_pages))
++	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
+ let guest_maximum_bytes xc xs g = Int64.to_string
+-	(Memory.bytes_of_pages (Int64.of_nativeint g.Xc.max_memory_pages))
++	(Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
+ let guest_target_bytes xc xs g =
+ 	xs_read_bytes_from_kib_key xs (memory_target_path (guest_domain_id xc xs g))
+ let guest_offset_bytes xc xs g =
+@@ -133,7 +134,7 @@
+ let guest_uncooperative xc xs g = string_of_bool
+ 	(xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
+ let guest_shadow_bytes xc xs g = Int64.to_string (
+-	try Memory.bytes_of_mib (Int64.of_int (Xc.shadow_allocation_get xc g.Xc.domid))
++	try Memory.bytes_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc g.Xenctrl.domid))
+ 	with _ -> 0L)
+ 
+ let guest_fields = [
+@@ -173,13 +174,13 @@
+ 
+ (** Prints memory field values to the console. *)
+ let print_memory_field_values xc xs =
+-	let host = Xc.physinfo xc in
+-	let control_domain_info = Xc.domain_getinfo xc 0 in
+-	let control_domain_id = control_domain_info.Xc.handle in
++	let host = Xenctrl.physinfo xc in
++	let control_domain_info = Xenctrl.domain_getinfo xc 0 in
++	let control_domain_id = control_domain_info.Xenctrl.handle in
+ 	let guests = List.sort
+ 		(fun g1 g2 ->
+-			compare_guests control_domain_id g1.Xc.handle g2.Xc.handle)
+-		(Xc.domain_getinfolist xc 0) in
++			compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle)
++		(Xenctrl.domain_getinfolist xc 0) in
+ 	let print_host_info field =
+ 		print_string " ";
+ 		print_string (field host) in
+--- a/ocaml/xenops/squeezed_state.ml
++++ b/ocaml/xenops/squeezed_state.ml
+@@ -12,6 +12,7 @@
+  * GNU Lesser General Public License for more details.
+  *)
+ open Squeezed_rpc 
++open Xenstore
+ 
+ (** Path in xenstore where the daemon stores state, specifically reservations *)
+ let state_path service = path [ ""; service; "state" ]
+--- a/ocaml/xenops/stubdom.ml
++++ b/ocaml/xenops/stubdom.ml
+@@ -14,6 +14,7 @@
+ 
+ module D = Debug.Debugger(struct let name = "xenops" end)
+ open D
++open Xenstore
+ 
+ let fs_backend_path = "/usr/sbin/fs-backend"
+ 
+@@ -48,7 +49,7 @@
+     (* Point the stub domain at the guest *)
+     debug "jjd27: pointing stubdom %d to guest %d" stubdom_domid domid;
+ 	(* XXX: this binding is missing
+-    Xc.domain_set_target xc stubdom_domid domid; *)
++    Xenctrl.domain_set_target xc stubdom_domid domid; *)
+ 
+     (* Tell XenStore that the stubdom should have implicit privileges over the target domain *)
+     debug "jjd27: telling XenStore that stubdom %d has target %d" stubdom_domid domid;
+--- a/ocaml/xenops/stubdom.mli
++++ b/ocaml/xenops/stubdom.mli
+@@ -12,4 +12,4 @@
+  * GNU Lesser General Public License for more details.
+  *)
+ 
+-val create: xc:Xc.handle -> xs:Xs.xsh -> Device.Dm.info -> Xc.domid -> Xc.domid
++val create: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Device.Dm.info -> Xenctrl.domid -> Xenctrl.domid
+--- a/ocaml/xenops/tests.ml
++++ b/ocaml/xenops/tests.ml
+@@ -13,6 +13,7 @@
+  *)
+ open Printf
+ open Pervasiveext
++open Xenstore
+ 
+ module D=Debug.Debugger(struct let name="testsuite" end)
+ open D
+@@ -48,7 +49,7 @@
+ 
+ (************* xen helpers ************)
+ let list_domid xc =
+-	List.map (fun x -> x.Xc.domid) (Xc.domain_getinfolist xc 0)
++	List.map (fun x -> x.Xenctrl.domid) (Xenctrl.domain_getinfolist xc 0)
+ 
+ let assert_nodomain xc =
+ 	if List.length (list_domid xc) > 1 then
+@@ -56,8 +57,8 @@
+ 
+ let check_dead xc domid =
+ 	try
+-		let inf = Xc.domain_getinfo xc domid in
+-		inf.Xc.dying || inf.Xc.shutdown
++		let inf = Xenctrl.domain_getinfo xc domid in
++		inf.Xenctrl.dying || inf.Xenctrl.shutdown
+ 	with
+ 		_ -> true
+ 
+@@ -133,8 +134,8 @@
+ 
+ (************* all tests *************)
+ let test_xc_open () =
+-	let xc = Xc.interface_open () in
+-	Xc.interface_close xc
++	let xc = Xenctrl.interface_open () in
++	Xenctrl.interface_close xc
+ 
+ let test_xs_open () =
+ 	let xs = Xs.daemon_open () in
+@@ -180,8 +181,8 @@
+ let test_domain_creation xc =
+ 	assert_nodomain xc;
+ 	let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+-	let domid = Xc.domain_create xc 0l false uuid in
+-	Xc.domain_destroy xc domid;
++	let domid = Xenctrl.domain_create xc 0l false uuid in
++	Xenctrl.domain_destroy xc domid;
+ 	assert_nodomain xc
+ 
+ let test_xenops_creation cfg xc xs =
+@@ -268,9 +269,9 @@
+ 
+ type ty =
+ 	| NO   of (unit -> unit)
+-	| XC   of (Xc.handle -> unit)
+-	| XCS  of (domain_config -> Xc.handle -> Xs.xsh -> unit)
+-	| XCSA of (domain_config -> Xal.ctx -> Xc.handle -> Xs.xsh -> unit)
++	| XC   of (Xenctrl.handle -> unit)
++	| XCS  of (domain_config -> Xenctrl.handle -> Xs.xsh -> unit)
++	| XCSA of (domain_config -> Xal.ctx -> Xenctrl.handle -> Xs.xsh -> unit)
+ 
+ let all_tests = [
+ 	"[xc] opening", NO test_xc_open;
+@@ -315,17 +316,17 @@
+ 			begin match fct_test with
+ 			| NO f -> f ()
+ 			| XC f ->
+-				let xc = Xc.interface_open () in
++				let xc = Xenctrl.interface_open () in
+ 				finally (fun () -> f xc)
+-					(fun () -> Xc.interface_close xc)
++					(fun () -> Xenctrl.interface_close xc)
+ 			| XCS f ->
+-				let xc = Xc.interface_open () in
++				let xc = Xenctrl.interface_open () in
+ 				finally (fun () ->
+ 					let xs = Xs.daemon_open () in
+ 					finally (fun () ->
+ 						allcfg (fun cfg -> f cfg xc xs);
+ 					) (fun () -> Xs.close xs)
+-				) (fun () -> Xc.interface_close xc)
++				) (fun () -> Xenctrl.interface_close xc)
+ 			| XCSA f ->
+ 				let ctx = Xal.init () in
+ 				finally (fun () ->
+--- a/ocaml/xenops/watch_test.ml
++++ b/ocaml/xenops/watch_test.ml
+@@ -13,6 +13,7 @@
+  *)
+ open Pervasiveext
+ open Watch
++open Xenstore
+ 
+ module Tests = struct
+   let title name = 
+--- a/ocaml/xenops/xal.mli
++++ b/ocaml/xenops/xal.mli
+@@ -65,13 +65,13 @@
+ 
+ val string_of_died_reason : died_reason -> string
+ 
+-val is_running : Xc.domaininfo -> bool
+-val dead_reason_of_xc : Xc.domaininfo -> died_reason
++val is_running : Xenctrl.domaininfo -> bool
++val dead_reason_of_xc : Xenctrl.domaininfo -> died_reason
+ 
+ type ctx
+ 
+-val xc_of_ctx : ctx -> Xc.handle
+-val xs_of_ctx : ctx -> Xs.xsh
++val xc_of_ctx : ctx -> Xenctrl.handle
++val xs_of_ctx : ctx -> Xenstore.Xs.xsh
+ 
+ (* context query function *)
+ val domain_is_dead : ctx -> domid -> bool
+--- a/ocaml/xenops/xenbus.ml
++++ /dev/null
+@@ -1,55 +0,0 @@
+-(*
+- * Copyright (C) 2006-2009 Citrix Systems Inc.
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU Lesser General Public License as published
+- * by the Free Software Foundation; version 2.1 only. with the special
+- * exception on linking described in file LICENSE.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU Lesser General Public License for more details.
+- *)
+-type state = Unknown | Initialising | InitWait | Initialised | Connected
+-	     | Closing | Closed
+-
+-
+-let int_of = function
+-  | Unknown      -> 0
+-  | Initialising -> 1
+-  | InitWait     -> 2
+-  | Initialised  -> 3
+-  | Connected    -> 4
+-  | Closing      -> 5
+-  | Closed       -> 6
+-
+-let of_int = function
+-  | 0 -> Unknown
+-  | 1 -> Initialising
+-  | 2 -> InitWait
+-  | 3 -> Initialised
+-  | 4 -> Connected
+-  | 5 -> Closing
+-  | 6 -> Closed
+-  | _ -> Unknown
+-
+-let of_string x = of_int (int_of_string x)
+-let string_of x = string_of_int (int_of x)
+-
+-let to_string_desc = function
+-	| Unknown      -> "unknown"
+-	| Initialising -> "initialising"
+-	| InitWait     -> "initwait"
+-	| Initialised  -> "initialised"
+-	| Connected    -> "connected"
+-	| Closing      -> "closing"
+-	| Closed       -> "closed"
+-
+-(** Allows a guest to read/write this node and children *)
+-let rwperm_for_guest domid = 
+-	(domid, Xsraw.PERM_NONE, [])
+-
+-(** Dom0 can read/write this node and children, domU can only read children *)
+-let roperm_for_guest domid =
+-	(0, Xsraw.PERM_NONE, [ (domid, Xsraw.PERM_READ) ])
+--- a/ocaml/xenops/xenops_helpers.ml
++++ b/ocaml/xenops/xenops_helpers.ml
+@@ -12,10 +12,11 @@
+  * GNU Lesser General Public License for more details.
+  *)
+ open Pervasiveext
++open Xenstore
+ 
+ (** {2 XC, XS and XAL interface helpers.} *)
+ 
+-let with_xc f = Xc.with_intf f
++let with_xc f = Xenctrl.with_intf f
+ 
+ let with_xs f =
+ 	let xs = Xs.daemon_open () in
+@@ -26,7 +27,7 @@
+ 	finally (fun () -> f xal) (fun () -> Xal.close xal)
+ 
+ let with_xc_and_xs f =
+-	Xc.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
++	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
+ 
+ let with_xc_and_xs_final f cf =
+ 	with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)
+--- a/ocaml/xapi/mtc.ml
++++ b/ocaml/xapi/mtc.ml
+@@ -27,6 +27,7 @@
+ open Pervasiveext
+ open Printf
+ open Vmopshelpers
++open Xenstore
+ 
+ module DD=Debug.Debugger(struct let name="MTC:" end)
+ open DD
+--- a/ocaml/xapi/vmops.ml
++++ b/ocaml/xapi/vmops.ml
+@@ -24,6 +24,7 @@
+ open Vbdops
+ open Listext
+ open Fun
++open Xenstore
+ 
+ let ( +++ ) = Int64.add
+ let ( --- ) = Int64.sub
+@@ -302,7 +303,7 @@
+     (* If guest will boot HVM check that this host has HVM capabilities *)
+     let hvm = Helpers.is_hvm snapshot in
+       if hvm then (
+-	  let caps = with_xc (fun xc -> Xc.version_capabilities xc) in
++	  let caps = with_xc (fun xc -> Xenctrl.version_capabilities xc) in
+ 	  if not (String.has_substr caps "hvm") then (raise (Api_errors.Server_error (Api_errors.vm_hvm_required,[]))))
+ 
+ (** [vcpu_configuration snapshot] transforms a vM_t into a list of 
+@@ -310,7 +311,7 @@
+ let vcpu_configuration snapshot = 
+   let vcpus = Int64.to_int snapshot.API.vM_VCPUs_max in
+   let vcpus_current = Int64.to_int snapshot.API.vM_VCPUs_at_startup in
+-  let pcpus = with_xc (fun xc -> (Xc.physinfo xc).Xc.max_nr_cpus) in
++  let pcpus = with_xc (fun xc -> (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus) in
+   debug "xen reports max %d pCPUs" pcpus;
+ 
+   (* vcpu <-> pcpu affinity settings are stored here. Format is either:
+@@ -864,8 +865,8 @@
+ 		debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
+ 		Xs.monitor_paths xs [ "@releaseDomain","X" ] rel_timeout
+ 			(fun _ ->
+-				 try (Xc.domain_getinfo xc domid).Xc.shutdown with Xc.Error _ -> true);
+-		result := Some (try Domain.shutdown_reason_of_int (Xc.domain_getinfo xc domid).Xc.shutdown_code with _ -> Domain.Unknown (-1));
++				 try (Xenctrl.domain_getinfo xc domid).Xenctrl.shutdown with Xenctrl.Error _ -> true);
++		result := Some (try Domain.shutdown_reason_of_int (Xenctrl.domain_getinfo xc domid).Xenctrl.shutdown_code with _ -> Domain.Unknown (-1));
+     with Xs.Timeout -> 
+       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
+       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
+@@ -920,7 +921,7 @@
+ 		Domain.set_memory_dynamic_range ~xs ~min ~max:min domid;
+ 		Memory_control.balance_memory ~__context ~xc ~xs;
+ 		debug "suspend phase 1/4: hot-unplugging any PCI devices";
+-		let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
++		let hvm = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
+ 		if hvm then Pciops.unplug_pcidevs_noexn ~__context ~vm domid (Device.PCI.list xc xs domid);
+ 		Sm_fs_ops.with_new_fs_vdi __context
+ 			~name_label:"Suspend image" ~name_description:"Suspend image"
+@@ -951,11 +952,11 @@
+ 		debug "suspend phase 4/4: recording memory usage";
+ 		(* Record the final memory usage of the VM, so that we know how much *)
+ 		(* memory to free before attempting to resume this VM in future.     *)
+-		let di = with_xc (fun xc -> Xc.domain_getinfo xc domid) in
++		let di = with_xc (fun xc -> Xenctrl.domain_getinfo xc domid) in
+ 		let final_memory_bytes = Memory.bytes_of_pages
+-			(Int64.of_nativeint di.Xc.total_memory_pages) in
++			(Int64.of_nativeint di.Xenctrl.total_memory_pages) in
+ 		debug "total_memory_pages=%Ld; storing target=%Ld"
+-			(Int64.of_nativeint di.Xc.total_memory_pages) final_memory_bytes;
++			(Int64.of_nativeint di.Xenctrl.total_memory_pages) final_memory_bytes;
+ 		(* CA-31759: avoid using the LBR to simplify upgrade *)
+ 		Db.VM.set_memory_target ~__context ~self:vm ~value:final_memory_bytes
+ 	in
+--- a/ocaml/xapi/xapi_vm_helpers.ml
++++ b/ocaml/xapi/xapi_vm_helpers.ml
+@@ -19,6 +19,7 @@
+ open Printf
+ open Xapi_vm_memory_constraints
+ open Listext
++open Xenstore
+ 
+ module D=Debug.Debugger(struct let name="xapi" end)
+ open D
+@@ -768,9 +769,9 @@
+ 			then raise_error Api_errors.task_cancelled;
+ 		(* Fetch up-to-date value of memory_actual via a hypercall to Xen. *)
+ 		let domain_id = Helpers.domid_of_vm ~__context ~self in
+-		let domain_info = Vmopshelpers.with_xc (fun xc -> Xc.domain_getinfo xc domain_id) in
+-		let memory_actual_pages = Int64.of_nativeint domain_info.Xc.total_memory_pages in
+-		let memory_actual_kib = Xc.pages_to_kib memory_actual_pages in 
++		let domain_info = Vmopshelpers.with_xc (fun xc -> Xenctrl.domain_getinfo xc domain_id) in
++		let memory_actual_pages = Int64.of_nativeint domain_info.Xenctrl.total_memory_pages in
++		let memory_actual_kib = Xenctrl.pages_to_kib memory_actual_pages in 
+ 		let memory_actual_bytes = Memory.bytes_of_kib memory_actual_kib in
+ 		(* Fetch up-to-date value of target from xenstore. *)
+ 		let memory_target_kib = Int64.of_string (Vmopshelpers.with_xs (fun xs -> xs.Xs.read (xs.Xs.getdomainpath domain_id ^ "/memory/target"))) in
+@@ -832,9 +833,9 @@
+ 			Memory_check.host_compute_free_memory_with_maximum_compression
+ 				~__context ~host None in
+ 		let free_mem_mib = Int64.to_int (Int64.div (Int64.div free_mem_b 1024L) 1024L) in
+-		let multiplier_to_record = Xc.with_intf
++		let multiplier_to_record = Xenctrl.with_intf
+ 		  (fun xc ->
+-		     let curshadow = Xc.shadow_allocation_get xc domid in
++		     let curshadow = Xenctrl.shadow_allocation_get xc domid in
+ 		     let needed_mib = newshadow - curshadow in
+ 		     debug "Domid %d has %d MiB shadow; an increase of %d MiB requested; host has %d MiB free"
+ 		       domid curshadow needed_mib free_mem_mib;
+@@ -849,7 +850,7 @@
+ 		       raise (Api_errors.Server_error(Api_errors.host_not_enough_free_memory, [ Int64.to_string (Memory.bytes_of_mib (Int64.of_int needed_mib)); Int64.to_string free_mem_b ]));
+ 		     end;
+ 		     debug "Setting domid %d's shadow memory to %d MiB" domid newshadow;
+-		     Xc.shadow_allocation_set xc domid newshadow;
++		     Xenctrl.shadow_allocation_set xc domid newshadow;
+ 		     Memory.HVM.round_shadow_multiplier static_max_mib vcpus multiplier domid) in
+ 		Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:multiplier_to_record;
+ 		let newbootrec = { bootrec with API.vM_HVM_shadow_multiplier = multiplier_to_record } in
+--- a/ocaml/xapi/xapi_vm_snapshot.ml
++++ b/ocaml/xapi/xapi_vm_snapshot.ml
+@@ -17,6 +17,7 @@
+  
+ open Client
+ open Vmopshelpers
++open Xenstore
+ 
+ open Client
+ module D = Debug.Debugger(struct let name="xapi" end)
+@@ -231,7 +232,7 @@
+ 			Vmops.restore ~__context ~xc ~xs ~self:vm false in
+ 
+ 		  let domid = Helpers.domid_of_vm ~__context ~self:vm in
+-		  let hvm = (Xc.domain_getinfo xc domid).Xc.hvm_guest in
++		  let hvm = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
+ 		  if hvm
+ 		  then fast_resume ()
+ 		  else slow_resume () (* most vendor kernels don't support fast resume *)
+--- a/ocaml/xstest/bm.ml
++++ b/ocaml/xstest/bm.ml
+@@ -13,6 +13,7 @@
+  *)
+ (*open OUnit*)
+ open Printf
++open Xenstore
+ 
+ let fill_store () =
+ 	let xsh = Xs.daemon_open () in
+--- a/ocaml/xapi/memory_control.mli
++++ b/ocaml/xapi/memory_control.mli
+@@ -26,19 +26,19 @@
+ *)
+ 
+ (** reserve [kib] KiB of memory for some undisclosed purpose, return a reservation_id *)
+-val reserve_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> kib:int64 -> string
++val reserve_memory: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> kib:int64 -> string
+ 
+ (** reserve between [min] and [max] KiB of memory for some undisclosed purpose, return the actual amount plus reservation_id *)
+-val reserve_memory_range: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> min:int64 -> max:int64 -> int64 * string
++val reserve_memory_range: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> min:int64 -> max:int64 -> int64 * string
+ 
+ (** Transfer the memory reserved by [reservation_id] to domain [domid] *)
+-val transfer_reservation_to_domain: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> domid:int -> unit
++val transfer_reservation_to_domain: __context:Context.t -> xs:Xenstore.Xs.xsh -> reservation_id:string -> domid:int -> unit
+ 
+ (** Delete the reservation given by [reservation_id] *)
+-val delete_reservation: __context:Context.t -> xs:Xs.xsh -> reservation_id:string -> unit
++val delete_reservation: __context:Context.t -> xs:Xenstore.Xs.xsh -> reservation_id:string -> unit
+ 
+ (** After some domain destruction event (or possibly other memory-changing event), rebalance memory allocations *)
+-val balance_memory: __context:Context.t -> xc:Xc.handle -> xs:Xs.xsh -> unit
++val balance_memory: __context:Context.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> unit
+ 
+ (** Arrange to have at least one more memory rebalance happen in the future *)
+ val async_balance_memory: At_least_once_more.manager
+--- a/ocaml/xapi/xenstore_dump.mli
++++ b/ocaml/xapi/xenstore_dump.mli
+@@ -14,8 +14,8 @@
+ exception Invalid_path of string
+ 
+ (** Dump a xenstore subtree as XML *)
+-val dump : xs:Xs.xsh -> string -> Xml.xml
++val dump : xs:Xenstore.Xs.xsh -> string -> Xml.xml
+ 
+ (** Restore a xenstore subtree from XML at a new path. Permissions are not restored
+     and therefore will inherit from the parent node. *)
+-val restore : xs:Xs.xsh -> string -> Xml.xml -> unit
++val restore : xs:Xenstore.Xs.xsh -> string -> Xml.xml -> unit
+--- a/ocaml/xapi/pciops.mli
++++ b/ocaml/xapi/pciops.mli
+@@ -29,22 +29,22 @@
+ (** Attach PCI devices to the domain. The should be done before starting the domain. *)
+ val attach_pcis :
+   __context:'a ->
+-  xc:Xc.handle ->
+-  xs:Xs.xsh ->
+-  hvm:bool -> Xc.domid -> (int * (int * int * int * int)) list -> unit
++  xc:Xenctrl.handle ->
++  xs:Xenstore.Xs.xsh ->
++  hvm:bool -> Xenctrl.domid -> (int * (int * int * int * int)) list -> unit
+ 
+ (** Hotplug the PCI devices into the domain (as opposed to 'attach_pcis') *)
+ val plug_pcis :
+   __context:Context.t ->
+   vm:'a ->
+-  Xc.domid ->
++  Xenctrl.domid ->
+   [ `PCI ] Ref.t list -> ('b * (int * int * int * int)) list -> unit
+ 
+ (** Hot unplug the PCI devices from the domain. Note this is done serially due to a limitation of the
+    xenstore protocol. *)
+ val unplug_pcidevs_noexn :
+-  __context:'a -> vm:'b -> Xc.domid -> ('c * Device.PCI.dev) list -> unit
++  __context:'a -> vm:'b -> Xenctrl.domid -> ('c * Device.PCI.dev) list -> unit
+ 
+ (** Find all PCI devices that are currently attached to a domain, according to XenStore. *)
+ val currently_attached_pcis :
+-  __context:Context.t -> Xc.domid -> 'a Ref.t list
++  __context:Context.t -> Xenctrl.domid -> 'a Ref.t list
+--- a/ocaml/xapi/create_misc.ml
++++ b/ocaml/xapi/create_misc.ml
+@@ -43,10 +43,10 @@
+ 
+ let read_localhost_info () =
+ 	let xen_verstring =
+-		let xc = Xc.interface_open () in
+-		let v = Xc.version xc in
+-		Xc.interface_close xc;
+-		Printf.sprintf "%d.%d%s" v.Xc.major v.Xc.minor v.Xc.extra
++		let xc = Xenctrl.interface_open () in
++		let v = Xenctrl.version xc in
++		Xenctrl.interface_close xc;
++		Printf.sprintf "%d.%d%s" v.Xenctrl.major v.Xenctrl.minor v.Xenctrl.extra
+ 	and linux_verstring =
+ 		let verstring = ref "" in
+ 		let f line =
+@@ -393,10 +393,10 @@
+ 
+ let create_host_cpu ~__context =
+ 	let get_nb_cpus () =
+-		let xc = Xc.interface_open () in
+-		let p = Xc.physinfo xc in
+-		Xc.interface_close xc;
+-		p.Xc.nr_cpus
++		let xc = Xenctrl.interface_open () in
++		let p = Xenctrl.physinfo xc in
++		Xenctrl.interface_close xc;
++		p.Xenctrl.nr_cpus
+ 		in
+ 	let trim_end s =
+         	let i = ref (String.length s - 1) in
+@@ -496,7 +496,7 @@
+ 	let host = Helpers.get_localhost ~__context in
+ 	let current_info = Db.Host.get_chipset_info ~__context ~self:host in
+ 	let iommu =
+-		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc) in
++		let xen_dmesg = Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc) in
+ 		if String.has_substr xen_dmesg "I/O virtualisation enabled" then
+ 			"true"
+ 		else if String.has_substr xen_dmesg "I/O virtualisation disabled" then
+--- a/ocaml/xapi/dbsync_slave.ml
++++ b/ocaml/xapi/dbsync_slave.ml
+@@ -22,6 +22,7 @@
+ open Create_misc
+ open Client
+ open Pervasiveext
++open Xenstore
+ 
+ module D=Debug.Debugger(struct let name="dbsync" end)
+ open D
+@@ -82,7 +83,7 @@
+     Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
+     Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
+     Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
+-    let caps = String.split ' ' (Xc.with_intf (fun xc -> Xc.version_capabilities xc)) in
++    let caps = String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc)) in
+     Db.Host.set_capabilities ~__context ~self:host ~value:caps;
+     Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr());
+ 
+@@ -138,9 +139,9 @@
+     List.iter (fun self -> Xapi_vbd_helpers.clear_current_operations ~__context ~self) (Db.VM.get_VBDs ~__context ~self:vm);
+     force_state_reset ~__context ~self:vm ~value:state in
+ 
+-  let all_my_domains = Xc.domain_getinfolist xc 0 in
+-  let my_active_domains = List.filter (fun dinfo -> (not dinfo.Xc.dying) && (not dinfo.Xc.shutdown)) all_my_domains in
+-  let my_shutdown_domains = List.filter (fun dinfo -> dinfo.Xc.shutdown) all_my_domains in
++  let all_my_domains = Xenctrl.domain_getinfolist xc 0 in
++  let my_active_domains = List.filter (fun dinfo -> (not dinfo.Xenctrl.dying) && (not dinfo.Xenctrl.shutdown)) all_my_domains in
++  let my_shutdown_domains = List.filter (fun dinfo -> dinfo.Xenctrl.shutdown) all_my_domains in
+ 
+   let this_host = Helpers.get_localhost __context in
+   (* CA-22309: consider this host to 'own' a domain if:
+@@ -171,7 +172,7 @@
+   let my_running_vm_refs_according_to_db = List.map fst my_running_vms_according_to_db in
+ 
+   let uuid_from_dinfo dinfo =
+-    Uuid.to_string (Uuid.uuid_of_int_array dinfo.Xc.handle) in
++    Uuid.to_string (Uuid.uuid_of_int_array dinfo.Xenctrl.handle) in
+ 
+   let uuid_from_vmref vmref =
+     try
+@@ -255,31 +256,31 @@
+          or rebooted, which would always have the power state to Halted or Running)
+        We start it again by setting the domain's state to shutdown with reason reboot (the event
+        thread will do the hard work for us). *)
+-    if dinfo.Xc.paused && not(dinfo.Xc.shutdown) && dinfo.Xc.cpu_time = 0L && 
++    if dinfo.Xenctrl.paused && not(dinfo.Xenctrl.shutdown) && dinfo.Xenctrl.cpu_time = 0L && 
+       (vmrec.API.vM_power_state <> `Paused) then begin
+ 	warn "domain id %d uuid %s is paused but not in the database as paused; assuming it's broken; rebooting" 
+-	  dinfo.Xc.domid (uuid_from_vmref vmref);
++	  dinfo.Xenctrl.domid (uuid_from_vmref vmref);
+ 	(* Mark the domain as shutdown(reboot), the power state as running and inject
+ 	   a fake event into the event system. This should provoke the event thread into 
+ 	   restarting the VM *)
+-	Xc.domain_shutdown xc dinfo.Xc.domid Xc.Reboot;
+-	set_db_state_and_domid vmref `Running dinfo.Xc.domid;
+-	Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
++	Xenctrl.domain_shutdown xc dinfo.Xenctrl.domid Xenctrl.Reboot;
++	set_db_state_and_domid vmref `Running dinfo.Xenctrl.domid;
++	Events.callback_release xal dinfo.Xenctrl.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xenctrl.handle))
+       end else begin
+ 	(* Reset the power state, this also clears VBD operations etc *)
+-	let state = if dinfo.Xc.paused then `Paused else `Running in
+-	set_db_state_and_domid vmref state dinfo.Xc.domid;
++	let state = if dinfo.Xenctrl.paused then `Paused else `Running in
++	set_db_state_and_domid vmref state dinfo.Xenctrl.domid;
+       end;
+     (* Now sync devices *)
+     debug "syncing devices and registering vm for monitoring: %s" (uuid_from_dinfo dinfo);
+-    let uuid = Uuid.uuid_of_int_array dinfo.Xc.handle in
++    let uuid = Uuid.uuid_of_int_array dinfo.Xenctrl.handle in
+ 	sync_devices dinfo;
+ 	(* Update the VM's guest metrics since: (i) while we were offline we may
+ 	   have missed an update; and (ii) if the tools .iso has been updated then
+ 	   we wish to re-evaluate whether we believe the VMs have up-to-date
+ 	   tools *)
+ 
+-	Events.guest_agent_update xal dinfo.Xc.domid (uuid_from_dinfo dinfo);
++	Events.guest_agent_update xal dinfo.Xenctrl.domid (uuid_from_dinfo dinfo);
+ 	(* Now register with monitoring thread *)
+ 
+       Monitor_rrds.load_rrd ~__context (Uuid.to_string uuid) false
+@@ -291,16 +292,16 @@
+     let vmref,vmrec = vmrefrec_of_dinfo dinfo in
+     if vmrec.API.vM_resident_on = this_host then begin
+       debug "VM is apparently resident on this host; injecting a fake event into the event thread";
+-      Events.callback_release xal dinfo.Xc.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xc.handle))
++      Events.callback_release xal dinfo.Xenctrl.domid (Uuid.string_of_uuid (Uuid.uuid_of_int_array dinfo.Xenctrl.handle))
+     end else begin
+       debug "VM is not resident on this host; destroying remnant of managed domain";
+-      Domain.destroy ~xc ~xs dinfo.Xc.domid
++      Domain.destroy ~xc ~xs dinfo.Xenctrl.domid
+     end in
+   
+   (* Process an "unmanaged domain" that's running here *)
+   let unmanaged_domain_running dinfo =
+     debug "killing umanaged domain: %s" (uuid_from_dinfo dinfo);
+-    Domain.destroy ~xc ~xs dinfo.Xc.domid (* bye-bye... *) in
++    Domain.destroy ~xc ~xs dinfo.Xenctrl.domid (* bye-bye... *) in
+ 
+   let have_record_for dinfo = try let _,_ = vmrefrec_of_dinfo dinfo in true with _ -> false in
+ 
+--- a/ocaml/xapi/fakeguestagent.ml
++++ b/ocaml/xapi/fakeguestagent.ml
+@@ -18,6 +18,7 @@
+ 
+ open Printf
+ open Pervasiveext
++open Xenstore
+ 
+ let debug_enabled = ref false
+ let debug (fmt: ('a, unit, string, unit) format4) =
+@@ -78,7 +79,7 @@
+ 		do
+ 			Xal.wait xal 5.;
+ 
+-			let currents = List.map (fun dominfo -> dominfo.Xc.domid) (Xc.domain_getinfolist (Xal.xc_of_ctx xal) 1) in
++			let currents = List.map (fun dominfo -> dominfo.Xenctrl.domid) (Xenctrl.domain_getinfolist (Xal.xc_of_ctx xal) 1) in
+ 			List.iter (fun domid ->
+ 				debug "writing guest data to domain %d" domid;
+ 				let path = sprintf "/local/domain/%d" domid in
+--- a/ocaml/xapi/helpers.ml
++++ b/ocaml/xapi/helpers.ml
+@@ -370,8 +370,8 @@
+ 	domid might immediately change after the call returns. Caller beware! *)
+ let domid_of_vm ~__context ~self =
+   let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
+-  let all = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
+-  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.Xc.handle, di.Xc.domid) all in
++  let all = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
++  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.Xenctrl.handle, di.Xenctrl.domid) all in
+   if List.mem_assoc uuid uuid_to_domid
+   then List.assoc uuid uuid_to_domid
+   else -1 (* for backwards compat with old behaviour *)
+--- a/ocaml/xapi/monitor.ml
++++ b/ocaml/xapi/monitor.ml
+@@ -56,15 +56,15 @@
+ let uncooperative_domains_m = Mutex.create ()
+ 
+ let uuid_of_domid domains domid = 
+-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) domains in
++  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) domains in
+   if List.mem_assoc domid domid_to_uuid
+   then Uuid.string_of_uuid (List.assoc domid domid_to_uuid)
+   else failwith (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
+ 
+ let get_uncooperative_domains () = 
+   let domids = Mutex.execute uncooperative_domains_m (fun () -> Hashtbl.fold (fun domid _ acc -> domid::acc) uncooperative_domains []) in
+-  let dis = Xc.with_intf (fun xc -> Xc.domain_getinfolist xc 0) in
+-  let domid_to_uuid = List.map (fun di -> di.Xc.domid, Uuid.uuid_of_int_array di.Xc.handle) dis in
++  let dis = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
++  let domid_to_uuid = List.map (fun di -> di.Xenctrl.domid, Uuid.uuid_of_int_array di.Xenctrl.handle) dis in
+   let uuids = List.concat (List.map (fun domid -> if List.mem_assoc domid domid_to_uuid then [ List.assoc domid domid_to_uuid ] else []) domids) in
+   List.map Uuid.string_of_uuid uuids
+ 
+@@ -76,30 +76,30 @@
+    VMs present on this host *)
+ let update_vcpus xc doms =
+   List.fold_left (fun (dss,uuids,domids) dom ->
+-    let domid = dom.Xc.domid in
+-    let maxcpus = dom.Xc.max_vcpu_id + 1 in
+-    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
++    let domid = dom.Xenctrl.domid in
++    let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
++    let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+ 
+     let rec cpus i dss = 
+       if i>=maxcpus then dss else 
+-	let vcpuinfo = Xc.domain_get_vcpuinfo xc domid i in
++	let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
+ 	cpus (i+1) ((VM uuid,ds_make ~name:(Printf.sprintf "cpu%d" i) 
+ 	  ~description:(Printf.sprintf "CPU%d usage" i)
+-	  ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xc.cputime) /. 1.0e9))
++	  ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
+ 	  ~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0())::dss)
+     in
+ 
+     (* Runstate info is per-domain rather than per-vcpu *)
+     let dss = 
+       try
+-	let ri = Xc.domain_get_runstate_info xc domid in 
+-	(VM uuid, ds_make ~name:"runstate_entry_time" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.state_entry_time) /. 1.0e9)) ~description:"" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_fullrun" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time0) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are running" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_full_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time1) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time2) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running and some are runnable" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_blocked" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time3) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are blocked or offline" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
+-	  (VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xc.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss 
++	let ri = Xenctrl.domain_get_runstate_info xc domid in 
++	(VM uuid, ds_make ~name:"runstate_entry_time" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.state_entry_time) /. 1.0e9)) ~description:"" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_fullrun" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time0) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are running" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_full_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time1) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time2) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running and some are runnable" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_blocked" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time3) /. 1.0e9)) ~description:"Fraction of time that all VCPUs are blocked or offline" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_partial_run" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time4) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are running, and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
++	  (VM uuid, ds_make ~name:"runstate_partial_contention" ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9)) ~description:"Fraction of time that some VCPUs are runnable and some are blocked" ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss 
+       with e -> 
+ 	dss 
+     in
+@@ -116,12 +116,12 @@
+ let update_pcpus xc =
+   let len = Array.length !physcpus in
+   let newinfos = if len = 0 then (
+-    let physinfo = Xc.physinfo xc in
+-    let pcpus = physinfo.Xc.nr_cpus in
++    let physinfo = Xenctrl.physinfo xc in
++    let pcpus = physinfo.Xenctrl.nr_cpus in
+     physcpus := if pcpus > 0 then (Array.make pcpus 0L) else [| |];
+-    Xc.pcpu_info xc pcpus
++    Xenctrl.pcpu_info xc pcpus
+   ) else (
+-    Xc.pcpu_info xc len
++    Xenctrl.pcpu_info xc len
+   ) in
+   let (dss,_) = Array.fold_left (fun (acc,i) v -> 
+     ((Host,ds_make ~name:(Printf.sprintf "cpu%d" i)
+@@ -132,10 +132,10 @@
+ 
+ let update_memory __context xc doms = 
+ 	List.fold_left (fun acc dom ->
+-		let domid = dom.Xc.domid in
+-		let kib = Xc.pages_to_kib (Int64.of_nativeint dom.Xc.total_memory_pages) in 
++		let domid = dom.Xenctrl.domid in
++		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in 
+ 		let memory = Int64.mul kib 1024L in
+-		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle) in
++		let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+ 		let main_mem_ds = 
+ 		  (VM uuid,
+ 		  ds_make ~name:"memory" ~description:"Memory currently allocated to VM"
+@@ -402,9 +402,9 @@
+ let previous_live_words = ref 0
+ 
+ let read_mem_metrics xc =
+-  let physinfo = Xc.physinfo xc in
+-  let total_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.total_pages) 
+-  and free_kib = Xc.pages_to_kib (Int64.of_nativeint physinfo.Xc.free_pages) in
++  let physinfo = Xenctrl.physinfo xc in
++  let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages) 
++  and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
+ 
+   let gcstat =
+     if !Xapi_globs.xapi_gc_debug then (
+@@ -529,12 +529,12 @@
+       end in
+   Mutex.execute lock (fun () ->
+ 	with_xc (fun xc ->
+-	  let domains = Xc.domain_getinfolist xc 0 in
++	  let domains = Xenctrl.domain_getinfolist xc 0 in
+       let timestamp = Unix.gettimeofday() in
+       let my_rebooting_vms = StringSet.fold (fun uuid acc -> uuid::acc) !rebooting_vms [] in
+ 			let uuid_of_domain d =
+-				Uuid.to_string (Uuid.uuid_of_int_array (d.Xc.handle)) in
+-			let domain_paused d = d.Xc.paused in
++				Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
++			let domain_paused d = d.Xenctrl.paused in
+ 			let my_paused_domain_uuids =
+ 				List.map uuid_of_domain (List.filter domain_paused domains) in
+       let (vifs,pifs) = try update_netdev domains with e -> (debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s" (Printexc.to_string e); ([],[]))  in
+--- a/ocaml/xapi/monitor_types.ml
++++ b/ocaml/xapi/monitor_types.ml
+@@ -18,7 +18,7 @@
+ type vcpu = {
+   vcpu_sumcpus: float;
+   vcpu_vcpus: float array;
+-  vcpu_rawvcpus: Xc.vcpuinfo array;
++  vcpu_rawvcpus: Xenctrl.vcpuinfo array;
+   vcpu_cputime: int64;
+ }
+ 
+--- a/ocaml/xapi/pciops.ml
++++ b/ocaml/xapi/pciops.ml
+@@ -71,7 +71,7 @@
+ 	if List.length pcidevs > 0 then begin
+ 		(* XXX: PCI passthrough needs a lot of work *)
+ 		Vmopshelpers.with_xc_and_xs (fun xc xs ->
+-			if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
++			if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
+ 				Device.PCI.bind pcidevs;
+ 				List.iter (fun ((a, b, c, d) as device) ->
+ 					debug "hotplugging PCI device %04x:%02x:%02x.%01x into domid: %d" a b c d domid;
+@@ -100,7 +100,7 @@
+ let unplug_pcidevs_noexn ~__context ~vm domid pcidevs =
+ 	Helpers.log_exn_continue "unplug_pcidevs" (fun () ->
+ 		Vmopshelpers.with_xc_and_xs (fun xc xs ->
+-			if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
++			if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
+ 				List.iter (fun (devid, devices) ->
+ 					List.iter (fun device ->
+ 						debug "requesting hotunplug of PCI device %s" (Device.PCI.to_string device);
+@@ -114,7 +114,7 @@
+ let currently_attached_pcis ~__context domid =
+ 	let host = Helpers.get_localhost ~__context in
+ 	Vmopshelpers.with_xc_and_xs (fun xc xs ->
+-		if (Xc.domain_getinfo xc domid).Xc.hvm_guest then begin
++		if (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest then begin
+ 			let online_devs = List.map (fun (_, (a, b, c, d)) -> Printf.sprintf "%04x:%02x:%02x.%01x" a b c d)
+ 				(Device.PCI.list ~xc ~xs domid) in
+ 			List.filter_map (fun (pref, prec) ->
+--- a/ocaml/xapi/quicktest_lifecycle.ml
++++ b/ocaml/xapi/quicktest_lifecycle.ml
+@@ -144,13 +144,13 @@
+ 				begin match test with
+ 					| { api = None; parallel_op = Some x } ->
+ 						let reason = match x with
+-							| Internal_reboot -> Xc.Reboot
+-							| Internal_halt -> Xc.Halt
+-							| Internal_crash -> Xc.Crash
+-							| Internal_suspend -> Xc.Suspend in
++							| Internal_reboot -> Xenctrl.Reboot
++							| Internal_halt -> Xenctrl.Halt
++							| Internal_crash -> Xenctrl.Crash
++							| Internal_suspend -> Xenctrl.Suspend in
+ 						begin 
+ 							try
+-								Xc.with_intf (fun xc -> Xc.domain_shutdown xc (Int64.to_int domid) reason)
++								Xenctrl.with_intf (fun xc -> Xenctrl.domain_shutdown xc (Int64.to_int domid) reason)
+ 							with e ->
+ 								debug t (Printf.sprintf "Ignoring exception: %s" (Printexc.to_string e))
+ 						end
+--- a/ocaml/xapi/vmopshelpers.ml
++++ b/ocaml/xapi/vmopshelpers.ml
+@@ -36,6 +36,6 @@
+ 	try
+ 		let uuid = Uuid.to_string (with_xc (fun xc -> Domain.get_uuid xc domid)) in
+ 		Db.VM.get_by_uuid ~__context ~uuid
+-	with Xc.Error _
++	with Xenctrl.Error _
+ 		-> raise (Vm_corresponding_to_domid_not_in_db domid)
+ 
+--- a/ocaml/xapi/xapi.ml
++++ b/ocaml/xapi/xapi.ml
+@@ -23,6 +23,7 @@
+ open Listext
+ open Auth_signature
+ open Extauth
++open Xenstore
+ 
+ 
+ module D=Debug.Debugger(struct let name="xapi" end)
+@@ -39,7 +40,7 @@
+   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+   if domuuid <> uuid then (
+     info "dom0 uuid mismatch with inventory -- setting it the proper value";
+-    with_xc (fun xc -> Xc.domain_sethandle xc 0 uuid)
++    with_xc (fun xc -> Xenctrl.domain_sethandle xc 0 uuid)
+   )
+ 
+ (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
+@@ -172,8 +173,8 @@
+ let domain0_setup () =
+   with_xc_and_xs (fun xc xs ->
+ 	     (* Write an initial neutral target in for domain 0 *)
+-	     let di = Xc.domain_getinfo xc 0 in
+-	     let memory_actual_kib = Xc.pages_to_kib (Int64.of_nativeint di.Xc.total_memory_pages) in
++	     let di = Xenctrl.domain_getinfo xc 0 in
++	     let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
+ 	     (* Find domain 0's UUID *)
+ 	     let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+ 	     (* setup xenstore domain 0 for blktap, xentop (CA-24231) *)
+@@ -301,7 +302,7 @@
+     (fun () -> 
+        (* Explicitly dirty all VM memory values *)
+        let uuids = Vmopshelpers.with_xc 
+-	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xc.handle)) (Xc.domain_getinfolist xc 0)) in
++	 (fun xc -> List.map (fun di -> Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle)) (Xenctrl.domain_getinfolist xc 0)) in
+        Rrd_shared.dirty_memory := List.fold_left (fun acc x -> Rrd_shared.StringSet.add x acc) Rrd_shared.StringSet.empty uuids;
+        Rrd_shared.dirty_host_memory := true; 
+        Condition.broadcast Rrd_shared.condition);
+@@ -548,15 +549,15 @@
+ (*     2. No other domains have been started.                     *)
+ let calculate_boot_time_host_free_memory () =
+ 	let ( + ) = Nativeint.add in
+-	let host_info = with_xc (fun xc -> Xc.physinfo xc) in
+-	let host_free_pages = host_info.Xc.free_pages in
+-	let host_scrub_pages = host_info.Xc.scrub_pages in
+-	let domain0_info = with_xc (fun xc -> Xc.domain_getinfo xc 0) in
+-	let domain0_total_pages = domain0_info.Xc.total_memory_pages in
++	let host_info = with_xc (fun xc -> Xenctrl.physinfo xc) in
++	let host_free_pages = host_info.Xenctrl.free_pages in
++	let host_scrub_pages = host_info.Xenctrl.scrub_pages in
++	let domain0_info = with_xc (fun xc -> Xenctrl.domain_getinfo xc 0) in
++	let domain0_total_pages = domain0_info.Xenctrl.total_memory_pages in
+ 	let boot_time_host_free_pages =
+ 		host_free_pages + host_scrub_pages + domain0_total_pages in
+ 	let boot_time_host_free_kib =
+-		Xc.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
++		Xenctrl.pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
+ 	Memory.bytes_of_kib boot_time_host_free_kib
+ 
+ (* Read the free memory on the host and record this in the db. This is used *)
+--- a/ocaml/xapi/xapi_guest_agent.ml
++++ b/ocaml/xapi/xapi_guest_agent.ml
+@@ -243,12 +243,12 @@
+ 	  while true do
+ 	    try
+ 	      Thread.delay Xapi_globs.guest_liveness_timeout;
+-	      let doms = Xc.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
++	      let doms = Xenctrl.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
+ 	      let now = Unix.gettimeofday () in
+ 	      (* debug "Running liveness logic"; *)
+ 	      Mutex.execute mutex (fun () -> 
+ 		List.iter (fun dom ->
+-		  let domid = dom.Xc.domid in
++		  let domid = dom.Xenctrl.domid in
+ 		  try
+ 		    let (_,_,_,_,_,last_updated) = Hashtbl.find cache domid in		    
+ 		    let dead = IntSet.mem domid !dead_domains in
+@@ -261,7 +261,7 @@
+ 			    (* debug "Marking as alive!"; *)
+ 			    (* Mark guest as alive! *)
+ 			    dead_domains := IntSet.remove domid !dead_domains;
+-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in
++				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in
+ 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
+ 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:true;
+ 			    (* debug "Done" *)
+@@ -277,7 +277,7 @@
+ 			    (* debug "Marking as dead!"; *)
+ 			    (* Mark guest as dead! *)
+ 			    dead_domains := IntSet.add domid !dead_domains;
+-				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xc.handle)) in				
++				let vm = Db.VM.get_by_uuid ~__context ~uuid:(Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)) in				
+ 			    let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self:vm in
+ 			    Db.VM_guest_metrics.set_live ~__context ~self:vm_guest_metrics ~value:false;
+ 			    (* debug "Done" *)
+--- a/ocaml/xapi/xapi_ha.ml
++++ b/ocaml/xapi/xapi_ha.ml
+@@ -1605,7 +1605,7 @@
+ 			(* UNLIKELY to happen but we do our best to kill ourselves and do not return *)
+ 			error "Error past the commit-point while cleanly shutting down host: %s" (ExnHelper.string_of_exn e);
+ 			error "Host will self-fence via its own watchdog for safety";
+-			(* NB we don't use Xc directly because in the SDK VM this is all fake... *)
++			(* NB we don't use Xenctrl directly because in the SDK VM this is all fake... *)
+ 			ignore(Forkhelpers.execute_command_get_output fence_path [ "yesreally" ]);
+ 			Thread.delay 60.;
+ 			error "Watchdog has not triggered after 60 seconds";
+--- a/ocaml/xapi/xapi_host.ml
++++ b/ocaml/xapi/xapi_host.ml
+@@ -535,7 +535,7 @@
+   if result <> "True" then failwith (Printf.sprintf "The host failed to power on.")
+ 
+ let dmesg ~__context ~host =
+-	Vmopshelpers.with_xc (fun xc -> Xc.readconsolering xc)
++	Vmopshelpers.with_xc (fun xc -> Xenctrl.readconsolering xc)
+ 
+ let dmesg_clear ~__context ~host =
+   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "dmesg_clear" ]))
+@@ -544,7 +544,7 @@
+   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "get_log" ]))
+ 
+ let send_debug_keys ~__context ~host ~keys =
+-  Vmopshelpers.with_xc (fun xc -> Xc.send_debug_keys xc keys)
++  Vmopshelpers.with_xc (fun xc -> Xenctrl.send_debug_keys xc keys)
+ 
+ let list_methods ~__context =
+   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "list_method" ]))
+--- a/ocaml/xapi/xapi_vm.ml
++++ b/ocaml/xapi/xapi_vm.ml
+@@ -20,6 +20,7 @@
+ open Threadext
+ open Xmlrpc_sexpr
+ open Listext
++open Xenstore
+ 
+ (* Notes re: VM.{start,resume}{on,}:
+  * Until we support pools properly VM.start and VM.start_on both try
+@@ -305,9 +306,9 @@
+ 	&& domid <> -1 (* someone set the state to Halted *)
+ 	&& (with_xc
+ 			(fun xc ->
+-				 let di = Xc.domain_getinfo xc domid in
++				 let di = Xenctrl.domain_getinfo xc domid in
+ 				 let running = Xal.is_running di in
+-				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xc.shutdown di.Xc.dying (if running then "still" else "not");
++				 debug "VM domid=%d has shutdown=%b; dying=%b -> %s running" domid di.Xenctrl.shutdown di.Xenctrl.dying (if running then "still" else "not");
+ 				 running))
+ 
+   (** Called before a regular synchronous reboot/shutdown to simulate parallel in-guest shutdowns *)
+@@ -321,10 +322,10 @@
+ 					   (fun xc ->
+ 							warn "FIST: simulating internal %s for domid=%d" x domid;
+ 							match x with
+-							| "reboot" -> Xc.domain_shutdown xc domid Xc.Reboot
+-							| "halt" -> Xc.domain_shutdown xc domid Xc.Halt
+-							| "suspend" -> Xc.domain_shutdown xc domid Xc.Suspend
+-							| "crash" -> Xc.domain_shutdown xc domid Xc.Crash
++							| "reboot" -> Xenctrl.domain_shutdown xc domid Xenctrl.Reboot
++							| "halt" -> Xenctrl.domain_shutdown xc domid Xenctrl.Halt
++							| "suspend" -> Xenctrl.domain_shutdown xc domid Xenctrl.Suspend
++							| "crash" -> Xenctrl.domain_shutdown xc domid Xenctrl.Crash
+ 							| _ -> failwith "Unknown simulate_internal_shutdown code");
+ 				   (* pause for 5s which probably lets the event thread do something (unless it is disabled) *)
+ 				   Thread.delay 5.
+@@ -366,9 +367,9 @@
+ 		(* Make sure no-one inserts an artificial delay at this point *)
+ 		(with_xs (fun xs -> xs.Xs.write (Hotplug.get_private_path domid ^ "/" ^ Xapi_globs.artificial_reboot_delay) "0"));
+ 		(* The domain might be killed by the event thread. Again, this is ok. *)
+-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Reboot" domid)
++		Helpers.log_exn_continue (Printf.sprintf "Xenctrl.domain_shutdown domid=%d Xenctrl.Reboot" domid)
+ 			(fun () ->
+-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Reboot)
++				 with_xc (fun xc -> Xenctrl.domain_shutdown xc domid Xenctrl.Reboot)
+ 			) ()
+ 	  end
+ 	end
+@@ -511,10 +512,10 @@
+       end else begin
+ 		debug "%s phase 0/3: no shutdown request required since this is a hard_shutdown" api_call_name;
+ 		(* The domain might be killed by the event thread. Again, this is ok. *)
+-		Helpers.log_exn_continue (Printf.sprintf "Xc.domain_shutdown domid=%d Xc.Halt" domid)
++		Helpers.log_exn_continue (Printf.sprintf "Xenctrl.domain_shutdown domid=%d Xenctrl.Halt" domid)
+ 			(fun () ->
+-				 debug "Xc.domain_shutdown domid=%d Halt" domid;
+-				 with_xc (fun xc -> Xc.domain_shutdown xc domid Xc.Halt)
++				 debug "Xenctrl.domain_shutdown domid=%d Halt" domid;
++				 with_xc (fun xc -> Xenctrl.domain_shutdown xc domid Xenctrl.Halt)
+ 			) ()
+ 	  end
+ 	end
+@@ -543,12 +544,12 @@
+ 			  (fun xc xs ->
+ 				  begin
+ 					  try
+-						  let di = Xc.domain_getinfo xc domid in
++						  let di = Xenctrl.domain_getinfo xc domid in
+ 						  (* If someone rebooted it while we dropped the lock: *)
+ 						  if Xal.is_running di
+ 						  then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VM"; Ref.string_of vm ]));
+ 						  (* see retry_on_conflict *)
+-					  with Xc.Error("2: No such file or directory") -> ()
++					  with Xenctrl.Error("2: No such file or directory") -> ()
+ 				  end;
+ 
+ 				  (* Invoke pre_destroy hook *)
+@@ -701,7 +702,7 @@
+   if power_state = `Running || power_state = `Paused then begin
+     debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
+     let localhost = Helpers.get_localhost ~__context in
+-    (* We only query domid, resident_on and Xc.domain_getinfo with the VM lock held to make
++    (* We only query domid, resident_on and Xenctrl.domain_getinfo with the VM lock held to make
+        sure the VM isn't in the middle of a migrate/reboot/shutdown. Note we don't hold it for
+        the whole of this function which might perform off-box RPCs. *)
+     let resident, domid, getinfo = Locking_helpers.with_lock vm
+@@ -712,7 +713,7 @@
+ 	   if resident = localhost then begin
+ 	     debug "VM.power_state_reset vm=%s resident_on=localhost; looking for a domain" (Ref.string_of vm);
+ 	     if domid = -1L then None
+-	     else (try Some (with_xc (fun xc -> Xc.domain_getinfo xc (Int64.to_int domid)))
++	     else (try Some (with_xc (fun xc -> Xenctrl.domain_getinfo xc (Int64.to_int domid)))
+ 		   with e ->
+ 		     debug "VM.power_state_reset vm=%s caught %s: assuming domain doesn't exist"
+ 		       (Ref.string_of vm) (ExnHelper.string_of_exn e);
+@@ -722,7 +723,7 @@
+     if resident = localhost then begin
+       match getinfo with
+       | Some di ->
+-	  let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Xc.handle) in
++	  let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.Xenctrl.handle) in
+ 	  if Db.VM.get_uuid ~__context ~self:vm = uuid then begin
+ 	    error "VM.power_state_reset vm=%s uuid=%s domid=%Ld cannot proceed because domain still exists"
+ 	      (Ref.string_of vm) uuid domid;
+--- a/ocaml/xapi/xapi_vm_migrate.ml
++++ b/ocaml/xapi/xapi_vm_migrate.ml
+@@ -226,7 +226,7 @@
+   try
+     if want_failure __context vm 2 then begin
+       debug "Simulating domain crash during Domain.suspend";
+-      Xc.domain_shutdown xc domid Xc.Crash;
++      Xenctrl.domain_shutdown xc domid Xenctrl.Crash;
+       raise (Vmops.Domain_shutdown_for_wrong_reason Xal.Crashed)
+     end;
+ 
+@@ -451,7 +451,7 @@
+   (* <-- [2] Synchronisation point *)  
+   if want_failure __context vm 5 then begin
+     debug "Simulating domain crash after restore";
+-    Xc.domain_shutdown xc domid Xc.Crash;
++    Xenctrl.domain_shutdown xc domid Xenctrl.Crash;
+     (* Continue on, like would happen if we crashed asynchronously *)
+   end;
+ 
+@@ -577,12 +577,12 @@
+ 									(* The lowest upper-bound on the amount of memory the domain can consume during
+ 									   the migration is the max of maxmem and memory_actual (with our overheads subtracted),
+ 									   assuming no reconfiguring of target happens during the process. *)
+-									let info = Xc.domain_getinfo xc domid in
++									let info = Xenctrl.domain_getinfo xc domid in
+ 									let totmem =
+-										Memory.bytes_of_pages (Int64.of_nativeint info.Xc.total_memory_pages) in
++										Memory.bytes_of_pages (Int64.of_nativeint info.Xenctrl.total_memory_pages) in
+ 									let maxmem =
+-										let overhead_bytes = Memory.bytes_of_mib (if info.Xc.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
+-										let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xc.max_memory_pages) in
++										let overhead_bytes = Memory.bytes_of_mib (if info.Xenctrl.hvm_guest then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib) in
++										let raw_bytes = Memory.bytes_of_pages (Int64.of_nativeint info.Xenctrl.max_memory_pages) in
+ 										Int64.sub raw_bytes overhead_bytes in
+ 									(* CA-31764: maxmem may be larger than static_max if maxmem has been increased to initial-reservation. *)
+ 									let memory_required_kib = Memory.kib_of_bytes_used (Pervasives.max totmem maxmem) in
+--- a/ocaml/xapi/xapi_xenops_errors.ml
++++ b/ocaml/xapi/xapi_xenops_errors.ml
+@@ -63,14 +63,14 @@
+       Server_error(internal_error, [ sprintf "received failure message from xenguesthelper: %s" x ])
+   | XenguestHelper.Domain_builder_error(fn, code, msg) ->
+       Server_error(domain_builder_error, [ fn; string_of_int code; msg ])
+-  | Xc.Error x ->
++  | Xenctrl.Error x ->
+       Vmopshelpers.with_xc
+ 	(fun xc ->
+ 	   let free = Memory.get_free_memory_kib ~xc
+ 	   and total = Memory.get_total_memory_mib ~xc
+ 	   and scrub = Memory.get_scrub_memory_kib ~xc in
+ 	   
+-	   Server_error(internal_error, [ sprintf "Xc.Error [ memory %Ld KiB free; to be scrubbed %Ld KiB; total %Ld MiB]: %s" free scrub total x ])
++	   Server_error(internal_error, [ sprintf "Xenctrl.Error [ memory %Ld KiB free; to be scrubbed %Ld KiB; total %Ld MiB]: %s" free scrub total x ])
+ 	)
+   | e -> e
+ 
+--- a/ocaml/xapi/xen_helpers.ml
++++ b/ocaml/xapi/xen_helpers.ml
+@@ -32,8 +32,8 @@
+   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
+   let hvm = 
+ 	  try
+-		  Xc.with_intf (fun xc -> (Xc.domain_getinfo xc domid).Xc.hvm_guest) 
+-	  with Xc.Error("2: No such file or directory") ->
++		  Xenctrl.with_intf (fun xc -> (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest) 
++	  with Xenctrl.Error("2: No such file or directory") ->
+ 		  (* This can happen if someone calls "xenops destroy_domain" *)
+ 		  error "VM %s domid:%d has been destroyed beneath us: returning VM_BAD_POWER_STATE" (Ref.string_of vm) domid;
+ 		  raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [Ref.string_of vm; "running"; (Record_util.power_to_string `Halted)]))
+--- a/ocaml/xenops/dbgring.ml
++++ b/ocaml/xenops/dbgring.ml
+@@ -16,16 +16,16 @@
+ 
+ let open_ring0 () =
+ 	let fd = Unix.openfile xenstored_proc_kva [ Unix.O_RDWR ] 0o600 in
+-	let sz = Mmap.getpagesize () in
+-	let intf = Mmap.mmap fd Mmap.RDWR Mmap.SHARED sz 0 in
++	let sz = Xenmmap.getpagesize () in
++	let intf = Xenmmap.mmap fd Xenmmap.RDWR Xenmmap.SHARED sz 0 in
+ 	Unix.close fd;
+ 	intf
+ 
+ let open_ringU domid mfn =
+-	let xc = Xc.interface_open () in
++	let xc = Xenctrl.interface_open () in
+ 	Pervasiveext.finally
+-		(fun () -> Xc.map_foreign_range xc domid (Mmap.getpagesize()) mfn)
+-		(fun () -> Xc.interface_close xc)
++		(fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize()) mfn)
++		(fun () -> Xenctrl.interface_close xc)
+ 
+ let open_ring domid mfn =
+ 	if domid = 0
+@@ -72,9 +72,9 @@
+ 		try int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2)
+ 		with _ -> 0, Nativeint.zero
+ 	in
+-	let sz = Mmap.getpagesize () - 1024 - 512 in
++	let sz = Xenmmap.getpagesize () - 1024 - 512 in
+ 	let intf = open_ring domid mfn in
+-	let s = Mmap.read intf 0 sz in
++	let s = Xenmmap.read intf 0 sz in
+ 	let ss = (hexify s) in
+ 
+ 	let req_cons = int_from_page ss (4*ring_size) in
+--- a/ocaml/xenops/fence.ml
++++ b/ocaml/xenops/fence.ml
+@@ -20,11 +20,11 @@
+     exit 1
+   end;
+ 
+-  let xc = Xc.interface_open () in
++  let xc = Xenctrl.interface_open () in
+   (* Clear both watchdog slots *)
+-  (try ignore(Xc.watchdog xc 1 0l) with _ -> ());
+-  (try ignore(Xc.watchdog xc 2 0l) with _ -> ());
++  (try ignore(Xenctrl.watchdog xc 1 0l) with _ -> ());
++  (try ignore(Xenctrl.watchdog xc 2 0l) with _ -> ());
+   (* set a very short timeout *)
+-  Xc.watchdog xc 0 0l
++  Xenctrl.watchdog xc 0 0l
+   (* boom? *)
+ 
+--- a/ocaml/xenops/list_domains.ml
++++ b/ocaml/xenops/list_domains.ml
+@@ -20,9 +20,9 @@
+ let pages = ref false
+ let all_the_rest = ref false
+ 
+-let xc_handle = Xc.interface_open() 
++let xc_handle = Xenctrl.interface_open() 
+ 
+-let hashtbl_of_domaininfo (x: Xc.domaininfo) : (string, string) Hashtbl.t = 
++let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t = 
+   let table = Hashtbl.create 10 in
+ 
+   let pages_to_string_bytes    x = Int64.to_string (Memory.bytes_of_pages    (Int64.of_nativeint (x))) in
+@@ -30,28 +30,28 @@
+   let pages_to_string_pages    x = Int64.to_string (                         (Int64.of_nativeint (x))) in
+ 
+   let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
+-  Hashtbl.add table "id" (int x.Xc.domid);
++  Hashtbl.add table "id" (int x.Xenctrl.domid);
+   let state = let bool ch = function true -> ch | _ -> " " in
+-  (bool "D" x.Xc.dying) ^ (bool "S" x.Xc.shutdown) ^ 
+-  (bool "P" x.Xc.paused) ^ (bool "B" x.Xc.blocked) ^ 
+-  (bool "R" x.Xc.running) ^ (bool "H" x.Xc.hvm_guest) in
++  (bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^ 
++  (bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^ 
++  (bool "R" x.Xenctrl.running) ^ (bool "H" x.Xenctrl.hvm_guest) in
+   Hashtbl.add table "state" state;
+-  Hashtbl.add table "shutdown code" (int x.Xc.shutdown_code);
+-  Hashtbl.add table "tot bytes" (pages_to_string_bytes    x.Xc.total_memory_pages);
+-  Hashtbl.add table "tot pages" (pages_to_string_pages    x.Xc.total_memory_pages);
+-  Hashtbl.add table "tot MiB"   (pages_to_string_mib_used x.Xc.total_memory_pages);
+-  Hashtbl.add table "max bytes" (if x.Xc.domid = 0 then "N/A" else (pages_to_string_bytes    x.Xc.max_memory_pages));
+-  Hashtbl.add table "max pages" (if x.Xc.domid = 0 then "N/A" else (pages_to_string_pages    x.Xc.max_memory_pages));
+-  Hashtbl.add table "max MiB"   (if x.Xc.domid = 0 then "N/A" else (pages_to_string_mib_used x.Xc.max_memory_pages));
+-  Hashtbl.add table "sif" (int64 x.Xc.shared_info_frame);
+-  Hashtbl.add table "cpu time" (int64 x.Xc.cpu_time);
+-  Hashtbl.add table "vcpus online" (int x.Xc.nr_online_vcpus);
+-  Hashtbl.add table "max vcpu id" (int x.Xc.max_vcpu_id);
+-  Hashtbl.add table "ssidref" (int32 x.Xc.ssidref);
+-  Hashtbl.add table "uuid" (Uuid.to_string (Uuid.uuid_of_int_array x.Xc.handle));
++  Hashtbl.add table "shutdown code" (int x.Xenctrl.shutdown_code);
++  Hashtbl.add table "tot bytes" (pages_to_string_bytes    x.Xenctrl.total_memory_pages);
++  Hashtbl.add table "tot pages" (pages_to_string_pages    x.Xenctrl.total_memory_pages);
++  Hashtbl.add table "tot MiB"   (pages_to_string_mib_used x.Xenctrl.total_memory_pages);
++  Hashtbl.add table "max bytes" (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_bytes    x.Xenctrl.max_memory_pages));
++  Hashtbl.add table "max pages" (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_pages    x.Xenctrl.max_memory_pages));
++  Hashtbl.add table "max MiB"   (if x.Xenctrl.domid = 0 then "N/A" else (pages_to_string_mib_used x.Xenctrl.max_memory_pages));
++  Hashtbl.add table "sif" (int64 x.Xenctrl.shared_info_frame);
++  Hashtbl.add table "cpu time" (int64 x.Xenctrl.cpu_time);
++  Hashtbl.add table "vcpus online" (int x.Xenctrl.nr_online_vcpus);
++  Hashtbl.add table "max vcpu id" (int x.Xenctrl.max_vcpu_id);
++  Hashtbl.add table "ssidref" (int32 x.Xenctrl.ssidref);
++  Hashtbl.add table "uuid" (Uuid.to_string (Uuid.uuid_of_int_array x.Xenctrl.handle));
+   (* Ask for shadow allocation separately *)
+   let shadow_mib =
+-    try Some (Int64.of_int (Xc.shadow_allocation_get xc_handle x.Xc.domid))
++    try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.Xenctrl.domid))
+     with _ -> None in
+   let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
+   let shadow_pages = may Memory.pages_of_mib shadow_mib in
+@@ -112,8 +112,8 @@
+ 		"List domains";
+ 	let cols = columns () in
+ 	let list = match !domid with
+-		| None -> Xc.domain_getinfolist xc_handle 0
+-		| Some d -> [Xc.domain_getinfo xc_handle d]
++		| None -> Xenctrl.domain_getinfolist xc_handle 0
++		| Some d -> [Xenctrl.domain_getinfo xc_handle d]
+ 	in
+ 	let infos = List.map (fun di -> select (hashtbl_of_domaininfo di) cols) list in
+ 	if !minimal
+--- a/ocaml/xenops/memory.ml
++++ b/ocaml/xenops/memory.ml
+@@ -27,7 +27,7 @@
+ 
+ let bytes_per_kib  = 1024L
+ let bytes_per_mib  = 1048576L
+-let bytes_per_page = Int64.of_int (Mmap.getpagesize ())
++let bytes_per_page = Int64.of_int (Xenmmap.getpagesize ())
+ let kib_per_page   = bytes_per_page /// bytes_per_kib
+ let kib_per_mib    = 1024L
+ let pages_per_mib  = bytes_per_mib /// bytes_per_page
+@@ -90,13 +90,13 @@
+ (* === Host memory properties =============================================== *)
+ 
+ let get_free_memory_kib ~xc =
+-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.free_pages)
++	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.free_pages)
+ let get_scrub_memory_kib ~xc =
+-	kib_of_pages (Int64.of_nativeint (Xc.physinfo xc).Xc.scrub_pages)
++	kib_of_pages (Int64.of_nativeint (Xenctrl.physinfo xc).Xenctrl.scrub_pages)
+ let get_total_memory_mib ~xc =
+-	mib_of_pages_free (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
++	mib_of_pages_free (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
+ let get_total_memory_bytes ~xc =
+-	bytes_of_pages (Int64.of_nativeint ((Xc.physinfo xc).Xc.total_pages))
++	bytes_of_pages (Int64.of_nativeint ((Xenctrl.physinfo xc).Xenctrl.total_pages))
+ 
+ (* === Domain memory breakdown ============================================== *)
+ 
+@@ -174,9 +174,9 @@
+ 		let shadow_mib = shadow_mib static_max_mib vcpu_count in
+ 		let requested_shadow_mib = shadow_mib requested_multiplier in
+ 		let default_shadow_mib = shadow_mib 1. in
+-		Xc.with_intf (fun xc ->
++		Xenctrl.with_intf (fun xc ->
+ 			let actual_shadow_mib =
+-				Int64.of_int (Xc.shadow_allocation_get xc domid) in
++				Int64.of_int (Xenctrl.shadow_allocation_get xc domid) in
+ 			let actual_multiplier =
+ 				(Int64.to_float actual_shadow_mib) /.
+ 				(Int64.to_float default_shadow_mib) in
+@@ -214,11 +214,11 @@
+ 
+ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
+ 	let rec wait accumulated_wait_time_seconds =
+-		let host_info = Xc.physinfo xc in
++		let host_info = Xenctrl.physinfo xc in
+ 		let free_memory_kib =
+-			kib_of_pages (Int64.of_nativeint host_info.Xc.free_pages) in
++			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.free_pages) in
+ 		let scrub_memory_kib =
+-			kib_of_pages (Int64.of_nativeint host_info.Xc.scrub_pages) in
++			kib_of_pages (Int64.of_nativeint host_info.Xenctrl.scrub_pages) in
+ 		(* At exponentially increasing intervals, write  *)
+ 		(* a debug message saying how long we've waited: *)
+ 		if is_power_of_2 accumulated_wait_time_seconds then debug
+--- a/ocaml/xenops/memory_summary.ml
++++ b/ocaml/xenops/memory_summary.ml
+@@ -13,7 +13,7 @@
+  *)
+ open Pervasiveext
+ 
+-let xc = Xc.interface_open() 
++let xc = Xenctrl.interface_open() 
+ 
+ let hash = ref false
+ let delay = ref (-1.0)
+@@ -35,17 +35,17 @@
+ 	  if !delay > 0. then ignore(Unix.select [] [] [] !delay);
+ 	  flush stdout;
+ 
+-	  let physinfo = Xc.physinfo xc in
++	  let physinfo = Xenctrl.physinfo xc in
+ 	  let one_page = 4096L in
+-	  let total_pages = Int64.of_nativeint physinfo.Xc.total_pages in
+-	  let free_pages = Int64.of_nativeint physinfo.Xc.free_pages +*
+-	    (Int64.of_nativeint physinfo.Xc.scrub_pages) in
++	  let total_pages = Int64.of_nativeint physinfo.Xenctrl.total_pages in
++	  let free_pages = Int64.of_nativeint physinfo.Xenctrl.free_pages +*
++	    (Int64.of_nativeint physinfo.Xenctrl.scrub_pages) in
+ 	  
+-	  let domains = Xc.domain_getinfolist xc 0 in
++	  let domains = Xenctrl.domain_getinfolist xc 0 in
+ 	  let domains = List.map
+ 	    (fun di ->
+-	       di.Xc.domid,
+-	       Int64.of_nativeint di.Xc.total_memory_pages
++	       di.Xenctrl.domid,
++	       Int64.of_nativeint di.Xenctrl.total_memory_pages
+ 	    )
+ 	    domains
+ 	  in
+--- a/ocaml/xenops/netman.ml
++++ b/ocaml/xenops/netman.ml
+@@ -27,7 +27,7 @@
+ 		Netdev.Link.arp dev false;
+ 		Netdev.Link.multicast dev false;
+ 		Netdev.Link.set_addr dev 
+-		 (if(Xc.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff");
++		 (if(Xenctrl.is_fake ()) then "fe:fe:fe:fe:fe:fe" else "fe:ff:ff:ff:ff:ff");
+ 		Netdev.Addr.flush dev
+ 		in
+ 	match netty with
+--- a/ocaml/xenops/xenguestHelper.ml
++++ b/ocaml/xenops/xenguestHelper.ml
+@@ -22,11 +22,11 @@
+ let last_log_file = "/tmp/xenguesthelper-log"
+ 
+ (* Exceptions which may propagate from the xenguest binary *)
+-exception Xc_dom_allocate_failure of int * string
+-exception Xc_dom_linux_build_failure of int * string
+-exception Xc_domain_save_failure of int * string
+-exception Xc_domain_resume_failure of int * string
+-exception Xc_domain_restore_failure of int * string
++exception Xenctrl_dom_allocate_failure of int * string
++exception Xenctrl_dom_linux_build_failure of int * string
++exception Xenctrl_domain_save_failure of int * string
++exception Xenctrl_domain_resume_failure of int * string
++exception Xenctrl_domain_restore_failure of int * string
+ 
+ exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
+ 
+@@ -41,7 +41,7 @@
+ 	(* Need to send commands and receive responses from the
+ 	   slave process *)
+ 
+-	let using_xiu = Xc.is_fake () in
++	let using_xiu = Xenctrl.is_fake () in
+ 
+ 	let last_log_file = "/tmp/xenguest.log" in
+ 	(try Unix.unlink last_log_file with _ -> ());
+@@ -126,7 +126,7 @@
+ (* Dump memory statistics on failure *)
+ let non_debug_receive ?debug_callback cnx = 
+   let debug_memory () = 
+-    Xc.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
++    Xenctrl.with_intf (fun xc -> error "Memory F %Ld KiB S %Ld KiB T %Ld MiB" (Memory.get_free_memory_kib xc) (Memory.get_scrub_memory_kib xc) (Memory.get_total_memory_mib xc));
+   in
+   try
+     match non_debug_receive ?debug_callback cnx with
+@@ -147,13 +147,13 @@
+ 		begin
+ 			match Stringext.String.split ~limit:3 ' ' x with
+ 			| [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
+-			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xc_dom_allocate_failure    (int_of_string code, msg))
+-			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xc_dom_linux_build_failure (int_of_string code, msg))
++			| [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
++			| [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
+ 			| [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
+ 			| [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
+-			| [ "xc_domain_save"    ; code; msg ] -> raise (Xc_domain_save_failure     (int_of_string code, msg))
+-			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xc_domain_resume_failure   (int_of_string code, msg))
+-			| [ "xc_domain_restore" ; code; msg ] -> raise (Xc_domain_restore_failure  (int_of_string code, msg))
++			| [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
++			| [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
++			| [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
+ 			| _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
+ 		end
+ 	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+--- a/ocaml/xapi/console_text.ml
++++ b/ocaml/xapi/console_text.ml
+@@ -17,6 +17,7 @@
+ open Debug
+ open Http
+ open Vmopshelpers
++open Xenstore
+ 
+ exception Failure
+ 
+--- a/ocaml/xapi/sparse_dd.ml
++++ b/ocaml/xapi/sparse_dd.ml
+@@ -5,6 +5,7 @@
+ open Stringext
+ open Listext
+ open Zerocheck
++open Xenstore
+ 
+ let ( +* ) = Int64.add
+ let ( -* ) = Int64.sub
+--- a/ocaml/xapi/xapi_vif.ml
++++ b/ocaml/xapi/xapi_vif.ml
+@@ -13,6 +13,7 @@
+  *)
+ open Vmopshelpers
+ open Xapi_vif_helpers
++open Xenstore
+ open D
+ 
+ let assert_operation_valid ~__context ~self ~(op:API.vif_operations) = 
+--- a/ocaml/xapi/xenstore_copy.ml
++++ b/ocaml/xapi/xenstore_copy.ml
+@@ -14,7 +14,7 @@
+ (* Simple example program which recursively copies a xenstore subtree to another path. *)
+ 
+ open Xenstore_dump
+-
++open Xenstore
+ 
+ let _ = 
+ 
+--- a/ocaml/xenops/balloon.mli
++++ b/ocaml/xenops/balloon.mli
+@@ -12,7 +12,7 @@
+  * GNU Lesser General Public License for more details.
+  *)
+ val parse_proc_xen_balloon : unit -> (string * int64 option) list
+-val set_memory_target : xs:Xs.xsh -> Xs.domid -> int64 -> unit
++val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
+ val _current_allocation : string
+ val _requested_target : string
+ val _low_mem_balloon : string
+--- a/ocaml/xenops/watch.mli
++++ b/ocaml/xenops/watch.mli
+@@ -42,5 +42,5 @@
+ exception Timeout of float
+ 
+ (** Wait for a result *)
+-val wait_for : xs:Xs.xsh -> ?timeout:float -> 'a t -> 'a
++val wait_for : xs:Xenstore.Xs.xsh -> ?timeout:float -> 'a t -> 'a
+ 
+--- /dev/null
++++ b/ocaml/xenops/xenbus_utils.ml
+@@ -0,0 +1,57 @@
++(*
++ * Copyright (C) 2006-2009 Citrix Systems Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU Lesser General Public License as published
++ * by the Free Software Foundation; version 2.1 only. with the special
++ * exception on linking described in file LICENSE.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU Lesser General Public License for more details.
++ *)
++open Xenstore
++
++type state = Unknown | Initialising | InitWait | Initialised | Connected
++	     | Closing | Closed
++
++
++let int_of = function
++  | Unknown      -> 0
++  | Initialising -> 1
++  | InitWait     -> 2
++  | Initialised  -> 3
++  | Connected    -> 4
++  | Closing      -> 5
++  | Closed       -> 6
++
++let of_int = function
++  | 0 -> Unknown
++  | 1 -> Initialising
++  | 2 -> InitWait
++  | 3 -> Initialised
++  | 4 -> Connected
++  | 5 -> Closing
++  | 6 -> Closed
++  | _ -> Unknown
++
++let of_string x = of_int (int_of_string x)
++let string_of x = string_of_int (int_of x)
++
++let to_string_desc = function
++	| Unknown      -> "unknown"
++	| Initialising -> "initialising"
++	| InitWait     -> "initwait"
++	| Initialised  -> "initialised"
++	| Connected    -> "connected"
++	| Closing      -> "closing"
++	| Closed       -> "closed"
++
++(** Allows a guest to read/write this node and children *)
++let rwperm_for_guest domid = 
++	(domid, Xsraw.PERM_NONE, [])
++
++(** Dom0 can read/write this node and children, domU can only read children *)
++let roperm_for_guest domid =
++	(0, Xsraw.PERM_NONE, [ (domid, Xsraw.PERM_READ) ])
