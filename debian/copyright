@@ -1,55 +1,267 @@
 Format: http://dep.debian.net/deps/dep5
 Upstream-Name: xen-api
+Upstream-Contact: Jonathan Ludlam <Jonathan.Ludlam@eu.citrix.com>
 Source: http://github.com/xen-org/xen-api
 
-Files: *
-Copyright: 2006-2011 Citrix Systems Inc.
-License: LGPL 2.1 | other
- This library is distributed under the terms of the GNU Lesser General
- Public License version 2.1.
+Files: debian/*
+Copyright: (c) 2011, Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+License: GPL-2+
+
+Files: java/*
+Copyright: (c) 2005-2011 Citrix Systems, Inc.
+License: GPL-2 with linking exception
+
+Files: scripts/c_rehash
+Copyright: (c) 1995-1998 Eric Young <eay@cryptsoft.com>
+ (c) 1998-2004 The OpenSSL Project.  All rights reserved.
+ (c) Tim Hudson <tjh@cryptsoft.com>
+License: OpenSSL and SSLeay
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
  .
- As a special exception to the GNU Lesser General Public License, you
- may link, statically or dynamically, a "work that uses the Library"
- with a publicly distributed version of the Library to produce an
- executable file containing portions of the Library, and distribute
- that executable file under terms of your choice, without any of the
- additional requirements listed in clause 6 of the GNU Lesser General
- Public License.  By "a publicly distributed version of the Library",
- we mean either the unmodified Library as distributed, or a
- modified version of the Library that is distributed under the
- conditions defined in clause 3 of the GNU Library General Public
- License.  This exception does not however invalidate any other reasons
- why the executable file might be covered by the GNU Lesser General
- Public License.
- . 
+ 1. Redistributions of source code must retain the above copyright notice,
+ this list of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation
+ and/or other materials provided with the distribution.
+ .
+ 3. All advertising materials mentioning features or use of this software must
+ display the following acknowledgment: "This product includes software
+ developed by the OpenSSL Project for use in the OpenSSL Toolkit.
+ (http://www.openssl.org/)"
+ .
+ 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+ endorse or promote products derived from this software without  prior written
+ permission. For written permission, please contact openssl-core@openssl.org.
+ .
+ 5. Products derived from this software may not be called "OpenSSL" nor may
+ "OpenSSL" appear in their names without prior written permission of the
+ OpenSSL Project.
+ .
+ 6. Redistributions of any form whatsoever must retain the following
+ acknowledgment:
+ "This product includes software developed by the OpenSSL Project for use in
+ the OpenSSL Toolkit (http://www.openssl.org/)"
+ .
+ THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT "AS IS" AND ANY EXPRESSED OR
+ IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ EVENT SHALL THE OpenSSL PROJECT OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ .
+ Original SSLeay License
+ .
+ This library is free for commercial and non-commercial use as long as the
+ following conditions are aheared to.  The following conditions apply to all
+ code found in this distribution, be it the RC4, RSA, lhash, DES, etc., code;
+ not just the SSL code. The SSL documentation included with this distribution
+ is covered by the same copyright terms except that the holder is Tim Hudson
+ <tjh@cryptsoft.com>.
+ .
+ Copyright remains Eric Young's, and as such any Copyright notices in the code
+ are not to be removed. If this package is used in a product, Eric Young
+ should be given attribution as the author of the parts of the library used.
+ This can be in the form of a textual message at program startup or in
+ documentation (online or textual) provided with the package.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ .
+ 1. Redistributions of source code must retain the copyright notice, this list
+ of conditions and the following disclaimer.
+ .
+ 2. Redistributions in binary form must reproduce the above copyright notice,
+ this list of conditions and the following disclaimer in the documentation
+ and/or other materials provided with the distribution.
+ .
+ 3. All advertising materials mentioning features or use of this software must
+ display the following acknowledgement:
+ .
+ "This product includes cryptographic software written by Eric Young
+ <eay@cryptsoft.com>"
+ .
+ The word 'cryptographic' can be left out if the rouines from the library being
+ used are not cryptographic related :-).
+ .
+ 4. If you include any Windows specific code (or a derivative thereof) from the
+ apps directory (application code) you must include an acknowledgement:
+ .
+ "This product includes software written by Tim Hudson <tjh@cryptsoft.com>"
+ .
+ THIS SOFTWARE IS PROVIDED BY ERIC YOUNG "AS IS" AND ANY EXPRESS OR IMPLIED
+ WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ .
+ The licence and distribution terms for any publically available version or
+ derivative of this code cannot be changed. i.e. this code cannot simply be
+ copied and put under another distribution licence [including the GNU Public
+ Licence.]
+
+Files: ocaml/doc/odoc_json.ml
+Copyright: (c) 2005, INRIA (Based on Odoc_xml by Maxence Guesdon)
+ (c) 2009, Citrix Systems Inc.
+License: LGPL-2.1
+
+Files: scripts/examples/python/XenAPI.py.html scripts/examples/python/XenAPI.py
+ ocaml/idl/binding_sanity_checks/tutorial_examples/XenAPI.py
+Copyright: (c) 2006-2007 XenSource Inc.
+ (c) 1999-2002 by Secret Labs AB
+ (c) 1999-2002 by Fredrik Lundh
+License: LGPL-2.1 and SECRET LABS AB license
+
+Files: scripts/InterfaceReconfigureVswitch.py
+Copyright: (c) 2009,2010,2011 Nicira Networks.
+ (c) 2008,2009,2011 Citrix Systems, Inc.
+License: LGPL 2.1
+
+Files: ocaml/idl/xenapi-datamodel-graph.dot
+Copyright: (c) 2006-2007 XenSource, Inc.
+License: GFDL-1.2 with no invariant section
+
+Files: *
+Copyright: (c) 2006-2011 Citrix Systems Inc.
+ (c) 2005, Jon Ludlam
+ (c) 2008, Anil Madhavapeddy
+ (c) 2006-2007 XenSource Inc.
+License: LGPL 2.1 with linking exceptions
+
+License: FDL with no invariant section
+ Permission is granted to copy, distribute and/or modify this document under
+ the terms of the GNU Free Documentation License, Version 1.2 or any later
+ version published by the Free Software Foundation; with no Invariant Sections,
+ no Front-Cover Texts and no Back-Cover Texts.
+ .
+ On Debian systems, the complete text of the GNU Free Documentation License
+ (GFDL) version 1.2 can be found in `/usr/share/common-licenses/GFDL-1.2'.
+
+License: LGPL 2.1
+ This library is distributed under the terms of the GNU Lesser General Public
+ License version 2.1.
+ .
+ This library is free software; you can redistribute it and/or modify it under
+ the terms of the GNU Lesser General Public License as published by the Free
+ Software Foundation; either version 2.1 of the License, or (at your option)
+ any later version.
+ .
+ This library is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+ details.
+ .
  The complete text of the GNU Lesser General Public License can be
  found in `/usr/share/common-licenses/LGPL-2.1'.
- .
- This library is free software; you can redistribute it and/or modify
- it under the terms of the GNU Lesser General Public License as
- published by the Free Software Foundation; either version 2.1 of the
- License, or (at your option) any later version.
- .
- This library is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- Lesser General Public License for more details.
 
-Files: debian/*
-Copyright: 2011 Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+License: LGPL 2.1 with linking exceptions
+ This library is distributed under the terms of the GNU Lesser General Public
+ License version 2.1.
+ .
+ As a special exception to the GNU Lesser General Public License, you may link,
+ statically or dynamically, a "work that uses the Library" with a publicly
+ distributed version of the Library to produce an executable file containing
+ portions of the Library, and distribute that executable file under terms of
+ your choice, without any of the additional requirements listed in clause 6 of
+ the GNU Lesser General Public License.  By "a publicly distributed version of
+ the Library", we mean either the unmodified Library as distributed, or a
+ modified version of the Library that is distributed under the conditions
+ defined in clause 3 of the GNU Library General Public License. This exception
+ does not however invalidate any other reasons why the executable file might be
+ covered by the GNU Lesser General Public License.
+ .
+ This library is free software; you can redistribute it and/or modify it under
+ the terms of the GNU Lesser General Public License as published by the Free
+ Software Foundation; either version 2.1 of the License, or (at your option)
+ any later version.
+ .
+ This library is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+ details.
+ .
+ The complete text of the GNU Lesser General Public License can be
+ found in `/usr/share/common-licenses/LGPL-2.1'.
+
+License: GPL-2 with linking exception
+ This library is free software; you can redistribute it and/or modify it under
+ the terms of version 2 of the GNU General Public License as published by the
+ Free Software Foundation, with the additional linking exception as follows:
+ .
+ Linking this library statically or dynamically with other modules is making a
+ combined work based on this library. Thus, the terms and conditions of the GNU
+ General Public License cover the whole combination.
+ .
+ As a special exception, the copyright holders of this library give you
+ permission to link this library with independent modules to produce an
+ executable, regardless of the license terms of these independent modules, and
+ to copy and distribute the resulting executable under terms of your choice,
+ provided that you also meet, for each linked independent module, the terms and
+ conditions of the license of that module. An independent module is a module
+ which is not derived from or based on this library. If you modify this
+ library, you may extend this exception to your version of the library, but you
+ are not obligated to do so. If you do not wish to do so, delete this exception
+ statement from your version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+ details.
+ .
+ You should have received a copy of the GNU General Public License along with
+ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+ Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ .
+ On Debian systems, the complete text of the GNU General Public License v2
+ (GPL) can be found in /usr/share/common-licenses/GPL-2.
+
 License: GPL-2+
- This package is free software; you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation; either version 2 of the License, or
- (at your option) any later version.
+ This program is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation; either version 2 of the License, or (at your option) any later
+ version.
  .
- This package is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  .
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>
+ You should have received a copy of the GNU General Public License along with
+ this program; if not, write to the Free Software Foundation, Inc., 51 Franklin
+ St, Fifth Floor, Boston, MA 02110-1301 USA
  .
- On Debian systems, the complete text of the GNU General
- Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
+ On Debian systems, the complete text of the GNU General Public License v2
+ (GPL) can be found in /usr/share/common-licenses/GPL-2.
+
+License: SECRET LABS AB license
+ Parts of this file are based upon xmlrpclib.py, the XML-RPC client interface
+ included in the Python distribution.
+ .
+ By obtaining, using, and/or copying this software and/or its associated
+ documentation, you agree that you have read, understood, and will comply with
+ the following terms and conditions:
+ .
+ Permission to use, copy, modify, and distribute this software and its
+ associated documentation for any purpose and without fee is hereby granted,
+ provided that the above copyright notice appears in all copies, and that both
+ that copyright notice and this permission notice appear in supporting
+ documentation, and that the name of Secret Labs AB or the author not be used
+ in advertising or publicity pertaining to distribution of the software without
+ specific, written prior permission.
+ .
+ SECRET LABS AB AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+ SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN
+ NO EVENT SHALL SECRET LABS AB OR THE AUTHOR BE LIABLE FOR ANY SPECIAL,
+ INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ PERFORMANCE OF THIS SOFTWARE.
