@@ -210,7 +210,6 @@ rm -rf $RPM_BUILD_ROOT
 @BASE_PATH@/libexec/backup-sr-metadata.pyo
 @BASE_PATH@/libexec/backup-sr-metadata.pyc
 @BASE_PATH@/libexec/block_device_io
-@BASE_PATH@/libexec/c_rehash
 @BASE_PATH@/libexec/cdrommon
 @BASE_PATH@/libexec/dumpcore
 @BASE_PATH@/libexec/fence
