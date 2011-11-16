@@ -1,4 +1,4 @@
-version = "0.2"
+version = "@VERSION@"
 description = "RPC light: lightweight library to convert plain ML types to and from RPC values"
 requires = "rpc-light.xml, rpc-light.json"
 

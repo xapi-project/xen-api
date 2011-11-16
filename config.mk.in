@@ -13,8 +13,7 @@ OCAML_XS_LIB = $(OCAML_XS_DIR)/xenstore.cmxa
 
 LDFLAGS = -cclib -L./
 
-VERSION := 0.2
-VERSION ?= $(shell git show-ref --head -s origin/HEAD || echo 0)
+VERSION ?= $(shell cat VERSION | tr -d '\n')
 
 OCAMLABI := $(shell ocamlc -version)
 OCAMLLIBDIR := $(shell ocamlc -where)

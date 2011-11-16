@@ -40,8 +40,11 @@ p4_idl.cmo: p4_idl.ml p4_rpc.cmo
 %.cmi: %.mli %.ml
 	$(OCAMLOPT) $(OCAMLFLAGS) -package $(PACKS) -c -o $@ $<
 
+META: META.in
+	sed 's/@VERSION@/$(VERSION)/g' < $< > $@
+
 .PHONY: install
-install: all
+install: all META
 	ocamlfind install -destdir $(OCAMLDESTDIR) rpc-light META $(TARGETS) $(SPOT)
 
 .PHONY: uninstall
