@@ -193,7 +193,7 @@ clean:
 
 RPM_SPECSDIR=$(shell rpm --eval='%_specdir')
 RPM_SOURCEDIR=$(shell rpm --eval='%_sourcedir')
-XEN_RELEASE=xcp0.2
+XEN_RELEASE=xcp$(VERSION)
 
 $(RPM_SPECSDIR)/xapi-libs.spec: xapi.spec.in
 	sed -e s\,@XEN_RELEASE@,$(XEN_RELEASE),g   \
