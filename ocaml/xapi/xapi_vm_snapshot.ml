@@ -313,8 +313,12 @@ let update_vifs_and_vbds ~__context ~snapshot ~vm =
 
 		try
 			debug "Copying the VBDs";
-			let (_ : [`VBD] Ref.t list) =
+			let (vbds : [`VBD] Ref.t list) =
 				List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) cloned_disks in
+			(* To include the case of checkpoints we must also update the VBD references in the LBR *)
+			let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+			Helpers.set_boot_record ~__context ~self:vm { snapshot with API.vM_VBDs = vbds };
+
 			TaskHelper.set_progress ~__context 0.8;
 
 			debug "Update the suspend_VDI";
