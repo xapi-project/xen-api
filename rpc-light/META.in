@@ -3,7 +3,7 @@ description = "RPC light: lightweight library to convert plain ML types to and f
 requires = "rpc-light.xml, rpc-light.json"
 
 package "syntax" (
-  version = "0.1"
+  version = "@VERSION@"
   description = "rpc-light: library to marshalling/unmarshalling ML types to/from RPC intermediate language"
   requires = "type-conv.syntax"
   archive(syntax,preprocessor) = "pa_rpc.cma"
@@ -11,14 +11,14 @@ package "syntax" (
   )
 
 package "core" (
-  version = "0.1"
+  version = "@VERSION@"
   description = "Common RPC definitions"
   archive(byte) = "rpc.cmo"
   archive(native) = "rpc.cmx"
 )
 
 package "xml" (
-  version = "0.1"
+  version = "@VERSION@"
   description = "XML-RPC marshalling/unmarshalling"
   requires = "rpc-light.core,xmlm"
   archive(byte) = "xmlrpc.cmo"
@@ -26,7 +26,7 @@ package "xml" (
   )
 
 package "json" (
-  version = "0.1"
+  version = "@VERSION@"
   description = "JSON-RPC marshalling/unmarshalling"
   requires = "rpc-light.core"
   archive(byte) = "jsonrpc.cmo"
@@ -34,7 +34,7 @@ package "json" (
 )
 
 package "idl" (
-  version = "0.1"
+  version = "@VERSION@"
   description = "Preprocessor to convert an idl definition in ocaml into an implementation of client and server modules"
   requires = "camlp4"
   archive(syntax,preprocessor) = "idl.cma"
