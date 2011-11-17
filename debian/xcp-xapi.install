@@ -23,7 +23,6 @@
 /usr/lib/xen-common/xapi/libexec/backup-sr-metadata.py
 /usr/lib/xen-common/xapi/libexec/block_device_io
 /usr/lib/xen-common/xapi/libexec/cdrommon
-/usr/lib/xen-common/xapi/libexec/c_rehash
 /usr/lib/xen-common/xapi/libexec/dumpcore
 /usr/lib/xen-common/xapi/libexec/fence
 /usr/lib/xen-common/xapi/libexec/fence.bin
