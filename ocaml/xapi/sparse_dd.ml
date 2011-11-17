@@ -3,6 +3,7 @@
 
 open Pervasiveext
 open Stringext
+open Fun
 open Listext
 open Zerocheck
 open Xenstore
@@ -323,14 +324,7 @@ let vhd_of_device path =
 		| _ -> 
 			Printf.printf "Device %s has an unknown driver\n" path;
 			None in
-	begin match find_underlying_tapdisk path with
-	| Some path ->
-		begin match tapdisk_of_path path with
-		| Some vhd -> Some vhd
-		| None -> None
-		end
-	| None -> None
-	end
+	find_underlying_tapdisk path |> Opt.default path |> tapdisk_of_path
 
 let deref_symlinks path = 
 	let rec inner seen_already path = 
@@ -439,7 +433,7 @@ let _ =
 	let empty = Bat.of_list [] in
 
 	Printf.printf "src = %s; dest = %s; base = %s; size = %Ld\n" (Opt.default "None" !src) (Opt.default "None" !dest) (Opt.default "None" !base) !size;
-        let size = Some !size in
+	let size = Some !size in
 
 	(** [chain_of_device device] returns [None] if [device] is None.
 	    If device is [Some d] then returns [None] if no vhds were detected or [Some chain] *)
@@ -454,7 +448,7 @@ let _ =
 		Printf.printf "%s has chain: [ %s ]\n" (option device) (option (Opt.map (String.concat "; ") chain));
 		chain in
 
-	let bat : Bat.t option = 
+	let bat : Bat.t option =
 	try
 		let src_chain = chain_of_device !src in
 		let base_chain = chain_of_device !base in
