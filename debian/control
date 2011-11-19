@@ -11,7 +11,7 @@ Homepage: http://www.xen.org/XCP/
 Package: xcp-xapi
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xen-sm, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
-Recommends: vncterm, xcp-generate-templates
+Recommends: xcp-vncterm, xcp-generate-templates
 Description: The Xen API server
  The Xen API server, which allows the control of the virtual machines hosted via
  the XenAPI.
