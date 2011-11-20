@@ -24,7 +24,7 @@ var component_stats = {};
 var component_deps = {};
 
 var root = '/bind/myrepos/';
-var code_url = 'http://xenbits.xen.org/xapi/';
+var code_url = 'http://github.com/xen-org/';
     
 function fill_components()
 {
@@ -446,13 +446,13 @@ function moduledoc(mod)
 	if (mod.location.interface != 'unknown') {
 		if_file = r.exec(mod.location.interface)[1];
 		x = /([\.\-\w]*)\/([^\|]*)/.exec(if_file);
-		url = code_url + x[1] + '?raw-file/tip/' + x[2];
+		url = code_url + x[1] + '/blob/master/' + x[2];
 		html += '<tr><td><b>Interface file:</b></td><td><a href="' + url + '" target="_blank">' + if_file + '</a></td></tr>';
 	}
 	if (mod.location.implementation != 'unknown') {
 		im_file = r.exec(mod.location.implementation)[1];
 		x = /([\.\-\w]*)\/([^\|]*)/.exec(im_file);
-		url = code_url + x[1] + '?raw-file/tip/' + x[2];
+		url = code_url + x[1] + '/blob/master/' + x[2];
 		html += '<tr><td><b>Implementation file:</b></td><td><a href="' + url + '" target="_blank">' + im_file + '</a></td></tr>';
 	}
 	html += '</table></div>';
