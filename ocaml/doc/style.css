@@ -239,6 +239,7 @@ tt, .code {
 	margin: 0em 0;
 	padding: .5em .7em .7em;
 	background-color: #ffeeaa;
+	cursor: pointer;
 }
 
 .field2
