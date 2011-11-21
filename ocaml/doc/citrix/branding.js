@@ -22,6 +22,8 @@ function make_header(t) {
 	document.getElementById('header').innerHTML = html;
 }
 
+first_release = 'rio';
+
 function get_release_name(s)
 {
 	switch (s) {
@@ -52,11 +54,8 @@ function get_release_name(s)
 	case 'boston':
 		return 'XenServer 6.0';
 		break;
-	case 'tampa':
-		return 'Unreleased';
-		break;
 	default:
-		return s;
+		return 'Unreleased';
 		break;
 	}
 }

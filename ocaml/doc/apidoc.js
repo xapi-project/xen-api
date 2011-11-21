@@ -33,8 +33,8 @@ function make_enum(t)
 	obj.style.display = ''
 	
 	if (document.getElementById('enum_' + n) == null) {
-		html = '<div id="enum_' + n + '" class="field' + toggle(i) + '">';
-		html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'enum_' + n + '_details\'))" />';
+		html = '<div id="enum_' + n + '" class="field' + toggle(i) + '" ';
+		html += 'onclick="showhide(document.getElementById(\'enum_' + n + '_details\'))">';
 		html += '<div class="field-name">' + n + '</div>';
 		html += '<div id="enum_' + n + '_details" style="display: none">';
 		
@@ -131,8 +131,8 @@ function make_field(fld, n)
 	name = fld.full_name.join('_');
 
 	html = "";	
-	html = '<div class="field' + toggle(n) + '">';
-	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'' + name + '_details\'))" />';
+	html = '<div class="field' + toggle(n) + '" ';
+	html += 'onclick="showhide(document.getElementById(\'' + name + '_details\'))">';
 	html += '<div class="lifecycle">' + current_lifecycle_stage(fld.lifecycle) + '</div>';
 	html += '<div><span class="inline-type">' + transform_type(fld.ty) + '</span> <span class="field-name">' + name + '</span> <span class="inline-qualifier">[' + qualifier(fld.qualifier) + ']</span></div>';
 	
@@ -159,8 +159,8 @@ function make_message(msg, n)
 	
 	html = "";
 	
-	html += '<div class="field' + toggle(n) + '">';
-	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'' + name + '_details\'))" />';
+	html += '<div class="field' + toggle(n) + '" ';
+	html += 'onclick="showhide(document.getElementById(\'' + name + '_details\'))">';
 	html += '<div class="lifecycle">' + current_lifecycle_stage(msg.msg_lifecycle) + '</div>';
 	html += '<div><span class="inline-type">' + 
 		(msg.msg_result != undefined ? transform_type(msg.msg_result[0]) : 'void') + 
@@ -221,9 +221,8 @@ function class_doc()
 	messages.sort(function(a, b){return compare(a.msg_name.toLowerCase(), b.msg_name.toLowerCase())});
 
 	html = "";
-	html += '<input type="button" class="small-button" value="details" onclick="showhide(document.getElementById(\'class_details\'))" />';
 	html += '<div class="lifecycle">' + current_lifecycle_stage(clsdoc.obj_lifecycle) + '</div>';
-	html += '<h1 class="title">Class: ' + cls + '</h1>\n';
+	html += '<h1 class="title" onclick="showhide(document.getElementById(\'class_details\'))" style="cursor: pointer">Class: ' + cls + '</h1>\n';
 	
 	html += '<div class="description">' + clsdoc.description + '</div>';
 	
@@ -329,6 +328,7 @@ function release_list()
 {
 	html = '<h2>Release notes</h2>';
 	
+	releases = releases.slice(releases.indexOf(first_release))
 	for (i in releases) {
 		r = releases[i];
 		html += '<a href="?r=' + r + '">' + get_release_name(r) + '</a><br>';

@@ -12,8 +12,19 @@
 			make_title();
 			if (cls != "")
 				document.write('<script src="api/', cls, '.json" type="text/JavaScript"><\/script>');
-			if (rel != "")
-				document.write('<script src="api/', rel, '.json" type="text/JavaScript"><\/script>');
+			if (rel != "") {
+				if (rel == first_release)
+					rels = releases.slice(0, releases.indexOf(first_release) + 1);
+				else
+					rels = [rel];
+				function ld(info) {
+					if (rels.length > 0)
+						load_script('api/' + rels.pop() + '.json', function(){return ld(info.concat(release_info));});
+					else
+						release_info = info;
+				}
+				ld([]);
+			}
 		</script>
 		<link rel="stylesheet" href="style.css" />
 	</head>
