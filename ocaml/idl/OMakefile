@@ -122,37 +122,15 @@ clean:
 sdk-README.txt : sdk-README.html
 	lynx -dump sdk-README.html > sdk-README.txt
 
+.PHONY: doc
+doc: xenenterpriseapi.pdf
+
 .PHONY: sdk-install
-sdk-install: datamodel html_build xenenterpriseapi.pdf $(JQUERY) $(JQUERYTREEVIEWZIP)
-	mkdir -p $(SDK)/docs/html
-	cp xenenterpriseapi-datamodel-graph.map $(SDK)/docs/html
-	cp xenenterpriseapi-datamodel-graph.gif $(SDK)/docs/html
-	cp html/*.css html/*.js html/*.html $(SDK)/docs/html
-	mkdir -p $(SDK)/docs/html/images
-	cp html/images/* $(SDK)/docs/html/images
-	cp xensource_logo.gif xensource_toplogo.gif check.png $(SDK)/docs/html
-	rm -rf /tmp/docs
-	mkdir -p /tmp/docs/html/autogen
-	cp xenenterpriseapi-datamodel-graph.map /tmp/docs/html/autogen
-	./datamodel -closed -html /tmp/docs/html/autogen
-	./html_build -autogen /tmp/docs/html/autogen/API -manual html/overlay/API -output /tmp/docs/html/merged/API -tree $(SDK)/docs/html/tree.html
-	mkdir -p $(SDKWWW)/docs/html
-	mkdir -p $(SDK)/docs/html
-	sh -c '/bin/cp -ar /tmp/docs/html/merged/API $(SDK)/docs/html'
-	cp /tmp/docs/html/autogen/classes.html $(SDK)/docs/html
-	cp $(JQUERY) $(SDK)/docs/html
-	mkdir -p $(SDK)/docs/html/images
-	unzip -o -j -d $(SDK)/docs/html/images $(JQUERYTREEVIEWZIP) images/*
-	unzip -o -j -d $(SDK)/docs/html $(JQUERYTREEVIEWZIP) '*.js' images/*
-	#./datamodel -closed -html $(SDK)/docs/html
+sdk-install: doc sdk-README.txt
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
 	cp sdk-README.txt $(SDK)/README.txt
 	cp sdk-index.html $(SDK)/index.html
-
-.PHONY: doc
-doc: sdk-install
-
 
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@

@@ -15,6 +15,13 @@ doc: jsapi
 	mkdir -p api
 	./jsapi
 
+.PHONY: sdk-install
+sdk-install: doc
+	mkdir -p $(SDK)/docs/html
+	sh -c 'cp -r -L api $(SDK)/docs/html/'
+	cp *.js *.html *.css *.png $(SDK)/docs/html/
+	cp citrix/* $(SDK)/docs/html/
+
 .PHONY: clean
 clean:
 	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
