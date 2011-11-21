@@ -42,7 +42,7 @@ clean :
 
 .PHONY: doc
 doc: $(INTF)
-	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "stdext,camldm,uuid,unix" "" "'${PP}'"
+	python ../doc/doc.py $(DOCDIR) "mlvm" "package" "$(LIBOBJS)" "." "rpc-light,stdext,camldm,uuid,unix" ""
 
 lvmconfigparser.ml : lvmconfigparser.mly
 	ocamlyacc lvmconfigparser.mly
