@@ -51,6 +51,7 @@ let encode s =
 				  Buffer.add_string buf n;
 				  m := i + 1
 		done;
+		Buffer.add_substring buf s !m (n - !m);
 		Buffer.contents buf
 	end else
 		s
