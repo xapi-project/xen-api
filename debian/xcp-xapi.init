@@ -1,7 +1,7 @@
 #! /bin/sh
 ### BEGIN INIT INFO
-# Provides:          xapi
-# Required-Start:    $remote_fs $syslog squeezed v6d fe
+# Provides:          xcp-xapi
+# Required-Start:    $remote_fs $syslog xcp-squeezed xcp-v6d xcp-fe
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6

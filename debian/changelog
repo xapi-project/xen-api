@@ -1,3 +1,9 @@
+xen-api (0.1-2) unstable; urgency=low
+
+  * Update init scripts to use proper service names (e.g. xcp-fe rather than fe)
+
+ -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Tue, 22 Nov 2011 13:18:38 +0000
+
 xen-api (0.1-1) unstable; urgency=low
 
   * Initial release (Closes: #646720)
