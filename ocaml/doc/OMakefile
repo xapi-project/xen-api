@@ -24,5 +24,5 @@ sdk-install: doc
 
 .PHONY: clean
 clean:
-	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o
-	rm -rf components.js content jsapi
+	rm -f *~ *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o *.omc
+	rm -rf components.js content api jsapi
