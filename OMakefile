@@ -147,7 +147,6 @@ OCAML_PHASE3_NOXEN = \
 	ocaml/cdrommon/cdrommon \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \
-	ocaml/idl/html_build \
 	ocaml/db_process/xapi-db-process \
 	ocaml/vncproxy/vncproxy \
 	ocaml/xapi/rrddump \
