@@ -1,3 +1,9 @@
+xen-api (0.1-3) unstable; urgency=low
+
+  * Fix the init scripts so that they start at the correct point in the boot sequence
+
+ -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Tue, 22 Nov 2011 17:28:10 +0000
+
 xen-api (0.1-2) unstable; urgency=low
 
   * Update init scripts to use proper service names (e.g. xcp-fe rather than fe)

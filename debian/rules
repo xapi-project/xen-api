@@ -11,7 +11,7 @@
 # build-arch and build-indep targets  by Bill Allombert 2001
 
 # Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
 
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
@@ -23,3 +23,8 @@ export DH_OPTIONS
 clean: 
 	dh clean
 	find . -name "*.omc" | xargs rm
+
+override_dh_installinit:
+	dh_installinit -pxcp-xapi -- defaults 23
+	dh_installinit -pxcp-squeezed -- defaults 22
+	dh_installinit -pxcp-v6d -- defaults 20
