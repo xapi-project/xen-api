@@ -17,10 +17,15 @@ doc: jsapi
 
 .PHONY: sdk-install
 sdk-install: doc
-	mkdir -p $(SDK)/docs/html
-	sh -c 'cp -r -L api $(SDK)/docs/html/'
-	cp *.js *.html *.css *.png $(SDK)/docs/html/
-	cp citrix/* $(SDK)/docs/html/
+	mkdir -p $(SDK)/docs/html/xcp
+	sh -c 'cp -r -L api $(SDK)/docs/html/xcp/'
+	sh -c 'cp -r -L content $(SDK)/docs/html/xcp/'
+	cp *.js *.html *.css *.png $(SDK)/docs/html/xcp/
+
+	mkdir -p $(SDK)/docs/html/xenserver
+	sh -c 'cp -r -L api $(SDK)/docs/html/xenserver/'
+	cp *.js *.html *.css *.png $(SDK)/docs/html/xenserver/
+	cp citrix/* $(SDK)/docs/html/xenserver/
 
 .PHONY: clean
 clean:
