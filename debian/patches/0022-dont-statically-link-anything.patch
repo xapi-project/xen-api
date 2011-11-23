@@ -9,7 +9,7 @@ Don't statically link anything.
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/ocaml/xe-cli/OMakefile b/ocaml/xe-cli/OMakefile
-index 41417a6..dcdca15 100644
+index 41417a6..973fa44 100644
 --- a/ocaml/xe-cli/OMakefile
 +++ b/ocaml/xe-cli/OMakefile
 @@ -4,7 +4,7 @@ OCAMLPACKS    = xml-light2 stdext stunnel log
@@ -17,12 +17,12 @@ index 41417a6..dcdca15 100644
  section
  	OCAMLINCLUDES += .
 -	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib -static
-+	OCAMLFLAGS = -dtypes -thread -warn-error F -cclib
++	OCAMLFLAGS = -dtypes -thread -warn-error F 
  	CLI_FILES = newcli ../xapi/cli_protocol options
  	OCamlProgram(xe, $(CLI_FILES))
  	OCamlDocProgram(xe, $(CLI_FILES))
 diff --git a/ocaml/xenops/OMakefile b/ocaml/xenops/OMakefile
-index 57494fb..617bf28 100644
+index 57494fb..455fad8 100644
 --- a/ocaml/xenops/OMakefile
 +++ b/ocaml/xenops/OMakefile
 @@ -45,7 +45,7 @@ OCamlProgram(dbgring, dbgring)
@@ -30,7 +30,7 @@ index 57494fb..617bf28 100644
  section
  	OCAMLINCLUDES   = ../idl/ocaml_backend ../idl
 -	OCAMLFLAGS = -dtypes -warn-error F -cclib -static
-+	OCAMLFLAGS = -dtypes -warn-error F -cclib 
++	OCAMLFLAGS = -dtypes -warn-error F 
  	OCAMLPACKS = xenctrl xenstore
  	OCamlProgram(xs, xenstore_readdir)
  
