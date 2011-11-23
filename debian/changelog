@@ -1,3 +1,10 @@
+xen-api (0.1-4) unstable; urgency=low
+
+  * Use xen-4.1.2 packaging
+  * Don't statically link anything
+
+ -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Wed, 23 Nov 2011 21:40:26 +0000
+
 xen-api (0.1-3) unstable; urgency=low
 
   * Fix the init scripts so that they start at the correct point in the boot sequence
