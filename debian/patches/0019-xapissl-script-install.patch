@@ -1,0 +1,22 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:53 +0100
+Subject: xapissl-script-install
+
+---
+ scripts/OMakefile |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/scripts/OMakefile b/scripts/OMakefile
+index 88c7cbe..d6a21fb 100644
+--- a/scripts/OMakefile
++++ b/scripts/OMakefile
+@@ -35,7 +35,7 @@ install:
+ 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
+ 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
+ 	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
+-	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
++	$(IPROG) init.d-xapissl $(DESTDIR)/etc/init.d/xapissl
+ 	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
+ 	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
+ 	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface
+-- 

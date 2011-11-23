@@ -1,0 +1,42 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:52 +0100
+Subject: python-XenAPI-install-path
+
+---
+ scripts/examples/python/OMakefile |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/scripts/examples/python/OMakefile b/scripts/examples/python/OMakefile
+index 26d7938..9b88576 100644
+--- a/scripts/examples/python/OMakefile
++++ b/scripts/examples/python/OMakefile
+@@ -11,7 +11,7 @@ PYTHON_EXE=vm_start_async.py watch-all-events.py powercycle.py install.py fixpbd
+ PYTHON_LIB=XenAPI.py provision.py
+ PYTHON_SRC=$(PYTHON_EXE) $(PYTHON_LIB)
+ PYTHON_HTML=$(addsuffix .html, $(PYTHON_SRC))
+-PYTHON_DIR=python2.6
++PYTHON_DIR=python2.7
+ 
+ .PHONY: html-versions
+ # note that enscript is not in the build chroot, so this target will fail.
+@@ -38,9 +38,9 @@ README : index.html
+ .PHONY: install
+ install:
+ 	mkdir -p $(LIBEXEC)
+-	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages
++	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages
+ 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+-	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
++	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages/
+ 	$(IEXE) echo.py $(DESTDIR)/etc/xapi.d/plugins/echo
+ 	$(IEXE) wake-on-lan.py $(DESTDIR)/etc/xapi.d/plugins/wake-on-lan
+ 	$(IEXE) shutdown.py $(LIBEXEC)/shutdown
+@@ -48,5 +48,5 @@ install:
+ 
+ .PHONY: sdk-install
+ sdk-install:
+-	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages
+-	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
++	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages
++	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages/
+-- 

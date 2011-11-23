@@ -1,0 +1,71 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:40 +0100
+Subject: install-locations
+
+---
+ ocaml/idl/OMakefile               |    2 +-
+ ocaml/idl/ocaml_backend/OMakefile |    4 ++--
+ ocaml/xe-cli/rt/OMakefile         |    1 +
+ scripts/examples/python/OMakefile |    2 +-
+ 4 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/ocaml/idl/OMakefile b/ocaml/idl/OMakefile
+index 3a0774e..bde01cd 100644
+--- a/ocaml/idl/OMakefile
++++ b/ocaml/idl/OMakefile
+@@ -158,7 +158,7 @@ META: META.in
+ 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+ 
+ if $(defined DESTDIR)
+-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
++	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)
+ 	export
+ else
+ 	INSTALL_PATH = $(shell ocamlfind printconf destdir)
+diff --git a/ocaml/idl/ocaml_backend/OMakefile b/ocaml/idl/ocaml_backend/OMakefile
+index 567afeb..faa1338 100644
+--- a/ocaml/idl/ocaml_backend/OMakefile
++++ b/ocaml/idl/ocaml_backend/OMakefile
+@@ -153,7 +153,7 @@ META: META.in
+ 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+ 
+ if $(defined DESTDIR)
+-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
++	INSTALL_PATH = $(DESTDIR)/usr/lib/ocaml
+ 	export
+ else
+ 	INSTALL_PATH = $(shell ocamlfind printconf destdir)
+@@ -162,7 +162,7 @@ else
+ DATAMODEL_PACK_DIR=/tmp/xapi-datamodel
+ 
+ lib-install: META
+-	mkdir -p $(INSTALL_PATH)
++	mkdir -p $(INSTALL_PATH)/stublibs
+ 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-client META $(addsuffixes .cmi, $(XAPI_CLIENT_OBJS)) $(if $(BYTE_ENABLED), xapi_client.cma) $(if $(NATIVE_ENABLED), xapi_client.cmxa xapi_client.a $(addsuffixes .cmx, $(XAPI_CLIENT_OBJS)))
+ 
+ .PHONY: lib-uninstall
+diff --git a/ocaml/xe-cli/rt/OMakefile b/ocaml/xe-cli/rt/OMakefile
+index ca43d40..0d9bbd3 100644
+--- a/ocaml/xe-cli/rt/OMakefile
++++ b/ocaml/xe-cli/rt/OMakefile
+@@ -30,5 +30,6 @@ install:
+ 	mkdir -p /tmp/cli-rt-domu/root
+ 	cp gtmessages.ml gtcomms.ml gtlinuxops.ml gtserver_linux.ml /tmp/cli-rt-domu/root
+ 	(cd $(ROOT)/scripts; /bin/sh ./make-patch /tmp/cli-rt-domu /tmp/cli-rt-domu-shar.sh)
++	mkdir -p $(BASE_PATH)/debug
+ 	mv /tmp/cli-rt-domu-shar.sh $(BASE_PATH)/debug
+ 	$(IPROG) install-debian-pv.sh install-debian-pv-inside.sh $(BASE_PATH)/debug
+diff --git a/scripts/examples/python/OMakefile b/scripts/examples/python/OMakefile
+index 981a8eb..26d7938 100644
+--- a/scripts/examples/python/OMakefile
++++ b/scripts/examples/python/OMakefile
+@@ -11,7 +11,7 @@ PYTHON_EXE=vm_start_async.py watch-all-events.py powercycle.py install.py fixpbd
+ PYTHON_LIB=XenAPI.py provision.py
+ PYTHON_SRC=$(PYTHON_EXE) $(PYTHON_LIB)
+ PYTHON_HTML=$(addsuffix .html, $(PYTHON_SRC))
+-PYTHON_DIR=python2.4
++PYTHON_DIR=python2.6
+ 
+ .PHONY: html-versions
+ # note that enscript is not in the build chroot, so this target will fail.
+-- 

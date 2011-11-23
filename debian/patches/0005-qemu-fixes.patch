@@ -1,0 +1,22 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:38 +0100
+Subject: qemu-fixes
+
+---
+ ocaml/xenops/device.ml |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/ocaml/xenops/device.ml b/ocaml/xenops/device.ml
+index cc2bf61..d44dfcf 100644
+--- a/ocaml/xenops/device.ml
++++ b/ocaml/xenops/device.ml
+@@ -1629,7 +1629,7 @@ let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
+ 		in
+ 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
+ 	let syslog_stdout = Forkhelpers.Syslog_WithKey (Printf.sprintf "qemu-dm-%d" domid) in
+-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout dmpath l in
++	let pid = Forkhelpers.safe_close_and_exec ~env:[|"PYTHONPATH=/usr/lib/xen-4.1/lib/python"|] None None None [] ~syslog_stdout dmpath l in
+ 
+         debug "qemu-dm: should be running in the background (stdout redirected to syslog)";
+ 
+-- 

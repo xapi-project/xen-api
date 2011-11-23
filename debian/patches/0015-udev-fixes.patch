@@ -1,0 +1,77 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:47 +0100
+Subject: udev-fixes
+
+---
+ scripts/OMakefile      |    3 ++-
+ scripts/block-frontend |    6 +++---
+ scripts/vif            |    6 +++---
+ 3 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/scripts/OMakefile b/scripts/OMakefile
+index c5d5c77..88c7cbe 100644
+--- a/scripts/OMakefile
++++ b/scripts/OMakefile
+@@ -50,7 +50,8 @@ install:
+ 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
+ 	mkdir -p $(DESTDIR)/etc/udev
+ 	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev
+-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev
++	mkdir -p $(DESTDIR)/lib/udev/rules.d
++	$(IPROG) xen-frontend.rules $(DESTDIR)/lib/udev/rules.d/
+ 	$(IPROG) generate_ssl_cert $(LIBEXEC)
+ 	$(IPROG) fix_firewall.sh $(BIN_PATH)
+ 	mkdir -p $(BASE_PATH)/debug
+diff --git a/scripts/block-frontend b/scripts/block-frontend
+index 88a5b4c..d9db7c9 100755
+--- a/scripts/block-frontend
++++ b/scripts/block-frontend
+@@ -9,7 +9,7 @@
+ # If we block-attach a partition directly then events are generated
+ # with DEVPATHs of the form /block/xvde1 -- we act on these.
+ 
+-PARTITION=`echo ${DEVPATH} | cut -f 4 -d '/'`
++PARTITION=`echo ${DEVPATH} | cut -f 6 -d '/'`
+ if [ ! -z ${PARTITION} ]; then
+         # the bad kind of partition
+ 	exit
+@@ -19,8 +19,8 @@ DOMID=`xenstore-read domid`
+ 
+ # Extract the device type and ID from the PHYSDEVPATH eg
+ # PHYSDEVPATH=/devices/xen/vbd-51728
+-TYPE=`echo ${PHYSDEVPATH} | cut -f 4 -d '/' | cut -f 1 -d '-'`
+-DEVID=`echo ${PHYSDEVPATH} | cut -f 2 -d '-'`
++TYPE=`echo ${DEVPATH} | cut -f 3 -d '/' | cut -f 1 -d '-'`
++DEVID=`echo ${DEVPATH} | cut -f 3 -d '/' | cut -f 2 -d '-'`
+ 
+ XAPI=/xapi/${DOMID}/frontend/${TYPE}/${DEVID}
+ 
+diff --git a/scripts/vif b/scripts/vif
+index d0662e1..d09fad8 100755
+--- a/scripts/vif
++++ b/scripts/vif
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ 
+ # Copyright (C) 2008,2009 Citrix Systems, Inc.
+ #
+@@ -20,7 +20,7 @@
+ 
+ # Keep other-config/ keys in sync with device.ml:vif_udev_keys
+ 
+-BRCTL="/usr/sbin/brctl"
++BRCTL="/sbin/brctl"
+ IP="/sbin/ip"
+ 
+ vsctl="/usr/bin/ovs-vsctl"
+@@ -185,7 +185,7 @@ ACTION=$1
+ if [[ $# -lt 2 ]]; then
+     TYPE=vif
+ else
+-    TYPE=$2
++    TYPE=`echo $2 | cut -d= -f2`
+ fi
+ 
+ case $NETWORK_MODE in
+-- 
