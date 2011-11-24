@@ -15,15 +15,18 @@
 
 # Do NOT "set -e"
 
+XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
+XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
+
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="The XenAPI server"
 NAME=xapi
 DAEMON=/usr/lib/xen-common/xapi/bin/$NAME
-DAEMON_ARGS="-daemon"
+DAEMON_ARGS="-daemon -writereadyfile $XAPI_STARTUP_COOKIE -writeinitcomplete $XAPI_INIT_COMPLETE_COOKIE"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
-REGENERATE_TEMPLATES_STAMP=/usr/lib/xen-common/xapi/REGENERATE_TEMPLATES
+TEMPLATES_MD5_STAMP=/var/xapi/templates.md5
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -38,6 +41,21 @@ REGENERATE_TEMPLATES_STAMP=/usr/lib/xen-common/xapi/REGENERATE_TEMPLATES
 # Depend on lsb-base (>= 3.2-14) to ensure that this file is present
 # and status_of_proc is working.
 . /lib/lsb/init-functions
+
+# Wait for xapi to write its "init complete" cookie: after here it's safe to modify templates.
+# (One possible failure mode incurred by not waiting is to not be able to find the tools .iso)
+wait_for_xapi() {
+    MAX_RETRIES=50
+    RETRY=0
+    while [ ${RETRY} -lt ${MAX_RETRIES} ]; do
+        if [ -e ${XAPI_STARTUP_COOKIE} ]; then
+            return 0
+        fi
+        sleep 1
+        RETRY=$(( ${RETRY} + 1 ))
+    done
+    return 1
+}
 
 #
 # Function that starts the daemon/service
@@ -58,6 +76,9 @@ do_start()
 	mkdir -p /var/run/xend/boot
 	mkdir -p /usr/lib/xen-common/xapi/packages/iso
 	export OCAMLRUNPARAM=b
+	
+	rm -f $XAPI_STARTUP_COOKIE $XAPI_INIT_COMPLETE_COOKIE
+
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
@@ -66,12 +87,13 @@ do_start()
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
 	# on this one.  As a last resort, sleep for some time.
+	wait_for_xapi 
 
-	# Check for REGENERATE_TEMPLATES_STAMP, and call 'regenerate_templates
-	# start' if it is present.
-	if [ -f ${REGENERATE_TEMPLATES_STAMP} ]; then
+	# Check whether the md5 of the create-templates binary matches the one
+    # used previously. If not, recreate the templates.
+	if ! md5sum -c --status $TEMPLATES_MD5_STAMP ; then
 		/usr/lib/xen-common/xapi/libexec/regenerate-templates start
-		rm ${REGENERATE_TEMPLATES_STAMP}
+		md5sum /usr/lib/xen-common/xapi/libexec/create_templates > $TEMPLATES_MD5_STAMP
 	fi
 }
 
