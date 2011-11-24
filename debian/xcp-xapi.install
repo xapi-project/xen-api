@@ -72,4 +72,4 @@
 /etc/xensource
 /lib
 /usr/bin/xe
-/etc/init.d/xapissl
+/usr/lib/xen-common/xapi/libexec/xapissl

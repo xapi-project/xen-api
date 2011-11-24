@@ -3,11 +3,25 @@ Date: Fri, 7 Oct 2011 14:44:53 +0100
 Subject: xapissl-script-install
 
 ---
- scripts/OMakefile |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ ocaml/xapi/xapi_mgmt_iface.ml |    2 +-
+ scripts/OMakefile             |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/ocaml/xapi/xapi_mgmt_iface.ml b/ocaml/xapi/xapi_mgmt_iface.ml
+index 823049f..92d9e63 100644
+--- a/ocaml/xapi/xapi_mgmt_iface.ml
++++ b/ocaml/xapi/xapi_mgmt_iface.ml
+@@ -33,7 +33,7 @@ let rewrite_management_interface interface =
+ 	Xapi_inventory.reread_inventory ()
+ 
+ let restart_stunnel () =
+-	ignore(Forkhelpers.execute_command_get_output "/sbin/service" [ "xapissl"; "restart" ])
++	ignore(Forkhelpers.execute_command_get_output (Xapi_globs.base_path ^ "/libexec/xapissl") [ "restart" ])
+ 
+ let stop () =
+ 	debug "Shutting down the old management interface (if any)";
 diff --git a/scripts/OMakefile b/scripts/OMakefile
-index 88c7cbe..d6a21fb 100644
+index 88c7cbe..d86c578 100644
 --- a/scripts/OMakefile
 +++ b/scripts/OMakefile
 @@ -35,7 +35,7 @@ install:
@@ -15,7 +29,7 @@ index 88c7cbe..d6a21fb 100644
  	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
  	$(IPROG) init.d-xapi $(DESTDIR)/etc/rc.d/init.d/xapi
 -	$(IPROG) init.d-xapissl $(DESTDIR)/etc/rc.d/init.d/xapissl
-+	$(IPROG) init.d-xapissl $(DESTDIR)/etc/init.d/xapissl
++	$(IPROG) init.d-xapissl $(LIBEXEC)/xapissl
  	$(IPROG) init.d-xapi-domains $(DESTDIR)/etc/rc.d/init.d/xapi-domains
  	$(IPROG) init.d-squeezed $(DESTDIR)/etc/rc.d/init.d/squeezed
  	$(IPROG) init.d-management-interface $(DESTDIR)/etc/rc.d/init.d/management-interface

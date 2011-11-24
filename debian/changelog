@@ -1,3 +1,9 @@
+xen-api (0.1-6) oneiric; urgency=low
+
+  * Fix the xapissl init script so that it's no longer an init script
+
+ -- Jon Ludlam <jludlam@snoosnoo2.uk.xensource.com>  Thu, 24 Nov 2011 15:00:20 +0000
+
 xen-api (0.1-5) unstable; urgency=low
 
   * Fix the create-templates part of the init scripts
