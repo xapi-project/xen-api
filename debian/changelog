@@ -1,3 +1,9 @@
+xen-api (0.1-5) unstable; urgency=low
+
+  * Fix the create-templates part of the init scripts
+
+ -- Jon Ludlam <jludlam@snoosnoo2.uk.xensource.com>  Thu, 24 Nov 2011 12:02:36 +0000
+
 xen-api (0.1-4) unstable; urgency=low
 
   * Use xen-4.1.2 packaging
