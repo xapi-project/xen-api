@@ -139,7 +139,10 @@ let _dbv = "dbv"
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
-let software_version = [ _product_version, Version.product_version;
+let software_version =
+	(* In the case of XCP, all product_* fields will be blank. *)
+	List.filter (fun (_, value) -> value <> "")
+		[_product_version, Version.product_version;
 			_product_version_text,       Version.product_version_text;
 			_product_version_text_short, Version.product_version_text_short;
 			_platform_version, Version.platform_version;
