@@ -519,9 +519,9 @@ let scan ~__context ~sr =
 	let open Storage_access in
     let task = Context.get_task_id __context in
     let open Storage_interface in
-
+	let module C = Client(struct let rpc = rpc end) in
 	let sr' = Ref.string_of sr in
-	match Client.SR.scan rpc ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) with
+	match C.SR.scan ~task:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) with
 		| Success (Vdis vs) ->
 			let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
 			update_vdis ~__context ~sr:sr db_vdis vs;
