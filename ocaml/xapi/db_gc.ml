@@ -181,13 +181,10 @@ let check_host_liveness ~__context =
 	    with _ -> 0.0 (* never *)
 	in
 	let old_heartbeat_time = 
-	  if rum && (Version.product_version <> 
-			(List.assoc Xapi_globs._product_version 
-			    (Db.Host.get_software_version ~__context ~self:host)))
-	  then
-	    (debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
-	     Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
-	  else 0.0 in
+		if rum && (Version.platform_version <> (Helpers.version_string_of ~__context host)) then
+			(debug "Host %s considering using metrics last update time as heartbeat" (Ref.string_of host);
+				Date.to_float (Db.Host_metrics.get_last_updated ~__context ~self:hmetric))
+		else 0.0 in
 	(* Use whichever value is the most recent to determine host liveness *)
 	let host_time = max old_heartbeat_time new_heartbeat_time in
 
@@ -340,15 +337,14 @@ let timeout_alerts ~__context =
    we detect the beginning or end of a rolling upgrade, call out to an external script. *)
 let detect_rolling_upgrade ~__context =
 	try
-		(* If my product version is different to any host (including myself) then we're in a rolling upgrade mode *)
+		(* If my platform version is different to any host (including myself) then we're in a rolling upgrade mode *)
 		(* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
 		   is the only time at which the master's Version will be out of sync with its database record *)
 		let all_hosts = Db.Host.get_all ~__context in
-		let other_versions = List.map (fun host -> Db.Host.get_software_version ~__context ~self:host) all_hosts in
-		let product_versions = List.map (fun x -> List.assoc Xapi_globs._product_version x) other_versions in
+		let platform_versions = List.map (fun host -> Helpers.version_string_of ~__context host) all_hosts in
 
-		let is_different_to_me product_version = product_version <> Version.product_version in
-		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me product_versions) in
+		let is_different_to_me platform_version = platform_version <> Version.platform_version in
+		let actually_in_progress = List.fold_left (||) false (List.map is_different_to_me platform_versions) in
 		(* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
 		let pools = Db.Pool.get_all ~__context in
 		match pools with
@@ -359,8 +355,8 @@ let detect_rolling_upgrade ~__context =
 					List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool) in
 				(* Resynchronise *)
 				if actually_in_progress <> pool_says_in_progress then begin
-					debug "xapi product version = %s; host product versions = [ %s ]"
-						Version.product_version (String.concat "; " product_versions);
+					debug "xapi platform version = %s; host platform versions = [ %s ]"
+						Version.platform_version (String.concat "; " platform_versions);
 
 					warn "Pool thinks rolling upgrade%s in progress but Host version numbers indicate otherwise; correcting"
 						(if pool_says_in_progress then "" else " not");
