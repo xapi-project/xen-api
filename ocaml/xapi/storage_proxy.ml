@@ -24,29 +24,31 @@ end
 module Proxy = functor(RPC: RPC) -> struct
 	type context = Smint.request
 
-    let query _ = Client.query RPC.rpc
+	module Client = Client(RPC)
+
+    let query _ = Client.query
 	module DP = struct
-		let create _ = Client.DP.create RPC.rpc
-		let destroy _ = Client.DP.destroy RPC.rpc
-		let diagnostics _ = Client.DP.diagnostics RPC.rpc
+		let create _ = Client.DP.create
+		let destroy _ = Client.DP.destroy
+		let diagnostics _ = Client.DP.diagnostics
 	end
 	module SR = struct
-		let attach _ = Client.SR.attach RPC.rpc
-		let detach _ = Client.SR.detach RPC.rpc
-		let reset _ = Client.SR.reset RPC.rpc
-		let destroy _ = Client.SR.destroy RPC.rpc
-		let scan _ = Client.SR.scan RPC.rpc
-		let list _ = Client.SR.list RPC.rpc
+		let attach _ = Client.SR.attach
+		let detach _ = Client.SR.detach
+		let reset _ = Client.SR.reset
+		let destroy _ = Client.SR.destroy
+		let scan _ = Client.SR.scan
+		let list _ = Client.SR.list
 	end
 	module VDI = struct
-		let attach _ = Client.VDI.attach RPC.rpc
-		let activate _ = Client.VDI.activate RPC.rpc
-		let deactivate _ = Client.VDI.deactivate RPC.rpc
-		let detach _ = Client.VDI.detach RPC.rpc
+		let attach _ = Client.VDI.attach
+		let activate _ = Client.VDI.activate
+		let deactivate _ = Client.VDI.deactivate
+		let detach _ = Client.VDI.detach
 
-		let stat _ = Client.VDI.stat RPC.rpc
+		let stat _ = Client.VDI.stat
 
-		let create _ = Client.VDI.create RPC.rpc
-		let destroy _ = Client.VDI.destroy RPC.rpc
+		let create _ = Client.VDI.create
+		let destroy _ = Client.VDI.destroy
 	end
 end
