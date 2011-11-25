@@ -134,6 +134,13 @@ let _xapi_minor = "xapi_minor"
 let _export_vsn = "export_vsn"
 let _dbv = "dbv"
 
+(* When comparing two host versions, always treat a host that has platform_version defined as newer
+ * than any host that does not have platform_version defined.
+ * Substituting this default when a host does not have platform_version defined will be acceptable,
+ * as long as a host never has to distinguish between two hosts of different versions which are both
+ * older than itself. *)
+let default_platform_version = "0.0.0"
+
 (* Used to differentiate between 
    Rio beta2 (0) [no inline checksums, end-of-tar checksum table],
    Rio GA (1) [inline checksums, end-of-tar checksum table]
