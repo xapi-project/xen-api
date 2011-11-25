@@ -137,7 +137,7 @@ struct
 			let arg_path = MyRpcLight.arg_path rpc.loc (rpc.namespace @ [cap_name]) in
 			<:expr<
 				let call = $create_call rpc$ in
-				let response = rpc call in
+				let response = R.rpc call in
 				if response.Rpc.success
 				then Args.$arg_path$.response_of_rpc response.Rpc.contents
 				else
@@ -147,7 +147,7 @@ struct
 
 		let gen_client_fun rpc =
 			let n = List.length rpc.args - 1 in
-			<:str_item< value $lid:rpc.fname$ = fun rpc ->
+			<:str_item< value $lid:rpc.fname$ =
 				$MyRpcLight.list_foldi (fun accu arg i ->
 	 				let lid = MyRpcLight.argi (n-i) in
 	 				match arg.MyRpcLight.kind with 
@@ -170,7 +170,7 @@ struct
 	 			end >> 
 			    else <:str_item< >>) items
 		in
-		<:str_item< module Client = struct $list: gen_str_items rpcs$ end >>
+		<:str_item< module Client = functor(R: RPC) -> struct $list: gen_str_items rpcs$ end >>
 
 	(* Generates a signature for a server module - again, very similar to the original
 	   idl module, but in this one a 'context' is defined - a way of passing in any
@@ -316,11 +316,17 @@ struct
 				exception RpcFailure of (string * list (string * string))
 			>> 
 		in
+		let rpc_type =
+			let t = <:ctyp< Rpc.call -> Rpc.response >> in
+			let s = <:sig_item< value rpc: $typ:t$ >> in
+			<:str_item< module type RPC = sig $sigi:s$ end >>
+		in
 		let flat_rpcs = flatten_rpcs rpcs in
 		let sis = Ast.list_of_str_item si [] in
 		<:str_item< $list: (List.map filter_types sis) @ 
 			[ failure_bits; 
 			  make_args rpcs; 
+			  rpc_type;
 			  make_client rpcs;  
 			  make_server_sig rpcs;  
 			  make_server_functor flat_rpcs ] $ >>
