@@ -1029,12 +1029,15 @@ let grant_access_resources xc domid resources v =
 			debug "pci %s io bar %Lx-%Lx" action s e;
 			Xenctrl.domain_ioport_permission xc domid first_port nr_ports v
 		) else (
-			let mem_to_pfn m = Int64.to_nativeint (Int64.div m 4096L) in
-			let first_pfn = mem_to_pfn s and end_pfn = mem_to_pfn e in
-			let nr_pfns = Nativeint.add (Nativeint.sub end_pfn first_pfn) 1n in
+			let size = Int64.(add (sub e s) 1L) in
+			let _page_size = 4096L in
+			let to_page_round_down m = Int64.(div m _page_size) in
+			let to_page_round_up m = Int64.(add m (sub _page_size 1L)) |> to_page_round_down in
+			let first_pfn = to_page_round_down s in
+			let nr_pfns = to_page_round_up size in
 
-			debug "pci %s mem bar %Lx-%Lx" action s e;
-			Xenctrl.domain_iomem_permission xc domid first_pfn nr_pfns v
+			debug "pci %s mem bar first_pfn=%Lx nr_pfns=%Lx" action first_pfn nr_pfns;
+			Xenctrl.domain_iomem_permission xc domid (Int64.to_nativeint first_pfn) (Int64.to_nativeint nr_pfns) v
 		)
 	) resources
 
@@ -1063,6 +1066,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 			()
 		);
 		grant_access_resources xc domid dev.resources true;
+		(* XXX: libxl calls xc_physdev_map_pirq *)
 		if dev.irq > 0 then
 			Xenctrl.domain_irq_permission xc domid dev.irq true
 	) pcidevs;
