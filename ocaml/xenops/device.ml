@@ -1099,8 +1099,35 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
+let add_xl ~msitranslate ~pci_power_mgmt pcidevs domid =
+	List.iter
+		(fun (domain, bus, dev, func) ->
+			Xenlight.pci_add {
+				(* XXX: I don't think we can guarantee how the C compiler will
+				   lay out bitfields.
+                        unsigned int reserved1:2;
+                        unsigned int reg:6;
+                        unsigned int func:3;
+                        unsigned int dev:5;
+                        unsigned int bus:8;
+                        unsigned int reserved2:7;
+                        unsigned int enable:1;
+				*)
+				Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
+				domain = domain;
+				vdevfn = 0;
+				msitranslate = msitranslate = 1;
+				power_mgmt = pci_power_mgmt = 1;
+			} domid
+		) pcidevs
+
 let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
-	try add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid
+	try
+		if hvm
+		then add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid
+		else
+			(* Switch the PV path over to libxl since the code is better *)
+			add_xl ~msitranslate ~pci_power_mgmt pcidevs domid
 	with exn ->
 		raise (Cannot_add (pcidevs, exn))
 
