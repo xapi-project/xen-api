@@ -1099,26 +1099,47 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
-let add_xl ~msitranslate ~pci_power_mgmt pcidevs domid =
+(* XXX: this will crash because of the logging policy within the
+   Xenlight ocaml bindings. *)
+let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
 	List.iter
 		(fun (domain, bus, dev, func) ->
-			Xenlight.pci_add {
-				(* XXX: I don't think we can guarantee how the C compiler will
-				   lay out bitfields.
-                        unsigned int reserved1:2;
-                        unsigned int reg:6;
-                        unsigned int func:3;
-                        unsigned int dev:5;
-                        unsigned int bus:8;
-                        unsigned int reserved2:7;
-                        unsigned int enable:1;
-				*)
-				Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
-				domain = domain;
-				vdevfn = 0;
-				msitranslate = msitranslate = 1;
-				power_mgmt = pci_power_mgmt = 1;
-			} domid
+			try
+				Xenlight.pci_add {
+					(* XXX: I don't think we can guarantee how the C compiler will
+					   lay out bitfields.
+                       unsigned int reserved1:2;
+                       unsigned int reg:6;
+                       unsigned int func:3;
+                       unsigned int dev:5;
+                       unsigned int bus:8;
+                       unsigned int reserved2:7;
+                       unsigned int enable:1;
+					*)
+					Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
+					domain = domain;
+					vdevfn = 0;
+					msitranslate = msitranslate = 1;
+					power_mgmt = pci_power_mgmt = 1;
+				} domid
+			with e ->
+				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
+				raise e
+		) pcidevs
+
+(* XXX: we don't want to use the 'xl' command here because the "interface"
+   isn't considered as stable as the C API *)
+let add_xl ~msitranslate ~pci_power_mgmt pcidevs domid =
+	List.iter
+		(fun dev ->
+			try
+				let (_, _) = Forkhelpers.execute_command_get_output
+					"/usr/sbin/xl"
+					[ "pci-attach"; string_of_int domid; to_string dev ] in
+				()
+			with e ->
+				debug "xl pci-attach: %s" (Printexc.to_string e);
+				raise e
 		) pcidevs
 
 let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
