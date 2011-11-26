@@ -16,6 +16,7 @@ open Printf
 open Stringext
 open Hashtblext
 open Pervasiveext
+open Fun
 open Listext
 
 open Device_common
@@ -1062,20 +1063,24 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 
 	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
 	let xsdevs = List.mapi (fun i dev ->
-		sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
-	) pcidevs in
+		[
+			sprintf "key-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
+			sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
+			sprintf "opts-%d" i, "msitranslate=0,power_mgmt=0";
+			sprintf "state-%d" i, "1";
+		]
+	) pcidevs |> List.concat in
 
 	let backendlist = [
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
-		"num_devs", string_of_int (List.length xsdevs);
+		"num_devs", string_of_int (List.length pcidevs);
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"msitranslate", string_of_int (msitranslate);
-                "pci_power_mgmt", string_of_int (pci_power_mgmt);
 	] and frontendlist = [
 		"backend-id", "0";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
+
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
