@@ -11,15 +11,16 @@ UseCamlp4(rpc-light.idl, storage_interface)
 
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
+XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
 # Since the section didn't work, link against the xen libs for everything if we are building
 # xen stuff at all.
 # NB order of libraries is important: OMake cannot determine dependencies between libraries
 # (the same holds for OCaml packages)
 XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
 XEN_OCAMLINCLUDES =
-XEN_OCAMLPACKS = xenctrl xenstore cpuid
+XEN_OCAMLPACKS = xenctrl xenstore cpuid xenlight
 OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
-OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS)
+OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) $(XENLIGHT_LINK_FLAGS)
 CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
 OCAMLINCLUDES = $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES)
 # xc.cma depends on uuid.cma

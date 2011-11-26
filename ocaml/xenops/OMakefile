@@ -1,10 +1,13 @@
 OCAMLINCLUDES    = ../xapi ../util
 OCAML_LIBS       = ../util/stats
 OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
-OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS)
+# XXX: these should all be specified in the ocamlfind META file:
+XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
+OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) $(XENLIGHT_LINK_FLAGS)
+
 CFLAGS          += $(XEN_CFLAGS)
 
-OCAMLPACKS     = threads xenctrl xenstore stdext log cdrom netdev
+OCAMLPACKS     = threads xenctrl xenstore stdext log cdrom netdev xenlight
 OCAMLFLAGS    += -thread
 
 LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom
