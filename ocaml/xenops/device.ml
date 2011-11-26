@@ -986,9 +986,14 @@ let of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c,
 exception Cannot_add of dev list * exn (* devices, reason *)
 exception Cannot_use_pci_with_no_pciback of t list
 
-let get_from_system domain bus slot func =
+(* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
+let _proc_pci_num_resources = 7
+(* same as libxl_internal: PCI_BAR_IO *)
+let _pci_bar_io = 0x01L
+
+let query_pci_device domain bus slot func =
 	let map_resource file =
-		let resources = Array.create 7 (0L, 0L, 0L) in
+		let resources = Array.create _proc_pci_num_resources (0L, 0L, 0L) in
 		let i = ref 0 in
 		Unixext.readfile_line (fun line ->
 			if !i < Array.length resources then (
@@ -1016,9 +1021,8 @@ let get_from_system domain bus slot func =
 
 let grant_access_resources xc domid resources v =
 	let action = if v then "add" else "remove" in
-	let constant_PCI_BAR_IO = 0x01L in
 	List.iter (fun (s, e, flags) ->
-		if Int64.logand flags constant_PCI_BAR_IO = constant_PCI_BAR_IO then (
+		if Int64.logand flags _pci_bar_io = _pci_bar_io then (
 			let first_port = Int64.to_int s in
 			let nr_ports = (Int64.to_int e) - first_port + 1 in
 
@@ -1036,7 +1040,7 @@ let grant_access_resources xc domid resources v =
 
 let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcidevs domid devid =
 	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = get_from_system domain bus slot func in
+		let (irq, resources, driver) = query_pci_device domain bus slot func in
 		{ domain = domain; bus = bus; slot = slot; func = func;
 		  irq = irq; resources = resources; driver = driver }
 	) pcidevs in
@@ -1047,6 +1051,13 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	);
 
 	List.iter (fun dev ->
+		let d = to_string (dev.domain, dev.bus, dev.slot, dev.func) in
+		debug "Preparing PCI device %s" d;
+		List.iter (fun (s, e, flags) ->
+			debug "PCI device %s has resource %Lx -> %Lx (%Lx%s)" d s e flags
+				(if Int64.logand flags _pci_bar_io = _pci_bar_io then " = PCI_BAR" else "");
+		) dev.resources;
+		debug "PCI device %s has IRQ %d" d dev.irq;
 		if hvm then (
 			ignore_bool (Xenctrl.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
 			()
@@ -1091,7 +1102,7 @@ let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devi
 
 let release ~xc ~xs ~hvm pcidevs domid devid =
 	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = get_from_system domain bus slot func in
+		let (irq, resources, driver) = query_pci_device domain bus slot func in
 		{ domain = domain; bus = bus; slot = slot; func = func;
 		  irq = irq; resources = resources; driver = driver }
 	) pcidevs in
