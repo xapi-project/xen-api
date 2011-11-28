@@ -23,21 +23,19 @@ let _ =
   let dot_mode = ref false
   and latex_mode = ref false
   and dtd_mode = ref false
-  and html_mode = ref false
   and closed = ref false (* shows release_closed *)
   and all = ref false (* shows release_impl as well *)
   and dirname = ref "" in
     
     Arg.parse [ "-dot", Arg.Set dot_mode, "output dot graph";
 		"-latex", Arg.Set latex_mode, "output latex document";
-                "-html", Arg.Set html_mode, "output HTML files to directory";
 		"-dtd", Arg.Set dtd_mode, "output XML DTD";
 	        "-closed", Arg.Set closed, "output all OSS + closed API functions but not including internal ones";
 	        "-all", Arg.Set all, "output all API functions, including internal ones"
 	      ]
       (fun x -> dirname := x)
       "compile XenSource API datamodel specification";
-    let all_modes = [ !dot_mode; !latex_mode; !dtd_mode; !html_mode ] in
+    let all_modes = [ !dot_mode; !latex_mode; !dtd_mode ] in
       
     let num_modes_set = List.length (List.filter (fun x->x) all_modes) in
       
@@ -84,9 +82,4 @@ let _ =
 	      (fun _ -> true)
 	      api in
 	      List.iter print_endline (Dtd_backend.of_objs api);
-	end;
-
-	if !html_mode then begin
-	  Html_main.all ~title:(if !all then "Citrix XenServer Management API" else "Xen API")
-	    ("xen" ^ (if !all || !closed then "enterprise" else "") ^ "api-datamodel-graph") api
 	end
