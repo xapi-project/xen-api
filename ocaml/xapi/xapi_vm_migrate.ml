@@ -640,43 +640,6 @@ let pool_migrate_nolock  ~__context ~vm ~host ~options =
 		raise (Api_errors.Server_error(Api_errors.internal_error, [msg]))
 
 
-(* CA-24232: unfortunately the paused/unpaused states of VBDs are not represented in the API so we cannot
-   block the migrate request in the master's message forwarding layer. We have to block the request here until
-   all the VBDs have been unpaused. Note since VBD.unpause does not acquire the VM lock we can hold onto it here. *)
-let with_no_vbds_paused ~__context ~vm f =
-  Locking_helpers.with_lock vm
-    (fun token () ->
-       let interval = 5. in (* every 2 seconds *)
-       let nattempts = 5 in (* max 5 attempts *)
-       let finished = ref false in
-       let attempt = ref 0 in
-       while not !finished do
-	 incr attempt;
-	 (* Only proceed if no VBDs are paused *)
-	 let vbds = Db.VM.get_VBDs ~__context ~self:vm in
-	 let vbds = List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self) vbds in       
-	 (* Skip empty VBDs *)
-	 let vbds = List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds in
-	 let devices = List.map (fun self -> Xen_helpers.device_of_vbd ~__context ~self) vbds in
-	 let paused = with_xs (fun xs -> List.map (fun device -> Device.Vbd.is_paused xs device) devices) in
-	 if List.fold_left (||) false paused then begin
-	   if !attempt >= nattempts then begin
-	     error "Migrate still blocked by a paused VBD after %d attempts (interval %.1f seconds): returning error" nattempts interval;
-	     (* Find one VBD which was paused *)
-	     let first = fst (List.find (fun (vbd, paused) -> paused) (List.combine vbds paused)) in
-	     raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ "VBD"; Ref.string_of first ]));
-	   end else begin
-	     error "Blocking migrate because at least one VBD is paused. Will retry again in %.1f seconds (%d attempts remaining)" 
-	       interval (nattempts - !attempt);
-	     Thread.delay interval
-	   end
-	 end else begin
-	   f token ();
-	   finished := true
-	 end
-       done
-    )
-	 
 let pool_migrate ~__context ~vm ~host ~options =
 	(* Migration is only allowed to a host of equal or greater versions. *)
 	if Helpers.rolling_upgrade_in_progress ~__context then
@@ -690,8 +653,8 @@ let pool_migrate ~__context ~vm ~host ~options =
 	Local_work_queue.wait_in_line Local_work_queue.long_running_queue 
 	  (Printf.sprintf "VM.pool_migrate %s" (Context.string_of_task __context))
 	  (fun () ->
-  with_no_vbds_paused ~__context ~vm
-    (fun token () ->
+		  Locking_helpers.with_lock vm 
+			  (fun token () ->
       (* MTC: Initialize the migration event notification system.  If it raises an
          exception, then let it be handled by our caller. *)
       Mtc.event_notify_init ~__context ~vm;
@@ -727,7 +690,7 @@ let pool_migrate ~__context ~vm ~host ~options =
             debug "MTC: exception_handler: Got exception %s" (ExnHelper.string_of_exn e);
             Mtc.event_notify_task_status ~__context ~vm ~status:`failure ~str:(ExnHelper.string_of_exn e) 1. ;
             raise e)
-    ) ()
+	  ) ()
 	  )
 
 exception Failure

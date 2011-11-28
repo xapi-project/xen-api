@@ -178,6 +178,7 @@ let get_flushable_vbds ~__context vm =
 let checkpoint ~__context ~vm ~new_name =
 	Xapi_vmpp.show_task_in_xencenter ~__context ~vm;
 	let power_state = Db.VM.get_power_state ~__context ~self:vm in
+	let domid = Helpers.domid_of_vm ~__context ~self:vm in
 	with_xc_and_xs (fun xc xs ->
 		let vbds = get_flushable_vbds ~__context vm in
 
@@ -187,8 +188,23 @@ let checkpoint ~__context ~vm ~new_name =
 			try
 				(* suspend the VM *)
 				Vmops.suspend ~progress_cb:(fun _ -> ())  ~__context ~xs ~xc ~vm ~live:false;
-				(* flush the devices *)
-				List.iter (Xapi_vbd.flush ~__context) vbds;
+				(* Ensure all changes are flushed to disk before the clone:
+				   delete and recreate all devices. *)
+				List.iter
+					(fun vbd ->
+						if Db.VBD.get_currently_attached ~__context ~self:vbd then begin
+							debug "VBD device %s: needs to be flushed" (Vbdops.string_of_vbd ~__context ~vbd);
+							let device = Xen_helpers.device_of_vbd ~__context ~self:vbd in
+							Device.hard_shutdown ~xs device;
+							Storage_access.on_vdi ~__context ~vbd ~domid
+								(fun rpc task datapath_id sr vdi ->
+									let module C = Storage_interface.Client(struct let rpc = rpc end) in
+									Storage_access.expect_unit (fun () -> ())
+										(C.VDI.deactivate task datapath_id sr vdi);
+								);
+							debug "VBD device %s: has been shutdown and deactivated" (Vbdops.string_of_vbd ~__context ~vbd);
+						end
+					) vbds
 			with
 				| Api_errors.Server_error("SR_BACKEND_FAILURE_44", _) as e ->
 					error "Not enough space to create the suspend image";
@@ -211,31 +227,12 @@ let checkpoint ~__context ~vm ~new_name =
 		(* restore the power state of the VM *)
 		if power_state = `Running
 		then begin
-		  let fast_resume () = 
-			debug "Performing a fast resume";
-			try 
-				let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
-				Vmops.resume ~__context ~xc ~xs ~vm;
-				if Db.is_valid_ref __context suspend_VDI then begin
-					Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null;
-					Helpers.call_api_functions ~__context (fun rpc session_id -> Client.VDI.destroy rpc session_id suspend_VDI);
-				end;
-			with _ ->
-				Opt.iter (fun snap -> Xapi_vm_lifecycle.force_state_reset ~__context ~self:snap ~value:`Halted) snap;
-				Opt.iter (fun snap -> Db.VM.destroy ~__context ~self:snap) snap;
-				raise (Api_errors.Server_error (Api_errors.vm_checkpoint_resume_failed, [Ref.string_of vm])) in
-		  let slow_resume () = 
 			debug "Performing a slow resume";
+			(* most vendor kernels don't support fast resume *)
 			let old_domid = Helpers.domid_of_vm ~__context ~self:vm in
 			Vmops.destroy ~clear_currently_attached:false
 				~__context ~xc ~xs ~self:vm old_domid `Running;
-			Vmops.restore ~__context ~xc ~xs ~self:vm false in
-
-		  let domid = Helpers.domid_of_vm ~__context ~self:vm in
-		  let hvm = (Xenctrl.domain_getinfo xc domid).Xenctrl.hvm_guest in
-		  if hvm
-		  then fast_resume ()
-		  else slow_resume () (* most vendor kernels don't support fast resume *)
+			Vmops.restore ~__context ~xc ~xs ~self:vm false
 		end;
 		match snap with
 		| None      -> raise (Api_errors.Server_error (Api_errors.task_cancelled,[]))
