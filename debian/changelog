@@ -1,4 +1,4 @@
-xen-api (0.1-6) oneiric; urgency=low
+xen-api (0.1-6) unstable; urgency=low
 
   * Fix the xapissl init script so that it's no longer an init script
 
