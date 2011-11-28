@@ -70,7 +70,7 @@ install:
 	ln -sf ../xen-backend.rules; \
 	ln -sf ../xen-frontend.rules'
 	mkdir -p $(DESTDIR)/etc/xensource/scripts
-	$(IPROG) block-frontend vif tap $(DESTDIR)/etc/xensource/scripts
+	$(IPROG) block-frontend vif tap block $(DESTDIR)/etc/xensource/scripts
 	$(IPROG) pool.conf $(DESTDIR)/etc/xensource
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi

@@ -172,6 +172,7 @@ rm -rf $RPM_BUILD_ROOT
 /etc/xensource/scripts/block-frontend
 /etc/xensource/scripts/tap
 /etc/xensource/scripts/vif
+/etc/xensource/scripts/block
 @BASE_PATH@/bin/fix_firewall.sh
 @BASE_PATH@/bin/list_domains
 @BASE_PATH@/bin/mpathalert
