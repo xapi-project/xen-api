@@ -16,6 +16,7 @@ open Printf
 open Stringext
 open Hashtblext
 open Pervasiveext
+open Fun
 open Listext
 
 open Device_common
@@ -985,9 +986,14 @@ let of_string x = Scanf.sscanf x "%04x:%02x:%02x.%02x" (fun a b c d -> (a, b, c,
 exception Cannot_add of dev list * exn (* devices, reason *)
 exception Cannot_use_pci_with_no_pciback of t list
 
-let get_from_system domain bus slot func =
+(* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
+let _proc_pci_num_resources = 7
+(* same as libxl_internal: PCI_BAR_IO *)
+let _pci_bar_io = 0x01L
+
+let query_pci_device domain bus slot func =
 	let map_resource file =
-		let resources = Array.create 7 (0L, 0L, 0L) in
+		let resources = Array.create _proc_pci_num_resources (0L, 0L, 0L) in
 		let i = ref 0 in
 		Unixext.readfile_line (fun line ->
 			if !i < Array.length resources then (
@@ -1015,27 +1021,29 @@ let get_from_system domain bus slot func =
 
 let grant_access_resources xc domid resources v =
 	let action = if v then "add" else "remove" in
-	let constant_PCI_BAR_IO = 0x01L in
 	List.iter (fun (s, e, flags) ->
-		if Int64.logand flags constant_PCI_BAR_IO = constant_PCI_BAR_IO then (
+		if Int64.logand flags _pci_bar_io = _pci_bar_io then (
 			let first_port = Int64.to_int s in
 			let nr_ports = (Int64.to_int e) - first_port + 1 in
 
 			debug "pci %s io bar %Lx-%Lx" action s e;
 			Xenctrl.domain_ioport_permission xc domid first_port nr_ports v
 		) else (
-			let mem_to_pfn m = Int64.to_nativeint (Int64.div m 4096L) in
-			let first_pfn = mem_to_pfn s and end_pfn = mem_to_pfn e in
-			let nr_pfns = Nativeint.add (Nativeint.sub end_pfn first_pfn) 1n in
+			let size = Int64.(add (sub e s) 1L) in
+			let _page_size = 4096L in
+			let to_page_round_down m = Int64.(div m _page_size) in
+			let to_page_round_up m = Int64.(add m (sub _page_size 1L)) |> to_page_round_down in
+			let first_pfn = to_page_round_down s in
+			let nr_pfns = to_page_round_up size in
 
-			debug "pci %s mem bar %Lx-%Lx" action s e;
-			Xenctrl.domain_iomem_permission xc domid first_pfn nr_pfns v
+			debug "pci %s mem bar first_pfn=%Lx nr_pfns=%Lx" action first_pfn nr_pfns;
+			Xenctrl.domain_iomem_permission xc domid (Int64.to_nativeint first_pfn) (Int64.to_nativeint nr_pfns) v
 		)
 	) resources
 
 let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcidevs domid devid =
 	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = get_from_system domain bus slot func in
+		let (irq, resources, driver) = query_pci_device domain bus slot func in
 		{ domain = domain; bus = bus; slot = slot; func = func;
 		  irq = irq; resources = resources; driver = driver }
 	) pcidevs in
@@ -1046,11 +1054,19 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 	);
 
 	List.iter (fun dev ->
+		let d = to_string (dev.domain, dev.bus, dev.slot, dev.func) in
+		debug "Preparing PCI device %s" d;
+		List.iter (fun (s, e, flags) ->
+			debug "PCI device %s has resource %Lx -> %Lx (%Lx%s)" d s e flags
+				(if Int64.logand flags _pci_bar_io = _pci_bar_io then " = PCI_BAR" else "");
+		) dev.resources;
+		debug "PCI device %s has IRQ %d" d dev.irq;
 		if hvm then (
 			ignore_bool (Xenctrl.domain_test_assign_device xc domid (dev.domain, dev.bus, dev.slot, dev.func));
 			()
 		);
 		grant_access_resources xc domid dev.resources true;
+		(* XXX: libxl calls xc_physdev_map_pirq *)
 		if dev.irq > 0 then
 			Xenctrl.domain_irq_permission xc domid dev.irq true
 	) pcidevs;
@@ -1062,31 +1078,104 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
 
 	let others = (match flrscript with None -> [] | Some script -> [ ("script", script) ]) in
 	let xsdevs = List.mapi (fun i dev ->
-		sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
-	) pcidevs in
+		[
+			sprintf "key-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
+			sprintf "dev-%d" i, to_string (dev.domain, dev.bus, dev.slot, dev.func);
+			sprintf "opts-%d" i, "msitranslate=0,power_mgmt=0";
+			sprintf "state-%d" i, "1";
+		]
+	) pcidevs |> List.concat in
 
 	let backendlist = [
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
-		"num_devs", string_of_int (List.length xsdevs);
+		"num_devs", string_of_int (List.length pcidevs);
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"msitranslate", string_of_int (msitranslate);
-                "pci_power_mgmt", string_of_int (pci_power_mgmt);
 	] and frontendlist = [
 		"backend-id", "0";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
 	] in
+
 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
 	()
 
+let pci_info_of ~msitranslate ~pci_power_mgmt = function
+    | domain, bus, dev, func ->
+        {
+            (* XXX: I don't think we can guarantee how the C compiler will
+               lay out bitfields.
+			   unsigned int reserved1:2;
+			   unsigned int reg:6;
+			   unsigned int func:3;
+			   unsigned int dev:5;
+			   unsigned int bus:8;
+			   unsigned int reserved2:7;
+			   unsigned int enable:1;
+            *)
+            Xenlight.v = (func lsl 8) lor (dev lsl 11) lor (bus lsl 16);
+            domain = domain;
+            vdevfn = 0;
+            msitranslate = msitranslate = 1;
+            power_mgmt = pci_power_mgmt = 1;
+        }
+
+
+(* XXX: this will crash because of the logging policy within the
+   Xenlight ocaml bindings. *)
+let add_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
+	List.iter
+		(fun dev ->
+			try
+				Xenlight.pci_add (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
+			with e ->
+				debug "Xenlight.pci_add: %s" (Printexc.to_string e);
+				raise e
+		) pcidevs
+
+(* XXX: this will crash because of the logging policy within the
+   Xenlight ocaml bindings. *)
+let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
+	List.iter
+		(fun dev ->
+			try
+				Xenlight.pci_remove (pci_info_of ~msitranslate ~pci_power_mgmt dev) domid
+			with e ->
+				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
+				raise e
+		) pcidevs
+
+(* XXX: we don't want to use the 'xl' command here because the "interface"
+   isn't considered as stable as the C API *)
+let xl_pci cmd ?(msitranslate=0) ?(pci_power_mgmt=0) pcidevs domid =
+	List.iter
+		(fun dev ->
+			try
+				let (_, _) = Forkhelpers.execute_command_get_output
+					"/usr/sbin/xl"
+					[ cmd; string_of_int domid; to_string dev ] in
+				()
+			with e ->
+				debug "xl %s: %s" cmd (Printexc.to_string e);
+				raise e
+		) pcidevs
+
+let add_xl = xl_pci "pci-attach"
+
+let release_xl = xl_pci "pci-detach"
+
 let add ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid =
-	try add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid
+	try
+		if hvm
+		then add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?flrscript pcidevs domid devid
+		else
+			(* Switch the PV path over to libxl since the code is better *)
+			add_xl ~msitranslate ~pci_power_mgmt pcidevs domid
 	with exn ->
 		raise (Cannot_add (pcidevs, exn))
 
-let release ~xc ~xs ~hvm pcidevs domid devid =
+let release_exn ~xc ~xs ~hvm pcidevs domid devid =
 	let pcidevs = List.map (fun (domain, bus, slot, func) ->
-		let (irq, resources, driver) = get_from_system domain bus slot func in
+		let (irq, resources, driver) = query_pci_device domain bus slot func in
 		{ domain = domain; bus = bus; slot = slot; func = func;
 		  irq = irq; resources = resources; driver = driver }
 	) pcidevs in
@@ -1102,6 +1191,13 @@ let release ~xc ~xs ~hvm pcidevs domid devid =
 			Xenctrl.domain_irq_permission xc domid dev.irq false
 	) pcidevs;
 	()
+
+let release ~xc ~xs ~hvm pcidevs domid devid =
+	if hvm
+	then release_exn ~xc ~xs ~hvm pcidevs domid devid
+	else 
+		(* Switch the PV path over to libxl since the code is better *)
+		release_xl pcidevs domid
 
 let write_string_to_file file s =
 	let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
