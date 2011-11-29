@@ -16,6 +16,8 @@ export DH_VERBOSE=1
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+export PLATFORM_NAME="XCP_Kronos"
+export PLATFORM_VERSION="1.6.0"
 
 %:
 	dh $@ --with ocaml
