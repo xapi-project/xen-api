@@ -86,7 +86,9 @@ version:
 	let product_version_text_short = \"$(PRODUCT_VERSION_TEXT_SHORT)\" \n \
 	let platform_version = Util_inventory.lookup ~default:\"\" \"PLATFORM_VERSION\" \n \
 	let product_brand = \"$(PRODUCT_BRAND)\" \n \
-	let build_number = Util_inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n" \
+	let build_number = Util_inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n \
+	let xapi_version_major = $(shell cut -d. -f1 VERSION) \n \
+	let xapi_version_minor = $(shell cut -d. -f2 VERSION) \n" \
 	> ocaml/util/version.ml
 
  .PHONY: clean
