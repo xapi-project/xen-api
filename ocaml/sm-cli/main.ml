@@ -22,11 +22,14 @@ open Xmlrpc_client
 
 let url = ref (Http.Url.File ({ Http.Url.path = "/var/xapi/storage" }, "/"))
 
+module RPC = struct
 let rpc call =
 	XMLRPC_protocol.rpc ~transport:(transport_of_url !url)
 		~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of !url) (Http.Url.uri_of !url)) call
+end
 
 open Storage_interface
+module Client = Client(RPC)
 
 let task = "sm-cli"
 
@@ -52,14 +55,14 @@ let _ =
 	let args = List.filter (not ++ (String.startswith "url=")) args |> List.tl in
 	match args with
 		| [ "sr-list" ] ->
-			let srs = Client.SR.list rpc ~task in
+			let srs = Client.SR.list ~task in
 			List.iter
 				(fun sr ->
 					Printf.printf "%s\n" sr
 				) srs
 		| [ "sr-scan"; sr ] ->
 			if Array.length Sys.argv < 3 then usage_and_exit ();
-			begin match Client.SR.scan rpc ~task ~sr with
+			begin match Client.SR.scan ~task ~sr with
 				| Success (Vdis vs) ->
 					List.iter
 						(fun v ->
@@ -96,14 +99,14 @@ let _ =
 					then Some (String.sub k l (String.length k - l), v)
 					else None) kvpairs in
 
-			begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params with
+			begin match Client.VDI.create ~task ~sr ~vdi_info ~params with
 				| Success (Vdi v) ->
 					Printf.printf "%s\n" (string_of_vdi_info v)
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
 		| [ "vdi-destroy"; sr; vdi ] ->
-			begin match Client.VDI.destroy rpc ~task ~sr ~vdi with
+			begin match Client.VDI.destroy ~task ~sr ~vdi with
 				| Success Unit -> ()
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)

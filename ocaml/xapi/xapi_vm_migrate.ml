@@ -281,8 +281,9 @@ let transmitter ~xal ~__context is_localhost_migration fd vm_migrate_failed host
 			   then Storage_access.Qemu_blkfront.destroy ~__context ~self:vbd;
 			   Storage_access.on_vdi ~__context ~vbd ~domid
 				   (fun rpc task datapath_id sr vdi ->
+					let module C = Storage_interface.Client(struct let rpc = rpc end) in
 					   Storage_access.expect_unit (fun () -> ())
-						   (Storage_interface.Client.VDI.deactivate rpc task datapath_id sr vdi)
+						   (C.VDI.deactivate task datapath_id sr vdi)
 				   )
 		   ) vbds;
 
@@ -404,8 +405,9 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
 				  let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
 				  Storage_access.on_vdi ~__context ~vbd ~domid
 					  (fun rpc task datapath_id sr vdi ->
+						let module C = Storage_interface.Client(struct let rpc = rpc end) in
 						  Storage_access.expect_params (fun _ -> ())
-						  (Storage_interface.Client.VDI.attach rpc task datapath_id sr vdi read_write)
+						  (C.VDI.attach task datapath_id sr vdi read_write)
 					  )
 			  ) (Storage_access.vbd_attach_order ~__context vbds);
 	  with exn ->
@@ -475,8 +477,9 @@ let receiver ~__context ~localhost is_localhost_migration fd vm xc xs memory_req
 		  (fun vbd ->
 			  Storage_access.on_vdi ~__context ~vbd ~domid
 				  (fun rpc task datapath_id sr vdi ->
+					let module C = Storage_interface.Client(struct let rpc = rpc end) in
 					  Storage_access.expect_unit (fun () -> ())
-						   (Storage_interface.Client.VDI.activate rpc task datapath_id sr vdi)
+						   (C.VDI.activate task datapath_id sr vdi)
 				  )
 		  ) vbds;
      

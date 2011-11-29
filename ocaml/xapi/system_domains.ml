@@ -146,7 +146,8 @@ let queryable ip port () =
 	let open Xmlrpc_client in
 	let rpc = XMLRPC_protocol.rpc ~transport:(TCP(ip, port)) ~http:(xmlrpc ~version:"1.0" "/") in
     try
-        let q = Storage_interface.Client.query rpc () in
+		let module C = Storage_interface.Client(struct let rpc = rpc end) in
+        let q = C.query () in
         info "%s:%s:%s at %s:%d" q.Storage_interface.name q.Storage_interface.vendor q.Storage_interface.version ip port;
         true
     with _ -> false
