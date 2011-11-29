@@ -188,7 +188,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 			begin try List.assoc "product_version" fields with _ -> "" end,
 			begin try List.assoc "product_brand" fields with _ -> "" end,
 			begin try List.assoc "build_number" fields with _ -> "" end,
-			begin try List.assoc "hg_id" fields with _ -> "" end,
+			begin try List.assoc "git_id" fields with _ -> "" end,
 			begin try 
 				if List.mem_assoc Xapi_globs.linux_pack_vsn_key fields then "installed"
 				else "not present"

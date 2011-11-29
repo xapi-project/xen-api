@@ -1,4 +1,4 @@
-val hg_id : string
+val git_id : string
 val hostname : string
 val date : string
 val product_version : string
