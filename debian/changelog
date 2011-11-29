@@ -1,3 +1,9 @@
+xen-api (0.1-8) unstable; urgency=low
+
+  * Set PLATFORM_VERSION to 1.6 and PLATFORM_NAME to XCP_Kronos
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 29 Nov 2011 17:07:02 +0000
+
 xen-api (0.1-7) unstable; urgency=low
 
   * Fix control file following renaming of libxen-4.1-ocaml to libxen-ocaml
