@@ -59,9 +59,9 @@ let copy_bonds_from_master ~__context () =
 		Eq (Field "host", Literal (Ref.string_of me)),
 		Not (Eq (Field "bond_master_of", Literal "()"))
 	)) in
-	let my_slave_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+	let my_phy_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
 		Eq (Field "host", Literal (Ref.string_of me)),
-		Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))
+		Eq (Field "physical", Literal "true")
 	)) in
 
 	(* Consider Bonds *)
@@ -95,8 +95,8 @@ let copy_bonds_from_master ~__context () =
 		(* Look at the master's slaves and find the corresponding slave PIFs. Note that the slave
 		 * might not have the necessary devices: in this case we'll try to make partial bonds *)
 		let slave_devices = List.map (fun (_,_,device)->device) slaves_to_mac_and_device_map in
-		let my_slave_pifs' = List.filter (fun (_, pif) -> List.mem pif.API.pIF_device slave_devices) my_slave_pifs in
-		let my_slave_pif_refs = List.map fst my_slave_pifs' in
+		let my_slave_pifs = List.filter (fun (_, pif) -> List.mem pif.API.pIF_device slave_devices) my_phy_pifs in
+		let my_slave_pif_refs = List.map fst my_slave_pifs in
 		(* Do I have a pif that I should treat as a primary pif -
 		 * i.e. the one to inherit the MAC address from on my bond create? *)
 		let my_primary_slave =
@@ -104,7 +104,7 @@ let copy_bonds_from_master ~__context () =
 			| None -> None (* don't care cos we couldn't even figure out who master's primary slave was *)
 			| Some master_primary ->
 				begin
-					match List.filter (fun (_,pif) -> pif.API.pIF_device=master_primary) my_slave_pifs' with
+					match List.filter (fun (_,pif) -> pif.API.pIF_device=master_primary) my_slave_pifs with
 					| [] -> None
 					| [pifref,_] ->
 						debug "I have found a PIF to use as primary bond slave (will inherit MAC address of bond from this PIF).";
