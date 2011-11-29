@@ -226,7 +226,7 @@ let daemonize = ref false
 
 let show_version () = 
   List.iter (fun (x, y) -> printf "%s=%s\n" x y)
-    [ "hg_id", Version.hg_id;
+    [ "git_id", Version.git_id;
       "hostname", Version.hostname;
       "date", Version.date;
       "PRODUCT_VERSION", Version.product_version;
