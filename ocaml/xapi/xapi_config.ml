@@ -116,6 +116,6 @@ let dump_config () =
 	debug "product_version: %s" Version.product_version;
 	debug "product_brand: %s" Version.product_brand;
 	debug "build_number: %s" Version.build_number;
-	debug "hg changeset: %s" Version.hg_id;
+	debug "git changeset: %s" Version.git_id;
 	debug "version: %d.%d" version_major version_minor;
 	(* debug "License filename: %s" !License_file.filename *)

@@ -27,8 +27,8 @@ let pool_secret = ref ""
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
 (* xapi version *)
-let version_major = 1
-let version_minor = 3
+let version_major = Version.xapi_version_major
+let version_minor = Version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
 (* api version *)
@@ -123,7 +123,7 @@ let _product_version_text_short = "product_version_text_short"
 let _platform_version = "platform_version"
 let _product_brand = "product_brand"
 let _build_number = "build_number"
-let _hg_id = "hg_id"
+let _git_id = "git_id"
 let _api_major = "API_major"
 let _api_minor = "API_minor"
 let _api_vendor = "API_vendor"
@@ -145,7 +145,7 @@ let software_version = [ _product_version, Version.product_version;
 			_platform_version, Version.platform_version;
 			 _product_brand,   Version.product_brand;
 			 _build_number,    Version.build_number;
-			 _hg_id,           Version.hg_id;
+			 _git_id,           Version.git_id;
 			 _hostname,        Version.hostname;
 			 _date,            Version.date]
 
