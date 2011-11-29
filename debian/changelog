@@ -1,3 +1,9 @@
+xen-api (0.1-7) unstable; urgency=low
+
+  * Fix control file following renaming of libxen-4.1-ocaml to libxen-ocaml
+
+ -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 29 Nov 2011 09:34:18 +0000
+
 xen-api (0.1-6) unstable; urgency=low
 
   * Fix the xapissl init script so that it's no longer an init script
