@@ -76,40 +76,64 @@ module Mux = struct
         version = "0.1";
         features = [];
     }
-
 	module DP = struct
 		let create context ~task ~id = id (* XXX: is this pointless? *)
 		let destroy context ~task ~dp ~allow_leak =
 			(* Tell each plugin about this *)
-			fail_or choose (multicast (Client.DP.destroy ~task ~dp ~allow_leak))
+			fail_or choose (multicast (fun rpc ->
+				let module C = Client(struct let rpc = rpc end) in
+				C.DP.destroy ~task ~dp ~allow_leak))
 		let diagnostics context () =
 			let combine results =
 				let all = List.fold_left (fun acc (sr, result) ->
 					Printf.sprintf "For SR: %s" sr :: (string_of_result result) :: acc) [] results in
 				Success (String (String.concat "\n" all)) in
-			fail_or combine (multicast (fun rpc -> Client.DP.diagnostics rpc ()))
+			fail_or combine (multicast (fun rpc ->
+				let module C = Client(struct let rpc = rpc end) in
+				C.DP.diagnostics ()))
 	end
-
 	module SR = struct
-		let attach context ~task ~sr = Client.SR.attach (of_sr sr) ~task ~sr
-		let detach context ~task ~sr = Client.SR.detach (of_sr sr) ~task ~sr
-		let destroy context ~task ~sr = Client.SR.destroy (of_sr sr) ~task ~sr
-		let scan context ~task ~sr = Client.SR.scan (of_sr sr) ~task ~sr
+		let attach context ~task ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.attach ~task ~sr
+		let detach context ~task ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.detach ~task ~sr
+		let destroy context ~task ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.destroy ~task ~sr
+		let scan context ~task ~sr =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.SR.scan ~task ~sr
 		let list context ~task =
-			List.fold_left (fun acc (sr, list) -> list @ acc) [] (multicast (Client.SR.list ~task))
+			List.fold_left (fun acc (sr, list) -> list @ acc) [] (multicast (fun rpc ->
+				let module C = Client(struct let rpc = rpc end) in
+				C.SR.list ~task))
 		let reset context ~task ~sr = assert false
 	end
 	module VDI = struct
 		let create context ~task ~sr ~vdi_info ~params =
-			Client.VDI.create (of_sr sr) ~task ~sr ~vdi_info ~params
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.create ~task ~sr ~vdi_info ~params
 
-		let stat context ~task ~sr ~vdi = Client.VDI.stat (of_sr sr) ~task ~sr ~vdi
-		let destroy context ~task ~sr ~vdi = Client.VDI.destroy (of_sr sr) ~task ~sr ~vdi
+		let stat context ~task ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.stat ~task ~sr ~vdi
+		let destroy context ~task ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.destroy ~task ~sr ~vdi
 		let attach context ~task ~dp ~sr ~vdi ~read_write =
-			Client.VDI.attach (of_sr sr) ~task ~dp ~sr ~vdi ~read_write
-		let activate context ~task ~dp ~sr ~vdi = Client.VDI.activate (of_sr sr) ~task ~dp ~sr ~vdi
-		let deactivate context ~task ~dp ~sr ~vdi = Client.VDI.deactivate (of_sr sr) ~task ~dp ~sr ~vdi
-		let detach context ~task ~dp ~sr ~vdi = Client.VDI.detach (of_sr sr) ~task ~dp ~sr ~vdi
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.attach ~task ~dp ~sr ~vdi ~read_write
+		let activate context ~task ~dp ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.activate ~task ~dp ~sr ~vdi
+		let deactivate context ~task ~dp ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.deactivate ~task ~dp ~sr ~vdi
+		let detach context ~task ~dp ~sr ~vdi =
+			let module C = Client(struct let rpc = of_sr sr end) in
+			C.VDI.detach ~task ~dp ~sr ~vdi
 	end
 end
 

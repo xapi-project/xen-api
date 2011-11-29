@@ -30,6 +30,7 @@ let rpc call =
 		~http:(xmlrpc ~version:"1.0" "/") call
 
 open Storage_interface
+module Client = Storage_interface.Client(struct let rpc = rpc end)
 
 let task = "sm-test"
 
@@ -41,7 +42,7 @@ let usage_and_exit () =
 	exit 1
 
 let find_vdi_in_scan sr vdi =
-	match Client.SR.scan rpc ~task ~sr with
+	match Client.SR.scan ~task ~sr with
 		| Success (Vdis results) ->
 			begin
 				try
@@ -52,7 +53,7 @@ let find_vdi_in_scan sr vdi =
 		| x ->
 			failwith (Printf.sprintf "Unexpected result from SR.scan: %s\n" (string_of_result x))
 
-let test_query sr _ = let (_: query_result) = Client.query rpc () in ()
+let test_query sr _ = let (_: query_result) = Client.query () in ()
 
 let missing_vdi = "missing"
 
@@ -62,7 +63,7 @@ let test_scan_missing_vdi sr _ =
 		| None -> ()
 
 let test_destroy_missing_vdi sr _ =
-	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:missing_vdi with
+	begin match Client.VDI.destroy ~task ~sr ~vdi:missing_vdi with
 		| Failure Vdi_does_not_exist -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result from VDI.destroy: %s\n" (string_of_result x))
 	end
@@ -104,7 +105,7 @@ let example_vdi_info =
 
 let test_create_destroy sr _ =
 	let vdi_info = example_vdi_info in
-	let vdi_info' = begin match Client.VDI.create rpc ~task ~sr ~vdi_info ~params:[] with
+	let vdi_info' = begin match Client.VDI.create ~task ~sr ~vdi_info ~params:[] with
 		| Success (Vdi vdi_info') ->
 			vdi_info_assert_equal vdi_info vdi_info';
 			vdi_info'
@@ -115,7 +116,7 @@ let test_create_destroy sr _ =
 		| None -> failwith (Printf.sprintf "SR.scan failed to find vdi: %s" (string_of_vdi_info vdi_info'))
 		| Some vdi_info'' -> vdi_info_assert_equal vdi_info' vdi_info''
 	end;
-	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:vdi_info'.vdi with
+	begin match Client.VDI.destroy ~task ~sr ~vdi:vdi_info'.vdi with
 		| Success Unit -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
 	end;
@@ -125,18 +126,18 @@ let test_create_destroy sr _ =
 	end
 
 let test_attach_activate sr _ =
-	let vdi_info = match Client.VDI.create rpc ~task ~sr ~vdi_info:example_vdi_info ~params:[] with
+	let vdi_info = match Client.VDI.create ~task ~sr ~vdi_info:example_vdi_info ~params:[] with
 		| Success (Vdi x) -> x
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
 	let dp = "test_attach_activate" in
-	let (_: string) = match Client.VDI.attach rpc ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
+	let (_: string) = match Client.VDI.attach ~task ~sr ~dp ~vdi:vdi_info.vdi ~read_write:true with
 		| Success (Params x) -> x
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))	in
-	begin match Client.VDI.activate rpc ~task ~sr ~dp ~vdi:vdi_info.vdi with
+	begin match Client.VDI.activate ~task ~sr ~dp ~vdi:vdi_info.vdi with
 		| Success Unit -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
 	end;
-	begin match Client.VDI.destroy rpc ~task ~sr ~vdi:vdi_info.vdi with
+	begin match Client.VDI.destroy ~task ~sr ~vdi:vdi_info.vdi with
 		| Success Unit -> ()
 		| x -> failwith (Printf.sprintf "Unexpected result: %s\n" (string_of_result x))
 	end		
