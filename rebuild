@@ -4,5 +4,5 @@ export REPO=/myrepos/xen-api-libs
 
 set -e 
 make clean
-make uninstall; make binuninstall
-make all && make bins && make install && make bininstall
+make uninstall
+make all && make install
