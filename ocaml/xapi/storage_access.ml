@@ -426,6 +426,8 @@ let unbind ~__context ~pbd =
 
 let rpc call = Storage_mux.Server.process None call
 
+module Client = Client(struct let rpc = rpc end)
+
 let start () =
 	let open Storage_impl.Local_domain_socket in
 	start Xapi_globs.storage_unix_domain_socket Storage_mux.Server.process
@@ -480,7 +482,8 @@ let of_vbd ~__context ~vbd ~domid =
 let is_attached ~__context ~vbd ~domid  =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
 	let open Vdi_automaton in
-	match Client.VDI.stat rpc ~task ~sr ~vdi () with
+	let module C = Storage_interface.Client(struct let rpc = rpc end) in
+	match C.VDI.stat ~task ~sr ~vdi () with
 		| Success (Stat { superstate = Detached }) -> false
 		| Success _ -> true
 		| Failure _ as r -> error "Unable to query state of VDI: %s, %s" vdi (string_of_result r); false
@@ -489,7 +492,8 @@ let is_attached ~__context ~vbd ~domid  =
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
 	let rpc, task, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-	let dp = Client.DP.create rpc task dp in
+	let module C = Storage_interface.Client(struct let rpc = rpc end) in
+	let dp = C.DP.create task dp in
 	f rpc task dp sr vdi
 
 let reset ~__context ~vm =
@@ -499,7 +503,7 @@ let reset ~__context ~vm =
 			let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
 			info "Resetting all state associated with SR: %s" sr;
 			expect_unit (fun () -> ())
-				(Client.SR.reset rpc (Ref.string_of task) sr);
+				(Client.SR.reset (Ref.string_of task) sr);
 			Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 		) (System_domains.pbd_of_vm ~__context ~vm)
 
@@ -511,13 +515,14 @@ let attach_and_activate ~__context ~vbd ~domid ~hvm f =
 	let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
 	let result = on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
+			let module C = Storage_interface.Client(struct let rpc = rpc end) in
 			expect_params
 				(fun path ->
 					expect_unit
 						(fun () ->
 							f path
-						) (Client.VDI.activate rpc task dp sr vdi)
-				) (Client.VDI.attach rpc task dp sr vdi read_write)
+						) (C.VDI.activate task dp sr vdi)
+				) (C.VDI.attach task dp sr vdi read_write)
 		) in
 	Qemu_blkfront.create ~__context ~self:vbd ~read_write hvm;
 	result
@@ -534,24 +539,25 @@ let deactivate_and_detach ~__context ~vbd ~domid ~unplug_frontends =
 	   automatically detached and deactivated. *)
 	on_vdi ~__context ~vbd ~domid
 		(fun rpc task dp sr vdi ->
+			let module C = Storage_interface.Client(struct let rpc = rpc end) in
 			expect_unit (fun () -> ())
-				(Client.DP.destroy rpc task dp false)
+				(C.DP.destroy task dp false)
 		)
 
 
 let diagnostics ~__context =
 	expect_string (fun x -> x)
-		(Storage_interface.Client.DP.diagnostics rpc ())
+		(Client.DP.diagnostics ())
 
 let dp_destroy ~__context dp allow_leak =
 	let task = Context.get_task_id __context in
 	expect_unit (fun () -> ())
-		(Client.DP.destroy rpc (Ref.string_of task) dp allow_leak)
+		(Client.DP.destroy (Ref.string_of task) dp allow_leak)
 
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
 	let task = Context.get_task_id __context in
-	let srs = Client.SR.list rpc (Ref.string_of task) in
+	let srs = Client.SR.list (Ref.string_of task) in
 	debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
 	List.iter
 		(fun self ->
@@ -569,7 +575,7 @@ let resynchronise_pbds ~__context ~pbds =
 (* This is a layering violation. The layers are:
      xapi: has a pool-wide view
      storage_impl: has a host-wide view of SRs and VDIs
-     SM: has a SR-wide view
+     SM: has a SR-wide viep
    Unfortunately the SM is storing some of its critical state (VDI-host locks) in the xapi
    metadata rather than on the backend storage. The xapi metadata is generally not authoritative
    and must be synchronised against the state of the world. Therefore we must synchronise the
@@ -620,14 +626,14 @@ let refresh_local_vdi_activations ~__context =
 			(fun () -> Hashtbl.replace Builtin_impl.VDI.vdi_read_write key (ro_rw = RW)) in
 
 	let task = Ref.string_of (Context.get_task_id __context) in
-	let srs = Client.SR.list rpc task in
+	let srs = Client.SR.list task in
 	List.iter 
 		(fun (vdi_ref, vdi_rec) ->
 			let sr = Db.SR.get_uuid ~__context ~self:vdi_rec.API.vDI_SR in
 			let vdi = vdi_rec.API.vDI_location in
 			if List.mem sr srs
 			then
-				match Client.VDI.stat rpc ~task ~sr ~vdi () with
+				match Client.VDI.stat ~task ~sr ~vdi () with
 					| Success (Stat { superstate = Activated RO }) -> 
 						lock_vdi (vdi_ref, vdi_rec) RO;
 						remember (sr, vdi) RO
@@ -666,11 +672,11 @@ let destroy_sr ~__context ~sr =
 	bind ~__context ~pbd;
 	let task = Ref.string_of (Context.get_task_id __context) in
 	expect_unit (fun () -> ())
-		(Client.SR.attach rpc task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config);
+		(Client.SR.attach task (Db.SR.get_uuid ~__context ~self:sr) pbd_t.API.pBD_device_config);
 	(* The current backends expect the PBD to be temporarily set to currently_attached = true *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
 	expect_unit (fun () -> ())
-		(Client.SR.destroy rpc task (Db.SR.get_uuid ~__context ~self:sr));	
+		(Client.SR.destroy task (Db.SR.get_uuid ~__context ~self:sr));	
 	(* All PBDs are clearly currently_attached = false now *)
 	Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
 	unbind ~__context ~pbd
