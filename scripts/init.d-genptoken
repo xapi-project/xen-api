@@ -10,7 +10,7 @@
 start() {
     if [ ! -f /etc/xensource/ptoken ]; then
         echo -n $"Creating pool secret (this may take some time)"
-        "@BASE_PATH@/libexec/genptoken" -f -o /etc/xensource/ptoken
+        "@OPTDIR@/libexec/genptoken" -f -o /etc/xensource/ptoken
         [ $? -eq 0 ] && success $"Done" || failure
         echo
     fi

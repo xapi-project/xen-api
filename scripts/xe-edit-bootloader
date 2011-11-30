@@ -11,7 +11,7 @@ fi
 
 . /etc/xensource-inventory
 
-XE="@BASE_PATH@/bin/xe"
+XE="@OPTDIR@/bin/xe"
 
 device_number=
 grub_conf=

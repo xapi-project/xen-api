@@ -20,7 +20,7 @@ import os, sys, tempfile
 import XenAPI, inventory
 import XenAPIPlugin
 
-sm_dir = "@BASE_PATH@/sm"
+sm_dir = "@OPTDIR@/sm"
 
 def dd(input, output):
     os.system("dd if=%s of=%s bs=1M count=16" % (input, output))

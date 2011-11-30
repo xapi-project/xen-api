@@ -2,7 +2,7 @@
 
 if [ -e /etc/xensource/pool.conf ]; then
     if [ "$(cat /etc/xensource/pool.conf)" = "master" ]; then
-        "@BASE_PATH@/bin/xe-backup-metadata" -c >/dev/null 2>&1
+        "@OPTDIR@/bin/xe-backup-metadata" -c >/dev/null 2>&1
         EXITVALUE=$?
         if [ $EXITVALUE != 0 ]; then
              /usr/bin/logger -t backup-metadata "ALERT exited abnormally with [$EXITVALUE]"
