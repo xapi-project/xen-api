@@ -44,6 +44,10 @@ let of_sr sr =
 	end else (Hashtbl.find plugins sr).processor
 
 let domid_of_sr sr =
+	if not (Hashtbl.mem plugins sr) then begin
+		error "No storage plugin for SR: %s" sr;
+		raise (No_storage_plugin_for_sr sr)
+	end;
 	let uuid = (Hashtbl.find plugins sr).backend_domain in
 	try
 		Vmopshelpers.with_xc
