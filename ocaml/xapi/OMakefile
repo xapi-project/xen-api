@@ -283,7 +283,7 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 generate_constants: config_constants.ml
 
 config_constants.ml: config_constants.ml.in
-	sed "s!@BASE_PATH@!\"$(OPTDIR)\"!" $< > $@
+	sed "s!@OPTDIR@!\"$(OPTDIR)\"!" $< > $@
 
 .PHONY: install
 install:

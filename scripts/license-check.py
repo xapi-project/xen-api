@@ -7,7 +7,7 @@ import os, re, subprocess, sys, syslog, time, traceback
 from xml.dom import minidom
 
 gpg_binary_path="/usr/bin/gpg"
-gpg_homedir="@BASE_PATH@/gpg"
+gpg_homedir="@OPTDIR@/gpg"
 gpg_pub_keyring=gpg_homedir + "/pubring.gpg"
 license_file="/etc/xensource/license"
 expiry_message_name="LICENSE_EXPIRES_SOON"

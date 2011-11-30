@@ -125,7 +125,7 @@ ocaml/fhs.ml :
 .PHONY: xapi.spec
 xapi.spec: xapi.spec.in
 	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
-	sed -i "s!@BASE_PATH@!${BASE_PATH}!g" $@
+	sed -i "s!@OPTDIR@!${OPTDIR}!g" $@
 
 .PHONY: srpm
 srpm: xapi.spec

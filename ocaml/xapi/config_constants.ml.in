@@ -1,1 +1,1 @@
-let base_path = @BASE_PATH@
+let base_path = @OPTDIR@

@@ -21,7 +21,7 @@ from optparse import OptionParser
 #import XenAPI
 
 pool_conf = '/etc/xensource/pool.conf'
-interface_reconfigure = "@BASE_PATH@/libexec/interface-reconfigure"
+interface_reconfigure = "@OPTDIR@/libexec/interface-reconfigure"
 inventory_file = '/etc/xensource-inventory'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'

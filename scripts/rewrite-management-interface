@@ -17,4 +17,4 @@ cat ${INV} | grep -v ^MANAGEMENT_INTERFACE > ${TMP}
 echo "MANAGEMENT_INTERFACE='$INTF'" >> ${TMP}
 mv ${TMP} ${INV}
 
-"@BASE_PATH@/libexec/update-mh-info" $INTF
+"@OPTDIR@/libexec/update-mh-info" $INTF

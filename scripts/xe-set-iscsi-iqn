@@ -6,7 +6,7 @@
 
 set -e
 
-XE="@BASE_PATH@/bin/xe"
+XE="@OPTDIR@/bin/xe"
 
 configmap="other-config"
 configkey="iscsi_iqn"
