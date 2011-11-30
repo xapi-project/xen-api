@@ -14,8 +14,8 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) cli_test sm_stress myfirstpatch.asc $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) cli_test sm_stress myfirstpatch.asc $(DESTDIR)$(OPTDIR)/debug
 
 .PHONY: install
 install:

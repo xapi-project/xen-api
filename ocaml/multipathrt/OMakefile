@@ -15,7 +15,7 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) multipathrt $(DEBUGDIST)
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) multipathrt-helper $(DESTDIR)/etc/xapi.d/plugins/multipathrt-helper
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) multipathrt $(DESTDIR)$(OPTDIR)/debug
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) multipathrt-helper $(DESTDIR)$(PLUGINDIR)/multipathrt-helper

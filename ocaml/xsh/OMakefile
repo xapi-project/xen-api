@@ -10,8 +10,8 @@ section
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	cp -f xsh $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	cp -f xsh $(DESTDIR)$(OPTDIR)/bin
 
 clean:
 	rm -f *.cmi *.cmx *.cmo *.a *.cma *.cmxa *.run *.opt *.annot *.o xsh

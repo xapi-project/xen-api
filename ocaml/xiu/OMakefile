@@ -17,14 +17,14 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) xiu $(LIBEXEC)/
-	mkdir -p $(BASE_PATH)/lib
-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib
 
 .PHONY: sdk-install
 sdk-install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) xiu $(LIBEXEC)/
-	mkdir -p $(BASE_PATH)/lib
-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib

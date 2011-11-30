@@ -17,4 +17,4 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
