@@ -471,15 +471,6 @@ let destroy_domain ?(preserve_xs_vm=false) ?(unplug_frontends=true) ?(clear_curr
 				(fun () ->
 					Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false
 				) ()
-		) all_vbds;
-
-	(* We unpause every VBD which allows any pending VBD.pause thread to unblock, acquire the VM lock in turn and check the state *)
-	List.iter
-		(fun vbd ->
-			Helpers.log_exn_continue (Printf.sprintf "Vmops.destroy_domain: pre-emptively unpausing VBD: %s" (Ref.string_of vbd))
-				(fun () ->
-					Xapi_vbd.clean_up_on_domain_destroy vbd (* effect is to unblock threads, not actually unpause *)
-				) ();
 		) all_vbds
 
 (* Destroy a VM's domain and all runtime state (domid etc).

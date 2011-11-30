@@ -16,10 +16,7 @@ open Device_common
 exception Ioemu_failed of string
 exception Ioemu_failed_dying
 
-exception Pause_failed
 exception Device_shutdown
-exception Pause_token_mismatch
-exception Device_not_paused
 exception Device_not_found
 
 exception Cdrom
@@ -68,10 +65,6 @@ sig
 	val media_refresh : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> params:string -> int -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
 	val media_tray_is_locked : xs:Xenstore.Xs.xsh -> device_number:Device_number.t -> int -> bool
-
-	val pause : xs:Xenstore.Xs.xsh -> device -> string (* token *)
-	val unpause : xs:Xenstore.Xs.xsh -> device -> string (* token *) -> unit
-	val is_paused : xs:Xenstore.Xs.xsh -> device -> bool
 
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit

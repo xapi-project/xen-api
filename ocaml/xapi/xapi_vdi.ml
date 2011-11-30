@@ -418,12 +418,9 @@ let resize_online ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
 
-  (* Need to carefully pause and unpause all active VBDs *)
-  let vdi_info = Sm.with_all_vbds_paused ~__context ~vdis:[vdi]
-    (fun () ->
-       Sm.call_sm_vdi_functions ~__context ~vdi
+  let vdi_info = Sm.call_sm_vdi_functions ~__context ~vdi
 	 (fun srconf srtype sr ->
-	    Sm.vdi_resize_online srconf srtype sr vdi size)
+	    Sm.vdi_resize_online srconf srtype sr vdi size
     ) in
   after_resize ~__context ~vdi ~size vdi_info
 

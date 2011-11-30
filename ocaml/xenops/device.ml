@@ -25,10 +25,7 @@ open Xenstore
 exception Ioemu_failed of string
 exception Ioemu_failed_dying
 
-exception Pause_failed
 exception Device_shutdown
-exception Pause_token_mismatch
-exception Device_not_paused
 exception Device_not_found
 
 exception Cdrom
@@ -493,95 +490,6 @@ let release ~xs (x: device) =
 	(* As for add above, if the frontend is in dom0, we can wait for the frontend 
 	 * to unplug as well as the backend. CA-13506 *)
 	if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug ~xs x
-
-let pause ~xs (x: device) = 
-	debug "Device.Vbd.pause %s" (string_of_device x);
-	let request_path = backend_pause_request_path_of_device ~xs x in
-	let token_path = backend_pause_token_path_of_device ~xs x in
-	let response_path = backend_pause_done_path_of_device ~xs x in
-	let backend_path = backend_path_of_device ~xs x in
-
-	(* Returned to the client to make sure that 'unpause' never matches the wrong 'pause' *)
-	let token = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-
-	(* Write the pause request in a transaction where we make sure the backend device
-	   directory still exists, to avoid us racing with an 'rm' and creating an orphaned key *)
-	Xs.transaction xs (fun t ->
-		(* Device should exist *)
-		Generic.assert_exists_t ~xs t x;
-
-		let path_should_not_exist path = 
-			try 
-				ignore(t.Xst.read path);
-				error "Vbd.pause failed because path exists already: %s" path;
-				raise Pause_failed
-			with Xenbus.Xb.Noent -> () in
-		path_should_not_exist request_path;
-		path_should_not_exist token_path;
-		path_should_not_exist response_path;
-		t.Xst.write request_path "";
-		t.Xst.write token_path token;
-	);
-
-	(* We wait either for the pause-done signal or the pause-request node being destroyed: if the pause-request
-	   node is destroyed then we assume the domain is dead and is being reaped and return an error *)
-	match Watch.wait_for ~xs (Watch.any_of [ 
-				    `OK, Watch.value_to_appear response_path; (* pause-done *)
-				    `Destroyed, Watch.map (fun () -> "") (Watch.key_to_disappear backend_path); (* backend has been deleted *)  ]) with
-	| `OK, _ ->
-	    debug "Device.Vbd.pause %s complete" (string_of_device x);
-	    token
-	| `Destroyed, _ ->
-	    debug "Device.Vbd.pause %s failed: backend has been deleted" (string_of_device x);
-	    raise Device_shutdown
-  
-let unpause ~xs (x: device) (token: string) = 
-	debug "Device.Vbd.unpause %s token=%s" (string_of_device x) token;
-
-	let request_path = backend_pause_request_path_of_device ~xs x in
-	let token_path = backend_pause_token_path_of_device ~xs x in
-	let response_path = backend_pause_done_path_of_device ~xs x in
-	let backend_path = backend_path_of_device ~xs x in
-	(* Both request and response should exist *)
-
-	(* Use a transaction so we can tell whether the failure is because the device doesn't exist or whether
-	   it is not paused. *)
-	let fast_track_success = Xs.transaction xs (fun t ->
-		(* Device should exist *)
-		Generic.assert_exists_t ~xs t x;
-
-		let path_should_exist path = 
-			try ignore(t.Xst.read path)
-			with Xenbus.Xb.Noent ->
-				error "Vbd.unpause failed because path does not exist already: %s" path;
-				raise Device_not_paused in
-		path_should_exist request_path;
-		path_should_exist token_path;
-		path_should_exist response_path;
-
-		(* Only write the xenstore if the token matches, otherwise we might unpause someone else's
-		   pause (say after a force-shutdown). If the token doesn't match then we say this unpause
-		   succeeded but someone else re-paused the device so they must call unpause themselves. *)
-		let token' = t.Xst.read token_path in
-		token <> token' (* fast track success *)
-		|| (t.Xst.rm request_path; t.Xst.rm token_path; false)
-	) in
-	if fast_track_success
-	then raise Pause_token_mismatch
-	else begin
-	  match Watch.wait_for ~xs (Watch.any_of [ 
-				      `OK, Watch.key_to_disappear response_path; (* pause-done *)
-				      `Destroyed, Watch.key_to_disappear backend_path; (* backend has been deleted *)]) with
-	  | `OK, _ ->
-	      debug "Device.Vbd.unpause %s complete" (string_of_device x)
-	  | `Destroyed, _ ->
-	      (* We consider this to be 'unpaused' *)
-	      debug "Device.Vbd.unpause %s: backend has been deleted, considering it 'unpaused'" (string_of_device x)
-	end
-
-let is_paused ~xs (x: device) = 
-	let request_path = backend_pause_request_path_of_device ~xs x in
-	try ignore(xs.Xs.read request_path); true with Xenbus.Xb.Noent -> false
 
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
