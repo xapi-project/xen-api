@@ -11,8 +11,8 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) genptoken $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) genptoken $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DIST)/genptoken-src
 	$(IDATA) $(GENSECRET_SRC_FILES) $(DIST)/genptoken-src
 

@@ -20,6 +20,6 @@ clean:
 
 .PHONY: install
 install:
-        mkdir -p $(DEBUGDIST)
-        $(IPROG) perftest $(DEBUGDIST)
+        mkdir -p $(DESTDIR)$(OPTDIR)/debug
+        $(IPROG) perftest $(DESTDIR)$(OPTDIR)/debug
 

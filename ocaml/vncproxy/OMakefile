@@ -6,8 +6,8 @@ OCamlProgram(vncproxy, vncproxy)
 
 .PHONY: install
 install: 
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) vncproxy $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) vncproxy $(DESTDIR)$(OPTDIR)/debug
 
 .PHONY: sdk-install
 sdk-install: install
