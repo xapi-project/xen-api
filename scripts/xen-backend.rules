@@ -1,5 +1,5 @@
 SUBSYSTEM=="xen-backend", KERNEL=="tap*", RUN+="/etc/xensource/scripts/tap $env{ACTION}"
-SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="/opt/xensource/sm/blktap2.py vbd.uevent"
+SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="/opt/xensource/scripts/block $env{ACTION}"
 
 SUBSYSTEM=="xen-backend", KERNEL=="vif*", RUN+="/etc/xensource/scripts/vif $env{ACTION} vif"
 SUBSYSTEM=="net",         KERNEL=="tap*", RUN+="/etc/xensource/scripts/vif $env{ACTION} tap"
