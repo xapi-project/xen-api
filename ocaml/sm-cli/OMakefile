@@ -23,6 +23,6 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) sm $(DEBUGDIST)
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) sm $(DESTDIR)$(OPTDIR)/debug
 

@@ -6,8 +6,8 @@ OCamlProgram(cdrommon, cdrommon)
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	cp -f cdrommon $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	cp -f cdrommon $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: clean
 clean:

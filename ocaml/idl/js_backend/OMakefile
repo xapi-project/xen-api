@@ -29,5 +29,5 @@ js_binding: main
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)/www
-	cp api.js $(DEBUGDIST)/www
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug/www
+	cp api.js $(DESTDIR)$(OPTDIR)/debug/www

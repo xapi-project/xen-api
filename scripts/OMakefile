@@ -2,35 +2,35 @@
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	mkdir -p $(DESTDIR)/var/patch
-	mkdir -p $(DESTDIR)/var/patch/applied
-	mkdir -p $(DESTDIR)/var/xapi
-	mkdir -p $(DESTDIR)/etc/xapi.d
-	mkdir -p $(DESTDIR)/etc/xensource
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(VARPATCHDIR)
+	mkdir -p $(DESTDIR)$(VARPATCHDIR)/applied
+	mkdir -p $(DESTDIR)$(VARDIR)
+	mkdir -p $(DESTDIR)$(HOOKSDIR)
+	mkdir -p $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/logrotate.d
-	mkdir -p $(DESTDIR)/etc/xensource/master.d
-	mkdir -p $(LIBEXEC)
+	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
-	$(IPROG) sm_diagnostics $(LIBEXEC)
-	$(IPROG) thread_diagnostics $(LIBEXEC)
-	mkdir -p $(DESTDIR)/etc/xensource/bugtool/xapi
-	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)/etc/xensource/bugtool
-	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)/etc/xensource/bugtool/xapi
-	$(IPROG) fence $(LIBEXEC)
-	$(IPROG) xha-lc $(LIBEXEC)
-	$(IPROG) xapi-health-check $(LIBEXEC)
-	$(IPROG) license-check.py $(LIBEXEC)
-	$(IPROG) mail-alarm $(LIBEXEC)
+	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
+	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCDIR)/bugtool
+	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xapi
+	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) license-check.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
-	$(IPROG) xapi-wait-init-complete $(BIN_PATH)
-	$(IPROG) xapi-autostart-vms $(BIN_PATH)
-	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel
-	$(IPROG) xapi.conf $(DESTDIR)/etc/xapi.conf
-	$(IPROG) log.conf $(DESTDIR)/etc/xensource/log.conf
-	$(IPROG) db.conf.skel $(DESTDIR)/etc/xensource/db.conf
-	$(IPROG) rio.db.conf.skel $(DESTDIR)/etc/xensource/db.conf.rio
+	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
+	$(IPROG) xapi.conf $(DESTDIR)$(XAPICONF)
+	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
+	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
+	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	mkdir -p $(DESTDIR)/etc/init.d
 	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xenservices $(DESTDIR)/etc/rc.d/init.d/xenservices
@@ -43,72 +43,72 @@ install:
 	$(IDATA) squeezed-logrotate $(DESTDIR)/etc/logrotate.d/squeezed
 	$(IPROG) init.d-v6d $(DESTDIR)/etc/rc.d/init.d/v6d
 	$(IDATA) v6d-logrotate $(DESTDIR)/etc/logrotate.d/v6d
-	mkdir -p $(DESTDIR)/etc/xensource/master.d
-	$(IPROG) on-master-start $(DESTDIR)/etc/xensource/master.d/01-example
-	$(IPROG) mpathalert-daemon $(DESTDIR)/etc/xensource/master.d/03-mpathalert-daemon
+	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
+	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
+	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
-	mkdir -p $(DESTDIR)/etc/udev
-	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev
-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev
-	$(IPROG) generate_ssl_cert $(LIBEXEC)
-	$(IPROG) fix_firewall.sh $(BIN_PATH)
-	mkdir -p $(BASE_PATH)/debug
-	$(IPROG) debug_ha_query_liveset $(BASE_PATH)/debug
-	$(IPROG) xe-scsi-dev-map $(BIN_PATH)
-	$(IPROG) xe-mount-iso-sr $(BIN_PATH)
-	$(IPROG) xe-reset-networking $(BIN_PATH)
-	$(IPROG) xe-set-iscsi-iqn $(BIN_PATH)
-	$(IPROG) xe-toolstack-restart $(BIN_PATH)
-	$(IPROG) xe-xentrace $(BIN_PATH)
-	$(IPROG) xe-edit-bootloader $(BIN_PATH)
-	$(IPROG) static-vdis $(BIN_PATH)
-	$(IPROG) with-vdi $(BASE_PATH)/debug
-	mkdir -p $(DESTDIR)/etc/udev/rules.d
+	mkdir -p $(DESTDIR)/etc/udev                    ### FHS_FIXME
+	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
+	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
+	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) fix_firewall.sh $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-xentrace $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) static-vdis $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
+	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
 	sh -c \
 	'cd $(DESTDIR)/etc/udev/rules.d; \
 	ln -sf ../xen-backend.rules; \
 	ln -sf ../xen-frontend.rules'
-	mkdir -p $(DESTDIR)/etc/xensource/scripts
-	$(IPROG) block-frontend vif tap block $(DESTDIR)/etc/xensource/scripts
-	$(IPROG) pool.conf $(DESTDIR)/etc/xensource
+	mkdir -p $(DESTDIR)$(SCRIPTSDIR)
+	$(IPROG) block-frontend vif tap block $(DESTDIR)$(SCRIPTSDIR)
+	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
-	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(LIBEXEC)
-	mkdir -p $(BASE_PATH)/packages/iso #omg XXX
-	$(IPROG) interface-reconfigure $(LIBEXEC)
-	$(IPROG) InterfaceReconfigure.py $(LIBEXEC)
-	$(IPROG) InterfaceReconfigureBridge.py $(LIBEXEC)
-	$(IPROG) InterfaceReconfigureVswitch.py $(LIBEXEC)
-	$(IPROG) rewrite-management-interface $(LIBEXEC)
-	$(IPROG) interface-visualise $(LIBEXEC)
-	$(IPROG) logrotate.sh $(LIBEXEC)
-	$(IPROG) xapi-rolling-upgrade-miami $(LIBEXEC)/xapi-rolling-upgrade
-	$(IPROG) set-hostname $(LIBEXEC)
-	$(IPROG) update-mh-info $(LIBEXEC)
-	$(IPROG) host-bugreport-upload $(LIBEXEC)/host-bugreport-upload
-	$(IPROG) xe-backup-metadata $(BIN_PATH)
-	$(IPROG) xe-restore-metadata $(BIN_PATH)
-	$(IPROG) link-vms-by-sr.py $(LIBEXEC)
-	$(IPROG) print-custom-templates $(LIBEXEC)
-	$(IPROG) backup-sr-metadata.py $(LIBEXEC)
-	$(IPROG) restore-sr-metadata.py $(LIBEXEC)
-	$(IPROG) probe-device-for-file $(LIBEXEC)
-	$(IPROG) backup-metadata-cron $(LIBEXEC)
-	$(IPROG) lw-force-domain-leave $(LIBEXEC)
+	$(IPROG) qemu-dm-wrapper vncterm-wrapper upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
+	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) InterfaceReconfigureBridge.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) InterfaceReconfigureVswitch.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) rewrite-management-interface $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) interface-visualise $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) logrotate.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
+	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
+	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) probe-device-for-file $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) lw-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(BIN_PATH)
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) plugins/perfmon $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) plugins/extauth-hook $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) plugins/iovirt $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) set-dom0-memory-target-from-packs $(LIBEXEC)
-	mkdir -p $(DESTDIR)/etc/xapi.d/host-post-declare-dead
-	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead
-	$(IPROG) pci-info $(LIBEXEC)
+	$(IPROG) perfmon $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/iovirt $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) set-dom0-memory-target-from-packs $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
 
 .PHONY: sdk-install
 sdk-install: install
