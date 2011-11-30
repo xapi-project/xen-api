@@ -21,9 +21,6 @@ open Xenstore
 module D = Debug.Debugger(struct let name = "hotplug" end)
 open D
 
-(** Time we allow for the hotplug scripts to run before we assume something bad has
-    happened and abort *)
-let hotplug_timeout = 60. *. 20. (* seconds *)
 
 (** If we can't execute the losetup program (for example) *)
 exception External_command_failure of string
@@ -118,7 +115,7 @@ let wait_for_plug ~xs (x: device) =
     Stats.time_this "udev backend add event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.value_to_appear path));
+		  ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.value_to_appear path));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
@@ -130,7 +127,7 @@ let wait_for_unplug ~xs (x: device) =
     Stats.time_this "udev backend remove event" 
       (fun () ->
 		  let path = path_written_by_hotplug_scripts x in
-		  ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear path));
+		  ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.key_to_disappear path));
       );
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->
@@ -145,7 +142,7 @@ let wait_for_frontend_plug ~xs (x: device) =
 	let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) in
     Stats.time_this "udev frontend add event" 
       (fun () ->
-	 match Watch.wait_for ~xs ~timeout:hotplug_timeout 
+	 match Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout 
 	 (Watch.any_of [ `OK, ok_watch; `Failed, tapdisk_error_watch; `Failed, blkback_error_watch ]) with
 	 | `OK, _ ->
 	     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
@@ -163,7 +160,7 @@ let wait_for_frontend_unplug ~xs (x: device) =
     let path = frontend_status_node x in
     Stats.time_this "udev frontend remove event" 
       (fun () ->
-    ignore(Watch.wait_for ~xs ~timeout:hotplug_timeout (Watch.key_to_disappear path));
+    ignore(Watch.wait_for ~xs ~timeout:!Xapi_globs.hotplug_timeout (Watch.key_to_disappear path));
       );
     debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ ->

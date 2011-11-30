@@ -466,7 +466,7 @@ let restart_agent ~__context ~host =
 
 let shutdown_agent ~__context =
   debug "Host.restart_agent: Host agent will shutdown in 1s!!!!";
-  Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1 ()
+  Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
 let disable  ~__context ~host =
   if Db.Host.get_enabled ~__context ~self:host then begin

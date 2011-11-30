@@ -33,9 +33,6 @@ exception Cdrom
 module D = Debug.Debugger(struct let name = "xenops" end)
 open D
 
-let qemu_dm_ready_timeout = 60. *. 20. (* seconds *)
-let qemu_dm_shutdown_timeout = 60. *. 20. (* seconds *)
-
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
@@ -1548,7 +1545,7 @@ let get_state ~xs domid =
 	with _ -> None
 
 (* Returns the allocated vnc port number *)
-let __start ~xs ~dmpath ~restore ?(timeout=qemu_dm_ready_timeout) info domid =
+let __start ~xs ~dmpath ~restore ?(timeout = !Xapi_globs.qemu_dm_ready_timeout) info domid =
 	debug "Device.Dm.start domid=%d" domid;
 	let usb' =
 		if info.usb = [] then

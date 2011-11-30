@@ -13,7 +13,6 @@
  *)
 let default_pidfile = "/var/run/squeezed.pid" 
 let log_file_path = "file:/var/log/squeezed.log" 
-let idle_timeout = 10. (* seconds per balancing check *)
 
 open Pervasiveext 
 open Squeezed_rpc
@@ -216,7 +215,10 @@ let _ =
     "Usage: squeezed [-daemon] [-pidfile filename]";
 
   Logs.reset_all [ log_file_path ];
-
+  begin
+    try Xapi_globs.read_external_config ()
+    with e -> debug "Read global variables config from %s failed: %s. Continue with default setting." Xapi_globs.xapi_globs_conf (Printexc.to_string e)
+  end;
   debug "Writing reserved-host-memory=%Ld KiB" Squeeze_xen.target_host_free_mem_kib;
   with_xc_and_xs (fun _ xs -> xs.Xs.write (reserved_host_memory_path _service) (Int64.to_string Squeeze_xen.target_host_free_mem_kib));
 
@@ -225,9 +227,9 @@ let _ =
   Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
   Unixext.pidfile_write !pidfile;
 
-  debug "Starting daemon listening on %s with idle_timeout = %.0f" _service idle_timeout;
+  debug "Starting daemon listening on %s with idle_timeout = %.0f" _service !Xapi_globs.squeezed_balance_check_interval;
   try
-    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout ~idle_callback:(idle_callback ~xc ~xs) () );
+    with_xc_and_xs (fun xc xs -> Rpc.loop ~xc ~xs ~service:_service ~function_table ~idle_timeout:!Xapi_globs.squeezed_balance_check_interval ~idle_callback:(idle_callback ~xc ~xs) () );
     debug "Graceful shutdown";
     exit 0
   with e ->

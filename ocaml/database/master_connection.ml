@@ -61,7 +61,6 @@ let with_timestamp f =
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
    master goes away unexpectedly... *)
 let start_master_connection_watchdog() =
-  let connection_reset_timeout = 2. *. 60. in
   Thread.create
     (fun () ->
        while (true)
@@ -73,7 +72,7 @@ let start_master_connection_watchdog() =
 	     | Some t ->
 		 let now = Unix.gettimeofday() in
 		 let since_last_call = now -. t in
-		 if since_last_call > connection_reset_timeout then
+		 if since_last_call > !Xapi_globs.master_connection_reset_timeout then
 		   begin
 		     debug "Master connection timeout: forcibly resetting master connection";
 		     force_connection_reset()
@@ -104,7 +103,7 @@ let open_secure_connection () =
 (* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
    fails *)
 exception Goto_handler
-let connection_timeout = ref 10. (* -ve means retry forever *)
+let connection_timeout = ref !Xapi_globs.master_connection_default_timeout
   
 (* if this is true then xapi will restart if retries exceeded [and enter emergency mode if still
    can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
@@ -154,8 +153,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
       with
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Http_client.Http_error (http_code,err_msg) ->
-	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg Xapi_globs.permanent_master_failure_retry_timeout;
-	  Thread.delay Xapi_globs.permanent_master_failure_retry_timeout;
+	  error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg !Xapi_globs.permanent_master_failure_retry_interval;
+	  Thread.delay !Xapi_globs.permanent_master_failure_retry_interval;
 	  exit Xapi_globs.restart_return_code
       |	e ->
 	  begin
@@ -180,7 +179,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : string =
 	      end
 	    else
 	      debug "Connection to master died: time taken so far in this call '%f'; will %s"
-		time_sofar (if !connection_timeout < 0. 
+		time_sofar (if !connection_timeout < 0.
 			    then "never timeout" 
 			    else Printf.sprintf "timeout after '%f'" !connection_timeout);
 	    if time_sofar > !connection_timeout && !connection_timeout >= 0. then
