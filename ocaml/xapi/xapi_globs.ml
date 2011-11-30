@@ -11,12 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
+
 (** A central location for settings related to xapi *)
- 
+
 open Stringext
 open Printf
-open Util_globs_inventory
+
+module D = Debug.Debugger(struct let name="xapi_globs" end)
 
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
@@ -67,14 +68,6 @@ let local_storage_unix_domain_socket = "/var/xapi/storage-local"
 let storage_unix_domain_socket = "/var/xapi/storage"
 let local_database = "/var/xapi/local.db"
 
-(* amount of time to retry master_connection before (if restart_on_connection_timeout is set) restarting xapi; -ve means don't timeout: *)
-let master_connect_retry_timeout = -1. (* never timeout *)
-
-(* the time taken to wait before restarting in a different mode for pool eject/join operations *)
-let fuse_time = 10
-
-(* the time taken to wait before restarting after restoring db backup *)
-let db_restore_fuse_time = 30
 
 (* if a slave in emergency "cannot see master mode" then this flag is set *)
 let slave_emergency_mode = ref false
@@ -82,11 +75,6 @@ let slave_emergency_mode = ref false
 (** Whenever in emergency mode we stash an error here so the user can determine what's wrong
     without trawling through logfiles *)
 let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_booting, []))
-
-(* Interval between host heartbeats *)
-let host_heartbeat_interval = 30.0
-(* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
-let host_assumed_dead_interval = 600.0 (* 10 minutes *)
 
 let http_realm = "xapi"
 
@@ -232,30 +220,12 @@ let migration_failure_test_key = "migration_wings_fall_off" (* set in other-conf
    the disk flushing *)
 let migration_extra_paths_key = "migration_extra_paths"
 
-(* If a session has a last_active older than this we delete it *)
-let inactive_session_timeout = 24. *. 60. *. 60. (* 24 hrs in seconds *) 
-
 (* After this we start to delete completed tasks (never pending ones) *)
 let max_tasks = 200
 
 (* After this we start to invalidate older sessions *)
 (* We must allow for more sessions than running tasks *)
 let max_sessions = max_tasks * 2
-
-let completed_task_timeout = 65. *. 60. (* 65 mins *)
-
-let pending_task_timeout = 24. *. 60. *. 60. (* 24 hrs in seconds *) 
-
-(* After this we start to delete alerts *)
-let alert_timeout = completed_task_timeout +. 1.
-
-(* Don't reboot a domain which crashes too quickly: *)
-let minimum_time_between_bounces = 120. (* 2 minutes *)
-
-(* If a domain is rebooted (from inside) in less than this time since it last started, then insert an artificial delay: *)
-let minimum_time_between_reboot_with_no_added_delay = 60. (* 1 minute *)
-(* the size of the artificial delay is: *)
-let artificial_reboot_delay = 30.
 
 (* The Unix.time that represents the maximum time in the future that a 32 bit time can cope with *)
 let the_future = 2147483647.0
@@ -282,22 +252,10 @@ let pool_ha_num_host_failures = "ha_tolerated_host_failures"
 (* the other-config key that reflects whether the pool is overprovisioned *)
 let pool_ha_currently_over_provisioned = "ha_currently_over_provisioned"
 
-let ha_monitor_timer = 20. (* seconds *)
-
-let ha_monitor_startup_timeout = 30. *. 60. (* seconds *)
-
-(* Unconditionally replan every once in a while just in case the overcommit protection is buggy and we don't notice *)
-let ha_monitor_plan_timer = 30. *. 60. (* seconds *)
-
 let backup_db = "/var/xapi/state-backup.db"
 
 (* Place where database XML backups are kept *)
 let backup_db_xml = "/var/xapi/state-backup.xml"
-
-(* Time to wait before fencing in the case when this host isn't a master, isn't in 
-   emergency mode and has no running VMs before fencing. This is intended to give
-   the admin some time to fix a broken configuration.*)
-let noncritical_fence_timeout = 5. *. 60. (* 5 minutes *)
 
 (* Directory containing scripts which are executed when a node becomes master
    and when a node gives up the master role *)
@@ -418,8 +376,6 @@ let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 1mb for security purpose. *)
 
-let sync_timer = 3600.0 *. 24.0 (* sync once a day *)
-
 let message_limit=10000
 
 let xapi_message_script = base_path ^ "/libexec/mail-alarm"
@@ -430,7 +386,7 @@ let max_clock_skew = 5. *. 60. (* 5 minutes *)
 (* Optional directory containing XenAPI plugins *)
 let xapi_plugins_root = "/etc/xapi.d/plugins"
 
-let guest_liveness_timeout = 5.0 *. 60.0 
+
 
 (** CA-18377: Providing lists of operations that were supported by the Miami release. *)
 (** For now, we check against these lists when sending data across the wire that may  *)
@@ -516,24 +472,6 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 (** The maximum allowed number of redo_log instances. *)
 let redo_log_max_instances = 8
 
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
-let redo_log_max_block_time_empty = 2.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while reading *)
-let redo_log_max_block_time_read = 30.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a delta *)
-let redo_log_max_block_time_writedelta = 2.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a database *)
-let redo_log_max_block_time_writedb = 30.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
-let redo_log_max_startup_time = 5.
-
-(** The delay between each attempt to connect to the block device I/O process *)
-let redo_log_connect_delay = 0.1
-
 (** The prefix of the file used as a socket to communicate with the block device I/O process *)
 let redo_log_comms_socket_stem = "sock-blkdev-io"
 
@@ -578,10 +516,6 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 (** Directory used by the v6 license policy engine for caching *)
 let upgrade_grace_file = "/var/xapi/ugp"
 
-
-(** Time after which we conclude that a VM really is unco-operative *)
-let cooperative_timeout = 30.
-
 (** Where the ballooning daemon writes the initial overhead value *)
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"
 
@@ -617,7 +551,7 @@ let old_dell_bios_strings =
 	 "oem-2", "5[0000]";
 	 "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", ""]
-	 
+
 (** BIOS strings of the old (XS 5.5) HP Edition *)
 let old_hp_bios_strings =
 	["bios-vendor", "Xen";
@@ -629,9 +563,6 @@ let old_hp_bios_strings =
 	 "oem-1", "Xen";
 	 "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
 	 "hp-rombios", "COMPAQ"]
-
-
-let permanent_master_failure_retry_timeout = 1. *. 60. (* 1 minute *)
 
 (** {2 CPUID feature masking} *)
 
@@ -646,4 +577,222 @@ let cpuid_default_feature_mask = "ffffff7f-ffffffff-ffffffff-ffffffff"
 let network_reset_trigger = "/tmp/network-reset"
 
 let first_boot_dir = "/etc/firstboot.d/"
+
+
+(** Dynamic configurations to be read whenever xapi (re)start *)
+
+let master_connection_reset_timeout = ref 120.
+
+(* amount of time to retry master_connection before (if
+   restart_on_connection_timeout is set) restarting xapi; -ve means don't
+   timeout: *)
+let master_connection_retry_timeout = ref (-1.)
+
+let master_connection_default_timeout = ref 10.
+
+let qemu_dm_ready_timeout = ref 1200.
+
+(* seconds per balancing check *)
+let squeezed_balance_check_interval = ref 10.
+
+(* Time we allow for the hotplug scripts to run before we assume something bad
+   has happened and abort *)
+let hotplug_timeout = ref 1200.
+
+let pif_reconfigure_ip_timeout = ref 300.
+
+(* CA-16878: 5 minutes, same as the local database flush *)
+let pool_db_sync_interval = ref 300.
+(* blob/message/rrd file syncing - sync once a day *)
+let pool_data_sync_interval = ref 86400.
+
+let domain_shutdown_ack_timeout = ref 10.
+let domain_shutdown_total_timeout = ref 3600.
+
+(* The actual reboot delay will be a random value between base and base + extra *)
+let emergency_reboot_delay_base = ref 60.
+let emergency_reboot_delay_extra = ref 120.
+
+let ha_xapi_healthcheck_interval = ref 60
+let ha_xapi_healthcheck_timeout = ref 120 (* > the number of attempts in xapi-health-check script *)
+let ha_xapi_restart_attempts = ref 1
+let ha_xapi_restart_timeout = ref 300 (* 180s is max start delay and 60s max shutdown delay in the initscript *)
+
+(* Logrotate - poll the amount of data written out by the logger, and call
+   logrotate when it exceeds the threshold *)
+let logrotate_check_interval = ref 300.
+
+let rrd_backup_interval = ref 86400.
+
+(* CP-703: Periodic revalidation of externally-authenticated sessions *)
+let session_revalidation_interval = ref 300. (* every 5 minutes *)
+
+(* CP-820: other-config field in subjects should be periodically refreshed *)
+let update_all_subjects_interval = ref 900. (* every 15 minutes *)
+
+(* The default upper bound on the length of time to wait for a running VM to
+   reach its current memory target. *)
+let wait_memory_target_timeout = ref 256.
+
+let snapshot_with_quiesce_timeout = ref 300.
+
+(* Interval between host heartbeats *)
+let host_heartbeat_interval = ref 30.
+
+(* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
+let host_assumed_dead_interval = ref 600.0
+
+(* the time taken to wait before restarting in a different mode for pool eject/join operations *)
+let fuse_time = ref 10.
+
+(* the time taken to wait before restarting after restoring db backup *)
+let db_restore_fuse_time = ref 30.
+
+(* If a session has a last_active older than this we delete it *)
+let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *) 
+
+let pending_task_timeout = ref 86400. (* 24 hrs in seconds *)
+
+let completed_task_timeout = ref 3900. (* 65 mins *)
+
+(* Don't reboot a domain which crashes too quickly: *)
+let minimum_time_between_bounces = ref 120. (* 2 minutes *)
+
+(* If a domain is rebooted (from inside) in less than this time since it last
+   started, then insert an artificial delay: *)
+let minimum_time_between_reboot_with_no_added_delay = ref 60. (* 1 minute *)
+
+let ha_monitor_interval = ref 20.
+(* Unconditionally replan every once in a while just in case the overcommit
+   protection is buggy and we don't notice *)
+let ha_monitor_plan_interval = ref 1800.
+
+let ha_monitor_startup_timeout = ref 1800.
+
+let ha_default_timeout_base = ref 60.
+
+let guest_liveness_timeout = ref 300.
+
+let permanent_master_failure_retry_interval = ref 60.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
+let redo_log_max_block_time_empty = ref 2.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while reading *)
+let redo_log_max_block_time_read = ref 30.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a delta *)
+let redo_log_max_block_time_writedelta = ref 2.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a database *)
+let redo_log_max_block_time_writedb = ref 30.
+
+(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
+let redo_log_max_startup_time = ref 5.
+
+(** The delay between each attempt to connect to the block device I/O process *)
+let redo_log_connect_delay = ref 0.1
+
+let xapi_globs_spec =
+	[ "master_connection_reset_timeout",
+	  Config.Set_float master_connection_reset_timeout;
+	  "master_connection_retry_timeout",
+	  Config.Set_float master_connection_retry_timeout;
+	  "master_connection_default_timeout",
+	  Config.Set_float master_connection_default_timeout;
+	  "qemu_dm_ready_timeout",
+	  Config.Set_float qemu_dm_ready_timeout;
+	  "squeezed_balance_check_interval",
+	  Config.Set_float squeezed_balance_check_interval;
+	  "hotplug_timeout",
+	  Config.Set_float hotplug_timeout;
+	  "pif_reconfigure_ip_timeout",
+	  Config.Set_float pif_reconfigure_ip_timeout;
+	  "pool_db_sync_interval",
+	  Config.Set_float pool_db_sync_interval;
+	  "pool_data_sync_interval",
+	  Config.Set_float pool_data_sync_interval;
+	  "domain_shutdown_ack_timeout",
+	  Config.Set_float domain_shutdown_ack_timeout;
+	  "domain_shutdown_total_timeout",
+	  Config.Set_float domain_shutdown_total_timeout;
+	  "emergency_reboot_delay_base",
+	  Config.Set_float emergency_reboot_delay_base;
+	  "emergency_reboot_delay_extra",
+	  Config.Set_float emergency_reboot_delay_extra;
+	  "ha_xapi_healthcheck_interval",
+	  Config.Set_int ha_xapi_healthcheck_interval;
+	  "ha_xapi_healthcheck_timeout",
+	  Config.Set_int ha_xapi_healthcheck_timeout;
+	  "ha_xapi_restart_attempts",
+	  Config.Set_int ha_xapi_restart_attempts;
+	  "ha_xapi_restart_timeout",
+	  Config.Set_int ha_xapi_restart_timeout;
+	  "logrotate_check_interval",
+	  Config.Set_float logrotate_check_interval;
+	  "rrd_backup_interval",
+	  Config.Set_float rrd_backup_interval;
+	  "session_revalidation_interval",
+	  Config.Set_float session_revalidation_interval;
+	  "update_all_subjects_interval",
+	  Config.Set_float update_all_subjects_interval;
+	  "wait_memory_target_timeout",
+	  Config.Set_float wait_memory_target_timeout;
+	  "snapshot_with_quiesce_timeout",
+	  Config.Set_float snapshot_with_quiesce_timeout;
+	  "host_heartbeat_interval",
+	  Config.Set_float host_heartbeat_interval;
+	  "host_assumed_dead_interval",
+	  Config.Set_float host_assumed_dead_interval;
+	  "fuse_time",
+	  Config.Set_float fuse_time;
+	  "db_restore_fuse_time",
+	  Config.Set_float db_restore_fuse_time;
+	  "inactive_session_timeout",
+	  Config.Set_float inactive_session_timeout;
+	  "pending_task_timeout",
+	  Config.Set_float pending_task_timeout;
+	  "completed_task_timeout",
+	  Config.Set_float completed_task_timeout;
+	  "minimum_time_between_bounces",
+	  Config.Set_float minimum_time_between_bounces;
+	  "minimum_time_between_reboot_with_no_added_delay",
+	  Config.Set_float minimum_time_between_reboot_with_no_added_delay;
+	  "ha_monitor_interval",
+	  Config.Set_float ha_monitor_interval;
+	  "ha_monitor_plan_interval",
+	  Config.Set_float ha_monitor_plan_interval;
+	  "ha_monitor_startup_timeout",
+	  Config.Set_float ha_monitor_startup_timeout;
+	  "ha_default_timeout_base",
+	  Config.Set_float ha_default_timeout_base;
+	  "guest_liveness_timeout",
+	  Config.Set_float guest_liveness_timeout;
+	  "permanent_master_failure_retry_interval",
+	  Config.Set_float permanent_master_failure_retry_interval;
+	  "redo_log_max_block_time_empty",
+	  Config.Set_float redo_log_max_block_time_empty;
+	  "redo_log_max_block_time_read",
+	  Config.Set_float redo_log_max_block_time_read;
+	  "redo_log_max_block_time_writedelta",
+	  Config.Set_float redo_log_max_block_time_writedelta;
+	  "redo_log_max_block_time_writedb",
+	  Config.Set_float redo_log_max_block_time_writedb;
+	  "redo_log_max_startup_time",
+	  Config.Set_float redo_log_max_startup_time;
+	  "redo_log_connect_delay",
+	  Config.Set_float redo_log_connect_delay;
+	]
+
+let xapi_globs_conf = "/etc/xensource/xapi_globs.conf"
+
+let read_external_config () =
+	let unknown_key k v = D.warn "Unknown key/value pairs: (%s, %s)" k v in
+	if Sys.file_exists xapi_globs_conf then begin
+		(* Will raise exception if xapi_globs.conf is mis-formatted. It's up to the
+		   caller to inspect and handle the failure.
+		*)
+		Config.read xapi_globs_conf xapi_globs_spec unknown_key;
+		D.info "Read global variables successfully from %s" xapi_globs_conf
+	end
 

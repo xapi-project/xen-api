@@ -194,7 +194,7 @@ let check_host_liveness ~__context =
 	let now = Unix.gettimeofday () in
 	(* we can now compare 'host_time' with 'now' *) 
 
-	if now -. host_time < Xapi_globs.host_assumed_dead_interval then begin
+	if now -. host_time < !Xapi_globs.host_assumed_dead_interval then begin
 	  (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii) 
 	     avoid toggling the host back to live if it has been marked as shutting_down. *)
 	  Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
@@ -252,7 +252,7 @@ let timeout_sessions_common ~__context sessions =
   (* Only keep a list of (ref, last_active, uuid) *)
   let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) disposable_sessions in
   (* Definitely invalidate sessions last used long ago *)
-  let threshold_time = Unix.time () -. Xapi_globs.inactive_session_timeout in
+  let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
   let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
   (* If there are too many young sessions then we need to delete the oldest *)
   let lucky, unlucky = 
@@ -286,8 +286,8 @@ let timeout_sessions ~__context =
 
 let timeout_tasks ~__context =
   let all_tasks = Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-  let oldest_completed_time = Unix.time() -. Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
-  let oldest_pending_time   = Unix.time() -. Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
+  let oldest_completed_time = Unix.time() -. !Xapi_globs.completed_task_timeout (* time out completed tasks after 65 minutes *) in
+  let oldest_pending_time   = Unix.time() -. !Xapi_globs.pending_task_timeout   (* time out pending tasks after 24 hours *) in
 
   let should_delete_task (_, t) = 
     if task_status_is_completed t.Db_actions.task_status
@@ -533,7 +533,7 @@ let start_heartbeat_thread() =
 	    
 	    while(true) do
 	      try
-		Thread.delay Xapi_globs.host_heartbeat_interval;
+		Thread.delay !Xapi_globs.host_heartbeat_interval;
 		send_one_heartbeat ~__context rpc session_id
 	      with 
 		| (Api_errors.Server_error (x,y)) as e ->
@@ -549,6 +549,6 @@ let start_heartbeat_thread() =
 	    exit Xapi_globs.restart_return_code
 	| e -> 
 	  debug "Caught %s - logging in again" (ExnHelper.string_of_exn e);
-	  Thread.delay Xapi_globs.host_heartbeat_interval;
+	  Thread.delay !Xapi_globs.host_heartbeat_interval;
       done
       end)

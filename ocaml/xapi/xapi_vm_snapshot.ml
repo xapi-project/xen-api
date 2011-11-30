@@ -75,7 +75,7 @@ let compare_snapid_chunks s1 s2 =
 (* to tell us if everything happened nicely.                                                    *)
 let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 	let value = Watch.value_to_appear (snapshot_path ~xs ~domid "status") in
-	match Watch.wait_for ~xs ~timeout:(5.*.60.) value with
+	match Watch.wait_for ~xs ~timeout:!Xapi_globs.snapshot_with_quiesce_timeout value with
 	| "snapshot-created" ->
 		(* Get the transportable snap ID *)
 		debug "wait_for_snapshot: getting the transportable ID";

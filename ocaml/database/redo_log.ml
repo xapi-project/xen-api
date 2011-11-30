@@ -230,7 +230,7 @@ let connect sockpath latest_response_time =
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
       Unix.close s;
-      let attempt_delay = Xapi_globs.redo_log_connect_delay in
+      let attempt_delay = !Xapi_globs.redo_log_connect_delay in
       let now = Unix.gettimeofday() in
       let remaining = latest_response_time -. now in
       if attempt_delay < remaining then begin
@@ -326,7 +326,7 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
 let action_empty sock datasockpath =
   R.debug "Performing empty";
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time Xapi_globs.redo_log_max_block_time_empty in
+  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_empty in
   (* Empty *)
   let str = "empty_____" in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -346,7 +346,7 @@ let action_empty sock datasockpath =
 let action_read fn_db fn_delta sock datasockpath =
   R.debug "Performing read";
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time Xapi_globs.redo_log_max_block_time_read in
+  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_read in
   (* Write *)
   let str = "read______" in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -356,7 +356,7 @@ let action_read fn_db fn_delta sock datasockpath =
 let action_write_db marker generation_count write_fn sock datasockpath =
   R.debug "Performing writedb (generation %Ld)" generation_count;
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time Xapi_globs.redo_log_max_block_time_writedb in
+  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_writedb in
   (* Send write command down control channel *)
   let str = Printf.sprintf "writedb___|%s|%016Ld" marker generation_count in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -413,7 +413,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
 let action_write_delta marker generation_count data flush_db_fn sock datasockpath =
   R.debug "Performing writedelta (generation %Ld)" generation_count;
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time Xapi_globs.redo_log_max_block_time_writedelta in
+  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_writedelta in
   (* Write *)
   let str = Printf.sprintf "writedelta|%s|%016Ld|%016d|%s" marker generation_count (String.length data) data in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -569,7 +569,7 @@ let startup log =
           match !(log.sock) with
           | Some _ -> () (* We're already connected *)
           | None ->
-            let latest_connect_time = get_latest_response_time Xapi_globs.redo_log_max_startup_time in
+            let latest_connect_time = get_latest_response_time !Xapi_globs.redo_log_max_startup_time in
 
             (* Now connect to the process via the socket *)
             let s = connect ctrlsockpath latest_connect_time in

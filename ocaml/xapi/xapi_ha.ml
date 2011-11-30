@@ -214,10 +214,10 @@ module Timeouts = struct
 		boot_join_timeout = boot_join_timeout;
 		enable_join_timeout = enable_join_timeout;
 
-		xapi_healthcheck_interval = 60;
-		xapi_healthcheck_timeout = 120; (* > the number of attempts in xapi-health-check script *)
-		xapi_restart_attempts = 1;
-		xapi_restart_timeout = 300; (* 180s is max start delay and 60s max shutdown delay in the initscript *)
+		xapi_healthcheck_interval = !Xapi_globs.ha_xapi_healthcheck_interval;
+		xapi_healthcheck_timeout = !Xapi_globs.ha_xapi_healthcheck_timeout;
+		xapi_restart_attempts = !Xapi_globs.ha_xapi_restart_attempts;
+		xapi_restart_timeout = !Xapi_globs.ha_xapi_restart_timeout; (* 180s is max start delay and 60s max shutdown delay in the initscript *)
 		}
 
 	(** Returns the base timeout value from which the rest are derived *)
@@ -234,7 +234,7 @@ module Timeouts = struct
 			else
 				if List.mem_assoc Xapi_globs.default_ha_timeout other_config
 				then int_of_string (List.assoc Xapi_globs.default_ha_timeout other_config)
-				else 60 in
+				else int_of_float !Xapi_globs.ha_default_timeout_base in
 		t
 end
 
@@ -520,7 +520,7 @@ module Monitor = struct
 				end;
 
 				let now = Unix.gettimeofday () in
-				let plan_too_old = now -. !last_plan_time > Xapi_globs.ha_monitor_plan_timer in
+				let plan_too_old = now -. !last_plan_time > !Xapi_globs.ha_monitor_plan_interval in
 				if plan_too_old || !plan_out_of_date then begin
 					let changed = Xapi_ha_vm_failover.update_pool_status ~__context in
 
@@ -541,12 +541,12 @@ module Monitor = struct
 							Condition.wait database_state_valid_c thread_m
 						done);
 
-				info "Master HA startup waiting for up to %.2f for slaves in the liveset to report in and enable themselves" Xapi_globs.ha_monitor_startup_timeout;
+				info "Master HA startup waiting for up to %.2f for slaves in the liveset to report in and enable themselves" !Xapi_globs.ha_monitor_startup_timeout;
 				let start = Unix.gettimeofday () in
 				let finished = ref false in
 				while Mutex.execute m (fun () -> not(!request_shutdown)) && not(!finished) do
 					try
-						ignore(Delay.wait delay Xapi_globs.ha_monitor_timer);
+						ignore(Delay.wait delay !Xapi_globs.ha_monitor_interval);
 						if Mutex.execute m (fun () -> not(!request_shutdown)) then begin
 							let liveset = query_liveset_on_all_hosts () in
 							let uuids = List.map Uuid.string_of_uuid (uuids_of_liveset liveset) in
@@ -559,7 +559,7 @@ module Monitor = struct
 								finished := true;
 							end;
 
-							if Unix.gettimeofday () -. start > Xapi_globs.ha_monitor_startup_timeout && disabled <> [] then begin
+							if Unix.gettimeofday () -. start > !Xapi_globs.ha_monitor_startup_timeout && disabled <> [] then begin
 								info "Master HA startup: Timed out waiting for all live slaves to enable themselves (have some hosts failed to attach storage?) Live but disabled hosts: [ %s ]"
 									(String.concat "; " (List.map fst disabled));
 								finished := true
@@ -567,7 +567,7 @@ module Monitor = struct
 						end;
 					with e ->
 						debug "Exception in HA monitor thread while waiting for slaves: %s" (ExnHelper.string_of_exn e);
-						Thread.delay Xapi_globs.ha_monitor_timer
+						Thread.delay !Xapi_globs.ha_monitor_interval
 				done in
 
 			(* If we're the master we must wait for our live slaves to turn up before we consider restarting VMs etc *)
@@ -576,7 +576,7 @@ module Monitor = struct
 			(* Monitoring phase: we must assume the worst and not touch the database here *)
 			while Mutex.execute m (fun () -> not(!request_shutdown)) do
 				try
-					ignore(Delay.wait delay Xapi_globs.ha_monitor_timer);
+					ignore(Delay.wait delay !Xapi_globs.ha_monitor_interval);
 
 					if Mutex.execute m (fun () -> not(!request_shutdown)) then begin
 						let liveset = query_liveset_on_all_hosts () in
@@ -611,7 +611,7 @@ module Monitor = struct
 					end
 				with e ->
 					debug "Exception in HA monitor thread: %s" (ExnHelper.string_of_exn e);
-					Thread.delay Xapi_globs.ha_monitor_timer
+					Thread.delay !Xapi_globs.ha_monitor_interval
 			done;
 
 			debug "Re-enabling old Host_metrics.live heartbeat";
