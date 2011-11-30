@@ -6,7 +6,7 @@
 # chkconfig: 345 99 00
 # description: Start/stop XE VMs
 
-SHUTDOWN="@BASE_PATH@/libexec/shutdown"
+SHUTDOWN="@OPTDIR@/libexec/shutdown"
 
 if [ ! -e /proc/xen/privcmd ] || \
    [ ! -e /etc/xensource-inventory ] || \

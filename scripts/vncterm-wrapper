@@ -10,7 +10,7 @@ DOMID=$1
 shift 1
 
 #Getting the VM UUID
-export VMUUID=`"@BASE_PATH@/bin/list_domains" -domid $DOMID -minimal`
+export VMUUID=`"@OPTDIR@/bin/list_domains" -domid $DOMID -minimal`
 
 #For security reasons, we only listen on locahost by default
 export VNCTERM_LISTEN="-v 127.0.0.1:1"

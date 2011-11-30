@@ -100,7 +100,7 @@ start() {
             *)
                 CN=`mgmt_ip`;;
         esac
-        "@BASE_PATH@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
+        "@OPTDIR@/libexec/generate_ssl_cert" ${PEMFILE} ${CN}
     fi
     writeconffile
     start_daemon ${STUNNEL} ${SSLCONFFILE}
