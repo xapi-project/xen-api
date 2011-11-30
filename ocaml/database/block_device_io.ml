@@ -691,7 +691,7 @@ let _ =
 
   if !dump then begin
     (* Open the block device *)
-    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. Xapi_globs.redo_log_max_startup_time) in
+    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Xapi_globs.redo_log_max_startup_time) in
     R.info "Opened block device.";
 
     let target_response_time = Unix.gettimeofday() +. 3600. in
@@ -745,7 +745,7 @@ let _ =
 
   if !empty then begin
     (* Open the block device *)
-    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. Xapi_globs.redo_log_max_startup_time) in
+    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Xapi_globs.redo_log_max_startup_time) in
     R.info "Opened block device.";
 
     let target_response_time = Unix.gettimeofday() +. 3600. in
@@ -762,7 +762,7 @@ let _ =
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
     while true do
       let start_of_startup = Unix.gettimeofday() in
-      let target_startup_response_time = start_of_startup +. Xapi_globs.redo_log_max_startup_time in
+      let target_startup_response_time = start_of_startup +. !Xapi_globs.redo_log_max_startup_time in
 
       R.debug "Awaiting incoming connections on %s..." !ctrlsock;
       let client = accept_conn s target_startup_response_time in
@@ -788,10 +788,10 @@ let _ =
                 
                 (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
                 let (action_fn, block_time) = match str with
-                  | "writedelta" -> action_writedelta, Xapi_globs.redo_log_max_block_time_writedelta
-                  | "writedb___" -> action_writedb,    Xapi_globs.redo_log_max_block_time_writedb
-                  | "read______" -> action_read,       Xapi_globs.redo_log_max_block_time_read
-                  | "empty_____" -> action_empty,      Xapi_globs.redo_log_max_block_time_empty
+                  | "writedelta" -> action_writedelta, !Xapi_globs.redo_log_max_block_time_writedelta
+                  | "writedb___" -> action_writedb,    !Xapi_globs.redo_log_max_block_time_writedb
+                  | "read______" -> action_read,       !Xapi_globs.redo_log_max_block_time_read
+                  | "empty_____" -> action_empty,      !Xapi_globs.redo_log_max_block_time_empty
                   | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)), 0.
                 in
                 (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)

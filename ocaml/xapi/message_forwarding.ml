@@ -2682,17 +2682,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 					let (_: Thread.t) = Thread.create (fun () ->
 						Client.PIF.reconfigure_ip rpc session_id self mode iP netmask gateway dNS) () in
 					let task_id = Context.get_task_id __context in
-					let rec poll i =
-						if i>300 then failwith "Failed to see host on network after timeout expired";
+					let start_time = Unix.gettimeofday () in
+					let progress = ref 0.0 in
+					while !progress = 0.0 do
+						if Unix.gettimeofday () -. start_time < !Xapi_globs.pif_reconfigure_ip_timeout then
+							failwith "Failed to see host on network after timeout expired";
 						Thread.delay 1.0;
-						debug "Polling task %s progress" (Ref.string_of task_id);
-						let progress = Db.Task.get_progress ~__context ~self:task_id in
-						debug "progress=%f" progress;
-						if progress=0.0
-						then poll (i+1)
-						else ()
-					in
-					poll 0)
+						progress := Db.Task.get_progress ~__context ~self:task_id;
+						debug "Polling task %s progress" (Ref.string_of task_id)
+					done)
 
 		let scan ~__context ~host =
 			info "PIF.scan: host = '%s'" (host_uuid ~__context host);

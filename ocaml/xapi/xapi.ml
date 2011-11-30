@@ -496,11 +496,11 @@ let server_run_in_emergency_mode () =
   Xapi_globs.slave_emergency_mode := true;
   (* signal the init script that it should succeed even though we're bust *)
   Helpers.touch_file !Xapi_globs.ready_file; 
-  
-  let emergency_reboot_timer = 60. +. (float_of_int (Random.int 120)) (* restart after 1--3 minute delay *) in
-  info "Will restart management software in %.1f seconds" emergency_reboot_timer;
+
+  let emergency_reboot_delay = !Xapi_globs.emergency_reboot_delay_base +. Random.float !Xapi_globs.emergency_reboot_delay_extra in
+  info "Will restart management software in %.1f seconds" emergency_reboot_delay;
   (* in emergency mode we reboot to try reconnecting every "emergency_reboot_timer" period *)
-  let (* reboot_thread *) _ = Thread.create (fun ()->Thread.delay emergency_reboot_timer; exit Xapi_globs.restart_return_code) () in	    
+  let (* reboot_thread *) _ = Thread.create (fun ()->Thread.delay emergency_reboot_delay; exit Xapi_globs.restart_return_code) () in
   wait_to_die();
   exit 0
 
@@ -824,7 +824,8 @@ let server_init() =
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
     Startup.run ~__context [
     "Reading config file", [], (fun () -> Xapi_config.read_config !Xapi_globs.config_file);
-    "Reading log config file", [ Startup.NoExnRaising ], (fun () -> Xapi_config.read_log_config !Xapi_globs.log_config_file);
+    "Reading log config file", [ Startup.NoExnRaising ], (fun () ->Xapi_config.read_log_config !Xapi_globs.log_config_file);
+    "Reading external global variables definition", [ Startup.NoExnRaising ], Xapi_globs.read_external_config;
     "Initing stunnel path", [], Stunnel.init_stunnel_path;
     "XAPI SERVER STARTING", [], print_server_starting_message;
     "Parsing inventory file", [], Xapi_inventory.read_inventory;
@@ -891,14 +892,14 @@ let server_init() =
               debug "I think the error is a temporary one, retrying in 5s";
               Thread.delay 5.;
           | Some Permanent ->
-              error "Permanent error in Pool.hello, will retry after %.0fs just in case" Xapi_globs.permanent_master_failure_retry_timeout;
-              Thread.delay Xapi_globs.permanent_master_failure_retry_timeout
+              error "Permanent error in Pool.hello, will retry after %.0fs just in case" !Xapi_globs.permanent_master_failure_retry_interval;
+              Thread.delay !Xapi_globs.permanent_master_failure_retry_interval
           end;
         done;
         debug "Startup successful";
         Xapi_globs.slave_emergency_mode := false;
         Master_connection.connection_timeout := initial_connection_timeout;
-        
+
         begin
           try
             (* We can't tolerate an exception in db synchronization so fall back into emergency mode
@@ -914,7 +915,7 @@ let server_init() =
               server_run_in_emergency_mode()
             end
         end;
-        Master_connection.connection_timeout := Xapi_globs.master_connect_retry_timeout;
+        Master_connection.connection_timeout := !Xapi_globs.master_connection_retry_timeout;
         Master_connection.restart_on_connection_timeout := true;
         Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
     end;

@@ -25,10 +25,10 @@ let time f =
   Unix.gettimeofday () -. start
 
 (* give xapi time to reply to API messages by means of a 10 second fuse! *)
-let light_fuse_and_run ?(fuse_length=Xapi_globs.fuse_time) () =
+let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
   debug "light_fuse_and_run: calling Monitor_rrds.backup to save current RRDs locally"; 
   let delay_so_far = time Monitor_rrds.backup in
-  let new_fuse_length = max 5. (float_of_int fuse_length -. delay_so_far) in
+  let new_fuse_length = max 5. (fuse_length -. delay_so_far) in
   debug "light_fuse_and_run: current RRDs have been saved";
   ignore (Thread.create
 	    (fun ()->
@@ -49,25 +49,25 @@ let light_fuse_and_run ?(fuse_length=Xapi_globs.fuse_time) () =
 let light_fuse_and_reboot_after_eject() =
   ignore (Thread.create
 	    (fun ()->
-	       Thread.delay (float_of_int Xapi_globs.fuse_time);
+	       Thread.delay !Xapi_globs.fuse_time;
 	       (* this activates firstboot script and reboots the host *)
 		   ignore (Forkhelpers.execute_command_get_output "/sbin/service" [ "firstboot"; "activate" ]);
            ()
 	    ) ())
 
-let light_fuse_and_reboot ?(fuse_length=Xapi_globs.fuse_time) () =
+let light_fuse_and_reboot ?(fuse_length = !Xapi_globs.fuse_time) () =
   ignore (Thread.create
 	    (fun ()->
-	       Thread.delay (float_of_int fuse_length);
+		     Thread.delay fuse_length;
 	       ignore(Sys.command "shutdown -r now")
 	    ) ())
 
-let light_fuse_and_dont_restart ?(fuse_length=Xapi_globs.fuse_time) () =
+let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () =
   ignore (Thread.create
 	     (fun () ->
 		debug "light_fuse_and_dont_restart: calling Monitor_rrds.backup to save current RRDs locally";
 	       Monitor_rrds.backup ();
-	       Thread.delay (float_of_int fuse_length);
+	       Thread.delay fuse_length;
 	       Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) 0) ());
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence
      the use of a background thread. *)
