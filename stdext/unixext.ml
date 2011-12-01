@@ -195,9 +195,7 @@ let execv_get_output cmd args =
 		Unix.close pipe_entrance;
 		pid, pipe_exit
 
-(** Copy all data from an in_channel to an out_channel,
- * returning the total number of bytes *)
-let copy_file ?limit ifd ofd =
+let copy_file_internal ?limit reader writer =
 	let buffer = String.make 65536 '\000' in
 	let buffer_len = Int64.of_int (String.length buffer) in
 	let finished = ref false in
@@ -205,15 +203,17 @@ let copy_file ?limit ifd ofd =
 	let limit = ref limit in
 	while not(!finished) do
 		let requested = min (Opt.default buffer_len !limit) buffer_len in
-		let num = Unix.read ifd buffer 0 (Int64.to_int requested) in
+		let num = reader buffer 0 (Int64.to_int requested) in
 		let num64 = Int64.of_int num in
 
 		limit := Opt.map (fun x -> Int64.sub x num64) !limit;
-		ignore_int (Unix.write ofd buffer 0 num);
+		ignore_int (writer buffer 0 num);
 		total_bytes := Int64.add !total_bytes num64;
 		finished := num = 0 || !limit = Some 0L;
 	done;
 	!total_bytes
+
+let copy_file ?limit ifd ofd = copy_file_internal ?limit (Unix.read ifd) (Unix.write ofd)
 
 let file_exists file_path =
 	try Unix.access file_path [Unix.F_OK]; true
@@ -638,19 +638,27 @@ type statvfs_t = {
 
 external statvfs : string -> statvfs_t = "stub_statvfs"
 
-type open_flag =
-	| O_DIRECT (* new *)
-	| O_RDONLY
-	| O_WRONLY
-	| O_RDWR
-	| O_NONBLOCK
-	| O_APPEND
-	| O_CREAT
-	| O_TRUNC
-	| O_EXCL
-	| O_NOCTTY
-	| O_DSYNC
-	| O_SYNC
-	| O_RSYNC
+module Direct = struct
+	type t = Unix.file_descr
 
-external openfile : string -> open_flag list -> Unix.file_perm -> Unix.file_descr = "stub_stdext_unix_open"
+	external openfile : string -> Unix.open_flag list -> Unix.file_perm -> t = "stub_stdext_unix_open_direct"
+
+	let close = Unix.close
+
+	let with_openfile path flags perms f =
+		let t = openfile path flags perms in
+		finally (fun () -> f t) (fun () -> close t)
+
+	external unsafe_write : t -> string -> int -> int -> int = "stub_stdext_unix_write"
+
+	let write fd buf ofs len =
+		if ofs < 0 || len < 0 || ofs > String.length buf - len
+		then invalid_arg "Unix.write"
+		else unsafe_write fd buf ofs len
+
+	let copy_from_fd ?limit socket fd = copy_file_internal ?limit (Unix.read socket) (write fd)
+
+	let fsync x = fsync x
+
+	let lseek fd x cmd = Unix.LargeFile.lseek fd x cmd
+end

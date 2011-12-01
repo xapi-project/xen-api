@@ -156,20 +156,31 @@ type statvfs_t = {
 
 val statvfs : string -> statvfs_t
 
-type open_flag =
-	| O_DIRECT (* new *)
-	| O_RDONLY
-	| O_WRONLY
-	| O_RDWR
-	| O_NONBLOCK
-	| O_APPEND
-	| O_CREAT
-	| O_TRUNC
-	| O_EXCL
-	| O_NOCTTY
-	| O_DSYNC
-	| O_SYNC
-	| O_RSYNC
+module Direct : sig
+	(** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
 
-external openfile : string -> open_flag list -> Unix.file_perm -> Unix.file_descr = "stub_stdext_unix_open"
-(** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
+	type t
+	(** represents a file open in O_DIRECT mode *)
+
+	val openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
+	(** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
+
+	val close : t -> unit
+	(** [close t] closes [t], a file open in O_DIRECT mode *)
+
+	val with_openfile : string -> Unix.open_flag list -> Unix.file_perm -> (t -> 'a) -> 'a
+	(** [with_openfile name flags perm f] opens [name], applies the result to [f] and closes *)
+
+	val write : t -> string -> int -> int -> int
+	(** [write t buf ofs len] writes [len] bytes at offset [ofs] from buffer [buf] to
+		[t] using page-aligned buffers. *)
+
+	val copy_from_fd : ?limit:int64 -> Unix.file_descr -> t -> int64
+	(** [copy_from_fd ?limit fd t] copies from [fd] to [t] up to [limit] *)
+
+	val fsync : t -> unit
+	(** [fsync t] commits all outstanding writes, throwing an error if necessary. *)
+
+	val lseek : t -> int64 -> Unix.seek_command -> int64
+	(** [lseek t offset command]: see Unix.LargeFile.lseek *)
+end

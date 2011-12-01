@@ -37,18 +37,17 @@
 #endif
 
 static int open_flag_table[] = {
-  O_DIRECT,
   O_RDONLY, O_WRONLY, O_RDWR, O_NONBLOCK, O_APPEND, O_CREAT, O_TRUNC, O_EXCL,
   O_NOCTTY, O_DSYNC, O_SYNC, O_RSYNC
 };
 
-CAMLprim value stub_stdext_unix_open(value path, value flags, value perm)
+CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
 {
   CAMLparam3(path, flags, perm);
   int ret, cv_flags;
   char * p;
 
-  cv_flags = convert_flag_list(flags, open_flag_table);
+  cv_flags = convert_flag_list(flags, open_flag_table) | O_DIRECT;
   p = stat_alloc(string_length(path) + 1);
   strcpy(p, String_val(path));
   /* open on a named FIFO can block (PR#1533) */

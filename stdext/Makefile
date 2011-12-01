@@ -77,7 +77,7 @@ stdext.cma: $(foreach obj,$(STDEXT_OBJS),$(obj).cmo)
 stdext_stubs.a: unixext_stubs.o zerocheck_stub.o 
 	ocamlmklib -o stdext_stubs $+
 
-libstdext_stubs.a: unixext_open_stubs.o unixext_stubs.o zerocheck_stub.o 
+libstdext_stubs.a: unixext_open_stubs.o unixext_write_stubs.o unixext_stubs.o zerocheck_stub.o
 	ar rcs $@ $+
 	ocamlmklib -o stdext_stubs $+
 
