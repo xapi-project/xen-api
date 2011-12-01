@@ -13,11 +13,11 @@
 
 /* $Id: open.c 9547 2010-01-22 12:48:24Z doligez $ */
 
-#include <mlvalues.h>
-#include <alloc.h>
-#include <memory.h>
-#include <signals.h>
-#include "unixsupport.h"
+#include <caml/mlvalues.h>
+#include <caml/alloc.h>
+#include <caml/memory.h>
+#include <caml/signals.h>
+#include <caml/unixsupport.h>
 #include <string.h>
 #include <fcntl.h>
 
