@@ -13,6 +13,8 @@
 
 /* $Id: open.c 9547 2010-01-22 12:48:24Z doligez $ */
 
+#define _GNU_SOURCE /* O_DIRECT */
+
 #include <caml/mlvalues.h>
 #include <caml/alloc.h>
 #include <caml/memory.h>
@@ -35,6 +37,7 @@
 #endif
 
 static int open_flag_table[] = {
+  O_DIRECT,
   O_RDONLY, O_WRONLY, O_RDWR, O_NONBLOCK, O_APPEND, O_CREAT, O_TRUNC, O_EXCL,
   O_NOCTTY, O_DSYNC, O_SYNC, O_RSYNC
 };
