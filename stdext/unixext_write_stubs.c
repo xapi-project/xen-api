@@ -20,6 +20,8 @@
 #include <caml/signals.h>
 #include <caml/unixsupport.h>
 
+#define PAGE_SIZE 4096
+
 #ifndef EAGAIN
 #define EAGAIN (-1)
 #endif
@@ -27,11 +29,11 @@
 #define EWOULDBLOCK (-1)
 #endif
 
-CAMLprim value unix_write(value fd, value buf, value vofs, value vlen)
+CAMLprim value stub_stdext_unix_write(value fd, value buf, value vofs, value vlen)
 {
   long ofs, len, written;
   int numbytes, ret;
-  char iobuf[UNIX_BUFFER_SIZE];
+  void *iobuf = NULL;
 
   Begin_root (buf);
     ofs = Long_val(vofs);
@@ -39,10 +41,16 @@ CAMLprim value unix_write(value fd, value buf, value vofs, value vlen)
     written = 0;
     while (len > 0) {
       numbytes = len > UNIX_BUFFER_SIZE ? UNIX_BUFFER_SIZE : len;
+	  ret = posix_memalign(&iobuf, PAGE_SIZE, numbytes);
+	  if (ret != 0)
+	    uerror("write/posix_memalign", Nothing);
+
       memmove (iobuf, &Byte(buf, ofs), numbytes);
       enter_blocking_section();
       ret = write(Int_val(fd), iobuf, numbytes);
       leave_blocking_section();
+	  free(iobuf);
+
       if (ret == -1) {
         if ((errno == EAGAIN || errno == EWOULDBLOCK) && written > 0) break;
         uerror("write", Nothing);
@@ -55,32 +63,3 @@ CAMLprim value unix_write(value fd, value buf, value vofs, value vlen)
   return Val_long(written);
 }
 
-/* When an error occurs after the first loop, unix_write reports the
-   error and discards the number of already written characters.
-   In this case, it would be better to discard the error and return the
-   number of bytes written, since most likely, unix_write will be call again,
-   and the error will be reproduced and this time will be reported.
-   This problem is avoided in unix_single_write, which is faithful to the
-   Unix system call. */
-
-CAMLprim value unix_single_write(value fd, value buf, value vofs, value vlen)
-{
-  long ofs, len;
-  int numbytes, ret;
-  char iobuf[UNIX_BUFFER_SIZE];
-
-  Begin_root (buf);
-    ofs = Long_val(vofs);
-    len = Long_val(vlen);
-    ret = 0;
-    if (len > 0) {
-      numbytes = len > UNIX_BUFFER_SIZE ? UNIX_BUFFER_SIZE : len;
-      memmove (iobuf, &Byte(buf, ofs), numbytes);
-      enter_blocking_section();
-      ret = write(Int_val(fd), iobuf, numbytes);
-      leave_blocking_section();
-      if (ret == -1) uerror("single_write", Nothing);
-    }
-  End_roots();
-  return Val_int(ret);
-}
