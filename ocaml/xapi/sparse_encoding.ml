@@ -89,13 +89,18 @@ module Chunk = struct
 		if n < len 
 		then failwith (Printf.sprintf "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n)
 
+	let really_write_direct fd offset buf off len = 
+		let n = Unixext.Direct.write fd buf off len in
+		if n < len 
+		then failwith (Printf.sprintf "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n)
+
 	(** Writes a single block of data to the output device *)
 	let write fd x = 
-		ignore(Unix.LargeFile.lseek fd x.start Unix.SEEK_SET);
-		really_write fd x.start x.data 0 (String.length x.data)
+		ignore(Unixext.Direct.lseek fd x.start Unix.SEEK_SET);
+		really_write_direct fd x.start x.data 0 (String.length x.data)
 
 	(** Reads a type t from a file descriptor *)
-	let unmarshal fd = 
+	let unmarshal (fd: Unix.file_descr) = 
 		let buf = String.make 12 '\000' in
 		Unixext.really_read fd buf 0 (String.length buf);
 		let stream = (buf, 0) in
@@ -106,7 +111,7 @@ module Chunk = struct
 		{ start = start; data = payload }
 
 	(** Writes a type t from a file descriptor *)
-	let marshal fd x = 
+	let marshal (fd: Unix.file_descr) x = 
 		let start' = Marshal.int64 x.start in
 		let len' = Marshal.int32 (Int32.of_int (String.length x.data)) in
 		really_write fd 0L start' 0 (String.length start');
