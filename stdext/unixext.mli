@@ -155,3 +155,21 @@ type statvfs_t = {
 }
 
 val statvfs : string -> statvfs_t
+
+type open_flag =
+	| O_DIRECT (* new *)
+	| O_RDONLY
+	| O_WRONLY
+	| O_RDWR
+	| O_NONBLOCK
+	| O_APPEND
+	| O_CREAT
+	| O_TRUNC
+	| O_EXCL
+	| O_NOCTTY
+	| O_DSYNC
+	| O_SYNC
+	| O_RSYNC
+
+external openfile : string -> open_flag list -> Unix.file_perm -> Unix.file_descr = "stub_stdext_unix_open"
+(** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
