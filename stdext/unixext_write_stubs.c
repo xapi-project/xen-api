@@ -15,10 +15,10 @@
 
 #include <errno.h>
 #include <string.h>
-#include <mlvalues.h>
-#include <memory.h>
-#include <signals.h>
-#include "unixsupport.h"
+#include <caml/mlvalues.h>
+#include <caml/memory.h>
+#include <caml/signals.h>
+#include <caml/unixsupport.h>
 
 #ifndef EAGAIN
 #define EAGAIN (-1)
