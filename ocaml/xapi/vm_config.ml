@@ -32,6 +32,9 @@ type vif = {
 	bridge: string; (** name of the bridge in domain 0 *)
 	rate: (int64 * int64) option;
 	other_config: (string * string) list;
+	locking_mode: API.vif_locking_mode;
+	ipv4_allowed: string list;
+	ipv6_allowed: string list;
 }
 
 (* Note: we always pass in the VM's domid rather than use the one from the VM record because
@@ -85,7 +88,10 @@ let vif_of_vif ~__context ~vm vm_r domid protocol vif =
 			mtu = mtu;
 			bridge = bridge;
 			rate = rate;
-			other_config = vif_r.API.vIF_other_config
+			other_config = vif_r.API.vIF_other_config;
+			locking_mode = vif_r.API.vIF_locking_mode;
+			ipv4_allowed = vif_r.API.vIF_ipv4_allowed;
+			ipv6_allowed = vif_r.API.vIF_ipv6_allowed;
 		}
 	with _ -> None 
 
