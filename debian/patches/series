@@ -20,3 +20,4 @@
 0020-vif-hot-unplug.patch
 0021-new-ocaml-layout.patch
 0022-dont-statically-link-anything.patch
+0023-remove-calls-to-xenlight.patch

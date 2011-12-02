@@ -1,0 +1,75 @@
+From: Mike McClurg <mike.mcclurg@citrix.com>
+Date: Fri, 2 Dec 2011 15:50:59 +0000
+Subject: remove calls to xenlight
+
+---
+ ocaml/xapi/OMakefile   |    6 +++---
+ ocaml/xenops/OMakefile |    6 +++---
+ ocaml/xenops/device.ml |    2 ++
+ 3 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/ocaml/xapi/OMakefile b/ocaml/xapi/OMakefile
+index 5b3cb7a..cde49d0 100644
+--- a/ocaml/xapi/OMakefile
++++ b/ocaml/xapi/OMakefile
+@@ -11,16 +11,16 @@ UseCamlp4(rpc-light.idl, storage_interface)
+ 
+ CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
+ 
+-XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
++#XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
+ # Since the section didn't work, link against the xen libs for everything if we are building
+ # xen stuff at all.
+ # NB order of libraries is important: OMake cannot determine dependencies between libraries
+ # (the same holds for OCaml packages)
+ XEN_OCAML_LIBS = ../xenops/xenops ../auth/pam
+ XEN_OCAMLINCLUDES =
+-XEN_OCAMLPACKS = xenctrl xenstore cpuid xenlight
++XEN_OCAMLPACKS = xenctrl xenstore cpuid # xenlight
+ OCAML_CLIBS = $(XEN_OCAML_CLIBS) $(OCAML_CLIBS)
+-OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) $(XENLIGHT_LINK_FLAGS)
++OCAML_LINK_FLAGS = $(XEN_OCAML_LINK_FLAGS) $(OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
+ CFLAGS = $(XEN_CFLAGS) $(CFLAGS)
+ OCAMLINCLUDES = $(XEN_OCAMLINCLUDES) $(OCAMLINCLUDES)
+ # xc.cma depends on uuid.cma
+diff --git a/ocaml/xenops/OMakefile b/ocaml/xenops/OMakefile
+index 7968554..2bc976c 100644
+--- a/ocaml/xenops/OMakefile
++++ b/ocaml/xenops/OMakefile
+@@ -2,12 +2,12 @@ OCAMLINCLUDES    = ../xapi ../util
+ OCAML_LIBS       = ../util/stats
+ OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
+ # XXX: these should all be specified in the ocamlfind META file:
+-XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
+-OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) $(XENLIGHT_LINK_FLAGS)
++#XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
++OCAML_LINK_FLAGS+= $(XEN_OCAML_LINK_FLAGS) # $(XENLIGHT_LINK_FLAGS)
+ 
+ CFLAGS          += $(XEN_CFLAGS)
+ 
+-OCAMLPACKS     = threads xenctrl xenstore stdext log cdrom netdev xenlight
++OCAMLPACKS     = threads xenctrl xenstore stdext log cdrom netdev # xenlight
+ OCAMLFLAGS    += -thread
+ 
+ LIBFILES = table xenops_helpers xenbus_utils balloon xenguestHelper domain hotplug device io statdev xal netman memory watch device_common squeeze squeeze_xen squeezed_rpc squeezed_state squeezed_rpc device_number stubdom
+diff --git a/ocaml/xenops/device.ml b/ocaml/xenops/device.ml
+index 587f48f..fa9fc4d 100644
+--- a/ocaml/xenops/device.ml
++++ b/ocaml/xenops/device.ml
+@@ -1007,6 +1007,7 @@ let add_noexn ~xc ~xs ~hvm ~msitranslate ~pci_power_mgmt ?(flrscript=None) pcide
+ 	Generic.add_device ~xs device (others @ xsdevs @ backendlist) frontendlist [];
+ 	()
+ 
++(* comment out while we sort out libxenlight
+ let pci_info_of ~msitranslate ~pci_power_mgmt = function
+     | domain, bus, dev, func ->
+         {
+@@ -1051,6 +1052,7 @@ let release_libxl ~msitranslate ~pci_power_mgmt pcidevs domid =
+ 				debug "Xenlight.pci_remove: %s" (Printexc.to_string e);
+ 				raise e
+ 		) pcidevs
++*)
+ 
+ (* XXX: we don't want to use the 'xl' command here because the "interface"
+    isn't considered as stable as the C API *)
+-- 
