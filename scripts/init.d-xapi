@@ -34,9 +34,6 @@ start() {
     # This init.d script is only used on the XCP 'appliance' so we assume
     # we have the shutdown-request ability in the dom0 kernel
     xenstore-write /local/domain/0/control/feature-shutdown-request 1
-    # we also know the dom0 kernel has a bug where it needs the physical-device
-    # key to be created in the same transaction as the params key.
-	xenstore-write /local/domain/0/control/feature-blkback-needs-physical-device-in-transaction 1
 
 	# clear out any old xapi coredumps
 	rm -rf /var/xapi/debug
