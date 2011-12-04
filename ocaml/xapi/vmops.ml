@@ -832,9 +832,8 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
 	(* Wait for up to 60s for the VM to acknowledge the shutdown request. In case the guest
 	   misses our original request, keep making additional ones. *)
 	let finished = ref false in
-	let timeout = 60.0 in
 	let start = Unix.gettimeofday () in
-	while Unix.gettimeofday () -. start < timeout && not !finished do
+	while Unix.gettimeofday () -. start < !Xapi_globs.domain_shutdown_ack_timeout && not !finished do
 	  try
 		(* Make the shutdown request: this will fail if the domain has vanished. *)
 		Domain.shutdown ~xs domid reason;
@@ -852,12 +851,11 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
 	if not !finished then raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
   end;
   at 0.50;
-  let total_timeout = 60. *. 60. in (* 1 hour *)
   (* Block for 5s at a time, in between check to see whether we've been cancelled
      and update our progress if not *)
   let start = Unix.gettimeofday () in
   let result = ref None in
-  while (Unix.gettimeofday () -. start < total_timeout) && (!result = None) do
+  while (Unix.gettimeofday () -. start < !Xapi_globs.domain_shutdown_total_timeout) && (!result = None) do
     try
 		debug "MTC: calling xal.wait_release timeout=%f" rel_timeout;
 		Xs.monitor_paths xs [ "@releaseDomain","X" ] rel_timeout
@@ -868,11 +866,11 @@ let clean_shutdown_with_reason ?(at = fun _ -> ()) ~xal ~__context ~self ?(rel_t
       if reason <> Domain.Suspend && TaskHelper.is_cancelling ~__context
       then raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of (Context.get_task_id __context) ]));
       (* Update progress and repeat *)
-      let progress = min ((Unix.gettimeofday () -. start) /. total_timeout) 1. in
+      let progress = min ((Unix.gettimeofday () -. start) /. !Xapi_globs.domain_shutdown_total_timeout) 1. in
       at (0.50 +. 0.25 *. progress)
   done;
   match !result with
-  | None -> raise (Api_errors.Server_error(Api_errors.vm_shutdown_timeout, [ Ref.string_of self; string_of_float total_timeout ]))
+  | None -> raise (Api_errors.Server_error(Api_errors.vm_shutdown_timeout, [ Ref.string_of self; string_of_float !Xapi_globs.domain_shutdown_total_timeout ]))
   | Some x ->
 		at 1.0;
 		x

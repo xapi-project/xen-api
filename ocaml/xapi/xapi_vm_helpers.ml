@@ -742,10 +742,6 @@ let set_memory_target_live ~__context ~self ~target = () (*
 	Vmopshelpers.with_xs (fun xs -> Balloon.set_memory_target ~xs domid target)
 *)
 
-(** The default upper bound on the length of time to wait *)
-(** for a running VM to reach its current memory target.  *)
-let wait_memory_target_timeout_seconds = 256
-
 (** The default upper bound on the acceptable difference between *)
 (** actual memory usage and target memory usage when waiting for *)
 (** a running VM to reach its current memory target.             *)
@@ -765,13 +761,13 @@ let is_power_of_2 n =
 (** if the time-out counter exceeds its limit, this function   *)
 (** raises a server error and terminates.                      *)
 let wait_memory_target_live ~__context ~self
-	?(timeout_seconds = wait_memory_target_timeout_seconds)
-	?(tolerance_bytes = wait_memory_target_tolerance_bytes)
-	() =
+		?(timeout_seconds = int_of_float !Xapi_globs.wait_memory_target_timeout)
+		?(tolerance_bytes = wait_memory_target_tolerance_bytes)
+		() =
 	let raise_error error =
 		raise (Api_errors.Server_error (error, [Ref.string_of (Context.get_task_id __context)])) in
 	let rec wait accumulated_wait_time_seconds =
-		if accumulated_wait_time_seconds > wait_memory_target_timeout_seconds
+		if accumulated_wait_time_seconds > timeout_seconds
 			then raise_error Api_errors.vm_memory_target_wait_timeout;
 		if TaskHelper.is_cancelling ~__context
 			then raise_error Api_errors.task_cancelled;
