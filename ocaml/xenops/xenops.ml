@@ -420,14 +420,6 @@ let affinity_get ~xc ~domid ~vcpu =
 	Array.iteri (fun i b -> s.[i] <- if b then '1' else '0') cpumap;
 	printf "%s\n" s
 
-let self_test () =
-    let device_tests = [ "sda2"; "sda"; "xvdd"; "xvda1"; "hde4"; "hdf" ] in
-    let numbers = List.map Device.Vbd.device_major_minor device_tests in
-    let names = List.map Device.Vbd.major_minor_to_device numbers in
-    List.iter (fun (a, ((major, minor), b)) ->
-        if a <> b then failwith (Printf.sprintf "%s -> (%d, %d) -> %s" a major minor b))
-        (List.combine device_tests (List.combine numbers names))
-
 let cmd_alias cmd =
 	match cmd with
 	| "init"                    -> "create_domain"
@@ -871,8 +863,6 @@ let _ = try
 		with_xc (fun xc -> print_pcpus_info ~xc);
 	| "capabilities" ->
 		with_xc (fun xc -> print_endline (Xenctrl.version_capabilities xc))
-    | "test" ->
-        self_test ()
     | "help" ->
         raise (usage (try Some (List.hd otherargs) with _ -> None) allcommands)
     | s ->
