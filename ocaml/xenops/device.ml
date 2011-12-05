@@ -463,6 +463,8 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
 	 | None -> ());
 
+	(* PV guests don't support CDROMs so we model these as disks *)
+	let dev_type = if not hvm then Disk else dev_type in
 
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
