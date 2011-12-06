@@ -22,7 +22,7 @@ open Stringext
 
 open Xmlrpc_client
 
-let default_path = "/var/xapi/storage"
+let default_path = Filename.concat Fhs.vardir "storage"
 let transport = ref (Unix default_path)
 
 let rpc call =

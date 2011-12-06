@@ -32,13 +32,17 @@ PLUGINDIR=/etc/xapi.d/plugins
 HOOKSDIR=/etc/xapi.d
 INVENTORY=/etc/xensource-inventory
 XAPICONF=/etc/xapi.conf
-LIBEXECDIR=$(OPTDIR)/libexec
+LIBEXECDIR=/opt/xensource/libexec
 SCRIPTSDIR=/etc/xensource/scripts
+SHAREDIR=/opt/xensource
+WEBDIR=/opt/xensource/www
+XHADIR=/opt/xensource/xha
+BINDIR=/opt/xensource/bin
 
-export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR
+export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR
 
 .PHONY: all
-all: version
+all: version ocaml/fhs.ml
 	omake phase1
 	omake phase2
 	omake phase3
@@ -116,9 +120,13 @@ ocaml/fhs.ml :
 	let libexecdir=\"$(LIBEXECDIR)\"\n \
 	let xapiconf=\"$(XAPICONF)\"\n \
 	let scriptsdir=\"$(SCRIPTSDIR)\"\n \
-	let varpatchdir=\"$(VARPATCHDIR)\"\n" \
+	let varpatchdir=\"$(VARPATCHDIR)\"\n \
+	let webdir=\"$(WEBDIR)\"\n \
+	let xhadir=\"$(XHADIR)\"\n \
+	let bindir=\"$(BINDIR)\"\n \
+	let sharedir=\"$(SHAREDIR)\"\n" \
 	> ocaml/fhs.ml
-	 
+ 
 .PHONY: clean
  clean:
 

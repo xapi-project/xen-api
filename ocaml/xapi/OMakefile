@@ -1,10 +1,10 @@
 OCAMLPACKS    = xml-light2 cdrom pciutil sexpr log stunnel http-svr rss xen-utils netdev tapctl vhd xenstore rpc-light
-OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
+OCAML_LIBS    = ../fhs ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
 	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../autogen ../database/ \
 	../xenops ../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg
+	../auth ../license ../client_records ../rfb ../gpg ..
 
 UseCamlp4(rpc-light.syntax, features rrd monitor_fake monitor_fake_common vdi_automaton storage_impl xapi_udhcpd)
 UseCamlp4(rpc-light.idl, storage_interface)
@@ -278,13 +278,6 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 .DEFAULT: xapi
 
-.PHONY: generate_constants
-
-generate_constants: config_constants.ml
-
-config_constants.ml: config_constants.ml.in
-	sed "s!@OPTDIR@!\"$(OPTDIR)\"!" $< > $@
-
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
@@ -306,6 +299,5 @@ sdk-install: install
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
-	rm -f config_constants.ml
 	rm -f binpack xapi_unit_test sparse_dd fakeguestagent monitor_fake_plugin rrddump quicktestbin
 

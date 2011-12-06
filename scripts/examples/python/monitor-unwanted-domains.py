@@ -9,7 +9,7 @@ import os, subprocess, XenAPI, inventory, time, sys
 # Return a list of (domid, uuid) tuples, one per paused domain on this host
 def list_paused_domains():
     results = []
-    all = subprocess.Popen(["@OPTDIR@/bin/list_domains"], stdout=subprocess.PIPE).communicate()[0]
+    all = subprocess.Popen(["@BINDIR@/list_domains"], stdout=subprocess.PIPE).communicate()[0]
     lines = all.split("\n")
     for domain in lines[1:]:
         bits = domain.split()

@@ -1,4 +1,4 @@
-OCAMLINCLUDES += ../xapi
+OCAMLINCLUDES += ../xapi ..
 
 .PHONY: clean
 clean:

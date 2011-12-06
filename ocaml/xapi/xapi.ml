@@ -675,7 +675,7 @@ let common_http_handlers = [
   ("get_export_metadata", (Http_svr.FdIO Export.metadata_handler));
   ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy));
   ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy));
-  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" (Xapi_globs.base_path ^ "/www")));
+  ("get_root", Http_svr.BufIO (Fileserver.send_file "/" Fhs.webdir));
   ("post_cli", (Http_svr.BufIO Xapi_cli.handler));
   ("get_host_backup", (Http_svr.FdIO Xapi_host_backup.host_backup_handler));
   ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
@@ -1201,10 +1201,10 @@ let _ =
     Unixext.daemonize ();
   Unixext.pidfile_write "/var/run/xapi.pid";
 
-  (* chdir to /var/xapi/debug so that's where xapi coredumps go 
+  (* chdir to @VARDIR@/debug so that's where xapi coredumps go 
      (in the unlikely event that there are any ;) *)
-  Unixext.mkdir_rec "/var/xapi/debug" 0o700;
-  Unix.chdir "/var/xapi/debug";
+  Unixext.mkdir_rec (Filename.concat Fhs.vardir "debug") 0o700;
+  Unix.chdir (Filename.concat Fhs.vardir "debug");
 
 	set_thread_queue_params ();
 

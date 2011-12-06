@@ -16,13 +16,13 @@ import traceback
 import xml.dom.minidom
 from xml.parsers.expat import ExpatError
 
-INSTALLED_REPOS_DIR = '/etc/xensource/installed-repos'
+INSTALLED_REPOS_DIR = '@ETCDIR@/installed-repos'
 
 def main():
     session = XenAPI.xapi_local()
     logged_in = False
     # read dom0 uuid out of inventory file
-    uuid = filter(lambda x: x.startswith('CONTROL_DOMAIN_UUID'), open('/etc/xensource-inventory').readlines())[0].strip().split('=')[1].strip("'")
+    uuid = filter(lambda x: x.startswith('CONTROL_DOMAIN_UUID'), open('@INVENTORY@').readlines())[0].strip().split('=')[1].strip("'")
     oref = rec = None
     for tries in range(180):
         try:

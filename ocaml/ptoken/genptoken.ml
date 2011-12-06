@@ -2,7 +2,7 @@
 
 type options = { force : bool; tgtfile : string }
 
-let options = ref { force = false; tgtfile = "/etc/xensource/ptoken" }
+let options = ref { force = false; tgtfile = Filename.concat Fhs.etcdir "ptoken" }
 
 let set_force _ = options := { !options with force = true }
 let set_target s = options := { !options with tgtfile = s }

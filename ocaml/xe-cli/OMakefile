@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi
+OCAML_LIBS    = ../fhs ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ..
 OCAMLPACKS    = xml-light2 stdext stunnel log
 
 section

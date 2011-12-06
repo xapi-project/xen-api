@@ -467,7 +467,7 @@ let sr_scan_test caps session_id sr =
   Client.SR.scan !rpc session_id sr;
   success test
 
-let iso_path = Xapi_globs.base_path ^ "/packages/iso"
+let iso_path = Filename.concat Fhs.sharedir "packages/iso"
 
 let packages_iso_test session_id =
   let test = make_test ("ISO SR should be able to create VDIs for " ^ iso_path) 2 in

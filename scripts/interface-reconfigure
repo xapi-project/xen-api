@@ -54,7 +54,7 @@ import syslog
 
 management_pif = None
 
-dbcache_file = "/var/xapi/network.dbcache"
+dbcache_file = "@VARDIR@/network.dbcache"
 
 #
 # Logging.
