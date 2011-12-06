@@ -67,7 +67,7 @@ if [ -z "$VMUUID" ]; then
     logger -t $(basename $0) "VM UUID not found in args"
 fi
 
-. /etc/xensource-inventory
+. @INVENTORY@
 
 if [ -z "$INSTALLATION_UUID" ]; then
     logger -t $(basename $0) "Could not determine host UUID"

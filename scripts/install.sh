@@ -51,6 +51,10 @@ for FILE in ${FILES}; do
         -e "s!@XAPICONF@!${XAPICONF}!g" \
         -e "s!@LIBEXECDIR@!${LIBEXECDIR}!g" \
         -e "s!@SCRIPTSDIR@!${SCRIPTSDIR}!g" \
+        -e "s!@SHAREDIR@!${SHAREDIR}!g" \
+        -e "s!@WEBDIR@!${WEBDIR}!g" \
+        -e "s!@XHADIR@!${XHADIR}!g" \
+        -e "s!@BINDIR@!${BINDIR}!g" \
          ${NEWFILE}
   fi
 done

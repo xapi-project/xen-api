@@ -30,7 +30,7 @@ type pci = {
 
 type pci_class = Display_controller | Network_controller
 
-let prog = Xapi_globs.base_path ^ "/libexec/pci-info"
+let prog = Filename.concat Fhs.libexecdir "pci-info"
 
 let find_class_id = function
 	| Display_controller -> "03"

@@ -197,3 +197,5 @@ ocaml/xenops/memory_breakdown
 ocaml/xenops/squeezed
 ocaml/xenops/squeezed_client
 xapi.spec
+
+ocaml/fhs.*

@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
         run("/sbin/mkfs.ext3 %s", xvda_parts[0])
 
-        xgt = "/opt/xensource/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
+        xgt = "@SHAREDIR@/packages/xgt/%s.xgt" % os.path.basename(sys.argv[0])
 
         run("/bin/mkdir -p %s", mountpoint)
         try:

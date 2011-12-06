@@ -407,7 +407,7 @@ let create_host_cpu ~__context =
 		if !i >= 0 then String.sub s 0 (!i + 1) else "" in
 
 
-	(* The boot-time CPU info is copied into a file in /etc/xensource/ in the xenservices init script;
+	(* The boot-time CPU info is copied into a file in @ETCDIR@/ in the xenservices init script;
 	   we use that to generate CPU records from. This ensures that if xapi is started after someone has
 	   modified dom0's VCPUs we don't change out host config... [Important to get this right, otherwise
 	   pool homogeneity checks fail] *)

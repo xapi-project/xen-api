@@ -7,7 +7,7 @@ set -e
 set -x
 
 # Restore a backup to the other partition
-. /etc/xensource-inventory
+. @INVENTORY@
 DEVICE=$BACKUP_PARTITION
 
 if [ -z "$DEVICE" ]

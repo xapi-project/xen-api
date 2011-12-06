@@ -78,7 +78,7 @@ let hash_table_of_leaf_xml_element_list list =
 module DaemonConfiguration = struct
 
 	(* Taken from Marathon's spec section 4.1.4.4 *)
-	let filename = "/etc/xensource/xhad.conf"
+	let filename = Filename.concat Fhs.etcdir "xhad.conf"
 
 	module Host = struct
 

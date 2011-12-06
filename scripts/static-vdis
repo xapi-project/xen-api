@@ -5,7 +5,7 @@
 import sys, os, subprocess
 import XenAPI, inventory, xmlrpclib
 
-main_dir = "/etc/xensource/static-vdis"
+main_dir = "@ETCDIR@/static-vdis"
 
 def read_whole_file(filename):
     f = open(filename)

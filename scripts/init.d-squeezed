@@ -13,7 +13,7 @@
 # Memory ballooning daemon
 
 # location of the executable:
-SQUEEZED="@OPTDIR@/libexec/squeezed"
+SQUEEZED="@LIBEXECDIR@/squeezed"
 
 # pidfile:
 PID_FILE="/var/run/squeezed.pid"

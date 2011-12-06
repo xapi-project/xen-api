@@ -25,7 +25,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # use the PRODUCT_VERSION from here:
-. /etc/xensource-inventory
+. @INVENTORY@
 
 major=$(echo ${PRODUCT_VERSION} | cut -f 1 -d .)
 minor=$(echo ${PRODUCT_VERSION} | cut -f 2 -d .)
