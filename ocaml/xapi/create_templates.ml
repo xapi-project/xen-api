@@ -582,7 +582,7 @@ let create_all_templates rpc session_id =
 		hvm_template "Windows Server 2008"        X64  512 24 [n;x;v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;  v;];
 		hvm_template "Windows Server 2008 R2"     X64  512 24 [n;x;v;];
-		hvm_template "Windows Server 8"     	X64 ~is_experimental:true1024 24 [n;  v;];
+		hvm_template "Windows Server 8"     	X64 ~is_experimental:true 1024 24 [n;  v;];
 		hvm_template "Solaris 10"                 X64_sol ~is_experimental:true 1024 24 [n;    ];
 	] in
 
