@@ -81,7 +81,7 @@ let read_inventory_contents () =
 		match parse_inventory_entry line with
 			| Some (k, v) -> Hashtbl.add inventory k v
 			| None -> warn
-				"Failed to parse line from xensource-inventory file: %s" line)
+				"Failed to parse line from inventory file: %s" line)
 		inventory_filename;
 	loaded_inventory := true
 

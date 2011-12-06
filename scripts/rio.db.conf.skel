@@ -1,4 +1,4 @@
-[/var/xapi/state.db]
+[@VARDIR@/state.db]
 mode:no_limit
 format:sqlite
 available_this_boot:true

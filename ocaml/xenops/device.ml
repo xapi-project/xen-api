@@ -642,7 +642,7 @@ let add ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Na
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", "/etc/xensource/scripts/vif";
+		"script", (Filename.concat Fhs.scriptsdir "vif");
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -720,7 +720,7 @@ end
 
 module PV_Vnc = struct
 
-let vncterm_wrapper = Xapi_globs.base_path ^ "/libexec/vncterm-wrapper"
+let vncterm_wrapper = Filename.concat Fhs.libexecdir "vncterm-wrapper"
 
 let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
 
@@ -1052,7 +1052,7 @@ let write_string_to_file file s =
 let do_flr device =
   debug "Doing FLR on pci device: %s" device;
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
-	let script = Xapi_globs.base_path ^ "/libexec/pci-flr" in
+	let script = Filename.concat Fhs.libexecdir "pci-flr" in
 	let callscript =
                 let f s devstr =
 	                try ignore (Forkhelpers.execute_command_get_output script [ s; devstr; ])

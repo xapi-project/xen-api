@@ -23,7 +23,7 @@ open Smint
 module D=Debug.Debugger(struct let name="sm_exec" end)
 open D
 
-let sm_daemon_dir = "/var/xapi/sm"
+let sm_daemon_dir = Filename.concat Fhs.vardir "sm"
 
 let cmd_name driver = sprintf "%s/%sSR" Xapi_globs.sm_dir driver
 let daemon_path driver = sprintf "%s/%s" sm_daemon_dir driver

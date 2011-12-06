@@ -3,7 +3,7 @@
 # Multipath Alerting Daemon
 
 # location of the executable:
-MPATHALERT="@OPTDIR@/bin/mpathalert"
+MPATHALERT="@BINDIR@/mpathalert"
 
 #delay in seconds between 2 consecutive alerts:
 DELAY="120"

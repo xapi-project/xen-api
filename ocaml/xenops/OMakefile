@@ -1,5 +1,5 @@
-OCAMLINCLUDES    = ../xapi ../util
-OCAML_LIBS       = ../util/stats
+OCAMLINCLUDES    = ../xapi ../util ..
+OCAML_LIBS       = ../util/stats ../fhs
 OCAML_CLIBS     += $(XEN_OCAML_CLIBS)
 # XXX: these should all be specified in the ocamlfind META file:
 XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore

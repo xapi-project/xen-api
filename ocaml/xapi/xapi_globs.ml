@@ -22,7 +22,7 @@ module D = Debug.Debugger(struct let name="xapi_globs" end)
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
-let pool_secret_path = "/etc/xensource/ptoken"
+let pool_secret_path = Filename.concat Fhs.etcdir "ptoken"
 let pool_secret = ref ""
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
@@ -49,7 +49,7 @@ let xencenter_max_verstring = "1.10"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
-let packs_dir = "/etc/xensource/installed-repos"
+let packs_dir = Filename.concat Fhs.etcdir "installed-repos"
 
 let ssl_pid = ref 0
 
@@ -63,10 +63,10 @@ let https_port = ref default_ssl_port
 
 let xapi_gc_debug = ref true
 
-let unix_domain_socket = "/var/xapi/xapi"
-let local_storage_unix_domain_socket = "/var/xapi/storage-local"
-let storage_unix_domain_socket = "/var/xapi/storage"
-let local_database = "/var/xapi/local.db"
+let unix_domain_socket = Filename.concat Fhs.vardir "xapi"
+let local_storage_unix_domain_socket = Filename.concat Fhs.vardir "storage-local"
+let storage_unix_domain_socket = Filename.concat Fhs.vardir "storage"
+let local_database = Filename.concat Fhs.vardir "local.db"
 
 
 (* if a slave in emergency "cannot see master mode" then this flag is set *)
@@ -83,17 +83,16 @@ let xe_key = "/mh/XenSource-TM_XenEnterprise-TM"
 let xe_val = "XenSource(TM) and XenEnterprise(TM) are registered trademarks of XenSource Inc."
 
 (* Base path and some of its immediate dependencies. *)
-let base_path = Config_constants.base_path
-let xe_path = base_path ^ "/bin/xe"
-let sm_dir = base_path ^ "/sm"
+let xe_path = Filename.concat Fhs.bindir "xe"
+let sm_dir = Filename.concat Fhs.optdir "sm"
 
-let config_file = ref "/etc/xapi.conf"
-let log_config_file = ref "/etc/xensource/log.conf"
-let db_conf_path = "/etc/xensource/db.conf"
-let remote_db_conf_fragment_path = "/etc/xensource/remote.db.conf"
+let config_file = ref Fhs.xapiconf
+let log_config_file = ref (Filename.concat Fhs.etcdir "log.conf")
+let db_conf_path = Filename.concat Fhs.etcdir "db.conf"
+let remote_db_conf_fragment_path = Filename.concat Fhs.etcdir "remote.db.conf"
 let simulator_config_file = ref "/etc/XenServer-simulator.conf"
-let pool_config_file = "/etc/xensource/pool.conf"
-let cpu_info_file = "/etc/xensource/boot_time_cpus"
+let pool_config_file = Filename.concat Fhs.etcdir "pool.conf"
+let cpu_info_file = Filename.concat Fhs.etcdir "boot_time_cpus"
 let initial_host_free_memory_file = "/var/run/xapi/boot_time_memory"
 let using_rrds = ref false
 
@@ -174,7 +173,7 @@ let tools_sr_tag = "xenserver_tools_sr"
 let rio_tools_sr_name = "XenSource Tools"
 let miami_tools_sr_name = "XenServer Tools"
 
-let tools_sr_dir = base_path ^ "/packages/iso"
+let tools_sr_dir = Filename.concat Fhs.sharedir "packages/iso"
 
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
@@ -191,7 +190,7 @@ let logrot_max = ref (1024*16*1024)
 (* logrotate is called without a stdin, and when it fork-and-execs gzip, it opens the src *)
 (* getting fd 0, opens the dest getting fd 3, then forks, then dups 0 to 0, dups 3 to 1 and *)
 (* then closes 0 and 3! *)
-let logrot_cmd = base_path ^ "/libexec/logrotate.sh"
+let logrot_cmd = Filename.concat Fhs.libexecdir "logrotate.sh"
 let logrot_arg = [ ]
 
 (* Error codes for internal storage backends -- these have counterparts in sm.hg/drivers/XE_SR_ERRORCODES.xml *)
@@ -203,16 +202,16 @@ let sm_error_generic_VDI_create_failure = 78
 let sm_error_generic_VDI_delete_failure = 80
 
 (* temporary restore path for db *)
-let db_temporary_restore_path = "/var/xapi/restore_db.db"
+let db_temporary_restore_path = Filename.concat Fhs.vardir "restore_db.db"
 
 (* temporary path for the HA metadata database *)
-let ha_metadata_db = "/var/xapi/ha_metadata.db"
+let ha_metadata_db = Filename.concat Fhs.vardir "ha_metadata.db"
 
 (* temporary path for the general metadata database *)
-let gen_metadata_db = "/var/xapi/gen_metadata.db"
+let gen_metadata_db = Filename.concat Fhs.vardir "gen_metadata.db"
 
 (* temporary path for opening a foreign metadata database *)
-let foreign_metadata_db = "/var/xapi/foreign.db"
+let foreign_metadata_db = Filename.concat Fhs.vardir "foreign.db"
 
 let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
@@ -252,14 +251,14 @@ let pool_ha_num_host_failures = "ha_tolerated_host_failures"
 (* the other-config key that reflects whether the pool is overprovisioned *)
 let pool_ha_currently_over_provisioned = "ha_currently_over_provisioned"
 
-let backup_db = "/var/xapi/state-backup.db"
+let backup_db = Filename.concat Fhs.vardir "state-backup.db"
 
 (* Place where database XML backups are kept *)
-let backup_db_xml = "/var/xapi/state-backup.xml"
+let backup_db_xml = Filename.concat Fhs.vardir "state-backup.xml"
 
 (* Directory containing scripts which are executed when a node becomes master
    and when a node gives up the master role *)
-let master_scripts_dir = "/etc/xensource/master.d"
+let master_scripts_dir = Filename.concat Fhs.etcdir "master.d"
 
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
@@ -268,8 +267,8 @@ let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
 
 (* Mount point for the shared DB *)
-let shared_db_mount_point = "/var/xapi/shared_db"
-let snapshot_db = "/var/xapi/snapshot.db"
+let shared_db_mount_point = Filename.concat Fhs.vardir "shared_db"
+let snapshot_db = Filename.concat Fhs.vardir "snapshot.db"
 
 (* Device for shared DB VBD *)
 let shared_db_device = "15"
@@ -337,10 +336,10 @@ let default_ha_timeout = "default_ha_timeout"
 
 (* Executed during startup when the API/database is online but before storage or networks
    are fully initialised. *)
-let startup_script_hook = base_path ^ "/libexec/xapi-startup-script"
+let startup_script_hook = Filename.concat Fhs.libexecdir "xapi-startup-script"
 
 (* Executed when a rolling upgrade is detected starting or stopping *)
-let rolling_upgrade_script_hook = base_path ^ "/libexec/xapi-rolling-upgrade"
+let rolling_upgrade_script_hook = Filename.concat Fhs.libexecdir "xapi-rolling-upgrade"
 
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
@@ -353,12 +352,12 @@ let listen_backlog = 128
 let artificial_reboot_delay = "artificial-reboot-delay"
 
 (* Xapi script hooks root *)
-let xapi_hooks_root = "/etc/xapi.d/"
+let xapi_hooks_root = Fhs.hooksdir 
 
 (* RRD storage location *)
-let xapi_rrd_location = "/var/xapi/blobs/rrds"
+let xapi_rrd_location = Filename.concat Fhs.vardir "blobs/rrds"
 
-let xapi_blob_location = "/var/xapi/blobs"
+let xapi_blob_location = Filename.concat Fhs.vardir "blobs"
 
 let last_blob_sync_time = "last_blob_sync_time"
 
@@ -378,13 +377,13 @@ let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 
 
 let message_limit=10000
 
-let xapi_message_script = base_path ^ "/libexec/mail-alarm"
+let xapi_message_script = Filename.concat Fhs.libexecdir "mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
 let max_clock_skew = 5. *. 60. (* 5 minutes *)
 
 (* Optional directory containing XenAPI plugins *)
-let xapi_plugins_root = "/etc/xapi.d/plugins"
+let xapi_plugins_root = Fhs.plugindir 
 
 
 
@@ -514,7 +513,7 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** Directory used by the v6 license policy engine for caching *)
-let upgrade_grace_file = "/var/xapi/ugp"
+let upgrade_grace_file = Filename.concat Fhs.vardir "ugp"
 
 (** Where the ballooning daemon writes the initial overhead value *)
 let squeezed_reserved_host_memory = "/squeezed/reserved-host-memory"

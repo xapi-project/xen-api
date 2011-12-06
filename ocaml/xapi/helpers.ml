@@ -644,7 +644,7 @@ let on_oem ~__context =
 
 exception File_doesnt_exist of string
 
-let find_partition_path = Xapi_globs.base_path ^ "/libexec/find-partition"
+let find_partition_path = Filename.concat Fhs.libexecdir "find-partition"
 
 let find_secondary_partition () =
 	try

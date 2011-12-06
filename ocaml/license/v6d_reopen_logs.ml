@@ -13,7 +13,7 @@
  *)
 (** Small executable that sends a reopen-logs XML/RPC message to the licensing daemon *)
  
-let socket = "/var/xapi/v6"
+let socket = Filename.concat Fhs.vardir "v6"
 
 (* RPC function for communication with the v6 daemon *)
 let v6rpc xml = 

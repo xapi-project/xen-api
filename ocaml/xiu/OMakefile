@@ -1,6 +1,6 @@
 OCAMLPACKS    = stdext xenstore netdev log
-OCAML_LIBS    += ../util/version ../idl/ocaml_backend/common ../xenops/xenops
-OCAMLINCLUDES += ../xapi ../xenops
+OCAML_LIBS    += ../util/version ../fhs ../idl/ocaml_backend/common ../xenops/xenops
+OCAMLINCLUDES += ../xapi ../xenops ..
 
 CFLAGS += -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-strict-aliasing -std=gnu99
 CFLAGS += -mno-tls-direct-seg-refs

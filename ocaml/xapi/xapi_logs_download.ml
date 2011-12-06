@@ -18,7 +18,7 @@ open Forkhelpers
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let logs_download = Xapi_globs.base_path ^ "/libexec/logs-download"
+let logs_download = Filename.concat Fhs.libexecdir "logs-download"
 
 let logs_download_handler (req: Request.t) s _ =
   debug "running logs-download handler";

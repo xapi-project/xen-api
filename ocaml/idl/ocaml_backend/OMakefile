@@ -52,7 +52,7 @@ autogen_idl: $(AUTOGEN_DIR)/client.ml $(AUTOGEN_DIR)/aPI.ml $(AUTOGEN_DIR)/serve
 
 COMMON_OBJS = ref \
 	../datamodel_types event_types \
-	../api_errors ../api_messages ../../xapi/config_constants ../../xapi/xapi_globs \
+	../api_errors ../api_messages ../../xapi/xapi_globs \
 	../constants
 CLIENT_OBJS = $(AUTOGEN_DIR)/aPI $(AUTOGEN_DIR)/client event_helper
 SERVER_OBJS = ../../database/escaping locking_helpers \

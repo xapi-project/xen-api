@@ -89,7 +89,7 @@ architecture, and out-of-date-ness.
 And you need to replace your udev rules by the one available in
 scripts/xen-backend.rules and scripts/xen-frontend.rules and add the
 scripts/tap scripts/block scripts/block-front scripts/vif into
-/etc/xensource/scripts/
+@SCRIPTSDIR@/
 
 Also note that since xen-unstable doesn't have the dm-ready patch,
 hvm domain takes unfortunately a substantial time (around 20s.) to start.

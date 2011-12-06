@@ -22,7 +22,7 @@ open Stringext
 open Pervasiveext
 include Static_vdis_list (* include the vdi type and the list() function *)
 
-let static_vdis = Xapi_globs.base_path ^ "/bin/static-vdis"
+let static_vdis = Filename.concat Fhs.bindir "static-vdis"
 
 (** Generate the static configuration and attach the VDI now *)
 let permanent_vdi_attach ~__context ~vdi ~reason =

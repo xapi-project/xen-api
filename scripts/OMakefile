@@ -2,7 +2,7 @@
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)/applied
 	mkdir -p $(DESTDIR)$(VARDIR)
@@ -24,8 +24,8 @@ install:
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IPROG) xapi-logrotate $(DESTDIR)/etc/logrotate.d/xapi
-	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
+	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)/var/xapi/udhcpd.skel  #### FHS_FIXME
 	$(IPROG) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IPROG) log.conf $(DESTDIR)$(ETCDIR)/log.conf
@@ -52,17 +52,17 @@ install:
 	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
 	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
 	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) fix_firewall.sh $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
-	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-xentrace $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) static-vdis $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-reset-networking $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-toolstack-restart $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-xentrace $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-edit-bootloader $(DESTDIR)$(BINDIR)
+	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/etc/udev/rules.d ### FHS_FIXME
 	sh -c \
@@ -87,8 +87,8 @@ install:
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
-	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-backup-metadata $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-restore-metadata $(DESTDIR)$(BINDIR)
 	$(IPROG) link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
@@ -99,7 +99,7 @@ install:
 	$(IPROG) init.d-perfmon $(DESTDIR)/etc/rc.d/init.d/perfmon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)

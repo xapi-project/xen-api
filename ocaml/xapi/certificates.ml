@@ -23,7 +23,7 @@ open Client
 module D=Debug.Debugger(struct let name="certificates" end)
 open D
 
-let server_cert = "/etc/xensource/xapi-ssl.pem"
+let server_cert = Filename.concat Fhs.etcdir "xapi-ssl.pem"
 let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
 let pem_certificate_footer = "-----END CERTIFICATE-----"
