@@ -64,6 +64,10 @@ module Debug_print_impl = struct
                 );
             Success (Vdi info)
 
+		let snapshot context ~task ~sr ~vdi ~vdi_info ~params =
+			create context ~task ~sr ~vdi_info ~params
+		let clone = snapshot
+
         let destroy context ~task ~sr ~vdi =
             Mutex.execute m
                 (fun () ->
@@ -139,8 +143,17 @@ module Debug_print_impl = struct
 					end else Hashtbl.remove activated key);
 			info "VDI.deactivate dp:%s sr:%s vdi:%s" dp sr vdi;
 			Success Unit
+
+		let export context ~task ~sr ~vdi ~url ~dest = assert false				
 	end
 
+	let get_by_name context ~task ~name = assert false
+
+	module Mirror = struct
+		let start context ~task ~sr ~vdi ~url ~dest = assert false
+		let stop context ~task ~sr ~vdi = assert false
+	end
+		
 	module SR = struct
 		let list context ~task = assert false
 		let scan context ~task ~sr = assert false

@@ -37,9 +37,14 @@ type task = string
 	connect a VBD backend to a VBD frontend *)
 type params = string
 
+(** Uniquely identifies the contents of a VDI *)
+type content_id = string
+
 (** The result of an operation which creates or examines a VDI *)
 type vdi_info = {
     vdi: vdi;
+	sr: sr;
+	content_id: content_id;
     name_label: string;
     name_description: string;
     ty: string;
@@ -169,6 +174,12 @@ module VDI = struct
         returns the vdi_info which was used. *)
 	external create : task:task -> sr:sr -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
 
+	(** [snapshot task sr vdi vdi_info params] creates a new VDI which is a snapshot of [vdi] in [sr] *)
+	external snapshot : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+
+	(** [clone task sr vdi vdi_info params] creates a new VDI which is a clone of [vdi] in [sr] *)
+	external clone : task:task -> sr:sr -> vdi:vdi -> vdi_info:vdi_info -> params:(string*string) list -> result = ""
+
     (** [destroy task sr vdi] removes [vdi] from [sr] *)
     external destroy : task:task -> sr:sr -> vdi:vdi -> result = ""
 
@@ -192,4 +203,31 @@ module VDI = struct
 	(** [detach task dp sr vdi] signals that this client no-longer needs the [params]
 		to be valid. *)
     external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
+
+	(** [export task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
+	external export : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+
+	(** [similar_content task sr vdi] returns a list of VDIs which have similar content to [vdi] *)
+	external similar_content : task:task -> sr:sr -> vdi:vdi -> result = ""
+
+	(** [get_by_name task sr name] returns the vdi within [sr] with [name] *)
+	external get_by_name : task:task -> sr:sr -> name:string -> result = ""
+
+	(** [set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id] *)
+	external set_content_id : task:task -> sr:sr -> vdi:vdi -> content_id:content_id -> result = ""
+
+end
+
+(** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
+external get_by_name : task:task -> name:string -> result = ""
+
+module Mirror = struct
+
+	(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
+		data synchronously. It returns the id of the VDI.*)
+	external start : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+
+	(** [stop task sr vdi] stops mirroring local [vdi] *)
+	external stop : task:task -> sr:sr -> vdi:vdi -> result = ""
+
 end

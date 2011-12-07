@@ -473,6 +473,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                     Failure(Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size']))
                 | result -> result
 
+		let snapshot_and_clone call_name call_f context ~task ~sr ~vdi ~vdi_info ~params =
+			info "%s task:%s sr:%s vdi:%s vdi_info:%s params:%s" call_name task sr vdi (string_of_vdi_info vdi_info) (String.concat ";" (List.map (fun (k, v) -> k ^ ":" ^ v) params));
+			with_vdi sr vdi
+				(fun () ->
+					call_f context ~task ~sr ~vdi ~vdi_info ~params
+				)
+
+		let snapshot = snapshot_and_clone "VDI.snapshot" Impl.VDI.snapshot
+		let clone = snapshot_and_clone "VDI.clone" Impl.VDI.clone
+
         let destroy context ~task ~sr ~vdi =
             info "VDI.destroy task:%s sr:%s vdi:%s" task sr vdi;
             with_vdi sr vdi
@@ -483,6 +493,36 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                         )
                 )
 
+		let get_by_name context ~task ~sr ~name =
+			info "VDI.get_by_name task:%s sr:%s name:%s" task sr name;
+			Impl.VDI.get_by_name context ~task ~sr ~name
+
+		let set_content_id context ~task ~sr ~vdi ~content_id =
+			info "VDI.set_content_id task:%s sr:%s vdi:%s content_id:%s" task sr vdi content_id;
+			Impl.VDI.set_content_id context ~task ~sr ~vdi ~content_id
+
+		let similar_content context ~task ~sr ~vdi =
+			info "VDI.similar_content task:%s sr:%s vdi:%s" task sr vdi;
+			Impl.VDI.similar_content context ~task ~sr ~vdi
+
+		let export context ~task ~sr ~vdi ~url ~dest =
+			info "VDI.export task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
+			Impl.VDI.export context ~task ~sr ~vdi ~url ~dest
+
+	end
+
+	let get_by_name context ~task ~name =
+		debug "get_by_name task:%s name:%s" task name;
+		Impl.get_by_name context ~task ~name
+
+	module Mirror = struct
+		let start context ~task ~sr ~vdi ~url ~dest =
+			info "Mirror.start task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
+			Impl.Mirror.start context ~task ~sr ~vdi ~url ~dest
+
+		let stop context ~task ~sr ~vdi =
+			info "Mirror.stop task:%s sr:%s vdi:%s" task sr vdi;
+			Impl.Mirror.stop context ~task ~sr ~vdi
 	end
 
 	module DP = struct
