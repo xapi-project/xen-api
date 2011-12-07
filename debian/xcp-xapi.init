@@ -31,6 +31,9 @@ TEMPLATES_MD5_STAMP=/var/lib/xcp/templates.md5
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
 
+# Exit if we are not in dom0
+grep hypervisor /proc/cpuinfo > /dev/null || exit 0
+
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
@@ -90,7 +93,7 @@ do_start()
 	wait_for_xapi 
 
 	# Check whether the md5 of the create-templates binary matches the one
-    # used previously. If not, recreate the templates.
+	# used previously. If not, recreate the templates.
 	if ! md5sum -c --status $TEMPLATES_MD5_STAMP ; then
 		/usr/lib/xcp/lib/regenerate-templates start
 		md5sum /usr/lib/xcp/lib/create_templates > $TEMPLATES_MD5_STAMP
