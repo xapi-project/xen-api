@@ -36,3 +36,9 @@ let compute_col_widths rows =
   let max n str = max n (String.length str) in
   List.map (List.fold_left max 0) cols
 
+let print (rows: string list list) = match rows with
+	| [] -> ()
+	| _ ->
+		let widths = compute_col_widths rows in
+		let sll = List.map (List.map2 right widths) rows in
+		List.iter (fun line -> print_endline (String.concat " | " line)) sll

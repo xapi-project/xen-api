@@ -90,6 +90,13 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 				failwith (Printf.sprintf "PBD %s has invalid %s key" (Ref.string_of pbd) storage_driver_domain_key)
 	end else dom0
 
+let storage_driver_domain_of_pbd ~__context ~pbd =
+    let domain = storage_driver_domain_of_pbd ~__context ~pbd in
+    set_is_system_domain ~__context ~self:domain ~value:"true";
+    pbd_set_storage_driver_domain ~__context ~self:pbd ~value:(Ref.string_of domain);
+    vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd);
+    domain
+
 let storage_driver_domain_of_vbd ~__context ~vbd =
 	let dom0 = Helpers.get_domain_zero ~__context in
 	let vdi = Db.VBD.get_VDI ~__context ~self:vbd in

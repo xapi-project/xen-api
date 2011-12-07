@@ -79,6 +79,7 @@ XAPI_MODULES = $(COMMON) \
 	bootloader \
 	storage_access \
 	storage_mux \
+	storage_migrate \
 	storage_proxy \
 	xapi_services \
 	sm_exec \
