@@ -22,11 +22,11 @@ XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="The XenAPI server"
 NAME=xapi
-DAEMON=/usr/lib/xen-common/xapi/bin/$NAME
+DAEMON=/usr/sbin/$NAME
 DAEMON_ARGS="-daemon -writereadyfile $XAPI_STARTUP_COOKIE -writeinitcomplete $XAPI_INIT_COMPLETE_COOKIE"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
-TEMPLATES_MD5_STAMP=/var/xapi/templates.md5
+TEMPLATES_MD5_STAMP=/var/lib/xcp/templates.md5
 
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
@@ -69,12 +69,12 @@ do_start()
 	modprobe xen-netback
 	modprobe xen-blkback
 	modprobe blktap
-	if [ ! -e /etc/xensource/network.conf ]; then
-		echo "bridge" > /etc/xensource/network.conf
+	if [ ! -e /etc/xcp/network.conf ]; then
+		echo "bridge" > /etc/xcp/network.conf
 	fi
 
 	mkdir -p /var/run/xend/boot
-	mkdir -p /usr/lib/xen-common/xapi/packages/iso
+	mkdir -p /usr/share/xcp/packages/iso
 	export OCAMLRUNPARAM=b
 	
 	rm -f $XAPI_STARTUP_COOKIE $XAPI_INIT_COMPLETE_COOKIE
@@ -92,8 +92,8 @@ do_start()
 	# Check whether the md5 of the create-templates binary matches the one
     # used previously. If not, recreate the templates.
 	if ! md5sum -c --status $TEMPLATES_MD5_STAMP ; then
-		/usr/lib/xen-common/xapi/libexec/regenerate-templates start
-		md5sum /usr/lib/xen-common/xapi/libexec/create_templates > $TEMPLATES_MD5_STAMP
+		/usr/lib/xcp/lib/regenerate-templates start
+		md5sum /usr/lib/xcp/lib/create_templates > $TEMPLATES_MD5_STAMP
 	fi
 }
 

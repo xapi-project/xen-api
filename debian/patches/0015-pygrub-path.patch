@@ -4,33 +4,34 @@ Subject: pygrub-path
 
 ---
  ocaml/xapi/xapi_globs.ml |    2 +-
- scripts/OMakefile        |    1 +
+ scripts/OMakefile        |    2 +
  scripts/pygrub.xcp       |  913 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 915 insertions(+), 1 deletions(-)
+ 3 files changed, 916 insertions(+), 1 deletions(-)
  create mode 100644 scripts/pygrub.xcp
 
 diff --git a/ocaml/xapi/xapi_globs.ml b/ocaml/xapi/xapi_globs.ml
-index ea4e549..bb57b74 100644
+index 7b16d6b..355c4ed 100644
 --- a/ocaml/xapi/xapi_globs.ml
 +++ b/ocaml/xapi/xapi_globs.ml
-@@ -149,7 +149,7 @@ let software_version = [ _product_version, Version.product_version;
+@@ -136,7 +136,7 @@ let software_version = [ _product_version, Version.product_version;
  			 _hostname,        Version.hostname;
  			 _date,            Version.date]
  
 -let pygrub_path = "/usr/bin/pygrub"
-+let pygrub_path = "/usr/lib/xen-common/xapi/libexec/pygrub.xcp"
++let pygrub_path = Filename.concat Fhs.libexecdir "pygrub.xcp"
  let eliloader_path = "/usr/bin/eliloader"
  let supported_bootloaders = [ "pygrub", pygrub_path;
  			      "eliloader", eliloader_path ]
 diff --git a/scripts/OMakefile b/scripts/OMakefile
-index 492964b..c5d5c77 100644
+index 9ad8fba..c17ae05 100644
 --- a/scripts/OMakefile
 +++ b/scripts/OMakefile
-@@ -109,6 +109,7 @@ install:
- 	mkdir -p $(DESTDIR)/etc/xapi.d/host-post-declare-dead
- 	$(IPROG) 10resetvdis $(DESTDIR)/etc/xapi.d/host-post-declare-dead
- 	$(IPROG) pci-info $(LIBEXEC)
-+	$(IPROG) pygrub.xcp $(LIBEXEC)
+@@ -109,6 +109,8 @@ install:
+ 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+ 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
+ 	$(IPROG) pci-info $(DESTDIR)$(LIBEXECDIR)
++	$(IPROG) pygrub.xcp $(DESTDIR)$(LIBEXECDIR)
++
  
  .PHONY: sdk-install
  sdk-install: install

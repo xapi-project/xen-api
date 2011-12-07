@@ -1,3 +1,9 @@
+xen-api (0.1-9) unstable; urgency=low
+
+  * New FHS compliant layout of files
+
+ -- Jon Ludlam <jludlam@eu.citrix.com>  Wed, 07 Dec 2011 17:07:51 +0000
+
 xen-api (0.1-8) unstable; urgency=low
 
   * Set PLATFORM_VERSION to 1.6 and PLATFORM_NAME to XCP_Kronos

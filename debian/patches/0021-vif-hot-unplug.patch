@@ -7,7 +7,7 @@ Subject: vif-hot-unplug
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/scripts/vif b/scripts/vif
-index d09fad8..bee842a 100755
+index da72995..3a053aa 100755
 --- a/scripts/vif
 +++ b/scripts/vif
 @@ -255,7 +255,7 @@ add)

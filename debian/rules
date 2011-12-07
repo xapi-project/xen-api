@@ -20,7 +20,7 @@ export PLATFORM_NAME="XCP_Kronos"
 export PLATFORM_VERSION="1.6.0"
 
 %:
-	dh $@ --with ocaml
+	dh $@ --with ocaml,python_support
 
 clean: 
 	dh clean

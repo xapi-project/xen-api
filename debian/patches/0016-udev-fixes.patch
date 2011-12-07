@@ -9,19 +9,19 @@ Subject: udev-fixes
  3 files changed, 8 insertions(+), 7 deletions(-)
 
 diff --git a/scripts/OMakefile b/scripts/OMakefile
-index c5d5c77..88c7cbe 100644
+index c17ae05..a7a086f 100644
 --- a/scripts/OMakefile
 +++ b/scripts/OMakefile
 @@ -50,7 +50,8 @@ install:
  	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
- 	mkdir -p $(DESTDIR)/etc/udev
- 	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev
--	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev
+ 	mkdir -p $(DESTDIR)/etc/udev                    ### FHS_FIXME
+ 	$(IPROG) xen-backend.rules $(DESTDIR)/etc/udev  ### FHS_FIXME
+-	$(IPROG) xen-frontend.rules $(DESTDIR)/etc/udev ### FHS_FIXME
 +	mkdir -p $(DESTDIR)/lib/udev/rules.d
 +	$(IPROG) xen-frontend.rules $(DESTDIR)/lib/udev/rules.d/
- 	$(IPROG) generate_ssl_cert $(LIBEXEC)
- 	$(IPROG) fix_firewall.sh $(BIN_PATH)
- 	mkdir -p $(BASE_PATH)/debug
+ 	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
+ 	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
+ 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 diff --git a/scripts/block-frontend b/scripts/block-frontend
 index 88a5b4c..d9db7c9 100755
 --- a/scripts/block-frontend
@@ -47,7 +47,7 @@ index 88a5b4c..d9db7c9 100755
  XAPI=/xapi/${DOMID}/frontend/${TYPE}/${DEVID}
  
 diff --git a/scripts/vif b/scripts/vif
-index d0662e1..d09fad8 100755
+index 12f935b..da72995 100755
 --- a/scripts/vif
 +++ b/scripts/vif
 @@ -1,4 +1,4 @@

@@ -21,7 +21,7 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="V6d licensing daemon"
 NAME=v6d
-DAEMON=/usr/lib/xen-common/xapi/libexec/$NAME
+DAEMON=/usr/sbin/$NAME
 PIDFILE=/var/run/$NAME.pid
 DAEMON_ARGS="-daemon -pidfile $PIDFILE"
 SCRIPTNAME=/etc/init.d/$NAME

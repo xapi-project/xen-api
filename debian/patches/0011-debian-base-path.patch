@@ -1,0 +1,19 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:43 +0100
+Subject: debian-base-path
+
+---
+ scripts/xapi.conf |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/xapi.conf b/scripts/xapi.conf
+index 57578f3..f591a8a 100644
+--- a/scripts/xapi.conf
++++ b/scripts/xapi.conf
+@@ -1,5 +1,3 @@
+-base_path = /opt/xensource
+-
+ schema_filename = @ETCDIR@/db_schema.sql
+ license_filename = @ETCDIR@/license
+ 
+-- 

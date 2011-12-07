@@ -1,0 +1,11 @@
+/usr/lib/ocaml/xcp/xapi-client/META
+/usr/lib/ocaml/xcp/xapi-client/*.cmxa
+/usr/lib/ocaml/xcp/xapi-client/*.cmi
+/usr/lib/ocaml/xcp/xapi-client/*.cmx
+/usr/lib/ocaml/xcp/xapi-client/*.a
+/usr/lib/ocaml/xcp/xapi-datamodel/*.cmxa
+/usr/lib/ocaml/xcp/xapi-datamodel/*.a
+/usr/lib/ocaml/xcp/xapi-datamodel/*.cmi
+/usr/lib/ocaml/xcp/xapi-datamodel/META
+
+

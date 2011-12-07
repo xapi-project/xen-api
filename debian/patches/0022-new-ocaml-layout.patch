@@ -9,7 +9,7 @@ Subject: new-ocaml-layout
  3 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile b/Makefile
-index b2a5c49..2ce32b1 100644
+index f2901f3..ac6e594 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -7,6 +7,9 @@ MY_OUTPUT_DIR ?= $(CURDIR)/output
@@ -23,28 +23,28 @@ index b2a5c49..2ce32b1 100644
  RPM_SRPMSDIR?=$(shell rpm --eval='%_srcrpmdir')
  RPM_SOURCESDIR?=$(shell rpm --eval='%_sourcedir')
 diff --git a/ocaml/idl/OMakefile b/ocaml/idl/OMakefile
-index bde01cd..8c14d2e 100644
+index 30ec07e..f2ba273 100644
 --- a/ocaml/idl/OMakefile
 +++ b/ocaml/idl/OMakefile
-@@ -158,7 +158,7 @@ META: META.in
+@@ -101,7 +101,7 @@ META: META.in
  	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
  
- if $(defined DESTDIR)
+ if $(defined-env DESTDIR)
 -	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)
 +	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)/xcp
  	export
  else
  	INSTALL_PATH = $(shell ocamlfind printconf destdir)
 diff --git a/ocaml/idl/ocaml_backend/OMakefile b/ocaml/idl/ocaml_backend/OMakefile
-index faa1338..9bd0a8d 100644
+index 244180c..bb8763a 100644
 --- a/ocaml/idl/ocaml_backend/OMakefile
 +++ b/ocaml/idl/ocaml_backend/OMakefile
 @@ -153,7 +153,7 @@ META: META.in
  	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
  
- if $(defined DESTDIR)
--	INSTALL_PATH = $(DESTDIR)/usr/lib/ocaml
-+	INSTALL_PATH = $(DESTDIR)/usr/lib/ocaml/xcp
+ if $(defined-env DESTDIR)
+-	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)
++	INSTALL_PATH = $(DESTDIR)/$(shell ocamlc -where)/xcp
  	export
  else
  	INSTALL_PATH = $(shell ocamlfind printconf destdir)

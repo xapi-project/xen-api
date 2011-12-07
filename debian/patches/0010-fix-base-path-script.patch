@@ -1,0 +1,49 @@
+From: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Date: Fri, 7 Oct 2011 14:44:42 +0100
+Subject: fix-base-path-script
+
+---
+ Makefile |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index c15c352..f2901f3 100644
+--- a/Makefile
++++ b/Makefile
+@@ -24,21 +24,21 @@ COMPILE_BYTE=no # bytecode version does not build
+ export COMPILE_NATIVE COMPILE_BYTE
+ 
+ # FHS stuff
+-VARDIR=/var/xapi
+-VARPATCHDIR=/var/patch
+-ETCDIR=/etc/xensource
+-OPTDIR=/opt/xensource
+-PLUGINDIR=/etc/xapi.d/plugins
+-HOOKSDIR=/etc/xapi.d
+-INVENTORY=/etc/xensource-inventory
+-XAPICONF=/etc/xapi.conf
+-LIBEXECDIR=/opt/xensource/libexec
+-SCRIPTSDIR=/etc/xensource/scripts
+-SHAREDIR=/opt/xensource
+-WEBDIR=/opt/xensource/www
++VARDIR=/var/lib/xcp
++VARPATCHDIR=/var/lib/xcp/patch
++ETCDIR=/etc/xcp
++OPTDIR=/usr/lib/xcp
++PLUGINDIR=/usr/lib/xcp/plugins
++HOOKSDIR=/etc/xcp/hook-scripts
++INVENTORY=/etc/xcp/inventory
++XAPICONF=/etc/xcp/xapi.conf
++LIBEXECDIR=/usr/lib/xcp/lib
++SCRIPTSDIR=/usr/lib/xcp/scripts
++SHAREDIR=/usr/share/xcp
++WEBDIR=/var/www/html
+ XHADIR=/opt/xensource/xha
+-BINDIR=/opt/xensource/bin
+-SBINDIR=/opt/xensource/bin
++BINDIR=/usr/lib/xcp/bin
++SBINDIR=/usr/sbin
+ 
+ export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR
+ 
+-- 

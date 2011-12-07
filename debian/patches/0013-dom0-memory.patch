@@ -7,7 +7,7 @@ Subject: dom0-memory
  1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/ocaml/xapi/create_misc.ml b/ocaml/xapi/create_misc.ml
-index 673c095..01d31bc 100644
+index d231c0a..854bb7d 100644
 --- a/ocaml/xapi/create_misc.ml
 +++ b/ocaml/xapi/create_misc.ml
 @@ -284,8 +284,8 @@ and calculate_domain_zero_memory_static_range (host_info: host_info) : int64 * i

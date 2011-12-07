@@ -8,7 +8,7 @@ Subject: fix-xenguest
  2 files changed, 13 insertions(+), 14 deletions(-)
 
 diff --git a/ocaml/xenguest/OMakefile b/ocaml/xenguest/OMakefile
-index fe4a4d0..12454a7 100644
+index add2d91..18d7208 100644
 --- a/ocaml/xenguest/OMakefile
 +++ b/ocaml/xenguest/OMakefile
 @@ -2,7 +2,8 @@ CFLAGS += $(XEN_CFLAGS)

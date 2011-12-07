@@ -10,7 +10,7 @@ Homepage: http://www.xen.org/XCP/
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
 Description: The Xen API server
  The Xen API server, which allows the control of the virtual machines hosted via
@@ -41,6 +41,6 @@ Description: OCaml bindings for the Xen API
 Package: xcp-xapi-debug
 Section: debug
 Architecture: any
-Depends: xcp-xapi, ${misc:Depends}
+Depends: xcp-xapi, ${misc:Depends}, ${python:Depends}
 Description: Binary utils to help debug xapi
  

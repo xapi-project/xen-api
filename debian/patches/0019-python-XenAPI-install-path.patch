@@ -7,7 +7,7 @@ Subject: python-XenAPI-install-path
  1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/scripts/examples/python/OMakefile b/scripts/examples/python/OMakefile
-index 26d7938..9b88576 100644
+index 7e4d124..5d93580 100644
 --- a/scripts/examples/python/OMakefile
 +++ b/scripts/examples/python/OMakefile
 @@ -11,7 +11,7 @@ PYTHON_EXE=vm_start_async.py watch-all-events.py powercycle.py install.py fixpbd
@@ -22,15 +22,15 @@ index 26d7938..9b88576 100644
 @@ -38,9 +38,9 @@ README : index.html
  .PHONY: install
  install:
- 	mkdir -p $(LIBEXEC)
+ 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 -	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages
 +	mkdir -p $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages
- 	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
+ 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 -	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/site-packages/
 +	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)/usr/lib/$(PYTHON_DIR)/dist-packages/
- 	$(IEXE) echo.py $(DESTDIR)/etc/xapi.d/plugins/echo
- 	$(IEXE) wake-on-lan.py $(DESTDIR)/etc/xapi.d/plugins/wake-on-lan
- 	$(IEXE) shutdown.py $(LIBEXEC)/shutdown
+ 	$(IEXE) echo.py $(DESTDIR)$(PLUGINDIR)/echo
+ 	$(IEXE) wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
+ 	$(IEXE) shutdown.py $(DESTDIR)$(LIBEXECDIR)/shutdown
 @@ -48,5 +48,5 @@ install:
  
  .PHONY: sdk-install

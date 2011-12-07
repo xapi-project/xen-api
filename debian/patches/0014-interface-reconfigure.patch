@@ -7,7 +7,7 @@ Subject: interface-reconfigure
  1 files changed, 1 insertions(+), 738 deletions(-)
 
 diff --git a/scripts/interface-reconfigure b/scripts/interface-reconfigure
-index 6c6de9f..a9bf588 100755
+index 846cb53..b043fa6 100755
 --- a/scripts/interface-reconfigure
 +++ b/scripts/interface-reconfigure
 @@ -1,738 +1 @@
@@ -67,7 +67,7 @@ index 6c6de9f..a9bf588 100755
 -
 -management_pif = None
 -
--dbcache_file = "/var/xapi/network.dbcache"
+-dbcache_file = "@VARDIR@/network.dbcache"
 -
 -#
 -# Logging.
@@ -749,5 +749,5 @@ index 6c6de9f..a9bf588 100755
 -    syslog.closelog()
 -
 -    sys.exit(rc)
-+#!/bin/bash
++#\!/bin/bash
 -- 
