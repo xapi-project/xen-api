@@ -413,6 +413,25 @@ module Builtin_impl = struct
 					Success(Vdis(List.map (fun x -> SR.vdi_info_of_vdi_rec __context sr x) vdi_recs))
 				)
 
+		let compose context ~task ~sr ~vdi1 ~vdi2 =
+			info "VDI.compose task:%s sr:%s vdi1:%s vdi2:%s" task sr vdi1 vdi2;
+			try
+				Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string task)
+					(fun __context ->
+						(* This call 'operates' on vdi2 *)
+						let vdi1 = find_vdi ~__context sr vdi1 |> fst in
+						for_vdi ~task ~sr ~vdi:vdi2 "VDI.activate"
+							(fun device_config _type sr self ->
+								Sm.vdi_compose device_config _type sr vdi1 self
+							)
+					);
+				Success Unit
+            with
+				| Api_errors.Server_error(code, params) ->
+					Failure (Backend_error(code, params))
+				| No_VDI ->
+					Failure Vdi_does_not_exist
+
 		let export context ~task ~sr ~vdi ~url ~dest = assert false
 	end
 
