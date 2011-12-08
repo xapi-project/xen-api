@@ -89,6 +89,7 @@ type failure_t =
 	| Illegal_transition of Vdi_automaton.state * Vdi_automaton.state (** This operation implies an illegal state transition *)
 	| Backend_error of string * (string list) (** error: of the form SR_BACKEND_FAILURE *)
 	| Internal_error of string		          (** error: some unexpected internal error *)
+	| Unimplemented                           (** error: not implemented by backend *)
 
 let string_of_failure (x: failure_t) = Jsonrpc.to_string (rpc_of_failure_t x)
 
