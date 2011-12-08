@@ -427,6 +427,8 @@ module Builtin_impl = struct
 					);
 				Success Unit
             with
+				| Smint.Not_implemented_in_backend ->
+					Failure Unimplemented
 				| Api_errors.Server_error(code, params) ->
 					Failure (Backend_error(code, params))
 				| No_VDI ->
@@ -600,6 +602,8 @@ let datapath_of_vbd ~domid ~userdevice =
 let unexpected_result expected x = match x with
 	| Success _ ->
 		failwith (Printf.sprintf "Run-time type error. Expected %s; got: %s" expected (string_of_result x))
+	| Failure Unimplemented ->
+		failwith "Storage_access failed with Unimplemented"
 	| Failure Sr_not_attached ->
 		failwith "Storage_access failed with Sr_not_attached"
 	| Failure Vdi_does_not_exist ->
