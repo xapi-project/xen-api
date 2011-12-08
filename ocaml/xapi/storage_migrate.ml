@@ -66,7 +66,7 @@ let with_activated_disk ~task ~sr ~vdi f =
 					Local.VDI.detach ~task ~dp:"migrate" ~sr ~vdi |> success |> unit)
 				vdi)
 
-let export ~task ~sr ~vdi ~url ~dest =
+let export' ~task ~sr ~vdi ~url ~dest =
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc remote_url end) in
 
@@ -124,10 +124,37 @@ let export ~task ~sr ~vdi ~url ~dest =
 	Remote.VDI.set_content_id ~task ~sr:dest ~vdi:dest_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
 	(* XXX: this is useful because we don't have content_ids by default *)
 	Local.VDI.set_content_id ~task ~sr ~vdi:local_vdi.vdi ~content_id:local_vdi.content_id |> success |> unit;
-	Success (Vdi dest_vdi)
+	dest_vdi
+
+let export ~task ~sr ~vdi ~url ~dest = Success (Vdi (export' ~task ~sr ~vdi ~url ~dest))
 
 let start ~task ~sr ~vdi ~url ~dest =
-	failwith "Mirror.start unimplemented"
+	let remote_url = Http.Url.of_string url in
+	let module Remote = Client(struct let rpc = rpc remote_url end) in
+
+	(* Find the local VDI *)
+	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let local_vdi =
+		try List.find (fun x -> x.vdi = vdi) vdis
+		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+
+	(* XXX: this is a vhd-ism: We need to write into a .vhd leaf *)
+	let dummy = Remote.VDI.create ~task ~sr:dest ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
+	let leaf = Remote.VDI.clone ~task ~sr:dest ~vdi:dummy.vdi ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
+	debug "Created leaf on remote: %s" leaf.vdi;
+	(* XXX: this URI construction is fragile *)
+	let import_url =
+		let new_uri = Printf.sprintf "%s?vdi=%s" Constants.import_raw_vdi_uri leaf.vdi in
+		match remote_url with
+			| Http.Url.Http(a, b) -> Http.Url.Http(a, new_uri)
+			| Http.Url.File(a, b) -> Http.Url.File(a, new_uri) in
+
+	(* Enable mirroring on the local machine *)
+	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", Http.Url.to_string import_url] |> success |> _vdi in
+	(* Copy the snapshot to the remote *)
+	let new_parent = export' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
+	Remote.VDI.compose ~task ~sr:dest ~vdi1:leaf.vdi ~vdi2:new_parent.vdi |> success |> unit;
+	Success (Vdi leaf)
 
 let stop ~task ~sr ~vdi =
 	failwith "Mirror.stop unimplemented"
