@@ -216,6 +216,8 @@ module VDI = struct
 	(** [set_content_id task sr vdi content_id] tells the storage backend that a VDI has an updated [content_id] *)
 	external set_content_id : task:task -> sr:sr -> vdi:vdi -> content_id:content_id -> result = ""
 
+    (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1], modifying [vdi2] *)
+    external compose : task:task -> sr:sr -> vdi1:vdi -> vdi2:vdi -> result = ""
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)

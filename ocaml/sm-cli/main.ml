@@ -144,6 +144,13 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
+		| [ "vdi-compose"; sr; vdi1; vdi2 ] ->
+			begin match Client.VDI.compose ~task ~sr ~vdi1 ~vdi2 with
+				| Success Unit ->
+					()
+				| x ->
+					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
+			end
 		| [ "vdi-export"; sr; vdi; url; dest ] ->
 			begin match Client.VDI.export ~task ~sr ~vdi ~url ~dest with
 				| Success (Vdi v) ->
