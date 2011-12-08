@@ -91,6 +91,8 @@ let example_vdi_info =
 	let physical_utilisation = 0L in
 	{
 		vdi = "";
+		sr = "";
+		content_id = "";
 		name_label = name_label;
 		name_description = name_description;
 		ty = ty;
