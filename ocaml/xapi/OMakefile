@@ -280,8 +280,8 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 .PHONY: install
 install:
-	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	cp -f xapi $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(SBINDIR)
+	cp -f xapi $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug

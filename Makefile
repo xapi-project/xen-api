@@ -38,8 +38,9 @@ SHAREDIR=/opt/xensource
 WEBDIR=/opt/xensource/www
 XHADIR=/opt/xensource/xha
 BINDIR=/opt/xensource/bin
+SBINDIR=/opt/xensource/bin
 
-export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR
+export VARDIR ETCDIR OPTDIR PLUGINDIR HOOKSDIR INVENTORY VARPATCHDIR LIBEXECDIR XAPICONF SCRIPTSDIR SHAREDIR WEBDIR XHADIR BINDIR SBINDIR
 
 .PHONY: all
 all: version ocaml/fhs.ml
@@ -124,6 +125,7 @@ ocaml/fhs.ml :
 	let webdir=\"$(WEBDIR)\"\n \
 	let xhadir=\"$(XHADIR)\"\n \
 	let bindir=\"$(BINDIR)\"\n \
+	let sbindir=\"$(SBINDIR)\"\n \
 	let sharedir=\"$(SHAREDIR)\"\n" \
 	> ocaml/fhs.ml
  
