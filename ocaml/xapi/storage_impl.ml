@@ -505,6 +505,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.similar_content task:%s sr:%s vdi:%s" task sr vdi;
 			Impl.VDI.similar_content context ~task ~sr ~vdi
 
+		let compose context ~task ~sr ~vdi1 ~vdi2 =
+			info "VDI.compose task:%s sr:%s vdi1:%s vdi2:%s" task sr vdi1 vdi2;
+			Impl.VDI.compose context ~task ~sr ~vdi1 ~vdi2
+
 		let export context ~task ~sr ~vdi ~url ~dest =
 			info "VDI.export task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
 			Impl.VDI.export context ~task ~sr ~vdi ~url ~dest
