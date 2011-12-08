@@ -588,6 +588,17 @@ module Url = struct
 			| x :: _ -> failwith (Printf.sprintf "Unknown scheme %s" x)
 			| _ -> failwith (Printf.sprintf "Failed to parse URL: %s" url)
 
+	let to_string = function
+		| File ({ path = path }, uri) -> Printf.sprintf "file:%s/%s" path uri (* XXX *)
+		| Http (h, uri) ->
+			let userpassat = match h.auth with
+				| Some (Basic (username, password)) -> Printf.sprintf "%s:%s@" username password
+				| _ -> "" in
+			let colonport = match h.port with
+				| Some x -> Printf.sprintf ":%d" x
+				| _ -> "" in
+			Printf.sprintf "http://%s%s%s%s" userpassat h.host colonport uri
+
 	let uri_of = function
 		| File (_, x) -> x
 		| Http (_, x) -> x

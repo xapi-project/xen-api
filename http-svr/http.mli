@@ -184,6 +184,8 @@ module Url : sig
 
 	val of_string: string -> t
 
+	val to_string: t -> string
+
 	val uri_of: t -> string
 
 	val auth_of: t -> authorization option
