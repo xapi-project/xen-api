@@ -25,6 +25,8 @@ IP="/sbin/ip"
 
 vsctl="/usr/bin/ovs-vsctl"
 
+setup_vif_rules="@LIBEXECDIR@/setup-vif-rules"
+
 handle_promiscuous()
 {
     local arg=$(xenstore-read "${PRIVATE}/other-config/promiscuous" 2>/dev/null)
@@ -136,11 +138,15 @@ add_to_bridge()
         ;;
     esac
         
+    $setup_vif_rules $TYPE $DOMID $DEVID $NETWORK_MODE filter
+
     ${IP} link set "${dev}" up                          || logger -t scripts-vif "Failed to ip link set ${dev} up"
 }
 
 remove_from_bridge()
 {
+    $setup_vif_rules $TYPE $DOMID $DEVID $NETWORK_MODE clear
+
     case $NETWORK_MODE in
     bridge)
         # Nothing to do
