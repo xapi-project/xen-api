@@ -241,6 +241,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/libexec/rewrite-management-interface
 @OPTDIR@/libexec/set-dom0-memory-target-from-packs
 @OPTDIR@/libexec/set-hostname
+@OPTDIR@/libexec/setup-vif-rules
 @OPTDIR@/libexec/shell.py
 @OPTDIR@/libexec/shell.pyo
 @OPTDIR@/libexec/shell.pyc
