@@ -36,35 +36,120 @@ Package: xcp-xapi
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
-Description: The Xen API server
- The Xen API server, which allows the control of the virtual machines hosted via
- the XenAPI.
+Provides: xcp
+Description: The XCP XenAPI server
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This package contains the XenAPI server, which provides the control plane for
+ XCP hosts and resource pools.
 
 Package: xcp-squeezed
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor
 Description: A daemon in charge of ballooning xen domains
- This daemon takes requests from xapi in the form of xenstore trees 
- and balloons domains up and down. 
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This daemon takes requests from xapi, the XenAPI server, in the form of
+ xenstore trees and balloons domains up and down.
 
 Package: xcp-v6d
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: The feature daemon for xapi. 
- It's only temporarily being installed until a better solution is 
- sorted.
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This daemon manages the features that are enabled or disabled on an XCP host.
 
 Package: libxenapi-ocaml-dev
 Architecture: any
 Section: ocaml
 Depends: ${ocaml:Depends}, ${misc:Depends}
 Description: OCaml bindings for the Xen API
- This package contains ocaml libraries for the Xen API. These will
- allow a program to communicate with a VM host running xapi.
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This package contains OCaml libraries for the XenAPI. These will
+ allow a program to communicate with an XCP host running xapi.
 
 Package: xcp-xapi-debug
 Section: debug
 Architecture: any
 Depends: xcp-xapi, ${misc:Depends}, ${python:Depends}
-Description: Binary utils to help debug xapi
- 
+Description: Binary utils to help debug XCP
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ This package contains extra utilities for debugging XCP hosts.
