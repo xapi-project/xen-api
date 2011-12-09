@@ -1,4 +1,4 @@
-0001-0000-fhs.patch.patch
+0001-fhs.patch
 0002-dont-build-xiu.patch
 0003-no-runstate-info.patch
 0004-no-max_nr_vcpus.patch
@@ -22,4 +22,4 @@
 0022-new-ocaml-layout.patch
 0023-dont-statically-link-anything.patch
 0024-remove-calls-to-xenlight.patch
-log-filenames
+0025-log-filenames.patch
