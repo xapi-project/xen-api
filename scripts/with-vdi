@@ -1,6 +1,6 @@
 #!/bin/sh
 
-function usage()
+function usage
 {
   echo
   echo Usage:
