@@ -134,7 +134,7 @@ Description: OCaml bindings for the Xen API
 Package: xcp-xapi-debug
 Section: debug
 Architecture: any
-Depends: xcp-xapi, ${misc:Depends}, ${python:Depends}
+Depends: xcp-xapi, ${misc:Depends}, ${shlibs:Depends}, ${python:Depends}
 Description: Binary utils to help debug XCP
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
