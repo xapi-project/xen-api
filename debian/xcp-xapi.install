@@ -59,7 +59,6 @@
 /usr/lib/xcp/lib/upload-wrapper
 /usr/lib/xcp/lib/vncterm-wrapper
 /usr/lib/xcp/lib/xapi-health-check
-/usr/lib/xcp/lib/xapi-rolling-upgrade
 /usr/lib/xcp/lib/xenguest
 /usr/lib/xcp/lib/xha-lc
 /usr/lib/xcp/lib/pygrub.xcp
