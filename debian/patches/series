@@ -22,3 +22,4 @@
 0022-new-ocaml-layout.patch
 0023-dont-statically-link-anything.patch
 0024-remove-calls-to-xenlight.patch
+log-filenames

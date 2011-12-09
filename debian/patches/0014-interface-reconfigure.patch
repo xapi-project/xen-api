@@ -749,5 +749,5 @@ index 846cb53..b043fa6 100755
 -    syslog.closelog()
 -
 -    sys.exit(rc)
-+#\!/bin/bash
++#!/bin/bash
 -- 

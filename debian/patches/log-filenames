@@ -1,0 +1,94 @@
+--- a/ocaml/license/v6testd.ml
++++ b/ocaml/license/v6testd.ml
+@@ -15,6 +15,6 @@
+ module P = V6rpc.V6process(Fakev6)
+ 
+ let _ =
+-	Logs.reset_all [ "file:/var/log/v6d.log" ];
++	Logs.reset_all [ "file:/var/log/xcp-v6d.log" ];
+ 	V6daemon.startup (fun () -> ()) P.process
+ 
+--- a/ocaml/xenops/squeezed.ml
++++ b/ocaml/xenops/squeezed.ml
+@@ -12,7 +12,7 @@
+  * GNU Lesser General Public License for more details.
+  *)
+ let default_pidfile = "/var/run/squeezed.pid" 
+-let log_file_path = "file:/var/log/squeezed.log" 
++let log_file_path = "file:/var/log/xcp-squeezed.log" 
+ 
+ open Pervasiveext 
+ open Squeezed_rpc
+--- a/scripts/log.conf
++++ b/scripts/log.conf
+@@ -29,8 +29,8 @@
+ warn;;syslog:xapi
+ error;;syslog:xapi
+ 
+-# Also print everything (debug<->error) into xensource.log for easier debugging
+-debug;;file:/var/log/xensource.log
+-info;;file:/var/log/xensource.log
+-warn;;file:/var/log/xensource.log
+-error;;file:/var/log/xensource.log
++# Also print everything (debug<->error) into xcp-xapi.log for easier debugging
++debug;;file:/var/log/xcp-xapi.log
++info;;file:/var/log/xcp-xapi.log
++warn;;file:/var/log/xcp-xapi.log
++error;;file:/var/log/xcp-xapi.log
+--- a/scripts/squeezed-logrotate
++++ b/scripts/squeezed-logrotate
+@@ -1,4 +1,4 @@
+-/var/log/squeezed.log {
++/var/log/xcp-squeezed.log {
+     missingok
+     notifempty
+     size 30k
+--- a/scripts/v6d-logrotate
++++ b/scripts/v6d-logrotate
+@@ -1,4 +1,4 @@
+-/var/log/v6d.log {
++/var/log/xcp-v6d.log {
+     missingok
+     notifempty
+     size 30k
+--- a/scripts/audit-logrotate
++++ b/scripts/audit-logrotate
+@@ -1,4 +1,4 @@
+-/var/log/audit.log {
++/var/log/xcp-audit.log {
+     missingok
+     sharedscripts
+     postrotate
+--- a/scripts/xapi-logrotate
++++ b/scripts/xapi-logrotate
+@@ -1,4 +1,4 @@
+-/var/log/xensource.log {
++/var/log/xcp-xapi.log {
+     missingok
+ 	size 16M
+     sharedscripts
+--- a/ocaml/xapi/audit_log.ml
++++ b/ocaml/xapi/audit_log.ml
+@@ -18,7 +18,7 @@
+ open Stringext
+ open Pervasiveext
+ 
+-let audit_log_whitelist_prefix = "/var/log/audit.log"
++let audit_log_whitelist_prefix = "/var/log/xcp-audit.log"
+ 
+ let line_timestamp_length = 21 (* the timestamp length at the debug line *)
+ 
+@@ -105,11 +105,11 @@
+ 		ignore_exn (fun ()->atransfer infix "gz");(* try the compressed file *)
+ 		ignore_exn (fun ()->atransfer infix "") (* then the uncompressed one *)
+ 	in
+-	(* go through audit.log.n->0 first, ascending order of time *)
++	(* go through xcp-audit.log.n->0 first, ascending order of time *)
+ 	for i=100 downto 0 do
+ 		atransfer_try_gz (string_of_int i)
+ 	done;
+-	(* finally transfer /var/log/audit.log (the latest one in time) *)
++	(* finally transfer /var/log/xcp-audit.log (the latest one in time) *)
+ 	atransfer_try_gz ""
+ 
+ 

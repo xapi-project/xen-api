@@ -1,3 +1,10 @@
+xen-api (0.1-10) unstable; urgency=low
+
+  * Fix interface reconfigure patch 
+  * Rename log files
+
+ -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Fri, 09 Dec 2011 15:12:49 +0000
+
 xen-api (0.1-9) unstable; urgency=low
 
   * New FHS compliant layout of files
