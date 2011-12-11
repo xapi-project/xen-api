@@ -1,66 +1,66 @@
-xen-api (0.1-11) unstable; urgency=low
+xen-api (1.3-11) unstable; urgency=low
 
   * FHS compliance and patchqueue rebase
 
  -- Mike McClurg <mike.mcclurg@citrix.com>  Fri, 09 Dec 2011 16:56:17 +0000
 
-xen-api (0.1-10) unstable; urgency=low
+xen-api (1.3-10) unstable; urgency=low
 
   * Fix interface reconfigure patch 
   * Rename log files
 
  -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Fri, 09 Dec 2011 15:12:49 +0000
 
-xen-api (0.1-9) unstable; urgency=low
+xen-api (1.3-9) unstable; urgency=low
 
   * New FHS compliant layout of files
 
  -- Jon Ludlam <jludlam@eu.citrix.com>  Wed, 07 Dec 2011 17:07:51 +0000
 
-xen-api (0.1-8) unstable; urgency=low
+xen-api (1.3-8) unstable; urgency=low
 
   * Set PLATFORM_VERSION to 1.6 and PLATFORM_NAME to XCP_Kronos
 
  -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 29 Nov 2011 17:07:02 +0000
 
-xen-api (0.1-7) unstable; urgency=low
+xen-api (1.3-7) unstable; urgency=low
 
   * Fix control file following renaming of libxen-4.1-ocaml to libxen-ocaml
 
  -- Mike McClurg <mike.mcclurg@citrix.com>  Tue, 29 Nov 2011 09:34:18 +0000
 
-xen-api (0.1-6) unstable; urgency=low
+xen-api (1.3-6) unstable; urgency=low
 
   * Fix the xapissl init script so that it's no longer an init script
 
  -- Jon Ludlam <jludlam@snoosnoo2.uk.xensource.com>  Thu, 24 Nov 2011 15:00:20 +0000
 
-xen-api (0.1-5) unstable; urgency=low
+xen-api (1.3-5) unstable; urgency=low
 
   * Fix the create-templates part of the init scripts
 
  -- Jon Ludlam <jludlam@snoosnoo2.uk.xensource.com>  Thu, 24 Nov 2011 12:02:36 +0000
 
-xen-api (0.1-4) unstable; urgency=low
+xen-api (1.3-4) unstable; urgency=low
 
   * Use xen-4.1.2 packaging
   * Don't statically link anything
 
  -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Wed, 23 Nov 2011 21:40:26 +0000
 
-xen-api (0.1-3) unstable; urgency=low
+xen-api (1.3-3) unstable; urgency=low
 
   * Fix the init scripts so that they start at the correct point in the boot sequence
 
  -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Tue, 22 Nov 2011 17:28:10 +0000
 
-xen-api (0.1-2) unstable; urgency=low
+xen-api (1.3-2) unstable; urgency=low
 
   * Update init scripts to use proper service names (e.g. xcp-fe rather than fe)
 
  -- Jon Ludlam <jon@frankenelmo.uk.xensource.com>  Tue, 22 Nov 2011 13:18:38 +0000
 
-xen-api (0.1-1) unstable; urgency=low
+xen-api (1.3-1) unstable; urgency=low
 
   * Initial release (Closes: #646720)
 

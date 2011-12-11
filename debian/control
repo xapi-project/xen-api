@@ -1,7 +1,8 @@
 Source: xen-api
 Section: admin
 Priority: extra
-Maintainer: Jon Ludlam <jonathan.ludlam@eu.citrix.com>
+Maintainer: Pkg Xen <pkg-xen-devel@lists.alioth.debian.org>
+Uploaders: Jon Ludlam <jonathan.ludlam@eu.citrix.com>, Thomas Goirand <zigo@debian.org>, Mike McClurg <mike.mcclurg@citrix.com>
 Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev
 Standards-Version: 3.9.2
 Homepage: http://www.xen.org/XCP/
@@ -9,8 +10,8 @@ Homepage: http://www.xen.org/XCP/
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/xen-api.git;a=summary
 
 Package: xcp
-Architecture: any
-Depends: ${misc:Depends}, xcp-xapi, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
+Architecture: all
+Depends: ${misc:Depends}, xcp-xapi, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
 Description: Meta-package for the Xen Cloud Platform
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
@@ -34,10 +35,10 @@ Description: Meta-package for the Xen Cloud Platform
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
 Provides: xcp
-Description: The XCP XenAPI server
+Description: XCP XenAPI server
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
  guest operating systems, Linux network and storage support.
@@ -60,8 +61,8 @@ Description: The XCP XenAPI server
 
 Package: xcp-squeezed
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor
-Description: A daemon in charge of ballooning xen domains
+Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor-4.1-amd64
+Description: daemon in charge of memory ballooning for xen domains
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
  guest operating systems, Linux network and storage support.
@@ -85,7 +86,7 @@ Description: A daemon in charge of ballooning xen domains
 Package: xcp-v6d
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: The feature daemon for xapi. 
+Description: feature daemon for xcp-xapi
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
  guest operating systems, Linux network and storage support.
@@ -133,7 +134,7 @@ Description: OCaml bindings for the Xen API
 Package: xcp-xapi-debug
 Section: debug
 Architecture: any
-Depends: xcp-xapi, ${misc:Depends}, ${python:Depends}
+Depends: xcp-xapi, ${misc:Depends}, ${shlibs:Depends}, ${python:Depends}
 Description: Binary utils to help debug XCP
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
@@ -153,3 +154,29 @@ Description: Binary utils to help debug XCP
  reliability.
  .
  This package contains extra utilities for debugging XCP hosts.
+
+Package: xcp-xe
+Section: admin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: command line utility for managing XCP hosts
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ xcp-xe provides the xe utility, the command line interface for XCP systems.
+ This tool may be used to control a Debian XCP system from dom0, or it may be
+ used from a non-Xen system to control another XCP or Citrix XenServer system.

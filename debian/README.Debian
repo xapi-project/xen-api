@@ -1,6 +1,10 @@
 xen-api for Debian
 ------------------
 
-<possible notes regarding this package - if none, delete this file>
+This is the XCP toolstack ported to Debian. Installing these packages will turn
+a Debian system into an XCP virtualization host. While we aim to be
+functionally equivalent to a standard XCP system, not all features are
+currently ported to Debian. Noteably, block-based storage repositories have
+been disabled.
 
  -- Jon Ludlam <jonathan.ludlam@eu.citrix.com>  Thu, 07 Jul 2011 21:50:18 +0100

@@ -7,7 +7,6 @@
 # Default-Stop:      0 1 6
 # Short-Description: V6d licensing daemon
 # Description:       The licensing daemon used as part of xenserver. Here temporarily
-# 
 ### END INIT INFO
 
 # Author: Jon Ludlam <jonathan.ludlam@eu.citrix.com>

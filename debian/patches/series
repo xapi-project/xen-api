@@ -23,3 +23,7 @@
 0023-dont-statically-link-anything.patch
 0024-remove-calls-to-xenlight.patch
 0025-log-filenames.patch
+0026-fix-permissions.patch
+0028-iface-reconf-needs-env-python.patch
+0029-fix-with-vdi.patch
+0030-xe-install-to-usr-bin.patch

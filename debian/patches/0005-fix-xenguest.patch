@@ -3,21 +3,20 @@ Date: Fri, 7 Oct 2011 14:44:36 +0100
 Subject: fix-xenguest
 
 ---
- ocaml/xenguest/OMakefile        |    3 ++-
+ ocaml/xenguest/OMakefile        |    2 +-
  ocaml/xenguest/xenguest_stubs.c |   24 +++++++++++-------------
- 2 files changed, 13 insertions(+), 14 deletions(-)
+ 2 files changed, 12 insertions(+), 14 deletions(-)
 
 diff --git a/ocaml/xenguest/OMakefile b/ocaml/xenguest/OMakefile
-index add2d91..18d7208 100644
+index add2d91..b282c74 100644
 --- a/ocaml/xenguest/OMakefile
 +++ b/ocaml/xenguest/OMakefile
-@@ -2,7 +2,8 @@ CFLAGS += $(XEN_CFLAGS)
+@@ -2,7 +2,7 @@ CFLAGS += $(XEN_CFLAGS)
  OCAML_LIBS =
  OCAMLINCLUDES =
  OCAML_CLIBS = xenguest_stubs
 -OCAML_LINK_FLAGS += $(XEN_OCAML_LINK_FLAGS) -cclib -L$(XEN_ROOT)/usr/$(LIBDIR) -cclib -lz -cclib -lxenguest -cclib -lxenctrl -cclib -lxenstore
-+XEN_LIBS = /usr/lib/xen-4.1/lib
-+OCAML_LINK_FLAGS += -linkpkg  -cclib -L$(XEN_LIBS) -cclib "-Wl,-rpath" -cclib "-Wl,$(XEN_LIBS)" -cclib -lz -cclib -lxenguest -cclib -lxenctrl -cclib -lxenstore
++OCAML_LINK_FLAGS += -linkpkg -cclib -lz -cclib -lxenguest -cclib -lxenctrl -cclib -lxenstore
  OCAMLPACKS = unix
  
  XENGUEST_SRC_FILES = dumpcore.ml xenguest.ml xenguest_main.ml xenguest_stubs.c
