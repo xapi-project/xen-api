@@ -24,3 +24,4 @@
 0024-remove-calls-to-xenlight.patch
 0025-log-filenames.patch
 0026-fix-permissions.patch
+0028-iface-reconf-needs-env-python.patch
