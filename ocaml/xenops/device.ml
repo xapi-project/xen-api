@@ -463,9 +463,6 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 	     List.iter (fun (k, v) -> Hashtbl.add back_tbl k v) keys
 	 | None -> ());
 
-	(* PV guests don't support CDROMs so we model these as disks *)
-	let dev_type = if not hvm then Disk else dev_type in
-
 	Hashtbl.add_list front_tbl [
 		"backend-id", string_of_int backend_domid;
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
@@ -484,6 +481,11 @@ let add ~xs ~hvm ~mode ~device_number ~phystype ~params ~dev_type ~unpluggable
 		"mode", string_of_mode mode;
 		"params", params;
 	];
+    (* We don't have PV drivers for HVM guests for CDROMs. We prevent
+       blkback from successfully opening the device since this can
+       prevent qemu CD eject (and subsequent vdi_deactivate) *)
+	if hvm && (dev_type = CDROM) then
+		Hashtbl.add back_tbl "no-physical-device" "";
 
 	if protocol <> Protocol_Native then
 		Hashtbl.add front_tbl "protocol" (string_of_protocol protocol);
