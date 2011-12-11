@@ -11,7 +11,7 @@ Homepage: http://www.xen.org/XCP/
 
 Package: xcp
 Architecture: any
-Depends: ${misc:Depends}, xcp-xapi, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
+Depends: ${misc:Depends}, xcp-xapi, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
 Description: Meta-package for the Xen Cloud Platform
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
@@ -35,7 +35,7 @@ Description: Meta-package for the Xen Cloud Platform
 
 Package: xcp-xapi
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, xcp-squeezed, xcp-v6d, xcp-fe, xcp-storage-managers, xen-hypervisor-4.1-amd64, xen-utils-4.1, stunnel, hwdata, xcp-eliloader
 Recommends: xcp-vncterm, xcp-guest-templates
 Provides: xcp
 Description: The XCP XenAPI server
@@ -61,7 +61,7 @@ Description: The XCP XenAPI server
 
 Package: xcp-squeezed
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor
+Depends: ${shlibs:Depends}, ${misc:Depends}, xen-hypervisor-4.1-amd64
 Description: A daemon in charge of ballooning xen domains
  The Xen Cloud Platform (XCP) is an open source enterprise-ready server
  virtualization and cloud computing platform, with support for a range of
