@@ -38,6 +38,9 @@ let stunnel_process = ref None
 let debug_channel = ref None
 let debug_file = ref None
 
+let heartbeat_version = 0.2
+let heartbeat_interval = 300.
+
 let error fmt = Printf.fprintf stderr fmt
 let debug fmt =
   let printer s = match !debug_channel with
@@ -251,6 +254,25 @@ let http_response_code x = match String.split ' ' x with
   | _ :: code :: _ -> int_of_string code
   | _ -> failwith "Bad response from HTTP server"
 
+let copy_with_heartbeat ?(block=65536) in_ch out_ch heartbeat_fun =
+	let buf = String.make block '\000' in
+	let last_heartbeat = ref (Unix.time()) in
+	let finish = ref false in
+	while not !finish do
+		let bytes = input in_ch buf 0 block in
+		if bytes <> 0 then
+			output out_ch buf 0 bytes
+		else begin
+			flush out_ch;
+			finish := true
+		end;
+		let now = Unix.time () in
+		if now -. !last_heartbeat >= heartbeat_interval then begin
+			heartbeat_fun ();
+			last_heartbeat := now
+		end
+	done
+
 exception Http_failure
 exception Connect_failure
 exception Protocol_version_mismatch of string
@@ -278,6 +300,11 @@ let main_loop ifd ofd =
   debug "%s\n%!" msg;
   if major' <> major
   then raise (Protocol_version_mismatch msg);
+  let with_heartbeat =
+	  major' * 10 + minor' >= int_of_float (heartbeat_version *. 10.) in
+  let heartbeat_fun =
+	  if with_heartbeat then (fun () -> marshal ofd (Response Wait))
+	  else ignore in
   marshal_protocol ofd;
 
   let exit_code = ref None in
@@ -328,69 +355,77 @@ let main_loop ifd ofd =
           with
           | e -> marshal ofd (Response Failed)
         end
-	| Command (HttpConnect(url)) ->
-		let server, path = parse_url url in
-        let ic, oc = open_tcp server in
-        let fd = Unix.descr_of_out_channel oc in
-		Printf.fprintf oc "CONNECT %s HTTP/1.0\r\ncontent-length: 0\r\n\r\n" path;
-		flush oc;
-        let resultline = input_line ic in
-        let _ = read_rest_of_headers ic in
-        (* Get the result header immediately *)
-        begin match http_response_code resultline with
-            | 200 ->
-				(* Remember the current terminal state so we can restore it *)
-				let tc = Unix.tcgetattr Unix.stdin in
-				(* Switch into a raw mode, passing through stuff like Control + C *)
-				let tc' = {
-					tc with
-						Unix.c_ignbrk = false;
-						Unix.c_brkint = false;
-						Unix.c_parmrk = false;
-						Unix.c_istrip = false;
-						Unix.c_inlcr = false;
-						Unix.c_igncr = false;
-						Unix.c_icrnl = false;
-						Unix.c_ixon = false;
-						Unix.c_opost = false;
-						Unix.c_echo = false;
-						Unix.c_echonl = false;
-						Unix.c_icanon = false;
-						Unix.c_isig = false;
-						(* IEXTEN? *)
-						Unix.c_csize = 8;
-						Unix.c_parenb = false;
-						Unix.c_vmin = 0;
-						Unix.c_vtime = 0;
-				} in
-				Pervasiveext.finally
-					(fun () ->
-						Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
-						let finished = ref false in
-						while not !finished do
-							let r, _, _ = Unix.select [ Unix.stdin; fd ] [] [] 0. in
-							if List.mem Unix.stdin r then begin
-								let b = Unixext.really_read_string Unix.stdin 1 in
-								if Char.code b.[0] = 0x1d (* Control + ] *)
-								then finished := true
-								else Unixext.really_write_string fd b
-							end;
-							if List.mem fd r then begin
-								let b = Unixext.really_read_string fd 1 in
-								Unixext.really_write_string Unix.stdout b
-							end
-						done
-					)
-					(fun () ->
-						Unix.tcsetattr Unix.stdin Unix.TCSANOW tc
-					);
-				marshal ofd (Response OK)
-			| 404 ->
-				Printf.fprintf stderr "Server replied with HTTP 404: the console is not available\n";
-				marshal ofd (Response Failed)
-			| x ->
-				raise (ClientSideError (Printf.sprintf "Server said: %s" resultline))
-		end
+    | Command (HttpConnect(url)) ->
+	      let server, path = parse_url url in
+	      let ic, oc = open_tcp server in
+	      let fd = Unix.descr_of_out_channel oc in
+	      Printf.fprintf oc "CONNECT %s HTTP/1.0\r\ncontent-length: 0\r\n\r\n" path;
+	      flush oc;
+	      let resultline = input_line ic in
+	      let _ = read_rest_of_headers ic in
+	      (* Get the result header immediately *)
+	      begin match http_response_code resultline with
+	      | 200 ->
+		        (* Remember the current terminal state so we can restore it *)
+		        let tc = Unix.tcgetattr Unix.stdin in
+		        (* Switch into a raw mode, passing through stuff like Control + C *)
+		        let tc' = {
+			        tc with
+				        Unix.c_ignbrk = false;
+				        Unix.c_brkint = false;
+				        Unix.c_parmrk = false;
+				        Unix.c_istrip = false;
+				        Unix.c_inlcr = false;
+				        Unix.c_igncr = false;
+				        Unix.c_icrnl = false;
+				        Unix.c_ixon = false;
+				        Unix.c_opost = false;
+				        Unix.c_echo = false;
+				        Unix.c_echonl = false;
+				        Unix.c_icanon = false;
+				        Unix.c_isig = false;
+				        (* IEXTEN? *)
+				        Unix.c_csize = 8;
+				        Unix.c_parenb = false;
+				        Unix.c_vmin = 0;
+				        Unix.c_vtime = 0;
+		        } in
+		        Pervasiveext.finally
+			        (fun () ->
+				         Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
+				         let finished = ref false in
+				         let block = 65536 in
+				         let buf = String.make block '\000' in
+				         let last_heartbeat = ref (Unix.time ()) in
+				         while not !finished do
+					         let r, _, _ = Unix.select [Unix.stdin; fd] [] [] heartbeat_interval in
+					         let now = Unix.time () in
+					         if now  -. !last_heartbeat >= heartbeat_interval then begin
+						         heartbeat_fun ();
+						         last_heartbeat := now
+					         end;
+					         if List.mem Unix.stdin r then begin
+						         let b = Unix.read Unix.stdin buf 0 block in
+						         let i = ref 0 in
+						         while !i < b && Char.code buf.[!i] <> 0x1d do incr i; done;
+						         Unixext.really_write fd buf 0 !i;
+						         if !i < b then finished := true;
+					         end;
+					         if List.mem fd r then
+						         let b = Unix.read fd buf 0 block in
+						         Unixext.really_write Unix.stdout buf 0 b;
+				         done
+			        )
+			        (fun () ->
+				         Unix.tcsetattr Unix.stdin Unix.TCSANOW tc
+			        );
+		        marshal ofd (Response OK)
+	      | 404 ->
+		        Printf.fprintf stderr "Server replied with HTTP 404: the console is not available\n";
+		        marshal ofd (Response Failed)
+	      | x ->
+		        raise (ClientSideError (Printf.sprintf "Server said: %s" resultline))
+	      end
     | Command (HttpPut(filename, url)) ->
         begin
           try
@@ -398,25 +433,26 @@ let main_loop ifd ofd =
               let (server,path) = parse_url url in
               if not (Sys.file_exists filename) then
                 raise (ClientSideError (Printf.sprintf "file '%s' does not exist" filename));
-              let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0 in
-              let stat = Unix.LargeFile.fstat fd in
+              let file_ch = open_in_bin filename in
+              let file_size = LargeFile.in_channel_length file_ch in
               let ic, oc = open_tcp server in
               debug "PUTting to path [%s]\n%!" path;
-              Printf.fprintf oc "PUT %s HTTP/1.0\r\ncontent-length: %Ld\r\n\r\n" path stat.Unix.LargeFile.st_size;
+              Printf.fprintf oc "PUT %s HTTP/1.0\r\ncontent-length: %Ld\r\n\r\n" path file_size;
               flush oc;
               let resultline = input_line ic in
               let headers = read_rest_of_headers ic in
               (* Get the result header immediately *)
               match http_response_code resultline with
               | 200 ->
-                  let fd' = Unix.descr_of_out_channel oc in
-                  let bytes = Unixext.copy_file fd fd' in
-                  debug "Written %s bytes\n%!" (Int64.to_string bytes);
-                  Unix.close fd;
-                  Unix.shutdown fd' Unix.SHUTDOWN_SEND;
+	                (try
+		                 copy_with_heartbeat file_ch oc heartbeat_fun;
+		                 close_in file_ch;
+	                 with Sys_error s -> raise (ClientSideError s));
+	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
                   marshal ofd (Response OK)
               | 302 ->
-                  let newloc = List.assoc "location" headers in
+	                let newloc = List.assoc "location" headers in
+	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
                   doit newloc
               | _ -> failwith "Unhandled response code"
             in
@@ -446,37 +482,20 @@ let main_loop ifd ofd =
               debug "Got %s\n%!" resultline;
               match http_response_code resultline with
               | 200 ->
-                  (* Copy from channel to the file descriptor *)
-                  let finished = ref false in
-                  while not(!finished) do
-                    finished := input_line ic = "\r";
-                  done;
-                  let buffer = String.make 65536 '\000' in
-                  let finished = ref false in
-                  let fd =
-                    try
-                      if filename = "" then
-                        Unix.dup Unix.stdout
-                      else
-                        Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_EXCL ] 0o600
-                    with
-                      Unix.Unix_error (a,b,c) ->
-                        (* Note that this will close the connection to the export handler, causing the task to fail *)
-                        raise (ClientSideError (Printf.sprintf "%s: %s, %s." (Unix.error_message a) b c))
-                  in
-                  while not(!finished) do
-                    let num = input ic buffer 0 (String.length buffer) in
-                    begin try
-                      Unixext.really_write fd buffer 0 num;
-                    with
-                      Unix.Unix_error (a,b,c) ->
-                        raise (ClientSideError (Printf.sprintf "%s: %s, %s." (Unix.error_message a) b c))
-                    end;
-                    finished := num = 0;
-                  done;
-                  Unix.close fd;
-                  (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
-                  marshal ofd (Response OK)
+	                let file_ch =
+		                if filename = "" then
+			                Unix.out_channel_of_descr (Unix.dup Unix.stdout)
+		                else
+			                try open_out_gen [Open_wronly; Open_creat; Open_excl] 0o600 filename
+			                with e -> raise (ClientSideError (Printexc.to_string e))
+	                in
+	                while input_line ic <> "\r" do () done;
+	                (try
+		                 copy_with_heartbeat ic file_ch heartbeat_fun;
+		                 close_out file_ch
+	                 with Sys_error s -> raise (ClientSideError s));
+	                (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
+	                marshal ofd (Response OK)
               | 302 ->
                   let headers = read_rest_of_headers ic in
                   let newloc = List.assoc "location" headers in
