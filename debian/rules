@@ -1,17 +1,8 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-#
-# This file was originally written by Joey Hess and Craig Small.
-# As a special exception, when this file is copied by dh-make into a
-# dh-make output file, you may use that output file without restriction.
-# This special exception was added by Craig Small in version 0.37 of dh-make.
-#
-# Modified to make a template file for a multi-binary package with separated
-# build-arch and build-indep targets  by Bill Allombert 2001
 
 # Uncomment this to turn on verbose mode.
-export DH_VERBOSE=1
+#export DH_VERBOSE=1
 
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
@@ -20,7 +11,7 @@ export PLATFORM_NAME="XCP_Kronos"
 export PLATFORM_VERSION="1.6.0"
 
 %:
-	dh $@ --with ocaml,python_support
+	dh $@ --with ocaml,python2
 
 clean: 
 	dh clean
