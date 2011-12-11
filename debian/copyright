@@ -1,4 +1,4 @@
-Format: http://dep.debian.net/deps/dep5
+Format: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=174
 Upstream-Name: xen-api
 Upstream-Contact: Jonathan Ludlam <Jonathan.Ludlam@eu.citrix.com>
 Source: http://github.com/xen-org/xen-api
