@@ -8,7 +8,6 @@
 /usr/lib/xcp/bin/xapi-autostart-vms
 /usr/lib/xcp/bin/xapi-db-process
 /usr/lib/xcp/bin/xapi-wait-init-complete
-/usr/lib/xcp/bin/xe
 /usr/lib/xcp/bin/xe-backup-metadata
 /usr/lib/xcp/bin/xe-edit-bootloader
 /usr/lib/xcp/bin/xe-mount-iso-sr
@@ -68,5 +67,4 @@
 /etc/pam.d
 /etc/xcp
 /lib
-/usr/bin/xe
 /usr/lib/xcp/lib/xapissl

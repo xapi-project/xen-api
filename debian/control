@@ -154,3 +154,29 @@ Description: Binary utils to help debug XCP
  reliability.
  .
  This package contains extra utilities for debugging XCP hosts.
+
+Package: xcp-xe
+Section: admin
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: command line utility for managing XCP hosts
+ The Xen Cloud Platform (XCP) is an open source enterprise-ready server
+ virtualization and cloud computing platform, with support for a range of
+ guest operating systems, Linux network and storage support.
+ .
+ XCP addresses the needs of cloud providers, hosting services and data centers
+ by combining the isolation and multitenancy capabilities of the Xen hypervisor
+ with enhanced security, storage and network virtualization technologies to
+ offer a rich set of virtual infrastructure cloud services. The platform
+ also address user requirements for security, availability, performance and
+ isolation across both private and public clouds.
+ .
+ XCP consolidates server workloads, enables savings in power, cooling, and
+ management costs and thus contributing to environmentally sustainable
+ computing, an increased ability to adapt to ever-changing IT environments,
+ an optimized use of existing hardware, and an improved level of IT
+ reliability.
+ .
+ xcp-xe provides the xe utility, the command line interface for XCP systems.
+ This tool may be used to control a Debian XCP system from dom0, or it may be
+ used from a non-Xen system to control another XCP or Citrix XenServer system.
