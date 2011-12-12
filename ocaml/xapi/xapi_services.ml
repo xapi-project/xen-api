@@ -20,12 +20,7 @@ open D
 open Fun
 open Stringext
 open Pervasiveext
-
-(* URI prefix *)
-let _services = "services"
-let _SM = "SM"
-
-let path xs = "/" ^ (String.concat "/" xs)
+open Constants
 
 let convert_driver_info x =
 	let open Smint in {
@@ -53,6 +48,7 @@ let respond req rpc s =
 (* Transmits [req] and [s] to the service listening on [path] *)
 let hand_over_connection req s path =
 	try
+		debug "hand_over_connection %s %s to %s" (Http.string_of_method_t req.Http.Request.m) req.Http.Request.uri path;
 		let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 		finally
 			(fun () ->
@@ -83,13 +79,23 @@ let post_handler (req: Http.Request.t) s _ =
 					req.Http.Request.close <- true
 		)
 
+let put_handler (req: Http.Request.t) s _ =
+	Xapi_http.with_context ~dummy:true "Querying services" req s
+		(fun __context ->
+			match String.split '/' req.Http.Request.uri with
+				| [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
+					let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
+					Import_raw_vdi.import vdi req s ()
+				| _ ->
+					Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
+					req.Http.Request.close <- true
+		)
+
 let get_handler (req: Http.Request.t) s _ =
 	Xapi_http.with_context ~dummy:true "Querying services" req s
 		(fun __context ->
 			debug "uri = %s" req.Http.Request.uri;
 			match String.split '/' req.Http.Request.uri with
-				| [ ""; services; "xenops" ] when services = _services ->
-					hand_over_connection req s "/var/xapi/xenopsd.forwarded"
 				| [ ""; services; "SM"; driver ] when services = _services ->
 					begin
 						try

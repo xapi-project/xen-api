@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Debugger(struct let name="storage_migrate" end)
+module D=Debug.Debugger(struct let name="xapi" end)
 open D
 
 open Listext

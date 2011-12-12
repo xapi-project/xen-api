@@ -15,6 +15,9 @@
  * @group Import and Export
  *)
 
+module D=Debug.Debugger(struct let name="xapi" end)
+open D
+
 module Unmarshal = struct
 	let int64 (s, offset) = 
 		let (<<) a b = Int64.shift_left a b
@@ -95,7 +98,8 @@ module Chunk = struct
 		then failwith (Printf.sprintf "Short write: attempted to write %d bytes at %Ld, only wrote %d" len offset n)
 
 	(** Writes a single block of data to the output device *)
-	let write fd x = 
+	let write fd x =
+		debug "Chunk.write start=%Ld length=%d" x.start (String.length x.data);
 		ignore(Unixext.Direct.lseek fd x.start Unix.SEEK_SET);
 		really_write_direct fd x.start x.data 0 (String.length x.data)
 
