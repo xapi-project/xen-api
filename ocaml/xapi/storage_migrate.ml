@@ -157,4 +157,12 @@ let start ~task ~sr ~vdi ~url ~dest =
 	Success (Vdi leaf)
 
 let stop ~task ~sr ~vdi =
-	failwith "Mirror.stop unimplemented"
+	(* Find the local VDI *)
+	let vdis = Local.SR.scan ~task ~sr |> success |> _vdis in
+	let local_vdi =
+		try List.find (fun x -> x.vdi = vdi) vdis
+		with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+	(* Disable mirroring on the local machine *)
+	let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
+	Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit;
+	Success Unit
