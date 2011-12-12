@@ -94,9 +94,11 @@ do_start()
 
 	# Check whether the md5 of the create-templates binary matches the one
 	# used previously. If not, recreate the templates.
-	if ! md5sum -c --status $TEMPLATES_MD5_STAMP ; then
-		/usr/lib/xcp/lib/regenerate-templates start
-		md5sum /usr/lib/xcp/lib/create_templates > $TEMPLATES_MD5_STAMP
+	if [ -e /usr/lib/xcp/lib/create_templates ]; then
+		if ! md5sum -c --status $TEMPLATES_MD5_STAMP ; then
+			/usr/lib/xcp/lib/regenerate-templates start
+			md5sum /usr/lib/xcp/lib/create_templates > $TEMPLATES_MD5_STAMP
+		fi
 	fi
 }
 
