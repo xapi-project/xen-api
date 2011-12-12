@@ -41,6 +41,8 @@ let debug_file = ref None
 let heartbeat_version = 0.2
 let heartbeat_interval = 300.
 
+let long_connection_retry_timeout = 5.
+
 let error fmt = Printf.fprintf stderr fmt
 let debug fmt =
   let printer s = match !debug_channel with
@@ -357,75 +359,128 @@ let main_loop ifd ofd =
         end
     | Command (HttpConnect(url)) ->
 	      let server, path = parse_url url in
-	      let ic, oc = open_tcp server in
-	      let fd = Unix.descr_of_out_channel oc in
-	      Printf.fprintf oc "CONNECT %s HTTP/1.0\r\ncontent-length: 0\r\n\r\n" path;
-	      flush oc;
-	      let resultline = input_line ic in
-	      let _ = read_rest_of_headers ic in
-	      (* Get the result header immediately *)
-	      begin match http_response_code resultline with
-	      | 200 ->
-		        (* Remember the current terminal state so we can restore it *)
-		        let tc = Unix.tcgetattr Unix.stdin in
-		        (* Switch into a raw mode, passing through stuff like Control + C *)
-		        let tc' = {
-			        tc with
-				        Unix.c_ignbrk = false;
-				        Unix.c_brkint = false;
-				        Unix.c_parmrk = false;
-				        Unix.c_istrip = false;
-				        Unix.c_inlcr = false;
-				        Unix.c_igncr = false;
-				        Unix.c_icrnl = false;
-				        Unix.c_ixon = false;
-				        Unix.c_opost = false;
-				        Unix.c_echo = false;
-				        Unix.c_echonl = false;
-				        Unix.c_icanon = false;
-				        Unix.c_isig = false;
-				        (* IEXTEN? *)
-				        Unix.c_csize = 8;
-				        Unix.c_parenb = false;
-				        Unix.c_vmin = 0;
-				        Unix.c_vtime = 0;
-		        } in
-		        Pervasiveext.finally
-			        (fun () ->
-				         Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
-				         let finished = ref false in
-				         let block = 65536 in
-				         let buf = String.make block '\000' in
-				         let last_heartbeat = ref (Unix.time ()) in
-				         while not !finished do
-					         let r, _, _ = Unix.select [Unix.stdin; fd] [] [] heartbeat_interval in
-					         let now = Unix.time () in
-					         if now  -. !last_heartbeat >= heartbeat_interval then begin
-						         heartbeat_fun ();
-						         last_heartbeat := now
-					         end;
-					         if List.mem Unix.stdin r then begin
-						         let b = Unix.read Unix.stdin buf 0 block in
-						         let i = ref 0 in
-						         while !i < b && Char.code buf.[!i] <> 0x1d do incr i; done;
-						         Unixext.really_write fd buf 0 !i;
-						         if !i < b then finished := true;
-					         end;
-					         if List.mem fd r then
-						         let b = Unix.read fd buf 0 block in
-						         Unixext.really_write Unix.stdout buf 0 b;
-				         done
-			        )
-			        (fun () ->
-				         Unix.tcsetattr Unix.stdin Unix.TCSANOW tc
-			        );
-		        marshal ofd (Response OK)
-	      | 404 ->
-		        Printf.fprintf stderr "Server replied with HTTP 404: the console is not available\n";
-		        marshal ofd (Response Failed)
-	      | x ->
-		        raise (ClientSideError (Printf.sprintf "Server said: %s" resultline))
-	      end
+	      (* The releatively complex design here helps to buffer input/output
+	         when the underlying connection temporarily breaks, hence provides
+	         seemingly continous connection. *)
+	      let block = 65536 in
+	      let buf_local = String.make block '\000' in
+	      let buf_local_end = ref 0 in
+	      let buf_local_start = ref 0 in
+	      let buf_remote = String.make block '\000' in
+	      let buf_remote_end = ref 0 in
+	      let buf_remote_start = ref 0 in
+	      let final = ref false in
+	      let tc_save = ref None in
+	      let connection ic oc =
+		      let fd = Unix.descr_of_out_channel oc in
+		      Printf.fprintf oc "CONNECT %s HTTP/1.0\r\ncontent-length: 0\r\n\r\n" path;
+		      flush oc;
+		      let resultline = input_line ic in
+		      let _ = read_rest_of_headers ic in
+		      (* Get the result header immediately *)
+		      begin match http_response_code resultline with
+		      | 200 ->
+			        if !tc_save = None then begin
+				        (* Remember the current terminal state so we can restore it *)
+				        let tc = Unix.tcgetattr Unix.stdin in
+				        (* Switch into a raw mode, passing through stuff like Control + C *)
+				        let tc' = {
+					        tc with
+						        Unix.c_ignbrk = false;
+						        Unix.c_brkint = false;
+						        Unix.c_parmrk = false;
+						        Unix.c_istrip = false;
+						        Unix.c_inlcr = false;
+						        Unix.c_igncr = false;
+						        Unix.c_icrnl = false;
+						        Unix.c_ixon = false;
+						        Unix.c_opost = false;
+						        Unix.c_echo = false;
+						        Unix.c_echonl = false;
+						        Unix.c_icanon = false;
+						        Unix.c_isig = false;
+						        (* IEXTEN? *)
+						        Unix.c_csize = 8;
+						        Unix.c_parenb = false;
+						        Unix.c_vmin = 0;
+						        Unix.c_vtime = 0;
+				        } in
+				        Unix.tcsetattr Unix.stdin Unix.TCSANOW tc';
+				        tc_save := Some tc
+			        end;
+			        let finished = ref false in
+			        let last_heartbeat = ref (Unix.time ()) in
+			        while not !finished do
+				        if !buf_local_start <> !buf_local_end then begin
+					        let b = Unix.write Unix.stdout buf_local
+						        !buf_local_start (!buf_local_end - !buf_local_start)
+					        in
+					        buf_local_start := !buf_local_start + b;
+					        if !buf_local_start = !buf_local_end then
+						        (buf_local_start := 0; buf_local_end := 0)
+				        end
+				        else if !buf_remote_start <> !buf_remote_end then begin
+					        let b = Unix.write fd buf_remote !buf_remote_start
+						        (!buf_remote_end - !buf_remote_start) in
+					        buf_remote_start := !buf_remote_start + b;
+					        if !buf_remote_start = !buf_remote_end then
+						        (buf_remote_start := 0; buf_remote_end := 0)
+				        end
+				        else if !final then finished := true
+				        else begin
+					        let r, _, _ =
+						        Unix.select [Unix.stdin; fd] [] [] heartbeat_interval in
+					        let now = Unix.time () in
+					        if now  -. !last_heartbeat >= heartbeat_interval then begin
+						        heartbeat_fun ();
+						        last_heartbeat := now
+					        end;
+					        if List.mem Unix.stdin r then begin
+						        let b = Unix.read Unix.stdin buf_remote
+							        !buf_remote_end (block - !buf_remote_end) in
+						        let i = ref !buf_remote_end in
+						        while !i < !buf_remote_end + b && Char.code buf_remote.[!i] <> 0x1d do incr i; done;
+						        if !i < !buf_remote_end + b then final := true;
+						        buf_remote_end := !i
+					        end;
+					        if List.mem fd r then begin
+						        let b = Unix.read fd buf_local
+							        !buf_local_end (block - !buf_local_end) in
+						        buf_local_end := !buf_local_end + b
+					        end
+				        end
+			        done;
+			        marshal ofd (Response OK)
+		      | 404 ->
+			        Printf.fprintf stderr "Server replied with HTTP 404: the console is not available\n";
+			        marshal ofd (Response Failed)
+		      | x ->
+			        Printf.fprintf stderr "Server said: %s" resultline;
+			        marshal ofd (Response Failed)
+		      end in
+	      let delay = ref 0.1 in
+	      let rec keep_connection () =
+		      try
+			      let ic, oc = open_tcp server in
+			      delay := 0.1;
+			      Pervasiveext.finally
+				      (fun () -> connection ic oc)
+				      (fun () -> try close_in ic with _ -> ())
+		      with
+		      | Unix.Unix_error (_, _, _)
+				      when !delay <= long_connection_retry_timeout ->
+			        ignore (Unix.select [] [] [] !delay);
+			        delay := !delay *. 2.;
+				      keep_connection ()
+		      | e ->
+			        prerr_endline (Printexc.to_string e);
+			        marshal ofd (Response Failed) in
+	      keep_connection ();
+	      (match !tc_save with
+	       | Some tc ->
+		         Unix.tcsetattr Unix.stdin Unix.TCSANOW tc;
+		         print_endline "\r"
+	       | None -> ())
     | Command (HttpPut(filename, url)) ->
         begin
           try
