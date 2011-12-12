@@ -30,7 +30,7 @@ let use_stunnel_cache = ref false
 let master = ref false
 let slave_limit = ref 0
 let threads = ref 1
-let url = ref "file:///var/xapi/xapi"
+let url = ref ("file://" ^ Fhs.vardir ^ "xapi")
 
 
 type url = 

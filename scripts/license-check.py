@@ -7,9 +7,9 @@ import os, re, subprocess, sys, syslog, time, traceback
 from xml.dom import minidom
 
 gpg_binary_path="/usr/bin/gpg"
-gpg_homedir="@BASE_PATH@/gpg"
+gpg_homedir="@OPTDIR@/gpg"
 gpg_pub_keyring=gpg_homedir + "/pubring.gpg"
-license_file="/etc/xensource/license"
+license_file="@ETCDIR@/license"
 expiry_message_name="LICENSE_EXPIRES_SOON"
 
 def match_installation(s):
@@ -17,7 +17,7 @@ def match_installation(s):
     return regex.search(s, 0)
 
 def get_localhost():
-    filename = '/etc/xensource-inventory'
+    filename = '@INVENTORY@'
     try:
         f = open(filename, 'r')
     except:

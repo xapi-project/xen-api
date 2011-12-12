@@ -2,15 +2,15 @@
 
 case "$XENBUS_TYPE" in
   tap)
-    /etc/xensource/scripts/tap "$ACTION"
+    @SCRIPTSDIR@/tap "$ACTION"
     ;;
   vbd)
-    /etc/xensource/scripts/block "$ACTION"
+    @SCRIPTSDIR@/block "$ACTION"
     ;;
   vtpm)
-    /etc/xensource/scripts/vtpm "$ACTION"
+    @SCRIPTSDIR@/vtpm "$ACTION"
     ;;
   vif)
-    /etc/xensource/scripts/vif "$ACTION"
+    @SCRIPTSDIR@/vif "$ACTION"
     ;;
 esac

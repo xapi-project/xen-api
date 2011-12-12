@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../idl/ocaml_backend/common ../idl/ocaml_backend/client
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi
+OCAML_LIBS    = ../fhs ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
+OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ..
 OCAMLPACKS    = xml-light2 stdext stunnel log
 
 section
@@ -99,13 +99,12 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
-	$(IPROG) xe $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)/usr/bin
-	ln -sf $(BIN_DIR)/xe $(DESTDIR)/usr/bin/xe
+	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/xe
-	mkdir -p $(DEBUGDIST)
 
 .PHONY: sdk-install
 sdk-install: install

@@ -1,10 +1,11 @@
 OCAML_LIBS    = ../util/version ../idl/ocaml_backend/xapi_client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util
+OCAMLINCLUDES = ../idl/ocaml_backend ../idl ../autogen ../xapi ../gpg ../util ..
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
 UseCamlp4(rpc-light.syntax, v6rpc v6errors)
 
 V6FILES = \
+	../fhs \
 	fakev6 \
 	v6rpc \
 	v6errors \
@@ -18,14 +19,14 @@ V6D = v6d
 OCamlProgram($(V6D), $(V6FILES))
 OCamlDocProgram($(V6D), $(V6FILES))
 
-OCamlProgram(v6d-reopen-logs, v6d_reopen_logs)
+OCamlProgram(v6d-reopen-logs, v6d_reopen_logs ../fhs)
 
 .PHONY: install
 install: $(V6D)
-	mkdir -p $(LIBEXEC)
-	$(IPROG) $(V6D) $(LIBEXEC)
-	mkdir -p $(BIN_PATH)
-	$(IPROG) v6d-reopen-logs $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) $(V6D) $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) v6d-reopen-logs $(DESTDIR)$(OPTDIR)/bin
 
 .PHONY: clean
 clean:

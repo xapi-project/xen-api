@@ -14,7 +14,7 @@ class ILO_POWERON_FAILED(Exception):
 
 def getXmlWithLogin(user, password):
     
-    inputFile=open("/etc/xapi.d/plugins/iLOPowerON.xml",'r')
+    inputFile=open("@PLUGINDIR@/iLOPowerON.xml",'r')
     try:
         result= inputFile.read().replace('user',user).replace('password',password)
     finally:

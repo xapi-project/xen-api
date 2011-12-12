@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client
+OCAML_LIBS    = ../fhs ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
 OCAMLINCLUDES = ../xapi ../idl/ocaml_backend/ ../idl ../autogen
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr log rpc-light
 
@@ -11,9 +11,9 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(DEBUGDIST)
-	$(IPROG) lvhdrt $(DEBUGDIST)
-	mkdir -p $(DESTDIR)/etc/xapi.d/plugins
-	$(IPROG) lvhdrt-helper $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-helper
-	$(IPROG) lvhdrt-trash-vdi $(DESTDIR)/etc/xapi.d/plugins/lvhdrt-trash-vdi 
+	mkdir -p $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) lvhdrt $(DESTDIR)$(OPTDIR)/debug
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) lvhdrt-helper $(DESTDIR)$(PLUGINDIR)/lvhdrt-helper
+	$(IPROG) lvhdrt-trash-vdi $(DESTDIR)$(PLUGINDIR)/lvhdrt-trash-vdi 
 

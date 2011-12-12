@@ -467,7 +467,7 @@ let set_cache_sr sr_uuid =
 let unset_cache_sr () =
 	Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
 
-let tapdisk_cache_stats = Xapi_globs.base_path ^ "/bin/tapdisk-cache-stats"
+let tapdisk_cache_stats = Filename.concat Fhs.bindir "tapdisk-cache-stats"
 
 let read_cache_stats timestamp =
 	let cache_sr_opt = Mutex.execute cache_sr_lock (fun () -> !cache_sr_uuid) in

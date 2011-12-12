@@ -1,5 +1,5 @@
 OTHER_CLIBS = -cclib -lpam
-OCAMLINCLUDES += ../autogen ../idl/ocaml_backend ../idl ../xapi 
+OCAMLINCLUDES += ../autogen ../idl/ocaml_backend ../idl ../xapi ..
 
 StaticCLibrary(auth_stubs, xa_auth xa_auth_stubs)
 OCamlLibraryClib(pam, pam, auth_stubs)
@@ -17,4 +17,4 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(BIN_PATH)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin

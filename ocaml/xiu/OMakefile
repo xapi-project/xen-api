@@ -1,6 +1,6 @@
 OCAMLPACKS    = stdext xenstore netdev log
-OCAML_LIBS    += ../util/version ../idl/ocaml_backend/common ../xenops/xenops
-OCAMLINCLUDES += ../xapi ../xenops
+OCAML_LIBS    += ../util/version ../fhs ../idl/ocaml_backend/common ../xenops/xenops
+OCAMLINCLUDES += ../xapi ../xenops ..
 
 CFLAGS += -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-strict-aliasing -std=gnu99
 CFLAGS += -mno-tls-direct-seg-refs
@@ -17,14 +17,14 @@ clean:
 
 .PHONY: install
 install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) xiu $(LIBEXEC)/
-	mkdir -p $(BASE_PATH)/lib
-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib
 
 .PHONY: sdk-install
 sdk-install:
-	mkdir -p $(LIBEXEC)
-	$(IPROG) xiu $(LIBEXEC)/
-	mkdir -p $(BASE_PATH)/lib
-	$(IDATA) libxenctrl_xiu.so $(BASE_PATH)/lib
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xiu $(DESTDIR)$(LIBEXECDIR)/
+	mkdir -p $(DESTDIR)$(OPTDIR)/lib
+	$(IDATA) libxenctrl_xiu.so $(DESTDIR)$(OPTDIR)/lib

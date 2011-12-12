@@ -1,4 +1,4 @@
 <collect>
-<command label="sm_diagnostics">/opt/xensource/libexec/sm_diagnostics</command>
-<command label="thread_diagnostics">/opt/xensource/libexec/thread_diagnostics</command>
+<command label="sm_diagnostics">@LIBEXECDIR@/sm_diagnostics</command>
+<command label="thread_diagnostics">@LIBEXECDIR@/thread_diagnostics</command>
 </collect>

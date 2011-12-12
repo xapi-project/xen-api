@@ -91,7 +91,7 @@ let prepare_database_for_restore ~old_context ~new_context =
 		let physical = List.filter (fun self -> Db.PIF.get_physical ~__context:old_context ~self) all_pifs in
 		List.map (fun self -> Db.PIF.get_device ~__context:old_context ~self, self) physical in
   
-	(* Since it's difficult for us to change the /etc/xensource-inventory and the ifcfg-
+	(* Since it's difficult for us to change the @INVENTORY@ and the ifcfg-
        files, we /preserve/ the current management PIF across the restore. NB this interface
        might be a bond or a vlan. *)
 	let mgmt_dev = 

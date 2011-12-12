@@ -23,8 +23,8 @@ open Helpers
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let host_backup = Xapi_globs.base_path ^ "/libexec/host-backup"
-let host_restore = Xapi_globs.base_path ^ "/libexec/host-restore"
+let host_backup = Filename.concat Fhs.libexecdir "host-backup"
+let host_restore = Filename.concat Fhs.libexecdir "host-restore"
 
 let host_backup_handler_core ~__context s =
 	match

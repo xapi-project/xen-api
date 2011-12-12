@@ -24,8 +24,8 @@ open Workload_balancing
 module D = Debug.Debugger(struct let name="xapi" end)
 open D
 
-let host_bugreport_upload = Xapi_globs.base_path ^ "/libexec/host-bugreport-upload"
-let set_hostname = Xapi_globs.base_path ^ "/libexec/set-hostname"
+let host_bugreport_upload = Filename.concat Fhs.libexecdir "host-bugreport-upload"
+let set_hostname = Filename.concat Fhs.libexecdir "set-hostname"
 
 let set_emergency_mode_error code params = Xapi_globs.emergency_mode_error := Api_errors.Server_error(code, params)
 
@@ -711,7 +711,7 @@ let syslog_config_write host host_only enable_remote =
 		   else "") ^
 			  (if enable_remote then "SYSLOGD_OPTIONS=\"-r $SYSLOGD_OPTIONS\"\n" else "")
 		  in
-	let fd = Unix.openfile "/etc/xensource/syslog.conf"
+	let fd = Unix.openfile (Filename.concat Fhs.etcdir "syslog.conf")
 						   [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ]
 				   0o640 in
 	ignore (Unix.write fd buf 0 (String.length buf));
