@@ -3,7 +3,7 @@ Section: admin
 Priority: extra
 Maintainer: Pkg Xen <pkg-xen-devel@lists.alioth.debian.org>
 Uploaders: Jon Ludlam <jonathan.ludlam@eu.citrix.com>, Thomas Goirand <zigo@debian.org>, Mike McClurg <mike.mcclurg@citrix.com>
-Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, python-all (=> 2.6.6-3~)
+Build-Depends: debhelper (>= 8.0.0), dh-autoreconf, dh-ocaml, ocaml-native-compilers, ocaml-findlib, camlp4, camlp4-extra, autotools-dev, libtype-conv-camlp4-dev, libxmlm-ocaml-dev, uuid-dev, libxcp-ocaml, libxcp-ocaml-dev, omake, libxen-ocaml-dev, libxen-ocaml, libpam-dev, zlib1g-dev, xen-utils, libxen-dev, libounit-ocaml-dev, python-all (>= 2.6.6-3~)
 Standards-Version: 3.9.2
 Homepage: http://www.xen.org/XCP/
 #Vcs-Git: git://git.debian.org/collab-maint/xen-api.git
