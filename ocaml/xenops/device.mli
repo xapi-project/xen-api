@@ -43,10 +43,6 @@ sig
 	val string_of_devty : devty -> string
 	val devty_of_string : string -> devty
 
-	val device_name : int -> string
-	val device_major_minor : string -> int * int
-	val major_minor_to_device : int * int -> string
-
 	val add : xs:Xenstore.Xs.xsh -> hvm:bool -> mode:mode
 	       -> device_number:Device_number.t
 	       -> phystype:physty -> params:string

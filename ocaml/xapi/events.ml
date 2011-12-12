@@ -125,7 +125,7 @@ module Domain_shutdown = struct
 	  if Xapi_fist.disable_reboot_delay () then begin
 		debug "FIST: disable_reboot_delay";
 		0, 0
-	  end else if time_vm_ran_for ~__context ~vm < Xapi_globs.minimum_time_between_reboot_with_no_added_delay then begin
+	  end else if time_vm_ran_for ~__context ~vm < !Xapi_globs.minimum_time_between_reboot_with_no_added_delay then begin
 		calculate_reboot_delay ~__context ~vm domid
 	  end else 0, 0 in
 	if delay <> 0 then begin
@@ -189,9 +189,9 @@ module Domain_shutdown = struct
     (* Perform bounce-suppression to prevent fast crash loops *)
     let action = 
       let t = time_vm_ran_for ~__context ~vm in
-      if t < Xapi_globs.minimum_time_between_bounces then begin
+      if t < !Xapi_globs.minimum_time_between_bounces then begin
 	let msg = Printf.sprintf "VM (%s) domid %d crashed too soon after start (ran for %f; minimum time %f)" 
-	  (Db.VM.get_name_label ~__context ~self:vm) domid t Xapi_globs.minimum_time_between_bounces in
+	  (Db.VM.get_name_label ~__context ~self:vm) domid t !Xapi_globs.minimum_time_between_bounces in
 	match action with
 	| `coredump_and_restart -> 
 	    debug "%s: converting coredump_and_restart -> coredump_and_destroy" msg;

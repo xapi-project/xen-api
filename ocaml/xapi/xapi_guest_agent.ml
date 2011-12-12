@@ -242,7 +242,7 @@ let guest_metrics_liveness_thread () =
 	(fun __context ->
 	  while true do
 	    try
-	      Thread.delay Xapi_globs.guest_liveness_timeout;
+	      Thread.delay !Xapi_globs.guest_liveness_timeout;
 	      let doms = Xenctrl.domain_getinfolist xc 1 in (* no guest agent in dom0 *)
 	      let now = Unix.gettimeofday () in
 	      (* debug "Running liveness logic"; *)
@@ -256,7 +256,7 @@ let guest_metrics_liveness_thread () =
 		      begin
 			(* debug "Domain %d thought to be dead" domid; *)
 			(* If it's marked as dead, check if we've received any update recently *)
-			if now -. last_updated < Xapi_globs.guest_liveness_timeout then
+			if now -. last_updated < !Xapi_globs.guest_liveness_timeout then
 			  begin
 			    (* debug "Marking as alive!"; *)
 			    (* Mark guest as alive! *)
@@ -272,7 +272,7 @@ let guest_metrics_liveness_thread () =
 		      begin
 			(* debug "Domain %d thought to be live" domid; *)
 			(* If it's marked as alive, check if we've received any update recently *)
-			if now -. last_updated > Xapi_globs.guest_liveness_timeout then
+			if now -. last_updated > !Xapi_globs.guest_liveness_timeout then
 			  begin
 			    (* debug "Marking as dead!"; *)
 			    (* Mark guest as dead! *)

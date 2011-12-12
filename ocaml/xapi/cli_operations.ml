@@ -899,7 +899,7 @@ let pool_join printer rpc session_id params =
 				~master_address:(List.assoc "master-address" params)
 				~master_username:(List.assoc "master-username" params)
 				~master_password:(List.assoc "master-password" params);
-		printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_int Xapi_globs.fuse_time)^" seconds..."])
+		printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
 	with
 		| Api_errors.Server_error(code, params) when code=Api_errors.pool_joining_host_connection_failed ->
 			printer (Cli_printer.PList ["Host cannot contact destination host: connection refused.";
@@ -913,7 +913,7 @@ let pool_eject fd printer rpc session_id params =
 
 	let go () =
 		Client.Pool.eject ~rpc ~session_id ~host;
-		printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_int Xapi_globs.fuse_time)^" seconds..."]) in
+		printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."]) in
 
 	if force
 	then go ()
@@ -969,11 +969,11 @@ let pool_eject fd printer rpc session_id params =
 let pool_emergency_reset_master printer rpc session_id params =
 	let master_address = List.assoc "master-address" params in
 	Client.Pool.emergency_reset_master ~rpc ~session_id ~master_address;
-	printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_int Xapi_globs.fuse_time)^" seconds..."])
+	printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
 
 let pool_emergency_transition_to_master printer rpc session_id params =
 	Client.Pool.emergency_transition_to_master ~rpc ~session_id;
-	printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_int Xapi_globs.fuse_time)^" seconds..."])
+	printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
 
 let pool_recover_slaves printer rpc session_id params =
 	let hosts = Client.Pool.recover_slaves ~rpc ~session_id in
@@ -3590,7 +3590,7 @@ let pool_restore_db fd printer rpc session_id params =
 	ignore(track_http_operation fd rpc session_id make_command "restore database");
 	if dry_run
 	then printer (Cli_printer.PList [ "Dry-run backup restore successful" ])
-	else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_int Xapi_globs.db_restore_fuse_time)^" seconds..."])
+	else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_float !Xapi_globs.db_restore_fuse_time)^" seconds..."])
 
 
 let pool_enable_external_auth printer rpc session_id params =
