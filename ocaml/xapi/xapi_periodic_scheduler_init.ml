@@ -22,19 +22,16 @@ let register () =
   debug "Registering periodic calls";
 
   let master = Pool_role.is_master () in
-  
+
   (* blob/message/rrd file syncing - sync once a day *)
   let sync_timer = 
-    if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 5.0 else 60.0 *. 60.0 *. 24.0 in
+	  if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 5.0 else !Xapi_globs.pool_data_sync_interval in
   let sync_func () =
     Xapi_sync.do_sync () in
   let sync_delay =
   (* 10 mins if fist point there - to ensure rrd sync happens first *)
-    if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 10.0 else 7200.0 in
+    if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 10.0 else 7200. in
 
-  (* Logrotate - poll the amount of data written out by the logger, *)
-  (* and call logrotate when it exceeds the threshold *) 
-  let logrotate_timer = 60.0 *. 5.0 in
   let logrotate_func () =
     let dorotate = Mutex.execute Log.mutex 
       (fun () ->
@@ -60,7 +57,7 @@ let register () =
 
   (* Periodic backup of RRDs *)
   let rrdbackup_timer = 
-    if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 5.0 else 3600.0 *. 24.0 in
+    if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 5.0 else !Xapi_globs.rrd_backup_interval in
   let rrdbackup_func () =
     Server_helpers.exec_with_new_task "rrdbackup_func"
       (fun __context ->
@@ -72,15 +69,11 @@ let register () =
   let rrdbackup_delay = 
     if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 6.0 else 3600.0 in
 
-  (* CP-703: Periodic revalidation of externally-authenticated sessions *)
-  let session_revalidation_timer = 60.0 *. 5.0 in (* every 5 minutes *)
   let session_revalidation_func () =
     Server_helpers.exec_with_new_task "session_revalidation_func"
       (fun __context -> Xapi_session.revalidate_all_sessions ~__context) in
   let session_revalidation_delay = 60.0 *. 5.0 in (* initial delay = 5 minutes *)
 
-  (* CP-820: other-config field in subjects should be periodically refreshed *)
-  let update_all_subjects_timer = 60.0 *. 15.0 in (* every 15 minutes *)
   let update_all_subjects_func () =
     Server_helpers.exec_with_new_task "update_all_subjects_func"
       (fun __context -> Xapi_subject.update_all_subjects ~__context) in
@@ -89,10 +82,10 @@ let register () =
   if master then Xapi_periodic_scheduler.add_to_queue "Synchronising RRDs/messages" (Xapi_periodic_scheduler.Periodic sync_timer) sync_delay sync_func;
   if master then Xapi_periodic_scheduler.add_to_queue "Backing up RRDs" (Xapi_periodic_scheduler.Periodic rrdbackup_timer) rrdbackup_delay rrdbackup_func;
   if master then Xapi_periodic_scheduler.add_to_queue "Revalidating externally-authenticated sessions" 
-    (Xapi_periodic_scheduler.Periodic session_revalidation_timer) session_revalidation_delay session_revalidation_func;
+    (Xapi_periodic_scheduler.Periodic !Xapi_globs.session_revalidation_interval) session_revalidation_delay session_revalidation_func;
   if master then Xapi_periodic_scheduler.add_to_queue "Trying to update subjects' info using external directory service (if any)" 
-    (Xapi_periodic_scheduler.Periodic update_all_subjects_timer) update_all_subjects_delay update_all_subjects_func;
-  Xapi_periodic_scheduler.add_to_queue "Logrotate" (Xapi_periodic_scheduler.Periodic logrotate_timer) 120.0 logrotate_func;
+    (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval) update_all_subjects_delay update_all_subjects_func;
+  Xapi_periodic_scheduler.add_to_queue "Logrotate" (Xapi_periodic_scheduler.Periodic !Xapi_globs.logrotate_check_interval) 120.0 logrotate_func;
   Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat" (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func;
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration" (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0 Monitor_rrds.update_configuration_from_master
 

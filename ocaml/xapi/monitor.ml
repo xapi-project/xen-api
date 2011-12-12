@@ -35,6 +35,7 @@
 open Threadext
 open Stringext
 open Listext
+open Fun
 open Printf
 open Vmopshelpers
 open Monitor_types
@@ -365,7 +366,8 @@ let update_vbds doms =
       else
 	Scanf.sscanf vbd "vbd-%d-%d" (fun id devid -> (id, devid))
     in
-    let device_name = Device.Vbd.device_name devid in
+	let open Device_number in
+	let device_name = devid |> of_xenstore_key |> to_linux_device in
     let vbd_name = Printf.sprintf "vbd_%s" device_name in
     (* If blktap fails to cleanup then we might find a backend domid which doesn't
        correspond to an active domain uuid. Skip these for now. *)
