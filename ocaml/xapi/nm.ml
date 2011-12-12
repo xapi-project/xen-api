@@ -29,7 +29,8 @@ let is_dom0_interface pif_r = pif_r.API.pIF_ip_configuration_mode <> `None
 let update_inventory ~__context =
 	let localhost = Helpers.get_localhost ~__context in
 	let pifs = Db.PIF.get_records_where ~__context
-		~expr:(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+		~expr:(And (And (Eq (Field "host", Literal (Ref.string_of localhost)),
+			Eq (Field "currently_attached", Literal "true")),
 			Not (Eq (Field "ip_configuration_mode", Literal "None")))) in
 	let bridges = List.map (fun (_, pif_r) -> Db.Network.get_bridge ~__context ~self:pif_r.API.pIF_network) pifs in
 	Xapi_inventory.update Xapi_inventory._current_interfaces (String.concat " " bridges)
