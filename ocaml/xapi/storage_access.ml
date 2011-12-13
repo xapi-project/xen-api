@@ -434,6 +434,21 @@ module Builtin_impl = struct
 				| No_VDI ->
 					Failure Vdi_does_not_exist
 
+		let get_url context ~task ~sr ~vdi =
+			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
+			(* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)
+			(* peer_ip/session_ref/vdi_ref *)
+			Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string task)
+				(fun __context ->
+					let ip = Helpers.get_management_ip_addr () |> Opt.unbox in
+					let rpc = Helpers.make_rpc ~__context in
+					let localhost = Helpers.get_localhost ~__context in
+					(* XXX: leaked *)
+					let session_ref = XenAPI.Session.slave_login rpc localhost !Xapi_globs.pool_secret in
+					let vdi, _ = find_vdi ~__context sr vdi in
+					Success (String (Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi)))
+				)
+
 		let copy context ~task ~sr ~vdi ~url ~dest = assert false
 	end
 
