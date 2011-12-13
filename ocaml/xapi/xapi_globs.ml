@@ -590,14 +590,14 @@ let master_connection_retry_timeout = ref (-1.)
 
 let master_connection_default_timeout = ref 10.
 
-let qemu_dm_ready_timeout = ref 1200.
+let qemu_dm_ready_timeout = ref 300.
 
 (* seconds per balancing check *)
 let squeezed_balance_check_interval = ref 10.
 
 (* Time we allow for the hotplug scripts to run before we assume something bad
    has happened and abort *)
-let hotplug_timeout = ref 1200.
+let hotplug_timeout = ref 300.
 
 let pif_reconfigure_ip_timeout = ref 300.
 
@@ -607,7 +607,7 @@ let pool_db_sync_interval = ref 300.
 let pool_data_sync_interval = ref 86400.
 
 let domain_shutdown_ack_timeout = ref 10.
-let domain_shutdown_total_timeout = ref 3600.
+let domain_shutdown_total_timeout = ref 720.
 
 (* The actual reboot delay will be a random value between base and base + extra *)
 let emergency_reboot_delay_base = ref 60.
@@ -634,7 +634,7 @@ let update_all_subjects_interval = ref 900. (* every 15 minutes *)
    reach its current memory target. *)
 let wait_memory_target_timeout = ref 256.
 
-let snapshot_with_quiesce_timeout = ref 300.
+let snapshot_with_quiesce_timeout = ref 600.
 
 (* Interval between host heartbeats *)
 let host_heartbeat_interval = ref 30.
