@@ -273,12 +273,6 @@ let list_devices ~xc ~xs =
 	let infos = List.map of_device devices in
 	print_table (header :: infos)
 
-let add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~backend_domid ~dev_type ~mode=
-	let phystype = Device.Vbd.physty_of_string phystype in
-	let dev_type = Device.Vbd.devty_of_string dev_type in
-	Device.Vbd.add ~xs ~hvm ~mode:(Device.Vbd.mode_of_string mode)
-	               ~device_number ~phystype ~params ~backend_domid ~dev_type domid
-
 let find_device ~xs (frontend: endpoint) (backend: endpoint) = 
   let all = list_devices_between ~xs backend.domid frontend.domid in
   match List.filter (fun x -> x.frontend = frontend) all with
@@ -778,8 +772,20 @@ let _ = try
 		assert_domid ();
 		with_xc_and_xs (fun xc xs ->
 			let hvm = is_domain_hvm xc domid in
-            let device_number = Opt.unbox device_number in
-			ignore(add_vbd ~xs ~hvm ~domid ~device_number ~phystype ~params ~dev_type ~unpluggable:true ~mode ~backend_domid)
+			let vbd = {
+				Device.Vbd.mode = Device.Vbd.mode_of_string mode;
+                device_number = device_number;
+                phystype = Device.Vbd.physty_of_string phystype;
+                params = params;
+                dev_type = Device.Vbd.devty_of_string dev_type;
+                unpluggable = true;
+                protocol = None;
+                extra_backend_keys = [];
+                extra_private_keys = [];
+                backend_domid = backend_domid
+            } in
+            let (_: device) = Device.Vbd.add ~xs ~hvm vbd domid in
+            ()
 		)
 	| "del_vbd" ->
 		assert_domid ();

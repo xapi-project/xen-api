@@ -72,7 +72,6 @@ XAPI_MODULES = $(COMMON) \
 	../rfb/rfb_randomtest \
 	../client_records/records \
 	../client_records/record_util \
-	bootloader \
 	storage_access \
 	storage_mux \
 	storage_migrate \
