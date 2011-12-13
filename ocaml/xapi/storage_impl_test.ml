@@ -145,6 +145,7 @@ module Debug_print_impl = struct
 			Success Unit
 
 		let copy context ~task ~sr ~vdi ~url ~dest = assert false
+        let get_url context ~task ~sr ~vdi = assert false
 	end
 
 	let get_by_name context ~task ~name = assert false
