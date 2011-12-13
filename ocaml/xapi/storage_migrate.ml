@@ -167,7 +167,7 @@ let start ~task ~sr ~vdi ~url ~dest =
 
 		(* Enable mirroring on the local machine *)
 		let remote_url = Remote.VDI.get_url ~task ~sr:dest ~vdi:leaf.vdi |> success |> string in
-		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", remote_url] |> success |> _vdi in
+		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", "export:" ^ remote_url] |> success |> _vdi in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit) :: !on_fail;
 		(* Copy the snapshot to the remote *)
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
