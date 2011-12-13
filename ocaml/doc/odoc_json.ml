@@ -277,7 +277,9 @@ class gen () =
 			Raw_html (String.concat "" (List.map (function (Odoc_info.Raw s) -> remove_asterisks s | _ -> "") t))
 		else
 			node "div" ~atts:["class", s] (self#t_of_text t)
-	| _ -> failwith "unhandled element!"
+	| _ ->
+		print_endline "Error: Unhandled element (odoc_json)!"; 
+		Leaf "unknown"
 
 	method t_of_Ref name ref_opt =
 		let code = node "span" ~atts:["class", "code"] [Leaf name] in
@@ -525,7 +527,9 @@ class gen () =
 		[ self#t_of_module_kind mk ;
 		  self#t_of_module_type_kind mtk ;
 		]*)
-	| _ -> failwith "unhandled element!"
+	| _ ->
+		print_endline "Error: Unhandled element (odoc_json)!"; 
+		"unknown", String "unavailable"
 
 	method json_of_module m =
 		let name = "name", String m.Module.m_name in
