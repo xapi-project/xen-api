@@ -434,7 +434,7 @@ module Builtin_impl = struct
 				| No_VDI ->
 					Failure Vdi_does_not_exist
 
-		let export context ~task ~sr ~vdi ~url ~dest = assert false
+		let copy context ~task ~sr ~vdi ~url ~dest = assert false
 	end
 
 	let get_by_name context ~task ~name = assert false

@@ -72,7 +72,7 @@ let perform_cleanup_actions =
 			try f () with e -> error "Caught %s while performing cleanup actions" (Printexc.to_string e)
 		)
 
-let export' ~task ~sr ~vdi ~url ~dest =
+let copy' ~task ~sr ~vdi ~url ~dest =
 	let remote_url = Http.Url.of_string url in
 	let module Remote = Client(struct let rpc = rpc remote_url end) in
 
@@ -140,7 +140,7 @@ let export' ~task ~sr ~vdi ~url ~dest =
 		perform_cleanup_actions !on_fail;
 		raise e
 
-let export ~task ~sr ~vdi ~url ~dest = Success (Vdi (export' ~task ~sr ~vdi ~url ~dest))
+let copy ~task ~sr ~vdi ~url ~dest = Success (Vdi (copy' ~task ~sr ~vdi ~url ~dest))
 
 let start ~task ~sr ~vdi ~url ~dest =
 	let remote_url = Http.Url.of_string url in
@@ -172,7 +172,7 @@ let start ~task ~sr ~vdi ~url ~dest =
 		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", Http.Url.to_string import_url] |> success |> _vdi in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit) :: !on_fail;
 		(* Copy the snapshot to the remote *)
-		let new_parent = export' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
+		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
 		Remote.VDI.compose ~task ~sr:dest ~vdi1:new_parent.vdi ~vdi2:leaf.vdi |> success |> unit;
 		debug "New parent = %s" new_parent.vdi;
 		Success (Vdi leaf)

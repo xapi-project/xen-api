@@ -144,7 +144,7 @@ module Debug_print_impl = struct
 			info "VDI.deactivate dp:%s sr:%s vdi:%s" dp sr vdi;
 			Success Unit
 
-		let export context ~task ~sr ~vdi ~url ~dest = assert false				
+		let copy context ~task ~sr ~vdi ~url ~dest = assert false
 	end
 
 	let get_by_name context ~task ~name = assert false

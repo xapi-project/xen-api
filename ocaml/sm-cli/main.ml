@@ -151,8 +151,8 @@ let _ =
 				| x ->
 					Printf.fprintf stderr "Unexpected result: %s\n" (string_of_result x)
 			end
-		| [ "vdi-export"; sr; vdi; url; dest ] ->
-			begin match Client.VDI.export ~task ~sr ~vdi ~url ~dest with
+		| [ "vdi-copy"; sr; vdi; url; dest ] ->
+			begin match Client.VDI.copy ~task ~sr ~vdi ~url ~dest with
 				| Success (Vdi v) ->
 					Printf.printf "Created VDI %s\n" v.vdi
 				| x ->
