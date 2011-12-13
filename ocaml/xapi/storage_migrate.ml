@@ -173,7 +173,8 @@ let start ~task ~sr ~vdi ~url ~dest =
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit) :: !on_fail;
 		(* Copy the snapshot to the remote *)
 		let new_parent = export' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
-		Remote.VDI.compose ~task ~sr:dest ~vdi1:leaf.vdi ~vdi2:new_parent.vdi |> success |> unit;
+		Remote.VDI.compose ~task ~sr:dest ~vdi1:new_parent.vdi ~vdi2:leaf.vdi |> success |> unit;
+		debug "New parent = %s" new_parent.vdi;
 		Success (Vdi leaf)
 	with e ->
 		error "Caught %s: performing cleanup actions" (Printexc.to_string e);
