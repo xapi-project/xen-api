@@ -205,8 +205,8 @@ module VDI = struct
 		to be valid. *)
     external detach : task:task -> dp:dp -> sr:sr -> vdi:vdi -> result = ""
 
-	(** [export task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
-	external export : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+	(** [copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
+	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
 
 	(** [similar_content task sr vdi] returns a list of VDIs which have similar content to [vdi] *)
 	external similar_content : task:task -> sr:sr -> vdi:vdi -> result = ""
