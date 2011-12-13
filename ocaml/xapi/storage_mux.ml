@@ -161,6 +161,9 @@ module Mux = struct
 			let module C = Client(struct let rpc = of_sr sr end) in
 			C.VDI.compose ~task ~sr ~vdi1 ~vdi2
         let copy context ~task ~sr ~vdi ~url ~dest = Storage_migrate.copy ~task ~sr ~vdi ~url ~dest
+        let get_url context ~task ~sr ~vdi =
+            let module C = Client(struct let rpc = of_sr sr end) in
+            C.VDI.get_url ~task ~sr ~vdi
 
 	end
 

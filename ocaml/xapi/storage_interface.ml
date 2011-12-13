@@ -77,7 +77,7 @@ type success_t =
 	| Vdis of vdi_info list                    (** success (from SR.scan) *)
 	| Vdi of vdi_info                         (** success (from VDI.create) *)
 	| Params of params                        (** success (from VDI.attach) *)
-	| String of string                        (** success (from DP.diagnostics) *)
+	| String of string                        (** success (from DP.diagnostics, VDI.get_url) *)
 	| Unit                                    (** success *)
 	| Stat of stat_t                          (** success (from VDI.stat) *)
 
@@ -207,6 +207,9 @@ module VDI = struct
 
 	(** [copy task sr vdi url sr2] copies the data from [vdi] into a remote system [url]'s [sr2] *)
 	external copy : task:task -> sr:sr -> vdi:vdi -> url:string -> dest:sr -> result = ""
+
+    (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
+    external get_url : task:task -> sr:sr -> vdi:vdi -> result = ""
 
 	(** [similar_content task sr vdi] returns a list of VDIs which have similar content to [vdi] *)
 	external similar_content : task:task -> sr:sr -> vdi:vdi -> result = ""

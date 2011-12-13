@@ -513,6 +513,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 			info "VDI.copy task:%s sr:%s vdi:%s url:%s dest:%s" task sr vdi url dest;
 			Impl.VDI.copy context ~task ~sr ~vdi ~url ~dest
 
+		let get_url context ~task ~sr ~vdi =
+			info "VDI.get_url task:%s sr:%s vdi:%s" task sr vdi;
+			Impl.VDI.get_url context ~task ~sr ~vdi
+
 	end
 
 	let get_by_name context ~task ~name =

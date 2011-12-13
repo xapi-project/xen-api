@@ -22,7 +22,6 @@ open Pervasiveext
 open Xmlrpc_client
 
 let local_url = Http.Url.File ({ Http.Url.path = "/var/xapi/storage" }, "/")
-
 open Storage_interface
 
 let rpc url call =
@@ -49,6 +48,10 @@ let params = function
 
 let unit = function
 	| Unit -> ()
+	| x -> failwith (Printf.sprintf "type-error, expected Unit received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
+
+let string = function
+	| String x -> x
 	| x -> failwith (Printf.sprintf "type-error, expected Unit received %s" (x |> rpc_of_success_t |> Jsonrpc.to_string))
 
 let with_activated_disk ~task ~sr ~vdi f =
@@ -161,15 +164,10 @@ let start ~task ~sr ~vdi ~url ~dest =
 		let leaf = Remote.VDI.clone ~task ~sr:dest ~vdi:dummy.vdi ~vdi_info:local_vdi ~params:[] |> success |> _vdi in
 		on_fail := (fun () -> Remote.VDI.destroy ~task ~sr:dest ~vdi:leaf.vdi |> success |> unit) :: !on_fail;
 		debug "Created leaf on remote: %s" leaf.vdi;
-		(* XXX: this URI construction is fragile *)
-		let import_url =
-			let new_uri = Printf.sprintf "%s?vdi=%s" Constants.import_raw_vdi_uri leaf.vdi in
-			match remote_url with
-				| Http.Url.Http(a, b) -> Http.Url.Http(a, new_uri)
-				| Http.Url.File(a, b) -> Http.Url.File(a, new_uri) in
 
 		(* Enable mirroring on the local machine *)
-		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", Http.Url.to_string import_url] |> success |> _vdi in
+		let remote_url = Remote.VDI.get_url ~task ~sr:dest ~vdi:leaf.vdi |> success |> string in
+		let snapshot = Local.VDI.snapshot ~task ~sr ~vdi:local_vdi.vdi ~vdi_info:local_vdi ~params:["mirror", remote_url] |> success |> _vdi in
 		on_fail := (fun () -> Local.VDI.destroy ~task ~sr ~vdi:snapshot.vdi |> success |> unit) :: !on_fail;
 		(* Copy the snapshot to the remote *)
 		let new_parent = copy' ~task ~sr ~vdi:snapshot.vdi ~url ~dest in
