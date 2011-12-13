@@ -74,9 +74,24 @@ let check_vm_parameters ~__context ~self ~snapshot =
 let add_vif ~__context ~xs vif_device =
 	if vif_device.Vm_config.bridge = "" then failwith "Don't know how to connect a VIF to this type of Network";
 	let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif_device.Vm_config.vif_ref in
-	let extra_private_keys = ["ref", Ref.string_of vif_device.Vm_config.vif_ref;
-	                          "vif-uuid", vif_uuid;
-	                          "network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref] in
+
+	let locking_mode =
+		let (locking_mode:API.vif_locking_mode) =
+			match vif_device.Vm_config.locking_mode with
+			| `default -> Db.Network.get_default_locking_mode ~__context ~self:vif_device.Vm_config.network_ref
+			| x -> x
+		in
+		Record_util.vif_locking_mode_to_string locking_mode
+	in
+
+	let extra_private_keys = [
+		"ref", Ref.string_of vif_device.Vm_config.vif_ref;
+		"vif-uuid", vif_uuid;
+		"network-uuid", Db.Network.get_uuid ~__context ~self:vif_device.Vm_config.network_ref;
+		"locking-mode", locking_mode;
+		"ipv4-allowed", String.concat "," vif_device.Vm_config.ipv4_allowed;
+		"ipv6-allowed", String.concat "," vif_device.Vm_config.ipv6_allowed;
+	] in
 	Xapi_network.register_vif ~__context vif_device.Vm_config.vif_ref;
 	Xapi_network.attach_internal ~__context ~self:vif_device.Vm_config.network_ref ();
 	Xapi_udhcpd.maybe_add_lease ~__context vif_device.Vm_config.vif_ref;
