@@ -113,6 +113,8 @@ OCAML_PHASE3_XEN = \
 	ocaml/xstest/xsbench \
 	ocaml/xstest/xscheckperms \
 	allxenops \
+	ocaml/xenops-cli/xn \
+	ocaml/xenops-cli/xenopstest \
 	ocaml/xenguest/xenguest \
 	ocaml/xenguest/dumpcore \
 	ocaml/xiu/libxenctrl_xiu.so \

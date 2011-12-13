@@ -35,5 +35,6 @@ OCAMLPACKS    = stdext log
 	lvhdrt \
 	mpathalert \
 	multipathrt \
-	doc
+	doc \
+	xenops-cli
 
