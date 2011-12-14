@@ -130,15 +130,6 @@ License: LGPL 2.1
 Files: ocaml/idl/xenapi-datamodel-graph.dot
 Copyright: (c) 2006-2007 XenSource, Inc.
 License: GFDL-1.2 with no invariant section
-
-Files: *
-Copyright: (c) 2006-2011 Citrix Systems Inc.
- (c) 2005, Jon Ludlam
- (c) 2008, Anil Madhavapeddy
- (c) 2006-2007 XenSource Inc.
-License: LGPL 2.1 with linking exceptions
-
-License: FDL with no invariant section
  Permission is granted to copy, distribute and/or modify this document under
  the terms of the GNU Free Documentation License, Version 1.2 or any later
  version published by the Free Software Foundation; with no Invariant Sections,
@@ -147,23 +138,11 @@ License: FDL with no invariant section
  On Debian systems, the complete text of the GNU Free Documentation License
  (GFDL) version 1.2 can be found in `/usr/share/common-licenses/GFDL-1.2'.
 
-License: LGPL 2.1
- This library is distributed under the terms of the GNU Lesser General Public
- License version 2.1.
- .
- This library is free software; you can redistribute it and/or modify it under
- the terms of the GNU Lesser General Public License as published by the Free
- Software Foundation; either version 2.1 of the License, or (at your option)
- any later version.
- .
- This library is distributed in the hope that it will be useful, but WITHOUT
- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
- details.
- .
- The complete text of the GNU Lesser General Public License can be
- found in `/usr/share/common-licenses/LGPL-2.1'.
-
+Files: *
+Copyright: (c) 2006-2011 Citrix Systems Inc.
+ (c) 2005, Jon Ludlam
+ (c) 2008, Anil Madhavapeddy
+ (c) 2006-2007 XenSource Inc.
 License: LGPL 2.1 with linking exceptions
  This library is distributed under the terms of the GNU Lesser General Public
  License version 2.1.
