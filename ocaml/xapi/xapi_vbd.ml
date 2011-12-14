@@ -244,7 +244,7 @@ let insert_internal  ~__context ~vbd ~vdi =
 	  raise e
     ) ()
 
-let insert = if !Xapi_globs.use_xenopsd then insert_xenopsd else insert_internal
+let insert ~__context = if !Xapi_globs.use_xenopsd then insert_xenopsd ~__context else insert_internal ~__context
 
 let eject_xenopsd ~__context ~vbd =
     Xapi_xenops.vbd_eject ~__context ~self:vbd;
@@ -285,7 +285,7 @@ let eject_internal  ~__context ~vbd =
 	Db.VBD.set_empty ~__context ~self:vbd ~value:true;
 	Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null) ()
 
-let eject = if !Xapi_globs.use_xenopsd then eject_xenopsd else eject_internal
+let eject ~__context = if !Xapi_globs.use_xenopsd then eject_xenopsd ~__context else eject_internal ~__context
 
 let refresh ~__context ~vbd ~vdi =
   let vm = Db.VBD.get_VM ~__context ~self:vbd in

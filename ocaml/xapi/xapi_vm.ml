@@ -271,7 +271,7 @@ let start_internal ~__context ~vm ~start_paused:paused ~force =
 						Thread.delay (Int64.to_float start_delay)
 					) ()))
 
-let start = if !Xapi_globs.use_xenopsd then start_xenopsd else start_internal
+let start ~__context = if !Xapi_globs.use_xenopsd then start_xenopsd ~__context else start_internal ~__context
 
 (** For VM.start_on and VM.resume_on the message forwarding layer should only forward here
     if 'host' = localhost *)
@@ -665,7 +665,7 @@ let hard_reboot_internal ~__context ~vm =
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.hard_reboot"; clean=false } in
   retry_on_conflict args (of_action action)
 
-let hard_reboot = if !Xapi_globs.use_xenopsd then hard_reboot_xenopsd else hard_reboot_internal
+let hard_reboot ~__context = if !Xapi_globs.use_xenopsd then hard_reboot_xenopsd ~__context else hard_reboot_internal ~__context 
 
 let hard_shutdown_xenopsd ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm None
@@ -690,7 +690,7 @@ let hard_shutdown_internal ~__context ~vm =
 			(debug ("hard_shutdown: caught any exception besides VM_BAD_POWER_STATE, re-raising.");
 			raise e)
 
-let hard_shutdown = if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd else hard_shutdown_internal
+let hard_shutdown ~__context = if !Xapi_globs.use_xenopsd then hard_shutdown_xenopsd ~__context else hard_shutdown_internal ~__context
 
 let clean_reboot_xenopsd ~__context ~vm =
 	Xapi_xenops.reboot ~__context ~self:vm (Some 1200.0)
@@ -702,7 +702,7 @@ let clean_reboot_internal ~__context ~vm =
   let args = { TwoPhase.__context=__context; vm=vm; api_call_name="VM.clean_reboot"; clean=true } in
   retry_on_conflict args (of_action action)
 
-let clean_reboot = if !Xapi_globs.use_xenopsd then clean_reboot_xenopsd else clean_reboot_internal
+let clean_reboot ~__context = if !Xapi_globs.use_xenopsd then clean_reboot_xenopsd ~__context else clean_reboot_internal ~__context
 
 let clean_shutdown_xenopsd ~__context ~vm =
 	Xapi_xenops.shutdown ~__context ~self:vm (Some 1200.0)
@@ -716,7 +716,7 @@ let clean_shutdown_internal ~__context ~vm =
 	let shutdown_delay = Db.VM.get_shutdown_delay ~__context ~self:vm in
 	Thread.delay (Int64.to_float shutdown_delay)
 
-let clean_shutdown = if !Xapi_globs.use_xenopsd then clean_shutdown_xenopsd else clean_shutdown_internal
+let clean_shutdown ~__context = if !Xapi_globs.use_xenopsd then clean_shutdown_xenopsd ~__context else clean_shutdown_internal ~__context
 
 (***************************************************************************************)
 
